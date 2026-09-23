@@ -1,0 +1,12 @@
+{
+  "project": "rusty-crawler",
+  "serve": {
+    "command": "exec ./.runtime/runtime-pack/bin/rusty dev --project ./src/PartyRpg.Host/PartyRpg.Host.csproj --runtime ./.runtime/runtime-pack --live-debug --bind-host {host} --port {port}",
+    "preferredPort": 4176,
+    "healthUrl": "/product-ui/main.js",
+    "readyText": "Rusty Crawler",
+    "reusePolicy": "broker_owned",
+    "startupTimeout": "180s",
+    "healthInterval": "250ms"
+  }
+}
