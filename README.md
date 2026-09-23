@@ -27,12 +27,12 @@ Bundle assembles. Host launches.**
   ordinary mechanisms needed to construct one.
 - `PartyRpg.Host` will own the product lifecycle, built-in ruleset registry,
   shipped bundles, launcher, defaults, and session selection.
-- `PartyRpg.Rulesets.MightAndMagic` will own all Might and Magic VI/VII/VIII
+- `PartyRpg.Rulesets.MightAndMagic7` will own all Might and Magic VI/VII/VIII
   semantics, formulas, identities, per-edition profiles, presentation meaning,
   and content interpretation.
 - Content packs will own authored definitions, assets, maps, placements, quests,
   and scenario state.
-- `MightAndMagic.Import` will own source-format knowledge for the original games'
+- `MightAndMagic7.Import` will own source-format knowledge for the original games'
   data files and for the donors that document them.
 - `PartyRpg.Host` is the ordinary product entry. The packaged SDK generates
   CoreCLR and NativeAOT composition beneath ignored `obj` output.
@@ -45,7 +45,7 @@ generic command buses, ambient dependency lookup, or a replacement gameplay DSL.
 Reusable mechanisms, and mechanisms whose placement is genuinely uncertain, begin
 in `PartyRpg.Kit`. Might and Magic assumptions are forbidden there and permitted
 only in the ruleset, its content packs, its presentation, and
-`MightAndMagic.Import`; the Host may name a built-in ruleset only at its explicit
+`MightAndMagic7.Import`; the Host may name a built-in ruleset only at its explicit
 composition root.
 
 Adjustable ruleset values belong in discoverable validated typed tuning handles;
@@ -58,36 +58,49 @@ loop, clock, timer, thread, browser authority, or renderer.
 
 ## The game family
 
-Might and Magic VI, VII, and VIII share one engine and one gameplay skeleton, and
-diverge per edition — so the ruleset treats edition identity as a first-class
-value instead of splitting into three rulesets. What this repository currently
-knows about that family is recorded, with donor file paths, in
-[`docs/research/`](docs/research/):
+Might and Magic VII: For Blood and Honor is the game being recreated, and the
+only target. VI and VIII share its engine and remain donor context for formats
+and divergences; they are not targets. What this repository knows about the game
+is recorded, with citations, in [`docs/research/`](docs/research/):
 
-- Party-based first-person play with free movement over a gridded outdoor world,
-  and separate outdoor and indoor map formats with per-map respawn deltas.
-- Real-time combat paced by per-actor recovery times, plus a switchable
-  turn-based mode driven by an initiative queue: two modes of one session, not
-  two products.
-- Rules carried mostly by tab-separated tables inside the games' data archives,
-  with maps and assets in separate archives.
-- Per-edition divergence in party capacity, classes, skills and mastery, spell
-  schools, promotion paths, event identifiers, table columns, and world content.
+- Party-based first-person play with continuous movement across square outdoor
+  regions joined at their edges, and separate interior places — towns, castles,
+  dungeons — entered through entrances and doors.
+- One session for exploration and combat: real time by default, one key toggling
+  turn-based mode, both paced by the same per-character recovery quantity.
+- Rules carried by tab-separated tables inside the game's data archives, with
+  maps, sprites, and sounds in separate archives: 13 outdoor regions, 63 interior
+  places, 276 monsters, 800 item rows, 99 spells across nine schools, 37 skill
+  rows, and 36 class ranks.
+- A clocked world: travel costs days and food, shops lock at night, monsters
+  respawn on multi-day intervals, and spell durations are measured in game time.
 
 The donors are the reference reimplementation at
 `/home/research/old-games/OpenEnroth`, the rules and table reference at
 `/home/research/old-games/MMExtension`, and the secondary reimplementation
 reference at `/home/research/old-games/OpenMM8`. Their licenses differ and none of
 them is a code donor — read the donor posture in [`AGENTS.md`](AGENTS.md) before
-using any of them. Original game data is operator-supplied and is never
-committed here.
+using any of them. The operator's own copy of the game at
+`/home/research/old-games/Might and Magic 7` is the extraction source. Original
+game data is never committed here.
+
+## Design shape
+
+Two documents fix the shape before implementation starts:
+
+- [Gameplay design](docs/gameplay-design.md) — the loop, every system's shape
+  with a fidelity verdict, the first coherent slice, and the nine decisions that
+  are expensive to reverse.
+- [Code organization](docs/code-organization.md) — the layering, where new code
+  goes, the Kit and ruleset owner maps, content and import shapes, the UI
+  contract, session modes, and persistence.
 
 ## Repository layout
 
 | Path | Holds |
 | --- | --- |
 | [`AGENTS.md`](AGENTS.md) | The working contract: direction, ownership, boundary rules, donor posture, git and documentation conventions. |
-| [`docs/`](docs/README.md) | Durable documents: the [donor surveys](docs/research/), the [review lane model](docs/agent-review/README.md), and the index of what is still to be written. |
+| [`docs/`](docs/README.md) | Durable documents: the [gameplay design](docs/gameplay-design.md), the [code organization](docs/code-organization.md), the [research notes](docs/research/), and the [review lane model](docs/agent-review/README.md). |
 | [`src/`](src/README.md) | The planned product graph: kit, ruleset, host, importer and its tool, and the product DOM companion. |
 | [`tests/`](tests/README.md) | The planned suites, including the architecture suite that will enforce the ownership laws. |
 | [`content/`](content/README.md) | Loaded content: bundles, authored content packs, and per-region imports produced offline. |

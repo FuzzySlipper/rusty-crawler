@@ -27,6 +27,12 @@ Boundary rules:
 - Mechanisms begin here when their placement is genuinely uncertain. Do not
   make the kit universal, and do not move ruleset vocabulary here by renaming
   it.
+- One owner mutates one state family; cross-owner interaction uses typed
+  RuleEvents and typed notifications, never a generic bus.
+
+The owner-by-owner contract — what each Kit owner holds, what the ruleset
+supplies, and where new code goes — is in
+[`../../docs/code-organization.md`](../../docs/code-organization.md).
 
 Nothing is implemented yet; this directory exists so the first implementation
 task has an owning home.

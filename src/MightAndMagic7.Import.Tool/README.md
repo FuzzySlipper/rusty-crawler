@@ -1,6 +1,6 @@
-# MightAndMagic.Import.Tool
+# MightAndMagic7.Import.Tool
 
-Planned operator-facing command line that drives `MightAndMagic.Import`:
+Planned operator-facing command line that drives `MightAndMagic7.Import`:
 inspect a source file, import an operator-supplied game installation, and write
 normalized packs under `content/`.
 

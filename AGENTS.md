@@ -14,11 +14,11 @@ The durable formula is:
 
 > **Engine guarantees. Kit shapes. Ruleset decides. Bundle assembles. Host launches.**
 
-Might and Magic VI, VII, and VIII are the first compiled ruleset, compatibility
-corpus, content source, and game-bundle family. They are not implicit PartyRpg
-architecture. The three games share one engine and one gameplay skeleton and
-diverge per edition, so the ruleset carries a **first-class edition identity**
-instead of becoming three rulesets.
+Might and Magic VII: For Blood and Honor is the first compiled ruleset, content
+source, and game-bundle family, and the only emulated game. It is not implicit
+PartyRpg architecture. VI and VIII share its engine and remain useful donor
+context for formats and divergences; they are not targets, and no code path may
+quietly depend on their data.
 
 - Crawler checkout: `/home/dev/rusty-crawler`
 - paired Engine checkout: `/home/dev/rusty-engine`
@@ -28,6 +28,9 @@ instead of becoming three rulesets.
 - secondary reimplementation reference: `/home/research/old-games/OpenMM8`
 - donor surveys: `docs/research/openenroth-survey.md` and
   `docs/research/mmextension-openmm8-survey.md`
+- experience outline with manual citations: `docs/research/mm7-manual-outline.md`
+- extracted data inventory with donor citations: `docs/research/mm7-data-inventory.md`
+- design shape: `docs/gameplay-design.md` and `docs/code-organization.md`
 - repository shape, current state, and how to develop: `README.md`
 
 Before substantial work, resolve the current Den task and project guidance. Den
@@ -35,6 +38,30 @@ owns live task status and dependencies. If it is unreachable, report the failed
 read; do not invent task records or infer dependency completion from source or
 Git. Continue work whose scope and authority are already established, pausing
 only decisions or actions that depend on unavailable Den information.
+
+## Fidelity: similar, not a remake
+
+The product is a **semi-equivalent recreation of Might and Magic VII** — not a
+remake and not a compatibility project. The target is that a player who knows the
+original recognizes its shape: the party, the world, the services, the systems,
+and the way a session unfolds. Exact numbers, byte-level formats, and original
+file compatibility are not goals.
+
+- **Match the structure.** Party play, first-person exploration, the
+  real-time/turn-based combat pair, skill and mastery progression, spell schools,
+  town services, the calendar, travel between regions and dungeons, quests and
+  journal, promotions.
+- **Approximate the tuning.** Formulas, stat tables, and monster and item values
+  may be adopted from extracted data where that is cheap, retuned, or
+  simplified. A task states which values are faithful and which are ours; never
+  claim fidelity that was not checked.
+- **Out of scope.** Reading or writing original save games, loading the original
+  executables or their extension/plugin ecosystem, byte-exact map geometry, and
+  any promise that original mods, trainers, or editors keep working.
+
+Donor and extracted data inform the design; they do not bind it. Where a task's
+required behavior and the original game disagree, the task and the design
+documents decide, and the difference is recorded rather than silently rounded.
 
 ## Current state
 
@@ -47,6 +74,10 @@ it implements nothing yet.** Concretely:
   declarations for planning, not descriptions of working code.
 - `scripts/verify.sh` verifies the pinned Engine pair and the UI toolchain and
   reports plainly that no product project exists to build.
+- The shape is written down and binding: `docs/gameplay-design.md` fixes the
+  loop, each system, and its fidelity verdict; `docs/code-organization.md` fixes
+  the owners, the modes, and where new code goes. Both describe intent, not
+  running code.
 - Do not describe, review, or accept behavior this repository has not
   implemented, and do not let a planned owner's name imply that it runs.
 
@@ -58,10 +89,10 @@ owning directory README together.
 | Owner | Responsibility |
 | --- | --- |
 | `PartyRpg.Kit` | Reusable and reasonably uncertain party-RPG mechanisms: typed IDs, compiled ruleset/session contracts, bundle/content-pack/tuning resolution, party roster and members, shared inventory and currency, attributes, skills, spells and casting workflows, conditions and recovery, progression bookkeeping, combat execution in real-time and turn-based modes, targeting, monster presence and AI coordination, corpse and loot machinery, containers and doors, NPC conversation, shops and services, quests and journal state, world and spatial session stepping, structured UI values. It is not a universal RPG framework. |
-| `PartyRpg.Rulesets.MightAndMagic` | Might and Magic VI/VII/VIII identities, classes, races, skills and mastery, spell schools and formulas, monster and item definitions, combat and reward formulas, time and calendar policy, service and training policy, quest and guild policy, content interpretation, presentation meaning, save meaning, per-edition profiles, and session composition. |
+| `PartyRpg.Rulesets.MightAndMagic7` | Might and Magic VII identities, classes, races, skills and mastery, spell schools and formulas, monster and item definitions, combat and reward formulas, time and calendar policy, service and training policy, quest and guild policy, promotion and path policy, content interpretation, presentation meaning, save meaning, and session composition. |
 | `PartyRpg.Host` | Product lifecycle, explicit built-in ruleset/bundle selection, product defaults, and the one ordinary product entry. It may select Might and Magic; it never interprets Might and Magic rules or reads original game data. |
-| `MightAndMagic.Import` | Offline knowledge of the original games' data files and of the donors that document them: source formats, conversion quirks, provenance, normalization into packs, and differential validation against the donor reimplementation. Not a runtime dependency. |
-| `MightAndMagic.Import.Tool` | The operator-facing command line that drives the importer and writes normalized packs. |
+| `MightAndMagic7.Import` | Offline knowledge of the original game's data files and of the donors that document them: source formats, conversion quirks, provenance, normalization into packs, and differential validation against the donor reimplementation. Not a runtime dependency. |
+| `MightAndMagic7.Import.Tool` | The operator-facing command line that drives the importer and writes normalized packs. |
 | Content packs | Authored classes, skills, spells, monsters, items, services, quests, encounters, maps, placements, assets, and scenario state interpreted by a ruleset. |
 | TypeScript UI | Thin DOM presentation of Engine-delivered projections and semantic actions. It owns neither gameplay state nor game-world rendering. |
 
@@ -86,25 +117,24 @@ ruleset-owned definitions and configuration. Do not make Kit universal, and do
 not move ruleset vocabulary into it merely by renaming it.
 
 `PartyRpg.Kit` must not contain Might and Magic vocabulary. The forbidden set
-includes edition names and abbreviations (`MightAndMagic`, MM6, MM7, MM8, MM6-8),
-world and place names from those games, their class/skill/spell/item/monster
+includes the game and ruleset names (`MightAndMagic`, `MightAndMagic7`, MM6, MM7,
+MM8), world and place names from those games, their class/skill/spell/item/monster
 names, donor project names (`OpenEnroth`, `MMExtension`, `OpenMM8`), and source
 file names (`.lod`, `.odm`, `.ddm`, `.blv`, `.dlv`, `events.lod`, `games.lod`).
 An architecture suite enforces this list once the projects exist; until then the
 rule is a review obligation, not a checked one.
 
 Might and Magic assumptions are legal only in the ruleset, Might and Magic
-content packs, Might and Magic presentation, and `MightAndMagic.Import`. The Host
+content packs, Might and Magic presentation, and `MightAndMagic7.Import`. The Host
 may select a built-in Might and Magic ruleset and bundle only at its explicit
 catalog/default composition seam.
 
-**Edition identity is a first-class type.** The three games differ in party
-capacity, classes, skill and mastery availability, spell schools and mastery
-counts, promotion paths, event-id remapping, table columns and array sizes, map
-sets, and weather flags. Kit mechanisms ask their ruleset for an edition profile;
-they never branch on an edition themselves. Prefer per-edition data and profiles
-over scattered conditionals, and record each divergence with the donor path that
-documents it.
+**The source game and its provenance are explicit.** The ruleset targets one game
+— Might and Magic VII — and imported packs record which release and build the
+data came from, so a pack cannot silently mix editions. VI and VIII appear only
+as donor documentation (a table column, a struct variant, a divergence note) and
+never as a supported target. Where a divergence matters to imported data, record
+it with the donor path that documents it rather than guessing.
 
 Give each value one honest home:
 
@@ -112,7 +142,7 @@ Give each value one honest home:
 - Party, character, item, monster, encounter, service, and world values belong in
   content packs.
 - Algorithmic invariants stay beside the owning algorithm.
-- Source-format quirks stay in `MightAndMagic.Import`.
+- Source-format quirks stay in `MightAndMagic7.Import`.
 - Product default selection stays in the Host.
 
 Do not solve this with magic numbers hidden in call sites or a const field for
@@ -124,10 +154,14 @@ tables, and source-file layout does not leak into runtime types.
 
 ## Gameplay composition direction
 
-A gameplay design document naming the concrete owners of party, combat, magic,
-world, quest, and persistence state does not exist yet. Until it does, the family
-conventions below stand, and the first gameplay task should produce that document
-before expanding scope.
+Read [`docs/gameplay-design.md`](docs/gameplay-design.md) for the shape being
+expressed — the loop, each system's shape with a fidelity verdict, and the
+decisions that are expensive to reverse — and
+[`docs/code-organization.md`](docs/code-organization.md) for the owner map: which
+Kit owner holds which state, what the ruleset supplies, where content and imports
+land, and what modes the session has. Both are design intent for an unimplemented
+product. They bind new work, and changing a decision they pin is a deliberate
+re-plan, not an implementation detail.
 
 Compose Engine `Actor` in Kit/ruleset facades with named properties over the
 actual attached components. Explicit factories construct entities; wrapping an
@@ -152,9 +186,9 @@ Engine `ProductStateStore` stores current bytes without product-schema policy;
 `JsonProductStateCodec` accepts source-generated `JsonTypeInfo` for AOT-safe JSON.
 Capture meaningful state at explicit save boundaries. Only the current product
 schema exists during development: no versions, migration branches, historical
-readers, or compatibility fingerprints. Whether the importer should also read the
-original games' save images is a planning question; if it does, that snapshot
-knowledge stays in the importer and out of runtime types.
+readers, or compatibility fingerprints. The original game's save files are out of
+scope — the product never reads or writes them, and no knowledge of that binary
+layout belongs in runtime types.
 
 ## Engine boundary
 
@@ -212,11 +246,11 @@ donor file path or a documented table, not recalled from memory. Record the path
 with the claim, as the donor surveys do. Where donors disagree or a divergence is
 unverified, say so rather than picking the convenient answer.
 
-Coverage planning — what behavior is in scope for MM6/MM7/MM8, in what order, and
-which donor artifact documents it — does not exist yet. Plan dependencies and
-explicit behavior contracts in a coverage plan plus feature map before large
-implementation campaigns, and keep the point-in-time donor inventory separate
-from live status.
+Coverage planning — what behavior is in scope for the emulated game, in what
+order, and which donor artifact documents it — does not exist yet. Plan
+dependencies and explicit behavior contracts in a coverage plan plus feature map
+before large implementation campaigns, and keep the point-in-time donor inventory
+separate from live status.
 
 ## Coverage execution and drift
 

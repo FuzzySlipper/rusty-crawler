@@ -5,10 +5,10 @@ Planned suites, mirroring the product graph. No suite is checked in yet.
 | Directory | Planned suite | Answers |
 | --- | --- | --- |
 | `PartyRpg.Kit.Tests/` | `PartyRpg.Kit.Tests` | Do the reusable mechanisms behave as specified, independently of any ruleset? |
-| `PartyRpg.Rulesets.MightAndMagic.Tests/` | `PartyRpg.Rulesets.MightAndMagic.Tests` | Do the Might and Magic formulas, definitions, and per-game profiles match the documented behavior? |
+| `PartyRpg.Rulesets.MightAndMagic7.Tests/` | `PartyRpg.Rulesets.MightAndMagic7.Tests` | Do the formulas, ceilings, promotion rules, and per-system fidelity verdicts match what `docs/gameplay-design.md` and the cited evidence say? |
 | `PartyRpg.Architecture.Tests/` | `PartyRpg.Architecture.Tests` | Do the ownership laws hold: kit free of ruleset vocabulary, the dependency graph, the importer outside the runtime, one product project per layer? |
 | `PartyRpg.Host.Tests/` | `PartyRpg.Host.Tests` | Does the product lifecycle, selection, and session construction work? |
-| `MightAndMagic.Import.Tests/` | `MightAndMagic.Import.Tests` | Do the format readers and normalizers produce the expected packs, including the recorded quirks? |
+| `MightAndMagic7.Import.Tests/` | `MightAndMagic7.Import.Tests` | Do the format readers and normalizers produce the expected packs, including the recorded quirks? |
 | `PartyRpg.Ui.Tests/` | `PartyRpg.Ui.Tests` | Do the DOM projections render published state and report intents without owning gameplay state? |
 
 An architecture suite is not ceremony: it is the automated half of the boundary
