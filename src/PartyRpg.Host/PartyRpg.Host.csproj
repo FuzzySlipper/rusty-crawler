@@ -50,7 +50,9 @@
     <RustyEngineProductInputIntent Include="party.turn-right" Value="digital" />
     <RustyEngineProductInputMapping Include="party.turn-right.key-e" Intent="party.turn-right" Trigger="key:key-e:held" />
     <RustyEngineProductInputIntent Include="party.jump" Value="digital" />
-    <RustyEngineProductInputMapping Include="party.jump.key-space" Intent="party.jump" Trigger="key:key-space:pressed" />
+    <!-- The engine names the space bar `space`; `key-space` is refused at load, and the product refuses to
+         start on an unsupported mapping rather than starting with a control that does nothing. -->
+    <RustyEngineProductInputMapping Include="party.jump.key-space" Intent="party.jump" Trigger="key:space:pressed" />
     <RustyEngineProductInputIntent Include="crawler.ui" Value="payload:crawler.ui.action.v1" />
   </ItemGroup>
 
