@@ -14,25 +14,25 @@ PartyRpg architecture.
 The working formula is: **Engine guarantees. Kit shapes. Ruleset decides.
 Bundle assembles. Host launches.**
 
-> **Current state: setup pass.** This repository owns its shape, its build
-> configuration, its verification script, and its donor research. It contains no
-> C# project, no TypeScript, and no content yet — the directory structure states
-> intended ownership so the first implementation task has an owning home. Do not
-> read the layout below as a description of working code.
+> **Current state: foundation stone 1 landed.** The product spine exists and no gameplay does: the
+> kit, the ruleset, and the host build against the pinned Engine pair; a session owns its mode and the
+> admitted simulation it measures; and the DOM companion renders the one projection it publishes.
+> Holding and releasing the session is the only player-facing capability. The world, party, combat,
+> magic, content, and persistence are still to come — see [`AGENTS.md`](AGENTS.md) for the exact
+> current state.
 
 ## Ownership
 
 - Rusty Engine guarantees reusable infrastructure and admitted update services.
-- `PartyRpg.Kit` will define the reusable party-RPG composition grammar and the
+- `PartyRpg.Kit` defines the reusable party-RPG composition grammar and the
   ordinary mechanisms needed to construct one.
-- `PartyRpg.Host` will own the product lifecycle, built-in ruleset registry,
+- `PartyRpg.Host` owns the product lifecycle, built-in ruleset registry,
   shipped bundles, launcher, defaults, and session selection.
-- `PartyRpg.Rulesets.MightAndMagic7` will own all Might and Magic VI/VII/VIII
-  semantics, formulas, identities, per-edition profiles, presentation meaning,
-  and content interpretation.
-- Content packs will own authored definitions, assets, maps, placements, quests,
+- `PartyRpg.Rulesets.MightAndMagic7` owns all Might and Magic VII semantics,
+  formulas, identities, presentation meaning, and content interpretation.
+- Content packs own authored definitions, assets, maps, placements, quests,
   and scenario state.
-- `MightAndMagic7.Import` will own source-format knowledge for the original games'
+- `MightAndMagic7.Import` owns source-format knowledge for the original game's
   data files and for the donors that document them.
 - `PartyRpg.Host` is the ordinary product entry. The packaged SDK generates
   CoreCLR and NativeAOT composition beneath ignored `obj` output.
@@ -163,15 +163,28 @@ Routine verification:
 ./scripts/verify.sh
 ```
 
-Today that verifies the installed pair identity and installs the product UI
-dependencies, then reports plainly that no product project exists to build.
-NativeAOT is a separate fidelity target and stays opt-in with `--aot`. When the
-first project lands, add it to `product_projects` and its suite to
-`test_projects` in the script — the lists are explicit on purpose, because a
-discovery-based loop silently stops covering a project that moved.
+That verifies the installed pair identity, installs the UI dependencies, runs the DOM companion
+tests, builds every product project, runs every suite, and stages the CoreCLR product.
+NativeAOT is a separate fidelity target and stays opt-in with `--aot`. The project and suite lists
+in the script are explicit on purpose: a discovery-based loop silently stops covering a project that
+moved, so a new project is added there in the same change that adds it.
 
-Den serves the product through `.den-serve.json` on port 4176 once the host
-project exists.
+Ordinary development runs the staged product through the runtime pack:
+
+```bash
+./.runtime/runtime-pack/bin/rusty dev \
+  --project ./src/PartyRpg.Host/PartyRpg.Host.csproj \
+  --runtime ./.runtime/runtime-pack
+```
+
+The same command is what `.den-serve.json` uses. **This development box cannot host an interactive
+session for long**: a few seconds after a browser attaches, the host reports
+`DEV_HOST_VIDEO_FEEDBACK_UNSUPPORTED` and stops the runtime, so a live check confirms the
+product-to-DOM leg (the projection renders with real values) while the DOM-to-product leg is covered
+by `tests/PartyRpg.Kit.Tests` and `tests/PartyRpg.Ui.Tests`. A machine whose browser provides frame
+feedback is expected to keep the session running; that has not been verified here.
+
+Den serves the product through `.den-serve.json` on port 4176.
 
 ## Guidance and proof
 

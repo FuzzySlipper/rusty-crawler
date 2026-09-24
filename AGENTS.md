@@ -70,24 +70,26 @@ documents decide, and the difference is recorded rather than silently rounded.
 
 ## Current state
 
-**This repository is a setup pass: it owns its shape and its donor research, and
-it implements nothing yet.** Concretely:
+**Foundation stone 1 has landed: the product spine exists, and no gameplay does.**
 
-- There is no C# project, no TypeScript, and no content. The directories exist so
-  the first implementation task has an owning home.
-- Every directory README states *intended* ownership. Those statements are
-  declarations for planning, not descriptions of working code.
-- `scripts/verify.sh` verifies the pinned Engine pair and the UI toolchain and
-  reports plainly that no product project exists to build.
-- The shape is written down and binding: `docs/gameplay-design.md` fixes the
-  loop, each system, and its fidelity verdict; `docs/code-organization.md` fixes
-  the owners, the modes, and where new code goes. Both describe intent, not
-  running code.
-- Do not describe, review, or accept behavior this repository has not
-  implemented, and do not let a planned owner's name imply that it runs.
+- `src/PartyRpg.Kit`, `src/PartyRpg.Rulesets.MightAndMagic7`, and `src/PartyRpg.Host` build against
+  the pinned Engine pair. The host declares the one product entry, one admitted update, the
+  `session.pause-toggle` intent, and the `crawler.ui` action channel.
+- The session shell owns its mode and the admitted simulation it measures, and publishes one
+  projection (`crawler.hud` / `crawler.ui.snapshot.v1`) that the DOM companion renders. Later stones
+  attach mechanisms to that session; nothing else is attached yet.
+- The ownership laws are enforced by `tests/PartyRpg.Architecture.Tests`, the session shell and input
+  router by `tests/PartyRpg.Kit.Tests`, and the DOM companion by `tests/PartyRpg.Ui.Tests`. All three
+  run in `scripts/verify.sh`, which also stages the CoreCLR product.
+- **No gameplay exists**: no world, party, character, combat, magic, content, or persistence. Do not
+  describe, review, or accept behavior those stones will add as though it were here. The only
+  player-facing capability today is holding and releasing the session.
+- This development box cannot host an interactive session for long: the headless browser reports
+  `DEV_HOST_VIDEO_FEEDBACK_UNSUPPORTED` a few seconds after attach, which stops the runtime. The
+  live check therefore covers the product-to-DOM leg, and the DOM-to-product leg is covered by tests.
 
-When the first product project lands, update this section, `README.md`, and the
-owning directory README together.
+When the next stone lands, update this section, `README.md`, and the owning directory README
+together.
 
 ## Current product graph
 
@@ -110,9 +112,9 @@ gameplay DSL, or a universal plug-in ABI. Named, explicitly composed Kit service
 and typed RuleEvents are encouraged where they make gameplay ownership and
 contribution discoverable.
 
-The concrete project graph, and the seam between kit and ruleset, are planning
-decisions. `src/README.md` and the per-project READMEs record the current
-intention.
+The concrete project graph now exists and the laws that hold it are checked; new projects and new
+kit mechanisms belong in `src/README.md` and the per-project READMEs, which must be updated with the
+code that changes them.
 
 ## Kit, Might and Magic, and tuning rules
 
@@ -126,8 +128,9 @@ includes the game and ruleset names (`MightAndMagic`, `MightAndMagic7`, MM6, MM7
 MM8), world and place names from those games, their class/skill/spell/item/monster
 names, donor project names (`OpenEnroth`, `MMExtension`, `OpenMM8`), and source
 file names (`.lod`, `.odm`, `.ddm`, `.blv`, `.dlv`, `events.lod`, `games.lod`).
-An architecture suite enforces this list once the projects exist; until then the
-rule is a review obligation, not a checked one.
+`tests/PartyRpg.Architecture.Tests` enforces that list, the dependency graph, the single product
+entry, and the identity the host declares in both code and MSBuild; a violation fails the suite
+rather than surviving review.
 
 Might and Magic assumptions are legal only in the ruleset, Might and Magic
 content packs, Might and Magic presentation, and `MightAndMagic7.Import`. The Host
