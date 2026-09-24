@@ -254,3 +254,29 @@ Identity scheme, extending the importer's declared form `ArchiveName:EntryName`
 Acceptance tests, all reproducible here **[data]**: the census in §1.2; `A1b` → 128×256 with a palette byte-identical to
 `pal132`; `AFRAME1` → 69×91, `flags == 0x200`; `ARRUS.FNT` unwraps to 44598 bytes with `Σ height*width == 40470`;
 `Audio.snd` → 2519 entries, exactly one payload undecodable; `Might7.vid` → 162 entries, `Magic7.vid` → 14.
+
+## 8. Measured corrections from the extractor
+
+The extractor in `src/MightAndMagic7.Import/Media/` decodes all five hundred thousand-odd media
+entries twice and produces byte-identical output. Five claims in the body of this document did not
+survive that contact with the data, plus one thing the data does that the document never mentions.
+
+1. **§2.2, mipmaps.** The chain does not "halve down to 16×16". All 1238 `BITMAPS.LOD` images and the
+   5 mipmapped `ICONS.LOD` images inflate to a fixed four-level chain: base plus three halvings.
+   `SKY01` at 256×256 inflates to 87,040 = 65,536 + 16,384 + 4,096 + 1,024 and ends at 32×32;
+   `solid01` at 16×16 inflates to 340 and ends at 2×2. The decoder measures the chain from the block
+   instead of assuming a floor.
+2. **§2, nested PCX.** These are not all 8-bit single-plane. 39 of the 42 are three-plane 24-bit:
+   `Border2.pcx` declares 8 bits per pixel with 3 planes and 470 bytes per line for a width of 469,
+   and RLE-decodes to 153,690 = 109 · 3 · 470. Only `GryLite2.pcx`, `GryLite3.pcx`, and `maketop.pcx`
+   are single-plane, and those are the ones carrying a `0x0C` palette tail. Both shapes are decoded.
+3. **§6, music.** The installation has 19 `Music/*.mp3` files, not 26.
+4. **§5, wave format.** The samples-per-block field is at `fmt` + 18 (file offsets 38–39, measured
+   1017); offsets 36–37 are `cbSize`.
+5. **§3, sprite frame groups.** The census in the body does not reproduce under either grouping of a
+   name without its last character. Measured: 2542 groups as 1555 five-frame and 862 one-frame groups
+   case-sensitively, 2505 groups case-insensitively. The grouping key is under-specified, which is why
+   sprite animation semantics stay out of scope rather than being guessed at.
+6. **Unresolved palette references.** Four sprites — `Swptree1` to `Swptree4` — name palette 940, which
+   exists in no archive. They are emitted with an identity grey ramp and `paletteSource: unresolved`,
+   so the gap is visible in the manifest rather than hidden behind a plausible-looking palette.

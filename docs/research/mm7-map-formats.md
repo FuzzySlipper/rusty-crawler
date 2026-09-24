@@ -291,3 +291,38 @@ DLV door records, and the extras ordering (all model headers first, then per-mod
 * Name matching (LOD entries, decoration/start-point names) must be case-insensitive, and a re-saving level editor
   can reorder extras — validate `Σ 6·(nv+1) == faceDataSizeBytes/2` and `Σ pools == sectorDataSizeBytes/2` and fail
   loudly instead of drifting silently **[verified: data — both hold exactly on all 63 `.blv`]**.
+
+## 7. Measured corrections from the decoder
+
+The C# decoder in `src/MightAndMagic7.Import/Maps/` implements the layouts above and walks every
+shipped payload to exactly EOF. Six claims in the body of this document did not survive that contact
+with the data; each is recorded here with what was measured, and the decoder follows the measurement.
+
+1. **§4, outdoor arrival points.** "12/13 outdoor maps declare Party Start plus 1–3 direction starts"
+   is wrong: 5 of 13 `.odm` files contain a `Party Start` decoration (out01, out02, out09, out10,
+   out12). All 13 declare at least one start, and there are 25 start decorations in total — 5 party
+   starts and 20 direction starts.
+2. **§2, decoration height.** "Decoration z equals 32·h exactly in 10/13 ODMs" holds for 2 of the 5
+   party starts and 17 of the 25 starts overall; 6 maps are fully exact. The misses are not merely
+   slope rounding: out01's Party Start is at z 193 where 32·h gives 0, out09's at z 21, and out11's
+   North Start at z 1536 where 32·h gives 0 — none is a multiple of 32.
+3. **§2, model bounding boxes.** The 188-byte model header stores its box as
+   minX, minY, minZ, maxX, maxY, maxZ. Reading it in the interleaved order the face records use gives
+   out01's `Tavern_E` a box of (10752, 4224, 96, 11872, 4992, 544), which excludes the model's own
+   vertices. One model in the shipped data, out06's `Tower 2bE`, stores maxZ 4096 while a vertex sits
+   at 4224; 1121 of 1122 models contain their vertices, and the decoder exposes stored bounds and
+   vertices separately rather than reconciling them.
+4. **§3, face corner counts.** Indoor faces are not capped at 20 corners. 296 shipped faces exceed 20,
+   up to 42; d01's face 7 has 24 corners and its face 860 has 28. Only the outdoor face record has the
+   fixed 20-slot array.
+5. **§3, sector identity.** `sectorId` is never 0 or 0xFFFF in any of the 63 `.blv` files (its range is
+   1–99). It is `backSectorId` that uses 0 for "no portal", on 150,636 faces. Sector 0 does exist in
+   every file with all-zero counts, as the no-sector pseudo-sector.
+6. **Light records.** The body specifies the width (16 bytes) but not the layout. The decoder reads the
+   donor's `BLVLight_MM7` — 16-bit position, radius, R/G/B, type, attributes, brightness — and cites
+   it at the field, because no byte-level check in the shipped data distinguishes the fields.
+
+The decoder's own boundaries are stated where they are enforced: the outdoor attribute map and both
+normal blocks (sizes verified, meaning unestablished), faces ordering, model BSP nodes, the decoration
+map, indoor fluid and cog contents, map outlines, BSP ordering, and the delta records' actor, sprite,
+and chest layouts are consumed by size and not surfaced as meaning.
