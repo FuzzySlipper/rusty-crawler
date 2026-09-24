@@ -236,11 +236,52 @@ internal static class Program
                 result.OutputRoot,
                 provenance = new { result.Provenance.Game, build = result.Provenance.BuildString },
                 packs = result.Packs.Select(pack => new { pack.PackId, pack.Documents, pack.Entries }),
+                geometry = Describe(result.Geometry),
                 use = "add these pack ids to a bundle under content/partyrpg/bundles to load them",
             },
             Json));
         return 0;
     }
+
+    /// <summary>The geometry sources a report states counts for, in the order the pack writes them.</summary>
+    private static readonly Collision.CollisionSource[] GeometrySources =
+    [
+        Collision.CollisionSource.InteriorFace,
+        Collision.CollisionSource.Terrain,
+        Collision.CollisionSource.ModelFace,
+    ];
+
+    /// <summary>
+    /// What the collision emission did, per place family and per geometry source.
+    /// </summary>
+    /// <remarks>
+    /// A refused place is reported with its reason rather than only counted: no artifact means the party
+    /// has nothing to stand on in that place, which the product reports on entry, and the operator needs
+    /// to see which places those are without reading the pack.
+    /// </remarks>
+    private static object Describe(Collision.CollisionSummary geometry) => new
+    {
+        places = geometry.PlaceCount,
+        emitted = geometry.EmittedCount,
+        refused = geometry.RefusedCount,
+        regions = geometry.EmittedOf(MightAndMagic7.Import.Maps.MapKind.Outdoor),
+        interiors = geometry.EmittedOf(MightAndMagic7.Import.Maps.MapKind.Indoor),
+        geometry.Vertices,
+        geometry.Triangles,
+        sources = GeometrySources.Select(source => new
+        {
+            source = source.ToString(),
+            geometry.CountOf(source).Faces,
+            geometry.CountOf(source).Triangles,
+        }),
+        refusals = geometry.Refused.Select(place => new
+        {
+            place = place.PlaceId,
+            place.FileName,
+            reason = place.Refusal?.Code,
+            detail = place.Refusal?.Detail,
+        }),
+    };
 
     private static string RequireOption(string[] arguments, string name)
     {

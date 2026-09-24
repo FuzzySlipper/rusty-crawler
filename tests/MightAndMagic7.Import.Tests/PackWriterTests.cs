@@ -1,8 +1,12 @@
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.World;
+using MightAndMagic7.Import.Collision;
 using MightAndMagic7.Import.Lod;
 using MightAndMagic7.Import.Maps;
 using MightAndMagic7.Import.Tool;
+using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using Xunit;
 
@@ -264,8 +268,91 @@ public sealed class PackWriterTests
         }
     }
 
-    private static void WriteBundle(string root, IReadOnlyList<string> packIds)
+    [Fact]
+    public void Places_that_can_be_closed_carry_collision_and_the_places_that_cannot_carry_the_reason()
     {
+        string installRoot = SyntheticInstallation.Create(withMaps: true);
+        string root = Path.Combine(Path.GetTempPath(), $"mm7-geometry-{Guid.NewGuid():N}");
+        try
+        {
+            string imports = Path.Combine(root, "imports");
+            PackWriteResult written = PackWriter.Write(LodInstall.Open(installRoot), imports);
+
+            // The fixture's thirteen regions tile their terrain, so each has ground; its sixty-three
+            // interiors hold one face whose corners lie on a line, so none of them has any.
+            Assert.Equal(76, written.Geometry.PlaceCount);
+            Assert.Equal(13, written.Geometry.EmittedCount);
+            Assert.Equal(63, written.Geometry.RefusedCount);
+            Assert.Equal(13, written.Geometry.EmittedOf(MapKind.Outdoor));
+            Assert.Equal(0, written.Geometry.EmittedOf(MapKind.Indoor));
+            Assert.All(written.Geometry.Refused, place => Assert.Equal("no-solid-geometry", place.Refusal?.Code));
+            Assert.Equal(127 * 127 * 13, written.Geometry.CountOf(CollisionSource.Terrain).Faces);
+            Assert.Equal(127 * 127 * 2 * 13, written.Geometry.CountOf(CollisionSource.Terrain).Triangles);
+
+            // The document holds one entry per emitted place and none for a refused one, and each entry's
+            // own counts are the artifact's own arrays: a checker reads the document, not the summary.
+            using (JsonDocument geometry = JsonDocument.Parse(File.ReadAllText(Path.Combine(imports, "mm7-world", "place-geometry.json"))))
+            {
+                JsonElement document = geometry.RootElement;
+                Assert.Equal("place-geometry", document.GetProperty("documentId").GetString());
+                Assert.Equal("place-geometry", document.GetProperty("definitionKind").GetString());
+
+                JsonElement entries = document.GetProperty("entries");
+                Assert.Equal(13, entries.GetArrayLength());
+                HashSet<string> emitted = [.. written.Geometry.Places.Where(place => place.Emitted).Select(place => place.PlaceId.ToString(CultureInfo.InvariantCulture))];
+                foreach (JsonElement entry in entries.EnumerateArray())
+                {
+                    Assert.Contains(entry.GetProperty("id").GetString()!, emitted);
+                    JsonElement artifact = entry.GetProperty("artifact");
+                    Assert.Equal(1, artifact.GetProperty("schemaVersion").GetInt32());
+                    Assert.Equal(entry.GetProperty("vertices").GetInt32(), artifact.GetProperty("collision").GetProperty("positions").GetArrayLength());
+                    Assert.Equal(entry.GetProperty("triangles").GetInt32(), artifact.GetProperty("collision").GetProperty("triangles").GetArrayLength());
+                    Assert.Equal(127 * 127, entry.GetProperty("geometryCounts").GetProperty("terrain").GetProperty("faces").GetInt32());
+                    Assert.Empty(artifact.GetProperty("navigation").GetProperty("cells").EnumerateArray());
+                }
+            }
+
+            // The manifest lists the document, because a pack whose manifest omits it would leave the
+            // geometry unloadable even though the file is there.
+            string manifest = File.ReadAllText(Path.Combine(imports, "mm7-world", "pack.json"));
+            Assert.Contains("\"path\": \"place-geometry.json\"", manifest);
+            Assert.Contains("\"definitionKind\": \"place-geometry\"", manifest);
+
+            // The seam the product reads it through: the kit's own geometry source finds the entry by the
+            // place's id and hands the engine the artifact's bytes exactly as the document holds them.
+            WriteBundle(root, ["mm7-tables", "mm7-world"]);
+            ContentBootstrapResult bootstrap = ContentBootstrap.Load(new FileContentSource(root), Layout, "imported");
+            Assert.True(bootstrap.IsValid, string.Join("; ", bootstrap.Issues.Select(issue => issue.ToString())));
+            PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog);
+            ContentPlaceGeometry source = new(bootstrap.Catalog, "place-geometry", "artifact");
+
+            PlaceDefinition region = graph.Places.First(place => place.Kind == PlaceKind.Region);
+            PlaceGeometry? collision = source.For(region.Id);
+            Assert.NotNull(collision);
+            Assert.Equal($"mm7-world/place-geometry/{region.Id.Value}.json", collision.Path);
+            Assert.True(collision.Artifact.Length > 0);
+
+            using (JsonDocument document = JsonDocument.Parse(File.ReadAllText(Path.Combine(imports, "mm7-world", "place-geometry.json"))))
+            {
+                JsonElement entry = document.RootElement.GetProperty("entries").EnumerateArray()
+                    .First(candidate => candidate.GetProperty("id").GetString() == region.Id.Value);
+                Assert.Equal(entry.GetProperty("artifact").GetRawText(), Encoding.UTF8.GetString(collision.Artifact.Span));
+            }
+
+            // A place whose geometry was refused has no entry, so the source answers that it has none
+            // rather than failing the read: the party enters a place with nothing to stand on, and the
+            // movement owner says so instead of the world failing to load.
+            PlaceDefinition interior = graph.Places.First(place => place.Kind == PlaceKind.Interior);
+            Assert.Null(source.For(interior.Id));
+        }
+        finally
+        {
+            Directory.Delete(installRoot, recursive: true);
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static void WriteBundle(string root, IReadOnlyList<string> packIds)    {
         string directory = Path.Combine(root, "bundles", "imported");
         Directory.CreateDirectory(directory);
         File.WriteAllText(

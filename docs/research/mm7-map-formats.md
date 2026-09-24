@@ -326,3 +326,135 @@ The decoder's own boundaries are stated where they are enforced: the outdoor att
 normal blocks (sizes verified, meaning unestablished), faces ordering, model BSP nodes, the decoration
 map, indoor fluid and cog contents, map outlines, BSP ordering, and the delta records' actor, sprite,
 and chest layouts are consumed by size and not surfaced as meaning.
+
+## 8. Collision geometry: the engine's spatial artifact
+
+A place has nothing to stand on until its collision is admitted to the engine. The engine does not read
+`.odm`/`.blv`; it reads one JSON document per place, and the product hands that document to the engine's
+own spatial owner. This section states the document's real shape as the pinned pair defines it, and how
+the decoded maps above map onto it.
+
+### 8.1 The request: artifact or raw collision
+
+Two engine calls can replace a session's collision, and they are not interchangeable:
+
+* `CollisionReplaceRequest(SpatialSession Session, ReadOnlyMemory<StaticMeshAsset> Assets,
+  ReadOnlyMemory<Vector3> Vertices, ReadOnlyMemory<Triangle> Triangles,
+  ReadOnlyMemory<StaticMeshInstance> Instances)` → `CollisionReplaceReceipt(RevisionBefore,
+  RevisionAfter, AssetCount, InstanceCount, ProjectionHash)`. The caller builds the engine's own mesh
+  values and hands them over in memory. It carries no navigation and no identity, so nothing about the
+  geometry survives the call: no content reference, no digest, no revision to compare against a later
+  artifact.
+* `SpatialContentArtifactReplaceRequest(SpatialSession Session, ContentReference Content,
+  ulong NavigationGridId, uint NavigationChunkSize, uint NavigationMaxStepCells)` →
+  `SpatialContentArtifactReplaceReceipt(ContentReferenceValue, ContentSha256, CollisionRevisionBefore,
+  CollisionRevisionAfter, NavigationRevision, CollisionVertexCount, CollisionTriangleCount,
+  NavigationCellCount, CollisionProjectionHash, NavigationProjectionHash)`. The caller retains the
+  document with the engine's content owner (`IContentService.AdmitReference(path, bytes, sources)`) and
+  passes the reference; the engine resolves it, parses the bytes itself, and reports back what it
+  admitted, including the content's SHA-256.
+
+A product that loads its content from packs uses the **artifact** call: the geometry travels with the
+content that declares it, arrives with the content's own digest, and the engine — not the product —
+decides whether the document is admissible. That is the call this product composes
+(`PartyRpg.Kit.Sessions.EnginePartyMover.Enter`), so an importer's job is exactly to write bytes the
+engine's parser accepts. `CollisionReplaceRequest` remains the right call for geometry a product
+*generates* at runtime and for emptying a scene, which is how the mover releases a place it is leaving.
+
+### 8.2 The document: canonical schema JSON, parsed by the engine
+
+The format is defined by the engine's own deserializer, not by a file in the game
+**[verified: engine `rust/crates/csharp-engine-services/src/spatial.rs`, `struct SpatialContentArtifact`
+and `parse_spatial_content_artifact`]**:
+
+```rust
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct SpatialContentArtifact {
+    schema_version: u32,               // must be 1
+    static_mesh_artifact_id: String,
+    bounds: SpatialContentBounds,      // { min: [f64; 3], max: [f64; 3] }
+    collision: SpatialContentCollision,// { positions: Vec<[f64; 3]>, triangles: Vec<[u32; 3]> }
+    navigation: SpatialContentNavigation, // { id, config, cells }
+}
+```
+
+The parser refuses unknown fields, so the document is one exact shape and an extra key is a load
+failure. It then checks **[same file, `parse_spatial_content_artifact`]**: both identities non-empty,
+whitespace-free and ≤ 512 bytes; `min ≤ max` per axis with both finite and within
+`MAX_SPATIAL_CONTENT_COORDINATE` (10,000,000); positions and triangles both empty or both populated,
+≤ 1,000,000 each, every position finite and **inside the declared bounds**; every triangle index in
+range with no repeated index; navigation `schemaVersion` 1, `cellSize > 0`, `levelQuantum > 0`,
+`0 ≤ maximumSlopeDegrees ≤ 90`, `requiredHeadroom > 0`, `supportProbeDrop ≥ 0`; unique
+`(column, row, level)` cells whose `level` equals `round(supportHeight / levelQuantum)` and whose centre
+lies within the bounds plus one cell. An artifact is bytes at a path the content owner retains: the
+engine parses it as a *document*, so a place's collision is one JSON object, not a handle, a format
+enum, or a sidecar binary.
+
+The artifact is the **only** place a walkable navigation grid can come from in this call: the navigation
+section is `NavigationSource::HostWalkableCells`, i.e. the host states the cells. The engine can also
+derive a projection from the collision it already holds (`ISpatialService.ReplaceCollisionNavigation`
+with `CollisionNavigationReplaceRequest`, source `CollisionDerived`), which is the call for a consumer
+that needs paths. This importer emits **no cells** (`"cells": []`): a second derivation running beside
+the engine's own is exactly the kind of duplicated mechanism that disagrees later, and nothing in the
+product asks for a path yet. The configuration is still stated, because the schema requires it.
+
+### 8.3 What one place's geometry is made of
+
+Both families' solid surfaces, laid on the engine's axes. The solidity rule is the donor's, over the raw
+attribute word the face records already carry (§3):
+
+* **Portals are not solid.** A face whose `backSectorId > 0`, or whose `FACE_IsPortal` (0x00000001) bit
+  is set, is the plane between two sectors: it is walked through, and admitting it would seal every
+  doorway in a level **[verified: donor `src/Engine/Graphics/FaceEnums.h:5`, skipped for collision at
+  `src/Engine/Graphics/Collisions.cpp:231`]**. All 1741 shipped portal faces are exactly the faces with
+  a non-zero back sector **[verified: data]**.
+* **Ethereal faces are not solid.** `FACE_ETHEREAL` (0x20000000) is "untouchable, you can pass through
+  it" **[donor `FaceEnums.h:39`, skipped at `Collisions.cpp:101`]**; 6947 shipped faces carry it.
+* **Fluid faces *are* solid.** `FACE_IsFluid` (0x00000010) means the party is standing on water
+  **[donor `src/Engine/Graphics/Indoor.cpp:1499`]**, and the floor under water is still a floor.
+  Dropping these (1103 faces) removes real room floors; 4153 `FACE_IsInvisible` faces are also kept,
+  because invisibility is a rendering flag the donor's collision never consults.
+
+Polygons become triangles by the donor's own fan from the first corner — "123, 134, 145, 156.."
+**[verified: donor `src/Engine/Graphics/Renderer/OpenGLRenderer.cpp:3007-3020`]** — and a fan triangle
+that encloses no area is dropped: level faces are not minimal polygons, so neighbours' corners sit in the
+middle of edges. 45,024 of ~450,000 fan triangles are empty in the shipped data **[verified: data]**,
+including 230 faces with fewer than three corners ("Apparently this happens",
+**[donor `src/Engine/Graphics/Collisions.cpp:104`]**). For outdoor maps the terrain is added as surfaces
+tiled from the height field: 127×127 squares of two triangles, split along the north-west to south-east
+diagonal, exactly the split the donor's own height lookup branches on
+**[verified: donor `src/Engine/Graphics/OutdoorTerrain.cpp:53-93,236-247`]**, with each square's corners
+taken at their own grid heights.
+
+Placed models' faces use the same rule as interiors (their plane and winding already agree with the
+level's floors). Doors are not special-cased: a door's polygons are the level's faces, so a door is
+solid where it stands, and door *movement* is a mechanism this artifact does not carry.
+
+Coordinates are laid on the engine's axes as the ruleset states the rule for the party's pose: engine
+`(x, y, z)` is place `(X, Z, -Y)` — height second, the place's second ground axis negated third
+**[verified: `PartyRpg.Kit.Movement.PlaceSpace.Position`]**. The importer states the same rule in
+`CollisionMesh.Index`, because it is offline tooling with no reference to the runtime; the live walk —
+the party standing on and walking across the emitted mesh — is what proves the two agree.
+
+### 8.4 What was emitted, and when a place is refused
+
+The importer writes one `place-geometry` document into the `mm7-world` pack (one entry per place, keyed
+by the place's own id, property `artifact`) and validates each place before it does: non-empty geometry;
+finite coordinates inside the engine's own limits and quotas; no repeated index and no triangle with zero
+area; at least one surface within the controller's own slope limit (50°, the engine's default
+`maximum_slope_radians` **[verified: engine `rust/crates/engine-spatial/src/character_controller.rs:80`]**);
+and standable ground under every arrival point the place declares, with the donor's 3-unit slack for the
+holes level geometry really has **[donor `src/Application/GameConfig.h:143`]**. A place that fails any of
+these is refused whole — no entry, no artifact — because a partly emitted place is a place with a hole in
+it, and the party must not fall through a floor. Every one of the 76 shipped places passed
+**[verified: data]**: 824,320 triangles over 449,417 positions, from 146,160 interior faces (294,096
+triangles), 419,354 terrain triangles (209,677 squares) and 53,876 model faces (110,870 triangles).
+
+Arrival heights need one correction the game itself makes and the pack does not: the donor ignores a
+start-point decoration's stored z and computes the floor level under it
+**[donor `src/Engine/PartyPlacement.cpp:33-45`, "vanilla worked it around by always placing the party on
+the ground"]**. In this data one arrival is 1536 units above the nearest standable surface (out11's
+North Start, z 1536 where the terrain is 0), and one interior's Party Start sits 80 units below its
+floor (mdt05, z 0 where the floor is 80) **[verified: data]** — the engine's controller resolves the
+drop, and the party lands on geometry either way.

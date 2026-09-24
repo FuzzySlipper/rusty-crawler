@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using MightAndMagic7.Import.Collision;
 using MightAndMagic7.Import.Events;
 using MightAndMagic7.Import.Lod;
 using MightAndMagic7.Import.Maps;
@@ -14,7 +15,8 @@ namespace MightAndMagic7.Import.Tool;
 /// <param name="OutputRoot">The directory the packs were written to.</param>
 /// <param name="Provenance">Where the content came from.</param>
 /// <param name="Packs">The packs written, with their entry counts.</param>
-internal sealed record PackWriteResult(string OutputRoot, InstallProvenance Provenance, IReadOnlyList<(string PackId, int Documents, int Entries)> Packs)
+/// <param name="Geometry">What every place's collision emission produced.</param>
+internal sealed record PackWriteResult(string OutputRoot, InstallProvenance Provenance, IReadOnlyList<(string PackId, int Documents, int Entries)> Packs, CollisionSummary Geometry)
 {
     /// <summary>The pack ids, in the order they were written.</summary>
     internal IReadOnlyList<string> PackIds => [.. Packs.Select(pack => pack.PackId)];
@@ -46,12 +48,29 @@ internal static class PackWriter
     /// <summary>How much of a place's map data an import reads.</summary>
     internal enum MapDetail
     {
-        /// <summary>Places and their file links only; no map payload is decoded.</summary>
+        /// <summary>Places and their file links only; no map payload is decoded, so no geometry is emitted.</summary>
         None,
 
-        /// <summary>Arrival points read from the maps, so a transition can name where the party lands.</summary>
+        /// <summary>
+        /// Arrival points and collision geometry read from the maps, so a transition can name where the
+        /// party lands and the party has something to stand on when it gets there.
+        /// </summary>
         EntryPoints,
     }
+
+    /// <summary>
+    /// The geometry source names a place's counts are written under, in the order it writes them.
+    /// </summary>
+    /// <remarks>
+    /// Like the placement counts, every place states a count for every source, including the zeroes a
+    /// region has for interior faces, so a checker reads absence rather than inferring it.
+    /// </remarks>
+    private static readonly CollisionSource[] GeometrySources =
+    [
+        CollisionSource.InteriorFace,
+        CollisionSource.Terrain,
+        CollisionSource.ModelFace,
+    ];
 
     private static readonly JsonWriterOptions Writer = new() { Indented = true, NewLine = "\n" };
 
@@ -65,15 +84,37 @@ internal static class PackWriter
         IReadOnlyList<EvtProgram> programs = EvtProgram.ReadAll(install);
         PlaceGraph graph = PlaceGraph.Build(programs, tables.Maps);
         IReadOnlyDictionary<int, DecodedMap> maps = detail == MapDetail.EntryPoints ? DecodeMaps(install) : new Dictionary<int, DecodedMap>();
+        IReadOnlyList<PlaceCollision> collisions = maps.Count == 0 ? [] : EmitCollisions(tables, maps);
 
         Directory.CreateDirectory(outputRoot);
         List<(string, int, int)> packs =
         [
             WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps),
-            WriteWorld(tables, graph, provenance, Path.Combine(outputRoot, "mm7-world"), maps),
+            WriteWorld(tables, graph, provenance, Path.Combine(outputRoot, "mm7-world"), maps, collisions),
         ];
         WriteBundleFragment(outputRoot, provenance, packs);
-        return new PackWriteResult(outputRoot, provenance, packs);
+        return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions));
+    }
+
+    /// <summary>
+    /// Emits every place's collision geometry from the maps that were decoded.
+    /// </summary>
+    /// <remarks>
+    /// A place whose geometry cannot be closed enough is not emitted and not faked: the outcome carries
+    /// the reason, the pack carries no entry for it, and the product says on entry that the place has
+    /// nothing to stand on. That is worse for one place than a mesh with a hole in it, and better than a
+    /// party that falls through a floor.
+    /// </remarks>
+    private static IReadOnlyList<PlaceCollision> EmitCollisions(Mm7Tables tables, IReadOnlyDictionary<int, DecodedMap> maps)
+    {
+        List<PlaceCollision> places = [];
+        foreach (MapStatsRecord map in tables.Maps.Maps)
+        {
+            if (!maps.TryGetValue(map.Id, out DecodedMap? decoded)) continue;
+            places.Add(PlaceCollisionEmitter.Emit(map.Id, map.FileName, decoded));
+        }
+
+        return places;
     }
 
     /// <summary>
@@ -147,18 +188,85 @@ internal static class PackWriter
         PlaceGraph graph,
         InstallProvenance provenance,
         string packDirectory,
-        IReadOnlyDictionary<int, DecodedMap> maps)
+        IReadOnlyDictionary<int, DecodedMap> maps,
+        IReadOnlyList<PlaceCollision> collisions)
     {
         int links = WritePlaceGraph(packDirectory, graph, tables, maps);
+        int places = WritePlaceGeometry(packDirectory, collisions);
         IReadOnlyList<string> references = [.. tables.Maps.Maps.Select(map => $"place:{map.Id.ToString(CultureInfo.InvariantCulture)}")];
+        IReadOnlyList<string> geometryReferences =
+            [.. collisions.Where(place => place.Emitted).Select(place => $"place:{place.PlaceId.ToString(CultureInfo.InvariantCulture)}")];
         WriteManifest(
             packDirectory,
             "mm7-world",
             "world",
             provenance,
-            [("place-graph.json", "place-graph", "travel-link", references)]);
-        return ("mm7-world", 1, links);
+            [
+                ("place-graph.json", "place-graph", "travel-link", references),
+
+                // Only the places that produced an artifact are referenced: a reference to a place whose
+                // geometry was refused would promise collision the pack does not carry.
+                ("place-geometry.json", "place-geometry", "place-geometry", geometryReferences),
+            ]);
+        return ("mm7-world", 2, links + places);
     }
+
+    /// <summary>
+    /// Writes the places' collision artifacts, one entry per place, keyed by the place's own id.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The document's shape is the engine's, not this importer's, and the artifact is embedded exactly as
+    /// the engine will parse it: a reader hands the bytes on unchanged rather than re-serializing a copy
+    /// that could disagree with them. It is embedded compactly because the artifact's only reader is that
+    /// parser, while the document around it stays indented for a person.
+    /// </para>
+    /// <para>
+    /// Counts are written beside the artifact so a report can state what a place's collision is made of
+    /// without parsing geometry, and so a refusal is visible as a place that has no entry at all.
+    /// </para>
+    /// </remarks>
+    private static int WritePlaceGeometry(string packDirectory, IReadOnlyList<PlaceCollision> collisions)
+    {
+        List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];
+        foreach (PlaceCollision place in collisions)
+        {
+            if (place.Artifact is not { } artifact) continue;
+            entries.Add((place.PlaceId.ToString(CultureInfo.InvariantCulture), writer =>
+            {
+                writer.WriteString("mapFile", place.FileName);
+                writer.WriteString("kind", place.Kind == MapKind.Outdoor ? "region" : "interior");
+                writer.WriteNumber("vertices", place.Vertices);
+                writer.WriteNumber("triangles", place.Triangles);
+                writer.WriteStartObject("geometryCounts");
+                foreach (CollisionSource source in GeometrySources)
+                {
+                    CollisionSourceCounts counts = place.CountOf(source);
+                    writer.WriteStartObject(SourceName(source));
+                    writer.WriteNumber("faces", counts.Faces);
+                    writer.WriteNumber("triangles", counts.Triangles);
+                    writer.WriteEndObject();
+                }
+
+                writer.WriteEndObject();
+                if (place.DroppedFaces > 0) writer.WriteNumber("droppedFaces", place.DroppedFaces);
+                if (place.DroppedTriangles > 0) writer.WriteNumber("droppedDegenerateTriangles", place.DroppedTriangles);
+                writer.WritePropertyName("artifact");
+                writer.WriteRawValue(artifact);
+            }));
+        }
+
+        return WriteDocument(packDirectory, "place-geometry.json", "place-geometry", "place-geometry", entries);
+    }
+
+    /// <summary>The name a geometry source's counts are written under.</summary>
+    private static string SourceName(CollisionSource source) => source switch
+    {
+        CollisionSource.InteriorFace => "interiorFace",
+        CollisionSource.Terrain => "terrain",
+        CollisionSource.ModelFace => "modelFace",
+        _ => throw new ArgumentOutOfRangeException(nameof(source), source, "A geometry source this importer does not write was asked for its name."),
+    };
 
     private static int WritePlaces(string packDirectory, Mm7Tables tables, IReadOnlyDictionary<int, DecodedMap> maps)
     {

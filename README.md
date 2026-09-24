@@ -205,7 +205,10 @@ dotnet src/MightAndMagic7.Import.Tool/bin/Release/net10.0/mm7import.dll write \
 
 Packs land under `content/partyrpg/imports` (generated, never committed) and are loaded once their ids
 are listed in a bundle under `content/partyrpg/bundles`. The product validates that content when it
-starts: a bundle naming a pack that is not present stops it with the missing pack named.
+starts: a bundle naming a pack that is not present stops it with the missing pack named. `write` also
+emits each place's collision geometry into the world pack, in the engine's own spatial artifact, and
+refuses a place whose solid faces cannot be closed enough for a party to stand on — the shape and the
+rules are in [`docs/research/mm7-map-formats.md`](docs/research/mm7-map-formats.md) §8.
 
 Den serves the product through `.den-serve.json` on port 4176.
 

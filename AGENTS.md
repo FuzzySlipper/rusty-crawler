@@ -112,9 +112,13 @@ documents decide, and the difference is recorded rather than silently rounded.
 - The product shows a world only when a bundle carries places and a scenario start; the shipped bundle
   carries neither yet, so a running product reports no world. Authoring that scenario is stone 4's.
 - Fall damage is reported by movement and applied by nobody: the party's health owner arrives with the
-  party foundation. Collision geometry is admitted from content when a pack carries it, and no pack
-  does yet — the importer has no collision emitter, so a place currently has none, and movement says so
-  rather than pretending to collide. That gap is routed to the importer with the artifact shape named.
+  party foundation. Collision geometry now travels with content: `write` emits the engine's own spatial
+  artifact for every place whose solid faces can be closed (all 76 of the operator's places; 824,320
+  triangles), and the mover admits it when the party enters a place and reports the counts the engine
+  admitted. A place whose geometry cannot be closed carries no entry and the party is told it stands on
+  nothing rather than falling through a floor. Two limits are stated rather than hidden: no walkable
+  navigation cells are emitted (the engine derives collision navigation itself, and nothing asks for a
+  path yet), and a door's polygons are solid where they stand because doors do not move yet.
 - **No gameplay exists**: no party, character, combat, magic, content, or persistence. Do not
   describe, review, or accept behavior those stones will add as though it were here. The only
   player-facing capability today is holding and releasing the session.

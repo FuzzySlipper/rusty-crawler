@@ -26,11 +26,10 @@ internal static class MightAndMagic7World
     /// the place's own id.
     /// </summary>
     /// <remarks>
-    /// Nothing emits this document yet. The importer reads the maps' models and door data but converts no
-    /// geometry, so every place the product can load today has no collision artifact, which the mover
-    /// admits as an empty scene rather than as invented ground. This kind and the property below are the
-    /// seam the importer's geometry would arrive through; the document's own shape is the engine's, and
-    /// the ruleset reads it without rewriting a field of it.
+    /// The importer emits this document into the imported world pack, and emits one only for a place whose
+    /// geometry it could close: a place it refused has no entry here, which the mover admits as an empty
+    /// scene and reports rather than inventing ground. The document's own shape is the engine's, and the
+    /// ruleset reads it without rewriting a field of it.
     /// </remarks>
     internal const string GeometryDefinitionKind = "place-geometry";
 

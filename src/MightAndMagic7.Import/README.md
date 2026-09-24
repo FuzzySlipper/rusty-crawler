@@ -18,6 +18,12 @@ Owns, once implemented:
   import bug is caught offline rather than in gameplay.
 - Normalization: emitting the packs that runtime code consumes, in the shapes
   [`../../docs/code-organization.md`](../../docs/code-organization.md) fixes.
+- Collision geometry: one artifact per place in the engine's own spatial document,
+  built from the solid faces the map decoders already resolve — portals, ethereal
+  faces and degenerate corners excluded, outdoor terrain tiled from its height
+  field — and refused whole for a place that cannot be closed enough for a party
+  to stand on. The document's shape and what it must contain are in
+  [`../../docs/research/mm7-map-formats.md`](../../docs/research/mm7-map-formats.md) §8.
 
 Boundary rules:
 
@@ -30,5 +36,11 @@ Boundary rules:
   template. Do not port their C++ topology, build system, or globals, and do not
   translate donor code (see the licensing posture in `AGENTS.md`).
 
-Nothing is implemented yet. A working Python LOD/table extractor exists only as a
-local research tool under ignored `local/tools/`; it is not this project.
+Implemented: every container decodes, the rule tables, event programs, place graph,
+and all 76 map payloads reproduce the recorded inventory, media extraction writes its
+manifest, and `write` emits the content packs — each place's collision artifact
+included. The source-format shapes are recorded in
+[`../../docs/research/mm7-data-inventory.md`](../../docs/research/mm7-data-inventory.md),
+[`mm7-map-formats.md`](../../docs/research/mm7-map-formats.md), and
+[`mm7-media-formats.md`](../../docs/research/mm7-media-formats.md). The Python
+extractors under ignored `local/tools/` are research tools, not this project.
