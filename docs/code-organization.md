@@ -125,6 +125,22 @@ Rules:
   revision, and what was transformed.
 - Original game data is never committed; extracted tables stay in `local/`.
 
+## 6a. The content pack envelope
+
+A pack is a directory holding `pack.json` and the documents the manifest declares. The manifest names
+the pack id (which must match its directory), one of four kinds — definitions, tuning, scenario,
+world — its provenance, and its documents; each declared document has a path, an id, the kind of thing
+it holds, and the `kind:id` references its entries make. Documents hold entries keyed by id, with the
+fields kept as JSON for the ruleset that owns their meaning.
+
+The kit validates the whole catalog when a product starts, not each pack alone: two packs can each be
+well formed and still disagree by declaring the same entry id or referring to something neither has.
+A pack under the imports root must also record the game and build it came from, so imported content
+cannot silently mix editions. A bundle names a ruleset, the packs to load with it, and an optional
+tuning pack; a bundle that names a pack which is not present stops the product with every missing
+piece named at once. Content that is simply absent is not an error — a checkout whose packs have not
+been generated yet starts with no bundle selected and says so.
+
 ## 7. Import pipeline
 
 ```

@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Rulesets;
@@ -17,6 +18,7 @@ public sealed class CrawlerProduct : IEngineProduct
     private readonly ProductCreateContext _context;
     private readonly IGameRuleset _ruleset;
     private readonly SessionInputRouter _input;
+    private readonly BundleSelection _selection;
     private IGameSession _session;
     private bool _started;
     private bool _shutdown;
@@ -27,15 +29,51 @@ public sealed class CrawlerProduct : IEngineProduct
     {
     }
 
-    /// <summary>Creates the product over an explicitly selected compiled ruleset.</summary>
-    public CrawlerProduct(ProductCreateContext context, IGameRuleset ruleset)
+    /// <summary>Creates the product over an explicitly selected compiled ruleset and bundle.</summary>
+    public CrawlerProduct(ProductCreateContext context, IGameRuleset ruleset, string? bundleId)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(ruleset);
         _context = context;
         _ruleset = ruleset;
         _input = new SessionInputRouter(ProductIdentity.PauseToggleIntent, ProductIdentity.UiActionContract);
+        _selection = SelectBundle(context, bundleId ?? BuiltInBundles.Default);
         _session = CreateSession();
+    }
+
+    /// <summary>Creates the product over an explicitly selected compiled ruleset.</summary>
+    public CrawlerProduct(ProductCreateContext context, IGameRuleset ruleset)
+        : this(context, ruleset, BuiltInBundles.Default)
+    {
+    }
+
+    /// <summary>The bundle and content the product is running with.</summary>
+    public BundleSelection Selection => _selection;
+
+    /// <summary>
+    /// Loads the staged content and resolves the bundle to start from.
+    /// </summary>
+    /// <remarks>
+    /// Content that is present and wrong stops the product here, naming every problem at once, rather
+    /// than starting and meeting the defect later as a missing monster. Content that is absent yields
+    /// no selection instead: a checkout whose packs have not been generated yet still runs.
+    /// </remarks>
+    private static BundleSelection SelectBundle(ProductCreateContext context, string bundleId)
+    {
+        ContentBootstrapResult bootstrap = ContentBootstrap.Load(
+            new ProductContentSource(context.Content),
+            ContentLayout.Under(ProductIdentity.ContentDirectory),
+            bundleId);
+        if (!bootstrap.IsValid)
+        {
+            throw new ContentValidationException(
+                $"{ProductIdentity.ProductTitle} cannot start: {bootstrap.Issues[0]}",
+                bootstrap.Issues);
+        }
+
+        return bootstrap.Selection is { } selection
+            ? new BundleSelection(selection.Bundle.BundleId, selection.Packs.Count)
+            : BundleSelection.None;
     }
 
     /// <summary>The mode the session is in.</summary>
@@ -81,7 +119,8 @@ public sealed class CrawlerProduct : IEngineProduct
     {
         if (_shutdown) return;
         // The replacement is built before the old session is released, so a failure here leaves the
-        // running session in place rather than the product without one.
+        // running session in place rather than the product without one. The selected bundle is reused
+        // rather than re-read: a restart repeats the same run, it does not silently load other content.
         IGameSession replacement = CreateSession();
         IGameSession previous = _session;
         _session = replacement;
@@ -119,7 +158,7 @@ public sealed class CrawlerProduct : IEngineProduct
             new UiStreamRequest(ProductIdentity.UiStream, ProductIdentity.UiContract));
         try
         {
-            return _ruleset.CreateSession(new RulesetSessionContext(channel));
+            return _ruleset.CreateSession(new RulesetSessionContext(channel, _selection));
         }
         catch
         {

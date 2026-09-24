@@ -43,4 +43,10 @@
     <MakeDir Directories="$(RustyEngineProductUiRoot)" />
     <Exec Command="npm --prefix &quot;$(MSBuildThisFileDirectory)../..&quot; exec -- tsc --target ES2022 --module ES2022 --moduleResolution bundler --strict --noEmitOnError --outDir &quot;$(RustyEngineProductUiRoot)&quot; &quot;$(MSBuildThisFileDirectory)../ui/main.ts&quot;" />
   </Target>
+
+  <ItemGroup>
+    <!-- The host's suite exercises the composition seam the product keeps internal: the identity it
+         declares, the bundles it ships, and the selection it makes. -->
+    <InternalsVisibleTo Include="PartyRpg.Host.Tests" />
+  </ItemGroup>
 </Project>

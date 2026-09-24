@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Presentation;
 
 namespace PartyRpg.Kit.Rulesets;
@@ -8,4 +9,5 @@ namespace PartyRpg.Kit.Rulesets;
 /// here before something needs it.
 /// </summary>
 /// <param name="Projection">Where the session publishes its presentation.</param>
-public sealed record RulesetSessionContext(IUiProjectionChannel Projection);
+/// <param name="Selection">The game bundle the host selected, when it selected one.</param>
+public sealed record RulesetSessionContext(IUiProjectionChannel Projection, BundleSelection Selection = default);

@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
 using Rusty.Engine;
@@ -15,7 +16,13 @@ internal sealed class MightAndMagic7Session : IGameSession
 
     internal MightAndMagic7Session(IGameRuleset ruleset, RulesetSessionContext context)
     {
-        _session = new PartyRpgSession(SessionComposition.From(ruleset), context.Projection);
+        _session = new PartyRpgSession(
+            SessionComposition.From(ruleset) with
+            {
+                Bundle = context.Selection.BundleId,
+                ContentPacks = context.Selection.PackCount,
+            },
+            context.Projection);
     }
 
     /// <inheritdoc />

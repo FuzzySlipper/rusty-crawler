@@ -8,7 +8,9 @@ namespace PartyRpg.Kit.Sessions;
 /// </summary>
 /// <param name="Ruleset">The compiled ruleset this session was built from.</param>
 /// <param name="Title">The ruleset's display title.</param>
-public readonly record struct SessionComposition(RulesetId Ruleset, string Title)
+/// <param name="Bundle">The game bundle the session was started from, when one was selected.</param>
+/// <param name="ContentPacks">How many content packs the selected bundle resolved to.</param>
+public readonly record struct SessionComposition(RulesetId Ruleset, string Title, string? Bundle = null, int ContentPacks = 0)
 {
     /// <summary>Reads the composition a ruleset declares.</summary>
     public static SessionComposition From(IGameRuleset ruleset)

@@ -17,4 +17,9 @@
   <ItemGroup>
     <ProjectReference Include="../MightAndMagic7.Import/MightAndMagic7.Import.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- The import suite proves that the packs this tool writes are packs the product loads. -->
+    <InternalsVisibleTo Include="MightAndMagic7.Import.Tests" />
+  </ItemGroup>
 </Project>

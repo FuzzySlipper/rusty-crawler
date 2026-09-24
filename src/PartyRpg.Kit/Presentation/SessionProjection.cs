@@ -32,6 +32,12 @@ public static class SessionProjection
     /// <summary>The session object's wire name.</summary>
     public const string SessionField = "session";
 
+    /// <summary>The composition's bundle identity field, empty when no bundle was selected.</summary>
+    public const string BundleField = "bundle";
+
+    /// <summary>The composition's resolved content pack count field.</summary>
+    public const string ContentPacksField = "contentPacks";
+
     /// <summary>Builds the projection value for a snapshot.</summary>
     public static UiValue Build(SessionSnapshot snapshot)
     {
@@ -39,7 +45,9 @@ public static class SessionProjection
         uint root = builder.Object(
             ("composition", builder.Object(
                 (RulesetField, builder.String(snapshot.Composition.Ruleset.Value)),
-                (TitleField, builder.String(snapshot.Composition.Title)))),
+                (TitleField, builder.String(snapshot.Composition.Title)),
+                (BundleField, builder.String(snapshot.Composition.Bundle ?? string.Empty)),
+                (ContentPacksField, builder.Number(snapshot.Composition.ContentPacks)))),
             (SessionField, builder.Object(
                 ("mode", builder.String(WireName(snapshot.Mode))),
                 ("simulationSeconds", builder.Number(snapshot.SimulationSeconds)),

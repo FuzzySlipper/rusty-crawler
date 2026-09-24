@@ -20,3 +20,7 @@ tests/**/Temp*Tests.cs
 # disposable so one committed probe cannot happen again.
 tests/**/[Tt]mp*.cs
 tests/**/Temp*.cs
+
+# Generated content packs: produced from the operator's own game data, never committed.
+/content/partyrpg/imports/*
+!/content/partyrpg/imports/README.md

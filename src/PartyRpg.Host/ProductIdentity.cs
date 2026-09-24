@@ -13,6 +13,12 @@ internal static class ProductIdentity
     /// <summary>The product title declared to the engine.</summary>
     internal const string Title = "Rusty Crawler";
 
+    /// <summary>The product title used in messages to the operator.</summary>
+    internal const string ProductTitle = "Rusty Crawler";
+
+    /// <summary>The directory inside the content root that this product's packs and bundles live in.</summary>
+    internal const string ContentDirectory = "partyrpg";
+
     /// <summary>The UI projection stream the product publishes.</summary>
     internal const string UiStream = "crawler.hud";
 

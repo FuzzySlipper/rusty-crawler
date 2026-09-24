@@ -72,7 +72,7 @@ documents decide, and the difference is recorded rather than silently rounded.
 
 ## Current state
 
-**Foundation stone 1 has landed: the product spine exists, and no gameplay does.**
+**Foundation stone 2 has landed: the content and import pipeline exists, and no gameplay does.**
 
 - `src/PartyRpg.Kit`, `src/PartyRpg.Rulesets.MightAndMagic7`, and `src/PartyRpg.Host` build against
   the pinned Engine pair. The host declares the one product entry, one admitted update, the
@@ -83,10 +83,17 @@ documents decide, and the difference is recorded rather than silently rounded.
 - The ownership laws are enforced by `tests/PartyRpg.Architecture.Tests`, the session shell and input
   router by `tests/PartyRpg.Kit.Tests`, and the DOM companion by `tests/PartyRpg.Ui.Tests`. All three
   run in `scripts/verify.sh`, which also stages the CoreCLR product.
-- The offline importer exists: `MightAndMagic7.Import` reads the operator's containers, rule tables,
-  event programs, and the place graph they encode, and `MightAndMagic7.Import.Tool` reports on and
-  verifies them against the recorded inventory. Map geometry, media extraction, content packs, and
-  the product bundle are the rest of this stone and are not written yet.
+- `MightAndMagic7.Import` reads the operator's own data: all five containers decode every entry, the
+  rule tables and the place graph reproduce the recorded inventory, all 76 maps decode, and the media
+  extractor emits 17,681 images, palettes, PCX files, and sounds with a provenance manifest. No game
+  data is committed and the importer is outside the runtime graph in both directions.
+- `MightAndMagic7.Import.Tool` is the operator's command line: `report`, `verify` (against the recorded
+  inventory), `maps`, `media`, and `write`, which emits the content packs the product loads and proves
+  two runs produce identical bytes.
+- The product loads content: `PartyRpg.Kit` defines the pack envelope, validates the whole catalog at
+  start, and resolves the game bundle the host selects; the host starts from the bundle it ships,
+  reports it in the projection, and refuses to start on content that is present and wrong. Gameplay
+  definitions do not consume the packs yet — that is stone 3.
 - **No gameplay exists**: no world, party, character, combat, magic, content, or persistence. Do not
   describe, review, or accept behavior those stones will add as though it were here. The only
   player-facing capability today is holding and releasing the session.

@@ -38,6 +38,9 @@ const ACTION_RESUME = 'session.resume';
 interface CompositionView {
   readonly ruleset: string;
   readonly title: string;
+  /** The game bundle the product started from, empty when no bundle was selected. */
+  readonly bundle: string;
+  readonly contentPacks: number;
 }
 
 interface SessionView {
@@ -66,7 +69,8 @@ const STYLES = `
   font: 13px/1.45 system-ui, sans-serif;
 }
 .crawler-session h1 { margin: 0 0 0.15rem; font-size: 1rem; letter-spacing: 0.02em; }
-.crawler-session .crawler-ruleset { margin: 0 0 0.5rem; color: #b9ad8c; font-size: 0.78rem; }
+.crawler-session .crawler-ruleset { margin: 0 0 0.25rem; color: #b9ad8c; font-size: 0.78rem; }
+.crawler-session .crawler-bundle { margin: 0 0 0.6rem; color: #8d8a7a; font-size: 0.72rem; letter-spacing: 0.02em; }
 .crawler-session dl { display: grid; grid-template-columns: auto 1fr; gap: 0.1rem 0.6rem; margin: 0 0 0.5rem; }
 .crawler-session dt { color: #b9ad8c; }
 .crawler-session dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
@@ -94,11 +98,13 @@ function readSnapshot(value: unknown): SnapshotView | null {
   const composition = value.composition;
   const session = value.session;
   if (!isRecord(composition) || !isRecord(session)) return null;
-  const { ruleset, title } = composition;
+  const { ruleset, title, bundle, contentPacks } = composition;
   const { mode, simulationSeconds, admittedSteps, updates } = session;
   if (
     typeof ruleset !== 'string' ||
     typeof title !== 'string' ||
+    typeof bundle !== 'string' ||
+    typeof contentPacks !== 'number' ||
     typeof mode !== 'string' ||
     typeof simulationSeconds !== 'number' ||
     typeof admittedSteps !== 'number' ||
@@ -107,7 +113,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
     return null;
   }
   return {
-    composition: { ruleset, title },
+    composition: { ruleset, title, bundle, contentPacks },
     session: { mode, simulationSeconds, admittedSteps, updates },
   };
 }
@@ -127,6 +133,8 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   const title = document.createElement('h1');
   const ruleset = document.createElement('p');
   ruleset.className = 'crawler-ruleset';
+  const bundle = document.createElement('p');
+  bundle.className = 'crawler-bundle';
 
   const details = document.createElement('dl');
   const rows: Record<string, HTMLElement> = {};
@@ -135,6 +143,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     ['simulation', 'Simulation'],
     ['steps', 'Admitted steps'],
     ['updates', 'Updates'],
+    ['content', 'Content'],
   ] as const) {
     const term = document.createElement('dt');
     term.textContent = label;
@@ -153,7 +162,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   hint.className = 'crawler-hint';
   hint.textContent = 'Pause or resume with the button, or with the P key.';
 
-  panel.append(title, ruleset, details, action, hint);
+  panel.append(title, ruleset, bundle, details, action, hint);
   root.append(style, panel);
 
   let current = 'starting';
@@ -175,12 +184,18 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     current = snapshot.session.mode;
     title.textContent = 'Rusty Crawler';
     ruleset.textContent = snapshot.composition.title;
+    bundle.textContent =
+      snapshot.composition.bundle === ''
+        ? 'No game bundle selected'
+        : `${snapshot.composition.bundle} · ${snapshot.composition.contentPacks} pack${snapshot.composition.contentPacks === 1 ? '' : 's'}`;
     panel.dataset.mode = current;
     panel.dataset.ruleset = snapshot.composition.ruleset;
+    panel.dataset.bundle = snapshot.composition.bundle;
     rows.mode.textContent = current;
     rows.simulation.textContent = `${snapshot.session.simulationSeconds.toFixed(1)} s`;
     rows.steps.textContent = String(snapshot.session.admittedSteps);
     rows.updates.textContent = String(snapshot.session.updates);
+    rows.content.textContent = String(snapshot.composition.contentPacks);
     if (current === 'running') {
       action.disabled = false;
       action.textContent = 'Pause session';

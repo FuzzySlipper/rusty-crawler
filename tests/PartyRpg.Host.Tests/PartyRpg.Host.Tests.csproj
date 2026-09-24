@@ -13,11 +13,6 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../../src/MightAndMagic7.Import/MightAndMagic7.Import.csproj" />
-    <!-- The writer lives in the tool, and the loader lives in the kit. Only a test may hold both:
-         the importer is not a runtime dependency, and the runtime never reads source formats. This
-         suite is where the two shapes are proved to agree. -->
-    <ProjectReference Include="../../src/MightAndMagic7.Import.Tool/MightAndMagic7.Import.Tool.csproj" />
-    <ProjectReference Include="../../src/PartyRpg.Kit/PartyRpg.Kit.csproj" />
+    <ProjectReference Include="../../src/PartyRpg.Host/PartyRpg.Host.csproj" />
   </ItemGroup>
 </Project>

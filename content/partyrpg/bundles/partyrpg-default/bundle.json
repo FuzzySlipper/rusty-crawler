@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "bundleId": "partyrpg-default",
+  "ruleset": "mightandmagic7",
+  "contentPacks": [],
+  "description": "The product's default game bundle. It names the compiled ruleset to play and the content packs to load with it. Imported packs are added here once the operator has generated them; the bundle is loaded, so changing it needs no rebuild."
+}

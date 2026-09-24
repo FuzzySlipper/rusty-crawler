@@ -196,6 +196,17 @@ dotnet src/MightAndMagic7.Import.Tool/bin/Release/net10.0/mm7import.dll verify -
 and fails when a reader drifts from the data. `scripts/verify.sh` runs `verify` when the installation
 is present, and says so plainly when it is not.
 
+`write` produces the content packs the product loads, and proves its own reproducibility:
+
+```bash
+dotnet src/MightAndMagic7.Import.Tool/bin/Release/net10.0/mm7import.dll write \
+  --install /path/to/mm7 --output content/partyrpg/imports --check-determinism
+```
+
+Packs land under `content/partyrpg/imports` (generated, never committed) and are loaded once their ids
+are listed in a bundle under `content/partyrpg/bundles`. The product validates that content when it
+starts: a bundle naming a pack that is not present stops it with the missing pack named.
+
 Den serves the product through `.den-serve.json` on port 4176.
 
 ## Guidance and proof

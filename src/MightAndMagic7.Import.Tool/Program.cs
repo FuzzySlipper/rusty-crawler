@@ -1,4 +1,6 @@
 using System.Text.Json;
+using MightAndMagic7.Import.Maps;
+using MightAndMagic7.Import.Media;
 
 namespace MightAndMagic7.Import.Tool;
 
@@ -23,6 +25,9 @@ internal static class Program
                 "list" => List(Require(arguments, 1, "list <archive>")),
                 "report" => Report(RequireInstall(arguments)),
                 "verify" => InventoryCheck.Run(RequireInstall(arguments)),
+                "write" => Write(RequireInstall(arguments), RequireOption(arguments, "--output"), arguments.Contains("--check-determinism")),
+                "maps" => Maps(RequireInstall(arguments)),
+                "media" => Media(RequireInstall(arguments), RequireOption(arguments, "--output")),
                 _ => Unknown(arguments[0]),
             };
         }
@@ -163,6 +168,90 @@ internal static class Program
         return arguments[index];
     }
 
+    private static int Maps(string installRoot)
+    {
+        MapDecodeReport report = MapDecoder.DecodeAll(Lod.LodInstall.Open(installRoot));
+        Console.WriteLine(JsonSerializer.Serialize(
+            new
+            {
+                maps = report.MapCount,
+                decoded = report.DecodedCount,
+                failed = report.FailureCount,
+                outdoor = Describe(report.Outdoor),
+                indoor = Describe(report.Indoor),
+                total = Describe(report.Total),
+                failures = report.Failures.Select(failure => new { failure.MapId, failure.FileName, failure.Reason }),
+            },
+            Json));
+        return report.FailureCount == 0 ? 0 : 1;
+    }
+
+    private static object Describe(MapFamilyCounts counts) => new
+    {
+        counts.Maps,
+        counts.Faces,
+        counts.Vertices,
+        counts.Doors,
+        counts.Lights,
+        counts.EntryPoints,
+        counts.Decorations,
+        counts.SpawnPoints,
+    };
+
+    private static int Media(string installRoot, string outputRoot)
+    {
+        MediaManifest manifest = MediaExtractor.Extract(Lod.LodInstall.Open(installRoot), outputRoot);
+        Console.WriteLine(JsonSerializer.Serialize(
+            new
+            {
+                output = outputRoot,
+                decoder = manifest.DecoderVersion,
+                emitted = manifest.EmittedCount,
+                bytes = manifest.EmittedBytes,
+                archives = manifest.Archives.Select(archive => new { archive.Name, archive.Kind, archive.Entries, archive.Artifacts, archive.Emitted }),
+                boundaries = manifest.Boundaries.Select(boundary => new { boundary.Family, boundary.Reason }),
+            },
+            Json));
+        return 0;
+    }
+
+    private static int Write(string installRoot, string outputRoot, bool checkDeterminism)
+    {
+        Lod.LodInstall install = Lod.LodInstall.Open(installRoot);
+        PackWriteResult result = PackWriter.Write(install, outputRoot);
+        if (checkDeterminism)
+        {
+            string second = outputRoot.TrimEnd('/') + ".second";
+            if (Directory.Exists(second)) Directory.Delete(second, recursive: true);
+            PackWriter.Write(install, second);
+            bool identical = PackWriter.AreIdentical(outputRoot, second);
+            Directory.Delete(second, recursive: true);
+            Console.WriteLine(JsonSerializer.Serialize(new { determinism = identical ? "identical" : "differs", secondRun = second }, Json));
+            if (!identical) return 1;
+        }
+
+        Console.WriteLine(JsonSerializer.Serialize(
+            new
+            {
+                result.OutputRoot,
+                provenance = new { result.Provenance.Game, build = result.Provenance.BuildString },
+                packs = result.Packs.Select(pack => new { pack.PackId, pack.Documents, pack.Entries }),
+                use = "add these pack ids to a bundle under content/partyrpg/bundles to load them",
+            },
+            Json));
+        return 0;
+    }
+
+    private static string RequireOption(string[] arguments, string name)
+    {
+        for (int index = 1; index < arguments.Length - 1; index++)
+        {
+            if (arguments[index] == name) return arguments[index + 1];
+        }
+
+        throw new Lod.LodFormatException($"Missing {name}. Usage: mm7import write --install <game-directory> --output <directory> [--check-determinism]");
+    }
+
     private static string RequireInstall(string[] arguments)
     {
         for (int index = 1; index < arguments.Length - 1; index++)
@@ -187,7 +276,13 @@ internal static class Program
           mm7import info <archive.lod>              header, entry count, duplicate names
           mm7import list <archive.lod>              every entry with its size
           mm7import report --install <directory>    full extraction report for a game installation
+          mm7import maps --install <directory>      decodes every map and reports counts and failures
+          mm7import media --install <directory> --output <directory>
+                                                    extracts images, palettes, sprites, and sound with a manifest
           mm7import verify --install <directory>    checks the readers against the recorded inventory
+          mm7import write --install <directory> --output <directory> [--check-determinism]
+                                                    writes normalized content packs and, on request,
+                                                    proves two runs produce identical bytes
 
         The importer reads the operator's own installation and writes nothing to it.
         """);
