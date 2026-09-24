@@ -62,31 +62,24 @@ jq -e --arg package_version "$pair_version" --arg source_revision "$pair_source_
   exit 1
 }
 
-# The product UI is a Node-built DOM companion. Its dependencies and its DOM
-# tests are checked here even while no product project exists, because the UI
-# toolchain is what the first project will consume.
+# The product UI is a Node-built DOM companion: its dependencies, and the DOM
+# contract tests that exercise the companion without a browser.
 npm ci
-if compgen -G "tests/PartyRpg.Ui.Tests/*.test.mjs" > /dev/null; then
-  node --test tests/PartyRpg.Ui.Tests/*.test.mjs
-else
-  echo "No product UI tests are checked in yet."
-fi
+node --test tests/PartyRpg.Ui.Tests/*.test.mjs
 
-# Every project this repository builds and runs. Empty until planning lands the
-# product graph; that is a declaration of current state, not a skipped check.
-product_projects=()
-test_projects=()
-host_project=""
-
-if [[ ${#product_projects[@]} -eq 0 ]]; then
-  echo "No product project exists yet: this pass created the repository shape only."
-  echo "Verified Engine pair ${pair_version} (${pair_source_revision}) with UI dependencies installed."
-  [[ "$aot" == false ]] || {
-    echo "NativeAOT verification needs the product host project, which does not exist yet." >&2
-    exit 1
-  }
-  exit 0
-fi
+# Every project this repository builds and runs, and every suite it executes.
+# The lists are explicit on purpose: a discovery-based loop silently stops
+# covering a project whose csproj moved or was renamed.
+product_projects=(
+  src/PartyRpg.Kit/PartyRpg.Kit.csproj
+  src/PartyRpg.Rulesets.MightAndMagic7/PartyRpg.Rulesets.MightAndMagic7.csproj
+  src/PartyRpg.Host/PartyRpg.Host.csproj
+)
+test_projects=(
+  tests/PartyRpg.Architecture.Tests/PartyRpg.Architecture.Tests.csproj
+  tests/PartyRpg.Kit.Tests/PartyRpg.Kit.Tests.csproj
+)
+host_project="src/PartyRpg.Host/PartyRpg.Host.csproj"
 
 for project in "${product_projects[@]}"; do
   dotnet restore "$project"
@@ -99,13 +92,9 @@ done
 # Compiling projects is not the same as exercising them, and a green build says
 # nothing about a suite nobody ran, so every checked suite above is executed.
 
-[[ -z "$host_project" ]] || dotnet msbuild "$host_project" -t:StageRustyEngineCoreClrProduct -p:Configuration=Release
+dotnet msbuild "$host_project" -t:StageRustyEngineCoreClrProduct -p:Configuration=Release
 
 if [[ "$aot" == true ]]; then
-  [[ -n "$host_project" ]] || {
-    echo "NativeAOT verification needs the product host project." >&2
-    exit 1
-  }
   dotnet msbuild "$host_project" -t:VerifyRustyEngineAot -p:Configuration=Release
   echo "Verified Engine pair ${pair_version} (${pair_source_revision}): CoreCLR and NativeAOT."
 else
