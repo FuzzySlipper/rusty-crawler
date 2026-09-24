@@ -63,10 +63,27 @@ interface SessionView {
   readonly updates: number;
 }
 
+/**
+ * What the party's last admitted movement step did, as the panel shows it. `motion` is `none` when the
+ * session has no movement facts at all — no world, or no step yet — and the remaining fields then
+ * describe no step rather than a quiet one.
+ */
+interface MovementView {
+  /** The state the last step left the party in: `none`, `grounded`, or `airborne`. */
+  readonly motion: string;
+  /** What refused the step: a reason word, or `none` when nothing did. */
+  readonly blocked: string;
+  /** How high an accepted step-up raised the party; zero when the engine accepted none. */
+  readonly stepRise: number;
+  readonly fallDistance: number;
+  readonly fallDamage: number;
+}
+
 interface SnapshotView {
   readonly composition: CompositionView;
   readonly session: SessionView;
   readonly world: WorldView;
+  readonly movement: MovementView;
 }
 
 const STYLES = `
@@ -119,6 +136,9 @@ function readSnapshot(value: unknown): SnapshotView | null {
   // A projection with no world, though, is not a broken projection: a session whose content has not
   // been generated yet has no places, and the panel says so rather than refusing to render at all.
   const world = isRecord(value.world) ? value.world : {};
+  // Movement facts are optional in the same way: a session that has never moved has none to publish,
+  // and the panel shows that it does not know rather than that the way is clear.
+  const movement = isRecord(value.movement) ? value.movement : {};
   const { ruleset, title, bundle, contentPacks } = composition;
   const { mode, simulationSeconds, admittedSteps, updates } = session;
   if (
@@ -142,6 +162,11 @@ function readSnapshot(value: unknown): SnapshotView | null {
   const yaw = world.yaw ?? 0;
   const visited = world.visited ?? 0;
   const places = world.places ?? 0;
+  const motion = movement.motion ?? 'none';
+  const blocked = movement.blocked ?? 'none';
+  const stepRise = movement.stepRise ?? 0;
+  const fallDistance = movement.fallDistance ?? 0;
+  const fallDamage = movement.fallDamage ?? 0;
   if (
     typeof place !== 'string' ||
     typeof placeName !== 'string' ||
@@ -151,7 +176,12 @@ function readSnapshot(value: unknown): SnapshotView | null {
     typeof z !== 'number' ||
     typeof yaw !== 'number' ||
     typeof visited !== 'number' ||
-    typeof places !== 'number'
+    typeof places !== 'number' ||
+    typeof motion !== 'string' ||
+    typeof blocked !== 'string' ||
+    typeof stepRise !== 'number' ||
+    typeof fallDistance !== 'number' ||
+    typeof fallDamage !== 'number'
   ) {
     return null;
   }
@@ -160,6 +190,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
     composition: { ruleset, title, bundle, contentPacks },
     session: { mode, simulationSeconds, admittedSteps, updates },
     world: { place, name: placeName, kind, x, y, z, yaw, visited, places },
+    movement: { motion, blocked, stepRise, fallDistance, fallDamage },
   };
 }
 
@@ -174,6 +205,10 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   const panel = document.createElement('section');
   panel.className = 'crawler-session';
   panel.dataset.mode = 'starting';
+  // Nothing has moved yet, so the panel's own state says it has no movement facts rather than that
+  // nothing stopped the party.
+  panel.dataset.motion = 'none';
+  panel.dataset.blocked = 'none';
 
   const title = document.createElement('h1');
   const ruleset = document.createElement('p');
@@ -194,6 +229,10 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     ['place', 'Place'],
     ['pose', 'Position'],
     ['explored', 'Explored'],
+    ['motion', 'Motion'],
+    ['blocked', 'Blocked'],
+    ['step', 'Step up'],
+    ['fall', 'Fall'],
   ] as const) {
     const term = document.createElement('dt');
     term.textContent = label;
@@ -258,6 +297,19 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
         ? '—'
         : `${world.x.toFixed(0)}, ${world.y.toFixed(0)}, ${world.z.toFixed(0)} @ ${world.yaw.toFixed(0)}`;
     rows.explored.textContent = `${world.visited} / ${world.places}`;
+    const movement = snapshot.movement;
+    // A session with no movement facts shows that it does not know what the last step did. Showing a
+    // clear path there would be the very mistake this panel exists to prevent: a refused step and an
+    // input that never arrived would look the same again.
+    panel.dataset.motion = movement.motion;
+    panel.dataset.blocked = movement.blocked;
+    rows.motion.textContent = movement.motion === 'none' ? '—' : movement.motion;
+    rows.blocked.textContent = movement.blocked === 'none' ? '—' : movement.blocked;
+    rows.step.textContent = movement.stepRise > 0 ? `+${movement.stepRise.toFixed(1)}` : '—';
+    rows.fall.textContent =
+      movement.fallDistance > 0
+        ? `${movement.fallDistance.toFixed(0)} · ${movement.fallDamage.toFixed(0)} damage`
+        : '—';
     if (current === 'running') {
       action.disabled = false;
       action.textContent = 'Pause session';
