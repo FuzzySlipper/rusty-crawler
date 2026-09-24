@@ -1,4 +1,5 @@
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
 using Rusty.Engine;
@@ -23,8 +24,22 @@ internal sealed class MightAndMagic7Session : IGameSession
                 ContentPacks = context.Selection.PackCount,
             },
             context.Projection,
-            MightAndMagic7World.Compose(context.Content, context.Time));
+            MightAndMagic7World.Compose(context.Content, context),
+            Movement(context));
     }
+
+    /// <summary>
+    /// The reader for the movement controls the host declared, when it declared any.
+    /// </summary>
+    /// <remarks>
+    /// The host owns the intent names and the ruleset owns how fast a held turn control turns the party,
+    /// which is why the reader is composed here from both: a product that declares no movement controls
+    /// gets no reader, and the session then never asks the world to move anything.
+    /// </remarks>
+    private static MovementInput? Movement(RulesetSessionContext context) =>
+        context.Movement is { } controls
+            ? new MovementInput(controls, MightAndMagic7Movement.TurnRatePerSecond)
+            : null;
 
     /// <inheritdoc />
     public SessionMode Mode => _session.Mode;

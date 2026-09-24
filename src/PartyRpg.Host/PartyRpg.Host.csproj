@@ -34,6 +34,23 @@
          Gameplay intents arrive with the stones that implement them, never as declarations first. -->
     <RustyEngineProductInputIntent Include="session.pause-toggle" Value="digital" />
     <RustyEngineProductInputMapping Include="session.pause-toggle.key-p" Intent="session.pause-toggle" Trigger="key:key-p:pressed" />
+    <!-- First-person movement, one digital intent per action, declared here because the engine rejects a
+         mapping whose intent the product never declared: a name that exists only in code is a control
+         that silently does nothing. -->
+    <RustyEngineProductInputIntent Include="party.move-forward" Value="digital" />
+    <RustyEngineProductInputMapping Include="party.move-forward.key-w" Intent="party.move-forward" Trigger="key:key-w:held" />
+    <RustyEngineProductInputIntent Include="party.move-back" Value="digital" />
+    <RustyEngineProductInputMapping Include="party.move-back.key-s" Intent="party.move-back" Trigger="key:key-s:held" />
+    <RustyEngineProductInputIntent Include="party.strafe-left" Value="digital" />
+    <RustyEngineProductInputMapping Include="party.strafe-left.key-a" Intent="party.strafe-left" Trigger="key:key-a:held" />
+    <RustyEngineProductInputIntent Include="party.strafe-right" Value="digital" />
+    <RustyEngineProductInputMapping Include="party.strafe-right.key-d" Intent="party.strafe-right" Trigger="key:key-d:held" />
+    <RustyEngineProductInputIntent Include="party.turn-left" Value="digital" />
+    <RustyEngineProductInputMapping Include="party.turn-left.key-q" Intent="party.turn-left" Trigger="key:key-q:held" />
+    <RustyEngineProductInputIntent Include="party.turn-right" Value="digital" />
+    <RustyEngineProductInputMapping Include="party.turn-right.key-e" Intent="party.turn-right" Trigger="key:key-e:held" />
+    <RustyEngineProductInputIntent Include="party.jump" Value="digital" />
+    <RustyEngineProductInputMapping Include="party.jump.key-space" Intent="party.jump" Trigger="key:key-space:pressed" />
     <RustyEngineProductInputIntent Include="crawler.ui" Value="payload:crawler.ui.action.v1" />
   </ItemGroup>
 

@@ -21,7 +21,11 @@ internal sealed class FakeEngineContext : IEngineContext
 
     public IImplicitSurfacesService ImplicitSurfaces => Unsupported<IImplicitSurfacesService>();
 
-    public IDiagnosticsService Diagnostics => Unsupported<IDiagnosticsService>();
+    /// <summary>
+    /// Diagnostics are reported as absent, like the spatial service: this suite has no engine runtime,
+    /// and a diagnostic sink that swallowed reports would hide exactly what a test should see.
+    /// </summary>
+    public IDiagnosticsService Diagnostics => null!;
 
     public IDynamicsService Dynamics => Unsupported<IDynamicsService>();
 
@@ -29,7 +33,12 @@ internal sealed class FakeEngineContext : IEngineContext
 
     public IKinematicService Kinematic => Unsupported<IKinematicService>();
 
-    public ISpatialService Spatial => Unsupported<ISpatialService>();
+    /// <summary>
+    /// No engine runtime runs in this suite, so the spatial service is reported as absent rather than
+    /// answered by a stand-in: the product composes movement only when a real engine supplies one, and
+    /// a double that pretended to collide with nothing would be the one lie collision cannot tell.
+    /// </summary>
+    public ISpatialService Spatial => null!;
 
     public IPerceptionService Perception => Unsupported<IPerceptionService>();
 

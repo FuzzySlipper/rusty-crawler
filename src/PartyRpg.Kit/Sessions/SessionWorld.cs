@@ -1,6 +1,12 @@
+using System.Numerics;
+using System.Text;
+using System.Text.Json;
+using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.World;
+using Rusty.Engine;
 
 namespace PartyRpg.Kit.Sessions;
 
@@ -19,6 +25,317 @@ public interface IWorldTimeSource
 }
 
 /// <summary>
+/// What the party's movement has done so far, as an observation.
+/// </summary>
+/// <remarks>
+/// This is where a fall becomes visible: the movement owner reports what a landing cost and this records
+/// it, because applying it would mean reaching into health the kit does not hold. The party's health
+/// owner applies <see cref="LastFall"/> when it exists; until then a fall past the threshold is reported
+/// here, published as an engine diagnostic, and charged to nobody.
+/// </remarks>
+/// <param name="Last">The last step's outcome, or null before the party has taken one.</param>
+/// <param name="Falls">How many landings went past the tuning's fall threshold.</param>
+public sealed record MovementDiagnostics(MovementOutcome? Last, int Falls)
+{
+    /// <summary>Nothing has moved yet: no step, and no fall.</summary>
+    public static MovementDiagnostics None { get; } = new(null, 0);
+
+    /// <summary>What the last landing cost, or none when the party has not landed past the threshold.</summary>
+    public FallOutcome LastFall => Last?.Fall ?? FallOutcome.None;
+}
+
+/// <summary>
+/// One place's collision geometry, in the engine's own canonical artifact document.
+/// </summary>
+/// <remarks>
+/// The bytes are the engine's document, not a kit format: the engine parses them itself, and everything
+/// between content and that parse copies them unchanged. A kit that re-wrote the document would own a
+/// second copy of the engine's schema and would be the first thing to disagree with it.
+/// </remarks>
+public sealed record PlaceGeometry
+{
+    /// <summary>Creates a place's geometry.</summary>
+    /// <param name="path">The artifact's own path, which identifies it to the engine's content owner.</param>
+    /// <param name="artifact">The artifact document's bytes, exactly as content wrote them.</param>
+    /// <exception cref="ArgumentException">The artifact has no path or no bytes.</exception>
+    public PlaceGeometry(string path, ReadOnlyMemory<byte> artifact)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        if (artifact.Length == 0)
+        {
+            throw new ArgumentException(
+                $"The collision artifact '{path}' carries no bytes, so the place that declares it would be admitted as geometry nobody can walk on.",
+                nameof(artifact));
+        }
+
+        Path = path;
+        Artifact = artifact;
+    }
+
+    /// <summary>The artifact's own path, which identifies it to the engine's content owner.</summary>
+    public string Path { get; }
+
+    /// <summary>The artifact document's bytes, exactly as content wrote them.</summary>
+    public ReadOnlyMemory<byte> Artifact { get; }
+}
+
+/// <summary>Where a place's collision geometry comes from, when the loaded content carries any.</summary>
+public interface IPlaceGeometrySource
+{
+    /// <summary>The place's collision geometry, or null when content provides none for it.</summary>
+    /// <param name="place">The place the party is entering.</param>
+    PlaceGeometry? For(PlaceId place);
+}
+
+/// <summary>
+/// Reads a place's collision geometry out of the content the product loaded.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The definition kind and the artifact property are supplied by whoever owns the content vocabulary, so
+/// this reader stays general while the ruleset keeps naming its own documents. The bytes handed on are
+/// the artifact document exactly as content wrote it — read out of the envelope it arrived in and never
+/// re-serialized, so the engine parses the document the author wrote rather than a copy of it.
+/// </para>
+/// <para>
+/// An entry that exists for a place but carries no artifact document stops the read instead of yielding
+/// nothing: a place whose geometry silently went missing is a party walking through the floor, and that
+/// is worse than a named failure at the moment the party tries to enter.
+/// </para>
+/// </remarks>
+public sealed class ContentPlaceGeometry : IPlaceGeometrySource
+{
+    private readonly ContentCatalog _catalog;
+    private readonly string _definitionKind;
+    private readonly string _artifactProperty;
+
+    /// <summary>Creates the reader.</summary>
+    /// <param name="catalog">The validated content the world was built from.</param>
+    /// <param name="definitionKind">The definition kind whose entries carry places' collision artifacts.</param>
+    /// <param name="artifactProperty">The property of such an entry that holds the engine's artifact document.</param>
+    /// <exception cref="ArgumentNullException">No content catalog was supplied.</exception>
+    /// <exception cref="ArgumentException">A name is missing, so no entry could ever be found.</exception>
+    public ContentPlaceGeometry(ContentCatalog catalog, string definitionKind, string artifactProperty)
+    {
+        ArgumentNullException.ThrowIfNull(catalog);
+        ArgumentException.ThrowIfNullOrWhiteSpace(definitionKind);
+        ArgumentException.ThrowIfNullOrWhiteSpace(artifactProperty);
+        _catalog = catalog;
+        _definitionKind = definitionKind;
+        _artifactProperty = artifactProperty;
+    }
+
+    /// <inheritdoc />
+    /// <exception cref="InvalidOperationException">
+    /// The place's entry declares no artifact document, so the geometry content promised cannot be handed on.
+    /// </exception>
+    public PlaceGeometry? For(PlaceId place)
+    {
+        foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in _catalog.Entries(_definitionKind))
+        {
+            if (!string.Equals(entry.Id, place.Value, StringComparison.Ordinal)) continue;
+            if (!entry.Payload.TryGetProperty(_artifactProperty, out JsonElement artifact) ||
+                artifact.ValueKind != JsonValueKind.Object)
+            {
+                throw new InvalidOperationException(
+                    $"Place '{place}' declares collision geometry in '{pack.PackId}/{document.DocumentId}', but its '{_artifactProperty}' is not the engine's artifact document, so the place's collision cannot be admitted.");
+            }
+
+            // The entry's own identity is the artifact's path, so the engine's content owner reports
+            // which pack, document, and entry a retained artifact came from rather than an opaque handle.
+            return new PlaceGeometry(
+                $"{pack.PackId}/{document.DocumentId}/{entry.Id}.json",
+                Encoding.UTF8.GetBytes(artifact.GetRawText()));
+        }
+
+        return null;
+    }
+}
+
+/// <summary>What entering a place did to the movement's collision scene.</summary>
+/// <remarks>
+/// A place that provides no geometry is not an error and not a fallback: it is a place the party can
+/// stand nowhere in, and saying so is what keeps the emptiness visible instead of implied.
+/// </remarks>
+/// <param name="Place">The place whose geometry was asked for.</param>
+/// <param name="Admitted">Whether the engine admitted geometry for it.</param>
+/// <param name="CollisionVertices">How many collision vertices the admitted artifact carried.</param>
+/// <param name="CollisionTriangles">How many collision triangles the admitted artifact carried.</param>
+/// <param name="NavigationCells">How many walkable navigation cells the admitted artifact carried.</param>
+public sealed record PlaceGeometryAdmission(
+    PlaceId Place,
+    bool Admitted,
+    ulong CollisionVertices,
+    ulong CollisionTriangles,
+    ulong NavigationCells)
+{
+    /// <summary>The scene holds nothing for this place: the party stands on nothing in it.</summary>
+    /// <param name="place">The place whose geometry was asked for.</param>
+    public static PlaceGeometryAdmission Empty(PlaceId place) => new(place, false, 0, 0, 0);
+}
+
+/// <summary>
+/// The navigation policy a place's artifact cells are admitted under.
+/// </summary>
+/// <remarks>
+/// The artifact states its own cell size and its cells; the grid identity, the chunking, and how far a
+/// navigation step may climb are the product's policy, and they are stated here in the engine's own
+/// terms rather than being worked out from the artifact.
+/// </remarks>
+/// <param name="GridId">The grid identity the artifact's cells are projected into.</param>
+/// <param name="ChunkSize">How many cells a navigation chunk spans; the engine requires a cubic chunk.</param>
+/// <param name="MaxStepCells">How many cells a navigation step may climb.</param>
+public sealed record PlaceNavigationPolicy(ulong GridId = 0, uint ChunkSize = 16, uint MaxStepCells = 4);
+
+/// <summary>
+/// The party's movement as the world drives it: the collision scene it walks in, the geometry that
+/// belongs to the place it is in, and the one step it takes per admitted interval.
+/// </summary>
+/// <remarks>
+/// Entering and stepping are one collaborator because they are one scene: whoever admits a place's
+/// geometry is whoever resolves the party's steps in it, so the ground the party stands on and the party
+/// standing on it can never be two different scenes.
+/// </remarks>
+public interface IPartyMover : IDisposable
+{
+    /// <summary>
+    /// Releases whatever geometry the scene holds and admits the place's own, which is what makes a
+    /// place's collision belong to that place.
+    /// </summary>
+    /// <param name="place">The place the party is entering.</param>
+    /// <returns>What the scene holds for the place now.</returns>
+    PlaceGeometryAdmission Enter(PlaceId place);
+
+    /// <summary>Moves the party by one step of admitted world time.</summary>
+    /// <param name="intent">What the player asked for this step.</param>
+    /// <param name="elapsedSeconds">The admitted world time the step covers.</param>
+    /// <returns>Where the party ended up and what the engine and the tuning said about it.</returns>
+    MovementOutcome Step(MovementIntent intent, double elapsedSeconds);
+}
+
+/// <summary>
+/// The engine-backed party mover: one movement owner, and the collision scene it walks in filled from
+/// the place the party is in.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The geometry path is the engine's own content artifact: bytes content already carries are admitted to
+/// the engine's content owner, and the spatial service resolves and copies them. Nothing here builds
+/// vertices, infers collision from a visual mesh, or synthesizes a document for a place that has none —
+/// a place with no artifact gets an empty scene, and empty is reported as empty.
+/// </para>
+/// <para>
+/// The release on entering is a real engine call with empty collider sets rather than a flag: the scene
+/// the party walks in is the engine's, so leaving the previous place's geometry behind is the engine's
+/// state to be emptied, not the mover's to remember.
+/// </para>
+/// </remarks>
+public sealed class EnginePartyMover : IPartyMover
+{
+    private readonly ISpatialService _spatial;
+    private readonly IContentService _content;
+    private readonly PartyMovement _movement;
+    private readonly IPlaceGeometrySource? _geometry;
+    private readonly PlaceNavigationPolicy _navigation;
+    private bool _filled;
+    private bool _disposed;
+
+    /// <summary>Creates the mover over a party's movement owner.</summary>
+    /// <param name="spatial">The engine service that owns the collision scene and resolves character steps.</param>
+    /// <param name="movement">The party's movement owner, whose scene this fills with places' geometry.</param>
+    /// <param name="content">The engine's content owner, which retains the artifact document a place provides.</param>
+    /// <param name="geometry">Where places' artifacts come from. Without one every place has no geometry.</param>
+    /// <param name="navigation">The navigation policy artifacts are admitted under.</param>
+    /// <exception cref="ArgumentNullException">A required collaborator is missing.</exception>
+    public EnginePartyMover(
+        ISpatialService spatial,
+        PartyMovement movement,
+        IContentService content,
+        IPlaceGeometrySource? geometry = null,
+        PlaceNavigationPolicy? navigation = null)
+    {
+        _spatial = spatial ?? throw new ArgumentNullException(nameof(spatial));
+        _movement = movement ?? throw new ArgumentNullException(nameof(movement));
+        _content = content ?? throw new ArgumentNullException(nameof(content));
+        _geometry = geometry;
+        _navigation = navigation ?? new PlaceNavigationPolicy();
+    }
+
+    /// <summary>What the scene holds for the place the party is in, or null before it entered one.</summary>
+    public PlaceGeometryAdmission? Current { get; private set; }
+
+    /// <inheritdoc />
+    /// <exception cref="ObjectDisposedException">The mover has been disposed.</exception>
+    public PlaceGeometryAdmission Enter(PlaceId place)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_geometry?.For(place) is not { } geometry)
+        {
+            // A place with no geometry leaves the scene empty, and emptying it is a real engine call only
+            // when this mover ever filled it: a mover with no geometry source has never handed the scene
+            // anything, and telling the engine to clear a scene it holds nothing in would be work that
+            // changes nothing.
+            if (_filled) Release();
+            Current = PlaceGeometryAdmission.Empty(place);
+            return Current;
+        }
+
+        if (_filled) Release();
+
+        // The reference is released as soon as the engine has resolved and copied the document: the
+        // scene retains its own collision, so nothing downstream depends on the artifact staying
+        // admitted to the content owner.
+        using ContentReference reference = _content.AdmitReference(
+            new ContentAdmissionRequest(geometry.Path, geometry.Artifact, ReadOnlyMemory<ContentSourceFile>.Empty));
+        SpatialContentArtifactReplaceReceipt receipt = _spatial.ReplaceContentArtifact(
+            new SpatialContentArtifactReplaceRequest(
+                _movement.Session,
+                reference,
+                _navigation.GridId,
+                _navigation.ChunkSize,
+                _navigation.MaxStepCells));
+
+        _filled = true;
+        Current = new PlaceGeometryAdmission(
+            place,
+            Admitted: true,
+            receipt.CollisionVertexCount,
+            receipt.CollisionTriangleCount,
+            receipt.NavigationCellCount);
+        return Current;
+    }
+
+    /// <inheritdoc />
+    /// <exception cref="ObjectDisposedException">The mover has been disposed.</exception>
+    public MovementOutcome Step(MovementIntent intent, double elapsedSeconds)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return _movement.Step(intent, elapsedSeconds);
+    }
+
+    /// <summary>Releases the engine's spatial session, which destroys its collision scene with it.</summary>
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _movement.Dispose();
+    }
+
+    /// <summary>Empties the scene, so nothing of the place being left can be stood on.</summary>
+    private void Release()
+    {
+        _spatial.ReplaceCollision(new CollisionReplaceRequest(
+            _movement.Session,
+            ReadOnlyMemory<StaticMeshAsset>.Empty,
+            ReadOnlyMemory<Vector3>.Empty,
+            ReadOnlyMemory<Triangle>.Empty,
+            ReadOnlyMemory<StaticMeshInstance>.Empty));
+        _filled = false;
+        Current = null;
+    }
+}
+
+/// <summary>
 /// The live world inside a session: where the party is, what state each place is in, and the one path
 /// that moves the party between places.
 /// </summary>
@@ -28,11 +345,14 @@ public interface IWorldTimeSource
 /// game. Arriving and travelling both mark the place visited, so knowledge accrues the same way
 /// wherever the party goes.
 /// </remarks>
-public sealed class SessionWorld
+public sealed class SessionWorld : IDisposable
 {
     private readonly TransitionExecutive _transitions;
     private readonly IWorldTimeSource? _time;
     private readonly PlacePopulation _population;
+    private readonly IDiagnosticsService? _diagnostics;
+    private MovementDiagnostics _movement = MovementDiagnostics.None;
+    private bool _disposed;
 
     /// <summary>Creates the world a session steps.</summary>
     /// <param name="graph">The places and the transitions between them.</param>
@@ -40,23 +360,38 @@ public sealed class SessionWorld
     /// <param name="places">Per-place runtime state.</param>
     /// <param name="costRule">The rule every transition is quoted through.</param>
     /// <param name="time">Where elapsed game days come from, when a clock has been wired.</param>
+    /// <param name="mover">
+    /// The party's movement, when the engine gave the world something to walk in. Without one the party
+    /// has no motion at all, and every mechanism that would move it says so by doing nothing.
+    /// </param>
+    /// <param name="diagnostics">
+    /// Where a fall the tuning priced is reported, when the engine's diagnostics are reachable. The
+    /// report is the only thing that happens to a fall here: the party's health is not this owner's.
+    /// </param>
     public SessionWorld(
         PlaceGraph graph,
         PartyPoseOwner party,
         PlaceStateLedger places,
         ITravelCostRule costRule,
-        IWorldTimeSource? time = null)
+        IWorldTimeSource? time = null,
+        IPartyMover? mover = null,
+        IDiagnosticsService? diagnostics = null)
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(party);
         ArgumentNullException.ThrowIfNull(places);
         _transitions = new TransitionExecutive(costRule);
         _time = time;
+        _diagnostics = diagnostics;
         Graph = graph;
         Party = party;
         Places = places;
         Places.MarkVisited(party.Place);
         _population = new PlacePopulation(graph, places);
+        Mover = mover;
+        // The place the party starts in is entered exactly as any other is, so the scene it walks in is
+        // filled from that place's content before the first step rather than one arrival late.
+        mover?.Enter(party.Place);
     }
 
     /// <summary>The places and the transitions between them.</summary>
@@ -68,11 +403,41 @@ public sealed class SessionWorld
     /// <summary>Per-place runtime state.</summary>
     public PlaceStateLedger Places { get; }
 
+    /// <summary>The party's movement, or null when the world has no engine to move in.</summary>
+    public IPartyMover? Mover { get; }
+
+    /// <summary>What the party's movement has done so far, as an observation rather than as state anything steps.</summary>
+    public MovementDiagnostics Movement => _movement;
+
     /// <summary>The place the party is in.</summary>
     public PlaceId Place => Party.Place;
 
     /// <summary>The entities the current place is populated with, and the one owner that steps them.</summary>
     public PlacePopulation Population => _population;
+
+    /// <summary>
+    /// Moves the party by one step of the world's admitted time.
+    /// </summary>
+    /// <remarks>
+    /// The world is the only owner of the party's pose, so movement is asked from here rather than from
+    /// whoever read the input: the session reads what the player wants, and this is where that becomes
+    /// motion. A world without a mover has nothing to move the party with and answers null, which is the
+    /// honest answer for a product running without the engine's spatial service.
+    /// </remarks>
+    /// <param name="intent">What the player asked for this step.</param>
+    /// <param name="elapsedSeconds">The admitted world time this step covers.</param>
+    /// <returns>The step's outcome, or null when the party has no movement.</returns>
+    public MovementOutcome? Step(MovementIntent intent, double elapsedSeconds)
+    {
+        if (Mover is not { } mover) return null;
+
+        MovementOutcome outcome = mover.Step(intent, elapsedSeconds);
+        _movement = new MovementDiagnostics(
+            outcome,
+            _movement.Falls + (outcome.Fall.PastThreshold ? 1 : 0));
+        Report(outcome);
+        return outcome;
+    }
 
     /// <summary>
     /// Takes a transition, or refuses it. Arriving moves the party and marks the destination visited;
@@ -97,6 +462,7 @@ public sealed class SessionWorld
                 $"The destination {result.Place} refused the arrival: {error.Message}"));
         }
 
+        EnterPlace(result.Place);
         Places.MarkVisited(result.Place);
         return result;
     }
@@ -113,6 +479,7 @@ public sealed class SessionWorld
     public void ArriveAt(PlaceId place, PlacePose pose)
     {
         Party.Enter(place, pose);
+        EnterPlace(place);
         Places.MarkVisited(place);
     }
 
@@ -133,8 +500,14 @@ public sealed class SessionWorld
     /// <summary>Populates the party's place, which also happens on the first update after arriving.</summary>
     public IReadOnlyList<PlacePopulationEntity> Populate() => _population.Step(Party.Place, []);
 
-    /// <summary>Releases the entities the population owns.</summary>
-    public void Dispose() => _population.Dispose();
+    /// <summary>Releases the entities the population owns and the engine's collision scene with the movement.</summary>
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _population.Dispose();
+        Mover?.Dispose();
+    }
 
     /// <summary>What the panel shows about the world.</summary>
     public WorldSnapshot Snapshot
@@ -150,5 +523,36 @@ public sealed class SessionWorld
                 Places.States.Count(state => state.Visited),
                 Graph.Places.Count);
         }
+    }
+
+    /// <summary>
+    /// Fills the movement's collision scene from the place the party has just entered.
+    /// </summary>
+    /// <remarks>
+    /// Entering admits or empties, in that order, whatever the place provides. A place the engine refuses
+    /// throws here rather than being papered over: a party walking on nothing is a worse failure than a
+    /// named one, and the arrival is the moment the defect is attributable to a place.
+    /// </remarks>
+    private void EnterPlace(PlaceId place) => Mover?.Enter(place);
+
+    /// <summary>
+    /// Reports a fall the tuning priced to the engine's diagnostics, without applying it.
+    /// </summary>
+    /// <remarks>
+    /// A fall is the party's health owner's business, and that owner does not exist yet; the report is
+    /// what makes the cost observable in the meantime, and it names the place so the drop can be traced
+    /// to the geometry that produced it.
+    /// </remarks>
+    private void Report(MovementOutcome outcome)
+    {
+        if (!outcome.Fall.PastThreshold || _diagnostics is null) return;
+        FallOutcome fall = outcome.Fall;
+        _diagnostics.Publish(new DiagnosticsPublishRequest(
+            DiagnosticsSeverity.Info,
+            DiagnosticsDisposition.Accepted,
+            Source: "movement",
+            Code: "fall-past-threshold",
+            Message: $"The party landed in place '{Party.Place}' after falling {fall.Distance:0.###}, past the tuning's threshold by {fall.Excess:0.###}; the fall is reported and not applied, because the party's health owner does not exist yet.",
+            Correlation: string.Empty));
     }
 }

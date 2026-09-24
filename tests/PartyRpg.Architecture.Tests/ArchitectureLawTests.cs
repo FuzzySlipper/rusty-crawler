@@ -105,6 +105,25 @@ public sealed class ArchitectureLawTests
             projectText,
             StringComparison.Ordinal);
         Assert.Contains($"payload:{ConstantValue(source, "UiActionContract")}", projectText, StringComparison.Ordinal);
+
+        // Movement is a set of intents rather than one, and the engine rejects any mapping whose intent
+        // is undeclared, so each one is checked in both directions: declared in code, declared in the
+        // project, and mapped to a key there.
+        foreach (string constant in new[]
+        {
+            "MoveForwardIntent",
+            "MoveBackIntent",
+            "StrafeLeftIntent",
+            "StrafeRightIntent",
+            "TurnLeftIntent",
+            "TurnRightIntent",
+            "JumpIntent",
+        })
+        {
+            string intent = ConstantValue(source, constant);
+            Assert.Contains($"RustyEngineProductInputIntent Include=\"{intent}\"", projectText, StringComparison.Ordinal);
+            Assert.Contains($"Intent=\"{intent}\"", projectText, StringComparison.Ordinal);
+        }
     }
 
     [Fact]

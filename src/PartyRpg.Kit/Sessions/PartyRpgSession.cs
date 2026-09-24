@@ -1,3 +1,5 @@
+using PartyRpg.Kit.Input;
+using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Presentation;
 using Rusty.Engine;
 
@@ -16,6 +18,7 @@ public sealed class PartyRpgSession : IGameSession
 {
     private readonly SessionComposition _composition;
     private readonly IUiProjectionChannel _projection;
+    private readonly MovementInput? _movementInput;
     private SessionMode _mode = SessionMode.Starting;
     private double _simulationSeconds;
     private ulong _admittedSteps;
@@ -31,11 +34,21 @@ public sealed class PartyRpgSession : IGameSession
     /// <param name="composition">The identity the session presents.</param>
     /// <param name="projection">Where it publishes its presentation.</param>
     /// <param name="world">The live world it steps, when content supplied one.</param>
-    public PartyRpgSession(SessionComposition composition, IUiProjectionChannel projection, SessionWorld? world = null)
+    /// <param name="movementInput">
+    /// What reads the player's movement controls out of each admitted update, when the ruleset composed
+    /// movement and declared where its intents arrive. Without one the session never asks the world to
+    /// move the party, which is what a session whose ruleset has no movement does.
+    /// </param>
+    public PartyRpgSession(
+        SessionComposition composition,
+        IUiProjectionChannel projection,
+        SessionWorld? world = null,
+        MovementInput? movementInput = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(composition.Title);
         _composition = composition;
         _projection = projection ?? throw new ArgumentNullException(nameof(projection));
+        _movementInput = movementInput;
         LiveWorld = world;
         _world = world?.Snapshot ?? WorldSnapshot.Empty;
         world?.Populate();
@@ -58,6 +71,15 @@ public sealed class PartyRpgSession : IGameSession
 
     /// <summary>Where the party is, or an empty world while the session has no places.</summary>
     public WorldSnapshot World => _world;
+
+    /// <summary>
+    /// What the party's movement has done so far, or none while the session has no world to move in.
+    /// </summary>
+    /// <remarks>
+    /// This is where a fall is observable today. It goes to the party's health owner when that owner
+    /// exists, which is why it is reported here and applied nowhere.
+    /// </remarks>
+    public MovementDiagnostics Movement => LiveWorld?.Movement ?? MovementDiagnostics.None;
 
     /// <summary>Admitted updates this session has consumed, whether or not it was running.</summary>
     public ulong Updates => _updates;
@@ -129,7 +151,14 @@ public sealed class PartyRpgSession : IGameSession
     public ProductUpdateResult Update(ProductUpdate update)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        Advance(SessionTick.From(update.Facts));
+        SessionTick tick = SessionTick.From(update.Facts);
+
+        // Input settles before the step it governs, and both happen inside this one admitted update: the
+        // intent is read from the events this update carries, and the step it produces covers exactly the
+        // admitted interval the same update measures. There is no second update, clock, or loop here.
+        StepParty(update.Input, tick);
+
+        Advance(tick);
 
         // The world advances with the same admitted time the session measures: one clock, one update.
         if (LiveWorld is { } world)
@@ -140,6 +169,25 @@ public sealed class PartyRpgSession : IGameSession
         }
 
         return ProductUpdateResult.None;
+    }
+
+    /// <summary>
+    /// Reads the player's movement controls and asks the world to move the party by the admitted interval.
+    /// </summary>
+    /// <remarks>
+    /// A paused session still reads what the player holds — a key released while the session was held must
+    /// not keep walking after it resumes — but it never steps, because no admitted time passes for a
+    /// session that is not running.
+    /// </remarks>
+    private void StepParty(ReadOnlySpan<ProductInputEvent> input, SessionTick tick)
+    {
+        if (_movementInput is null) return;
+        MovementIntent intent = _movementInput.Read(input);
+        if (_mode != SessionMode.Running || LiveWorld is not { } world) return;
+
+        double seconds = tick.AdmittedStepCount * tick.FixedDeltaSeconds;
+        if (!double.IsFinite(seconds) || seconds <= 0) return;
+        world.Step(intent, seconds);
     }
 
     /// <summary>

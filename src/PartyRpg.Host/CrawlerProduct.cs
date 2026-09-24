@@ -18,6 +18,7 @@ public sealed class CrawlerProduct : IEngineProduct
     private readonly ProductCreateContext _context;
     private readonly IGameRuleset _ruleset;
     private readonly SessionInputRouter _input;
+    private readonly MovementIntentNames _movement;
     private readonly BundleSelection _selection;
     private readonly ContentCatalog? _content;
     private IGameSession _session;
@@ -38,6 +39,14 @@ public sealed class CrawlerProduct : IEngineProduct
         _context = context;
         _ruleset = ruleset;
         _input = new SessionInputRouter(ProductIdentity.PauseToggleIntent, ProductIdentity.UiActionContract);
+        _movement = new MovementIntentNames(
+            ProductIdentity.MoveForwardIntent,
+            ProductIdentity.MoveBackIntent,
+            ProductIdentity.StrafeLeftIntent,
+            ProductIdentity.StrafeRightIntent,
+            ProductIdentity.TurnLeftIntent,
+            ProductIdentity.TurnRightIntent,
+            ProductIdentity.JumpIntent);
         (_selection, _content) = SelectBundle(context, bundleId ?? BuiltInBundles.Default);
         _session = CreateSession();
     }
@@ -159,7 +168,16 @@ public sealed class CrawlerProduct : IEngineProduct
             new UiStreamRequest(ProductIdentity.UiStream, ProductIdentity.UiContract));
         try
         {
-            return _ruleset.CreateSession(new RulesetSessionContext(channel, _selection, _content));
+            // The engine's own services go to the ruleset whole: composing movement needs the spatial
+            // service to walk in and the content owner to retain a place's collision artifact, and the
+            // product is the only place that holds the engine context the ruleset would otherwise have to
+            // reach for. The movement controls are the host's declaration, so their names go with them.
+            return _ruleset.CreateSession(new RulesetSessionContext(
+                channel,
+                _selection,
+                _content,
+                Engine: _context.Engine,
+                Movement: _movement));
         }
         catch
         {

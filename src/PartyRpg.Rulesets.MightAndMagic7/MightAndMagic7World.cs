@@ -1,7 +1,10 @@
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.World;
+using Rusty.Engine;
 
 namespace PartyRpg.Rulesets.MightAndMagic7;
 
@@ -18,12 +21,28 @@ internal static class MightAndMagic7World
     /// <summary>The definition kind a scenario's starting entry uses.</summary>
     internal const string StartDefinitionKind = "scenario-start";
 
-    /// <summary>The facing rule this game's data uses: 2048 units to a turn, as the maps store it.</summary>
-    private static readonly FacingRule Facing = new(unitsPerTurn: 2048, minimumPitch: -512, maximumPitch: 512);
+    /// <summary>
+    /// The definition kind a place's collision artifact is declared under, one entry per place, keyed by
+    /// the place's own id.
+    /// </summary>
+    /// <remarks>
+    /// Nothing emits this document yet. The importer reads the maps' models and door data but converts no
+    /// geometry, so every place the product can load today has no collision artifact, which the mover
+    /// admits as an empty scene rather than as invented ground. This kind and the property below are the
+    /// seam the importer's geometry would arrive through; the document's own shape is the engine's, and
+    /// the ruleset reads it without rewriting a field of it.
+    /// </remarks>
+    internal const string GeometryDefinitionKind = "place-geometry";
+
+    /// <summary>The property of a geometry entry that holds the engine's canonical collision artifact.</summary>
+    internal const string GeometryArtifactProperty = "artifact";
 
     /// <summary>Composes the world, or null when the content does not place the party anywhere.</summary>
-    internal static SessionWorld? Compose(ContentCatalog? catalog, IWorldTimeSource? time = null)
+    /// <param name="catalog">The validated content the product loaded, when it loaded any.</param>
+    /// <param name="context">What the host handed the ruleset, which carries the engine the world moves in.</param>
+    internal static SessionWorld? Compose(ContentCatalog? catalog, RulesetSessionContext context)
     {
+        ArgumentNullException.ThrowIfNull(context);
         if (catalog is null) return null;
         PlaceGraph graph = PlaceGraphLoader.Load(catalog);
         if (graph.Places.Count == 0) return null;
@@ -36,9 +55,50 @@ internal static class MightAndMagic7World
             ? graph.ResolveArrival(new PlaceTransition(null, begin.Place, PlaceArrival.AtEntryPoint(entryPointId), "scenario-start"))
             : PlacePose.Origin;
 
+        PartyPoseOwner party = new(new PartyPose(place.Id, pose), MightAndMagic7Movement.Facing);
         PlaceStateLedger places = new(graph, PlaceRespawnRule.FromContent());
-        SessionWorld world = new(graph, new PartyPoseOwner(new PartyPose(place.Id, pose), Facing), places, new MightAndMagic7TravelCostRule(), time);
-        return world;
+        return new SessionWorld(
+            graph,
+            party,
+            places,
+            new MightAndMagic7TravelCostRule(),
+            context.Time,
+            Mover(party, context),
+            context.Engine?.Diagnostics);
+    }
+
+    /// <summary>
+    /// The party's movement, when the host handed this ruleset an engine to move in.
+    /// </summary>
+    /// <remarks>
+    /// Movement needs both halves: places to walk between, which the world supplies, and an engine whose
+    /// spatial service owns collision and resolves the step. Without the engine there is no movement at
+    /// all, and the session says so by stepping nothing rather than by standing in for a spatial service
+    /// the product does not have.
+    /// </remarks>
+    private static IPartyMover? Mover(PartyPoseOwner party, RulesetSessionContext context)
+    {
+        if (context.Engine is not { } engine) return null;
+
+        // A context that carries no engine, or an engine that answers with no spatial service, means the
+        // product has no collision to move through: there is no movement then, rather than movement that
+        // walks through walls.
+        if (engine.Spatial is not { } spatial) return null;
+
+        PartyMovement movement = new(
+            spatial,
+            party,
+            MightAndMagic7Movement.Space,
+            MightAndMagic7Movement.Session,
+            MightAndMagic7Movement.Tuning(spatial));
+
+        // A place's geometry comes from the catalog when content carries any. Without a catalog there is no
+        // world either, but the mover is composed here where both are still in hand.
+        IPlaceGeometrySource? geometry = context.Content is { } catalog
+            ? new ContentPlaceGeometry(catalog, GeometryDefinitionKind, GeometryArtifactProperty)
+            : null;
+
+        return new EnginePartyMover(spatial, movement, engine.Content, geometry);
     }
 
     private static (PlaceId Place, string? EntryPoint)? ReadStart(ContentCatalog catalog)

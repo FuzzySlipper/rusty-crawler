@@ -100,11 +100,10 @@ documents decide, and the difference is recorded rather than silently rounded.
   path. The party's pose and derived view, per-place runtime state, and one costed transition path are
   wired into the session; a session with content places the party where a scenario says, marks places
   visited, advances respawn from a day source, and populates the current place from its content
-  placements through the Engine's own entity store. Movement is Engine-backed and contract-tested
-  (`ProposeCharacterStep` with sliding, step-up, slopes, jump and falls; no C# collision anywhere), but
-  it is not yet driven from input: wiring it needs an engine service on the ruleset's context, an
-  intents source, and admitted collision geometry, and that is a routed task rather than a half-built
-  path.
+  placements through the Engine's own entity store. Movement is Engine-backed and stepped inside the
+  same admitted update from declared input intents (`ProposeCharacterStep` with sliding, step-up,
+  slopes, jump and falls; no C# collision anywhere), composed only when the engine actually supplies a
+  spatial service — a product without one has no movement rather than movement through walls.
 - Travel costs are stated, not yet applied: `TravelCost` carries elapsed time and provisions with
   units, and the transition path refuses paid or magical travel by name until the party's purse
   (stone 4) and the service and magic owners (stones 5 and 7) exist. Respawn's day source is the same
@@ -113,8 +112,9 @@ documents decide, and the difference is recorded rather than silently rounded.
 - The product shows a world only when a bundle carries places and a scenario start; the shipped bundle
   carries neither yet, so a running product reports no world. Authoring that scenario is stone 4's.
 - Fall damage is reported by movement and applied by nobody: the party's health owner arrives with the
-  party foundation. Likewise the party is placed at the capsule's ground position, and the body-centre
-  height only content can settle is routed with the movement wiring task.
+  party foundation. Collision geometry is admitted from content when a pack carries it, and no pack
+  does yet — the importer has no collision emitter, so a place currently has none, and movement says so
+  rather than pretending to collide. That gap is routed to the importer with the artifact shape named.
 - **No gameplay exists**: no party, character, combat, magic, content, or persistence. Do not
   describe, review, or accept behavior those stones will add as though it were here. The only
   player-facing capability today is holding and releasing the session.

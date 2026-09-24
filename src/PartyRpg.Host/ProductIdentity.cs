@@ -33,4 +33,25 @@ internal static class ProductIdentity
 
     /// <summary>The digital intent that holds or releases the session from the keyboard.</summary>
     internal const string PauseToggleIntent = "session.pause-toggle";
+
+    /// <summary>The digital intent that walks the party forward.</summary>
+    internal const string MoveForwardIntent = "party.move-forward";
+
+    /// <summary>The digital intent that walks the party backward.</summary>
+    internal const string MoveBackIntent = "party.move-back";
+
+    /// <summary>The digital intent that strafes the party to its left.</summary>
+    internal const string StrafeLeftIntent = "party.strafe-left";
+
+    /// <summary>The digital intent that strafes the party to its right.</summary>
+    internal const string StrafeRightIntent = "party.strafe-right";
+
+    /// <summary>The digital intent that turns the party to its left.</summary>
+    internal const string TurnLeftIntent = "party.turn-left";
+
+    /// <summary>The digital intent that turns the party to its right.</summary>
+    internal const string TurnRightIntent = "party.turn-right";
+
+    /// <summary>The digital intent that jumps the party.</summary>
+    internal const string JumpIntent = "party.jump";
 }
