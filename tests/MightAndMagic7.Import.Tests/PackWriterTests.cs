@@ -1,4 +1,5 @@
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.World;
 using MightAndMagic7.Import.Lod;
 using MightAndMagic7.Import.Tool;
 using Xunit;
@@ -22,7 +23,7 @@ public sealed class PackWriterTests
         try
         {
             string imports = Path.Combine(root, "imports");
-            PackWriteResult written = PackWriter.Write(LodInstall.Open(installRoot), imports);
+            PackWriteResult written = PackWriter.Write(LodInstall.Open(installRoot), imports, PackWriter.MapDetail.None);
 
             Assert.Equal(["mm7-tables", "mm7-world"], written.PackIds);
             Assert.Contains("1.1", written.Provenance.BuildString);
@@ -63,8 +64,8 @@ public sealed class PackWriterTests
         try
         {
             LodInstall install = LodInstall.Open(installRoot);
-            PackWriter.Write(install, first);
-            PackWriter.Write(install, second);
+            PackWriter.Write(install, first, PackWriter.MapDetail.None);
+            PackWriter.Write(install, second, PackWriter.MapDetail.None);
 
             Assert.True(PackWriter.AreIdentical(first, second), "two runs over the same installation produced different bytes");
         }
@@ -83,7 +84,7 @@ public sealed class PackWriterTests
         string imports = Path.Combine(Path.GetTempPath(), $"mm7-prov-{Guid.NewGuid():N}");
         try
         {
-            PackWriter.Write(LodInstall.Open(installRoot), imports);
+            PackWriter.Write(LodInstall.Open(installRoot), imports, PackWriter.MapDetail.None);
             string manifest = File.ReadAllText(Path.Combine(imports, "mm7-tables", "pack.json"));
 
             Assert.Contains("\"game\": \"mightandmagic7\"", manifest);
@@ -95,6 +96,45 @@ public sealed class PackWriterTests
         {
             Directory.Delete(installRoot, recursive: true);
             if (Directory.Exists(imports)) Directory.Delete(imports, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Places_carry_their_kind_and_arrival_points_and_transitions_name_where_they_arrive()
+    {
+        string installRoot = SyntheticInstallation.Create(withMaps: true);
+        string root = Path.Combine(Path.GetTempPath(), $"mm7-world-{Guid.NewGuid():N}");
+        try
+        {
+            string imports = Path.Combine(root, "imports");
+            PackWriter.Write(LodInstall.Open(installRoot), imports);
+
+            WriteBundle(root, ["mm7-tables", "mm7-world"]);
+            ContentBootstrapResult bootstrap = ContentBootstrap.Load(new FileContentSource(root), Layout, "imported");
+            Assert.True(bootstrap.IsValid, string.Join("; ", bootstrap.Issues.Select(issue => issue.ToString())));
+
+            PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog);
+
+            // Thirteen rows named the outdoor payload and sixty-three the indoor one, so the graph has
+            // both kinds and the arrival points the maps actually declare.
+            Assert.Equal(76, graph.Places.Count);
+            Assert.Equal(13, graph.Places.Count(place => place.Kind == PlaceKind.Region));
+            Assert.Equal(63, graph.Places.Count(place => place.Kind == PlaceKind.Interior));
+            PlaceDefinition region = graph.Places.First(place => place.Kind == PlaceKind.Region);
+            Assert.Contains(region.EntryPoints, point => point.Id == "Party Start");
+            Assert.Contains(region.EntryPoints, point => point.Id == "North Start");
+
+            // The fixture's one inter-map move carries no position, so it names the destination's start
+            // point, and resolving it gives the pose that point declares.
+            PlaceTransition transition = Assert.Single(graph.Transitions.Where(edge => !edge.IsWorldIssued && edge.Arrival.IsEntryPoint));
+            PlacePose arrival = graph.ResolveArrival(transition);
+            PlaceEntryPoint start = graph.Require(transition.To).FindEntryPoint("Party Start")!;
+            Assert.Equal(start.Pose, arrival);
+        }
+        finally
+        {
+            Directory.Delete(installRoot, recursive: true);
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
         }
     }
 

@@ -139,7 +139,9 @@ public sealed class PlaceGraph
                         continue;
                     }
 
-                    destination = destinationId;
+                    // A program that names its own map is repositioning inside it, whatever the marker:
+                    // the party does not leave and come back.
+                    destination = destinationId == sourceMapId ? null : destinationId;
                 }
 
                 PlaceLink link = new(

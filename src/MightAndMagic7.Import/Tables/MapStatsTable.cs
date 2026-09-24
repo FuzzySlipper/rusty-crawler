@@ -48,6 +48,9 @@ public sealed class MapStatsTable
         Maps = maps;
     }
 
+    /// <summary>The table this was read from, whose source names the file in an error.</summary>
+    private LodSource Source => Table.Source;
+
     /// <summary>The table this was read from.</summary>
     public TabularTable Table { get; }
 
@@ -58,8 +61,24 @@ public sealed class MapStatsTable
     /// Map file stems without their extension, which is how a map is named by an event program and by a
     /// travel destination. Case-insensitive, because the tables disagree on case.
     /// </summary>
-    public IReadOnlyDictionary<string, int> FileStemIndex =>
-        Maps.ToDictionary(map => Path.GetFileNameWithoutExtension(map.FileName), map => map.Id, StringComparer.OrdinalIgnoreCase);
+    public IReadOnlyDictionary<string, int> FileStemIndex
+    {
+        get
+        {
+            Dictionary<string, int> index = new(StringComparer.OrdinalIgnoreCase);
+            foreach (MapStatsRecord map in Maps)
+            {
+                string stem = Path.GetFileNameWithoutExtension(map.FileName);
+                if (!index.TryAdd(stem, map.Id))
+                {
+                    throw new LodFormatException(
+                        $"{Source}: maps {index[stem]} and {map.Id} both name the file '{map.FileName}', so a map cannot be identified by it.");
+                }
+            }
+
+            return index;
+        }
+    }
 
     /// <summary>Reads the table from an installation.</summary>
     public static MapStatsTable Read(LodInstall install)

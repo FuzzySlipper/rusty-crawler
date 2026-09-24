@@ -21,7 +21,11 @@ internal static class SyntheticInstallation
     private const int QuestRows = 512;
 
     /// <summary>Writes a synthetic installation and returns its root.</summary>
-    internal static string Create()
+    /// <param name="withMaps">
+    /// Whether the installation carries map payloads. Without them the per-map table names files that
+    /// are not there, which is enough for the table and graph readers but not for arrival points.
+    /// </param>
+    internal static string Create(bool withMaps = false)
     {
         string root = Path.Combine(Path.GetTempPath(), $"mm7-synthetic-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(root, "DATA"));
@@ -32,20 +36,42 @@ internal static class SyntheticInstallation
                 "MMVI",
                 LodFixture.TextTable("CLASS.TXT", Classes()),
                 LodFixture.TextTable("SKILLDES.TXT", Skills()),
-                LodFixture.TextTable("MAPSTATS.TXT", Maps()),
+                LodFixture.TextTable("MAPSTATS.TXT", Maps(withMaps)),
                 LodFixture.TextTable("2DEvents.txt", Buildings()),
                 LodFixture.TextTable("MONSTERS.TXT", Monsters()),
                 LodFixture.TextTable("SPELLS.TXT", Spells()),
                 LodFixture.TextTable("ITEMS.TXT", Items()),
                 LodFixture.TextTable("QUESTS.TXT", Quests()),
                 ("OUT01.EVT", LodFixture.Compressed(EvtProgram(10, "Out02.odm"))),
-                ("OUT02.EVT", LodFixture.Compressed(EvtProgram(11, "Out01.odm"))),
+                ("OUT02.EVT", LodFixture.Compressed(EvtProgram(11, "Out01.odm", 0, 0, 0))),
                 ("D01.EVT", LodFixture.Compressed(EvtProgram(12, "0")))));
+        if (withMaps)
+        {
+            // One payload per map file the per-map table names, so every place decodes and each is
+            // identified by its own name.
+            byte[] outdoor = MapDecoderTests.OutdoorPayload();
+            byte[] outdoorDelta = MapDecoderTests.OutdoorDeltaPayload();
+            byte[] indoor = MapDecoderTests.IndoorPayload();
+            byte[] indoorDelta = MapDecoderTests.IndoorDeltaPayload();
+            List<(string Name, byte[] Payload)> maps = [];
+            for (int map = 1; map <= MapRows; map++)
+            {
+                maps.Add(map <= 13
+                    ? ($"out{map:D2}.odm", LodFixture.CompressedStored(outdoor))
+                    : ($"d{map - 13:D2}.blv", LodFixture.CompressedStored(indoor)));
+                maps.Add(map <= 13
+                    ? ($"out{map:D2}.ddm", LodFixture.CompressedStored(outdoorDelta))
+                    : ($"d{map - 13:D2}.dlv", LodFixture.CompressedStored(indoorDelta)));
+            }
+
+            File.WriteAllBytes(Path.Combine(root, "DATA", "Games.lod"), LodFixture.Archive("GameMMVI", [.. maps]));
+        }
+
         return root;
     }
 
     /// <summary>A small program with one move record.</summary>
-    internal static byte[] EvtProgram(ushort eventId, string destination)
+    internal static byte[] EvtProgram(ushort eventId, string destination, uint x = 1234, uint y = 5678, uint z = 0)
     {
         byte[] name = Encoding.Latin1.GetBytes(destination);
         int payload = 31 + name.Length;
@@ -54,9 +80,9 @@ internal static class SyntheticInstallation
         BinaryPrimitives.WriteUInt16LittleEndian(record.AsSpan(1), eventId);
         record[3] = 0;
         record[4] = EvtOpcodes.MoveToMap;
-        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(5), 1234);
-        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(9), 5678);
-        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(13), 0);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(5), x);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(9), y);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(13), z);
         record[29] = 0;
         record[30] = 8;
         name.CopyTo(record, 31);
@@ -85,13 +111,16 @@ internal static class SyntheticInstallation
         return text.ToString();
     }
 
-    private static string Maps()
+    private static string Maps(bool withMaps)
     {
+        _ = withMaps;
         StringBuilder text = new("map stats\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n");
         text.Append(new string('\t', 32)).Append('\n');
         text.Append("#\tName\tFile name\t#\tDay\t0-20\tDays\tDays\tPerm\t0-20\t0-10\t0-6\t%\t%\t%\t%\tMon1 Pic\tMon 1\t 1-5\t#\tMon2 Pic\tMon 2\t 1-5\t#\tMon3 Pic\tMon 3\t 1-5\t#\tTrack\tEAX\tDesigner\tNotes\n");
         for (int map = 1; map <= MapRows; map++)
         {
+            // With maps present, the rows name the two payloads the fixture holds: region rows the
+            // outdoor map, interior rows the indoor one. Without maps the names are merely plausible.
             string file = map <= 13 ? $"Out{map:D2}.odm" : $"D{map - 13:D2}.blv";
             text.Append($"{map}\tMap {map}\t{file}\t0\t0\t0\t672\t7\t0\t0\t0\t1\t0\t10\t100\t0\t0\tMonster {map}\tMonster {map}\t1\t 2-5\t0\t0\t1\t 1-3\t0\t0\t1\t 1-3\t20\tFOREST\tDesigner\tNotes for map {map}\n");
         }

@@ -434,7 +434,7 @@ public sealed class MapDecoderTests
     /// An outdoor payload with one model of one three-cornered face, three decorations, and one spawn
     /// point, laid out in the order the format stores them.
     /// </summary>
-    private static byte[] OutdoorPayload()
+    internal static byte[] OutdoorPayload()
     {
         const int terrainCells = 128 * 128;
         MapWriter writer = new();
@@ -503,7 +503,7 @@ public sealed class MapDecoderTests
     }
 
     /// <summary>An outdoor delta with the counts the outdoor fixture's geometry implies.</summary>
-    private static byte[] OutdoorDeltaPayload()
+    internal static byte[] OutdoorDeltaPayload()
     {
         MapWriter writer = new();
         writer.Zero(40);                        // header, zero throughout the shipped deltas
@@ -530,7 +530,7 @@ public sealed class MapDecoderTests
     /// <param name="faceCorners">How many corners the face has; the shared pool grows with it.</param>
     /// <param name="poolSlackValues">Extra values to declare in the face data pool, to break its walk.</param>
     /// <param name="version">The layout version the payload declares.</param>
-    private static byte[] IndoorPayload(int faceCorners = 4, int poolSlackValues = 0, int version = 1)
+    internal static byte[] IndoorPayload(int faceCorners = 4, int poolSlackValues = 0, int version = 1)
     {
         MapWriter writer = new();
         writer.U32((uint)version);
@@ -638,7 +638,7 @@ public sealed class MapDecoderTests
     }
 
     /// <summary>An indoor delta holding two door slots, the first of them in use.</summary>
-    private static byte[] IndoorDeltaPayload()
+    internal static byte[] IndoorDeltaPayload()
     {
         MapWriter writer = new();
         writer.Zero(40);                        // header
@@ -671,10 +671,13 @@ public sealed class MapDecoderTests
         return writer.ToArray();
     }
 
-    /// <summary>Builds an installation whose per-map table names the given maps and holds their payloads.</summary>
+    /// <summary>
+    /// Builds an installation whose per-map table names the given maps and holds their payloads.
+    /// </summary>
+    /// <remarks>The writer suite reuses this so both suites decode the same constructed maps.</remarks>
     /// <param name="mapFiles">One file name per map row; the table has to end up with 76 rows.</param>
     /// <param name="truncateIndoor">Whether to end the indoor payload inside its face array.</param>
-    private static string MapInstallation(IReadOnlyList<string> mapFiles, bool truncateIndoor = false)
+    internal static string MapInstallation(IReadOnlyList<string> mapFiles, bool truncateIndoor = false)
     {
         byte[] indoor = IndoorPayload();
         List<(string Name, byte[] Payload)> maps = [];
@@ -700,7 +703,7 @@ public sealed class MapDecoderTests
     }
 
     /// <summary>Builds a per-map table with the given file name in every row.</summary>
-    private static string MapStatsText(IReadOnlyList<string> mapFiles)
+    internal static string MapStatsText(IReadOnlyList<string> mapFiles)
     {
         List<string> lines =
         [

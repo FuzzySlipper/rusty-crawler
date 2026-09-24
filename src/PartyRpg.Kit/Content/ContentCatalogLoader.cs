@@ -20,6 +20,18 @@ public static class ContentCatalogLoader
     public static ContentCatalog Load(IContentSource source, ContentLayout layout)
     {
         ArgumentNullException.ThrowIfNull(source);
+
+        // A layout that names the same root twice would load every pack twice, and the second copy
+        // would show up as duplicate identities all over the catalog rather than as the configuration
+        // mistake it is.
+        IReadOnlyList<string> roots = layout.PackRoots();
+        if (roots.Distinct(StringComparer.Ordinal).Count() != roots.Count)
+        {
+            throw new ContentValidationException(
+                $"The content layout names the same pack root twice ({string.Join(", ", roots)}).",
+                [new ContentValidationIssue("layout-duplicate-root", "The content layout names the same pack root twice.", roots[0])]);
+        }
+
         List<ContentValidationIssue> issues = [];
         List<LoadedPack> packs = [];
         Dictionary<string, string> entryOwners = new(StringComparer.Ordinal);

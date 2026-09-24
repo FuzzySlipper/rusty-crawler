@@ -72,7 +72,7 @@ documents decide, and the difference is recorded rather than silently rounded.
 
 ## Current state
 
-**Foundation stone 2 has landed: the content and import pipeline exists, and no gameplay does.**
+**Foundation stone 3 is in progress: the world's place graph exists, and no gameplay does.**
 
 - `src/PartyRpg.Kit`, `src/PartyRpg.Rulesets.MightAndMagic7`, and `src/PartyRpg.Host` build against
   the pinned Engine pair. The host declares the one product entry, one admitted update, the
@@ -93,8 +93,12 @@ documents decide, and the difference is recorded rather than silently rounded.
 - The product loads content: `PartyRpg.Kit` defines the pack envelope, validates the whole catalog at
   start, and resolves the game bundle the host selects; the host starts from the bundle it ships,
   reports it in the projection, and refuses to start on content that is present and wrong. Gameplay
-  definitions do not consume the packs yet — that is stone 3.
-- **No gameplay exists**: no world, party, character, combat, magic, content, or persistence. Do not
+  definitions do not consume the packs yet.
+- The world exists as a graph: `PartyRpg.Kit` loads places and the transitions between them from the
+  imported packs — 76 places (13 regions, 63 interiors) with 83 arrival points and 193 transitions,
+  every arrival resolving — and answers where the party can go and where it arrives through one code
+  path. Per-place state, population, costed travel, movement, and party pose are the rest of this stone.
+- **No gameplay exists**: no party, character, combat, magic, content, or persistence. Do not
   describe, review, or accept behavior those stones will add as though it were here. The only
   player-facing capability today is holding and releasing the session.
 - This development box cannot host an interactive session for long: the headless browser reports
