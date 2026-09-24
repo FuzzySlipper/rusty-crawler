@@ -33,6 +33,16 @@ internal static class PackWriter
 {
     private const int SchemaVersion = 1;
 
+    /// <summary>
+    /// The placement kinds this importer emits, in the order a place writes them.
+    /// </summary>
+    /// <remarks>
+    /// The list is what the counts object is written from, so a place always states a count for every
+    /// kind that could be there — including the zeroes a region has for doors and lights — instead of
+    /// leaving a checker to infer absence from a missing key.
+    /// </remarks>
+    private static readonly string[] PlacementKinds = ["spawn", "decoration", "door", "light"];
+
     /// <summary>How much of a place's map data an import reads.</summary>
     internal enum MapDetail
     {
@@ -185,11 +195,162 @@ internal static class PackWriter
                     }
 
                     writer.WriteEndArray();
+                    WritePlacements(writer, decoded);
                 }
             }));
         }
 
         return WriteDocument(packDirectory, "places.json", "places", "place", entries);
+    }
+
+    /// <summary>
+    /// Writes what stands in a place: the spawn points, decorations, doors and lights its decoded map
+    /// holds, each with the content identity a rule resolves and the position it stands at.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A placement keeps the source's own field name and array index instead of being renumbered into a
+    /// shape of this importer's own, so a reader can follow a placement back to the decoded field that
+    /// produced it. The kind-specific fields stay beside that identity, and a place's counts are written
+    /// with them, so the pack states what it holds rather than leaving a checker to count it.
+    /// </para>
+    /// <para>
+    /// Only door slots that hold a door become placements: an interior stores two hundred door records
+    /// whether or not they mean anything, and importing the empty slots would invent two hundred doors
+    /// per place. A door stores no position of its own — only the geometry it moves when it opens — so
+    /// its position is the middle of the vertices it names, and the record says where that point came
+    /// from rather than passing a derived value off as authored data.
+    /// </para>
+    /// </remarks>
+    private static void WritePlacements(Utf8JsonWriter writer, DecodedMap map)
+    {
+        List<Placement> placements = [];
+        foreach (MapSpawnPoint spawn in map.SpawnPoints)
+        {
+            placements.Add(new Placement("spawn", spawn.Index, "spawnPoints", spawn.Position, null, null, field =>
+            {
+                field.WriteNumber("radius", spawn.Radius);
+                field.WriteNumber("type", spawn.Type);
+                field.WriteNumber("treasureLevelOrMonsterIndex", spawn.TreasureLevelOrMonsterIndex);
+                field.WriteNumber("attributes", spawn.Attributes);
+                field.WriteNumber("group", spawn.Group);
+            }));
+        }
+
+        foreach (MapDecoration decoration in map.Decorations)
+        {
+            placements.Add(new Placement("decoration", decoration.Index, "decorations", decoration.Position, decoration.YawAngle, null, field =>
+            {
+                field.WriteString("name", decoration.Name);
+                field.WriteNumber("descriptionId", decoration.DescriptionId);
+                field.WriteNumber("flags", decoration.Flags);
+                field.WriteNumber("cog", decoration.Cog);
+                field.WriteNumber("eventId", decoration.EventId);
+                field.WriteNumber("triggerRange", decoration.TriggerRange);
+                field.WriteNumber("eventVarId", decoration.EventVarId);
+            }));
+        }
+
+        foreach (MapDoor door in map.Doors)
+        {
+            if (!door.InUse) continue;
+            placements.Add(new Placement("door", door.Index, "doors", VertexMiddle(map, door.VertexIds), null, "vertexIds", field =>
+            {
+                field.WriteNumber("doorId", door.DoorId);
+                field.WriteNumber("state", door.State);
+                field.WriteNumber("attributes", door.Attributes);
+                field.WriteNumber("moveLength", door.MoveLength);
+                field.WriteNumber("openSpeed", door.OpenSpeed);
+                field.WriteNumber("closeSpeed", door.CloseSpeed);
+            }));
+        }
+
+        foreach (MapLight light in map.Lights)
+        {
+            placements.Add(new Placement("light", light.Index, "lights", light.Position, null, null, field =>
+            {
+                field.WriteNumber("radius", light.Radius);
+                field.WriteNumber("red", light.Red);
+                field.WriteNumber("green", light.Green);
+                field.WriteNumber("blue", light.Blue);
+                field.WriteNumber("type", light.Type);
+                field.WriteNumber("attributes", light.Attributes);
+                field.WriteNumber("brightness", light.Brightness);
+            }));
+        }
+
+        writer.WriteStartObject("placementCounts");
+        foreach (string kind in PlacementKinds)
+        {
+            writer.WriteNumber(kind, placements.Count(placement => string.Equals(placement.Kind, kind, StringComparison.Ordinal)));
+        }
+
+        writer.WriteNumber("total", placements.Count);
+        writer.WriteEndObject();
+
+        writer.WriteStartArray("placements");
+        foreach (Placement placement in placements)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("id", placement.Id);
+            writer.WriteString("kind", placement.Kind);
+            writer.WriteString("sourceField", placement.SourceField);
+            writer.WriteNumber("sourceIndex", placement.SourceIndex);
+            writer.WriteNumber("x", placement.Position.X);
+            writer.WriteNumber("y", placement.Position.Y);
+            writer.WriteNumber("z", placement.Position.Z);
+            if (placement.Yaw is { } yaw) writer.WriteNumber("yaw", yaw);
+            if (placement.PositionSource is { } positionSource) writer.WriteString("positionSource", positionSource);
+            placement.Fields(writer);
+            writer.WriteEndObject();
+        }
+
+        writer.WriteEndArray();
+    }
+
+    /// <summary>
+    /// The middle of the vertices a door moves, which is where the door stands.
+    /// </summary>
+    /// <remarks>
+    /// A door that is in use always names at least one vertex — that is exactly what makes it in use —
+    /// so there is always a middle to report. The division is integer division on purpose: the pack
+    /// must not depend on a rounding mode to stay reproducible.
+    /// </remarks>
+    private static MapPoint VertexMiddle(DecodedMap map, IReadOnlyList<int> vertexIds)
+    {
+        long x = 0;
+        long y = 0;
+        long z = 0;
+        foreach (int vertexId in vertexIds)
+        {
+            MapPoint vertex = map.Vertices[vertexId];
+            x += vertex.X;
+            y += vertex.Y;
+            z += vertex.Z;
+        }
+
+        return new MapPoint((int)(x / vertexIds.Count), (int)(y / vertexIds.Count), (int)(z / vertexIds.Count));
+    }
+
+    /// <summary>One thing placed in a place, before it is written.</summary>
+    /// <param name="Kind">The kind of thing placed.</param>
+    /// <param name="SourceIndex">The index within the source field it was read from.</param>
+    /// <param name="SourceField">The decoded map field it was read from.</param>
+    /// <param name="Position">Where it stands.</param>
+    /// <param name="Yaw">Its facing, or null when the source states none.</param>
+    /// <param name="PositionSource">Where a derived position came from, or null when the source stores one.</param>
+    /// <param name="Fields">The kind-specific fields to write beside the identity.</param>
+    private sealed record Placement(
+        string Kind,
+        int SourceIndex,
+        string SourceField,
+        MapPoint Position,
+        int? Yaw,
+        string? PositionSource,
+        Action<Utf8JsonWriter> Fields)
+    {
+        /// <summary>The placement's identity within its place, which is what a rule resolves.</summary>
+        public string Id { get; } = $"{Kind}-{SourceIndex}";
     }
 
     private static int WriteClasses(string packDirectory, Mm7Tables tables)

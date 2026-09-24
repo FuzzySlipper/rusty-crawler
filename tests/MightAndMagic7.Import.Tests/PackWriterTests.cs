@@ -1,7 +1,9 @@
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.World;
 using MightAndMagic7.Import.Lod;
+using MightAndMagic7.Import.Maps;
 using MightAndMagic7.Import.Tool;
+using System.Text.Json;
 using Xunit;
 
 namespace MightAndMagic7.Import.Tests;
@@ -58,14 +60,17 @@ public sealed class PackWriterTests
     [Fact]
     public void Two_runs_over_the_same_installation_write_identical_bytes()
     {
-        string installRoot = SyntheticInstallation.Create();
+        // The maps are decoded for this check, so the placement data they add is proved reproducible
+        // along with everything else: two runs that agreed on the tables but disagreed on a door's
+        // derived position would be exactly the difference a pack must never carry.
+        string installRoot = SyntheticInstallation.Create(withMaps: true);
         string first = Path.Combine(Path.GetTempPath(), $"mm7-run-a-{Guid.NewGuid():N}");
         string second = Path.Combine(Path.GetTempPath(), $"mm7-run-b-{Guid.NewGuid():N}");
         try
         {
             LodInstall install = LodInstall.Open(installRoot);
-            PackWriter.Write(install, first, PackWriter.MapDetail.None);
-            PackWriter.Write(install, second, PackWriter.MapDetail.None);
+            PackWriter.Write(install, first);
+            PackWriter.Write(install, second);
 
             Assert.True(PackWriter.AreIdentical(first, second), "two runs over the same installation produced different bytes");
         }
@@ -130,6 +135,127 @@ public sealed class PackWriterTests
             PlacePose arrival = graph.ResolveArrival(transition);
             PlaceEntryPoint start = graph.Require(transition.To).FindEntryPoint("Party Start")!;
             Assert.Equal(start.Pose, arrival);
+
+            // Arrival is a decoration, so a place that has one has it among its placements too: the
+            // entry point and the placement are two readings of the same decoded record, not two
+            // records, and neither is allowed to quietly lose it.
+            PlacePopulationContent placements = PlacePopulationContent.Read(graph);
+            IReadOnlyList<PlacementDefinition> regionPlacements = placements.PlacementsOf(region.Id);
+            Assert.Equal(4, regionPlacements.Count);
+            Assert.Equal(3, regionPlacements.Count(placement => placement.Content.Kind == "decoration"));
+            Assert.Equal(1, regionPlacements.Count(placement => placement.Content.Kind == "spawn"));
+            Assert.Contains(regionPlacements, placement => placement.Content.Id == "decoration-0");
+            PlacementDefinition firstDecoration = regionPlacements.First(placement => placement.Content.Kind == "decoration");
+            Assert.Equal("decorations", firstDecoration.SourceField);
+            Assert.Equal(0, firstDecoration.SourceIndex);
+        }
+        finally
+        {
+            Directory.Delete(installRoot, recursive: true);
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Places_carry_the_placements_the_maps_hold_with_counts_that_match_them()
+    {
+        string installRoot = SyntheticInstallation.Create(withMaps: true);
+        string root = Path.Combine(Path.GetTempPath(), $"mm7-placements-{Guid.NewGuid():N}");
+        try
+        {
+            string imports = Path.Combine(root, "imports");
+            PackWriter.Write(LodInstall.Open(installRoot), imports);
+
+            // What the decoder found is the authority the pack is checked against, per kind, so the
+            // assertions below cannot drift from the maps the fixture holds.
+            MapDecodeReport report = MapDecoder.DecodeAll(LodInstall.Open(installRoot));
+            IReadOnlyList<DecodedMap> decoded = [.. report.Decoded.Select(outcome => outcome.Decoded).OfType<DecodedMap>()];
+            Assert.Equal(76, decoded.Count);
+            int expectedSpawns = decoded.Sum(map => map.SpawnPoints.Count);
+            int expectedDecorations = decoded.Sum(map => map.Decorations.Count);
+            int expectedDoors = decoded.Sum(map => map.Doors.Count(door => door.InUse));
+            int expectedLights = decoded.Sum(map => map.Lights.Count);
+
+            // Thirteen regions of the fixture hold three decorations and one spawn each; its sixty-three
+            // interiors hold one decoration, one spawn, one in-use door of the two fixed slots, and two
+            // lights each. Stating the fixture's own numbers keeps a decoder change from silently
+            // redefining what this test proves.
+            Assert.Equal(76, expectedSpawns);
+            Assert.Equal(102, expectedDecorations);
+            Assert.Equal(63, expectedDoors);
+            Assert.Equal(126, expectedLights);
+
+            // The document itself: every place declares its placements and a count per kind, and the
+            // counts are what a checker can verify without decoding a map.
+            int spawns = 0;
+            int decorations = 0;
+            int doors = 0;
+            int lights = 0;
+            using (JsonDocument places = JsonDocument.Parse(File.ReadAllText(Path.Combine(imports, "mm7-tables", "places.json"))))
+            {
+                foreach (JsonElement entry in places.RootElement.GetProperty("entries").EnumerateArray())
+                {
+                    JsonElement counts = entry.GetProperty("placementCounts");
+                    JsonElement placements = entry.GetProperty("placements");
+                    Assert.Equal(placements.GetArrayLength(), counts.GetProperty("total").GetInt32());
+                    Assert.Equal(
+                        placements.GetArrayLength(),
+                        counts.EnumerateObject().Where(property => property.Name != "total").Sum(property => property.Value.GetInt32()));
+
+                    HashSet<string> identities = [];
+                    foreach (JsonElement placement in placements.EnumerateArray())
+                    {
+                        // A placement is data: an identity within its place, the source field it came
+                        // from, and a position. Nothing here needs a runtime or a decoded map to read.
+                        string kind = placement.GetProperty("kind").GetString()!;
+                        string id = placement.GetProperty("id").GetString()!;
+                        Assert.True(identities.Add(id), $"place {entry.GetProperty("id").GetString()} declares '{id}' twice");
+                        Assert.StartsWith(kind, id, StringComparison.Ordinal);
+                        Assert.False(string.IsNullOrEmpty(placement.GetProperty("sourceField").GetString()));
+                        Assert.True(placement.TryGetProperty("x", out _));
+                        Assert.True(placement.TryGetProperty("y", out _));
+                        Assert.True(placement.TryGetProperty("z", out _));
+                    }
+
+                    spawns += counts.GetProperty("spawn").GetInt32();
+                    decorations += counts.GetProperty("decoration").GetInt32();
+                    doors += counts.GetProperty("door").GetInt32();
+                    lights += counts.GetProperty("light").GetInt32();
+                }
+            }
+
+            Assert.Equal(expectedSpawns, spawns);
+            Assert.Equal(expectedDecorations, decorations);
+            Assert.Equal(expectedDoors, doors);
+            Assert.Equal(expectedLights, lights);
+
+            // The product's own reader agrees with the document, and a population built over the
+            // imported world holds exactly what content declares for the place it stands in.
+            WriteBundle(root, ["mm7-tables", "mm7-world"]);
+            ContentBootstrapResult bootstrap = ContentBootstrap.Load(new FileContentSource(root), Layout, "imported");
+            Assert.True(bootstrap.IsValid, string.Join("; ", bootstrap.Issues.Select(issue => issue.ToString())));
+            PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog);
+            PlacePopulationContent content = PlacePopulationContent.Read(graph);
+            PlaceDefinition interior = graph.Places.First(place => place.Kind == PlaceKind.Interior);
+            Assert.Equal(5, content.PlacementsOf(interior.Id).Count);
+            Assert.Equal(1, content.PlacementsOf(interior.Id).Count(placement => placement.Content.Kind == "spawn"));
+            Assert.Equal(1, content.PlacementsOf(interior.Id).Count(placement => placement.Content.Kind == "door"));
+
+            // A door stores no position of its own, so the record says its position came from the
+            // vertices it moves rather than passing a derived point off as stored data.
+            using (PlacePopulation population = new(graph, new PlaceStateLedger(graph, PlaceRespawnRule.FromContent())))
+            {
+                IReadOnlyList<PlacePopulationEntity> entities = population.Step(interior.Id, []);
+                Assert.Equal(content.PlacementsOf(interior.Id).Select(placement => placement.Content), entities.Select(entity => entity.Content));
+                Assert.Equal(5, population.Diagnostics.EntityCount);
+                Assert.Equal(1, population.Diagnostics.CountOf("spawn"));
+                Assert.Equal(1, population.Diagnostics.CountOf("decoration"));
+                Assert.Equal(1, population.Diagnostics.CountOf("door"));
+                Assert.Equal(2, population.Diagnostics.CountOf("light"));
+            }
+
+            string doorDocument = File.ReadAllText(Path.Combine(imports, "mm7-tables", "places.json"));
+            Assert.Contains("\"positionSource\": \"vertexIds\"", doorDocument);
         }
         finally
         {
