@@ -93,6 +93,65 @@ public sealed class ProductCompositionTests
     }
 
     [Fact]
+    public void A_bundle_with_a_world_starts_the_party_at_the_place_its_scenario_names()
+    {
+        (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(
+        [
+            ProductTestContext.Bundle("partyrpg-default", "world"),
+            ($"{ProductTestContext.ContentDirectory}/content-packs/world/pack.json",
+                """
+                {
+                  "schemaVersion": 1,
+                  "packId": "world",
+                  "kind": "definitions",
+                  "provenance": { "description": "authored for a test" },
+                  "documents": [
+                    { "path": "places.json", "documentId": "places", "definitionKind": "place" },
+                    { "path": "links.json", "documentId": "links", "definitionKind": "travel-link" },
+                    { "path": "start.json", "documentId": "start", "definitionKind": "scenario-start" }
+                  ]
+                }
+                """),
+            ($"{ProductTestContext.ContentDirectory}/content-packs/world/places.json",
+                """
+                {
+                  "documentId": "places",
+                  "definitionKind": "place",
+                  "entries": [
+                    { "id": "1", "kind": "region", "name": "Emerald Island", "respawnDays": 7,
+                      "entryPoints": [ { "id": "Party Start", "x": 12552, "y": 800, "z": 160, "yaw": 512 } ] },
+                    { "id": "2", "kind": "interior", "name": "Cave", "respawnDays": 7,
+                      "entryPoints": [ { "id": "Party Start", "x": 1, "y": 2, "z": 3, "yaw": 0 } ] }
+                  ]
+                }
+                """),
+            ($"{ProductTestContext.ContentDirectory}/content-packs/world/links.json",
+                """
+                {
+                  "documentId": "links",
+                  "definitionKind": "travel-link",
+                  "entries": [ { "id": "0", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start" } ]
+                }
+                """),
+            ($"{ProductTestContext.ContentDirectory}/content-packs/world/start.json",
+                """
+                { "documentId": "start", "definitionKind": "scenario-start", "entries": [ { "id": "start", "place": "1", "entryPoint": "Party Start" } ] }
+                """),
+        ]);
+
+        using CrawlerProduct product = new(context);
+        product.Start();
+        product.Attach();
+
+        ProjectedNode world = ProjectedNode.Of(ui.Latest().Value).Field("world");
+        Assert.Equal("1", world.Field("place").AsString());
+        Assert.Equal("Emerald Island", world.Field("name").AsString());
+        Assert.Equal("region", world.Field("kind").AsString());
+        Assert.Equal(1.0, world.Field("visited").AsNumber());
+        Assert.Equal(2.0, world.Field("places").AsNumber());
+    }
+
+    [Fact]
     public void A_restart_reuses_the_bundle_it_started_with()
     {
         (ProductCreateContext context, _) = ProductTestContext.Create(

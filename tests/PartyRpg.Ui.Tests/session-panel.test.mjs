@@ -13,6 +13,21 @@ const CONTRACT = 'crawler.ui.snapshot.v1';
 const ACTION_INTENT = 'crawler.ui';
 const ACTION_CONTRACT = 'crawler.ui.action.v1';
 
+function world(overrides = {}) {
+  return {
+    place: '1',
+    name: 'Emerald Island',
+    kind: 'region',
+    x: 1234,
+    y: 5678,
+    z: 0,
+    yaw: 512,
+    visited: 1,
+    places: 76,
+    ...overrides,
+  };
+}
+
 function snapshot(mode, seconds = 0, steps = 0, updates = 0) {
   return {
     composition: {
@@ -22,6 +37,7 @@ function snapshot(mode, seconds = 0, steps = 0, updates = 0) {
       contentPacks: 2,
     },
     session: { mode, simulationSeconds: seconds, admittedSteps: steps, updates },
+    world: world(),
   };
 }
 
@@ -97,6 +113,7 @@ function readPanel(h) {
   const panel = h.panel();
   return {
     mode: panel?.getAttribute('data-mode'),
+    place: panel?.querySelector('.crawler-place')?.textContent,
     ruleset: panel?.querySelector('.crawler-ruleset')?.textContent,
     bundle: panel?.querySelector('.crawler-bundle')?.textContent,
     title: panel?.querySelector('h1')?.textContent,
@@ -118,7 +135,8 @@ test('renders nothing until the product publishes, then renders what it publishe
       title: '',
       button: 'Starting…',
       disabled: true,
-      values: ['—', '—', '—', '—', '—'],
+      values: ['—', '—', '—', '—', '—', '—', '—', '—'],
+      place: '',
     });
 
     h.emit(snapshot('running', 12.34, 740, 741));
@@ -129,7 +147,8 @@ test('renders nothing until the product publishes, then renders what it publishe
       title: 'Rusty Crawler',
       button: 'Pause session',
       disabled: false,
-      values: ['running', '12.3 s', '740', '741', '2'],
+      values: ['running', '12.3 s', '740', '741', '2', '1', '1234, 5678, 0 @ 512', '1 / 76'],
+      place: 'Emerald Island · region',
     });
 
     ui.dispose();
@@ -151,6 +170,7 @@ test('reports an unselected bundle and counts a single pack in the singular', ()
         contentPacks: 0,
       },
       session: { mode: 'running', simulationSeconds: 0, admittedSteps: 0, updates: 1 },
+      world: world(),
     });
     assert.equal(readPanel(h).bundle, 'No game bundle selected');
 
@@ -162,6 +182,7 @@ test('reports an unselected bundle and counts a single pack in the singular', ()
         contentPacks: 1,
       },
       session: { mode: 'running', simulationSeconds: 0, admittedSteps: 0, updates: 2 },
+      world: world(),
     });
     assert.equal(readPanel(h).bundle, 'partyrpg-default · 1 pack');
 
@@ -223,7 +244,7 @@ test('the companion holds no state and starts no timer', () => {
 
     assert.deepEqual(h.timers, { setTimeout: 0, setInterval: 0, requestAnimationFrame: 0 });
     // Rendering the newest projection replaces the previous values rather than accumulating them.
-    assert.deepEqual(readPanel(h).values, ['running', '3.0 s', '180', '182', '2']);
+    assert.deepEqual(readPanel(h).values, ['running', '3.0 s', '180', '182', '2', '1', '1234, 5678, 0 @ 512', '1 / 76']);
     assert.equal(h.root.querySelectorAll('.crawler-session').length, 1);
 
     ui.dispose();

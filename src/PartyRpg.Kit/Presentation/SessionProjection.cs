@@ -1,4 +1,5 @@
 using PartyRpg.Kit.Sessions;
+using PartyRpg.Kit.World;
 using Rusty.Engine;
 
 namespace PartyRpg.Kit.Presentation;
@@ -13,12 +14,36 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="SimulationSeconds">Admitted simulation time accumulated while running.</param>
 /// <param name="AdmittedSteps">Admitted fixed steps accumulated while running.</param>
 /// <param name="Updates">Admitted updates this session has consumed.</param>
+/// <param name="World">Where the party is, or an empty world when the session has no places loaded.</param>
 public readonly record struct SessionSnapshot(
     SessionComposition Composition,
     SessionMode Mode,
     double SimulationSeconds,
     ulong AdmittedSteps,
-    ulong Updates);
+    ulong Updates,
+    WorldSnapshot World);
+
+/// <summary>Where the party is in the world, as the panel needs it: which place, where in it, and how much of the world is known.</summary>
+/// <param name="Place">The place the party is in, empty when the session has no world.</param>
+/// <param name="Name">The place's display name.</param>
+/// <param name="Kind">The place's kind, as the wire spells it.</param>
+/// <param name="Pose">The party's position and facing in that place.</param>
+/// <param name="Visited">How many places the party has visited.</param>
+/// <param name="Places">How many places the world holds.</param>
+public readonly record struct WorldSnapshot(
+    string Place,
+    string Name,
+    string Kind,
+    PlacePose Pose,
+    int Visited,
+    int Places)
+{
+    /// <summary>The world of a session that has no places loaded.</summary>
+    public static WorldSnapshot Empty => new(string.Empty, string.Empty, string.Empty, PlacePose.Origin, 0, 0);
+
+    /// <summary>Whether the session has a world at all.</summary>
+    public bool HasWorld => Places > 0;
+}
 
 /// <summary>Builds the session projection value. The wire vocabulary is stable and versioned by contract.</summary>
 public static class SessionProjection
@@ -38,6 +63,9 @@ public static class SessionProjection
     /// <summary>The composition's resolved content pack count field.</summary>
     public const string ContentPacksField = "contentPacks";
 
+    /// <summary>The world object's wire name.</summary>
+    public const string WorldField = "world";
+
     /// <summary>Builds the projection value for a snapshot.</summary>
     public static UiValue Build(SessionSnapshot snapshot)
     {
@@ -52,9 +80,27 @@ public static class SessionProjection
                 ("mode", builder.String(WireName(snapshot.Mode))),
                 ("simulationSeconds", builder.Number(snapshot.SimulationSeconds)),
                 ("admittedSteps", builder.Number(snapshot.AdmittedSteps)),
-                ("updates", builder.Number(snapshot.Updates)))));
+                ("updates", builder.Number(snapshot.Updates)))),
+            (WorldField, builder.Object(
+                ("place", builder.String(snapshot.World.Place)),
+                ("name", builder.String(snapshot.World.Name)),
+                ("kind", builder.String(snapshot.World.Kind)),
+                ("x", builder.Number(snapshot.World.Pose.X)),
+                ("y", builder.Number(snapshot.World.Pose.Y)),
+                ("z", builder.Number(snapshot.World.Pose.Z)),
+                ("yaw", builder.Number(snapshot.World.Pose.Yaw)),
+                ("visited", builder.Number(snapshot.World.Visited)),
+                ("places", builder.Number(snapshot.World.Places)))));
         return builder.Build(root);
     }
+
+    /// <summary>The wire name for a place kind.</summary>
+    public static string WireName(PlaceKind kind) => kind switch
+    {
+        PlaceKind.Region => "region",
+        PlaceKind.Interior => "interior",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown place kind."),
+    };
 
     /// <summary>The wire name for a session mode.</summary>
     public static string WireName(SessionMode mode) => mode switch

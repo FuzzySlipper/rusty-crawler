@@ -19,6 +19,7 @@ public sealed class CrawlerProduct : IEngineProduct
     private readonly IGameRuleset _ruleset;
     private readonly SessionInputRouter _input;
     private readonly BundleSelection _selection;
+    private readonly ContentCatalog? _content;
     private IGameSession _session;
     private bool _started;
     private bool _shutdown;
@@ -37,7 +38,7 @@ public sealed class CrawlerProduct : IEngineProduct
         _context = context;
         _ruleset = ruleset;
         _input = new SessionInputRouter(ProductIdentity.PauseToggleIntent, ProductIdentity.UiActionContract);
-        _selection = SelectBundle(context, bundleId ?? BuiltInBundles.Default);
+        (_selection, _content) = SelectBundle(context, bundleId ?? BuiltInBundles.Default);
         _session = CreateSession();
     }
 
@@ -58,7 +59,7 @@ public sealed class CrawlerProduct : IEngineProduct
     /// than starting and meeting the defect later as a missing monster. Content that is absent yields
     /// no selection instead: a checkout whose packs have not been generated yet still runs.
     /// </remarks>
-    private static BundleSelection SelectBundle(ProductCreateContext context, string bundleId)
+    private static (BundleSelection Selection, ContentCatalog? Content) SelectBundle(ProductCreateContext context, string bundleId)
     {
         ContentBootstrapResult bootstrap = ContentBootstrap.Load(
             new ProductContentSource(context.Content),
@@ -72,8 +73,8 @@ public sealed class CrawlerProduct : IEngineProduct
         }
 
         return bootstrap.Selection is { } selection
-            ? new BundleSelection(selection.Bundle.BundleId, selection.Packs.Count)
-            : BundleSelection.None;
+            ? (new BundleSelection(selection.Bundle.BundleId, selection.Packs.Count), bootstrap.Catalog)
+            : (BundleSelection.None, (ContentCatalog?)null);
     }
 
     /// <summary>The mode the session is in.</summary>
@@ -158,7 +159,7 @@ public sealed class CrawlerProduct : IEngineProduct
             new UiStreamRequest(ProductIdentity.UiStream, ProductIdentity.UiContract));
         try
         {
-            return _ruleset.CreateSession(new RulesetSessionContext(channel, _selection));
+            return _ruleset.CreateSession(new RulesetSessionContext(channel, _selection, _content));
         }
         catch
         {

@@ -21,17 +21,23 @@ public sealed class PartyRpgSession : IGameSession
     private ulong _admittedSteps;
     private ulong _updates;
     private ulong? _accountedThroughStep;
+    private WorldSnapshot _world = WorldSnapshot.Empty;
     private bool _started;
     private bool _enginePaused;
     private bool _held;
     private bool _disposed;
 
     /// <summary>Creates a session for a compiled ruleset over the mechanisms the kit supplies.</summary>
-    public PartyRpgSession(SessionComposition composition, IUiProjectionChannel projection)
+    /// <param name="composition">The identity the session presents.</param>
+    /// <param name="projection">Where it publishes its presentation.</param>
+    /// <param name="world">The live world it steps, when content supplied one.</param>
+    public PartyRpgSession(SessionComposition composition, IUiProjectionChannel projection, SessionWorld? world = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(composition.Title);
         _composition = composition;
         _projection = projection ?? throw new ArgumentNullException(nameof(projection));
+        LiveWorld = world;
+        _world = world?.Snapshot ?? WorldSnapshot.Empty;
         // A session publishes as soon as it exists: the engine expects a create-time projection, and a
         // client that attaches before the first update should see the session it has attached to.
         Publish();
@@ -45,6 +51,12 @@ public sealed class PartyRpgSession : IGameSession
 
     /// <summary>Admitted fixed steps accumulated while the session was running.</summary>
     public ulong AdmittedSteps => _admittedSteps;
+
+    /// <summary>The live world this session steps, or null when content supplied none.</summary>
+    public SessionWorld? LiveWorld { get; }
+
+    /// <summary>Where the party is, or an empty world while the session has no places.</summary>
+    public WorldSnapshot World => _world;
 
     /// <summary>Admitted updates this session has consumed, whether or not it was running.</summary>
     public ulong Updates => _updates;
@@ -117,6 +129,15 @@ public sealed class PartyRpgSession : IGameSession
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         Advance(SessionTick.From(update.Facts));
+
+        // The world advances with the same admitted time the session measures: one clock, one update.
+        if (LiveWorld is { } world)
+        {
+            if (world.AdvanceTime().Count > 0) Publish();
+            else if (world.Snapshot != _world) Publish();
+            _world = world.Snapshot;
+        }
+
         return ProductUpdateResult.None;
     }
 
@@ -178,5 +199,14 @@ public sealed class PartyRpgSession : IGameSession
 
     private void Publish() => _projection.Publish(SessionProjection.Build(Snapshot()));
 
-    private SessionSnapshot Snapshot() => new(_composition, _mode, _simulationSeconds, _admittedSteps, _updates);
+    private SessionSnapshot Snapshot() => new(_composition, _mode, _simulationSeconds, _admittedSteps, _updates, _world);
+
+    /// <summary>Publishes the world as it stands now, after a caller moved the party.</summary>
+    public void PublishWorld()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (LiveWorld is not { } world) return;
+        _world = world.Snapshot;
+        Publish();
+    }
 }

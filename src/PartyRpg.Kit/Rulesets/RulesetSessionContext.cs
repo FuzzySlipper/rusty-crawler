@@ -1,5 +1,6 @@
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Presentation;
+using PartyRpg.Kit.Sessions;
 
 namespace PartyRpg.Kit.Rulesets;
 
@@ -10,4 +11,10 @@ namespace PartyRpg.Kit.Rulesets;
 /// </summary>
 /// <param name="Projection">Where the session publishes its presentation.</param>
 /// <param name="Selection">The game bundle the host selected, when it selected one.</param>
-public sealed record RulesetSessionContext(IUiProjectionChannel Projection, BundleSelection Selection = default);
+/// <param name="Content">The validated content the session may build its world from, when a bundle supplied any.</param>
+/// <param name="Time">Where elapsed game days come from, when a clock has been wired.</param>
+public sealed record RulesetSessionContext(
+    IUiProjectionChannel Projection,
+    BundleSelection Selection = default,
+    ContentCatalog? Content = null,
+    IWorldTimeSource? Time = null);

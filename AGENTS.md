@@ -97,7 +97,17 @@ documents decide, and the difference is recorded rather than silently rounded.
 - The world exists as a graph: `PartyRpg.Kit` loads places and the transitions between them from the
   imported packs — 76 places (13 regions, 63 interiors) with 83 arrival points and 193 transitions,
   every arrival resolving — and answers where the party can go and where it arrives through one code
-  path. Per-place state, population, costed travel, movement, and party pose are the rest of this stone.
+  path. The party's pose and derived view, per-place runtime state, and one costed transition path are
+  wired into the session; a session with content places the party where a scenario says, marks places
+  visited, and advances respawn from a day source. Population and Engine-backed movement are the rest
+  of this stone.
+- Travel costs are stated, not yet applied: `TravelCost` carries elapsed time and provisions with
+  units, and the transition path refuses paid or magical travel by name until the party's purse
+  (stone 4) and the service and magic owners (stones 5 and 7) exist. Respawn's day source is the same
+  seam: the world advances when a clock reports the day, and no clock exists yet. Both are routed, not
+  forgotten — the clock, purse, and food receiver is a stone 4 task.
+- The product shows a world only when a bundle carries places and a scenario start; the shipped bundle
+  carries neither yet, so a running product reports no world. Authoring that scenario is stone 4's.
 - **No gameplay exists**: no party, character, combat, magic, content, or persistence. Do not
   describe, review, or accept behavior those stones will add as though it were here. The only
   player-facing capability today is holding and releasing the session.

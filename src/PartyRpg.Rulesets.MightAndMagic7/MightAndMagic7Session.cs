@@ -22,7 +22,8 @@ internal sealed class MightAndMagic7Session : IGameSession
                 Bundle = context.Selection.BundleId,
                 ContentPacks = context.Selection.PackCount,
             },
-            context.Projection);
+            context.Projection,
+            MightAndMagic7World.Compose(context.Content, context.Time));
     }
 
     /// <inheritdoc />

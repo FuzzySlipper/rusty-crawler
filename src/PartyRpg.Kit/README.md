@@ -34,7 +34,10 @@ The owner-by-owner contract — what each Kit owner holds, what the ruleset
 supplies, and where new code goes — is in
 [`../../docs/code-organization.md`](../../docs/code-organization.md).
 
-Implemented today: the session shell (`PartyRpgSession`, `SessionMode`, `IGameSession`), the compiled
-ruleset and session contracts, the structured UI value builder, the Engine-backed projection channel
-and the session projection, and the admitted-input router that turns engine events into session
-commands. Everything else in the owner map is still to come.
+Implemented today: the session shell (`PartyRpgSession`, `SessionMode`, `IGameSession`) with the live
+world it steps (`SessionWorld`), the compiled ruleset and session contracts, the pack envelope with its
+catalog loader, validator and bundle resolution, the world (`PlaceGraph`, `PlaceGraphLoader`,
+`PlaceStateLedger`, `TransitionExecutive` with its required cost contract), the party's pose and
+derived view (`PartyPoseOwner`, `FacingRule`, `PartyView`), the structured UI value builder, the
+Engine-backed projection channel and the session projection, and the admitted-input router that turns
+engine events into session commands. Everything else in the owner map is still to come.
