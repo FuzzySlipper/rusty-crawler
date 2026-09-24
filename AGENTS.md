@@ -258,11 +258,14 @@ donor file path or a documented table, not recalled from memory. Record the path
 with the claim, as the donor surveys do. Where donors disagree or a divergence is
 unverified, say so rather than picking the convenient answer.
 
-Coverage planning — what behavior is in scope for the emulated game, in what
-order, and which donor artifact documents it — does not exist yet. Plan
-dependencies and explicit behavior contracts in a coverage plan plus feature map
-before large implementation campaigns, and keep the point-in-time donor inventory
-separate from live status.
+Live work lives in Den, not in Markdown. The foundation stones are campaigns
+`rusty-crawler#8454`–`#8462`, one per stone, each with child tasks carrying
+outcome, scope, acceptance criteria, and expected evidence; dependencies between
+them encode the building order in `docs/gameplay-design.md` §5. Den owns task
+status, dependencies, and scheduling — do not mirror task lists into repository
+documents, where they go stale and are later read as current. Repository
+documents own the durable shape and the evidence; a point-in-time feature map may
+still be written here when a campaign needs one.
 
 ## Coverage execution and drift
 

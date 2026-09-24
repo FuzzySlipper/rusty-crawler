@@ -104,6 +104,12 @@ its numbers. The build order is foundations first: each capability lands complet
 and global, with no vertical slices and no stubs waiting for a reconciliation
 pass.
 
+Work is sequenced in Den as nine foundation-stone campaigns
+(`rusty-crawler#8454`–`#8462`) with child tasks carrying outcome, scope,
+acceptance, and evidence. Den owns status and dependencies; repository documents
+do not mirror the task list, because a copied list goes stale and is later read as
+current.
+
 ## Repository layout
 
 | Path | Holds |

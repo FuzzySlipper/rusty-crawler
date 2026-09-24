@@ -11,12 +11,15 @@ Durable repository documents for Rusty Crawler. Start here.
 | [`research/`](research/) | Donor surveys and the manual-cited experience outline: what the reference reimplementation, the extension projects, and the shipped manual say about the game. |
 | [`agent-review/`](agent-review/) | The review lane model and the packets handed to reviewers. |
 
-Planned, not yet written:
+Sequencing lives in Den, not here: the nine foundation stones are campaigns
+`rusty-crawler#8454`–`#8462`, each with child tasks carrying outcome, scope,
+acceptance criteria, and expected evidence. Den owns task status, dependencies,
+and scheduling — repository documents deliberately do not mirror the task list,
+because a copied list goes stale and is later read as current. Durable shape and
+evidence stay here: the design documents above and
+[`research/`](research/).
 
-- A coverage plan and task index: what behavior is in scope, how it is sequenced,
-  and which donor artifact or manual page documents it.
-- A feature map: the point-in-time donor and data inventory this repository plans
-  against.
+A point-in-time feature map may still be written here when a campaign needs one.
 
 Documentation posture: durable documents state ownership, boundaries, and
 current behavior. They do not pin engine versions or commit revisions — those
