@@ -106,6 +106,7 @@ public sealed class MovementInput
     private readonly byte[] _jump;
     private readonly double _turnRate;
     private Controls _held;
+    private Controls _stateDriven;
 
     /// <summary>Creates the reader for one product's declared movement controls.</summary>
     /// <param name="names">The intent names the controls arrive on.</param>
@@ -150,6 +151,7 @@ public sealed class MovementInput
     public MovementIntent Read(ReadOnlySpan<ProductInputEvent> input)
     {
         Controls claimed = Controls.None;
+        Controls state = Controls.None;
         bool jumpStarted = false;
         foreach (ProductInputEvent inputEvent in input)
         {
@@ -160,11 +162,21 @@ public sealed class MovementInput
             if (inputEvent.Edge == InputEdge.Pressed)
             {
                 _held |= control;
+                _stateDriven &= ~control;
                 if (control == Controls.Jump) jumpStarted = true;
             }
             else if (inputEvent.Edge == InputEdge.Released)
             {
                 _held &= ~control;
+                _stateDriven &= ~control;
+            }
+            else if (inputEvent.Edge == InputEdge.Held)
+            {
+                // A held edge reports a *state*, not a transition: a key the player is holding arrives
+                // this way every update it stays down. So this update's held edges replace the previous
+                // update's rather than accumulating, or the party would walk on after the key came up.
+                state |= control;
+                if (control == Controls.Jump) jumpStarted = true;
             }
             else if (inputEvent.Phase == InputPhase.DirectUi || inputEvent.Provenance == InputProvenance.DirectUi)
             {
@@ -173,6 +185,10 @@ public sealed class MovementInput
             }
         }
 
+        // Controls that arrive as state are whatever this update said, and nothing else: the bits a
+        // previous update set are cleared first, so a key that is no longer held simply stops.
+        _held = (_held & ~_stateDriven) | state;
+        _stateDriven = state;
         return Intent(claimed, jumpStarted);
     }
 

@@ -11,4 +11,4 @@ Boundary rules:
 - It is built by `scripts/verify.sh`, so a change to the import API cannot leave
   the tool silently broken.
 
-Nothing is implemented yet.
+Implemented: `info`, `list`, `report`, `verify`, `maps`, `media`, and `write` (see the root README).
