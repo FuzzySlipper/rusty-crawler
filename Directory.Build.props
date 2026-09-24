@@ -5,7 +5,7 @@
          atomically installs .runtime/sdk-feed and .runtime/runtime-pack.
          Move the pin with scripts/update-engine-pin.sh; never hand-edit a
          version into prose. -->
-    <RustyEnginePackageVersion>0.1.0-dev.1f4e45ba1d6b</RustyEnginePackageVersion>
-    <RustyEnginePairSourceRevision>1f4e45ba1d6b2ccf0acfb1b2c43436e5a03e71b1</RustyEnginePairSourceRevision>
+    <RustyEnginePackageVersion>0.1.0-dev.eedd406900d5</RustyEnginePackageVersion>
+    <RustyEnginePairSourceRevision>eedd406900d5a51184b0a7d6f99ccaff2393aba8</RustyEnginePairSourceRevision>
   </PropertyGroup>
 </Project>

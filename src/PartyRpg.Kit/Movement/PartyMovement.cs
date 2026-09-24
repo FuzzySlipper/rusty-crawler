@@ -98,7 +98,8 @@ public sealed class PartyMovement : IDisposable
         MovementIntent intent,
         double elapsedSeconds,
         ReadOnlyMemory<CharacterObstacle> obstacles = default,
-        CharacterSupport support = default)
+        CharacterSupport support = default,
+        ReadOnlyMemory<CharacterMeshInstance> movingMeshes = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -108,6 +109,7 @@ public sealed class PartyMovement : IDisposable
             Motion.Continuation,
             support,
             obstacles,
+            movingMeshes,
             _tuning.ControllerOn(Motion.Surface),
             Motion.Command(intent, elapsedSeconds));
 

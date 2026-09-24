@@ -63,6 +63,8 @@ internal sealed class FakeEngineContext : IEngineContext
 
     public IContentStoreService ContentStore => Unsupported<IContentStoreService>();
 
+    public IRenderOutputService RenderOutput => Unsupported<IRenderOutputService>();
+
     private static T Unsupported<T>() =>
         throw new NotSupportedException($"{typeof(T).Name} is not used by this product yet, so the test context does not provide it.");
 }
