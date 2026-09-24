@@ -62,14 +62,14 @@ public sealed class CrawlerProduct : IEngineProduct
         _session.PublishInitial();
     }
 
-    /// <summary>Holds the session.</summary>
+    /// <summary>Holds the session because the engine paused it.</summary>
     public void Pause()
     {
         if (!_started || _shutdown) return;
         _session.Pause();
     }
 
-    /// <summary>Releases a held session.</summary>
+    /// <summary>Releases the engine's pause. A hold the player asked for stays in force.</summary>
     public void Resume()
     {
         if (!_started || _shutdown) return;
@@ -80,8 +80,11 @@ public sealed class CrawlerProduct : IEngineProduct
     public void Restart()
     {
         if (_shutdown) return;
+        // The replacement is built before the old session is released, so a failure here leaves the
+        // running session in place rather than the product without one.
+        IGameSession replacement = CreateSession();
         IGameSession previous = _session;
-        _session = CreateSession();
+        _session = replacement;
         previous.Dispose();
         if (_started) _session.Start();
     }
@@ -109,9 +112,21 @@ public sealed class CrawlerProduct : IEngineProduct
         return _session.Update(update);
     }
 
-    private IGameSession CreateSession() => _ruleset.CreateSession(
-        new RulesetSessionContext(
-            new EngineUiProjectionChannel(
-                _context.Engine.Ui,
-                new UiStreamRequest(ProductIdentity.UiStream, ProductIdentity.UiContract))));
+    private IGameSession CreateSession()
+    {
+        EngineUiProjectionChannel channel = new(
+            _context.Engine.Ui,
+            new UiStreamRequest(ProductIdentity.UiStream, ProductIdentity.UiContract));
+        try
+        {
+            return _ruleset.CreateSession(new RulesetSessionContext(channel));
+        }
+        catch
+        {
+            // The stream is opened before the ruleset composes its session, so a failed composition
+            // must release it here; otherwise the stream outlives the product that asked for it.
+            channel.Dispose();
+            throw;
+        }
+    }
 }

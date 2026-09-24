@@ -31,6 +31,12 @@ internal sealed class MightAndMagic7Session : IGameSession
     public void Resume() => _session.Resume();
 
     /// <inheritdoc />
+    public void Hold() => _session.Hold();
+
+    /// <inheritdoc />
+    public void ReleaseHold() => _session.ReleaseHold();
+
+    /// <inheritdoc />
     public void PublishInitial() => _session.PublishInitial();
 
     /// <inheritdoc />

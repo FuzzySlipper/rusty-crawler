@@ -41,9 +41,19 @@ public sealed class ArchitectureLawTests
     [Fact]
     public void Project_references_follow_the_dependency_graph()
     {
+        // Every product project is known to this law: a project that appears here without being added
+        // to the expectations below is the failure mode this check exists for.
+        string[] discovered = [.. SourceProjects()
+            .Select(path => Path.GetFileNameWithoutExtension(path) ?? path)
+            .Order(StringComparer.Ordinal)];
+        string[] expectedProjects = ["PartyRpg.Host", "PartyRpg.Kit", "PartyRpg.Rulesets.MightAndMagic7"];
+        Assert.Equal(expectedProjects, discovered);
+
         AssertProjectReferences("PartyRpg.Kit", []);
         AssertProjectReferences("PartyRpg.Rulesets.MightAndMagic7", ["PartyRpg.Kit"]);
         AssertProjectReferences("PartyRpg.Host", ["PartyRpg.Kit", "PartyRpg.Rulesets.MightAndMagic7"]);
+
+        foreach (string project in SourceProjects()) AssertNoSmuggledReference(project);
     }
 
     [Fact]
@@ -69,8 +79,19 @@ public sealed class ArchitectureLawTests
         Assert.Equal(ConstantValue(source, "Title"), PropertyValue(project, "RustyEngineProductTitle"));
         Assert.Equal(ConstantValue(source, "UiStream"), PropertyValue(project, "RustyEngineProductUiProjectionStream"));
         Assert.Equal(ConstantValue(source, "UiContract"), PropertyValue(project, "RustyEngineProductUiProjectionContract"));
-        Assert.Contains($"payload:{ConstantValue(source, "UiActionContract")}", File.ReadAllText(project), StringComparison.Ordinal);
-        Assert.Contains(ConstantValue(source, "PauseToggleIntent"), File.ReadAllText(project), StringComparison.Ordinal);
+
+        // The engine learns the admitted intent names from the project file and rejects an undeclared
+        // one, so a rename that misses either place silently disables the action it carries.
+        string projectText = File.ReadAllText(project);
+        Assert.Contains(
+            $"RustyEngineProductInputIntent Include=\"{ConstantValue(source, "UiActionIntent")}\"",
+            projectText,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            $"RustyEngineProductInputIntent Include=\"{ConstantValue(source, "PauseToggleIntent")}\"",
+            projectText,
+            StringComparison.Ordinal);
+        Assert.Contains($"payload:{ConstantValue(source, "UiActionContract")}", projectText, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -82,6 +103,34 @@ public sealed class ArchitectureLawTests
         AssertUiConstant(ui, "UI_CONTRACT", ConstantValue(source, "UiContract"));
         AssertUiConstant(ui, "UI_ACTION_INTENT", ConstantValue(source, "UiActionIntent"));
         AssertUiConstant(ui, "UI_ACTION_CONTRACT", ConstantValue(source, "UiActionContract"));
+    }
+
+    [Fact]
+    public void Verify_script_covers_every_project_and_suite()
+    {
+        string script = File.ReadAllText(Path.Combine(RepositoryRoot, "scripts", "verify.sh"));
+
+        string[] productProjects = [.. SourceProjects().Select(Relative).Order(StringComparer.Ordinal)];
+        string[] declaredProducts = [.. DeclaredList(script, "product_projects").Order(StringComparer.Ordinal)];
+        Assert.Equal(productProjects, declaredProducts);
+
+        string[] suites = [.. Directory.EnumerateFiles(Path.Combine(RepositoryRoot, "tests"), "*.csproj", SearchOption.AllDirectories)
+            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .Select(Relative)
+            .Order(StringComparer.Ordinal)];
+        string[] declaredSuites = [.. DeclaredList(script, "test_projects").Order(StringComparer.Ordinal)];
+        Assert.Equal(suites, declaredSuites);
+    }
+
+    private static string Relative(string path) =>
+        Path.GetRelativePath(RepositoryRoot, path).Replace(Path.DirectorySeparatorChar, '/');
+
+    private static List<string> DeclaredList(string script, string name)
+    {
+        Match match = Regex.Match(script, $@"^{name}=\((?<items>[^)]*)\)", RegexOptions.Multiline | RegexOptions.CultureInvariant);
+        Assert.True(match.Success, $"scripts/verify.sh must declare {name}=( ... ).");
+        return [.. match.Groups["items"].Value
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
     }
 
     private static readonly string[] ForbiddenKitVocabulary =
@@ -98,6 +147,8 @@ public sealed class ArchitectureLawTests
         "OpenEnroth",
         "MMExtension",
         "OpenMM8",
+        "PartyRpg.Host",
+        "PartyRpg.Rulesets",
         ".lod",
         ".odm",
         ".ddm",
@@ -125,6 +176,30 @@ public sealed class ArchitectureLawTests
     {
         XDocument document = XDocument.Load(projectFile);
         return document.Descendants(property).FirstOrDefault()?.Value.Trim() ?? string.Empty;
+    }
+
+    private static void AssertNoSmuggledReference(string projectFile)
+    {
+        XDocument document = XDocument.Load(projectFile);
+        foreach (XElement element in document.Descendants())
+        {
+            string name = element.Name.LocalName;
+            if (name is "Reference" or "Import")
+            {
+                Assert.Fail(
+                    $"{Path.GetFileName(projectFile)} must reference the engine by package and its peers by ProjectReference; " +
+                    $"a <{name}> element can couple layers the dependency graph does not describe.");
+            }
+
+            string? include = (string?)element.Attribute("Include");
+            if (include is not null && include.Contains("..", StringComparison.Ordinal) &&
+                name is "Compile" or "Content" or "None" or "EmbeddedResource")
+            {
+                Assert.Fail(
+                    $"{Path.GetFileName(projectFile)} includes a path outside its own directory (<{name} Include=\"{include}\" />), " +
+                    "which is a source-level dependency the project-reference law cannot see.");
+            }
+        }
     }
 
     private static void AssertProjectReferences(string projectName, string[] expected)

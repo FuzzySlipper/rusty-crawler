@@ -12,6 +12,14 @@ public sealed class SessionShellTests
 
     private static SessionTick Tick(ulong step, uint admitted = 1) => new(step, admitted, StepSeconds);
 
+    private static PartyRpgSession Started(out RecordingUiProjectionChannel channel)
+    {
+        channel = new RecordingUiProjectionChannel();
+        PartyRpgSession session = new(Composition, channel);
+        session.Start();
+        return session;
+    }
+
     [Fact]
     public void Session_starts_in_starting_and_runs_after_start()
     {
@@ -30,13 +38,9 @@ public sealed class SessionShellTests
     [Fact]
     public void Projection_carries_the_composition_and_the_admitted_simulation()
     {
-        using RecordingUiProjectionChannel channel = new();
-        using PartyRpgSession session = new(Composition, channel);
-        session.Start();
+        using PartyRpgSession session = Started(out RecordingUiProjectionChannel channel);
 
-        // The first admitted tick establishes the baseline; the second measures against it.
-        session.Advance(Tick(0, 0));
-        session.Advance(Tick(600, 600));
+        for (ulong step = 0; step < 600; step++) session.Advance(Tick(step));
 
         ProjectedNode root = channel.Latest();
         Assert.Equal("test.ruleset", root.Field("composition").Field("ruleset").AsString());
@@ -44,55 +48,105 @@ public sealed class SessionShellTests
         Assert.Equal("running", root.Field("session").Field("mode").AsString());
         Assert.Equal(10.0, root.Field("session").Field("simulationSeconds").AsNumber(), 3);
         Assert.Equal(600d, root.Field("session").Field("admittedSteps").AsNumber());
-        Assert.Equal(2d, root.Field("session").Field("updates").AsNumber());
+        Assert.Equal(600d, root.Field("session").Field("updates").AsNumber());
     }
 
     [Fact]
-    public void Paused_session_holds_its_measurements_while_updates_keep_arriving()
+    public void The_two_published_measures_of_admitted_simulation_agree()
     {
-        using RecordingUiProjectionChannel channel = new();
-        using PartyRpgSession session = new(Composition, channel);
-        session.Start();
-        session.Advance(Tick(0, 0));
-        session.Advance(Tick(600, 600));
-        Assert.Equal(10.0, session.SimulationSeconds, 3);
+        using PartyRpgSession session = Started(out _);
 
-        session.Pause();
+        // Contiguous admitted batches, including catch-up batches, must never credit a step twice or
+        // lose the batch in flight: the published seconds and the published step count describe the
+        // same simulation.
+        ulong step = 0;
+        foreach (uint admitted in new uint[] { 1, 1, 4, 2, 1, 4, 4, 1, 3 })
+        {
+            session.Advance(Tick(step, admitted));
+            step += admitted;
+            Assert.Equal(session.AdmittedSteps * StepSeconds, session.SimulationSeconds, 9);
+        }
+    }
+
+    [Fact]
+    public void A_held_session_freezes_its_measurements_while_updates_keep_arriving()
+    {
+        using PartyRpgSession session = Started(out RecordingUiProjectionChannel channel);
+        for (ulong step = 0; step < 600; step++) session.Advance(Tick(step));
+        Assert.Equal(10.0, session.SimulationSeconds, 3);
+        Assert.Equal(600ul, session.AdmittedSteps);
+
+        session.Hold();
         int publishedBeforeHold = channel.Count;
-        session.Advance(Tick(1200, 600));
+        session.Advance(Tick(600));
 
         Assert.Equal(SessionMode.Paused, session.Mode);
         Assert.Equal(10.0, session.SimulationSeconds, 3);
         Assert.Equal(600ul, session.AdmittedSteps);
         Assert.True(channel.Count > publishedBeforeHold, "A held session still publishes the state it holds.");
 
-        // Resuming re-establishes the baseline, so the held interval is never credited to the session.
-        session.Resume();
-        session.Advance(Tick(1800, 600));
-        Assert.Equal(10.0, session.SimulationSeconds, 3);
-        session.Advance(Tick(2400, 600));
-        Assert.Equal(20.0, session.SimulationSeconds, 3);
+        // Releasing resumes at the next admitted tick, and the held interval is never credited: the
+        // published seconds stay equal to the published steps, which is what proves the gap between
+        // step 600 and step 700 was excluded.
+        session.ReleaseHold();
+        session.Advance(Tick(700));
+        Assert.Equal(601ul, session.AdmittedSteps);
+        Assert.Equal(10.0 + StepSeconds, session.SimulationSeconds, 9);
+        Assert.Equal(session.AdmittedSteps * StepSeconds, session.SimulationSeconds, 9);
+
+        session.Advance(Tick(701));
+        Assert.Equal(602ul, session.AdmittedSteps);
+        Assert.Equal(10.0 + (2 * StepSeconds), session.SimulationSeconds, 9);
+        Assert.Equal(session.AdmittedSteps * StepSeconds, session.SimulationSeconds, 9);
     }
 
     [Fact]
-    public void Starting_twice_or_resuming_a_running_session_changes_nothing()
+    public void The_engine_pause_and_the_player_hold_are_separate_authorities()
     {
-        using RecordingUiProjectionChannel channel = new();
-        using PartyRpgSession session = new(Composition, channel);
-        session.Start();
+        using PartyRpgSession session = Started(out _);
+        Assert.Equal(SessionMode.Running, session.Mode);
+
+        session.Pause();
+        Assert.Equal(SessionMode.Paused, session.Mode);
+        session.Resume();
+        Assert.Equal(SessionMode.Running, session.Mode);
+
+        // A player's hold survives an engine pause/resume cycle: the engine releasing its own pause
+        // must not release a hold the player asked for.
+        session.Hold();
+        Assert.Equal(SessionMode.Paused, session.Mode);
+        session.Pause();
+        session.Resume();
+        Assert.Equal(SessionMode.Paused, session.Mode);
+        Assert.True(session.IsHeld);
+
+        // And releasing the hold must not undo an engine pause that is still in force.
+        session.Pause();
+        session.ReleaseHold();
+        Assert.Equal(SessionMode.Paused, session.Mode);
+        Assert.True(session.IsEnginePaused);
+        session.Resume();
+        Assert.Equal(SessionMode.Running, session.Mode);
+    }
+
+    [Fact]
+    public void Repeating_a_transition_does_not_republish()
+    {
+        using PartyRpgSession session = Started(out RecordingUiProjectionChannel channel);
         int afterStart = channel.Count;
 
         session.Start();
         session.Resume();
-        session.Pause();
-        session.Pause();
+        session.ReleaseHold();
+        session.Hold();
+        session.Hold();
 
         Assert.Equal(SessionMode.Paused, session.Mode);
         Assert.Equal(afterStart + 1, channel.Count);
     }
 
     [Fact]
-    public void A_stopped_session_publishes_nothing_further()
+    public void A_stopped_session_publishes_the_stop_and_then_nothing()
     {
         RecordingUiProjectionChannel channel = new();
         PartyRpgSession session = new(Composition, channel);
@@ -102,7 +156,8 @@ public sealed class SessionShellTests
         session.Dispose();
 
         Assert.Equal(SessionMode.Stopped, session.Mode);
-        Assert.Equal(published, channel.Count);
+        Assert.Equal(published + 1, channel.Count);
+        Assert.Equal("stopped", channel.Latest().Field("session").Field("mode").AsString());
         Assert.Throws<ObjectDisposedException>(() => session.Advance(Tick(1)));
         Assert.Throws<ObjectDisposedException>(() => session.Start());
     }

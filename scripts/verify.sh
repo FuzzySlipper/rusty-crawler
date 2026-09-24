@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # Routine repository verification for rusty-crawler.
 #
-# This pass checked in the repository shape and no product code, so the script
-# currently proves the installed Engine pair identity and the product UI
-# toolchain, and says plainly that no product project exists to build. Add each
-# landed project to `product_projects` and each suite to `test_projects`; the
-# explicit lists are deliberate, because a discovery-based loop silently stops
-# covering a project whose csproj moved or was renamed.
+# It verifies the installed Engine pair identity, installs the UI dependencies
+# and runs the DOM companion tests, builds every product project in Release, runs
+# every suite, and stages the CoreCLR product. Add each landed project to
+# `product_projects` and each suite to `test_projects`; the explicit lists are
+# deliberate, because a discovery-based loop silently stops covering a project
+# whose csproj moved or was renamed, and
+# tests/PartyRpg.Architecture.Tests fails when a checked-in project is missing
+# from either list.
 #
 # NativeAOT is a separate fidelity/release target and stays opt-in through
 # --aot; the ordinary development loop does not need it.

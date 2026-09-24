@@ -8,8 +8,8 @@ using Xunit;
 namespace PartyRpg.Kit.Tests;
 
 /// <summary>
-/// The input path from an admitted engine event to a session hold or release. This is the product half
-/// of the DOM action round trip: the browser leg belongs to the engine transport.
+/// The input path from an admitted engine event to a player hold. This is the product half of the DOM
+/// action round trip; the browser leg belongs to the engine transport.
 /// </summary>
 public sealed class SessionInputRouterTests
 {
@@ -21,9 +21,13 @@ public sealed class SessionInputRouterTests
 
     // The engine copies five byte blocks per event in constructor order: label, mapping id, intent,
     // payload contract, payload data. Only the last three matter to this router.
-    private static ProductInputEvent Digital(string intent, InputEdge edge) => new(
+    private static ProductInputEvent Digital(
+        string intent,
+        InputEdge edge,
+        InputPhase phase = InputPhase.Pressed,
+        InputProvenance provenance = InputProvenance.Physical) => new(
         InputEventKind.MappedDigital, edge, default, default, default, default, default, default, default, default,
-        InputValueKind.Digital, InputPhase.Pressed, InputProvenance.Physical, default, default, default, 0f, 0f,
+        InputValueKind.Digital, phase, provenance, default, default, default, 0f, 0f,
         ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, Encoding.UTF8.GetBytes(intent),
         ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
 
@@ -36,16 +40,25 @@ public sealed class SessionInputRouterTests
     [Fact]
     public void The_declared_key_intent_toggles_and_a_release_does_not()
     {
-        Assert.Equal(SessionCommand.TogglePause, Router.CommandFor(Digital(ToggleIntent, InputEdge.Pressed)));
-        Assert.Equal(SessionCommand.None, Router.CommandFor(Digital(ToggleIntent, InputEdge.Released)));
+        Assert.Equal(SessionCommand.ToggleHold, Router.CommandFor(Digital(ToggleIntent, InputEdge.Pressed)));
+        Assert.Equal(SessionCommand.None, Router.CommandFor(Digital(ToggleIntent, InputEdge.Released, InputPhase.Released)));
         Assert.Equal(SessionCommand.None, Router.CommandFor(Digital("some.other.intent", InputEdge.Pressed)));
+    }
+
+    [Fact]
+    public void A_direct_interface_claim_on_the_declared_intent_toggles_although_it_has_no_edge()
+    {
+        // A direct claim is admitted with no edge at all; its phase and provenance are what identify it.
+        Assert.Equal(
+            SessionCommand.ToggleHold,
+            Router.CommandFor(Digital(ToggleIntent, InputEdge.None, InputPhase.DirectUi, InputProvenance.DirectUi)));
     }
 
     [Fact]
     public void The_declared_action_contract_names_the_session_action()
     {
-        Assert.Equal(SessionCommand.Pause, Router.CommandFor(Payload(ActionContract, """{"action":"session.pause"}""")));
-        Assert.Equal(SessionCommand.Resume, Router.CommandFor(Payload(ActionContract, """{"action":"session.resume"}""")));
+        Assert.Equal(SessionCommand.Hold, Router.CommandFor(Payload(ActionContract, """{"action":"session.pause"}""")));
+        Assert.Equal(SessionCommand.Release, Router.CommandFor(Payload(ActionContract, """{"action":"session.resume"}""")));
         Assert.Equal(SessionCommand.None, Router.CommandFor(Payload(ActionContract, """{"action":"inventory"}""")));
     }
 
@@ -91,5 +104,20 @@ public sealed class SessionInputRouterTests
 
         Router.Apply(session, press);
         Assert.Equal(SessionMode.Running, session.Mode);
+    }
+
+    [Fact]
+    public void A_player_hold_outlives_an_engine_pause_and_resume()
+    {
+        using RecordingUiProjectionChannel channel = new();
+        using PartyRpgSession session = new(Composition, channel);
+        session.Start();
+
+        Router.Apply(session, [Payload(ActionContract, """{"action":"session.pause"}""")]);
+        session.Pause();
+        session.Resume();
+
+        Assert.Equal(SessionMode.Paused, session.Mode);
+        Assert.True(session.IsHeld);
     }
 }

@@ -10,14 +10,14 @@ public enum SessionCommand
     /// <summary>The event carries no session request.</summary>
     None,
 
-    /// <summary>Hold the session.</summary>
-    Pause,
+    /// <summary>Hold the session at the player's request.</summary>
+    Hold,
 
-    /// <summary>Release a held session.</summary>
-    Resume,
+    /// <summary>Release the player's hold.</summary>
+    Release,
 
     /// <summary>Hold a running session or release a held one, whichever applies.</summary>
-    TogglePause,
+    ToggleHold,
 }
 
 /// <summary>
@@ -40,17 +40,18 @@ public sealed class SessionInputRouter
     }
 
     /// <summary>
-    /// Reads the session command an admitted input event carries. A digital press of the declared
-    /// intent toggles; a payload on the declared contract names the action explicitly. Anything else,
-    /// including a malformed payload, carries no command.
+    /// Reads the session command an admitted input event carries. A digital event on the declared
+    /// intent toggles the player's hold — whether it arrived as a physical key press or as a direct
+    /// interface claim, which carries no edge — and a payload on the declared contract names the
+    /// action explicitly. Anything else, including a malformed payload, carries no command.
     /// </summary>
     public SessionCommand CommandFor(in ProductInputEvent inputEvent)
     {
         if (inputEvent.ValueKind == InputValueKind.Digital
-            && inputEvent.Edge == InputEdge.Pressed
-            && inputEvent.Intent.Span.SequenceEqual(_pauseToggleIntentUtf8))
+            && inputEvent.Intent.Span.SequenceEqual(_pauseToggleIntentUtf8)
+            && IsDigitalActivation(inputEvent))
         {
-            return SessionCommand.TogglePause;
+            return SessionCommand.ToggleHold;
         }
 
         if (inputEvent.ValueKind == InputValueKind.ProductPayload
@@ -58,14 +59,23 @@ public sealed class SessionInputRouter
         {
             return UiActionPayload.Parse(inputEvent.PayloadData.Span)?.Name switch
             {
-                UiActionPayload.PauseSession => SessionCommand.Pause,
-                UiActionPayload.ResumeSession => SessionCommand.Resume,
+                UiActionPayload.PauseSession => SessionCommand.Hold,
+                UiActionPayload.ResumeSession => SessionCommand.Release,
                 _ => SessionCommand.None,
             };
         }
 
         return SessionCommand.None;
     }
+
+    /// <summary>
+    /// Whether a digital event is an activation. A physical press carries an edge; a direct interface
+    /// claim is admitted with no edge at all, so its own phase and provenance are what identify it.
+    /// </summary>
+    private static bool IsDigitalActivation(in ProductInputEvent inputEvent) =>
+        inputEvent.Edge == InputEdge.Pressed
+        || inputEvent.Phase == InputPhase.DirectUi
+        || inputEvent.Provenance == InputProvenance.DirectUi;
 
     /// <summary>Applies every session command carried by an admitted input slice, in order.</summary>
     public void Apply(IGameSession session, ReadOnlySpan<ProductInputEvent> input)
@@ -80,15 +90,15 @@ public sealed class SessionInputRouter
         ArgumentNullException.ThrowIfNull(session);
         switch (command)
         {
-            case SessionCommand.Pause:
-                session.Pause();
+            case SessionCommand.Hold:
+                session.Hold();
                 break;
-            case SessionCommand.Resume:
-                session.Resume();
+            case SessionCommand.Release:
+                session.ReleaseHold();
                 break;
-            case SessionCommand.TogglePause:
-                if (session.Mode == SessionMode.Running) session.Pause();
-                else if (session.Mode == SessionMode.Paused) session.Resume();
+            case SessionCommand.ToggleHold:
+                if (session.Mode == SessionMode.Running) session.Hold();
+                else if (session.Mode == SessionMode.Paused) session.ReleaseHold();
                 break;
             default:
                 break;

@@ -7,8 +7,9 @@ Implemented today:
 - `CrawlerProduct` implements the generated `IEngineProduct` contract: it selects the built-in
   ruleset at its composition seam, builds that ruleset's session over an Engine UI projection
   channel, reads admitted input through the kit's session input router, and forwards the engine
-  lifecycle to the session.
-- `BuiltInRulesets` is the host's explicit catalog and default.
+  lifecycle to the session. The engine's pause and the player's hold are separate authorities: an
+  engine resume does not release a hold the player asked for.
+- `BuiltInRulesets` is the host's explicit ruleset selection, and the only place it chooses one.
 - `ProductIdentity` declares the product id, title, projection stream and contract, and the two
   input names once; the project file declares the same values, and the architecture suite fails when
   the two drift.

@@ -20,8 +20,10 @@ public sealed class PartyRpgSession : IGameSession
     private double _simulationSeconds;
     private ulong _admittedSteps;
     private ulong _updates;
-    private ulong _lastSimulationStep;
-    private bool _hasSimulationBaseline;
+    private ulong? _accountedThroughStep;
+    private bool _started;
+    private bool _enginePaused;
+    private bool _held;
     private bool _disposed;
 
     /// <summary>Creates a session for a compiled ruleset over the mechanisms the kit supplies.</summary>
@@ -47,35 +49,60 @@ public sealed class PartyRpgSession : IGameSession
     /// <summary>Admitted updates this session has consumed, whether or not it was running.</summary>
     public ulong Updates => _updates;
 
+    /// <summary>Whether the player has held the session, which is not the engine's lifecycle pause.</summary>
+    public bool IsHeld => _held;
+
+    /// <summary>Whether the engine's lifecycle has paused the session.</summary>
+    public bool IsEnginePaused => _enginePaused;
+
     /// <inheritdoc />
     public void Start()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        if (_mode != SessionMode.Starting) return;
-        _mode = SessionMode.Running;
+        if (_started) return;
+        _started = true;
         // A session that has not run yet has no baseline; the first admitted tick establishes one so
         // the engine's runtime-wide step counter never reads as this session's own elapsed time.
-        _hasSimulationBaseline = false;
-        Publish();
+        _accountedThroughStep = null;
+        ResolveMode();
     }
 
     /// <inheritdoc />
     public void Pause()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        if (_mode != SessionMode.Running) return;
-        _mode = SessionMode.Paused;
-        _hasSimulationBaseline = false;
-        Publish();
+        if (_enginePaused) return;
+        _enginePaused = true;
+        ResolveMode();
     }
 
     /// <inheritdoc />
     public void Resume()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        if (_mode != SessionMode.Paused) return;
-        _mode = SessionMode.Running;
-        Publish();
+        if (!_enginePaused) return;
+        // The engine releasing its pause must not release a hold the player asked for: they are two
+        // authorities, and the mode is paused while either of them holds the session.
+        _enginePaused = false;
+        ResolveMode();
+    }
+
+    /// <summary>Holds the session at the player's request.</summary>
+    public void Hold()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_held) return;
+        _held = true;
+        ResolveMode();
+    }
+
+    /// <summary>Releases the player's hold.</summary>
+    public void ReleaseHold()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!_held) return;
+        _held = false;
+        ResolveMode();
     }
 
     /// <inheritdoc />
@@ -94,9 +121,9 @@ public sealed class PartyRpgSession : IGameSession
     }
 
     /// <summary>
-    /// Consumes one admitted tick. Only a running session advances: a paused session keeps receiving
-    /// admitted updates while the player is held, and must publish the frozen state it holds rather
-    /// than the engine's advancing step counter.
+    /// Consumes one admitted tick. Only a running session advances: a held or engine-paused session
+    /// keeps receiving admitted updates, and must publish the frozen state it holds rather than the
+    /// engine's advancing step counter.
     /// </summary>
     public void Advance(SessionTick tick)
     {
@@ -104,28 +131,49 @@ public sealed class PartyRpgSession : IGameSession
         _updates++;
         if (_mode == SessionMode.Running)
         {
-            if (_hasSimulationBaseline)
-            {
-                // The baseline is re-established after every pause so the held interval is not
-                // credited to the session when it resumes.
-                _simulationSeconds += (tick.SimulationStep - _lastSimulationStep) * tick.FixedDeltaSeconds;
-            }
-
-            _lastSimulationStep = tick.SimulationStep;
-            _hasSimulationBaseline = true;
+            // The engine reports a batch as its first step plus the number of steps it admitted, so a
+            // batch covers [SimulationStep, SimulationStep + AdmittedStepCount). Accounting by batch
+            // end is what makes the published seconds and the published step count describe the same
+            // simulation; accounting by batch starts credits the previous batch and never the one in
+            // flight.
+            ulong batchStart = tick.SimulationStep;
+            ulong batchEnd = batchStart + tick.AdmittedStepCount;
+            // After a hold, the first running tick re-establishes the baseline, so the interval the
+            // session was held is never credited to it.
+            _accountedThroughStep ??= batchStart;
+            _simulationSeconds += (batchEnd - _accountedThroughStep.Value) * tick.FixedDeltaSeconds;
+            _accountedThroughStep = batchEnd;
             _admittedSteps += tick.AdmittedStepCount;
         }
 
         Publish();
     }
 
-    /// <summary>Stops the session and releases the projection channel.</summary>
+    /// <summary>Stops the session, publishes the stop, and releases the projection channel.</summary>
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
         _mode = SessionMode.Stopped;
+        // Publish before releasing the channel: a client attached at shutdown should learn that the
+        // session stopped instead of keeping the last running projection forever.
+        Publish();
         _projection.Dispose();
+    }
+
+    private void ResolveMode()
+    {
+        SessionMode next = _disposed
+            ? SessionMode.Stopped
+            : !_started
+                ? SessionMode.Starting
+                : _enginePaused || _held ? SessionMode.Paused : SessionMode.Running;
+
+        if (next == _mode) return;
+        _mode = next;
+        // Stepping stops and resumes with the mode, so the held interval is never measured.
+        if (_mode == SessionMode.Paused) _accountedThroughStep = null;
+        Publish();
     }
 
     private void Publish() => _projection.Publish(SessionProjection.Build(Snapshot()));
