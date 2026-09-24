@@ -1,6 +1,6 @@
 # Might and Magic VII — extracted data inventory
 
-Read-only pass over the operator-supplied GOG install at `/home/research/old-games/Might and Magic 7/`. Nothing under `/home/research/` was modified; all artifacts live under the git-ignored `local/` tree. Tool: `local/tools/mm7lod.py` (a local research tool kept out of the repository) (Python 3, stdlib only). Extracted tables: `local/extracted/events/` (34 files); derived listings in `local/extracted/`. Format knowledge: OpenEnroth `src/Library/Lod/*`, `src/Library/LodFormats/*`; table semantics: `src/Engine/Tables/*`, `src/Engine/Objects/*`. Provenance is marked **[data]** (observed in the extracted bytes), **[donor]** (documented at a named donor path), or **[uncertain]** (my reading, not confirmed).
+Read-only pass over the operator-supplied GOG install at `/home/research/old-games/game-mm7/`. Nothing under `/home/research/` was modified; all artifacts live under the git-ignored `local/` tree. Tool: `local/tools/mm7lod.py` (a local research tool kept out of the repository) (Python 3, stdlib only). Extracted tables: `local/extracted/events/` (34 files); derived listings in `local/extracted/`. Format knowledge: OpenEnroth `src/Library/Lod/*`, `src/Library/LodFormats/*`; table semantics: `src/Engine/Tables/*`, `src/Engine/Objects/*`. Provenance is marked **[data]** (observed in the extracted bytes), **[donor]** (documented at a named donor path), or **[uncertain]** (my reading, not confirmed).
 
 ## Containers
 

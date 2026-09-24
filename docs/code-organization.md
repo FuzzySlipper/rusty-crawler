@@ -55,8 +55,8 @@ Working names; the responsibilities are the contract, the names are not.
 | --- | --- | --- |
 | Session | The one live session: its clock, party, world, mode, and saved state; composed from a compiled ruleset + bundle + content packs | Rules, formulas, content meaning |
 | Ruleset contract | The typed seam a ruleset implements: catalogs it supplies, policy it answers, session services it composes | Any concrete rule |
-| Party | Roster and members, shared purse, food, reputation and fame, followers, party-wide effects, party position in the world | Per-character detail; world state |
-| Character | Per-character attributes, resources, conditions, skills with mastery and level, spellbook, equipment, experience, level, rank, path | How a class grows; what a rank allows |
+| Party | **The party entity** and every component attached to it: roster and members, shared inventory, equipment by member, shared purse, food, reputation and fame, followers, party-wide effects, party position in the world. Session mechanisms address the party, not four loose characters | Per-character detail; world state; any per-character pack |
+| Character | Per-character attributes, resources, conditions, skills with mastery and level, spellbook, experience, level, rank, path — and **only the items it has equipped** | How a class grows; what a rank allows; items it is not wearing |
 | Creation | The character-creation flow and its validation, driven by ruleset-supplied choices and budgets | The ruleset's class tables |
 | Skills | Skill catalog shape, per-character skill entries, point spending, tier values, training sources as world entities | Which class may learn what, and to which tier |
 | Magic | Spell catalog shape, known spells, casting workflow (validate → cost → target → apply), buffs with game-time duration, item-borne casting | School lists, costs, tiers, and per-spell effect policy |
@@ -68,7 +68,7 @@ Working names; the responsibilities are the contract, the names are not.
 | Services | One service mechanism with kinds (trade, heal, rest, deposit, train, teach, travel, govern) over content definitions | Prices, stock rules, membership policy, level caps |
 | Progression | Experience awards, level-up, skill-point grants, rank promotion, path choice, reputation change | Curves, requirements, effects |
 | Quests | Quest instances and their state; objective tracking; turn-in | Quest content |
-| Items | Item definitions and instances, inventory, equipment, currency, food, containers and loot, identify and repair state | Item values, enchantment rules, treasure tables |
+| Items | Item definitions and instances, **the party's single shared inventory**, per-member equipment, currency, food, containers and loot, identify and repair state | Item values, enchantment rules, treasure tables; per-character packs (there are none) |
 | Time | The one game clock and calendar; discrete advancement; schedule and respawn queries; duration deadlines | Schedules and constants (content and ruleset) |
 | Content | Pack loading and validation: definitions, tuning, scenario, imported world data, provenance; bundle resolution | Any meaning of the data |
 | Presentation | Projections (HUD and screens) and semantic actions; live-debug diagnostics | DOM, layout, styling, or state |
@@ -175,11 +175,12 @@ time means.
 
 ## 10. Persistence
 
-A save is a snapshot of the session: party (members, skills, spells, equipment,
-progression, path), clock and calendar, current place and position, per-place
-world state, knowledge, quest state, containers and loose world items, and the
-scenario flags. Transient things — in-flight combat pacing, open screens, target
-selections, AI intentions — are deliberately dropped and rebuilt on load.
+A save is a snapshot of the session: the party (members with skills, spells,
+progression, and path; the shared inventory; each member's equipment), clock and
+calendar, current place and position, per-place world state, knowledge, quest
+state, containers and loose world items, and the scenario flags. Transient things
+— in-flight combat pacing, open screens, target selections, AI intentions — are
+deliberately dropped and rebuilt on load.
 
 One current schema during development. No versions, migrations, compatibility
 readers, or original-format support.
@@ -201,7 +202,12 @@ Do not build any of these, however convenient they look:
 
 The nine decisions listed in
 [`gameplay-design.md` §7](gameplay-design.md#7-decisions-that-are-expensive-to-reverse)
-— party versus world ownership, one combat state with two pacings, the place
-graph, knowledge versus world state, one clock, services as one mechanism, policy
-over data, projection-only UI, and one save schema. Changing any of them is a
-deliberate re-plan with the user, not an implementation detail.
+— one party entity that owns the inventory, one combat state with two pacings,
+the place graph, knowledge versus world state, one clock, services as one
+mechanism, policy over data, projection-only UI, and one save schema. Changing
+any of them is a deliberate re-plan with the user, not an implementation detail.
+
+The building order in
+[`gameplay-design.md` §5](gameplay-design.md#5-building-order-foundations-one-stone-at-a-time)
+is the other half of that contract: foundations first, complete and global, never
+a vertical slice with stubs waiting to be reconciled.

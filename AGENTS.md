@@ -26,6 +26,7 @@ quietly depend on their data.
 - primary donor reference (behavior, formats, rules): `/home/research/old-games/OpenEnroth`
 - rules and table reference (game knowledge): `/home/research/old-games/MMExtension`
 - secondary reimplementation reference: `/home/research/old-games/OpenMM8`
+- operator's own game copy (extraction source): `/home/research/old-games/game-mm7`
 - donor surveys: `docs/research/openenroth-survey.md` and
   `docs/research/mmextension-openmm8-survey.md`
 - experience outline with manual citations: `docs/research/mm7-manual-outline.md`
@@ -55,6 +56,10 @@ file compatibility are not goals.
   may be adopted from extracted data where that is cheap, retuned, or
   simplified. A task states which values are faithful and which are ours; never
   claim fidelity that was not checked.
+- **Approximate is the normal verdict.** The goal is to adapt the essence of the
+  game, not to chase identical equivalence — equivalence is a trap that turns
+  every adaptation into an argument about numbers. Faithful values are welcome
+  when they are cheap to take from the data, never required for their own sake.
 - **Out of scope.** Reading or writing original save games, loading the original
   executables or their extension/plugin ecosystem, byte-exact map geometry, and
   any promise that original mods, trainers, or editors keep working.
@@ -163,6 +168,13 @@ land, and what modes the session has. Both are design intent for an unimplemente
 product. They bind new work, and changing a decision they pin is a deliberate
 re-plan, not an implementation detail.
 
+**The party is one entity, and it owns the inventory.** Party-scoped components
+attach to it — roster and members, shared inventory, equipment by member, purse,
+food, reputation, followers, party-wide effects — and session mechanisms address
+the party, not four independent characters. A character owns only what it has
+equipped; there is no per-character pack. This is a deliberate improvement on the
+original and is not to be "corrected" back toward per-character inventory.
+
 Compose Engine `Actor` in Kit/ruleset facades with named properties over the
 actual attached components. Explicit factories construct entities; wrapping an
 entity never silently creates components. Keep runtime entity identity, kind or
@@ -253,6 +265,26 @@ before large implementation campaigns, and keep the point-in-time donor inventor
 separate from live status.
 
 ## Coverage execution and drift
+
+**Build foundations first, one stone at a time.** Do not build vertical slices: a
+slice leaves stubs, placeholder values, and feature-local shortcuts that a later
+reconciliation campaign has to hunt down. The endpoint here is known, so each
+capability lands complete and load bearing before the next rests on it.
+
+- A completed capability works everywhere it applies, not only where it was first
+  exercised. The game opens on a tutorial island with a representative sample of
+  its systems, so Emerald Isle is where a person confirms landed work in play — a
+  conformance area, never a scope boundary.
+- No stubs and no placeholders for later capabilities. If something is not built
+  yet, an earlier capability must not pretend to have it.
+- Nothing is deferred by accident: a limitation is fixed, or recorded and routed
+  to a concrete receiver with a stated requirement.
+- Testing lands with the capability, not at the end.
+- Breadth passes — more places, monsters, items, spells, quests — add content and
+  tuning on top of general mechanisms; they never complete a mechanism that was
+  left partial.
+
+The order and its rationale are in `docs/gameplay-design.md` §5.
 
 Incremental implementation is fine, but a proof-only slice or demonstration is not
 a completed task. Do not leave no-op branches, hardcoded examples, parallel paths,

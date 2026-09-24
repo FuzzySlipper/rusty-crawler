@@ -50,34 +50,55 @@ Every system below carries one of three verdicts.
 | **Ours** | We deliberately diverge, or the original feature is out of scope. |
 
 The global stance, from [`AGENTS.md`](../AGENTS.md): a semi-equivalent
-recreation. **Out of scope everywhere:** reading or writing original save games,
-loading the original executable or its extension ecosystem, byte-exact map
-geometry, exact table values, and any promise that original mods or editors keep
-working.
+recreation. **Approximate is the default verdict**, and that is a feature: the
+goal is to adapt the essence of the game, not to chase identical equivalence,
+which is a trap that turns every adaptation into an argument about numbers.
+Faithful values are welcome when they are cheap to take from the data; they are
+never the point by themselves. **Out of scope everywhere:** reading or writing
+original save games, loading the original executable or its extension ecosystem,
+byte-exact map geometry, exact table values, and any promise that original mods
+or editors keep working.
 
 ## 3. System shapes
 
 Each system states the **shape** (what the player experiences), the **model**
 (what the code must therefore represent), and its **fidelity**.
 
-### 3.1 Party and characters — Match
+### 3.1 Party and characters — Match (with two deliberate improvements)
 
 - One party of four created characters travels as a unit: one position, one
   facing, one shared purse, one shared food supply, one shared reputation.
+- **The party is one entity.** Components attach to it — roster, inventory,
+  equipment-by-member, resources, reputation, followers, party-wide effects — and
+  session mechanisms address the party rather than four independent characters.
 - Creation picks race, class, portrait, distributes an attribute point-buy pool,
   and assigns four starting skills (two fixed by class, two chosen).
 - Each character carries seven attributes, hit points, spell points, conditions,
-  a skill list, a spellbook, equipment, experience, a level, and a class rank.
+  a skill list, a spellbook, experience, a level, and a class rank — and owns
+  only the items it has equipped.
 - Followers may join: a small hired limit plus story characters outside it.
 
-**Model.** A party owner (roster, purse, food, reputation, followers) separate
-from per-character state (attributes, resources, conditions, skills, spells,
-equipment, progression). Character creation is a real product flow with
-validation, not a debug shortcut. Class, race, and rank are ruleset definitions,
-not enums compiled into the kit.
+**Model.** A party entity that everything party-scoped attaches to, plus a
+character component holding what a character *is* (attributes, resources,
+conditions, skills, spells, progression) and what it *wears or wields*. Character
+creation is a real product flow with validation, not a debug shortcut. Class,
+race, and rank are ruleset definitions, not enums compiled into the kit.
 
-**Fidelity.** Structure matches. Attribute pools, growth curves, and creation
-defaults are ours.
+**Deliberate divergence — one shared inventory.** The original gives every
+character a pack and turns loot into a shuffle between four of them. We do not:
+**the party owns one shared inventory**, and a character owns only its equipped
+items. Nothing about what the player can carry or use changes; the busywork goes
+away.
+
+**Deliberate divergence — weight.** The shipped data has no item weight column
+and the original enforces no carry limit; armor weight only affects recovery
+speed. If we introduce encumbrance later, it is party-wide: one allowance equal
+to the sum over members and followers, measured against the single shared
+inventory — never per character.
+
+**Fidelity.** Structure matches. The shared inventory and any later encumbrance
+are ours by choice and are recorded as such; attribute pools, growth curves, and
+creation defaults are ours.
 
 ### 3.2 Skills and mastery — Match
 
@@ -281,10 +302,12 @@ authored set, not the original's hundreds.
 - Items can break; enchantments and special item classes exist.
 
 **Model.** Item definitions in content and item instances in runtime state, with
-identity that survives a save (a specific artifact stays that artifact).
-Inventory, equipment, currency, food, shop stock, containers, and loot tables are
-separate owners with clear ownership of mutation. Identify and repair are item
-state, not shop-only side effects. Imported item tables supply breadth.
+identity that survives a save (a specific artifact stays that artifact). The
+shared inventory is a party-owned container; equipment is per member and is the
+only item state a character owns. Currency, food, shop stock, containers, and
+loot tables are separate owners with clear ownership of mutation. Identify and
+repair are item state, not shop-only side effects. Imported item tables supply
+breadth.
 
 **Fidelity.** Structure matches; item counts, values, and enchantment rules are
 approximate. Artifacts and relics exist in the shipped item table even though the
@@ -339,19 +362,66 @@ assumptions smuggled into the importer.
 
 One session, one clock, one admitted update. No mode gets its own loop.
 
-## 5. The first coherent slice
+## 5. Building order: foundations, one stone at a time
 
-The original ships 13 outdoor regions, 63 interior places, 276 monsters, 800 item
-rows, 99 spells, 37 skill rows (34 of them usable), 36 class ranks, and hundreds
-of quest records. Hand-authoring that is not the plan; the importer carries
-geometry, tables, and media, and content authoring fills what it cannot.
+**No vertical slices.** A slice builds a thin end-to-end path and leaves stubs,
+placeholder values, and feature-local shortcuts behind it; the stubs are then
+either forgotten or found later by a long reconciliation campaign. This project
+has a known endpoint, so it is built the other way — like a stone bridge, one
+durable foundation at a time, where each stone is finished, global, and load
+bearing before the next one rests on it.
 
-A **first coherent slice** is therefore: party creation → one town with a working
-service set → one outdoor region → one dungeon → real-time combat with recovery
-and monsters → loot, chests, and a shop economy → experience, training, and a
-level-up → save and load. Turn-based mode, magic, skills and mastery, quests, and
-the journal follow before breadth. Breadth (more places, more monsters, more
-items), then depth (promotions, light and dark, spell completeness, followers).
+The rules that make that work:
+
+- **A stone is complete, not demonstrative.** When a capability lands, it works
+  everywhere it applies — every place, every character, every item — not just in
+  the area where it was first exercised. "It works on Emerald Isle" is a check,
+  not a scope.
+- **No stubs and no placeholders for later stones.** A stone either does its job
+  or it is not started. If a later stone is not built yet, the earlier stone must
+  not pretend to have it.
+- **Nothing is deferred by accident.** A limitation found while building a stone
+  is either fixed, or recorded and routed to a concrete receiver (a later stone
+  with a stated requirement, or a named follow-up). Silent gaps are the failure
+  this order exists to prevent.
+- **Testing happens with the stone**, not at the end. Each stone carries the
+  focused proof for its own seam, and the repository's verification stays green.
+- **Emerald Isle is the conformance area.** The game itself opens on a tutorial
+  island with a representative sample of its systems; as stones land, the island
+  is where a person confirms they actually work in play. It is a place to check,
+  never a boundary on what a stone must handle.
+
+The stones, in dependency order — each line is a capability class, not a task
+list, and the coverage plan will break them into tasks:
+
+1. **Product and engine shell.** Host entry, lifecycle, one admitted update,
+   input intents, staging, and the UI shell that later stones render into.
+2. **Content and import pipeline.** Archive and table readers, map geometry and
+   media extraction, provenance, pack shapes, and content validation — the game's
+   own data becomes the source of breadth before gameplay leans on it.
+3. **World foundation.** The place graph, transitions, entry points, entity
+   population, and spatial stepping, exercised through imported regions and
+   interiors.
+4. **Party foundation.** The party entity and its components, character creation,
+   equipment, the shared inventory, resources, the clock and calendar, and
+   persistence.
+5. **Interaction and services.** Interaction targets, doors, containers, dialogue,
+   the one service mechanism across all kinds, and schedules.
+6. **Combat foundation.** Real-time pacing, recovery, attack resolution, damage
+   and resistance, conditions, monster presence and AI, corpses and loot — then
+   turn-based mode as a second pacing over the same state.
+7. **Progression, skills, and magic.** Experience, levels, training, skill points
+   and mastery tiers, the schools and their spells, effects by category, and
+   alchemy.
+8. **Quests, journal, and knowledge.** Quest instances, objectives and turn-in,
+   auto notes, history, awards, and discovery.
+9. **Breadth and depth passes.** All regions and places, the full monster, item,
+   and spell sets, promotions and the light/dark paths, artifacts and relics,
+   followers, and the endgame.
+
+Breadth is not a stone that fixes earlier shortcuts: by the time it starts, the
+systems underneath are already general, so breadth adds content and tuning rather
+than completing mechanisms.
 
 ## 6. Non-goals
 
@@ -368,9 +438,10 @@ items), then depth (promotions, light and dark, spell completeness, followers).
 These are the seams the rest of the work hangs on. Changing one is a deliberate
 re-plan, not an implementation detail.
 
-1. **Party state and world state are different owners.** Followers, purse, food,
-   reputation, and clock belong to the party; places, entities, and spawn state
-   belong to the world.
+1. **The party is one entity, and it owns the inventory.** Roster, shared
+   inventory, equipment-by-member, purse, food, reputation, followers, and
+   party-wide effects attach to the party; a character owns only what it wears or
+   wields. Party state and world state are different owners.
 2. **Real-time and turn-based are two pacings of one combat state.** Not two
    systems, not two scenes, and not a second scheduler.
 3. **The world is a graph of places with costed transitions**, and **party

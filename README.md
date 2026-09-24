@@ -81,7 +81,7 @@ The donors are the reference reimplementation at
 reference at `/home/research/old-games/OpenMM8`. Their licenses differ and none of
 them is a code donor — read the donor posture in [`AGENTS.md`](AGENTS.md) before
 using any of them. The operator's own copy of the game at
-`/home/research/old-games/Might and Magic 7` is the extraction source. Original
+`/home/research/old-games/game-mm7` is the extraction source. Original
 game data is never committed here.
 
 ## Design shape
@@ -89,11 +89,20 @@ game data is never committed here.
 Two documents fix the shape before implementation starts:
 
 - [Gameplay design](docs/gameplay-design.md) — the loop, every system's shape
-  with a fidelity verdict, the first coherent slice, and the nine decisions that
-  are expensive to reverse.
+  with a fidelity verdict, the foundations-first building order, non-goals, and
+  the nine decisions that are expensive to reverse.
 - [Code organization](docs/code-organization.md) — the layering, where new code
   goes, the Kit and ruleset owner maps, content and import shapes, the UI
   contract, session modes, and persistence.
+
+Two deliberate divergences from the original are recorded there and are not to be
+"corrected" later: **the party is one entity that owns a single shared
+inventory** — a character owns only what it has equipped, so there is no
+per-character pack to shuffle — and **approximate fidelity is the normal
+verdict**, because the goal is to adapt the game's essence rather than reproduce
+its numbers. The build order is foundations first: each capability lands complete
+and global, with no vertical slices and no stubs waiting for a reconciliation
+pass.
 
 ## Repository layout
 

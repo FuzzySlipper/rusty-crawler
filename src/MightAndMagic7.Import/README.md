@@ -3,7 +3,7 @@
 Planned home of offline knowledge about the original Might and Magic VII data
 files and about the donor projects that document them. The extraction source is
 the operator's own installation at
-`/home/research/old-games/Might and Magic 7`; extracted data stays in ignored
+`/home/research/old-games/game-mm7`; extracted data stays in ignored
 `local/` paths and is never committed.
 
 Owns, once implemented:
