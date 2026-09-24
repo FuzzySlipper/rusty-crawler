@@ -32,6 +32,7 @@ public sealed class SessionWorld
 {
     private readonly TransitionExecutive _transitions;
     private readonly IWorldTimeSource? _time;
+    private readonly PlacePopulation _population;
 
     /// <summary>Creates the world a session steps.</summary>
     /// <param name="graph">The places and the transitions between them.</param>
@@ -55,6 +56,7 @@ public sealed class SessionWorld
         Party = party;
         Places = places;
         Places.MarkVisited(party.Place);
+        _population = new PlacePopulation(graph, places);
     }
 
     /// <summary>The places and the transitions between them.</summary>
@@ -68,6 +70,9 @@ public sealed class SessionWorld
 
     /// <summary>The place the party is in.</summary>
     public PlaceId Place => Party.Place;
+
+    /// <summary>The entities the current place is populated with, and the one owner that steps them.</summary>
+    public PlacePopulation Population => _population;
 
     /// <summary>
     /// Takes a transition, or refuses it. Arriving moves the party and marks the destination visited;
@@ -115,8 +120,21 @@ public sealed class SessionWorld
     /// Advances the world to the day its time source reports, returning the places whose population was
     /// restored. Without a time source the world does not advance, and says so by doing nothing.
     /// </summary>
-    public IReadOnlyList<PlaceState> AdvanceTime() =>
-        _time is null ? [] : Places.AdvanceTo(_time.ElapsedGameDays);
+    public IReadOnlyList<PlaceState> AdvanceTime()
+    {
+        IReadOnlyList<PlaceState> restored = _time is null ? [] : Places.AdvanceTo(_time.ElapsedGameDays);
+
+        // The population follows the same advance: a place whose reset came due is repopulated here, in
+        // the same update that moved the clock, rather than by a second timer of its own.
+        _population.Step(Party.Place, restored);
+        return restored;
+    }
+
+    /// <summary>Populates the party's place, which also happens on the first update after arriving.</summary>
+    public IReadOnlyList<PlacePopulationEntity> Populate() => _population.Step(Party.Place, []);
+
+    /// <summary>Releases the entities the population owns.</summary>
+    public void Dispose() => _population.Dispose();
 
     /// <summary>What the panel shows about the world.</summary>
     public WorldSnapshot Snapshot

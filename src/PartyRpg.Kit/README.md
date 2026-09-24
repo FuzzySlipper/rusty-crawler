@@ -39,5 +39,7 @@ world it steps (`SessionWorld`), the compiled ruleset and session contracts, the
 catalog loader, validator and bundle resolution, the world (`PlaceGraph`, `PlaceGraphLoader`,
 `PlaceStateLedger`, `TransitionExecutive` with its required cost contract), the party's pose and
 derived view (`PartyPoseOwner`, `FacingRule`, `PartyView`), the structured UI value builder, the
-Engine-backed projection channel and the session projection, and the admitted-input router that turns
-engine events into session commands. Everything else in the owner map is still to come.
+Engine-backed projection channel and the session projection, the admitted-input router that turns
+engine events into session commands, the population owner that fills a place from its placements and
+empties it on leaving, and the Engine-backed movement owner with its vertical and surface policy.
+Everything else in the owner map is still to come.

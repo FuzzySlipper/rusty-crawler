@@ -38,6 +38,7 @@ public sealed class PartyRpgSession : IGameSession
         _projection = projection ?? throw new ArgumentNullException(nameof(projection));
         LiveWorld = world;
         _world = world?.Snapshot ?? WorldSnapshot.Empty;
+        world?.Populate();
         // A session publishes as soon as it exists: the engine expects a create-time projection, and a
         // client that attaches before the first update should see the session it has attached to.
         Publish();
@@ -175,6 +176,7 @@ public sealed class PartyRpgSession : IGameSession
     {
         if (_disposed) return;
         _disposed = true;
+        LiveWorld?.Dispose();
         _mode = SessionMode.Stopped;
         // Publish before releasing the channel: a client attached at shutdown should learn that the
         // session stopped instead of keeping the last running projection forever.
