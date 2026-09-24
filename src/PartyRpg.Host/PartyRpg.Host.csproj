@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <Deterministic>true</Deterministic>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <!-- The immutable SDK owns generated CoreCLR and NativeAOT composition below obj. This ordinary
+         product project remains the one entry root, and the only project that declares a product. -->
+    <RustyEngineProductEntryType>PartyRpg.Host.CrawlerProduct</RustyEngineProductEntryType>
+    <RustyEngineProductId>rusty-crawler-partyrpg</RustyEngineProductId>
+    <RustyEngineProductTitle>Rusty Crawler</RustyEngineProductTitle>
+    <RustyEngineProductUiRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../ui/generated'))</RustyEngineProductUiRoot>
+    <RustyEngineProductContentRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../content'))</RustyEngineProductContentRoot>
+    <RustyEngineProductUiEntry>main.js</RustyEngineProductUiEntry>
+    <RustyEngineProductUiProjectionStream>crawler.hud</RustyEngineProductUiProjectionStream>
+    <RustyEngineProductUiProjectionContract>crawler.ui.snapshot.v1</RustyEngineProductUiProjectionContract>
+    <RustyEngineProductLifecycleMode>realtime</RustyEngineProductLifecycleMode>
+    <RustyEngineProductFixedStepHz>60</RustyEngineProductFixedStepHz>
+    <RustyEngineProductFixedStepMaxCatchUpSteps>4</RustyEngineProductFixedStepMaxCatchUpSteps>
+    <RustyEngineWatchPaths>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'));$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../PartyRpg.Kit'));$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../PartyRpg.Rulesets.MightAndMagic7'));$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../ui'));$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../content'))</RustyEngineWatchPaths>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../PartyRpg.Kit/PartyRpg.Kit.csproj" />
+    <ProjectReference Include="../PartyRpg.Rulesets.MightAndMagic7/PartyRpg.Rulesets.MightAndMagic7.csproj" />
+    <PackageReference Include="Rusty.Engine" Version="$(RustyEnginePackageVersion)">
+      <ExcludeAssets Condition="'$(RustyEngineUseSourceDevelopment)' == 'true'">compile;runtime</ExcludeAssets>
+    </PackageReference>
+    <!-- The one input intent that exists so far, plus the payload channel the DOM companion uses.
+         Gameplay intents arrive with the stones that implement them, never as declarations first. -->
+    <RustyEngineProductInputIntent Include="session.pause-toggle" Value="digital" />
+    <RustyEngineProductInputMapping Include="session.pause-toggle.key-p" Intent="session.pause-toggle" Trigger="key:key-p:pressed" />
+    <RustyEngineProductInputIntent Include="crawler.ui" Value="payload:crawler.ui.action.v1" />
+  </ItemGroup>
+
+  <!-- TypeScript builds only the product-owned DOM companion. The runtime pack provides the browser
+       shell, the renderer, and the transport. -->
+  <Target Name="BuildCrawlerProductUi" BeforeTargets="GenerateRustyEngineProductComposition">
+    <MakeDir Directories="$(RustyEngineProductUiRoot)" />
+    <Exec Command="npm --prefix &quot;$(MSBuildThisFileDirectory)../..&quot; exec -- tsc --target ES2022 --module ES2022 --moduleResolution bundler --strict --noEmitOnError --outDir &quot;$(RustyEngineProductUiRoot)&quot; &quot;$(MSBuildThisFileDirectory)../ui/main.ts&quot;" />
+  </Target>
+</Project>

@@ -30,6 +30,8 @@ Boundary rules:
 - Might and Magic VI and VIII are donor context for formats and divergences, not
   targets: no code path may quietly depend on their data.
 
-Nothing is implemented yet. Fidelity per system — what matches the original,
-what is approximate, and what is deliberately ours — is fixed in
+Implemented today: `MightAndMagic7Ruleset` (the compiled ruleset and its identity) and
+`MightAndMagic7Session`, which composes the kit's session shell with this game's identity. The
+policies listed above attach to that session as their stones land. Fidelity per system — what matches
+the original, what is approximate, and what is deliberately ours — is fixed in
 [`../../docs/gameplay-design.md`](../../docs/gameplay-design.md).
