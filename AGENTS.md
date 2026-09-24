@@ -120,11 +120,22 @@ documents decide, and the difference is recorded rather than silently rounded.
   navigation cells are emitted (the engine derives collision navigation itself, and nothing asks for a
   path yet), and a door's polygons are solid where they stand because doors do not move yet.
 - **No gameplay exists**: no party, character, combat, magic, content, or persistence. Do not
-  describe, review, or accept behavior those stones will add as though it were here. The only
-  player-facing capability today is holding and releasing the session.
-- This development box cannot host an interactive session for long: the headless browser reports
-  `DEV_HOST_VIDEO_FEEDBACK_UNSUPPORTED` a few seconds after attach, which stops the runtime. The
-  live check therefore covers the product-to-DOM leg, and the DOM-to-product leg is covered by tests.
+  describe, review, or accept behavior those stones will add as though it were here. What a player can
+  do today is hold and release the session and walk it: on the agent playtest service's remote browser a
+  held `W` walks the party about 382 units a second and the released key stops it where it stands
+  (Emerald Island, `12552, 800, 193` to `12552, 3859, 98` over eight seconds of held key, the pose then
+  unchanged for the next seventy seconds while the admitted steps kept advancing), `Q` turns and
+  Space jumps. Walking into a transition does not happen yet: nothing in the product consults the loaded
+  travel links as the party moves, and the imported region carries no door placement for its two
+  entrances, so a walk changes the pose and never the place. That gap is recorded with its evidence in
+  `local/verify/walk-playtest/`.
+- An interactive session has only been observed through the agent playtest service's remote browser,
+  which held one for about five minutes without stopping. This box's own headless browser still reports
+  `DEV_HOST_VIDEO_FEEDBACK_UNSUPPORTED` a few seconds after attach and stops the runtime, and the
+  engine's development host admits a request only from the origin it bound to, so a browser reaching the
+  product from another machine needs the host bound to an address that browser can reach rather than to
+  loopback. The panel reports the pose and the stepped counts and nothing about movement quality, so a
+  blocked direction and an input that never arrived look the same on screen.
 
 When the next stone lands, update this section, `README.md`, and the owning directory README
 together.
