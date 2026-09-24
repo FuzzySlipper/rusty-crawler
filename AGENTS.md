@@ -31,6 +31,8 @@ quietly depend on their data.
   `docs/research/mmextension-openmm8-survey.md`
 - experience outline with manual citations: `docs/research/mm7-manual-outline.md`
 - extracted data inventory with donor citations: `docs/research/mm7-data-inventory.md`
+- format specs for the importer's remaining work: `docs/research/mm7-map-formats.md` and
+  `docs/research/mm7-media-formats.md`
 - design shape: `docs/gameplay-design.md` and `docs/code-organization.md`
 - repository shape, current state, and how to develop: `README.md`
 
