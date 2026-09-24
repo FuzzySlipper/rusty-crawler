@@ -184,6 +184,18 @@ product-to-DOM leg (the projection renders with real values) while the DOM-to-pr
 by `tests/PartyRpg.Kit.Tests` and `tests/PartyRpg.Ui.Tests`. A machine whose browser provides frame
 feedback is expected to keep the session running; that has not been verified here.
 
+The offline importer reads the operator's own installation and never writes to it:
+
+```bash
+dotnet src/MightAndMagic7.Import.Tool/bin/Release/net10.0/mm7import.dll report --install /path/to/mm7
+dotnet src/MightAndMagic7.Import.Tool/bin/Release/net10.0/mm7import.dll verify --install /path/to/mm7
+```
+
+`report` prints what the containers, tables, event programs, and map graph actually contain;
+`verify` checks the readers against the recorded inventory in `docs/research/mm7-data-inventory.md`
+and fails when a reader drifts from the data. `scripts/verify.sh` runs `verify` when the installation
+is present, and says so plainly when it is not.
+
 Den serves the product through `.den-serve.json` on port 4176.
 
 ## Guidance and proof

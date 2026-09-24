@@ -11,7 +11,7 @@ whose mechanisms they cover.
 | `PartyRpg.Ui.Tests/` | `PartyRpg.Ui.Tests` | Does the DOM companion render published state, report the right intents, and hold no state or timer? |
 | `PartyRpg.Rulesets.MightAndMagic7.Tests/` | `PartyRpg.Rulesets.MightAndMagic7.Tests` | Do the formulas, ceilings, promotion rules, and per-system fidelity verdicts match what `docs/gameplay-design.md` and the cited evidence say? |
 | `PartyRpg.Host.Tests/` | `PartyRpg.Host.Tests` | Does the product lifecycle, selection, and session construction work? |
-| `MightAndMagic7.Import.Tests/` | `MightAndMagic7.Import.Tests` | Do the format readers and normalizers produce the expected packs, including the recorded quirks? |
+| `MightAndMagic7.Import.Tests/` | `MightAndMagic7.Import.Tests` | Do the readers handle constructed archives, tables, and event programs correctly — both payload wrappers, the writer's size bug, duplicate names, quoted fields, annotation rows, and the placeholder destination — and does the graph fail when a destination is unknown? The recorded inventory itself is checked by `mm7import verify` against the operator's data. |
 
 An architecture suite is not ceremony: it is the automated half of the boundary
 rules in `AGENTS.md`, and it is the check that fails when a kit file quietly

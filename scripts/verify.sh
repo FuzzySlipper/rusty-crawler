@@ -76,10 +76,13 @@ product_projects=(
   src/PartyRpg.Kit/PartyRpg.Kit.csproj
   src/PartyRpg.Rulesets.MightAndMagic7/PartyRpg.Rulesets.MightAndMagic7.csproj
   src/PartyRpg.Host/PartyRpg.Host.csproj
+  src/MightAndMagic7.Import/MightAndMagic7.Import.csproj
+  src/MightAndMagic7.Import.Tool/MightAndMagic7.Import.Tool.csproj
 )
 test_projects=(
   tests/PartyRpg.Architecture.Tests/PartyRpg.Architecture.Tests.csproj
   tests/PartyRpg.Kit.Tests/PartyRpg.Kit.Tests.csproj
+  tests/MightAndMagic7.Import.Tests/MightAndMagic7.Import.Tests.csproj
 )
 host_project="src/PartyRpg.Host/PartyRpg.Host.csproj"
 
@@ -95,6 +98,16 @@ done
 # nothing about a suite nobody ran, so every checked suite above is executed.
 
 dotnet msbuild "$host_project" -t:StageRustyEngineCoreClrProduct -p:Configuration=Release
+
+# The importer's readers are checked against the recorded inventory of the operator's own game data.
+# That data is not part of the repository and is not required to build, so the check reports plainly
+# when it is absent instead of pretending the readers were exercised.
+operator_install="${CRAWLER_MM7_INSTALL:-/home/research/old-games/game-mm7}"
+if [[ -d "$operator_install" ]]; then
+  dotnet src/MightAndMagic7.Import.Tool/bin/Release/net10.0/mm7import.dll verify --install "$operator_install"
+else
+  echo "Operator game data is not present at $operator_install; the extraction inventory check was skipped."
+fi
 
 if [[ "$aot" == true ]]; then
   dotnet msbuild "$host_project" -t:VerifyRustyEngineAot -p:Configuration=Release

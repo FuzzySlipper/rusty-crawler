@@ -46,14 +46,27 @@ public sealed class ArchitectureLawTests
         string[] discovered = [.. SourceProjects()
             .Select(path => Path.GetFileNameWithoutExtension(path) ?? path)
             .Order(StringComparer.Ordinal)];
-        string[] expectedProjects = ["PartyRpg.Host", "PartyRpg.Kit", "PartyRpg.Rulesets.MightAndMagic7"];
+        string[] expectedProjects =
+        [
+            "MightAndMagic7.Import",
+            "MightAndMagic7.Import.Tool",
+            "PartyRpg.Host",
+            "PartyRpg.Kit",
+            "PartyRpg.Rulesets.MightAndMagic7",
+        ];
         Assert.Equal(expectedProjects, discovered);
 
         AssertProjectReferences("PartyRpg.Kit", []);
         AssertProjectReferences("PartyRpg.Rulesets.MightAndMagic7", ["PartyRpg.Kit"]);
         AssertProjectReferences("PartyRpg.Host", ["PartyRpg.Kit", "PartyRpg.Rulesets.MightAndMagic7"]);
 
+        // The importer is offline tooling: it reads the operator's game data and writes packs, and it
+        // is outside the runtime graph in both directions.
+        AssertProjectReferences("MightAndMagic7.Import", []);
+        AssertProjectReferences("MightAndMagic7.Import.Tool", ["MightAndMagic7.Import"]);
+
         foreach (string project in SourceProjects()) AssertNoSmuggledReference(project);
+        AssertImporterIsNotARuntimeDependency();
     }
 
     [Fact]
@@ -176,6 +189,26 @@ public sealed class ArchitectureLawTests
     {
         XDocument document = XDocument.Load(projectFile);
         return document.Descendants(property).FirstOrDefault()?.Value.Trim() ?? string.Empty;
+    }
+
+    /// <summary>
+    /// No runtime project may reference the importer, and the importer may not reference a runtime
+    /// project. An import type reachable from the product would put source-shaped game data on a
+    /// runtime path.
+    /// </summary>
+    private static void AssertImporterIsNotARuntimeDependency()
+    {
+        string[] runtimeProjects = ["PartyRpg.Kit", "PartyRpg.Rulesets.MightAndMagic7", "PartyRpg.Host"];
+        foreach (string project in runtimeProjects)
+        {
+            foreach (XElement reference in XDocument.Load(ProjectFile(project)).Descendants("ProjectReference"))
+            {
+                string include = (string?)reference.Attribute("Include") ?? string.Empty;
+                Assert.False(
+                    include.Contains("Import", StringComparison.OrdinalIgnoreCase),
+                    $"{project} must not reference the importer ('{include}'): importing belongs offline, never on a runtime path.");
+            }
+        }
     }
 
     private static void AssertNoSmuggledReference(string projectFile)

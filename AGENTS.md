@@ -81,6 +81,10 @@ documents decide, and the difference is recorded rather than silently rounded.
 - The ownership laws are enforced by `tests/PartyRpg.Architecture.Tests`, the session shell and input
   router by `tests/PartyRpg.Kit.Tests`, and the DOM companion by `tests/PartyRpg.Ui.Tests`. All three
   run in `scripts/verify.sh`, which also stages the CoreCLR product.
+- The offline importer exists: `MightAndMagic7.Import` reads the operator's containers, rule tables,
+  event programs, and the place graph they encode, and `MightAndMagic7.Import.Tool` reports on and
+  verifies them against the recorded inventory. Map geometry, media extraction, content packs, and
+  the product bundle are the rest of this stone and are not written yet.
 - **No gameplay exists**: no world, party, character, combat, magic, content, or persistence. Do not
   describe, review, or accept behavior those stones will add as though it were here. The only
   player-facing capability today is holding and releasing the session.
