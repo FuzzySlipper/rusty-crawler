@@ -72,17 +72,22 @@ documents decide, and the difference is recorded rather than silently rounded.
 
 ## Current state
 
-**Foundation stone 3 is in progress: the world's place graph exists, and no gameplay does.**
+**Foundation stone 4 is in progress: the party, its resources, the clock and calendar, character
+creation, and what a crossing costs have landed; persistence has not.**
 
 - `src/PartyRpg.Kit`, `src/PartyRpg.Rulesets.MightAndMagic7`, and `src/PartyRpg.Host` build against
   the pinned Engine pair. The host declares the one product entry, one admitted update, the
   `session.pause-toggle` intent, and the `crawler.ui` action channel.
 - The session shell owns its mode and the admitted simulation it measures, and publishes one
-  projection (`crawler.hud` / `crawler.ui.snapshot.v1`) that the DOM companion renders. Later stones
-  attach mechanisms to that session; nothing else is attached yet.
-- The ownership laws are enforced by `tests/PartyRpg.Architecture.Tests`, the session shell and input
-  router by `tests/PartyRpg.Kit.Tests`, and the DOM companion by `tests/PartyRpg.Ui.Tests`. All three
-  run in `scripts/verify.sh`, which also stages the CoreCLR product.
+  projection (`crawler.hud` / `crawler.ui.snapshot.v1`) that the DOM companion renders. The ruleset
+  composes the live world, the one game clock, the party its content describes, and the ledger that
+  settles the party's accounts into it; the projection publishes the clock's date and the party's
+  standing beside the world and movement facts, and later stones attach the remaining mechanisms.
+- The ownership laws are enforced by `tests/PartyRpg.Architecture.Tests`; the kit's content, session,
+  world, party, resources, time, creation, and movement mechanisms by `tests/PartyRpg.Kit.Tests`; the
+  host's composition and travel policy by `tests/PartyRpg.Host.Tests`; the importer's readers and
+  writer by `tests/MightAndMagic7.Import.Tests`; and the DOM companion by `tests/PartyRpg.Ui.Tests`.
+  All five run in `scripts/verify.sh`, which also stages the CoreCLR product.
 - `MightAndMagic7.Import` reads the operator's own data: all five containers decode every entry, the
   rule tables and the place graph reproduce the recorded inventory, all 76 maps decode, and the media
   extractor emits 17,681 images, palettes, PCX files, and sounds with a provenance manifest. No game
@@ -90,49 +95,90 @@ documents decide, and the difference is recorded rather than silently rounded.
 - `MightAndMagic7.Import.Tool` is the operator's command line: `report`, `verify` (against the recorded
   inventory), `maps`, `media`, and `write`, which emits the content packs the product loads and proves
   two runs produce identical bytes.
-- The product loads content: `PartyRpg.Kit` defines the pack envelope, validates the whole catalog at
-  start, and resolves the game bundle the host selects; the host starts from the bundle it ships,
-  reports it in the projection, and refuses to start on content that is present and wrong. Gameplay
-  definitions do not consume the packs yet.
+- The product loads content and the ruleset consumes it: `PartyRpg.Kit` defines the pack envelope,
+  validates the whole catalog at start, and resolves the game bundle the host selects; the host starts
+  from the bundle it ships, reports it in the projection, and refuses to start on content that is
+  present and wrong. The world's places, transitions, collision geometry, and walk-in entrances, and
+  the scenario's starting place and party, all come from the loaded packs, and creation refuses a
+  catalog that does not declare the classes and skills it offers.
 - The world exists as a graph: `PartyRpg.Kit` loads places and the transitions between them from the
   imported packs — 76 places (13 regions, 63 interiors) with 83 arrival points and 193 transitions,
   every arrival resolving — and answers where the party can go and where it arrives through one code
   path. The party's pose and derived view, per-place runtime state, and one costed transition path are
   wired into the session; a session with content places the party where a scenario says, marks places
-  visited, advances respawn from a day source, and populates the current place from its content
+  visited, advances respawn from the one clock, and populates the current place from its content
   placements through the Engine's own entity store. Movement is Engine-backed and stepped inside the
   same admitted update from declared input intents (`ProposeCharacterStep` with sliding, step-up,
   slopes, jump and falls; no C# collision anywhere), composed only when the engine actually supplies a
   spatial service — a product without one has no movement rather than movement through walls.
-- Travel costs are stated, not yet applied: `TravelCost` carries elapsed time and provisions with
-  units, and the transition path refuses paid or magical travel by name until the party's purse
-  (stone 4) and the service and magic owners (stones 5 and 7) exist. Respawn's day source is the same
-  seam: the world advances when a clock reports the day, and no clock exists yet. Both are routed, not
-  forgotten — the clock, purse, and food receiver is a stone 4 task.
-- The product shows a world only when a bundle carries places and a scenario start; the shipped bundle
-  carries neither yet, so a running product reports no world. Authoring that scenario is stone 4's.
-- Fall damage is reported by movement and applied by nobody: the party's health owner arrives with the
-  party foundation. Collision geometry now travels with content: `write` emits the engine's own spatial
-  artifact for every place whose solid faces can be closed (all 76 of the operator's places; 824,320
-  triangles), and the mover admits it when the party enters a place and reports the counts the engine
-  admitted. A place whose geometry cannot be closed carries no entry and the party is told it stands on
-  nothing rather than falling through a floor. Two limits are stated rather than hidden: no walkable
-  navigation cells are emitted (the engine derives collision navigation itself, and nothing asks for a
-  path yet), and a door's polygons are solid where they stand because doors do not move yet.
-- **No gameplay exists**: no party, character, combat, magic, content, or persistence. Do not
-  describe, review, or accept behavior those stones will add as though it were here. What a player can
-  do today is hold and release the session and walk it: on the agent playtest service's remote browser a
-  held `W` walks the party about 382 units a second and the released key stops it where it stands
-  (Emerald Island, `12552, 800, 193` to `12552, 3859, 98` over eight seconds of held key, the pose then
-  unchanged for the next seventy seconds while the admitted steps kept advancing), `Q` turns and
-  Space jumps. Walking into a transition now changes the place: the importer emits, per travel link, the
-  reach its source map's own event face gives the party to walk into (532 reaches for 155 of the 193
-  links, with the reason recorded per link for the rest), and the world consults the current place's
-  reaches inside the movement step, taking one through the single travel path when a step carries the
-  party from outside its reach to inside it. Both crossings of Emerald Island's cave mouth and The
-  Dragon's Lair's exit were walked in the running product, with the HUD and the product's own travel
-  reports recorded in `local/verify/walk-transition/`; the earlier walk that could not cross anything is
-  in `local/verify/walk-playtest/`.
+- The party exists. `PartyEntity` is one façade over one engine entity: the roster and its members, the
+  one shared inventory of item instances, each member's equipment, the purse and the larder, reputation
+  and fame, followers, and party-wide effects are components attached to it and read live where the
+  entity carries them, so a wrapped party that lacks one fails on the read rather than growing an empty
+  one. Custody is a closed set of detached, the shared pack, or one member's slot, which is what makes
+  "carried but not worn" inexpressible and a per-character pack a shape the state does not have.
+  Runtime entity identity, content identity, and the durable member and item identities a save carries
+  are kept apart. Encumbrance is decided and not introduced: neither the shipped item table nor the
+  donor's item state has a weight, so the capacity rule asks about the shared pack as a whole rather
+  than inventing a limit no source states.
+- The party's accounts have one settlement path. Every charge is judged against the purse and the
+  larder before either moves and refused whole, naming every shortfall rather than overdrawing the
+  purse; a day eats one ration, and a larder left short weakens every member. The donor's starving
+  health loss is not implemented: the stated consequence is the weak condition, and a fed day ends it.
+- Character creation exists. `PartyCreationFlow` walks portrait (which decides the race), class, name,
+  the race's attribute point-buy, and the class's skills one step at a time, refusing an illegal choice
+  where it is made with the rule it broke, and judging the pool-spent-exactly and skills-chosen rules
+  when a step is confirmed; the ruleset supplies four races, eight portraits, nine base classes, a
+  fifty-point pool, and four starting skills per character (two the class fixes, two the player
+  chooses), and its default party is applied through those same operations. The nine classes across
+  four races are swept as whole parties. **No session mode reaches creation yet**: a session's party
+  comes from a scenario document, and the mode that holds creation while a party is chosen is a later
+  stone's.
+- One clock and calendar own time. `GameClock` over a validated `GameCalendar` is the only thing that
+  advances game time; `Advance` reports the hour, day, week, month, and year boundaries it crossed and
+  the deadlines it brought due, each once, and the world reads its day count from that same clock, so
+  respawn and travel time are one time rather than two. The shipped rule tables carry no calendar, so
+  the year's shape is authored — twelve months of four seven-day weeks, agreeing with the imported
+  reset intervals — with the reasoning beside it, and a source scan in `tests/PartyRpg.Kit.Tests` fails
+  the kit if one of its sources names an ambient time source (`DateTime`, `Stopwatch`, a timer, a
+  thread, or the rest of that list).
+- What a crossing costs is applied, once. Walking into an entrance or over a region edge takes the
+  transition, and on arrival the world advances the clock by exactly the time the cost quoted and
+  spends exactly the provisions it quoted through the party's one settlement path; a refused
+  transition, and an arrival a place refuses, charge neither and leave the party where it stood. A
+  party that arrives with its larder short is weakened. Paid and magical travel still refuse by name,
+  because the services that sell a fare and the spell and beacon owners do not exist yet. The cave
+  mouth between The Dragon's Lair and Emerald Island was crossed in the running product and read off
+  the panel: the first crossing took the clock from `1168-01-01` to `1168-01-02` and left one portion,
+  and the crossing back took it to `1168-01-03` with none and the party weak
+  (`local/verify/travel-cost/`).
+- The product shows a world and a party only when a bundle carries places, a scenario start, and a
+  scenario party; the shipped bundle carries none of them, so a running product without imported packs
+  reports no world and no party. Those are content the operator imports, and none of it ships.
+- Fall damage is priced by movement and applied by nobody: a landing past the tuning's threshold is
+  reported with its distance and its excess, and no character loses health. Collision geometry now
+  travels with content: `write` emits the engine's own spatial artifact for every place whose solid
+  faces can be closed (all 76 of the operator's places; 824,320 triangles), and the mover admits it
+  when the party enters a place and reports the counts the engine admitted. A place whose geometry
+  cannot be closed carries no entry and the party is told it stands on nothing rather than falling
+  through a floor. Two limits are stated rather than hidden: no walkable navigation cells are emitted
+  (the engine derives collision navigation itself, and nothing asks for a path yet), and a door's
+  polygons are solid where they stand because doors do not move yet.
+- **No combat, magic, services, quests, or persistence exists.** The party can capture and restore its
+  own state, and no session snapshot is written or read yet. Do not describe, review, or accept
+  behavior those stones will add as though it were here. What a player can do today is hold and
+  release the session and walk it: on the agent playtest service's remote browser a held `W` walks the
+  party about 382 units a second and the released key
+  stops it where it stands (Emerald Island, `12552, 800, 193` to `12552, 3859, 98` over eight seconds
+  of held key, the pose then unchanged for the next seventy seconds while the admitted steps kept
+  advancing), `Q` turns and Space jumps. Walking into a transition now changes the place: the importer
+  emits, per travel link, the reach its source map's own event face gives the party to walk into (532
+  reaches for 155 of the 193 links, with the reason recorded per link for the rest), and the world
+  consults the current place's reaches inside the movement step, taking one through the single travel
+  path when a step carries the party from outside its reach to inside it. Both crossings of Emerald
+  Island's cave mouth and The Dragon's Lair's exit were walked in the running product, with the HUD and
+  the product's own travel reports recorded in `local/verify/walk-transition/`; the earlier walk that
+  could not cross anything is in `local/verify/walk-playtest/`.
 - An interactive session has only been observed through the agent playtest service's remote browser,
   which held one for about five minutes without stopping. This box's own headless browser still reports
   `DEV_HOST_VIDEO_FEEDBACK_UNSUPPORTED` a few seconds after attach and stops the runtime, and the

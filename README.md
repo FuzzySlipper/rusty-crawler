@@ -14,12 +14,13 @@ PartyRpg architecture.
 The working formula is: **Engine guarantees. Kit shapes. Ruleset decides.
 Bundle assembles. Host launches.**
 
-> **Current state: foundation stone 1 landed.** The product spine exists and no gameplay does: the
-> kit, the ruleset, and the host build against the pinned Engine pair; a session owns its mode and the
-> admitted simulation it measures; and the DOM companion renders the one projection it publishes.
-> Holding and releasing the session is the only player-facing capability. The world, party, combat,
-> magic, content, and persistence are still to come — see [`AGENTS.md`](AGENTS.md) for the exact
-> current state.
+> **Current state: foundation stone 4 is in progress.** The spine, the world, the party and its
+> resources, the one clock and calendar, character creation, and what a crossing costs have landed:
+> a session with imported content walks its party, places it where a scenario says, and settles the
+> crossing it takes against the purse, the larder, and the clock. Combat, magic, services, quests,
+> and persistence are still to come, no session mode reaches the creation flow yet, and the shipped
+> bundle carries no content — so a running product without imported packs reports no world and no
+> party. See [`AGENTS.md`](AGENTS.md) for the exact current state.
 
 ## Ownership
 
@@ -86,7 +87,7 @@ game data is never committed here.
 
 ## Design shape
 
-Two documents fix the shape before implementation starts:
+Two documents fix the shape the stones are built to:
 
 - [Gameplay design](docs/gameplay-design.md) — the loop, every system's shape
   with a fidelity verdict, the foundations-first building order, non-goals, and
@@ -116,8 +117,8 @@ current.
 | --- | --- |
 | [`AGENTS.md`](AGENTS.md) | The working contract: direction, ownership, boundary rules, donor posture, git and documentation conventions. |
 | [`docs/`](docs/README.md) | Durable documents: the [gameplay design](docs/gameplay-design.md), the [code organization](docs/code-organization.md), the [research notes](docs/research/), and the [review lane model](docs/agent-review/README.md). |
-| [`src/`](src/README.md) | The planned product graph: kit, ruleset, host, importer and its tool, and the product DOM companion. |
-| [`tests/`](tests/README.md) | The planned suites, including the architecture suite that will enforce the ownership laws. |
+| [`src/`](src/README.md) | The product graph: kit, ruleset, host, importer and its tool, and the product DOM companion. |
+| [`tests/`](tests/README.md) | The suites, including the architecture suite that enforces the ownership laws. |
 | [`content/`](content/README.md) | Loaded content: bundles, authored content packs, and per-region imports produced offline. |
 | [`data/`](data/README.md) | Small checked-in reference tables a person maintains. |
 | `scripts/` | Engine pair installation and pin movement, and `verify.sh`. |
@@ -133,7 +134,7 @@ For every task, identify:
 
 ## Develop and verify
 
-The product will consume the immutable `Rusty.Engine` package from the installed
+The product consumes the immutable `Rusty.Engine` package from the installed
 `.runtime/sdk-feed` and the matched `.runtime/runtime-pack`. That pair's identity
 belongs in `Directory.Build.props`, where the install and verify scripts check it;
 do not restate a version or revision here.
@@ -177,12 +178,12 @@ Ordinary development runs the staged product through the runtime pack:
   --runtime ./.runtime/runtime-pack
 ```
 
-The same command is what `.den-serve.json` uses. **This development box cannot host an interactive
-session for long**: a few seconds after a browser attaches, the host reports
-`DEV_HOST_VIDEO_FEEDBACK_UNSUPPORTED` and stops the runtime, so a live check confirms the
-product-to-DOM leg (the projection renders with real values) while the DOM-to-product leg is covered
-by `tests/PartyRpg.Kit.Tests` and `tests/PartyRpg.Ui.Tests`. A machine whose browser provides frame
-feedback is expected to keep the session running; that has not been verified here.
+The same command is what `.den-serve.json` uses. **This box's own headless browser cannot hold an
+interactive session**: a few seconds after it attaches, the host reports
+`DEV_HOST_VIDEO_FEEDBACK_UNSUPPORTED` and stops the runtime, so a live check from here confirms the
+product-to-DOM leg (the projection renders with real values). A session held through the agent
+playtest service's remote browser does keep running and takes the player's keys, which is where the
+movement, transition, and travel-cost readings under `local/verify/` come from.
 
 The offline importer reads the operator's own installation and never writes to it:
 

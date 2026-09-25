@@ -1,10 +1,10 @@
 # PartyRpg.Kit
 
-Planned home of the reusable, rules-agnostic mechanisms for party-centric
+The home of the reusable, rules-agnostic mechanisms for party-centric
 first-person RPGs: the construction grammar that a compiled ruleset shapes into
 a concrete game.
 
-Owns, once implemented:
+Owns:
 
 - Party model: roster, members, formation or order, shared currency and party
   inventory over per-character equipment.
@@ -35,13 +35,16 @@ supplies, and where new code goes — is in
 [`../../docs/code-organization.md`](../../docs/code-organization.md).
 
 Implemented today: the session shell (`PartyRpgSession`, `SessionMode`, `IGameSession`) with the live
-world it steps (`SessionWorld`), the compiled ruleset and session contracts, the pack envelope with its
+world it steps (`SessionWorld`), the one clock it advances by the admitted interval and the party it
+holds and publishes, the compiled ruleset and session contracts, the pack envelope with its
 catalog loader, validator and bundle resolution, the world (`PlaceGraph`, `PlaceGraphLoader`,
 `PlaceStateLedger`, `TransitionExecutive` with its required cost contract, and the entrances a walking
-party takes — `PlaceEntrance` with its loader, consulted inside the movement step so a step that carries
-the party into an entrance's reach travels through that one transition path), the party's pose and
-derived view (`PartyPoseOwner`, `FacingRule`, `PartyView`), the party entity and its attached components
-(`PartyEntity` over the engine's own entity store, with `PartyRoster` and `PartyMember`, the one shared
+party takes — `PlaceEntrance` with its loader, consulted inside the movement step so a step that
+carries the party into an entrance's reach travels through that one transition path; a crossing taken
+that way is charged on arrival, its quoted time to the session's one clock and its quoted provisions
+to the party's larder through the ledger's one path, exactly once, and a refused transition is charged
+nothing), the party's pose and derived view (`PartyPoseOwner`, `FacingRule`, `PartyView`), the party
+entity and its attached components (`PartyEntity` over the engine's own entity store, with `PartyRoster` and `PartyMember`, the one shared
 `PartyInventory` of `ItemInstance`s beside each member's `CharacterEquipment` — every instance carrying a
 durable `ItemInstanceId` and an `ItemState` of identified, damaged, and enchanted, and reporting one
 `ItemCustody` that is detached, the shared pack, or a single member's slot and nothing else, so a
@@ -63,8 +66,7 @@ and offers — taken one step at a time with `CreationMember` as the answer to e
 choice where it is made with the rule it broke, spending the pool exactly and choosing the promised number
 of skills before a step is confirmed, applying a ruleset's `PartyCreationDefaults` through those same
 steps rather than beside them, and handing `ToCreation` to `PartyEntityFactory` without minting an
-identity), the
-structured UI value builder, the
+identity), the structured UI value builder, the
 Engine-backed projection channel and the session projection, the admitted-input router that turns
 engine events into session commands, the population owner that fills a place from its placements and
 empties it on leaving, the Engine-backed movement owner with its vertical and surface policy, the reaches that let a party walk

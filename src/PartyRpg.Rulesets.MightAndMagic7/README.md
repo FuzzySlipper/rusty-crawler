@@ -1,10 +1,10 @@
 # PartyRpg.Rulesets.MightAndMagic7
 
-Planned home of the compiled Might and Magic VII ruleset: the concrete policy
+The compiled Might and Magic VII ruleset: the concrete policy
 that turns `PartyRpg.Kit` mechanisms into that game. The owner-level contract is
 in [`../../docs/code-organization.md`](../../docs/code-organization.md).
 
-Owns, once implemented:
+Owns:
 
 - Classes, races, ranks, and the two-stage promotion ladder whose second step
   splits each class into a light and a dark alternative.
@@ -31,14 +31,25 @@ Boundary rules:
   targets: no code path may quietly depend on their data.
 
 Implemented today: `MightAndMagic7Ruleset` (the compiled ruleset and its identity) and
-`MightAndMagic7Session`, which composes the kit's session shell with this game's identity. Party creation's
-game definitions are landed too: `MightAndMagic7Creation.Options` offers the four races with their
-attribute ranges, the eight portraits, and the nine base classes with the two skills each fixes, the nine
-it offers, and the hit and spell points it starts with, over a pool of fifty points and two chosen skills
-per character; `MightAndMagic7CreationTables` records which of those values the shipped data carries and
+`MightAndMagic7Session`, which composes the kit's session shell with this game's identity: this game's
+world and movement policy (`MightAndMagic7World`, `MightAndMagic7Movement` — the party's body and walk
+speed, cited from the donor, and the engine's own controller tuning scaled to that body), the one clock
+(`MightAndMagic7Time` — the authored calendar, the donor's starting moment, its thirty-to-one rate, and
+the hours it calls daylight), the party its content declares as scenario state (`MightAndMagic7Party`,
+through the same factory creation hands a party to, never a party of its own invention), the larder's
+policy (`MightAndMagic7Provisions` — one ration a day, and the weak condition a larder left short puts
+on every member), and what a crossing costs (`MightAndMagic7TravelCostRule` — a day on the road and the
+rations it eats, with paid and magical travel refused by name until the services that sell a fare and
+the magic that opens a portal exist). Party creation's game definitions are landed too:
+`MightAndMagic7Creation.Options` offers the four races with their attribute ranges, the eight portraits,
+and the nine base classes with the two skills each fixes, the nine it offers, and the hit and spell
+points it starts with, over a pool of fifty points and two chosen skills per character;
+`MightAndMagic7CreationTables` records which of those values the shipped data carries and
 which are ours, with the manual citation and the donor transcription each authored value rests on; and
 `MightAndMagic7Creation.Defaults` is the default party the flow applies through its own validation. The
 class and skill definitions the choices name are checked against the loaded content, which refuses a
-catalog that contradicts them. Everything else listed above attaches to the session as its stone lands.
-Fidelity per system — what matches the original, what is approximate, and what is deliberately ours — is
-fixed in [`../../docs/gameplay-design.md`](../../docs/gameplay-design.md).
+catalog that contradicts them. Everything else listed above — the remaining class, skill, spell,
+monster, item, service, and formula policy, rest and fatigue and service hours, and this game's save
+meaning — attaches to the session as its stone lands. Fidelity per system — what matches the original,
+what is approximate, and what is deliberately ours — is fixed in
+[`../../docs/gameplay-design.md`](../../docs/gameplay-design.md).
