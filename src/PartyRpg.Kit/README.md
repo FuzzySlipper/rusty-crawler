@@ -42,10 +42,17 @@ party takes — `PlaceEntrance` with its loader, consulted inside the movement s
 the party into an entrance's reach travels through that one transition path), the party's pose and
 derived view (`PartyPoseOwner`, `FacingRule`, `PartyView`), the party entity and its attached components
 (`PartyEntity` over the engine's own entity store, with `PartyRoster` and `PartyMember`, the one shared
-`PartyInventory` of `ItemInstance`s beside each member's `CharacterEquipment`, `PartyPurse`, `PartyFood`,
+`PartyInventory` of `ItemInstance`s beside each member's `CharacterEquipment` — every instance carrying a
+durable `ItemInstanceId` and an `ItemState` of identified, damaged, and enchanted, and reporting one
+`ItemCustody` that is detached, the shared pack, or a single member's slot and nothing else, so a
+per-character pack is a state these types cannot express; `Capture` writes each instance's identity, state,
+and custody and `Restore` rebuilds them), `PartyPurse`, `PartyFood`,
 `PartyReputation`, `PartyFollowers`, `PartyEffects`, the minting of durable identities in
 `PartyIdentitySource`, and `PartyEntityFactory`, which builds a party from creation or from a `PartySave`
-and never lets a wrapped party grow a component), the party's owned resources (`PartyResourceLedger`, the
+and never lets a wrapped party grow a component, with the item rules it composes arriving as
+`IEquipmentUseRule`, `IInventoryCapacityRule`, and `IItemStackingRule` — what may be worn, what the shared
+pack takes, and how far copies bundle are the ruleset's answers over content and tuning, never a skill
+name, a slot name, or a limit in the kit), the party's owned resources (`PartyResourceLedger`, the
 one path that settles a `PartyCost` against the purse and the larder whole or not at all — refusing with
 every shortfall named rather than overdrawing the purse — credits the same two accounts, and spends a
 travelling or camping day as a `ProvisionDay`, priced and judged by a ruleset's `ISettlementRule` and
