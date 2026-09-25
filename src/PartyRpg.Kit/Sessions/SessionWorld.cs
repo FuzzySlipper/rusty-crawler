@@ -351,6 +351,7 @@ public sealed class SessionWorld : IDisposable
     private readonly IWorldTimeSource? _time;
     private readonly PlacePopulation _population;
     private readonly IDiagnosticsService? _diagnostics;
+    private readonly Dictionary<PlaceId, PlaceEntrance[]> _entrances;
     private MovementDiagnostics _movement = MovementDiagnostics.None;
     private bool _disposed;
 
@@ -368,6 +369,12 @@ public sealed class SessionWorld : IDisposable
     /// Where a fall the tuning priced is reported, when the engine's diagnostics are reachable. The
     /// report is the only thing that happens to a fall here: the party's health is not this owner's.
     /// </param>
+    /// <param name="entrances">
+    /// The transitions a walking party can take, each with the reach in its place that takes it. Without
+    /// any, walking moves the party and never the place, which is what content that declares no entrances
+    /// gets.
+    /// </param>
+    /// <exception cref="ArgumentNullException">A required collaborator is missing.</exception>
     public SessionWorld(
         PlaceGraph graph,
         PartyPoseOwner party,
@@ -375,7 +382,8 @@ public sealed class SessionWorld : IDisposable
         ITravelCostRule costRule,
         IWorldTimeSource? time = null,
         IPartyMover? mover = null,
-        IDiagnosticsService? diagnostics = null)
+        IDiagnosticsService? diagnostics = null,
+        IReadOnlyList<PlaceEntrance>? entrances = null)
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(party);
@@ -388,6 +396,7 @@ public sealed class SessionWorld : IDisposable
         Places = places;
         Places.MarkVisited(party.Place);
         _population = new PlacePopulation(graph, places);
+        _entrances = Index(graph, entrances);
         Mover = mover;
         // The place the party starts in is entered exactly as any other is, so the scene it walks in is
         // filled from that place's content before the first step rather than one arrival late.
@@ -416,7 +425,8 @@ public sealed class SessionWorld : IDisposable
     public PlacePopulation Population => _population;
 
     /// <summary>
-    /// Moves the party by one step of the world's admitted time.
+    /// Moves the party by one step of the world's admitted time, and takes the transition that step
+    /// walked into.
     /// </summary>
     /// <remarks>
     /// The world is the only owner of the party's pose, so movement is asked from here rather than from
@@ -431,11 +441,15 @@ public sealed class SessionWorld : IDisposable
     {
         if (Mover is not { } mover) return null;
 
+        // The pose the step begins at is what tells an entrance that was walked into from one the party
+        // was already standing in, and it must be read before the mover replaces it.
+        PlacePose before = Party.PlacePose;
         MovementOutcome outcome = mover.Step(intent, elapsedSeconds);
         _movement = new MovementDiagnostics(
             outcome,
             _movement.Falls + (outcome.Fall.PastThreshold ? 1 : 0));
         Report(outcome);
+        Enter(before);
         return outcome;
     }
 
@@ -534,6 +548,108 @@ public sealed class SessionWorld : IDisposable
     /// named one, and the arrival is the moment the defect is attributable to a place.
     /// </remarks>
     private void EnterPlace(PlaceId place) => Mover?.Enter(place);
+
+    /// <summary>
+    /// Takes the transition whose entrance the step just carried the party into.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the whole of walking between places: a place's own entrances are consulted after the step
+    /// that moved the party, and the one it entered is taken through <see cref="Travel"/> — the same path,
+    /// with the same cost contract and the same arrival, that any other transition takes. Nothing here
+    /// decides where the party goes or what it costs, and there is no second way between places.
+    /// </para>
+    /// <para>
+    /// Only the step's <em>entry</em> counts: the party must have been outside the reach when the step
+    /// began and be inside it when the step ended. A party standing in an entrance it did not walk into —
+    /// because a transition placed it there, or because it has not left yet — does not travel, which is
+    /// what keeps a door from bouncing a party straight back through it. A refusal is reported and the
+    /// party keeps walking: the rule's answer is a fact about the journey, and a party that is refused
+    /// must not be silently moved or silently stopped.
+    /// </para>
+    /// </remarks>
+    private void Enter(PlacePose before)
+    {
+        if (!_entrances.TryGetValue(Party.Place, out PlaceEntrance[]? entrances)) return;
+
+        PlacePose now = Party.PlacePose;
+        foreach (PlaceEntrance entrance in entrances)
+        {
+            if (!entrance.Contains(now) || entrance.Contains(before)) continue;
+            TransitionResult result = Travel(entrance.Transition, entrance.Kind);
+            if (result.Arrived)
+            {
+                // The party is somewhere else now, so the entrances of the place it left cannot apply to
+                // the rest of this step, and the arrival pose is what the next step's entry test starts
+                // from.
+                Report(entrance, result);
+                return;
+            }
+
+            Report(entrance, result.Refusal!);
+        }
+    }
+
+    /// <summary>Reports the crossing a walk-in took, which nothing else states as a fact.</summary>
+    /// <remarks>
+    /// The panel shows the place the party is in and not how it got there, so a crossing that happened
+    /// and one that never fired look the same on screen. This is the world's own account of it: which
+    /// entrance was entered, where the party left, and where it arrived.
+    /// </remarks>
+    private void Report(PlaceEntrance entrance, TransitionResult result)
+    {
+        _diagnostics?.Publish(new DiagnosticsPublishRequest(
+            DiagnosticsSeverity.Info,
+            DiagnosticsDisposition.Accepted,
+            Source: "travel",
+            Code: "entrance-entered",
+            Message: $"The party walked into the entrance '{entrance.Source}' in place '{entrance.Place}' and arrived in place '{result.Place}' at {result.Pose}.",
+            Correlation: string.Empty));
+    }
+
+    /// <summary>Reports a walk-in the cost rule refused, which nothing else on screen would show.</summary>
+    private void Report(PlaceEntrance entrance, TravelRefusal refusal)
+    {
+        _diagnostics?.Publish(new DiagnosticsPublishRequest(
+            DiagnosticsSeverity.Info,
+            DiagnosticsDisposition.Accepted,
+            Source: "travel",
+            Code: "entrance-refused",
+            Message: $"The party walked into the entrance '{entrance.Source}' in place '{Party.Place}' and the transition to '{entrance.Transition.To}' was refused: {refusal}",
+            Correlation: string.Empty));
+    }
+
+    /// <summary>
+    /// Indexes the entrances by the place that issues them, refusing one that stands nowhere.
+    /// </summary>
+    /// <remarks>
+    /// An entrance whose transition the graph does not hold would be a door a load should have refused:
+    /// walking into it would fail inside an admitted update, where a failure is far harder to attribute
+    /// than at the moment the world was built.
+    /// </remarks>
+    private static Dictionary<PlaceId, PlaceEntrance[]> Index(PlaceGraph graph, IReadOnlyList<PlaceEntrance>? entrances)
+    {
+        Dictionary<PlaceId, List<PlaceEntrance>> byPlace = [];
+        foreach (PlaceEntrance entrance in entrances ?? [])
+        {
+            if (!graph.Transitions.Contains(entrance.Transition))
+            {
+                throw new ArgumentException(
+                    $"The entrance '{entrance.Source}' takes transition '{entrance.Transition.Source}', which place '{entrance.Place}' does not issue, so walking into it could never be taken.",
+                    nameof(entrances));
+            }
+
+            if (!byPlace.TryGetValue(entrance.Place, out List<PlaceEntrance>? list))
+            {
+                list = [];
+                byPlace[entrance.Place] = list;
+            }
+
+            list.Add(entrance);
+        }
+
+        return byPlace.ToDictionary(pair => pair.Key, pair => pair.Value.ToArray());
+    }
 
     /// <summary>
     /// Reports a fall the tuning priced to the engine's diagnostics, without applying it.

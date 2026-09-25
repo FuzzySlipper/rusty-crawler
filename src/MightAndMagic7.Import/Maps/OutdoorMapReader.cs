@@ -44,6 +44,7 @@ internal static class OutdoorMapReader
     private const int FaceVertexIdsOffset = 0x20;
     private const int FaceTextureUsOffset = 0x48;
     private const int FaceTextureVsOffset = 0x70;
+    private const int FaceEventIdOffset = 0x124;
     private const int FaceTextureDeltaUOffset = 0x112;
     private const int FaceTextureDeltaVOffset = 0x114;
     private const int FaceVertexCountOffset = 0x12E;
@@ -238,6 +239,11 @@ internal static class OutdoorMapReader
             MapRecord.Int16(record, FaceTextureDeltaVOffset),
             -1,
             -1,
-            -1);
+            -1,
+            // The event the face raises is an outdoor-only field of the face record: the donor fires it
+            // when the party steps on the face or clicks it (OpenEnroth
+            // src/Engine/Graphics/Outdoor.cpp:966-980, Indoor.cpp:1397-1402), and it is the only
+            // source-side trigger an outdoor map carries.
+            MapRecord.UInt16(record, FaceEventIdOffset));
     }
 }

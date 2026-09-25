@@ -2,13 +2,16 @@ using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.World;
 using MightAndMagic7.Import.Collision;
+using MightAndMagic7.Import.Events;
 using MightAndMagic7.Import.Lod;
 using MightAndMagic7.Import.Maps;
+using MightAndMagic7.Import.Packs;
 using MightAndMagic7.Import.Tool;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Xunit;
+using ImportedPlaceGraph = MightAndMagic7.Import.World.PlaceGraph;
 
 namespace MightAndMagic7.Import.Tests;
 
@@ -351,6 +354,103 @@ public sealed class PackWriterTests
             if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
         }
     }
+
+    [Fact]
+    public void Walking_into_a_places_transition_comes_from_the_event_face_the_map_carries()
+    {
+        // The fixture's interior face raises event 11, so a program whose move belongs to event 11 is a
+        // road that face is the trigger for. The reach the emitter derives is the face's own geometry,
+        // which is what the assertions recompute independently rather than take on trust.
+        IndoorMap indoor = Assert.IsType<IndoorMap>(MapDecoder.DecodeIndoor(
+            Payload("d01.blv", MapDecoderTests.IndoorPayload()),
+            Payload("d01.dlv", MapDecoderTests.IndoorDeltaPayload())));
+        OutdoorMap outdoor = Assert.IsType<OutdoorMap>(MapDecoder.DecodeOutdoor(Payload("out01.odm", MapDecoderTests.OutdoorPayload())));
+        ImportedPlaceGraph graph = ImportedPlaceGraph.Build(
+            [EvtProgram.Read("D01.EVT", SyntheticInstallation.EvtProgram(11, "Out01.odm"))],
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["d01"] = 14, ["out01"] = 1 });
+        IReadOnlyDictionary<int, DecodedMap> maps = new Dictionary<int, DecodedMap> { [14] = indoor, [1] = outdoor };
+
+        PlaceEntranceSummary summary = PlaceEntranceEmitter.Emit(graph, maps);
+
+        PlaceEntrancePlacement entrance = Assert.Single(summary.Entrances);
+
+        // The entrance takes the one link the program declares, stands in the map the program belongs to,
+        // and reaches the whole face: an interior has no models, so the face index is the level's own.
+        Assert.Equal(0, entrance.LinkIndex);
+        Assert.Equal(14, entrance.FromPlace);
+        Assert.Equal(1, entrance.ToPlace);
+        Assert.Equal(11, entrance.EventId);
+        Assert.Equal(PlaceEntranceKind.Entrance, entrance.Kind);
+        Assert.Equal(0, entrance.SourceFaceIndex);
+        Assert.Equal(-1, entrance.SourceModelIndex);
+        Assert.Equal(string.Empty, entrance.SourceModelName);
+        Assert.Equal(indoor.Faces[0].Attributes, entrance.Attributes);
+
+        // The position and the radius are the trigger face's own: its corners' mean, and the farthest
+        // corner from it. Nothing here is read from the destination the link names.
+        MapFace face = indoor.Faces[0];
+        Assert.Equal(face.Vertices.Average(vertex => (double)vertex.X), entrance.X, 6);
+        Assert.Equal(face.Vertices.Average(vertex => (double)vertex.Y), entrance.Y, 6);
+        Assert.Equal(face.Vertices.Average(vertex => (double)vertex.Z), entrance.Z, 6);
+        Assert.Equal(
+            face.Vertices.Max(vertex => Math.Sqrt(Math.Pow(vertex.X - entrance.X, 2) + Math.Pow(vertex.Y - entrance.Y, 2) + Math.Pow(vertex.Z - entrance.Z, 2))),
+            entrance.Radius,
+            6);
+
+        // Every link was either reachable or refused by name, never dropped in silence.
+        Assert.Empty(summary.Refusals);
+        Assert.Equal(1, summary.LinkCount);
+        Assert.Equal(1, summary.ReachCount);
+    }
+
+    [Fact]
+    public void A_pack_says_where_a_transition_can_be_walked_into_and_which_links_nothing_can()
+    {
+        string installRoot = SyntheticInstallation.Create(withMaps: true);
+        string root = Path.Combine(Path.GetTempPath(), $"mm7-entrances-{Guid.NewGuid():N}");
+        try
+        {
+            string imports = Path.Combine(root, "imports");
+            PackWriteResult written = PackWriter.Write(LodInstall.Open(installRoot), imports);
+
+            // The fixture's two links hang their events on numbers no face in its maps raises, so they are
+            // reported per link rather than rounded to a position: nothing in that installation can be
+            // walked into a transition, and the pack says so instead of inventing a trigger.
+            Assert.Empty(written.Entrances.Entrances);
+            Assert.Equal(2, written.Entrances.UntriggerableCount);
+            Assert.All(written.Entrances.Refusals, refusal => Assert.Equal("no-event-face", refusal.Code));
+            Assert.Equal([0, 1], written.Entrances.Refusals.Select(refusal => refusal.LinkIndex));
+
+            using (JsonDocument document = JsonDocument.Parse(File.ReadAllText(Path.Combine(imports, "mm7-world", "place-entrances.json"))))
+            {
+                JsonElement root_ = document.RootElement;
+                Assert.Equal("place-entrances", root_.GetProperty("documentId").GetString());
+                Assert.Equal("place-entrance", root_.GetProperty("definitionKind").GetString());
+                Assert.Empty(root_.GetProperty("entries").EnumerateArray());
+            }
+
+            string manifest = File.ReadAllText(Path.Combine(imports, "mm7-world", "pack.json"));
+            Assert.Contains("\"path\": \"place-entrances.json\"", manifest);
+            Assert.Contains("\"definitionKind\": \"place-entrance\"", manifest);
+
+            // The seam the product reads it through: the packs load as they stand, and the kit's own
+            // entrance reader accepts what the writer wrote.
+            WriteBundle(root, written.PackIds);
+            ContentBootstrapResult bootstrap = ContentBootstrap.Load(new FileContentSource(root), Layout, "imported");
+            Assert.True(bootstrap.IsValid, string.Join("; ", bootstrap.Issues.Select(issue => issue.ToString())));
+            PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog);
+            Assert.Empty(PlaceEntranceLoader.Load(bootstrap.Catalog, graph));
+        }
+        finally
+        {
+            Directory.Delete(installRoot, recursive: true);
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>Reads a payload as the decoder is handed one, without a container around it.</summary>
+    private static LodPayload Payload(string entryName, byte[] bytes) =>
+        new(new LodEntry(entryName, 0, bytes.Length), bytes, LodPayloadKind.Verbatim);
 
     private static void WriteBundle(string root, IReadOnlyList<string> packIds)    {
         string directory = Path.Combine(root, "bundles", "imported");

@@ -330,7 +330,11 @@ internal static class IndoorMapReader
             extra.TextureDeltaV,
             hasSector ? sectorId : -1,
             backSectorId > 0 ? backSectorId : -1,
-            extraId);
+            extraId,
+            // An interior's face raises the event its extra carries, which is the same field the donor
+            // reads (OpenEnroth src/Engine/Snapshots/EntitySnapshots.h:1116-1136); the face record holds
+            // only the extra's index.
+            extra.EventId);
     }
 
     private static MapSector ReadSector(

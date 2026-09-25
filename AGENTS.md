@@ -125,10 +125,14 @@ documents decide, and the difference is recorded rather than silently rounded.
   held `W` walks the party about 382 units a second and the released key stops it where it stands
   (Emerald Island, `12552, 800, 193` to `12552, 3859, 98` over eight seconds of held key, the pose then
   unchanged for the next seventy seconds while the admitted steps kept advancing), `Q` turns and
-  Space jumps. Walking into a transition does not happen yet: nothing in the product consults the loaded
-  travel links as the party moves, and the imported region carries no door placement for its two
-  entrances, so a walk changes the pose and never the place. That gap is recorded with its evidence in
-  `local/verify/walk-playtest/`.
+  Space jumps. Walking into a transition now changes the place: the importer emits, per travel link, the
+  reach its source map's own event face gives the party to walk into (532 reaches for 155 of the 193
+  links, with the reason recorded per link for the rest), and the world consults the current place's
+  reaches inside the movement step, taking one through the single travel path when a step carries the
+  party from outside its reach to inside it. Both crossings of Emerald Island's cave mouth and The
+  Dragon's Lair's exit were walked in the running product, with the HUD and the product's own travel
+  reports recorded in `local/verify/walk-transition/`; the earlier walk that could not cross anything is
+  in `local/verify/walk-playtest/`.
 - An interactive session has only been observed through the agent playtest service's remote browser,
   which held one for about five minutes without stopping. This box's own headless browser still reports
   `DEV_HOST_VIDEO_FEEDBACK_UNSUPPORTED` a few seconds after attach and stops the runtime, and the

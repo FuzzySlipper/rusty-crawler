@@ -37,7 +37,9 @@ supplies, and where new code goes — is in
 Implemented today: the session shell (`PartyRpgSession`, `SessionMode`, `IGameSession`) with the live
 world it steps (`SessionWorld`), the compiled ruleset and session contracts, the pack envelope with its
 catalog loader, validator and bundle resolution, the world (`PlaceGraph`, `PlaceGraphLoader`,
-`PlaceStateLedger`, `TransitionExecutive` with its required cost contract), the party's pose and
+`PlaceStateLedger`, `TransitionExecutive` with its required cost contract, and the entrances a walking
+party takes — `PlaceEntrance` with its loader, consulted inside the movement step so a step that carries
+the party into an entrance's reach travels through that one transition path), the party's pose and
 derived view (`PartyPoseOwner`, `FacingRule`, `PartyView`), the structured UI value builder, the
 Engine-backed projection channel and the session projection, the admitted-input router that turns
 engine events into session commands, the population owner that fills a place from its placements and

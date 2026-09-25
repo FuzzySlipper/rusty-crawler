@@ -36,6 +36,18 @@ internal static class MightAndMagic7World
     /// <summary>The property of a geometry entry that holds the engine's canonical collision artifact.</summary>
     internal const string GeometryArtifactProperty = "artifact";
 
+    /// <summary>
+    /// The definition kind that carries the reaches a walking party takes this game's transitions
+    /// through, one entry per trigger face, keyed by the link it takes and the face it came from.
+    /// </summary>
+    /// <remarks>
+    /// The importer emits this document into the imported world pack from the event faces the maps carry.
+    /// A place with no entry here is a place whose transitions cannot be walked into: the world then moves
+    /// the party and never the place, and the write report names every such link rather than the product
+    /// inventing a trigger position for it.
+    /// </remarks>
+    internal const string EntranceDefinitionKind = "place-entrance";
+
     /// <summary>Composes the world, or null when the content does not place the party anywhere.</summary>
     /// <param name="catalog">The validated content the product loaded, when it loaded any.</param>
     /// <param name="context">What the host handed the ruleset, which carries the engine the world moves in.</param>
@@ -63,7 +75,8 @@ internal static class MightAndMagic7World
             new MightAndMagic7TravelCostRule(),
             context.Time,
             Mover(party, context),
-            context.Engine?.Diagnostics);
+            context.Engine?.Diagnostics,
+            PlaceEntranceLoader.Load(catalog, graph));
     }
 
     /// <summary>

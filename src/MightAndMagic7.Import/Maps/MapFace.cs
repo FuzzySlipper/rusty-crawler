@@ -27,6 +27,11 @@ namespace MightAndMagic7.Import.Maps;
 /// <param name="SectorId">The owning sector, or -1 for an outdoor face, which belongs to no sector.</param>
 /// <param name="BackSectorId">The far side of a portal, or -1 when there is none or outdoors.</param>
 /// <param name="FaceExtraId">The face's entry in the level's extras array, or -1 outdoors.</param>
+/// <param name="EventId">
+/// The event the face raises, or 0 when it raises none. The two families store it in different places and
+/// this is the resolved value of both: an interior keeps it in the face's extra
+/// (<see cref="MapFaceExtra.EventId"/>), an outdoor model face keeps it in the face record itself.
+/// </param>
 public sealed record MapFace(
     int Index,
     string TextureName,
@@ -40,4 +45,5 @@ public sealed record MapFace(
     int TextureDeltaV,
     int SectorId,
     int BackSectorId,
-    int FaceExtraId);
+    int FaceExtraId,
+    int EventId = 0);

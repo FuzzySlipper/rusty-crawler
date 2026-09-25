@@ -18,6 +18,10 @@ Owns, once implemented:
   import bug is caught offline rather than in gameplay.
 - Normalization: emitting the packs that runtime code consumes, in the shapes
   [`../../docs/code-organization.md`](../../docs/code-organization.md) fixes.
+- Walk-in entrances: for every travel link whose event the source map raises on a face, the reach that
+  face gives the party to walk into — the face's own centroid and extent, with the model, face, event and
+  attribute it came from — and, per link, the reason when there is none (an event no face raises, a later
+  instruction of an event whose first move is another link, or a move the world itself issues).
 - Collision geometry: one artifact per place in the engine's own spatial document,
   built from the solid faces the map decoders already resolve — portals, ethereal
   faces and degenerate corners excluded, outdoor terrain tiled from its height
@@ -38,8 +42,8 @@ Boundary rules:
 
 Implemented: every container decodes, the rule tables, event programs, place graph,
 and all 76 map payloads reproduce the recorded inventory, media extraction writes its
-manifest, and `write` emits the content packs — each place's collision artifact
-included. The source-format shapes are recorded in
+manifest, and `write` emits the content packs — each place's collision artifact and
+the reaches a walking party can take its transitions through included. The source-format shapes are recorded in
 [`../../docs/research/mm7-data-inventory.md`](../../docs/research/mm7-data-inventory.md),
 [`mm7-map-formats.md`](../../docs/research/mm7-map-formats.md), and
 [`mm7-media-formats.md`](../../docs/research/mm7-media-formats.md). The Python

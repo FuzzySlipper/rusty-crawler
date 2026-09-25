@@ -237,11 +237,41 @@ internal static class Program
                 provenance = new { result.Provenance.Game, build = result.Provenance.BuildString },
                 packs = result.Packs.Select(pack => new { pack.PackId, pack.Documents, pack.Entries }),
                 geometry = Describe(result.Geometry),
+                entrances = Describe(result.Entrances),
                 use = "add these pack ids to a bundle under content/partyrpg/bundles to load them",
             },
             Json));
         return 0;
     }
+
+    /// <summary>
+    /// What the entrance derivation produced: the reaches a walking party can take, and every link it
+    /// cannot.
+    /// </summary>
+    /// <remarks>
+    /// The untriggerable links are reported one by one with their reason rather than only counted: a link
+    /// nothing can walk into is a journey the product cannot make, and the operator needs to see which
+    /// ones those are — and why — without reading the pack or the maps back.
+    /// </remarks>
+    private static object Describe(Packs.PlaceEntranceSummary entrances) => new
+    {
+        places = entrances.PlaceCount,
+        links = entrances.LinkCount,
+        reaches = entrances.ReachCount,
+        pressurePlates = entrances.PressurePlateCount,
+        clickable = entrances.ClickableCount,
+        untriggerable = entrances.UntriggerableCount,
+        refusals = entrances.Refusals.Select(refusal => new
+        {
+            link = refusal.LinkIndex,
+            from = refusal.FromPlace,
+            to = refusal.ToPlace,
+            refusal.EventId,
+            refusal.Step,
+            reason = refusal.Code,
+            detail = refusal.Reason,
+        }),
+    };
 
     /// <summary>The geometry sources a report states counts for, in the order the pack writes them.</summary>
     private static readonly Collision.CollisionSource[] GeometrySources =

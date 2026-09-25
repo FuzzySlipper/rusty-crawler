@@ -6,6 +6,7 @@ using MightAndMagic7.Import.Collision;
 using MightAndMagic7.Import.Events;
 using MightAndMagic7.Import.Lod;
 using MightAndMagic7.Import.Maps;
+using MightAndMagic7.Import.Packs;
 using MightAndMagic7.Import.Tables;
 using MightAndMagic7.Import.World;
 
@@ -16,7 +17,13 @@ namespace MightAndMagic7.Import.Tool;
 /// <param name="Provenance">Where the content came from.</param>
 /// <param name="Packs">The packs written, with their entry counts.</param>
 /// <param name="Geometry">What every place's collision emission produced.</param>
-internal sealed record PackWriteResult(string OutputRoot, InstallProvenance Provenance, IReadOnlyList<(string PackId, int Documents, int Entries)> Packs, CollisionSummary Geometry)
+/// <param name="Entrances">What every place's walk-in entrance emission produced.</param>
+internal sealed record PackWriteResult(
+    string OutputRoot,
+    InstallProvenance Provenance,
+    IReadOnlyList<(string PackId, int Documents, int Entries)> Packs,
+    CollisionSummary Geometry,
+    PlaceEntranceSummary Entrances)
 {
     /// <summary>The pack ids, in the order they were written.</summary>
     internal IReadOnlyList<string> PackIds => [.. Packs.Select(pack => pack.PackId)];
@@ -86,14 +93,18 @@ internal static class PackWriter
         IReadOnlyDictionary<int, DecodedMap> maps = detail == MapDetail.EntryPoints ? DecodeMaps(install) : new Dictionary<int, DecodedMap>();
         IReadOnlyList<PlaceCollision> collisions = maps.Count == 0 ? [] : EmitCollisions(tables, maps);
 
+        // The entrances are derived from the same decoded maps the collision is: a place's trigger faces
+        // are map data, so an import that decoded no map has none to derive and says so per link.
+        PlaceEntranceSummary entrances = PlaceEntranceEmitter.Emit(graph, maps);
+
         Directory.CreateDirectory(outputRoot);
         List<(string, int, int)> packs =
         [
             WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps),
-            WriteWorld(tables, graph, provenance, Path.Combine(outputRoot, "mm7-world"), maps, collisions),
+            WriteWorld(tables, graph, provenance, Path.Combine(outputRoot, "mm7-world"), maps, collisions, entrances),
         ];
         WriteBundleFragment(outputRoot, provenance, packs);
-        return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions));
+        return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions), entrances);
     }
 
     /// <summary>
@@ -189,13 +200,26 @@ internal static class PackWriter
         InstallProvenance provenance,
         string packDirectory,
         IReadOnlyDictionary<int, DecodedMap> maps,
-        IReadOnlyList<PlaceCollision> collisions)
+        IReadOnlyList<PlaceCollision> collisions,
+        PlaceEntranceSummary entrances)
     {
         int links = WritePlaceGraph(packDirectory, graph, tables, maps);
         int places = WritePlaceGeometry(packDirectory, collisions);
+        int reachCount = WritePlaceEntrances(packDirectory, entrances);
         IReadOnlyList<string> references = [.. tables.Maps.Maps.Select(map => $"place:{map.Id.ToString(CultureInfo.InvariantCulture)}")];
         IReadOnlyList<string> geometryReferences =
             [.. collisions.Where(place => place.Emitted).Select(place => $"place:{place.PlaceId.ToString(CultureInfo.InvariantCulture)}")];
+
+        // An entrance refers to the transition it takes and to both places that transition joins, so a
+        // reader that resolves every reference is told the entrance belongs to a road the world holds
+        // rather than to one it does not.
+        IReadOnlyList<string> entranceReferences =
+        [
+            .. entrances.Entrances.Select(entrance => entrance.LinkIndex).Distinct().Order()
+                .Select(index => $"travel-link:{LinkId(index)}"),
+            .. entrances.Entrances.SelectMany(entrance => new[] { entrance.FromPlace, entrance.ToPlace }).Distinct().Order()
+                .Select(place => $"place:{place.ToString(CultureInfo.InvariantCulture)}"),
+        ];
         WriteManifest(
             packDirectory,
             "mm7-world",
@@ -207,8 +231,9 @@ internal static class PackWriter
                 // Only the places that produced an artifact are referenced: a reference to a place whose
                 // geometry was refused would promise collision the pack does not carry.
                 ("place-geometry.json", "place-geometry", "place-geometry", geometryReferences),
+                ("place-entrances.json", "place-entrances", "place-entrance", entranceReferences),
             ]);
-        return ("mm7-world", 2, links + places);
+        return ("mm7-world", 3, links + places + reachCount);
     }
 
     /// <summary>
@@ -267,6 +292,57 @@ internal static class PackWriter
         CollisionSource.ModelFace => "modelFace",
         _ => throw new ArgumentOutOfRangeException(nameof(source), source, "A geometry source this importer does not write was asked for its name."),
     };
+
+    /// <summary>The entry id one travel link is written under, which an entrance names to take it.</summary>
+    private static string LinkId(int index) => index.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// Writes where a party can walk into each place's transitions: the reach, which transition it takes,
+    /// and the map face the reach was derived from.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A reach is written as a position and a radius because that is what the product tests a pose
+    /// against, and both the derivation and its provenance are written beside it: a reader must be able
+    /// to see that the position is a face's own centroid and the radius the face's own extent, not a
+    /// number this importer chose. The face's attributes are written raw and named, so what the donor
+    /// does with the face — raising the event when the party steps on it or clicks it — stays readable
+    /// without this writer interpreting Might and Magic's bit values into the product's terms.
+    /// </para>
+    /// <para>
+    /// A place with no reach contributes no entry. That is a fact about the data rather than a gap in the
+    /// pack: the write report names every link that has none and why, which is where a reader looks for
+    /// what cannot be walked into.
+    /// </para>
+    /// </remarks>
+    private static int WritePlaceEntrances(string packDirectory, PlaceEntranceSummary summary)
+    {
+        List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];
+        foreach (PlaceEntrancePlacement entrance in summary.Entrances)
+        {
+            entries.Add(($"{LinkId(entrance.LinkIndex)}.{entrance.SourceFaceIndex.ToString(CultureInfo.InvariantCulture)}", writer =>
+            {
+                writer.WriteString("link", LinkId(entrance.LinkIndex));
+                writer.WriteNumber("fromPlace", entrance.FromPlace);
+                writer.WriteNumber("toPlace", entrance.ToPlace);
+                writer.WriteString("kind", entrance.Kind == PlaceEntranceKind.Walking ? "walking" : "entrance");
+                writer.WriteNumber("x", entrance.X);
+                writer.WriteNumber("y", entrance.Y);
+                writer.WriteNumber("z", entrance.Z);
+                writer.WriteNumber("radius", entrance.Radius);
+                writer.WriteNumber("eventId", entrance.EventId);
+                writer.WriteNumber("faceIndex", entrance.SourceFaceIndex);
+                writer.WriteNumber("modelIndex", entrance.SourceModelIndex);
+                WriteOptionalString(writer, "modelName", entrance.SourceModelName);
+                writer.WriteNumber("attributes", entrance.Attributes);
+                writer.WriteString("trigger", entrance.IsPressurePlate ? "pressurePlate" : entrance.IsClickable ? "clickable" : "other");
+                writer.WriteString("positionSource", "event-face-centroid");
+                writer.WriteString("radiusSource", "event-face-extent");
+            }));
+        }
+
+        return WriteDocument(packDirectory, "place-entrances.json", "place-entrances", "place-entrance", entries);
+    }
 
     private static int WritePlaces(string packDirectory, Mm7Tables tables, IReadOnlyDictionary<int, DecodedMap> maps)
     {
