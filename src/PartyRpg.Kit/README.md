@@ -45,9 +45,35 @@ derived view (`PartyPoseOwner`, `FacingRule`, `PartyView`), the party entity and
 `PartyInventory` of `ItemInstance`s beside each member's `CharacterEquipment`, `PartyPurse`, `PartyFood`,
 `PartyReputation`, `PartyFollowers`, `PartyEffects`, the minting of durable identities in
 `PartyIdentitySource`, and `PartyEntityFactory`, which builds a party from creation or from a `PartySave`
-and never lets a wrapped party grow a component), the structured UI value builder, the
+and never lets a wrapped party grow a component), the party's owned resources (`PartyResourceLedger`, the
+one path that settles a `PartyCost` against the purse and the larder whole or not at all — refusing with
+every shortfall named rather than overdrawing the purse — credits the same two accounts, and spends a
+travelling or camping day as a `ProvisionDay`, priced and judged by a ruleset's `ISettlementRule` and
+`IProvisionDayRule` with `SettlementQuote` and `ResourceSettlement` as the answer and the outcome), the
+structured UI value builder, the
 Engine-backed projection channel and the session projection, the admitted-input router that turns
 engine events into session commands, the population owner that fills a place from its placements and
 empties it on leaving, the Engine-backed movement owner with its vertical and surface policy, the reaches that let a party walk
-into a transition, and the movement facts the panel reports.
+into a transition, and the movement facts the panel reports, and time (`GameClock` over a validated
+`GameCalendar` — one explicit `Advance`/`AdvanceAdmittedSeconds` path with a returned `ClockAdvance`
+report of the hour, day, week, month, and year boundaries it crossed and the `DeadlineDue` entries it
+brought due once each, `GameDuration` and `GameDate` values, the `DeadlineId` handles travel, rest,
+training, and spell durations register against, day and night from a `DaylightWindow`, and the
+`IWorldTimeSource` day count the world's respawn reads).
 Everything else in the owner map is still to come.
+
+The day shape follows the donor's day boundary: a new day takes one ration and leaves every character weak
+once the party is past a day without rest, and the food store is spent down to empty rather than refused
+(`OpenEnroth/src/Engine/Engine.cpp`, the timed-effects party update; `src/Engine/Party.cpp`, `SetFood`).
+The charge, the threshold, and the weakened consequence are the ruleset's, so the kit holds none of them.
+
+**Encumbrance is deliberately absent.** The shipped item table has no weight column — its 17 columns are
+recorded in [`../../docs/research/mm7-data-inventory.md`](../../docs/research/mm7-data-inventory.md) — the
+donor's item state carries no weight field to read (`OpenEnroth/src/Engine/Objects/Item.h`, whose only
+size is a grid footprint that the one-shared-pack divergence replaces), and armour's cost there is attack
+recovery rather than a carry allowance (`src/Engine/Objects/Character.cpp`, `GetAttackRecoveryTime`).
+Inventing a weight would invent a limit the game does not have, so the seam is left named instead:
+`IInventoryCapacityRule` is asked about the shared pack as a whole and never about a character, which is
+the shape the design pins for a later party-wide allowance — the sum over members and followers needs a
+hook that can read the party, and today's rule is composed before the party exists and sees only the
+pack's contents.

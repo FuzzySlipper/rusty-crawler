@@ -12,9 +12,10 @@ namespace PartyRpg.Kit.Party;
 /// them.
 /// </para>
 /// <para>
-/// What a party with no food suffers is a ruleset rule over conditions and time; this only refuses to let a
-/// larder go below empty, and reports a spend it could not make rather than pretending the road was paid
-/// for.
+/// What a party with no food suffers is a ruleset rule over conditions and time, handed to
+/// <see cref="PartyResourceLedger"/> as an <see cref="IProvisionDayRule"/>; this only refuses to let a
+/// larder go below empty, judges a charge before it is paid, and reports a spend it could not make rather
+/// than pretending the road was paid for.
 /// </para>
 /// </remarks>
 public sealed class PartyFood
@@ -49,19 +50,28 @@ public sealed class PartyFood
         Portions = checked(Portions + provisions);
     }
 
+    /// <summary>Whether the larder covers a charge, judged in the unit the charge is stated in.</summary>
+    /// <remarks>
+    /// Asking before spending is what lets an action be refused whole rather than paid in part — a rest the
+    /// party cannot provision, a fare it cannot eat its way through — and it is the same judgement the
+    /// settlement path makes before it moves either account.
+    /// </remarks>
+    /// <param name="provisions">The charge the world quoted, with the unit it was quoted in.</param>
+    /// <returns>Whether the larder holds enough.</returns>
+    /// <exception cref="ArgumentException">The charge is stated in a unit this larder does not measure.</exception>
+    public bool CanCover(Provisions provisions)
+    {
+        RequireMeasured(provisions);
+        return provisions.Amount <= Portions;
+    }
+
     /// <summary>Spends a travel cost's provisions, which is where the world's quoted food arrives.</summary>
     /// <param name="provisions">The charge the world quoted, with the unit it was quoted in.</param>
     /// <returns>Whether the larder could pay; a refused spend leaves it untouched.</returns>
     /// <exception cref="ArgumentException">The charge is stated in a unit this larder does not measure.</exception>
     public bool TrySpend(Provisions provisions)
     {
-        if (provisions.Unit != Unit)
-        {
-            throw new ArgumentException(
-                $"The charge is stated in {provisions.Unit} while this larder measures {Unit}; the kit converts between units of food for nobody.",
-                nameof(provisions));
-        }
-
+        RequireMeasured(provisions);
         return TryDebit(provisions.Amount);
     }
 
@@ -75,5 +85,16 @@ public sealed class PartyFood
         if (provisions > Portions) return false;
         Portions -= provisions;
         return true;
+    }
+
+    /// <summary>Refuses a charge stated in a unit this larder does not measure.</summary>
+    private void RequireMeasured(Provisions provisions)
+    {
+        if (provisions.Unit != Unit)
+        {
+            throw new ArgumentException(
+                $"The charge is stated in {provisions.Unit} while this larder measures {Unit}; the kit converts between units of food for nobody.",
+                nameof(provisions));
+        }
     }
 }
