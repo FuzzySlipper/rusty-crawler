@@ -14,5 +14,9 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/PartyRpg.Kit/PartyRpg.Kit.csproj" />
+    <!-- The compiled ruleset is referenced so this suite can prove the game's own creation definitions —
+         every class and race it offers, and the content it is checked against. The kit's suite is the only
+         suite that covers creation, and a second one for one test file would not be a suite. -->
+    <ProjectReference Include="../../src/PartyRpg.Rulesets.MightAndMagic7/PartyRpg.Rulesets.MightAndMagic7.csproj" />
   </ItemGroup>
 </Project>

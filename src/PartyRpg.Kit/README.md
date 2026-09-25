@@ -57,6 +57,13 @@ one path that settles a `PartyCost` against the purse and the larder whole or no
 every shortfall named rather than overdrawing the purse — credits the same two accounts, and spends a
 travelling or camping day as a `ProvisionDay`, priced and judged by a ruleset's `ISettlementRule` and
 `IProvisionDayRule` with `SettlementQuote` and `ResourceSettlement` as the answer and the outcome), the
+creation flow (`PartyCreationFlow` over the `PartyCreationOptions` a ruleset supplies — races, classes,
+portraits, an attribute pool bought through `AttributeCreationRange` prices, and the skills a class fixes
+and offers — taken one step at a time with `CreationMember` as the answer to each, refusing an illegal
+choice where it is made with the rule it broke, spending the pool exactly and choosing the promised number
+of skills before a step is confirmed, applying a ruleset's `PartyCreationDefaults` through those same
+steps rather than beside them, and handing `ToCreation` to `PartyEntityFactory` without minting an
+identity), the
 structured UI value builder, the
 Engine-backed projection channel and the session projection, the admitted-input router that turns
 engine events into session commands, the population owner that fills a place from its placements and
