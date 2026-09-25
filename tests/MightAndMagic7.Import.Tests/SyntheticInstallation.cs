@@ -25,34 +25,69 @@ internal static class SyntheticInstallation
     /// Whether the installation carries map payloads. Without them the per-map table names files that
     /// are not there, which is enough for the table and graph readers but not for arrival points.
     /// </param>
-    internal static string Create(bool withMaps = false)
+    /// <param name="withContainers">
+    /// Whether the maps carry chests, loose objects, and the events that open them. It is a separate
+    /// choice from <paramref name="withMaps"/> so the suites that are about geometry and doors keep
+    /// decoding the map they always did, and the container suites get a map that holds containers.
+    /// </param>
+    internal static string Create(bool withMaps = false, bool withContainers = false)
     {
         string root = Path.Combine(Path.GetTempPath(), $"mm7-synthetic-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(root, "DATA"));
         File.WriteAllText(Path.Combine(root, "Readme.txt"), "Might and Magic(TM) VII, For Blood and Honor(TM)\nUpdate v. 1.1 ReadMe\nAugust 1999\n");
+        List<(string Name, byte[] Payload)> events =
+        [
+            ("OUT01.EVT", LodFixture.Compressed(EvtProgram(10, "Out02.odm"))),
+            ("OUT02.EVT", LodFixture.Compressed(EvtProgram(11, "Out01.odm", 0, 0, 0))),
+
+            // The interior program keeps its within-map move whether or not the fixture holds containers,
+            // so the two links the travel graph is built from stay exactly the two the outdoor programs
+            // declare, and a chest opening is simply another instruction of the same program.
+            ("D01.EVT", LodFixture.Compressed([
+                .. EvtProgram(12, "0"),
+                .. (withContainers ? ContainerDecoderTests.ChestProgram("0", (176, 0), (177, 1)) : []),
+            ])),
+        ];
+        if (withContainers)
+        {
+            // Every interior gets a program that opens the two containers its delta holds, so an import
+            // over this fixture places a container for every interior rather than for one of them.
+            for (int index = 2; index <= MapRows - 13; index++)
+            {
+                events.Add(($"D{index:D2}.EVT", LodFixture.Compressed(ContainerDecoderTests.ChestProgram("0", (176, 0), (177, 1)))));
+            }
+        }
+
         File.WriteAllBytes(
             Path.Combine(root, "DATA", "Events.lod"),
             LodFixture.Archive(
                 "MMVI",
-                LodFixture.TextTable("CLASS.TXT", Classes()),
-                LodFixture.TextTable("SKILLDES.TXT", Skills()),
-                LodFixture.TextTable("MAPSTATS.TXT", Maps(withMaps)),
-                LodFixture.TextTable("2DEvents.txt", Buildings()),
-                LodFixture.TextTable("MONSTERS.TXT", Monsters()),
-                LodFixture.TextTable("SPELLS.TXT", Spells()),
-                LodFixture.TextTable("ITEMS.TXT", Items()),
-                LodFixture.TextTable("QUESTS.TXT", Quests()),
-                ("OUT01.EVT", LodFixture.Compressed(EvtProgram(10, "Out02.odm"))),
-                ("OUT02.EVT", LodFixture.Compressed(EvtProgram(11, "Out01.odm", 0, 0, 0))),
-                ("D01.EVT", LodFixture.Compressed(EvtProgram(12, "0")))));
+                [
+                    LodFixture.TextTable("CLASS.TXT", Classes()),
+                    LodFixture.TextTable("SKILLDES.TXT", Skills()),
+                    LodFixture.TextTable("MAPSTATS.TXT", Maps(withMaps)),
+                    LodFixture.TextTable("2DEvents.txt", Buildings()),
+                    LodFixture.TextTable("MONSTERS.TXT", Monsters()),
+                    LodFixture.TextTable("SPELLS.TXT", Spells()),
+                    LodFixture.TextTable("ITEMS.TXT", Items()),
+                    LodFixture.TextTable("QUESTS.TXT", Quests()),
+                    .. events,
+                ]));
         if (withMaps)
         {
             // One payload per map file the per-map table names, so every place decodes and each is
             // identified by its own name.
             byte[] outdoor = MapDecoderTests.OutdoorPayload();
             byte[] outdoorDelta = MapDecoderTests.OutdoorDeltaPayload();
-            byte[] indoor = MapDecoderTests.IndoorPayload();
-            byte[] indoorDelta = MapDecoderTests.IndoorDeltaPayload();
+            // The container map raises one event per chest on one face each, so both of the delta's records
+            // are placed, and its fixture positions are a hundred units apart, which is inside the spread a
+            // container's faces may have.
+            byte[] indoor = withContainers
+                ? ContainerDecoderTests.ContainerIndoorPayload([176, 177])
+                : MapDecoderTests.IndoorPayload();
+            byte[] indoorDelta = withContainers
+                ? ContainerDecoderTests.ContainerIndoorDeltaPayload(2)
+                : MapDecoderTests.IndoorDeltaPayload();
             List<(string Name, byte[] Payload)> maps = [];
             for (int map = 1; map <= MapRows; map++)
             {
@@ -122,7 +157,9 @@ internal static class SyntheticInstallation
             // With maps present, the rows name the two payloads the fixture holds: region rows the
             // outdoor map, interior rows the indoor one. Without maps the names are merely plausible.
             string file = map <= 13 ? $"Out{map:D2}.odm" : $"D{map - 13:D2}.blv";
-            text.Append($"{map}\tMap {map}\t{file}\t0\t0\t0\t672\t7\t0\t0\t0\t1\t0\t10\t100\t0\t0\tMonster {map}\tMonster {map}\t1\t 2-5\t0\t0\t1\t 1-3\t0\t0\t1\t 1-3\t20\tFOREST\tDesigner\tNotes for map {map}\n");
+            // The trap columns (9 and 10) are non-zero so a written container's trap numbers are the ones
+            // the map's own row declares rather than a default nothing wrote.
+            text.Append($"{map}\tMap {map}\t{file}\t0\t0\t0\t672\t7\t0\t{(map % 20) + 1}\t{(map % 10) + 1}\t1\t0\t10\t100\t0\t0\tMonster {map}\tMonster {map}\t1\t 2-5\t0\t0\t1\t 1-3\t0\t0\t1\t 1-3\t20\tFOREST\tDesigner\tNotes for map {map}\n");
         }
 
         return text.ToString();

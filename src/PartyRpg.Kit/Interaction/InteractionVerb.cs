@@ -4,9 +4,9 @@ namespace PartyRpg.Kit.Interaction;
 /// <remarks>
 /// <para>
 /// One use workflow serves every verb, which is why a verb is a value rather than a class: searching a
-/// container, opening a door, defeating a lock, pulling a lever, speaking to a person, and reading a sign
-/// all identify a target, check what it requires, apply what the use produces, and report it. What differs
-/// between them is the policy that answers for them, never the path taken.
+/// container, opening a door, defeating a lock, defeating a trap, pulling a lever, speaking to a person,
+/// and reading a sign all identify a target, check what it requires, apply what the use produces, and
+/// report it. What differs between them is the policy that answers for them, never the path taken.
 /// </para>
 /// <para>
 /// The verb a target offers is the ruleset's answer about that content, so a game that uses a door
@@ -25,6 +25,13 @@ public enum InteractionVerb
 
     /// <summary>Defeat what holds something shut, using whatever it requires.</summary>
     Unlock,
+
+    /// <summary>
+    /// Defeat what would hurt the party when the target is used: a trap, a ward, a rune. It is a use of its
+    /// own rather than part of searching or opening, because a party that knows about a trap decides what
+    /// to do about it, and because an attempt can fail and cost them.
+    /// </summary>
+    Disarm,
 
     /// <summary>Work something that moves or fires when it is used: a lever, a switch, a chain.</summary>
     Pull,

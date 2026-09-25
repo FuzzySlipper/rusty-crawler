@@ -244,6 +244,15 @@ public sealed class PartyInteraction : IWorldInteractionScene
             if (!settlement.Admitted) return InteractionResult.Refused(target, settlement.Refusal!.Code, settlement.Refusal.Message);
         }
 
+        // What the target guards itself with comes next, and before anything it holds: a trap the party
+        // cannot get past is answered here, never by handing over what it was guarding. The ruleset stated
+        // every word and number of it, and the workflow — notice it before defeating it, spend it once, let
+        // a failed attempt cost the party — is what this mechanism owns.
+        if (_rule.Trap(target.Definition, context) is { } trap)
+        {
+            return Spring(target, trap, context);
+        }
+
         InteractionOutcome outcome = _rule.Apply(target.Definition, context);
         if (!outcome.IsApplied) return InteractionResult.Refused(target, outcome.Refusal!.Code, outcome.Refusal.Message);
 
@@ -272,6 +281,73 @@ public sealed class PartyInteraction : IWorldInteractionScene
         InteractionTargetState state = _world.States.Record(_world.Place, target.Id.Content, outcome.State);
         InteractionTarget used = target with { State = state };
         return InteractionResult.Applied(used, outcome, taken.Length == 0 ? outcome.Message : $"{outcome.Message} {taken}");
+    }
+
+    /// <summary>
+    /// Judges the trap a target holds, and produces what the party's use of it made: a trap noticed, a trap
+    /// defeated, or a trap that went off.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The order is the whole workflow and it is why this is the kit's: a trap the party has not noticed is
+    /// judged by what noticing it takes, one it has noticed by what defeating it takes, and the check's
+    /// result decides whether the party learns what they face or pays for it. Nothing here knows what a
+    /// trap is called, what a skill is, or how hard anything is; those are the ruleset's, and they arrive in
+    /// the trap itself.
+    /// </para>
+    /// <para>
+    /// <b>A trapped target is not searched on the same use.</b> A trap that goes off spends itself, and the
+    /// party gets no further in that act — which is the donor's own behaviour, where an explosion leaves the
+    /// chest standing for a second attempt rather than handing over its contents in the same breath. The
+    /// residue states it, so the contents are not silently lost: they are still in the container, and the
+    /// next use finds what is left of it.
+    /// </para>
+    /// <para>
+    /// <b>The harm lands on the members.</b> Every member loses what the ruleset said, through the party's
+    /// own resources, so a consequence is a change in the world rather than a sentence. When there is no
+    /// party to harm, the use is refused by name: a trap with nowhere to land is a fact about the world and
+    /// not something to record as if it had happened.
+    /// </para>
+    /// </remarks>
+    private InteractionResult Spring(InteractionTarget target, InteractionTrap trap, InteractionContext context)
+    {
+        InteractionChallenge challenge = trap.Next;
+        if (challenge.Succeeds)
+        {
+            string learned = trap.IsKnown
+                ? $"{target.Definition.Name}'s {trap.Name} is defeated ({challenge.Describe()})."
+                : $"{target.Definition.Name} is guarded by {trap.Name}, and the party notices it ({challenge.Describe()}).";
+            InteractionOutcome passed = InteractionOutcome.Applied(trap.PassedState, learned);
+            InteractionTargetState passedState = _world.States.Record(_world.Place, target.Id.Content, passed.State);
+            return InteractionResult.Applied(target with { State = passedState }, passed, passed.Message);
+        }
+
+        if (_world.Party is not { } party)
+        {
+            return InteractionResult.Refused(
+                target,
+                "interaction-no-party",
+                $"{target.Definition.Name}'s {trap.Name} goes off and this world holds no party for it to catch.");
+        }
+
+        // The harm is taken before the state is recorded, so what the ledger says happened and what the
+        // members' resources show cannot disagree: a sprung trap is one the party has already paid for.
+        int members = 0;
+        foreach (PartyMember member in party.Members)
+        {
+            member.Resources.TakeDamage(trap.Harm.PerMember);
+            members++;
+        }
+
+        string message = members == 0
+            ? $"{target.Definition.Name}'s {trap.Name} goes off ({challenge.Describe()}), and the party has nobody in it to catch it."
+            : $"{target.Definition.Name}'s {trap.Name} goes off ({challenge.Describe()}): {members} member(s) take {trap.Harm.PerMember} {trap.Harm.Label} each.";
+        InteractionOutcome sprung = InteractionOutcome.Applied(
+            trap.SprungState,
+            message,
+            "Nothing was taken from it in the same act: the trap spent itself, and what the target holds is still there.");
+        InteractionTargetState state = _world.States.Record(_world.Place, target.Id.Content, sprung.State);
+        return InteractionResult.Applied(target with { State = state }, sprung, sprung.Message);
     }
 
     /// <summary>Moves what an outcome gives into the party's own owners, and reports it in one clause.</summary>

@@ -2,21 +2,21 @@ using MightAndMagic7.Import.Lod;
 
 namespace MightAndMagic7.Import.Maps;
 
-/// <summary>Reads an indoor delta, which is where an interior's doors are.</summary>
+/// <summary>Reads an indoor delta, which is where an interior's doors and its containers are.</summary>
 /// <remarks>
 /// A delta is parsed with its level payload as context: the number of faces it carries attributes for,
 /// the number of decorations it carries flags for, and the size of its door array all come from the
 /// level, not from the delta. Most of it is presentation or runtime state that this decoder consumes
 /// and does not surface — how much of the map has been revealed, which faces and decorations have
-/// changed, and the actors, sprite objects and chests standing on it.
+/// changed, and the actors standing on it. Its chests and sprite objects are surfaced because a place's
+/// containers and the items lying in it are what a party reaches for, and neither is stored anywhere
+/// else.
 /// </remarks>
 internal static class IndoorDeltaReader
 {
     private const int HeaderSize = 40;
     private const int VisibleOutlinesSize = 875;
     private const int ActorSize = 0x344;
-    private const int SpriteObjectSize = 0x70;
-    private const int ChestSize = 5324;
     private const int DoorSize = 80;
     private const int EventVariableSize = 200;
     private const int WeatherSkyNameWidth = 12;
@@ -61,10 +61,16 @@ internal static class IndoorDeltaReader
 
         int actorCount = reader.ArrayCount(ActorSize, "actorCount");
         reader.Skip(reader.BytesOf(actorCount, ActorSize, "actors"), "actors");
-        int spriteObjectCount = reader.ArrayCount(SpriteObjectSize, "spriteObjectCount");
-        reader.Skip(reader.BytesOf(spriteObjectCount, SpriteObjectSize, "spriteObjects"), "spriteObjects");
-        int chestCount = reader.ArrayCount(ChestSize, "chestCount");
-        reader.Skip(reader.BytesOf(chestCount, ChestSize, "chests"), "chests");
+
+        int spriteObjectCount = reader.ArrayCount(MapDeltaRecord.SpriteObjectSize, "spriteObjectCount");
+        ReadOnlySpan<byte> spriteObjectRecords = reader.Span(
+            reader.BytesOf(spriteObjectCount, MapDeltaRecord.SpriteObjectSize, "spriteObjects"),
+            "spriteObjects");
+
+        int chestCount = reader.ArrayCount(MapDeltaRecord.ChestSize, "chestCount");
+        ReadOnlySpan<byte> chestRecords = reader.Span(
+            reader.BytesOf(chestCount, MapDeltaRecord.ChestSize, "chests"),
+            "chests");
 
         // The door array has no count prefix of its own: the level payload declares how many slots the
         // level has, and the delta always stores exactly that many records.
@@ -96,8 +102,8 @@ internal static class IndoorDeltaReader
             counts.FaceCount,
             counts.DecorationCount,
             actorCount,
-            spriteObjectCount,
-            chestCount,
+            MapDeltaRecord.SpriteObjects(spriteObjectRecords, spriteObjectCount),
+            MapDeltaRecord.Chests(chestRecords, chestCount),
             lastVisitTime,
             new MapWeather(skyTexture, weatherFlags, fogDistance1, fogDistance2),
             doors);

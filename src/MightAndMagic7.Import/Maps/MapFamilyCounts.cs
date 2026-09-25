@@ -9,6 +9,8 @@ namespace MightAndMagic7.Import.Maps;
 /// <param name="EntryPoints">Total party arrival points.</param>
 /// <param name="Decorations">Total level decorations.</param>
 /// <param name="SpawnPoints">Total spawn points.</param>
+/// <param name="Chests">Total chest records, including the runtime array's unplaced slots.</param>
+/// <param name="SpriteObjects">Total sprite objects the deltas carry.</param>
 public readonly record struct MapFamilyCounts(
     int Maps,
     int Faces,
@@ -17,4 +19,6 @@ public readonly record struct MapFamilyCounts(
     int Lights,
     int EntryPoints,
     int Decorations,
-    int SpawnPoints);
+    int SpawnPoints,
+    int Chests,
+    int SpriteObjects);

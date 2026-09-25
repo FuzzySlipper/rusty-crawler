@@ -2,16 +2,18 @@ namespace PartyRpg.Kit.Interaction;
 
 /// <summary>
 /// What this game answers about using what the world holds: what a placement offers, what a requirement
-/// means, and what a granted use produces.
+/// means, what still guards a target, and what a granted use produces.
 /// </summary>
 /// <remarks>
 /// <para>
-/// This is the ruleset's whole contribution to the interaction mechanism, and it is deliberately three
+/// This is the ruleset's whole contribution to the interaction mechanism, and it is deliberately four
 /// answers rather than one. <see cref="Describe"/> says what a placement is — its kind, its name, its verb,
 /// its reach, what it requires, and what it costs — which is content interpretation. <see cref="Judge"/>
-/// says what one requirement means for this game, which is policy the kit cannot know. <see cref="Apply"/>
-/// says what a use the party has been allowed to make produces, which is where a door's new state, a
-/// search's findings, and a sign's words come from.
+/// says what one requirement means for this game, which is policy the kit cannot know. <see cref="Trap"/>
+/// says what a use has to get past before it reaches what a target holds, which is answered per use because
+/// what the party brings to it is read from the party. <see cref="Apply"/> says what a use the party has
+/// been allowed to make produces, which is where a door's new state, a search's findings, and a sign's
+/// words come from.
 /// </para>
 /// <para>
 /// The kit never asks a rule what to do about a failure it can already name, and never applies an outcome
@@ -28,6 +30,17 @@ public interface IInteractionRule
     /// <param name="request">The placement, its place, and what has already happened to it.</param>
     /// <returns>The target's definition, or null when the placement is not a target.</returns>
     InteractionTargetDefinition? Describe(InteractionTargetRequest request);
+
+    /// <summary>
+    /// What a use has to get past before it reaches what the target holds, or null when the target guards
+    /// itself with nothing. Everything about it is this game's — what it is called, how hard noticing it and
+    /// defeating it are, what it does when it goes off, and what the target reads as afterwards — and the
+    /// workflow that applies it is the kit's.
+    /// </summary>
+    /// <param name="target">The definition the target was given, including the state it currently reads as.</param>
+    /// <param name="context">The target, its state, the party, and the clock the trap is answered against.</param>
+    /// <returns>The trap, or null when the target holds none the party has to get past.</returns>
+    InteractionTrap? Trap(InteractionTargetDefinition target, InteractionContext context);
 
     /// <summary>
     /// Whether the party meets one requirement, and the sentence that says why it does not. The sentence is

@@ -6,16 +6,15 @@ namespace MightAndMagic7.Import.Maps;
 /// <remarks>
 /// An outdoor delta has no doors. What it carries beyond the shared header is how much of the map the
 /// party has revealed, plus the same per-face attributes, per-decoration flags, actors, sprite objects,
-/// chests, map variables, last visit time and weather that an indoor delta does — all consumed, and
-/// only the counts kept, because those records belong to the object and event formats rather than to
-/// this one.
+/// chests, map variables, last visit time and weather that an indoor delta does. Its actors are consumed
+/// without being kept, because an actor's record belongs to the actor format; its sprite objects and
+/// chests are kept, because a region's chests are placed by the map's own event faces exactly as an
+/// interior's are.
 /// </remarks>
 internal static class OutdoorDeltaReader
 {
     private const int RevelationCells = 88 * 11;
     private const int ActorSize = 0x344;
-    private const int SpriteObjectSize = 0x70;
-    private const int ChestSize = 5324;
     private const int EventVariableSize = 200;
     private const int WeatherSkyNameWidth = 12;
     private const int WeatherUnusedSize = 24;
@@ -44,10 +43,14 @@ internal static class OutdoorDeltaReader
 
         int actorCount = reader.ArrayCount(ActorSize, "actorCount");
         reader.Skip(reader.BytesOf(actorCount, ActorSize, "actors"), "actors");
-        int spriteObjectCount = reader.ArrayCount(SpriteObjectSize, "spriteObjectCount");
-        reader.Skip(reader.BytesOf(spriteObjectCount, SpriteObjectSize, "spriteObjects"), "spriteObjects");
-        int chestCount = reader.ArrayCount(ChestSize, "chestCount");
-        reader.Skip(reader.BytesOf(chestCount, ChestSize, "chests"), "chests");
+        int spriteObjectCount = reader.ArrayCount(MapDeltaRecord.SpriteObjectSize, "spriteObjectCount");
+        ReadOnlySpan<byte> spriteObjectRecords = reader.Span(
+            reader.BytesOf(spriteObjectCount, MapDeltaRecord.SpriteObjectSize, "spriteObjects"),
+            "spriteObjects");
+        int chestCount = reader.ArrayCount(MapDeltaRecord.ChestSize, "chestCount");
+        ReadOnlySpan<byte> chestRecords = reader.Span(
+            reader.BytesOf(chestCount, MapDeltaRecord.ChestSize, "chests"),
+            "chests");
 
         reader.Skip(EventVariableSize, "eventVariables");
         long lastVisitTime = reader.Int64("lastVisitTime");
@@ -64,8 +67,8 @@ internal static class OutdoorDeltaReader
             faceCount,
             decorationCount,
             actorCount,
-            spriteObjectCount,
-            chestCount,
+            MapDeltaRecord.SpriteObjects(spriteObjectRecords, spriteObjectCount),
+            MapDeltaRecord.Chests(chestRecords, chestCount),
             lastVisitTime,
             new MapWeather(skyTexture, weatherFlags, fogDistance1, fogDistance2),
             []);

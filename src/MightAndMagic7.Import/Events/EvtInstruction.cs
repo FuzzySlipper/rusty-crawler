@@ -36,7 +36,32 @@ public readonly record struct EvtInstruction(ushort EventId, byte Step, byte Opc
             System.Text.Encoding.Latin1.GetString(operands.Slice(26, terminator)));
         return true;
     }
+
+    /// <summary>
+    /// Reads this instruction as a container opening when it is one. Its whole operand is the one-byte
+    /// index of the container in the map's own container array (OpenEnroth
+    /// <c>src/Engine/Evt/EvtInstruction.cpp:942-944</c>).
+    /// </summary>
+    /// <param name="open">The container the instruction opens.</param>
+    public bool TryReadOpenChest(out OpenChestInstruction open)
+    {
+        open = default;
+        if (Opcode != EvtOpcodes.OpenChest) return false;
+        ReadOnlySpan<byte> operands = Operands.Span;
+        if (operands.Length < 1) return false;
+
+        open = new OpenChestInstruction(operands[0]);
+        return true;
+    }
 }
+
+/// <summary>A decoded container opening.</summary>
+/// <param name="ContainerId">
+/// The container's index in the map's own container array, which is the chest record's index in the
+/// decoded delta. The donor refuses an index of 20 or more, because the runtime holds twenty
+/// (OpenEnroth <c>src/Engine/Objects/Chest.cpp:52</c>).
+/// </param>
+public readonly record struct OpenChestInstruction(byte ContainerId);
 
 /// <summary>A decoded map move.</summary>
 /// <param name="X">Destination X coordinate.</param>

@@ -25,7 +25,9 @@ public sealed class MapDecodeReport
             Outdoor.Lights + Indoor.Lights,
             Outdoor.EntryPoints + Indoor.EntryPoints,
             Outdoor.Decorations + Indoor.Decorations,
-            Outdoor.SpawnPoints + Indoor.SpawnPoints);
+            Outdoor.SpawnPoints + Indoor.SpawnPoints,
+            Outdoor.Chests + Indoor.Chests,
+            Outdoor.SpriteObjects + Indoor.SpriteObjects);
     }
 
     /// <summary>Every map's outcome, in the per-map table's order.</summary>
@@ -79,6 +81,8 @@ public sealed class MapDecodeReport
         int entryPoints = 0;
         int decorations = 0;
         int spawnPoints = 0;
+        int chests = 0;
+        int spriteObjects = 0;
         foreach (MapDecodeOutcome outcome in outcomes)
         {
             if (outcome.Decoded is not DecodedMap map || map.Kind != kind) continue;
@@ -91,8 +95,10 @@ public sealed class MapDecodeReport
             entryPoints += map.EntryPoints.Count;
             decorations += map.Decorations.Count;
             spawnPoints += map.SpawnPoints.Count;
+            chests += map.Delta?.ChestCount ?? 0;
+            spriteObjects += map.Delta?.SpriteObjectCount ?? 0;
         }
 
-        return new MapFamilyCounts(maps, faces, vertices, doors, lights, entryPoints, decorations, spawnPoints);
+        return new MapFamilyCounts(maps, faces, vertices, doors, lights, entryPoints, decorations, spawnPoints, chests, spriteObjects);
     }
 }

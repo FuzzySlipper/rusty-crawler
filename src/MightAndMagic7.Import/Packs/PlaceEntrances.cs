@@ -203,7 +203,7 @@ public static class PlaceEntranceEmitter
                 : PlaceEntranceKind.Entrance;
 
             int found = 0;
-            foreach ((int faceIndex, MapFace face, int modelIndex, string modelName) in Faces(map))
+            foreach ((int faceIndex, MapFace face, int modelIndex, string modelName) in MapFaceList.Flatten(map))
             {
                 if (face.EventId != link.EventId) continue;
                 found++;
@@ -306,31 +306,4 @@ public static class PlaceEntranceEmitter
 
     private static PlaceEntranceRefusal Refuse(int linkIndex, PlaceLink link, string code, string reason) =>
         new(linkIndex, link.SourceMapId, link.DestinationMapId!.Value, link.EventId, link.Step, code, reason);
-
-    /// <summary>
-    /// Every face of a decoded map with its index in the map's own flattened face list and its owner.
-    /// </summary>
-    /// <remarks>
-    /// An interior's faces are the level's face array, so the index is the face's own. An outdoor map's
-    /// faces are its models' face arrays concatenated, so the index is the running one and the owner is
-    /// the model the face was read from; both are needed to name where a reach came from.
-    /// </remarks>
-    private static IEnumerable<(int FaceIndex, MapFace Face, int ModelIndex, string ModelName)> Faces(DecodedMap map)
-    {
-        if (map is not OutdoorMap outdoor)
-        {
-            foreach (MapFace face in map.Faces) yield return (face.Index, face, -1, string.Empty);
-            yield break;
-        }
-
-        int index = 0;
-        foreach (OutdoorModel model in outdoor.Models)
-        {
-            foreach (MapFace face in model.Faces)
-            {
-                yield return (index, face, model.Index, model.Name);
-                index++;
-            }
-        }
-    }
 }

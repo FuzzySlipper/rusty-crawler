@@ -18,12 +18,14 @@ namespace MightAndMagic7.Import.Tool;
 /// <param name="Packs">The packs written, with their entry counts.</param>
 /// <param name="Geometry">What every place's collision emission produced.</param>
 /// <param name="Entrances">What every place's walk-in entrance emission produced.</param>
+/// <param name="Containers">What every place's container emission produced, which is what the places document carries.</param>
 internal sealed record PackWriteResult(
     string OutputRoot,
     InstallProvenance Provenance,
     IReadOnlyList<(string PackId, int Documents, int Entries)> Packs,
     CollisionSummary Geometry,
-    PlaceEntranceSummary Entrances)
+    PlaceEntranceSummary Entrances,
+    PlaceContainerSummary Containers)
 {
     /// <summary>The pack ids, in the order they were written.</summary>
     internal IReadOnlyList<string> PackIds => [.. Packs.Select(pack => pack.PackId)];
@@ -50,7 +52,7 @@ internal static class PackWriter
     /// kind that could be there — including the zeroes a region has for doors and lights — instead of
     /// leaving a checker to infer absence from a missing key.
     /// </remarks>
-    private static readonly string[] PlacementKinds = ["spawn", "decoration", "door", "light"];
+    private static readonly string[] PlacementKinds = ["spawn", "decoration", "door", "light", "container", "sprite"];
 
     /// <summary>How much of a place's map data an import reads.</summary>
     internal enum MapDetail
@@ -97,14 +99,18 @@ internal static class PackWriter
         // are map data, so an import that decoded no map has none to derive and says so per link.
         PlaceEntranceSummary entrances = PlaceEntranceEmitter.Emit(graph, maps);
 
+        // A place's containers are derived from the map faces whose events open them, which is also where
+        // its walk-in reaches come from, so an import that decoded no map has neither.
+        PlaceContainerSummary containers = PlaceContainerEmitter.Emit(maps, programs, PlaceTrapNumbersTable.Read(tables));
+
         Directory.CreateDirectory(outputRoot);
         List<(string, int, int)> packs =
         [
-            WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps),
+            WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers),
             WriteWorld(tables, graph, provenance, Path.Combine(outputRoot, "mm7-world"), maps, collisions, entrances),
         ];
         WriteBundleFragment(outputRoot, provenance, packs);
-        return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions), entrances);
+        return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions), entrances, containers);
     }
 
     /// <summary>
@@ -173,11 +179,12 @@ internal static class PackWriter
         Mm7Tables tables,
         InstallProvenance provenance,
         string packDirectory,
-        IReadOnlyDictionary<int, DecodedMap> maps)
+        IReadOnlyDictionary<int, DecodedMap> maps,
+        PlaceContainerSummary containers)
     {
         List<(string Path, string DocumentId, string Kind, int Entries)> documents =
         [
-            ("places.json", "places", "place", WritePlaces(packDirectory, tables, maps)),
+            ("places.json", "places", "place", WritePlaces(packDirectory, tables, maps, containers)),
             ("classes.json", "classes", "class", WriteClasses(packDirectory, tables)),
             ("skills.json", "skills", "skill", WriteSkills(packDirectory, tables)),
             ("spells.json", "spells", "spell", WriteSpells(packDirectory, tables)),
@@ -344,8 +351,18 @@ internal static class PackWriter
         return WriteDocument(packDirectory, "place-entrances.json", "place-entrances", "place-entrance", entries);
     }
 
-    private static int WritePlaces(string packDirectory, Mm7Tables tables, IReadOnlyDictionary<int, DecodedMap> maps)
+    private static int WritePlaces(
+        string packDirectory,
+        Mm7Tables tables,
+        IReadOnlyDictionary<int, DecodedMap> maps,
+        PlaceContainerSummary containers)
     {
+        Dictionary<int, IReadOnlyList<PlaceChestPlacement>> containersByPlace = containers.Chests
+            .GroupBy(chest => chest.PlaceId)
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<PlaceChestPlacement>)[.. group]);
+        Dictionary<int, IReadOnlyList<PlaceSpriteObjectPlacement>> objectsByPlace = containers.SpriteObjects
+            .GroupBy(placement => placement.PlaceId)
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<PlaceSpriteObjectPlacement>)[.. group]);
         List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];
         foreach (MapStatsRecord map in tables.Maps.Maps)
         {
@@ -379,7 +396,11 @@ internal static class PackWriter
                     }
 
                     writer.WriteEndArray();
-                    WritePlacements(writer, decoded);
+                    WritePlacements(
+                        writer,
+                        decoded,
+                        containersByPlace.GetValueOrDefault(map.Id, []),
+                        objectsByPlace.GetValueOrDefault(map.Id, []));
                 }
             }));
         }
@@ -388,8 +409,9 @@ internal static class PackWriter
     }
 
     /// <summary>
-    /// Writes what stands in a place: the spawn points, decorations, doors and lights its decoded map
-    /// holds, each with the content identity a rule resolves and the position it stands at.
+    /// Writes what stands in a place: the spawn points, decorations, doors, lights, containers and loose
+    /// objects its decoded map holds, each with the content identity a rule resolves and the position it
+    /// stands at.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -405,8 +427,21 @@ internal static class PackWriter
     /// its position is the middle of the vertices it names, and the record says where that point came
     /// from rather than passing a derived value off as authored data.
     /// </para>
+    /// <para>
+    /// A container is the same case: a delta stores the runtime's whole container array, so only the
+    /// records a map's own event faces open become placements, and their position is the mean of those
+    /// faces' centres, marked as derived. What a container holds is written as the record stores it —
+    /// including the negative identifiers that ask for a random item of a treasure level — so the pack
+    /// carries the request and not an answer this importer would have had to invent. A sprite object does
+    /// store its own position, and every one is written, because a map's own state is not trimmed here;
+    /// what holds nothing is answered for by nobody.
+    /// </para>
     /// </remarks>
-    private static void WritePlacements(Utf8JsonWriter writer, DecodedMap map)
+    private static void WritePlacements(
+        Utf8JsonWriter writer,
+        DecodedMap map,
+        IReadOnlyList<PlaceChestPlacement> containers,
+        IReadOnlyList<PlaceSpriteObjectPlacement> spriteObjects)
     {
         List<Placement> placements = [];
         foreach (MapSpawnPoint spawn in map.SpawnPoints)
@@ -460,6 +495,46 @@ internal static class PackWriter
                 field.WriteNumber("type", light.Type);
                 field.WriteNumber("attributes", light.Attributes);
                 field.WriteNumber("brightness", light.Brightness);
+            }));
+        }
+
+        foreach (PlaceChestPlacement container in containers)
+        {
+            placements.Add(new Placement("container", container.ChestIndex, "chests", new PlacementPoint(container.X, container.Y, container.Z), null, "event-face-centroid", field =>
+            {
+                // The trap numbers are the place's own row of the per-map table, copied onto the container
+                // that answers for them: a target is asked what it requires from its own placement, and a
+                // ruleset never sees a place's fields.
+                field.WriteNumber("flags", container.Chest.Flags);
+                field.WriteNumber("containerType", container.Chest.TypeId);
+                field.WriteNumber("faceCount", container.SourceFaceCount);
+                field.WriteNumber("faceSpread", container.FaceSpread);
+                field.WriteNumber("trapDifficulty", container.TrapDifficulty);
+                field.WriteNumber("trapDamageDice", container.TrapDamageDice);
+                field.WriteString("contentsSource", "chest-record");
+                field.WriteStartArray("contents");
+                foreach (MapChestItem item in container.Chest.Items)
+                {
+                    field.WriteStartObject();
+                    field.WriteNumber("slot", item.Slot);
+                    field.WriteNumber("item", item.ItemId);
+                    field.WriteEndObject();
+                }
+
+                field.WriteEndArray();
+            }));
+        }
+
+        foreach (PlaceSpriteObjectPlacement held in spriteObjects)
+        {
+            placements.Add(new Placement("sprite", held.Object.Index, "spriteObjects", held.Object.Position, held.Object.YawAngle, null, field =>
+            {
+                field.WriteNumber("spriteId", held.Object.SpriteId);
+                field.WriteNumber("objectDescId", held.Object.ObjectDescId);
+                field.WriteNumber("sectorId", held.Object.SectorId);
+                field.WriteNumber("attributes", held.Object.Attributes);
+                field.WriteNumber("containingItem", held.Object.ContainingItemId);
+                field.WriteString("contentsSource", "containing-item");
             }));
         }
 
@@ -528,13 +603,27 @@ internal static class PackWriter
         string Kind,
         int SourceIndex,
         string SourceField,
-        MapPoint Position,
+        PlacementPoint Position,
         int? Yaw,
         string? PositionSource,
         Action<Utf8JsonWriter> Fields)
     {
         /// <summary>The placement's identity within its place, which is what a rule resolves.</summary>
         public string Id { get; } = $"{Kind}-{SourceIndex}";
+    }
+
+    /// <summary>
+    /// Where a placement stands.
+    /// </summary>
+    /// <remarks>
+    /// A position written from a decoded record is a whole number of place units and one derived from
+    /// geometry is not, so placements carry real numbers: rounding a face's centre to a unit would make the
+    /// pack's position disagree with the face it came from, and the difference would grow with the number
+    /// of faces a container's position is averaged over.
+    /// </remarks>
+    private readonly record struct PlacementPoint(double X, double Y, double Z)
+    {
+        public static implicit operator PlacementPoint(MapPoint point) => new(point.X, point.Y, point.Z);
     }
 
     private static int WriteClasses(string packDirectory, Mm7Tables tables)

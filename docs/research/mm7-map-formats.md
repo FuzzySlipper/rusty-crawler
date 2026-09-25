@@ -192,6 +192,54 @@ fullyRevealedCells`, `u8[88][11] partiallyRevealedCells` (968 B each), `u32[tota
 `u16[decorations] decorationFlags`, actors, spriteObjects, chests, 200 B event vars, i64 lastVisit, weather 48 —
 walks to EOF for all 13 **[verified: data]**.
 
+#### 3.1.1 Containers and loose objects in a delta
+
+The two arrays between the actors and the doors are the only place a level's containers and the items lying in it
+are recorded. Both families store them identically, so one layout serves the `.dlv` and the `.ddm`
+**[verified: OE:...EntitySnapshots.h:959-987,1033-1040]**:
+
+| type | size | field |
+| --- | --- | --- |
+| `SpriteObject_MM7` | 0x70 | `+0x00 u16 spriteId`, `+0x02 u16 objectDescId`, `+0x04 Vec3i position`, `+0x10 Vec3s velocity`, `+0x16 u16 yawAngle`, `+0x18 u16 preloadedSoundSlot` (unused), `+0x1A u16 attributes`, `+0x1C i16 sectorId`, `+0x1E u16 timeSinceCreated`, `+0x20 i16 tempLifetime`, `+0x22 i16 glowRadiusMultiplier`, `+0x24 Item_MM7 containingItem`, `+0x48 i32 spellId`, `+0x4C spellLevel`, `+0x50 spellSkill`, `+0x54 i32`, `+0x58 spellCasterPid`, `+0x5C spellTargetPid`, `+0x60 i8 distanceLod`, `+0x61 i8 spellCasterAbility`, `+0x62 u16 pad`, `+0x64 Vec3i initialPosition` |
+| `Chest_MM7` | 5324 | `+0x00 u16 chestTypeId`, `+0x02 u16 flags`, `+0x04 Item_MM7[140] items`, `+0x04+5040 i16[140] inventoryMatrix` |
+| `Item_MM7` | 0x24 | `+0x00 i32 itemId`, `+0x04 i32 standardEnchantmentOrPotionPower`, `+0x08 i32 standardEnchantmentStrength`, `+0x0C i32 specialEnchantmentOrGoldAmount`, `+0x10 i32 numCharges`, `+0x14 u32 flags`, `+0x18 u8 equippedSlot`, `+0x19 u8 maxCharges`, `+0x1A u8 lichJarCharacterIndex`, `+0x1B u8 pad`, `+0x1C i64 enchantmentExpirationTime` **[verified: OE:...EntitySnapshots.h:244-257]** |
+
+**A chest record is contents and state, not a place.** Where a chest stands comes from the map face whose event
+program holds an `OpenChest` instruction naming it (`EVENT_OpenChest = 7`, one `u8` container id
+**[verified: OE:src/Engine/Evt/EvtEnums.h:17; src/Engine/Evt/EvtInstruction.cpp:942-944]**): the donor averages the
+bounding-box centres of the faces that name the chest, and refuses a container whose faces spread more than 256
+units from that mean — "half the size of the ODM tile", which it calls a wormhole chest — leaving it unpositioned
+**[verified: OE:src/Engine/Objects/Chest.cpp:370-407]**. Nothing in the record says which map it belongs to: the
+container array is the runtime's, indexed by the event, and the donor holds at most twenty of them
+(`assert(uChestID < 20)` **[verified: OE:src/Engine/Objects/Chest.cpp:52]**). A **sprite object is not a container**:
+it stores its own position, and a shipped initial one is an item lying in the map rather than anything that holds
+items.
+
+**The item identifiers are requests as well as names.** A negative identifier asks for a random item of a treasure
+level (`ITEM_RANDOM_LEVEL_1 = -1` … `ITEM_RANDOM_LEVEL_7 = -7` **[verified:
+OE:src/Engine/Objects/ItemEnums.h:956-963]**), which the donor resolves on first use by remapping the level against
+the map's own treasure level and generating 1–5 items, gold, or an artifact
+**[verified: OE:src/Engine/Objects/Chest.cpp:323-363]**. A **positive** identifier names an `ITEMS.TXT` row. The
+`inventoryMatrix` is the item's cell in the chest's 9×9 face (every chest type is 9×9 in MM7, taken from
+`chestTable`, not from the record **[verified: OE:src/Engine/Tables/ChestTable.cpp:5-19]**).
+
+**The flag word.** OpenEnroth reads `0x1 CHEST_TRAPPED`, `0x2 CHEST_ITEMS_PLACED`, `0x4 CHEST_OPENED`
+**[verified: OE:src/Engine/Objects/ChestEnums.h:5-10]**; MMExtension reads `Trapped = 1`, `ItemsPlaced = 2`,
+`Identified = 4` **[donor-doc MMExtension:Scripts/Core/ConstAndBits.lua:116-120]**. **The donors disagree about
+0x4** — treat only `0x1` and `0x2` as agreed. A trap's numbers are not in the record at all: the map's own
+`MAPSTATS.TXT` row carries a disarm difficulty (column 9, 0–20) and a trap damage dice count (column 10, 0–10)
+**[verified: OE:src/Engine/Tables/MapTable.cpp:74-75]**, and the donor's check is
+`disarmSkill < 2 · disarmDifficulty` with damage `5 + randomDice(dice, 20)` **[verified:
+OE:src/Engine/Objects/Chest.cpp:64-65; src/Engine/Objects/SpriteObject.cpp:512-546]**.
+
+**Counts in the shipped data [verified: data].** 1520 chest records (1260 across the 63 `.dlv`, 260 across the 13
+`.ddm`) and 722 sprite objects (231 indoor, 491 outdoor); every map stores exactly twenty chest records, and
+`chestTypeId` is 0 in all 1520. 357 records are opened by a face (57 places; 5 more are opened by faces spread
+thousands of units apart, the donor's wormhole case), 278 of the placed ones carry the trapped flag, and the
+placed records hold 1203 item references of which 1050 are random requests — so **most shipped chest contents are
+not item names at all**. Every shipped sprite object carries a positive `containingItem` and zero attributes, which
+is what an item lying on the floor looks like.
+
 ## 4. Entry/exit points and spawn points
 
 * **Arrival is a decoration, not a header field.** The party arrives at the level decoration named `"Party Start"`,
@@ -246,7 +294,7 @@ Order matters: **every field must be seeked over even when unused**, since later
    floors/walls/ceilings/portals/faces), the sectorLightData pool, `doorCount`, decorations + names (Party Start),
    lights, bspNodes, spawns, outlines.
 4. **DLV** `(d)`: header, seek 875 + `4·F_blv` + `2·D_blv`, read actors / sprite objects / chests (count-prefixed
-   each), read the 200 door records + pool, seek 200 + 8 + 48 tail bytes. Door faces come from
+   each; the last two are kept, see §3.1.1), read the 200 door records + pool, seek 200 + 8 + 48 tail bytes. Door faces come from
    `doorsData` using the per-door split; door sector linkage comes from each face's `sectorId`/`backSectorId`
    (`numSectors` is 0).
 
@@ -324,8 +372,9 @@ with the data; each is recorded here with what was measured, and the decoder fol
 
 The decoder's own boundaries are stated where they are enforced: the outdoor attribute map and both
 normal blocks (sizes verified, meaning unestablished), faces ordering, model BSP nodes, the decoration
-map, indoor fluid and cog contents, map outlines, BSP ordering, and the delta records' actor, sprite,
-and chest layouts are consumed by size and not surfaced as meaning.
+map, indoor fluid and cog contents, map outlines, BSP ordering, and the delta records' actor layout are
+consumed by size and not surfaced as meaning. A delta's sprite objects and chests are kept: they are the
+only place a level's containers and the items lying in it are recorded (§3.1.1).
 
 ## 8. Collision geometry: the engine's spatial artifact
 

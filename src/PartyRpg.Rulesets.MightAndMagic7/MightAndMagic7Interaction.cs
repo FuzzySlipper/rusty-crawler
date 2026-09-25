@@ -8,16 +8,19 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 
 /// <summary>
 /// This game's answers about using what the world holds: what a placement offers the party, what a
-/// requirement means here, and what a granted use makes of a door or a fixture.
+/// requirement means here, what still guards a target, and what a granted use makes of a door, a fixture,
+/// or a container.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>What the imported data supports.</b> A place's doors arrive as placements carrying the delta's own
-/// door state and attributes, and an interior's decorations arrive carrying the event each one raises. This
-/// ruleset turns the first into a door the party opens and the second into a fixture whose use is refused
-/// with the event named, because nothing in this build executes map events. Everything else a place holds —
-/// spawn points, lights, decorations that raise nothing — is not a target, which is the same filter the
-/// original applies when it picks what the interaction key can reach (OpenEnroth
+/// door state and attributes, its containers as placements carrying the delta's chest records, its loose
+/// items as the sprite objects holding them, and an interior's decorations as the event each one raises.
+/// This ruleset turns the first into a door the party opens, the second and third into containers it
+/// searches, and the last into a fixture whose use is refused with the event named, because nothing in
+/// this build executes map events. Everything else a place holds — spawn points, lights, decorations that
+/// raise nothing, sprite objects holding nothing — is not a target, which is the same filter the original
+/// applies when it picks what the interaction key can reach (OpenEnroth
 /// <c>src/Engine/Graphics/Vis.cpp:31-34</c>, the door and event-decoration filters).
 /// </para>
 /// <para>
@@ -31,7 +34,9 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// <b>What this game cannot deliver yet, stated rather than hidden.</b> Opening a door records its state and
 /// reports it, and leaves the door's polygons standing as collision, because door geometry does not move in
 /// this build; that is the residue the outcome carries. A fixture's use raises an event nothing executes, so
-/// it is a refusal with the event named rather than a success that did nothing.
+/// it is a refusal with the event named rather than a success that did nothing. A container whose contents
+/// are the map's random-item references is refused by name, because the item generation that would answer
+/// them is a separate owner and inventing contents would be inventing content.
 /// </para>
 /// </remarks>
 internal sealed class MightAndMagic7Interaction : IInteractionRule
@@ -104,24 +109,36 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     /// </remarks>
     private const int DoorRestState = 0;
 
-    /// <summary>Reads what a placement requires, failing while the world is built on content that states none of it.</summary>
+    /// <summary>
+    /// Reads what a placement requires and what a container holds, failing while the world is built on
+    /// content that states either of them in a way nothing can resolve.
+    /// </summary>
     /// <remarks>
-    /// Requirements are judged inside an admitted update, where a content defect cannot be reported without
-    /// stopping the session, so they are read and checked once here: a requirement that names no kind, no
-    /// identity, or a kind this game does not know is a defect in the pack that declared it, and every one of
-    /// them is named at once.
+    /// <para>
+    /// Requirements and contents are both read inside an admitted update, where a content defect cannot be
+    /// reported without stopping the session, so they are checked once here: a requirement that names no
+    /// kind, no identity, or a kind this game does not know is a defect in the pack that declared it, and a
+    /// container item reference that names an item the catalog does not carry is a defect too, because a
+    /// party that searched such a container would be handed an identity nothing resolves. Every defect is
+    /// named at once, not the first.
+    /// </para>
+    /// <para>
+    /// A reference that asks for a random item is not a defect: the map data records a request the item
+    /// generator answers elsewhere, and the search refuses by name until that owner exists.
+    /// </para>
     /// </remarks>
     /// <param name="catalog">The content the world is being built from, when any loaded.</param>
-    /// <exception cref="ContentValidationException">A placement states a requirement that cannot be read.</exception>
+    /// <exception cref="ContentValidationException">A placement states a requirement or a container item that cannot be resolved.</exception>
     internal static void Validate(ContentCatalog? catalog)
     {
         if (catalog is null) return;
+        HashSet<string> items = [.. catalog.Entries(MightAndMagic7Containers.ItemDefinitionKind).Select(entry => entry.Entry.Id)];
         List<ContentValidationIssue> issues = [];
         foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in catalog.Entries(PlaceGraphLoader.PlaceDefinitionKind))
         {
             foreach (JsonElement placement in entry.GetArray(PlacePopulationContent.PlacementsField))
             {
-                foreach (JsonElement requirement in ReadArray(placement, RequiresField))
+                foreach (JsonElement requirement in MightAndMagic7Containers.ReadArray(placement, RequiresField))
                 {
                     if (ReadKind(ContentEntry.ReadString(requirement, "kind")) is null)
                     {
@@ -132,13 +149,24 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
                             document.DocumentId));
                     }
                 }
+
+                string kind = ContentEntry.ReadString(placement, PlacePopulationContent.KindField);
+                foreach (int reference in MightAndMagic7Containers.DeclaredReferences(placement, kind))
+                {
+                    if (MightAndMagic7Containers.Resolves(reference, items)) continue;
+                    issues.Add(new ContentValidationIssue(
+                        "interaction-container-item-unknown",
+                        $"place '{entry.Id}' declares a container holding item '{reference}', which is neither an item the catalog carries nor one of the seven treasure levels a random item is asked for by; a party that searched it would be handed an identity nothing resolves.",
+                        pack.PackId,
+                        document.DocumentId));
+                }
             }
         }
 
         if (issues.Count > 0)
         {
             throw new ContentValidationException(
-                $"The world's interaction requirements cannot be read: {issues[0].Message}",
+                $"The world's interaction requirements and container contents cannot be read: {issues[0].Message}",
                 issues);
         }
     }
@@ -165,6 +193,13 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
                 requires);
         }
 
+        // A container and a pile are one target: what they hold came from different records, and what the
+        // party does with them is the same act, so the reading lives in one place rather than two.
+        if (MightAndMagic7Containers.Describe(placement, request.State, requires, Reach) is { } container)
+        {
+            return container;
+        }
+
         if (string.Equals(placement.Content.Kind, DecorationPlacementKind, StringComparison.Ordinal) &&
             placement.Source.GetInt32(EventField) is { } eventId && eventId != 0)
         {
@@ -180,6 +215,10 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     }
 
     /// <inheritdoc />
+    public InteractionTrap? Trap(InteractionTargetDefinition target, InteractionContext context) =>
+        MightAndMagic7Containers.Trap(target, context);
+
+    /// <inheritdoc />
     public InteractionRequirementVerdict Judge(InteractionRequirement requirement, InteractionContext context) => requirement.Kind switch
     {
         InteractionRequirementKind.Item => JudgeItem(requirement, context),
@@ -192,6 +231,11 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     /// <inheritdoc />
     public InteractionOutcome Apply(InteractionTargetDefinition target, InteractionContext context)
     {
+        if (string.Equals(target.Kind.Value, MightAndMagic7Containers.TargetKind, StringComparison.Ordinal))
+        {
+            return MightAndMagic7Containers.Search(target, context);
+        }
+
         if (string.Equals(target.Kind.Value, FixtureTargetKind, StringComparison.Ordinal))
         {
             int eventId = context.Placement.Source.GetInt32(EventField) ?? 0;
@@ -313,7 +357,7 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     private static IReadOnlyList<InteractionRequirement> ReadRequirements(PlacementDefinition placement)
     {
         List<InteractionRequirement> requires = [];
-        foreach (JsonElement element in ReadArray(placement.Source.Payload, RequiresField))
+        foreach (JsonElement element in MightAndMagic7Containers.ReadArray(placement.Source.Payload, RequiresField))
         {
             string kind = ContentEntry.ReadString(element, "kind");
             string name = ContentEntry.ReadId(element, "id");
@@ -339,12 +383,4 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
         "time" => InteractionRequirementKind.TimeOfDay,
         _ => null,
     };
-
-    /// <summary>Reads an array property of a placement element, or nothing when it carries none.</summary>
-    private static IReadOnlyList<JsonElement> ReadArray(JsonElement element, string property) =>
-        element.ValueKind == JsonValueKind.Object &&
-        element.TryGetProperty(property, out JsonElement value) &&
-        value.ValueKind == JsonValueKind.Array
-            ? [.. value.EnumerateArray()]
-            : [];
 }

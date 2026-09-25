@@ -9,13 +9,15 @@ namespace PartyRpg.Kit.Interaction;
 /// which use applies, how close the party must stand, what it currently reads as, what that use requires,
 /// and what it costs. The kit discovers placements from the place's content and asks for this; a placement
 /// the ruleset answers nothing about is not usable and is not a silent failure, because it was never a
-/// target.
+/// target. What guards a target — a trap — is a second answer asked for when it is used, because what the
+/// party brings to it is read from the party.
 /// </para>
 /// <para>
 /// The state word is part of the answer rather than a second fact beside it because only the ruleset knows
 /// how content's own state and what the party has done to it become one word: a door's stored position, a
 /// container's emptiness, and a lever's throw are this game's readings of content, and the kit carries
-/// whatever word comes back without knowing what it means.
+/// whatever word comes back without knowing what it means. What a trap makes of that word travels with the
+/// trap, for the same reason.
 /// </para>
 /// <para>
 /// A definition is a value about content, never about one visit: two parties that walk into the same place

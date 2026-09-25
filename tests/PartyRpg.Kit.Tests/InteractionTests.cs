@@ -575,6 +575,17 @@ public sealed class InteractionTests
             };
         }
 
+        /// <summary>
+        /// Nothing in this hall guards itself: a trap is what a container test states, and the workflow that
+        /// applies one is exercised there rather than here.
+        /// </summary>
+        public InteractionTrap? Trap(InteractionTargetDefinition target, InteractionContext context)
+        {
+            _ = target;
+            _ = context;
+            return null;
+        }
+
         public InteractionRequirementVerdict Judge(InteractionRequirement requirement, InteractionContext context)
         {
             Judged.Add(requirement.Name);
