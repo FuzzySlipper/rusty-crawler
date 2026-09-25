@@ -40,6 +40,7 @@ public sealed class CrawlerProduct : IEngineProduct
     private readonly SaveIntentNames _save;
     private readonly UseIntentNames _use;
     private readonly ServiceIntentNames _service;
+    private readonly RestIntentNames _rest;
     private readonly BundleSelection _selection;
     private readonly ContentCatalog? _content;
     private IGameSession _session;
@@ -83,6 +84,16 @@ public sealed class CrawlerProduct : IEngineProduct
             ProductIdentity.UiActionContract);
         _service = new ServiceIntentNames(
             ProductIdentity.ServiceLeaveIntent,
+            ProductIdentity.UiActionContract);
+        // Every stop is declared with its own control, so a key and a screen button ask for exactly the same
+        // night's sleep or wait: one name per act, on the digital intents above and on the payload contract
+        // the companion's own buttons claim.
+        _rest = new RestIntentNames(
+            ProductIdentity.RestIntent,
+            ProductIdentity.CampIntent,
+            ProductIdentity.WaitUntilDawnIntent,
+            ProductIdentity.WaitAnHourIntent,
+            ProductIdentity.WaitFiveMinutesIntent,
             ProductIdentity.UiActionContract);
         (_selection, _content) = SelectBundle(context, bundleId ?? BuiltInBundles.Default);
         _session = CreateSession();
@@ -224,7 +235,8 @@ public sealed class CrawlerProduct : IEngineProduct
                 Creation: _creation,
                 Save: _save,
                 Use: _use,
-                Service: _service);
+                Service: _service,
+                Rest: _rest);
 
             // The start switch travels with the context and is answered at the ruleset's one composition
             // entry: a resumed run reads the save the slot holds and composes a session from it, and a slot

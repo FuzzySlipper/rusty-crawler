@@ -44,7 +44,13 @@ rations it eats, with paid and magical travel refused by name until the services
 the magic that opens a portal exist), and what using something means here (`MightAndMagic7Interaction` —
 a door from the delta's own stored state with the donor's interaction range, a decoration that raises an
 event as a fixture whose use names the event nothing executes yet, a `requires` array on a placement as
-this game's locks, and a refusal that says what it needs). Party creation's game definitions are landed too:
+this game's locks, and a refusal that says what it needs), which places are clocked
+(`MightAndMagic7Schedules` — the counters' own hours, or the hours a place states in its own entry, read
+against the one clock so a door outside them is an unmet requirement rather than a menu entry that hides
+itself), and what stopping costs here (`MightAndMagic7Rest` — eight hours under a roof or in the open, the
+donor's ground table for what a camp eats, its own proximity rule for a party that will not lie down with
+creatures near, an interrupted night that lasts only the hours it lasted, and the day-long debt of sleep
+that weakens the party on the clock's own deadline). Party creation's game definitions are landed too:
 `MightAndMagic7Creation.Options` offers the four races with their attribute ranges, the eight portraits,
 and the nine base classes with the two skills each fixes, the nine it offers, and the hit and spell
 points it starts with, over a pool of fifty points and two chosen skills per character;

@@ -82,6 +82,21 @@
          same control. -->
     <RustyEngineProductInputIntent Include="service.leave" Value="digital" />
     <RustyEngineProductInputMapping Include="service.leave.key-x" Intent="service.leave" Trigger="key:key-x:pressed" />
+    <!-- The stop controls: one per act, because a rest heals and a wait does not, and one key cannot mean
+         both. R is the original's own rest key. T, H, C, and M are letters the original spends on its book
+         screens and its casting, which this build does not have yet: the stones that add them move these
+         controls deliberately rather than inheriting a collision. Every declaration here has its constant in
+         ProductIdentity.cs, and the engine refuses a mapping whose intent the product never declared. -->
+    <RustyEngineProductInputIntent Include="rest.rest" Value="digital" />
+    <RustyEngineProductInputMapping Include="rest.rest.key-r" Intent="rest.rest" Trigger="key:key-r:pressed" />
+    <RustyEngineProductInputIntent Include="rest.camp" Value="digital" />
+    <RustyEngineProductInputMapping Include="rest.camp.key-c" Intent="rest.camp" Trigger="key:key-c:pressed" />
+    <RustyEngineProductInputIntent Include="rest.wait-dawn" Value="digital" />
+    <RustyEngineProductInputMapping Include="rest.wait-dawn.key-t" Intent="rest.wait-dawn" Trigger="key:key-t:pressed" />
+    <RustyEngineProductInputIntent Include="rest.wait-hour" Value="digital" />
+    <RustyEngineProductInputMapping Include="rest.wait-hour.key-h" Intent="rest.wait-hour" Trigger="key:key-h:pressed" />
+    <RustyEngineProductInputIntent Include="rest.wait-five-minutes" Value="digital" />
+    <RustyEngineProductInputMapping Include="rest.wait-five-minutes.key-m" Intent="rest.wait-five-minutes" Trigger="key:key-m:pressed" />
     <RustyEngineProductInputIntent Include="crawler.ui" Value="payload:crawler.ui.action.v1" />
   </ItemGroup>
 

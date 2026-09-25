@@ -385,7 +385,7 @@ public sealed class EnginePartyMover : IPartyMover
 /// game. Arriving and travelling both mark the place visited, so knowledge accrues the same way
 /// wherever the party goes.
 /// </remarks>
-public sealed class SessionWorld : IDisposable, IInteractionWorld
+public sealed class SessionWorld : IDisposable, IInteractionWorld, IRestSite
 {
     private readonly TransitionExecutive _transitions;
     private readonly IWorldTimeSource? _time;
@@ -440,6 +440,11 @@ public sealed class SessionWorld : IDisposable, IInteractionWorld
     /// interaction at all: walking still moves the party, and nothing can be used, which is the honest state
     /// of a ruleset that has not answered.
     /// </param>
+    /// <param name="schedule">
+    /// Which places are clocked, as this game's content says. It is what a door's hours are read from and
+    /// what the panel shows about the town the party stands in. Without one every place is open at every
+    /// hour, because nothing has said otherwise.
+    /// </param>
     /// <exception cref="ArgumentNullException">A required collaborator is missing.</exception>
     public SessionWorld(
         PlaceGraph graph,
@@ -453,7 +458,8 @@ public sealed class SessionWorld : IDisposable, IInteractionWorld
         GameClock? clock = null,
         PartyResourceLedger? resources = null,
         PartyEntity? partyEntity = null,
-        InteractionPolicy? interaction = null)
+        InteractionPolicy? interaction = null,
+        PlaceSchedule? schedule = null)
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(party);
@@ -473,6 +479,7 @@ public sealed class SessionWorld : IDisposable, IInteractionWorld
         _population = new PlacePopulation(graph, places);
         _entrances = Index(graph, entrances);
         Mover = mover;
+        Schedule = schedule ?? PlaceSchedule.Empty;
         Interaction = interaction is null ? null : new PartyInteraction(this, interaction.Rule, interaction.Space, interaction.Tuning);
         // The place the party starts in is entered exactly as any other is, so the scene it walks in is
         // filled from that place's content before the first step rather than one arrival late.
@@ -490,6 +497,17 @@ public sealed class SessionWorld : IDisposable, IInteractionWorld
 
     /// <summary>The party's movement, or null when the world has no engine to move in.</summary>
     public IPartyMover? Mover { get; }
+
+    /// <summary>
+    /// Which places are clocked and when their doors stand open, as this game's content says.
+    /// </summary>
+    /// <remarks>
+    /// The schedule is read here rather than kept beside the clock: the clock owns the time, and a schedule
+    /// is content's answer about which hours a place keeps, so every question is answered against the
+    /// clock's own position at the moment it is asked. The interaction mechanism's ruleset holds the same
+    /// schedule, so a door and the panel cannot disagree about whether a shop is shut.
+    /// </remarks>
+    public PlaceSchedule Schedule { get; }
 
     /// <summary>What the party's movement has done so far, as an observation rather than as state anything steps.</summary>
     public MovementDiagnostics Movement => _movement;
@@ -696,14 +714,32 @@ public sealed class SessionWorld : IDisposable, IInteractionWorld
         get
         {
             PlaceDefinition place = Graph.Require(Party.Place);
+            GameDate? now = _clock?.Now;
             return new WorldSnapshot(
                 place.Id.Value,
                 place.Name,
                 SessionProjection.WireName(place.Kind),
                 Party.PlacePose,
                 Places.States.Count(state => state.Visited),
-                Graph.Places.Count);
+                Graph.Places.Count,
+                // What the place's own hours read as right now, recomputed from the clock rather than
+                // remembered: a shop that closed while the party stood in it reads closed in the same
+                // projection that shows the clock it closed by.
+                Open: now is not { } at || Schedule.IsOpenAt(place.Id, at),
+                Hours: Schedule.HoursOf(place.Id)?.ToString() ?? string.Empty,
+                NextChange: NextChange(place.Id));
         }
+    }
+
+    /// <summary>When the party's place next opens or closes, as a point on the calendar, or empty when it keeps no hours.</summary>
+    private string NextChange(PlaceId place)
+    {
+        if (_clock is not { } clock) return string.Empty;
+        return Schedule.NextChangeAfter(place, clock.Now, clock.Calendar) is { } change
+            ? string.Create(
+                System.Globalization.CultureInfo.InvariantCulture,
+                $"{change.Year:0000}-{change.Month:00}-{change.Day:00} {change.Hour:00}:{change.Minute:00}")
+            : string.Empty;
     }
 
     /// <summary>
@@ -749,6 +785,30 @@ public sealed class SessionWorld : IDisposable, IInteractionWorld
     /// world reports that the party stands on no geometry.
     /// </remarks>
     bool IInteractionWorld.InSight(Vector3 from, Vector3 to) => Mover?.InSight(from, to) ?? true;
+
+    /// <summary>
+    /// The place a stop happens in, which is where the ground and the night are read from.
+    /// </summary>
+    /// <remarks>
+    /// The place is handed over as content defined it — its identity, whether it is a region or an interior,
+    /// and the entry behind it — so a ruleset reads what a night costs and how dangerous it is from the same
+    /// fields the world was built from, rather than from a vocabulary this layer invented for them.
+    /// </remarks>
+    PlaceDefinition IRestSite.Place => Graph.Require(Party.Place);
+
+    /// <summary>Where in the place the party stands, which is what a hostile's distance is measured from.</summary>
+    PlacePose IRestSite.Pose => Party.PlacePose;
+
+    /// <summary>
+    /// What lives in the place right now, which is what a camp's refusal reads for anything hostile near.
+    /// </summary>
+    /// <remarks>
+    /// The population is the live entities of the party's own visit, destroyed when it walks out, so a place
+    /// the party left has nothing near and a place it stands in has exactly what content put there. The
+    /// world holds no opinion about which of them is hostile: a spawn point, a wandering monster, and a
+    /// shopkeeper are content's words, and the ruleset answers for them.
+    /// </remarks>
+    IReadOnlyList<PlacePopulationEntity> IRestSite.Population => _population.Entities;
 
     /// <summary>Reports what one use did, whether it applied or was refused.</summary>
     /// <remarks>

@@ -101,6 +101,21 @@ internal static class MightAndMagic7World
         // there when somebody tries the door.
         MightAndMagic7Interaction.Validate(catalog);
 
+        // Which places are clocked is read once here, from the counters the places keep and the hours a place
+        // states for itself, and the one reading is handed to the interaction rule and to the world: the door
+        // a use is refused at and the hours the panel shows are the same schedule, so they cannot disagree.
+        MightAndMagic7Schedules schedules = MightAndMagic7Schedules.Read(catalog, graph, services);
+        foreach (string note in schedules.Notes)
+        {
+            context.Engine?.Diagnostics?.Publish(new DiagnosticsPublishRequest(
+                DiagnosticsSeverity.Info,
+                DiagnosticsDisposition.Accepted,
+                Source: "schedule",
+                Code: "place-unclocked",
+                Message: note,
+                Correlation: string.Empty));
+        }
+
         PlaceRespawnRule respawn = PlaceRespawnRule.FromContent();
         PartyPoseOwner party;
         PlaceStateLedger places;
@@ -142,7 +157,8 @@ internal static class MightAndMagic7World
             clock,
             resources,
             entity,
-            new InteractionPolicy(Interaction(services), MightAndMagic7Movement.Space, MightAndMagic7Interaction.Aim));
+            new InteractionPolicy(Interaction(services, schedules.Schedule), MightAndMagic7Movement.Space, MightAndMagic7Interaction.Aim),
+            schedules.Schedule);
     }
 
     /// <summary>
@@ -151,12 +167,13 @@ internal static class MightAndMagic7World
     /// <remarks>
     /// The service answers wrap the doors-and-fixtures answers rather than replacing them, which is what
     /// keeps one interaction mechanism: a placement this game's service content calls a counter is a person
-    /// to talk to, and everything else is answered exactly as it was.
+    /// to talk to, and everything else is answered exactly as it was. The doors-and-fixtures answers carry
+    /// this game's schedule, which is what locks a door outside the hours its place keeps.
     /// </remarks>
-    private static IInteractionRule Interaction(IServiceRule? services) =>
+    private static IInteractionRule Interaction(IServiceRule? services, PlaceSchedule schedule) =>
         services is null
-            ? new MightAndMagic7Interaction()
-            : new MightAndMagic7ServiceInteraction(services, new MightAndMagic7Interaction());
+            ? new MightAndMagic7Interaction(schedule)
+            : new MightAndMagic7ServiceInteraction(services, new MightAndMagic7Interaction(schedule));
 
     /// <summary>
     /// The party's movement, when the host handed this ruleset an engine to move in.

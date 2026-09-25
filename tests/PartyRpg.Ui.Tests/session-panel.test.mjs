@@ -24,6 +24,9 @@ function world(overrides = {}) {
     yaw: 512,
     visited: 1,
     places: 76,
+    open: true,
+    hours: '',
+    nextChange: '',
     ...overrides,
   };
 }
@@ -63,6 +66,10 @@ function party(overrides = {}) {
     reputation: 0,
     fame: 0,
     conditions: '',
+    hitPoints: 40,
+    hitPointsMax: 40,
+    spellPoints: 10,
+    spellPointsMax: 10,
     ...overrides,
   };
 }
@@ -181,6 +188,36 @@ function facedDoor(overrides = {}) {
 }
 
 /**
+ * The rest block as the product publishes it. `available` is false when the session holds no rest mechanism
+ * at all; `outcome` is `none` until the party has stopped; `interrupted` says a night was broken; and the
+ * fatigue facts are the clock's own deadline rather than a count kept by the screen.
+ */
+function rest(overrides = {}) {
+  return {
+    available: true,
+    kind: '',
+    outcome: 'none',
+    code: '',
+    message: '',
+    from: '1168-01-01 09:00',
+    to: '1168-01-01 09:00',
+    elapsedSeconds: 0,
+    charged: 0,
+    covered: 0,
+    unit: '',
+    interrupted: false,
+    recovered: false,
+    restored: 0,
+    cleared: '',
+    shortage: '',
+    tired: false,
+    fatigueDue: '1168-01-02 09:00',
+    fatigueLanded: 0,
+    ...overrides,
+  };
+}
+
+/**
  * The creation block as the product publishes it while a party is being made: the flow's own options and
  * the member's own answers, so every choice below arrived in the projection.
  */
@@ -271,6 +308,9 @@ function snapshot(mode, seconds = 0, steps = 0, updates = 0, facts = undefined, 
   // The service block is published in every mode too, so a case that asks for none covers a projection
   // whose session holds no service mechanism.
   if (blocks?.service !== undefined) value.service = blocks.service;
+  // The rest block is published in every mode too, so a case that asks for none covers a projection whose
+  // session holds no rest mechanism.
+  if (blocks?.rest !== undefined) value.rest = blocks.rest;
   return value;
 }
 
@@ -437,6 +477,38 @@ function servicePanel(h) {
   };
 }
 
+/** The stop section as a person reads it: the controls, the night's own facts, and the fatigue line. */
+function restPanel(h) {
+  const panel = h.panel();
+  const section = panel?.querySelector('.crawler-rest');
+  const result = section?.querySelector('.crawler-rest-result');
+  return {
+    state: panel?.getAttribute('data-rest'),
+    action: panel?.getAttribute('data-rest-action'),
+    outcome: panel?.getAttribute('data-rest-outcome'),
+    tired: panel?.getAttribute('data-tired'),
+    hidden: section?.hidden,
+    status: section?.querySelector('.crawler-rest-state')?.textContent,
+    controls: [...(section?.querySelectorAll('.crawler-actions button') ?? [])].map((button) => ({
+      id: button.dataset.id,
+      text: button.textContent,
+      disabled: button.disabled,
+    })),
+    message: result?.hidden ? '' : result?.textContent,
+    messageOutcome: result?.getAttribute('data-outcome'),
+    messageCode: result?.getAttribute('data-code'),
+  };
+}
+
+/** Clicks the stop control a case names, as a person presses it. */
+function clickStop(h, action) {
+  const button = [...h.panel().querySelectorAll('.crawler-rest .crawler-actions button')].find(
+    (entry) => entry.dataset.id === action,
+  );
+  assert.ok(button, `the stop controls offer no '${action}'`);
+  button.dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
+}
+
 /** Clicks the service button a person reads by its id, which is the lot, item, or lesson it names. */
 function clickService(h, id) {
   const button = [...h.panel().querySelectorAll('.crawler-service .crawler-options button')].find(
@@ -476,7 +548,7 @@ test('renders nothing until the product publishes, then renders what it publishe
       title: '',
       button: 'Starting…',
       disabled: true,
-      values: Array(28).fill('—'),
+      values: Array(31).fill('—'),
       place: '',
     });
 
@@ -490,8 +562,11 @@ test('renders nothing until the product publishes, then renders what it publishe
       disabled: false,
       values: [
         'running', '12.3 s', '740', '741', '2',
-        '—', '—', '—', '—', '—', '—', '—', '—',
-        '1', '1234, 5678, 0 @ 512', '1 / 76', 'grounded', '—', '—', '—',
+        // The date, the time, the days, the party, the purse, the food, the standing, and the conditions,
+        // then what the party has left to lose and to cast with: a projection that carries no party block
+        // shows all ten as not known.
+        '—', '—', '—', '—', '—', '—', '—', '—', '—', '—',
+        '1', '—', '1234, 5678, 0 @ 512', '1 / 76', 'grounded', '—', '—', '—',
         '—', '—', '—',
         // A projection that carries no save block is a session this companion cannot read as saveable, and
         // the panel says so on the Save row rather than offering a save it cannot make. A projection that
@@ -599,8 +674,8 @@ test('the companion holds no state and starts no timer', () => {
     // Rendering the newest projection replaces the previous values rather than accumulating them.
     assert.deepEqual(readPanel(h).values, [
       'running', '3.0 s', '180', '182', '2',
-      '—', '—', '—', '—', '—', '—', '—', '—',
-      '1', '1234, 5678, 0 @ 512', '1 / 76', '—', '—', '—', '—',
+      '—', '—', '—', '—', '—', '—', '—', '—', '—', '—',
+      '1', '—', '1234, 5678, 0 @ 512', '1 / 76', '—', '—', '—', '—',
       '—', '—', '—',
       'unavailable', 'fresh', '—', '—', '—',
     ]);
@@ -1297,6 +1372,180 @@ test('the panel shows what a transaction did and why a refusal refused', () => {
       }),
     }));
     assert.match(servicePanel(h).message, /Received 12; the purse holds 52/);
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the panel renders the stop controls and every way a stop can end', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // A session that holds a rest mechanism but has not stopped yet: the controls are there, and the panel
+    // says which one would do what. A rest that healed, and what the night cost, are written out in full.
+    h.emit(snapshot('running', 1, 60, 60, movement(), {
+      clock: clock({ time: '18:00' }),
+      party: party({ provisions: 4, hitPoints: 40, hitPointsMax: 40, spellPoints: 10, spellPointsMax: 10 }),
+      rest: rest({
+        kind: 'rest',
+        outcome: 'applied',
+        message: 'The party rests for 8 hour(s), to 1168-01-01 18:00, and spends 2 portions: every member is restored (1).',
+        from: '1168-01-01 10:00',
+        to: '1168-01-01 18:00',
+        elapsedSeconds: 28800,
+        charged: 2,
+        covered: 2,
+        unit: 'portions',
+        recovered: true,
+        restored: 1,
+        cleared: 'weak',
+      }),
+    }));
+    assert.equal(h.panel().getAttribute('data-rest'), 'applied');
+    assert.equal(h.panel().getAttribute('data-rest-action'), 'rest');
+    const rested = restPanel(h);
+    assert.equal(rested.hidden, false);
+    assert.equal(rested.messageOutcome, 'applied');
+    assert.match(rested.message, /every member is restored/);
+    assert.match(rested.message, /Cost 2 of 2 portions/);
+    assert.match(rested.message, /Cleared: weak/);
+    assert.deepEqual(
+      rested.controls.map((entry) => entry.id),
+      ['rest.rest', 'rest.camp', 'rest.wait-dawn', 'rest.wait-hour', 'rest.wait-five-minutes'],
+    );
+    assert.deepEqual(
+      rested.controls.map((entry) => entry.text),
+      ['Rest & heal 8 hours', 'Make camp', 'Wait until dawn', 'Wait an hour', 'Wait 5 minutes'],
+    );
+
+    // A wait moves the clock and restores nobody: the panel says so rather than leaving the two looking the
+    // same, and it charges nothing.
+    h.emit(snapshot('running', 2, 120, 121, movement(), {
+      clock: clock({ time: '19:00' }),
+      rest: rest({
+        kind: 'wait-hour',
+        outcome: 'applied',
+        message: 'The party waits for 1 hour(s), to 1168-01-01 19:00. Waiting rests nobody: the clock moved and nothing was restored.',
+        from: '1168-01-01 18:00',
+        to: '1168-01-01 19:00',
+        elapsedSeconds: 3600,
+      }),
+    }));
+    assert.equal(h.panel().getAttribute('data-rest-action'), 'wait-hour');
+    assert.match(restPanel(h).message, /Waiting rests nobody/);
+
+    // A refusal keeps the product's own code and sentence, so a party that could not sleep reads why.
+    h.emit(snapshot('running', 3, 180, 182, movement(), {
+      rest: rest({
+        kind: 'camp',
+        outcome: 'refused',
+        code: 'camp-hostiles-near',
+        message: 'There are 3 hostile creature(s) within 5120 of the party, and it will not make camp with them near.',
+      }),
+    }));
+    assert.equal(h.panel().getAttribute('data-rest-outcome'), 'refused');
+    const refused = restPanel(h);
+    assert.equal(refused.messageOutcome, 'refused');
+    assert.equal(refused.messageCode, 'camp-hostiles-near');
+    assert.match(refused.message, /will not make camp/);
+
+    // A broken night is an applied stop with a shorter period and nothing spent, and the fatigue line is the
+    // clock's own deadline — which is how a player sees when the party next needs to sleep.
+    h.emit(snapshot('running', 4, 240, 243, movement(), {
+      clock: clock({ time: '22:05' }),
+      party: party({ conditions: 'weak (1)', provisions: 6 }),
+      rest: rest({
+        kind: 'camp',
+        outcome: 'applied',
+        interrupted: true,
+        message: 'The party camps for 1 hour(s) 5 minute(s) and the night is broken at 1168-01-01 22:05: creatures find the camp. Nothing was restored and no provisions were spent.',
+        from: '1168-01-01 21:00',
+        to: '1168-01-01 22:05',
+        elapsedSeconds: 3900,
+        tired: true,
+        fatigueDue: '1168-01-02 22:05',
+        fatigueLanded: 1,
+      }),
+    }));
+    const broken = restPanel(h);
+    assert.equal(h.panel().getAttribute('data-tired'), 'yes');
+    assert.match(broken.status, /Tired/);
+    assert.match(broken.status, /next sleep due 1168-01-02 22:05/);
+    assert.match(broken.status, /landed 1×/);
+    assert.match(broken.message, /Nothing was restored and no provisions were spent/);
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('every stop control asks for the stop it was shown', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+    h.emit(snapshot('running', 1, 60, 60, movement(), { rest: rest() }));
+
+    for (const action of ['rest.rest', 'rest.camp', 'rest.wait-dawn', 'rest.wait-hour', 'rest.wait-five-minutes']) {
+      clickStop(h, action);
+    }
+
+    assert.deepEqual(
+      h.claims.map((entry) => entry.value.data.action),
+      ['rest.rest', 'rest.camp', 'rest.wait-dawn', 'rest.wait-hour', 'rest.wait-five-minutes'],
+    );
+    for (const claim of h.claims) {
+      assert.equal(claim.intent, ACTION_INTENT);
+      assert.equal(claim.value.kind, 'product-payload');
+      assert.equal(claim.value.contract, ACTION_CONTRACT);
+    }
+
+    // A session with no mechanism offers no stop to ask for, and the section says the mechanism is not there
+    // rather than showing five controls that would do nothing.
+    h.emit(snapshot('running', 2, 120, 121, movement(), { rest: rest({ available: false }) }));
+    assert.equal(h.panel().getAttribute('data-rest'), 'none');
+    assert.equal(restPanel(h).hidden, true);
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the panel shows the hours a place keeps, the hour it stands at, and what the party has left', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // The place's own hours are the product's clock read: the panel prints the window, whether the doors
+    // stand open, and when they next change, and derives none of it.
+    h.emit(snapshot('running', 1, 60, 60, movement(), {
+      clock: clock({ time: '23:00', daylight: 'night' }),
+      party: party({ hitPoints: 25, hitPointsMax: 40, spellPoints: 4, spellPointsMax: 10 }),
+      rest: rest({ tired: true, fatigueDue: '', fatigueLanded: 1 }),
+    }));
+    const values = rows(h, 'Vitality', 'Magic', 'Hours');
+    assert.equal(values.Vitality, '25 / 40');
+    assert.equal(values.Magic, '4 / 10');
+    assert.equal(values.Hours, '—');
+
+    const withHours = snapshot('running', 2, 120, 121, movement(), {
+      clock: clock({ time: '23:00', daylight: 'night' }),
+      party: party({ hitPoints: 25, hitPointsMax: 40, spellPoints: 4, spellPointsMax: 10 }),
+      rest: rest({ tired: true, fatigueDue: '', fatigueLanded: 1 }),
+    });
+    withHours.world = world({ open: false, hours: '06:00–18:00', nextChange: '1168-01-02 06:00' });
+    h.emit(withHours);
+
+    const shown = rows(h, 'Vitality', 'Magic', 'Hours');
+    assert.equal(shown.Vitality, '25 / 40');
+    assert.equal(shown.Magic, '4 / 10');
+    assert.equal(shown.Hours, '06:00–18:00 · closed · next 1168-01-02 06:00');
+    assert.equal(h.panel().getAttribute('data-tired'), 'yes');
+    assert.match(restPanel(h).status, /^Tired · landed 1×$/);
 
     ui.dispose();
   } finally {

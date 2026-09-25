@@ -13,10 +13,10 @@ namespace PartyRpg.Kit.Services;
 /// open because a screen is.
 /// </para>
 /// <para>
-/// <b>Locking the door is a different owner's work.</b> This states when a counter serves; whether the door
-/// of a closed building is locked, and what a party finds when it walks the town at night, belongs to the
-/// schedule owner that closes doors. Checking the hours here is what keeps a service from selling through a
-/// shut window in the meantime.
+/// <b>The window itself belongs to the clock, not to services.</b> A building's hours are one window read
+/// by two owners: the counter inside it, and the doors of the place that keeps them. This is that window
+/// under the name a service states it by — <see cref="Window"/> is the same value the schedule reads — so
+/// a shop and its door cannot disagree about when the shop was open.
 /// </para>
 /// <para>
 /// The window is stated in whole hours of the day, which is the resolution the shipped content carries. A
@@ -30,41 +30,20 @@ public sealed record ServiceHours
     /// <param name="openHour">The hour of the day the service opens, counted from zero.</param>
     /// <param name="closedHour">The hour of the day the service closes, counted from zero, where 24 is the end of the day.</param>
     /// <exception cref="ArgumentOutOfRangeException">An hour is outside a day, or the two hours are the same.</exception>
-    public ServiceHours(int openHour, int closedHour)
-    {
-        if (openHour is < 0 or > 24)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(openHour),
-                openHour,
-                "An opening hour is an hour of the day, counted from zero, with 24 naming the end of the day.");
-        }
+    public ServiceHours(int openHour, int closedHour) => Window = new OpeningHours(openHour, closedHour);
 
-        if (closedHour is < 0 or > 24)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(closedHour),
-                closedHour,
-                "A closing hour is an hour of the day, counted from zero, with 24 naming the end of the day.");
-        }
+    /// <summary>Creates a service's hours from the window they are.</summary>
+    /// <param name="window">The hours a place keeps, which is the same window a schedule reads.</param>
+    public ServiceHours(OpeningHours window) => Window = window;
 
-        if (openHour == closedHour)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(closedHour),
-                closedHour,
-                "A service that opens and closes at one hour has no window to serve in; a service that never closes states 0 to 24.");
-        }
-
-        OpenHour = openHour;
-        ClosedHour = closedHour;
-    }
+    /// <summary>The window itself: the hours a place keeps, which a schedule reads too.</summary>
+    public OpeningHours Window { get; }
 
     /// <summary>The hour of the day the service opens.</summary>
-    public int OpenHour { get; }
+    public int OpenHour => Window.OpenHour;
 
     /// <summary>The hour of the day the service closes, where 24 is the end of the day.</summary>
-    public int ClosedHour { get; }
+    public int ClosedHour => Window.ClosedHour;
 
     /// <summary>Whether the service serves at a point on the calendar.</summary>
     /// <remarks>
@@ -73,12 +52,8 @@ public sealed record ServiceHours
     /// what the shipped data's night trade needs and what a naive range comparison would get backwards.
     /// </remarks>
     /// <param name="at">The date and time to judge.</param>
-    public bool IsOpenAt(GameDate at) =>
-        OpenHour < ClosedHour
-            ? at.Hour >= OpenHour && at.Hour < ClosedHour
-            : at.Hour >= OpenHour || at.Hour < ClosedHour;
+    public bool IsOpenAt(GameDate at) => Window.IsOpenAt(at);
 
     /// <summary>How the window reads to a person, as the two hours content stated.</summary>
-    public override string ToString() =>
-        string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{OpenHour:00}:00–{ClosedHour:00}:00");
+    public override string ToString() => Window.ToString();
 }

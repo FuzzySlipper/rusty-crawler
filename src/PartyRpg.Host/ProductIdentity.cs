@@ -1,3 +1,5 @@
+using PartyRpg.Kit.Sessions;
+
 namespace PartyRpg.Host;
 
 /// <summary>
@@ -92,6 +94,36 @@ internal static class ProductIdentity
     /// other control claims during play.
     /// </remarks>
     internal const string ServiceLeaveIntent = "service.leave";
+
+    /// <summary>
+    /// The digital intent that rests and heals where the party stands.
+    /// </summary>
+    /// <remarks>
+    /// The original's rest key is R (<c>docs/research/mm7-manual-outline.md</c> p.59, "R to rest"), and this
+    /// product keeps it: resting is the one stop the original gives a key of its own. The other stops take
+    /// letters the original spends on screens this build does not have yet — T and H open two of its books
+    /// and C casts — so a stone that adds books or casting moves these controls deliberately rather than
+    /// inheriting a collision. Every stop is its own control because every stop is a different act: one key
+    /// cannot mean "rest until healed" and "wait without healing". The declaration here and the mapping in
+    /// the project file are the two halves of one control, because the engine refuses a mapping whose intent
+    /// it was never told about.
+    /// </remarks>
+    internal const string RestIntent = RestActions.Rest;
+
+    /// <summary>The digital intent that makes camp in the open, on the key the original would spend casting.</summary>
+    internal const string CampIntent = RestActions.Camp;
+
+    /// <summary>The digital intent that waits until the next dawn, on a key the original gives to a book.</summary>
+    internal const string WaitUntilDawnIntent = RestActions.WaitUntilDawn;
+
+    /// <summary>The digital intent that waits an hour, on a key the original gives to a book.</summary>
+    internal const string WaitAnHourIntent = RestActions.WaitAnHour;
+
+    /// <summary>
+    /// The digital intent that waits a short interval — the manual's own "Wait 5 minutes" — on the key the
+    /// original gives to its map book.
+    /// </summary>
+    internal const string WaitFiveMinutesIntent = RestActions.WaitFiveMinutes;
 
     /// <summary>
     /// The payload action name that asks the live session to save, sent by the DOM companion's save control

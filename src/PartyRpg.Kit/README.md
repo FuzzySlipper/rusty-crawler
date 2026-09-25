@@ -41,7 +41,11 @@ supplies, and where new code goes — is in
 
 Implemented today: the session shell (`PartyRpgSession`, `SessionMode`, `IGameSession`) with the live
 world it steps (`SessionWorld`), the one clock it advances by the admitted interval and the party it
-holds and publishes, the compiled ruleset and session contracts, the pack envelope with its
+holds and publishes — with the clock's own schedule (`OpeningHours`, `PlaceSchedule`: which hours a place
+keeps and when that next changes, read against the clock's position rather than counted in a step) and the
+stops a party takes on it (`PartyRest`, `FatigueWatch`, `IRestRule`, `IRestSite`: rest, camp, and wait, each
+advancing the one clock by a game-time period, settling the day through the party's own ledger, and holding
+the debt of sleep as a deadline the clock brings due) — the compiled ruleset and session contracts, the pack envelope with its
 catalog loader, validator and bundle resolution, the world (`PlaceGraph`, `PlaceGraphLoader`,
 `PlaceStateLedger`, `TransitionExecutive` with its required cost contract, and the entrances a walking
 party takes — `PlaceEntrance` with its loader, consulted inside the movement step so a step that

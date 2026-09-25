@@ -26,6 +26,10 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="Reputation">What the world thinks of the party.</param>
 /// <param name="Fame">How widely the party is known.</param>
 /// <param name="Conditions">The conditions acting on the party, in the order it carries them, empty when none act.</param>
+/// <param name="HitPoints">What the members have left to lose between them.</param>
+/// <param name="HitPointsMax">What they could have between them, which is the measure the first number needs.</param>
+/// <param name="SpellPoints">What the members have left to cast with between them.</param>
+/// <param name="SpellPointsMax">What they could have between them.</param>
 public readonly record struct PartySnapshot(
     bool Present,
     int Members,
@@ -34,7 +38,11 @@ public readonly record struct PartySnapshot(
     string Unit,
     int Reputation,
     int Fame,
-    string Conditions)
+    string Conditions,
+    int HitPoints = 0,
+    int HitPointsMax = 0,
+    int SpellPoints = 0,
+    int SpellPointsMax = 0)
 {
     /// <summary>The party of a session that holds none.</summary>
     public static PartySnapshot None => new(false, 0, 0, 0, string.Empty, 0, 0, string.Empty);
@@ -45,6 +53,18 @@ public readonly record struct PartySnapshot(
     public static PartySnapshot From(PartyEntity? party)
     {
         if (party is null) return None;
+        int hitPoints = 0;
+        int hitPointsMax = 0;
+        int spellPoints = 0;
+        int spellPointsMax = 0;
+        foreach (PartyMember member in party.Members)
+        {
+            hitPoints += member.Resources.HitPoints.Current;
+            hitPointsMax += member.Resources.HitPoints.Maximum;
+            spellPoints += member.Resources.SpellPoints.Current;
+            spellPointsMax += member.Resources.SpellPoints.Maximum;
+        }
+
         return new PartySnapshot(
             true,
             party.Members.Count,
@@ -53,7 +73,14 @@ public readonly record struct PartySnapshot(
             WireName(party.Food.Unit),
             party.Reputation.Reputation,
             party.Reputation.Fame,
-            DescribeConditions(party));
+            DescribeConditions(party),
+            // What the party has left to lose and to cast with, summed over its members: a night's sleep
+            // restores the pools, and a panel that showed only food and conditions would leave a rested
+            // party and a wounded one looking the same.
+            hitPoints,
+            hitPointsMax,
+            spellPoints,
+            spellPointsMax);
     }
 
     /// <summary>

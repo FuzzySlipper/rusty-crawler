@@ -68,6 +68,17 @@ const ACTION_SERVICE_REPAIR = 'service.repair';
 const ACTION_SERVICE_TEACH = 'service.teach';
 const ACTION_SERVICE_LEAVE = 'service.leave';
 
+/**
+ * The stop actions this companion reports. Every stop is its own control because every stop is a different
+ * act: a rest heals and a wait does not, and one button cannot mean both. The names are the product's wire
+ * vocabulary, exactly as the service actions are.
+ */
+const ACTION_REST = 'rest.rest';
+const ACTION_CAMP = 'rest.camp';
+const ACTION_WAIT_DAWN = 'rest.wait-dawn';
+const ACTION_WAIT_HOUR = 'rest.wait-hour';
+const ACTION_WAIT_FIVE_MINUTES = 'rest.wait-five-minutes';
+
 interface CompositionView {
   readonly ruleset: string;
   readonly title: string;
@@ -87,6 +98,12 @@ interface WorldView {
   readonly yaw: number;
   readonly visited: number;
   readonly places: number;
+  /** Whether the place's own buildings are open at the hour this projection was built; a clock read. */
+  readonly open: boolean;
+  /** The hours the place keeps, empty when content clocks nothing in it. */
+  readonly hours: string;
+  /** When those hours next change, as a point on the game calendar, empty when nothing does. */
+  readonly nextChange: string;
 }
 
 interface SessionView {
@@ -143,6 +160,12 @@ interface PartyView {
   readonly fame: number;
   /** The conditions acting on the party, empty when none act. */
   readonly conditions: string;
+  /** What the members have left to lose between them, and the measure the first number needs. */
+  readonly hitPoints: number;
+  readonly hitPointsMax: number;
+  /** What the members have left to cast with between them. */
+  readonly spellPoints: number;
+  readonly spellPointsMax: number;
 }
 
 /**
@@ -281,6 +304,48 @@ interface ServiceView {
   readonly coins: number;
 }
 
+/**
+ * What the party's last stop did, what it cost, and what going without sleep is doing to it, as the product
+ * published it. `available` is false when the session holds no rest mechanism at all; `outcome` is `none`
+ * until the party has stopped; and a refusal keeps its own code and sentence, because a stop that silently
+ * did nothing must not look like one that did. `kind` is what was asked for, `interrupted` says a night was
+ * broken, and the fatigue facts are the clock's own deadline rather than a count kept here.
+ */
+interface RestView {
+  readonly available: boolean;
+  /** What the last stop asked for: `rest`, `camp`, `wait-dawn`, `wait-hour`, or `wait-five-minutes`. */
+  readonly kind: string;
+  /** `none`, `applied`, or `refused`. */
+  readonly outcome: string;
+  /** The last refusal's code, empty when the last stop applied or none has happened. */
+  readonly code: string;
+  /** What the last stop reported. */
+  readonly message: string;
+  /** Where the clock stood when the stop was asked for, and where it stands now. */
+  readonly from: string;
+  readonly to: string;
+  /** How much game time the stop covered. */
+  readonly elapsedSeconds: number;
+  /** What the larder was charged and what it covered, in the unit the party's food is measured in. */
+  readonly charged: number;
+  readonly covered: number;
+  readonly unit: string;
+  readonly interrupted: boolean;
+  readonly recovered: boolean;
+  /** How many members a completed sleep restored. */
+  readonly restored: number;
+  /** The conditions a completed sleep cleared, empty when it cleared none. */
+  readonly cleared: string;
+  /** The state the larder's own rule left on the party, empty when it left none. */
+  readonly shortage: string;
+  /** Whether the party currently carries the state going without sleep puts on it. */
+  readonly tired: boolean;
+  /** When the debt of sleep next falls due, empty while the party is asleep. */
+  readonly fatigueDue: string;
+  /** How many times the debt has fallen due since the session began. */
+  readonly fatigueLanded: number;
+}
+
 /** One member of the party being created, as the flow published it. */
 interface CreationMemberView {  readonly index: number;
   /** Where this member stands: `portrait`, `class`, `name`, `attributes`, `skills`, or `complete`. */
@@ -371,6 +436,7 @@ interface SnapshotView {
   readonly save: SaveView;
   readonly interaction: InteractionView;
   readonly service: ServiceView;
+  readonly rest: RestView;
 }
 
 /** The clock of a session that has none, which the panel shows as not knowing rather than as a date. */
@@ -392,6 +458,10 @@ const PARTY_UNKNOWN: PartyView = {
   reputation: 0,
   fame: 0,
   conditions: '',
+  hitPoints: 0,
+  hitPointsMax: 0,
+  spellPoints: 0,
+  spellPointsMax: 0,
 };
 
 /** The save state of a projection that carries none: a session this companion cannot read as saveable. */
@@ -462,6 +532,29 @@ const SERVICE_NONE: ServiceView = {
   paid: 0,
   earned: 0,
   coins: 0,
+};
+
+/** The rest of a session that holds no mechanism, or one this companion cannot read as a stop. */
+const REST_NONE: RestView = {
+  available: false,
+  kind: '',
+  outcome: 'none',
+  code: '',
+  message: '',
+  from: '',
+  to: '',
+  elapsedSeconds: 0,
+  charged: 0,
+  covered: 0,
+  unit: '',
+  interrupted: false,
+  recovered: false,
+  restored: 0,
+  cleared: '',
+  shortage: '',
+  tired: false,
+  fatigueDue: '',
+  fatigueLanded: 0,
 };
 
 const STYLES = `
@@ -563,6 +656,15 @@ const STYLES = `
 .crawler-save-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
 .crawler-save-result[hidden] { display: none; }
 .crawler-save-result[data-state='failed'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
+.crawler-rest { margin: 0 0 0.5rem; border-top: 1px solid rgba(210, 196, 158, 0.25); padding-top: 0.5rem; }
+.crawler-rest[hidden] { display: none; }
+.crawler-rest .crawler-step-head { margin: 0 0 0.2rem; color: #d8cba6; font-size: 0.82rem; }
+.crawler-rest-state { margin: 0 0 0.25rem; color: #b9ad8c; font-size: 0.72rem; }
+.crawler-rest .crawler-actions { display: flex; flex-wrap: wrap; gap: 0.2rem; }
+.crawler-rest .crawler-actions button { width: auto; padding: 0.2rem 0.4rem; font-size: 0.75rem; }
+.crawler-rest-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
+.crawler-rest-result[hidden] { display: none; }
+.crawler-rest-result[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
 `;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -616,6 +718,12 @@ function readClock(value: unknown): ClockView {
 function readParty(value: unknown): PartyView {
   if (!isRecord(value) || value.present !== true) return PARTY_UNKNOWN;
   const { members, coins, provisions, unit, reputation, fame, conditions } = value;
+  // The pools are read with a fallback: a projection from a product that publishes no vitality is a party
+  // this panel can still show, and reading a missing number as zero would claim an exhausted party.
+  const hitPoints = typeof value.hitPoints === 'number' ? value.hitPoints : 0;
+  const hitPointsMax = typeof value.hitPointsMax === 'number' ? value.hitPointsMax : 0;
+  const spellPoints = typeof value.spellPoints === 'number' ? value.spellPoints : 0;
+  const spellPointsMax = typeof value.spellPointsMax === 'number' ? value.spellPointsMax : 0;
   if (
     typeof members !== 'number' ||
     typeof coins !== 'number' ||
@@ -628,7 +736,20 @@ function readParty(value: unknown): PartyView {
     return PARTY_UNKNOWN;
   }
 
-  return { present: true, members, coins, provisions, unit, reputation, fame, conditions };
+  return {
+    present: true,
+    members,
+    coins,
+    provisions,
+    unit,
+    reputation,
+    fame,
+    conditions,
+    hitPoints,
+    hitPointsMax,
+    spellPoints,
+    spellPointsMax,
+  };
 }
 
 /**
@@ -808,6 +929,54 @@ function readService(value: unknown): ServiceView {
  * that is doing neither — a resumed one — carries the empty shape and the screen shows no creation
  * section at all, which is a different reading from a party that is still being made.
  */
+/**
+ * Reads the rest block, or the no-mechanism value. A block that is missing, or that is present but does not
+ * carry the facts this panel renders, is not a reason to reject the whole projection: the session it
+ * describes stops through a mechanism this companion cannot read, and saying so is honest where refusing to
+ * render everything else would hide the rest of the session behind it.
+ */
+function readRest(value: unknown): RestView {
+  if (!isRecord(value)) return REST_NONE;
+  const { kind, outcome, code, message, from, to, unit, cleared, shortage, fatigueDue } = value;
+  if (
+    typeof kind !== 'string' ||
+    typeof outcome !== 'string' ||
+    typeof code !== 'string' ||
+    typeof message !== 'string' ||
+    typeof from !== 'string' ||
+    typeof to !== 'string' ||
+    typeof unit !== 'string' ||
+    typeof cleared !== 'string' ||
+    typeof shortage !== 'string' ||
+    typeof fatigueDue !== 'string'
+  ) {
+    return REST_NONE;
+  }
+
+  const number = (entry: unknown): number => (typeof entry === 'number' ? entry : 0);
+  return {
+    available: value.available === true,
+    kind,
+    outcome,
+    code,
+    message,
+    from,
+    to,
+    elapsedSeconds: number(value.elapsedSeconds),
+    charged: number(value.charged),
+    covered: number(value.covered),
+    unit,
+    interrupted: value.interrupted === true,
+    recovered: value.recovered === true,
+    restored: number(value.restored),
+    cleared,
+    shortage,
+    tired: value.tired === true,
+    fatigueDue,
+    fatigueLanded: number(value.fatigueLanded),
+  };
+}
+
 function readCreation(value: unknown): CreationView {
   if (!isRecord(value)) return CREATION_NONE;
   const { member, members, step, pool, refusalCode, refusalMessage } = value;
@@ -917,6 +1086,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
   const save = readSave(value.save);
   const interaction = readInteraction(value.interaction);
   const service = readService(value.service);
+  const rest = readRest(value.rest);
   const { ruleset, title, bundle, contentPacks } = composition;
   const { mode, simulationSeconds, admittedSteps, updates } = session;
   if (
@@ -940,6 +1110,11 @@ function readSnapshot(value: unknown): SnapshotView | null {
   const yaw = world.yaw ?? 0;
   const visited = world.visited ?? 0;
   const places = world.places ?? 0;
+  // The place's own hours are read the same way the clock's are: a projection that carries none describes a
+  // place this companion cannot read as clocked, and the panel shows that rather than inventing a window.
+  const open = world.open === true;
+  const hours = world.hours ?? '';
+  const nextChange = world.nextChange ?? '';
   const motion = movement.motion ?? 'none';
   const blocked = movement.blocked ?? 'none';
   const stepRise = movement.stepRise ?? 0;
@@ -955,6 +1130,8 @@ function readSnapshot(value: unknown): SnapshotView | null {
     typeof yaw !== 'number' ||
     typeof visited !== 'number' ||
     typeof places !== 'number' ||
+    typeof hours !== 'string' ||
+    typeof nextChange !== 'string' ||
     typeof motion !== 'string' ||
     typeof blocked !== 'string' ||
     typeof stepRise !== 'number' ||
@@ -967,7 +1144,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
   return {
     composition: { ruleset, title, bundle, contentPacks },
     session: { mode, simulationSeconds, admittedSteps, updates },
-    world: { place, name: placeName, kind, x, y, z, yaw, visited, places },
+    world: { place, name: placeName, kind, x, y, z, yaw, visited, places, open, hours, nextChange },
     movement: { motion, blocked, stepRise, fallDistance, fallDamage },
     clock,
     party,
@@ -975,6 +1152,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
     save,
     interaction,
     service,
+    rest,
   };
 }
 
@@ -1004,6 +1182,10 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   panel.dataset.serviceState = 'unknown';
   panel.dataset.serviceAction = '';
   panel.dataset.serviceOutcome = 'none';
+  panel.dataset.rest = 'none';
+  panel.dataset.restAction = '';
+  panel.dataset.restOutcome = 'none';
+  panel.dataset.tired = 'no';
 
   const title = document.createElement('h1');
   const ruleset = document.createElement('p');
@@ -1029,7 +1211,10 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     ['food', 'Food'],
     ['standing', 'Standing'],
     ['condition', 'Condition'],
+    ['vitality', 'Vitality'],
+    ['magic', 'Magic'],
     ['place', 'Place'],
+    ['hours', 'Hours'],
     ['pose', 'Position'],
     ['explored', 'Explored'],
     ['motion', 'Motion'],
@@ -1183,6 +1368,40 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   serviceActions.append(serviceLeave);
   service.append(serviceHead, serviceState, serviceAccess, serviceMemberRow, stockRow, saleRow, lessonRow, serviceActions, serviceResult);
 
+  // The stop controls: one button per act, and the answer the last one got. A rest heals and a wait does
+  // not, so the buttons are never collapsed into one; and the fatigue line is the clock's own deadline,
+  // which is why a player can see when the party next needs to sleep.
+  const rest = document.createElement('section');
+  rest.className = 'crawler-rest';
+  rest.hidden = true;
+  const restHead = document.createElement('p');
+  restHead.className = 'crawler-step-head';
+  restHead.textContent = 'Rest, camp, and wait';
+  const restState = document.createElement('p');
+  restState.className = 'crawler-rest-state';
+  const restActions = document.createElement('div');
+  restActions.className = 'crawler-actions';
+  const restButtons: { readonly id: string; readonly label: string }[] = [
+    { id: ACTION_REST, label: 'Rest & heal 8 hours' },
+    { id: ACTION_CAMP, label: 'Make camp' },
+    { id: ACTION_WAIT_DAWN, label: 'Wait until dawn' },
+    { id: ACTION_WAIT_HOUR, label: 'Wait an hour' },
+    { id: ACTION_WAIT_FIVE_MINUTES, label: 'Wait 5 minutes' },
+  ];
+  for (const entry of restButtons) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.id = entry.id;
+    button.textContent = entry.label;
+    button.addEventListener('click', () => claim(entry.id));
+    restActions.append(button);
+  }
+
+  const restResult = document.createElement('p');
+  restResult.className = 'crawler-rest-result';
+  restResult.hidden = true;
+  rest.append(restHead, restState, restActions, restResult);
+
   // The creation screen comes before the long list of facts below: while a party is being made its
   // choices are what a player acts on, and a screen whose controls sat below twenty rows of values would
   // put them off the bottom of a short window. The service screen sits beside it for the same reason: a
@@ -1194,6 +1413,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     place,
     creation,
     service,
+    rest,
     details,
     action,
     saveButton,
@@ -1614,6 +1834,45 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     );
   };
 
+  /**
+   * Renders the stop controls and what the last one did. The buttons follow the mechanism rather than the
+   * mode, because a stop is an instant: a held session still lets the party sleep, exactly as it still lets
+   * it use what it faces. What a night cost is written out in full — the period, the larder, and the clock's
+   * own before and after — because "the party rested" and "the party rested and it cost two portions" are
+   * different facts, and the refusal keeps the sentence the product answered with.
+   */
+  const renderRest = (view: RestView): void => {
+    // A session with no mechanism, a party that has not stopped, and a refused stop are three different
+    // facts: a panel that hid the section for the first would leave a product without the mechanism looking
+    // like a party that had simply not slept yet.
+    panel.dataset.rest = !view.available ? 'none' : view.outcome === 'none' ? 'ready' : view.outcome;
+    panel.dataset.restAction = view.kind;
+    panel.dataset.restOutcome = view.outcome;
+    panel.dataset.tired = view.tired ? 'yes' : 'no';
+    rest.hidden = !view.available;
+    restState.textContent = view.available
+      ? view.tired
+        ? `Tired${view.fatigueDue === '' ? '' : ` · next sleep due ${view.fatigueDue}`}${
+            view.fatigueLanded > 0 ? ` · landed ${view.fatigueLanded}×` : ''
+          }`
+        : `Rested${view.fatigueDue === '' ? '' : ` · next sleep due ${view.fatigueDue}`}`
+      : '';
+    for (const button of restActions.querySelectorAll('button')) button.disabled = !view.available;
+    restResult.hidden = view.message === '';
+    restResult.dataset.outcome = view.outcome;
+    restResult.dataset.code = view.code;
+    if (view.message === '') {
+      restResult.textContent = '';
+    } else {
+      // What a night cost and what it cleared are both appended when both are known: a rest that spent the
+      // last of the larder and left the party weak afterwards is exactly the case a player needs to read in
+      // full, and a screen that showed the cost or the clearing would hide half of it.
+      const cost = view.charged > 0 ? ` Cost ${view.covered} of ${view.charged} ${view.unit}.` : '';
+      const cleared = view.cleared === '' ? '' : ` Cleared: ${view.cleared}.`;
+      restResult.textContent = `${view.message}${cost}${cleared}`;
+    }
+  };
+
   const render = (snapshot: SnapshotView): void => {
     current = snapshot.session.mode;
     title.textContent = 'Rusty Crawler';
@@ -1646,6 +1905,10 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     rows.food.textContent = party.present ? `${party.provisions} ${party.unit}` : '—';
     rows.standing.textContent = party.present ? `${party.reputation} / ${party.fame}` : '—';
     rows.condition.textContent = party.present && party.conditions !== '' ? party.conditions : '—';
+    // What the party has left to lose and to cast with: a night's sleep restores the pools, and a panel that
+    // showed only food and conditions would leave a rested party and a wounded one looking the same.
+    rows.vitality.textContent = party.present ? `${party.hitPoints} / ${party.hitPointsMax}` : '—';
+    rows.magic.textContent = party.present ? `${party.spellPoints} / ${party.spellPointsMax}` : '—';
     // The save's own facts: whether this session can save at all, whether it came from the slot, and what
     // happened the last time the player asked. Nothing is derived here — the outcome word, the moment, and
     // the reason are the product's, and the panel prints them unchanged.
@@ -1689,6 +1952,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     rows.pool.textContent = creating.active ? String(creating.pool) : '—';
     renderCreation(creating, save.resumed);
     renderService(snapshot.service);
+    renderRest(snapshot.rest);
     const world = snapshot.world;
     place.textContent =
       world.places === 0
@@ -1696,6 +1960,12 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
         : `${world.name}${world.kind === '' ? '' : ` · ${world.kind}`}`;
     panel.dataset.place = world.place;
     rows.place.textContent = world.place === '' ? '—' : world.place;
+    // The place's own hours are a clock read, recomputed by the product: a shop that shut at its closing
+    // hour reads shut here beside the hour it shut by, and a place that keeps none says nothing.
+    rows.hours.textContent =
+      world.hours === ''
+        ? '—'
+        : `${world.hours} · ${world.open ? 'open' : 'closed'}${world.nextChange === '' ? '' : ` · next ${world.nextChange}`}`;
     rows.pose.textContent =
       world.places === 0
         ? '—'
@@ -1741,10 +2011,13 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     const saveHint = save.available ? ' Save with the button, or with the F key.' : '';
     const useHint = interaction.available ? ' Use with the button, or with the G key.' : '';
     const serviceHint = snapshot.service.open ? ' Leave the counter with the button, or with the X key.' : '';
+    const restHint = snapshot.rest.available
+      ? ' Rest with the button or the R key; camp with C; wait with T, H, or M.'
+      : '';
     hint.textContent =
       current === 'creating'
         ? 'Choose a portrait, a class, a name, attributes, and skills. Enter confirms the step you are on; Space accepts a finished party.'
-        : `${pauseHint}${saveHint}${useHint}${serviceHint}`;
+        : `${pauseHint}${saveHint}${useHint}${serviceHint}${restHint}`;
   };
 
   const unsubscribe = context.projection?.subscribe((projection) => {

@@ -15,12 +15,16 @@ namespace PartyRpg.Host.Tests;
 internal sealed class FakeEngineContext : IEngineContext
 {
     private readonly IPersistenceService? _persistence;
+    private readonly TestRandomService _random = new();
 
     internal FakeEngineContext(RecordingUiService ui, IPersistenceService? persistence = null)
     {
         Ui = ui;
         _persistence = persistence;
     }
+
+    /// <summary>The random service this context answers with, which a test states the roll of.</summary>
+    internal TestRandomService RandomService => _random;
 
     public IUiService Ui { get; }
 
@@ -73,7 +77,12 @@ internal sealed class FakeEngineContext : IEngineContext
 
     public ICameraViewService CameraView => Unsupported<ICameraViewService>();
 
-    public IRandomService Random => Unsupported<IRandomService>();
+    /// <summary>
+    /// The engine's random service, which this stone attached the camping risk to: a product that camps
+    /// draws a keyed roll for the night, so the double gains the one operation the product uses and says so
+    /// for the rest rather than pretending to be a generator.
+    /// </summary>
+    public IRandomService Random => _random;
 
     public IPersistenceService Persistence => _persistence ?? Unsupported<IPersistenceService>();
 
@@ -83,6 +92,53 @@ internal sealed class FakeEngineContext : IEngineContext
 
     private static T Unsupported<T>() =>
         throw new NotSupportedException($"{typeof(T).Name} is not used by this product yet, so the test context does not provide it.");
+}
+
+/// <summary>
+/// The engine's random service, answering the one operation this product draws with.
+/// </summary>
+/// <remarks>
+/// The product draws a keyed roll for a night in the open — deterministic from the seed, the scope, and the
+/// key — so the double answers that operation with a value the test states, clamped into the range the
+/// caller asked for. Every other operation is refused rather than faked: a scoped stream this suite never
+/// opens is a capability nobody proved, and a double that answered it would let the product start depending
+/// on one.
+/// </remarks>
+internal sealed class TestRandomService : IRandomService
+{
+    /// <summary>What every keyed draw answers with, clamped into the range the caller asked for.</summary>
+    internal long Roll { get; set; } = 100;
+
+    /// <summary>How many keyed draws were taken, so a test can tell a roll from a guess.</summary>
+    internal int Draws { get; private set; }
+
+    /// <inheritdoc />
+    public KeyedRngReceipt DrawKeyed(KeyedRngRequest request)
+    {
+        Draws++;
+        return new KeyedRngReceipt(Math.Clamp(Roll, request.Minimum, request.Maximum));
+    }
+
+    /// <inheritdoc />
+    public Lcg15Receipt DrawLcg15(Lcg15Request request) => Unsupported<Lcg15Receipt>();
+
+    /// <inheritdoc />
+    public Rng CreateScoped(ScopedRngCreateRequest request) => Unsupported<Rng>();
+
+    /// <inheritdoc />
+    public Rng ForkScoped(ScopedRngForkRequest request) => Unsupported<Rng>();
+
+    /// <inheritdoc />
+    public RngValue NextU64(Rng stream) => Unsupported<RngValue>();
+
+    /// <inheritdoc />
+    public RngValue NextBoundedU32(ScopedRngBoundedRequest request) => Unsupported<RngValue>();
+
+    /// <inheritdoc />
+    public RngValue NextBool(Rng stream) => Unsupported<RngValue>();
+
+    private static T Unsupported<T>() =>
+        throw new NotSupportedException("This product draws keyed rolls only, so the test random service answers that one operation.");
 }
 
 /// <summary>An engine UI service that records what the product publishes.</summary>

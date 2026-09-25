@@ -95,6 +95,8 @@ public sealed class PartyRpgSession : IGameSession
     private readonly CreationInput? _creationInput;
     private readonly ServiceInput? _serviceInput;
     private readonly IServiceRule? _serviceRule;
+    private readonly RestInput? _restInput;
+    private readonly IRestRule? _restRule;
     private readonly GameClock? _clock;
     private readonly IDiagnosticsService? _diagnostics;
     private readonly ISessionSaveStore? _saveStore;
@@ -116,6 +118,8 @@ public sealed class PartyRpgSession : IGameSession
     private PartyEntity? _party;
     private PartyResourceLedger? _accounts;
     private PartyServices? _services;
+    private PartyRest? _rest;
+    private readonly TimeOwners _timeOwners = new();
     private WorldSnapshot _world = WorldSnapshot.Empty;
     private bool _started;
     private bool _enginePaused;
@@ -201,6 +205,18 @@ public sealed class PartyRpgSession : IGameSession
     /// mechanism is still composed and a counter can still be entered and browsed, and no command ever
     /// reaches it — which is what a product that declares no service controls gets.
     /// </param>
+    /// <param name="rest">
+    /// This game's answers about sleeping, camping, waiting, and going without sleep, when its ruleset has
+    /// any. The mechanism is composed over the party the session plays, the ledger a journey charges, the
+    /// session's one clock, and the world the party stands in, so a night is judged against the place it is
+    /// taken in. Without one the session holds no rest mechanism at all, and a stop control quietly does
+    /// nothing — which is what a ruleset that has not answered yet gets.
+    /// </param>
+    /// <param name="restInput">
+    /// The stop controls the host declared, when it declared any: the intents a rest, a camp, and each wait
+    /// arrive on, and the payload contract a screen's own stop buttons arrive on. Without them the mechanism
+    /// is still composed and its schedule still runs, and no stop ever reaches it.
+    /// </param>
     /// <exception cref="ArgumentException">
     /// The session is composed both to create a party and to hold one, or to create one without the controls
     /// its commands arrive on.
@@ -222,7 +238,9 @@ public sealed class PartyRpgSession : IGameSession
         InteractionUseInput? useInput = null,
         IServiceRule? service = null,
         PartyResourceLedger? accounts = null,
-        ServiceIntentNames? serviceInput = null)
+        ServiceIntentNames? serviceInput = null,
+        IRestRule? rest = null,
+        RestIntentNames? restInput = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(composition.Title);
         if (creation is not null && (world is not null || party is not null))
@@ -246,6 +264,8 @@ public sealed class PartyRpgSession : IGameSession
         _creationInput = creationInput;
         _serviceInput = serviceInput is null ? null : new ServiceInput(serviceInput);
         _serviceRule = service;
+        _restInput = restInput is null ? null : new RestInput(restInput);
+        _restRule = rest;
         _creation = creation;
         _clock = clock;
         _party = party;
@@ -265,8 +285,10 @@ public sealed class PartyRpgSession : IGameSession
         world?.Populate();
         // The service mechanism is composed over the party the session plays and the ledger a journey already
         // charges, so a shop and a road settle one purse through one path. A session that creates its party
-        // composes it when creation is accepted, which is the moment that party exists.
+        // composes it when creation is accepted, which is the moment that party exists. The rest mechanism is
+        // composed beside it, over the same party, clock, and world, so a night is judged where it is taken.
         ComposeServices();
+        ComposeRest();
         // A session publishes as soon as it exists: the engine expects a create-time projection, and a
         // client that attaches before the first update should see the session it has attached to.
         Publish();
@@ -296,6 +318,13 @@ public sealed class PartyRpgSession : IGameSession
     /// served by, and what the projection publishes about a counter is read from it.
     /// </summary>
     public PartyServices? Services => _services;
+
+    /// <summary>
+    /// The rest mechanism this session stops through, or null when its ruleset answered no rest policy or
+    /// the session holds no party yet. It is the one mechanism every stop is applied by, and what the
+    /// projection publishes about a night is read from it.
+    /// </summary>
+    public PartyRest? Rest => _rest;
 
     /// <summary>
     /// The party the session holds, or null while it is creating one and when no content or creation
@@ -452,6 +481,9 @@ public sealed class PartyRpgSession : IGameSession
             // is refreshed from where the party now stands, and a use the player asked for is applied to what
             // that step put in front of it rather than to what the previous one did.
             Interact(update.Input);
+            // A stop is an instant like a use, and the whole period is applied here: the clock the step above
+            // moved is moved on by the hours the party slept or waited for, inside this same admitted update.
+            DriveRest(update.Input);
         }
 
         DriveServices(update.Input);
@@ -464,9 +496,15 @@ public sealed class PartyRpgSession : IGameSession
         // reaches respawn here rather than through a schedule of the world's own.
         if (_liveWorld is { } world)
         {
-            if (world.AdvanceTime().Count > 0) Publish();
-            else if (world.Snapshot != _world) Publish();
-            _world = world.Snapshot;
+            // What the world stands on now is read once, before anything is published: a snapshot taken after
+            // a publish would leave the world's own facts — the place, the pose, and the hours its doors keep
+            // — one update behind the clock published beside them, which is exactly how a shop that shut at
+            // six would still read open in the projection that shows the clock striking six.
+            bool restored = world.AdvanceTime().Count > 0;
+            WorldSnapshot live = world.Snapshot;
+            bool changed = live != _world;
+            _world = live;
+            if (restored || changed) Publish();
         }
 
         return ProductUpdateResult.None;
@@ -596,6 +634,7 @@ public sealed class PartyRpgSession : IGameSession
         // into being is served by the same path as one restored from a save.
         _accounts ??= _liveWorld?.Accounts;
         ComposeServices();
+        ComposeRest();
         // Leaving creation is a mode change like any other, so it resolves and publishes through the one
         // path that decides what a mode means: the next admitted update steps the world the party is in.
         ResolveMode();
@@ -668,6 +707,47 @@ public sealed class PartyRpgSession : IGameSession
     }
 
     /// <summary>
+    /// Applies the stops this update carried, in the order they arrived, while no counter owns the controls.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The reader is consulted only while the party is walking, exactly as the movement controls are: a visit's
+    /// screen owns the player's controls while it is open, and a stop asked for behind a counter is the
+    /// service's business rather than a second way into the same night's sleep.
+    /// </para>
+    /// <para>
+    /// Every stop is applied whole inside this update — a rest is not a state the session holds between
+    /// updates — so there is nothing to resume, nothing to interrupt from a later update, and no screen that
+    /// could be drawn while the clock is halfway through the night. The report is published with the rest of
+    /// the projection and reported to the engine's diagnostics, so what a night cost is visible both on the
+    /// panel and in the product's own account of itself.
+    /// </para>
+    /// </remarks>
+    private void DriveRest(ReadOnlySpan<ProductInputEvent> input)
+    {
+        if (_rest is not { Available: true } rest || _restInput is null) return;
+        foreach (RestKind kind in _restInput.Read(input))
+        {
+            RestResult result = rest.Perform(kind);
+            Report(result);
+        }
+    }
+
+    /// <summary>Reports what one stop did, whether it applied or was refused.</summary>
+    private void Report(RestResult result)
+    {
+        _diagnostics?.Publish(new DiagnosticsPublishRequest(
+            DiagnosticsSeverity.Info,
+            DiagnosticsDisposition.Accepted,
+            Source: "rest",
+            Code: result.IsApplied ? "rest-applied" : "rest-refused",
+            Message: result.IsApplied
+                ? $"The party stopped ({result.Kind}) from {result.From} to {result.To} in place '{_liveWorld?.Place}': {result.Message}"
+                : $"The party's stop ({result.Kind}) in place '{_liveWorld?.Place}' was refused ({result.Code}): {result.Message}",
+            Correlation: string.Empty));
+    }
+
+    /// <summary>
     /// Applies the service commands this update carried, in the order they arrived, while a visit is open.
     /// </summary>
     /// <remarks>
@@ -700,10 +780,13 @@ public sealed class PartyRpgSession : IGameSession
     {
         if (_clock is not { } clock || admittedSeconds <= 0) return;
         ClockAdvance advance = clock.AdvanceAdmittedSeconds(admittedSeconds);
-        _services?.Observe(advance);
+        // Every owner that keeps something against game time hears the same advance, in one place: a shelf
+        // whose refresh came due is filled by the service mechanism, and a debt of sleep that the interval
+        // ran past lands on the party, in the update that moved the clock.
+        _timeOwners.Observe(advance);
         foreach (DeadlineDue due in advance.Due)
         {
-            bool owned = _services?.Holds(due.Deadline) ?? false;
+            bool owned = (_services?.Holds(due.Deadline) ?? false) || (_rest?.Holds(due.Deadline) ?? false);
             string message = owned
                 ? $"Game time reached {due.Fired}, which a deadline of {due.Deadline} was set for; the owner that scheduled it acted on it."
                 : $"Game time reached {due.Fired}, which a deadline of {due.Deadline} was set for; no owner schedules deadlines yet, so nothing acted on it.";
@@ -728,13 +811,37 @@ public sealed class PartyRpgSession : IGameSession
     /// </remarks>
     private void ComposeServices()
     {
-        if (_serviceRule is null || _party is not { } party) return;
+        if (_services is not null || _serviceRule is null || _party is not { } party) return;
         _services = new PartyServices(_serviceRule, party, _accounts, _clock);
-        // The world hands its journey advances to the same owner the session's admitted intervals reach, so a
+        // The world hands its journey advances to the same owners the session's admitted intervals reach, so a
         // shelf's deadline is driven by the one clock wherever the advance happened. The world is told here
         // because this is the moment the mechanism exists, which for a session that creates its party is when
         // creation is accepted.
-        _liveWorld?.ObserveTimeWith(_services);
+        ObserveTimeWith(_services);
+    }
+
+    /// <summary>
+    /// Composes the rest mechanism over the party the session plays, when the ruleset answered for one.
+    /// </summary>
+    /// <remarks>
+    /// It is composed once, when the party exists, and over the world the party stands in — so whether a
+    /// night may be taken here is read from the live place rather than from a place the session remembered.
+    /// The mechanism joins the owners the one clock reports to, which is what makes a debt of sleep fall due
+    /// on a journey exactly as it does in an update; the service mechanism is its own onward owner, so a
+    /// rest's hours refresh a shelf without either mechanism hearing the advance twice.
+    /// </remarks>
+    private void ComposeRest()
+    {
+        if (_rest is not null || _restRule is null || _party is not { } party) return;
+        _rest = new PartyRest(_restRule, party, _clock, _liveWorld, _accounts, onward: _services);
+        ObserveTimeWith(_rest);
+    }
+
+    /// <summary>Tells the world and this session about one more owner of the session's game time.</summary>
+    private void ObserveTimeWith(IGameTimeObserver owner)
+    {
+        _timeOwners.Add(owner);
+        _liveWorld?.ObserveTimeWith(_timeOwners);
     }
 
     /// <summary>
@@ -837,7 +944,11 @@ public sealed class PartyRpgSession : IGameSession
         // What the party is doing at a service, read from the service mechanism the ruleset's answers
         // composed: a session with no mechanism, one that stands at no counter, and one whose counter is
         // shut are three different facts the panel must be able to tell apart.
-        ServiceSnapshot.From(_services));
+        ServiceSnapshot.From(_services),
+        // What the party's last stop did and what it cost, read from the rest mechanism beside it: a session
+        // with no mechanism, one that has not stopped yet, and one whose night was refused are three
+        // different facts, and the fatigue debt the clock is holding is published with them.
+        RestSnapshot.Read(_rest, _clock));
 
     /// <summary>Publishes the world as it stands now, after a caller moved the party.</summary>
     public void PublishWorld()
@@ -862,7 +973,7 @@ public sealed class PartyRpgSession : IGameSession
     public SessionSave Capture()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        return SessionSave.Capture(this);
+        return InCapture(() => SessionSave.Capture(this));
     }
 
     /// <summary>
@@ -884,7 +995,7 @@ public sealed class PartyRpgSession : IGameSession
                 $"The session in '{_composition.Title}' was composed without a save store, so there is nowhere to write a save; a session is composed with one when the product has a place to keep them.");
         }
 
-        return _saves.Save(this);
+        return InCapture(() => _saves.Save(this));
     }
 
     /// <summary>
@@ -941,7 +1052,7 @@ public sealed class PartyRpgSession : IGameSession
 
         try
         {
-            _saves.Save(this);
+            InCapture(() => _saves.Save(this));
         }
         catch (EngineCallException error)
         {
@@ -983,6 +1094,30 @@ public sealed class PartyRpgSession : IGameSession
                 ? $"Saved the session to slot '{_save.Slot}' at {at}."
                 : $"Saved the session to slot '{_save.Slot}'.",
         };
+    }
+
+    /// <summary>
+    /// Reads the session at its save boundary with every schedule the session owns taken off the one clock.
+    /// </summary>
+    /// <remarks>
+    /// The save schema records the game time a clock has lived through and refuses a clock that is holding a
+    /// deadline, because a deadline's number means nothing without the owner that scheduled it. This session
+    /// has such an owner — the debt of sleep the rest mechanism keeps — so it takes its own deadline off the
+    /// clock for the length of the read and puts it back at the point it was due, whatever the read did. A
+    /// save therefore changes nothing about the running session, and the debt the document cannot carry is a
+    /// stated loss rather than one hidden by the capture.
+    /// </remarks>
+    private T InCapture<T>(Func<T> capture)
+    {
+        _rest?.Suspend();
+        try
+        {
+            return capture();
+        }
+        finally
+        {
+            _rest?.Resume();
+        }
     }
 
     /// <summary>

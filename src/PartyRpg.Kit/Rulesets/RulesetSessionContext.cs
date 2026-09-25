@@ -75,6 +75,13 @@ public enum SessionStart
 /// commands arrive on. Entering a service is deliberately not among them — the party enters by using the
 /// person it is talking to — so a host declares the way out and the commands, and nothing else.
 /// </param>
+/// <param name="Rest">
+/// The stop controls the host declares, when it declares any, stated for the same reason and in the same
+/// shape as the others: which intent rests, which makes camp, which waits until dawn, which waits an hour,
+/// which waits a short interval, and which payload contract a screen's own stop buttons arrive on. Every
+/// stop is its own control because every stop is a different act, and without them a session never stops on
+/// its own — which is what a product that offers no stop controls gets.
+/// </param>
 public sealed record RulesetSessionContext(
     IUiProjectionChannel Projection,
     BundleSelection Selection = default,
@@ -86,4 +93,5 @@ public sealed record RulesetSessionContext(
     SaveIntentNames? Save = null,
     UseIntentNames? Use = null,
     SessionStart Start = SessionStart.Fresh,
-    ServiceIntentNames? Service = null);
+    ServiceIntentNames? Service = null,
+    RestIntentNames? Rest = null);

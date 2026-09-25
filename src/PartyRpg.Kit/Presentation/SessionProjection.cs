@@ -1,6 +1,7 @@
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Sessions;
+using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
 using Rusty.Engine;
 using Rusty.Engine.Interaction;
@@ -56,6 +57,11 @@ namespace PartyRpg.Kit.Presentation;
 /// for the same reason the others are: a session whose ruleset answered no service policy publishes that
 /// rather than a counter with nothing on it.
 /// </param>
+/// <param name="Rest">
+/// What the party's last stop did and what going without sleep is doing to it, or the no-mechanism value
+/// when the session holds no rest mechanism. Defaulted for the same reason the others are: a session whose
+/// ruleset answered no rest policy publishes that rather than a rest that never happened.
+/// </param>
 public readonly record struct SessionSnapshot(
     SessionComposition Composition,
     SessionMode Mode,
@@ -69,7 +75,8 @@ public readonly record struct SessionSnapshot(
     CreationSnapshot? Creation = null,
     SaveSnapshot Save = default,
     InteractionSnapshot Interaction = default,
-    ServiceSnapshot Service = default);
+    ServiceSnapshot Service = default,
+    RestSnapshot Rest = default);
 
 /// <summary>Where the party is in the world, as the panel needs it: which place, where in it, and how much of the world is known.</summary>
 /// <param name="Place">The place the party is in, empty when the session has no world.</param>
@@ -78,13 +85,22 @@ public readonly record struct SessionSnapshot(
 /// <param name="Pose">The party's position and facing in that place.</param>
 /// <param name="Visited">How many places the party has visited.</param>
 /// <param name="Places">How many places the world holds.</param>
+/// <param name="Open">
+/// Whether the place's own buildings are open at the hour the projection was built, which is a clock read
+/// rather than a state anybody set. A place that keeps no hours is open, because nothing has shut it.
+/// </param>
+/// <param name="Hours">The hours the place keeps, empty when content clocks nothing in it.</param>
+/// <param name="NextChange">When those hours next change, as a point on the game calendar, empty when nothing does.</param>
 public readonly record struct WorldSnapshot(
     string Place,
     string Name,
     string Kind,
     PlacePose Pose,
     int Visited,
-    int Places)
+    int Places,
+    bool Open = false,
+    string Hours = "",
+    string NextChange = "")
 {
     /// <summary>The world of a session that has no places loaded.</summary>
     public static WorldSnapshot Empty => new(string.Empty, string.Empty, string.Empty, PlacePose.Origin, 0, 0);
@@ -135,6 +151,9 @@ public static class SessionProjection
     /// <summary>The service object's wire name.</summary>
     public const string ServiceField = "service";
 
+    /// <summary>The rest object's wire name.</summary>
+    public const string RestField = "rest";
+
     /// <summary>Builds the projection value for a snapshot.</summary>
     public static UiValue Build(SessionSnapshot snapshot)
     {
@@ -159,7 +178,12 @@ public static class SessionProjection
                 ("z", builder.Number(snapshot.World.Pose.Z)),
                 ("yaw", builder.Number(snapshot.World.Pose.Yaw)),
                 ("visited", builder.Number(snapshot.World.Visited)),
-                ("places", builder.Number(snapshot.World.Places)))),
+                ("places", builder.Number(snapshot.World.Places)),
+                // Whether the town's doors stand open is a clock read published beside the place: a shop
+                // that shut at its closing hour reads shut here in the same projection that shows the hour.
+                ("open", builder.Boolean(snapshot.World.Open)),
+                ("hours", builder.String(snapshot.World.Hours ?? string.Empty)),
+                ("nextChange", builder.String(snapshot.World.NextChange ?? string.Empty)))),
             // The clock and the party are published even when the session has neither: "no clock" and "no
             // party" are facts about the session the panel shows, and a block that only appeared once the
             // ruleset supplied one would leave them indistinguishable from a projection that never asked.
@@ -177,7 +201,13 @@ public static class SessionProjection
                 ("unit", builder.String(snapshot.Party.Unit ?? string.Empty)),
                 ("reputation", builder.Number(snapshot.Party.Reputation)),
                 ("fame", builder.Number(snapshot.Party.Fame)),
-                ("conditions", builder.String(snapshot.Party.Conditions ?? string.Empty)))),
+                ("conditions", builder.String(snapshot.Party.Conditions ?? string.Empty)),
+                // What the party has left to lose and to cast with: a night's sleep restores the pools, and
+                // a panel that showed only food and conditions would leave the recovery invisible.
+                ("hitPoints", builder.Number(snapshot.Party.HitPoints)),
+                ("hitPointsMax", builder.Number(snapshot.Party.HitPointsMax)),
+                ("spellPoints", builder.Number(snapshot.Party.SpellPoints)),
+                ("spellPointsMax", builder.Number(snapshot.Party.SpellPointsMax)))),
             // Published even when nothing has moved: the motion word says which of "the world refused me"
             // and "the party has not stepped yet" the panel is looking at, and a block that only appeared
             // once something had moved would leave the two indistinguishable again.
@@ -215,7 +245,12 @@ public static class SessionProjection
             // "this session holds no service mechanism", "the party stands at no counter", and "the counter
             // is shut for the night" are three different facts, and a block that only appeared at a counter
             // would leave a player unable to tell an empty street from a refused door.
-            (ServiceField, Service(builder, snapshot.Service)));
+            (ServiceField, Service(builder, snapshot.Service)),
+            // The rest block is published in every mode for the same reason the service block is: "this
+            // session holds no rest mechanism", "the party has not stopped yet", and "the party was refused a
+            // night's sleep" are three different facts, and a block that only appeared after a stop would
+            // leave a player unable to tell a quiet street from a refused camp.
+            (RestField, Rest(builder, snapshot.Rest)));
         return builder.Build(root);
     }
 
@@ -328,6 +363,36 @@ public static class SessionProjection
             ("earned", builder.Number(service.Earned)),
             ("coins", builder.Number(service.Coins)));
     }
+
+    /// <summary>Builds the rest block: what the last stop did, what it cost, and what sleep debt stands.</summary>
+    /// <remarks>
+    /// Every fact is the mechanism's own: the kind asked for, the refusal's code and sentence, where the
+    /// clock went, what the larder was charged and covered, whether a night was broken, which conditions a
+    /// completed sleep cleared, and when the debt of sleep next falls due. A snapshot built without rest
+    /// facts carries the default value, whose strings are null rather than empty: they are published as
+    /// empty so a reader never sees a name that is not there, exactly as the service and save blocks do.
+    /// </remarks>
+    private static uint Rest(UiValueBuilder builder, RestSnapshot rest) =>
+        builder.Object(
+            ("available", builder.Boolean(rest.Available)),
+            ("kind", builder.String(rest.Kind ?? string.Empty)),
+            ("outcome", builder.String(rest.Outcome ?? string.Empty)),
+            ("code", builder.String(rest.Code ?? string.Empty)),
+            ("message", builder.String(rest.Message ?? string.Empty)),
+            ("from", builder.String(rest.From ?? string.Empty)),
+            ("to", builder.String(rest.To ?? string.Empty)),
+            ("elapsedSeconds", builder.Number(rest.ElapsedSeconds)),
+            ("charged", builder.Number(rest.Charged)),
+            ("covered", builder.Number(rest.Covered)),
+            ("unit", builder.String(rest.Unit ?? string.Empty)),
+            ("interrupted", builder.Boolean(rest.Interrupted)),
+            ("recovered", builder.Boolean(rest.Recovered)),
+            ("restored", builder.Number(rest.Restored)),
+            ("cleared", builder.String(rest.Cleared ?? string.Empty)),
+            ("shortage", builder.String(rest.Shortage ?? string.Empty)),
+            ("tired", builder.Boolean(rest.Tired)),
+            ("fatigueDue", builder.String(rest.FatigueDue ?? string.Empty)),
+            ("fatigueLanded", builder.Number(rest.FatigueLanded)));
 
     /// <summary>Builds the creation block: where the flow stands, what it offers, and what it refused.</summary>
     /// <remarks>
@@ -517,6 +582,23 @@ public static class SessionProjection
         InteractionVerb.Talk => "talk",
         InteractionVerb.Read => "read",
         _ => throw new ArgumentOutOfRangeException(nameof(verb), verb, "Unknown interaction verb."),
+    };
+
+    /// <summary>The wire name for a stop the party asked for.</summary>
+    /// <remarks>
+    /// A kind with no word is refused rather than published as an empty string for the same reason a verb is:
+    /// a panel that could not tell "the party has not stopped" from a stop this wire has no name for would
+    /// show a command it cannot describe as no command at all.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The kind has no wire name.</exception>
+    public static string WireName(RestKind kind) => kind switch
+    {
+        RestKind.Rest => "rest",
+        RestKind.Camp => "camp",
+        RestKind.WaitUntilDawn => "wait-dawn",
+        RestKind.WaitAnHour => "wait-hour",
+        RestKind.WaitFiveMinutes => "wait-five-minutes",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown rest kind."),
     };
 
     /// <summary>The wire name for why the reticle holds or refuses what the party faces.</summary>

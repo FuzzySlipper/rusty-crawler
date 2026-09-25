@@ -2,6 +2,7 @@ using System.Text.Json;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
 
 namespace PartyRpg.Rulesets.MightAndMagic7;
@@ -29,6 +30,13 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// none, because the original's locked doors are map events rather than door records; an authored pack, and
 /// the tests, are what exercise the vocabulary until the map-event interpreter can read the original's own
 /// locks.
+/// </para>
+/// <para>
+/// <b>A place's hours lock its doors.</b> When the place the door stands in keeps hours — its counters'
+/// hours, or hours its own entry states — the door is given one more requirement: the hours themselves,
+/// judged against the one clock on every use. A shut door is therefore an unmet requirement with the
+/// sentence naming the hours, never a menu entry that politely disappears, and it opens again by itself
+/// when the clock reaches the hour its place opens at, because nothing about it was ever remembered.
 /// </para>
 /// <para>
 /// <b>What this game cannot deliver yet, stated rather than hidden.</b> Opening a door records its state and
@@ -100,6 +108,15 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
 
     /// <summary>The aim this game's reticle acquires and releases targets within.</summary>
     internal static InteractionTuning Aim { get; } = new(AcquisitionAngleRadians, ReleaseAngleRadians);
+
+    private readonly PlaceSchedule? _schedule;
+
+    /// <summary>Creates this game's interaction answers.</summary>
+    /// <param name="schedule">
+    /// Which places keep hours, when this game's content clocks any: a door in a clocked place is locked
+    /// outside them. Without one no door is locked by the hour, and every other answer stands.
+    /// </param>
+    internal MightAndMagic7Interaction(PlaceSchedule? schedule = null) => _schedule = schedule;
 
     /// <summary>The door state the delta stores for a door at rest, which the donor calls open.</summary>
     /// <remarks>
@@ -182,6 +199,8 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
             // A door whose lock is stated and not yet turned offers the use that turns it; the same door
             // afterwards, and every door that states no lock, offers the use that opens it. The two are
             // different verbs because they are different acts, and the state word is what tells them apart.
+            // What the place's hours add is a gate rather than a lock, so it is read after the lock is: a
+            // door the party could simply open is not made into a two-step lock by the hour of the day.
             string state = DoorState(placement, request.State);
             bool locked = requires.Count > 0 && !string.Equals(state, UnlockedState, StringComparison.Ordinal);
             return new InteractionTargetDefinition(
@@ -190,7 +209,7 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
                 locked ? InteractionVerb.Unlock : InteractionVerb.Open,
                 Reach,
                 state,
-                requires);
+                Hours(request.Place, requires));
         }
 
         // A container and a pile are one target: what they hold came from different records, and what the
@@ -253,7 +272,9 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     /// alone decides the verb. The passage the party cannot walk is stated as the outcome's residue: this
     /// build admits a door's polygons as collision wherever they stand, so a door that is open in state is
     /// still a door the party cannot walk through, and a report that said only "it opens" would be claiming a
-    /// way through that is not there.
+    /// way through that is not there. Whether a lock stands in the way is read from the verb the definition
+    /// offers rather than from the requirements alone, so the hours a place keeps are a gate at the door and
+    /// not a second lock inside it.
     /// </remarks>
     private static InteractionOutcome Door(InteractionTargetDefinition target, InteractionContext context)
     {
@@ -262,7 +283,7 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
             return InteractionOutcome.Refused("door-already-open", $"{target.Name} already stands open.");
         }
 
-        if (target.Requires.Count > 0 && !string.Equals(target.State, UnlockedState, StringComparison.Ordinal))
+        if (target.Verb == InteractionVerb.Unlock)
         {
             return InteractionOutcome.Applied(
                 UnlockedState,
@@ -273,6 +294,27 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
             OpenState,
             $"{target.Name} swings open.",
             "Doors do not move in this build: its polygons are still admitted where they stood, so the doorway cannot be walked through yet.");
+    }
+
+    /// <summary>
+    /// What a use of a door requires: the placement's own requirements, and the hours its place keeps.
+    /// </summary>
+    /// <remarks>
+    /// The hours are appended rather than put first so a door that needs a key still says so before it says
+    /// the shop is shut: the first unmet requirement is the one a refusal names, and what the party carries
+    /// is what it can do something about. A place that keeps no hours adds nothing, because nothing has shut
+    /// its doors.
+    /// </remarks>
+    private IReadOnlyList<InteractionRequirement> Hours(PlaceId place, IReadOnlyList<InteractionRequirement> stated)
+    {
+        if (_schedule?.HoursOf(place) is not { } hours) return stated;
+        List<InteractionRequirement> all = [.. stated];
+        all.Add(new InteractionRequirement(
+            InteractionRequirementKind.TimeOfDay,
+            MightAndMagic7Schedules.OpenRequirementName,
+            1,
+            $"the hours {hours}"));
+        return all;
     }
 
     /// <summary>
@@ -337,12 +379,23 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     }
 
     /// <summary>Whether the clock stands in the part of the day a requirement names.</summary>
-    private static InteractionRequirementVerdict JudgeTime(InteractionRequirement requirement, InteractionContext context)
+    /// <remarks>
+    /// Two readings of one requirement kind: <c>day</c> and <c>night</c> are the clock's own halves, which
+    /// the daylight window answers, and the schedule's own word is the place's hours, which the schedule
+    /// answers. Both are read from the live clock at the moment of the use, so a door that was shut at
+    /// midnight is open at six without anything having changed but the hour.
+    /// </remarks>
+    private InteractionRequirementVerdict JudgeTime(InteractionRequirement requirement, InteractionContext context)
     {
         if (context.Clock is not { } clock)
         {
             return InteractionRequirementVerdict.Unsatisfied(
                 $"It can only be used at {requirement.Name} and this session keeps no clock, so no time of day is known.");
+        }
+
+        if (string.Equals(requirement.Name, MightAndMagic7Schedules.OpenRequirementName, StringComparison.OrdinalIgnoreCase))
+        {
+            return JudgeOpenHours(context, clock);
         }
 
         bool wantsDay = string.Equals(requirement.Name, "day", StringComparison.OrdinalIgnoreCase);
@@ -351,6 +404,32 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
             ? InteractionRequirementVerdict.Satisfied
             : InteractionRequirementVerdict.Unsatisfied(
                 $"It can only be used at {requirement.Name} and it is {(isDay ? "day" : "night")}.");
+    }
+
+    /// <summary>
+    /// Whether the place the door stands in is open at the hour the clock stands on.
+    /// </summary>
+    /// <remarks>
+    /// This is the whole of a scheduled lock: a clock read, taken when the door is used. A shut door says
+    /// what it keeps, what the clock reads, and when it opens again, so a player who finds a shop locked at
+    /// midnight knows how long the wait is instead of being told only that it is closed. A place whose hours
+    /// this ruleset did not read is open, because nothing has shut it.
+    /// </remarks>
+    private InteractionRequirementVerdict JudgeOpenHours(InteractionContext context, GameClock clock)
+    {
+        if (_schedule?.HoursOf(context.Place) is not { } hours) return InteractionRequirementVerdict.Satisfied;
+        GameDate now = clock.Now;
+        if (hours.IsOpenAt(now)) return InteractionRequirementVerdict.Satisfied;
+
+        string opens = hours.NextChangeAfter(clock.Calendar, now) is { } next
+            ? string.Create(
+                System.Globalization.CultureInfo.InvariantCulture,
+                $" and it opens again at {next.Year:0000}-{next.Month:00}-{next.Day:00} {next.Hour:00}:{next.Minute:00}")
+            : string.Empty;
+        return InteractionRequirementVerdict.Unsatisfied(
+            string.Create(
+                System.Globalization.CultureInfo.InvariantCulture,
+                $"It keeps {hours} and the clock stands at {now.Hour:00}:{now.Minute:00}{opens}."));
     }
 
     /// <summary>Reads what a placement requires, in the order it states them.</summary>

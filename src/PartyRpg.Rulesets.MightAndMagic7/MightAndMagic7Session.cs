@@ -56,6 +56,13 @@ internal sealed class MightAndMagic7Session : IGameSession
         // reading of one placement is what keeps what a use offers and what a transaction does in step.
         MightAndMagic7Services? services = MightAndMagic7Services.Read(Declared(context.Content));
 
+        // This game's answers about stopping are read once, here, beside its service answers: what a night
+        // costs, where it may be taken, what breaks it, and what going without sleep does. The engine's
+        // random service travels with them, because a camp's risk is a keyed draw of the engine's own
+        // randomness rather than a generator this product keeps. A session that holds no engine takes no
+        // risk, and a camp where something could find the party is then refused by name.
+        MightAndMagic7Rest rest = MightAndMagic7Rest.Compose(Declared(context.Content), context.Engine?.Random);
+
         PartyEntity? party = null;
         SessionWorld? world = null;
         EngineSessionSaveStore? store = MightAndMagic7Persistence.Store(context.Engine);
@@ -88,7 +95,9 @@ internal sealed class MightAndMagic7Session : IGameSession
                     useInput: use,
                     service: services,
                     accounts: ledger,
-                    serviceInput: context.Service);
+                    serviceInput: context.Service,
+                    rest: rest,
+                    restInput: context.Rest);
                 return;
             }
 
@@ -115,7 +124,9 @@ internal sealed class MightAndMagic7Session : IGameSession
                     saveInput: context.Save,
                     useInput: use,
                     service: services,
-                    serviceInput: context.Service);
+                    serviceInput: context.Service,
+                    rest: rest,
+                    restInput: context.Rest);
                 return;
             }
 
@@ -139,7 +150,9 @@ internal sealed class MightAndMagic7Session : IGameSession
                 useInput: use,
                 service: services,
                 accounts: accounts,
-                serviceInput: context.Service);
+                serviceInput: context.Service,
+                rest: rest,
+                restInput: context.Rest);
         }
         catch
         {
