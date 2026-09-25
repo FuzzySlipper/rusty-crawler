@@ -43,5 +43,6 @@ the party into an entrance's reach travels through that one transition path), th
 derived view (`PartyPoseOwner`, `FacingRule`, `PartyView`), the structured UI value builder, the
 Engine-backed projection channel and the session projection, the admitted-input router that turns
 engine events into session commands, the population owner that fills a place from its placements and
-empties it on leaving, and the Engine-backed movement owner with its vertical and surface policy.
+empties it on leaving, the Engine-backed movement owner with its vertical and surface policy, the reaches that let a party walk
+into a transition, and the movement facts the panel reports.
 Everything else in the owner map is still to come.

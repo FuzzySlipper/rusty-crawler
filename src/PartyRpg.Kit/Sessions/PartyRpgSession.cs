@@ -249,7 +249,14 @@ public sealed class PartyRpgSession : IGameSession
 
     private void Publish() => _projection.Publish(SessionProjection.Build(Snapshot()));
 
-    private SessionSnapshot Snapshot() => new(_composition, _mode, _simulationSeconds, _admittedSteps, _updates, _world);
+    private SessionSnapshot Snapshot() => new(
+        _composition,
+        _mode,
+        _simulationSeconds,
+        _admittedSteps,
+        _updates,
+        _world,
+        MovementSnapshot.From(LiveWorld?.Movement.Last));
 
     /// <summary>Publishes the world as it stands now, after a caller moved the party.</summary>
     public void PublishWorld()
