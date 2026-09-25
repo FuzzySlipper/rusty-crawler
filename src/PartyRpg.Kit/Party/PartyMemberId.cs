@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 using System.Globalization;
 
 namespace PartyRpg.Kit.Party;
@@ -17,6 +19,11 @@ public readonly record struct PartyMemberId
     /// <summary>Creates a member identity.</summary>
     /// <param name="value">The identity's value, which must not be zero.</param>
     /// <exception cref="ArgumentOutOfRangeException">The value is zero, which names no member.</exception>
+    /// <remarks>
+    /// A save reads this value back through this constructor: the metadata the product writes saves with
+    /// binds a document's field to a constructor parameter, so a value created empty would silently lose it.
+    /// </remarks>
+    [JsonConstructor]
     public PartyMemberId(ulong value)
     {
         if (value == 0)

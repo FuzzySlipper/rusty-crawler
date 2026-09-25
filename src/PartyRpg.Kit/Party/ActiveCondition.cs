@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace PartyRpg.Kit.Party;
 
 /// <summary>One condition acting on one character, with how severe it is.</summary>
@@ -13,6 +15,11 @@ public readonly record struct ActiveCondition
     /// <param name="condition">Which condition definition is acting.</param>
     /// <param name="severity">How severe it is; zero states that it is present without a severity.</param>
     /// <exception cref="ArgumentOutOfRangeException">The severity is negative.</exception>
+    /// <remarks>
+    /// A save reads this value back through this constructor: the metadata the product writes saves with
+    /// binds a document's field to a constructor parameter, so a value created empty would silently lose it.
+    /// </remarks>
+    [JsonConstructor]
     public ActiveCondition(ConditionId condition, int severity = 0)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(severity);

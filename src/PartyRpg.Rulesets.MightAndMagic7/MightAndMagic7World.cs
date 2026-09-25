@@ -1,6 +1,7 @@
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
@@ -60,11 +61,18 @@ internal static class MightAndMagic7World
     /// The party's own accounts, which a journey charges its provisions to. It is null when content declared
     /// no party, and a quoted food cost is then reported rather than quietly dropped.
     /// </param>
+    /// <param name="resume">
+    /// The save a session is resuming from, when this world is being composed for a load. A world composed
+    /// from a save takes the party's place and pose and every place's remembered state from that save, and
+    /// needs no scenario start: where the party stands is what the save says, and a scenario that has since
+    /// changed cannot quietly move a resumed party elsewhere.
+    /// </param>
     internal static SessionWorld? Compose(
         ContentCatalog? catalog,
         RulesetSessionContext context,
         GameClock clock,
-        PartyResourceLedger? resources)
+        PartyResourceLedger? resources,
+        SessionSave? resume = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(clock);
@@ -72,16 +80,35 @@ internal static class MightAndMagic7World
         PlaceGraph graph = PlaceGraphLoader.Load(catalog);
         if (graph.Places.Count == 0) return null;
 
-        (PlaceId Place, string? EntryPoint)? start = ReadStart(catalog);
-        if (start is not { } begin) return null;
+        PlaceRespawnRule respawn = PlaceRespawnRule.FromContent();
+        PartyPoseOwner party;
+        PlaceStateLedger places;
+        if (resume is { } save)
+        {
+            // Everything the save names is judged against this world before any of it is rebuilt, so a
+            // document that does not fit leaves no half-composed world behind.
+            MightAndMagic7Persistence.RequireLoadable(save, graph);
 
-        PlaceDefinition place = graph.Require(begin.Place);
-        PlacePose pose = begin.EntryPoint is { Length: > 0 } entryPointId
-            ? graph.ResolveArrival(new PlaceTransition(null, begin.Place, PlaceArrival.AtEntryPoint(entryPointId), "scenario-start"))
-            : PlacePose.Origin;
+            // The pose owner is created at the pose the party resumes at, which goes through the same
+            // admission an entered pose goes through: a save can never put the party where its place would
+            // refuse it, and the refusal would have been named above rather than thrown here.
+            party = new PartyPoseOwner(save.World.Pose, MightAndMagic7Movement.Facing);
+            places = PlaceStateLedger.Restore(graph, respawn, save.World.Places);
+        }
+        else
+        {
+            (PlaceId Place, string? EntryPoint)? start = ReadStart(catalog);
+            if (start is not { } begin) return null;
 
-        PartyPoseOwner party = new(new PartyPose(place.Id, pose), MightAndMagic7Movement.Facing);
-        PlaceStateLedger places = new(graph, PlaceRespawnRule.FromContent());
+            PlaceDefinition place = graph.Require(begin.Place);
+            PlacePose pose = begin.EntryPoint is { Length: > 0 } entryPointId
+                ? graph.ResolveArrival(new PlaceTransition(null, begin.Place, PlaceArrival.AtEntryPoint(entryPointId), "scenario-start"))
+                : PlacePose.Origin;
+
+            party = new PartyPoseOwner(new PartyPose(place.Id, pose), MightAndMagic7Movement.Facing);
+            places = new PlaceStateLedger(graph, respawn);
+        }
+
         return new SessionWorld(
             graph,
             party,

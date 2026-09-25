@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace PartyRpg.Kit.Party;
 
 /// <summary>One place on a character's equipped figure that an item can occupy, as its game names it.</summary>
@@ -12,6 +14,11 @@ public readonly record struct EquipmentSlot
     /// <summary>Creates a slot identity.</summary>
     /// <param name="value">The slot's name, which must not be blank.</param>
     /// <exception cref="ArgumentException">The name is blank, which names no place on a figure.</exception>
+    /// <remarks>
+    /// A save reads this value back through this constructor: the metadata the product writes saves with
+    /// binds a document's field to a constructor parameter, so a value created empty would silently lose it.
+    /// </remarks>
+    [JsonConstructor]
     public EquipmentSlot(string value)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(value);

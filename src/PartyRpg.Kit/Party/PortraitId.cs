@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace PartyRpg.Kit.Party;
 
 /// <summary>Which portrait a character was created with, as the ruleset or content names it.</summary>
@@ -12,6 +14,11 @@ public readonly record struct PortraitId
     /// <summary>Creates a portrait reference.</summary>
     /// <param name="value">The portrait's id, which must not be blank.</param>
     /// <exception cref="ArgumentException">The id is blank, which names no portrait.</exception>
+    /// <remarks>
+    /// A save reads this value back through this constructor: the metadata the product writes saves with
+    /// binds a document's field to a constructor parameter, so a value created empty would silently lose it.
+    /// </remarks>
+    [JsonConstructor]
     public PortraitId(string value)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(value);

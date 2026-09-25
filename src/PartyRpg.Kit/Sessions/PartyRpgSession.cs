@@ -1,6 +1,7 @@
 using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Time;
 using Rusty.Engine;
@@ -26,6 +27,8 @@ public sealed class PartyRpgSession : IGameSession
     private readonly GameClock? _clock;
     private readonly PartyEntity? _party;
     private readonly IDiagnosticsService? _diagnostics;
+    private readonly ISessionSaveStore? _saveStore;
+    private readonly SessionSaveBoundary? _saves;
     private SessionMode _mode = SessionMode.Starting;
     private double _simulationSeconds;
     private ulong _admittedSteps;
@@ -61,6 +64,12 @@ public sealed class PartyRpgSession : IGameSession
     /// diagnostics are reachable. Nothing schedules a deadline yet, so a report is the only honest thing
     /// that can happen to one.
     /// </param>
+    /// <param name="saveStore">
+    /// Where this session's saves are written and read, when the product has somewhere to keep them. The
+    /// session owns the store and releases it with itself, and a session composed without one still plays:
+    /// it simply cannot save, and asking it to says so rather than writing nowhere.
+    /// </param>
+    /// <param name="saveSlot">The slot this session saves under, when the product names one.</param>
     public PartyRpgSession(
         SessionComposition composition,
         IUiProjectionChannel projection,
@@ -68,7 +77,9 @@ public sealed class PartyRpgSession : IGameSession
         MovementInput? movementInput = null,
         GameClock? clock = null,
         PartyEntity? party = null,
-        IDiagnosticsService? diagnostics = null)
+        IDiagnosticsService? diagnostics = null,
+        ISessionSaveStore? saveStore = null,
+        string saveSlot = SessionSaveBoundary.DefaultSlot)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(composition.Title);
         _composition = composition;
@@ -77,6 +88,8 @@ public sealed class PartyRpgSession : IGameSession
         _clock = clock;
         _party = party;
         _diagnostics = diagnostics;
+        _saveStore = saveStore;
+        _saves = saveStore is null ? null : new SessionSaveBoundary(saveStore, saveSlot);
         LiveWorld = world;
         _world = world?.Snapshot ?? WorldSnapshot.Empty;
         world?.Populate();
@@ -102,6 +115,18 @@ public sealed class PartyRpgSession : IGameSession
 
     /// <summary>The party the session holds, or null when content supplied nothing to create one from.</summary>
     public PartyEntity? Party => _party;
+
+    /// <summary>
+    /// The explicit save boundary this session writes and reads through, or null when it was composed
+    /// without a save store.
+    /// </summary>
+    /// <remarks>
+    /// Nothing else saves the session: the admitted update, the mode changes, and the release of the session
+    /// all write nothing, and a save happens only when a caller asks this boundary for one. A session
+    /// composed without a store reports null here, which is what a product with nowhere to persist says
+    /// about itself rather than pretending a save landed.
+    /// </remarks>
+    public SessionSaveBoundary? Saves => _saves;
 
     /// <summary>Where the party is, or an empty world while the session has no places.</summary>
     public WorldSnapshot World => _world;
@@ -301,7 +326,8 @@ public sealed class PartyRpgSession : IGameSession
     /// The party and the world are released here because the session is what holds them: a party that
     /// outlived its session would be a second live party, and the world owns the engine scene it walks in.
     /// The stop is published before either is released, because the projection reads the party's accounts
-    /// and the party's store is what disposing it takes away.
+    /// and the party's store is what disposing it takes away. Nothing is saved at this point: releasing a
+    /// session is not a save, and a caller that wanted one asked for it while the session was live.
     /// </remarks>
     public void Dispose()
     {
@@ -313,6 +339,7 @@ public sealed class PartyRpgSession : IGameSession
         Publish();
         LiveWorld?.Dispose();
         _party?.Dispose();
+        _saveStore?.Dispose();
         _projection.Dispose();
     }
 
@@ -351,5 +378,44 @@ public sealed class PartyRpgSession : IGameSession
         if (LiveWorld is not { } world) return;
         _world = world.Snapshot;
         Publish();
+    }
+
+    /// <summary>
+    /// Reads this session into the product's one current save schema, without writing anything.
+    /// </summary>
+    /// <remarks>
+    /// This is a read of the party, the clock, and the world, and it changes none of them: a capture taken at
+    /// any point describes the session as it stood then, and playing on cannot alter the document it
+    /// produced. A session with nothing to save — no party, no clock, or no world — is refused by name here
+    /// rather than captured as an empty shell.
+    /// </remarks>
+    /// <returns>The session as a save records it.</returns>
+    /// <exception cref="SessionSaveException">The session holds nothing a load could rebuild, or the clock is holding scheduled work.</exception>
+    public SessionSave Capture()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return SessionSave.Capture(this);
+    }
+
+    /// <summary>
+    /// Writes this session at its explicit save boundary, and returns the document written.
+    /// </summary>
+    /// <remarks>
+    /// A save happens here and only here: this is the call a product makes at the point it decides is worth
+    /// remembering, and no update, mode change, or shutdown writes one by itself.
+    /// </remarks>
+    /// <returns>The document that was written.</returns>
+    /// <exception cref="InvalidOperationException">The session was composed without a save store.</exception>
+    /// <exception cref="SessionSaveException">The session holds nothing a load could rebuild, the clock is holding scheduled work, or the write failed.</exception>
+    public SessionSave Save()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_saves is null)
+        {
+            throw new InvalidOperationException(
+                $"The session in '{_composition.Title}' was composed without a save store, so there is nowhere to write a save; a session is composed with one when the product has a place to keep them.");
+        }
+
+        return _saves.Save(this);
     }
 }

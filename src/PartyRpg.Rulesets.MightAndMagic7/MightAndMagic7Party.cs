@@ -98,7 +98,7 @@ internal static class MightAndMagic7Party
         // capacity, stacking, the hired limit — and none of them exists yet. A factory composed with no
         // rule gates nothing, which is the honest state of a product whose ruleset has not answered: no
         // constant here stands in for an answer nobody gave.
-        return new PartyEntityFactory().Create(new PartyCreation(
+        return Factory().Create(new PartyCreation(
             members,
             coins,
             food,
@@ -106,6 +106,31 @@ internal static class MightAndMagic7Party
             reputation,
             fame));
     }
+
+    /// <summary>
+    /// Rebuilds a party from a save the product wrote.
+    /// </summary>
+    /// <remarks>
+    /// A load composes the party through the same factory a creation does, so the two ends of a session's
+    /// life build the same shape: the rules a party obeys are policy and are supplied here rather than
+    /// carried in a save, and what the save recorded is not re-judged.
+    /// </remarks>
+    /// <param name="save">The recorded party.</param>
+    /// <returns>The restored party, owning the store its entities live in.</returns>
+    /// <exception cref="ArgumentException">The save cannot be rebuilt; the message names every problem found.</exception>
+    internal static PartyEntity Restore(PartySave save) => Factory().Restore(save);
+
+    /// <summary>
+    /// The rules every party of this game obeys, composed in one place so a created party and a loaded one
+    /// are the same party.
+    /// </summary>
+    /// <remarks>
+    /// Equipment gating, pack capacity, stacking, and the hired limit are the item and skill owners' policy
+    /// and none of them exists yet, so this factory gates nothing yet. It is one method rather than two call
+    /// sites so that when those rules land they land for creation and for a load at once, instead of one of
+    /// the two paths quietly keeping an older answer.
+    /// </remarks>
+    internal static PartyEntityFactory Factory() => new();
 
     /// <summary>Reads the members a party entry declares, reporting every one it cannot read.</summary>
     private static List<MemberCreation> Members(ContentEntry entry, Action<string, string> defect)
@@ -155,7 +180,20 @@ internal static class MightAndMagic7Party
             Count(element, "classRank", 1, 1, position, defect),
             Conditions(element, position, defect),
             ResourcePool.Full(hitPoints),
-            ResourcePool.Full(Count(element, "spellPoints", 0, 0, position, defect)));
+            ResourcePool.Full(Count(element, "spellPoints", 0, 0, position, defect)),
+            Portrait(element));
+    }
+
+    /// <summary>Reads the portrait a scenario gives a member, or null when it states none.</summary>
+    /// <remarks>
+    /// A scenario that fixes the party is not the creation flow, so it is not obliged to state a face; when it
+    /// does, that portrait travels with the member into the party and into a save exactly as a chosen one
+    /// does, because the party records the portrait rather than where it came from.
+    /// </remarks>
+    private static PortraitId? Portrait(JsonElement element)
+    {
+        string portrait = ContentEntry.ReadId(element, "portrait");
+        return portrait.Length == 0 ? null : new PortraitId(portrait);
     }
 
     /// <summary>Reads a member's attribute scores.</summary>

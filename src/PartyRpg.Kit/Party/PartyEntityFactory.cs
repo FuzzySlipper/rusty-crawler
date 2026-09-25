@@ -101,7 +101,13 @@ public sealed class PartyEntityFactory
     public PartyEntity Restore(PartySave save)
     {
         ArgumentNullException.ThrowIfNull(save);
-        Validate(save);
+        IReadOnlyList<string> problems = Problems(save);
+        if (problems.Count > 0)
+        {
+            throw new ArgumentException(
+                $"The save cannot be restored: {string.Join("; ", problems)}.",
+                nameof(save));
+        }
 
         EntityStore store = new();
         Actor entity = NewEntity(store, PartyEntity.EntityKind);
@@ -135,12 +141,120 @@ public sealed class PartyEntityFactory
                 continue;
             }
 
+            // An instance that is neither worn nor in the pack was refused by Problems, so what reaches
+            // here was held in the shared pack and goes back there — and nowhere else, because a record
+            // held by nobody would otherwise become loot the party never picked up.
             inventory.Append(instance);
         }
 
         foreach (PartyFollower follower in save.Followers) followers.Add(follower);
         foreach (PartyEffect effect in save.Effects) effects.Apply(effect);
         return party;
+    }
+
+    /// <summary>
+    /// Every problem that stops this save being rebuilt, named in the save's own terms, or an empty list
+    /// when it can be restored.
+    /// </summary>
+    /// <remarks>
+    /// Naming all of them at once is deliberate: a defective save is fixed in one pass instead of one
+    /// problem per attempt, and a caller that loads a session can report the whole list to the player. The
+    /// problems are contradictions between what the save records and what a party could be — an identity
+    /// recorded twice, a cursor behind an identity the save holds, an item worn by nobody who exists, an
+    /// item held by nobody at all — rather than anything this factory's rules would refuse, because a
+    /// restore must not re-judge a party the product itself saved.
+    /// </remarks>
+    /// <param name="save">The recorded party.</param>
+    /// <exception cref="ArgumentNullException">The save is null.</exception>
+    public IReadOnlyList<string> Problems(PartySave save)
+    {
+        ArgumentNullException.ThrowIfNull(save);
+        List<string> problems = [];
+        if (save.NextMemberValue == 0) problems.Add("the member identity cursor is zero, so a member could be minted with no identity");
+        if (save.NextItemValue == 0) problems.Add("the item identity cursor is zero, so an item could be minted with no identity");
+
+        HashSet<PartyMemberId> members = [];
+        for (int position = 0; position < save.Members.Count; position++)
+        {
+            PartyMemberSave member = save.Members[position];
+            if (member.Id.Value == 0)
+            {
+                problems.Add($"member {position + 1} is recorded without an identity, so nothing in the save can say who it is");
+            }
+            else if (!members.Add(member.Id))
+            {
+                problems.Add($"member {member.Id} is recorded more than once");
+            }
+            else if (member.Id.Value >= save.NextMemberValue)
+            {
+                problems.Add($"member {member.Id} is not below the member cursor {save.NextMemberValue}, so a restored party could mint that identity again");
+            }
+        }
+
+        HashSet<ItemInstanceId> items = [];
+        HashSet<(PartyMemberId Member, string Slot)> occupied = [];
+        foreach (ItemSave item in save.Items)
+        {
+            if (item.Id.Value == 0)
+            {
+                problems.Add("an item is recorded without an identity, so nothing in the save can say which instance it is");
+                continue;
+            }
+
+            if (!items.Add(item.Id))
+            {
+                problems.Add($"item {item.Id} is recorded more than once");
+            }
+            else if (item.Id.Value >= save.NextItemValue)
+            {
+                problems.Add($"item {item.Id} is not below the item cursor {save.NextItemValue}, so a restored party could mint that identity again");
+            }
+
+            // Where an instance was held is one of three places. A record held by nobody is refused here
+            // rather than appended to the pack: a loose world item loaded through this path would become
+            // loot the party never picked up.
+            if (item.Custody.IsDetached)
+            {
+                problems.Add($"item {item.Id} is recorded as held by nobody, so restoring it would hand the party an item it never took");
+                continue;
+            }
+
+            if (!item.Custody.IsEquipped) continue;
+            if (!members.Contains(item.Custody.Member))
+            {
+                problems.Add($"item {item.Id} is recorded as worn by member {item.Custody.Member}, whom the save does not record");
+            }
+            else if (!occupied.Add((item.Custody.Member, item.Custody.Slot.Value)))
+            {
+                problems.Add($"member {item.Custody.Member} has two items recorded in slot '{item.Custody.Slot}'");
+            }
+        }
+
+        HashSet<PartyMemberId> followers = [];
+        foreach (PartyFollower follower in save.Followers)
+        {
+            if (follower.Id.Value == 0)
+            {
+                problems.Add($"follower '{follower.Name}' is recorded without an identity");
+            }
+            else if (!followers.Add(follower.Id))
+            {
+                problems.Add($"follower {follower.Id} is recorded more than once");
+            }
+            else if (follower.Id.Value >= save.NextMemberValue)
+            {
+                problems.Add($"follower {follower.Id} is not below the member cursor {save.NextMemberValue}, so a restored party could mint that identity again");
+            }
+            else if (members.Contains(follower.Id))
+            {
+                problems.Add($"follower {follower.Id} shares an identity with a member");
+            }
+        }
+
+        if (save.Coins < 0) problems.Add($"the purse is recorded holding {save.Coins}");
+        if (save.FoodPortions < 0) problems.Add($"the larder is recorded holding {save.FoodPortions}");
+
+        return problems;
     }
 
     /// <summary>Creates an entity of a kind this kit owns, in the store the party lives in.</summary>
@@ -151,7 +265,7 @@ public sealed class PartyEntityFactory
     private static PartyMember AttachMember(EntityStore store, PartyMemberId id, PartyMemberSeed seed)
     {
         Actor entity = NewEntity(store, PartyMember.EntityKind);
-        entity.Add(new CharacterProfile(id, seed.Name, seed.Race, seed.Class));
+        entity.Add(new CharacterProfile(id, seed.Name, seed.Race, seed.Class, seed.Portrait));
         entity.Add(new CharacterAttributes(seed.Attributes));
         entity.Add(new CharacterSkills(seed.Skills));
         entity.Add(new CharacterSpells(seed.Spells));
@@ -183,79 +297,6 @@ public sealed class PartyEntityFactory
                     $"The created party cannot equip {member.Profile.Name} with '{start.Definition}' in '{start.Slot}': {equipped}",
                     nameof(equipment));
             }
-        }
-    }
-
-    /// <summary>Refuses a save that cannot be rebuilt, naming every problem at once.</summary>
-    /// <exception cref="ArgumentException">The save cannot be rebuilt.</exception>
-    private static void Validate(PartySave save)
-    {
-        List<string> problems = [];
-        if (save.NextMemberValue == 0) problems.Add("the member identity cursor is zero, so a member could be minted with no identity");
-        if (save.NextItemValue == 0) problems.Add("the item identity cursor is zero, so an item could be minted with no identity");
-
-        HashSet<PartyMemberId> members = [];
-        foreach (PartyMemberSave member in save.Members)
-        {
-            if (!members.Add(member.Id))
-            {
-                problems.Add($"member {member.Id} is recorded more than once");
-            }
-            else if (member.Id.Value >= save.NextMemberValue)
-            {
-                problems.Add($"member {member.Id} is not below the member cursor {save.NextMemberValue}, so a restored party could mint that identity again");
-            }
-        }
-
-        HashSet<ItemInstanceId> items = [];
-        HashSet<(PartyMemberId Member, string Slot)> occupied = [];
-        foreach (ItemSave item in save.Items)
-        {
-            if (!items.Add(item.Id))
-            {
-                problems.Add($"item {item.Id} is recorded more than once");
-            }
-            else if (item.Id.Value >= save.NextItemValue)
-            {
-                problems.Add($"item {item.Id} is not below the item cursor {save.NextItemValue}, so a restored party could mint that identity again");
-            }
-
-            if (!item.Custody.IsEquipped) continue;
-            if (!members.Contains(item.Custody.Member))
-            {
-                problems.Add($"item {item.Id} is recorded as worn by member {item.Custody.Member}, whom the save does not record");
-            }
-            else if (!occupied.Add((item.Custody.Member, item.Custody.Slot.Value)))
-            {
-                problems.Add($"member {item.Custody.Member} has two items recorded in slot '{item.Custody.Slot}'");
-            }
-        }
-
-        HashSet<PartyMemberId> followers = [];
-        foreach (PartyFollower follower in save.Followers)
-        {
-            if (!followers.Add(follower.Id))
-            {
-                problems.Add($"follower {follower.Id} is recorded more than once");
-            }
-            else if (follower.Id.Value >= save.NextMemberValue)
-            {
-                problems.Add($"follower {follower.Id} is not below the member cursor {save.NextMemberValue}, so a restored party could mint that identity again");
-            }
-            else if (members.Contains(follower.Id))
-            {
-                problems.Add($"follower {follower.Id} shares an identity with a member");
-            }
-        }
-
-        if (save.Coins < 0) problems.Add($"the purse is recorded holding {save.Coins}");
-        if (save.FoodPortions < 0) problems.Add($"the larder is recorded holding {save.FoodPortions}");
-
-        if (problems.Count > 0)
-        {
-            throw new ArgumentException(
-                $"The save cannot be restored: {string.Join("; ", problems)}.",
-                nameof(save));
         }
     }
 }

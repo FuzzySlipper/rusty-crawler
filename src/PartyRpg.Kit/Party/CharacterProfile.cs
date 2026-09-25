@@ -1,13 +1,15 @@
 namespace PartyRpg.Kit.Party;
 
 /// <summary>
-/// Who one member is: the durable identity a save carries, the name a player reads, and the two content
+/// Who one member is: the durable identity a save carries, the name a player reads, and the content
 /// references that say what kind of character this is.
 /// </summary>
 /// <remarks>
 /// Race and class are references, not resolved rules: the kit records which definitions a character was
 /// created under and asks the ruleset about everything they imply. A promotion changes the class
-/// reference, which is why it can be replaced while the durable identity and the race cannot.
+/// reference, which is why it can be replaced while the durable identity and the race cannot. The portrait
+/// is fixed for the same reason the race is: it is the face the character was created with, and nothing in
+/// the game hands a character a different one.
 /// </remarks>
 public sealed class CharacterProfile
 {
@@ -16,14 +18,21 @@ public sealed class CharacterProfile
     /// <param name="name">The name a player reads, which must not be blank.</param>
     /// <param name="race">The race definition the character was created under.</param>
     /// <param name="characterClass">The class definition the character currently belongs to.</param>
+    /// <param name="portrait">The portrait the character was created with, or null when nothing chose one.</param>
     /// <exception cref="ArgumentException">The name is blank.</exception>
-    public CharacterProfile(PartyMemberId id, string name, RaceId race, ClassId characterClass)
+    public CharacterProfile(
+        PartyMemberId id,
+        string name,
+        RaceId race,
+        ClassId characterClass,
+        PortraitId? portrait = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         Id = id;
         Name = name;
         Race = race;
         Class = characterClass;
+        Portrait = portrait;
     }
 
     /// <summary>The member's durable identity, which a save round-trips.</summary>
@@ -37,6 +46,16 @@ public sealed class CharacterProfile
 
     /// <summary>The class definition the character currently belongs to.</summary>
     public ClassId Class { get; private set; }
+
+    /// <summary>
+    /// The portrait the character was created with, or null when nothing chose one.
+    /// </summary>
+    /// <remarks>
+    /// A character created through the creation flow always carries one, because choosing the face is how
+    /// the race is decided. It is null only for a party a scenario stated without one, and a save writes
+    /// that absence as it stands rather than inventing a face nobody picked.
+    /// </remarks>
+    public PortraitId? Portrait { get; }
 
     /// <summary>Renames the character, which is what a scripted rename does.</summary>
     /// <param name="name">The new name, which must not be blank.</param>

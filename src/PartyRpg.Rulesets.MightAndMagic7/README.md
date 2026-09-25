@@ -48,8 +48,16 @@ points it starts with, over a pool of fifty points and two chosen skills per cha
 which are ours, with the manual citation and the donor transcription each authored value rests on; and
 `MightAndMagic7Creation.Defaults` is the default party the flow applies through its own validation. The
 class and skill definitions the choices name are checked against the loaded content, which refuses a
-catalog that contradicts them. Everything else listed above — the remaining class, skill, spell,
-monster, item, service, and formula policy, rest and fatigue and service hours, and this game's save
-meaning — attaches to the session as its stone lands. Fidelity per system — what matches the original,
-what is approximate, and what is deliberately ours — is fixed in
+catalog that contradicts them. This game's save meaning is landed with them: `MightAndMagic7Persistence`
+states the storage scope a session's saves live in under the host's persistence root, the engine-backed
+store a session writes through, and the check that judges a document against the content it would be
+resumed in before anything is built — naming every problem at once rather than the first.
+`MightAndMagic7Ruleset.Save` writes the live session and `MightAndMagic7Ruleset.ResumeSession` composes the
+same session a new game composes over the same content and hands it the save, so the party, its items,
+equipment and portraits, the clock, the place and pose, and what each place remembers come from the save
+while everything transient is composed fresh. A scenario member may state the `portrait` it was created
+with, which then travels into the party and into a save exactly as a chosen one does. Everything else
+listed above — the remaining class, skill, spell, monster, item, service, and formula policy, and rest and
+fatigue and service hours — attaches to the session as its stone lands. Fidelity per system — what matches
+the original, what is approximate, and what is deliberately ours — is fixed in
 [`../../docs/gameplay-design.md`](../../docs/gameplay-design.md).

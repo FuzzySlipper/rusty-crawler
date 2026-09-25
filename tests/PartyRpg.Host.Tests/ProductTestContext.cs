@@ -9,7 +9,16 @@ internal static class ProductTestContext
     internal const string ContentDirectory = "partyrpg";
 
     /// <summary>A product context whose staged content holds exactly the given files.</summary>
-    internal static (ProductCreateContext Context, RecordingUiService Ui) Create(params (string Path, string Text)[] files)
+    internal static (ProductCreateContext Context, RecordingUiService Ui) Create(params (string Path, string Text)[] files) =>
+        Create(persistence: null, files);
+
+    /// <summary>
+    /// A product context whose engine supplies persistence, which is what a session's save store is
+    /// composed over.
+    /// </summary>
+    internal static (ProductCreateContext Context, RecordingUiService Ui) Create(
+        IPersistenceService? persistence,
+        params (string Path, string Text)[] files)
     {
         RecordingUiService ui = new();
         ProductContentFile[] staged =
@@ -25,7 +34,7 @@ internal static class ProductTestContext
             ReadOnlyMemory<ProductInputDescriptor>.Empty,
             ReadOnlyMemory<ProductInputMapping>.Empty,
             InputCursorMode.PointerLock);
-        ProductCreateContext context = new(new FakeEngineContext(ui), content, input, new Rusty.Engine.Debugging.DebugExecutionContext());
+        ProductCreateContext context = new(new FakeEngineContext(ui, persistence), content, input, new Rusty.Engine.Debugging.DebugExecutionContext());
         return (context, ui);
     }
 

@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace PartyRpg.Kit.Party;
 
 /// <summary>
@@ -26,6 +28,11 @@ public readonly struct ItemState : IEquatable<ItemState>
     /// <param name="damage">How damaged the item is; zero is sound.</param>
     /// <param name="enchantments">The enchantments the instance carries, in the order they were added.</param>
     /// <exception cref="ArgumentOutOfRangeException">The damage is negative, which is not a state an item can be in.</exception>
+    /// <remarks>
+    /// A save reads this value back through this constructor: the metadata the product writes saves with
+    /// binds a document's field to a constructor parameter, so a value created empty would silently lose it.
+    /// </remarks>
+    [JsonConstructor]
     public ItemState(bool isIdentified = false, int damage = 0, IReadOnlyList<ItemEnchantment>? enchantments = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(damage);

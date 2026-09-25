@@ -18,6 +18,11 @@ Owns:
 - Session plumbing: compiled ruleset contracts, typed IDs, bundle and
   content-pack resolution, typed tuning handles, structured UI values, and
   bootstrap of an Engine-admitted session.
+- Persistence: the session's one current save schema (`SessionSave` over the
+  party's own `PartySave`, `ClockSave`, and `WorldSave`), the explicit
+  `SessionSaveBoundary` a save is written through, the `ISessionSaveStore` seam
+  the engine's own product state store implements, and the named failure a
+  document that does not fit its world is refused with.
 
 Boundary rules:
 
@@ -77,6 +82,21 @@ brought due once each, `GameDuration` and `GameDate` values, the `DeadlineId` ha
 training, and spell durations register against, day and night from a `DaylightWindow`, and the
 `IWorldTimeSource` day count the world's respawn reads).
 Everything else in the owner map is still to come.
+
+Persistence landed with the party. `SessionSave` is one current schema and nothing else: the party's own
+`PartySave`, `ClockSave`'s elapsed game time, and `WorldSave`'s place, pose, and per-place state, with no
+version field, no migration branch, no compatibility reader, and nothing of the original games' save files.
+The bytes are written and read with the engine's own `ProductStateStore` and `JsonProductStateCodec` over
+metadata the build generates (`SessionSaveJsonContext`), so nothing on the path discovers a type at runtime.
+A save happens only where the product asks for one: `SessionSaveBoundary` is the one writer,
+`PartyRpgSession.Save` is the one call, and no admitted update, mode change, or release writes anything. What
+a save leaves out is as decided as what it carries — in-flight movement outcomes, cached projections, the
+population's runtime entities, engine handles, and every store-local entity identity are composed again on
+load — and a document wrong in several places is refused with every problem named at once, never only the
+first. A load also does not re-judge what it carries: the rules a party obeys are supplied when it is built,
+so a capacity rule that has changed gates new pickups and never loses an item the party already owned. The
+sections a session does not own yet — knowledge, quests and journal, containers and loose world items, and
+scenario flags — are absent because no owner holds their state; the schema grows a section when one does.
 
 The day shape follows the donor's day boundary: a new day takes one ration, the food store is spent down to
 empty rather than the day being refused, and the ruleset's consequence for the larder the day left — weakness

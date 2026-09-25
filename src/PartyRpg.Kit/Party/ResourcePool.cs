@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace PartyRpg.Kit.Party;
 
 /// <summary>One character's pool of a resource that is spent and restored: its current and maximum values.</summary>
@@ -12,6 +14,11 @@ public readonly record struct ResourcePool
     /// <param name="current">How much is available now.</param>
     /// <param name="maximum">How much the pool holds when full.</param>
     /// <exception cref="ArgumentOutOfRangeException">The maximum is negative, or the current value is outside the pool.</exception>
+    /// <remarks>
+    /// A save reads this value back through this constructor: the metadata the product writes saves with
+    /// binds a document's field to a constructor parameter, so a value created empty would silently lose it.
+    /// </remarks>
+    [JsonConstructor]
     public ResourcePool(int current, int maximum)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(maximum);

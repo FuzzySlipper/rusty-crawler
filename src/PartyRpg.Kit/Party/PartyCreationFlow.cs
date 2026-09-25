@@ -513,10 +513,16 @@ public sealed class PartyCreationFlow
         List<MemberCreation> members = [];
         foreach (MemberDraft member in _members)
         {
-            if (member.Race is not { } race || member.Class is not { } classId || _options.FindClass(classId) is not { } characterClass)
+            // The portrait is as much a part of a finished member as the race and the class are: it is what
+            // the race was decided from, and it is the face the save carries. A finished member without one
+            // is a defect in the flow rather than a character missing a picture.
+            if (member.Portrait is not { } portrait ||
+                member.Race is not { } race ||
+                member.Class is not { } classId ||
+                _options.FindClass(classId) is not { } characterClass)
             {
                 throw new InvalidOperationException(
-                    "A finished member must carry a race and a class creation knows; creation reached a member that does not.");
+                    "A finished member must carry the portrait it was created with, a race, and a class creation knows; creation reached a member that does not.");
             }
 
             List<SkillEntry> skills = [];
@@ -538,7 +544,8 @@ public sealed class PartyCreationFlow
                 classRank: characterClass.StartingRank,
                 conditions: [],
                 hitPoints: ResourcePool.Full(characterClass.StartingHitPoints),
-                spellPoints: ResourcePool.Full(characterClass.StartingSpellPoints));
+                spellPoints: ResourcePool.Full(characterClass.StartingSpellPoints),
+                portrait: portrait);
             members.Add(new MemberCreation(seed));
         }
 

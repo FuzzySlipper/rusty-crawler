@@ -4,6 +4,7 @@ using System.Text.Json;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
@@ -541,6 +542,18 @@ public sealed class SessionWorld : IDisposable
 
     /// <summary>Populates the party's place, which also happens on the first update after arriving.</summary>
     public IReadOnlyList<PlacePopulationEntity> Populate() => _population.Step(Party.Place, []);
+
+    /// <summary>
+    /// Captures the world's durable state: where the party stands, and what each place remembers.
+    /// </summary>
+    /// <remarks>
+    /// The graph, the entrances, the mover's collision scene, the movement observations, and the population's
+    /// entities are absent on purpose. The graph and the entrances are loaded content, the scene is refilled
+    /// from the place the party resumes in, movement observations belong to the steps that produced them, and
+    /// the entities are rebuilt from placements — each of them a runtime shape that a load composes again
+    /// rather than one a save carries.
+    /// </remarks>
+    public WorldSave Capture() => new(Party.Capture(), Places.Capture());
 
     /// <summary>Releases the entities the population owns and the engine's collision scene with the movement.</summary>
     public void Dispose()

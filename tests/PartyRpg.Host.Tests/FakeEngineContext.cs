@@ -9,11 +9,18 @@ namespace PartyRpg.Host.Tests;
 /// Every service except the UI is unreachable: the product uses no other engine service yet, and a
 /// double that quietly answered for one would let a product start depending on a service its tests
 /// never proved. When a stone attaches a mechanism to another service, the double gains it then, and
-/// the test that needs it is written with it.
+/// the test that needs it is written with it. Persistence has arrived that way: a session composes its
+/// save store over the engine's persistence service, so the double carries one when a test asks for it.
 /// </remarks>
 internal sealed class FakeEngineContext : IEngineContext
 {
-    internal FakeEngineContext(RecordingUiService ui) => Ui = ui;
+    private readonly IPersistenceService? _persistence;
+
+    internal FakeEngineContext(RecordingUiService ui, IPersistenceService? persistence = null)
+    {
+        Ui = ui;
+        _persistence = persistence;
+    }
 
     public IUiService Ui { get; }
 
@@ -68,7 +75,7 @@ internal sealed class FakeEngineContext : IEngineContext
 
     public IRandomService Random => Unsupported<IRandomService>();
 
-    public IPersistenceService Persistence => Unsupported<IPersistenceService>();
+    public IPersistenceService Persistence => _persistence ?? Unsupported<IPersistenceService>();
 
     public IContentStoreService ContentStore => Unsupported<IContentStoreService>();
 

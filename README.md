@@ -16,11 +16,12 @@ Bundle assembles. Host launches.**
 
 > **Current state: foundation stone 4 is in progress.** The spine, the world, the party and its
 > resources, the one clock and calendar, character creation, and what a crossing costs have landed:
-> a session with imported content walks its party, places it where a scenario says, and settles the
-> crossing it takes against the purse, the larder, and the clock. Combat, magic, services, quests,
-> and persistence are still to come, no session mode reaches the creation flow yet, and the shipped
-> bundle carries no content — so a running product without imported packs reports no world and no
-> party. See [`AGENTS.md`](AGENTS.md) for the exact current state.
+> a session with imported content walks its party, places it where a scenario says, settles the
+> crossing it takes against the purse, the larder, and the clock, and saves and loads the whole
+> session under one current schema. Combat, magic, services, and quests are still to come, no session
+> mode reaches the creation flow yet, and the shipped bundle carries no content — so a running product
+> without imported packs reports no world and no party. See [`AGENTS.md`](AGENTS.md) for the exact
+> current state.
 
 ## Ownership
 
