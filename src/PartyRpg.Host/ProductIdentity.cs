@@ -81,6 +81,19 @@ internal static class ProductIdentity
     internal const string UseAction = "party.use";
 
     /// <summary>
+    /// The digital intent that leaves the service counter a visit has open.
+    /// </summary>
+    /// <remarks>
+    /// Entering a service is deliberately not a control of its own: the party enters by using the person the
+    /// interaction mechanism reached, on the use control above, so there is one way to walk up to somebody.
+    /// Leaving is its own control — a player at a counter needs a way out that is not walking — and the
+    /// counter's commands are payload actions on the contract the companion already claims. The original's
+    /// interaction key is Space and its jump key is X; Space already jumps here, so leaving takes X, which no
+    /// other control claims during play.
+    /// </remarks>
+    internal const string ServiceLeaveIntent = "service.leave";
+
+    /// <summary>
     /// The payload action name that asks the live session to save, sent by the DOM companion's save control
     /// on the UI action contract.
     /// </summary>

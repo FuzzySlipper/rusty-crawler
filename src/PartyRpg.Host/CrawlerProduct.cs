@@ -39,6 +39,7 @@ public sealed class CrawlerProduct : IEngineProduct
     private readonly CreationIntentNames _creation;
     private readonly SaveIntentNames _save;
     private readonly UseIntentNames _use;
+    private readonly ServiceIntentNames _service;
     private readonly BundleSelection _selection;
     private readonly ContentCatalog? _content;
     private IGameSession _session;
@@ -79,6 +80,9 @@ public sealed class CrawlerProduct : IEngineProduct
         _use = new UseIntentNames(
             ProductIdentity.UseIntent,
             ProductIdentity.UseAction,
+            ProductIdentity.UiActionContract);
+        _service = new ServiceIntentNames(
+            ProductIdentity.ServiceLeaveIntent,
             ProductIdentity.UiActionContract);
         (_selection, _content) = SelectBundle(context, bundleId ?? BuiltInBundles.Default);
         _session = CreateSession();
@@ -207,9 +211,10 @@ public sealed class CrawlerProduct : IEngineProduct
             // The engine's own services go to the ruleset whole: composing movement needs the spatial
             // service to walk in and the content owner to retain a place's collision artifact, and the
             // product is the only place that holds the engine context the ruleset would otherwise have to
-            // reach for. The movement, creation, save, and use controls are the host's declaration, so their
-            // names go with them: a name the product never declared to the engine is a control nobody can
-            // press.
+            // reach for. The movement, creation, save, use, and service controls are the host's declaration,
+            // so their names go with them: a name the product never declared to the engine is a control
+            // nobody can press, and a service screen whose commands arrive on an undeclared contract is a
+            // screen that cannot be driven.
             RulesetSessionContext context = new(
                 channel,
                 _selection,
@@ -218,7 +223,8 @@ public sealed class CrawlerProduct : IEngineProduct
                 Movement: _movement,
                 Creation: _creation,
                 Save: _save,
-                Use: _use);
+                Use: _use,
+                Service: _service);
 
             // The start switch travels with the context and is answered at the ruleset's one composition
             // entry: a resumed run reads the save the slot holds and composes a session from it, and a slot

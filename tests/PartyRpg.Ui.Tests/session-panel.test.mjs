@@ -107,6 +107,66 @@ function interaction(overrides = {}) {
   };
 }
 
+/**
+ * The service block as the product publishes it. `available` is false when the session holds no service
+ * mechanism at all; `open` says whether the party stands at a counter; `state` says whether that counter is
+ * serving. Every list is what the product published, prices included.
+ */
+function service(overrides = {}) {
+  return {
+    available: true,
+    open: false,
+    id: '',
+    kind: '',
+    name: '',
+    proprietor: '',
+    state: '',
+    hours: '',
+    operations: [],
+    memberships: [],
+    stock: [],
+    lessons: [],
+    sales: [],
+    members: [],
+    action: '',
+    outcome: 'none',
+    code: '',
+    message: '',
+    paid: 0,
+    earned: 0,
+    coins: 0,
+    ...overrides,
+  };
+}
+
+/** A weapon shop the party has walked into, with a shelf, a lesson, and one of the party's own items. */
+function openShop(overrides = {}) {
+  return service({
+    open: true,
+    id: 'sword-and-shield',
+    kind: 'Weapon Shop',
+    name: 'The Sword and Shield',
+    proprietor: 'Bertram',
+    state: 'open',
+    hours: '06:00–18:00',
+    operations: ['buy', 'sell', 'identify', 'repair', 'teach'],
+    memberships: [],
+    stock: [
+      { lot: 'stock:sword', item: 'sword', name: 'A fine sword', count: 2, price: 110, sale: false },
+      { lot: 'sold:7', item: 'dagger', name: 'dagger', count: 1, price: 22, sale: true },
+      { lot: 'stock:potion', item: 'potion', name: 'potion', count: 0, price: 30, sale: false },
+    ],
+    lessons: [{ kind: 'skill', subject: 'Sword', name: 'Basic Sword', amount: 1, price: 25 }],
+    sales: [{ item: '3', definition: 'shield', name: 'shield', price: 12, damage: 3, identified: false }],
+    members: [
+      { index: 0, name: 'Roderick' },
+      { index: 1, name: 'Nyx' },
+    ],
+    coins: 200,
+    ...overrides,
+  });
+}
+
 /** A closed door the party faces, as the product publishes it while it is usable. */
 function facedDoor(overrides = {}) {
   return interaction({
@@ -208,6 +268,9 @@ function snapshot(mode, seconds = 0, steps = 0, updates = 0, facts = undefined, 
   // The interaction block is published in every mode too, so a case that asks for none covers a projection
   // whose session holds no interaction at all.
   if (blocks?.interaction !== undefined) value.interaction = blocks.interaction;
+  // The service block is published in every mode too, so a case that asks for none covers a projection
+  // whose session holds no service mechanism.
+  if (blocks?.service !== undefined) value.service = blocks.service;
   return value;
 }
 
@@ -342,6 +405,45 @@ function creationPanel(h) {
     accepted: [...(section?.querySelectorAll('.crawler-accepted li') ?? [])].map((item) => item.textContent),
     name: section?.querySelector('input')?.value,
   };
+}
+
+/** The service section as a person reads it: the counter, its offers, and the last command's answer. */
+function servicePanel(h) {
+  const panel = h.panel();
+  const section = panel?.querySelector('.crawler-service');
+  const result = section?.querySelector('.crawler-service-result');
+  return {
+    state: panel?.getAttribute('data-service'),
+    counterState: panel?.getAttribute('data-service-state'),
+    action: panel?.getAttribute('data-service-action'),
+    outcome: panel?.getAttribute('data-service-outcome'),
+    hidden: section?.hidden,
+    head: section?.querySelector('.crawler-step-head')?.textContent,
+    status: section?.querySelector('.crawler-service-state')?.textContent,
+    access: section?.querySelector('.crawler-service-access')?.textContent,
+    options: [...(section?.querySelectorAll('.crawler-options button') ?? [])].map((button) => ({
+      id: button.dataset.id,
+      text: button.textContent,
+      disabled: button.disabled,
+    })),
+    members: [...(section?.querySelectorAll('select option') ?? [])].map((option) => ({
+      index: option.value,
+      name: option.textContent,
+    })),
+    leave: [...(section?.querySelectorAll('.crawler-actions button') ?? [])].map((button) => button.textContent),
+    message: result?.hidden ? '' : result?.textContent,
+    messageOutcome: result?.getAttribute('data-outcome'),
+    messageCode: result?.getAttribute('data-code'),
+  };
+}
+
+/** Clicks the service button a person reads by its id, which is the lot, item, or lesson it names. */
+function clickService(h, id) {
+  const button = [...h.panel().querySelectorAll('.crawler-service .crawler-options button')].find(
+    (entry) => entry.dataset.id === id,
+  );
+  assert.ok(button, `the service screen offers no '${id}'`);
+  button.dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
 }
 
 /** Clicks the option button whose id and visible text the case names. */
@@ -819,6 +921,12 @@ test('the panel shows the party a session accepted once it is playing it', () =>
     assert.deepEqual(shown.options, []);
     assert.deepEqual(shown.members, []);
     assert.equal(shown.head, 'Party accepted');
+    // The screen marks the accepting player's name box and the flow's own controls hidden, and hidden means
+    // hidden: a row that kept its own display rule would leave a name box and two dead buttons on screen,
+    // and in the tab order, once the party it belonged to has been accepted.
+    const creationSection = h.panel().querySelector('.crawler-creation');
+    assert.equal(creationSection.querySelector('.crawler-name').hidden, true);
+    assert.equal(creationSection.querySelector('.crawler-actions').hidden, true);
     assert.deepEqual(rows(h, 'Session', 'Party', 'Member', 'Pool'), {
       Session: 'running',
       Party: '2',
@@ -1024,6 +1132,171 @@ test('the panel shows what a use did, what a refusal said, and what it could not
     assert.equal(result.getAttribute('data-code'), 'interaction-requirement-unmet');
     assert.match(result.textContent, /Iron Key/);
     assert.equal(residue.hidden, true);
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the panel renders the counter the party stands at, with every price the product published', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    h.emit(snapshot('running', 1, 60, 60, movement(), { service: openShop() }));
+    assert.equal(h.panel().getAttribute('data-service'), 'open');
+    const shop = servicePanel(h);
+    assert.equal(shop.hidden, false);
+    assert.equal(shop.head, 'The Sword and Shield · Bertram');
+    assert.equal(shop.status, 'Weapon Shop · open (06:00–18:00)');
+    assert.equal(shop.access, '');
+    assert.deepEqual(shop.options.map((entry) => entry.text), [
+      'A fine sword ×2 — 110',
+      'dagger ×1 — 22 (yours)',
+      'potion — sold out',
+      'Sell shield, damaged 3, unidentified — 12',
+      'Identify shield',
+      'Repair shield',
+      'Basic Sword to level 1 — 25',
+    ]);
+    // A line the counter has sold out of is shown disabled: the product would refuse the purchase by name,
+    // and a button that cannot work must not look like one that can.
+    assert.equal(shop.options.find((entry) => entry.id === 'stock:potion').disabled, true);
+    assert.equal(shop.options.find((entry) => entry.id === 'stock:sword').disabled, false);
+    assert.deepEqual(shop.members, [
+      { index: '0', name: 'Roderick' },
+      { index: '1', name: 'Nyx' },
+    ]);
+    assert.deepEqual(shop.leave, ['Leave the counter']);
+
+    // A guild that gates its shelves: the membership the party carries is shown, and the counter's state is
+    // the state the product published rather than one the screen worked out from the hours.
+    h.emit(snapshot('running', 2, 120, 121, movement(), {
+      service: openShop({
+        kind: 'Fire Guild',
+        memberships: ['Fire Guild membership'],
+        state: 'closed',
+        message: 'The Fire Guild is shut: it keeps 09:00–17:00 and the clock stands at 18:00.',
+        action: 'buy',
+        outcome: 'refused',
+        code: 'service-closed',
+      }),
+    }));
+    assert.equal(h.panel().getAttribute('data-service-state'), 'closed');
+    assert.equal(servicePanel(h).access, 'Membership: Fire Guild membership');
+
+    // A session whose ruleset answered no service policy shows no counter at all, which is a different fact
+    // from a counter that is shut.
+    h.emit(snapshot('running', 3, 180, 182, movement(), { service: service() }));
+    assert.equal(h.panel().getAttribute('data-service'), 'away');
+    assert.equal(servicePanel(h).hidden, true);
+
+    // A session whose ruleset answered no policy at all is a different fact from one that merely stands
+    // somewhere: the panel says the mechanism is not there.
+    h.emit(snapshot('running', 4, 240, 244, movement(), { service: service({ available: false }) }));
+    assert.equal(h.panel().getAttribute('data-service'), 'none');
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('every service control asks for the command it was shown, on the product contract', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+    h.emit(snapshot('running', 1, 60, 60, movement(), { service: openShop() }));
+
+    const claims = () => h.claims.slice(-1)[0];
+    clickService(h, 'stock:sword');
+    assert.deepEqual(claims().value.data, { action: 'service.buy', target: 'stock:sword', count: 1 });
+    clickService(h, 'sold:7');
+    assert.deepEqual(claims().value.data, { action: 'service.buy', target: 'sold:7', count: 1 });
+    clickService(h, 'sell-3');
+    assert.deepEqual(claims().value.data, { action: 'service.sell', target: '3' });
+    clickService(h, 'identify-3');
+    assert.deepEqual(claims().value.data, { action: 'service.identify', target: '3' });
+    clickService(h, 'repair-3');
+    assert.deepEqual(claims().value.data, { action: 'service.repair', target: '3' });
+    clickService(h, 'Sword');
+    assert.deepEqual(claims().value.data, { action: 'service.teach', target: 'Sword', member: 0 });
+
+    // The lesson goes to the member the picker shows, and the picker is offered only when there is a choice.
+    const select = h.panel().querySelector('.crawler-service select');
+    select.value = '1';
+    clickService(h, 'Sword');
+    assert.deepEqual(claims().value.data, { action: 'service.teach', target: 'Sword', member: 1 });
+
+    const leave = [...h.panel().querySelectorAll('.crawler-service .crawler-actions button')].find(
+      (button) => button.textContent === 'Leave the counter',
+    );
+    leave.dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
+    assert.deepEqual(claims().value.data, { action: 'service.leave' });
+
+    // Every claim went out on the intent and contract the product declares, exactly as the creation screen's
+    // choices do: a command on any other channel is one the product never reads.
+    for (const claim of h.claims) {
+      assert.equal(claim.intent, ACTION_INTENT);
+      assert.equal(claim.value.kind, 'product-payload');
+      assert.equal(claim.value.contract, ACTION_CONTRACT);
+    }
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the panel shows what a transaction did and why a refusal refused', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    h.emit(snapshot('running', 1, 60, 60, movement(), {
+      service: openShop({
+        action: 'buy',
+        outcome: 'applied',
+        message: 'The party buys 1 × A fine sword for 110 coin(s), and 1 are left.',
+        paid: 110,
+        coins: 90,
+      }),
+    }));
+    assert.equal(h.panel().getAttribute('data-service-action'), 'buy');
+    assert.equal(h.panel().getAttribute('data-service-outcome'), 'applied');
+    const bought = servicePanel(h);
+    assert.equal(bought.messageOutcome, 'applied');
+    assert.equal(bought.message, 'The party buys 1 × A fine sword for 110 coin(s), and 1 are left. Paid 110; the purse holds 90.');
+
+    // A refusal names what stopped it: the code and the product's own sentence reach the screen unchanged,
+    // and the purse did not move.
+    h.emit(snapshot('running', 2, 120, 121, movement(), {
+      service: openShop({
+        action: 'buy',
+        outcome: 'refused',
+        code: 'purse-short',
+        message: 'The price is 110 coin(s) and the party holds 40 coin(s): 70 coin(s) short.',
+        coins: 40,
+      }),
+    }));
+    assert.equal(h.panel().getAttribute('data-service-outcome'), 'refused');
+    const refused = servicePanel(h);
+    assert.equal(refused.messageOutcome, 'refused');
+    assert.equal(refused.messageCode, 'purse-short');
+    assert.match(refused.message, /70 coin\(s\) short/);
+
+    // A sale earns rather than pays, and the screen says which way the coin went.
+    h.emit(snapshot('running', 3, 180, 182, movement(), {
+      service: openShop({
+        action: 'sell',
+        outcome: 'applied',
+        message: 'The party sells 1 × shield for 12 coin(s), and the counter will sell it back.',
+        earned: 12,
+        coins: 52,
+      }),
+    }));
+    assert.match(servicePanel(h).message, /Received 12; the purse holds 52/);
 
     ui.dispose();
   } finally {

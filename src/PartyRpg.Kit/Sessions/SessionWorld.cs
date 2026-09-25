@@ -510,6 +510,32 @@ public sealed class SessionWorld : IDisposable, IInteractionWorld
     public InteractionResult? LastInteraction => Interaction?.LastResult;
 
     /// <summary>
+    /// The party's own accounts, which a journey charges its provisions to and a use's price settles
+    /// against. It is null when the world was composed without them, and the service mechanism the session
+    /// composes reads the same ledger from here when the ruleset handed it none directly.
+    /// </summary>
+    public PartyResourceLedger? Accounts => _resources;
+
+    /// <summary>
+    /// Who is told every time this world moves the session's one clock.
+    /// </summary>
+    /// <remarks>
+    /// A journey's charge is an advance of the one clock that no admitted update sees, so an owner that
+    /// keeps a game-time schedule — a service's shelves, and later rest and effects — has to be told about
+    /// it or its deadline would re-arm past a stretch of time nobody spent. It is assigned rather than
+    /// composed because the mechanism that observes the clock is composed over the party, and for a session
+    /// that creates its party that is the moment creation is accepted, after this world exists. A world
+    /// nobody tells still moves its clock; only the telling is absent.
+    /// </remarks>
+    public IGameTimeObserver? TimeObserver { get; private set; }
+
+    /// <summary>Tells this world who to hand its clock advances to.</summary>
+    /// <param name="observer">The owner that keeps a schedule against the session's one clock.</param>
+    /// <exception cref="ArgumentNullException">The observer is null.</exception>
+    public void ObserveTimeWith(IGameTimeObserver observer) =>
+        TimeObserver = observer ?? throw new ArgumentNullException(nameof(observer));
+
+    /// <summary>
     /// Steps the interaction mechanism inside the admitted update: the reticle is refreshed from where the
     /// party now stands and what its place holds, and a use the player asked for is applied to whatever it
     /// holds.
@@ -777,6 +803,12 @@ public sealed class SessionWorld : IDisposable, IInteractionWorld
                 // schedules up to the day the clock now stands on, in this same arrival rather than at
                 // whatever update happens to come next.
                 if (advance.Crossings.Days > 0) AdvanceTime();
+
+                // The same advance reaches whoever keeps a schedule against game time, so a shop's shelves
+                // refresh on the road exactly as they do in town. The journey is where an advance happens
+                // without an update watching it, and a schedule that only saw the updates would wait a whole
+                // further interval for a restock whose time the road already spent.
+                TimeObserver?.Observe(advance);
             }
             else
             {

@@ -4,6 +4,7 @@ using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Rulesets;
+using PartyRpg.Kit.Services;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
@@ -73,13 +74,21 @@ internal static class MightAndMagic7World
     /// needs no scenario start: where the party stands is what the save says, and a scenario that has since
     /// changed cannot quietly move a resumed party elsewhere.
     /// </param>
+    /// <param name="services">
+    /// This game's answers about services, when its content declares any. A counter the party talks to is a
+    /// service placement, and the interaction mechanism needs the same answers the service mechanism itself
+    /// is composed over — the one policy instance, so what a use offers and what a transaction does can
+    /// never be two readings of one placement. Without it a service placement is not a target at all and
+    /// walking into a shop is not possible, which is what a session with no services gets.
+    /// </param>
     internal static SessionWorld? Compose(
         ContentCatalog? catalog,
         RulesetSessionContext context,
         GameClock clock,
         PartyResourceLedger? resources,
         PartyEntity? entity = null,
-        SessionSave? resume = null)
+        SessionSave? resume = null,
+        IServiceRule? services = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(clock);
@@ -133,8 +142,21 @@ internal static class MightAndMagic7World
             clock,
             resources,
             entity,
-            new InteractionPolicy(new MightAndMagic7Interaction(), MightAndMagic7Movement.Space, MightAndMagic7Interaction.Aim));
+            new InteractionPolicy(Interaction(services), MightAndMagic7Movement.Space, MightAndMagic7Interaction.Aim));
     }
+
+    /// <summary>
+    /// This game's answers about using what a place holds, with its counters added when it has any.
+    /// </summary>
+    /// <remarks>
+    /// The service answers wrap the doors-and-fixtures answers rather than replacing them, which is what
+    /// keeps one interaction mechanism: a placement this game's service content calls a counter is a person
+    /// to talk to, and everything else is answered exactly as it was.
+    /// </remarks>
+    private static IInteractionRule Interaction(IServiceRule? services) =>
+        services is null
+            ? new MightAndMagic7Interaction()
+            : new MightAndMagic7ServiceInteraction(services, new MightAndMagic7Interaction());
 
     /// <summary>
     /// The party's movement, when the host handed this ruleset an engine to move in.

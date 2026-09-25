@@ -51,6 +51,11 @@ internal sealed class MightAndMagic7Session : IGameSession
         // then moved its clock would spend its first update crossing a boundary it had already crossed.
         resume?.Clock.ApplyTo(clock);
 
+        // This game's services are read once, here, and the same answers are handed to the world — which
+        // needs them to describe a counter the party talks to — and to the session, which serves it. One
+        // reading of one placement is what keeps what a use offers and what a transaction does in step.
+        MightAndMagic7Services? services = MightAndMagic7Services.Read(Declared(context.Content));
+
         PartyEntity? party = null;
         SessionWorld? world = null;
         EngineSessionSaveStore? store = MightAndMagic7Persistence.Store(context.Engine);
@@ -66,7 +71,8 @@ internal sealed class MightAndMagic7Session : IGameSession
             if (resume is { } save)
             {
                 party = MightAndMagic7Party.Restore(save.Party);
-                world = MightAndMagic7World.Compose(context.Content, context, clock, Ledger(party), party, save);
+                PartyResourceLedger ledger = Ledger(party);
+                world = MightAndMagic7World.Compose(context.Content, context, clock, ledger, party, save, services);
                 _session = new PartyRpgSession(
                     composition,
                     context.Projection,
@@ -79,7 +85,10 @@ internal sealed class MightAndMagic7Session : IGameSession
                     MightAndMagic7Persistence.SaveSlot,
                     saveInput: context.Save,
                     resumed: true,
-                    useInput: use);
+                    useInput: use,
+                    service: services,
+                    accounts: ledger,
+                    serviceInput: context.Service);
                 return;
             }
 
@@ -102,9 +111,11 @@ internal sealed class MightAndMagic7Session : IGameSession
                     creation: new SessionCreation(
                         MightAndMagic7Creation.Start(declared),
                         description => MightAndMagic7Party.Factory().Create(description),
-                        created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created), created)),
+                        created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created), created, services: services)),
                     saveInput: context.Save,
-                    useInput: use);
+                    useInput: use,
+                    service: services,
+                    serviceInput: context.Service);
                 return;
             }
 
@@ -112,7 +123,8 @@ internal sealed class MightAndMagic7Session : IGameSession
             // scripted path — a live check, a test, or a product that offers no creation. Handing that party
             // to the world here is the same composition order the created path takes, one accept earlier.
             party = MightAndMagic7Party.Compose(context.Content);
-            world = MightAndMagic7World.Compose(context.Content, context, clock, party is null ? null : Ledger(party), party);
+            PartyResourceLedger? accounts = party is null ? null : Ledger(party);
+            world = MightAndMagic7World.Compose(context.Content, context, clock, accounts, party, services: services);
             _session = new PartyRpgSession(
                 composition,
                 context.Projection,
@@ -124,7 +136,10 @@ internal sealed class MightAndMagic7Session : IGameSession
                 store,
                 MightAndMagic7Persistence.SaveSlot,
                 saveInput: context.Save,
-                useInput: use);
+                useInput: use,
+                service: services,
+                accounts: accounts,
+                serviceInput: context.Service);
         }
         catch
         {

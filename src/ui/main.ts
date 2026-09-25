@@ -56,6 +56,18 @@ const ACTION_REMOVE_SKILL = 'creation.remove-skill';
 const ACTION_ADVANCE = 'creation.advance';
 const ACTION_ACCEPT = 'creation.accept';
 
+/**
+ * The service actions this companion reports while the party stands at a counter. Entering a service is not
+ * one of them: the party enters by using the person it is facing, on the use control above, so the screen
+ * only ever asks for what happens at a counter it was already shown.
+ */
+const ACTION_SERVICE_BUY = 'service.buy';
+const ACTION_SERVICE_SELL = 'service.sell';
+const ACTION_SERVICE_IDENTIFY = 'service.identify';
+const ACTION_SERVICE_REPAIR = 'service.repair';
+const ACTION_SERVICE_TEACH = 'service.teach';
+const ACTION_SERVICE_LEAVE = 'service.leave';
+
 interface CompositionView {
   readonly ruleset: string;
   readonly title: string;
@@ -188,9 +200,89 @@ interface InteractionView {
   readonly residue: string;
 }
 
-/** One member of the party being created, as the flow published it. */
-interface CreationMemberView {
+/** One line of a service's shelves, as the product published it. */
+interface ServiceStockView {
+  /** The lot's identity, which a buy command names. */
+  readonly lot: string;
+  readonly item: string;
+  /** What a person reads for it. */
+  readonly name: string;
+  /** How many are left on the shelves. */
+  readonly count: number;
+  /** What one costs the party. */
+  readonly price: number;
+  /** Whether the counter is reselling something it bought from the party. */
+  readonly sale: boolean;
+}
+
+/** One lesson a service teaches. */
+interface ServiceLessonView {
+  /** `skill` or `effect`. */
+  readonly kind: string;
+  /** The skill's or effect's id, which a teach command names. */
+  readonly subject: string;
+  readonly name: string;
+  readonly amount: number;
+  readonly price: number;
+}
+
+/** One of the party's own items, as a counter that would buy it shows it. */
+interface ServiceSaleView {
+  /** The instance's durable identity, which a sell, identify, or repair command names. */
+  readonly item: string;
+  readonly definition: string;
+  readonly name: string;
+  /** What the counter would pay the party for it. */
+  readonly price: number;
+  readonly damage: number;
+  readonly identified: boolean;
+}
+
+/** One member a lesson could be taught to. */
+interface ServiceMemberView {
   readonly index: number;
+  readonly name: string;
+}
+
+/**
+ * The counter the party is standing at, as the product published it. `available` is false when the session
+ * holds no service mechanism at all; `open` says whether a visit is; `state` says whether the counter is
+ * serving, which a shop that closed while the party browsed changes under it. Every price and every list
+ * here arrived in the projection: the screen decides nothing and sends back only what it was shown.
+ */
+interface ServiceView {
+  readonly available: boolean;
+  readonly open: boolean;
+  readonly id: string;
+  readonly kind: string;
+  readonly name: string;
+  readonly proprietor: string;
+  /** `open`, `closed`, or empty when the party stands at no counter. */
+  readonly state: string;
+  /** The hours content states for it, empty when it serves always. */
+  readonly hours: string;
+  readonly operations: readonly string[];
+  readonly memberships: readonly string[];
+  readonly stock: readonly ServiceStockView[];
+  readonly lessons: readonly ServiceLessonView[];
+  readonly sales: readonly ServiceSaleView[];
+  readonly members: readonly ServiceMemberView[];
+  /** What the last command asked for, empty before any. */
+  readonly action: string;
+  /** `none`, `applied`, or `refused`. */
+  readonly outcome: string;
+  /** The last refusal's code, empty when the last command applied or none has happened. */
+  readonly code: string;
+  /** What the last command reported. */
+  readonly message: string;
+  readonly paid: number;
+  readonly earned: number;
+  /** What the party's one purse holds. */
+  readonly coins: number;
+}
+
+/** One member of the party being created, as the flow published it. */
+interface CreationMemberView {  readonly index: number;
   /** Where this member stands: `portrait`, `class`, `name`, `attributes`, `skills`, or `complete`. */
   readonly step: string;
   readonly name: string;
@@ -278,6 +370,7 @@ interface SnapshotView {
   readonly creation: CreationView;
   readonly save: SaveView;
   readonly interaction: InteractionView;
+  readonly service: ServiceView;
 }
 
 /** The clock of a session that has none, which the panel shows as not knowing rather than as a date. */
@@ -313,8 +406,7 @@ const SAVE_NONE: SaveView = {
 };
 
 /** The interaction of a session that holds no mechanism, or one this companion cannot read as interactive. */
-const INTERACTION_NONE: InteractionView = {
-  available: false,
+const INTERACTION_NONE: InteractionView = {  available: false,
   target: '',
   label: '',
   verb: '',
@@ -345,6 +437,31 @@ const CREATION_NONE: CreationView = {
   skills: [],
   attributes: [],
   party: [],
+};
+
+/** The service of a session that holds no mechanism, or one this companion cannot read as a counter. */
+const SERVICE_NONE: ServiceView = {
+  available: false,
+  open: false,
+  id: '',
+  kind: '',
+  name: '',
+  proprietor: '',
+  state: '',
+  hours: '',
+  operations: [],
+  memberships: [],
+  stock: [],
+  lessons: [],
+  sales: [],
+  members: [],
+  action: '',
+  outcome: 'none',
+  code: '',
+  message: '',
+  paid: 0,
+  earned: 0,
+  coins: 0,
 };
 
 const STYLES = `
@@ -400,6 +517,11 @@ const STYLES = `
 .crawler-creation .crawler-attribute span { flex: 1; }
 .crawler-creation .crawler-attribute button { width: 1.3rem; padding: 0 0; font-size: 0.72rem; text-align: center; }
 .crawler-creation .crawler-name { display: flex; gap: 0.2rem; margin-top: 0.2rem; }
+/* A row the screen hides must actually be hidden: these two rows carry a display rule of their own, which
+   without this would keep the accepting player's name box and the creation controls on screen after the
+   party has been accepted, and would keep them in the tab order too. */
+.crawler-creation .crawler-name[hidden] { display: none; }
+.crawler-creation .crawler-actions[hidden] { display: none; }
 .crawler-creation .crawler-name input {
   flex: 1;
   min-width: 0;
@@ -416,6 +538,22 @@ const STYLES = `
 .crawler-refusal[hidden] { display: none; }
 .crawler-accepted { margin: 0.35rem 0 0; padding: 0; list-style: none; color: #d8cba6; font-size: 0.75rem; }
 .crawler-session .crawler-save { margin: 0.3rem 0 0; }
+.crawler-service { margin: 0 0 0.5rem; border-top: 1px solid rgba(210, 196, 158, 0.25); padding-top: 0.5rem; }
+.crawler-service[hidden] { display: none; }
+.crawler-service .crawler-step-head { margin: 0 0 0.2rem; color: #d8cba6; font-size: 0.82rem; }
+.crawler-service-state { margin: 0 0 0.2rem; color: #b9ad8c; font-size: 0.72rem; }
+.crawler-service-access { margin: 0 0 0.2rem; color: #cfe0e8; font-size: 0.72rem; }
+.crawler-service-member { display: flex; align-items: center; gap: 0.3rem; margin: 0 0 0.25rem; font-size: 0.72rem; }
+.crawler-service-member[hidden] { display: none; }
+.crawler-service .crawler-row { margin: 0 0 0.25rem; }
+.crawler-service .crawler-row-label { display: block; color: #b9ad8c; font-size: 0.72rem; }
+.crawler-service .crawler-options { display: flex; flex-wrap: wrap; gap: 0.2rem; }
+.crawler-service .crawler-options button { width: auto; padding: 0.1rem 0.35rem; font-size: 0.72rem; }
+.crawler-service .crawler-actions { display: flex; gap: 0.2rem; margin-top: 0.3rem; }
+.crawler-service .crawler-actions button { padding: 0.2rem 0.4rem; font-size: 0.75rem; }
+.crawler-service-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
+.crawler-service-result[hidden] { display: none; }
+.crawler-service-result[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
 .crawler-session .crawler-use { margin: 0.3rem 0.4rem 0 0; }
 .crawler-use-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
 .crawler-use-result[hidden] { display: none; }
@@ -436,6 +574,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * A list that is missing, or carries an entry that is not an object, is not a reason to reject the whole
  * projection: the screen shows the choices it can read and never invents the ones it cannot.
  */
+/** The string entries of an array, ignoring anything else: a word list is not a list of records. */
+function words(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
+}
+
 function readList<T>(value: unknown, read: (entry: Record<string, unknown>) => T | null): T[] {
   if (!Array.isArray(value)) return [];
   const items: T[] = [];
@@ -563,6 +706,104 @@ function readInteraction(value: unknown): InteractionView {
 }
 
 /**
+ * Reads the service block, or the empty service. The block is published in every mode, so a session that
+ * holds no mechanism and one that stands at no counter both read as empty here — and the screen then shows
+ * no counter at all, which is a different reading from a counter that is shut.
+ */
+function readService(value: unknown): ServiceView {
+  if (!isRecord(value)) return SERVICE_NONE;
+  const { id, kind, name, proprietor, state, hours, action, outcome, code, message } = value;
+  const coins = value.coins ?? 0;
+  const paid = value.paid ?? 0;
+  const earned = value.earned ?? 0;
+  if (
+    typeof id !== 'string' ||
+    typeof kind !== 'string' ||
+    typeof name !== 'string' ||
+    typeof proprietor !== 'string' ||
+    typeof state !== 'string' ||
+    typeof hours !== 'string' ||
+    typeof action !== 'string' ||
+    typeof outcome !== 'string' ||
+    typeof code !== 'string' ||
+    typeof message !== 'string' ||
+    typeof coins !== 'number' ||
+    typeof paid !== 'number' ||
+    typeof earned !== 'number'
+  ) {
+    return SERVICE_NONE;
+  }
+
+  return {
+    available: value.available === true,
+    open: value.open === true,
+    id,
+    kind,
+    name,
+    proprietor,
+    state,
+    hours,
+    operations: words(value.operations),
+    memberships: words(value.memberships),
+    stock: readList(value.stock, (entry) =>
+      typeof entry.lot === 'string' &&
+      typeof entry.item === 'string' &&
+      typeof entry.name === 'string' &&
+      typeof entry.count === 'number' &&
+      typeof entry.price === 'number'
+        ? {
+            lot: entry.lot,
+            item: entry.item,
+            name: entry.name,
+            count: entry.count,
+            price: entry.price,
+            sale: entry.sale === true,
+          }
+        : null),
+    lessons: readList(value.lessons, (entry) =>
+      typeof entry.kind === 'string' &&
+      typeof entry.subject === 'string' &&
+      typeof entry.name === 'string' &&
+      typeof entry.amount === 'number' &&
+      typeof entry.price === 'number'
+        ? {
+            kind: entry.kind,
+            subject: entry.subject,
+            name: entry.name,
+            amount: entry.amount,
+            price: entry.price,
+          }
+        : null),
+    sales: readList(value.sales, (entry) =>
+      typeof entry.item === 'string' &&
+      typeof entry.definition === 'string' &&
+      typeof entry.name === 'string' &&
+      typeof entry.price === 'number' &&
+      typeof entry.damage === 'number'
+        ? {
+            item: entry.item,
+            definition: entry.definition,
+            name: entry.name,
+            price: entry.price,
+            damage: entry.damage,
+            identified: entry.identified === true,
+          }
+        : null),
+    members: readList(value.members, (entry) =>
+      typeof entry.index === 'number' && typeof entry.name === 'string'
+        ? { index: entry.index, name: entry.name }
+        : null),
+    action,
+    outcome,
+    code,
+    message,
+    paid,
+    earned,
+    coins,
+  };
+}
+
+/**
  * Reads the creation block, or the empty creation. The block is published in every mode, so a session
  * that is doing neither — a resumed one — carries the empty shape and the screen shows no creation
  * section at all, which is a different reading from a party that is still being made.
@@ -675,6 +916,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
   const creation = readCreation(value.creation);
   const save = readSave(value.save);
   const interaction = readInteraction(value.interaction);
+  const service = readService(value.service);
   const { ruleset, title, bundle, contentPacks } = composition;
   const { mode, simulationSeconds, admittedSteps, updates } = session;
   if (
@@ -732,6 +974,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
     creation,
     save,
     interaction,
+    service,
   };
 }
 
@@ -757,6 +1000,10 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   panel.dataset.save = 'none';
   panel.dataset.interaction = 'none';
   panel.dataset.use = 'none';
+  panel.dataset.service = 'none';
+  panel.dataset.serviceState = 'unknown';
+  panel.dataset.serviceAction = '';
+  panel.dataset.serviceOutcome = 'none';
 
   const title = document.createElement('h1');
   const ruleset = document.createElement('p');
@@ -900,15 +1147,53 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     acceptedList,
   );
 
+  // The service screen: the counter the party stands at, what its shelves hold and at what price, what it
+  // teaches, what it would buy, and what the last command did. Every list is rebuilt from the projection,
+  // so the screen holds nothing the product did not publish and decides no price itself.
+  const service = document.createElement('section');
+  service.className = 'crawler-service';
+  service.hidden = true;
+  const serviceHead = document.createElement('p');
+  serviceHead.className = 'crawler-step-head';
+  const serviceState = document.createElement('p');
+  serviceState.className = 'crawler-service-state';
+  const serviceAccess = document.createElement('p');
+  serviceAccess.className = 'crawler-service-access';
+  const serviceMemberRow = document.createElement('div');
+  serviceMemberRow.className = 'crawler-service-member';
+  const serviceMemberLabel = document.createElement('span');
+  serviceMemberLabel.className = 'crawler-row-label';
+  serviceMemberLabel.textContent = 'Lesson goes to';
+  const serviceMemberSelect = document.createElement('select');
+  serviceMemberRow.append(serviceMemberLabel, serviceMemberSelect);
+  const stockRow = document.createElement('div');
+  stockRow.className = 'crawler-row';
+  const saleRow = document.createElement('div');
+  saleRow.className = 'crawler-row';
+  const lessonRow = document.createElement('div');
+  lessonRow.className = 'crawler-row';
+  const serviceResult = document.createElement('p');
+  serviceResult.className = 'crawler-service-result';
+  serviceResult.hidden = true;
+  const serviceActions = document.createElement('div');
+  serviceActions.className = 'crawler-actions';
+  const serviceLeave = document.createElement('button');
+  serviceLeave.type = 'button';
+  serviceLeave.textContent = 'Leave the counter';
+  serviceActions.append(serviceLeave);
+  service.append(serviceHead, serviceState, serviceAccess, serviceMemberRow, stockRow, saleRow, lessonRow, serviceActions, serviceResult);
+
   // The creation screen comes before the long list of facts below: while a party is being made its
   // choices are what a player acts on, and a screen whose controls sat below twenty rows of values would
-  // put them off the bottom of a short window.
+  // put them off the bottom of a short window. The service screen sits beside it for the same reason: a
+  // counter's shelves are what a player acts on, not another twenty rows of values.
   panel.append(
     title,
     ruleset,
     bundle,
     place,
     creation,
+    service,
     details,
     action,
     saveButton,
@@ -935,6 +1220,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   });
 
   saveButton.addEventListener('click', () => claim(ACTION_SAVE));
+  serviceLeave.addEventListener('click', () => claim(ACTION_SERVICE_LEAVE));
   useButton.addEventListener('click', () => claim(ACTION_USE));
   advanceButton.addEventListener('click', () => claim(ACTION_ADVANCE));
   acceptButton.addEventListener('click', () => claim(ACTION_ACCEPT));
@@ -1153,6 +1439,181 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     attributeRow.replaceChildren(attributes(view));
   };
 
+  /**
+   * Renders the counter the party stands at. The lists are rebuilt only when what they carry changed,
+   * because the product publishes an update for every admitted step and a shelf of buttons rebuilt sixty
+   * times a second would fight the pointer for no reason; the verdict and the message are written every
+   * time because they are what a player must not miss.
+   */
+  let renderedService = '';
+  const renderService = (view: ServiceView): void => {
+    // A session with no mechanism, one that stands at no counter, one that is browsing, and one that was
+    // turned away are four different facts: a panel that called the second 'closed' would show every player
+    // walking the street as standing at a shut shop.
+    const shown = view.available && (view.open || view.name !== '' || view.outcome !== 'none');
+    panel.dataset.service = !view.available ? 'none' : view.open ? 'open' : shown ? 'closed' : 'away';
+    panel.dataset.serviceState = view.state === '' ? 'unknown' : view.state;
+    panel.dataset.serviceAction = view.action;
+    panel.dataset.serviceOutcome = view.outcome;
+    // A counter is shown while a visit is open, and also when the party was turned away from one: a shop
+    // that is shut for the night, and the counter the party just left, both have something to say.
+    service.hidden = !shown;
+    serviceHead.textContent = view.name === '' ? '' : `${view.name}${view.proprietor === '' ? '' : ` · ${view.proprietor}`}`;
+    serviceState.textContent =
+      view.state === ''
+        ? view.kind
+        : `${view.kind}${view.kind === '' ? '' : ' · '}${view.state}${view.hours === '' ? '' : ` (${view.hours})`}`;
+    serviceAccess.textContent = view.memberships.length === 0 ? '' : `Membership: ${view.memberships.join(', ')}`;
+    serviceResult.hidden = view.message === '';
+    serviceResult.dataset.outcome = view.outcome;
+    serviceResult.dataset.code = view.code;
+    serviceResult.textContent =
+      view.message === ''
+        ? ''
+        : view.paid > 0
+          ? `${view.message} Paid ${view.paid}; the purse holds ${view.coins}.`
+          : view.earned > 0
+            ? `${view.message} Received ${view.earned}; the purse holds ${view.coins}.`
+            : view.message;
+
+    const signature = JSON.stringify(view);
+    if (signature === renderedService) return;
+    renderedService = signature;
+
+    if (!view.open) {
+      stockRow.replaceChildren();
+      saleRow.replaceChildren();
+      lessonRow.replaceChildren();
+      serviceMemberRow.hidden = true;
+      return;
+    }
+
+    const member = serviceMemberSelect.value;
+    serviceMemberSelect.replaceChildren(
+      ...view.members.map((entry) => {
+        const option = document.createElement('option');
+        option.value = String(entry.index);
+        option.textContent = entry.name;
+        return option;
+      }),
+    );
+    if (member !== '') serviceMemberSelect.value = member;
+    serviceMemberRow.hidden = view.members.length < 2;
+
+    /** One labelled row of offers, each a button that reports the command it names. */
+    const offers = (
+      label: string,
+      entries: readonly {
+        readonly id: string;
+        readonly text: string;
+        readonly action?: string;
+        readonly available?: boolean;
+        readonly payload?: () => Record<string, unknown>;
+      }[],
+    ): HTMLElement => {
+      const row = document.createElement('div');
+      const heading = document.createElement('span');
+      heading.className = 'crawler-row-label';
+      heading.textContent = label;
+      const list = document.createElement('div');
+      list.className = 'crawler-options';
+      for (const entry of entries) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = entry.text;
+        button.dataset.id = entry.id;
+        // A line the shop has sold out of is shown disabled with the fact on it: the product would refuse
+        // the purchase by name, and a button that cannot work must not look like one that can.
+        if (entry.available === false) button.disabled = true;
+        if (entry.action !== undefined) {
+          // The payload is read when the button is pressed rather than when it is drawn: a lesson goes to
+          // whoever the picker shows at that moment, not to whoever it showed when the shelf was last redrawn.
+          button.addEventListener('click', () => claim(entry.action!, entry.payload?.() ?? {}));
+        } else {
+          button.disabled = true;
+        }
+
+        list.append(button);
+      }
+
+      row.append(heading, list);
+      return row;
+    };
+
+    stockRow.replaceChildren(
+      view.stock.length === 0 && !view.operations.includes('buy')
+        ? document.createElement('div')
+        : offers(
+            'For sale',
+            view.stock.map((entry) => ({
+              id: entry.lot,
+              text:
+                entry.count === 0
+                  ? `${entry.name} — sold out`
+                  : `${entry.name} ×${entry.count} — ${entry.price}${entry.sale ? ' (yours)' : ''}`,
+              action: view.operations.includes('buy') ? ACTION_SERVICE_BUY : undefined,
+              available: entry.count > 0,
+              payload: () => ({ target: entry.lot, count: 1 }),
+            })),
+          ),
+    );
+
+    const saleOffers: {
+      id: string;
+      text: string;
+      action?: string;
+      payload?: () => Record<string, unknown>;
+    }[] = [];
+    for (const entry of view.sales) {
+      const state = `${entry.damage > 0 ? `, damaged ${entry.damage}` : ''}${entry.identified ? '' : ', unidentified'}`;
+      if (view.operations.includes('sell')) {
+        saleOffers.push({
+          id: `sell-${entry.item}`,
+          text: `Sell ${entry.name}${state} — ${entry.price}`,
+          action: ACTION_SERVICE_SELL,
+          payload: () => ({ target: entry.item }),
+        });
+      }
+
+      if (view.operations.includes('identify') && !entry.identified) {
+        saleOffers.push({
+          id: `identify-${entry.item}`,
+          text: `Identify ${entry.name}`,
+          action: ACTION_SERVICE_IDENTIFY,
+          payload: () => ({ target: entry.item }),
+        });
+      }
+
+      if (view.operations.includes('repair') && entry.damage > 0) {
+        saleOffers.push({
+          id: `repair-${entry.item}`,
+          text: `Repair ${entry.name}`,
+          action: ACTION_SERVICE_REPAIR,
+          payload: () => ({ target: entry.item }),
+        });
+      }
+    }
+
+    saleRow.replaceChildren(saleOffers.length === 0 ? document.createElement('div') : offers('Your items', saleOffers));
+
+    lessonRow.replaceChildren(
+      view.lessons.length === 0
+        ? document.createElement('div')
+        : offers(
+            'Taught here',
+            view.lessons.map((entry) => ({
+              id: entry.subject,
+              text: `${entry.name} ${entry.kind === 'skill' ? `to level ${entry.amount}` : ''} — ${entry.price}`.replace('  ', ' '),
+              action: view.operations.includes('teach') ? ACTION_SERVICE_TEACH : undefined,
+              payload: () => ({
+                target: entry.subject,
+                member: Number(serviceMemberSelect.value === '' ? '0' : serviceMemberSelect.value),
+              }),
+            })),
+          ),
+    );
+  };
+
   const render = (snapshot: SnapshotView): void => {
     current = snapshot.session.mode;
     title.textContent = 'Rusty Crawler';
@@ -1227,6 +1688,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     rows.creationStep.textContent = creating.step === '' ? '—' : creating.step;
     rows.pool.textContent = creating.active ? String(creating.pool) : '—';
     renderCreation(creating, save.resumed);
+    renderService(snapshot.service);
     const world = snapshot.world;
     place.textContent =
       world.places === 0
@@ -1278,10 +1740,11 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     const pauseHint = 'Pause or resume with the button, or with the P key.';
     const saveHint = save.available ? ' Save with the button, or with the F key.' : '';
     const useHint = interaction.available ? ' Use with the button, or with the G key.' : '';
+    const serviceHint = snapshot.service.open ? ' Leave the counter with the button, or with the X key.' : '';
     hint.textContent =
       current === 'creating'
         ? 'Choose a portrait, a class, a name, attributes, and skills. Enter confirms the step you are on; Space accepts a finished party.'
-        : `${pauseHint}${saveHint}${useHint}`;
+        : `${pauseHint}${saveHint}${useHint}${serviceHint}`;
   };
 
   const unsubscribe = context.projection?.subscribe((projection) => {

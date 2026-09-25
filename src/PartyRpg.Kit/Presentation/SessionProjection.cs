@@ -51,6 +51,11 @@ namespace PartyRpg.Kit.Presentation;
 /// interaction at all. Defaulted for the same reason the others are: a session whose ruleset composed no
 /// interaction publishes that rather than an empty reticle that looks like an empty room.
 /// </param>
+/// <param name="Service">
+/// What the party is doing at a service, or the no-mechanism value when the session holds none. Defaulted
+/// for the same reason the others are: a session whose ruleset answered no service policy publishes that
+/// rather than a counter with nothing on it.
+/// </param>
 public readonly record struct SessionSnapshot(
     SessionComposition Composition,
     SessionMode Mode,
@@ -63,7 +68,8 @@ public readonly record struct SessionSnapshot(
     PartySnapshot Party = default,
     CreationSnapshot? Creation = null,
     SaveSnapshot Save = default,
-    InteractionSnapshot Interaction = default);
+    InteractionSnapshot Interaction = default,
+    ServiceSnapshot Service = default);
 
 /// <summary>Where the party is in the world, as the panel needs it: which place, where in it, and how much of the world is known.</summary>
 /// <param name="Place">The place the party is in, empty when the session has no world.</param>
@@ -125,6 +131,9 @@ public static class SessionProjection
 
     /// <summary>The interaction object's wire name.</summary>
     public const string InteractionField = "interaction";
+
+    /// <summary>The service object's wire name.</summary>
+    public const string ServiceField = "service";
 
     /// <summary>Builds the projection value for a snapshot.</summary>
     public static UiValue Build(SessionSnapshot snapshot)
@@ -201,7 +210,12 @@ public static class SessionProjection
             // session holds no interaction", "nothing is in front of the party", and "something is in front
             // of the party and out of reach" are three different facts, and a block that only appeared when
             // something was usable would leave a player unable to tell an empty room from a refused aim.
-            (InteractionField, Interaction(builder, snapshot.Interaction)));
+            (InteractionField, Interaction(builder, snapshot.Interaction)),
+            // The service block is published in every mode for the same reason the interaction block is:
+            // "this session holds no service mechanism", "the party stands at no counter", and "the counter
+            // is shut for the night" are three different facts, and a block that only appeared at a counter
+            // would leave a player unable to tell an empty street from a refused door.
+            (ServiceField, Service(builder, snapshot.Service)));
         return builder.Build(root);
     }
 
@@ -230,6 +244,89 @@ public static class SessionProjection
             ("code", builder.String(interaction.Code ?? string.Empty)),
             ("message", builder.String(interaction.Message ?? string.Empty)),
             ("residue", builder.String(interaction.Residue ?? string.Empty)));
+    }
+
+    /// <summary>Builds the service block: which counter the party stands at, what it offers, and what happened.</summary>
+    /// <remarks>
+    /// Every list is sent whole so the screen decides nothing: the shelves with their prices, the lessons
+    /// with their fees, what the counter would buy from the party, and which members a lesson could go to.
+    /// A snapshot built without service facts carries the default value, whose strings and lists are null
+    /// rather than empty: they are published as empty so a reader never sees a name that is not there,
+    /// exactly as the save and interaction blocks do.
+    /// </remarks>
+    private static uint Service(UiValueBuilder builder, ServiceSnapshot service)
+    {
+        List<uint> operations = [];
+        foreach (string operation in service.Operations ?? []) operations.Add(builder.String(operation));
+
+        List<uint> memberships = [];
+        foreach (string membership in service.Memberships ?? []) memberships.Add(builder.String(membership));
+
+        List<uint> stock = [];
+        foreach (ServiceStockSnapshot offer in service.Stock ?? [])
+        {
+            stock.Add(builder.Object(
+                ("lot", builder.String(offer.Lot)),
+                ("item", builder.String(offer.Item)),
+                ("name", builder.String(offer.Name)),
+                ("count", builder.Number(offer.Count)),
+                ("price", builder.Number(offer.Price)),
+                ("sale", builder.Boolean(offer.IsSale))));
+        }
+
+        List<uint> lessons = [];
+        foreach (ServiceLessonSnapshot offer in service.Lessons ?? [])
+        {
+            lessons.Add(builder.Object(
+                ("kind", builder.String(offer.Kind)),
+                ("subject", builder.String(offer.Subject)),
+                ("name", builder.String(offer.Name)),
+                ("amount", builder.Number(offer.Amount)),
+                ("price", builder.Number(offer.Price))));
+        }
+
+        List<uint> sales = [];
+        foreach (ServiceSaleSnapshot offer in service.Sales ?? [])
+        {
+            sales.Add(builder.Object(
+                ("item", builder.String(offer.Item)),
+                ("definition", builder.String(offer.Definition)),
+                ("name", builder.String(offer.Name)),
+                ("price", builder.Number(offer.Price)),
+                ("damage", builder.Number(offer.Damage)),
+                ("identified", builder.Boolean(offer.Identified))));
+        }
+
+        List<uint> members = [];
+        foreach (ServiceMemberSnapshot member in service.Members ?? [])
+        {
+            members.Add(builder.Object(
+                ("index", builder.Number(member.Index)),
+                ("name", builder.String(member.Name))));
+        }
+
+        return builder.Object(
+            ("available", builder.Boolean(service.Available)),
+            ("open", builder.Boolean(service.Open)),
+            ("id", builder.String(service.Id ?? string.Empty)),
+            ("kind", builder.String(service.Kind ?? string.Empty)),
+            ("name", builder.String(service.Name ?? string.Empty)),
+            ("proprietor", builder.String(service.Proprietor ?? string.Empty)),
+            ("state", builder.String(service.State ?? string.Empty)),
+            ("hours", builder.String(service.Hours ?? string.Empty)),
+            ("operations", builder.Array([.. operations])),
+            ("memberships", builder.Array([.. memberships])),
+            ("stock", builder.Array([.. stock])),
+            ("lessons", builder.Array([.. lessons])),
+            ("sales", builder.Array([.. sales])),
+            ("members", builder.Array([.. members])),
+            ("action", builder.String(service.Action ?? string.Empty)),
+            ("outcome", builder.String(service.Outcome ?? string.Empty)),
+            ("code", builder.String(service.Code ?? string.Empty)),
+            ("message", builder.String(service.Message ?? string.Empty)),
+            ("paid", builder.Number(service.Paid)),
+            ("earned", builder.Number(service.Earned)),
+            ("coins", builder.Number(service.Coins)));
     }
 
     /// <summary>Builds the creation block: where the flow stands, what it offers, and what it refused.</summary>

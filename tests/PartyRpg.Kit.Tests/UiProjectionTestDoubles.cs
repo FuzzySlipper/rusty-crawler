@@ -45,6 +45,41 @@ internal readonly struct ProjectedNode(UiValue value, uint index)
         throw new KeyNotFoundException($"Projection has no field '{key}'.");
     }
 
+    /// <summary>Returns the element at one position of an array node.</summary>
+    /// <remarks>
+    /// The projection publishes lists — what a place holds, what a counter's shelves carry — and a test that
+    /// asserts a list must be able to reach its elements without counting offsets by hand.
+    /// </remarks>
+    /// <param name="position">The element's position, counted from zero.</param>
+    /// <exception cref="InvalidOperationException">This node is not an array.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The position is outside the array.</exception>
+    public ProjectedNode Item(int position)
+    {
+        StructuredValueNode node = value.Nodes.Span[(int)index];
+        if (node.Kind != StructuredValueKind.Array)
+            throw new InvalidOperationException($"Projection node is {node.Kind}, not an array.");
+        ArgumentOutOfRangeException.ThrowIfNegative(position);
+        if (position >= node.ChildCount)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(position),
+                position,
+                $"The array holds {node.ChildCount} element(s), so there is no element {position}.");
+        }
+
+        return new ProjectedNode(value, value.Edges.Span[(int)(node.FirstEdge + position)]);
+    }
+
+    /// <summary>How many elements an array node holds.</summary>
+    /// <exception cref="InvalidOperationException">This node is not an array.</exception>
+    public int Length()
+    {
+        StructuredValueNode node = value.Nodes.Span[(int)index];
+        if (node.Kind != StructuredValueKind.Array)
+            throw new InvalidOperationException($"Projection node is {node.Kind}, not an array.");
+        return (int)node.ChildCount;
+    }
+
     /// <summary>Reads a string node.</summary>
     public string AsString()
     {

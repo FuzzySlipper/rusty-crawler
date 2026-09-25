@@ -74,6 +74,14 @@
          in ProductIdentity.cs are the two halves of the same control. -->
     <RustyEngineProductInputIntent Include="party.use" Value="digital" />
     <RustyEngineProductInputMapping Include="party.use.key-g" Intent="party.use" Trigger="key:key-g:pressed" />
+    <!-- The service control: one press leaves the counter a visit has open. Entering a service is not a
+         control of its own — the party enters by using whoever keeps the counter, on the use control above —
+         and the counter's own commands (buy, sell, identify, repair, teach) are payload actions on the
+         `crawler.ui` channel below. X is free during play: the original's jump key is X, and Space already
+         jumps here. The declaration and the code constant in ProductIdentity.cs are the two halves of the
+         same control. -->
+    <RustyEngineProductInputIntent Include="service.leave" Value="digital" />
+    <RustyEngineProductInputMapping Include="service.leave.key-x" Intent="service.leave" Trigger="key:key-x:pressed" />
     <RustyEngineProductInputIntent Include="crawler.ui" Value="payload:crawler.ui.action.v1" />
   </ItemGroup>
 

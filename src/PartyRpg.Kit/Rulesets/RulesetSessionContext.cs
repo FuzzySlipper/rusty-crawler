@@ -69,6 +69,12 @@ public enum SessionStart
 /// host decision because only the host knows what the operator asked for, and it is carried here rather
 /// than left to the ruleset's own guess so the one composition entry can answer it.
 /// </param>
+/// <param name="Service">
+/// The service controls the host declares, when it declares any, stated for the same reason and in the same
+/// shape as the others: which intent leaves a counter, and which payload contract a service screen's
+/// commands arrive on. Entering a service is deliberately not among them — the party enters by using the
+/// person it is talking to — so a host declares the way out and the commands, and nothing else.
+/// </param>
 public sealed record RulesetSessionContext(
     IUiProjectionChannel Projection,
     BundleSelection Selection = default,
@@ -79,4 +85,5 @@ public sealed record RulesetSessionContext(
     CreationIntentNames? Creation = null,
     SaveIntentNames? Save = null,
     UseIntentNames? Use = null,
-    SessionStart Start = SessionStart.Fresh);
+    SessionStart Start = SessionStart.Fresh,
+    ServiceIntentNames? Service = null);

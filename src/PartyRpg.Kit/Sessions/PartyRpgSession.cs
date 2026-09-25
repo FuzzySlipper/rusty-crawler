@@ -5,6 +5,7 @@ using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Presentation;
+using PartyRpg.Kit.Services;
 using PartyRpg.Kit.Time;
 using Rusty.Engine;
 
@@ -92,6 +93,8 @@ public sealed class PartyRpgSession : IGameSession
     private readonly MovementInput? _movementInput;
     private readonly InteractionUseInput? _useInput;
     private readonly CreationInput? _creationInput;
+    private readonly ServiceInput? _serviceInput;
+    private readonly IServiceRule? _serviceRule;
     private readonly GameClock? _clock;
     private readonly IDiagnosticsService? _diagnostics;
     private readonly ISessionSaveStore? _saveStore;
@@ -111,6 +114,8 @@ public sealed class PartyRpgSession : IGameSession
     private ulong? _accountedThroughStep;
     private SessionWorld? _liveWorld;
     private PartyEntity? _party;
+    private PartyResourceLedger? _accounts;
+    private PartyServices? _services;
     private WorldSnapshot _world = WorldSnapshot.Empty;
     private bool _started;
     private bool _enginePaused;
@@ -178,6 +183,24 @@ public sealed class PartyRpgSession : IGameSession
     /// by itself, which is what a product that offers no use control gets; the mechanism is still stepped,
     /// so what the party faces is still published.
     /// </param>
+    /// <param name="service">
+    /// This game's answers about services, when its ruleset has any. A service target the party talks to
+    /// hands off into the mechanism this composes, which browses, transacts, and leaves over the party's own
+    /// accounts. Without one the session holds no service mechanism at all, and a use that lands on somebody
+    /// keeping a counter quietly opens nothing — which is what a ruleset that has not answered yet gets.
+    /// </param>
+    /// <param name="accounts">
+    /// The party's own accounts as the one settlement path, when the caller composed them. A service charges
+    /// and pays through this same ledger, so a shop and a road move one purse; a session that holds a world
+    /// borrows the world's own ledger when none is handed here, so the two can never be two ledgers. Without
+    /// either, a transaction that moves coin is refused by name rather than settling nowhere.
+    /// </param>
+    /// <param name="serviceInput">
+    /// The service controls the host declared, when it declared any: the intent a request to leave a counter
+    /// arrives on, and the payload contract a service screen's commands arrive on. Without them the
+    /// mechanism is still composed and a counter can still be entered and browsed, and no command ever
+    /// reaches it — which is what a product that declares no service controls gets.
+    /// </param>
     /// <exception cref="ArgumentException">
     /// The session is composed both to create a party and to hold one, or to create one without the controls
     /// its commands arrive on.
@@ -196,7 +219,10 @@ public sealed class PartyRpgSession : IGameSession
         SessionCreation? creation = null,
         SaveIntentNames? saveInput = null,
         bool resumed = false,
-        InteractionUseInput? useInput = null)
+        InteractionUseInput? useInput = null,
+        IServiceRule? service = null,
+        PartyResourceLedger? accounts = null,
+        ServiceIntentNames? serviceInput = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(composition.Title);
         if (creation is not null && (world is not null || party is not null))
@@ -218,9 +244,12 @@ public sealed class PartyRpgSession : IGameSession
         _movementInput = movementInput;
         _useInput = useInput;
         _creationInput = creationInput;
+        _serviceInput = serviceInput is null ? null : new ServiceInput(serviceInput);
+        _serviceRule = service;
         _creation = creation;
         _clock = clock;
         _party = party;
+        _accounts = accounts ?? world?.Accounts;
         _diagnostics = diagnostics;
         _saveStore = saveStore;
         _saves = saveStore is null ? null : new SessionSaveBoundary(saveStore, saveSlot);
@@ -234,6 +263,10 @@ public sealed class PartyRpgSession : IGameSession
         _liveWorld = world;
         _world = world?.Snapshot ?? WorldSnapshot.Empty;
         world?.Populate();
+        // The service mechanism is composed over the party the session plays and the ledger a journey already
+        // charges, so a shop and a road settle one purse through one path. A session that creates its party
+        // composes it when creation is accepted, which is the moment that party exists.
+        ComposeServices();
         // A session publishes as soon as it exists: the engine expects a create-time projection, and a
         // client that attaches before the first update should see the session it has attached to.
         Publish();
@@ -256,6 +289,13 @@ public sealed class PartyRpgSession : IGameSession
 
     /// <summary>The session's one game clock, or null when its ruleset composed none.</summary>
     public GameClock? Clock => _clock;
+
+    /// <summary>
+    /// The service mechanism this session serves counters through, or null when its ruleset answered no
+    /// service policy or the session holds no party yet. It is the one mechanism every kind of service is
+    /// served by, and what the projection publishes about a counter is read from it.
+    /// </summary>
+    public PartyServices? Services => _services;
 
     /// <summary>
     /// The party the session holds, or null while it is creating one and when no content or creation
@@ -399,11 +439,22 @@ public sealed class PartyRpgSession : IGameSession
         // party's motion and the passage of game time are therefore one interval, not two loops, and a
         // session that is not running admits no interval for either of them.
         double seconds = AdmittedSeconds(tick);
-        StepParty(update.Input, seconds);
-        // Using something follows the step that carried the party to it, in the same update: the reticle is
-        // refreshed from where the party now stands, and a use the player asked for is applied to what that
-        // step put in front of it rather than to what the previous one did.
-        Interact(update.Input);
+
+        // A service visit owns the player's controls: the counter's screen is what they act on, so the party
+        // does not step and nothing is faced while a visit is open, and a party cannot walk away from a shop
+        // by holding a key at its menu. The world itself keeps advancing — one clock, one update, and a
+        // screen does not pause a real-time world — so the shops that close and the places that respawn do
+        // so behind the counter exactly as they do in the street.
+        if (_services is not { IsOpen: true })
+        {
+            StepParty(update.Input, seconds);
+            // Using something follows the step that carried the party to it, in the same update: the reticle
+            // is refreshed from where the party now stands, and a use the player asked for is applied to what
+            // that step put in front of it rather than to what the previous one did.
+            Interact(update.Input);
+        }
+
+        DriveServices(update.Input);
         StepClock(seconds);
 
         Advance(tick);
@@ -540,6 +591,11 @@ public sealed class PartyRpgSession : IGameSession
         // composition does it: the party plays in a place that is already furnished, in the first update
         // that follows rather than one late.
         _liveWorld?.Populate();
+        // The ledger the world charges a journey to is the one a shop charges the created party's purse
+        // through, and the service mechanism is composed over exactly that pair, so a party that just came
+        // into being is served by the same path as one restored from a save.
+        _accounts ??= _liveWorld?.Accounts;
+        ComposeServices();
         // Leaving creation is a mode change like any other, so it resolves and publishes through the one
         // path that decides what a mode means: the next admitted update steps the world the party is in.
         ResolveMode();
@@ -597,11 +653,34 @@ public sealed class PartyRpgSession : IGameSession
     /// for one, on the controls the host declared. A held session steps this too — a use is an instant rather
     /// than an interval, and a lever pulled while the world is held is an act — which is deliberately not how
     /// movement works. The mechanism is the world's, and this is where the one admitted update reaches it.
+    /// A use that lands on somebody keeping a counter hands off into the service mechanism, which is the one
+    /// way a service is entered: the interaction mechanism reached the person, and what stands behind them is
+    /// the service's business rather than a second way to reach a person.
     /// </remarks>
     private void Interact(ReadOnlySpan<ProductInputEvent> input)
     {
         if (LiveWorld is not { } world) return;
-        world.Interact(_useInput is not null && _useInput.Read(input));
+        InteractionResult? result = world.Interact(_useInput is not null && _useInput.Read(input));
+        if (result is { IsApplied: true, Target: { } target } && _services is { } services)
+        {
+            services.OpenTarget(target.Id.Place, target.Placement);
+        }
+    }
+
+    /// <summary>
+    /// Applies the service commands this update carried, in the order they arrived, while a visit is open.
+    /// </summary>
+    /// <remarks>
+    /// The reader is consulted only while a counter is open, exactly as the creation reader is consulted only
+    /// while a party is being made: the commands belong to a screen, and one that arrives with no counter
+    /// open names nothing this session is doing. Each command goes through the mechanism's own operation and
+    /// its refusal is recorded rather than thrown, so a purchase the purse cannot cover is an answer the
+    /// screen shows and the visit stays exactly where it was.
+    /// </remarks>
+    private void DriveServices(ReadOnlySpan<ProductInputEvent> input)
+    {
+        if (_services is not { IsOpen: true } services || _serviceInput is null) return;
+        foreach (ServiceCommand command in _serviceInput.Read(input)) services.Transact(command);
     }
 
     /// <summary>
@@ -611,24 +690,51 @@ public sealed class PartyRpgSession : IGameSession
     /// <remarks>
     /// The clock returns its effects rather than publishing them, so this is where they reach their owners:
     /// the boundaries it crossed are measured in whole game days, and the world's places are brought up to
-    /// the day the clock now stands on in this same update. A deadline is the one effect with no owner yet
-    /// — nothing in the product schedules an effect, a rest, a restock, or a quest limit — so it is
-    /// reported by name instead of being applied or dropped.
+    /// the day the clock now stands on in this same update. The advance reaches the service mechanism before
+    /// anything is reported, so a shelf whose refresh deadline came due is filled in the update that reached
+    /// it. A deadline is still reported by name, because the report is how a deadline nothing owns is
+    /// visible: one a schedule acted on says so, and one no owner holds says that too rather than being
+    /// dropped.
     /// </remarks>
     private void StepClock(double admittedSeconds)
     {
         if (_clock is not { } clock || admittedSeconds <= 0) return;
         ClockAdvance advance = clock.AdvanceAdmittedSeconds(admittedSeconds);
+        _services?.Observe(advance);
         foreach (DeadlineDue due in advance.Due)
         {
+            bool owned = _services?.Holds(due.Deadline) ?? false;
+            string message = owned
+                ? $"Game time reached {due.Fired}, which a deadline of {due.Deadline} was set for; the owner that scheduled it acted on it."
+                : $"Game time reached {due.Fired}, which a deadline of {due.Deadline} was set for; no owner schedules deadlines yet, so nothing acted on it.";
             _diagnostics?.Publish(new DiagnosticsPublishRequest(
                 DiagnosticsSeverity.Info,
                 DiagnosticsDisposition.Accepted,
                 Source: "clock",
                 Code: "deadline-due",
-                Message: $"Game time reached {due.Fired}, which a deadline of {due.Deadline} was set for; no owner schedules deadlines yet, so nothing acted on it.",
+                Message: message,
                 Correlation: string.Empty));
         }
+    }
+
+    /// <summary>
+    /// Composes the service mechanism over the party the session plays, when the ruleset answered for one.
+    /// </summary>
+    /// <remarks>
+    /// It is composed once, when the party exists: a session that creates its party has none until creation
+    /// is accepted, and the ledger a journey charges is the one a shop charges because both are composed over
+    /// that same party. A session with no ledger still gets the mechanism — it can browse and be refused by
+    /// name — which is better than a counter that is not there because nobody handed over the accounts.
+    /// </remarks>
+    private void ComposeServices()
+    {
+        if (_serviceRule is null || _party is not { } party) return;
+        _services = new PartyServices(_serviceRule, party, _accounts, _clock);
+        // The world hands its journey advances to the same owner the session's admitted intervals reach, so a
+        // shelf's deadline is driven by the one clock wherever the advance happened. The world is told here
+        // because this is the moment the mechanism exists, which for a session that creates its party is when
+        // creation is accepted.
+        _liveWorld?.ObserveTimeWith(_services);
     }
 
     /// <summary>
@@ -727,7 +833,11 @@ public sealed class PartyRpgSession : IGameSession
         // What the party faces and what using it did, read from the world's own mechanism: a session with no
         // world, or one whose ruleset answered no interaction policy, publishes that it holds none rather
         // than an empty reticle that looks like an empty room.
-        InteractionSnapshot.From(LiveWorld?.Interaction));
+        InteractionSnapshot.From(LiveWorld?.Interaction),
+        // What the party is doing at a service, read from the service mechanism the ruleset's answers
+        // composed: a session with no mechanism, one that stands at no counter, and one whose counter is
+        // shut are three different facts the panel must be able to tell apart.
+        ServiceSnapshot.From(_services));
 
     /// <summary>Publishes the world as it stands now, after a caller moved the party.</summary>
     public void PublishWorld()
