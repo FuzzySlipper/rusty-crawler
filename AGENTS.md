@@ -174,8 +174,16 @@ product have not.**
   so nothing points at a handle or an entity that belonged to the previous session. A malformed or
   contradictory save is refused with every problem listed at once, not the first. Knowledge, quests,
   containers and scenario flags have no owner yet, so the document has no section for them rather than
-  a placeholder. **No product surface asks for a save yet**: the ruleset can write and resume a session,
-  and the trigger and its panel are a task of their own.
+  a placeholder. A save is asked for explicitly — the host declares `session.save` as a key and as a
+  panel action, the session applies it before the update it arrives in steps anything, and exactly one
+  write happens per request: nothing writes on a step, a mode change, or disposal. What the player sees
+  is a result, not a promise: `saved` with the game-time it happened at, or a named failure
+  (`save-unavailable`, `save-refused`, `save-failed`) that leaves the session running. Whether a start
+  is fresh or resumed is a host composition decision, stated rather than inferred (`RUSTY_CRAWLER_START`),
+  and a resume with nothing saved refuses by name instead of quietly starting fresh. Both were walked in
+  the running product: a party created in the product crossed into Emerald Island on `1168-01-02`, was
+  saved, and a restarted host resumed that same party, place, clock, and per-place state at the saved
+  pose (`local/verify/save-resume/`).
 - **No combat, magic, services, or quests exists.** Do not describe, review, or accept
   behavior those stones will add as though it were here. What a player can do today is hold and
   release the session and walk it: on the agent playtest service's remote browser a held `W` walks the
