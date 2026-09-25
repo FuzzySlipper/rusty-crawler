@@ -14,12 +14,16 @@ public sealed class ProductCompositionTests
     public void The_product_starts_from_the_bundle_it_ships_and_reports_it()
     {
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(
-            [ProductTestContext.Bundle("partyrpg-default", "places"), .. ProductTestContext.Pack("places", "emerald")]);
+        [
+            ProductTestContext.Bundle("partyrpg-default", "places", "creation-tables"),
+            .. ProductTestContext.Pack("places", "emerald"),
+            .. ProductTestContext.CreationTables(),
+        ]);
 
         using CrawlerProduct product = new(context);
 
         Assert.Equal(BuiltInBundles.Default, product.Selection.BundleId);
-        Assert.Equal(1, product.Selection.PackCount);
+        Assert.Equal(2, product.Selection.PackCount);
 
         product.Start();
         product.Attach();
@@ -27,14 +31,29 @@ public sealed class ProductCompositionTests
         UiProjection projection = ui.Latest();
         Assert.Equal("crawler.hud", ui.LastRequest?.Stream);
         Assert.Equal("crawler.ui.snapshot.v1", ui.LastRequest?.Contract);
-        Assert.Equal(SessionMode.Running, product.Mode);
+        // A new game is created: the product's session starts in creation, and its party does not exist
+        // until the player accepts one.
+        Assert.Equal(SessionMode.Creating, product.Mode);
+        ProjectedNode creation = ProjectedNode.Of(projection.Value).Field("creation");
+        Assert.True(creation.Field("active").AsBoolean());
+        Assert.True(creation.Field("hasDefault").AsBoolean());
+        Assert.Equal(4d, creation.Field("members").AsNumber());
+        Assert.Equal(0d, creation.Field("member").AsNumber());
+        // The ruleset's default party is applied, so the flow opens finished and ready to accept: choosing a
+        // member to change is what reopens it a step at a time.
+        Assert.Equal("complete", creation.Field("step").AsString());
+        Assert.Equal(4, creation.Field("roster").Count());
     }
 
     [Fact]
     public void The_projection_carries_the_bundle_and_the_content_it_resolved_to()
     {
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(
-            [ProductTestContext.Bundle("partyrpg-default", "places"), .. ProductTestContext.Pack("places", "emerald")]);
+        [
+            ProductTestContext.Bundle("partyrpg-default", "places", "creation-tables"),
+            .. ProductTestContext.Pack("places", "emerald"),
+            .. ProductTestContext.CreationTables(),
+        ]);
 
         using CrawlerProduct product = new(context);
         product.Start();
@@ -42,7 +61,7 @@ public sealed class ProductCompositionTests
         ProjectedNode value = ProjectedNode.Of(ui.Latest().Value);
         ProjectedNode composition = value.Field("composition");
         Assert.Equal("partyrpg-default", composition.Field("bundle").AsString());
-        Assert.Equal(1.0, composition.Field("contentPacks").AsNumber());
+        Assert.Equal(2.0, composition.Field("contentPacks").AsNumber());
         Assert.Equal("mightandmagic7", composition.Field("ruleset").AsString());
     }
 
@@ -71,33 +90,52 @@ public sealed class ProductCompositionTests
         product.Start();
         product.Attach();
 
-        Assert.Equal(SessionMode.Running, product.Mode);
+        // Content that has not been generated yet leaves the product with no world and no scenario party,
+        // and creation is what still works: this game's choices and default party are compiled.
+        Assert.Equal(SessionMode.Creating, product.Mode);
         Assert.Equal(string.Empty, ProjectedNode.Of(ui.Latest().Value).Field("composition").Field("bundle").AsString());
     }
 
     [Fact]
-    public void An_update_advances_the_admitted_simulation_the_projection_reports()
+    public void While_creating_an_update_measures_nothing_and_accepting_the_party_starts_the_clock()
     {
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(
-            [ProductTestContext.Bundle("partyrpg-default"), .. ProductTestContext.Pack("places", "emerald")]);
+            [ProductTestContext.Bundle("partyrpg-default")]);
 
         using CrawlerProduct product = new(context);
         product.Start();
 
+        // The admitted update drives the flow and nothing else: it is counted, and no interval is measured
+        // for a world that is not being stepped.
         Assert.Equal(ProductUpdateResult.None, product.Update(ProductTestContext.Update(simulationStep: 100, admittedSteps: 4)));
-
         ProjectedNode session = ProjectedNode.Of(ui.Latest().Value).Field("session");
+        Assert.Equal("creating", session.Field("mode").AsString());
+        Assert.Equal(0d, session.Field("admittedSteps").AsNumber());
+        Assert.Equal(0d, session.Field("simulationSeconds").AsNumber());
+        Assert.Equal(1d, session.Field("updates").AsNumber());
+
+        // Accepting the default party leaves creation for the world, and the next update is the one the
+        // world's interval belongs to.
+        product.Update(ProductTestContext.Update(
+            simulationStep: 101,
+            admittedSteps: 1,
+            ProductTestContext.Digital(ProductIdentity.CreationAcceptIntent)));
+        product.Update(ProductTestContext.Update(simulationStep: 102, admittedSteps: 4));
+
+        session = ProjectedNode.Of(ui.Latest().Value).Field("session");
         Assert.Equal("running", session.Field("mode").AsString());
-        Assert.Equal(4.0, session.Field("admittedSteps").AsNumber());
+        Assert.Equal(4d, session.Field("admittedSteps").AsNumber());
         Assert.Equal(4.0 / 60.0, session.Field("simulationSeconds").AsNumber(), precision: 9);
+        Assert.True(ProjectedNode.Of(ui.Latest().Value).Field("party").Field("present").AsBoolean());
     }
 
     [Fact]
-    public void A_bundle_with_a_world_starts_the_party_at_the_place_its_scenario_names()
+    public void A_bundle_with_a_world_places_the_created_party_where_its_scenario_names()
     {
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(
         [
-            ProductTestContext.Bundle("partyrpg-default", "world"),
+            ProductTestContext.Bundle("partyrpg-default", "world", "creation-tables"),
+            .. ProductTestContext.CreationTables(),
             ($"{ProductTestContext.ContentDirectory}/content-packs/world/pack.json",
                 """
                 {
@@ -141,6 +179,16 @@ public sealed class ProductCompositionTests
 
         using CrawlerProduct product = new(context);
         product.Start();
+
+        // Nothing is placed until a party exists: the world is composed with the party that walks in it.
+        ProjectedNode before = ProjectedNode.Of(ui.Latest().Value).Field("world");
+        Assert.Equal(string.Empty, before.Field("place").AsString());
+        Assert.Equal(0d, before.Field("places").AsNumber());
+
+        product.Update(ProductTestContext.Update(
+            simulationStep: 1,
+            admittedSteps: 1,
+            ProductTestContext.Digital(ProductIdentity.CreationAcceptIntent)));
         product.Attach();
 
         ProjectedNode world = ProjectedNode.Of(ui.Latest().Value).Field("world");
@@ -155,13 +203,18 @@ public sealed class ProductCompositionTests
     public void A_restart_reuses_the_bundle_it_started_with()
     {
         (ProductCreateContext context, _) = ProductTestContext.Create(
-            [ProductTestContext.Bundle("partyrpg-default", "places"), .. ProductTestContext.Pack("places", "emerald")]);
+        [
+            ProductTestContext.Bundle("partyrpg-default", "places", "creation-tables"),
+            .. ProductTestContext.Pack("places", "emerald"),
+            .. ProductTestContext.CreationTables(),
+        ]);
 
         using CrawlerProduct product = new(context);
         product.Start();
         product.Restart();
 
         Assert.Equal("partyrpg-default", product.Selection.BundleId);
-        Assert.Equal(SessionMode.Running, product.Mode);
+        // A restart is a new game, and a new game is created.
+        Assert.Equal(SessionMode.Creating, product.Mode);
     }
 }

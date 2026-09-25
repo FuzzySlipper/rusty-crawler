@@ -11,22 +11,25 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 
 /// <summary>
 /// This ruleset's session: it composes the kit's session shell with this game's identity, this game's one
-/// clock, and the party its content describes.
+/// clock, and the party its content describes or its creation flow builds.
 /// </summary>
 /// <remarks>
 /// <para>
 /// Composition happens in one order because the pieces depend on each other in exactly that order: the
-/// clock is this game's policy and comes first, the party comes from content, the ledger is the one path
-/// into the party's accounts, and the world is composed over the clock and the ledger so a journey can
-/// charge both. The session then holds the party and the clock, publishes their facts, and releases them
-/// with itself.
+/// clock is this game's policy and comes first, the party comes from content or from creation, the ledger is
+/// the one path into the party's accounts, and the world is composed over the clock and the ledger so a
+/// journey can charge both. The session then holds the party and the clock, publishes their facts, and
+/// releases them with itself.
 /// </para>
 /// <para>
-/// <b>A resumed session is composed the same way, from the same content, and then handed the save.</b> The
-/// clock takes the game time the save recorded, the party is rebuilt by the same factory a created party is
-/// built by, and the world takes its place, pose, and per-place state from the save — so what a load
-/// rebuilds is the durable half of a session, and everything transient is composed fresh exactly as it is
-/// for a new game.
+/// <b>A new session is created when the host declares a creation screen; otherwise it plays what its
+/// scenario fixes.</b> This game's creation screen is the player-facing path a new game takes, so a host that
+/// declared its controls gets a session holding this game's creation flow, starting in creation: its party
+/// and the world that party walks into are composed when the player accepts them, which is what makes the
+/// ledger the world charges the created party's own accounts. A host that declared none offers no creation
+/// screen, and its session plays the party its content fixes — the scripted path a live check, a test, or a
+/// product without creation takes, composed through the same factory creation ends at. A session resuming
+/// from a save already holds both and creates nothing.
 /// </para>
 /// <para>
 /// Anything this composition creates and then fails to hand over is released here, so a session that
@@ -52,25 +55,60 @@ internal sealed class MightAndMagic7Session : IGameSession
         EngineSessionSaveStore? store = MightAndMagic7Persistence.Store(context.Engine);
         try
         {
-            party = resume is { } save
-                ? MightAndMagic7Party.Restore(save.Party)
-                : MightAndMagic7Party.Compose(context.Content);
-            // The larder's policy is this game's rule over the party it feeds: what a day costs and what
-            // hunger does are answered here, and the party is what the rule weakens and feeds again.
-            PartyResourceLedger? resources = party is null
-                ? null
-                : new PartyResourceLedger(party, provisioning: new MightAndMagic7Provisions(party));
+            SessionComposition composition = SessionComposition.From(ruleset) with
+            {
+                Bundle = context.Selection.BundleId,
+                ContentPacks = context.Selection.PackCount,
+            };
+            MovementInput? movement = Movement(context);
+            if (resume is { } save)
+            {
+                party = MightAndMagic7Party.Restore(save.Party);
+                world = MightAndMagic7World.Compose(context.Content, context, clock, Ledger(party), save);
+                _session = new PartyRpgSession(
+                    composition,
+                    context.Projection,
+                    world,
+                    movement,
+                    clock,
+                    party,
+                    context.Engine?.Diagnostics,
+                    store);
+                return;
+            }
 
-            world = MightAndMagic7World.Compose(context.Content, context, clock, resources, resume);
+            if (Creation(context) is { } creation)
+            {
+                // The host declared a creation screen, so a new session creates its party. The flow is this
+                // game's, the factory is the one every party comes from, and the world is composed with the
+                // created party so the provisions a road costs come out of the larder the player's own
+                // characters filled.
+                ContentCatalog? declared = Declared(context.Content);
+                _session = new PartyRpgSession(
+                    composition,
+                    context.Projection,
+                    movementInput: movement,
+                    clock: clock,
+                    diagnostics: context.Engine?.Diagnostics,
+                    saveStore: store,
+                    creationInput: creation,
+                    creation: new SessionCreation(
+                        MightAndMagic7Creation.Start(declared),
+                        description => MightAndMagic7Party.Factory().Create(description),
+                        created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created))));
+                return;
+            }
+
+            // No creation screen was declared, so this session plays the party its scenario fixes: the
+            // scripted path — a live check, a test, or a product that offers no creation. Handing that party
+            // to the world here is the same composition order the created path takes, one accept earlier.
+            party = MightAndMagic7Party.Compose(context.Content);
+            world = MightAndMagic7World.Compose(context.Content, context, clock, party is null ? null : Ledger(party));
             _session = new PartyRpgSession(
-                SessionComposition.From(ruleset) with
-                {
-                    Bundle = context.Selection.BundleId,
-                    ContentPacks = context.Selection.PackCount,
-                },
+                composition,
                 context.Projection,
                 world,
-                Movement(context),
+                movement,
                 clock,
                 party,
                 context.Engine?.Diagnostics,
@@ -89,6 +127,18 @@ internal sealed class MightAndMagic7Session : IGameSession
     }
 
     /// <summary>
+    /// The party's own accounts as the one settlement path, so a journey charges what the party carries.
+    /// </summary>
+    /// <remarks>
+    /// The larder's policy is this game's rule over the party it feeds: what a day costs and what hunger does
+    /// are answered here, and the party is what the rule weakens and feeds again. The ledger is composed over
+    /// whichever party the session holds — a restored one or the one creation just built — so both paths
+    /// charge the same accounts through the same rule.
+    /// </remarks>
+    private static PartyResourceLedger Ledger(PartyEntity party) =>
+        new(party, provisioning: new MightAndMagic7Provisions(party));
+
+    /// <summary>
     /// The reader for the movement controls the host declared, when it declared any.
     /// </summary>
     /// <remarks>
@@ -100,6 +150,32 @@ internal sealed class MightAndMagic7Session : IGameSession
         context.Movement is { } controls
             ? new MovementInput(controls, MightAndMagic7Movement.TurnRatePerSecond)
             : null;
+
+    /// <summary>
+    /// The reader for the creation controls the host declared, when it declared any.
+    /// </summary>
+    /// <remarks>
+    /// A host that declares no creation controls offers no creation screen, and a session without one plays
+    /// the party its scenario fixes instead — so the reader is also the declaration that this product creates
+    /// its parties. The flow and the reader arrive together: a session creating a party with no way to choose
+    /// anything is refused where it is composed rather than composed as a screen nobody can drive.
+    /// </remarks>
+    private static CreationInput? Creation(RulesetSessionContext context) =>
+        context.Creation is { } controls ? new CreationInput(controls) : null;
+
+    /// <summary>
+    /// The content creation is offered over: the packs that loaded, or nothing when none did.
+    /// </summary>
+    /// <remarks>
+    /// An empty catalog is the absence of content rather than content that contradicts creation. The
+    /// product's shipped bundle names no packs until the operator generates them, and creation's own
+    /// contract is to be composed without content then — from the compiled tables, because a game that
+    /// cannot create a party is not a game. The world and the scenario's party already read an empty catalog
+    /// as nothing; this is where creation is told the same thing instead of being refused by a catalog that
+    /// declares no classes because it declares nothing at all.
+    /// </remarks>
+    private static ContentCatalog? Declared(ContentCatalog? content) =>
+        content is { Packs.Count: > 0 } ? content : null;
 
     /// <inheritdoc />
     public SessionMode Mode => _session.Mode;

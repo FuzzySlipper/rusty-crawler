@@ -19,6 +19,7 @@ public sealed class CrawlerProduct : IEngineProduct
     private readonly IGameRuleset _ruleset;
     private readonly SessionInputRouter _input;
     private readonly MovementIntentNames _movement;
+    private readonly CreationIntentNames _creation;
     private readonly BundleSelection _selection;
     private readonly ContentCatalog? _content;
     private IGameSession _session;
@@ -47,6 +48,10 @@ public sealed class CrawlerProduct : IEngineProduct
             ProductIdentity.TurnLeftIntent,
             ProductIdentity.TurnRightIntent,
             ProductIdentity.JumpIntent);
+        _creation = new CreationIntentNames(
+            ProductIdentity.CreationAdvanceIntent,
+            ProductIdentity.CreationAcceptIntent,
+            ProductIdentity.UiActionContract);
         (_selection, _content) = SelectBundle(context, bundleId ?? BuiltInBundles.Default);
         _session = CreateSession();
     }
@@ -171,13 +176,15 @@ public sealed class CrawlerProduct : IEngineProduct
             // The engine's own services go to the ruleset whole: composing movement needs the spatial
             // service to walk in and the content owner to retain a place's collision artifact, and the
             // product is the only place that holds the engine context the ruleset would otherwise have to
-            // reach for. The movement controls are the host's declaration, so their names go with them.
+            // reach for. The movement and creation controls are the host's declaration, so their names go
+            // with them: a name the product never declared to the engine is a control nobody can press.
             return _ruleset.CreateSession(new RulesetSessionContext(
                 channel,
                 _selection,
                 _content,
                 Engine: _context.Engine,
-                Movement: _movement));
+                Movement: _movement,
+                Creation: _creation));
         }
         catch
         {

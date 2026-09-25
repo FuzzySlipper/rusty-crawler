@@ -14,26 +14,40 @@ namespace PartyRpg.Kit.Sessions;
 /// through its projection channel.
 /// </summary>
 /// <remarks>
+/// <para>
 /// The shell deliberately owns no gameplay. The world, the party, and the clock are composed elsewhere and
 /// handed here; what exists here is the lifecycle those mechanisms step inside, and the one place that
 /// decides what a mode means for stepping. It holds the party and the clock for as long as it lives, and
 /// releases both with itself.
+/// </para>
+/// <para>
+/// <b>A session either creates its party or holds one.</b> A session composed to create holds the flow and
+/// the two factories that end it, steps nothing while it does, and takes the party the factory built — and
+/// the world composed for that party — the moment creation is accepted. A session composed with a party
+/// plays it, which is what a resumed session and a session whose content fixes the party are. Neither shape
+/// is a second party: the session holds at most one, and the one it holds is the one it plays.
+/// </para>
 /// </remarks>
 public sealed class PartyRpgSession : IGameSession
 {
     private readonly SessionComposition _composition;
     private readonly IUiProjectionChannel _projection;
     private readonly MovementInput? _movementInput;
+    private readonly CreationInput? _creationInput;
     private readonly GameClock? _clock;
-    private readonly PartyEntity? _party;
     private readonly IDiagnosticsService? _diagnostics;
     private readonly ISessionSaveStore? _saveStore;
     private readonly SessionSaveBoundary? _saves;
+    private SessionCreation? _creation;
+    private PartyRefusal? _creationRefusal;
+    private bool _accepted;
     private SessionMode _mode = SessionMode.Starting;
     private double _simulationSeconds;
     private ulong _admittedSteps;
     private ulong _updates;
     private ulong? _accountedThroughStep;
+    private SessionWorld? _liveWorld;
+    private PartyEntity? _party;
     private WorldSnapshot _world = WorldSnapshot.Empty;
     private bool _started;
     private bool _enginePaused;
@@ -43,7 +57,11 @@ public sealed class PartyRpgSession : IGameSession
     /// <summary>Creates a session for a compiled ruleset over the mechanisms the kit supplies.</summary>
     /// <param name="composition">The identity the session presents.</param>
     /// <param name="projection">Where it publishes its presentation.</param>
-    /// <param name="world">The live world it steps, when content supplied one.</param>
+    /// <param name="world">
+    /// The live world it steps, when content supplied one and the session holds the party that walks in it.
+    /// A session that creates its party is composed without one: its world is composed when the party is
+    /// accepted, so the accounts a journey charges are the created party's own.
+    /// </param>
     /// <param name="movementInput">
     /// What reads the player's movement controls out of each admitted update, when the ruleset composed
     /// movement and declared where its intents arrive. Without one the session never asks the world to
@@ -70,6 +88,19 @@ public sealed class PartyRpgSession : IGameSession
     /// it simply cannot save, and asking it to says so rather than writing nowhere.
     /// </param>
     /// <param name="saveSlot">The slot this session saves under, when the product names one.</param>
+    /// <param name="creationInput">
+    /// What reads the creation commands out of each admitted update, when the session is creating a party.
+    /// A session that creates without one has no way for a player to choose anything, which is refused
+    /// below rather than composed as a screen nobody can drive.
+    /// </param>
+    /// <param name="creation">
+    /// The creation this session holds while a party is being made, when its ruleset offers one. It owns
+    /// the flow, the factory that builds the accepted party, and the world that party walks into.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    /// The session is composed both to create a party and to hold one, or to create one without the controls
+    /// its commands arrive on.
+    /// </exception>
     public PartyRpgSession(
         SessionComposition composition,
         IUiProjectionChannel projection,
@@ -79,18 +110,36 @@ public sealed class PartyRpgSession : IGameSession
         PartyEntity? party = null,
         IDiagnosticsService? diagnostics = null,
         ISessionSaveStore? saveStore = null,
-        string saveSlot = SessionSaveBoundary.DefaultSlot)
+        string saveSlot = SessionSaveBoundary.DefaultSlot,
+        CreationInput? creationInput = null,
+        SessionCreation? creation = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(composition.Title);
+        if (creation is not null && (world is not null || party is not null))
+        {
+            throw new ArgumentException(
+                "A session that creates its party owns no other one: the party and the world it walks in are composed when creation is accepted, so handing this session either as well would leave two of them.",
+                nameof(creation));
+        }
+
+        if (creation is not null && creationInput is null)
+        {
+            throw new ArgumentException(
+                "A session that creates its party needs the controls its commands arrive on; without them nothing could ever choose a portrait, a class, a skill, or a name.",
+                nameof(creationInput));
+        }
+
         _composition = composition;
         _projection = projection ?? throw new ArgumentNullException(nameof(projection));
         _movementInput = movementInput;
+        _creationInput = creationInput;
+        _creation = creation;
         _clock = clock;
         _party = party;
         _diagnostics = diagnostics;
         _saveStore = saveStore;
         _saves = saveStore is null ? null : new SessionSaveBoundary(saveStore, saveSlot);
-        LiveWorld = world;
+        _liveWorld = world;
         _world = world?.Snapshot ?? WorldSnapshot.Empty;
         world?.Populate();
         // A session publishes as soon as it exists: the engine expects a create-time projection, and a
@@ -107,14 +156,34 @@ public sealed class PartyRpgSession : IGameSession
     /// <summary>Admitted fixed steps accumulated while the session was running.</summary>
     public ulong AdmittedSteps => _admittedSteps;
 
-    /// <summary>The live world this session steps, or null when content supplied none.</summary>
-    public SessionWorld? LiveWorld { get; }
+    /// <summary>
+    /// The live world this session steps, or null while it is creating its party or when content supplied
+    /// no places.
+    /// </summary>
+    public SessionWorld? LiveWorld => _liveWorld;
 
     /// <summary>The session's one game clock, or null when its ruleset composed none.</summary>
     public GameClock? Clock => _clock;
 
-    /// <summary>The party the session holds, or null when content supplied nothing to create one from.</summary>
+    /// <summary>
+    /// The party the session holds, or null while it is creating one and when no content or creation
+    /// supplied one. The party a session accepted is the party it plays: nothing else is ever assigned here.
+    /// </summary>
     public PartyEntity? Party => _party;
+
+    /// <summary>The creation this session holds while a party is being made, or null once it is playing.</summary>
+    public PartyCreationFlow? Creation => _creation?.Flow;
+
+    /// <summary>
+    /// The last creation choice the flow refused, or null when creation has refused nothing or the last
+    /// choice was accepted.
+    /// </summary>
+    /// <remarks>
+    /// The refusal is kept here rather than thrown: a player who picks a portrait the game does not offer, a
+    /// skill their class may not learn, or an attribute past its ceiling gets an answer the screen can show,
+    /// and creation stays exactly where it was.
+    /// </remarks>
+    public PartyRefusal? CreationRefusal => _creationRefusal;
 
     /// <summary>
     /// The explicit save boundary this session writes and reads through, or null when it was composed
@@ -212,6 +281,20 @@ public sealed class PartyRpgSession : IGameSession
         ObjectDisposedException.ThrowIf(_disposed, this);
         SessionTick tick = SessionTick.From(update.Facts);
 
+        // Creation owns no world stepping. While a party is being made, this one admitted update drives the
+        // flow and nothing else: the movement reader is not consulted, the world is not stepped, the clock
+        // is not advanced, and no admitted interval is measured. Creation is turn-taking, not a second loop
+        // — every command it applies arrived in the input of this same update. The update that accepts the
+        // party measures nothing either, because it stepped no world: the first interval the world is
+        // credited with is the one the update after it steps.
+        if (_creation is not null)
+        {
+            DriveCreation(update.Input);
+            _updates++;
+            Publish();
+            return ProductUpdateResult.None;
+        }
+
         // Input settles before the step it governs, and both happen inside this one admitted update: the
         // intent is read from the events this update carries, the step it produces covers exactly the
         // admitted interval the same update measures, and the clock is advanced by that same interval. The
@@ -226,7 +309,7 @@ public sealed class PartyRpgSession : IGameSession
         // The world advances with the same admitted time the session measures: one clock, one update. The
         // day boundary the clock just crossed is what its places are restored against, so a crossing
         // reaches respawn here rather than through a schedule of the world's own.
-        if (LiveWorld is { } world)
+        if (_liveWorld is { } world)
         {
             if (world.AdvanceTime().Count > 0) Publish();
             else if (world.Snapshot != _world) Publish();
@@ -234,6 +317,144 @@ public sealed class PartyRpgSession : IGameSession
         }
 
         return ProductUpdateResult.None;
+    }
+
+    /// <summary>
+    /// Applies the creation commands this update carried to the flow, in the order they arrived.
+    /// </summary>
+    /// <remarks>
+    /// Every command goes through the flow's own operation and its refusal is recorded rather than thrown,
+    /// so an illegal choice is an answer the screen shows and creation stays where it was. An acceptance is
+    /// the last command this update acts on: once the party exists there is no flow left to drive, and the
+    /// commands behind it in the same update belonged to a screen that has just gone away.
+    /// </remarks>
+    private void DriveCreation(ReadOnlySpan<ProductInputEvent> input)
+    {
+        if (_creation is not { } creation || _creationInput is null) return;
+        foreach (CreationCommand command in _creationInput.Read(input))
+        {
+            if (command.Kind == CreationCommandKind.Accept)
+            {
+                Accept(creation);
+                if (_creation is null) return;
+                continue;
+            }
+
+            _creationRefusal = Apply(creation.Flow, command);
+        }
+    }
+
+    /// <summary>Makes one creation command on the flow and returns the rule it broke, when it broke one.</summary>
+    private static PartyRefusal? Apply(PartyCreationFlow flow, CreationCommand command) => command.Kind switch
+    {
+        CreationCommandKind.SelectMember => flow.SelectMember(command.Member),
+        CreationCommandKind.SelectPortrait => Missing(command, "portrait") ?? flow.SelectPortrait(new PortraitId(command.Value)),
+        CreationCommandKind.SelectClass => Missing(command, "class") ?? flow.SelectClass(new ClassId(command.Value)),
+        CreationCommandKind.SetName => flow.SetName(command.Value),
+        CreationCommandKind.RaiseAttribute => Missing(command, "attribute") ?? flow.RaiseAttribute(new AttributeId(command.Value)),
+        CreationCommandKind.LowerAttribute => Missing(command, "attribute") ?? flow.LowerAttribute(new AttributeId(command.Value)),
+        CreationCommandKind.ChooseSkill => Missing(command, "skill") ?? flow.ChooseSkill(new SkillId(command.Value)),
+        CreationCommandKind.RemoveSkill => Missing(command, "skill") ?? flow.RemoveSkill(new SkillId(command.Value)),
+        CreationCommandKind.Advance => flow.Advance(),
+        CreationCommandKind.Accept => null,
+        _ => null,
+    };
+
+    /// <summary>
+    /// Refuses a choice command that arrived without the choice it names.
+    /// </summary>
+    /// <remarks>
+    /// The alternative is dropping the command, which is the failure this kit refuses everywhere else: a
+    /// control that silently does nothing looks exactly like a control that worked and changed nothing.
+    /// </remarks>
+    private static PartyRefusal? Missing(CreationCommand command, string choice) =>
+        string.IsNullOrWhiteSpace(command.Value)
+            ? new PartyRefusal(
+                "creation-choice-missing",
+                $"A {choice} choice arrived naming no {choice}, so there was nothing to choose; a {choice} is named by the id creation offers it under.")
+            : null;
+
+    /// <summary>
+    /// Accepts the finished creation: builds the party, composes the world it walks into, and plays it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the one moment a session takes a party. The party comes from the factory the ruleset
+    /// supplied, over exactly what the flow finished, so a party created here is the same durable shape as
+    /// one restored from a save; the world comes from the ruleset too, composed over that same party,
+    /// because a road's provisions come out of the party's larder and a world built before its party would
+    /// have none to charge.
+    /// </para>
+    /// <para>
+    /// A refusal here leaves creation exactly as it was: an unfinished member is named, and a factory that
+    /// refuses what the flow produced is reported as what it is — a defect in the choices the ruleset
+    /// offered — rather than leaving a half-created party or an exception inside an admitted update.
+    /// </para>
+    /// </remarks>
+    private void Accept(SessionCreation creation)
+    {
+        if (!creation.Flow.IsComplete)
+        {
+            _creationRefusal = new PartyRefusal(
+                "creation-incomplete",
+                $"The party cannot be accepted while creation is unfinished: {Unfinished(creation.Flow)}.");
+            return;
+        }
+
+        PartyEntity? party = null;
+        SessionWorld? world = null;
+        try
+        {
+            party = creation.BuildParty(creation.Flow.ToCreation());
+            world = creation.ComposeWorld(party);
+        }
+        catch (ArgumentException error)
+        {
+            // The factory or the world refused what the flow produced. Both are released here: an accepted
+            // party that is not played would be a second party, and the session stays in creation so the
+            // player can change the choice that produced it.
+            world?.Dispose();
+            party?.Dispose();
+            _creationRefusal = new PartyRefusal(
+                "creation-refused",
+                $"The finished party was refused: {error.Message}");
+            _diagnostics?.Publish(new DiagnosticsPublishRequest(
+                DiagnosticsSeverity.Error,
+                DiagnosticsDisposition.RejectedRecoverable,
+                Source: "creation",
+                Code: "creation-refused",
+                Message: _creationRefusal.Message,
+                Correlation: string.Empty));
+            return;
+        }
+
+        _creation = null;
+        _creationRefusal = null;
+        _accepted = true;
+        _party = party;
+        _liveWorld = world;
+        _world = world?.Snapshot ?? WorldSnapshot.Empty;
+        // The place the accepted party starts in is populated here for the same reason the world's own
+        // composition does it: the party plays in a place that is already furnished, in the first update
+        // that follows rather than one late.
+        _liveWorld?.Populate();
+        // Leaving creation is a mode change like any other, so it resolves and publishes through the one
+        // path that decides what a mode means: the next admitted update steps the world the party is in.
+        ResolveMode();
+    }
+
+    /// <summary>Names every member still unfinished, which is why a party cannot be accepted yet.</summary>
+    private static string Unfinished(PartyCreationFlow flow)
+    {
+        List<string> pending = [];
+        for (int index = 0; index < flow.MemberCount; index++)
+        {
+            CreationMember member = flow.Member(index);
+            if (member.IsComplete) continue;
+            pending.Add($"member {index + 1} is at the {member.Step} step");
+        }
+
+        return pending.Count > 0 ? string.Join("; ", pending) : "no member is finished";
     }
 
     /// <summary>The interval this admitted update covers, which is zero for a session that is not running.</summary>
@@ -349,7 +570,12 @@ public sealed class PartyRpgSession : IGameSession
             ? SessionMode.Stopped
             : !_started
                 ? SessionMode.Starting
-                : _enginePaused || _held ? SessionMode.Paused : SessionMode.Running;
+                // A session with a party to make is creating it: neither an engine pause nor a player's hold
+                // takes it out of creation, because creation steps nothing that either of them would stop,
+                // and the flow must keep taking the player's choices while the world is held.
+                : _creation is not null
+                    ? SessionMode.Creating
+                    : _enginePaused || _held ? SessionMode.Paused : SessionMode.Running;
 
         if (next == _mode) return;
         _mode = next;
@@ -369,7 +595,14 @@ public sealed class PartyRpgSession : IGameSession
         _world,
         MovementSnapshot.From(LiveWorld?.Movement.Last),
         ClockSnapshot.From(_clock),
-        PartySnapshot.From(_party));
+        PartySnapshot.From(_party),
+        // While a party is being made the flow is the screen's whole subject; once one has been accepted the
+        // members shown are the party's own, read from the party rather than from the flow that described
+        // it, so the accepted state is a fact about what is being played. A session that did neither — a
+        // resumed one — publishes that it is doing neither, rather than an empty creation screen.
+        _creation is { } creation
+            ? CreationSnapshot.From(creation.Flow, _creationRefusal)
+            : _accepted ? CreationSnapshot.OfParty(_party) : CreationSnapshot.None);
 
     /// <summary>Publishes the world as it stands now, after a caller moved the party.</summary>
     public void PublishWorld()

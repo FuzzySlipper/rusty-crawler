@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.World;
 using Rusty.Engine;
@@ -32,6 +33,12 @@ namespace PartyRpg.Kit.Presentation;
 /// what content that declares neither members nor starting values gets. Defaulted, so a session without a
 /// party publishes that rather than an empty purse it invented.
 /// </param>
+/// <param name="Creation">
+/// What the session is creating, or null when it is doing neither that nor playing a party it accepted.
+/// Defaulted for the same reason the party is: a session that creates nothing publishes that rather than a
+/// screen that shows an unfinished party nobody is making, and a snapshot built without creation facts
+/// publishes the empty screen rather than a draft with no lists in it.
+/// </param>
 public readonly record struct SessionSnapshot(
     SessionComposition Composition,
     SessionMode Mode,
@@ -41,7 +48,8 @@ public readonly record struct SessionSnapshot(
     WorldSnapshot World,
     MovementSnapshot Movement = default,
     ClockSnapshot Clock = default,
-    PartySnapshot Party = default);
+    PartySnapshot Party = default,
+    CreationSnapshot? Creation = null);
 
 /// <summary>Where the party is in the world, as the panel needs it: which place, where in it, and how much of the world is known.</summary>
 /// <param name="Place">The place the party is in, empty when the session has no world.</param>
@@ -95,6 +103,9 @@ public static class SessionProjection
     /// <summary>The party object's wire name.</summary>
     public const string PartyField = "party";
 
+    /// <summary>The creation object's wire name.</summary>
+    public const string CreationField = "creation";
+
     /// <summary>Builds the projection value for a snapshot.</summary>
     public static UiValue Build(SessionSnapshot snapshot)
     {
@@ -146,8 +157,103 @@ public static class SessionProjection
                 ("blocked", builder.String(WireName(snapshot.Movement.Blocked))),
                 ("stepRise", builder.Number(snapshot.Movement.StepRise)),
                 ("fallDistance", builder.Number(snapshot.Movement.FallDistance)),
-                ("fallDamage", builder.Number(snapshot.Movement.FallDamage)))));
+                ("fallDamage", builder.Number(snapshot.Movement.FallDamage)))),
+            // The creation screen is published in every mode for the same reason: "not creating" and
+            // "creating a party nobody has finished" are different facts, and a block that only appeared
+            // while the flow was live would leave a screen unable to tell them apart.
+            (CreationField, Creation(builder, snapshot.Creation ?? CreationSnapshot.None)));
         return builder.Build(root);
+    }
+
+    /// <summary>Builds the creation block: where the flow stands, what it offers, and what it refused.</summary>
+    /// <remarks>
+    /// The lists are the flow's own options and the party's own members, sent whole so the screen decides
+    /// nothing: a screen that had to work out which skills a class offers, or which attribute a score
+    /// belongs to, would be evaluating the game's rules.
+    /// </remarks>
+    private static uint Creation(UiValueBuilder builder, CreationSnapshot creation)
+    {
+        List<uint> roster = [];
+        foreach (CreationMemberSnapshot member in creation.Roster)
+        {
+            roster.Add(builder.Object(
+                ("index", builder.Number(member.Index)),
+                ("step", builder.String(member.Step)),
+                ("name", builder.String(member.Name)),
+                ("race", builder.String(member.Race)),
+                ("class", builder.String(member.Class)),
+                ("portrait", builder.String(member.Portrait)),
+                ("pool", builder.Number(member.PoolRemaining))));
+        }
+
+        List<uint> portraits = [];
+        foreach (CreationPortraitSnapshot portrait in creation.Portraits)
+        {
+            portraits.Add(builder.Object(
+                ("id", builder.String(portrait.Id)),
+                ("name", builder.String(portrait.Name)),
+                ("race", builder.String(portrait.Race)),
+                ("selected", builder.Boolean(portrait.Selected))));
+        }
+
+        List<uint> classes = [];
+        foreach (CreationClassSnapshot option in creation.Classes)
+        {
+            classes.Add(builder.Object(
+                ("id", builder.String(option.Id)),
+                ("name", builder.String(option.Name)),
+                ("selected", builder.Boolean(option.Selected))));
+        }
+
+        List<uint> skills = [];
+        foreach (CreationSkillSnapshot skill in creation.Skills)
+        {
+            skills.Add(builder.Object(
+                ("id", builder.String(skill.Id)),
+                ("name", builder.String(skill.Name)),
+                ("state", builder.String(skill.State))));
+        }
+
+        List<uint> attributes = [];
+        foreach (CreationAttributeSnapshot attribute in creation.Attributes)
+        {
+            attributes.Add(builder.Object(
+                ("id", builder.String(attribute.Id)),
+                ("name", builder.String(attribute.Name)),
+                ("value", builder.Number(attribute.Value)),
+                ("minimum", builder.Number(attribute.Minimum)),
+                ("maximum", builder.Number(attribute.Maximum)),
+                ("canRaise", builder.Boolean(attribute.CanRaise)),
+                ("canLower", builder.Boolean(attribute.CanLower))));
+        }
+
+        List<uint> party = [];
+        foreach (CreationPartyMemberSnapshot member in creation.Party)
+        {
+            party.Add(builder.Object(
+                ("index", builder.Number(member.Index)),
+                ("name", builder.String(member.Name)),
+                ("race", builder.String(member.Race)),
+                ("class", builder.String(member.Class)),
+                ("portrait", builder.String(member.Portrait))));
+        }
+
+        return builder.Object(
+            ("active", builder.Boolean(creation.Active)),
+            ("accepted", builder.Boolean(creation.Accepted)),
+            ("hasDefault", builder.Boolean(creation.HasDefault)),
+            ("member", builder.Number(creation.MemberIndex)),
+            ("members", builder.Number(creation.MemberCount)),
+            ("step", builder.String(creation.Step)),
+            ("pool", builder.Number(creation.PoolRemaining)),
+            ("refusalCode", builder.String(creation.RefusalCode)),
+            ("refusalMessage", builder.String(creation.RefusalMessage)),
+            ("roster", builder.Array([.. roster])),
+            ("portraits", builder.Array([.. portraits])),
+            ("classes", builder.Array([.. classes])),
+            ("skills", builder.Array([.. skills])),
+            ("attributes", builder.Array([.. attributes])),
+            ("party", builder.Array([.. party])));
     }
 
     /// <summary>
@@ -197,9 +303,22 @@ public static class SessionProjection
     public static string WireName(SessionMode mode) => mode switch
     {
         SessionMode.Starting => "starting",
+        SessionMode.Creating => "creating",
         SessionMode.Running => "running",
         SessionMode.Paused => "paused",
         SessionMode.Stopped => "stopped",
         _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown session mode."),
+    };
+
+    /// <summary>The wire name for a creation step.</summary>
+    public static string WireName(CreationStep step) => step switch
+    {
+        CreationStep.Portrait => "portrait",
+        CreationStep.Class => "class",
+        CreationStep.Name => "name",
+        CreationStep.Attributes => "attributes",
+        CreationStep.Skills => "skills",
+        CreationStep.Complete => "complete",
+        _ => throw new ArgumentOutOfRangeException(nameof(step), step, "Unknown creation step."),
     };
 }

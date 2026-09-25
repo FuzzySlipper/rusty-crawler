@@ -36,7 +36,8 @@ world and movement policy (`MightAndMagic7World`, `MightAndMagic7Movement` — t
 speed, cited from the donor, and the engine's own controller tuning scaled to that body), the one clock
 (`MightAndMagic7Time` — the authored calendar, the donor's starting moment, its thirty-to-one rate, and
 the hours it calls daylight), the party its content declares as scenario state (`MightAndMagic7Party`,
-through the same factory creation hands a party to, never a party of its own invention), the larder's
+through the same factory creation hands a party to, never a party of its own invention, and what a host
+that declared no creation screen plays), the larder's
 policy (`MightAndMagic7Provisions` — one ration a day, and the weak condition a larder left short puts
 on every member), and what a crossing costs (`MightAndMagic7TravelCostRule` — a day on the road and the
 rations it eats, with paid and magical travel refused by name until the services that sell a fare and
@@ -46,7 +47,10 @@ and the nine base classes with the two skills each fixes, the nine it offers, an
 points it starts with, over a pool of fifty points and two chosen skills per character;
 `MightAndMagic7CreationTables` records which of those values the shipped data carries and
 which are ours, with the manual citation and the donor transcription each authored value rests on; and
-`MightAndMagic7Creation.Defaults` is the default party the flow applies through its own validation. The
+`MightAndMagic7Creation.Defaults` is the default party the flow applies through its own validation, and a
+host that declares a creation screen gets that flow as the session's creation mode — the party a player
+accepts is built through the same factory and the world is composed over it — so a new game is created
+while a host without a creation screen plays the party its scenario fixes. The
 class and skill definitions the choices name are checked against the loaded content, which refuses a
 catalog that contradicts them. This game's save meaning is landed with them: `MightAndMagic7Persistence`
 states the storage scope a session's saves live in under the host's persistence root, the engine-backed

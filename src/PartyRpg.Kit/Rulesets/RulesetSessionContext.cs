@@ -27,10 +27,17 @@ namespace PartyRpg.Kit.Rulesets;
 /// the host owns; what a rate a held turn control turns at is worth belongs to the ruleset's tuning, so
 /// the host states which intents carry the controls and the ruleset composes the reader over them.
 /// </param>
+/// <param name="Creation">
+/// The creation controls the host declares, when it declares any, stated for the same reason and in the
+/// same shape as the movement controls: which intents carry a confirmation and an acceptance, and which
+/// payload contract a screen's choices arrive on. The ruleset composes the reader over those names and
+/// this game's own flow.
+/// </param>
 public sealed record RulesetSessionContext(
     IUiProjectionChannel Projection,
     BundleSelection Selection = default,
     ContentCatalog? Content = null,
     IWorldTimeSource? Time = null,
     IEngineContext? Engine = null,
-    MovementIntentNames? Movement = null);
+    MovementIntentNames? Movement = null,
+    CreationIntentNames? Creation = null);

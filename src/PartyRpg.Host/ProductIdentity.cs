@@ -54,4 +54,10 @@ internal static class ProductIdentity
 
     /// <summary>The digital intent that jumps the party.</summary>
     internal const string JumpIntent = "party.jump";
+
+    /// <summary>The digital intent that confirms the creation step being worked on.</summary>
+    internal const string CreationAdvanceIntent = "creation.advance";
+
+    /// <summary>The digital intent that accepts the finished party and leaves creation for the world.</summary>
+    internal const string CreationAcceptIntent = "creation.accept";
 }

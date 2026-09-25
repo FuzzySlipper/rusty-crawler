@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.World;
 using PartyRpg.Rulesets.MightAndMagic7;
 using Rusty.Engine;
@@ -156,13 +157,15 @@ public sealed class TravelPolicyTests
     }
 
     [Fact]
-    public void The_product_publishes_the_clock_it_composed_and_the_party_its_scenario_declares()
+    public void A_host_without_a_creation_screen_publishes_the_clock_and_the_party_its_scenario_declares()
     {
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(World(PartyDocument(food: 6)));
 
-        using CrawlerProduct product = new(context);
-        product.Start();
-        product.Attach();
+        // A host that declared no creation controls plays the party its scenario fixes — the scripted path.
+        // The product itself declares them, so a new product game is created; this is the composition a live
+        // check, a test, or a product without creation takes, and it is what exercises the scenario's party.
+        using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(ProductTestContext.RulesetContext(context, ui));
+        session.Start();
 
         ProjectedNode published = ProjectedNode.Of(ui.Latest().Value);
         ProjectedNode clock = published.Field("clock");
@@ -184,18 +187,17 @@ public sealed class TravelPolicyTests
 
         // The one admitted update moves the clock: ten admitted seconds are five game minutes at this
         // game's thirty-to-one rate, so the panel's time is the clock's rather than a value kept here.
-        product.Update(ProductTestContext.Update(simulationStep: 0, admittedSteps: 600));
+        session.Update(ProductTestContext.Update(simulationStep: 0, admittedSteps: 600));
         Assert.Equal("09:05", ProjectedNode.Of(ui.Latest().Value).Field("clock").Field("time").AsString());
     }
 
     [Fact]
-    public void The_product_runs_without_a_party_when_content_declares_none_but_keeps_the_clock()
+    public void A_host_without_a_creation_screen_runs_without_a_party_when_content_declares_none_but_keeps_the_clock()
     {
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(World());
 
-        using CrawlerProduct product = new(context);
-        product.Start();
-        product.Attach();
+        using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(ProductTestContext.RulesetContext(context, ui));
+        session.Start();
 
         ProjectedNode published = ProjectedNode.Of(ui.Latest().Value);
 
@@ -211,13 +213,15 @@ public sealed class TravelPolicyTests
     }
 
     [Fact]
-    public void A_scenario_whose_party_cannot_be_created_stops_the_product_by_name()
+    public void A_scenario_whose_party_cannot_be_created_stops_a_host_that_plays_it_by_name()
     {
-        (ProductCreateContext context, _) = ProductTestContext.Create(World(PartyDocument(food: 6, members: 0)));
+        (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(World(PartyDocument(food: 6, members: 0)));
 
-        // A party that cannot be built is a defect of the scenario, and the product refuses to start on it
-        // rather than leading a band that quietly lost a member.
-        ContentValidationException error = Assert.Throws<ContentValidationException>(() => new CrawlerProduct(context));
+        // A party that cannot be built is a defect of the scenario, and a host that plays that party refuses
+        // to compose the session rather than leading a band that quietly lost a member. A creating product
+        // never reads this document: its party comes from the player, not from the scenario.
+        ContentValidationException error = Assert.Throws<ContentValidationException>(
+            () => MightAndMagic7Ruleset.Instance.CreateSession(ProductTestContext.RulesetContext(context, ui)));
         Assert.Contains(error.Issues, issue => issue.Code == "party-members-missing");
     }
 

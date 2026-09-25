@@ -56,4 +56,18 @@ internal readonly struct ProjectedNode(UiValue value, uint index)
             throw new InvalidOperationException($"Projection node is {node.Kind}, not a boolean.");
         return node.BoolValue != 0;
     }
+
+    /// <summary>Returns one element of an array node, in the order the projection wrote it.</summary>
+    internal ProjectedNode Element(int position)
+    {
+        StructuredValueNode node = value.Nodes.Span[(int)index];
+        if (node.Kind != StructuredValueKind.Array)
+            throw new InvalidOperationException($"Projection node is {node.Kind}, not an array.");
+        if (position < 0 || position >= node.ChildCount)
+            throw new ArgumentOutOfRangeException(nameof(position), position, $"The projected array holds {node.ChildCount} elements.");
+        return new ProjectedNode(value, value.Edges.Span[(int)node.FirstEdge + position]);
+    }
+
+    /// <summary>How many elements an array node holds, or how many fields an object node carries.</summary>
+    internal int Count() => (int)value.Nodes.Span[(int)index].ChildCount;
 }

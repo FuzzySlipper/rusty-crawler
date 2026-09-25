@@ -67,6 +67,68 @@ function party(overrides = {}) {
   };
 }
 
+/**
+ * The creation block as the product publishes it while a party is being made: the flow's own options and
+ * the member's own answers, so every choice below arrived in the projection.
+ */
+function creation(overrides = {}) {
+  return {
+    active: true,
+    accepted: false,
+    hasDefault: true,
+    member: 0,
+    members: 2,
+    step: 'portrait',
+    pool: 50,
+    refusalCode: '',
+    refusalMessage: '',
+    roster: [
+      { index: 0, step: 'portrait', name: '', race: '', class: '', portrait: '', pool: 50 },
+      { index: 1, step: 'complete', name: 'Aelina', race: 'Elf', class: 'Sorcerer', portrait: 'elf-woman', pool: 0 },
+    ],
+    portraits: [
+      { id: 'human-woman', name: 'Human woman', race: 'Human', selected: false },
+      { id: 'elf-woman', name: 'Elf woman', race: 'Elf', selected: true },
+    ],
+    classes: [
+      { id: 'Knight', name: 'Knight', selected: false },
+      { id: 'Sorcerer', name: 'Sorcerer', selected: false },
+    ],
+    skills: [
+      { id: 'Staff', name: 'Staff', state: 'fixed' },
+      { id: 'Air', name: 'Air', state: 'chosen' },
+      { id: 'Water', name: 'Water', state: 'available' },
+    ],
+    attributes: [
+      { id: 'Might', name: 'Might', value: 11, minimum: 9, maximum: 25, canRaise: true, canLower: true },
+      { id: 'Intellect', name: 'Intellect', value: 14, minimum: 12, maximum: 30, canRaise: true, canLower: true },
+    ],
+    party: [],
+    ...overrides,
+  };
+}
+
+/** The creation block of a session that accepted a party and is playing it. */
+function acceptedParty(overrides = {}) {
+  return creation({
+    active: false,
+    accepted: true,
+    step: '',
+    pool: 0,
+    member: 0,
+    roster: [],
+    portraits: [],
+    classes: [],
+    skills: [],
+    attributes: [],
+    party: [
+      { index: 0, name: 'Roderick', race: 'Human', class: 'Knight', portrait: 'human-man' },
+      { index: 1, name: 'Nyx', race: 'Goblin', class: 'Thief', portrait: 'goblin-woman' },
+    ],
+    ...overrides,
+  });
+}
+
 function snapshot(mode, seconds = 0, steps = 0, updates = 0, facts = undefined, blocks = undefined) {
   const value = {
     composition: {
@@ -84,6 +146,9 @@ function snapshot(mode, seconds = 0, steps = 0, updates = 0, facts = undefined, 
   if (facts !== undefined) value.movement = facts;
   if (blocks?.clock !== undefined) value.clock = blocks.clock;
   if (blocks?.party !== undefined) value.party = blocks.party;
+  // Creation is published in every mode, so the helper adds the block only when a case asks for one: a
+  // case that asks for none covers the projection a session that is doing neither publishes.
+  if (blocks?.creation !== undefined) value.creation = blocks.creation;
   return value;
 }
 
@@ -148,7 +213,9 @@ function harness() {
     restore,
     emit: (value, contract = CONTRACT) => listener?.({ contract, value }),
     panel: () => root.querySelector('.crawler-session'),
-    button: () => root.querySelector('.crawler-session button'),
+    // The session's own action button is a direct child of the panel: the creation screen's buttons
+    // live inside their own section, and a case that clicks 'the button' means the session's.
+    button: () => root.querySelector('.crawler-session > button'),
     get unsubscribed() {
       return unsubscribed;
     },
@@ -186,6 +253,51 @@ function rows(h, ...labels) {
   return Object.fromEntries(labels.map((label) => [label, values[terms.indexOf(label)]]));
 }
 
+/** The creation section as a person reads it: the step it is headlining, the refusal, and its buttons. */
+function creationPanel(h) {
+  const panel = h.panel();
+  const section = panel?.querySelector('.crawler-creation');
+  const buttons = [...(section?.querySelectorAll('.crawler-options button') ?? [])];
+  return {
+    state: panel?.getAttribute('data-creation'),
+    hidden: section?.hidden,
+    head: section?.querySelector('.crawler-step-head')?.textContent,
+    refusal: section?.querySelector('.crawler-refusal')?.textContent,
+    refusalCode: section?.querySelector('.crawler-refusal')?.getAttribute('data-code'),
+    members: buttons
+      .filter((button) => button.dataset.member !== undefined)
+      .map((button) => ({ text: button.textContent, index: button.dataset.member, step: button.dataset.step })),
+    options: buttons
+      .filter((button) => button.dataset.id !== undefined)
+      .map((button) => ({ id: button.dataset.id, text: button.textContent, disabled: button.disabled })),
+    attributes: [...(section?.querySelectorAll('.crawler-attribute') ?? [])].map((line) => ({
+      text: line.querySelector('span')?.textContent,
+      lower: line.querySelectorAll('button')[0]?.dataset.canLower,
+      raise: line.querySelectorAll('button')[1]?.dataset.canRaise,
+    })),
+    accepted: [...(section?.querySelectorAll('.crawler-accepted li') ?? [])].map((item) => item.textContent),
+    name: section?.querySelector('input')?.value,
+  };
+}
+
+/** Clicks the option button whose id and visible text the case names. */
+function clickOption(h, id, text = undefined) {
+  const button = [...h.panel().querySelectorAll('.crawler-options button')].find(
+    (entry) => entry.dataset.id === id && (text === undefined || entry.textContent === text),
+  );
+  assert.ok(button, `the creation screen offers no option '${id}'`);
+  button.dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
+}
+
+/** Clicks the creation button a person reads by its label, such as Confirm step or Accept party. */
+function clickFlow(h, label) {
+  const button = [...h.panel().querySelectorAll('.crawler-actions button')].find(
+    (entry) => entry.textContent === label,
+  );
+  assert.ok(button, `the creation screen offers no '${label}' button`);
+  button.dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
+}
+
 test('renders nothing until the product publishes, then renders what it published', () => {
   const h = harness();
   try {
@@ -198,7 +310,7 @@ test('renders nothing until the product publishes, then renders what it publishe
       title: '',
       button: 'Starting…',
       disabled: true,
-      values: Array(20).fill('—'),
+      values: Array(23).fill('—'),
       place: '',
     });
 
@@ -214,6 +326,7 @@ test('renders nothing until the product publishes, then renders what it publishe
         'running', '12.3 s', '740', '741', '2',
         '—', '—', '—', '—', '—', '—', '—', '—',
         '1', '1234, 5678, 0 @ 512', '1 / 76', 'grounded', '—', '—', '—',
+        '—', '—', '—',
       ],
       place: 'Emerald Island · region',
     });
@@ -317,6 +430,7 @@ test('the companion holds no state and starts no timer', () => {
       'running', '3.0 s', '180', '182', '2',
       '—', '—', '—', '—', '—', '—', '—', '—',
       '1', '1234, 5678, 0 @ 512', '1 / 76', '—', '—', '—', '—',
+      '—', '—', '—',
     ]);
     assert.equal(h.root.querySelectorAll('.crawler-session').length, 1);
 
@@ -471,6 +585,183 @@ test('a projection without a clock or a party shows that it does not know, and s
     assert.equal(rows(h, 'Date').Date, '—');
     assert.equal(rows(h, 'Coins').Coins, '—');
     assert.equal(rows(h, 'Motion').Motion, 'grounded');
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the panel renders the creation steps and the choices the product published', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    h.emit(snapshot('creating', 0, 0, 7, movement({ motion: 'none' }), { creation: creation() }));
+
+    // The session's own rows say which member is being made, where it stands, and what the pool holds.
+    assert.deepEqual(rows(h, 'Session', 'Member', 'Creation step', 'Pool'), {
+      Session: 'creating',
+      Member: '1 / 2',
+      'Creation step': 'portrait',
+      Pool: '50',
+    });
+    assert.equal(h.panel().getAttribute('data-creation'), 'active');
+    assert.equal(readPanel(h).button, 'Creating a party…');
+    assert.equal(readPanel(h).disabled, true);
+
+    const shown = creationPanel(h);
+    assert.equal(shown.hidden, false);
+    assert.match(shown.head, /Creating member 1 of 2 · portrait/);
+    // A flow whose members are all finished says so, which is the reading a player accepting the default
+    // party needs: there is nothing left to choose, and every member can still be reopened.
+    assert.equal(shown.head.includes('accept the party'), false);
+    // The members are read from the flow's own roster, step included, so a finished member and one still
+    // at its portrait are two different readings.
+    assert.deepEqual(shown.members, [
+      { text: '1. unnamed · no class · portrait', index: '0', step: 'portrait' },
+      { text: '2. Aelina · Sorcerer · complete', index: '1', step: 'complete' },
+    ]);
+    // Every choice the projection listed is offered; a fixed skill is shown as fixed and cannot be chosen.
+    assert.deepEqual(shown.options, [
+      { id: 'human-woman', text: 'Human woman', disabled: false },
+      { id: 'elf-woman', text: 'Elf woman', disabled: false },
+      { id: 'Knight', text: 'Knight', disabled: false },
+      { id: 'Sorcerer', text: 'Sorcerer', disabled: false },
+      { id: 'Staff', text: 'Staff (fixed)', disabled: true },
+      { id: 'Air', text: 'Air', disabled: false },
+      { id: 'Water', text: 'Water', disabled: false },
+    ]);
+    // The attributes carry the race's own bounds and what the pool may do to each, and the panel decides
+    // none of it: the two flags arrived in the projection.
+    assert.deepEqual(shown.attributes, [
+      { text: 'Might 11 (9–25)', lower: 'true', raise: 'true' },
+      { text: 'Intellect 14 (12–30)', lower: 'true', raise: 'true' },
+    ]);
+    assert.equal(shown.refusal, '');
+    assert.equal(shown.hidden, false);
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('every creation control asks for the choice it was shown', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+    h.emit(snapshot('creating', 0, 0, 7, movement({ motion: 'none' }), { creation: creation() }));
+
+    clickOption(h, 'elf-woman');
+    clickOption(h, 'Knight');
+    clickOption(h, 'Water');
+    clickOption(h, 'Air');
+    // A member button moves creation onto that member without the screen deciding anything about it.
+    const member = h.panel().querySelector('.crawler-options button[data-member="1"]');
+    member.dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
+    // The two attribute moves are reported by id, one action each.
+    const attribute = h.panel().querySelectorAll('.crawler-attribute')[0];
+    attribute.querySelectorAll('button')[1].dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
+    attribute.querySelectorAll('button')[0].dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
+    // The name is sent as the player typed it, and confirmed and accepted through the two flow controls.
+    const input = h.panel().querySelector('.crawler-name input');
+    input.value = 'Roderick';
+    h.panel().querySelector('.crawler-name button').dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
+    clickFlow(h, 'Confirm step');
+    clickFlow(h, 'Accept party');
+
+    assert.deepEqual(h.claims, [
+      { intent: ACTION_INTENT, value: { kind: 'product-payload', contract: ACTION_CONTRACT, data: { action: 'creation.select-portrait', portrait: 'elf-woman' } } },
+      { intent: ACTION_INTENT, value: { kind: 'product-payload', contract: ACTION_CONTRACT, data: { action: 'creation.select-class', class: 'Knight' } } },
+      { intent: ACTION_INTENT, value: { kind: 'product-payload', contract: ACTION_CONTRACT, data: { action: 'creation.choose-skill', skill: 'Water' } } },
+      { intent: ACTION_INTENT, value: { kind: 'product-payload', contract: ACTION_CONTRACT, data: { action: 'creation.remove-skill', skill: 'Air' } } },
+      { intent: ACTION_INTENT, value: { kind: 'product-payload', contract: ACTION_CONTRACT, data: { action: 'creation.select-member', member: 1 } } },
+      { intent: ACTION_INTENT, value: { kind: 'product-payload', contract: ACTION_CONTRACT, data: { action: 'creation.raise-attribute', attribute: 'Might' } } },
+      { intent: ACTION_INTENT, value: { kind: 'product-payload', contract: ACTION_CONTRACT, data: { action: 'creation.lower-attribute', attribute: 'Might' } } },
+      { intent: ACTION_INTENT, value: { kind: 'product-payload', contract: ACTION_CONTRACT, data: { action: 'creation.set-name', name: 'Roderick' } } },
+      { intent: ACTION_INTENT, value: { kind: 'product-payload', contract: ACTION_CONTRACT, data: { action: 'creation.advance' } } },
+      { intent: ACTION_INTENT, value: { kind: 'product-payload', contract: ACTION_CONTRACT, data: { action: 'creation.accept' } } },
+    ]);
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the panel shows the rule a refused creation choice broke', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // An illegal choice is the flow's answer, published as the code a caller branches on and the message a
+    // person reads. The panel shows both and changes nothing else about the screen.
+    h.emit(snapshot('creating', 0, 0, 8, movement({ motion: 'none' }), {
+      creation: creation({
+        step: 'attributes',
+        pool: 0,
+        refusalCode: 'attribute-ceiling',
+        refusalMessage: 'Might is already 25 and creation raises it at most to 25 for this race.',
+      }),
+    }));
+
+    const shown = creationPanel(h);
+    assert.equal(shown.refusalCode, 'attribute-ceiling');
+    assert.equal(shown.refusal, 'Might is already 25 and creation raises it at most to 25 for this race.');
+    assert.deepEqual(rows(h, 'Creation step'), { 'Creation step': 'attributes' });
+    // The choices are still the ones the projection carried: a refusal is not a reason to take the screen
+    // away, because the player changes the choice that was refused next.
+    assert.ok(shown.options.length > 0);
+
+    // A projection whose refusal is empty shows none, which is a different reading from a refusal whose
+    // message this companion cannot read.
+    h.emit(snapshot('creating', 0, 0, 9, movement({ motion: 'none' }), {
+      creation: creation({ refusalCode: '', refusalMessage: '' }),
+    }));
+    assert.equal(creationPanel(h).refusal, '');
+    assert.equal(h.panel().querySelector('.crawler-refusal').hidden, true);
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the panel shows the party a session accepted once it is playing it', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // The accepted state: the members are the party's own, read from the party the session plays, and the
+    // creation choices are gone because there is no draft left to choose from.
+    h.emit(snapshot('running', 1, 60, 60, movement(), {
+      clock: clock(),
+      party: party({ members: 2 }),
+      creation: acceptedParty(),
+    }));
+
+    const shown = creationPanel(h);
+    assert.equal(h.panel().getAttribute('data-creation'), 'accepted');
+    assert.equal(shown.accepted.length, 2);
+    assert.match(shown.accepted[0], /Roderick · Human · Knight · human-man/);
+    assert.match(shown.accepted[1], /Nyx · Goblin · Thief · goblin-woman/);
+    assert.deepEqual(shown.options, []);
+    assert.deepEqual(shown.members, []);
+    assert.equal(shown.head, 'Party accepted');
+    assert.deepEqual(rows(h, 'Session', 'Party', 'Member', 'Pool'), {
+      Session: 'running',
+      Party: '2',
+      Member: '1 / 2',
+      Pool: '—',
+    });
+
+    // A session that is doing neither — a resumed one — publishes the empty creation block, and the screen
+    // shows no creation section at all rather than a party nobody is making.
+    h.emit(snapshot('running', 2, 120, 121, movement(), { party: party() }));
+    assert.equal(h.panel().getAttribute('data-creation'), 'none');
+    assert.equal(creationPanel(h).hidden, true);
+    assert.equal(rows(h, 'Member', 'Creation step', 'Pool').Member, '—');
 
     ui.dispose();
   } finally {

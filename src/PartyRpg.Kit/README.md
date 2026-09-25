@@ -71,8 +71,11 @@ and offers — taken one step at a time with `CreationMember` as the answer to e
 choice where it is made with the rule it broke, spending the pool exactly and choosing the promised number
 of skills before a step is confirmed, applying a ruleset's `PartyCreationDefaults` through those same
 steps rather than beside them, and handing `ToCreation` to `PartyEntityFactory` without minting an
-identity), the structured UI value builder, the
-Engine-backed projection channel and the session projection, the admitted-input router that turns
+identity — held as the session's creation mode (`SessionMode.Creating` with `SessionCreation` and the
+commands `CreationInput` reads), in which the one admitted update does nothing but drive the flow and
+the world, movement, and the clock are untouched, and published to the screen as `CreationSnapshot`:
+where the flow stands, every choice it offers, and the rule the last illegal choice broke), the
+structured UI value builder, the Engine-backed projection channel and the session projection, the admitted-input router that turns
 engine events into session commands, the population owner that fills a place from its placements and
 empties it on leaving, the Engine-backed movement owner with its vertical and surface policy, the reaches that let a party walk
 into a transition, and the movement facts the panel reports, and time (`GameClock` over a validated

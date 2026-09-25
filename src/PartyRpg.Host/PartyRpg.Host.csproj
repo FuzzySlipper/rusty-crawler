@@ -53,6 +53,15 @@
     <!-- The engine names the space bar `space`; `key-space` is refused at load, and the product refuses to
          start on an unsupported mapping rather than starting with a control that does nothing. -->
     <RustyEngineProductInputMapping Include="party.jump.key-space" Intent="party.jump" Trigger="key:space:pressed" />
+    <!-- The creation screen's two value-free controls: a keyboard can confirm the step being made and
+         accept the finished party, while every choice that names a portrait, a class, a skill, an
+         attribute, a member, or a name arrives as a payload action on the `crawler.ui` channel below.
+         Both are read only while the session is creating a party; during play the same keys keep their
+         movement meanings, and neither control is consulted. -->
+    <RustyEngineProductInputIntent Include="creation.advance" Value="digital" />
+    <RustyEngineProductInputMapping Include="creation.advance.key-enter" Intent="creation.advance" Trigger="key:enter:pressed" />
+    <RustyEngineProductInputIntent Include="creation.accept" Value="digital" />
+    <RustyEngineProductInputMapping Include="creation.accept.key-space" Intent="creation.accept" Trigger="key:space:pressed" />
     <RustyEngineProductInputIntent Include="crawler.ui" Value="payload:crawler.ui.action.v1" />
   </ItemGroup>
 
