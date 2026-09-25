@@ -1,8 +1,9 @@
 # Code organization: how the repository expresses the game
 
-Status: **design intent. No project exists yet.** This document fixes where
-things belong so that the first implementation tasks do not have to invent the
-seams. It describes owners and boundaries, not APIs.
+Status: **the owner map the code is built to.** It fixes where things belong, so a
+task does not have to invent the seams; it describes owners and boundaries, not
+APIs. What has actually landed, and what has not, lives in
+[`../AGENTS.md`](../AGENTS.md) under "Current state" rather than here.
 
 Read it with [`gameplay-design.md`](gameplay-design.md), which defines the shape
 being expressed, and [`../AGENTS.md`](../AGENTS.md), which owns the vocabulary,
