@@ -40,7 +40,12 @@ catalog loader, validator and bundle resolution, the world (`PlaceGraph`, `Place
 `PlaceStateLedger`, `TransitionExecutive` with its required cost contract, and the entrances a walking
 party takes — `PlaceEntrance` with its loader, consulted inside the movement step so a step that carries
 the party into an entrance's reach travels through that one transition path), the party's pose and
-derived view (`PartyPoseOwner`, `FacingRule`, `PartyView`), the structured UI value builder, the
+derived view (`PartyPoseOwner`, `FacingRule`, `PartyView`), the party entity and its attached components
+(`PartyEntity` over the engine's own entity store, with `PartyRoster` and `PartyMember`, the one shared
+`PartyInventory` of `ItemInstance`s beside each member's `CharacterEquipment`, `PartyPurse`, `PartyFood`,
+`PartyReputation`, `PartyFollowers`, `PartyEffects`, the minting of durable identities in
+`PartyIdentitySource`, and `PartyEntityFactory`, which builds a party from creation or from a `PartySave`
+and never lets a wrapped party grow a component), the structured UI value builder, the
 Engine-backed projection channel and the session projection, the admitted-input router that turns
 engine events into session commands, the population owner that fills a place from its placements and
 empties it on leaving, the Engine-backed movement owner with its vertical and surface policy, the reaches that let a party walk
