@@ -88,7 +88,7 @@ internal static class MightAndMagic7World
         PartyResourceLedger? resources,
         PartyEntity? entity = null,
         SessionSave? resume = null,
-        IServiceRule? services = null)
+        MightAndMagic7Services? services = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(clock);
@@ -149,7 +149,11 @@ internal static class MightAndMagic7World
             graph,
             party,
             places,
-            new MightAndMagic7TravelCostRule(),
+
+            // The cost rule is composed over the party itself, because a fare is the party's own passage:
+            // the counter that sells one writes it on the party and the road that honours it reads and
+            // tears the same state, so a seat bought in one town cannot be spent in another's name.
+            new MightAndMagic7TravelCostRule(entity),
             clock,
             Mover(party, context),
             context.Engine?.Diagnostics,
@@ -170,7 +174,7 @@ internal static class MightAndMagic7World
     /// to talk to, and everything else is answered exactly as it was. The doors-and-fixtures answers carry
     /// this game's schedule, which is what locks a door outside the hours its place keeps.
     /// </remarks>
-    private static IInteractionRule Interaction(IServiceRule? services, PlaceSchedule schedule) =>
+    private static IInteractionRule Interaction(MightAndMagic7Services? services, PlaceSchedule schedule) =>
         services is null
             ? new MightAndMagic7Interaction(schedule)
             : new MightAndMagic7ServiceInteraction(services, new MightAndMagic7Interaction(schedule));
