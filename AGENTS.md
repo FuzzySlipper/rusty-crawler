@@ -72,9 +72,8 @@ documents decide, and the difference is recorded rather than silently rounded.
 
 ## Current state
 
-**Foundation stone 4 is in progress: the party, its resources, the clock and calendar, character
-creation, what a crossing costs, and persistence have landed; two ways of reaching landed work from the
-product have not.**
+**Foundation stone 4 has landed: the party, its resources, the clock and calendar, character creation,
+what a crossing costs, persistence, and the ways a player reaches creation and saving.**
 
 - `src/PartyRpg.Kit`, `src/PartyRpg.Rulesets.MightAndMagic7`, and `src/PartyRpg.Host` build against
   the pinned Engine pair. The host declares the one product entry, one admitted update, the
@@ -132,9 +131,14 @@ product have not.**
   when a step is confirmed; the ruleset supplies four races, eight portraits, nine base classes, a
   fifty-point pool, and four starting skills per character (two the class fixes, two the player
   chooses), and its default party is applied through those same operations. The nine classes across
-  four races are swept as whole parties. **No session mode reaches creation yet**: a session's party
-  comes from a scenario document, and the mode that holds creation while a party is chosen is a task of
-  its own.
+  four races are swept as whole parties. A session has a **creation mode**: while it holds, the one
+  admitted update drives the flow and nothing else — no movement is read, no world is stepped, no time
+  passes — and every choice arrives as a declared action that returns the rule it broke instead of
+  throwing. Accepting builds the party through the same factory the scenario path uses and composes the
+  world over it, so the party's own larder pays for its first crossing. A host that declares no creation
+  controls still plays the scenario's fixed party; **no scenario can ask for that choice itself yet**,
+  which is a residue with its own receiver. All of it was played: a party was created in the running
+  product, refused out of order and out of range by name, accepted, and then walked.
 - One clock and calendar own time. `GameClock` over a validated `GameCalendar` is the only thing that
   advances game time; `Advance` reports the hour, day, week, month, and year boundaries it crossed and
   the deadlines it brought due, each once, and the world reads its day count from that same clock, so
@@ -185,8 +189,8 @@ product have not.**
   saved, and a restarted host resumed that same party, place, clock, and per-place state at the saved
   pose (`local/verify/save-resume/`).
 - **No combat, magic, services, or quests exists.** Do not describe, review, or accept
-  behavior those stones will add as though it were here. What a player can do today is hold and
-  release the session and walk it: on the agent playtest service's remote browser a held `W` walks the
+  behavior those stones will add as though it were here. What a player can do today is create a party,
+  hold and release the session, walk it, and save or resume it: on the agent playtest service's remote browser a held `W` walks the
   party about 382 units a second and the released key
   stops it where it stands (Emerald Island, `12552, 800, 193` to `12552, 3859, 98` over eight seconds
   of held key, the pose then unchanged for the next seventy seconds while the admitted steps kept
