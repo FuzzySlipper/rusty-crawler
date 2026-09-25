@@ -54,6 +54,15 @@ internal readonly struct ProjectedNode(UiValue value, uint index)
         return Encoding.UTF8.GetString(value.Utf8.Span.Slice((int)node.TextOffset, (int)node.TextLen));
     }
 
+    /// <summary>Reads a boolean node.</summary>
+    public bool AsBoolean()
+    {
+        StructuredValueNode node = value.Nodes.Span[(int)index];
+        if (node.Kind != StructuredValueKind.Bool)
+            throw new InvalidOperationException($"Projection node is {node.Kind}, not a boolean.");
+        return node.BoolValue != 0;
+    }
+
     /// <summary>Reads a numeric node.</summary>
     public double AsNumber()
     {

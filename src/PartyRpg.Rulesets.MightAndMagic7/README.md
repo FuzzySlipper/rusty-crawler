@@ -41,7 +41,10 @@ that declared no creation screen plays), the larder's
 policy (`MightAndMagic7Provisions` — one ration a day, and the weak condition a larder left short puts
 on every member), and what a crossing costs (`MightAndMagic7TravelCostRule` — a day on the road and the
 rations it eats, with paid and magical travel refused by name until the services that sell a fare and
-the magic that opens a portal exist). Party creation's game definitions are landed too:
+the magic that opens a portal exist), and what using something means here (`MightAndMagic7Interaction` —
+a door from the delta's own stored state with the donor's interaction range, a decoration that raises an
+event as a fixture whose use names the event nothing executes yet, a `requires` array on a placement as
+this game's locks, and a refusal that says what it needs). Party creation's game definitions are landed too:
 `MightAndMagic7Creation.Options` offers the four races with their attribute ranges, the eight portraits,
 and the nine base classes with the two skills each fixes, the nine it offers, and the hit and spell
 points it starts with, over a pool of fifty points and two chosen skills per character;

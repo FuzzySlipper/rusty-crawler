@@ -425,6 +425,9 @@ public sealed class MovementSteppingTests
 
         internal bool Grounded { get; set; } = true;
 
+        /// <summary>These movers hold no collision, so nothing occludes anything in them.</summary>
+        public bool InSight(Vector3 from, Vector3 to) => true;
+
         public PlaceGeometryAdmission Enter(PlaceId place)
         {
             Entered.Add(place);
@@ -638,6 +641,9 @@ public sealed class MovementObservationTests
     private sealed class RecordingMover(PartyPoseOwner party) : IPartyMover
     {
         internal FallOutcome Fall { get; init; }
+
+        /// <summary>These movers hold no collision, so nothing occludes anything in them.</summary>
+        public bool InSight(Vector3 from, Vector3 to) => true;
 
         public PlaceGeometryAdmission Enter(PlaceId place) => PlaceGeometryAdmission.Empty(place);
 

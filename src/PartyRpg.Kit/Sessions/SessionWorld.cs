@@ -2,6 +2,7 @@ using System.Numerics;
 using System.Text;
 using System.Text.Json;
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
@@ -9,6 +10,7 @@ using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
 using Rusty.Engine;
+using Rusty.Engine.Interaction;
 
 namespace PartyRpg.Kit.Sessions;
 
@@ -215,6 +217,21 @@ public interface IPartyMover : IDisposable
     /// <param name="elapsedSeconds">The admitted world time the step covers.</param>
     /// <returns>Where the party ended up and what the engine and the tuning said about it.</returns>
     MovementOutcome Step(MovementIntent intent, double elapsedSeconds);
+
+    /// <summary>
+    /// Whether nothing solid stands between two points of the place the party is in, in the engine's world
+    /// axes.
+    /// </summary>
+    /// <remarks>
+    /// This is the scene's own line of sight, asked of whoever holds the collision: a use reaches only what
+    /// the party can see, and the answer must come from the geometry the party is actually walking in rather
+    /// than from a second opinion about what is between two points. A mover whose place holds no geometry
+    /// answers that nothing occludes anything, because it holds nothing that could.
+    /// </remarks>
+    /// <param name="from">Where the sight line starts.</param>
+    /// <param name="to">What the party is looking at.</param>
+    /// <returns>Whether the target is in sight.</returns>
+    bool InSight(Vector3 from, Vector3 to);
 }
 
 /// <summary>
@@ -317,6 +334,25 @@ public sealed class EnginePartyMover : IPartyMover
         return _movement.Step(intent, elapsedSeconds);
     }
 
+    /// <inheritdoc />
+    /// <exception cref="ObjectDisposedException">The mover has been disposed.</exception>
+    public bool InSight(Vector3 from, Vector3 to)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        // The engine's own line-of-sight composition over this mover's spatial session: the collision the
+        // party walks in is the collision it sees through, and the ray carries no entity colliders because
+        // the scene holds none — the population's colliders are not submitted to the spatial session yet.
+        return InteractionVisibilityQuery.Cast(
+            _spatial,
+            _movement.Session,
+            from,
+            to,
+            new SpatialQueryFilter(0, 0),
+            ReadOnlyMemory<SpatialEntityCollider>.Empty,
+            ReadOnlyMemory<ulong>.Empty) == InteractionVisibility.Visible;
+    }
+
     /// <summary>Releases the engine's spatial session, which destroys its collision scene with it.</summary>
     public void Dispose()
     {
@@ -349,15 +385,17 @@ public sealed class EnginePartyMover : IPartyMover
 /// game. Arriving and travelling both mark the place visited, so knowledge accrues the same way
 /// wherever the party goes.
 /// </remarks>
-public sealed class SessionWorld : IDisposable
+public sealed class SessionWorld : IDisposable, IInteractionWorld
 {
     private readonly TransitionExecutive _transitions;
     private readonly IWorldTimeSource? _time;
     private readonly GameClock? _clock;
     private readonly PartyResourceLedger? _resources;
+    private readonly PartyEntity? _entity;
     private readonly PlacePopulation _population;
     private readonly IDiagnosticsService? _diagnostics;
     private readonly Dictionary<PlaceId, PlaceEntrance[]> _entrances;
+    private readonly InteractionLedger _interactions = new();
     private MovementDiagnostics _movement = MovementDiagnostics.None;
     private bool _disposed;
 
@@ -375,8 +413,9 @@ public sealed class SessionWorld : IDisposable
     /// has no motion at all, and every mechanism that would move it says so by doing nothing.
     /// </param>
     /// <param name="diagnostics">
-    /// Where a fall the tuning priced, and a cost that had no account to land in, are reported. The
-    /// report is the only thing that happens to a fall here: the party's health is not this owner's.
+    /// Where a fall the tuning priced, a cost that had no account to land in, and a use that was refused are
+    /// reported. The report is the only thing that happens to a fall here: the party's health is not this
+    /// owner's.
     /// </param>
     /// <param name="entrances">
     /// The transitions a walking party can take, each with the reach in its place that takes it. Without
@@ -391,6 +430,16 @@ public sealed class SessionWorld : IDisposable
     /// The party's own accounts, which a journey charges its provisions to. Without one the party's larder
     /// is not this world's to reach, and the food part of a transition cannot be applied.
     /// </param>
+    /// <param name="partyEntity">
+    /// The party itself, which an interaction reaches for what it requires and gives. It is borrowed, never
+    /// owned: the session holds the party and disposes it, and this world only reads it — the same way it
+    /// borrows the party's accounts to charge a road.
+    /// </param>
+    /// <param name="interaction">
+    /// How a use is resolved in this game, when its ruleset answers for one. Without it the world has no
+    /// interaction at all: walking still moves the party, and nothing can be used, which is the honest state
+    /// of a ruleset that has not answered.
+    /// </param>
     /// <exception cref="ArgumentNullException">A required collaborator is missing.</exception>
     public SessionWorld(
         PlaceGraph graph,
@@ -402,7 +451,9 @@ public sealed class SessionWorld : IDisposable
         IDiagnosticsService? diagnostics = null,
         IReadOnlyList<PlaceEntrance>? entrances = null,
         GameClock? clock = null,
-        PartyResourceLedger? resources = null)
+        PartyResourceLedger? resources = null,
+        PartyEntity? partyEntity = null,
+        InteractionPolicy? interaction = null)
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(party);
@@ -413,6 +464,7 @@ public sealed class SessionWorld : IDisposable
         _time = time ?? clock;
         _clock = clock;
         _resources = resources;
+        _entity = partyEntity;
         _diagnostics = diagnostics;
         Graph = graph;
         Party = party;
@@ -421,6 +473,7 @@ public sealed class SessionWorld : IDisposable
         _population = new PlacePopulation(graph, places);
         _entrances = Index(graph, entrances);
         Mover = mover;
+        Interaction = interaction is null ? null : new PartyInteraction(this, interaction.Rule, interaction.Space, interaction.Tuning);
         // The place the party starts in is entered exactly as any other is, so the scene it walks in is
         // filled from that place's content before the first step rather than one arrival late.
         mover?.Enter(party.Place);
@@ -446,6 +499,46 @@ public sealed class SessionWorld : IDisposable
 
     /// <summary>The entities the current place is populated with, and the one owner that steps them.</summary>
     public PlacePopulation Population => _population;
+
+    /// <summary>
+    /// What the party can use, or null when this world's ruleset answered no interaction policy. The
+    /// mechanism is the world's, and the session steps it inside the one admitted update.
+    /// </summary>
+    public PartyInteraction? Interaction { get; }
+
+    /// <summary>What the party's last use did, or null before it has used anything.</summary>
+    public InteractionResult? LastInteraction => Interaction?.LastResult;
+
+    /// <summary>
+    /// Steps the interaction mechanism inside the admitted update: the reticle is refreshed from where the
+    /// party now stands and what its place holds, and a use the player asked for is applied to whatever it
+    /// holds.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A use is an instant rather than an interval, so it is stepped here whether or not the session is
+    /// running: a held session still shows the world the player is looking at, and a lever pulled while it
+    /// is held is an act rather than a passage of time. That is deliberately not how movement works — a
+    /// paused session admits no interval for motion — and it is why a use needs no elapsed seconds.
+    /// </para>
+    /// <para>
+    /// Every use is reported, whether it applied or was refused, because the panel shows the last answer and
+    /// a use that left no trace would be indistinguishable from a key that never arrived.
+    /// </para>
+    /// </remarks>
+    /// <param name="use">Whether the player asked to use what the party faces.</param>
+    /// <returns>The use's result, or null when the world has no interaction or the player asked for none.</returns>
+    public InteractionResult? Interact(bool use)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (Interaction is not { } interaction) return null;
+        interaction.Update();
+        if (!use) return null;
+
+        InteractionResult result = interaction.Use();
+        Report(result);
+        return result;
+    }
 
     /// <summary>
     /// Moves the party by one step of the world's admitted time, and takes the transition that step
@@ -537,6 +630,12 @@ public sealed class SessionWorld : IDisposable
         // The population follows the same advance: a place whose reset came due is repopulated here, in
         // the same update that moved the clock, rather than by a second timer of its own.
         _population.Step(Party.Place, restored);
+
+        // A restored place comes back as it was: what the party did to its doors and containers belongs to
+        // the visit that did it, so a place whose population is restored forgets it in the same update. A
+        // reset that left an opened door open and an emptied chest empty would be a population brought back
+        // into a ruin.
+        foreach (PlaceState state in restored) _interactions.Forget(state.Place);
         return restored;
     }
 
@@ -547,11 +646,12 @@ public sealed class SessionWorld : IDisposable
     /// Captures the world's durable state: where the party stands, and what each place remembers.
     /// </summary>
     /// <remarks>
-    /// The graph, the entrances, the mover's collision scene, the movement observations, and the population's
-    /// entities are absent on purpose. The graph and the entrances are loaded content, the scene is refilled
-    /// from the place the party resumes in, movement observations belong to the steps that produced them, and
-    /// the entities are rebuilt from placements — each of them a runtime shape that a load composes again
-    /// rather than one a save carries.
+    /// The graph, the entrances, the mover's collision scene, the movement observations, the population's
+    /// entities, and what the party has done to each place's targets are absent on purpose. The graph and the
+    /// entrances are loaded content, the scene is refilled from the place the party resumes in, movement
+    /// observations belong to the steps that produced them, the entities are rebuilt from placements, and
+    /// interaction state is live state the persistence owner does not carry yet — each of them a runtime
+    /// shape that a load composes again rather than one a save carries.
     /// </remarks>
     public WorldSave Capture() => new(Party.Capture(), Places.Capture());
 
@@ -589,6 +689,60 @@ public sealed class SessionWorld : IDisposable
     /// named one, and the arrival is the moment the defect is attributable to a place.
     /// </remarks>
     private void EnterPlace(PlaceId place) => Mover?.Enter(place);
+
+    /// <summary>The place the party is in, which is where an interaction reads its targets from.</summary>
+    PlaceId IInteractionWorld.Place => Party.Place;
+
+    /// <summary>Where the party stands and faces, which is what the reticle is aimed by.</summary>
+    PlacePose IInteractionWorld.Pose => Party.PlacePose;
+
+    /// <summary>
+    /// What the party's place holds, read from content rather than from the entities standing in it: the
+    /// population is emptied when the party clears a place, and a cleared place's doors are still doors.
+    /// </summary>
+    IReadOnlyList<PlacementDefinition> IInteractionWorld.Placements => _population.PlacementsOf(Party.Place);
+
+    /// <summary>The party itself, which an interaction requires things of and gives things to.</summary>
+    PartyEntity? IInteractionWorld.Party => _entity;
+
+    /// <summary>The party's own accounts, which a use's price settles against.</summary>
+    PartyResourceLedger? IInteractionWorld.Accounts => _resources;
+
+    /// <summary>The session's one clock, which a time-of-day requirement is judged against.</summary>
+    GameClock? IInteractionWorld.Clock => _clock;
+
+    /// <summary>What the party has already done to the targets of every place it has been in.</summary>
+    InteractionLedger IInteractionWorld.States => _interactions;
+
+    /// <summary>
+    /// Whether nothing solid stands between two points of the place the party is in.
+    /// </summary>
+    /// <remarks>
+    /// A world with no mover holds no collision scene at all, so nothing occludes anything in it: that is a
+    /// fact about a world without an engine rather than a guess, and it is the same honesty with which such a
+    /// world reports that the party stands on no geometry.
+    /// </remarks>
+    bool IInteractionWorld.InSight(Vector3 from, Vector3 to) => Mover?.InSight(from, to) ?? true;
+
+    /// <summary>Reports what one use did, whether it applied or was refused.</summary>
+    /// <remarks>
+    /// The panel shows the last answer and nothing else, so a use that left no report would be
+    /// indistinguishable from a key that never arrived. The report names the target, the verb, and the
+    /// refusal's own code, which is what makes an opened door, a door that was already open, and a fixture
+    /// whose event nothing executes readable from the product's own account of itself.
+    /// </remarks>
+    private void Report(InteractionResult result)
+    {
+        _diagnostics?.Publish(new DiagnosticsPublishRequest(
+            DiagnosticsSeverity.Info,
+            DiagnosticsDisposition.Accepted,
+            Source: "interaction",
+            Code: result.IsApplied ? "interaction-used" : "interaction-refused",
+            Message: result.IsApplied
+                ? $"The party used {result.TargetName} ({result.Verb}) in place '{Party.Place}' at {Party.PlacePose}: {result.Message}"
+                : $"The party's use of {result.TargetName} in place '{Party.Place}' at {Party.PlacePose} was refused ({result.Code}): {result.Message}",
+            Correlation: string.Empty));
+    }
 
     /// <summary>
     /// Applies what a transition quoted: its game time to the clock, and its provisions to the party.

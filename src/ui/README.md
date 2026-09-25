@@ -21,3 +21,9 @@ The panel also reports the last admitted movement step: whether the party is gro
 blocked it when the engine refused the displacement, a step the engine accepted, and the cost of a fall
 the tuning priced. Those values come from the movement owner through the projection; the DOM computes
 nothing about movement quality.
+
+It reports what the party faces and what using it did on the same terms: the focused target's kind, name,
+verb, state and distance, the reason the reticle holds or refuses it, what it requires, and the last use's
+outcome with its code, sentence, and the residue a use could not deliver. The use button claims the
+product's `party.use` action and is offered disabled while the session holds no interaction or faces
+nothing, so a control that cannot work never looks like one that can.

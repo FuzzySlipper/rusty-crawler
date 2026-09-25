@@ -85,6 +85,42 @@ function save(overrides = {}) {
 }
 
 /**
+ * The interaction block as the product publishes it: what the party faces, what it requires, and what the
+ * last use did. `available` is false when the session holds no mechanism at all; `outcome` is `none` until
+ * the party has used something.
+ */
+function interaction(overrides = {}) {
+  return {
+    available: true,
+    target: '',
+    label: '',
+    verb: '',
+    state: '',
+    distance: 0,
+    reason: 'no-candidate',
+    requires: [],
+    outcome: 'none',
+    code: '',
+    message: '',
+    residue: '',
+    ...overrides,
+  };
+}
+
+/** A closed door the party faces, as the product publishes it while it is usable. */
+function facedDoor(overrides = {}) {
+  return interaction({
+    target: 'door',
+    label: 'A door',
+    verb: 'open',
+    state: 'closed',
+    distance: 128,
+    reason: 'ready',
+    ...overrides,
+  });
+}
+
+/**
  * The creation block as the product publishes it while a party is being made: the flow's own options and
  * the member's own answers, so every choice below arrived in the projection.
  */
@@ -169,6 +205,9 @@ function snapshot(mode, seconds = 0, steps = 0, updates = 0, facts = undefined, 
   // The save block is published in every mode too, so a case that asks for none covers a projection whose
   // session the companion cannot read as saveable.
   if (blocks?.save !== undefined) value.save = blocks.save;
+  // The interaction block is published in every mode too, so a case that asks for none covers a projection
+  // whose session holds no interaction at all.
+  if (blocks?.interaction !== undefined) value.interaction = blocks.interaction;
   return value;
 }
 
@@ -238,6 +277,9 @@ function harness() {
     button: () => root.querySelector('.crawler-session > button'),
     // The save control is the panel's other direct-child button, named by the class the panel gives it.
     saveButton: () => root.querySelector('.crawler-session > button.crawler-save'),
+    // The use control is named the same way, so a case that clicks 'the save button' and one that clicks
+    // 'the use button' can never mean each other.
+    useButton: () => root.querySelector('.crawler-session > button.crawler-use'),
     get unsubscribed() {
       return unsubscribed;
     },
@@ -332,7 +374,7 @@ test('renders nothing until the product publishes, then renders what it publishe
       title: '',
       button: 'Starting…',
       disabled: true,
-      values: Array(25).fill('—'),
+      values: Array(28).fill('—'),
       place: '',
     });
 
@@ -350,8 +392,10 @@ test('renders nothing until the product publishes, then renders what it publishe
         '1', '1234, 5678, 0 @ 512', '1 / 76', 'grounded', '—', '—', '—',
         '—', '—', '—',
         // A projection that carries no save block is a session this companion cannot read as saveable, and
-        // the panel says so on the Save row rather than offering a save it cannot make.
-        'unavailable', 'fresh',
+        // the panel says so on the Save row rather than offering a save it cannot make. A projection that
+        // carries no interaction block is a session with nothing to use, and the three interaction rows say
+        // the same thing rather than showing an empty reticle that looks like an empty room.
+        'unavailable', 'fresh', '—', '—', '—',
       ],
       place: 'Emerald Island · region',
     });
@@ -456,7 +500,7 @@ test('the companion holds no state and starts no timer', () => {
       '—', '—', '—', '—', '—', '—', '—', '—',
       '1', '1234, 5678, 0 @ 512', '1 / 76', '—', '—', '—', '—',
       '—', '—', '—',
-      'unavailable', 'fresh',
+      'unavailable', 'fresh', '—', '—', '—',
     ]);
     assert.equal(h.root.querySelectorAll('.crawler-session').length, 1);
 
@@ -888,6 +932,98 @@ test('a resumed session says so, and shows the party it resumed', () => {
     assert.equal(creationPanel(h).accepted.length, 2);
     assert.match(creationPanel(h).accepted[0], /Roderick · Human · Knight · human-man/);
     assert.equal(rows(h, 'Save').Save, '—');
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the use control asks for a use when something is faced, and says why when nothing is', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // A running session facing a door: the button offers the use, the panel says what is faced and what it
+    // would do, and clicking it asks the product for a use on the action name the product declares.
+    h.emit(snapshot('running', 1, 60, 60, movement(), { interaction: facedDoor() }));
+    assert.equal(h.panel().getAttribute('data-interaction'), 'ready');
+    assert.equal(h.useButton().textContent, 'Use');
+    assert.equal(h.useButton().disabled, false);
+    assert.equal(rows(h, 'Facing').Facing, 'A door · open · closed · 128');
+    h.useButton().dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
+    assert.deepEqual(h.claims, [
+      {
+        intent: ACTION_INTENT,
+        value: { kind: 'product-payload', contract: ACTION_CONTRACT, data: { action: 'party.use' } },
+      },
+    ]);
+
+    // A session facing nothing: the row carries the product's own reason rather than an empty reticle, and
+    // the control is offered disabled because a button that cannot work must not look like one that can.
+    h.emit(snapshot('running', 2, 120, 121, movement(), { interaction: interaction() }));
+    assert.equal(h.panel().getAttribute('data-interaction'), 'no-candidate');
+    assert.equal(h.useButton().disabled, true);
+    assert.equal(rows(h, 'Facing').Facing, 'no-candidate');
+
+    // A session whose ruleset answered no interaction at all, and one still creating a party, offer no use
+    // either; the Facing row says the mechanism is not there.
+    h.emit(snapshot('running', 3, 180, 182, movement(), { interaction: interaction({ available: false }) }));
+    assert.equal(h.panel().getAttribute('data-interaction'), 'none');
+    assert.equal(rows(h, 'Facing').Facing, '—');
+    h.emit(snapshot('creating', 4, 240, 244, movement(), { interaction: facedDoor(), creation: creation() }));
+    assert.equal(h.useButton().disabled, true);
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the panel shows what a use did, what a refusal said, and what it could not deliver', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // A use that happened: the outcome word and what the door became, with the part this build cannot
+    // deliver stated beside it rather than left out of the report.
+    h.emit(snapshot('running', 1, 60, 60, movement(), {
+      interaction: facedDoor({
+        state: 'open',
+        outcome: 'applied',
+        message: 'A door swings open.',
+        residue: 'Doors do not move in this build: its polygons are still admitted where they stood.',
+      }),
+    }));
+    assert.equal(h.panel().getAttribute('data-use'), 'applied');
+    assert.equal(rows(h, 'Use').Use, 'applied');
+    const result = h.panel().querySelector('.crawler-use-result');
+    assert.equal(result.hidden, false);
+    assert.equal(result.getAttribute('data-outcome'), 'applied');
+    assert.match(result.textContent, /swings open/);
+    const residue = h.panel().querySelector('.crawler-use-residue');
+    assert.equal(residue.hidden, false);
+    assert.match(residue.textContent, /still admitted where they stood/);
+
+    // A use that was refused: the same row says refused, the code is on the panel as data, and the product's
+    // own sentence — what the door needs — is what a person reads. A use that silently did nothing must not
+    // look like one that worked.
+    h.emit(snapshot('running', 2, 120, 121, movement(), {
+      interaction: facedDoor({
+        verb: 'unlock',
+        requires: ['the Iron Key'],
+        outcome: 'refused',
+        code: 'interaction-requirement-unmet',
+        message: 'A door requires the Iron Key: it requires the Iron Key and the party carries 0 of it.',
+      }),
+    }));
+    assert.equal(h.panel().getAttribute('data-use'), 'refused');
+    assert.equal(rows(h, 'Use').Use, 'refused');
+    assert.equal(rows(h, 'Requires').Requires, 'the Iron Key');
+    assert.equal(result.getAttribute('data-outcome'), 'refused');
+    assert.equal(result.getAttribute('data-code'), 'interaction-requirement-unmet');
+    assert.match(result.textContent, /Iron Key/);
+    assert.equal(residue.hidden, true);
 
     ui.dispose();
   } finally {

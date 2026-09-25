@@ -64,6 +64,22 @@ internal static class ProductIdentity
     /// <summary>The digital intent that asks the live session to save where it stands.</summary>
     internal const string SaveIntent = "session.save";
 
+    /// <summary>The digital intent that uses whatever the party is facing.</summary>
+    /// <remarks>
+    /// The original's keyboard interaction key is Space and its jump key is X
+    /// (<c>src/Application/GameConfig.h:544-548</c>, <c>event_trigger</c> and <c>jump</c>); this product
+    /// already gives Space to jumping, so the use control takes G, which no other control claims during
+    /// play. The name is declared in code and again in the project file, because the engine admits an event
+    /// only on an intent its manifest carries and refuses to start on a mapping whose intent it does not.
+    /// </remarks>
+    internal const string UseIntent = "party.use";
+
+    /// <summary>
+    /// The payload action name that uses whatever the party is facing, sent by the DOM companion's use
+    /// control on the UI action contract.
+    /// </summary>
+    internal const string UseAction = "party.use";
+
     /// <summary>
     /// The payload action name that asks the live session to save, sent by the DOM companion's save control
     /// on the UI action contract.

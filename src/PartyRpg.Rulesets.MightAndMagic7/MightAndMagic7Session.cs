@@ -1,5 +1,6 @@
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Input;
+using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Rulesets;
@@ -61,10 +62,11 @@ internal sealed class MightAndMagic7Session : IGameSession
                 ContentPacks = context.Selection.PackCount,
             };
             MovementInput? movement = Movement(context);
+            InteractionUseInput? use = Use(context);
             if (resume is { } save)
             {
                 party = MightAndMagic7Party.Restore(save.Party);
-                world = MightAndMagic7World.Compose(context.Content, context, clock, Ledger(party), save);
+                world = MightAndMagic7World.Compose(context.Content, context, clock, Ledger(party), party, save);
                 _session = new PartyRpgSession(
                     composition,
                     context.Projection,
@@ -76,7 +78,8 @@ internal sealed class MightAndMagic7Session : IGameSession
                     store,
                     MightAndMagic7Persistence.SaveSlot,
                     saveInput: context.Save,
-                    resumed: true);
+                    resumed: true,
+                    useInput: use);
                 return;
             }
 
@@ -99,8 +102,9 @@ internal sealed class MightAndMagic7Session : IGameSession
                     creation: new SessionCreation(
                         MightAndMagic7Creation.Start(declared),
                         description => MightAndMagic7Party.Factory().Create(description),
-                        created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created))),
-                    saveInput: context.Save);
+                        created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created), created)),
+                    saveInput: context.Save,
+                    useInput: use);
                 return;
             }
 
@@ -108,7 +112,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             // scripted path — a live check, a test, or a product that offers no creation. Handing that party
             // to the world here is the same composition order the created path takes, one accept earlier.
             party = MightAndMagic7Party.Compose(context.Content);
-            world = MightAndMagic7World.Compose(context.Content, context, clock, party is null ? null : Ledger(party));
+            world = MightAndMagic7World.Compose(context.Content, context, clock, party is null ? null : Ledger(party), party);
             _session = new PartyRpgSession(
                 composition,
                 context.Projection,
@@ -119,7 +123,8 @@ internal sealed class MightAndMagic7Session : IGameSession
                 context.Engine?.Diagnostics,
                 store,
                 MightAndMagic7Persistence.SaveSlot,
-                saveInput: context.Save);
+                saveInput: context.Save,
+                useInput: use);
         }
         catch
         {
@@ -157,6 +162,17 @@ internal sealed class MightAndMagic7Session : IGameSession
         context.Movement is { } controls
             ? new MovementInput(controls, MightAndMagic7Movement.TurnRatePerSecond)
             : null;
+
+    /// <summary>
+    /// The reader for the use controls the host declared, when it declared any.
+    /// </summary>
+    /// <remarks>
+    /// A host that declares no use control gets a session that never uses anything by itself, exactly as it
+    /// gets no creation screen and no save key: the mechanism is still composed and still publishes what the
+    /// party faces, and only the player's way of asking for a use is missing.
+    /// </remarks>
+    private static InteractionUseInput? Use(RulesetSessionContext context) =>
+        context.Use is { } controls ? new InteractionUseInput(controls) : null;
 
     /// <summary>
     /// The reader for the creation controls the host declared, when it declared any.

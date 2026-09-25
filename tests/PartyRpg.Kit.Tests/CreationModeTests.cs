@@ -851,6 +851,9 @@ public sealed class CreationModeTests
 
         internal List<PlaceId> Entered { get; } = [];
 
+        /// <summary>These movers hold no collision, so nothing occludes anything in them.</summary>
+        public bool InSight(System.Numerics.Vector3 from, System.Numerics.Vector3 to) => true;
+
         public PlaceGeometryAdmission Enter(PlaceId place)
         {
             Entered.Add(place);

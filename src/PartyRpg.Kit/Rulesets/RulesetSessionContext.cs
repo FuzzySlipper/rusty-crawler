@@ -1,5 +1,6 @@
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Input;
+using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Sessions;
 using Rusty.Engine;
@@ -58,6 +59,11 @@ public enum SessionStart
 /// them a session never saves on its own — a save happens only where a request reaches the boundary —
 /// which is what a product that offers no save control yet gets.
 /// </param>
+/// <param name="Use">
+/// The use controls the host declares, when it declares any, stated for the same reason and in the same
+/// shape as the others: which intent and which payload action ask the session to use what the party faces.
+/// Without them nothing is ever used by itself, which is what a product that offers no use control gets.
+/// </param>
 /// <param name="Start">
 /// How this session begins, as the host decided: a new one, or the save the slot already holds. It is a
 /// host decision because only the host knows what the operator asked for, and it is carried here rather
@@ -72,4 +78,5 @@ public sealed record RulesetSessionContext(
     MovementIntentNames? Movement = null,
     CreationIntentNames? Creation = null,
     SaveIntentNames? Save = null,
+    UseIntentNames? Use = null,
     SessionStart Start = SessionStart.Fresh);

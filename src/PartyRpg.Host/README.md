@@ -14,12 +14,13 @@ Implemented today:
   input names once; the project file declares the same values, and the architecture suite fails when
   the two drift.
 - The project file declares the product metadata, the `session.pause-toggle` intent and its key
-  mapping, the movement intents and their keys, the creation screen's two controls (`creation.advance`
-  on Enter and `creation.accept` on Space) with the `crawler.ui` payload channel its choices arrive on,
-  and the TypeScript build target.
+  mapping, the movement intents and their keys, the save control (`session.save` on F), the use control
+  (`party.use` on G, using whatever the party faces), the creation screen's two controls
+  (`creation.advance` on Enter and `creation.accept` on Space) with the `crawler.ui` payload channel
+  its choices arrive on, and the TypeScript build target.
 
 Still to come: bundle selection, launcher and diagnostics surfaces, content bundles, and the gameplay
-intents (movement, look, interaction, combat) that arrive with the stones that implement them.
+intents (look, combat) that arrive with the stones that implement them.
 
 Boundary rules:
 

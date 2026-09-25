@@ -1,7 +1,9 @@
+using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.World;
 using Rusty.Engine;
+using Rusty.Engine.Interaction;
 
 namespace PartyRpg.Kit.Presentation;
 
@@ -44,6 +46,11 @@ namespace PartyRpg.Kit.Presentation;
 /// facts. Defaulted for the same reason the clock is: a session that has saved nothing publishes that
 /// rather than an outcome nobody produced.
 /// </param>
+/// <param name="Interaction">
+/// What the party faces and what using it did, or the no-mechanism value when the session holds no
+/// interaction at all. Defaulted for the same reason the others are: a session whose ruleset composed no
+/// interaction publishes that rather than an empty reticle that looks like an empty room.
+/// </param>
 public readonly record struct SessionSnapshot(
     SessionComposition Composition,
     SessionMode Mode,
@@ -55,7 +62,8 @@ public readonly record struct SessionSnapshot(
     ClockSnapshot Clock = default,
     PartySnapshot Party = default,
     CreationSnapshot? Creation = null,
-    SaveSnapshot Save = default);
+    SaveSnapshot Save = default,
+    InteractionSnapshot Interaction = default);
 
 /// <summary>Where the party is in the world, as the panel needs it: which place, where in it, and how much of the world is known.</summary>
 /// <param name="Place">The place the party is in, empty when the session has no world.</param>
@@ -114,6 +122,9 @@ public static class SessionProjection
 
     /// <summary>The save object's wire name.</summary>
     public const string SaveField = "save";
+
+    /// <summary>The interaction object's wire name.</summary>
+    public const string InteractionField = "interaction";
 
     /// <summary>Builds the projection value for a snapshot.</summary>
     public static UiValue Build(SessionSnapshot snapshot)
@@ -185,8 +196,40 @@ public static class SessionProjection
                 ("state", builder.String(WireName(snapshot.Save.State))),
                 ("at", builder.String(snapshot.Save.At ?? string.Empty)),
                 ("code", builder.String(snapshot.Save.Code ?? string.Empty)),
-                ("message", builder.String(snapshot.Save.Message ?? string.Empty)))));
+                ("message", builder.String(snapshot.Save.Message ?? string.Empty)))),
+            // The interaction block is published in every mode for the same reason the save block is: "this
+            // session holds no interaction", "nothing is in front of the party", and "something is in front
+            // of the party and out of reach" are three different facts, and a block that only appeared when
+            // something was usable would leave a player unable to tell an empty room from a refused aim.
+            (InteractionField, Interaction(builder, snapshot.Interaction)));
         return builder.Build(root);
+    }
+
+    /// <summary>Builds the interaction block: what is faced, what it requires, and what the last use did.</summary>
+    /// <remarks>
+    /// The requirements are sent as the sentences the ruleset gave them, so a locked door announces what it
+    /// needs before anybody tries it, and the panel spells none of them itself. A snapshot built without
+    /// interaction facts carries the default value, whose strings and list are null rather than empty: they
+    /// are published as empty so a reader never sees a name that is not there, exactly as the save block does.
+    /// </remarks>
+    private static uint Interaction(UiValueBuilder builder, InteractionSnapshot interaction)
+    {
+        List<uint> requires = [];
+        foreach (string requirement in interaction.Requires ?? []) requires.Add(builder.String(requirement));
+
+        return builder.Object(
+            ("available", builder.Boolean(interaction.Available)),
+            ("target", builder.String(interaction.Target ?? string.Empty)),
+            ("label", builder.String(interaction.Label ?? string.Empty)),
+            ("verb", builder.String(interaction.Verb ?? string.Empty)),
+            ("state", builder.String(interaction.State ?? string.Empty)),
+            ("distance", builder.Number(interaction.Distance)),
+            ("reason", builder.String(interaction.Reason ?? string.Empty)),
+            ("requires", builder.Array([.. requires])),
+            ("outcome", builder.String(interaction.Outcome ?? string.Empty)),
+            ("code", builder.String(interaction.Code ?? string.Empty)),
+            ("message", builder.String(interaction.Message ?? string.Empty)),
+            ("residue", builder.String(interaction.Residue ?? string.Empty)));
     }
 
     /// <summary>Builds the creation block: where the flow stands, what it offers, and what it refused.</summary>
@@ -359,5 +402,45 @@ public static class SessionProjection
         CreationStep.Skills => "skills",
         CreationStep.Complete => "complete",
         _ => throw new ArgumentOutOfRangeException(nameof(step), step, "Unknown creation step."),
+    };
+
+    /// <summary>The wire name for a use.</summary>
+    /// <remarks>
+    /// A verb with no word is refused rather than published as an empty string for the same reason a save
+    /// state is: a panel that could not tell "there is nothing to use here" from a use this wire has no name
+    /// for would show a target it cannot describe as no target at all.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The verb has no wire name.</exception>
+    public static string WireName(InteractionVerb verb) => verb switch
+    {
+        InteractionVerb.Search => "search",
+        InteractionVerb.Open => "open",
+        InteractionVerb.Unlock => "unlock",
+        InteractionVerb.Pull => "pull",
+        InteractionVerb.Talk => "talk",
+        InteractionVerb.Read => "read",
+        _ => throw new ArgumentOutOfRangeException(nameof(verb), verb, "Unknown interaction verb."),
+    };
+
+    /// <summary>The wire name for why the reticle holds or refuses what the party faces.</summary>
+    /// <remarks>
+    /// These words are the interaction selection's own reasons, spelled for a person: "nothing is in front
+    /// of me" and "the thing I am looking at is out of reach" are answers a player acts on differently, and
+    /// a panel that showed both as "not usable" would be hiding the game's own answer.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The reason has no wire name.</exception>
+    public static string WireName(InteractionReason reason) => reason switch
+    {
+        InteractionReason.Ready => "ready",
+        InteractionReason.NoCandidate => "no-candidate",
+        InteractionReason.OutsideQuery => "outside-query",
+        InteractionReason.OutOfReach => "out-of-reach",
+        InteractionReason.VisibilityUnknown => "visibility-unknown",
+        InteractionReason.Occluded => "occluded",
+        InteractionReason.Unavailable => "unavailable",
+        InteractionReason.Locked => "locked",
+        InteractionReason.InvalidTarget => "invalid-target",
+        InteractionReason.StaleTarget => "stale-target",
+        _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, "Unknown interaction reason."),
     };
 }

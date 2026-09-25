@@ -38,6 +38,7 @@ const UI_ACTION_CONTRACT = 'crawler.ui.action.v1';
 const ACTION_PAUSE = 'session.pause';
 const ACTION_RESUME = 'session.resume';
 const ACTION_SAVE = 'session.save';
+const ACTION_USE = 'party.use';
 
 /**
  * The creation actions this companion reports. Each names a choice, the product's flow validates it, and
@@ -154,6 +155,39 @@ interface SaveView {
   readonly message: string;
 }
 
+/**
+ * What the party is facing and what using it did, as the product published it. `available` is false when the
+ * session holds no interaction at all, `reason` says why the reticle holds or refuses what it does, and
+ * `outcome`, `code`, `message`, and `residue` describe the last use — a refusal keeps its own code and
+ * sentence, because a use that silently did nothing must not look like one that did.
+ */
+interface InteractionView {
+  /** Whether the session holds an interaction mechanism at all. */
+  readonly available: boolean;
+  /** The focused target's kind, empty when nothing is focused. */
+  readonly target: string;
+  /** What the focused target is called, empty when nothing is focused. */
+  readonly label: string;
+  /** The use that applies to it, empty when nothing is focused. */
+  readonly verb: string;
+  /** What the party has already done to it. */
+  readonly state: string;
+  /** How far it stands from the party, zero when nothing is focused. */
+  readonly distance: number;
+  /** Why the reticle holds or refuses what it does. */
+  readonly reason: string;
+  /** What the focused target requires, in the order the checks happen. */
+  readonly requires: readonly string[];
+  /** `none`, `applied`, or `refused`. */
+  readonly outcome: string;
+  /** The last refusal's code, empty when the last use applied or none has happened. */
+  readonly code: string;
+  /** What the last use reported. */
+  readonly message: string;
+  /** What the last use could not deliver. */
+  readonly residue: string;
+}
+
 /** One member of the party being created, as the flow published it. */
 interface CreationMemberView {
   readonly index: number;
@@ -243,6 +277,7 @@ interface SnapshotView {
   readonly party: PartyView;
   readonly creation: CreationView;
   readonly save: SaveView;
+  readonly interaction: InteractionView;
 }
 
 /** The clock of a session that has none, which the panel shows as not knowing rather than as a date. */
@@ -275,6 +310,22 @@ const SAVE_NONE: SaveView = {
   at: '',
   code: '',
   message: '',
+};
+
+/** The interaction of a session that holds no mechanism, or one this companion cannot read as interactive. */
+const INTERACTION_NONE: InteractionView = {
+  available: false,
+  target: '',
+  label: '',
+  verb: '',
+  state: '',
+  distance: 0,
+  reason: '',
+  requires: [],
+  outcome: 'none',
+  code: '',
+  message: '',
+  residue: '',
 };
 
 /** The creation of a session that is neither creating a party nor playing one it accepted. */
@@ -365,6 +416,12 @@ const STYLES = `
 .crawler-refusal[hidden] { display: none; }
 .crawler-accepted { margin: 0.35rem 0 0; padding: 0; list-style: none; color: #d8cba6; font-size: 0.75rem; }
 .crawler-session .crawler-save { margin: 0.3rem 0 0; }
+.crawler-session .crawler-use { margin: 0.3rem 0.4rem 0 0; }
+.crawler-use-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
+.crawler-use-result[hidden] { display: none; }
+.crawler-use-result[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
+.crawler-use-residue { margin: 0.15rem 0 0; color: #b8a888; font-size: 0.7rem; }
+.crawler-use-residue[hidden] { display: none; }
 .crawler-save-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
 .crawler-save-result[hidden] { display: none; }
 .crawler-save-result[data-state='failed'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
@@ -458,6 +515,50 @@ function readSave(value: unknown): SaveView {
     at,
     code,
     message,
+  };
+}
+
+/**
+ * Reads the interaction block, or the no-mechanism value. A block that is missing, or that is present but
+ * does not carry the facts this panel renders, is not a reason to reject the whole projection: the session it
+ * describes faces a world this companion cannot read, and saying so is honest where refusing to render
+ * everything else would hide the rest of the session behind it.
+ */
+function readInteraction(value: unknown): InteractionView {
+  if (!isRecord(value)) return INTERACTION_NONE;
+  const { target, label, verb, state, reason, outcome, code, message, residue } = value;
+  const distance = value.distance ?? 0;
+  const requires = Array.isArray(value.requires)
+    ? value.requires.filter((entry): entry is string => typeof entry === 'string')
+    : [];
+  if (
+    typeof target !== 'string' ||
+    typeof label !== 'string' ||
+    typeof verb !== 'string' ||
+    typeof state !== 'string' ||
+    typeof distance !== 'number' ||
+    typeof reason !== 'string' ||
+    typeof outcome !== 'string' ||
+    typeof code !== 'string' ||
+    typeof message !== 'string' ||
+    typeof residue !== 'string'
+  ) {
+    return INTERACTION_NONE;
+  }
+
+  return {
+    available: value.available === true,
+    target,
+    label,
+    verb,
+    state,
+    distance,
+    reason,
+    requires,
+    outcome,
+    code,
+    message,
+    residue,
   };
 }
 
@@ -573,6 +674,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
   const party = readParty(value.party);
   const creation = readCreation(value.creation);
   const save = readSave(value.save);
+  const interaction = readInteraction(value.interaction);
   const { ruleset, title, bundle, contentPacks } = composition;
   const { mode, simulationSeconds, admittedSteps, updates } = session;
   if (
@@ -629,6 +731,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
     party,
     creation,
     save,
+    interaction,
   };
 }
 
@@ -652,6 +755,8 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   panel.dataset.light = 'unknown';
   panel.dataset.creation = 'none';
   panel.dataset.save = 'none';
+  panel.dataset.interaction = 'none';
+  panel.dataset.use = 'none';
 
   const title = document.createElement('h1');
   const ruleset = document.createElement('p');
@@ -689,6 +794,9 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     ['pool', 'Pool'],
     ['save', 'Save'],
     ['start', 'Start'],
+    ['facing', 'Facing'],
+    ['requires', 'Requires'],
+    ['use', 'Use'],
   ] as const) {
     const term = document.createElement('dt');
     term.textContent = label;
@@ -716,6 +824,23 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   const saveResult = document.createElement('p');
   saveResult.className = 'crawler-save-result';
   saveResult.hidden = true;
+
+  // The use control: one button that uses whatever the party faces, and the outcome of the last use. It is
+  // disabled while the session holds no interaction — during creation, or in a session whose ruleset
+  // answered none — and while nothing is focused, because a button that cannot work must not look like one
+  // that can; the reason the reticle holds nothing is on the Facing row beside it.
+  const useButton = document.createElement('button');
+  useButton.type = 'button';
+  useButton.className = 'crawler-use';
+  useButton.disabled = true;
+  useButton.textContent = 'Use';
+
+  const useResult = document.createElement('p');
+  useResult.className = 'crawler-use-result';
+  useResult.hidden = true;
+  const useResidue = document.createElement('p');
+  useResidue.className = 'crawler-use-residue';
+  useResidue.hidden = true;
 
   const hint = document.createElement('p');
   hint.className = 'crawler-hint';
@@ -778,7 +903,21 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   // The creation screen comes before the long list of facts below: while a party is being made its
   // choices are what a player acts on, and a screen whose controls sat below twenty rows of values would
   // put them off the bottom of a short window.
-  panel.append(title, ruleset, bundle, place, creation, details, action, saveButton, saveResult, hint);
+  panel.append(
+    title,
+    ruleset,
+    bundle,
+    place,
+    creation,
+    details,
+    action,
+    saveButton,
+    useButton,
+    saveResult,
+    useResult,
+    useResidue,
+    hint,
+  );
   root.append(style, panel);
 
   let current = 'starting';
@@ -796,6 +935,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   });
 
   saveButton.addEventListener('click', () => claim(ACTION_SAVE));
+  useButton.addEventListener('click', () => claim(ACTION_USE));
   advanceButton.addEventListener('click', () => claim(ACTION_ADVANCE));
   acceptButton.addEventListener('click', () => claim(ACTION_ACCEPT));
   nameButton.addEventListener('click', () => claim(ACTION_SET_NAME, { name: nameInput.value }));
@@ -1062,6 +1202,26 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     saveResult.dataset.state = save.state;
     saveResult.dataset.code = save.code;
     saveResult.textContent = save.message;
+    // The interaction's own facts: what the party faces, what it requires, and what the last use did. Every
+    // word here is the product's — the reason the reticle holds nothing, the requirement a lock states, and
+    // the sentence a refusal answered with — and the panel spells none of them itself.
+    const { interaction } = snapshot;
+    panel.dataset.interaction = interaction.available ? interaction.reason : 'none';
+    panel.dataset.use = interaction.outcome;
+    rows.facing.textContent =
+      !interaction.available
+        ? '—'
+        : interaction.label === ''
+          ? interaction.reason
+          : `${interaction.label} · ${interaction.verb}${interaction.state === '' ? '' : ` · ${interaction.state}`} · ${interaction.distance.toFixed(0)}`;
+    rows.requires.textContent = interaction.requires.length === 0 ? '—' : interaction.requires.join(', ');
+    rows.use.textContent = interaction.outcome === 'none' ? '—' : interaction.outcome;
+    useResult.hidden = interaction.message === '';
+    useResult.dataset.outcome = interaction.outcome;
+    useResult.dataset.code = interaction.code;
+    useResult.textContent = interaction.message;
+    useResidue.hidden = interaction.residue === '';
+    useResidue.textContent = interaction.residue;
     // Creation's own facts: which member is being made, where it stands, and what the pool still holds.
     rows.member.textContent = creating.active || creating.accepted ? `${creating.member + 1} / ${creating.members}` : '—';
     rows.creationStep.textContent = creating.step === '' ? '—' : creating.step;
@@ -1110,12 +1270,18 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     // is being made, and a session with no store says so on its Save row instead of offering a button that
     // cannot work.
     saveButton.disabled = !save.available || (current !== 'running' && current !== 'paused');
+    // The use control follows what is faced rather than the mode: a use is an instant, so a held session can
+    // still use what it is looking at, and a session with nothing in front of the party offers the button
+    // disabled with the reason on the Facing row.
+    useButton.disabled =
+      !interaction.available || interaction.label === '' || current === 'creating' || current === 'stopped';
+    const pauseHint = 'Pause or resume with the button, or with the P key.';
+    const saveHint = save.available ? ' Save with the button, or with the F key.' : '';
+    const useHint = interaction.available ? ' Use with the button, or with the G key.' : '';
     hint.textContent =
       current === 'creating'
         ? 'Choose a portrait, a class, a name, attributes, and skills. Enter confirms the step you are on; Space accepts a finished party.'
-        : save.available
-          ? 'Pause or resume with the button, or with the P key. Save with the button, or with the F key.'
-          : 'Pause or resume with the button, or with the P key.';
+        : `${pauseHint}${saveHint}${useHint}`;
   };
 
   const unsubscribe = context.projection?.subscribe((projection) => {

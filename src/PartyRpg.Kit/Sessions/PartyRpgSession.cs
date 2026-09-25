@@ -1,5 +1,6 @@
 using System.Text;
 using PartyRpg.Kit.Input;
+using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
@@ -89,6 +90,7 @@ public sealed class PartyRpgSession : IGameSession
     private readonly SessionComposition _composition;
     private readonly IUiProjectionChannel _projection;
     private readonly MovementInput? _movementInput;
+    private readonly InteractionUseInput? _useInput;
     private readonly CreationInput? _creationInput;
     private readonly GameClock? _clock;
     private readonly IDiagnosticsService? _diagnostics;
@@ -170,6 +172,12 @@ public sealed class PartyRpgSession : IGameSession
     /// slot is indistinguishable from a session playing on from one, and a resumed expedition that looked
     /// like a new one would leave the operator unable to tell whether the switch took effect.
     /// </param>
+    /// <param name="useInput">
+    /// The use controls the host declared, when it declared any: the intent and the payload action a
+    /// player's request to use what the party faces arrives on. Without them the session never uses anything
+    /// by itself, which is what a product that offers no use control gets; the mechanism is still stepped,
+    /// so what the party faces is still published.
+    /// </param>
     /// <exception cref="ArgumentException">
     /// The session is composed both to create a party and to hold one, or to create one without the controls
     /// its commands arrive on.
@@ -187,7 +195,8 @@ public sealed class PartyRpgSession : IGameSession
         CreationInput? creationInput = null,
         SessionCreation? creation = null,
         SaveIntentNames? saveInput = null,
-        bool resumed = false)
+        bool resumed = false,
+        InteractionUseInput? useInput = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(composition.Title);
         if (creation is not null && (world is not null || party is not null))
@@ -207,6 +216,7 @@ public sealed class PartyRpgSession : IGameSession
         _composition = composition;
         _projection = projection ?? throw new ArgumentNullException(nameof(projection));
         _movementInput = movementInput;
+        _useInput = useInput;
         _creationInput = creationInput;
         _creation = creation;
         _clock = clock;
@@ -390,6 +400,10 @@ public sealed class PartyRpgSession : IGameSession
         // session that is not running admits no interval for either of them.
         double seconds = AdmittedSeconds(tick);
         StepParty(update.Input, seconds);
+        // Using something follows the step that carried the party to it, in the same update: the reticle is
+        // refreshed from where the party now stands, and a use the player asked for is applied to what that
+        // step put in front of it rather than to what the previous one did.
+        Interact(update.Input);
         StepClock(seconds);
 
         Advance(tick);
@@ -575,6 +589,22 @@ public sealed class PartyRpgSession : IGameSession
     }
 
     /// <summary>
+    /// Steps the world's interaction mechanism and applies a use the player asked for, in this same update.
+    /// </summary>
+    /// <remarks>
+    /// The reticle is refreshed whenever the session holds a world, so what the panel shows as faced is what
+    /// the last step actually put in front of the party; the use itself happens only when the player asked
+    /// for one, on the controls the host declared. A held session steps this too — a use is an instant rather
+    /// than an interval, and a lever pulled while the world is held is an act — which is deliberately not how
+    /// movement works. The mechanism is the world's, and this is where the one admitted update reaches it.
+    /// </remarks>
+    private void Interact(ReadOnlySpan<ProductInputEvent> input)
+    {
+        if (LiveWorld is not { } world) return;
+        world.Interact(_useInput is not null && _useInput.Read(input));
+    }
+
+    /// <summary>
     /// Advances the one clock by the interval this update admitted, and hands on what the advance crossed
     /// and brought due.
     /// </summary>
@@ -693,7 +723,11 @@ public sealed class PartyRpgSession : IGameSession
         _creation is { } creation
             ? CreationSnapshot.From(creation.Flow, _creationRefusal)
             : _accepted || _resumed ? CreationSnapshot.OfParty(_party) : CreationSnapshot.None,
-        _save);
+        _save,
+        // What the party faces and what using it did, read from the world's own mechanism: a session with no
+        // world, or one whose ruleset answered no interaction policy, publishes that it holds none rather
+        // than an empty reticle that looks like an empty room.
+        InteractionSnapshot.From(LiveWorld?.Interaction));
 
     /// <summary>Publishes the world as it stands now, after a caller moved the party.</summary>
     public void PublishWorld()

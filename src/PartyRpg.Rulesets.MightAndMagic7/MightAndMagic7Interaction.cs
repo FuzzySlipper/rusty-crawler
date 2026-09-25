@@ -1,0 +1,350 @@
+using System.Text.Json;
+using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Interaction;
+using PartyRpg.Kit.Party;
+using PartyRpg.Kit.World;
+
+namespace PartyRpg.Rulesets.MightAndMagic7;
+
+/// <summary>
+/// This game's answers about using what the world holds: what a placement offers the party, what a
+/// requirement means here, and what a granted use makes of a door or a fixture.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>What the imported data supports.</b> A place's doors arrive as placements carrying the delta's own
+/// door state and attributes, and an interior's decorations arrive carrying the event each one raises. This
+/// ruleset turns the first into a door the party opens and the second into a fixture whose use is refused
+/// with the event named, because nothing in this build executes map events. Everything else a place holds —
+/// spawn points, lights, decorations that raise nothing — is not a target, which is the same filter the
+/// original applies when it picks what the interaction key can reach (OpenEnroth
+/// <c>src/Engine/Graphics/Vis.cpp:31-34</c>, the door and event-decoration filters).
+/// </para>
+/// <para>
+/// <b>What content adds.</b> A placement may state what using it requires — an item, a skill, a flag, a part
+/// of the day — in a <c>requires</c> array, and that is where a lock comes from. The imported packs state
+/// none, because the original's locked doors are map events rather than door records; an authored pack, and
+/// the tests, are what exercise the vocabulary until the map-event interpreter can read the original's own
+/// locks.
+/// </para>
+/// <para>
+/// <b>What this game cannot deliver yet, stated rather than hidden.</b> Opening a door records its state and
+/// reports it, and leaves the door's polygons standing as collision, because door geometry does not move in
+/// this build; that is the residue the outcome carries. A fixture's use raises an event nothing executes, so
+/// it is a refusal with the event named rather than a success that did nothing.
+/// </para>
+/// </remarks>
+internal sealed class MightAndMagic7Interaction : IInteractionRule
+{
+    /// <summary>The placement kind an interior's door slot is imported as.</summary>
+    internal const string DoorPlacementKind = "door";
+
+    /// <summary>The placement kind an interior's decorations are imported as.</summary>
+    internal const string DecorationPlacementKind = "decoration";
+
+    /// <summary>The target kind a door is.</summary>
+    internal const string DoorTargetKind = "door";
+
+    /// <summary>The target kind a decoration raising an event is.</summary>
+    internal const string FixtureTargetKind = "fixture";
+
+    /// <summary>The state word a door the party has opened holds.</summary>
+    internal const string OpenState = "open";
+
+    /// <summary>The state word a door whose lock the party has turned holds, before it is opened.</summary>
+    internal const string UnlockedState = "unlocked";
+
+    /// <summary>The state word a door standing in the way holds.</summary>
+    internal const string ClosedState = "closed";
+
+    /// <summary>The placement field that names the event a decoration raises.</summary>
+    internal const string EventField = "eventId";
+
+    /// <summary>The placement field that names what using a placement requires.</summary>
+    internal const string RequiresField = "requires";
+
+    /// <summary>The placement field that states what a door's delta stored: <c>0</c> at rest, <c>2</c> moved.</summary>
+    internal const string DoorStateField = "state";
+
+    /// <summary>The decoration field that carries the decoration's internal name.</summary>
+    internal const string DecorationNameField = "name";
+
+    /// <summary>
+    /// How far from a target the party may stand and still use it, in place units.
+    /// </summary>
+    /// <remarks>
+    /// The donor's keyboard interaction depth: "Maximum range for item pickup / opening chests / activating
+    /// levers / etc with a keyboard" (OpenEnroth <c>src/Application/GameConfig.h:180</c>,
+    /// <c>keyboard_interaction_depth</c> default 512). It is one number for every kind of target because the
+    /// donor has one, and a range a game tunes belongs here rather than in the kit.
+    /// </remarks>
+    internal const double Reach = 512;
+
+    /// <summary>The half-angle a target is picked up within, in radians.</summary>
+    /// <remarks>
+    /// The donor casts a single ray through the reticle and takes the topmost thing it meets
+    /// (<c>src/Application/Game.cpp:1511</c> <c>onPressSpace</c> and <c>src/Engine/Graphics/Vis.cpp:659</c>
+    /// <c>PickKeyboard</c>), which a mouse aims precisely and a keyboard cannot. This product's aim is a cone
+    /// instead, and the cone is a deliberate adaptation: it is wide enough to find a door the party is
+    /// facing and narrow enough that a door behind the party is not what it uses.
+    /// </remarks>
+    internal const double AcquisitionAngleRadians = 0.20;
+
+    /// <summary>The half-angle a picked-up target is kept within, in radians.</summary>
+    internal const double ReleaseAngleRadians = 0.31;
+
+    /// <summary>The aim this game's reticle acquires and releases targets within.</summary>
+    internal static InteractionTuning Aim { get; } = new(AcquisitionAngleRadians, ReleaseAngleRadians);
+
+    /// <summary>The door state the delta stores for a door at rest, which the donor calls open.</summary>
+    /// <remarks>
+    /// OpenEnroth <c>src/Engine/Graphics/FaceEnums.h:63-66</c>: <c>DOOR_OPEN = 0</c> is the door mesh at the
+    /// offsets it rests at and <c>DOOR_CLOSED = 2</c> is the moved position. The importer stores the number
+    /// as it stands rather than interpreting it, which is why the reading is here.
+    /// </remarks>
+    private const int DoorRestState = 0;
+
+    /// <summary>Reads what a placement requires, failing while the world is built on content that states none of it.</summary>
+    /// <remarks>
+    /// Requirements are judged inside an admitted update, where a content defect cannot be reported without
+    /// stopping the session, so they are read and checked once here: a requirement that names no kind, no
+    /// identity, or a kind this game does not know is a defect in the pack that declared it, and every one of
+    /// them is named at once.
+    /// </remarks>
+    /// <param name="catalog">The content the world is being built from, when any loaded.</param>
+    /// <exception cref="ContentValidationException">A placement states a requirement that cannot be read.</exception>
+    internal static void Validate(ContentCatalog? catalog)
+    {
+        if (catalog is null) return;
+        List<ContentValidationIssue> issues = [];
+        foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in catalog.Entries(PlaceGraphLoader.PlaceDefinitionKind))
+        {
+            foreach (JsonElement placement in entry.GetArray(PlacePopulationContent.PlacementsField))
+            {
+                foreach (JsonElement requirement in ReadArray(placement, RequiresField))
+                {
+                    if (ReadKind(ContentEntry.ReadString(requirement, "kind")) is null)
+                    {
+                        issues.Add(new ContentValidationIssue(
+                            "interaction-requirement-kind-unknown",
+                            $"place '{entry.Id}' declares a requirement of kind '{ContentEntry.ReadString(requirement, "kind")}', which is not an item, a skill, a flag, or a time of day.",
+                            pack.PackId,
+                            document.DocumentId));
+                    }
+                }
+            }
+        }
+
+        if (issues.Count > 0)
+        {
+            throw new ContentValidationException(
+                $"The world's interaction requirements cannot be read: {issues[0].Message}",
+                issues);
+        }
+    }
+
+    /// <inheritdoc />
+    public InteractionTargetDefinition? Describe(InteractionTargetRequest request)
+    {
+        PlacementDefinition placement = request.Placement;
+        IReadOnlyList<InteractionRequirement> requires = ReadRequirements(placement);
+
+        if (string.Equals(placement.Content.Kind, DoorPlacementKind, StringComparison.Ordinal))
+        {
+            // A door whose lock is stated and not yet turned offers the use that turns it; the same door
+            // afterwards, and every door that states no lock, offers the use that opens it. The two are
+            // different verbs because they are different acts, and the state word is what tells them apart.
+            string state = DoorState(placement, request.State);
+            bool locked = requires.Count > 0 && !string.Equals(state, UnlockedState, StringComparison.Ordinal);
+            return new InteractionTargetDefinition(
+                new InteractionTargetKind(DoorTargetKind),
+                "A door",
+                locked ? InteractionVerb.Unlock : InteractionVerb.Open,
+                Reach,
+                state,
+                requires);
+        }
+
+        if (string.Equals(placement.Content.Kind, DecorationPlacementKind, StringComparison.Ordinal) &&
+            placement.Source.GetInt32(EventField) is { } eventId && eventId != 0)
+        {
+            string name = placement.Source.GetString(DecorationNameField);
+            return new InteractionTargetDefinition(
+                new InteractionTargetKind(FixtureTargetKind),
+                name.Length == 0 ? "A fixture" : $"A fixture ({name})",
+                InteractionVerb.Pull,
+                Reach);
+        }
+
+        return null;
+    }
+
+    /// <inheritdoc />
+    public InteractionRequirementVerdict Judge(InteractionRequirement requirement, InteractionContext context) => requirement.Kind switch
+    {
+        InteractionRequirementKind.Item => JudgeItem(requirement, context),
+        InteractionRequirementKind.Skill => JudgeSkill(requirement, context),
+        InteractionRequirementKind.TimeOfDay => JudgeTime(requirement, context),
+        _ => InteractionRequirementVerdict.Unsatisfied(
+            $"What '{requirement.Name}' asks for is something this game does not record yet, so it cannot be met."),
+    };
+
+    /// <inheritdoc />
+    public InteractionOutcome Apply(InteractionTargetDefinition target, InteractionContext context)
+    {
+        if (string.Equals(target.Kind.Value, FixtureTargetKind, StringComparison.Ordinal))
+        {
+            int eventId = context.Placement.Source.GetInt32(EventField) ?? 0;
+            return InteractionOutcome.Refused(
+                "interaction-event-not-executed",
+                $"{target.Name} raises map event {eventId} of place '{context.Place}', and nothing in this build executes map events: the event interpreter that will is not built.");
+        }
+
+        return Door(target, context);
+    }
+
+    /// <summary>What using a door makes of it, given its state and what it requires.</summary>
+    /// <remarks>
+    /// A locked door is turned first and opened second, which is why the state word rather than the lock
+    /// alone decides the verb. The passage the party cannot walk is stated as the outcome's residue: this
+    /// build admits a door's polygons as collision wherever they stand, so a door that is open in state is
+    /// still a door the party cannot walk through, and a report that said only "it opens" would be claiming a
+    /// way through that is not there.
+    /// </remarks>
+    private static InteractionOutcome Door(InteractionTargetDefinition target, InteractionContext context)
+    {
+        if (string.Equals(target.State, OpenState, StringComparison.Ordinal))
+        {
+            return InteractionOutcome.Refused("door-already-open", $"{target.Name} already stands open.");
+        }
+
+        if (target.Requires.Count > 0 && !string.Equals(target.State, UnlockedState, StringComparison.Ordinal))
+        {
+            return InteractionOutcome.Applied(
+                UnlockedState,
+                $"What {target.Name} was locked with is to hand, and the lock falls open.");
+        }
+
+        return InteractionOutcome.Applied(
+            OpenState,
+            $"{target.Name} swings open.",
+            "Doors do not move in this build: its polygons are still admitted where they stood, so the doorway cannot be walked through yet.");
+    }
+
+    /// <summary>
+    /// What a door currently reads as: the word the party's own use left it in, or the position the
+    /// delta stored when nothing has happened to it.
+    /// </summary>
+    /// <remarks>
+    /// The stored number is the donor's own door state: a door at rest is the one the donor calls open, and
+    /// every other stored position is one the door has moved to, which is a door that stands closed. The
+    /// reading is done here rather than by the importer because the number is map runtime state and not an
+    /// interpretation of the level, and a pack that carried the word instead would be a pack a different
+    /// game could not read.
+    /// </remarks>
+    private static string DoorState(PlacementDefinition placement, string recorded) =>
+        recorded.Length > 0
+            ? recorded
+            : placement.Source.GetInt32(DoorStateField) == DoorRestState ? OpenState : ClosedState;
+
+    /// <summary>Whether the party carries what an item requirement names.</summary>
+    /// <remarks>
+    /// An item requirement is a key when a lock states one: a key is an item the party carries, and the kit
+    /// has one kind for both rather than two names for one check. It is read from the party's one shared pack
+    /// and what its members wear, which is every item the party holds.
+    /// </remarks>
+    private static InteractionRequirementVerdict JudgeItem(InteractionRequirement requirement, InteractionContext context)
+    {
+        if (context.Party is not { } party)
+        {
+            return InteractionRequirementVerdict.Unsatisfied(
+                $"It requires {requirement.Describe()}, and the party that would carry it does not exist in this session.");
+        }
+
+        ItemDefinitionId definition = new(requirement.Name);
+        int carried = party.Inventory.TotalOf(definition);
+        return carried >= requirement.Amount
+            ? InteractionRequirementVerdict.Satisfied
+            : InteractionRequirementVerdict.Unsatisfied(
+                $"It requires {requirement.Describe()} and the party carries {carried} of it.");
+    }
+
+    /// <summary>Whether any member has a skill to the level a requirement names.</summary>
+    /// <remarks>
+    /// The best level in the party is what answers, because a party acts as one band: the strongest member's
+    /// skill is the party's, which is the same reading a locked door in the original takes when it asks the
+    /// party whether anybody can pick it.
+    /// </remarks>
+    private static InteractionRequirementVerdict JudgeSkill(InteractionRequirement requirement, InteractionContext context)
+    {
+        if (context.Party is not { } party)
+        {
+            return InteractionRequirementVerdict.Unsatisfied(
+                $"It requires {requirement.Describe()}, and the party that would know it does not exist in this session.");
+        }
+
+        SkillId skill = new(requirement.Name);
+        int best = 0;
+        foreach (PartyMember member in party.Members) best = Math.Max(best, member.Skills.LevelOf(skill));
+        return best >= requirement.Amount
+            ? InteractionRequirementVerdict.Satisfied
+            : InteractionRequirementVerdict.Unsatisfied(
+                $"It requires {requirement.Describe()} and the party's best is {best}.");
+    }
+
+    /// <summary>Whether the clock stands in the part of the day a requirement names.</summary>
+    private static InteractionRequirementVerdict JudgeTime(InteractionRequirement requirement, InteractionContext context)
+    {
+        if (context.Clock is not { } clock)
+        {
+            return InteractionRequirementVerdict.Unsatisfied(
+                $"It can only be used at {requirement.Name} and this session keeps no clock, so no time of day is known.");
+        }
+
+        bool wantsDay = string.Equals(requirement.Name, "day", StringComparison.OrdinalIgnoreCase);
+        bool isDay = clock.IsDaylight;
+        return wantsDay == isDay
+            ? InteractionRequirementVerdict.Satisfied
+            : InteractionRequirementVerdict.Unsatisfied(
+                $"It can only be used at {requirement.Name} and it is {(isDay ? "day" : "night")}.");
+    }
+
+    /// <summary>Reads what a placement requires, in the order it states them.</summary>
+    private static IReadOnlyList<InteractionRequirement> ReadRequirements(PlacementDefinition placement)
+    {
+        List<InteractionRequirement> requires = [];
+        foreach (JsonElement element in ReadArray(placement.Source.Payload, RequiresField))
+        {
+            string kind = ContentEntry.ReadString(element, "kind");
+            string name = ContentEntry.ReadId(element, "id");
+            if (ReadKind(kind) is not { } requirementKind || name.Length == 0) continue;
+
+            double? amount = ContentEntry.ReadDouble(element, "amount");
+            requires.Add(new InteractionRequirement(
+                requirementKind,
+                name,
+                amount is { } value && value >= 1 && value <= int.MaxValue ? (int)value : 1,
+                ContentEntry.ReadString(element, "label")));
+        }
+
+        return requires;
+    }
+
+    /// <summary>The requirement kind a content word names, or null when this game has none for it.</summary>
+    private static InteractionRequirementKind? ReadKind(string kind) => kind switch
+    {
+        "item" => InteractionRequirementKind.Item,
+        "skill" => InteractionRequirementKind.Skill,
+        "flag" => InteractionRequirementKind.Flag,
+        "time" => InteractionRequirementKind.TimeOfDay,
+        _ => null,
+    };
+
+    /// <summary>Reads an array property of a placement element, or nothing when it carries none.</summary>
+    private static IReadOnlyList<JsonElement> ReadArray(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object &&
+        element.TryGetProperty(property, out JsonElement value) &&
+        value.ValueKind == JsonValueKind.Array
+            ? [.. value.EnumerateArray()]
+            : [];
+}

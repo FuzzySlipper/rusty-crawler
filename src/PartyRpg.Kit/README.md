@@ -78,7 +78,15 @@ where the flow stands, every choice it offers, and the rule the last illegal cho
 structured UI value builder, the Engine-backed projection channel and the session projection, the admitted-input router that turns
 engine events into session commands, the population owner that fills a place from its placements and
 empties it on leaving, the Engine-backed movement owner with its vertical and surface policy, the reaches that let a party walk
-into a transition, and the movement facts the panel reports, and time (`GameClock` over a validated
+into a transition, the movement facts the panel reports, and the one interaction mechanism
+(`Interaction/` — an `InteractionTarget` discovered from the place's own placements and the party's pose
+rather than from a list, with the engine's own reticle selection composed over the candidates, one use
+workflow that identifies the target, judges each `InteractionRequirement` in the order the ruleset stated
+them, settles what the use costs through the party's one settlement path, asks the ruleset what the use
+produces, applies it against the party's owners, records the `InteractionTargetState` that use left, and
+reports an `InteractionResult`; every failure — nothing faced, out of reach, out of sight, a requirement
+unmet, a charge the party cannot cover, a ruleset's own refusal, a pack with no room for what was found —
+is an outcome with a code and a sentence rather than a silent no-op) and time (`GameClock` over a validated
 `GameCalendar` — one explicit `Advance`/`AdvanceAdmittedSeconds` path with a returned `ClockAdvance`
 report of the hour, day, week, month, and year boundaries it crossed and the `DeadlineDue` entries it
 brought due once each, `GameDuration` and `GameDate` values, the `DeadlineId` handles travel, rest,

@@ -260,6 +260,9 @@ public sealed class WalkTransitionTests
 
         internal List<PlaceId> Entered { get; } = [];
 
+        /// <summary>These movers hold no collision, so nothing occludes anything in them.</summary>
+        public bool InSight(Vector3 from, Vector3 to) => true;
+
         public PlaceGeometryAdmission Enter(PlaceId place)
         {
             Entered.Add(place);

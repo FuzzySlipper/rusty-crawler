@@ -536,6 +536,9 @@ public sealed class TravelCostWiringTests
         /// <summary>The admitted interval of every step the session asked for, in order.</summary>
         internal List<double> Steps { get; } = [];
 
+        /// <summary>These movers hold no collision, so nothing occludes anything in them.</summary>
+        public bool InSight(Vector3 from, Vector3 to) => true;
+
         public PlaceGeometryAdmission Enter(PlaceId place) => PlaceGeometryAdmission.Empty(place);
 
         public MovementOutcome Step(MovementIntent intent, double elapsedSeconds)

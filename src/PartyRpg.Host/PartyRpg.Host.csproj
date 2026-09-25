@@ -68,6 +68,12 @@
          constant in ProductIdentity.cs are the two halves of the same control. -->
     <RustyEngineProductInputIntent Include="session.save" Value="digital" />
     <RustyEngineProductInputMapping Include="session.save.key-f" Intent="session.save" Trigger="key:key-f:pressed" />
+    <!-- The use control: one press uses whatever the party is facing, re-checked against where the party
+         stands and what it can see at the moment of the press. The original's interaction key is Space and
+         its jump key is X; Space already jumps here, so use takes G. The declaration and the code constant
+         in ProductIdentity.cs are the two halves of the same control. -->
+    <RustyEngineProductInputIntent Include="party.use" Value="digital" />
+    <RustyEngineProductInputMapping Include="party.use.key-g" Intent="party.use" Trigger="key:key-g:pressed" />
     <RustyEngineProductInputIntent Include="crawler.ui" Value="payload:crawler.ui.action.v1" />
   </ItemGroup>
 

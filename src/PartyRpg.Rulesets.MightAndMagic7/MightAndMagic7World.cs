@@ -1,4 +1,5 @@
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
@@ -61,6 +62,11 @@ internal static class MightAndMagic7World
     /// The party's own accounts, which a journey charges its provisions to. It is null when content declared
     /// no party, and a quoted food cost is then reported rather than quietly dropped.
     /// </param>
+    /// <param name="entity">
+    /// The party itself, which an interaction reaches for what it requires and gives what it finds. It is
+    /// null when content declared no party, and a requirement that needs one is then unmet rather than
+    /// satisfied by an invented carrier.
+    /// </param>
     /// <param name="resume">
     /// The save a session is resuming from, when this world is being composed for a load. A world composed
     /// from a save takes the party's place and pose and every place's remembered state from that save, and
@@ -72,6 +78,7 @@ internal static class MightAndMagic7World
         RulesetSessionContext context,
         GameClock clock,
         PartyResourceLedger? resources,
+        PartyEntity? entity = null,
         SessionSave? resume = null)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -79,6 +86,11 @@ internal static class MightAndMagic7World
         if (catalog is null) return null;
         PlaceGraph graph = PlaceGraphLoader.Load(catalog);
         if (graph.Places.Count == 0) return null;
+
+        // What content says about interaction is read once, here, with the world: a requirement that names a
+        // kind this game does not know is a defect the load names, rather than a lock that quietly is not
+        // there when somebody tries the door.
+        MightAndMagic7Interaction.Validate(catalog);
 
         PlaceRespawnRule respawn = PlaceRespawnRule.FromContent();
         PartyPoseOwner party;
@@ -119,7 +131,9 @@ internal static class MightAndMagic7World
             context.Engine?.Diagnostics,
             PlaceEntranceLoader.Load(catalog, graph),
             clock,
-            resources);
+            resources,
+            entity,
+            new InteractionPolicy(new MightAndMagic7Interaction(), MightAndMagic7Movement.Space, MightAndMagic7Interaction.Aim));
     }
 
     /// <summary>
