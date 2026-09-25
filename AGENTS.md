@@ -73,7 +73,8 @@ documents decide, and the difference is recorded rather than silently rounded.
 ## Current state
 
 **Foundation stone 4 is in progress: the party, its resources, the clock and calendar, character
-creation, and what a crossing costs have landed; persistence has not.**
+creation, what a crossing costs, and persistence have landed; two ways of reaching landed work from the
+product have not.**
 
 - `src/PartyRpg.Kit`, `src/PartyRpg.Rulesets.MightAndMagic7`, and `src/PartyRpg.Host` build against
   the pinned Engine pair. The host declares the one product entry, one admitted update, the
@@ -132,8 +133,8 @@ creation, and what a crossing costs have landed; persistence has not.**
   fifty-point pool, and four starting skills per character (two the class fixes, two the player
   chooses), and its default party is applied through those same operations. The nine classes across
   four races are swept as whole parties. **No session mode reaches creation yet**: a session's party
-  comes from a scenario document, and the mode that holds creation while a party is chosen is a later
-  stone's.
+  comes from a scenario document, and the mode that holds creation while a party is chosen is a task of
+  its own.
 - One clock and calendar own time. `GameClock` over a validated `GameCalendar` is the only thing that
   advances game time; `Advance` reports the hour, day, week, month, and year boundaries it crossed and
   the deadlines it brought due, each once, and the world reads its day count from that same clock, so
@@ -164,8 +165,18 @@ creation, and what a crossing costs have landed; persistence has not.**
   through a floor. Two limits are stated rather than hidden: no walkable navigation cells are emitted
   (the engine derives collision navigation itself, and nothing asks for a path yet), and a door's
   polygons are solid where they stand because doors do not move yet.
-- **No combat, magic, services, quests, or persistence exists.** The party can capture and restore its
-  own state, and no session snapshot is written or read yet. Do not describe, review, or accept
+- The session persists under one current schema: the party (members with their skills, spells,
+  progression and portraits; every item instance with its custody, damage and enchantments; purse,
+  larder, standing, followers, effects and the identity cursors), the clock's elapsed game time, the
+  party's place and pose, and per-place state. The document carries no version and no migration path —
+  one schema, replaced rather than evolved. Saving happens only where the product asks for it, and a
+  load rebuilds what is transient (movement outcomes, projections, the population's runtime entities)
+  so nothing points at a handle or an entity that belonged to the previous session. A malformed or
+  contradictory save is refused with every problem listed at once, not the first. Knowledge, quests,
+  containers and scenario flags have no owner yet, so the document has no section for them rather than
+  a placeholder. **No product surface asks for a save yet**: the ruleset can write and resume a session,
+  and the trigger and its panel are a task of their own.
+- **No combat, magic, services, or quests exists.** Do not describe, review, or accept
   behavior those stones will add as though it were here. What a player can do today is hold and
   release the session and walk it: on the agent playtest service's remote browser a held `W` walks the
   party about 382 units a second and the released key
