@@ -48,4 +48,12 @@ internal readonly struct ProjectedNode(UiValue value, uint index)
             throw new InvalidOperationException($"Projection node is {node.Kind}, not a number.");
         return node.NumberValue;
     }
+
+    internal bool AsBoolean()
+    {
+        StructuredValueNode node = value.Nodes.Span[(int)index];
+        if (node.Kind != StructuredValueKind.Bool)
+            throw new InvalidOperationException($"Projection node is {node.Kind}, not a boolean.");
+        return node.BoolValue != 0;
+    }
 }

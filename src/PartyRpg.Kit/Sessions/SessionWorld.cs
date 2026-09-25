@@ -5,6 +5,7 @@ using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Presentation;
+using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
 using Rusty.Engine;
 
@@ -14,9 +15,11 @@ namespace PartyRpg.Kit.Sessions;
 /// A source of elapsed game time for the world's own bookkeeping.
 /// </summary>
 /// <remarks>
-/// The clock and the calendar belong to the party foundation, which is the next stone; this seam exists
-/// so the world can be told what day it is without growing a second time source of its own. Until a
-/// clock is wired, the world simply does not advance, and nothing pretends it has.
+/// The one clock satisfies this seam, and it is the source a product runs on: a place's population is
+/// restored against the day count the clock reports, so respawn is measured in the same game time travel,
+/// rest, and the admitted update all move. The seam exists so the world asks for a day count rather than
+/// for a clock, which is what lets a test drive respawn with a day source of its own. A world without a
+/// source does not advance, and says so by doing nothing.
 /// </remarks>
 public interface IWorldTimeSource
 {
@@ -349,6 +352,8 @@ public sealed class SessionWorld : IDisposable
 {
     private readonly TransitionExecutive _transitions;
     private readonly IWorldTimeSource? _time;
+    private readonly GameClock? _clock;
+    private readonly PartyResourceLedger? _resources;
     private readonly PlacePopulation _population;
     private readonly IDiagnosticsService? _diagnostics;
     private readonly Dictionary<PlaceId, PlaceEntrance[]> _entrances;
@@ -360,19 +365,30 @@ public sealed class SessionWorld : IDisposable
     /// <param name="party">The party's one position and facing.</param>
     /// <param name="places">Per-place runtime state.</param>
     /// <param name="costRule">The rule every transition is quoted through.</param>
-    /// <param name="time">Where elapsed game days come from, when a clock has been wired.</param>
+    /// <param name="time">
+    /// Where elapsed game days come from, which a product hands the one clock. Without a source the world
+    /// does not advance.
+    /// </param>
     /// <param name="mover">
     /// The party's movement, when the engine gave the world something to walk in. Without one the party
     /// has no motion at all, and every mechanism that would move it says so by doing nothing.
     /// </param>
     /// <param name="diagnostics">
-    /// Where a fall the tuning priced is reported, when the engine's diagnostics are reachable. The
+    /// Where a fall the tuning priced, and a cost that had no account to land in, are reported. The
     /// report is the only thing that happens to a fall here: the party's health is not this owner's.
     /// </param>
     /// <param name="entrances">
     /// The transitions a walking party can take, each with the reach in its place that takes it. Without
     /// any, walking moves the party and never the place, which is what content that declares no entrances
     /// gets.
+    /// </param>
+    /// <param name="clock">
+    /// The session's one clock, which a journey charges its time to. Without one the quotes travel states
+    /// still hold, and the time part of a transition cannot be applied.
+    /// </param>
+    /// <param name="resources">
+    /// The party's own accounts, which a journey charges its provisions to. Without one the party's larder
+    /// is not this world's to reach, and the food part of a transition cannot be applied.
     /// </param>
     /// <exception cref="ArgumentNullException">A required collaborator is missing.</exception>
     public SessionWorld(
@@ -383,13 +399,19 @@ public sealed class SessionWorld : IDisposable
         IWorldTimeSource? time = null,
         IPartyMover? mover = null,
         IDiagnosticsService? diagnostics = null,
-        IReadOnlyList<PlaceEntrance>? entrances = null)
+        IReadOnlyList<PlaceEntrance>? entrances = null,
+        GameClock? clock = null,
+        PartyResourceLedger? resources = null)
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(party);
         ArgumentNullException.ThrowIfNull(places);
         _transitions = new TransitionExecutive(costRule);
-        _time = time;
+        // A world handed a clock but no separate day source reads its days from that same clock: in a
+        // product they are one object, and a second source here would be a second answer to what day it is.
+        _time = time ?? clock;
+        _clock = clock;
+        _resources = resources;
         _diagnostics = diagnostics;
         Graph = graph;
         Party = party;
@@ -454,9 +476,14 @@ public sealed class SessionWorld : IDisposable
     }
 
     /// <summary>
-    /// Takes a transition, or refuses it. Arriving moves the party and marks the destination visited;
-    /// a refusal leaves the party exactly where it was.
+    /// Takes a transition, or refuses it. Arriving moves the party, marks the destination visited, and
+    /// charges the journey; a refusal leaves the party exactly where it was and charges nothing.
     /// </summary>
+    /// <remarks>
+    /// This is the only place a transition's cost is applied. A walk into an entrance, a scripted move, and
+    /// any other caller all arrive here, so a journey is charged exactly once — on arrival, after the
+    /// destination has admitted the party — and a transition that never happened costs nothing.
+    /// </remarks>
     public TransitionResult Travel(PlaceTransition transition, TransitionKind kind)
     {
         ArgumentNullException.ThrowIfNull(transition);
@@ -464,7 +491,7 @@ public sealed class SessionWorld : IDisposable
         if (!result.Arrived) return result;
 
         // An arrival the place will not admit is a refusal, not a half-done move: the party stays put and
-        // the cost the rule quoted is never applied, because the caller applies a cost only on arrival.
+        // nothing is charged, because a journey nobody took is a journey nobody pays for.
         try
         {
             Party.Enter(result.Place, result.Pose);
@@ -476,6 +503,7 @@ public sealed class SessionWorld : IDisposable
                 $"The destination {result.Place} refused the arrival: {error.Message}"));
         }
 
+        Charge(result.ChargedCost);
         EnterPlace(result.Place);
         Places.MarkVisited(result.Place);
         return result;
@@ -548,6 +576,73 @@ public sealed class SessionWorld : IDisposable
     /// named one, and the arrival is the moment the defect is attributable to a place.
     /// </remarks>
     private void EnterPlace(PlaceId place) => Mover?.Enter(place);
+
+    /// <summary>
+    /// Applies what a transition quoted: its game time to the clock, and its provisions to the party.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the receiver the transition path's cost contract was waiting for. The time is converted
+    /// through <see cref="TravelTimeConversion"/> rather than guessed, because how long a day is belongs to
+    /// the calendar the clock keeps, and it is applied with the same advance every other owner of time
+    /// uses. The provisions go to <see cref="PartyResourceLedger.SpendDay(Provisions)"/>, which is the one
+    /// path into the party's larder and which also asks the ruleset what a larder left at that level does
+    /// to the party — so arriving short of food weakens the party on the road rather than at the next camp.
+    /// </para>
+    /// <para>
+    /// Charging is reported and not invented where an owner is missing: a world composed without a clock,
+    /// or without a party to charge, must not let a quoted cost disappear quietly, because a journey that
+    /// looked free is exactly what the cost contract exists to prevent.
+    /// </para>
+    /// </remarks>
+    private void Charge(TravelCost cost)
+    {
+        if (cost.IsFree) return;
+
+        if (!cost.Time.IsNone)
+        {
+            if (_clock is { } clock)
+            {
+                ClockAdvance advance = clock.Advance(TravelTimeConversion.Elapsed(clock.Calendar, cost.Time));
+
+                // A journey's days are the clock's own, so a day boundary crossed on the road is a day the
+                // world's places live through: the crossing the advance reported is what brings their
+                // schedules up to the day the clock now stands on, in this same arrival rather than at
+                // whatever update happens to come next.
+                if (advance.Crossings.Days > 0) AdvanceTime();
+            }
+            else
+            {
+                Report(
+                    "travel-time-uncharged",
+                    $"The transition quoted {cost.Time.Amount} {cost.Time.Unit} of travel, but the session has no clock, so no time was charged.");
+            }
+        }
+
+        if (!cost.Food.IsNone)
+        {
+            if (_resources is { } resources)
+            {
+                resources.SpendDay(cost.Food);
+            }
+            else
+            {
+                Report(
+                    "travel-provisions-uncharged",
+                    $"The transition quoted {cost.Food.Amount} {cost.Food.Unit} of provisions, but the session holds no party, so nothing was charged to a larder.");
+            }
+        }
+    }
+
+    /// <summary>Reports something the world could not hand to an owner, naming what is missing.</summary>
+    private void Report(string code, string message) =>
+        _diagnostics?.Publish(new DiagnosticsPublishRequest(
+            DiagnosticsSeverity.Info,
+            DiagnosticsDisposition.Accepted,
+            Source: "travel",
+            Code: code,
+            Message: message,
+            Correlation: string.Empty));
 
     /// <summary>
     /// Takes the transition whose entrance the step just carried the party into.

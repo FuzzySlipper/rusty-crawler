@@ -79,12 +79,68 @@ interface MovementView {
   readonly fallDamage: number;
 }
 
+/**
+ * Where the game clock stands, as the product published it. `present` is false when the session's
+ * ruleset composed no clock, and then the remaining fields carry nothing to show.
+ */
+interface ClockView {
+  readonly present: boolean;
+  /** The date on the clock's calendar, as the calendar's own numbers. */
+  readonly date: string;
+  /** The time of day, whole minutes. */
+  readonly time: string;
+  /** Which half of the daylight window the clock stands in: `day` or `night`. */
+  readonly daylight: string;
+  /** Whole game days elapsed since the session began. */
+  readonly elapsedDays: number;
+}
+
+/**
+ * The party's own accounts and standing, as the product published them. `present` is false when the
+ * session holds no party, which is what content that declares none gets.
+ */
+interface PartyView {
+  readonly present: boolean;
+  readonly members: number;
+  readonly coins: number;
+  readonly provisions: number;
+  /** The unit the provisions are stated in, so the number is never shown without its measure. */
+  readonly unit: string;
+  readonly reputation: number;
+  readonly fame: number;
+  /** The conditions acting on the party, empty when none act. */
+  readonly conditions: string;
+}
+
 interface SnapshotView {
   readonly composition: CompositionView;
   readonly session: SessionView;
   readonly world: WorldView;
   readonly movement: MovementView;
+  readonly clock: ClockView;
+  readonly party: PartyView;
 }
+
+/** The clock of a session that has none, which the panel shows as not knowing rather than as a date. */
+const CLOCK_UNKNOWN: ClockView = {
+  present: false,
+  date: '',
+  time: '',
+  daylight: '',
+  elapsedDays: 0,
+};
+
+/** The party of a session that holds none. */
+const PARTY_UNKNOWN: PartyView = {
+  present: false,
+  members: 0,
+  coins: 0,
+  provisions: 0,
+  unit: '',
+  reputation: 0,
+  fame: 0,
+  conditions: '',
+};
 
 const STYLES = `
 .crawler-session {
@@ -125,6 +181,46 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+/**
+ * Reads the clock block, or the not-known clock. A block that is missing, or that is present but does
+ * not carry the facts this panel renders, is not a reason to reject the whole projection: the session it
+ * describes has a clock this companion cannot read, and showing that is honest where refusing to render
+ * everything else would hide the rest of the session behind it.
+ */
+function readClock(value: unknown): ClockView {
+  if (!isRecord(value) || value.present !== true) return CLOCK_UNKNOWN;
+  const { date, time, daylight, elapsedDays } = value;
+  if (
+    typeof date !== 'string' ||
+    typeof time !== 'string' ||
+    typeof daylight !== 'string' ||
+    typeof elapsedDays !== 'number'
+  ) {
+    return CLOCK_UNKNOWN;
+  }
+
+  return { present: true, date, time, daylight, elapsedDays };
+}
+
+/** Reads the party block, or the not-known party, on the same terms as the clock block. */
+function readParty(value: unknown): PartyView {
+  if (!isRecord(value) || value.present !== true) return PARTY_UNKNOWN;
+  const { members, coins, provisions, unit, reputation, fame, conditions } = value;
+  if (
+    typeof members !== 'number' ||
+    typeof coins !== 'number' ||
+    typeof provisions !== 'number' ||
+    typeof unit !== 'string' ||
+    typeof reputation !== 'number' ||
+    typeof fame !== 'number' ||
+    typeof conditions !== 'string'
+  ) {
+    return PARTY_UNKNOWN;
+  }
+
+  return { present: true, members, coins, provisions, unit, reputation, fame, conditions };
+}
+
 function readSnapshot(value: unknown): SnapshotView | null {
   if (!isRecord(value)) return null;
   const composition = value.composition;
@@ -139,6 +235,10 @@ function readSnapshot(value: unknown): SnapshotView | null {
   // Movement facts are optional in the same way: a session that has never moved has none to publish,
   // and the panel shows that it does not know rather than that the way is clear.
   const movement = isRecord(value.movement) ? value.movement : {};
+  // The clock and the party are optional on the same terms: a ruleset that composed neither publishes
+  // blocks that say so, and a projection that carries none at all still describes a session worth showing.
+  const clock = readClock(value.clock);
+  const party = readParty(value.party);
   const { ruleset, title, bundle, contentPacks } = composition;
   const { mode, simulationSeconds, admittedSteps, updates } = session;
   if (
@@ -191,6 +291,8 @@ function readSnapshot(value: unknown): SnapshotView | null {
     session: { mode, simulationSeconds, admittedSteps, updates },
     world: { place, name: placeName, kind, x, y, z, yaw, visited, places },
     movement: { motion, blocked, stepRise, fallDistance, fallDamage },
+    clock,
+    party,
   };
 }
 
@@ -209,6 +311,9 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   // nothing stopped the party.
   panel.dataset.motion = 'none';
   panel.dataset.blocked = 'none';
+  panel.dataset.clock = 'none';
+  panel.dataset.party = 'none';
+  panel.dataset.light = 'unknown';
 
   const title = document.createElement('h1');
   const ruleset = document.createElement('p');
@@ -226,6 +331,14 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     ['steps', 'Admitted steps'],
     ['updates', 'Updates'],
     ['content', 'Content'],
+    ['date', 'Date'],
+    ['time', 'Time'],
+    ['days', 'Days'],
+    ['party', 'Party'],
+    ['coins', 'Coins'],
+    ['food', 'Food'],
+    ['standing', 'Standing'],
+    ['condition', 'Condition'],
     ['place', 'Place'],
     ['pose', 'Position'],
     ['explored', 'Explored'],
@@ -285,6 +398,22 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     rows.steps.textContent = String(snapshot.session.admittedSteps);
     rows.updates.textContent = String(snapshot.session.updates);
     rows.content.textContent = String(snapshot.composition.contentPacks);
+    // The clock's own facts, printed as they arrived: the date and the time are what the calendar and the
+    // clock published, and the panel derives none of them. `present` is what tells a session whose ruleset
+    // composed no clock from one standing on the first day of its calendar, and the two must not look alike.
+    const { clock, party } = snapshot;
+    panel.dataset.clock = clock.present ? 'present' : 'none';
+    panel.dataset.party = party.present ? 'present' : 'none';
+    panel.dataset.light = clock.present ? clock.daylight : 'unknown';
+    rows.date.textContent = clock.present ? clock.date : '—';
+    rows.time.textContent = clock.present ? `${clock.time} · ${clock.daylight}` : '—';
+    rows.days.textContent = clock.present ? String(clock.elapsedDays) : '—';
+    // The party's accounts and standing are read from the party the product holds, never counted here.
+    rows.party.textContent = party.present ? String(party.members) : '—';
+    rows.coins.textContent = party.present ? String(party.coins) : '—';
+    rows.food.textContent = party.present ? `${party.provisions} ${party.unit}` : '—';
+    rows.standing.textContent = party.present ? `${party.reputation} / ${party.fame}` : '—';
+    rows.condition.textContent = party.present && party.conditions !== '' ? party.conditions : '—';
     const world = snapshot.world;
     place.textContent =
       world.places === 0

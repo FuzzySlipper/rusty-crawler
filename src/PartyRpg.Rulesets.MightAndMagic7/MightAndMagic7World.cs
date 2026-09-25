@@ -3,6 +3,7 @@ using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
+using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
 using Rusty.Engine;
 
@@ -51,9 +52,22 @@ internal static class MightAndMagic7World
     /// <summary>Composes the world, or null when the content does not place the party anywhere.</summary>
     /// <param name="catalog">The validated content the product loaded, when it loaded any.</param>
     /// <param name="context">What the host handed the ruleset, which carries the engine the world moves in.</param>
-    internal static SessionWorld? Compose(ContentCatalog? catalog, RulesetSessionContext context)
+    /// <param name="clock">
+    /// This game's one clock, which the world reads its days from and charges a journey's time to. A session
+    /// holds no second source of game time, so travel time and respawn are measured in one clock.
+    /// </param>
+    /// <param name="resources">
+    /// The party's own accounts, which a journey charges its provisions to. It is null when content declared
+    /// no party, and a quoted food cost is then reported rather than quietly dropped.
+    /// </param>
+    internal static SessionWorld? Compose(
+        ContentCatalog? catalog,
+        RulesetSessionContext context,
+        GameClock clock,
+        PartyResourceLedger? resources)
     {
         ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(clock);
         if (catalog is null) return null;
         PlaceGraph graph = PlaceGraphLoader.Load(catalog);
         if (graph.Places.Count == 0) return null;
@@ -73,10 +87,12 @@ internal static class MightAndMagic7World
             party,
             places,
             new MightAndMagic7TravelCostRule(),
-            context.Time,
+            clock,
             Mover(party, context),
             context.Engine?.Diagnostics,
-            PlaceEntranceLoader.Load(catalog, graph));
+            PlaceEntranceLoader.Load(catalog, graph),
+            clock,
+            resources);
     }
 
     /// <summary>

@@ -1,24 +1,31 @@
 using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Movement;
+using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Presentation;
+using PartyRpg.Kit.Time;
 using Rusty.Engine;
 
 namespace PartyRpg.Kit.Sessions;
 
 /// <summary>
 /// The ordinary session shell: it owns the session's mode, measures the admitted simulation it has
-/// consumed, and publishes one presentation through its projection channel.
+/// consumed, steps the one game clock with that same admitted interval, and publishes one presentation
+/// through its projection channel.
 /// </summary>
 /// <remarks>
-/// The shell deliberately owns no gameplay. Later stones attach world, party, combat, and content
-/// mechanisms to this session; what exists here is the lifecycle those mechanisms will step inside,
-/// and the one place that decides what a mode means for stepping.
+/// The shell deliberately owns no gameplay. The world, the party, and the clock are composed elsewhere and
+/// handed here; what exists here is the lifecycle those mechanisms step inside, and the one place that
+/// decides what a mode means for stepping. It holds the party and the clock for as long as it lives, and
+/// releases both with itself.
 /// </remarks>
 public sealed class PartyRpgSession : IGameSession
 {
     private readonly SessionComposition _composition;
     private readonly IUiProjectionChannel _projection;
     private readonly MovementInput? _movementInput;
+    private readonly GameClock? _clock;
+    private readonly PartyEntity? _party;
+    private readonly IDiagnosticsService? _diagnostics;
     private SessionMode _mode = SessionMode.Starting;
     private double _simulationSeconds;
     private ulong _admittedSteps;
@@ -39,16 +46,37 @@ public sealed class PartyRpgSession : IGameSession
     /// movement and declared where its intents arrive. Without one the session never asks the world to
     /// move the party, which is what a session whose ruleset has no movement does.
     /// </param>
+    /// <param name="clock">
+    /// The session's one game clock, when its ruleset composed one. It is advanced by the same admitted
+    /// interval the movement step covers, and it is the clock the world charges a journey's time to, so
+    /// there is one clock in the session and not a second one for travel.
+    /// </param>
+    /// <param name="party">
+    /// The party the session holds, when content supplied what creation needed. The session owns its
+    /// lifetime: it publishes the party's facts and disposes it with itself, while the world borrows the
+    /// party's accounts to charge a road.
+    /// </param>
+    /// <param name="diagnostics">
+    /// Where the session reports what the clock brought due and nobody acted on, when the engine's
+    /// diagnostics are reachable. Nothing schedules a deadline yet, so a report is the only honest thing
+    /// that can happen to one.
+    /// </param>
     public PartyRpgSession(
         SessionComposition composition,
         IUiProjectionChannel projection,
         SessionWorld? world = null,
-        MovementInput? movementInput = null)
+        MovementInput? movementInput = null,
+        GameClock? clock = null,
+        PartyEntity? party = null,
+        IDiagnosticsService? diagnostics = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(composition.Title);
         _composition = composition;
         _projection = projection ?? throw new ArgumentNullException(nameof(projection));
         _movementInput = movementInput;
+        _clock = clock;
+        _party = party;
+        _diagnostics = diagnostics;
         LiveWorld = world;
         _world = world?.Snapshot ?? WorldSnapshot.Empty;
         world?.Populate();
@@ -68,6 +96,12 @@ public sealed class PartyRpgSession : IGameSession
 
     /// <summary>The live world this session steps, or null when content supplied none.</summary>
     public SessionWorld? LiveWorld { get; }
+
+    /// <summary>The session's one game clock, or null when its ruleset composed none.</summary>
+    public GameClock? Clock => _clock;
+
+    /// <summary>The party the session holds, or null when content supplied nothing to create one from.</summary>
+    public PartyEntity? Party => _party;
 
     /// <summary>Where the party is, or an empty world while the session has no places.</summary>
     public WorldSnapshot World => _world;
@@ -154,13 +188,19 @@ public sealed class PartyRpgSession : IGameSession
         SessionTick tick = SessionTick.From(update.Facts);
 
         // Input settles before the step it governs, and both happen inside this one admitted update: the
-        // intent is read from the events this update carries, and the step it produces covers exactly the
-        // admitted interval the same update measures. There is no second update, clock, or loop here.
-        StepParty(update.Input, tick);
+        // intent is read from the events this update carries, the step it produces covers exactly the
+        // admitted interval the same update measures, and the clock is advanced by that same interval. The
+        // party's motion and the passage of game time are therefore one interval, not two loops, and a
+        // session that is not running admits no interval for either of them.
+        double seconds = AdmittedSeconds(tick);
+        StepParty(update.Input, seconds);
+        StepClock(seconds);
 
         Advance(tick);
 
-        // The world advances with the same admitted time the session measures: one clock, one update.
+        // The world advances with the same admitted time the session measures: one clock, one update. The
+        // day boundary the clock just crossed is what its places are restored against, so a crossing
+        // reaches respawn here rather than through a schedule of the world's own.
         if (LiveWorld is { } world)
         {
             if (world.AdvanceTime().Count > 0) Publish();
@@ -171,6 +211,19 @@ public sealed class PartyRpgSession : IGameSession
         return ProductUpdateResult.None;
     }
 
+    /// <summary>The interval this admitted update covers, which is zero for a session that is not running.</summary>
+    /// <remarks>
+    /// One derivation of the interval, so the movement step and the clock cannot be advanced by different
+    /// amounts: the engine reports how many fixed steps it admitted and how long one is, and a batch this
+    /// session cannot measure advances nothing at all.
+    /// </remarks>
+    private double AdmittedSeconds(SessionTick tick)
+    {
+        if (_mode != SessionMode.Running) return 0;
+        double seconds = tick.AdmittedStepCount * tick.FixedDeltaSeconds;
+        return double.IsFinite(seconds) && seconds > 0 ? seconds : 0;
+    }
+
     /// <summary>
     /// Reads the player's movement controls and asks the world to move the party by the admitted interval.
     /// </summary>
@@ -179,15 +232,39 @@ public sealed class PartyRpgSession : IGameSession
     /// not keep walking after it resumes — but it never steps, because no admitted time passes for a
     /// session that is not running.
     /// </remarks>
-    private void StepParty(ReadOnlySpan<ProductInputEvent> input, SessionTick tick)
+    private void StepParty(ReadOnlySpan<ProductInputEvent> input, double seconds)
     {
         if (_movementInput is null) return;
         MovementIntent intent = _movementInput.Read(input);
-        if (_mode != SessionMode.Running || LiveWorld is not { } world) return;
-
-        double seconds = tick.AdmittedStepCount * tick.FixedDeltaSeconds;
-        if (!double.IsFinite(seconds) || seconds <= 0) return;
+        if (seconds <= 0 || LiveWorld is not { } world) return;
         world.Step(intent, seconds);
+    }
+
+    /// <summary>
+    /// Advances the one clock by the interval this update admitted, and hands on what the advance crossed
+    /// and brought due.
+    /// </summary>
+    /// <remarks>
+    /// The clock returns its effects rather than publishing them, so this is where they reach their owners:
+    /// the boundaries it crossed are measured in whole game days, and the world's places are brought up to
+    /// the day the clock now stands on in this same update. A deadline is the one effect with no owner yet
+    /// — nothing in the product schedules an effect, a rest, a restock, or a quest limit — so it is
+    /// reported by name instead of being applied or dropped.
+    /// </remarks>
+    private void StepClock(double admittedSeconds)
+    {
+        if (_clock is not { } clock || admittedSeconds <= 0) return;
+        ClockAdvance advance = clock.AdvanceAdmittedSeconds(admittedSeconds);
+        foreach (DeadlineDue due in advance.Due)
+        {
+            _diagnostics?.Publish(new DiagnosticsPublishRequest(
+                DiagnosticsSeverity.Info,
+                DiagnosticsDisposition.Accepted,
+                Source: "clock",
+                Code: "deadline-due",
+                Message: $"Game time reached {due.Fired}, which a deadline of {due.Deadline} was set for; no owner schedules deadlines yet, so nothing acted on it.",
+                Correlation: string.Empty));
+        }
     }
 
     /// <summary>
@@ -220,15 +297,22 @@ public sealed class PartyRpgSession : IGameSession
     }
 
     /// <summary>Stops the session, publishes the stop, and releases the projection channel.</summary>
+    /// <remarks>
+    /// The party and the world are released here because the session is what holds them: a party that
+    /// outlived its session would be a second live party, and the world owns the engine scene it walks in.
+    /// The stop is published before either is released, because the projection reads the party's accounts
+    /// and the party's store is what disposing it takes away.
+    /// </remarks>
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
-        LiveWorld?.Dispose();
         _mode = SessionMode.Stopped;
         // Publish before releasing the channel: a client attached at shutdown should learn that the
         // session stopped instead of keeping the last running projection forever.
         Publish();
+        LiveWorld?.Dispose();
+        _party?.Dispose();
         _projection.Dispose();
     }
 
@@ -256,7 +340,9 @@ public sealed class PartyRpgSession : IGameSession
         _admittedSteps,
         _updates,
         _world,
-        MovementSnapshot.From(LiveWorld?.Movement.Last));
+        MovementSnapshot.From(LiveWorld?.Movement.Last),
+        ClockSnapshot.From(_clock),
+        PartySnapshot.From(_party));
 
     /// <summary>Publishes the world as it stands now, after a caller moved the party.</summary>
     public void PublishWorld()

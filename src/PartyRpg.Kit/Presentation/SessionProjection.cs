@@ -6,8 +6,9 @@ namespace PartyRpg.Kit.Presentation;
 
 /// <summary>
 /// One complete session presentation: what the session is, what mode it is in, the admitted simulation
-/// it has measured so far, and what its last movement step did. Every value here is owned by the
-/// session; none of it is a placeholder for a mechanism that does not exist yet.
+/// it has measured so far, where the party is and what its last movement step did, where the game clock
+/// stands, and what the party's own accounts hold. Every value here is owned by one of those owners; none
+/// of it is a placeholder for a mechanism that does not exist yet.
 /// </summary>
 /// <param name="Composition">The compiled ruleset this session runs.</param>
 /// <param name="Mode">The session's mode.</param>
@@ -21,6 +22,16 @@ namespace PartyRpg.Kit.Presentation;
 /// empty value, so a snapshot built without movement facts publishes a panel that says so rather than
 /// one that claims the way is clear.
 /// </param>
+/// <param name="Clock">
+/// Where the session's one clock stands, or the not-known value when its ruleset composed none. It is
+/// defaulted for the same reason movement is: a snapshot built without a clock publishes a panel that says
+/// it does not know the date rather than one that shows a date nobody kept.
+/// </param>
+/// <param name="Party">
+/// The party's accounts and standing, or the not-known value when the session holds no party — which is
+/// what content that declares neither members nor starting values gets. Defaulted, so a session without a
+/// party publishes that rather than an empty purse it invented.
+/// </param>
 public readonly record struct SessionSnapshot(
     SessionComposition Composition,
     SessionMode Mode,
@@ -28,7 +39,9 @@ public readonly record struct SessionSnapshot(
     ulong AdmittedSteps,
     ulong Updates,
     WorldSnapshot World,
-    MovementSnapshot Movement = default);
+    MovementSnapshot Movement = default,
+    ClockSnapshot Clock = default,
+    PartySnapshot Party = default);
 
 /// <summary>Where the party is in the world, as the panel needs it: which place, where in it, and how much of the world is known.</summary>
 /// <param name="Place">The place the party is in, empty when the session has no world.</param>
@@ -76,6 +89,12 @@ public static class SessionProjection
     /// <summary>The movement object's wire name.</summary>
     public const string MovementField = "movement";
 
+    /// <summary>The clock object's wire name.</summary>
+    public const string ClockField = "clock";
+
+    /// <summary>The party object's wire name.</summary>
+    public const string PartyField = "party";
+
     /// <summary>Builds the projection value for a snapshot.</summary>
     public static UiValue Build(SessionSnapshot snapshot)
     {
@@ -101,6 +120,24 @@ public static class SessionProjection
                 ("yaw", builder.Number(snapshot.World.Pose.Yaw)),
                 ("visited", builder.Number(snapshot.World.Visited)),
                 ("places", builder.Number(snapshot.World.Places)))),
+            // The clock and the party are published even when the session has neither: "no clock" and "no
+            // party" are facts about the session the panel shows, and a block that only appeared once the
+            // ruleset supplied one would leave them indistinguishable from a projection that never asked.
+            (ClockField, builder.Object(
+                ("present", builder.Boolean(snapshot.Clock.Present)),
+                ("date", builder.String(snapshot.Clock.Date ?? string.Empty)),
+                ("time", builder.String(snapshot.Clock.Time ?? string.Empty)),
+                ("daylight", builder.String(snapshot.Clock.Daylight ?? string.Empty)),
+                ("elapsedDays", builder.Number(snapshot.Clock.ElapsedDays)))),
+            (PartyField, builder.Object(
+                ("present", builder.Boolean(snapshot.Party.Present)),
+                ("members", builder.Number(snapshot.Party.Members)),
+                ("coins", builder.Number(snapshot.Party.Coins)),
+                ("provisions", builder.Number(snapshot.Party.Provisions)),
+                ("unit", builder.String(snapshot.Party.Unit ?? string.Empty)),
+                ("reputation", builder.Number(snapshot.Party.Reputation)),
+                ("fame", builder.Number(snapshot.Party.Fame)),
+                ("conditions", builder.String(snapshot.Party.Conditions ?? string.Empty)))),
             // Published even when nothing has moved: the motion word says which of "the world refused me"
             // and "the party has not stepped yet" the panel is looking at, and a block that only appeared
             // once something had moved would leave the two indistinguishable again.

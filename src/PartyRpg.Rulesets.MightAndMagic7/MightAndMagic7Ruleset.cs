@@ -5,8 +5,9 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 
 /// <summary>
 /// The compiled Might and Magic VII ruleset. This is the composition point where this game's policy
-/// and content are assembled over the kit's mechanisms; at this stone the only mechanism the kit
-/// supplies is the session shell, so that is all this ruleset composes.
+/// and content are assembled over the kit's mechanisms: the session shell, the one clock and calendar
+/// every duration is stated against, the party its scenario content describes, the larder policy that
+/// prices a day, and the travel cost every transition is quoted through.
 /// </summary>
 public sealed class MightAndMagic7Ruleset : IGameRuleset
 {
