@@ -169,6 +169,30 @@ public sealed class ClockTests
     }
 
     [Fact]
+    public void A_calendar_may_shape_months_of_different_lengths_and_still_keep_whole_weeks()
+    {
+        // The authored calendar is uniform, but the definition is not: any month that holds whole weeks is
+        // legal, and the arithmetic has to follow the lengths a ruleset states rather than assume one.
+        GameCalendar uneven = new([7, 14, 21], daysPerWeek: 7, hoursPerDay: 24);
+
+        Assert.Equal(42, uneven.DaysPerYear);
+        Assert.Equal(GameDuration.FromHours(24), uneven.Days(1));
+        Assert.Equal(GameDuration.FromHours(168), uneven.Weeks(1));
+
+        // A month ends where its own length says, and the next one begins there.
+        Assert.Equal(new GameDate(100, 2, 1), uneven.Add(new GameDate(100, 1, 7), GameDuration.FromHours(24)));
+        Assert.Equal(new GameDate(100, 3, 1), uneven.Add(new GameDate(100, 2, 14), GameDuration.FromHours(24)));
+        Assert.Equal(new GameDate(101, 1, 1), uneven.Add(new GameDate(100, 3, 21), GameDuration.FromHours(24)));
+        Assert.Equal(15, uneven.DayOfYear(new GameDate(100, 2, 8)));
+
+        // Every month still begins on the first day of a week, so a weekday is always derivable.
+        Assert.Equal(1, uneven.DayOfWeek(new GameDate(100, 1, 1)));
+        Assert.Equal(1, uneven.DayOfWeek(new GameDate(100, 2, 1)));
+        Assert.Equal(1, uneven.DayOfWeek(new GameDate(100, 3, 1)));
+        Assert.Equal(1, uneven.DayOfWeek(new GameDate(101, 1, 1)));
+    }
+
+    [Fact]
     public void Nothing_but_an_advance_moves_the_clock()
     {
         GameClock clock = Clock();
