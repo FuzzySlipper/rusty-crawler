@@ -73,7 +73,10 @@ internal sealed class MightAndMagic7Session : IGameSession
                     clock,
                     party,
                     context.Engine?.Diagnostics,
-                    store);
+                    store,
+                    MightAndMagic7Persistence.SaveSlot,
+                    saveInput: context.Save,
+                    resumed: true);
                 return;
             }
 
@@ -91,11 +94,13 @@ internal sealed class MightAndMagic7Session : IGameSession
                     clock: clock,
                     diagnostics: context.Engine?.Diagnostics,
                     saveStore: store,
+                    saveSlot: MightAndMagic7Persistence.SaveSlot,
                     creationInput: creation,
                     creation: new SessionCreation(
                         MightAndMagic7Creation.Start(declared),
                         description => MightAndMagic7Party.Factory().Create(description),
-                        created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created))));
+                        created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created))),
+                    saveInput: context.Save);
                 return;
             }
 
@@ -112,7 +117,9 @@ internal sealed class MightAndMagic7Session : IGameSession
                 clock,
                 party,
                 context.Engine?.Diagnostics,
-                store);
+                store,
+                MightAndMagic7Persistence.SaveSlot,
+                saveInput: context.Save);
         }
         catch
         {

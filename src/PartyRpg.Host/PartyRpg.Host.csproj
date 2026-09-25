@@ -62,6 +62,12 @@
     <RustyEngineProductInputMapping Include="creation.advance.key-enter" Intent="creation.advance" Trigger="key:enter:pressed" />
     <RustyEngineProductInputIntent Include="creation.accept" Value="digital" />
     <RustyEngineProductInputMapping Include="creation.accept.key-space" Intent="creation.accept" Trigger="key:space:pressed" />
+    <!-- The save control. The engine's keyboard controls have no function keys, so a save is asked for with
+         a letter: F, which is free during play and does not collide with a movement control. The engine
+         refuses a mapping whose intent the product never declared, so this declaration and the code
+         constant in ProductIdentity.cs are the two halves of the same control. -->
+    <RustyEngineProductInputIntent Include="session.save" Value="digital" />
+    <RustyEngineProductInputMapping Include="session.save.key-f" Intent="session.save" Trigger="key:key-f:pressed" />
     <RustyEngineProductInputIntent Include="crawler.ui" Value="payload:crawler.ui.action.v1" />
   </ItemGroup>
 

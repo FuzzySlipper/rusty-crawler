@@ -68,6 +68,23 @@ function party(overrides = {}) {
 }
 
 /**
+ * The save block as the product publishes it. `state` is `none` until a save is asked for, `saved` when one
+ * landed, and `failed` when one did not; `message` is then what the player is told.
+ */
+function save(overrides = {}) {
+  return {
+    available: true,
+    resumed: false,
+    slot: 'session',
+    state: 'none',
+    at: '',
+    code: '',
+    message: '',
+    ...overrides,
+  };
+}
+
+/**
  * The creation block as the product publishes it while a party is being made: the flow's own options and
  * the member's own answers, so every choice below arrived in the projection.
  */
@@ -149,6 +166,9 @@ function snapshot(mode, seconds = 0, steps = 0, updates = 0, facts = undefined, 
   // Creation is published in every mode, so the helper adds the block only when a case asks for one: a
   // case that asks for none covers the projection a session that is doing neither publishes.
   if (blocks?.creation !== undefined) value.creation = blocks.creation;
+  // The save block is published in every mode too, so a case that asks for none covers a projection whose
+  // session the companion cannot read as saveable.
+  if (blocks?.save !== undefined) value.save = blocks.save;
   return value;
 }
 
@@ -216,6 +236,8 @@ function harness() {
     // The session's own action button is a direct child of the panel: the creation screen's buttons
     // live inside their own section, and a case that clicks 'the button' means the session's.
     button: () => root.querySelector('.crawler-session > button'),
+    // The save control is the panel's other direct-child button, named by the class the panel gives it.
+    saveButton: () => root.querySelector('.crawler-session > button.crawler-save'),
     get unsubscribed() {
       return unsubscribed;
     },
@@ -310,7 +332,7 @@ test('renders nothing until the product publishes, then renders what it publishe
       title: '',
       button: 'Starting…',
       disabled: true,
-      values: Array(23).fill('—'),
+      values: Array(25).fill('—'),
       place: '',
     });
 
@@ -327,6 +349,9 @@ test('renders nothing until the product publishes, then renders what it publishe
         '—', '—', '—', '—', '—', '—', '—', '—',
         '1', '1234, 5678, 0 @ 512', '1 / 76', 'grounded', '—', '—', '—',
         '—', '—', '—',
+        // A projection that carries no save block is a session this companion cannot read as saveable, and
+        // the panel says so on the Save row rather than offering a save it cannot make.
+        'unavailable', 'fresh',
       ],
       place: 'Emerald Island · region',
     });
@@ -431,6 +456,7 @@ test('the companion holds no state and starts no timer', () => {
       '—', '—', '—', '—', '—', '—', '—', '—',
       '1', '1234, 5678, 0 @ 512', '1 / 76', '—', '—', '—', '—',
       '—', '—', '—',
+      'unavailable', 'fresh',
     ]);
     assert.equal(h.root.querySelectorAll('.crawler-session').length, 1);
 
@@ -762,6 +788,106 @@ test('the panel shows the party a session accepted once it is playing it', () =>
     assert.equal(h.panel().getAttribute('data-creation'), 'none');
     assert.equal(creationPanel(h).hidden, true);
     assert.equal(rows(h, 'Member', 'Creation step', 'Pool').Member, '—');
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the save control asks for a save when there is something to save', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // A running session with a store: the button offers the save, and clicking it asks the product for one
+    // on the action name the product declares.
+    h.emit(snapshot('running', 1, 60, 60, movement(), { save: save() }));
+    assert.equal(h.saveButton().textContent, 'Save session');
+    assert.equal(h.saveButton().disabled, false);
+    h.saveButton().dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
+    assert.deepEqual(h.claims, [
+      {
+        intent: ACTION_INTENT,
+        value: { kind: 'product-payload', contract: ACTION_CONTRACT, data: { action: 'session.save' } },
+      },
+    ]);
+
+    // A party still being made has nothing to save, so the control is offered disabled rather than as a
+    // button that would ask for a save of a session that does not exist yet.
+    h.emit(snapshot('creating', 2, 60, 61, movement(), { save: save(), creation: creation() }));
+    assert.equal(h.saveButton().disabled, true);
+
+    // A session with no store says so on its Save row, and its control cannot work either.
+    h.emit(snapshot('running', 3, 120, 122, movement(), { save: save({ available: false }) }));
+    assert.equal(h.saveButton().disabled, true);
+    assert.equal(rows(h, 'Save').Save, 'unavailable');
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('a landed save shows the moment and the slot, and a refused one shows why', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // What a save that landed looks like: the game moment the slot holds, the slot, and the product's own
+    // account of what happened — all printed as they arrived.
+    h.emit(snapshot('running', 1, 60, 60, movement(), {
+      save: save({
+        state: 'saved',
+        at: '1168-01-01 09:30',
+        message: "Saved the session to slot 'session' at 1168-01-01 09:30.",
+      }),
+    }));
+    assert.equal(h.panel().getAttribute('data-save'), 'saved');
+    assert.equal(rows(h, 'Save', 'Start').Save, '1168-01-01 09:30 · session');
+    assert.equal(rows(h, 'Save', 'Start').Start, 'fresh');
+    const result = h.panel().querySelector('.crawler-save-result');
+    assert.equal(result.hidden, false);
+    assert.equal(result.getAttribute('data-state'), 'saved');
+    assert.match(result.textContent, /Saved the session to slot 'session'/);
+
+    // What a save that did not looks like: the same row says failed, and the reason is on screen rather
+    // than swallowed — a save that silently did nothing must not look like one that landed.
+    h.emit(snapshot('running', 2, 120, 121, movement(), {
+      save: save({ state: 'failed', code: 'save-refused', message: 'The session cannot be saved: the session holds no party.' }),
+    }));
+    assert.equal(h.panel().getAttribute('data-save'), 'failed');
+    assert.equal(rows(h, 'Save').Save, 'failed');
+    assert.equal(result.hidden, false);
+    assert.equal(result.getAttribute('data-state'), 'failed');
+    assert.equal(result.getAttribute('data-code'), 'save-refused');
+    assert.match(result.textContent, /holds no party/);
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('a resumed session says so, and shows the party it resumed', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // The host's composition decision, made visible: the start row and the creation head both name a
+    // resumed session, and the roster below is the party the save holds.
+    h.emit(snapshot('running', 1, 60, 60, movement(), {
+      party: party({ members: 2 }),
+      creation: acceptedParty(),
+      save: save({ resumed: true }),
+    }));
+
+    assert.equal(rows(h, 'Start').Start, 'resumed');
+    assert.equal(h.panel().getAttribute('data-creation'), 'resumed');
+    assert.equal(creationPanel(h).head, 'Party resumed');
+    assert.equal(creationPanel(h).accepted.length, 2);
+    assert.match(creationPanel(h).accepted[0], /Roderick · Human · Knight · human-man/);
+    assert.equal(rows(h, 'Save').Save, '—');
 
     ui.dispose();
   } finally {

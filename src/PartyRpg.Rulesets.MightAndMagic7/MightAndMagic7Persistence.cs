@@ -35,6 +35,17 @@ internal static class MightAndMagic7Persistence
     /// </remarks>
     internal const string StoreScope = "sessions";
 
+    /// <summary>
+    /// The slot this game's session is written to and resumed from.
+    /// </summary>
+    /// <remarks>
+    /// One slot is this game's policy for now: a save replaces the one before it, and the switch a host
+    /// starts a run with reads the same slot the product writes. Named slots are a decision for the stone
+    /// that offers a player more than one, and nothing here pretends to choose between saves that do not
+    /// exist.
+    /// </remarks>
+    internal const string SaveSlot = "session";
+
     /// <summary>The engine-backed store a session's saves are read and written through, or null without an engine.</summary>
     /// <param name="engine">The engine the host is running inside, when it is running inside one.</param>
     internal static EngineSessionSaveStore? Store(IEngineContext? engine) =>
@@ -45,7 +56,7 @@ internal static class MightAndMagic7Persistence
     /// <param name="slot">The slot to read.</param>
     /// <returns>The saved session.</returns>
     /// <exception cref="SessionSaveException">There is no persistence to read, the slot holds nothing, or the slot does not decode.</exception>
-    internal static SessionSave Load(IEngineContext? engine, string slot = SessionSaveBoundary.DefaultSlot)
+    internal static SessionSave Load(IEngineContext? engine, string slot = SaveSlot)
     {
         if (engine is null)
         {

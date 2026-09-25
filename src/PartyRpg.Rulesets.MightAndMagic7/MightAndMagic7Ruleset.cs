@@ -25,10 +25,20 @@ public sealed class MightAndMagic7Ruleset : IGameRuleset
     public string Title => "Might and Magic VII: For Blood and Honor";
 
     /// <inheritdoc />
+    /// <remarks>
+    /// The host's start decision is answered here, at this ruleset's one composition entry: a run that
+    /// resumes reads the save this game's storage holds and composes a session from it, and a run that
+    /// starts fresh composes a new one. A resume that finds nothing saved fails by name rather than
+    /// composing a new game in its place.
+    /// </remarks>
+    /// <exception cref="SessionSaveException">The run resumes and there is no saved session, or the save cannot be resumed.</exception>
     public IGameSession CreateSession(RulesetSessionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-        return new MightAndMagic7Session(this, context);
+        return new MightAndMagic7Session(
+            this,
+            context,
+            context.Start == SessionStart.Resume ? MightAndMagic7Persistence.Load(context.Engine) : null);
     }
 
     /// <summary>
@@ -40,7 +50,8 @@ public sealed class MightAndMagic7Ruleset : IGameRuleset
     /// stands, what each place remembers, and the game time that had passed are the save's, and everything
     /// transient is composed fresh. The save is judged against the content being resumed in before anything
     /// is built, so a save that does not fit this world fails with every problem named rather than producing
-    /// a session that is half of one game and half of another.
+    /// a session that is half of one game and half of another. This is the same path the host's start switch
+    /// takes through <see cref="CreateSession"/>, named for a caller that wants a resume and nothing else.
     /// </remarks>
     /// <param name="context">What the host hands the ruleset, which carries the engine and the content to resume in.</param>
     /// <returns>The resumed session.</returns>
@@ -49,7 +60,7 @@ public sealed class MightAndMagic7Ruleset : IGameRuleset
     public IGameSession ResumeSession(RulesetSessionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-        return new MightAndMagic7Session(this, context, MightAndMagic7Persistence.Load(context.Engine));
+        return CreateSession(context with { Start = SessionStart.Resume });
     }
 
     /// <summary>

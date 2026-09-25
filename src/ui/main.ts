@@ -34,9 +34,10 @@ const UI_CONTRACT = 'crawler.ui.snapshot.v1';
 const UI_ACTION_INTENT = 'crawler.ui';
 const UI_ACTION_CONTRACT = 'crawler.ui.action.v1';
 
-/** The two session actions this companion can ask for. */
+/** The session actions this companion can ask for. */
 const ACTION_PAUSE = 'session.pause';
 const ACTION_RESUME = 'session.resume';
+const ACTION_SAVE = 'session.save';
 
 /**
  * The creation actions this companion reports. Each names a choice, the product's flow validates it, and
@@ -131,6 +132,28 @@ interface PartyView {
   readonly conditions: string;
 }
 
+/**
+ * How the session stands with its save slot, as the product published it. `state` is `none` until a save
+ * is asked for, `saved` when one landed, and `failed` when one did not — and `message` then says what went
+ * wrong, because a save that could not land must not look like one that did.
+ */
+interface SaveView {
+  /** Whether the session has a save store at all. */
+  readonly available: boolean;
+  /** Whether this session was composed from the save in its slot rather than started fresh. */
+  readonly resumed: boolean;
+  /** The slot a save is written to. */
+  readonly slot: string;
+  /** `none`, `saved`, or `failed`. */
+  readonly state: string;
+  /** The game date and time the last save landed, empty when none has. */
+  readonly at: string;
+  /** Which failure this was, empty unless the state is `failed`. */
+  readonly code: string;
+  /** What happened, in the terms of the save. */
+  readonly message: string;
+}
+
 /** One member of the party being created, as the flow published it. */
 interface CreationMemberView {
   readonly index: number;
@@ -219,6 +242,7 @@ interface SnapshotView {
   readonly clock: ClockView;
   readonly party: PartyView;
   readonly creation: CreationView;
+  readonly save: SaveView;
 }
 
 /** The clock of a session that has none, which the panel shows as not knowing rather than as a date. */
@@ -240,6 +264,17 @@ const PARTY_UNKNOWN: PartyView = {
   reputation: 0,
   fame: 0,
   conditions: '',
+};
+
+/** The save state of a projection that carries none: a session this companion cannot read as saveable. */
+const SAVE_NONE: SaveView = {
+  available: false,
+  resumed: false,
+  slot: '',
+  state: 'none',
+  at: '',
+  code: '',
+  message: '',
 };
 
 /** The creation of a session that is neither creating a party nor playing one it accepted. */
@@ -329,6 +364,10 @@ const STYLES = `
 .crawler-refusal { margin: 0.4rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(226, 120, 96, 0.8); color: #e8c8b0; font-size: 0.75rem; }
 .crawler-refusal[hidden] { display: none; }
 .crawler-accepted { margin: 0.35rem 0 0; padding: 0; list-style: none; color: #d8cba6; font-size: 0.75rem; }
+.crawler-session .crawler-save { margin: 0.3rem 0 0; }
+.crawler-save-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
+.crawler-save-result[hidden] { display: none; }
+.crawler-save-result[data-state='failed'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
 `;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -390,6 +429,36 @@ function readParty(value: unknown): PartyView {
   }
 
   return { present: true, members, coins, provisions, unit, reputation, fame, conditions };
+}
+
+/**
+ * Reads the save block, or the not-readable save. A block that is missing, or that is present but does not
+ * carry the facts this panel renders, is not a reason to reject the whole projection: the session it
+ * describes has a save this companion cannot read, and showing that is honest where refusing to render
+ * everything else would hide the rest of the session behind it.
+ */
+function readSave(value: unknown): SaveView {
+  if (!isRecord(value)) return SAVE_NONE;
+  const { slot, state, at, code, message } = value;
+  if (
+    typeof slot !== 'string' ||
+    typeof state !== 'string' ||
+    typeof at !== 'string' ||
+    typeof code !== 'string' ||
+    typeof message !== 'string'
+  ) {
+    return SAVE_NONE;
+  }
+
+  return {
+    available: value.available === true,
+    resumed: value.resumed === true,
+    slot,
+    state,
+    at,
+    code,
+    message,
+  };
 }
 
 /**
@@ -503,6 +572,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
   const clock = readClock(value.clock);
   const party = readParty(value.party);
   const creation = readCreation(value.creation);
+  const save = readSave(value.save);
   const { ruleset, title, bundle, contentPacks } = composition;
   const { mode, simulationSeconds, admittedSteps, updates } = session;
   if (
@@ -558,6 +628,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
     clock,
     party,
     creation,
+    save,
   };
 }
 
@@ -580,6 +651,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   panel.dataset.party = 'none';
   panel.dataset.light = 'unknown';
   panel.dataset.creation = 'none';
+  panel.dataset.save = 'none';
 
   const title = document.createElement('h1');
   const ruleset = document.createElement('p');
@@ -615,6 +687,8 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     ['member', 'Member'],
     ['creationStep', 'Creation step'],
     ['pool', 'Pool'],
+    ['save', 'Save'],
+    ['start', 'Start'],
   ] as const) {
     const term = document.createElement('dt');
     term.textContent = label;
@@ -628,6 +702,20 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   action.type = 'button';
   action.disabled = true;
   action.textContent = 'Starting…';
+
+  // The save control: one button that asks for a save now, and the outcome of the last request. The
+  // button is disabled while there is nothing to save — during creation and before the session runs — and
+  // while the session has no store to write to; asking anyway is possible with the key, and the answer is
+  // then shown here rather than swallowed.
+  const saveButton = document.createElement('button');
+  saveButton.type = 'button';
+  saveButton.className = 'crawler-save';
+  saveButton.disabled = true;
+  saveButton.textContent = 'Save session';
+
+  const saveResult = document.createElement('p');
+  saveResult.className = 'crawler-save-result';
+  saveResult.hidden = true;
 
   const hint = document.createElement('p');
   hint.className = 'crawler-hint';
@@ -690,7 +778,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   // The creation screen comes before the long list of facts below: while a party is being made its
   // choices are what a player acts on, and a screen whose controls sat below twenty rows of values would
   // put them off the bottom of a short window.
-  panel.append(title, ruleset, bundle, place, creation, details, action, hint);
+  panel.append(title, ruleset, bundle, place, creation, details, action, saveButton, saveResult, hint);
   root.append(style, panel);
 
   let current = 'starting';
@@ -707,6 +795,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     else if (current === 'paused') claim(ACTION_RESUME);
   });
 
+  saveButton.addEventListener('click', () => claim(ACTION_SAVE));
   advanceButton.addEventListener('click', () => claim(ACTION_ADVANCE));
   acceptButton.addEventListener('click', () => claim(ACTION_ACCEPT));
   nameButton.addEventListener('click', () => claim(ACTION_SET_NAME, { name: nameInput.value }));
@@ -839,8 +928,10 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
    * would fight the pointer for no reason: what changed is what is redrawn.
    */
   let renderedChoices = '';
-  const renderCreation = (view: CreationView): void => {
-    panel.dataset.creation = view.active ? 'active' : view.accepted ? 'accepted' : 'none';
+  const renderCreation = (view: CreationView, resumed: boolean): void => {
+    // A resumed session plays a party it did not create here, and says so rather than claiming a creation
+    // that never happened: the roster below it is the same either way.
+    panel.dataset.creation = view.active ? 'active' : view.accepted ? (resumed ? 'resumed' : 'accepted') : 'none';
     creation.hidden = !view.active && !view.accepted;
     refusal.hidden = view.refusalMessage === '';
     refusal.dataset.code = view.refusalCode;
@@ -862,7 +953,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
           return item;
         }),
       );
-      stepHead.textContent = view.accepted ? 'Party accepted' : '';
+      stepHead.textContent = view.accepted ? (resumed ? 'Party resumed' : 'Party accepted') : '';
       memberList.replaceChildren();
       portraitRow.replaceChildren();
       classRow.replaceChildren();
@@ -941,7 +1032,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     // The clock's own facts, printed as they arrived: the date and the time are what the calendar and the
     // clock published, and the panel derives none of them. `present` is what tells a session whose ruleset
     // composed no clock from one standing on the first day of its calendar, and the two must not look alike.
-    const { clock, party, creation: creating } = snapshot;
+    const { clock, party, creation: creating, save } = snapshot;
     panel.dataset.clock = clock.present ? 'present' : 'none';
     panel.dataset.party = party.present ? 'present' : 'none';
     panel.dataset.light = clock.present ? clock.daylight : 'unknown';
@@ -954,11 +1045,28 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     rows.food.textContent = party.present ? `${party.provisions} ${party.unit}` : '—';
     rows.standing.textContent = party.present ? `${party.reputation} / ${party.fame}` : '—';
     rows.condition.textContent = party.present && party.conditions !== '' ? party.conditions : '—';
+    // The save's own facts: whether this session can save at all, whether it came from the slot, and what
+    // happened the last time the player asked. Nothing is derived here — the outcome word, the moment, and
+    // the reason are the product's, and the panel prints them unchanged.
+    panel.dataset.save = save.state;
+    rows.save.textContent =
+      !save.available
+        ? 'unavailable'
+        : save.state === 'saved'
+          ? `${save.at} · ${save.slot}`
+          : save.state === 'failed'
+            ? 'failed'
+            : '—';
+    rows.start.textContent = save.resumed ? 'resumed' : 'fresh';
+    saveResult.hidden = save.message === '';
+    saveResult.dataset.state = save.state;
+    saveResult.dataset.code = save.code;
+    saveResult.textContent = save.message;
     // Creation's own facts: which member is being made, where it stands, and what the pool still holds.
     rows.member.textContent = creating.active || creating.accepted ? `${creating.member + 1} / ${creating.members}` : '—';
     rows.creationStep.textContent = creating.step === '' ? '—' : creating.step;
     rows.pool.textContent = creating.active ? String(creating.pool) : '—';
-    renderCreation(creating);
+    renderCreation(creating, save.resumed);
     const world = snapshot.world;
     place.textContent =
       world.places === 0
@@ -998,10 +1106,16 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
       action.textContent = current === 'stopped' ? 'Session stopped' : 'Starting…';
     }
 
+    // The save control follows the session rather than the screen: there is nothing to save while a party
+    // is being made, and a session with no store says so on its Save row instead of offering a button that
+    // cannot work.
+    saveButton.disabled = !save.available || (current !== 'running' && current !== 'paused');
     hint.textContent =
       current === 'creating'
         ? 'Choose a portrait, a class, a name, attributes, and skills. Enter confirms the step you are on; Space accepts a finished party.'
-        : 'Pause or resume with the button, or with the P key.';
+        : save.available
+          ? 'Pause or resume with the button, or with the P key. Save with the button, or with the F key.'
+          : 'Pause or resume with the button, or with the P key.';
   };
 
   const unsubscribe = context.projection?.subscribe((projection) => {

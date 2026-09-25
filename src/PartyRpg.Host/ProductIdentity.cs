@@ -60,4 +60,25 @@ internal static class ProductIdentity
 
     /// <summary>The digital intent that accepts the finished party and leaves creation for the world.</summary>
     internal const string CreationAcceptIntent = "creation.accept";
+
+    /// <summary>The digital intent that asks the live session to save where it stands.</summary>
+    internal const string SaveIntent = "session.save";
+
+    /// <summary>
+    /// The payload action name that asks the live session to save, sent by the DOM companion's save control
+    /// on the UI action contract.
+    /// </summary>
+    internal const string SaveAction = "session.save";
+
+    /// <summary>
+    /// The environment variable that selects how a product run begins: a fresh session, or the one the save
+    /// slot already holds.
+    /// </summary>
+    /// <remarks>
+    /// The dev runner owns its command line and passes no arguments to the product, so an operator's choice
+    /// between a new game and a resumed one arrives as an environment variable. It is read once, where the
+    /// product is created, and reported in the projection: a switch that could only be inferred would leave
+    /// an operator unable to tell a resumed session from a new one.
+    /// </remarks>
+    internal const string StartVariable = "RUSTY_CRAWLER_START";
 }

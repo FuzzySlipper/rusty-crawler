@@ -91,6 +91,112 @@ public sealed class SessionPersistenceTests
     }
 
     [Fact]
+    public void A_session_played_and_saved_by_its_declared_intent_resumes_to_the_state_before_it()
+    {
+        InMemoryPersistenceService persistence = new();
+        (string Path, string Text)[] content =
+        [
+            ProductTestContext.Bundle(BuiltInBundles.Default, "world", "scenario"),
+            .. World(),
+            .. Scenario(),
+            // The host offers a creation screen, so a new product starts in creation and its party is the one
+            // the player accepts. A bundle a player creates a party in must declare the classes and skills
+            // creation offers, which is what this fixture stages.
+            .. ProductTestContext.CreationTables(),
+        ];
+
+        (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(persistence, content);
+        ProjectedNode before;
+        using (CrawlerProduct product = new(context))
+        {
+            product.Start();
+            Assert.Equal(SessionMode.Creating, product.Mode);
+            Assert.Equal(SessionStart.Fresh, product.StartMode);
+
+            // A played session: the party accepted through the product's own control, then a minute of
+            // admitted time, which this game's clock reads as half an hour, so the clock the save carries is
+            // not its starting value.
+            product.Update(ProductTestContext.Update(1, 1, ProductTestContext.Digital(ProductIdentity.CreationAcceptIntent)));
+            Assert.Equal(SessionMode.Running, product.Mode);
+            product.Update(ProductTestContext.Update(2, admittedSteps: 60, stepSeconds: 1.0));
+
+            before = ProjectedNode.Of(ui.Latest().Value);
+            Assert.Equal("09:30", before.Field("clock").Field("time").AsString());
+            Assert.Equal(4d, before.Field("party").Field("members").AsNumber());
+            Assert.True(before.Field("world").Field("places").AsNumber() > 0);
+
+            // The save key the host declared, inside one admitted update: nothing before it wrote, and the
+            // boundary writes once when it arrives.
+            Assert.Null(persistence.Payload(Scope, Slot));
+            product.Update(ProductTestContext.Update(3, 1, ProductTestContext.Digital(ProductIdentity.SaveIntent)));
+
+            ProjectedNode saved = ProjectedNode.Of(ui.Latest().Value);
+            Assert.Equal("saved", saved.Field("save").Field("state").AsString());
+            Assert.Equal(Slot, saved.Field("save").Field("slot").AsString());
+            Assert.Equal("1168-01-01 09:30", saved.Field("save").Field("at").AsString());
+            Assert.False(saved.Field("save").Field("resumed").AsBoolean());
+            Assert.Contains("Saved the session", saved.Field("save").Field("message").AsString(), StringComparison.Ordinal);
+            Assert.NotNull(persistence.Payload(Scope, Slot));
+        }
+
+        // A second product over the same bytes, told by its host to resume: the switch is explicit, and the
+        // session it composes is the one the save holds.
+        (ProductCreateContext resumedContext, RecordingUiService resumedUi) = ProductTestContext.Create(persistence, content);
+        using CrawlerProduct resumed = new(resumedContext, BuiltInRulesets.Default, bundleId: null, start: SessionStart.Resume);
+        Assert.Equal(SessionStart.Resume, resumed.StartMode);
+        resumed.Start();
+        Assert.Equal(SessionMode.Running, resumed.Mode);
+
+        ProjectedNode after = ProjectedNode.Of(resumedUi.Latest().Value);
+        Assert.True(after.Field("save").Field("resumed").AsBoolean());
+        Assert.Equal("none", after.Field("save").Field("state").AsString());
+
+        // The same clock, place, pose, party, and standing the session was saved at, field by field: the
+        // save carried them and the load rebuilt a session that publishes them again.
+        foreach (string block in new[] { "clock", "world", "party" })
+        {
+            foreach (string field in Fields(block))
+            {
+                Assert.Equal(Read(before, block, field), Read(after, block, field));
+            }
+        }
+
+        static string Read(ProjectedNode node, string block, string field)
+        {
+            ProjectedNode value = node.Field(block).Field(field);
+            return field is "date" or "time" or "daylight" or "place" or "name" or "kind" or "unit" or "conditions"
+                ? value.AsString()
+                : value.AsNumber().ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        // And the party a player reads, member by member: a resumed session publishes the same roster, from
+        // the restored party rather than from the creation flow that no longer exists.
+        Assert.Equal(before.Field("creation").Field("party").Count(), after.Field("creation").Field("party").Count());
+        for (int index = 0; index < before.Field("creation").Field("party").Count(); index++)
+        {
+            foreach (string field in new[] { "name", "race", "class", "portrait" })
+            {
+                Assert.Equal(
+                    before.Field("creation").Field("party").Element(index).Field(field).AsString(),
+                    after.Field("creation").Field("party").Element(index).Field(field).AsString());
+            }
+        }
+
+        // And it is played on rather than merely shown: the next admitted update steps the resumed session.
+        resumed.Update(ProductTestContext.Update(4, 60));
+        Assert.Equal(SessionMode.Running, resumed.Mode);
+    }
+
+    /// <summary>The fields of a projection block this round trip compares, in the order they are published.</summary>
+    private static string[] Fields(string block) => block switch
+    {
+        "clock" => ["date", "time", "daylight", "elapsedDays"],
+        "world" => ["place", "name", "kind", "x", "y", "z", "yaw", "visited", "places"],
+        "party" => ["members", "coins", "provisions", "unit", "reputation", "fame", "conditions"],
+        _ => [],
+    };
+
+    [Fact]
     public void Resuming_with_nothing_saved_fails_by_name()
     {
         InMemoryPersistenceService persistence = new();

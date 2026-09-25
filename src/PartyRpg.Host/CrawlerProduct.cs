@@ -13,6 +13,22 @@ namespace PartyRpg.Host;
 /// the kit's session input router, and forwards the engine lifecycle to the session. It owns no rules
 /// and no gameplay state.
 /// </summary>
+/// <remarks>
+/// <para>
+/// The host also owns the two decisions that belong to whoever launched it: which bundle to load, and how a
+/// run begins. A run either plays a new session or resumes the save in the product's slot, and that choice
+/// is explicit — passed in, or read once from the declared environment variable — and never inferred from
+/// whether a save happens to exist. A resume that finds nothing fails by name where the product is created,
+/// because starting a new game in place of the one an operator asked to continue is the one thing a resume
+/// switch must never do quietly.
+/// </para>
+/// <para>
+/// The product declares the save control to the engine — a key on the digital intent, and the payload action
+/// the DOM companion's save button sends — and hands those names to the ruleset, which composes the session
+/// that reads them. Nothing here saves: the request travels with the admitted input into the session's one
+/// update and reaches the explicit save boundary there.
+/// </para>
+/// </remarks>
 public sealed class CrawlerProduct : IEngineProduct
 {
     private readonly ProductCreateContext _context;
@@ -20,6 +36,7 @@ public sealed class CrawlerProduct : IEngineProduct
     private readonly SessionInputRouter _input;
     private readonly MovementIntentNames _movement;
     private readonly CreationIntentNames _creation;
+    private readonly SaveIntentNames _save;
     private readonly BundleSelection _selection;
     private readonly ContentCatalog? _content;
     private IGameSession _session;
@@ -28,17 +45,18 @@ public sealed class CrawlerProduct : IEngineProduct
 
     /// <summary>Creates the product with the host's default compiled ruleset.</summary>
     public CrawlerProduct(ProductCreateContext context)
-        : this(context, BuiltInRulesets.Default)
+        : this(context, BuiltInRulesets.Default, bundleId: null, start: ProductStart.FromEnvironment())
     {
     }
 
     /// <summary>Creates the product over an explicitly selected compiled ruleset and bundle.</summary>
-    public CrawlerProduct(ProductCreateContext context, IGameRuleset ruleset, string? bundleId)
+    public CrawlerProduct(ProductCreateContext context, IGameRuleset ruleset, string? bundleId, SessionStart start = SessionStart.Fresh)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(ruleset);
         _context = context;
         _ruleset = ruleset;
+        StartMode = start;
         _input = new SessionInputRouter(ProductIdentity.PauseToggleIntent, ProductIdentity.UiActionContract);
         _movement = new MovementIntentNames(
             ProductIdentity.MoveForwardIntent,
@@ -52,18 +70,25 @@ public sealed class CrawlerProduct : IEngineProduct
             ProductIdentity.CreationAdvanceIntent,
             ProductIdentity.CreationAcceptIntent,
             ProductIdentity.UiActionContract);
+        _save = new SaveIntentNames(
+            ProductIdentity.SaveIntent,
+            ProductIdentity.SaveAction,
+            ProductIdentity.UiActionContract);
         (_selection, _content) = SelectBundle(context, bundleId ?? BuiltInBundles.Default);
         _session = CreateSession();
     }
 
     /// <summary>Creates the product over an explicitly selected compiled ruleset.</summary>
     public CrawlerProduct(ProductCreateContext context, IGameRuleset ruleset)
-        : this(context, ruleset, BuiltInBundles.Default)
+        : this(context, ruleset, bundleId: null, start: ProductStart.FromEnvironment())
     {
     }
 
     /// <summary>The bundle and content the product is running with.</summary>
     public BundleSelection Selection => _selection;
+
+    /// <summary>How this run began: a new session, or the one the save slot held.</summary>
+    public SessionStart StartMode { get; }
 
     /// <summary>
     /// Loads the staged content and resolves the bundle to start from.
@@ -176,15 +201,23 @@ public sealed class CrawlerProduct : IEngineProduct
             // The engine's own services go to the ruleset whole: composing movement needs the spatial
             // service to walk in and the content owner to retain a place's collision artifact, and the
             // product is the only place that holds the engine context the ruleset would otherwise have to
-            // reach for. The movement and creation controls are the host's declaration, so their names go
-            // with them: a name the product never declared to the engine is a control nobody can press.
-            return _ruleset.CreateSession(new RulesetSessionContext(
+            // reach for. The movement, creation, and save controls are the host's declaration, so their
+            // names go with them: a name the product never declared to the engine is a control nobody can
+            // press.
+            RulesetSessionContext context = new(
                 channel,
                 _selection,
                 _content,
                 Engine: _context.Engine,
                 Movement: _movement,
-                Creation: _creation));
+                Creation: _creation,
+                Save: _save);
+
+            // The start switch travels with the context and is answered at the ruleset's one composition
+            // entry: a resumed run reads the save the slot holds and composes a session from it, and a slot
+            // that holds nothing fails by name rather than starting a new expedition in place of the one
+            // that was asked for.
+            return _ruleset.CreateSession(context with { Start = StartMode });
         }
         catch
         {
@@ -194,4 +227,34 @@ public sealed class CrawlerProduct : IEngineProduct
             throw;
         }
     }
+}
+
+/// <summary>
+/// Reads how a product run should begin from the declared environment variable.
+/// </summary>
+/// <remarks>
+/// The dev runner owns its command line and hands the product no arguments, so the operator's switch is an
+/// environment variable read once, where the product is created. Absent or empty means a new session, the
+/// two words the product states mean what they say, and anything else stops the run with the value named
+/// rather than being rounded to one of them: an operator who typed a switch wrong must not be handed a new
+/// game when they asked to continue one.
+/// </remarks>
+internal static class ProductStart
+{
+    /// <summary>The start a switch value names.</summary>
+    /// <param name="value">The value read from the environment, or null when it is unset.</param>
+    /// <returns>The start the value names.</returns>
+    /// <exception cref="InvalidOperationException">The value names neither a fresh session nor a resume.</exception>
+    internal static SessionStart Parse(string? value) =>
+        (value?.Trim().ToLowerInvariant() ?? string.Empty) switch
+        {
+            "" or "fresh" => SessionStart.Fresh,
+            "resume" => SessionStart.Resume,
+            _ => throw new InvalidOperationException(
+                $"{ProductIdentity.StartVariable} is '{value}', which names neither a fresh session nor a resume. Set it to 'fresh' to start a new expedition or 'resume' to continue the one the save slot holds, or leave it unset for a fresh session."),
+        };
+
+    /// <summary>The start mode the environment selects.</summary>
+    internal static SessionStart FromEnvironment() =>
+        Parse(Environment.GetEnvironmentVariable(ProductIdentity.StartVariable));
 }

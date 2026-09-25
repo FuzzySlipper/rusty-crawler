@@ -39,6 +39,11 @@ namespace PartyRpg.Kit.Presentation;
 /// screen that shows an unfinished party nobody is making, and a snapshot built without creation facts
 /// publishes the empty screen rather than a draft with no lists in it.
 /// </param>
+/// <param name="Save">
+/// How the session stands with its save slot, or the never-saved state when a snapshot carries no save
+/// facts. Defaulted for the same reason the clock is: a session that has saved nothing publishes that
+/// rather than an outcome nobody produced.
+/// </param>
 public readonly record struct SessionSnapshot(
     SessionComposition Composition,
     SessionMode Mode,
@@ -49,7 +54,8 @@ public readonly record struct SessionSnapshot(
     MovementSnapshot Movement = default,
     ClockSnapshot Clock = default,
     PartySnapshot Party = default,
-    CreationSnapshot? Creation = null);
+    CreationSnapshot? Creation = null,
+    SaveSnapshot Save = default);
 
 /// <summary>Where the party is in the world, as the panel needs it: which place, where in it, and how much of the world is known.</summary>
 /// <param name="Place">The place the party is in, empty when the session has no world.</param>
@@ -106,6 +112,9 @@ public static class SessionProjection
     /// <summary>The creation object's wire name.</summary>
     public const string CreationField = "creation";
 
+    /// <summary>The save object's wire name.</summary>
+    public const string SaveField = "save";
+
     /// <summary>Builds the projection value for a snapshot.</summary>
     public static UiValue Build(SessionSnapshot snapshot)
     {
@@ -161,7 +170,22 @@ public static class SessionProjection
             // The creation screen is published in every mode for the same reason: "not creating" and
             // "creating a party nobody has finished" are different facts, and a block that only appeared
             // while the flow was live would leave a screen unable to tell them apart.
-            (CreationField, Creation(builder, snapshot.Creation ?? CreationSnapshot.None)));
+            (CreationField, Creation(builder, snapshot.Creation ?? CreationSnapshot.None)),
+            // The save block is published in every mode for the same reason again: a session that cannot
+            // save, one that has saved nothing yet, and one whose last save failed are three different
+            // facts, and a block that only appeared after a save would leave a player unable to tell them
+            // apart — which is exactly how a save that silently did nothing would look.
+            (SaveField, builder.Object(
+                ("available", builder.Boolean(snapshot.Save.Available)),
+                ("resumed", builder.Boolean(snapshot.Save.Resumed)),
+                // A snapshot built without save facts carries the default value, whose strings are null
+                // rather than empty: the block publishes them as empty so a reader never sees a name that
+                // is not there, exactly as the clock and party blocks do.
+                ("slot", builder.String(snapshot.Save.Slot ?? string.Empty)),
+                ("state", builder.String(WireName(snapshot.Save.State))),
+                ("at", builder.String(snapshot.Save.At ?? string.Empty)),
+                ("code", builder.String(snapshot.Save.Code ?? string.Empty)),
+                ("message", builder.String(snapshot.Save.Message ?? string.Empty)))));
         return builder.Build(root);
     }
 
@@ -308,6 +332,21 @@ public static class SessionProjection
         SessionMode.Paused => "paused",
         SessionMode.Stopped => "stopped",
         _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown session mode."),
+    };
+
+    /// <summary>The wire name for how a session stands with its save slot.</summary>
+    /// <remarks>
+    /// A state with no word is refused rather than published as an empty string: a panel that could not
+    /// tell "saved" from a state this wire has no name for would show a save that never landed as one
+    /// that did.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The state has no wire name.</exception>
+    public static string WireName(SaveState state) => state switch
+    {
+        SaveState.Never => "none",
+        SaveState.Saved => "saved",
+        SaveState.Failed => "failed",
+        _ => throw new ArgumentOutOfRangeException(nameof(state), state, "Unknown save state."),
     };
 
     /// <summary>The wire name for a creation step.</summary>

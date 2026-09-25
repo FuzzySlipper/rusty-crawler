@@ -1,3 +1,4 @@
+using System.Text;
 using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
@@ -7,6 +8,54 @@ using PartyRpg.Kit.Time;
 using Rusty.Engine;
 
 namespace PartyRpg.Kit.Sessions;
+
+/// <summary>
+/// The save controls a host declares, by the names a player's request to save arrives on.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The names are data rather than vocabulary, exactly as the movement and creation controls are: the kit
+/// claims what a product declares and invents no key of its own, so a product that maps its save control
+/// to another key, or names the action differently on its own payload contract, is served by the same
+/// reader. A save request is a request and nothing more: what a save contains, where it goes, and what
+/// makes it loadable are the persistence owner's rules, and this record only says how the player asks.
+/// </para>
+/// <para>
+/// Two names are needed because a product offers two ways to ask: a digital intent for a key, and one
+/// action name on the payload contract the interface already claims its semantic actions on. Both are
+/// read inside the one admitted update, so a key and a button ask for exactly the same save.
+/// </para>
+/// </remarks>
+public sealed record SaveIntentNames
+{
+    /// <summary>Names the controls a save request arrives on.</summary>
+    /// <param name="intent">The digital intent that asks the session to save.</param>
+    /// <param name="action">The payload action name that asks the session to save.</param>
+    /// <param name="actionContract">The payload contract that action arrives on.</param>
+    /// <exception cref="ArgumentException">A name is missing, so no event could ever be claimed for it.</exception>
+    public SaveIntentNames(string intent, string action, string actionContract)
+    {
+        Intent = Require(intent, nameof(intent));
+        Action = Require(action, nameof(action));
+        ActionContract = Require(actionContract, nameof(actionContract));
+    }
+
+    /// <summary>The digital intent that asks the session to save.</summary>
+    public string Intent { get; }
+
+    /// <summary>The payload action name that asks the session to save.</summary>
+    public string Action { get; }
+
+    /// <summary>The payload contract that action arrives on.</summary>
+    public string ActionContract { get; }
+
+    private static string Require(string name, string parameterName) =>
+        !string.IsNullOrWhiteSpace(name)
+            ? name
+            : throw new ArgumentException(
+                $"The save control '{parameterName}' declares no name, so no event could ever be claimed for it.",
+                parameterName);
+}
 
 /// <summary>
 /// The ordinary session shell: it owns the session's mode, measures the admitted simulation it has
@@ -27,6 +76,13 @@ namespace PartyRpg.Kit.Sessions;
 /// plays it, which is what a resumed session and a session whose content fixes the party are. Neither shape
 /// is a second party: the session holds at most one, and the one it holds is the one it plays.
 /// </para>
+/// <para>
+/// <b>A save happens when a player asks for one and at no other time.</b> The request arrives on the save
+/// controls the host declared, is read from the admitted input the update already carries, and reaches the
+/// explicit save boundary before that update steps anything, so the document a save holds describes the
+/// session the player was looking at when they asked. Nothing else in this shell writes: not the update,
+/// not a mode change, and not the release of the session.
+/// </para>
 /// </remarks>
 public sealed class PartyRpgSession : IGameSession
 {
@@ -38,9 +94,14 @@ public sealed class PartyRpgSession : IGameSession
     private readonly IDiagnosticsService? _diagnostics;
     private readonly ISessionSaveStore? _saveStore;
     private readonly SessionSaveBoundary? _saves;
+    private readonly byte[]? _saveIntent;
+    private readonly string? _saveAction;
+    private readonly byte[]? _saveActionContract;
     private SessionCreation? _creation;
     private PartyRefusal? _creationRefusal;
+    private SaveSnapshot _save;
     private bool _accepted;
+    private readonly bool _resumed;
     private SessionMode _mode = SessionMode.Starting;
     private double _simulationSeconds;
     private ulong _admittedSteps;
@@ -97,6 +158,18 @@ public sealed class PartyRpgSession : IGameSession
     /// The creation this session holds while a party is being made, when its ruleset offers one. It owns
     /// the flow, the factory that builds the accepted party, and the world that party walks into.
     /// </param>
+    /// <param name="saveInput">
+    /// The save controls the host declared, when it declared any: the intent and the payload action a
+    /// player's request to save arrives on. Without them the session never saves by itself — which is what
+    /// a product that offers no save control gets — and the boundary stays reachable only through
+    /// <see cref="Save"/>.
+    /// </param>
+    /// <param name="resumed">
+    /// Whether this session was composed from the save already in its slot, which is the host's composition
+    /// decision reported to the player rather than a fact this shell could work out for itself: an empty
+    /// slot is indistinguishable from a session playing on from one, and a resumed expedition that looked
+    /// like a new one would leave the operator unable to tell whether the switch took effect.
+    /// </param>
     /// <exception cref="ArgumentException">
     /// The session is composed both to create a party and to hold one, or to create one without the controls
     /// its commands arrive on.
@@ -112,7 +185,9 @@ public sealed class PartyRpgSession : IGameSession
         ISessionSaveStore? saveStore = null,
         string saveSlot = SessionSaveBoundary.DefaultSlot,
         CreationInput? creationInput = null,
-        SessionCreation? creation = null)
+        SessionCreation? creation = null,
+        SaveIntentNames? saveInput = null,
+        bool resumed = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(composition.Title);
         if (creation is not null && (world is not null || party is not null))
@@ -139,6 +214,13 @@ public sealed class PartyRpgSession : IGameSession
         _diagnostics = diagnostics;
         _saveStore = saveStore;
         _saves = saveStore is null ? null : new SessionSaveBoundary(saveStore, saveSlot);
+        // The declared save controls are read once, into the exact bytes an admitted event carries, so the
+        // reader compares bytes rather than decoding a name on every event of every update.
+        _saveIntent = saveInput is null ? null : Encoding.UTF8.GetBytes(saveInput.Intent);
+        _saveAction = saveInput?.Action;
+        _saveActionContract = saveInput is null ? null : Encoding.UTF8.GetBytes(saveInput.ActionContract);
+        _resumed = resumed;
+        _save = SaveSnapshot.None(available: _saves is not null, resumed: resumed, slot: saveSlot);
         _liveWorld = world;
         _world = world?.Snapshot ?? WorldSnapshot.Empty;
         world?.Populate();
@@ -280,6 +362,12 @@ public sealed class PartyRpgSession : IGameSession
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         SessionTick tick = SessionTick.From(update.Facts);
+
+        // A save request is settled before the step it accompanies, exactly as the movement controls are:
+        // the player asked at the moment whose projection they were reading, so the document the slot holds
+        // describes that moment rather than one tick later. This is the only place an admitted update
+        // writes anything, and it writes because a request arrived — never because time passed.
+        if (ReadsSaveRequest(update.Input)) _save = AttemptSave();
 
         // Creation owns no world stepping. While a party is being made, this one admitted update drives the
         // flow and nothing else: the movement reader is not consulted, the world is not stepped, the clock
@@ -598,11 +686,14 @@ public sealed class PartyRpgSession : IGameSession
         PartySnapshot.From(_party),
         // While a party is being made the flow is the screen's whole subject; once one has been accepted the
         // members shown are the party's own, read from the party rather than from the flow that described
-        // it, so the accepted state is a fact about what is being played. A session that did neither — a
-        // resumed one — publishes that it is doing neither, rather than an empty creation screen.
+        // it, so the accepted state is a fact about what is being played. A resumed session plays a party it
+        // did not create in this run and publishes the same list: the roster a player reads after resuming
+        // is the party they led, read from the party rather than recalled from a flow that no longer exists.
+        // A session that holds no party at all publishes that it is doing neither.
         _creation is { } creation
             ? CreationSnapshot.From(creation.Flow, _creationRefusal)
-            : _accepted ? CreationSnapshot.OfParty(_party) : CreationSnapshot.None);
+            : _accepted || _resumed ? CreationSnapshot.OfParty(_party) : CreationSnapshot.None,
+        _save);
 
     /// <summary>Publishes the world as it stands now, after a caller moved the party.</summary>
     public void PublishWorld()
@@ -651,4 +742,143 @@ public sealed class PartyRpgSession : IGameSession
 
         return _saves.Save(this);
     }
+
+    /// <summary>
+    /// Saves this session because the player asked for one, and reports what happened.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the entry point a save request reaches, whether it arrived on the declared save controls
+    /// inside an admitted update or from a caller that decided this moment is worth remembering. Unlike
+    /// <see cref="Save"/>, which fails loudly because a caller that asked for a write must not mistake a
+    /// refusal for one, this records the outcome in the session's own save state and publishes it: a
+    /// refusal is an answer the panel shows, and a save request that could not land must not look like one
+    /// that did.
+    /// </para>
+    /// <para>
+    /// Every failure keeps its own name. A session composed without a store says so; a session holding
+    /// nothing a load could rebuild reports the boundary's own list of what is missing; and a write the
+    /// store refused reports the store's reason. None of them is thrown out of an admitted update.
+    /// </para>
+    /// </remarks>
+    /// <returns>The save state after the request, which is what the projection now publishes.</returns>
+    public SaveSnapshot RequestSave()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _save = AttemptSave();
+        Publish();
+        return _save;
+    }
+
+    /// <summary>
+    /// Saves this session if it can, and states what happened without publishing it.
+    /// </summary>
+    /// <remarks>
+    /// A save request read from an admitted update comes through here rather than through
+    /// <see cref="RequestSave"/>, because that update publishes its own projection once at the end and the
+    /// outcome is part of it. The failure of a save is not an exception: the request arrived from a player
+    /// rather than from a caller that demanded a write, so every way it can fail is an outcome to report.
+    /// </remarks>
+    private SaveSnapshot AttemptSave()
+    {
+        if (_saves is null)
+        {
+            // The host selects the persistence root before the product is created, so a session composed
+            // without a store is a product that plays but cannot write. That is named here rather than
+            // written nowhere, and it is a failure like any other so the panel can show it.
+            return _save with
+            {
+                State = SaveState.Failed,
+                At = string.Empty,
+                Code = "save-unavailable",
+                Message = $"The session in '{_composition.Title}' cannot be saved: it was composed without a save store, so there is nowhere to write one. The host selects the persistence root before the product is created.",
+            };
+        }
+
+        try
+        {
+            _saves.Save(this);
+        }
+        catch (EngineCallException error)
+        {
+            // The engine's own service refused the write after its store was open — a root that went away,
+            // bytes the storage would not take. That is the same loss as any other failed write, and it is
+            // reported here rather than thrown out of the admitted update that carried the request, which
+            // would stop the session over a save the player could simply try again.
+            return _save with
+            {
+                State = SaveState.Failed,
+                At = string.Empty,
+                Code = "save-failed",
+                Message = $"The session could not be written to slot '{_save.Slot}': {error.Message}",
+            };
+        }
+        catch (SessionSaveException error)
+        {
+            // Two different losses behind one exception type: the session held nothing a load could rebuild,
+            // or the store could not hold what it was handed. The first carries the boundary's own list of
+            // what is missing; the second carries the store's reason. A player acts on them differently, so
+            // they are named differently.
+            return _save with
+            {
+                State = SaveState.Failed,
+                At = string.Empty,
+                Code = error.Problems.Count > 0 ? "save-refused" : "save-failed",
+                Message = error.Message,
+            };
+        }
+
+        ClockSnapshot clock = ClockSnapshot.From(_clock);
+        string at = clock.Present ? $"{clock.Date} {clock.Time}" : string.Empty;
+        return _save with
+        {
+            State = SaveState.Saved,
+            At = at,
+            Code = string.Empty,
+            Message = at.Length > 0
+                ? $"Saved the session to slot '{_save.Slot}' at {at}."
+                : $"Saved the session to slot '{_save.Slot}'.",
+        };
+    }
+
+    /// <summary>
+    /// Whether this update's admitted input carries a request to save, on either declared control.
+    /// </summary>
+    /// <remarks>
+    /// A digital event on the declared intent asks, whether it arrived as a physical press or as a direct
+    /// interface claim, which carries no edge; a payload on the declared contract asks when it names the
+    /// declared action. Anything else, including a malformed payload, carries no request: an input channel
+    /// must not throw on hostile bytes, and a caller that receives nothing simply has nothing to apply.
+    /// Several requests in one update are one save, because they are one moment.
+    /// </remarks>
+    private bool ReadsSaveRequest(ReadOnlySpan<ProductInputEvent> input)
+    {
+        if (_saveIntent is null || _saveActionContract is null || _saveAction is null) return false;
+        foreach (ProductInputEvent inputEvent in input)
+        {
+            if (inputEvent.ValueKind == InputValueKind.Digital)
+            {
+                if (inputEvent.Intent.Span.SequenceEqual(_saveIntent) && IsActivation(inputEvent)) return true;
+                continue;
+            }
+
+            if (inputEvent.ValueKind != InputValueKind.ProductPayload) continue;
+            if (!inputEvent.PayloadContract.Span.SequenceEqual(_saveActionContract)) continue;
+            if (string.Equals(UiActionPayload.Parse(inputEvent.PayloadData.Span)?.Name, _saveAction, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Whether a digital event is an activation. A physical press carries an edge; a direct interface
+    /// claim is admitted with no edge at all, so its own phase and provenance are what identify it.
+    /// </summary>
+    private static bool IsActivation(in ProductInputEvent inputEvent) =>
+        inputEvent.Edge == InputEdge.Pressed
+        || inputEvent.Phase == InputPhase.DirectUi
+        || inputEvent.Provenance == InputProvenance.DirectUi;
 }
