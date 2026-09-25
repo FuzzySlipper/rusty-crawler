@@ -78,10 +78,12 @@ training, and spell durations register against, day and night from a `DaylightWi
 `IWorldTimeSource` day count the world's respawn reads).
 Everything else in the owner map is still to come.
 
-The day shape follows the donor's day boundary: a new day takes one ration and leaves every character weak
-once the party is past a day without rest, and the food store is spent down to empty rather than refused
+The day shape follows the donor's day boundary: a new day takes one ration, the food store is spent down to
+empty rather than the day being refused, and the ruleset's consequence for the larder the day left — weakness
+on every member — is applied by the ledger that spent it
 (`OpenEnroth/src/Engine/Engine.cpp`, the timed-effects party update; `src/Engine/Party.cpp`, `SetFood`).
-The charge, the threshold, and the weakened consequence are the ruleset's, so the kit holds none of them.
+What ends that condition — rest, a cure, a day's recovery — is recovery's work, not the day's. The charge,
+the threshold, and the weakened consequence are the ruleset's, so the kit holds none of them.
 
 **Encumbrance is deliberately absent.** The shipped item table has no weight column — its 17 columns are
 recorded in [`../../docs/research/mm7-data-inventory.md`](../../docs/research/mm7-data-inventory.md) — the
