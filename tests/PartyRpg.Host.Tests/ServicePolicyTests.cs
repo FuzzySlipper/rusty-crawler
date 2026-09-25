@@ -241,6 +241,208 @@ public sealed class ServicePolicyTests
         Assert.Equal("service-membership-held", ProjectedNode.Of(ui.Latest().Value).Field("service").Field("code").AsString());
     }
 
+
+    /// <summary>
+    /// Three kinds of building are walked into, dealt with, and left through one mechanism and one purse.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The counters here are written the way the importer writes them: the building table's own columns,
+    /// and nothing about which operations a kind offers, what it stocks, or what it teaches. What the party
+    /// can do at each one is this ruleset's answer about the kind, so a weapon shop's shelf, a guild's
+    /// membership and spell books, and a temple's lessons are the shipped policy exercised through the
+    /// session, the interaction mechanism, and the projected panel.
+    /// </para>
+    /// <para>
+    /// Each kind gets its own session because a place holds one counter the party faces: the point proved is
+    /// that the way in, the way a command travels, and the way the accounts move are the same for all three,
+    /// and not that a town can be walked across in a test.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_staged_shop_a_staged_guild_and_a_staged_temple_are_served_by_one_mechanism()
+    {
+        // A weapon shop: the shelf is the item table's own weapon, and buying it moves the one purse.
+        (ProductCreateContext shopContext, RecordingUiService shopUi) = ProductTestContext.Create(KindContent(
+            "1",
+            """
+            { "id": "1", "kind": "Weapon Shop", "name": "The Knight's Blade", "proprietor": "Tor", "mapId": 1, "openHour": 6, "closedHour": 18, "priceMultiplier": 1.5, "skillPriceMultiplier": 1, "stockIntervalDays": 7 }
+            """));
+        using (IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
+            ProductTestContext.RulesetContext(shopContext, shopUi) with { Use = UseControls, Service = ServiceControls }))
+        {
+            session.Start();
+            ProjectedNode counter = Walk(session, shopUi);
+            Assert.Equal("Weapon Shop", counter.Field("kind").AsString());
+            Assert.Equal("buy", counter.Field("operations").Item(0).AsString());
+            Assert.Equal(75, counter.Field("stock").Item(0).Field("price").AsNumber());
+
+            session.Update(ProductTestContext.Update(3, 1, ProductTestContext.Payload("""{"action":"service.buy","target":"stock:10","count":1}""")));
+            ProjectedNode bought = ProjectedNode.Of(shopUi.Latest().Value).Field("service");
+            Assert.Equal("applied", bought.Field("outcome").AsString());
+            Assert.Equal(75, bought.Field("paid").AsNumber());
+            Assert.Equal(2425, bought.Field("coins").AsNumber());
+        }
+
+        // A guild: the shelf is behind the membership, joining is a lesson, and the books on it come from the
+        // guild's own school.
+        (ProductCreateContext guildContext, RecordingUiService guildUi) = ProductTestContext.Create(KindContent(
+            "139",
+            """
+            { "id": "139", "kind": "Fire Guild", "name": "Initiate Guild of Fire", "proprietor": "Sethric", "mapId": 1, "openHour": 6, "closedHour": 18, "priceMultiplier": 2, "skillPriceMultiplier": 1, "stockIntervalDays": 14 }
+            """));
+        using (IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
+            ProductTestContext.RulesetContext(guildContext, guildUi) with { Use = UseControls, Service = ServiceControls }))
+        {
+            session.Start();
+            ProjectedNode counter = Walk(session, guildUi);
+            Assert.Equal("Fire Guild", counter.Field("kind").AsString());
+            Assert.Equal("Fire Bolt", counter.Field("stock").Item(0).Field("name").AsString());
+
+            // Not a member: the shelf is refused by name, and joining is the lesson that changes it.
+            session.Update(ProductTestContext.Update(3, 1, ProductTestContext.Payload("""{"action":"service.buy","target":"stock:41","count":1}""")));
+            Assert.Equal("service-membership-required", ProjectedNode.Of(guildUi.Latest().Value).Field("service").Field("code").AsString());
+
+            session.Update(ProductTestContext.Update(4, 1, ProductTestContext.Payload("""{"action":"service.teach","target":"guild.fire","member":0}""")));
+            ProjectedNode joined = ProjectedNode.Of(guildUi.Latest().Value).Field("service");
+            Assert.Equal("applied", joined.Field("outcome").AsString());
+            Assert.Equal(1000, joined.Field("paid").AsNumber());
+            Assert.Equal(1, joined.Field("memberships").Length());
+
+            session.Update(ProductTestContext.Update(5, 1, ProductTestContext.Payload("""{"action":"service.buy","target":"stock:41","count":1}""")));
+            ProjectedNode book = ProjectedNode.Of(guildUi.Latest().Value).Field("service");
+            Assert.Equal("applied", book.Field("outcome").AsString());
+            Assert.Equal(400, book.Field("paid").AsNumber());
+            Assert.Equal(1100, book.Field("coins").AsNumber());
+            Assert.Equal(0, book.Field("stock").Item(0).Field("count").AsNumber());
+        }
+
+        // A temple: what it offers is the skills the donor gives it, and a lesson goes to the member the
+        // panel names.
+        (ProductCreateContext templeContext, RecordingUiService templeUi) = ProductTestContext.Create(KindContent(
+            "87",
+            """
+            { "id": "87", "kind": "Temple", "name": "Sanctuary", "proprietor": "Father Brom", "mapId": 1, "openHour": 6, "closedHour": 18, "priceMultiplier": 2, "skillPriceMultiplier": 1 }
+            """));
+        using (IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
+            ProductTestContext.RulesetContext(templeContext, templeUi) with { Use = UseControls, Service = ServiceControls }))
+        {
+            session.Start();
+            ProjectedNode counter = Walk(session, templeUi);
+            Assert.Equal("Temple", counter.Field("kind").AsString());
+            Assert.Equal("cure", counter.Field("operations").Item(0).AsString());
+            ProjectedNode lessons = counter.Field("lessons");
+            Assert.Contains(
+                Enumerable.Range(0, lessons.Length()).Select(lessons.Item),
+                lesson => lesson.Field("name").AsString() == "Dodging");
+
+            session.Update(ProductTestContext.Update(3, 1, ProductTestContext.Payload("""{"action":"service.teach","target":"Dodging","member":0}""")));
+            ProjectedNode taught = ProjectedNode.Of(templeUi.Latest().Value).Field("service");
+            Assert.Equal("applied", taught.Field("outcome").AsString());
+            Assert.Equal(500, taught.Field("paid").AsNumber());
+            Assert.Equal(2000, taught.Field("coins").AsNumber());
+
+            // Leaving is the panel's own control, and it ends the visit the same way at every kind.
+            session.Update(ProductTestContext.Update(4, 1, ProductTestContext.Payload("""{"action":"service.leave"}""")));
+            Assert.False(ProjectedNode.Of(templeUi.Latest().Value).Field("service").Field("open").AsBoolean());
+        }
+
+        /// <summary>The admitted update that faces the counter and the declared use that walks in.</summary>
+        static ProjectedNode Walk(IGameSession session, RecordingUiService ui)
+        {
+            session.Update(ProductTestContext.Update(1, 1));
+            Assert.Equal("talk", ProjectedNode.Of(ui.Latest().Value).Field("interaction").Field("verb").AsString());
+            session.Update(ProductTestContext.Update(2, 1, ProductTestContext.Digital(ProductIdentity.UseIntent)));
+            ProjectedNode counter = ProjectedNode.Of(ui.Latest().Value).Field("service");
+            Assert.True(counter.Field("open").AsBoolean());
+            return counter;
+        }
+    }
+
+    /// <summary>
+    /// One counter written the way the importer writes one, with the world, the party, and the tables the
+    /// kind's own policy is read from.
+    /// </summary>
+    private static (string Path, string Text)[] KindContent(string serviceId, string service) =>
+    [
+        ProductTestContext.Bundle("partyrpg-default", "world"),
+        ($"{ProductTestContext.ContentDirectory}/content-packs/world/pack.json",
+            """
+            {
+              "schemaVersion": 1,
+              "packId": "world",
+              "kind": "definitions",
+              "provenance": { "description": "authored for a test" },
+              "documents": [
+                { "path": "places.json", "documentId": "places", "definitionKind": "place" },
+                { "path": "start.json", "documentId": "start", "definitionKind": "scenario-start" },
+                { "path": "party.json", "documentId": "party", "definitionKind": "scenario-party" },
+                { "path": "services.json", "documentId": "services", "definitionKind": "service" },
+                { "path": "items.json", "documentId": "items", "definitionKind": "item" },
+                { "path": "spells.json", "documentId": "spells", "definitionKind": "spell" },
+                { "path": "skills.json", "documentId": "skills", "definitionKind": "skill" }
+              ]
+            }
+            """),
+        ($"{ProductTestContext.ContentDirectory}/content-packs/world/places.json",
+            $$"""
+            {
+              "documentId": "places",
+              "definitionKind": "place",
+              "entries": [
+                { "id": "1", "kind": "interior", "name": "A counter", "respawnDays": 7,
+                  "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ],
+                  "placements": [ { "id": "the-counter", "kind": "service", "houseId": {{serviceId}}, "x": 100, "y": 0, "z": 0 } ] }
+              ]
+            }
+            """),
+        ($"{ProductTestContext.ContentDirectory}/content-packs/world/start.json",
+            """
+            { "documentId": "start", "definitionKind": "scenario-start", "entries": [ { "id": "start", "place": "1", "entryPoint": "Party Start" } ] }
+            """),
+        ($"{ProductTestContext.ContentDirectory}/content-packs/world/party.json",
+            $$"""
+            {
+              "documentId": "party",
+              "definitionKind": "scenario-party",
+              "entries": [
+                { "id": "party", "coins": 2500, "food": 6, "reputation": 0, "fame": 0, "members": [ {{Member(merchant: false)}} ] }
+              ]
+            }
+            """),
+        ($"{ProductTestContext.ContentDirectory}/content-packs/world/items.json",
+            """
+            {
+              "documentId": "items",
+              "definitionKind": "item",
+              "entries": [
+                { "id": "10", "name": "A crude longsword", "value": 50, "equipStat": "Weapon", "skillGroup": "Sword", "material": "8" },
+                { "id": "41", "name": "Fire Bolt", "value": 200, "equipStat": "Book", "skillGroup": "Misc", "material": "3" }
+              ]
+            }
+            """),
+        ($"{ProductTestContext.ContentDirectory}/content-packs/world/spells.json",
+            """
+            {
+              "documentId": "spells",
+              "definitionKind": "spell",
+              "entries": [ { "id": "2", "school": "Fire", "level": 2, "name": "Fire Bolt" } ]
+            }
+            """),
+        ($"{ProductTestContext.ContentDirectory}/content-packs/world/skills.json",
+            """
+            {
+              "documentId": "skills",
+              "definitionKind": "skill",
+              "entries": [ { "id": "Sword" }, { "id": "Fire" }, { "id": "Learning" }, { "id": "Unarmed" }, { "id": "Dodging" }, { "id": "Merchant" } ]
+            }
+            """),
+        ($"{ProductTestContext.ContentDirectory}/content-packs/world/services.json",
+            $$"""
+            { "documentId": "services", "definitionKind": "service", "entries": [ {{service}} ] }
+            """),
+    ];
+
     /// <summary>
     /// A shop, its street, and the party that walks in: one service definition, the item table its prices
     /// are read from, the place the counter stands in, and the scenario's party.
@@ -265,7 +467,7 @@ public sealed class ServicePolicyTests
             }
             """),
         ($"{ProductTestContext.ContentDirectory}/content-packs/world/places.json",
-            """
+            $$"""
             {
               "documentId": "places",
               "definitionKind": "place",

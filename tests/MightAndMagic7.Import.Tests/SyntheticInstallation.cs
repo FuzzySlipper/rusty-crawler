@@ -30,7 +30,13 @@ internal static class SyntheticInstallation
     /// choice from <paramref name="withMaps"/> so the suites that are about geometry and doors keep
     /// decoding the map they always did, and the container suites get a map that holds containers.
     /// </param>
-    internal static string Create(bool withMaps = false, bool withContainers = false)
+    /// <param name="withServices">
+    /// Whether the installation's buildings are counters the maps hang an event on, which is what the
+    /// service emission reads: rows of several kinds, the programs that open them, and maps whose faces
+    /// raise those events. It is a separate choice so the suites about tables, geometry, and containers
+    /// keep the fixture they always had.
+    /// </param>
+    internal static string Create(bool withMaps = false, bool withContainers = false, bool withServices = false)
     {
         string root = Path.Combine(Path.GetTempPath(), $"mm7-synthetic-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(root, "DATA"));
@@ -58,6 +64,27 @@ internal static class SyntheticInstallation
             }
         }
 
+        // The service fixture's counters, each on an interior map the fixture can hang an event on: a
+        // weapon shop, a stable, a temple, and a house. The map is the one the row's own map column names,
+        // so the program named after that map's file is the program that opens the row.
+        List<(int Building, ushort Event, string MapFile)> serviceRows =
+        [
+            (98, 98, $"D{ServiceMap(98) - 13:D2}.blv"),
+            (99, 99, $"D{ServiceMap(99) - 13:D2}.blv"),
+            (198, 198, $"D{ServiceMap(198) - 13:D2}.blv"),
+            (104, 104, $"D{ServiceMap(104) - 13:D2}.blv"),
+            (100, 100, $"D{ServiceMap(100) - 13:D2}.blv"),
+        ];
+        if (withServices)
+        {
+            foreach (IGrouping<string, (int Building, ushort Event, string MapFile)> byMap in serviceRows.GroupBy(row => row.MapFile))
+            {
+                events.Add((
+                    $"{Path.GetFileNameWithoutExtension(byMap.Key).ToUpperInvariant()}.EVT",
+                    LodFixture.Compressed([.. byMap.SelectMany(row => SpeakInHouse(row.Event, row.Building))])));
+            }
+        }
+
         File.WriteAllBytes(
             Path.Combine(root, "DATA", "Events.lod"),
             LodFixture.Archive(
@@ -66,7 +93,7 @@ internal static class SyntheticInstallation
                     LodFixture.TextTable("CLASS.TXT", Classes()),
                     LodFixture.TextTable("SKILLDES.TXT", Skills()),
                     LodFixture.TextTable("MAPSTATS.TXT", Maps(withMaps)),
-                    LodFixture.TextTable("2DEvents.txt", Buildings()),
+                    LodFixture.TextTable("2DEvents.txt", Buildings(withServices)),
                     LodFixture.TextTable("MONSTERS.TXT", Monsters()),
                     LodFixture.TextTable("SPELLS.TXT", Spells()),
                     LodFixture.TextTable("ITEMS.TXT", Items()),
@@ -82,11 +109,17 @@ internal static class SyntheticInstallation
             // The container map raises one event per chest on one face each, so both of the delta's records
             // are placed, and its fixture positions are a hundred units apart, which is inside the spread a
             // container's faces may have.
-            byte[] indoor = withContainers
-                ? ContainerDecoderTests.ContainerIndoorPayload([176, 177])
+            // The service fixture's interior faces raise the events the service rows are opened by, so the
+            // emission has a door to stand each counter at; the container fixture's raise the two chest
+            // events instead, and the plain fixture's raise none.
+            List<int> interiorEvents = withServices
+                ? [.. serviceRows.Select(row => (int)row.Event)]
+                : withContainers ? [176, 177] : [];
+            byte[] indoor = interiorEvents.Count > 0
+                ? ContainerDecoderTests.ContainerIndoorPayload(interiorEvents)
                 : MapDecoderTests.IndoorPayload();
-            byte[] indoorDelta = withContainers
-                ? ContainerDecoderTests.ContainerIndoorDeltaPayload(2)
+            byte[] indoorDelta = interiorEvents.Count > 0
+                ? ContainerDecoderTests.ContainerIndoorDeltaPayload(interiorEvents.Count)
                 : MapDecoderTests.IndoorDeltaPayload();
             List<(string Name, byte[] Payload)> maps = [];
             for (int map = 1; map <= MapRows; map++)
@@ -103,6 +136,27 @@ internal static class SyntheticInstallation
         }
 
         return root;
+    }
+
+    /// <summary>The map a building row of the fixture stands on, as the row's own map column computes it.</summary>
+    /// <param name="building">The building's id.</param>
+    internal static int ServiceMap(int building) => (building % MapRows) + 1;
+
+    /// <summary>
+    /// One <c>SpeakInHouse</c> instruction: the donor's opcode for opening a house, whose operand is the
+    /// building's own id and whose record is the size byte, the event and step, the opcode, and the operand.
+    /// </summary>
+    /// <param name="eventId">The event the instruction belongs to.</param>
+    /// <param name="building">The building the event opens.</param>
+    internal static byte[] SpeakInHouse(ushort eventId, int building)
+    {
+        byte[] record = new byte[10];
+        record[0] = 9;
+        BinaryPrimitives.WriteUInt16LittleEndian(record.AsSpan(1), eventId);
+        record[3] = 0;
+        record[4] = 2;
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(5), (uint)building);
+        return record;
     }
 
     /// <summary>A small program with one move record.</summary>
@@ -165,18 +219,27 @@ internal static class SyntheticInstallation
         return text.ToString();
     }
 
-    private static string Buildings()
+    private static string Buildings(bool withServices)
     {
         StringBuilder text = new("2d events\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n");
         text.Append(new string('\t', 19)).Append('\n');
         for (int building = 1; building <= BuildingRows; building++)
         {
-            // Every seventh row is a service, the rest are houses; the last row is a training hall with
-            // no numeric cap, which the game writes as free text.
-            string type = building % 7 == 0 ? "Weapon Shop" : $"House R{building}";
+            // Every seventh row is a weapon shop and the rest are houses, except in the service fixture,
+            // which also states a stable and a temple so the fare network and the temple's own policy have
+            // a counter each. The last row is a training hall with no numeric cap, which the game writes as
+            // free text.
+            string type = withServices && building % 99 == 0
+                ? "Stables"
+                : withServices && building == 104
+                    ? "Temple"
+                    : building % 7 == 0 ? "Weapon Shop" : $"House R{building}";
             string notes = building == BuildingRows ? "No Max" : "0";
             string sequence = building % 5 == 0 ? string.Empty : (building % 44).ToString();
-            text.Append($"{building}\t{sequence}\t{type}\t{(building % MapRows) + 1}\t{building}\tBuilding {building}\tProprietor {building}\tOwner\t0\t0\t0\t0\t1.5\t1\t7\t0\t0\t{notes}\t9\t21\n");
+            // The columns are the table's own: the price multiplier, the skill multiplier, the stock
+            // interval a shop restocks on, and the hours it keeps, so an emitted definition carries numbers
+            // a ruleset can price and a shelf can be scheduled by.
+            text.Append($"{building}\t{sequence}\t{type}\t{(building % MapRows) + 1}\t{building}\tBuilding {building}\tProprietor {building}\tOwner\t0\t0\t0\t0\t1.5\t1\t0\t7\t0\t{notes}\t9\t21\n");
         }
 
         return text.ToString();

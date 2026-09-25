@@ -23,11 +23,21 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// — the counter is shut for the night, the party is not a member — rather than being folded into an
 /// interaction refusal that could not say what a shop needs.
 /// </para>
+/// <para>
+/// <b>A household is reachable the same way.</b> The building table's rows that are not services are the
+/// houses, castles, and halls of the world; the ones whose door the map hangs an event on are households,
+/// and this describes them as people the party speaks to rather than as shops. What one offers — an odd
+/// job, a guild member to recruit, a master teacher — belongs to the quest, follower, and teaching owners,
+/// so the use names who lives there and refuses nothing it cannot yet do.
+/// </para>
 /// </remarks>
 internal sealed class MightAndMagic7ServiceInteraction : IInteractionRule
 {
     /// <summary>The target kind a counter is.</summary>
     internal const string ServiceTargetKind = "service";
+
+    /// <summary>The target kind a household is.</summary>
+    internal const string HouseholdTargetKind = "household";
 
     /// <summary>The state word a counter the party has spoken at holds.</summary>
     internal const string SpokenState = "spoken";
@@ -44,14 +54,18 @@ internal sealed class MightAndMagic7ServiceInteraction : IInteractionRule
     /// </remarks>
     internal const double Reach = 512;
 
-    private readonly IServiceRule _services;
+    private readonly MightAndMagic7Services _services;
     private readonly IInteractionRule _inner;
 
-    /// <summary>Wraps this game's own interaction answers with the counters its content places.</summary>
-    /// <param name="services">This game's service policy, which says which placements keep a counter.</param>
+    /// <summary>Wraps this game's own interaction answers with the counters and households its content places.</summary>
+    /// <param name="services">
+    /// This game's service policy, which says which placements keep a counter and who lives in the ones that
+    /// are households. It is the concrete policy rather than the kit's seam because a household is content
+    /// interpretation rather than a service, and this is the game's own answer about its own rows.
+    /// </param>
     /// <param name="inner">The answers about everything else a place holds.</param>
     /// <exception cref="ArgumentNullException">Either answer is missing.</exception>
-    internal MightAndMagic7ServiceInteraction(IServiceRule services, IInteractionRule inner)
+    internal MightAndMagic7ServiceInteraction(MightAndMagic7Services services, IInteractionRule inner)
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
         _inner = inner ?? throw new ArgumentNullException(nameof(inner));
@@ -60,15 +74,28 @@ internal sealed class MightAndMagic7ServiceInteraction : IInteractionRule
     /// <inheritdoc />
     public InteractionTargetDefinition? Describe(InteractionTargetRequest request)
     {
-        if (!string.Equals(request.Placement.Content.Kind, MightAndMagic7Services.PlacementKind, StringComparison.Ordinal))
+        bool counter = string.Equals(request.Placement.Content.Kind, MightAndMagic7Services.PlacementKind, StringComparison.Ordinal);
+        bool household = string.Equals(request.Placement.Content.Kind, MightAndMagic7Services.ResidencePlacementKind, StringComparison.Ordinal);
+        if (!counter && !household)
         {
             return _inner.Describe(request);
         }
 
-        if (_services.Describe(new ServiceTargetRequest(request.Place, request.Placement)) is not { } service) return null;
+        ServiceTargetRequest target = new(request.Place, request.Placement);
+        if (counter)
+        {
+            if (_services.Describe(target) is not { } service) return null;
+            return new InteractionTargetDefinition(
+                new InteractionTargetKind(ServiceTargetKind),
+                service.Describe(),
+                InteractionVerb.Talk,
+                Reach);
+        }
+
+        if (_services.Household(request.Place, request.Placement.Content.Id) is not { } who) return null;
         return new InteractionTargetDefinition(
-            new InteractionTargetKind(ServiceTargetKind),
-            service.Describe(),
+            new InteractionTargetKind(HouseholdTargetKind),
+            who.Describe(),
             InteractionVerb.Talk,
             Reach);
     }
@@ -85,10 +112,14 @@ internal sealed class MightAndMagic7ServiceInteraction : IInteractionRule
     /// <inheritdoc />
     public InteractionOutcome Apply(InteractionTargetDefinition target, InteractionContext context)
     {
-        if (!string.Equals(target.Kind.Value, ServiceTargetKind, StringComparison.Ordinal)) return _inner.Apply(target, context);
-        string name = _services.Describe(new ServiceTargetRequest(context.Place, context.Placement)) is { } service
-            ? service.Describe()
-            : target.Name;
+        bool counter = string.Equals(target.Kind.Value, ServiceTargetKind, StringComparison.Ordinal);
+        bool household = string.Equals(target.Kind.Value, HouseholdTargetKind, StringComparison.Ordinal);
+        if (!counter && !household) return _inner.Apply(target, context);
+
+        ServiceTargetRequest request = new(context.Place, context.Placement);
+        string name = counter
+            ? _services.Describe(request) is { } service ? service.Describe() : target.Name
+            : _services.Household(context.Place, context.Placement.Content.Id) is { } who ? who.Describe() : target.Name;
         return InteractionOutcome.Applied(SpokenState, $"The party speaks with {name}.");
     }
 }

@@ -19,13 +19,18 @@ namespace MightAndMagic7.Import.Tool;
 /// <param name="Geometry">What every place's collision emission produced.</param>
 /// <param name="Entrances">What every place's walk-in entrance emission produced.</param>
 /// <param name="Containers">What every place's container emission produced, which is what the places document carries.</param>
+/// <param name="Services">
+/// What the building table's emission produced: the counters, the households, the rows nothing was placed
+/// for, and the passages the stables and docks sell.
+/// </param>
 internal sealed record PackWriteResult(
     string OutputRoot,
     InstallProvenance Provenance,
     IReadOnlyList<(string PackId, int Documents, int Entries)> Packs,
     CollisionSummary Geometry,
     PlaceEntranceSummary Entrances,
-    PlaceContainerSummary Containers)
+    PlaceContainerSummary Containers,
+    PlaceServiceSummary Services)
 {
     /// <summary>The pack ids, in the order they were written.</summary>
     internal IReadOnlyList<string> PackIds => [.. Packs.Select(pack => pack.PackId)];
@@ -52,7 +57,8 @@ internal static class PackWriter
     /// kind that could be there — including the zeroes a region has for doors and lights — instead of
     /// leaving a checker to infer absence from a missing key.
     /// </remarks>
-    private static readonly string[] PlacementKinds = ["spawn", "decoration", "door", "light", "container", "sprite"];
+    private static readonly string[] PlacementKinds =
+        ["spawn", "decoration", "door", "light", "container", "sprite", "service", "residence"];
 
     /// <summary>How much of a place's map data an import reads.</summary>
     internal enum MapDetail
@@ -103,14 +109,20 @@ internal static class PackWriter
         // its walk-in reaches come from, so an import that decoded no map has neither.
         PlaceContainerSummary containers = PlaceContainerEmitter.Emit(maps, programs, PlaceTrapNumbersTable.Read(tables));
 
+        // The counters are the building table's rows joined to the map faces that raise each house's own
+        // event, which is the same reading of the maps the reaches and containers come from: an import that
+        // decoded no map places no counter, and says so per row rather than emitting a shop nobody can walk
+        // up to.
+        PlaceServiceSummary services = PlaceServiceEmitter.Emit(tables.Services, tables, programs, maps);
+
         Directory.CreateDirectory(outputRoot);
         List<(string, int, int)> packs =
         [
-            WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers),
-            WriteWorld(tables, graph, provenance, Path.Combine(outputRoot, "mm7-world"), maps, collisions, entrances),
+            WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers, services),
+            WriteWorld(tables, graph, provenance, Path.Combine(outputRoot, "mm7-world"), maps, collisions, entrances, services),
         ];
         WriteBundleFragment(outputRoot, provenance, packs);
-        return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions), entrances, containers);
+        return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions), entrances, containers, services);
     }
 
     /// <summary>
@@ -180,11 +192,13 @@ internal static class PackWriter
         InstallProvenance provenance,
         string packDirectory,
         IReadOnlyDictionary<int, DecodedMap> maps,
-        PlaceContainerSummary containers)
+        PlaceContainerSummary containers,
+        PlaceServiceSummary services)
     {
         List<(string Path, string DocumentId, string Kind, int Entries)> documents =
         [
-            ("places.json", "places", "place", WritePlaces(packDirectory, tables, maps, containers)),
+            ("places.json", "places", "place", WritePlaces(packDirectory, tables, maps, containers, services)),
+            ("services.json", "services", "service", WriteServices(packDirectory, services)),
             ("classes.json", "classes", "class", WriteClasses(packDirectory, tables)),
             ("skills.json", "skills", "skill", WriteSkills(packDirectory, tables)),
             ("spells.json", "spells", "spell", WriteSpells(packDirectory, tables)),
@@ -208,12 +222,19 @@ internal static class PackWriter
         string packDirectory,
         IReadOnlyDictionary<int, DecodedMap> maps,
         IReadOnlyList<PlaceCollision> collisions,
-        PlaceEntranceSummary entrances)
+        PlaceEntranceSummary entrances,
+        PlaceServiceSummary services)
     {
-        int links = WritePlaceGraph(packDirectory, graph, tables, maps);
+        int links = WritePlaceGraph(packDirectory, graph, tables, maps, services);
         int places = WritePlaceGeometry(packDirectory, collisions);
         int reachCount = WritePlaceEntrances(packDirectory, entrances);
-        IReadOnlyList<string> references = [.. tables.Maps.Maps.Select(map => $"place:{map.Id.ToString(CultureInfo.InvariantCulture)}")];
+        // Every place is referenced by the graph, and a fare's link leaves the place its counter stands in,
+        // so the references state both.
+        IReadOnlyList<string> graphReferences =
+        [
+            .. tables.Maps.Maps.Select(map => $"place:{map.Id.ToString(CultureInfo.InvariantCulture)}"),
+            .. services.Fares.Select(fare => $"service:{fare.ServiceId.ToString(CultureInfo.InvariantCulture)}").Distinct(),
+        ];
         IReadOnlyList<string> geometryReferences =
             [.. collisions.Where(place => place.Emitted).Select(place => $"place:{place.PlaceId.ToString(CultureInfo.InvariantCulture)}")];
 
@@ -233,7 +254,7 @@ internal static class PackWriter
             "world",
             provenance,
             [
-                ("place-graph.json", "place-graph", "travel-link", references),
+                ("place-graph.json", "place-graph", "travel-link", graphReferences),
 
                 // Only the places that produced an artifact are referenced: a reference to a place whose
                 // geometry was refused would promise collision the pack does not carry.
@@ -355,8 +376,15 @@ internal static class PackWriter
         string packDirectory,
         Mm7Tables tables,
         IReadOnlyDictionary<int, DecodedMap> maps,
-        PlaceContainerSummary containers)
+        PlaceContainerSummary containers,
+        PlaceServiceSummary services)
     {
+        // A place's counters and households are emitted into its placements, which is where the interaction
+        // mechanism reads them from: a service placement is a target the party talks to, and nothing about
+        // the population's shape differs between a counter and a chest.
+        Dictionary<int, IReadOnlyList<PlaceServicePlacement>> countersByPlace = services.Placements
+            .GroupBy(placement => placement.PlaceId)
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<PlaceServicePlacement>)[.. group]);
         Dictionary<int, IReadOnlyList<PlaceChestPlacement>> containersByPlace = containers.Chests
             .GroupBy(chest => chest.PlaceId)
             .ToDictionary(group => group.Key, group => (IReadOnlyList<PlaceChestPlacement>)[.. group]);
@@ -374,6 +402,17 @@ internal static class PackWriter
                         ? "region"
                         : "interior");
                 writer.WriteString("mapFile", map.FileName);
+                writer.WriteStartArray("monsters");
+                foreach (string monster in new[] { map.MonsterSlot1, map.MonsterSlot2, map.MonsterSlot3 })
+                {
+                    // An unused slot is the table's own zero, which names no beast; only named ones are
+                    // written, so a place that spawns nothing carries an empty list rather than a monster
+                    // called nothing.
+                    if (monster.Length == 0 || monster == "0") continue;
+                    writer.WriteStringValue(monster);
+                }
+
+                writer.WriteEndArray();
                 writer.WriteNumber("respawnDays", map.RespawnDays);
                 writer.WriteNumber("alertDays", map.AlertDays);
                 writer.WriteNumber("treasureLevel", map.TreasureLevel);
@@ -400,7 +439,8 @@ internal static class PackWriter
                         writer,
                         decoded,
                         containersByPlace.GetValueOrDefault(map.Id, []),
-                        objectsByPlace.GetValueOrDefault(map.Id, []));
+                        objectsByPlace.GetValueOrDefault(map.Id, []),
+                        countersByPlace.GetValueOrDefault(map.Id, []));
                 }
             }));
         }
@@ -436,12 +476,21 @@ internal static class PackWriter
     /// store its own position, and every one is written, because a map's own state is not trimmed here;
     /// what holds nothing is answered for by nobody.
     /// </para>
+    /// <para>
+    /// A counter is the one placement whose position the map does not state for it: the building table says
+    /// which map a shop is on and the map says which faces raise the house's own event, so the placement
+    /// carries the point the party stands at and the face, model, and texture it was read from, and the rule
+    /// that picked it. A placement of kind <c>service</c> names its service by the building's id, which is
+    /// what the ruleset resolves; a placement of kind <c>residence</c> is a household, carrying the table's
+    /// own type and name so a party that reaches it meets what the row says lives there.
+    /// </para>
     /// </remarks>
     private static void WritePlacements(
         Utf8JsonWriter writer,
         DecodedMap map,
         IReadOnlyList<PlaceChestPlacement> containers,
-        IReadOnlyList<PlaceSpriteObjectPlacement> spriteObjects)
+        IReadOnlyList<PlaceSpriteObjectPlacement> spriteObjects,
+        IReadOnlyList<PlaceServicePlacement> counters)
     {
         List<Placement> placements = [];
         foreach (MapSpawnPoint spawn in map.SpawnPoints)
@@ -536,6 +585,34 @@ internal static class PackWriter
                 field.WriteNumber("containingItem", held.Object.ContainingItemId);
                 field.WriteString("contentsSource", "containing-item");
             }));
+        }
+
+        foreach (PlaceServicePlacement counter in counters)
+        {
+            placements.Add(new Placement(
+                counter.PlacementKind,
+                counter.BuildingId,
+                "houseTable",
+                new PlacementPoint(counter.X, counter.Y, counter.Z),
+                null,
+                counter.PositionSource,
+                field =>
+                {
+                    // The building id is the identity the ruleset resolves, and it is written under the
+                    // field name the ruleset reads; the row's own type travels beside it so a residence
+                    // says what the table called it without a second document being joined in.
+                    field.WriteNumber("houseId", counter.BuildingId);
+                    field.WriteString("fixture", counter.Fixture);
+                    field.WriteString("name", counter.Name);
+                    if (counter.Proprietor.Length > 0) field.WriteString("proprietor", counter.Proprietor);
+                    field.WriteNumber("sourceEvent", counter.EventId);
+                    field.WriteNumber("sourceFace", counter.SourceFaceIndex);
+                    field.WriteNumber("sourceModel", counter.SourceModelIndex);
+                    field.WriteString("sourceTexture", counter.SourceTexture);
+                    if (counter.SourceModelName.Length > 0) field.WriteString("sourceModelName", counter.SourceModelName);
+                    field.WriteNumber("eventFaces", counter.FaceCount);
+                    field.WriteString("heightSource", counter.HeightSource);
+                }));
         }
 
         writer.WriteStartObject("placementCounts");
@@ -751,7 +828,8 @@ internal static class PackWriter
         string packDirectory,
         PlaceGraph graph,
         Mm7Tables tables,
-        IReadOnlyDictionary<int, DecodedMap> maps)
+        IReadOnlyDictionary<int, DecodedMap> maps,
+        PlaceServiceSummary services)
     {
         Dictionary<int, string> names = tables.Maps.Maps.ToDictionary(map => map.Id, map => map.Name);
         List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];
@@ -797,7 +875,110 @@ internal static class PackWriter
             index++;
         }
 
+        // A passage a stable or a dock sells is a transition like any other: the party that holds the fare
+        // takes it, and the world prices it by the same path every other crossing goes through. Its link is
+        // named for the counter that sells it rather than numbered with the map's own links, so a reader can
+        // tell a bought journey from one the map's events issue, and it arrives at the destination's own
+        // arrival point rather than at a coordinate this importer chose.
+        foreach (PlaceFare fare in services.Fares)
+        {
+            entries.Add((fare.LinkId, writer =>
+            {
+                writer.WriteNumber("fromPlace", fare.FromPlace);
+                WriteOptionalString(writer, "fromName", names.GetValueOrDefault(fare.FromPlace));
+                writer.WriteNumber("toPlace", fare.ToPlace);
+                WriteOptionalString(writer, "toName", names.GetValueOrDefault(fare.ToPlace));
+                if (fare.ArrivalPoint.Length > 0)
+                {
+                    writer.WriteString("entryPoint", fare.ArrivalPoint);
+                }
+                else
+                {
+                    writer.WriteNumber("x", fare.X);
+                    writer.WriteNumber("y", fare.Y);
+                    writer.WriteNumber("z", fare.Z);
+                    writer.WriteNumber("yaw", fare.Yaw);
+                    writer.WriteNumber("pitch", fare.Pitch);
+                }
+
+                writer.WriteNumber("houseId", fare.ServiceId);
+                writer.WriteNumber("exitPicture", 0);
+                writer.WriteNumber("eventId", 0);
+                writer.WriteNumber("step", 0);
+                writer.WriteString("program", "2DEvents.txt");
+                writer.WriteBoolean("fare", true);
+                writer.WriteNumber("days", fare.Days);
+            }));
+        }
+
         return WriteDocument(packDirectory, "place-graph.json", "place-graph", "travel-link", entries);
+    }
+
+    /// <summary>
+    /// Writes the counters the building table describes, keyed by the building's own id.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every column written here is the table's, named after the column it came from, and the fields a row
+    /// leaves empty are left out rather than filled with a number nobody stated: a temple has no stock
+    /// interval and a house has no multiplier, and a reader that finds no field can say so.
+    /// </para>
+    /// <para>
+    /// <b>What the definitions do not carry.</b> Which operations a counter offers, what its shelves hold,
+    /// what it teaches, and what it charges are this game's answers about a kind, so the ruleset supplies
+    /// them; the pack carries the operator's data and the provenance that says which row it came from.
+    /// </para>
+    /// </remarks>
+    private static int WriteServices(string packDirectory, PlaceServiceSummary services)
+    {
+        Dictionary<int, IReadOnlyList<PlaceFare>> faresByService = services.Fares
+            .GroupBy(fare => fare.ServiceId)
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<PlaceFare>)[.. group]);
+        List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];
+        foreach (PlaceServiceDefinition service in services.Services)
+        {
+            entries.Add((service.BuildingId.ToString(CultureInfo.InvariantCulture), writer =>
+            {
+                writer.WriteString("kind", service.Kind);
+                writer.WriteString("name", service.Name);
+                if (service.Proprietor.Length > 0) writer.WriteString("proprietor", service.Proprietor);
+                if (service.Title.Length > 0) writer.WriteString("title", service.Title);
+                writer.WriteNumber("mapId", service.MapId);
+                writer.WriteString("place", service.PlaceId);
+                WriteOptionalNumber(writer, "typeSequence", service.TypeSequence);
+                WriteOptionalNumber(writer, "openHour", service.OpenHour);
+                WriteOptionalNumber(writer, "closedHour", service.ClosedHour);
+                WriteOptionalNumber(writer, "priceMultiplier", service.PriceMultiplier);
+                WriteOptionalNumber(writer, "skillPriceMultiplier", service.SkillPriceMultiplier);
+                WriteOptionalNumber(writer, "stockIntervalDays", service.StockIntervalDays);
+                if (service.TrainingCap is int cap) writer.WriteNumber("trainingCap", cap);
+                if (service.TrainingCapText.Length > 0) writer.WriteString("trainingCapText", service.TrainingCapText);
+                if (faresByService.TryGetValue(service.BuildingId, out IReadOnlyList<PlaceFare>? fares))
+                {
+                    // The passages this counter sells, written with the very link that takes them: the
+                    // counter's offer and the world's transition are one emission rather than two that
+                    // could disagree about where a fare goes.
+                    writer.WriteStartArray("fares");
+                    foreach (PlaceFare fare in fares)
+                    {
+                        writer.WriteStartObject();
+                        writer.WriteNumber("toPlace", fare.ToPlace);
+                        writer.WriteString("place", fare.ToPlace.ToString(CultureInfo.InvariantCulture));
+                        writer.WriteString("name", fare.DestinationName);
+                        writer.WriteNumber("days", fare.Days);
+                        writer.WriteString("link", fare.LinkId);
+                        writer.WriteEndObject();
+                    }
+
+                    writer.WriteEndArray();
+                }
+
+                writer.WriteString("source", "2DEvents.txt");
+                writer.WriteNumber("sourceRow", service.SourceRow);
+            }));
+        }
+
+        return WriteDocument(packDirectory, "services.json", "services", "service", entries);
     }
 
     private static int WriteDocument(
@@ -884,6 +1065,11 @@ internal static class PackWriter
     }
 
     private static void WriteOptionalNumber(Utf8JsonWriter writer, string name, int? value)
+    {
+        if (value is not null) writer.WriteNumber(name, value.Value);
+    }
+
+    private static void WriteOptionalNumber(Utf8JsonWriter writer, string name, double? value)
     {
         if (value is not null) writer.WriteNumber(name, value.Value);
     }

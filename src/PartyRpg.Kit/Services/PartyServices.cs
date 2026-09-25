@@ -291,6 +291,20 @@ public sealed class PartyServices : IGameTimeObserver
             lessons.Add(new ServiceLessonOffer(lesson.Kind, lesson.Subject, lesson.Label, lesson.Amount, price));
         }
 
+        // What else the counter offers is priced the same way its lessons are: the operation the offer is
+        // taken as decides which price the policy quotes, so a panel shows what a command would charge
+        // rather than a second number worked out beside it.
+        List<ServiceOfferLine> offers = [];
+        foreach (ServiceOffer offer in _rule.Offers(new ServiceOfferRequest(service, _party, _clock)))
+        {
+            // A notice is read rather than taken, so it is published at no price: quoting one through the
+            // price rule would ask what a rumour costs, which is a question no counter answers.
+            int price = offer.Kind == ServiceOfferKind.Notice
+                ? 0
+                : Price(service, OperationOf(offer.Kind), ServiceSubject.OfOffer(offer, offer.Amount), default).Charge.Coins;
+            offers.Add(new ServiceOfferLine(offer, price));
+        }
+
         List<ServiceSaleOffer> sales = [];
         if (service.Offers(ServiceOperationKind.Sell))
         {
@@ -316,7 +330,7 @@ public sealed class PartyServices : IGameTimeObserver
             members.Add(new ServiceMemberOffer(index, candidate.Id, candidate.Profile.Name));
         }
 
-        return new ServiceBrowse(service, operations, memberships, stock, lessons, sales, members);
+        return new ServiceBrowse(service, operations, memberships, stock, lessons, offers, sales, members);
     }
 
     /// <inheritdoc />
@@ -457,6 +471,85 @@ public sealed class PartyServices : IGameTimeObserver
                 return null;
             }
 
+            case ServiceCommandKind.Cure:
+            case ServiceCommandKind.Train:
+            case ServiceCommandKind.Provision:
+            case ServiceCommandKind.Stay:
+            case ServiceCommandKind.Deposit:
+            case ServiceCommandKind.Withdraw:
+            case ServiceCommandKind.Fare:
+            {
+                ServiceOfferKind want = OfferKindOf(command.Kind);
+                List<ServiceOffer> offers = [.. _rule.Offers(new ServiceOfferRequest(service, _party, _clock))
+                    .Where(offer => offer.Kind == want)];
+                if (offers.Count == 0)
+                {
+                    return Refuse(command.Kind, "service-no-such-offer", $"{service.Describe()} offers no {Word(command.Kind)}.");
+                }
+
+                // A command that names nothing takes the counter's one offer of that kind — a hall has one
+                // training step, a bank one account, a tavern one room — and a command that names something
+                // takes the offer that subject identifies. A counter with several offers of a kind and
+                // nothing named is refused rather than guessed at, because taking the wrong room or the wrong
+                // passage would charge the party for a journey it did not ask for.
+                ServiceOffer? chosen = null;
+                if (command.Target.Length == 0)
+                {
+                    if (offers.Count > 1)
+                    {
+                        return Refuse(
+                            command.Kind,
+                            "service-offer-ambiguous",
+                            $"{service.Describe()} offers {offers.Count} things to {Word(command.Kind)} and the command named none of them.");
+                    }
+
+                    chosen = offers[0];
+                }
+                else
+                {
+                    foreach (ServiceOffer candidate in offers)
+                    {
+                        if (string.Equals(candidate.Target, command.Target, StringComparison.Ordinal))
+                        {
+                            chosen = candidate;
+                            break;
+                        }
+                    }
+                }
+
+                if (chosen is null)
+                {
+                    return Refuse(command.Kind, "service-no-such-offer", $"{service.Describe()} offers nothing called '{command.Target}' to {Word(command.Kind)}.");
+                }
+
+                // Which member an offer goes to is asked only of the offers that act on one: a room, a
+                // provision, and an account are the party's, and a member index for them would be a number
+                // nothing reads.
+                if (want is ServiceOfferKind.Cure or ServiceOfferKind.Training)
+                {
+                    if (command.Member < 0 || command.Member >= _party.Members.Count)
+                    {
+                        return Refuse(command.Kind, "service-no-such-member", $"The party has no member {command.Member + 1}, so there is nobody for {chosen.Name} to act on.");
+                    }
+
+                    member = _party.Members[command.Member].Id;
+                }
+
+                // What a deposit or a withdrawal moves is coin, which the command counts; every other offer
+                // acts on as many of itself as the offer states.
+                int count = command.Kind is ServiceCommandKind.Deposit or ServiceCommandKind.Withdraw
+                    ? command.Count
+                    : Math.Max(1, command.Count);
+
+                if (count < 1)
+                {
+                    return Refuse(command.Kind, "service-count-invalid", $"The party asked for {count} of {chosen.Name}, and an operation acts on at least one.");
+                }
+
+                subject = ServiceSubject.OfOffer(chosen, count);
+                return null;
+            }
+
             case ServiceCommandKind.Teach:
             {
                 ServiceLesson? lesson = null;
@@ -539,6 +632,108 @@ public sealed class PartyServices : IGameTimeObserver
                 subject.Item!.Repair(subject.Item.State.Damage);
                 return null;
 
+            case ServiceOperationKind.Cure:
+            {
+                // What a cure ends is the offer's own list rather than a condition the mechanism was told:
+                // a temple that claims to remove death and eradication states both, and a stay that clears
+                // what a night clears states that instead. Restoring the body is the same act — the donor's
+                // temple healing resets the conditions and fills both pools together — so it happens here
+                // rather than being a second operation nothing would offer.
+                ServiceOffer cure = subject.Offer!;
+                PartyMember patient = _party.Member(member);
+                foreach (ConditionId condition in cure.Conditions) patient.Conditions.Clear(condition);
+                if (cure.Amount > 0) patient.Resources.RestoreAll();
+                return null;
+            }
+
+            case ServiceOperationKind.Train:
+            {
+                // A training step is one level: the fee, the experience curve, and the ceiling the counter
+                // stops at are the ruleset's, which judged this step before it was charged, and what the
+                // mechanism records is where the member now stands. A step that would pass the counter's own
+                // ceiling is refused rather than clamped, because a rule that changed its mind between two
+                // calls is a defect and not a level.
+                ServiceOffer training = subject.Offer!;
+                PartyMember trainee = _party.Member(member);
+                int reached = trainee.Progression.Level + 1;
+                if (reached > training.Limit)
+                {
+                    return Refuse(
+                        kind,
+                        "service-training-capped",
+                        $"{trainee.Profile.Name} stands at level {trainee.Progression.Level} and {visit.Service.Describe()} trains no further than level {training.Limit}.");
+                }
+
+                trainee.Progression.SetLevel(reached);
+                return null;
+            }
+
+            case ServiceOperationKind.Provision:
+            {
+                // Provisions are the party's own account rather than an instance in its pack, so they are
+                // credited where a purchase would mint items: one purchase fills the amount the offer
+                // states, and the count is how many purchases the command asked for.
+                _party.Food.Credit(checked(subject.Offer!.Amount * subject.Count));
+                return null;
+            }
+
+            case ServiceOperationKind.Stay:
+            {
+                // A room buys a night. Game time passes on the session's one clock to the hour the room
+                // gives up at, and the party rests: what a rest clears is the offer's own list, which is how
+                // a night that ends a weakness differs from a cure that ends a disease. Without a clock the
+                // time cannot pass, and the charge is refused before this runs rather than the party paying
+                // for a night that never came.
+                if (_clock is not { } clock)
+                {
+                    return Refuse(kind, "service-no-clock", $"{visit.Service.Describe()} rents rooms by the night and this session keeps no clock, so no night could pass.");
+                }
+
+                ServiceOffer room = subject.Offer!;
+                int hours = room.Amount < 1 ? 1 : room.Amount;
+                clock.Advance(GameDuration.FromHours(hours));
+                foreach (PartyMember sleeper in _party.Members)
+                {
+                    foreach (ConditionId condition in room.Conditions) sleeper.Conditions.Clear(condition);
+                    sleeper.Resources.RestoreAll();
+                }
+
+                return null;
+            }
+
+            case ServiceOperationKind.Deposit:
+            {
+                // The coins leave the purse through the party's one ledger and are recorded as what the
+                // counter keeps for the party, under the name the offer states. Nothing is minted and nothing
+                // is lost: the purse and the holding are two places the same coins can be, and both are
+                // party state a save carries.
+                string account = Holding(subject);
+                ServiceHolding.Set(_party, account, ServiceHolding.Coins(_party, account) + subject.Count);
+                return null;
+            }
+
+            case ServiceOperationKind.Withdraw:
+            {
+                int held = ServiceHolding.Coins(_party, Holding(subject));
+                if (held < subject.Count)
+                {
+                    return Refuse(kind, "service-holding-short", $"{visit.Service.Describe()} holds {held} coin(s) for the party and the party asked for {subject.Count}.");
+                }
+
+                ServiceHolding.Set(_party, Holding(subject), held - subject.Count);
+                return null;
+            }
+
+            case ServiceOperationKind.Fare:
+            {
+                // A fare is party-carried state: the party holds the ticket and the road honours it. The days
+                // the journey takes are the offer's own amount, which is what the travel policy reads to
+                // price the boarding, so the counter that sold the ticket and the road that takes it agree
+                // about the journey without either asking the other.
+                ServicePassage.Grant(_party, new PlaceId(subject.Offer!.Subject), subject.Offer.Amount < 1 ? 1 : subject.Offer.Amount);
+                return null;
+            }
+
             case ServiceOperationKind.Teach:
             {
                 ServiceLesson lesson = subject.Lesson!;
@@ -590,6 +785,20 @@ public sealed class PartyServices : IGameTimeObserver
                 $"The party pays {quote.Charge.Coins} coin(s) to identify {subject.Item!.Definition}.",
             ServiceOperationKind.Repair =>
                 $"The party pays {quote.Charge.Coins} coin(s) to repair {subject.Item!.Definition}.",
+            ServiceOperationKind.Cure =>
+                $"The party pays {quote.Charge.Coins} coin(s) and {_party.Member(member).Profile.Name} is healed of {string.Join(", ", subject.Offer!.Conditions)}.",
+            ServiceOperationKind.Train =>
+                $"{_party.Member(member).Profile.Name} trains to level {subject.Offer!.Limit} for {quote.Charge.Coins} coin(s).",
+            ServiceOperationKind.Provision =>
+                $"The party pays {quote.Charge.Coins} coin(s) for {subject.Offer!.Amount * subject.Count} provisions.",
+            ServiceOperationKind.Stay =>
+                $"The party pays {quote.Charge.Coins} coin(s) for {subject.Offer!.Name} and rests for {subject.Offer.Amount} hour(s).",
+            ServiceOperationKind.Deposit =>
+                $"The party leaves {subject.Count} coin(s) with {visit.Service.Name} and it now holds {ServiceHolding.Coins(_party, Holding(subject))}.",
+            ServiceOperationKind.Withdraw =>
+                $"The party takes {subject.Count} coin(s) back from {visit.Service.Name} and it holds {ServiceHolding.Coins(_party, Holding(subject))}.",
+            ServiceOperationKind.Fare =>
+                $"The party pays {quote.Charge.Coins} coin(s) for a passage to {subject.Offer!.Subject}, which takes {subject.Offer.Amount} day(s).",
             ServiceOperationKind.Teach when subject.Lesson!.Kind == ServiceLessonKind.Skill =>
                 $"{_party.Member(member).Profile.Name} is taught {subject.Lesson.Label} to level {subject.Lesson.Amount} for {quote.Charge.Coins} coin(s).",
             ServiceOperationKind.Teach =>
@@ -646,6 +855,13 @@ public sealed class PartyServices : IGameTimeObserver
         ServiceCommandKind.Identify => "identify",
         ServiceCommandKind.Repair => "repair",
         ServiceCommandKind.Teach => "teach",
+        ServiceCommandKind.Cure => "cure",
+        ServiceCommandKind.Train => "train",
+        ServiceCommandKind.Provision => "provision",
+        ServiceCommandKind.Stay => "stay",
+        ServiceCommandKind.Deposit => "deposit",
+        ServiceCommandKind.Withdraw => "withdraw",
+        ServiceCommandKind.Fare => "fare",
         _ => "leave",
     };
 
@@ -656,6 +872,43 @@ public sealed class PartyServices : IGameTimeObserver
         ServiceOperationKind.Sell => "sell",
         ServiceOperationKind.Identify => "identify",
         ServiceOperationKind.Repair => "repair",
-        _ => "teach",
+        ServiceOperationKind.Teach => "teach",
+        ServiceOperationKind.Cure => "cure",
+        ServiceOperationKind.Train => "train",
+        ServiceOperationKind.Provision => "provision",
+        ServiceOperationKind.Stay => "stay",
+        ServiceOperationKind.Deposit => "deposit",
+        ServiceOperationKind.Withdraw => "withdraw",
+        _ => "fare",
     };
+
+    /// <summary>The operation a command is taken as, which is the offer kind it names.</summary>
+    private static ServiceOperationKind OperationOf(ServiceOfferKind kind) => kind switch
+    {
+        ServiceOfferKind.Cure => ServiceOperationKind.Cure,
+        ServiceOfferKind.Training => ServiceOperationKind.Train,
+        ServiceOfferKind.Provision => ServiceOperationKind.Provision,
+        ServiceOfferKind.Stay => ServiceOperationKind.Stay,
+        ServiceOfferKind.Holding => ServiceOperationKind.Deposit,
+        ServiceOfferKind.Fare => ServiceOperationKind.Fare,
+        _ => throw new ArgumentOutOfRangeException(
+            nameof(kind),
+            kind,
+            "A notice is read rather than taken, so it is not the subject of an operation and has no price."),
+    };
+
+    /// <summary>The offer kind a command asks for.</summary>
+    private static ServiceOfferKind OfferKindOf(ServiceCommandKind kind) => kind switch
+    {
+        ServiceCommandKind.Cure => ServiceOfferKind.Cure,
+        ServiceCommandKind.Train => ServiceOfferKind.Training,
+        ServiceCommandKind.Provision => ServiceOfferKind.Provision,
+        ServiceCommandKind.Stay => ServiceOfferKind.Stay,
+        ServiceCommandKind.Deposit or ServiceCommandKind.Withdraw => ServiceOfferKind.Holding,
+        _ => ServiceOfferKind.Fare,
+    };
+
+    /// <summary>The name a counter keeps the party's coins under, which is its offer's subject or its name.</summary>
+    private static string Holding(ServiceSubject subject) =>
+        subject.Offer!.Subject.Length > 0 ? subject.Offer.Subject : subject.Offer.Name;
 }

@@ -83,13 +83,18 @@ public readonly record struct ServiceMemberOffer(int Index, PartyMemberId Member
 /// <param name="Memberships">What the party carries of what the service requires, as words.</param>
 /// <param name="Stock">What is on the shelves, in the order a person reads them.</param>
 /// <param name="Lessons">What the counter teaches.</param>
+/// <param name="Offers">
+/// What else the counter offers: its cures, its passages, its provisions, its rooms, what it holds, its
+/// training ceiling, and the lines it posts.
+/// </param>
 /// <param name="Sales">What of the party's own the counter would buy.</param>
-/// <param name="Members">The members a lesson could be taught to.</param>
+/// <param name="Members">The members a lesson, a cure, or a training step could go to.</param>
 public sealed record ServiceBrowse(
     ServiceDefinition Service,
     IReadOnlyList<string> Operations,
     IReadOnlyList<string> Memberships,
     IReadOnlyList<ServiceStockOffer> Stock,
     IReadOnlyList<ServiceLessonOffer> Lessons,
+    IReadOnlyList<ServiceOfferLine> Offers,
     IReadOnlyList<ServiceSaleOffer> Sales,
     IReadOnlyList<ServiceMemberOffer> Members);

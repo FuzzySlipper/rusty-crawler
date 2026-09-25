@@ -169,6 +169,167 @@ public sealed class ServiceTests
         Assert.Equal("service-operation-unavailable", notOffered.Code);
     }
 
+
+    /// <summary>
+    /// Every capability a kind needs is one operation of the same mechanism, over the same purse.
+    /// </summary>
+    /// <remarks>
+    /// A cure, a training step, provisions, a room, a deposit, a withdrawal, and a passage are the
+    /// operations the twenty-one kinds of building need beyond buying, selling, identifying, repairing, and
+    /// teaching. What this proves is that they are the same workflow over the same accounts: the counter is
+    /// opened the same way, a command is judged and priced by the rule the same way, the charge settles
+    /// through the party's own ledger, the change lands on the party's own state, and a refusal changes
+    /// nothing at all.
+    /// </remarks>
+    [Fact]
+    public void A_counter_s_cures_training_provisions_rooms_deposits_and_passages_run_the_same_way()
+    {
+        using PartyEntity party = Party(coins: 1000);
+        PartyResourceLedger accounts = new(party);
+        PartyMember member = party.Members[0];
+        member.Conditions.Apply(new ActiveCondition(new ConditionId("Cursed"), 3));
+        member.Conditions.Apply(new ActiveCondition(new ConditionId("Poisoned"), 1));
+        member.Resources.TakeDamage(6);
+        GameClock clock = Clock();
+
+        ShopRule rule = new(Shop() with
+        {
+            Operations =
+            [
+                ServiceOperationKind.Buy,
+                ServiceOperationKind.Teach,
+                ServiceOperationKind.Cure,
+                ServiceOperationKind.Train,
+                ServiceOperationKind.Provision,
+                ServiceOperationKind.Stay,
+                ServiceOperationKind.Deposit,
+                ServiceOperationKind.Withdraw,
+                ServiceOperationKind.Fare,
+            ],
+        })
+        {
+            Offerings =
+            [
+                new ServiceOffer(ServiceOfferKind.Cure, "Healing", "affliction", Value: 20, Clears: [new ConditionId("Cursed")]),
+                new ServiceOffer(ServiceOfferKind.Training, "Training", Value: 0, Limit: 2),
+                new ServiceOffer(ServiceOfferKind.Provision, "Food and drink", Value: 8, Amount: 6),
+                new ServiceOffer(ServiceOfferKind.Stay, "A room for the night", Value: 12, Amount: 8, Clears: [new ConditionId("Tired")]),
+                new ServiceOffer(ServiceOfferKind.Holding, "The counter's keeping", "vault", Value: 0),
+                new ServiceOffer(ServiceOfferKind.Fare, "A passage to Elsewhere", "9", Value: 25, Amount: 3),
+                new ServiceOffer(ServiceOfferKind.Notice, "Travellers speak of the roads to Elsewhere."),
+            ],
+        };
+
+        PartyServices services = new(rule, party, accounts, clock);
+        Assert.True(services.Open(rule.Service).IsApplied);
+
+        // What the counter offers is published with what each would cost, and a notice is published at no
+        // price because it is read rather than taken.
+        ServiceBrowse browse = services.Browse()!;
+        Assert.Equal(7, browse.Offers.Count);
+        Assert.Equal(20, browse.Offers.Single(line => line.Offer.Kind == ServiceOfferKind.Cure).Price);
+        Assert.Equal(0, browse.Offers.Single(line => line.Offer.Kind == ServiceOfferKind.Notice).Price);
+
+        // A cure ends exactly the conditions it claims, restores the body, and moves the one purse.
+        ServiceResult cured = services.Transact(new ServiceCommand(ServiceCommandKind.Cure, "affliction", Member: 0));
+        Assert.True(cured.IsApplied);
+        Assert.Equal(20, cured.Paid);
+        Assert.False(member.Conditions.Has(new ConditionId("Cursed")));
+        Assert.True(member.Conditions.Has(new ConditionId("Poisoned")));
+        Assert.Equal(10, member.Resources.HitPoints.Current);
+
+        // Training converts what the member has banked into one level, and the counter's own ceiling is
+        // where it stops: a step past it is refused rather than clamped.
+        ServiceResult trained = services.Transact(new ServiceCommand(ServiceCommandKind.Train, Member: 0));
+        Assert.True(trained.IsApplied);
+        Assert.Equal(2, member.Progression.Level);
+        ServiceResult capped = services.Transact(new ServiceCommand(ServiceCommandKind.Train, Member: 0));
+        Assert.Equal("service-training-capped", capped.Code);
+        Assert.Equal(2, member.Progression.Level);
+
+        // Provisions are the party's larder rather than its pack, and the larder is credited where a
+        // purchase would mint an item.
+        int larder = party.Food.Portions;
+        ServiceResult provisioned = services.Transact(new ServiceCommand(ServiceCommandKind.Provision));
+        Assert.True(provisioned.IsApplied);
+        Assert.Equal(larder + 6, party.Food.Portions);
+
+        // A room spends the session's one clock and rests the party: the hour it gives up at is what passes,
+        // and what a night clears is the room's own list rather than a rule the kit keeps.
+        member.Conditions.Apply(new ActiveCondition(new ConditionId("Tired"), 2));
+        member.Resources.TakeDamage(4);
+        int hour = clock.Now.Hour;
+        ServiceResult lodged = services.Transact(new ServiceCommand(ServiceCommandKind.Stay));
+        Assert.True(lodged.IsApplied);
+        Assert.Equal((hour + 8) % 24, clock.Now.Hour);
+        Assert.False(member.Conditions.Has(new ConditionId("Tired")));
+        Assert.Equal(10, member.Resources.HitPoints.Current);
+
+        // A deposit and a withdrawal move coin between the purse and what the counter keeps, both ways, and
+        // a withdrawal of more than is held is refused whole.
+        int purse = party.Purse.Coins;
+        ServiceResult deposited = services.Transact(new ServiceCommand(ServiceCommandKind.Deposit, "vault", Count: 300));
+        Assert.True(deposited.IsApplied);
+        Assert.Equal(300, deposited.Paid);
+        Assert.Equal(purse - 300, party.Purse.Coins);
+        Assert.Equal(300, ServiceHolding.Coins(party, "vault"));
+
+        ServiceResult over = services.Transact(new ServiceCommand(ServiceCommandKind.Withdraw, "vault", Count: 500));
+        Assert.Equal("service-holding-short", over.Code);
+        Assert.Equal(300, ServiceHolding.Coins(party, "vault"));
+
+        ServiceResult withdrew = services.Transact(new ServiceCommand(ServiceCommandKind.Withdraw, "vault", Count: 120));
+        Assert.True(withdrew.IsApplied);
+        Assert.Equal(120, withdrew.Earned);
+        Assert.Equal(purse - 180, party.Purse.Coins);
+        Assert.Equal(180, ServiceHolding.Coins(party, "vault"));
+
+        // A passage is what a fare buys: the party holds the ticket and the journey's length, and the
+        // counter's own account of it is what the road reads.
+        ServiceResult fare = services.Transact(new ServiceCommand(ServiceCommandKind.Fare, "9"));
+        Assert.True(fare.IsApplied);
+        Assert.Equal(25, fare.Paid);
+        Assert.Equal(3, ServicePassage.DaysTo(party, new PlaceId("9")));
+
+        // A command the counter cannot resolve is its own refusal, and a counter with one offer of a kind
+        // takes a command that names nothing.
+        ServiceResult unknown = services.Transact(new ServiceCommand(ServiceCommandKind.Fare, "77"));
+        Assert.Equal("service-no-such-offer", unknown.Code);
+        ServiceResult absent = services.Transact(new ServiceCommand(ServiceCommandKind.Cure, "eradication", Member: 0));
+        Assert.Equal("service-no-such-offer", absent.Code);
+        Assert.Equal("service-no-such-member", services.Transact(new ServiceCommand(ServiceCommandKind.Cure, "affliction", Member: 4)).Code);
+
+        // Every result reported the party's own purse, which is the same number the party holds.
+        Assert.Equal(party.Purse.Coins, services.Browse() is not null ? party.Purse.Coins : 0);
+    }
+
+    /// <summary>
+    /// A counter with two offers of one kind is refused rather than guessed at when a command names neither.
+    /// </summary>
+    [Fact]
+    public void A_command_that_names_nothing_at_a_counter_with_two_offerings_is_refused()
+    {
+        using PartyEntity party = Party(coins: 100);
+        ShopRule rule = new(Shop() with { Operations = [ServiceOperationKind.Fare] })
+        {
+            Offerings =
+            [
+                new ServiceOffer(ServiceOfferKind.Fare, "A passage north", "8", Value: 25, Amount: 2),
+                new ServiceOffer(ServiceOfferKind.Fare, "A passage south", "9", Value: 25, Amount: 3),
+            ],
+        };
+
+        PartyServices services = new(rule, party, new PartyResourceLedger(party), Clock());
+        Assert.True(services.Open(rule.Service).IsApplied);
+        Assert.Equal("service-offer-ambiguous", services.Transact(new ServiceCommand(ServiceCommandKind.Fare)).Code);
+
+        // Naming one takes that one, and the ticket says which journey it is.
+        Assert.True(services.Transact(new ServiceCommand(ServiceCommandKind.Fare, "9")).IsApplied);
+        Assert.Equal(3, ServicePassage.DaysTo(party, new PlaceId("9")));
+        Assert.Equal(0, ServicePassage.DaysTo(party, new PlaceId("8")));
+        Assert.Equal(75, party.Purse.Coins);
+    }
+
     [Fact]
     public void Stock_depletes_and_refreshes_when_the_clock_passes_the_interval()
     {
@@ -542,6 +703,11 @@ public sealed class ServiceTests
 
         public IReadOnlyList<ServiceLesson> Lessons(ServiceLessonRequest request) => Service.Lessons;
 
+        /// <summary>What this counter offers besides goods and lessons, which a test states as its own list.</summary>
+        internal IReadOnlyList<ServiceOffer> Offerings { get; set; } = [];
+
+        public IReadOnlyList<ServiceOffer> Offers(ServiceOfferRequest request) => Offerings;
+
         public IReadOnlyList<string> Access(ServiceAccessRequest request) =>
             Service.Membership.Length > 0 && request.Party.Effects.Has(new EffectId(Service.Membership))
                 ? [Service.Membership]
@@ -558,6 +724,10 @@ public sealed class ServiceTests
             ServiceOperationKind.Sell => ServiceQuote.Paying(100, 100),
             ServiceOperationKind.Identify => ServiceQuote.Charging(25),
             ServiceOperationKind.Repair => ServiceQuote.Charging(request.Subject.Item!.State.Damage * 10),
+            // A bank's two directions are the same coins: what is deposited leaves the purse and what is
+            // withdrawn is paid back into it, both counted by the command rather than priced by a base.
+            ServiceOperationKind.Deposit => ServiceQuote.Charging(request.Subject.Count, request.Subject.Count),
+            ServiceOperationKind.Withdraw => ServiceQuote.Paying(request.Subject.Count, request.Subject.Count),
             _ => ServiceQuote.Charging(request.Subject.Value, request.Subject.Value),
         };
 

@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Services;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.World;
 using PartyRpg.Rulesets.MightAndMagic7;
@@ -58,16 +59,45 @@ public sealed class TravelPolicyTests
     }
 
     [Fact]
-    public void Paid_and_magical_travel_are_refused_by_name_rather_than_travelled_free()
+    public void A_fare_is_bought_at_a_counter_and_the_road_honours_exactly_what_it_reaches()
+    {
+        ContentCatalog catalog = Catalog(World(PartyDocument(food: 6)));
+        PlaceGraph graph = PlaceGraphLoader.Load(catalog);
+        PlaceTransition road = Assert.Single(graph.TransitionsFrom(Home));
+        using PartyEntity party = MightAndMagic7Party.Compose(catalog)
+            ?? throw new InvalidOperationException("The scenario declares a party, so composing it must produce one.");
+        MightAndMagic7TravelCostRule rule = new(party);
+
+        // No passage: a paid transition is refused by name rather than taken free, and nothing about the
+        // party changes.
+        TravelRefusal unpaid = rule.Quote(new TransitionRequest(graph, road, TransitionKind.PaidService, Home, PlacePose.Origin)).Refusal!;
+        Assert.Equal("travel-fare-unpaid", unpaid.Code);
+        Assert.Contains("passage", unpaid.Message, StringComparison.Ordinal);
+
+        // A passage to somewhere else does not pay for this journey: a ticket names the place it reaches.
+        ServicePassage.Grant(party, new PlaceId("99"), 2);
+        Assert.Equal(
+            "travel-fare-unpaid",
+            rule.Quote(new TransitionRequest(graph, road, TransitionKind.PaidService, Home, PlacePose.Origin)).Refusal!.Code);
+
+        // The passage to the place the road reaches is what pays, and boarding spends it: the journey quotes
+        // the days the counter sold, eats no provisions because the fare included them, and leaves the party
+        // holding no ticket for the journey back.
+        ServicePassage.Grant(party, road.To, 2);
+        TravelCostQuote boarded = rule.Quote(new TransitionRequest(graph, road, TransitionKind.PaidService, Home, PlacePose.Origin));
+        Assert.Null(boarded.Refusal);
+        Assert.Equal(new TravelTime(2, TravelTimeUnit.Days), boarded.Cost.Time);
+        Assert.True(boarded.Cost.Food.IsNone);
+        Assert.Equal(0, ServicePassage.DaysTo(party, road.To));
+    }
+
+    [Fact]
+    public void Magical_travel_is_refused_by_name_rather_than_travelled_free()
     {
         ContentCatalog catalog = Catalog(World());
         PlaceGraph graph = PlaceGraphLoader.Load(catalog);
         PlaceTransition road = Assert.Single(graph.TransitionsFrom(Home));
         MightAndMagic7TravelCostRule rule = new();
-
-        TravelRefusal paid = rule.Quote(new TransitionRequest(graph, road, TransitionKind.PaidService, Home, PlacePose.Origin)).Refusal!;
-        Assert.Equal("travel-paid-unowned", paid.Code);
-        Assert.Contains("fare", paid.Message, StringComparison.Ordinal);
 
         TravelRefusal portal = rule.Quote(new TransitionRequest(graph, road, TransitionKind.Portal, Home, PlacePose.Origin)).Refusal!;
         Assert.Equal("travel-portal-unowned", portal.Code);

@@ -1,4 +1,6 @@
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Services;
 using PartyRpg.Kit.World;
 
 namespace PartyRpg.Rulesets.MightAndMagic7;
@@ -16,10 +18,17 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// camping rule charges, so the road and the camp cannot disagree about what a day eats.
 /// </para>
 /// <para>
-/// <b>Paid and magical travel are refused by name, not made free.</b> A fare needs the services that sell
-/// one — a stable, a dock, a coach — and a portal needs the spell and beacon owners; neither exists yet.
-/// Refusing them by name is what keeps a transition from looking cheaper than it is: quoting nothing and
-/// letting the party travel would be a journey nobody paid for and a defect nobody could see.
+/// <b>Paid travel is a fare the party has bought.</b> A coach and a boat are sold at a counter, and what a
+/// counter sells is a passage: party-carried state naming the place it reaches and how many days the
+/// journey takes. Taking a paid transition is boarding, and the ticket is torn as the party boards, so a
+/// fare bought once pays for one journey rather than for every later one. A paid transition the party holds
+/// no passage for is refused by name, naming the counter that sells one — a journey is not made cheaper by
+/// being unaffordable.
+/// </para>
+/// <para>
+/// <b>The party's own larder and clock are what pays.</b> The quote states time and provisions, which the
+/// session hands to the owners of the clock and the larder; a fare's own coin was already taken at the
+/// counter through the party's one settlement path, so boarding charges no coin a second time.
 /// </para>
 /// <para>
 /// A scripted move is the world placing the party rather than the party walking anywhere, so it quotes
@@ -47,6 +56,15 @@ internal sealed class MightAndMagic7TravelCostRule : ITravelCostRule
             MightAndMagic7Provisions.RationsPerDay * DaysPerCrossing,
             ProvisionUnit.Portions));
 
+    private readonly PartyEntity? _party;
+
+    /// <summary>Creates the rule over the party whose bought passages it honours.</summary>
+    /// <param name="party">
+    /// The party whose bought passages are read and torn, or null when no party was composed. Without one
+    /// there is nothing that could hold a fare, so paid travel is refused by name rather than taken free.
+    /// </param>
+    internal MightAndMagic7TravelCostRule(PartyEntity? party = null) => _party = party;
+
     /// <inheritdoc />
     public TravelCostQuote Quote(TransitionRequest request)
     {
@@ -55,9 +73,7 @@ internal sealed class MightAndMagic7TravelCostRule : ITravelCostRule
         {
             TransitionKind.Walking or TransitionKind.Entrance => TravelCostQuote.Payable(Crossing),
             TransitionKind.Scripted => TravelCostQuote.Payable(TravelCost.Free),
-            TransitionKind.PaidService => TravelCostQuote.Refused(new TravelRefusal(
-                "travel-paid-unowned",
-                "Paid travel needs the services that sell a fare — a stable, a dock, a coach — which arrive with the service owners; until then no fare is quoted and no coin is taken.")),
+            TransitionKind.PaidService => Board(request),
             TransitionKind.Portal => TravelCostQuote.Refused(new TravelRefusal(
                 "travel-portal-unowned",
                 "Magical travel needs the spell and beacon owners, which arrive with magic; until then a portal cannot be opened or charged.")),
@@ -65,5 +81,47 @@ internal sealed class MightAndMagic7TravelCostRule : ITravelCostRule
                 "travel-kind-unknown",
                 $"Travel kind '{request.Kind}' has no cost policy.")),
         };
+    }
+
+    /// <summary>
+    /// What boarding costs the party that holds a passage, or why it cannot board.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The passage names the place it reaches, so a ticket to one town does not pay for a journey to
+    /// another: a party that holds the wrong one is refused with the place it named. The days the journey
+    /// takes are the ticket's own, which the counter that sold it wrote from the route it sells, so the
+    /// price of the journey and the journey itself come from one route rather than from two tables that
+    /// could drift.
+    /// </para>
+    /// <para>
+    /// <b>The ticket is torn when the journey is quoted.</b> A transition path quotes exactly once per
+    /// journey — the executive asks the rule and then resolves the arrival — so this is the boarding. A
+    /// request that contradicts the world throws before the rule is consulted at all, so a fare is never
+    /// spent on a journey nobody could take.
+    /// </para>
+    /// </remarks>
+    private TravelCostQuote Board(TransitionRequest request)
+    {
+        PlaceId destination = request.Transition.To;
+        if (_party is null)
+        {
+            return TravelCostQuote.Refused(new TravelRefusal(
+                "travel-no-party",
+                "A fare is bought by a party and this session holds none, so there is nobody to board."));
+        }
+
+        int days = ServicePassage.DaysTo(_party, destination);
+        if (days <= 0)
+        {
+            return TravelCostQuote.Refused(new TravelRefusal(
+                "travel-fare-unpaid",
+                $"A seat to {destination} is bought at a stable or a dock and the party holds no passage to it; buying one at the counter is what pays for the journey."));
+        }
+
+        ServicePassage.Spend(_party, destination);
+        return TravelCostQuote.Payable(new TravelCost(
+            new TravelTime(days, TravelTimeUnit.Days),
+            Provisions.None));
     }
 }

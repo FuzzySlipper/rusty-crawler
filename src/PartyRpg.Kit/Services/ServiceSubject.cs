@@ -18,11 +18,12 @@ namespace PartyRpg.Kit.Services;
 /// </remarks>
 public sealed record ServiceSubject
 {
-    private ServiceSubject(ServiceStockLot? lot, ItemInstance? item, ServiceLesson? lesson, int count, int value)
+    private ServiceSubject(ServiceStockLot? lot, ItemInstance? item, ServiceLesson? lesson, ServiceOffer? offer, int count, int value)
     {
         Lot = lot;
         Item = item;
         Lesson = lesson;
+        Offer = offer;
         Count = count;
         Value = value;
     }
@@ -36,7 +37,7 @@ public sealed record ServiceSubject
     {
         ArgumentNullException.ThrowIfNull(lot);
         ArgumentOutOfRangeException.ThrowIfLessThan(count, 1);
-        return new ServiceSubject(lot, null, null, count, lot.Value);
+        return new ServiceSubject(lot, null, null, null, count, lot.Value);
     }
 
     /// <summary>An instance the party holds, which is what it sells, identifies, or repairs.</summary>
@@ -45,7 +46,7 @@ public sealed record ServiceSubject
     public static ServiceSubject OfItem(ItemInstance item)
     {
         ArgumentNullException.ThrowIfNull(item);
-        return new ServiceSubject(null, item, null, item.StackCount, 0);
+        return new ServiceSubject(null, item, null, null, item.StackCount, 0);
     }
 
     /// <summary>A lesson the counter teaches.</summary>
@@ -54,7 +55,28 @@ public sealed record ServiceSubject
     public static ServiceSubject OfLesson(ServiceLesson lesson)
     {
         ArgumentNullException.ThrowIfNull(lesson);
-        return new ServiceSubject(null, null, lesson, 1, lesson.Value);
+        return new ServiceSubject(null, null, lesson, null, 1, lesson.Value);
+    }
+
+    /// <summary>
+    /// One thing a counter offers, and how much of it the operation acts on.
+    /// </summary>
+    /// <remarks>
+    /// An offer is the subject of every operation that is not a purchase, a sale, an item's own state, or a
+    /// lesson: a cure, a training step, provisions, a room, a deposit, or a passage. The count is how many of
+    /// it the command asked for, which is what a deposit moves in coins and what a provision fills in
+    /// portions; the base value is the offer's own, so the price policy works from content's number exactly
+    /// as it does for a line of stock.
+    /// </remarks>
+    /// <param name="offer">The offer the operation acts on.</param>
+    /// <param name="count">How many of it to take, which must be at least one.</param>
+    /// <exception cref="ArgumentNullException">The offer is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The count is below one, which takes nothing.</exception>
+    public static ServiceSubject OfOffer(ServiceOffer offer, int count = 1)
+    {
+        ArgumentNullException.ThrowIfNull(offer);
+        ArgumentOutOfRangeException.ThrowIfLessThan(count, 1);
+        return new ServiceSubject(null, null, null, offer, count, offer.Value);
     }
 
     /// <summary>The shelf lot the subject is, or null when it is not a purchase.</summary>
@@ -65,6 +87,9 @@ public sealed record ServiceSubject
 
     /// <summary>The lesson the subject is, or null when it is not a lesson.</summary>
     public ServiceLesson? Lesson { get; }
+
+    /// <summary>The offer the subject is, or null when it is not one.</summary>
+    public ServiceOffer? Offer { get; }
 
     /// <summary>How many of the subject the operation acts on.</summary>
     public int Count { get; }
@@ -84,11 +109,12 @@ public sealed record ServiceSubject
 
     /// <summary>What a person reads for the subject.</summary>
     public string Label =>
-        Lot?.Label ?? Lesson?.Label ?? Item?.Definition.Value ?? string.Empty;
+        Lot?.Label ?? Lesson?.Label ?? Offer?.Name ?? Item?.Definition.Value ?? string.Empty;
 
     /// <inheritdoc />
     public override string ToString() =>
         Lot is { } lot ? $"lot {lot.Id} x{Count}"
         : Lesson is { } lesson ? $"lesson {lesson}"
+        : Offer is { } offer ? $"offer {offer} x{Count}"
         : $"item {Item?.Id}";
 }

@@ -120,6 +120,21 @@ public interface IServiceRule
     IReadOnlyList<ServiceLesson> Lessons(ServiceLessonRequest request);
 
     /// <summary>
+    /// What the service offers besides goods and lessons: its cures, its passages, its provisions, its rooms,
+    /// what it holds for the party, its ceiling on training, and the lines it posts.
+    /// </summary>
+    /// <remarks>
+    /// This is the one answer covering every capability a kind needs and the stock rule cannot express: a
+    /// temple's cures, a stable's fares, a tavern's food, rooms, and rumours, a training hall's cap, and a
+    /// bank's account with the party are all this list, and what each offer means is its kind. The party and
+    /// the clock travel whole for the same reason they do in the stock rule: a guild's membership, the coins
+    /// a bank already holds, and the hour a room may be taken are this game's answers about its own content.
+    /// </remarks>
+    /// <param name="request">The service, the party, and the clock.</param>
+    /// <returns>The offers, in the order a person reads them.</returns>
+    IReadOnlyList<ServiceOffer> Offers(ServiceOfferRequest request);
+
+    /// <summary>
     /// Which of the service's access requirements the party carries, as the words a panel shows. An empty
     /// list means the party carries none of what this service recognises, which is not the same as the
     /// service requiring nothing.

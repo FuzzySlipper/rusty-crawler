@@ -9,16 +9,17 @@ namespace PartyRpg.Kit.Services;
 /// of building is served by the same mechanism and the same operations, so adding a weapon shop, a temple,
 /// or a guild means adding content — a definition naming its kind, the operations it offers, its shelves,
 /// its lessons, its hours, and its access requirement — and never a class. What an operation means is the
-/// policy the ruleset supplies for it: whether the party may do it here, what it costs, and what the
-/// shelves hold.
+/// policy the ruleset supplies for it: whether the party may do it here, what it costs, and what it offers.
 /// </para>
 /// <para>
-/// An operation is listed here because the mechanism has to know what to move: a purchase takes a line off
-/// a shelf and puts items in the party's pack, a sale does the opposite, identification and repair change
-/// one instance's own state, and a lesson raises a member's skill or puts a party-wide effect on the band.
-/// The operations still to come — a temple's cures, a tavern's rest, a bank's deposit, a hall's training, a
-/// stable's fare — are additions to this list and to the workflow that applies them, which is the one place
-/// a new kind of service can ever require code; they belong to the task that implements those kinds.
+/// <b>An operation is here when the mechanism has to move something it owns.</b> It has to know what to
+/// move: a purchase takes a line off a shelf and puts items in the party's pack, a sale does the opposite,
+/// identification and repair change one instance's own state, a lesson raises a member's skill or puts a
+/// party-wide effect on the band, a cure ends conditions a member suffers, training turns banked experience
+/// into a level, a provision fills the party's larder, a stay spends the party's time and rests it, a
+/// deposit and a withdrawal move coin between the purse and what a counter keeps, and a fare records a
+/// passage the party has bought. Each of those is one step of this one workflow, and a game's kind of
+/// building either composes them or adds one — never a class per building.
 /// </para>
 /// </remarks>
 public enum ServiceOperationKind
@@ -37,4 +38,25 @@ public enum ServiceOperationKind
 
     /// <summary>Pay for a lesson: a skill, or the membership a guild requires.</summary>
     Teach,
+
+    /// <summary>Pay to end the conditions a member suffers, which is what a temple's healing is.</summary>
+    Cure,
+
+    /// <summary>Pay to turn a member's banked experience into a level, up to the counter's ceiling.</summary>
+    Train,
+
+    /// <summary>Pay to fill the party's larder, which is what a tavern's food and drink is.</summary>
+    Provision,
+
+    /// <summary>Pay for a night's stay, which spends game time and rests the party.</summary>
+    Stay,
+
+    /// <summary>Leave coins with the counter, which it holds for the party.</summary>
+    Deposit,
+
+    /// <summary>Take back the coins the counter holds.</summary>
+    Withdraw,
+
+    /// <summary>Pay for a passage to a place, which the party then holds as a ticket.</summary>
+    Fare,
 }

@@ -238,6 +238,7 @@ internal static class Program
                 packs = result.Packs.Select(pack => new { pack.PackId, pack.Documents, pack.Entries }),
                 geometry = Describe(result.Geometry),
                 entrances = Describe(result.Entrances),
+                services = Describe(result.Services),
                 use = "add these pack ids to a bundle under content/partyrpg/bundles to load them",
             },
             Json));
@@ -268,6 +269,38 @@ internal static class Program
             to = refusal.ToPlace,
             refusal.EventId,
             refusal.Step,
+            reason = refusal.Code,
+            detail = refusal.Reason,
+        }),
+    };
+
+    /// <summary>
+    /// What the building table's emission produced: the counters and households a party can walk up to, and
+    /// every row nothing was placed for.
+    /// </summary>
+    /// <remarks>
+    /// A row with no placement is a building the product cannot enter, and the operator needs to see which
+    /// ones those are, and why, without reading the table back. The refusals are listed with their rows so a
+    /// remainder is a fact about the data rather than a number that came up short.
+    /// </remarks>
+    private static object Describe(Packs.PlaceServiceSummary services) => new
+    {
+        counters = services.ServiceCount,
+        placed = services.CounterCount,
+        residences = services.ResidenceCount,
+        places = services.PlaceCount,
+        fares = services.FareCount,
+        unplaced = services.RefusalCount,
+        byKind = services.Services
+            .GroupBy(service => service.Kind)
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
+            .Select(group => new { kind = group.Key, rows = group.Count() }),
+        refusals = services.Refusals.Select(refusal => new
+        {
+            building = refusal.BuildingId,
+            type = refusal.Type,
+            name = refusal.Name,
+            map = refusal.MapId,
             reason = refusal.Code,
             detail = refusal.Reason,
         }),
