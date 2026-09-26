@@ -72,10 +72,10 @@ documents decide, and the difference is recorded rather than silently rounded.
 
 ## Current state
 
-**Foundation stone 5 has landed: the world is inhabited and usable — one interaction mechanism for doors,
-containers and people, one service mechanism serving every shipped building kind from imported data,
-schedules that lock doors outside their hours, rest and camping, and conversations with topics whose
-availability follows the party's own state.**
+**Foundation stone 6 is in progress: combat is one state over the live world with both sides acting — the
+party strikes, monsters are placed and driven by this game's own data, harm resolves into damage,
+resistance and conditions, and a place remembers being emptied. Turn-based pacing, corpses as searchable
+things, and loot are the rest of the stone.**
 
 - `src/PartyRpg.Kit`, `src/PartyRpg.Rulesets.MightAndMagic7`, and `src/PartyRpg.Host` build against
   the pinned Engine pair. The host declares the one product entry, one admitted update, the
