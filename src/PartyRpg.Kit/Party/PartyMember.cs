@@ -74,7 +74,14 @@ public sealed class PartyMember
     /// <summary>The member's spellbook.</summary>
     public CharacterSpells Spells => _actor.Get<CharacterSpells>();
 
-    /// <summary>The member's progression bookkeeping: experience, level, skill points, and class rank.</summary>
+    /// <summary>
+    /// The member's progression bookkeeping: experience, level, skill points, and class rank.
+    /// </summary>
+    /// <remarks>
+    /// A reading. What moves these values is <see cref="Progression.PartyProgression"/>, the one owner of
+    /// every award, every level, and every skill point spent, and the fields' own transitions are internal
+    /// to the kit so that a second writer is a compile error rather than a review finding.
+    /// </remarks>
     public CharacterProgression Progression => _actor.Get<CharacterProgression>();
 
     /// <summary>The conditions acting on the member.</summary>
@@ -120,44 +127,5 @@ public sealed class PartyMember
         foreach (ConditionId ended in collapse.Replaces) Conditions.Clear(ended);
         if (collapse.Condition is { } condition) Conditions.Apply(condition);
         return new CharacterWound(amount, after, deficit, collapse.Condition);
-    }
-
-    /// <summary>
-    /// Raises a learned skill and charges the skill points the caller computed, in one operation.
-    /// </summary>
-    /// <remarks>
-    /// The cost of a level and the ceiling a class and rank impose are the ruleset's formulas, so the caller
-    /// brings them; what happens here is that the points leave the progression pool and the raise lands on
-    /// the skill together, which is why the two cannot drift into a character who paid for nothing or
-    /// gained for free.
-    /// </remarks>
-    /// <param name="skill">The skill to raise, which the member must already have learned.</param>
-    /// <param name="levels">How many levels to add, which must be at least one.</param>
-    /// <param name="points">How many skill points the raise costs, which cannot be negative.</param>
-    /// <returns>A refusal when the pool cannot pay, or null when the raise landed.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">The levels are below one or the points are negative.</exception>
-    /// <exception cref="InvalidOperationException">The member has not learned the skill.</exception>
-    public PartyRefusal? RaiseSkill(SkillId skill, int levels, int points)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(levels);
-        ArgumentOutOfRangeException.ThrowIfNegative(points);
-
-        // Everything that can fail is settled before the pool is charged: a raise that cost points and then
-        // failed would take a character's skill points for nothing.
-        if (!Skills.Knows(skill))
-        {
-            throw new InvalidOperationException(
-                $"The member has not learned '{skill}', so there is nothing to raise; learning comes first.");
-        }
-
-        if (!Progression.SpendSkillPoints(points))
-        {
-            return new PartyRefusal(
-                "insufficient-skill-points",
-                $"Raising '{skill}' costs {points} skill point(s) and {Progression.SkillPoints} remain unspent.");
-        }
-
-        Skills.RaiseLevel(skill, levels, points);
-        return null;
     }
 }

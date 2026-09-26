@@ -5,11 +5,20 @@ namespace PartyRpg.Kit.Party;
 /// rank.
 /// </summary>
 /// <remarks>
+/// <para>
 /// Bookkeeping, deliberately. The experience curve, the level cap, what a rank permits, and the order of
 /// promotions are ruleset policy, so this holds the four values a save round-trips and the plain
 /// transitions those policies perform. Nothing here computes a level from experience or decides what a
 /// rank means, because a formula in this layer would become a second, silently disagreeing copy of the
 /// ruleset's.
+/// </para>
+/// <para>
+/// <b>This holds the values; <see cref="Progression.PartyProgression"/> is what may move them.</b> The
+/// transitions below are internal to the kit so that no other assembly can award experience, set a level,
+/// grant or spend skill points, or set a rank: the only callers are the progression owner, which asks the
+/// ruleset's policy first. A public setter here would be a second writer of one fact, and "the owner is the
+/// only mutator" would be a promise rather than something the compiler holds.
+/// </para>
 /// </remarks>
 public sealed class CharacterProgression
 {
@@ -47,7 +56,7 @@ public sealed class CharacterProgression
     /// <param name="amount">How much experience to award, which cannot be negative.</param>
     /// <exception cref="ArgumentOutOfRangeException">The amount is negative.</exception>
     /// <exception cref="OverflowException">The total would leave the numbers experience is described in.</exception>
-    public void AwardExperience(long amount)
+    internal void AwardExperience(long amount)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(amount);
         Experience = checked(Experience + amount);
@@ -56,7 +65,7 @@ public sealed class CharacterProgression
     /// <summary>Records the level the ruleset advanced the character to.</summary>
     /// <param name="level">The new level, which is at least one.</param>
     /// <exception cref="ArgumentOutOfRangeException">The level is below one.</exception>
-    public void SetLevel(int level)
+    internal void SetLevel(int level)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(level);
         Level = level;
@@ -66,7 +75,7 @@ public sealed class CharacterProgression
     /// <param name="points">How many points to grant, which cannot be negative.</param>
     /// <exception cref="ArgumentOutOfRangeException">The points are negative.</exception>
     /// <exception cref="OverflowException">The pool would leave the numbers it is described in.</exception>
-    public void GrantSkillPoints(int points)
+    internal void GrantSkillPoints(int points)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(points);
         SkillPoints = checked(SkillPoints + points);
@@ -76,7 +85,7 @@ public sealed class CharacterProgression
     /// <param name="points">How many points to spend, which cannot be negative.</param>
     /// <returns>Whether the pool held enough; a refused spend leaves the pool untouched.</returns>
     /// <exception cref="ArgumentOutOfRangeException">The points are negative.</exception>
-    public bool SpendSkillPoints(int points)
+    internal bool SpendSkillPoints(int points)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(points);
         if (points > SkillPoints) return false;
@@ -87,7 +96,7 @@ public sealed class CharacterProgression
     /// <summary>Records the rank the ruleset promoted the character to.</summary>
     /// <param name="rank">The new rank in the class ladder, which is at least one.</param>
     /// <exception cref="ArgumentOutOfRangeException">The rank is below one.</exception>
-    public void SetClassRank(int rank)
+    internal void SetClassRank(int rank)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(rank);
         ClassRank = rank;

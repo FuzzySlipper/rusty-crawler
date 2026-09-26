@@ -1,4 +1,5 @@
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.World;
 using Rusty.Engine.Entities;
 using Xunit;
@@ -381,17 +382,25 @@ public sealed class PartyEntityTests
     [Fact]
     public void Raising_a_skill_charges_the_pool_and_the_entry_together()
     {
-        using PartyEntity party = Build(new PartyEntityFactory(), Member("Ann", Fighter, new SkillEntry(Blades, 1, SkillTier.None, 0)));
+        // The points a character holds come from creation or from a level, so this member is created holding
+        // five of them; what is under test is the one entry that may spend them, which is the progression
+        // owner's rather than a member's own: a member's progression fields are reachable only from inside
+        // the kit, which is what makes that entry the only way a pool can be charged.
+        using PartyEntity party = HoldingSkillPoints(
+            "Ann",
+            Fighter,
+            skillPoints: 5,
+            new SkillEntry(Blades, 1, SkillTier.None, 0));
         PartyMember ann = party.Members[0];
-        ann.Progression.GrantSkillPoints(5);
+        PartyProgression progression = new(new NoProgressionRule(), party);
 
-        Assert.Null(ann.RaiseSkill(Blades, levels: 2, points: 3));
+        Assert.Null(progression.RaiseSkill(ann.Id, Blades, levels: 2, points: 3));
 
         Assert.Equal(2, ann.Progression.SkillPoints);
         Assert.Equal(3, ann.Skills.LevelOf(Blades));
         Assert.Equal(3, ann.Skills.Entries.Single().PointsSpent);
 
-        PartyRefusal? refused = ann.RaiseSkill(Blades, levels: 1, points: 3);
+        PartyRefusal? refused = progression.RaiseSkill(ann.Id, Blades, levels: 1, points: 3);
         Assert.Equal("insufficient-skill-points", refused!.Code);
         Assert.Equal(3, ann.Skills.LevelOf(Blades));
     }
@@ -621,7 +630,18 @@ public sealed class PartyEntityTests
     private static MemberCreation Member(string name, ClassId characterClass, params SkillEntry[] skills) =>
         new(Seed(name, characterClass, skills));
 
-    private static PartyMemberSeed Seed(string name, ClassId characterClass, params SkillEntry[] skills) => new(
+    /// <summary>Builds a one-member party whose character was created holding the given skill points.</summary>
+    /// <remarks>
+    /// The points are creation's own statement rather than a grant: only the progression owner may add them,
+    /// and a test that wants a pool to spend starts a character who has one.
+    /// </remarks>
+    private static PartyEntity HoldingSkillPoints(string name, ClassId characterClass, int skillPoints, params SkillEntry[] skills) =>
+        Build(new PartyEntityFactory(), new MemberCreation(Seed(name, characterClass, skills, skillPoints)));
+
+    private static PartyMemberSeed Seed(string name, ClassId characterClass, params SkillEntry[] skills) =>
+        Seed(name, characterClass, skills, skillPoints: 0);
+
+    private static PartyMemberSeed Seed(string name, ClassId characterClass, SkillEntry[] skills, int skillPoints) => new(
         name,
         TestRace,
         characterClass,
@@ -630,7 +650,7 @@ public sealed class PartyEntityTests
         [Spark],
         experience: 0,
         level: 1,
-        skillPoints: 0,
+        skillPoints: skillPoints,
         classRank: 1,
         conditions: [],
         hitPoints: ResourcePool.Full(10),
@@ -638,6 +658,24 @@ public sealed class PartyEntityTests
 
     private static PartyEntity Build(PartyEntityFactory factory, params MemberCreation[] members) =>
         factory.Create(new PartyCreation(members, coins: 100, foodPortions: 10, reputation: 5, fame: 2));
+
+    /// <summary>
+    /// The least a progression owner can be composed over: no curve, no division, no growth, and no standing.
+    /// </summary>
+    /// <remarks>
+    /// This test is about the skill raise, which reads none of the rule's answers, so the rule states the
+    /// smallest thing that is still a rule rather than an answer invented for the test to assert on.
+    /// </remarks>
+    private sealed class NoProgressionRule : IProgressionRule
+    {
+        public long ExperienceForLevel(int level) => 0;
+
+        public IReadOnlyList<ProgressionShare> Divide(ProgressionDivision division) => [];
+
+        public ProgressionGrowth Growth(ProgressionGrowthRequest request) => ProgressionGrowth.None;
+
+        public ProgressionStanding Standing(ProgressionStandingRequest request) => ProgressionStanding.None;
+    }
 
     /// <summary>An equipment rule of the kind a ruleset writes: a class and a skill decide, and the kit knows neither.</summary>
     private sealed class SkillGatedEquipment : IEquipmentUseRule

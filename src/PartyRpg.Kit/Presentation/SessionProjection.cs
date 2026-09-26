@@ -73,6 +73,11 @@ namespace PartyRpg.Kit.Presentation;
 /// session holds no fight. Defaulted for the same reason the others are: a session whose ruleset answered no
 /// combat policy publishes that rather than a quiet street that looks like a fight nobody can see.
 /// </param>
+/// <param name="Progression">
+/// What the party has earned and what a level costs, or the no-owner value when the session holds none.
+/// Defaulted for the same reason the others are: a session whose ruleset answered no progression policy
+/// publishes that rather than a party whose levels nothing could rise.
+/// </param>
 public readonly record struct SessionSnapshot(
     SessionComposition Composition,
     SessionMode Mode,
@@ -89,7 +94,8 @@ public readonly record struct SessionSnapshot(
     ServiceSnapshot Service = default,
     RestSnapshot Rest = default,
     ConversationSnapshot Conversation = default,
-    CombatSnapshot Combat = default);
+    CombatSnapshot Combat = default,
+    ProgressionSnapshot Progression = default);
 
 /// <summary>Where the party is in the world, as the panel needs it: which place, where in it, and how much of the world is known.</summary>
 /// <param name="Place">The place the party is in, empty when the session has no world.</param>
@@ -172,6 +178,9 @@ public static class SessionProjection
 
     /// <summary>The fight object's wire name.</summary>
     public const string CombatField = "combat";
+
+    /// <summary>The progression object's wire name.</summary>
+    public const string ProgressionField = "progression";
 
     /// <summary>Builds the projection value for a snapshot.</summary>
     public static UiValue Build(SessionSnapshot snapshot)
@@ -284,7 +293,13 @@ public static class SessionProjection
             // "this session holds no fight", "nothing is hostile", and "the party is fighting and two of its
             // members are recovering" are three different facts, and a block that only appeared once
             // something was hostile would leave a player unable to tell a quiet street from a fight.
-            (CombatField, Combat(builder, snapshot.Combat)));
+            (CombatField, Combat(builder, snapshot.Combat)),
+            // The progression block is published in every mode for the same reason the fight block is: "this
+            // session holds no progression owner", "the party has earned nothing", and "a member has banked
+            // what a level takes" are three different facts, and a block that only appeared once somebody
+            // had levelled would leave a player unable to tell an unearned level from a mechanism that is
+            // not there.
+            (ProgressionField, Progression(builder, snapshot.Progression)));
         return builder.Build(root);
     }
 
@@ -568,6 +583,41 @@ public static class SessionProjection
             ("conditions", builder.String(actor.Conditions ?? string.Empty)),
             ("down", builder.Boolean(actor.Down)),
             ("activity", builder.String(actor.Activity ?? string.Empty)));
+
+    /// <summary>Builds the progression block: what each member has earned and what a level would cost.</summary>
+    /// <remarks>
+    /// Every member is sent whole so the screen decides nothing: the level, the experience banked, the
+    /// points held, the experience the curve takes for the next level, and the fee the counter the party
+    /// stands at would charge for it. A snapshot built without progression facts carries the default value,
+    /// whose list is null rather than empty: it is published as empty so a reader never sees a member that
+    /// is not there, exactly as the fight and rest blocks do.
+    /// </remarks>
+    private static uint Progression(UiValueBuilder builder, ProgressionSnapshot progression)
+    {
+        List<uint> members = [];
+        foreach (ProgressionMemberSnapshot member in progression.Members ?? [])
+        {
+            members.Add(builder.Object(
+                ("index", builder.Number(member.Index)),
+                ("member", builder.String(member.Member)),
+                ("name", builder.String(member.Name)),
+                ("level", builder.Number(member.Level)),
+                ("experience", builder.Number(member.Experience)),
+                ("skillPoints", builder.Number(member.SkillPoints)),
+                ("nextLevel", builder.Number(member.NextLevel)),
+                ("fee", builder.Number(member.Fee)),
+                ("cap", builder.Number(member.Cap))));
+        }
+
+        return builder.Object(
+            ("available", builder.Boolean(progression.Available)),
+            ("members", builder.Array([.. members])),
+            ("outcome", builder.String(progression.Outcome ?? string.Empty)),
+            ("source", builder.String(progression.Source ?? string.Empty)),
+            ("earned", builder.Number(progression.Earned)),
+            ("code", builder.String(progression.Code ?? string.Empty)),
+            ("message", builder.String(progression.Message ?? string.Empty)));
+    }
 
     /// <summary>Builds the rest block: what the last stop did, what it cost, and what sleep debt stands.</summary>
     /// <remarks>

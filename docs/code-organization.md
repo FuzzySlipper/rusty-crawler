@@ -59,7 +59,7 @@ Working names; the responsibilities are the contract, the names are not.
 | Party | **The party entity** and every component attached to it: roster and members, shared inventory, equipment by member, shared purse, food, reputation and fame, followers, party-wide effects, party position in the world. Session mechanisms address the party, not four loose characters | Per-character detail; world state; any per-character pack |
 | Character | Per-character attributes, resources, conditions, skills with mastery and level, spellbook, experience, level, rank, path — and **only the items it has equipped** | How a class grows; what a rank allows; items it is not wearing |
 | Creation | The character-creation flow and its validation, driven by ruleset-supplied choices and budgets | The ruleset's class tables |
-| Skills | Skill catalog shape, per-character skill entries, point spending, tier values, training sources as world entities | Which class may learn what, and to which tier |
+| Skills | Skill catalog shape, per-character skill entries, the raise a spent point buys, tier values, training sources as world entities | Which class may learn what, and to which tier; the skill-point pool itself (the Progression owner holds it) |
 | Magic | Spell catalog shape, known spells, casting workflow (validate → cost → target → apply), buffs with game-time duration, item-borne casting | School lists, costs, tiers, and per-spell effect policy |
 | Combat | One combat state over the live world: pacing mode, per-actor recovery, turn queue, attack execution, effect and condition application, monster AI coordination, corpses and loot | Damage formulas, monster definitions, condition meanings |
 | World | The place graph, entry points, transitions with cost, entity population, spatial stepping, per-place runtime state, spawn and respawn | What a place contains (content), how it looks (Engine + media) |
@@ -67,7 +67,7 @@ Working names; the responsibilities are the contract, the names are not.
 | Interaction | Interaction targets (doors, containers, chests, levers, triggers, people) and the use/search/unlock workflow | Trap and lock policy |
 | Dialogue | Conversation state, topic lists, topic availability, keyword responses, quest offers | Who says what (content) |
 | Services | One service mechanism with kinds (trade, heal, rest, deposit, train, teach, travel, govern) over content definitions | Prices, stock rules, membership policy, level caps |
-| Progression | Experience awards, level-up, skill-point grants, rank promotion, path choice, reputation change | Curves, requirements, effects |
+| Progression | Experience awards — one entry every source arrives at, from a kill to a quest — level-up at a training hall, the skill-point pool and its spend, rank promotion, path choice, and the reputation and fame a progression event moves | Curves, requirements, effects, prices |
 | Quests | Quest instances and their state; objective tracking; turn-in | Quest content |
 | Items | Item definitions and instances, **the party's single shared inventory**, per-member equipment, currency, food, containers and loot, identify and repair state | Item values, enchantment rules, treasure tables; per-character packs (there are none) |
 | Time | The one game clock and calendar; discrete advancement; schedule and respawn queries; duration deadlines | Schedules and constants (content and ruleset) |

@@ -9,9 +9,9 @@ namespace PartyRpg.Kit.Party;
 /// game has.
 /// </para>
 /// <para>
-/// Spending skill points is one operation on the member, not two calls a caller could leave half done:
-/// see <see cref="PartyMember.RaiseSkill"/>, which charges the progression pool and records the raise
-/// together.
+/// Spending skill points is one operation, not two calls a caller could leave half done: see
+/// <see cref="Progression.PartyProgression.RaiseSkill"/>, which charges the progression pool and records the
+/// raise together.
 /// </para>
 /// </remarks>
 public sealed class CharacterSkills

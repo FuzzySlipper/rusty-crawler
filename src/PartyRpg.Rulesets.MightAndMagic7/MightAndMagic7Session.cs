@@ -4,9 +4,11 @@ using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
+using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
+using PartyRpg.Kit.World;
 using Rusty.Engine;
 
 namespace PartyRpg.Rulesets.MightAndMagic7;
@@ -102,7 +104,21 @@ internal sealed class MightAndMagic7Session : IGameSession
         CorpseGround corpses = new();
         MightAndMagic7Corpses corpseAnswers = new(corpses, loot);
 
-        MightAndMagic7Combat combat = MightAndMagic7Combat.Compose(Declared(context.Content), context.Engine?.Random, corpseAnswers);
+        // What a death pays the party is composed beside them: the award is the kit's one path, the worth is
+        // the monster row's own experience column, and the owner is the one the session composes over
+        // whichever party it ends up playing. The fight is what reads the row, so it is reached through the
+        // local below — a death cannot be reported before the fight that reports it exists, which is what
+        // makes reading it here honest rather than a second reading of the table.
+        MightAndMagic7Combat? composed = null;
+        ProgressionAwards awards = new(Worth, () => Progression, corpseAnswers);
+        composed = MightAndMagic7Combat.Compose(Declared(context.Content), context.Engine?.Random, awards);
+        MightAndMagic7Combat combat = composed;
+
+        long Worth(PlacementDefinition placement) =>
+            composed is { } fight
+                ? fight.ExperienceOf(placement)
+                : throw new InvalidOperationException(
+                    "A death was reported before this session's fight was composed, so what it was worth could not be read.");
 
         // This game's answers about how a monster behaves are read once here, beside them: who hates whom is
         // the shipped hostility matrix as content, and what a creature does with its moment is its own row's
@@ -149,7 +165,8 @@ internal sealed class MightAndMagic7Session : IGameSession
                     conversationInput: context.Conversation,
                     combat: combat,
                     combatInput: context.Combat,
-                    monsterAi: monsterAi);
+                    monsterAi: monsterAi,
+                    progression: MightAndMagic7Progression.Instance);
                 return;
             }
 
@@ -183,7 +200,8 @@ internal sealed class MightAndMagic7Session : IGameSession
                     conversationInput: context.Conversation,
                     combat: combat,
                     combatInput: context.Combat,
-                    monsterAi: monsterAi);
+                    monsterAi: monsterAi,
+                    progression: MightAndMagic7Progression.Instance);
                 return;
             }
 
@@ -214,7 +232,8 @@ internal sealed class MightAndMagic7Session : IGameSession
                 conversationInput: context.Conversation,
                 combat: combat,
                 combatInput: context.Combat,
-                monsterAi: monsterAi);
+                monsterAi: monsterAi,
+                progression: MightAndMagic7Progression.Instance);
         }
         catch
         {
@@ -323,6 +342,16 @@ internal sealed class MightAndMagic7Session : IGameSession
 
     /// <summary>The party this session plays, or null when it holds none yet.</summary>
     internal PartyEntity? Party => _session.Party;
+
+    /// <summary>
+    /// The progression owner this session's party grows through, or null until the party exists.
+    /// </summary>
+    /// <remarks>
+    /// The session the product composes owns it, and this is that same owner read one layer out rather than
+    /// a second one: the kill award asks for it the moment a fight reports a death, which is after the party
+    /// the owner was composed over exists.
+    /// </remarks>
+    internal PartyProgression? Progression => _session.Progression;
 
     /// <summary>
     /// The world this session stands in, or null when it holds none.

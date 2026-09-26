@@ -7,6 +7,7 @@ using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
+using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Services;
 using PartyRpg.Kit.Time;
@@ -98,6 +99,7 @@ public sealed class PartyRpgSession : IGameSession
     private readonly CreationInput? _creationInput;
     private readonly ServiceInput? _serviceInput;
     private readonly IServiceRule? _serviceRule;
+    private readonly IProgressionRule? _progressionRule;
     private readonly ConversationInput? _conversationInput;
     private readonly IConversationRule? _conversationRule;
     private readonly RestInput? _restInput;
@@ -126,6 +128,7 @@ public sealed class PartyRpgSession : IGameSession
     private SessionWorld? _liveWorld;
     private PartyEntity? _party;
     private PartyResourceLedger? _accounts;
+    private PartyProgression? _progression;
     private PartyServices? _services;
     private PartyConversations? _conversations;
     private PartyRest? _rest;
@@ -305,7 +308,8 @@ public sealed class PartyRpgSession : IGameSession
         ConversationIntentNames? conversationInput = null,
         ICombatRule? combat = null,
         CombatIntentNames? combatInput = null,
-        IMonsterAiPolicy? monsterAi = null)
+        IMonsterAiPolicy? monsterAi = null,
+        IProgressionRule? progression = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(composition.Title);
         if (creation is not null && (world is not null || party is not null))
@@ -329,6 +333,7 @@ public sealed class PartyRpgSession : IGameSession
         _creationInput = creationInput;
         _serviceInput = serviceInput is null ? null : new ServiceInput(serviceInput);
         _serviceRule = service;
+        _progressionRule = progression;
         _conversationInput = conversationInput is null ? null : new ConversationInput(conversationInput);
         _conversationRule = conversation;
         _restInput = restInput is null ? null : new RestInput(restInput);
@@ -354,10 +359,14 @@ public sealed class PartyRpgSession : IGameSession
         _liveWorld = world;
         _world = world?.Snapshot ?? WorldSnapshot.Empty;
         world?.Populate();
+        // The progression owner is composed first, over the party the session plays: it is what a training
+        // hall's step settles through and what the skill points a level grants belong to, so a service
+        // mechanism composed before it would be a counter that could not train anybody. A session that
+        // creates its party composes it when creation is accepted, which is the moment that party exists.
+        ComposeProgression();
         // The service mechanism is composed over the party the session plays and the ledger a journey already
-        // charges, so a shop and a road settle one purse through one path. A session that creates its party
-        // composes it when creation is accepted, which is the moment that party exists. The rest mechanism is
-        // composed beside it, over the same party, clock, and world, so a night is judged where it is taken.
+        // charges, so a shop and a road settle one purse through one path. The rest mechanism is composed
+        // beside it, over the same party, clock, and world, so a night is judged where it is taken.
         ComposeServices();
         ComposeConversations();
         ComposeRest();
@@ -391,6 +400,13 @@ public sealed class PartyRpgSession : IGameSession
     /// served by, and what the projection publishes about a counter is read from it.
     /// </summary>
     public PartyServices? Services => _services;
+
+    /// <summary>
+    /// The progression owner this session's party grows through, or null when its ruleset answered no
+    /// progression policy or the session holds no party yet. It is the one place experience, a level, and a
+    /// skill point move, and what the projection publishes about them is read from it.
+    /// </summary>
+    public PartyProgression? Progression => _progression;
 
     /// <summary>
     /// The conversation mechanism this session speaks through, or null when its ruleset answered no dialogue
@@ -803,6 +819,7 @@ public sealed class PartyRpgSession : IGameSession
         // through, and the service mechanism is composed over exactly that pair, so a party that just came
         // into being is served by the same path as one restored from a save.
         _accounts ??= _liveWorld?.Accounts;
+        ComposeProgression();
         ComposeServices();
         ComposeRest();
         ComposeCombat();
@@ -1388,6 +1405,22 @@ public sealed class PartyRpgSession : IGameSession
     }
 
     /// <summary>
+    /// Composes the progression owner over the party the session plays, when the ruleset answered for one.
+    /// </summary>
+    /// <remarks>
+    /// It is composed once, when the party exists and before anything that spends what it owns: a training
+    /// hall's step is settled through it and a session that creates its party has no party until creation is
+    /// accepted. Everything else about progression — the fight's award, a quest's reward, a panel's read of
+    /// the curve — reaches this same owner, which is what makes it the one place experience, a level, and a
+    /// skill point can move.
+    /// </remarks>
+    private void ComposeProgression()
+    {
+        if (_progression is not null || _progressionRule is null || _party is not { } party) return;
+        _progression = new PartyProgression(_progressionRule, party);
+    }
+
+    /// <summary>
     /// Composes the service mechanism over the party the session plays, when the ruleset answered for one.
     /// </summary>
     /// <remarks>
@@ -1399,7 +1432,7 @@ public sealed class PartyRpgSession : IGameSession
     private void ComposeServices()
     {
         if (_services is not null || _serviceRule is null || _party is not { } party) return;
-        _services = new PartyServices(_serviceRule, party, _accounts, _clock);
+        _services = new PartyServices(_serviceRule, party, _accounts, _clock, _progression);
         // The world hands its journey advances to the same owners the session's admitted intervals reach, so a
         // shelf's deadline is driven by the one clock wherever the advance happened. The world is told here
         // because this is the moment the mechanism exists, which for a session that creates its party is when
@@ -1566,7 +1599,12 @@ public sealed class PartyRpgSession : IGameSession
         // Who is fighting, who may act, and what the party's last order did, read from the fight the
         // ruleset's answers composed: a session with no mechanism, a quiet place, and a party in a fight
         // with three members recovering are different facts the panel must be able to tell apart.
-        CombatSnapshot.From(_combat, _director));
+        CombatSnapshot.From(_combat, _director),
+        // What the party has earned and what a level costs, read from the progression owner beside the
+        // counter: a session with no owner, a party that has earned nothing, and a member who has banked
+        // the experience a level takes are three different facts, and the fee is the counter's own quote
+        // rather than a number this projection worked out.
+        ProgressionSnapshot.From(_progression, _services));
 
     /// <summary>Publishes the world as it stands now, after a caller moved the party.</summary>
     public void PublishWorld()

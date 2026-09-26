@@ -515,6 +515,29 @@ function acceptedParty(overrides = {}) {
   });
 }
 
+/**
+ * The progression block as the product publishes it: the level, the experience against the curve the
+ * ruleset states, the points held, and the fee the counter the party stands at would charge. `available` is
+ * false when the session holds no owner at all.
+ */
+function progression(overrides = {}) {
+  return {
+    available: true,
+    members: [
+      {
+        index: 0, member: '1', name: 'Roderick', level: 1, experience: 0, skillPoints: 0,
+        nextLevel: 1000, fee: 0, cap: 0,
+      },
+    ],
+    outcome: 'none',
+    source: '',
+    earned: 0,
+    code: '',
+    message: '',
+    ...overrides,
+  };
+}
+
 function snapshot(mode, seconds = 0, steps = 0, updates = 0, facts = undefined, blocks = undefined) {
   const value = {
     composition: {
@@ -553,6 +576,9 @@ function snapshot(mode, seconds = 0, steps = 0, updates = 0, facts = undefined, 
   // The fight block is published in every mode too, so a case that asks for none covers a projection whose
   // session holds no fight mechanism.
   if (blocks?.combat !== undefined) value.combat = blocks.combat;
+  // The progression block is published in every mode too, so a case that asks for none covers a projection
+  // whose session holds no progression owner.
+  if (blocks?.progression !== undefined) value.progression = blocks.progression;
   return value;
 }
 
@@ -763,6 +789,27 @@ function restPanel(h) {
 }
 
 /** The fight section as a person reads it: who is in it, who may act, and what the last order did. */
+/** The progression section as the panel rendered it: each member's row and the train control it offers. */
+function progressionPanel(h) {
+  const panel = h.panel();
+  const section = panel?.querySelector('.crawler-progression');
+  const result = section?.querySelector('.crawler-progression-result');
+  return {
+    section,
+    hidden: section?.hidden,
+    state: section?.querySelector('.crawler-progression-state')?.textContent ?? null,
+    outcome: result?.getAttribute('data-outcome') ?? null,
+    code: result?.getAttribute('data-code') ?? null,
+    message: result?.textContent ?? null,
+    members: [...(section?.querySelectorAll('.crawler-progression-member') ?? [])].map((row) => ({
+      label: row.querySelector('.crawler-row-label')?.textContent ?? null,
+      id: row.getAttribute('data-member'),
+      level: row.getAttribute('data-level'),
+      train: row.querySelector('.crawler-train')?.textContent ?? null,
+    })),
+  };
+}
+
 function combatPanel(h) {
   const panel = h.panel();
   const section = panel?.querySelector('.crawler-combat');
@@ -2604,3 +2651,101 @@ test('the companion reaches for no clock and computes no combat quantity', async
   }
 });
 
+test('the panel renders what each member earned and what a level would cost', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // A session with no progression owner says so by hiding the section: a party that has earned nothing
+    // and a product that owns no experience at all are different facts.
+    h.emit(snapshot('running', 0, 0, 1, movement()));
+    assert.equal(progressionPanel(h).hidden, true);
+
+    // A party that has earned nothing: the level, the experience against the curve, the points, and no
+    // train control, because no counter here trains anybody.
+    h.emit(snapshot('running', 1, 60, 60, movement(), { progression: progression() }));
+    assert.equal(h.panel().getAttribute('data-progression'), 'present');
+    assert.equal(h.panel().getAttribute('data-progression-outcome'), 'none');
+    const fresh = progressionPanel(h);
+    assert.equal(fresh.hidden, false);
+    assert.deepEqual(fresh.members.map((member) => member.label), ['Roderick — level 1 — 0/1000 xp — 0 skill points']);
+    assert.equal(fresh.members[0].train, null);
+
+    // A member who has banked the experience stands at a hall that trains to five: the fee the counter
+    // quoted and the ceiling content states are both printed, and the control names the level it would buy.
+    h.emit(snapshot('running', 2, 120, 121, movement(), {
+      progression: progression({
+        outcome: 'awarded',
+        source: 'kill',
+        earned: 7000,
+        message: 'The party earned 7000 experience from kill.',
+        members: [
+          {
+            index: 0, member: '1', name: 'Roderick', level: 1, experience: 7000, skillPoints: 0,
+            nextLevel: 1000, fee: 10, cap: 5,
+          },
+        ],
+      }),
+    }));
+    assert.equal(h.panel().getAttribute('data-progression-outcome'), 'awarded');
+    const earned = progressionPanel(h);
+    assert.deepEqual(earned.members.map((member) => member.label), ['Roderick — level 1 — 7000/1000 xp — 0 skill points']);
+    assert.match(earned.members[0].train, /Train to level 2 for 10 gold \(up to 5\)/);
+    assert.match(earned.message, /earned 7000 experience from kill/);
+
+    // The control asks for the training step it was shown, naming the member it belongs to, on the
+    // product's own service contract.
+    const train = progressionPanel(h).section.querySelector('.crawler-train');
+    train.dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
+    assert.deepEqual(h.claims.at(-1), {
+      intent: 'crawler.ui',
+      value: {
+        kind: 'product-payload',
+        contract: 'crawler.ui.action.v1',
+        data: { action: 'service.train', member: 0 },
+      },
+    });
+
+    // What a training step came to is the product's own report, including what the level granted, and a
+    // refusal keeps its own code and sentence.
+    h.emit(snapshot('running', 3, 180, 181, movement(), {
+      progression: progression({
+        outcome: 'trained',
+        source: 'The Emerald Island Training Hall',
+        message: 'Roderick reached level 2, gaining 5 hit point(s), 0 spell point(s), and 5 skill point(s).',
+        members: [
+          {
+            index: 0, member: '1', name: 'Roderick', level: 2, experience: 7000, skillPoints: 5,
+            nextLevel: 3000, fee: 20, cap: 5,
+          },
+        ],
+      }),
+    }));
+    const trained = progressionPanel(h);
+    assert.equal(trained.outcome, 'trained');
+    assert.match(trained.message, /reached level 2/);
+    assert.deepEqual(trained.members.map((member) => member.label), ['Roderick — level 2 — 7000/3000 xp — 5 skill points']);
+
+    h.emit(snapshot('running', 4, 240, 241, movement(), {
+      progression: progression({
+        outcome: 'refused',
+        code: 'progression-experience-short',
+        message: 'Roderick needs 2000 more experience to train to level 3.',
+        members: [
+          {
+            index: 0, member: '1', name: 'Roderick', level: 2, experience: 1000, skillPoints: 5,
+            nextLevel: 3000, fee: 20, cap: 5,
+          },
+        ],
+      }),
+    }));
+    const refused = progressionPanel(h);
+    assert.equal(refused.outcome, 'refused');
+    assert.equal(refused.code, 'progression-experience-short');
+    assert.match(refused.message, /needs 2000 more experience/);
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});

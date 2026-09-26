@@ -6,6 +6,7 @@ using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Services;
@@ -222,7 +223,9 @@ public sealed class ServiceTests
             ],
         };
 
-        PartyServices services = new(rule, party, accounts, clock);
+        // The counter trains through the progression owner, which is what grants a level: the mechanism
+        // charges the fee and the owner rises the member, so no counter can level anybody by itself.
+        PartyServices services = new(rule, party, accounts, clock, new PartyProgression(new TrainingRule(), party));
         Assert.True(services.Open(rule.Service).IsApplied);
 
         // What the counter offers is published with what each would cost, and a notice is published at no
@@ -241,12 +244,14 @@ public sealed class ServiceTests
         Assert.Equal(10, member.Resources.HitPoints.Current);
 
         // Training converts what the member has banked into one level, and the counter's own ceiling is
-        // where it stops: a step past it is refused rather than clamped.
+        // where it stops: a step past it is refused rather than clamped. The refusal is the owner's, because
+        // this counter's own eligibility rule allows everything — a ruleset that judges the hall's ceiling
+        // refuses the step before the charge and names it there, which is what this game does.
         ServiceResult trained = services.Transact(new ServiceCommand(ServiceCommandKind.Train, Member: 0));
         Assert.True(trained.IsApplied);
         Assert.Equal(2, member.Progression.Level);
         ServiceResult capped = services.Transact(new ServiceCommand(ServiceCommandKind.Train, Member: 0));
-        Assert.Equal("service-training-capped", capped.Code);
+        Assert.Equal("progression-training-capped", capped.Code);
         Assert.Equal(2, member.Progression.Level);
 
         // Provisions are the party's larder rather than its pack, and the larder is credited where a
@@ -708,6 +713,25 @@ public sealed class ServiceTests
     /// The default answers are the plain ones — content's own shelves, no gate, and a price equal to the
     /// base value — so a test that wants to prove a seam changes exactly that answer and nothing else.
     /// </remarks>
+    /// <summary>
+    /// The progression policy this counter trains through: every level is already earned, and a level gives
+    /// nothing.
+    /// </summary>
+    /// <remarks>
+    /// What is under test here is the service mechanism, so the curve is the cheapest one a rule can state
+    /// and the growth is empty: the level's own consequences are the progression owner's suite's subject.
+    /// </remarks>
+    private sealed class TrainingRule : IProgressionRule
+    {
+        public long ExperienceForLevel(int level) => 0;
+
+        public IReadOnlyList<ProgressionShare> Divide(ProgressionDivision division) => [];
+
+        public ProgressionGrowth Growth(ProgressionGrowthRequest request) => ProgressionGrowth.None;
+
+        public ProgressionStanding Standing(ProgressionStandingRequest request) => ProgressionStanding.None;
+    }
+
     private sealed class ShopRule : IServiceRule
     {
         internal ShopRule(ServiceDefinition service) => Service = service;

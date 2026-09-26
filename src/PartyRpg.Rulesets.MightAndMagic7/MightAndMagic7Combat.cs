@@ -103,6 +103,16 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// <summary>The monster row field that states its level.</summary>
     internal const string LevelField = "level";
 
+    /// <summary>
+    /// The monster row field that states what bringing it down is worth to the party.
+    /// </summary>
+    /// <remarks>
+    /// The importer writes the shipped table's own experience column here
+    /// (<c>src/Engine/Objects/Monsters.h:78</c>, <c>exp</c>), which is the number the donor awards on a kill
+    /// (<c>src/Engine/Objects/Actor.cpp:3164-3167</c>).
+    /// </remarks>
+    internal const string ExperienceField = "experience";
+
     /// <summary>The monster row field that states its hit points.</summary>
     internal const string HitPointsField = "hitPoints";
 
@@ -348,20 +358,20 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     private readonly Dictionary<string, string> _people;
     private readonly MonsterFacts? _person;
     private readonly IRandomService? _random;
-    private readonly MightAndMagic7Corpses? _corpses;
+    private readonly IFallenCreatureObserver? _fallen;
 
     private MightAndMagic7Combat(
         Dictionary<int, MonsterFacts> monsters,
         Dictionary<string, string> people,
         MonsterFacts? person,
         IRandomService? random,
-        MightAndMagic7Corpses? corpses)
+        IFallenCreatureObserver? fallen)
     {
         _monsters = monsters;
         _people = people;
         _person = person;
         _random = random;
-        _corpses = corpses;
+        _fallen = fallen;
     }
 
     /// <summary>
@@ -379,16 +389,16 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// creature takes its whole recovery before it first acts, which is deterministic and is the honest
     /// answer for a product that cannot draw.
     /// </param>
-    /// <param name="corpses">
-    /// What this game keeps of the creatures the party brings down, when a session has one: a fight that is
-    /// told where its fallen go reports them, and a fight that is told nobody does not. It is the same owner
-    /// the interaction answers read, so what one half of a session writes the other half finds.
+    /// <param name="fallen">
+    /// Whoever is told what the party brought down, when a session has anybody: a session hands the owner
+    /// that keeps the bodies, which is also where the award for a death is made. A fight that is told nobody
+    /// reports nothing, and everything about the fight itself is unchanged.
     /// </param>
     /// <returns>This game's combat policy.</returns>
     /// <exception cref="ContentValidationException">Content declares a monster or a creature this game cannot fight; every problem is named.</exception>
-    internal static MightAndMagic7Combat Compose(ContentCatalog? catalog, IRandomService? random, MightAndMagic7Corpses? corpses = null)
+    internal static MightAndMagic7Combat Compose(ContentCatalog? catalog, IRandomService? random, IFallenCreatureObserver? fallen = null)
     {
-        if (catalog is null) return new MightAndMagic7Combat([], [], null, random, corpses);
+        if (catalog is null) return new MightAndMagic7Combat([], [], null, random, fallen);
         List<ContentValidationIssue> issues = [];
         Dictionary<int, MonsterFacts> monsters = ReadMonsters(catalog, ReadSpells(catalog), issues);
         Dictionary<string, string> people = ReadPeople(catalog);
@@ -409,7 +419,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             .OrderBy(row => row.Id)
             .FirstOrDefault();
 
-        return new MightAndMagic7Combat(monsters, people, person, random, corpses);
+        return new MightAndMagic7Combat(monsters, people, person, random, fallen);
     }
 
     /// <summary>What the fight read as down in one place, handed to whoever keeps what the fallen left.</summary>
@@ -421,7 +431,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// <param name="fallen">Every creature it read as down there, in the order it read them.</param>
     /// <returns>The bodies lying in that place now.</returns>
     public IReadOnlyList<Corpse> Observe(PlaceId place, IReadOnlyList<FallenCreature> fallen) =>
-        _corpses?.Observe(place, fallen) ?? [];
+        _fallen?.Observe(place, fallen) ?? [];
 
     /// <summary>How many monster rows this policy can fight.</summary>
     internal int MonsterCount => _monsters.Count;
@@ -970,11 +980,14 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// </para>
     /// </remarks>
     /// <param name="subject">The actor to read.</param>
-    private MonsterFacts? PersonFacts(CombatSubject subject)
+    private MonsterFacts? PersonFacts(CombatSubject subject) =>
+        IsPerson(subject) && subject.Placement is { } placement ? PersonFacts(placement) : null;
+
+    /// <summary>The monster row a person placement fights as, which is the row it names or the shipped peasant.</summary>
+    private MonsterFacts? PersonFacts(PlacementDefinition placement)
     {
-        if (!IsPerson(subject)) return null;
-        if (subject.Placement is { } placement &&
-            int.TryParse(placement.Source.GetId(MonsterField), NumberStyles.None, CultureInfo.InvariantCulture, out int id) &&
+        if (!string.Equals(placement.Content.Kind, PersonPlacementKind, StringComparison.Ordinal)) return null;
+        if (int.TryParse(placement.Source.GetId(MonsterField), NumberStyles.None, CultureInfo.InvariantCulture, out int id) &&
             _monsters.TryGetValue(id, out MonsterFacts? stated))
         {
             return stated;
@@ -1143,6 +1156,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         int level = entry.GetInt32(LevelField) ?? 0;
         int hitPoints = entry.GetInt32(HitPointsField) ?? 0;
         int armorClass = entry.GetInt32(ArmorClassField) ?? 0;
+        long experience = Math.Max(0, entry.GetInt32(ExperienceField) ?? 0);
 
         // A row that carries no raw columns at all is a hand-authored one: it states the columns a fight is
         // paced by and nothing else, so it has no blow of its own, no special attack, and no resistance. The
@@ -1159,6 +1173,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
                 level,
                 hitPoints,
                 armorClass,
+                experience,
                 DamageRoll.Flat(0),
                 MightAndMagic7Damage.Physical,
                 Throws: false,
@@ -1243,6 +1258,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             level,
             hitPoints,
             armorClass,
+            experience,
             attack,
             attackKind,
             cells[AttackMissileColumn].Trim().Length > 0 && cells[AttackMissileColumn].Trim() != "0",
@@ -1366,9 +1382,12 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// carry is refused when the policy is composed, so nothing that reaches here can be missing from the
     /// table.
     /// </remarks>
-    private MonsterFacts? Creature(CombatSubject subject)
+    private MonsterFacts? Creature(CombatSubject subject) =>
+        subject.Placement is { } placement ? Creature(placement) : null;
+
+    /// <summary>The monster row a creature placement names, or null when the placement is not a creature.</summary>
+    private MonsterFacts? Creature(PlacementDefinition placement)
     {
-        if (subject.Placement is not { } placement) return null;
         if (!string.Equals(placement.Content.Kind, CreaturePlacementKind, StringComparison.Ordinal)) return null;
         // The row is read as an identity rather than as text: the importer writes it as the number it is, and
         // hand-authored content may write it as a string, and both name the same row.
@@ -1376,6 +1395,26 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         return int.TryParse(named, NumberStyles.None, CultureInfo.InvariantCulture, out int id)
             ? _monsters.GetValueOrDefault(id)
             : null;
+    }
+
+    /// <summary>
+    /// What the row behind one placement states its death is worth to the party, or zero when nothing does.
+    /// </summary>
+    /// <remarks>
+    /// This is the award path's one reading of a creature's worth, and it reads the same row the fight reads
+    /// the creature's body from: a monster placement names its row, and a person standing in the world
+    /// fights as the row their own record names or as the shipped peasant row when it names none — which is
+    /// the donor's own reading of a person going about their day, whose death awards that row's experience
+    /// (<c>src/Engine/Objects/Actor.cpp:3164-3167</c>, reached for a person exactly as for a creature).
+    /// </remarks>
+    /// <param name="placement">The placement the creature was created from.</param>
+    /// <returns>How much experience bringing it down is worth, zero when no row states one.</returns>
+    /// <exception cref="ArgumentNullException">No placement was supplied.</exception>
+    internal long ExperienceOf(PlacementDefinition placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+        MonsterFacts? facts = Creature(placement) ?? PersonFacts(placement);
+        return facts?.Experience ?? 0;
     }
 
     /// <summary>The name of the person a placement holds, or null when nothing here names one.</summary>
@@ -1420,6 +1459,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// <param name="Level">The row's level, which prices what its special attack can do.</param>
     /// <param name="HitPoints">The row's hit points, which is how much harm it takes to put one down.</param>
     /// <param name="ArmorClass">The row's armor class, which its attacker's hit chance is measured against.</param>
+    /// <param name="Experience">What bringing the creature down is worth to the party.</param>
     /// <param name="Attack">What the row's first attack rolls.</param>
     /// <param name="AttackKind">What kind of harm that attack does.</param>
     /// <param name="Throws">Whether the row's first attack is thrown rather than swung.</param>
@@ -1440,6 +1480,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         int Level,
         int HitPoints,
         int ArmorClass,
+        long Experience,
         DamageRoll Attack,
         DamageKindId AttackKind,
         bool Throws,

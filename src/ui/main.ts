@@ -84,6 +84,7 @@ const ACTION_SERVICE_SELL = 'service.sell';
 const ACTION_SERVICE_IDENTIFY = 'service.identify';
 const ACTION_SERVICE_REPAIR = 'service.repair';
 const ACTION_SERVICE_TEACH = 'service.teach';
+const ACTION_SERVICE_TRAIN = 'service.train';
 const ACTION_SERVICE_LEAVE = 'service.leave';
 
 /**
@@ -190,6 +191,45 @@ interface PartyView {
   /** What the members have left to cast with between them. */
   readonly spellPoints: number;
   readonly spellPointsMax: number;
+}
+
+/**
+ * One member's growth, as the product published it: the level, what earned it, and what the next costs. The
+ * panel prints these numbers and derives none of them — the experience a level takes is the ruleset's own
+ * curve and the fee is the counter's own quote, both read from the projection.
+ */
+interface ProgressionMemberView {
+  readonly index: number;
+  readonly member: string;
+  readonly name: string;
+  readonly level: number;
+  /** How much experience the member has earned in total. */
+  readonly experience: number;
+  /** How many skill points the member holds unspent. */
+  readonly skillPoints: number;
+  /** How much experience the member's next level takes. */
+  readonly nextLevel: number;
+  /** What the counter the party stands at would charge this member for a level; zero when none trains. */
+  readonly fee: number;
+  /** The highest level that counter trains to; zero when none trains. */
+  readonly cap: number;
+}
+
+/**
+ * What the party has earned and what a level costs, as the product published it. `available` is false when
+ * the session holds no progression owner, which is what a ruleset that answered no progression policy gets.
+ */
+interface ProgressionView {
+  readonly available: boolean;
+  readonly members: readonly ProgressionMemberView[];
+  /** What the last progression event was: `none`, `awarded`, `trained`, or `refused`. */
+  readonly outcome: string;
+  /** What the last award came from, or the counter that last trained somebody. */
+  readonly source: string;
+  /** How much experience the last award was worth, zero when the last event was not one. */
+  readonly earned: number;
+  readonly code: string;
+  readonly message: string;
 }
 
 /**
@@ -661,6 +701,7 @@ interface SnapshotView {
   readonly rest: RestView;
   readonly conversation: ConversationView;
   readonly combat: CombatView;
+  readonly progression: ProgressionView;
 }
 
 /** The clock of a session that has none, which the panel shows as not knowing rather than as a date. */
@@ -687,6 +728,17 @@ const PARTY_UNKNOWN: PartyView = {
   hitPointsMax: 0,
   spellPoints: 0,
   spellPointsMax: 0,
+};
+
+/** The progression of a session that holds no owner: nobody grows and no level has a price. */
+const PROGRESSION_NONE: ProgressionView = {
+  available: false,
+  members: [],
+  outcome: 'none',
+  source: '',
+  earned: 0,
+  code: '',
+  message: '',
 };
 
 /** The save state of a projection that carries none: a session this companion cannot read as saveable. */
@@ -981,6 +1033,16 @@ const STYLES = `
 .crawler-fighter[data-activity='closing'] { color: #e2cba0; }
 .crawler-fighter[data-activity='backing away'] { color: #b9c8a4; }
 .crawler-fighter[data-activity='down'] { color: #8f8878; text-decoration: line-through; }
+.crawler-progression { margin: 0 0 0.5rem; border-top: 1px solid rgba(210, 196, 158, 0.25); padding-top: 0.5rem; }
+.crawler-progression[hidden] { display: none; }
+.crawler-progression .crawler-step-head { margin: 0 0 0.2rem; color: #d8cba6; font-size: 0.82rem; }
+.crawler-progression-state { margin: 0 0 0.25rem; color: #b9ad8c; font-size: 0.72rem; }
+.crawler-progression-member { display: flex; align-items: center; gap: 0.4rem; margin: 0 0 0.2rem; font-size: 0.72rem; color: #cfc3a2; }
+.crawler-progression-member .crawler-row-label { display: block; color: #cfc3a2; font-size: 0.72rem; }
+.crawler-progression .crawler-train { width: auto; padding: 0.15rem 0.35rem; font-size: 0.7rem; }
+.crawler-progression-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
+.crawler-progression-result[hidden] { display: none; }
+.crawler-progression-result[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
 .crawler-rest { margin: 0 0 0.5rem; border-top: 1px solid rgba(210, 196, 158, 0.25); padding-top: 0.5rem; }
 .crawler-rest[hidden] { display: none; }
 .crawler-rest .crawler-step-head { margin: 0 0 0.2rem; color: #d8cba6; font-size: 0.82rem; }
@@ -1154,6 +1216,57 @@ function readInteraction(value: unknown): InteractionView {
     code,
     message,
     residue,
+  };
+}
+
+/**
+ * Reads the progression block, or the no-owner progression. A block this companion cannot read is read as
+ * the no-owner value rather than half-read: a panel that showed a member's level from a projection it did
+ * not understand would be showing a number the product never published.
+ */
+function readProgression(value: unknown): ProgressionView {
+  if (!isRecord(value) || value.available !== true) return PROGRESSION_NONE;
+  const { outcome, source, code, message } = value;
+  const earned = value.earned ?? 0;
+  if (
+    typeof outcome !== 'string' ||
+    typeof source !== 'string' ||
+    typeof earned !== 'number' ||
+    typeof code !== 'string' ||
+    typeof message !== 'string'
+  ) {
+    return PROGRESSION_NONE;
+  }
+
+  return {
+    available: true,
+    members: readList(value.members, (entry) =>
+      typeof entry.index === 'number' &&
+      typeof entry.member === 'string' &&
+      typeof entry.name === 'string' &&
+      typeof entry.level === 'number' &&
+      typeof entry.experience === 'number' &&
+      typeof entry.skillPoints === 'number' &&
+      typeof entry.nextLevel === 'number' &&
+      typeof entry.fee === 'number' &&
+      typeof entry.cap === 'number'
+        ? {
+            index: entry.index,
+            member: entry.member,
+            name: entry.name,
+            level: entry.level,
+            experience: entry.experience,
+            skillPoints: entry.skillPoints,
+            nextLevel: entry.nextLevel,
+            fee: entry.fee,
+            cap: entry.cap,
+          }
+        : null),
+    outcome,
+    source,
+    earned,
+    code,
+    message,
   };
 }
 
@@ -1601,6 +1714,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
   const rest = readRest(value.rest);
   const conversation = readConversation(value.conversation);
   const combat = readCombat(value.combat);
+  const progression = readProgression(value.progression);
   const { ruleset, title, bundle, contentPacks } = composition;
   const { mode, simulationSeconds, admittedSteps, updates } = session;
   if (
@@ -1669,6 +1783,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
     rest,
     conversation,
     combat,
+    progression,
   };
 }
 
@@ -1701,6 +1816,8 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   panel.dataset.conversation = 'none';
   panel.dataset.conversationAction = '';
   panel.dataset.conversationOutcome = 'none';
+  panel.dataset.progression = 'none';
+  panel.dataset.progressionOutcome = 'none';
   panel.dataset.rest = 'none';
   panel.dataset.restAction = '';
   panel.dataset.restOutcome = 'none';
@@ -1933,6 +2050,25 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   serviceActions.append(serviceLeave);
   service.append(serviceHead, serviceState, serviceAccess, serviceMemberRow, stockRow, saleRow, lessonRow, serviceActions, serviceResult);
 
+  // What each member has earned and what a level would cost: the level, the experience banked against the
+  // curve the ruleset states, the points held, and the fee the counter the party stands at would charge.
+  // The train control is offered per member and only when a counter here trains them, so a button that
+  // cannot work is not shown; every number is the product's own.
+  const progression = document.createElement('section');
+  progression.className = 'crawler-progression';
+  progression.hidden = true;
+  const progressionHead = document.createElement('p');
+  progressionHead.className = 'crawler-step-head';
+  progressionHead.textContent = 'Experience and levels';
+  const progressionState = document.createElement('p');
+  progressionState.className = 'crawler-progression-state';
+  const progressionMembers = document.createElement('div');
+  progressionMembers.className = 'crawler-progression-members';
+  const progressionResult = document.createElement('p');
+  progressionResult.className = 'crawler-progression-result';
+  progressionResult.hidden = true;
+  progression.append(progressionHead, progressionState, progressionMembers, progressionResult);
+
   // The stop controls: one button per act, and the answer the last one got. A rest heals and a wait does
   // not, so the buttons are never collapsed into one; and the fatigue line is the clock's own deadline,
   // which is why a player can see when the party next needs to sleep.
@@ -2042,6 +2178,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     service,
     rest,
     combat,
+    progression,
     details,
     action,
     saveButton,
@@ -2055,6 +2192,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
 
   let current = 'starting';
   let renderedConversation = '';
+  let renderedProgression = '';
   const claim = (name: string, data: Record<string, unknown> = {}): void => {
     context.intents?.claim(UI_ACTION_INTENT, {
       kind: 'product-payload',
@@ -2737,6 +2875,55 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     combatResult.textContent = view.message;
   };
 
+  /**
+   * Renders what each member has earned and what a level would cost. Every number is the product's own: the
+   * experience against the curve it published, the points it published, and the fee the counter quoted. The
+   * train control is built per member and only where the counter trains them — a cap of zero is the
+   * product's own way of saying that nobody here trains — so a button this panel offers is one the product
+   * would take.
+   */
+  const renderProgression = (view: ProgressionView): void => {
+    panel.dataset.progression = view.available ? 'present' : 'none';
+    panel.dataset.progressionOutcome = view.outcome;
+    progression.hidden = !view.available;
+    progressionState.textContent = view.available
+      ? `${view.members.length} character${view.members.length === 1 ? '' : 's'}`
+      : '';
+    progressionResult.hidden = view.message === '';
+    progressionResult.dataset.outcome = view.outcome;
+    progressionResult.dataset.code = view.code;
+    progressionResult.textContent = view.message;
+
+    const signature = JSON.stringify(view);
+    if (signature === renderedProgression) return;
+    renderedProgression = signature;
+
+    progressionMembers.replaceChildren(
+      ...view.members.map((member) => {
+        const row = document.createElement('div');
+        row.className = 'crawler-progression-member';
+        row.dataset.member = member.member;
+        row.dataset.level = String(member.level);
+        const label = document.createElement('span');
+        label.className = 'crawler-row-label';
+        // The curve is the product's own figure, so "how far along" is printed rather than worked out: the
+        // experience banked, what the next level takes, the level itself, and the points still to spend.
+        label.textContent = `${member.name} — level ${member.level} — ${member.experience}/${member.nextLevel} xp — ${member.skillPoints} skill point${member.skillPoints === 1 ? '' : 's'}`;
+        row.append(label);
+        if (member.cap > 0) {
+          const train = document.createElement('button');
+          train.type = 'button';
+          train.className = 'crawler-train';
+          train.textContent = `Train to level ${member.level + 1} for ${member.fee} gold (up to ${member.cap})`;
+          train.addEventListener('click', () => claim(ACTION_SERVICE_TRAIN, { member: member.index }));
+          row.append(train);
+        }
+
+        return row;
+      }),
+    );
+  };
+
   const render = (snapshot: SnapshotView): void => {
     current = snapshot.session.mode;
     title.textContent = 'Rusty Crawler';
@@ -2824,6 +3011,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     renderService(snapshot.service);
     renderRest(snapshot.rest);
     renderCombat(snapshot.combat);
+    renderProgression(snapshot.progression);
     const world = snapshot.world;
     place.textContent =
       world.places === 0

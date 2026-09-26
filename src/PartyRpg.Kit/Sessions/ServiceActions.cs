@@ -73,6 +73,15 @@ public static class ServiceActions
     /// <summary>Pays for a lesson, carrying its subject and the member it goes to.</summary>
     public const string Teach = "service.teach";
 
+    /// <summary>Pays a counter to train one member a level, carrying the member it goes to.</summary>
+    /// <remarks>
+    /// A training step names a member rather than a target: what is bought is the member's next level at the
+    /// counter the party stands at, and the hall's own ceiling and fee are the ruleset's answers about this
+    /// member. Without this action the one mechanism could train nobody from the screen, which is what left
+    /// the shipped halls unusable before it.
+    /// </remarks>
+    public const string Train = "service.train";
+
     /// <summary>Leaves the counter, ending the visit.</summary>
     public const string Leave = "service.leave";
 }
@@ -158,6 +167,7 @@ public sealed class ServiceInput
             ServiceActions.Identify => new ServiceCommand(ServiceCommandKind.Identify, target),
             ServiceActions.Repair => new ServiceCommand(ServiceCommandKind.Repair, target),
             ServiceActions.Teach => new ServiceCommand(ServiceCommandKind.Teach, target, action.Member ?? 0),
+            ServiceActions.Train => new ServiceCommand(ServiceCommandKind.Train, Member: action.Member ?? 0),
             ServiceActions.Leave => ServiceCommand.Of(ServiceCommandKind.Leave),
             _ => null,
         };

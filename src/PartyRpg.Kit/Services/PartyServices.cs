@@ -1,5 +1,6 @@
 using System.Globalization;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
@@ -53,6 +54,7 @@ public sealed class PartyServices : IGameTimeObserver
     private readonly PartyEntity _party;
     private readonly PartyResourceLedger? _accounts;
     private readonly GameClock? _clock;
+    private readonly PartyProgression? _progression;
     private readonly Dictionary<ServiceId, ServiceShelf> _shelves = [];
     private ServiceDefinition? _current;
     private ServiceVisit? _visit;
@@ -71,13 +73,25 @@ public sealed class PartyServices : IGameTimeObserver
     /// is registered on. Without one a service that states hours cannot be known to be open, and a shelf
     /// that states a schedule keeps what it was laid out with.
     /// </param>
+    /// <param name="progression">
+    /// The party's progression owner, which is what a training step settles through: the level rise, the
+    /// growth of the pools, and the skill points a level grants all happen there, and this mechanism only
+    /// charges the fee and reports the step. Without one a hall's fee is still quoted and the step is
+    /// refused by name rather than levelling a member nothing owns.
+    /// </param>
     /// <exception cref="ArgumentNullException">The rule or the party is missing.</exception>
-    public PartyServices(IServiceRule rule, PartyEntity party, PartyResourceLedger? accounts = null, GameClock? clock = null)
+    public PartyServices(
+        IServiceRule rule,
+        PartyEntity party,
+        PartyResourceLedger? accounts = null,
+        GameClock? clock = null,
+        PartyProgression? progression = null)
     {
         _rule = rule ?? throw new ArgumentNullException(nameof(rule));
         _party = party ?? throw new ArgumentNullException(nameof(party));
         _accounts = accounts;
         _clock = clock;
+        _progression = progression;
     }
 
     /// <summary>This game's answers about services.</summary>
@@ -301,7 +315,7 @@ public sealed class PartyServices : IGameTimeObserver
             // price rule would ask what a rumour costs, which is a question no counter answers.
             int price = offer.Kind == ServiceOfferKind.Notice
                 ? 0
-                : Price(service, OperationOf(offer.Kind), ServiceSubject.OfOffer(offer, offer.Amount), default).Charge.Coins;
+                : Price(service, OperationOf(offer.Kind), ServiceSubject.OfOffer(offer, offer.Amount), Subject(offer)).Charge.Coins;
             offers.Add(new ServiceOfferLine(offer, price));
         }
 
@@ -332,6 +346,60 @@ public sealed class PartyServices : IGameTimeObserver
 
         return new ServiceBrowse(service, operations, memberships, stock, lessons, offers, sales, members);
     }
+
+    /// <summary>
+    /// What the counter the party stands at offers to train one member for, priced, or null when nobody
+    /// there trains.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A training step is priced for a member rather than for the party — the level and the class rank are
+    /// the member's — so this is the one read that answers with the fee a named member would be charged. It
+    /// is what a panel publishes as the price of the next level, and it is the same quote
+    /// <see cref="Transact"/> settles, so a number shown and a number charged cannot be two numbers.
+    /// </para>
+    /// <para>
+    /// It is a reading: nothing is judged, nothing is charged, and a member who has not earned the level
+    /// still gets the price the step would cost.
+    /// </para>
+    /// </remarks>
+    /// <param name="memberIndex">The member's place in the party, counted from zero.</param>
+    /// <returns>The priced offer, or null when the party stands at no counter or that counter trains nobody.</returns>
+    public ServiceOfferLine? TrainingOffer(int memberIndex)
+    {
+        if (_visit is not { } visit) return null;
+        if (memberIndex < 0 || memberIndex >= _party.Members.Count) return null;
+        if (!visit.Service.Offers(ServiceOperationKind.Train)) return null;
+
+        foreach (ServiceOffer offer in _rule.Offers(new ServiceOfferRequest(visit.Service, _party, _clock)))
+        {
+            if (offer.Kind != ServiceOfferKind.Training) continue;
+            PartyMember trainee = _party.Members[memberIndex];
+            ServiceQuote quote = Price(
+                visit.Service,
+                ServiceOperationKind.Train,
+                ServiceSubject.OfOffer(offer, 1),
+                trainee.Id);
+            return new ServiceOfferLine(offer, quote.Charge.Coins);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The member an offer's price is read for, or an unset identity when it acts on nobody in particular.
+    /// </summary>
+    /// <remarks>
+    /// A cure and a training step are priced from one member's own state, and a browse has no member: it
+    /// lists what a counter offers to the party. The party's own first member stands in for the price shown
+    /// on that list — the number is a real member's — and the command that acts is priced for the member it
+    /// names, which is why the two answers are asked separately. A party with no members prices nothing,
+    /// and the policy's own quote is what refuses it.
+    /// </remarks>
+    private PartyMemberId Subject(ServiceOffer offer) =>
+        offer.Kind is ServiceOfferKind.Cure or ServiceOfferKind.Training && _party.Members.Count > 0
+            ? _party.Members[0].Id
+            : default;
 
     /// <inheritdoc />
     /// <remarks>
@@ -648,23 +716,31 @@ public sealed class PartyServices : IGameTimeObserver
 
             case ServiceOperationKind.Train:
             {
-                // A training step is one level: the fee, the experience curve, and the ceiling the counter
-                // stops at are the ruleset's, which judged this step before it was charged, and what the
-                // mechanism records is where the member now stands. A step that would pass the counter's own
-                // ceiling is refused rather than clamped, because a rule that changed its mind between two
-                // calls is a defect and not a level.
-                ServiceOffer training = subject.Offer!;
-                PartyMember trainee = _party.Member(member);
-                int reached = trainee.Progression.Level + 1;
-                if (reached > training.Limit)
+                // A training step is one level, and the level is the progression owner's to grant: the fee
+                // has been settled through the party's one ledger above, the hall's ceiling comes from the
+                // offer content states, and the rise, the growth of the pools, and the skill points the new
+                // level grants all happen in the owner. This mechanism therefore reports the step rather
+                // than performing it, which is what keeps one owner of a level and one owner of the curve.
+                //
+                // Without an owner nothing may rise, and the step is refused by name: charging a fee for a
+                // level no one could grant would be the worst of both.
+                if (_progression is not { } progression)
                 {
                     return Refuse(
                         kind,
-                        "service-training-capped",
-                        $"{trainee.Profile.Name} stands at level {trainee.Progression.Level} and {visit.Service.Describe()} trains no further than level {training.Limit}.");
+                        "service-no-progression",
+                        $"{visit.Service.Describe()} trains by the level and this session holds no progression owner to grant one.");
                 }
 
-                trainee.Progression.SetLevel(reached);
+                ServiceOffer training = subject.Offer!;
+                ProgressionTrainingResult step = progression.Train(
+                    member,
+                    new ProgressionTrainingTerms(visit.Service.Name, quote.Charge.Coins, training.Limit));
+                if (step.Refusal is { } refused)
+                {
+                    return Refuse(kind, refused.Code, refused.Message);
+                }
+
                 return null;
             }
 
@@ -787,8 +863,7 @@ public sealed class PartyServices : IGameTimeObserver
                 $"The party pays {quote.Charge.Coins} coin(s) to repair {subject.Item!.Definition}.",
             ServiceOperationKind.Cure =>
                 $"The party pays {quote.Charge.Coins} coin(s) and {_party.Member(member).Profile.Name} is healed of {string.Join(", ", subject.Offer!.Conditions)}.",
-            ServiceOperationKind.Train =>
-                $"{_party.Member(member).Profile.Name} trains to level {subject.Offer!.Limit} for {quote.Charge.Coins} coin(s).",
+            ServiceOperationKind.Train => TrainMessage(member, quote),
             ServiceOperationKind.Provision =>
                 $"The party pays {quote.Charge.Coins} coin(s) for {subject.Offer!.Amount * subject.Count} provisions.",
             ServiceOperationKind.Stay =>
@@ -809,6 +884,26 @@ public sealed class PartyServices : IGameTimeObserver
     /// <summary>Prices one operation through the ruleset's price rule.</summary>
     private ServiceQuote Price(ServiceDefinition service, ServiceOperationKind operation, ServiceSubject subject, PartyMemberId member) =>
         _rule.Quote(new ServiceQuoteRequest(service, operation, subject, member, _party, _clock));
+
+    /// <summary>
+    /// What a completed training step reports: the level the member now stands at, what it cost, and the
+    /// skill points the level granted.
+    /// </summary>
+    /// <remarks>
+    /// The level is read from the member rather than from the offer: the offer states the hall's ceiling,
+    /// and a sentence that reported the ceiling as the level reached would tell a player they had risen to
+    /// a level they had not. The points come from the owner's own record of the step it granted.
+    /// </remarks>
+    private string TrainMessage(PartyMemberId member, ServiceQuote quote)
+    {
+        PartyMember trainee = _party.Member(member);
+        string points = _progression?.LastTraining is { IsTrained: true } step && step.Member == member
+            ? string.Create(CultureInfo.InvariantCulture, $" and {step.Growth.SkillPoints} skill point(s)")
+            : string.Empty;
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"{trainee.Profile.Name} trains to level {trainee.Progression.Level} for {quote.Charge.Coins} coin(s){points}.");
+    }
 
     /// <summary>Records a result as the last thing that happened and hands it back.</summary>
     private ServiceResult Record(ServiceResult result)

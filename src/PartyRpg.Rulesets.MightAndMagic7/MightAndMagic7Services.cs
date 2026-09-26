@@ -649,8 +649,8 @@ internal sealed class MightAndMagic7Services : IServiceRule
     /// <remarks>
     /// The donor's two conditions (OpenEnroth <c>src/GUI/UI/Houses/Training.cpp:36-49</c>): a member at the
     /// hall's ceiling cannot train, and a member short of the experience a level takes is told how much more
-    /// is wanted. The experience a level takes is the donor's own thousand times the level times the level
-    /// plus one, halved (<c>1000 * level * (level + 1) / 2</c>).
+    /// is wanted. The curve is asked of <see cref="MightAndMagic7Progression"/>, which owns it, so the
+    /// figure a hall refuses over and the figure the progression owner trains by are one formula.
     /// </remarks>
     private static ServiceEligibility JudgeTraining(ServiceEligibilityRequest request)
     {
@@ -664,7 +664,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
                 $"{member.Profile.Name} stands at level {level} and {request.Service.Describe()} trains no further than level {training.Limit}.");
         }
 
-        long wanted = ExperienceForLevel(level);
+        long wanted = MightAndMagic7Progression.Instance.ExperienceForLevel(level);
         return member.Progression.Experience >= wanted
             ? ServiceEligibility.Allowed
             : ServiceEligibility.Refused(
@@ -673,15 +673,6 @@ internal sealed class MightAndMagic7Services : IServiceRule
                     CultureInfo.InvariantCulture,
                     $"{member.Profile.Name} needs {wanted - member.Progression.Experience} more experience to train to level {level + 1}."));
     }
-
-    /// <summary>How much experience a member needs banked to be trained from a level to the next.</summary>
-    /// <remarks>
-    /// OpenEnroth <c>src/GUI/UI/Houses/Training.cpp:37</c> and
-    /// <c>src/Engine/PriceCalculator.cpp:200-215</c>: a thousand times the level times the level plus one,
-    /// halved.
-    /// </remarks>
-    /// <param name="level">The level the member stands at.</param>
-    internal static long ExperienceForLevel(int level) => 1000L * level * (level + 1) / 2;
 
     /// <summary>Whether a tavern may fill the party's packs, which it may not once they are full.</summary>
     /// <remarks>

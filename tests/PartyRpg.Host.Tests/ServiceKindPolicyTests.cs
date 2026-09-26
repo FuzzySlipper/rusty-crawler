@@ -1,6 +1,7 @@
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Services;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
@@ -196,13 +197,23 @@ public sealed class ServiceKindPolicyTests
         Assert.Equal(1, member.Progression.Level);
 
         // With the experience banked, one step is one level at the donor's own fee, and the purse pays it.
-        member.Progression.AwardExperience(100_000);
+        // The experience arrives through the one award entry, exactly as a kill's does.
+        ProgressionAwardResult earned = fixture.Progression.Award(new PartyExperienceAward("test", 100_000));
+        Assert.True(earned.IsAwarded);
+        Assert.Equal(100_000, member.Progression.Experience);
         int before = fixture.Party.Purse.Coins;
         ServiceResult trained = hall.Transact(new ServiceCommand(ServiceCommandKind.Train, Member: 0));
         Assert.True(trained.IsApplied);
         Assert.Equal(2, member.Progression.Level);
         Assert.Equal(10, trained.Paid);
         Assert.Equal(before - 10, fixture.Party.Purse.Coins);
+
+        // A level is not only a number: the knight's own row of the donor's table adds five hit points, and
+        // the new level grants five skill points (OpenEnroth src/Engine/Objects/Character.cpp:135-172 and
+        // src/GUI/UI/Houses/Training.cpp:72).
+        Assert.Equal(45, member.Resources.HitPoints.Maximum);
+        Assert.Equal(45, member.Resources.HitPoints.Current);
+        Assert.Equal(5, member.Progression.SkillPoints);
 
         // The hall's ceiling is content's own number from the building table: it trains to five and no
         // further, and the refusal names the ceiling rather than clamping the member.
@@ -386,7 +397,8 @@ public sealed class ServiceKindPolicyTests
             MightAndMagic7Conversation conversation,
             PartyEntity party,
             GameClock clock,
-            PartyServices services)
+            PartyServices services,
+            PartyProgression progression)
         {
             Conversation = conversation;
             Catalog = catalog;
@@ -394,6 +406,7 @@ public sealed class ServiceKindPolicyTests
             Party = party;
             Clock = clock;
             Services = services;
+            Progression = progression;
             FixtureCoins = party.Purse.Coins;
         }
 
@@ -409,6 +422,9 @@ public sealed class ServiceKindPolicyTests
         internal GameClock Clock { get; }
 
         internal PartyServices Services { get; }
+
+        /// <summary>The progression owner the counters train through, which is what grants a level.</summary>
+        internal PartyProgression Progression { get; }
 
         /// <summary>What the party's purse held when the fixture was built, for a test that asserts it did not move.</summary>
         internal int FixtureCoins { get; }
@@ -469,7 +485,17 @@ public sealed class ServiceKindPolicyTests
                 reputation: 0,
                 fame: 0));
             PartyResourceLedger accounts = new(party);
-            return new Fixture(catalog, rule, conversation, party, clock, new PartyServices(rule, party, accounts, clock));
+            // The owner a hall settles through is composed over the same party the services serve, so a
+            // training step charges this party's purse and rises this party's member.
+            PartyProgression progression = new(MightAndMagic7Progression.Instance, party);
+            return new Fixture(
+                catalog,
+                rule,
+                conversation,
+                party,
+                clock,
+                new PartyServices(rule, party, accounts, clock, progression),
+                progression);
         }
 
         public void Dispose() => Party.Dispose();

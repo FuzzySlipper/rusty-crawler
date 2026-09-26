@@ -9,7 +9,11 @@ Owns:
 - Party model: roster, members, formation or order, shared currency and party
   inventory over per-character equipment.
 - Character mechanisms: attributes, skill and spell catalogs, learning and
-  casting workflows, conditions and recovery, progression bookkeeping.
+  casting workflows, conditions and recovery, and progression: experience,
+  levels, and skill points with one owner that moves them (`Progression/`),
+  the one award entry every source arrives at (a kill's worth coming from the
+  ruleset that reads the creature's own row), the training step a counter
+  settles through that owner, and the growth a level gives.
 - Combat: attack execution, targeting and current target, attack resolution, damage kinds,
   resistance and immunity, conditions a hit leaves, and the thresholds a wound is judged against
   application, real-time and turn-based mode coordination, what a downed creature leaves
@@ -74,6 +78,14 @@ one path that settles a `PartyCost` against the purse and the larder whole or no
 every shortfall named rather than overdrawing the purse — credits the same two accounts, and spends a
 travelling or camping day as a `ProvisionDay`, priced and judged by a ruleset's `ISettlementRule` and
 `IProvisionDayRule` with `SettlementQuote` and `ResourceSettlement` as the answer and the outcome), the
+one progression owner (`Progression/` — `PartyProgression` is where experience, a level, and a skill
+point move and nowhere else: `Award` is the one entry a kill, a quest, or any other source arrives at and
+divides by the ruleset's own rule, `Train` is what a counter's step settles through — the fee charged by
+the party's one ledger, the level's pools grown by the ruleset's class and rank tables, the points granted,
+and both pools filled — and `RaiseSkill` is the only way a skill point is spent, with `ProgressionAwards`
+paying each death the fight reports exactly once from the ledger of deaths it is still reading, and
+`ProgressionSnapshot` publishing the level, the experience against the curve, the points held, and the fee
+the counter the party stands at quoted — every number the ruleset's, none of them the screen's), the
 creation flow (`PartyCreationFlow` over the `PartyCreationOptions` a ruleset supplies — races, classes,
 portraits, an attribute pool bought through `AttributeCreationRange` prices, and the skills a class fixes
 and offers — taken one step at a time with `CreationMember` as the answer to each, refusing an illegal

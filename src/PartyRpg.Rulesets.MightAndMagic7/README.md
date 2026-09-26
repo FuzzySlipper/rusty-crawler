@@ -12,6 +12,9 @@ Owns:
 - The nine spell schools, spell tiers, costs, and effects.
 - Monster, item, service, and condition definitions and their interpretation.
 - Combat, damage, resistance, conditions, recovery, reward, and experience formulas.
+- Progression policy: the experience curve, how a party's award divides, what a
+  level gives each class and rank, the skill points a level grants, and what the
+  world makes of a party's deeds.
 - Time, calendar, rest, fatigue, and travel policy, including service hours.
 - Quest, guild, reputation, and journal policy.
 - Content interpretation and presentation meaning: what an imported region,
@@ -111,8 +114,14 @@ resumed in before anything is built — naming every problem at once rather than
 same session a new game composes over the same content and hands it the save, so the party, its items,
 equipment and portraits, the clock, the place and pose, and what each place remembers come from the save
 while everything transient is composed fresh. A scenario member may state the `portrait` it was created
-with, which then travels into the party and into a save exactly as a chosen one does. Everything else
-listed above — the remaining class, skill, spell, monster, item, service, and formula policy, and rest and
+with, which then travels into the party and into a save exactly as a chosen one does. This game's progression is landed with them: `MightAndMagic7Progression` is
+the ruleset's whole contribution to the kit's owner — the donor's cumulative experience curve, the donor's
+division of a party award with the learning skill's bonus, the per-level class and rank growth tables with
+the skill points a level grants, and the fame the party's deeds earn — and `MightAndMagic7Combat` hands each
+death's own row, its experience column included, to the one award path the fight reports through, so a kill,
+a quest, and any later deed grow a character through the same owner and a training hall only charges the fee
+and quotes the step. Everything else
+listed above — the remaining class, skill, spell, monster, item, and formula policy, and rest and
 fatigue and service hours — attaches to the session as its stone lands. Fidelity per system — what matches
 the original, what is approximate, and what is deliberately ours — is fixed in
 [`../../docs/gameplay-design.md`](../../docs/gameplay-design.md).
