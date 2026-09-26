@@ -379,6 +379,14 @@ interface FighterView {
   readonly recoverySeconds: number;
   /** How far it stands from the party, in the place's own units. */
   readonly distance: number;
+  /** What the actor has left to lose, as the product read it from wherever that is owned. */
+  readonly hitPoints: number;
+  /** What it can take altogether, zero when nothing here states it. */
+  readonly hitPointsMax: number;
+  /** What is acting on the actor, in the product's own words, empty when nothing is. */
+  readonly conditions: string;
+  /** Whether the actor is out of the fight: laid out by what is on it, or taken down by harm. */
+  readonly down: boolean;
 }
 
 /**
@@ -413,6 +421,24 @@ interface CombatView {
   readonly message: string;
   /** What the last attack cost in game time, zero for a refusal. */
   readonly recoverySeconds: number;
+  /** Whether the last attack was resolved at all, which a fight with no resolution never is. */
+  readonly resolved: boolean;
+  /** Whether the last resolved attack landed. */
+  readonly hit: boolean;
+  /** How likely the product said it was to land, in ten-thousandths. */
+  readonly chance: number;
+  /** What the last attack's damage dice rolled, before resistance. */
+  readonly damageRolled: number;
+  /** How much harm the last attack left. */
+  readonly damage: number;
+  /** What kind of harm it did, empty when nothing was resolved. */
+  readonly damageKind: string;
+  /** What the target resisted: `immune`, a weight, or empty when nothing was resolved. */
+  readonly resistance: string;
+  /** What the last hit left on its target besides harm, empty when it left nothing. */
+  readonly condition: string;
+  /** Whether the last hit is what took its target down. */
+  readonly targetDown: boolean;
 }
 
 interface RestView {
@@ -655,6 +681,15 @@ const COMBAT_NONE: CombatView = {
   code: '',
   message: '',
   recoverySeconds: 0,
+  resolved: false,
+  hit: false,
+  chance: 0,
+  damageRolled: 0,
+  damage: 0,
+  damageKind: '',
+  resistance: '',
+  condition: '',
+  targetDown: false,
 };
 
 /** The rest of a session that holds no mechanism, or one this companion cannot read as a stop. */
@@ -1179,6 +1214,10 @@ function readFighter(value: unknown): FighterView | null {
     ready: value.ready === true,
     recoverySeconds: typeof value.recoverySeconds === 'number' ? value.recoverySeconds : 0,
     distance: typeof value.distance === 'number' ? value.distance : 0,
+    hitPoints: typeof value.hitPoints === 'number' ? value.hitPoints : 0,
+    hitPointsMax: typeof value.hitPointsMax === 'number' ? value.hitPointsMax : 0,
+    conditions: typeof value.conditions === 'string' ? value.conditions : '',
+    down: value.down === true,
   };
 }
 
@@ -1213,6 +1252,15 @@ function readCombat(value: unknown): CombatView {
     code,
     message,
     recoverySeconds: number(value.recoverySeconds),
+    resolved: value.resolved === true,
+    hit: value.hit === true,
+    chance: number(value.chance),
+    damageRolled: number(value.damageRolled),
+    damage: number(value.damage),
+    damageKind: typeof value.damageKind === 'string' ? value.damageKind : '',
+    resistance: typeof value.resistance === 'string' ? value.resistance : '',
+    condition: typeof value.condition === 'string' ? value.condition : '',
+    targetDown: value.targetDown === true,
   };
 }
 
@@ -2345,29 +2393,38 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
       : view.engaged
         ? `Engaged with ${view.opposition} — ${view.ready} of ${view.members.length} ready`
         : `Nobody is hostile — ${view.ready} of ${view.members.length} ready`;
+    // Every fact a fighter row shows is the product's own: what it is called, what it has left to lose,
+    // what is acting on it, and whether it is out of the fight. Nothing here is derived from a bar or a
+    // countdown the screen runs for itself, and a death is a row that says so rather than a missing row.
+    const fighter = (actor: FighterView, clause: string): HTMLLIElement => {
+      const row = document.createElement('li');
+      row.className = 'crawler-fighter';
+      row.dataset.ready = actor.ready ? 'yes' : 'no';
+      row.dataset.fighter = actor.id;
+      row.dataset.health = actor.hitPointsMax > 0 ? `${actor.hitPoints}/${actor.hitPointsMax}` : '';
+      row.dataset.conditions = actor.conditions;
+      row.dataset.down = actor.down ? 'yes' : 'no';
+      const pools = actor.hitPointsMax > 0 ? ` — ${actor.hitPoints}/${actor.hitPointsMax} hp` : '';
+      const conditions = actor.conditions === '' ? '' : ` — ${actor.conditions}`;
+      const down = actor.down ? ' — down' : '';
+      row.textContent = `${actor.name} — ${clause}${pools}${conditions}${down}`;
+      return row;
+    };
+
     combatMembers.replaceChildren(
-      ...view.members.map((member) => {
-        const row = document.createElement('li');
-        row.className = 'crawler-fighter';
-        row.dataset.ready = member.ready ? 'yes' : 'no';
-        row.dataset.fighter = member.id;
-        row.textContent = member.ready
-          ? `${member.name} — ready`
-          : `${member.name} — recovering ${member.recoverySeconds.toFixed(1)}s`;
-        return row;
-      }),
+      ...view.members.map((member) =>
+        fighter(member, member.ready ? 'ready' : `recovering ${member.recoverySeconds.toFixed(1)}s`),
+      ),
     );
     combatEnemies.replaceChildren(
-      ...view.enemies.map((enemy) => {
-        const row = document.createElement('li');
-        row.className = 'crawler-fighter';
-        row.dataset.ready = enemy.ready ? 'yes' : 'no';
-        row.dataset.fighter = enemy.id;
-        row.textContent = enemy.ready
-          ? `${enemy.name} — ready at ${enemy.distance.toFixed(0)}`
-          : `${enemy.name} — recovering ${enemy.recoverySeconds.toFixed(1)}s at ${enemy.distance.toFixed(0)}`;
-        return row;
-      }),
+      ...view.enemies.map((enemy) =>
+        fighter(
+          enemy,
+          enemy.ready
+            ? `ready at ${enemy.distance.toFixed(0)}`
+            : `recovering ${enemy.recoverySeconds.toFixed(1)}s at ${enemy.distance.toFixed(0)}`,
+        ),
+      ),
     );
     // The control is offered whenever the mechanism is there and somebody may act. A recovering party keeps
     // it disabled: an order while everybody is recovering is refused by the product, and a control that
@@ -2376,6 +2433,17 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     combatResult.hidden = view.message === '';
     combatResult.dataset.outcome = view.outcome;
     combatResult.dataset.code = view.code;
+    // What the last attack came to, in the product's own numbers: whether it landed, what it rolled, what
+    // the target's resistance took off it, what was left, and whether anything was left on the target.
+    combatResult.dataset.resolved = view.resolved ? 'yes' : 'no';
+    combatResult.dataset.hit = view.hit ? 'yes' : 'no';
+    combatResult.dataset.chance = String(view.chance);
+    combatResult.dataset.damage = String(view.damage);
+    combatResult.dataset.damageRolled = String(view.damageRolled);
+    combatResult.dataset.damageKind = view.damageKind;
+    combatResult.dataset.resistance = view.resistance;
+    combatResult.dataset.condition = view.condition;
+    combatResult.dataset.targetDown = view.targetDown ? 'yes' : 'no';
     combatResult.textContent = view.message;
   };
 

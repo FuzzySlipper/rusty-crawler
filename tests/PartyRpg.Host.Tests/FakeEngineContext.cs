@@ -109,6 +109,21 @@ internal sealed class TestRandomService : IRandomService
     /// <summary>What every keyed draw answers with, clamped into the range the caller asked for.</summary>
     internal long Roll { get; set; } = 100;
 
+    /// <summary>
+    /// What a draw answers for the request it was asked, or null to answer <see cref="Roll"/>.
+    /// </summary>
+    /// <remarks>
+    /// Answering null leaves the fixed <see cref="Roll"/> in place, which is what lets a test script one
+    /// kind of draw — a resistance check — without disturbing the hit roll and the damage dice of the same
+    /// blow.
+    /// </remarks>
+    /// <remarks>
+    /// Some mechanisms draw more than once for one act — a resistance is checked up to four times, and a
+    /// check that fails ends the halving — and a single fixed answer can only ever show all four or none.
+    /// A test that scripts the draws per request can show the middle the arithmetic is actually about.
+    /// </remarks>
+    internal Func<KeyedRngRequest, long?>? Answer { get; set; }
+
     /// <summary>How many keyed draws were taken, so a test can tell a roll from a guess.</summary>
     internal int Draws { get; private set; }
 
@@ -116,7 +131,8 @@ internal sealed class TestRandomService : IRandomService
     public KeyedRngReceipt DrawKeyed(KeyedRngRequest request)
     {
         Draws++;
-        return new KeyedRngReceipt(Math.Clamp(Roll, request.Minimum, request.Maximum));
+        long value = Answer?.Invoke(request) ?? Roll;
+        return new KeyedRngReceipt(Math.Clamp(value, request.Minimum, request.Maximum));
     }
 
     /// <inheritdoc />

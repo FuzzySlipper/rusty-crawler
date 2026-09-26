@@ -33,6 +33,7 @@ namespace PartyRpg.Kit.Combat;
 public sealed class Combatant
 {
     private GameDuration _recovery;
+    private int _wounds;
 
     internal Combatant(
         CombatSubject subject,
@@ -70,6 +71,18 @@ public sealed class Combatant
     /// </summary>
     public double Distance { get; private set; }
 
+    /// <summary>
+    /// How much harm this actor has taken in this fight, read only for actors the party does not own.
+    /// </summary>
+    /// <remarks>
+    /// A party member's health is the party's own pool and is read from there, never copied here. A world
+    /// actor has no health owner until the monsters-and-AI stone gives creatures theirs, so the fight keeps
+    /// what it has done to one for as long as the actor stands in the fight: the entities a population
+    /// creates live only for the visit that made them, so this lifetime is the same one the world gives a
+    /// creature rather than a second, longer-lived store beside it.
+    /// </remarks>
+    public int Wounds => _wounds;
+
     /// <summary>How much game time must pass before the actor may act again.</summary>
     public GameDuration Recovery => _recovery;
 
@@ -79,6 +92,14 @@ public sealed class Combatant
     /// <summary>Charges one action's recovery, which is how an actor becomes unable to act.</summary>
     /// <param name="recovery">What the action costs, which the ruleset answered.</param>
     internal void Spend(GameDuration recovery) => _recovery = recovery;
+
+    /// <summary>Records harm landed on an actor the party does not own.</summary>
+    /// <param name="damage">How much harm landed, which cannot be negative.</param>
+    internal void Wound(int damage)
+    {
+        if (damage <= 0) return;
+        _wounds += damage;
+    }
 
     /// <summary>Advances the recovery by game time that has passed, never past ready.</summary>
     /// <param name="elapsed">The game time the clock moved by.</param>

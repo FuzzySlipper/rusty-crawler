@@ -126,11 +126,13 @@ internal static class MightAndMagic7Party
     /// </summary>
     /// <remarks>
     /// Equipment gating, pack capacity, stacking, and the hired limit are the item and skill owners' policy
-    /// and none of them exists yet, so this factory gates nothing yet. It is one method rather than two call
-    /// sites so that when those rules land they land for creation and for a load at once, instead of one of
-    /// the two paths quietly keeping an older answer.
+    /// and none of them exists yet, so this factory gates nothing yet. What it does state is what a wound
+    /// leaves on a character, because that answer must reach both creation and a load: a member built by
+    /// either path obeys the same thresholds, and a trap sprung in the world lands on the same health rule a
+    /// creature's bite does. It is one method rather than two call sites so that when the remaining rules
+    /// land they land for both paths at once, instead of one of the two quietly keeping an older answer.
     /// </remarks>
-    internal static PartyEntityFactory Factory() => new();
+    internal static PartyEntityFactory Factory() => new(health: new MightAndMagic7Health());
 
     /// <summary>Reads the members a party entry declares, reporting every one it cannot read.</summary>
     private static List<MemberCreation> Members(ContentEntry entry, Action<string, string> defect)

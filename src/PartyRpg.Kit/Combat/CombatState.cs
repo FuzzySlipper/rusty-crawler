@@ -43,6 +43,7 @@ namespace PartyRpg.Kit.Combat;
 public sealed class CombatState : IGameTimeObserver
 {
     private readonly ICombatRule _rule;
+    private readonly ICombatResolutionRule? _resolution;
     private readonly PartyEntity _party;
     private readonly ICombatWorld? _world;
     private readonly GameClock? _clock;
@@ -52,9 +53,15 @@ public sealed class CombatState : IGameTimeObserver
     private readonly List<Combatant> _combatants = [];
     private AttackInitiation? _lastAttack;
     private CombatResult? _lastOrder;
+    private CombatResolution? _lastResolution;
+    private long _attacksResolved;
 
     /// <summary>Creates a fight over the party and the world it stands in.</summary>
-    /// <param name="rule">This game's answers about recovery, hostility, reach, and what an actor is.</param>
+    /// <param name="rule">
+    /// This game's answers about recovery, hostility, reach, and what an actor is. A rule that also answers
+    /// <see cref="ICombatResolutionRule"/> resolves what its attacks do; one that answers only pacing fights
+    /// without resolving anything, and every attack is recorded as an attempt that came to nothing.
+    /// </param>
     /// <param name="party">
     /// The party, which is the fight's own side: its members are combatants whether or not anything is
     /// hostile, so a party with nobody to fight still paces its own actions.
@@ -79,6 +86,7 @@ public sealed class CombatState : IGameTimeObserver
         IDiagnosticsService? diagnostics = null)
     {
         _rule = rule ?? throw new ArgumentNullException(nameof(rule));
+        _resolution = rule as ICombatResolutionRule;
         _party = party ?? throw new ArgumentNullException(nameof(party));
         _world = world;
         _clock = clock;
@@ -96,20 +104,44 @@ public sealed class CombatState : IGameTimeObserver
     /// </remarks>
     public IReadOnlyList<Combatant> Combatants => _combatants;
 
-    /// <summary>The actors currently fighting the party, in combatant order.</summary>
+    /// <summary>
+    /// The actors currently fighting the party, in combatant order.
+    /// </summary>
+    /// <remarks>
+    /// An actor that is down is not fighting: it keeps its side and is still published, because a reader
+    /// that could not see a body could not tell one from a place it never was, but nothing here counts it as
+    /// an enemy still to be dealt with.
+    /// </remarks>
     public IReadOnlyList<Combatant> Opposition =>
-        [.. _combatants.Where(combatant => combatant.Side == CombatSide.Opposition)];
+        [.. _combatants.Where(combatant => combatant.Side == CombatSide.Opposition && !IsDown(combatant))];
 
     /// <summary>Whether anything in the place is fighting the party right now.</summary>
-    public bool IsEngaged => _combatants.Any(combatant => combatant.Side == CombatSide.Opposition);
+    public bool IsEngaged => _combatants.Any(combatant => combatant.Side == CombatSide.Opposition && !IsDown(combatant));
 
     /// <summary>What the last accepted attack was, or null before anything has attacked.</summary>
     /// <remarks>
-    /// This is where what an attack <em>was</em> becomes readable, and it is the record a later stone
-    /// consumes to resolve one: who acted, how, against what, when, and what it cost. Nothing here resolves
-    /// anything, so an initiation is a fact about a fight and not a promise about its outcome.
+    /// This is what an attack <em>was</em>: who acted, how, against what, when, and what it cost. What came
+    /// of it is <see cref="LastResolution"/>, which is a separate record because an attempt and its outcome
+    /// are separate facts — a fight whose ruleset resolves nothing still says what was attempted.
     /// </remarks>
     public AttackInitiation? LastAttack => _lastAttack;
+
+    /// <summary>
+    /// What the last attack did, or null before anything has resolved one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is where an attack becomes an outcome: whether it landed, what it rolled, what the target's
+    /// resistance took off it, what harm was left, what condition followed, and where the target now stands.
+    /// It is the record the panel shows and diagnostics report, and it is read together with
+    /// <see cref="LastAttack"/> — the initiation says what was attempted, this says what it came to.
+    /// </para>
+    /// <para>
+    /// It is null for a fight whose ruleset answers no resolution, and for an attack at nothing: an actor
+    /// with nothing in reach has still acted, and there is nothing there to resolve against.
+    /// </para>
+    /// </remarks>
+    public CombatResolution? LastResolution => _lastResolution;
 
     /// <summary>
     /// What the last order to attack did, whether it applied or was refused, or null before any was given.
@@ -227,13 +259,23 @@ public sealed class CombatState : IGameTimeObserver
     }
 
     /// <summary>
-    /// Applies one order to attack, if the actor may act.
+    /// Applies one order to attack, resolves what it does, if the actor may act.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// This is the fight's one entry for making an actor act, whoever asked: the player's control through
-    /// <see cref="Engage"/>, and whoever drives the creatures on the other side. The actor's own recovery
-    /// decides whether it may, so a creature that is not ready cannot be driven to act by a later AI owner
-    /// any more than a character can be driven to act by a key — one pacing, one gate.
+    /// <see cref="Engage"/>, and whoever drives the creatures on the other side. Two gates stand in front of
+    /// it and both are the actor's own state: its recovery, which the one clock advances, and what its
+    /// conditions leave it able to do, which the ruleset answers. A creature that is not ready, or one that
+    /// is asleep or dead, cannot be driven to act by a later AI owner any more than a character can be driven
+    /// to act by a key — one pacing, one gate, one rule about who may fight.
+    /// </para>
+    /// <para>
+    /// An accepted attack is initiated and then resolved here, at the one point where
+    /// <see cref="AttackInitiation"/> exists: the initiation says what was attempted and what it cost, the
+    /// resolution says what it did. A fight whose ruleset answers no resolution produces initiations and no
+    /// outcomes, which is a product that paces a fight without yet knowing what a blow is worth.
+    /// </para>
     /// </remarks>
     /// <param name="order">Who acts, how, and against what.</param>
     /// <returns>What the order did, or why it did not.</returns>
@@ -268,6 +310,18 @@ public sealed class CombatState : IGameTimeObserver
                 string.Create(
                     CultureInfo.InvariantCulture,
                     $"{actor.Name} is still recovering: {actor.Recovery.Milliseconds}ms of game time must pass before it can act again.")));
+        }
+
+        // What the actor's conditions leave it able to do is the ruleset's answer, asked before anything is
+        // spent: an unconscious, sleeping, paralysed, petrified, dead, or eradicated actor does not act at
+        // all, so it owes no recovery for an attack it never made.
+        if (_resolution is { } conditions && !conditions.CanAct(actor.Subject))
+        {
+            return Report(CombatResult.Refused(
+                actor.Id,
+                actor.Name,
+                "incapacitated",
+                $"{actor.Name} cannot act: {Describe(actor)} leaves them unable to fight, and nothing was spent on an attack they did not make."));
         }
 
         Combatant? target = null;
@@ -312,8 +366,178 @@ public sealed class CombatState : IGameTimeObserver
             _clock?.Now,
             recovery);
         _lastAttack = initiation;
-        return Report(CombatResult.Applied(initiation));
+
+        // Resolution happens at the moment of initiation and nowhere else: there is one place where an
+        // attack becomes an outcome, so a melee swing, a shot, and a spell cannot drift into three paths
+        // that damage a target differently.
+        CombatResolution? resolution = Resolve(actor, target, order.Kind);
+        _lastResolution = resolution;
+        return Report(CombatResult.Applied(initiation, resolution));
     }
+
+    /// <summary>
+    /// What an actor has left to lose and what it can take altogether, read from wherever that is owned.
+    /// </summary>
+    /// <remarks>
+    /// A member's pool is the party's own and is read live; a world actor's health has no owner until the
+    /// monsters-and-AI stone gives creatures theirs, so what the fight has done to one is measured against
+    /// the ruleset's reading of how much it can take. The panel reads both through here, so what it shows
+    /// and what the fight acted on are one fact rather than two.
+    /// </remarks>
+    /// <param name="combatant">The actor to measure.</param>
+    /// <returns>What it has left, and what it can take altogether.</returns>
+    /// <exception cref="ArgumentNullException">No combatant was supplied.</exception>
+    public (int Current, int Maximum) Vitals(Combatant combatant)
+    {
+        ArgumentNullException.ThrowIfNull(combatant);
+        if (combatant.Subject.Member is { } member)
+        {
+            return (member.Resources.HitPoints.Current, member.Resources.HitPoints.Maximum);
+        }
+
+        int maximum = _resolution?.HitPointsOf(combatant.Subject) ?? 0;
+        return (Math.Max(0, maximum - combatant.Wounds), maximum);
+    }
+
+    /// <summary>
+    /// Whether an actor is out of the fight: laid out by what is acting on it, or taken down by harm.
+    /// </summary>
+    /// <remarks>
+    /// A member is out when the ruleset says its conditions leave it unable to act, which is the same answer
+    /// the order gate uses, so what a panel shows and what the fight enforces are one fact. A world actor is
+    /// out when the harm the fight has done to it has reached what the ruleset says it can take. Neither is
+    /// a removal from the fight's actors: an actor that is down still stands where it stood and is still
+    /// published, because a reader that could not see it could not tell a body from a place it never was.
+    /// </remarks>
+    /// <param name="combatant">The actor to judge.</param>
+    /// <returns>Whether it is out of the fight.</returns>
+    /// <exception cref="ArgumentNullException">No combatant was supplied.</exception>
+    public bool IsDown(Combatant combatant)
+    {
+        ArgumentNullException.ThrowIfNull(combatant);
+        if (_resolution is { } rule && !rule.CanAct(combatant.Subject)) return true;
+        if (combatant.Subject.Member is not null) return false;
+
+        int maximum = _resolution?.HitPointsOf(combatant.Subject) ?? 0;
+        return maximum > 0 && combatant.Wounds >= maximum;
+    }
+
+    /// <summary>
+    /// Resolves one attack against its target, applying what it does and stating what came of it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The order here is the whole of the mechanism: ask for the attack's rolls under a key that names the
+    /// attack, read what the ruleset says the attack is worth against this target, roll the hit, roll the
+    /// damage, let the target's resistance take its share, ask what the hit left behind, and apply all of it
+    /// to whoever owns the target's health. Every number comes from the ruleset; what the kit decides is when
+    /// each question is asked and what is done with the answers.
+    /// </para>
+    /// <para>
+    /// A fight whose ruleset cannot draw resolves nothing rather than resolving against an invented value,
+    /// and an attack at nothing resolves nothing because there is nothing there to resolve against.
+    /// </para>
+    /// </remarks>
+    private CombatResolution? Resolve(Combatant actor, Combatant? target, AttackKind kind)
+    {
+        if (_resolution is not { } resolution || target is null) return null;
+
+        // The key names the attack inside the fight, so two swings by one actor at one target are still two
+        // different draws, and the same fight replayed draws the same values.
+        string key = string.Create(
+            CultureInfo.InvariantCulture,
+            $"{actor.Subject.Place}/{actor.Id}/{target.Id}/{AttackKinds.WireName(kind)}/{_attacksResolved}");
+        if (resolution.RollsFor(actor.Subject, key) is not { } rolls) return null;
+        _attacksResolved++;
+
+        AttackPlan plan = resolution.PlanOf(actor.Subject, target.Subject, kind);
+        int hitRoll = rolls.Roll("hit", 0, HitChance.Certain - 1);
+        (int current, int maximum) = Vitals(target);
+        if (!plan.Chance.Hits(hitRoll))
+        {
+            return CombatResolution.Missed(
+                actor.Id,
+                actor.Name,
+                target.Id,
+                target.Name,
+                kind,
+                plan.Chance,
+                hitRoll,
+                plan.Kind,
+                current,
+                maximum);
+        }
+
+        int rolled = plan.Damage.Roll(rolls, "damage");
+        int damage = plan.Resistance.IsImmune
+            ? 0
+            : Math.Max(0, resolution.DamageAfterResistance(target.Subject, plan.Kind, rolled, rolls));
+        CombatCondition? condition = resolution.ConditionOf(actor.Subject, target.Subject, plan.Kind, rolls);
+        bool down = Wound(target, damage, condition, maximum);
+        (current, maximum) = Vitals(target);
+        return CombatResolution.Landed(
+            actor.Id,
+            actor.Name,
+            target.Id,
+            target.Name,
+            kind,
+            plan.Chance,
+            hitRoll,
+            plan.Kind,
+            rolled,
+            plan.Resistance,
+            damage,
+            condition,
+            down,
+            current,
+            maximum);
+    }
+
+    /// <summary>
+    /// Lands one hit on its target and reports whether this is what took it down.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A member takes harm through the party's own damage entry, which is where this game's answer about what
+    /// a wound leaves is applied: the fight does not decide that a character is unconscious or dead, it
+    /// states how much harm landed and the character's own health answers. The condition a landed hit inflicts
+    /// besides harm — a bite's poison, a gaze's stone — is applied on top, through the member's own
+    /// conditions.
+    /// </para>
+    /// <para>
+    /// A world actor's harm is kept by the fight, because nothing owns a creature's health yet: the fight
+    /// records what it has done to one and takes it down when that reaches what the ruleset says it can take.
+    /// </para>
+    /// </remarks>
+    private bool Wound(Combatant target, int damage, CombatCondition? condition, int maximum)
+    {
+        if (target.Subject.Member is { } member)
+        {
+            CharacterWound wound = member.TakeDamage(damage);
+            bool laid = wound.Fell;
+            if (condition is { } left)
+            {
+                member.Conditions.Apply(new ActiveCondition(left.Condition, left.Severity));
+                laid = laid || (_resolution is { } rule && !rule.CanAct(target.Subject));
+            }
+
+            return laid;
+        }
+
+        if (damage > 0)
+        {
+            bool before = maximum > 0 && target.Wounds >= maximum;
+            target.Wound(damage);
+            return !before && maximum > 0 && target.Wounds >= maximum;
+        }
+
+        return false;
+    }
+
+    /// <summary>What is acting on an actor, in the words the kit already carries, for a refusal to name.</summary>
+    private static string Describe(Combatant actor) => actor.Subject.Member is { } member && member.Conditions.Count > 0
+        ? string.Join(", ", member.Conditions.Active.Select(condition => condition.ToString()))
+        : "what is acting on them";
 
     /// <summary>The combatant an identity belongs to, or null when no actor in this fight has it.</summary>
     /// <param name="id">The identity to look for.</param>
@@ -363,6 +587,11 @@ public sealed class CombatState : IGameTimeObserver
         foreach (Combatant candidate in _combatants)
         {
             if (candidate.Side == CombatSide.Party || candidate.Distance > reach) continue;
+
+            // A body is not a target: an actor this fight has taken down is left where it fell, so the
+            // party's next order is spent on what is still standing rather than on what it has already
+            // finished.
+            if (IsDown(candidate)) continue;
             if (nearest is null || candidate.Distance < nearest.Distance) nearest = candidate;
         }
 

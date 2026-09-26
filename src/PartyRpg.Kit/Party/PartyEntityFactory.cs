@@ -29,6 +29,7 @@ public sealed class PartyEntityFactory
     private readonly IEquipmentUseRule? _equipmentUse;
     private readonly IInventoryCapacityRule? _inventoryCapacity;
     private readonly IItemStackingRule? _stacking;
+    private readonly ICharacterHealthRule? _health;
     private readonly int _hiredFollowerLimit;
 
     /// <summary>Creates a factory over the rules the party it builds obeys.</summary>
@@ -44,18 +45,25 @@ public sealed class PartyEntityFactory
     /// The rule that says how far copies of one definition bundle. Without one nothing stacks.
     /// </param>
     /// <param name="hiredFollowerLimit">How many hired followers the party may have at once, from tuning.</param>
+    /// <param name="health">
+    /// The rule that says what a wound leaves on a member: the condition a character's own health takes from
+    /// harm, whether that harm came from a fight or from a trap. Without one a member's pool stops at empty
+    /// and no condition follows, which is what a ruleset stating no thresholds gets.
+    /// </param>
     /// <exception cref="ArgumentOutOfRangeException">The hired limit is negative.</exception>
     public PartyEntityFactory(
         IEquipmentUseRule? equipmentUse = null,
         IInventoryCapacityRule? inventoryCapacity = null,
         IItemStackingRule? stacking = null,
-        int hiredFollowerLimit = 0)
+        int hiredFollowerLimit = 0,
+        ICharacterHealthRule? health = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(hiredFollowerLimit);
         _equipmentUse = equipmentUse;
         _inventoryCapacity = inventoryCapacity;
         _stacking = stacking;
         _hiredFollowerLimit = hiredFollowerLimit;
+        _health = health;
     }
 
     /// <summary>Creates a party from what a creation flow produced.</summary>
@@ -74,7 +82,7 @@ public sealed class PartyEntityFactory
         entity.Add(identity);
 
         List<PartyMember> members = [];
-        foreach (MemberCreation member in creation.Members) members.Add(AttachMember(store, identity.MintMemberId(), member.Seed));
+        foreach (MemberCreation member in creation.Members) members.Add(AttachMember(store, identity.MintMemberId(), member.Seed, _health));
 
         entity.Add(new PartyRoster(members));
         entity.Add(new PartyInventory(_inventoryCapacity, _stacking));
@@ -114,7 +122,7 @@ public sealed class PartyEntityFactory
         entity.Add(new PartyIdentitySource(save.NextMemberValue, save.NextItemValue));
 
         List<PartyMember> members = [];
-        foreach (PartyMemberSave member in save.Members) members.Add(AttachMember(store, member.Id, member.Seed));
+        foreach (PartyMemberSave member in save.Members) members.Add(AttachMember(store, member.Id, member.Seed, _health));
 
         PartyInventory inventory = new(_inventoryCapacity, _stacking);
         PartyFollowers followers = new(_hiredFollowerLimit);
@@ -262,7 +270,7 @@ public sealed class PartyEntityFactory
         new(store, store.Create(new EntityTypeId(kind), EntityLifecycle.Active));
 
     /// <summary>Attaches every character component a member is made of, and returns the facade over them.</summary>
-    private static PartyMember AttachMember(EntityStore store, PartyMemberId id, PartyMemberSeed seed)
+    private static PartyMember AttachMember(EntityStore store, PartyMemberId id, PartyMemberSeed seed, ICharacterHealthRule? health)
     {
         Actor entity = NewEntity(store, PartyMember.EntityKind);
         entity.Add(new CharacterProfile(id, seed.Name, seed.Race, seed.Class, seed.Portrait));
@@ -273,7 +281,7 @@ public sealed class PartyEntityFactory
         entity.Add(new CharacterConditions(seed.Conditions));
         entity.Add(new CharacterResources(seed.HitPoints, seed.SpellPoints));
         entity.Add(new CharacterEquipment());
-        return new PartyMember(entity);
+        return new PartyMember(entity, health);
     }
 
     /// <summary>Puts creation's starting equipment on a member through the same gated path a later equip takes.</summary>

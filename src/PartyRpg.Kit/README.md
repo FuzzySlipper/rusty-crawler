@@ -10,7 +10,8 @@ Owns:
   inventory over per-character equipment.
 - Character mechanisms: attributes, skill and spell catalogs, learning and
   casting workflows, conditions and recovery, progression bookkeeping.
-- Combat: attack execution, targeting and current target, damage and effect
+- Combat: attack execution, targeting and current target, attack resolution, damage kinds,
+  resistance and immunity, conditions a hit leaves, and the thresholds a wound is judged against
   application, real-time and turn-based mode coordination, corpse and loot
   machinery, monster presence and AI coordination.
 - World interaction: NPC conversation, services, quests and journal state,
@@ -87,8 +88,20 @@ into a transition, the movement facts the panel reports, the one combat state
 per creature the ruleset recognizes in the party's place, one `Combatant.Recovery` quantity each advanced
 from the game time the one clock reports and gated before any `AttackOrder` is applied, `Hostility` as a
 ruleset answer about what a thing is plus the fight's own memory of what the party has done to it, and an
-`ICombatRule` seam for recovery values, notice ranges, reach, and names; no scene, no second population, no
-per-kind cooldown, and no timer), and the one interaction mechanism
+`ICombatRule` seam for recovery values, notice ranges, reach, and names, and the one resolution path every
+kind of attack takes — the fight consumes the `AttackInitiation` it published, asks the
+`ICombatResolutionRule` seam for a chance, a kind of harm, dice, and the target's resistance, rolls them
+through keyed `AttackRolls` under a key that names the attack, applies what is left to whoever owns the
+target's health, applies the `CombatCondition` a landed hit leaves, records a `CombatResolution`, and
+reports it, with `DamageKindId`, `DamageRoll` (dice, a bonus, and a floor), `Resistance` (a weight or full
+immunity), `HitChance` in ten-thousandths, and `AttackPlan` as the vocabulary; `Combatant.Wounds` keeps
+what a fight has done to an actor the party does not own, and `CombatState.Vitals`, `IsDown`, and
+`LastResolution` are what the panel reads; no scene, no second population, no per-kind cooldown, no
+per-kind damage class, and no timer), one damage entry for a character's own health
+(`Party/` — `PartyMember.TakeDamage` is where every wound arrives, a creature's bite and a sprung trap
+alike, taking harm into the party's own pool, keeping `CharacterResources.Deficit` for how far past empty
+it went, and asking the `ICharacterHealthRule` seam which condition the wound leaves and which it moves
+past), and the one interaction mechanism
 (`Interaction/` — an `InteractionTarget` discovered from the place's own placements and the party's pose
 rather than from a list, with the engine's own reticle selection composed over the candidates, one use
 workflow that identifies the target, judges each `InteractionRequirement` in the order the ruleset stated

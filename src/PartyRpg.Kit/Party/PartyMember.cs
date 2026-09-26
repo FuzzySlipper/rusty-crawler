@@ -30,8 +30,22 @@ public sealed class PartyMember
     public const string EntityKind = "party-member";
 
     private readonly Actor _actor;
+    private readonly ICharacterHealthRule? _health;
 
-    internal PartyMember(Actor actor) => _actor = actor;
+    /// <summary>Wraps a member's entity, with the rule the member's own health obeys.</summary>
+    /// <remarks>
+    /// The rule is not state and no copy of anything: it is the answer this game gives about what a wound
+    /// leaves on a character, held on the facade because a member is the one thing that knows both the harm
+    /// that landed and the numbers it is judged against. A member built without one takes harm into its pool
+    /// and no condition follows, which is the honest state of a product whose ruleset has not answered yet.
+    /// </remarks>
+    /// <param name="actor">The entity carrying everything about this character.</param>
+    /// <param name="health">What this game makes of a wound, or null when it answers nothing.</param>
+    internal PartyMember(Actor actor, ICharacterHealthRule? health = null)
+    {
+        _actor = actor;
+        _health = health;
+    }
 
     /// <summary>The engine actor for this member, through which components are attached and read.</summary>
     public Actor Actor => _actor;
@@ -71,6 +85,42 @@ public sealed class PartyMember
 
     /// <summary>The member's equipped figure: the only item state the member owns.</summary>
     public CharacterEquipment Equipment => _actor.Get<CharacterEquipment>();
+
+    /// <summary>
+    /// Takes harm, and whatever this game's own answer makes of the wound.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is a character's one damage entry.</b> Every way harm can reach a member — a creature's bite
+    /// through a fight, a sprung trap, a fall — arrives here rather than at the pool directly, so the same
+    /// wound leaves the same condition however it was taken and no caller has to remember the rule. What
+    /// lands in the pool is the same number either way; what is added is the state that follows it, applied
+    /// through the member's own conditions rather than as a silent change to a number.
+    /// </para>
+    /// <para>
+    /// The pool's own <see cref="CharacterResources.TakeDamage"/> remains what it says it is: a pool
+    /// operation that stops at empty, for a caller that is moving a number rather than wounding a person.
+    /// </para>
+    /// </remarks>
+    /// <param name="amount">How much harm lands, which cannot be negative.</param>
+    /// <returns>What the wound took, how far past empty it went, and what it left on the member.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The harm is negative, which would heal rather than wound.</exception>
+    public CharacterWound TakeDamage(int amount)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(amount);
+
+        Resources.TakeDamage(amount);
+
+        // What the wound came to is read after the pool took it: the pool stops at empty, and how far past
+        // empty the harm has now gone is the character's own running depth, so a second blow on someone
+        // already down deepens the wound rather than starting it again.
+        int after = Resources.HitPoints.Current;
+        int deficit = Resources.Deficit;
+        CharacterCollapse collapse = _health?.Collapse(this, after, deficit) ?? CharacterCollapse.None;
+        foreach (ConditionId ended in collapse.Replaces) Conditions.Clear(ended);
+        if (collapse.Condition is { } condition) Conditions.Apply(condition);
+        return new CharacterWound(amount, after, deficit, collapse.Condition);
+    }
 
     /// <summary>
     /// Raises a learned skill and charges the skill points the caller computed, in one operation.

@@ -17,9 +17,11 @@ namespace PartyRpg.Kit.Combat;
 /// saying "the attack did not happen" would hide which of them it was.
 /// </para>
 /// <para>
-/// <b>An accepted attack is not a hit.</b> The initiation says what was attempted and what it cost; whether
-/// it lands, and what it does, is resolution and belongs to the ruleset. An applied result therefore carries
-/// no damage, no condition, and no death — this stone paces attacks, and nothing yet answers what they do.
+/// <b>An accepted attack is not a hit.</b> The initiation says what was attempted and what it cost;
+/// <see cref="Resolution"/> says what it did — whether it landed, what harm it left, and what condition
+/// followed. The two travel together on one result so a reader never sees an outcome beside the shape of an
+/// earlier swing, and a fight whose ruleset resolves nothing carries an initiation with no outcome rather
+/// than a hit nothing answered.
 /// </para>
 /// </remarks>
 public sealed record CombatResult
@@ -30,7 +32,8 @@ public sealed record CombatResult
         bool isApplied,
         string code,
         string message,
-        AttackInitiation? initiated)
+        AttackInitiation? initiated,
+        CombatResolution? resolution)
     {
         Actor = actor;
         ActorName = actorName;
@@ -38,6 +41,7 @@ public sealed record CombatResult
         Code = code;
         Message = message;
         Initiated = initiated;
+        Resolution = resolution;
     }
 
     /// <summary>The combatant that was ordered.</summary>
@@ -58,21 +62,30 @@ public sealed record CombatResult
     /// <summary>What the attack was, or null when the actor did not act.</summary>
     public AttackInitiation? Initiated { get; }
 
-    /// <summary>The actor attacked; this is what the attempt was and what it cost.</summary>
+    /// <summary>What the attack did, or null when the actor did not act or nothing answered what it does.</summary>
+    public CombatResolution? Resolution { get; }
+
+    /// <summary>The actor attacked; this is what the attempt was, what it cost, and what it did.</summary>
     /// <param name="initiation">The attack the fight initiated.</param>
+    /// <param name="resolution">
+    /// What the attack did, or null when the ruleset answered nothing about what attacks do. A fight with no
+    /// resolution still reports the attempt, because an attack that was made is a fact about the fight
+    /// whether or not anything can say what it was worth.
+    /// </param>
     /// <returns>The result.</returns>
     /// <exception cref="ArgumentNullException">No initiation was supplied.</exception>
-    public static CombatResult Applied(AttackInitiation initiation)
+    public static CombatResult Applied(AttackInitiation initiation, CombatResolution? resolution = null)
     {
         ArgumentNullException.ThrowIfNull(initiation);
-        string message = initiation.HasTarget
+        string attempt = initiation.HasTarget
             ? string.Create(
                 CultureInfo.InvariantCulture,
                 $"{initiation.ActorName} attacks {initiation.TargetName} ({AttackKinds.WireName(initiation.Kind)}) and must recover {initiation.Recovery.Milliseconds}ms of game time.")
             : string.Create(
                 CultureInfo.InvariantCulture,
                 $"{initiation.ActorName} attacks nothing in reach ({AttackKinds.WireName(initiation.Kind)}) and must recover {initiation.Recovery.Milliseconds}ms of game time.");
-        return new CombatResult(initiation.Actor, initiation.ActorName, isApplied: true, string.Empty, message, initiation);
+        string message = resolution is null ? attempt : $"{attempt} {resolution.Message}";
+        return new CombatResult(initiation.Actor, initiation.ActorName, isApplied: true, string.Empty, message, initiation, resolution);
     }
 
     /// <summary>The actor did not act, and this is why.</summary>
@@ -86,7 +99,7 @@ public sealed record CombatResult
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        return new CombatResult(actor, actorName ?? string.Empty, isApplied: false, code, message, initiated: null);
+        return new CombatResult(actor, actorName ?? string.Empty, isApplied: false, code, message, initiated: null, resolution: null);
     }
 
     /// <inheritdoc />

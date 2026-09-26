@@ -39,7 +39,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// equipment, and their place is the sum below.
 /// </para>
 /// </remarks>
-internal sealed class MightAndMagic7Combat : ICombatRule
+internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule
 {
     /// <summary>The definition kind a monster row is imported under.</summary>
     internal const string MonsterDefinitionKind = "monster";
@@ -84,6 +84,72 @@ internal sealed class MightAndMagic7Combat : ICombatRule
 
     /// <summary>The placement field that names the people standing at a placement.</summary>
     internal const string PeopleField = "people";
+
+    /// <summary>The monster row field that states its level.</summary>
+    internal const string LevelField = "level";
+
+    /// <summary>The monster row field that states its hit points.</summary>
+    internal const string HitPointsField = "hitPoints";
+
+    /// <summary>The monster row field that states its armor class.</summary>
+    internal const string ArmorClassField = "armorClass";
+
+    /// <summary>The monster row column that states what its first attack does, and of what kind.</summary>
+    /// <remarks>
+    /// The table's own columns, named in its header row and read by the donor at the same positions
+    /// (OpenEnroth <c>src/Engine/Objects/Monsters.cpp:534-555</c>): 16 the special attack, 17 the first
+    /// attack's damage type, 18 its dice, 19 its missile, 28 to 37 the ten resistances.
+    /// </remarks>
+    internal const int SpecialAttackColumn = 16;
+
+    /// <summary>The column that states the damage type of a monster's first attack.</summary>
+    internal const int AttackTypeColumn = 17;
+
+    /// <summary>The column that states the dice of a monster's first attack.</summary>
+    internal const int AttackDamageColumn = 18;
+
+    /// <summary>The column that states what a monster's first attack throws, empty when it is a blow.</summary>
+    internal const int AttackMissileColumn = 19;
+
+    /// <summary>The name the shipped table gives the people it places in the world.</summary>
+    /// <remarks>
+    /// A person standing in a level is an actor with a monster row in the donor, and the rows it uses are
+    /// named <c>Peasant</c> (OpenEnroth <c>src/Engine/Objects/MonsterEnumFunctions.cpp:60-80</c>, the
+    /// peasant monster types with their race and sex). Our people content comes from the NPC table, which
+    /// states no monster row and no tier, so this game reads the first shipped peasant row for every person
+    /// and says so where a person's hit points are read.
+    /// </remarks>
+    internal const string PersonRowName = "Peasant";
+
+    /// <summary>The scope this game's attack rolls are drawn under, so they cannot collide with another owner's.</summary>
+    internal const string AttackRollScope = "mm7.combat.attack";
+
+    /// <summary>How many resistance checks one hit may fail before harm stops being halved.</summary>
+    /// <remarks>
+    /// OpenEnroth <c>src/Engine/Objects/Actor.cpp:3750-3756</c> and
+    /// <c>src/Engine/Objects/Character.cpp:1101-1108</c>: four checks at most, each of which halves what is
+    /// left, so a well-resisted hit can be reduced to a sixteenth.
+    /// </remarks>
+    internal const int ResistanceChecks = 4;
+
+    /// <summary>What a resistance check must roll at or above to halve the harm.</summary>
+    /// <remarks>
+    /// The donor's own threshold in both formulas: the check rolls over the resistance plus thirty, and a
+    /// roll below thirty ends the halving (OpenEnroth <c>src/Engine/Objects/Actor.cpp:3751-3755</c>).
+    /// </remarks>
+    internal const int ResistanceThreshold = 30;
+
+    /// <summary>How far off a shot stops being able to hit at all.</summary>
+    /// <remarks>
+    /// OpenEnroth <c>src/Engine/Objects/Actor.cpp:3025-3034</c>: a projectile further than 5120 world units
+    /// from the party never resolves against a monster that is not in its full AI state, which is the same
+    /// radius this game gives a shot its reach with.
+    /// </remarks>
+    internal const double ProjectileLimit = 5120;
+
+    /// <summary>The distance at which a shot is a medium-range one rather than a close one.</summary>
+    /// <remarks>OpenEnroth <c>src/Engine/Objects/Actor.cpp:3030-3033</c>: 2560 world units and beyond.</remarks>
+    internal const double MediumRange = 2560;
 
     /// <summary>The donor's own tick rate, which its recovery values are counted in.</summary>
     /// <remarks>OpenEnroth <c>src/Core/Time/Duration.h:28</c> — <c>TICKS_PER_REALTIME_SECOND = 128</c>.</remarks>
@@ -175,6 +241,24 @@ internal sealed class MightAndMagic7Combat : ICombatRule
     /// <summary>The attribute that shortens every recovery, as the shipped attribute table names it.</summary>
     internal static readonly AttributeId SpeedAttribute = new("Speed");
 
+    /// <summary>The attribute a character's chance to land a blow is priced from.</summary>
+    internal static readonly AttributeId AccuracyAttribute = new("Accuracy");
+
+    /// <summary>The attribute a character's blow is made heavier by.</summary>
+    internal static readonly AttributeId MightAttribute = new("Might");
+
+    /// <summary>The attribute a character's armour class and their saving throws are priced from.</summary>
+    internal static readonly AttributeId LuckAttribute = new("Luck");
+
+    /// <summary>The attribute a curse tests and a drained spell point is measured against.</summary>
+    internal static readonly AttributeId PersonalityAttribute = new("Personality");
+
+    /// <summary>The attribute a drained spell point is measured against.</summary>
+    internal static readonly AttributeId IntellectAttribute = new("Intellect");
+
+    /// <summary>The skill that turns blows aside when nothing is worn.</summary>
+    internal static readonly SkillId DodgeSkill = new("Dodging");
+
     /// <summary>The rung the donor doubles the armsmaster reduction at.</summary>
     /// <remarks>OpenEnroth <c>src/Engine/Objects/Character.cpp:1710-1716</c> — grand master doubles it.</remarks>
     private const int GrandMasterRung = 4;
@@ -188,11 +272,11 @@ internal sealed class MightAndMagic7Combat : ICombatRule
     /// reaches decides the bonus, and the same table prices might, endurance, and speed. They are stated
     /// together here because the pairing is the table.
     /// </remarks>
-    private static readonly int[] ParameterThresholds =
+    internal static readonly int[] ParameterThresholds =
         [500, 400, 350, 300, 275, 250, 225, 200, 175, 150, 125, 100, 75, 50, 40, 35, 30, 25, 21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 0];
 
     /// <summary>What each threshold above is worth, in ticks of recovery the character gets back.</summary>
-    private static readonly int[] ParameterBonuses =
+    internal static readonly int[] ParameterBonuses =
         [30, 25, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6];
 
     /// <summary>The seed every roll of this game's fights is drawn from.</summary>
@@ -209,15 +293,18 @@ internal sealed class MightAndMagic7Combat : ICombatRule
 
     private readonly Dictionary<int, MonsterFacts> _monsters;
     private readonly Dictionary<string, string> _people;
+    private readonly MonsterFacts? _person;
     private readonly IRandomService? _random;
 
     private MightAndMagic7Combat(
         Dictionary<int, MonsterFacts> monsters,
         Dictionary<string, string> people,
+        MonsterFacts? person,
         IRandomService? random)
     {
         _monsters = monsters;
         _people = people;
+        _person = person;
         _random = random;
     }
 
@@ -240,7 +327,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule
     /// <exception cref="ContentValidationException">Content declares a monster or a creature this game cannot fight; every problem is named.</exception>
     internal static MightAndMagic7Combat Compose(ContentCatalog? catalog, IRandomService? random)
     {
-        if (catalog is null) return new MightAndMagic7Combat([], [], random);
+        if (catalog is null) return new MightAndMagic7Combat([], [], null, random);
         List<ContentValidationIssue> issues = [];
         Dictionary<int, MonsterFacts> monsters = ReadMonsters(catalog, issues);
         Dictionary<string, string> people = ReadPeople(catalog);
@@ -253,7 +340,15 @@ internal sealed class MightAndMagic7Combat : ICombatRule
                 issues);
         }
 
-        return new MightAndMagic7Combat(monsters, people, random);
+        // A person standing in the world is an actor with a peasant's monster row in the donor, and the
+        // shipped table carries those rows; the first one is what this game reads for every person, because
+        // neither our people content nor the donor's placement states which tier a given person is.
+        MonsterFacts? person = monsters.Values
+            .Where(row => string.Equals(row.Name, PersonRowName, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(row => row.Id)
+            .FirstOrDefault();
+
+        return new MightAndMagic7Combat(monsters, people, person, random);
     }
 
     /// <summary>How many monster rows this policy can fight.</summary>
@@ -310,7 +405,11 @@ internal sealed class MightAndMagic7Combat : ICombatRule
     public AttackKind AttackKindFor(CombatSubject subject)
     {
         ArgumentNullException.ThrowIfNull(subject);
-        return AttackKind.Melee;
+
+        // A creature whose row states a missile throws it (the table's own `Miss` column, read as the
+        // donor's attack1MissileType, OpenEnroth src/Engine/Objects/Monsters.cpp:539); everything else
+        // swings, and a person's peasant row states none.
+        return Facts(subject) is { Throws: true } ? AttackKind.Ranged : AttackKind.Melee;
     }
 
     /// <inheritdoc />
@@ -369,6 +468,357 @@ internal sealed class MightAndMagic7Combat : ICombatRule
         return kind == AttackKind.Melee ? MeleeReach : RangedReach;
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// The attack's rolls are drawn under one key that names the attack inside the fight, from the same seed
+    /// and service this game's first recoveries are drawn from. Nothing about a fight has to be recorded for
+    /// a save: the same fight, replayed, draws the same hit and the same harm.
+    /// </remarks>
+    public IAttackRolls? RollsFor(CombatSubject attacker, string key)
+    {
+        ArgumentNullException.ThrowIfNull(attacker);
+        return _random is null ? null : new AttackRolls(_random, RollSeed, AttackRollScope, key);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// <para>
+    /// <b>A character's chance to hit is the donor's own test.</b> OpenEnroth
+    /// <c>src/Engine/Objects/Character.cpp:6263-6300</c> (<c>characterHitOrMiss</c>): the roll is uniform over
+    /// the target's armor class plus twice the attacker's attack bonus plus thirty, and it lands when it
+    /// beats the armor class plus fifteen at close range — or a further, worse band when a shot flies far
+    /// (<c>src/Engine/Objects/Actor.cpp:3025-3034</c>, which turns a distance of 2560 or more into the
+    /// medium band and refuses a projectile past 5120 for a monster that is not in its full AI state). This
+    /// states exactly that ratio as a chance in ten-thousandths.
+    /// </para>
+    /// <para>
+    /// <b>A monster's chance to hit a character is the donor's other test.</b> OpenEnroth
+    /// <c>src/Engine/Objects/Actor.cpp:3691-3707</c> (<c>Actor::ActorHitOrMiss</c>): the roll is uniform over
+    /// the character's armor class plus twice the monster's level plus ten, and it lands when it beats the
+    /// armor class plus five. A creature attacking a character therefore does not use the character formula,
+    /// and stating both here is what keeps a monster's blow as likely to land as the donor makes it.
+    /// </para>
+    /// </remarks>
+    public AttackPlan PlanOf(CombatSubject attacker, CombatSubject target, AttackKind kind)
+    {
+        ArgumentNullException.ThrowIfNull(attacker);
+        ArgumentNullException.ThrowIfNull(target);
+
+        // What the blow is: a character's own hands, or the row the attacker is. A creature's row states what
+        // kind of harm its attack does — physical, an element, energy — which is why its kind is read from
+        // the table rather than assumed.
+        DamageKindId damageKind = attacker.Member is not null
+            ? kind == AttackKind.Spell ? MightAndMagic7Damage.Magic : MightAndMagic7Damage.Physical
+            : Facts(attacker)?.AttackKind ?? MightAndMagic7Damage.Physical;
+        DamageRoll damage = attacker.Member is { } striker
+            ? CharacterDamage(striker)
+            : Facts(attacker)?.Attack ?? DamageRoll.Flat(0);
+        int armor = ArmorClassOf(target);
+        HitChance chance = attacker.Member is { } character
+            ? CharacterHitChance(character, armor, kind, Distance(attacker, target))
+            : CreatureHitChance(Facts(attacker)?.Level ?? 0, armor);
+
+        return new AttackPlan(chance, damageKind, damage, ResistanceOf(target, damageKind));
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// <para>
+    /// The donor's resistance check, in both of its forms. A monster's harm is halved once per failed check,
+    /// four checks at most, where a check rolls over the resistance plus thirty and fails at thirty or above
+    /// (OpenEnroth <c>src/Engine/Objects/Actor.cpp:3743-3758</c>, <c>CalcMagicalDamageToActor</c>). A
+    /// character's is the same loop with their luck bonus added to the resistance, and it runs only when that
+    /// total is above zero (OpenEnroth <c>src/Engine/Objects/Character.cpp:1097-1108</c>,
+    /// <c>CalculateIncommingDamage</c>), which is why a character with no resistance and no luck is never
+    /// spared a halving.
+    /// </para>
+    /// <para>
+    /// A resistant target therefore takes measurably less and an immune one takes nothing at all, and both
+    /// are visible in what the fight reports rather than folded into a final number.
+    /// </para>
+    /// </remarks>
+    public int DamageAfterResistance(CombatSubject target, DamageKindId kind, int damage, IAttackRolls rolls)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(rolls);
+        ArgumentOutOfRangeException.ThrowIfNegative(damage);
+
+        Resistance reading = ResistanceOf(target, kind);
+        if (reading.IsImmune) return 0;
+
+        int points = reading.Points;
+        if (target.Member is { } member) points += AttributeBonus(member.Attributes[LuckAttribute]);
+        if (points <= 0) return damage;
+
+        int divisor = points + ResistanceThreshold;
+        int left = damage;
+        for (int check = 0; check < ResistanceChecks; check++)
+        {
+            if (rolls.Roll($"resistance/{check}", 0, divisor - 1) < ResistanceThreshold) break;
+            left /= 2;
+        }
+
+        return Math.Max(0, left);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// <para>
+    /// <b>What a monster's blow leaves on a character is the donor's own two rolls.</b> The attack lands its
+    /// special attack when a hundred-sided roll comes in under the monster's level times the attack's own
+    /// level (OpenEnroth <c>src/Engine/Objects/Character.cpp:5905-5909</c>), and the character then saves
+    /// against it with a roll under thirty over their luck bonus, the stat the attack tests, and thirty
+    /// (<c>Character.cpp:1451-1453</c>). Which stat is tested is the attack's own
+    /// (<c>Character.cpp:1333-1388</c>): a poison or a disease is resisted with body, fear, insanity, and
+    /// paralysis with mind, petrification with earth, a curse with personality, and the rest with endurance.
+    /// </para>
+    /// <para>
+    /// <b>Only characters take conditions.</b> A game's conditions are the party's own state, and the donor
+    /// applies them to characters — an actor's paralysis is a buff, which belongs to the monsters-and-AI
+    /// stone, so nothing here invents a condition store for the world.
+    /// </para>
+    /// <para>
+    /// The special attacks that leave something other than a condition are named and not invented: breaking
+    /// an item, stealing one, and aging belong to the stones that own items and progression, and a drained
+    /// spell point is not a condition at all.
+    /// </para>
+    /// </remarks>
+    public CombatCondition? ConditionOf(CombatSubject attacker, CombatSubject target, DamageKindId kind, IAttackRolls rolls)
+    {
+        ArgumentNullException.ThrowIfNull(attacker);
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(rolls);
+
+        if (target.Member is not { } member) return null;
+        if (Facts(attacker) is not { } facts || facts.Special.Kind == MightAndMagic7SpecialAttackKind.None) return null;
+        if (MightAndMagic7SpecialAttacks.Condition(facts.Special) is not { } condition) return null;
+
+        int chance = facts.Level * facts.Special.Level;
+        if (chance <= 0 || rolls.Roll("special", 0, 99) >= chance) return null;
+
+        int save = AttributeBonus(member.Attributes[LuckAttribute]) + SaveBonus(member, facts.Special.Kind) + ResistanceThreshold;
+        if (rolls.Roll("save", 0, save - 1) >= ResistanceThreshold) return null;
+
+        return new CombatCondition(condition, 1, string.Create(CultureInfo.InvariantCulture, $"{NameOf(attacker)}'s attack"));
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// OpenEnroth <c>src/Engine/Objects/Character.cpp:350-357</c> (<c>Character::CanAct</c>): sleep,
+    /// paralysis, unconsciousness, death, petrification, and eradication stop a character acting. The weaker
+    /// conditions do not: a weak, poisoned, diseased, insane, frightened, drunk, or cursed character still
+    /// fights, which is why weakness halves what their blows are worth rather than taking their turn.
+    /// </remarks>
+    public bool CanAct(CombatSubject subject)
+    {
+        ArgumentNullException.ThrowIfNull(subject);
+        if (subject.Member is not { } member) return true;
+        return !member.Conditions.Has(MightAndMagic7Conditions.Sleep) &&
+               !member.Conditions.Has(MightAndMagic7Conditions.Paralyzed) &&
+               !member.Conditions.Has(MightAndMagic7Conditions.Unconscious) &&
+               !member.Conditions.Has(MightAndMagic7Conditions.Dead) &&
+               !member.Conditions.Has(MightAndMagic7Conditions.Petrified) &&
+               !member.Conditions.Has(MightAndMagic7Conditions.Eradicated);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// A member's pool is the party's own and the fight reads it live, so this states what that pool can
+    /// hold. Everything else is the row it is: a creature's own hit points from the monster table
+    /// (<c>monsters.txt</c> column 5, the donor's <c>MonsterInfo::hp</c>), and a person's from the shipped
+    /// peasant row, which is the donor's own reading of a person standing in a level. A placement this game
+    /// has no row for states nothing and takes nothing, which is a world actor that cannot be brought down
+    /// rather than one that dies at zero.
+    /// </remarks>
+    public int HitPointsOf(CombatSubject subject)
+    {
+        ArgumentNullException.ThrowIfNull(subject);
+        if (subject.Member is { } member) return member.Resources.HitPoints.Maximum;
+        return Facts(subject)?.HitPoints ?? 0;
+    }
+
+    /// <summary>
+    /// What a character resists of one kind of harm.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The donor's resistance is a sum of what the character was born with — nothing: it is their hired
+    /// enchanter, a grandmaster's leather armour, and the temporary bonuses items and spells carry
+    /// (OpenEnroth <c>src/Engine/Objects/Character.cpp:1945-1990</c>, <c>GetActualResistance</c>). This
+    /// build's party can wear nothing, carries no enchantment, and knows no spell, so every resistance is
+    /// zero and an unarmed party is hurt by everything in full.
+    /// </para>
+    /// <para>
+    /// The equipment and spell terms belong to the stones that bring items and magic, and this is where they
+    /// go: the sum, in the donor's own order.
+    /// </para>
+    /// </remarks>
+    private static Resistance CharacterResistance(PartyMember member, DamageKindId kind)
+    {
+        ArgumentNullException.ThrowIfNull(member);
+        _ = kind;
+        return Resistance.Of(0);
+    }
+
+    /// <summary>What a target resists of one kind of harm, read from whatever states it.</summary>
+    private Resistance ResistanceOf(CombatSubject target, DamageKindId kind) => target.Member is { } member
+        ? CharacterResistance(member, kind)
+        : Facts(target)?.ResistanceOf(kind) ?? Resistance.Of(0);
+
+    /// <summary>
+    /// What a character's own body contributes to a landing blow, and what the table's rows state for
+    /// anything else.
+    /// </summary>
+    /// <remarks>
+    /// OpenEnroth <c>src/Engine/Objects/Character.cpp:814-856</c> (<c>CalculateMeleeDamageTo</c>): an unarmed
+    /// character rolls a three-sided die and adds a point, then their might bonus and the armsmaster
+    /// reduction, and a landed blow never does less than one point. The donor's other terms — a weapon's own
+    /// dice, an enchantment, a spell — are read off an equipped figure this build cannot fill, and they
+    /// belong in this sum with the items stone.
+    /// </remarks>
+    private static DamageRoll CharacterDamage(PartyMember member)
+    {
+        int bonus = Bonus(member, MightAttribute);
+        bonus += Multiplier(Armsmaster(member), 0, 0, 1, 2) * Armsmaster(member).Level;
+        return new DamageRoll(dice: 1, sides: 3, bonus: bonus, floor: 1);
+    }
+
+    /// <summary>What a character's attack bonus is worth, in the donor's own sum.</summary>
+    /// <remarks>
+    /// OpenEnroth <c>src/Engine/Objects/Character.cpp:768-778</c> (<c>GetActualAttack</c>) and
+    /// <c>Character.cpp:2666-2688</c> (<c>GetSkillBonus(ATTRIBUTE_ATTACK)</c>): the accuracy bonus, plus an
+    /// unarmed character's unarmed skill at the multiplier their mastery is worth, plus what armsmaster adds
+    /// to every attack. A weapon skill, a weapon's own bonus, and a spell's blessing are terms of an equipped
+    /// figure and belong here with the items stone.
+    /// </remarks>
+    private static int AttackBonus(PartyMember member)
+    {
+        int bonus = Bonus(member, AccuracyAttribute);
+        if (!member.Skills.TryGet(UnarmedSkill, out SkillEntry unarmed) || unarmed.Level <= 0) return bonus;
+        return bonus + (Multiplier(Armsmaster(member), 0, 1, 1, 2) * Armsmaster(member).Level) +
+               (Multiplier(unarmed, 1, 1, 2, 2) * unarmed.Level);
+    }
+
+    /// <summary>What a character's armor class is worth, in the donor's own sum.</summary>
+    /// <remarks>
+    /// OpenEnroth <c>src/Engine/Objects/Character.cpp:1875-1887</c> (<c>GetActualAC</c>): the speed bonus
+    /// plus what the character is wearing or dodging with, never below zero. This build wears nothing, so
+    /// what is left is the speed bonus and the dodging skill, which the donor adds at its own multipliers
+    /// while no armour is worn (<c>Character.cpp:2596-2647</c>).
+    /// </remarks>
+    private static int CharacterArmorClass(PartyMember member)
+    {
+        int armor = Bonus(member, SpeedAttribute);
+        if (member.Skills.TryGet(DodgeSkill, out SkillEntry dodge) && dodge.Level > 0)
+        {
+            armor += Multiplier(dodge, 1, 2, 3, 3) * dodge.Level;
+        }
+
+        return Math.Max(0, armor);
+    }
+
+    /// <summary>What an actor's armor class is, from its body or its row.</summary>
+    private int ArmorClassOf(CombatSubject target) => target.Member is { } member
+        ? CharacterArmorClass(member)
+        : Facts(target)?.ArmorClass ?? 0;
+
+    /// <summary>A character's chance to land a blow or a shot on a target of a stated armor class.</summary>
+    private static HitChance CharacterHitChance(PartyMember member, int armor, AttackKind kind, double distance)
+    {
+        // A projectile past the donor's own limit never resolves against anything that is not in its full
+        // AI state, so it cannot land at all rather than landing on a worse band.
+        if (kind != AttackKind.Melee && distance >= ProjectileLimit) return HitChance.Never;
+
+        int needed = kind != AttackKind.Melee && distance >= MediumRange
+            ? ((armor + 15) / 2) + armor + 15
+            : armor + 15;
+        int outcomes = armor + (2 * AttackBonus(member)) + 30;
+        return HitChance.Of(outcomes - needed, Math.Max(1, outcomes));
+    }
+
+    /// <summary>A creature's chance to land a blow on a character of a stated armor class.</summary>
+    private static HitChance CreatureHitChance(int level, int armor)
+    {
+        int outcomes = armor + (2 * level) + 10;
+        return HitChance.Of(outcomes - (armor + 5), Math.Max(1, outcomes));
+    }
+
+    /// <summary>What the stat a special attack tests is worth to a character's saving throw.</summary>
+    /// <remarks>
+    /// OpenEnroth <c>src/Engine/Objects/Character.cpp:1333-1388</c>: the attack names the stat, and the
+    /// saving throw is the luck bonus plus this plus thirty. The resistance terms are what a character
+    /// resists, which this build states as nothing at all.
+    /// </remarks>
+    private static int SaveBonus(PartyMember member, MightAndMagic7SpecialAttackKind kind) => kind switch
+    {
+        MightAndMagic7SpecialAttackKind.Curse => Bonus(member, PersonalityAttribute),
+        MightAndMagic7SpecialAttackKind.Insane or
+        MightAndMagic7SpecialAttackKind.Paralyzed or
+        MightAndMagic7SpecialAttackKind.Fear => CharacterResistance(member, MightAndMagic7Damage.Mind).Points,
+        MightAndMagic7SpecialAttackKind.Petrified => CharacterResistance(member, MightAndMagic7Damage.Earth).Points,
+        MightAndMagic7SpecialAttackKind.PoisonWeak or
+        MightAndMagic7SpecialAttackKind.PoisonMedium or
+        MightAndMagic7SpecialAttackKind.PoisonSevere or
+        MightAndMagic7SpecialAttackKind.Dead or
+        MightAndMagic7SpecialAttackKind.Eradicated => CharacterResistance(member, MightAndMagic7Damage.Body).Points,
+        MightAndMagic7SpecialAttackKind.ManaDrain =>
+            (Bonus(member, IntellectAttribute) + Bonus(member, PersonalityAttribute)) / 2,
+        _ => Bonus(member, MightAndMagic7Health.EnduranceAttribute),
+    };
+
+    /// <summary>What one of a character's attributes is worth, by the donor's table.</summary>
+    /// <remarks>
+    /// A fight reads five attributes — accuracy for the blow's aim, might for its weight, luck for the
+    /// saving throw and the resistance check, speed for the armour class, and endurance for the death
+    /// threshold — and a character who carries none of them is content this game cannot price. That is the
+    /// party model's own behaviour, which fails on the read rather than inventing a score; the message names
+    /// what is missing because a member created by character creation or by this game's default party always
+    /// states all seven attributes the shipped table lists.
+    /// </remarks>
+    private static int Bonus(PartyMember member, AttributeId attribute) =>
+        AttributeBonus(member.Attributes.TryGet(attribute, out int score)
+            ? score
+            : throw new InvalidOperationException(
+                $"{member.Profile.Name} has no '{attribute}' attribute, so this game cannot price what their fights are worth."));
+
+    /// <summary>The armsmaster entry a member has, or a none entry when they have not learned it.</summary>
+    private static SkillEntry Armsmaster(PartyMember member) =>
+        member.Skills.TryGet(ArmsmasterSkill, out SkillEntry entry) ? entry : default;
+
+    /// <summary>What one rung of a skill's ladder is worth, as the donor's own multiplier table.</summary>
+    /// <remarks>
+    /// OpenEnroth <c>src/Engine/Objects/Character.cpp:2748-2763</c> (<c>GetMultiplierForSkillLevel</c>): the
+    /// value is the one the character's mastery rung names, and an untrained skill is worth nothing.
+    /// </remarks>
+    private static int Multiplier(SkillEntry skill, int novice, int expert, int master, int grandmaster) =>
+        skill.Level <= 0
+            ? 0
+            : skill.Tier.Value switch
+            {
+                1 => novice,
+                2 => expert,
+                3 => master,
+                4 => grandmaster,
+                _ => 0,
+            };
+
+    /// <summary>The monster row a subject is, whichever kind of actor it is, or null when nothing states one.</summary>
+    private MonsterFacts? Facts(CombatSubject subject) =>
+        Creature(subject) ?? (IsPerson(subject) ? _person : null);
+
+    /// <summary>Whether a subject is a person standing in the world rather than a creature of a row.</summary>
+    private static bool IsPerson(CombatSubject subject) =>
+        string.Equals(subject.Placement?.Content.Kind, PersonPlacementKind, StringComparison.Ordinal);
+
+    /// <summary>How far apart two actors stand, in the place's own units.</summary>
+    private static double Distance(CombatSubject from, CombatSubject to)
+    {
+        double x = to.Pose.X - from.Pose.X;
+        double y = to.Pose.Y - from.Pose.Y;
+        double z = to.Pose.Z - from.Pose.Z;
+        return Math.Sqrt((x * x) + (y * y) + (z * z));
+    }
+
     /// <summary>
     /// What a character's attack recovery is worth, in the donor's sum and floored at the donor's minimum.
     /// </summary>
@@ -399,7 +849,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule
                 ticks -= armsmaster.Tier.Value >= GrandMasterRung ? armsmaster.Level * 2 : armsmaster.Level;
             }
 
-            ticks -= SpeedBonus(member.Attributes[SpeedAttribute]);
+            ticks -= AttributeBonus(member.Attributes[SpeedAttribute]);
         }
 
         int minimum = kind == AttackKind.Melee ? MinimumMeleeTicks : MinimumRangedTicks;
@@ -407,8 +857,17 @@ internal sealed class MightAndMagic7Combat : ICombatRule
         return Ticks(ticks);
     }
 
-    /// <summary>What an attribute is worth in recovery ticks, by the donor's own threshold table.</summary>
-    private static int SpeedBonus(int attribute)
+    /// <summary>
+    /// What an attribute is worth, by the donor's own threshold table.
+    /// </summary>
+    /// <remarks>
+    /// One table prices might, endurance, speed, accuracy, luck, and the rest
+    /// (OpenEnroth <c>src/Engine/Objects/Character.cpp:234-243</c>, <c>GetParameterBonus</c>): the first
+    /// threshold the attribute reaches decides what it is worth, and everything this game derives from an
+    /// attribute — a recovery, a hit chance, a damage bonus, a saving throw, a death threshold — reads it
+    /// here rather than restating it.
+    /// </remarks>
+    internal static int AttributeBonus(int attribute)
     {
         for (int index = 0; index < ParameterThresholds.Length; index++)
         {
@@ -464,14 +923,161 @@ internal sealed class MightAndMagic7Combat : ICombatRule
                 continue;
             }
 
-            monsters[id] = new MonsterFacts(
-                id,
-                entry.GetString(NameField),
-                recovery,
-                hostility == 0 ? 0 : NoticeRanges[hostility]);
+            MonsterFacts? facts = Facts(entry, id, recovery, hostility == 0 ? 0 : NoticeRanges[hostility], Defect);
+            if (facts is not null) monsters[id] = facts;
         }
 
         return monsters;
+    }
+
+    /// <summary>
+    /// Reads what one monster row is worth to a fight: its body, its blow, and what it resists.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The columns are the table's own and are read at the positions its header row names, which is where the
+    /// donor reads them too (OpenEnroth <c>src/Engine/Objects/Monsters.cpp:534-555</c>): the special attack,
+    /// the first attack's damage type and dice, its missile, and the ten resistances. The importer types the
+    /// columns a fight is paced by and carries the whole row verbatim, so this is the reading of the part of
+    /// the row nothing typed yet — and a row too short to hold those columns is a content defect rather than
+    /// a creature with a resistance nobody read.
+    /// </para>
+    /// <para>
+    /// The special attack is judged here as well: every non-zero spelling the operator's own table carries is
+    /// one this game knows, and a cell nothing recognizes is refused while the session is composed rather
+    /// than becoming a monster that hits for harm and nothing else.
+    /// </para>
+    /// </remarks>
+    private static MonsterFacts? Facts(
+        ContentEntry entry,
+        int id,
+        int recoveryTicks,
+        double noticeRange,
+        Action<string, string> defect)
+    {
+        IReadOnlyList<JsonElement> columns = entry.GetArray("columns");
+        List<string> cells = [];
+        foreach (JsonElement cell in columns) cells.Add(cell.ValueKind == JsonValueKind.String ? cell.GetString() ?? string.Empty : cell.ToString());
+        string name = entry.GetString(NameField);
+        int level = entry.GetInt32(LevelField) ?? 0;
+        int hitPoints = entry.GetInt32(HitPointsField) ?? 0;
+        int armorClass = entry.GetInt32(ArmorClassField) ?? 0;
+
+        // A row that carries no raw columns at all is a hand-authored one: it states the columns a fight is
+        // paced by and nothing else, so it has no blow of its own, no special attack, and no resistance. The
+        // imported table's rows carry the whole row and are read below; a row that carries some of it but not
+        // the columns the table's header names is a defect rather than a creature with a resistance nobody
+        // read.
+        if (cells.Count == 0)
+        {
+            return new MonsterFacts(
+                id,
+                name,
+                recoveryTicks,
+                noticeRange,
+                level,
+                hitPoints,
+                armorClass,
+                DamageRoll.Flat(0),
+                MightAndMagic7Damage.Physical,
+                Throws: false,
+                new MonsterSpecialAttack(MightAndMagic7SpecialAttackKind.None, 1),
+                new Dictionary<DamageKindId, Resistance>());
+        }
+
+        if (cells.Count < MightAndMagic7Damage.MonsterColumns)
+        {
+            defect(
+                "monster-row-short",
+                $"monster '{name}' ({id}) carries {cells.Count} columns where the shipped table states {MightAndMagic7Damage.MonsterColumns}, so its attack and its resistances cannot be read.");
+            return null;
+        }
+
+        MonsterSpecialAttack? special = MightAndMagic7SpecialAttacks.Parse(cells[SpecialAttackColumn]);
+        if (special is null)
+        {
+            defect(
+                "monster-special-attack-unknown",
+                $"monster '{name}' ({id}) states '{cells[SpecialAttackColumn]}' as its special attack, and this game knows no such attack.");
+            return null;
+        }
+
+        DamageKindId attackKind = MightAndMagic7Damage.Known(cells[AttackTypeColumn].Trim()) ?? MightAndMagic7Damage.Physical;
+        if (!TryReadDice(cells[AttackDamageColumn], out DamageRoll attack))
+        {
+            defect(
+                "monster-attack-unreadable",
+                $"monster '{name}' ({id}) states '{cells[AttackDamageColumn]}' as its damage, which is not dice this game can roll.");
+            return null;
+        }
+
+        Dictionary<DamageKindId, Resistance> resistances = [];
+        foreach (DamageKindId kind in new[]
+        {
+            MightAndMagic7Damage.Physical, MightAndMagic7Damage.Fire, MightAndMagic7Damage.Air,
+            MightAndMagic7Damage.Water, MightAndMagic7Damage.Earth, MightAndMagic7Damage.Mind,
+            MightAndMagic7Damage.Spirit, MightAndMagic7Damage.Body, MightAndMagic7Damage.Light,
+            MightAndMagic7Damage.Dark,
+        })
+        {
+            try
+            {
+                resistances[kind] = MightAndMagic7Damage.ReadOrNone(cells, kind);
+            }
+            catch (ArgumentException unreadable)
+            {
+                defect("monster-resistance-unreadable", $"monster '{name}' ({id}): {unreadable.Message}");
+                return null;
+            }
+        }
+
+        return new MonsterFacts(
+            id,
+            name,
+            recoveryTicks,
+            noticeRange,
+            level,
+            hitPoints,
+            armorClass,
+            attack,
+            attackKind,
+            cells[AttackMissileColumn].Trim().Length > 0 && cells[AttackMissileColumn].Trim() != "0",
+            special,
+            resistances);
+    }
+
+    /// <summary>
+    /// Reads a monster table's damage dice, which are written as <c>&lt;dice&gt;D&lt;sides&gt;[+bonus]</c>.
+    /// </summary>
+    /// <remarks>
+    /// OpenEnroth <c>src/Engine/Objects/Monsters.cpp</c>, <c>ParseDamage</c>: the shipped table writes
+    /// everything from <c>2D2</c> to <c>2D8+10</c>, and a cell of zero or one character states no attack at
+    /// all. The importer's item table writes the same shape for a weapon's dice, so this reads the one shape
+    /// both tables use rather than a monster-only spelling.
+    /// </remarks>
+    private static bool TryReadDice(string cell, out DamageRoll roll)
+    {
+        roll = DamageRoll.Flat(0);
+        string text = cell.Trim();
+        if (text.Length <= 1) return true;
+
+        int mark = text.IndexOf('D', StringComparison.OrdinalIgnoreCase);
+        if (mark <= 0) return false;
+        string dice = text[..mark];
+        string rest = text[(mark + 1)..];
+        int bonusMark = rest.IndexOf('+', StringComparison.Ordinal);
+        string sides = bonusMark >= 0 ? rest[..bonusMark] : rest;
+        string bonus = bonusMark >= 0 ? rest[(bonusMark + 1)..] : "0";
+        if (!int.TryParse(dice, NumberStyles.None, CultureInfo.InvariantCulture, out int count) ||
+            !int.TryParse(sides, NumberStyles.None, CultureInfo.InvariantCulture, out int faces) ||
+            !int.TryParse(bonus, NumberStyles.None, CultureInfo.InvariantCulture, out int added))
+        {
+            return false;
+        }
+
+        if (count < 0 || faces < 1 || added < 0) return false;
+        roll = new DamageRoll(count, faces, added);
+        return true;
     }
 
     /// <summary>Reads the people the packs carry, by the identity a placement names them under.</summary>
@@ -562,14 +1168,38 @@ internal sealed class MightAndMagic7Combat : ICombatRule
                 ticks * (double)GameDuration.MillisecondsPerSecond * MightAndMagic7Time.Scale.GameSecondsPerRealSecond / TicksPerRealSecond,
                 MidpointRounding.AwayFromZero));
 
-    /// <summary>What one monster row is worth to a fight: its name, its recovery, and how far it notices.</summary>
+    /// <summary>What one monster row is worth to a fight: its body, its blow, and what it resists.</summary>
     /// <param name="Id">The row's identity, which a creature placement names.</param>
     /// <param name="Name">The row's name, which the panel shows.</param>
     /// <param name="RecoveryTicks">The row's recovery, in the donor's ticks, as it was read.</param>
     /// <param name="NoticeRange">How far off the creature notices the party, zero when it starts no fights.</param>
-    private sealed record MonsterFacts(int Id, string Name, int RecoveryTicks, double NoticeRange)
+    /// <param name="Level">The row's level, which prices what its special attack can do.</param>
+    /// <param name="HitPoints">The row's hit points, which is how much harm it takes to put one down.</param>
+    /// <param name="ArmorClass">The row's armor class, which its attacker's hit chance is measured against.</param>
+    /// <param name="Attack">What the row's first attack rolls.</param>
+    /// <param name="AttackKind">What kind of harm that attack does.</param>
+    /// <param name="Throws">Whether the row's first attack is thrown rather than swung.</param>
+    /// <param name="Special">What the row's attack leaves on a character, if anything.</param>
+    /// <param name="Resistances">What the row resists, by kind of harm.</param>
+    private sealed record MonsterFacts(
+        int Id,
+        string Name,
+        int RecoveryTicks,
+        double NoticeRange,
+        int Level,
+        int HitPoints,
+        int ArmorClass,
+        DamageRoll Attack,
+        DamageKindId AttackKind,
+        bool Throws,
+        MonsterSpecialAttack Special,
+        IReadOnlyDictionary<DamageKindId, Resistance> Resistances)
     {
         /// <summary>The row's recovery as the game time a fight advances by.</summary>
         public GameDuration Recovery { get; } = Ticks(RecoveryTicks);
+
+        /// <summary>What the row resists of one kind of harm, nothing when no column covers it.</summary>
+        public Resistance ResistanceOf(DamageKindId kind) =>
+            Resistances.TryGetValue(kind, out Resistance reading) ? reading : Resistance.Of(0);
     }
 }

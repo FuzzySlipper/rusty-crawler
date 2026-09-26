@@ -11,7 +11,7 @@ Owns:
 - Skills with their class- and rank-specific mastery ceilings, and skill points.
 - The nine spell schools, spell tiers, costs, and effects.
 - Monster, item, service, and condition definitions and their interpretation.
-- Combat, damage, resistance, recovery, reward, and experience formulas.
+- Combat, damage, resistance, conditions, recovery, reward, and experience formulas.
 - Time, calendar, rest, fatigue, and travel policy, including service hours.
 - Quest, guild, reputation, and journal policy.
 - Content interpretation and presentation meaning: what an imported region,
@@ -53,7 +53,18 @@ paced by the donor's own attack-recovery sum as far as this build can read it: t
 holding nothing, the armsmaster reduction, and the speed bonus, since a party cannot wear anything yet; a
 creature's first recovery is a keyed draw over the actor so a group placed together does not strike in
 lockstep, and a creature is recognized by a placement of kind `monster` naming the row it is — the
-interface the monsters-and-AI task fills), and what stopping costs here (`MightAndMagic7Rest` — eight hours under a roof or in the open, the
+interface the monsters-and-AI task fills — and what one attack does here is the same policy's other half,
+`ICombatResolutionRule`: a character's chance to land a blow is the donor's own hit test
+(`Character.cpp:6263-6300`) and a creature's is its other one (`Actor.cpp:3691-3707`), a character's blow is
+the unarmed three-sided die plus their might and armsmaster bonuses (`Character.cpp:814-856`) while a
+creature's is its row's own dice, harm is of the row's own kind (`ItemEnums.h:10-23`, read from the monster
+table's own attack-type column) and a monster's blow may leave the condition its special-attack column names
+through the donor's chance and saving throw (`Character.cpp:1333-1600`), and resistance is the donor's four
+checks over the resistance plus thirty (`Actor.cpp:3743-3758`, `Character.cpp:1097-1108`) with the table's
+own `Imm` cell read as full immunity (`Monsters.cpp:327-330`) — `MightAndMagic7Damage` names the kinds and
+reads the resistance columns, `MightAndMagic7SpecialAttacks` reads the special-attack cell, and
+`MightAndMagic7Health` is what a wound leaves on a character: unconscious while their health plus base
+endurance is at least one, dead below that (`Character.cpp:1310-1316`)), and what stopping costs here (`MightAndMagic7Rest` — eight hours under a roof or in the open, the
 donor's ground table for what a camp eats, its own proximity rule for a party that will not lie down with
 creatures near, an interrupted night that lasts only the hours it lasted, and the day-long debt of sleep
 that weakens the party on the clock's own deadline). Party creation's game definitions are landed too:

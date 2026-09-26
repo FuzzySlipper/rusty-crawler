@@ -492,7 +492,16 @@ public static class SessionProjection
             ("outcome", builder.String(combat.Outcome ?? string.Empty)),
             ("code", builder.String(combat.Code ?? string.Empty)),
             ("message", builder.String(combat.Message ?? string.Empty)),
-            ("recoverySeconds", builder.Number(combat.RecoverySeconds)));
+            ("recoverySeconds", builder.Number(combat.RecoverySeconds)),
+            ("resolved", builder.Boolean(combat.Resolved)),
+            ("hit", builder.Boolean(combat.Hit)),
+            ("chance", builder.Number(combat.Chance)),
+            ("damageRolled", builder.Number(combat.DamageRolled)),
+            ("damage", builder.Number(combat.Damage)),
+            ("damageKind", builder.String(combat.DamageKind ?? string.Empty)),
+            ("resistance", builder.String(combat.Resistance ?? string.Empty)),
+            ("condition", builder.String(combat.Condition ?? string.Empty)),
+            ("targetDown", builder.Boolean(combat.TargetDown)));
     }
 
     /// <summary>Builds one actor of a fight block: who it is, whether it may act, and how long it owes.</summary>
@@ -502,7 +511,11 @@ public static class SessionProjection
             ("name", builder.String(actor.Name)),
             ("ready", builder.Boolean(actor.Ready)),
             ("recoverySeconds", builder.Number(actor.RecoverySeconds)),
-            ("distance", builder.Number(actor.Distance)));
+            ("distance", builder.Number(actor.Distance)),
+            ("hitPoints", builder.Number(actor.HitPoints)),
+            ("hitPointsMax", builder.Number(actor.HitPointsMax)),
+            ("conditions", builder.String(actor.Conditions ?? string.Empty)),
+            ("down", builder.Boolean(actor.Down)));
 
     /// <summary>Builds the rest block: what the last stop did, what it cost, and what sleep debt stands.</summary>
     /// <remarks>

@@ -101,10 +101,20 @@ internal static class MightAndMagic7Conditions
 
     /// <summary>The conditions a night's rest ends, which is what a room clears and a cure need not.</summary>
     /// <remarks>
-    /// The donor heals hit points, spell points, and the weakened state on a rest and leaves the rest to a
-    /// temple, which is why a room is cheaper than a cure and why the two are different offers.
+    /// <para>
+    /// The donor's own list (OpenEnroth <c>src/Engine/Party.cpp:717-721</c>, <c>Party::restAndHeal</c>): a
+    /// completed rest clears unconsciousness, drunkenness, fear, sleep, and weakness, then fills both pools.
+    /// Everything else — poison, disease, insanity, a curse, paralysis, and the three conditions a temple
+    /// charges dearest for — is left standing, which is why a room is cheaper than a cure and why the two are
+    /// different offers.
+    /// </para>
+    /// <para>
+    /// <b>A character the donor will not rest is skipped rather than cleared.</b> <c>Party.cpp:713-715</c>
+    /// skips a dead, petrified, or eradicated character entirely: a night does not fill their pools and does
+    /// not wake them. None of the three is on this list, so a night leaves them exactly as they were.
+    /// </para>
     /// </remarks>
-    internal static readonly IReadOnlyList<ConditionId> RestClears = [Weak];
+    internal static readonly IReadOnlyList<ConditionId> RestClears = [Unconscious, Drunk, Fear, Sleep, Weak];
 
     /// <summary>The multiplier the donor charges for death and petrification.</summary>
     internal const int SeriousMultiplier = 5;

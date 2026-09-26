@@ -17,12 +17,14 @@ Bundle assembles. Host launches.**
 > **Current state: foundation stone 6 is in progress.** The spine, the world, the party and its
 > resources, the one clock and calendar, character creation, what a crossing costs, the one interaction
 > mechanism with its doors, containers and people, every shipped service kind, schedules, rest and
-> camping, conversations, and combat's first landing have landed: a session with imported content walks
-> its party, settles what it spends, talks to the people it meets, and now fights — over the live world,
-> in real time, paced by one recovery quantity per actor, with hostility as world state rather than a
-> mode flag. What combat does not do yet is resolve an attack: no damage, no conditions, no monster AI,
-> no turn-based mode, no loot. Magic and quests are still to come, and the shipped bundle carries no
-> content — so a running product without imported packs reports no world and no party. See
+> camping, conversations, combat's first landing, and now attack resolution have landed: a session with
+> imported content walks its party, settles what it spends, talks to the people it meets, and fights —
+> over the live world, in real time, paced by one recovery quantity per actor, with hostility as world
+> state rather than a mode flag, and with every attack resolving into a hit or a miss, damage its target's
+> resistance may take a share of, the condition the blow leaves, and the death a character's own health
+> decides. What combat does not do yet is drive a creature: no monster AI, no turn-based mode, no loot,
+> and no corpses. Magic and quests are still to come, and the shipped bundle carries no content — so a
+> running product without imported packs reports no world and no party. See
 > [`AGENTS.md`](AGENTS.md) for the exact current state.
 
 ## Ownership

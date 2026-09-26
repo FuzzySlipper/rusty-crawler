@@ -2,6 +2,8 @@ using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Services;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
@@ -205,6 +207,349 @@ public sealed class CombatPolicyTests
         Assert.Equal(1, MightAndMagic7Combat.Compose(catalog, random: null).MonsterCount);
     }
 
+
+    [Fact]
+    public void An_attack_resolves_into_the_donors_own_damage_and_the_rows_own_resistance()
+    {
+        // The chance is the donor's own test, stated here independently of the code that computes it
+        // (OpenEnroth src/Engine/Objects/Character.cpp:6263-6300): the roll is uniform over the target's
+        // armour class plus twice the attack bonus plus thirty, and it lands when it beats the armour class
+        // plus fifteen at close range. Five points of armour and one point of attack bonus — an accuracy of
+        // fifteen — are thirty-seven outcomes, twenty of which do not land, so seventeen do.
+        double expected = Math.Round(17d * 10000d / 37d, MidpointRounding.AwayFromZero);
+        Assert.Equal(expected, Strike(physicalResistance: "0").Chance);
+        Assert.Equal(expected, Strike(physicalResistance: "30", halves: 1).Chance);
+        Assert.Equal(expected, Strike(physicalResistance: "Imm").Chance);
+    }
+
+    /// <summary>What one blow of a character's own hand does through a row's resistance, step by step.</summary>
+    [Fact]
+    public void A_resistant_target_takes_measurably_less_and_an_immune_one_takes_none()
+    {
+        // A character's own hand against a stated monster row: a level-two creature of five points of armour
+        // and forty hit points, and a physical resistance this game reads from the table's own column. The
+        // engine service this suite hands the product answers its maximum for every draw, so the character's
+        // three-sided die is a three and their might of seventeen is worth two more.
+        StrikeFacts plain = Strike(physicalResistance: "0");
+        Assert.Equal(5d, plain.Rolled);
+        Assert.Equal(5d, plain.Damage);
+        Assert.Equal(35d, plain.HitPoints);
+
+        // Thirty points of physical resistance is checked as the donor checks it (OpenEnroth
+        // src/Engine/Objects/Actor.cpp:3743-3758): a roll over the resistance plus thirty, halving what is
+        // left, four checks at most. This test's draws pass the first check and fail the second, so the blow
+        // lands for two rather than five — measurably less, and not nothing.
+        StrikeFacts tough = Strike(physicalResistance: "30", halves: 1);
+        Assert.Equal(5d, tough.Rolled);
+        Assert.Equal(2d, tough.Damage);
+        Assert.Equal(38d, tough.HitPoints);
+
+        // The table writes full immunity as "Imm", which is no harm at all however hard the blow was: the hit
+        // landed, the dice rolled, and the pool did not move.
+        StrikeFacts warded = Strike(physicalResistance: "Imm");
+        Assert.Equal(5d, warded.Rolled);
+        Assert.Equal(0d, warded.Damage);
+        Assert.Equal(40d, warded.HitPoints);
+    }
+
+    /// <summary>What one monster blow of a row's own dice does to a character, read from the panel.</summary>
+    [Fact]
+    public void A_monsters_blow_rolls_its_rows_own_dice_against_a_character()
+    {
+        // The row's `2D8+10` against a character wearing nothing: the service answers its maximum per die, so
+        // sixteen plus ten is twenty-six, and nothing in this build resists it — a character's resistances
+        // come from items and spells, and this party can wear nothing and knows none.
+        BlowFacts blow = Blow(special: "0", level: 1, roll: 100);
+
+        // A creature striking a character is the donor's other hit test (OpenEnroth
+        // src/Engine/Objects/Actor.cpp:3691-3707): the roll is uniform over the character's armour class plus
+        // twice the monster's level plus ten, and it lands when it beats the armour class plus five. A speed
+        // of seventeen is two points of armour class, and a level-one creature rolls over fourteen outcomes
+        // of which the seven above seven land — the armour class cancels out of the count, so a creature's
+        // level is the whole of what its aim is worth.
+        double expected = Math.Round(7d * 10000d / 14d, MidpointRounding.AwayFromZero);
+        Assert.Equal(expected, blow.Combat.Field("chance").AsNumber());
+        Assert.Equal(26d, blow.Combat.Field("damageRolled").AsNumber());
+        Assert.Equal(26d, blow.Combat.Field("damage").AsNumber());
+        Assert.Equal(14, blow.HitPoints);
+    }
+
+    [Fact]
+    public void A_monsters_own_attack_leaves_the_condition_its_row_states_and_the_temple_claims_it()
+    {
+        // A creature whose row states a special attack: this one poisons, at a level that always tries. The
+        // service this suite hands the product draws its minimum, so the special attack comes in under its
+        // chance and the character's saving throw — a hundred-sided roll under thirty — fails.
+        BlowFacts poisoned = Blow(special: "Poison2", level: 5, roll: 0);
+
+        // The row's own dice again, rolled low this time: two dice of one plus ten is twelve, and the
+        // character resists nothing of it.
+        Assert.Equal(12d, poisoned.Combat.Field("damage").AsNumber());
+        Assert.Contains("Poison Medium", poisoned.Combat.Field("condition").AsString(), StringComparison.Ordinal);
+        Assert.Contains("Poison Medium", poisoned.Conditions, StringComparison.Ordinal);
+        Assert.Contains(MightAndMagic7Conditions.PoisonMedium, poisoned.Active);
+
+        // And what the fight left is exactly what a counter claims: the affliction family clears it, so the
+        // condition is a state a player can act on rather than one only the fight can see.
+        Assert.Contains(poisoned.Cures, offer => offer.ClearsCondition(MightAndMagic7Conditions.PoisonMedium));
+
+        // Sleep is the same path with a different effect: a sleeping character may not act, so the order that
+        // would have them swing is refused by name and costs them nothing.
+        BlowFacts asleep = Blow(special: "Asleep", level: 5, roll: 0);
+        Assert.Contains("Sleep", asleep.Conditions, StringComparison.Ordinal);
+        Assert.Contains(MightAndMagic7Conditions.Sleep, asleep.Active);
+    }
+
+    [Fact]
+    public void A_member_taken_below_empty_is_unconscious_then_dead_and_the_offers_that_bring_them_back_claim_it()
+    {
+        // A character of twelve hit points and an endurance of fifteen — a bonus of one — against a blow of
+        // twelve: the pool empties exactly, which the donor calls unconsciousness, and one more point past
+        // empty is death (OpenEnroth src/Engine/Objects/Character.cpp:1310-1316: a character is unconscious
+        // while health plus base endurance is at least one, and dead otherwise).
+        using Falling fall = new();
+        ProjectedNode first = fall.Strike();
+        Assert.Equal(0d, first.Field("members").Item(0).Field("hitPoints").AsNumber());
+        Assert.Contains("Unconscious", first.Field("members").Item(0).Field("conditions").AsString(), StringComparison.Ordinal);
+        Assert.True(first.Field("members").Item(0).Field("down").AsBoolean());
+        Assert.Contains(MightAndMagic7Conditions.Unconscious, fall.Active);
+
+        // The member is still in the party and still in the fight: death is a condition, not a removal.
+        Assert.Single(fall.Party.Members);
+
+        // A second blow takes them past empty, and the ladder moves from unconsciousness to death.
+        ProjectedNode second = fall.Strike();
+        Assert.Contains("Dead", second.Field("members").Item(0).Field("conditions").AsString(), StringComparison.Ordinal);
+        Assert.Contains(MightAndMagic7Conditions.Dead, fall.Active);
+        Assert.DoesNotContain(MightAndMagic7Conditions.Unconscious, fall.Active);
+
+        // Every condition this game can leave is one a stated path ends: a cure the temple offers, or the
+        // night's rest the ruleset names. Nothing here is a state nothing can clear.
+        foreach (ConditionId condition in new[]
+        {
+            MightAndMagic7Conditions.Cursed, MightAndMagic7Conditions.Weak, MightAndMagic7Conditions.Sleep,
+            MightAndMagic7Conditions.Fear, MightAndMagic7Conditions.Drunk, MightAndMagic7Conditions.Insane,
+            MightAndMagic7Conditions.PoisonWeak, MightAndMagic7Conditions.PoisonMedium, MightAndMagic7Conditions.PoisonSevere,
+            MightAndMagic7Conditions.DiseaseWeak, MightAndMagic7Conditions.DiseaseMedium, MightAndMagic7Conditions.DiseaseSevere,
+            MightAndMagic7Conditions.Paralyzed, MightAndMagic7Conditions.Unconscious,
+            MightAndMagic7Conditions.Dead, MightAndMagic7Conditions.Petrified, MightAndMagic7Conditions.Eradicated,
+        })
+        {
+            List<ActiveCondition> suffering = [new ActiveCondition(condition)];
+            bool cured = MightAndMagic7Conditions.Cures(suffering).Any(offer => offer.ClearsCondition(condition));
+            bool rested = MightAndMagic7Conditions.RestClears.Contains(condition);
+            Assert.True(cured || rested, $"'{condition}' is a condition nothing can clear.");
+        }
+
+        // Eradication is the far end and it is not a depth of damage: the table states it as a monster's own
+        // attack, and the counter charges ten times as much to undo it.
+        BlowFacts eradicated = Blow(special: "Errad", level: 5, roll: 0);
+        Assert.Contains("Eradicated", eradicated.Conditions, StringComparison.Ordinal);
+        Assert.Contains(
+            eradicated.Cures,
+            offer => offer.ClearsCondition(MightAndMagic7Conditions.Eradicated) &&
+                     offer.Value == MightAndMagic7Conditions.EradicatedMultiplier);
+    }
+
+    /// <summary>One party attack against a monster row of a stated physical resistance, read from the panel.</summary>
+    /// <param name="physicalResistance">What the row states in its physical resistance column.</param>
+    /// <param name="halves">
+    /// How many of the donor's four resistance checks pass: every check draws its maximum unless this says
+    /// otherwise, and a check below thirty ends the halving, so this is how many times the blow is halved.
+    /// </param>
+    private static StrikeFacts Strike(string physicalResistance, int halves = 4)
+    {
+        (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(
+            [.. World(monsterAt: 100), MonsterRow(physicalResistance: physicalResistance), FighterParty()]);
+        FakeEngineContext fake = (FakeEngineContext)context.Engine;
+        fake.RandomService.Answer = request => request.Key.Contains("/resistance/", StringComparison.Ordinal)
+            ? request.Key.EndsWith("/resistance/0", StringComparison.Ordinal) && halves == 1 ? 30 : halves == 1 ? 0 : 100
+            : null;
+
+        using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(ProductTestContext.RulesetContext(context, ui, combat: true));
+        session.Start();
+        session.Update(ProductTestContext.Update(1, 1));
+        session.Update(ProductTestContext.Update(2, 1, Digital(ProductIdentity.AttackIntent)));
+
+        ProjectedNode combat = ProjectedNode.Of(ui.Latest().Value).Field("combat");
+        Assert.True(combat.Field("resolved").AsBoolean());
+        return new StrikeFacts(
+            combat.Field("chance").AsNumber(),
+            combat.Field("damageRolled").AsNumber(),
+            combat.Field("damage").AsNumber(),
+            combat.Field("enemies").Item(0).Field("hitPoints").AsNumber());
+    }
+
+    /// <summary>One monster blow against a member, read off the panel before the session is disposed.</summary>
+    private static BlowFacts Blow(string special, int level, long roll)
+    {
+        (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(
+            [.. World(monsterAt: 100), MonsterRow(special: special, level: level), FighterParty()]);
+        FakeEngineContext fake = (FakeEngineContext)context.Engine;
+        fake.RandomService.Roll = roll;
+
+        using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(ProductTestContext.RulesetContext(context, ui, combat: true));
+        session.Start();
+        session.Update(ProductTestContext.Update(1, 1));
+
+        // A creature's first recovery is drawn, so a moment of game time passes before it may act; the one
+        // clock advancing is what releases it, exactly as it releases a character.
+        for (int index = 0; index < 5; index++) session.Update(ProductTestContext.Update(2, 1));
+
+        // The creature strikes the party's member through the fight's own one entry, which is the same gated
+        // door the player's control and a later AI owner use.
+        MightAndMagic7Session played = (MightAndMagic7Session)session;
+        PartyMember member = played.Party!.Members[0];
+        CombatState fight = played.Combat!;
+        CombatResult result = fight.Order(new AttackOrder(fight.Opposition[0].Id, AttackKind.Melee, fight.Combatants[0].Id));
+        Assert.True(result.IsApplied, $"{result.Code}: {result.Message}");
+        session.Update(ProductTestContext.Update(3, 1));
+
+        ProjectedNode combat = ProjectedNode.Of(ui.Latest().Value).Field("combat");
+        return new BlowFacts(
+            combat,
+            member.Conditions.Active.Select(condition => condition.Condition).ToArray(),
+            member.Resources.HitPoints.Current,
+            MightAndMagic7Conditions.Cures(member.Conditions.Active));
+    }
+
+    /// <summary>What one blow of the party's hand came to, as the panel published it.</summary>
+    private sealed record StrikeFacts(double Chance, double Rolled, double Damage, double HitPoints);
+
+    /// <summary>What one monster's blow left, read before the session that owns the party is disposed.</summary>
+    private sealed record BlowFacts(
+        ProjectedNode Combat,
+        IReadOnlyList<ConditionId> Active,
+        int HitPoints,
+        IReadOnlyList<ServiceOffer> Cures)
+    {
+        /// <summary>What is acting on the member, as the panel published it.</summary>
+        internal string Conditions => Combat.Field("members").Item(0).Field("conditions").AsString();
+    }
+
+    /// <summary>
+    /// A session whose creature empties a small member's pool blow by blow, kept alive while a test reads
+    /// what each blow left.
+    /// </summary>
+    private sealed class Falling : IDisposable
+    {
+        private readonly IGameSession _session;
+        private readonly RecordingUiService _ui;
+        private ulong _step;
+
+        internal Falling()
+        {
+            (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(
+                [.. World(monsterAt: 100), MonsterRow(damage: "1D4+8", hitPoints: 200), FragileParty()]);
+            FakeEngineContext fake = (FakeEngineContext)context.Engine;
+            fake.RandomService.Answer = request => request.Key.EndsWith("/hit", StringComparison.Ordinal) ? 0 : 10_000;
+            _ui = ui;
+            _session = MightAndMagic7Ruleset.Instance.CreateSession(ProductTestContext.RulesetContext(context, ui, combat: true));
+            _session.Start();
+            _session.Update(ProductTestContext.Update(1, 1));
+        }
+
+        /// <summary>The party the session plays, which its member count is read from.</summary>
+        internal PartyEntity Party => Played.Party!;
+
+        /// <summary>What is acting on the member now.</summary>
+        internal IReadOnlyList<ConditionId> Active =>
+            [.. Played.Party!.Members[0].Conditions.Active.Select(condition => condition.Condition)];
+
+        private MightAndMagic7Session Played => (MightAndMagic7Session)_session;
+
+        /// <summary>Lets the creature recover, strikes the member, and returns what the panel now shows.</summary>
+        internal ProjectedNode Strike()
+        {
+            // A row's hundred ticks are twenty-three and a half game seconds, and one admitted update of a
+            // sixtieth of a second at this game's scale is half a second of game time: sixty of them are half
+            // a minute, which is past what the creature owes between blows.
+            for (int index = 0; index < 60; index++) _session.Update(ProductTestContext.Update(++_step, 1));
+            CombatState fight = Played.Combat!;
+            CombatResult result = fight.Order(new AttackOrder(fight.Opposition[0].Id, AttackKind.Melee, fight.Combatants[0].Id));
+            Assert.True(result.IsApplied, $"{result.Code}: {result.Message}");
+            _session.Update(ProductTestContext.Update(++_step, 1));
+            return ProjectedNode.Of(_ui.Latest().Value).Field("combat");
+        }
+
+        /// <inheritdoc />
+        public void Dispose() => _session.Dispose();
+    }
+
+    /// <summary>A monster row shaped the way the importer emits one: typed columns and the whole raw row.</summary>
+    private static (string Path, string Text) MonsterRow(
+        string physicalResistance = "0",
+        string special = "0",
+        int level = 2,
+        string damage = "2D8+10",
+        string attackType = "Phys",
+        int hitPoints = 40,
+        int armorClass = 5,
+        int recovery = 100,
+        int hostility = 2)
+    {
+        string[] cells = new string[39];
+        for (int index = 0; index < cells.Length; index++) cells[index] = "0";
+        cells[0] = "7";
+        cells[1] = "A beast";
+        cells[3] = level.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        cells[4] = hitPoints.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        cells[5] = armorClass.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        cells[12] = hostility.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        cells[14] = recovery.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        cells[16] = special;
+        cells[17] = attackType;
+        cells[18] = damage;
+        cells[37] = physicalResistance;
+        string columns = string.Join(", ", cells.Select(cell => $"\"{cell}\""));
+        return ($"{ProductTestContext.ContentDirectory}/content-packs/world/monsters.json",
+            $$"""
+            {
+              "documentId": "monsters",
+              "definitionKind": "monster",
+              "entries": [
+                { "id": "7", "name": "A beast", "level": {{level}}, "hitPoints": {{hitPoints}},
+                  "armorClass": {{armorClass}}, "hostility": {{hostility}}, "recovery": {{recovery}},
+                  "columns": [ {{columns}} ] }
+              ]
+            }
+            """);
+    }
+
+    /// <summary>A party of one character whose attributes and pools the resolution tests are read against.</summary>
+    private static (string Path, string Text) FighterParty() => PartyOf(hitPoints: 40, endurance: 15);
+
+    /// <summary>A party of one character a blow of twelve empties exactly.</summary>
+    private static (string Path, string Text) FragileParty() => PartyOf(hitPoints: 12, endurance: 15);
+
+    private static (string Path, string Text) PartyOf(int hitPoints, int endurance) =>
+        ($"{ProductTestContext.ContentDirectory}/content-packs/world/party.json",
+            $$"""
+            {
+              "documentId": "party",
+              "definitionKind": "scenario-party",
+              "entries": [
+                {
+                  "id": "party",
+                  "coins": 200,
+                  "food": 6,
+                  "reputation": 0,
+                  "fame": 0,
+                  "members": [
+                    { "name": "Roderick", "race": "Human", "class": "Knight", "level": 1,
+                      "hitPoints": {{hitPoints}}, "spellPoints": 0, "attributes": [
+                        { "id": "Might", "value": 17 }, { "id": "Accuracy", "value": 15 },
+                        { "id": "Endurance", "value": {{endurance}} }, { "id": "Luck", "value": 11 },
+                        { "id": "Speed", "value": 17 }, { "id": "Personality", "value": 11 },
+                        { "id": "Intellect", "value": 11 } ],
+                      "skills": [], "spells": [], "conditions": [] }
+                  ]
+                }
+              ]
+            }
+            """);
+
+
     private static string SourceDirectory() => Path.Combine(RepositoryRoot(), "src", "PartyRpg.Host");
 
     private static string ProjectFile() => Path.Combine(SourceDirectory(), "PartyRpg.Host.csproj");
@@ -339,11 +684,17 @@ public sealed class CombatPolicyTests
                   "fame": 0,
                   "members": [
                     { "name": "Roderick", "race": "Human", "class": "Knight", "level": 1, "hitPoints": 40,
-                      "spellPoints": 0, "attributes": [ { "id": "Speed", "value": 17 } ],
+                      "spellPoints": 0,
+                      "attributes": [ { "id": "Might", "value": 17 }, { "id": "Accuracy", "value": 15 },
+                                      { "id": "Endurance", "value": 15 }, { "id": "Luck", "value": 11 },
+                                      { "id": "Speed", "value": 17 } ],
                       "skills": [ { "id": "Sword", "level": 1, "tier": 1, "pointsSpent": 1 } ],
                       "spells": [], "conditions": [] },
                     { "name": "Aelina", "race": "Elf", "class": "Sorcerer", "level": 1, "hitPoints": 24,
-                      "spellPoints": 15, "attributes": [ { "id": "Speed", "value": 25 } ],
+                      "spellPoints": 15,
+                      "attributes": [ { "id": "Might", "value": 11 }, { "id": "Accuracy", "value": 15 },
+                                      { "id": "Endurance", "value": 11 }, { "id": "Luck", "value": 15 },
+                                      { "id": "Speed", "value": 25 } ],
                       "skills": [ { "id": "Staff", "level": 1, "tier": 1, "pointsSpent": 1 } ],
                       "spells": [], "conditions": [] }
                   ]

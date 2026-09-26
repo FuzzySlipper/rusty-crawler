@@ -229,8 +229,14 @@ function combat(overrides = {}) {
     opposition: 0,
     ready: 2,
     members: [
-      { id: 'member:1', name: 'Roderick', ready: true, recoverySeconds: 0, distance: 0 },
-      { id: 'member:2', name: 'Aelina', ready: true, recoverySeconds: 0, distance: 0 },
+      {
+        id: 'member:1', name: 'Roderick', ready: true, recoverySeconds: 0, distance: 0,
+        hitPoints: 40, hitPointsMax: 40, conditions: '', down: false,
+      },
+      {
+        id: 'member:2', name: 'Aelina', ready: true, recoverySeconds: 0, distance: 0,
+        hitPoints: 24, hitPointsMax: 24, conditions: '', down: false,
+      },
     ],
     enemies: [],
     actor: '',
@@ -240,6 +246,15 @@ function combat(overrides = {}) {
     code: '',
     message: '',
     recoverySeconds: 0,
+    resolved: false,
+    hit: false,
+    chance: 0,
+    damageRolled: 0,
+    damage: 0,
+    damageKind: '',
+    resistance: '',
+    condition: '',
+    targetDown: false,
     ...overrides,
   };
 }
@@ -251,16 +266,36 @@ function fighting(overrides = {}) {
     opposition: 1,
     ready: 0,
     members: [
-      { id: 'member:1', name: 'Roderick', ready: false, recoverySeconds: 22.969, distance: 0 },
-      { id: 'member:2', name: 'Aelina', ready: false, recoverySeconds: 22.266, distance: 0 },
+      {
+        id: 'member:1', name: 'Roderick', ready: false, recoverySeconds: 22.969, distance: 0,
+        hitPoints: 40, hitPointsMax: 40, conditions: '', down: false,
+      },
+      {
+        id: 'member:2', name: 'Aelina', ready: false, recoverySeconds: 22.266, distance: 0,
+        hitPoints: 24, hitPointsMax: 24, conditions: '', down: false,
+      },
     ],
-    enemies: [{ id: 'actor:1', name: 'A beast', ready: true, recoverySeconds: 0, distance: 100 }],
+    enemies: [
+      {
+        id: 'actor:1', name: 'A beast', ready: true, recoverySeconds: 0, distance: 100,
+        hitPoints: 14, hitPointsMax: 40, conditions: '', down: false,
+      },
+    ],
     actor: 'Roderick',
     kind: 'melee',
     target: 'A beast',
     outcome: 'applied',
-    message: 'Roderick attacks A beast (melee) and must recover 22969ms of game time.',
+    message: 'Roderick attacks A beast (melee) and must recover 22969ms of game time. Roderick hits A beast (melee): 5 Phys damage landed; A beast is at 14/40.',
     recoverySeconds: 22.969,
+    resolved: true,
+    hit: true,
+    chance: 4595,
+    damageRolled: 5,
+    damage: 5,
+    damageKind: 'Phys',
+    resistance: '0',
+    condition: '',
+    targetDown: false,
     ...overrides,
   });
 }
@@ -575,6 +610,15 @@ function servicePanel(h) {
     message: result?.hidden ? '' : result?.textContent,
     messageOutcome: result?.getAttribute('data-outcome'),
     messageCode: result?.getAttribute('data-code'),
+    resolved: result?.getAttribute('data-resolved'),
+    hit: result?.getAttribute('data-hit'),
+    chance: result?.getAttribute('data-chance'),
+    damage: result?.getAttribute('data-damage'),
+    damageRolled: result?.getAttribute('data-damage-rolled'),
+    damageKind: result?.getAttribute('data-damage-kind'),
+    resistance: result?.getAttribute('data-resistance'),
+    condition: result?.getAttribute('data-condition'),
+    targetDown: result?.getAttribute('data-target-down'),
   };
 }
 
@@ -598,6 +642,15 @@ function restPanel(h) {
     message: result?.hidden ? '' : result?.textContent,
     messageOutcome: result?.getAttribute('data-outcome'),
     messageCode: result?.getAttribute('data-code'),
+    resolved: result?.getAttribute('data-resolved'),
+    hit: result?.getAttribute('data-hit'),
+    chance: result?.getAttribute('data-chance'),
+    damage: result?.getAttribute('data-damage'),
+    damageRolled: result?.getAttribute('data-damage-rolled'),
+    damageKind: result?.getAttribute('data-damage-kind'),
+    resistance: result?.getAttribute('data-resistance'),
+    condition: result?.getAttribute('data-condition'),
+    targetDown: result?.getAttribute('data-target-down'),
   };
 }
 
@@ -612,6 +665,9 @@ function combatPanel(h) {
       name: row.textContent,
       ready: row.getAttribute('data-ready'),
       id: row.getAttribute('data-fighter'),
+      health: row.getAttribute('data-health'),
+      conditions: row.getAttribute('data-conditions'),
+      down: row.getAttribute('data-down'),
     }));
   return {
     state: panel?.getAttribute('data-combat'),
@@ -626,6 +682,15 @@ function combatPanel(h) {
     message: result?.hidden ? '' : result?.textContent,
     messageOutcome: result?.getAttribute('data-outcome'),
     messageCode: result?.getAttribute('data-code'),
+    resolved: result?.getAttribute('data-resolved'),
+    hit: result?.getAttribute('data-hit'),
+    chance: result?.getAttribute('data-chance'),
+    damage: result?.getAttribute('data-damage'),
+    damageRolled: result?.getAttribute('data-damage-rolled'),
+    damageKind: result?.getAttribute('data-damage-kind'),
+    resistance: result?.getAttribute('data-resistance'),
+    condition: result?.getAttribute('data-condition'),
+    targetDown: result?.getAttribute('data-target-down'),
   };
 }
 
@@ -1916,6 +1981,77 @@ test('the panel renders the fight, who may act, and what the party did', () => {
     assert.equal(refused.messageOutcome, 'refused');
     assert.equal(refused.messageCode, 'recovering');
     assert.match(refused.message, /still recovering/);
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the panel shows the pools, the conditions, and the death the product published', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // What a landed attack came to, in the product's own numbers: the chance it stated, the dice it rolled,
+    // what the resistance took off, and what was left. Nothing here is derived by the panel.
+    h.emit(snapshot('running', 1, 60, 60, movement(), { combat: fighting() }));
+    const hit = combatPanel(h);
+    assert.equal(hit.resolved, 'yes');
+    assert.equal(hit.hit, 'yes');
+    assert.equal(hit.chance, '4595');
+    assert.equal(hit.damageRolled, '5');
+    assert.equal(hit.damage, '5');
+    assert.equal(hit.damageKind, 'Phys');
+    assert.equal(hit.resistance, '0');
+    assert.equal(hit.targetDown, 'no');
+    assert.match(hit.message, /A beast is at 14\/40/);
+
+    // Every actor carries what it has left and what is acting on it, and an immune target reads as one:
+    // the panel's row is the product's numbers rather than a bar this screen filled in for itself.
+    assert.equal(hit.enemies[0].health, '14/40');
+    assert.equal(hit.members[0].health, '40/40');
+    assert.equal(hit.members[0].conditions, '');
+    assert.equal(hit.members[0].down, 'no');
+
+    // A member who is unconscious, poisoned, and down is shown as that, and a death is a row that says so
+    // rather than a row that disappears.
+    h.emit(snapshot('running', 2, 120, 121, movement(), {
+      combat: fighting({
+        members: [
+          {
+            id: 'member:1', name: 'Roderick', ready: false, recoverySeconds: 22.969, distance: 0,
+            hitPoints: 0, hitPointsMax: 40, conditions: 'Unconscious', down: true,
+          },
+          {
+            id: 'member:2', name: 'Aelina', ready: false, recoverySeconds: 22.266, distance: 0,
+            hitPoints: 0, hitPointsMax: 24, conditions: 'Dead', down: true,
+          },
+        ],
+        enemies: [],
+        opposition: 0,
+        engaged: false,
+        condition: 'poisoned (1)',
+        damage: 0,
+        damageRolled: 12,
+        resistance: 'immune',
+        targetDown: true,
+        message: 'A beast hits Roderick (melee): Roderick is immune to Poison, so the 12 rolled lands for nothing; Roderick is at 0/40 and is left poisoned (the bite of a test creature), and is down.',
+      }),
+    }));
+    const hurt = combatPanel(h);
+    assert.equal(hurt.members[0].health, '0/40');
+    assert.equal(hurt.members[0].conditions, 'Unconscious');
+    assert.equal(hurt.members[0].down, 'yes');
+    assert.match(hurt.members[0].name, /Roderick — recovering 23\.0s — 0\/40 hp — Unconscious — down/);
+    assert.equal(hurt.members[1].conditions, 'Dead');
+    assert.equal(hurt.members[1].down, 'yes');
+    assert.match(hurt.members[1].name, /Aelina .*Dead/);
+    assert.equal(hurt.enemies.length, 0);
+    assert.equal(hurt.resistance, 'immune');
+    assert.equal(hurt.condition, 'poisoned (1)');
+    assert.equal(hurt.targetDown, 'yes');
+    assert.match(hurt.message, /is immune to Poison/);
 
     ui.dispose();
   } finally {

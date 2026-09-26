@@ -244,16 +244,35 @@ availability follows the party's own state.**
   held, as the donor's own key is) orders every member who may act to attack the nearest creature in reach,
   and each pays its own recovery; an order while recovering is refused by name. The panel publishes who is
   engaged, who is ready, and what the last order did, and runs no countdown of its own.
-- **What combat does not do yet.** Nothing resolves an attack: no damage, no resistance, no conditions, and no
-  death. The fight publishes what each attack *was* — who, how, against what, when, and what it cost — and
-  nothing consumes it yet. No creature acts on its own: the state paces the opposition and offers any driver
-  the same gated entry the player's control uses, and the AI that would drive a monster is the
+- Attacks resolve. One path serves melee, ranged, and spell attacks alike: the fight consumes the
+  `AttackInitiation` it published, asks the ruleset for the chance and the dice, rolls them through the
+  engine's keyed random service under a key that names the attack, lets the target's resistance take its
+  share, applies what is left to whoever owns the target's health, records the outcome, and reports it. Every
+  number is the ruleset's: the donor's own hit test for a character and its other one for a creature, a
+  character's unarmed three-sided die plus might and armsmaster, a monster row's own damage dice, and the
+  donor's four resistance checks over the resistance plus thirty — with full immunity read from the shipped
+  table's own `Imm` cell. Resistance is per kind of harm, and a target that resists nothing, one that resists,
+  and one that is immune take measurably different amounts. What a landed hit leaves besides harm is the
+  monster table's own special-attack column: poison in three strengths, disease in three, paralysis, sleep,
+  fear, insanity, drunkenness, a curse, unconsciousness, death, petrification, and eradication, each applied
+  and reported with what inflicted it. A character's own health is what decides the ladder below empty — the
+  donor's threshold of base endurance — through one damage entry every wound arrives at, so a sprung trap
+  leaves the same condition a creature's bite does. Death is a condition like the others: a laid-out member
+  keeps their identity, their place in the roster, and their belongings, is published as down, and cannot act
+  until the temple's cure — or the rest the ruleset names — ends it. Recovery is not the only gate now: what
+  an actor's conditions leave it able to do is the ruleset's answer, and an actor it lays out is refused by
+  name without spending anything.
+- **What combat does not do yet.** No creature acts on its own: the state paces the opposition and offers any
+  driver the same gated entry the player's control uses, and the AI that would drive a monster is the
   monsters-and-AI task's. Nothing creates a monster either: a creature exists only where content places a
   placement of kind `monster` naming a monster row, and the shipped packs place spawn *points*, so an imported
-  world holds no creature yet and a live fight shows the party's own half. A character's recovery is the
-  donor's sum only where this build can read it — the base for a character holding nothing, the armsmaster
-  reduction, and the speed bonus — because a party cannot wear anything until the stone that brings items and
-  equipment lands. Turn-based mode, corpses, and loot are not here.
+  world holds no creature yet — the fight can bring a person or a creature down, and what a corpse means
+  belongs to the stones that own monsters and loot. A character's resistance and armour class are the donor's
+  sum only where this build can read them — an unarmed accuracy bonus for the blow, a speed bonus and dodging
+  for the armour class, and nothing at all for the six resistances — because a party cannot wear anything
+  until the stone that brings items and equipment lands; a monster's second attack and its spell attacks are
+  the AI's choice, so a creature's blow resolves its first attack. Turn-based mode, corpses, and loot are not
+  here.
 - **No magic or quests exists, a save carries no deadlines, and a save carries no fight.** Do not describe,
   review, or accept behavior those stones will add as though it were here. What a player can do today is
   create a party, walk it, open doors and containers, get caught by a trap, buy and sell at a counter, learn

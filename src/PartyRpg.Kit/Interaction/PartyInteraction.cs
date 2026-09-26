@@ -331,17 +331,21 @@ public sealed class PartyInteraction : IWorldInteractionScene
         }
 
         // The harm is taken before the state is recorded, so what the ledger says happened and what the
-        // members' resources show cannot disagree: a sprung trap is one the party has already paid for.
+        // members' resources show cannot disagree: a sprung trap is one the party has already paid for. It
+        // lands through the member's own damage entry, so a trap that takes someone past empty leaves the
+        // same condition a creature's bite would, and a panel reads one kind of wound rather than two.
         int members = 0;
+        List<string> fell = [];
         foreach (PartyMember member in party.Members)
         {
-            member.Resources.TakeDamage(trap.Harm.PerMember);
+            CharacterWound wound = member.TakeDamage(trap.Harm.PerMember);
             members++;
+            if (wound.Condition is { } condition) fell.Add($"{member.Profile.Name} is {condition.Condition}");
         }
 
         string message = members == 0
             ? $"{target.Definition.Name}'s {trap.Name} goes off ({challenge.Describe()}), and the party has nobody in it to catch it."
-            : $"{target.Definition.Name}'s {trap.Name} goes off ({challenge.Describe()}): {members} member(s) take {trap.Harm.PerMember} {trap.Harm.Label} each.";
+            : $"{target.Definition.Name}'s {trap.Name} goes off ({challenge.Describe()}): {members} member(s) take {trap.Harm.PerMember} {trap.Harm.Label} each{(fell.Count > 0 ? $", and {string.Join(", ", fell)}" : string.Empty)}.";
         InteractionOutcome sprung = InteractionOutcome.Applied(
             trap.SprungState,
             message,
