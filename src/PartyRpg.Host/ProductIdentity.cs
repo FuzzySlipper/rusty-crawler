@@ -226,6 +226,18 @@ internal static class ProductIdentity
     internal const string QuickSpellAction = "party.quick-spell";
 
     /// <summary>
+    /// The payload action name that mixes the two items a screen named, sent by the DOM companion's pack
+    /// rows on the UI action contract.
+    /// </summary>
+    /// <remarks>
+    /// Mixing is a payload action rather than a key for the same reason casting is: a mixture names two of
+    /// the things the party carries, and no single press can say which two the player meant. The donor's own
+    /// mixing is two clicks on two items rather than a key, and the row a player pressed names both
+    /// instances the projection offered.
+    /// </remarks>
+    internal const string MixAction = "party.mix";
+
+    /// <summary>
     /// The payload action name that asks the live session to spend a member's skill points on a raise, sent
     /// by the DOM companion's skills rows on the UI action contract.
     /// </summary>

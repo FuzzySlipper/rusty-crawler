@@ -43,6 +43,7 @@ public sealed class CrawlerProduct : IEngineProduct
     private readonly ServiceIntentNames _service;
     private readonly SkillRaiseIntentNames _skills;
     private readonly CastIntentNames _cast;
+    private readonly MixIntentNames _mix;
     private readonly RestIntentNames _rest;
     private readonly ConversationIntentNames _conversation;
     private readonly CombatIntentNames _combat;
@@ -116,6 +117,11 @@ public sealed class CrawlerProduct : IEngineProduct
         _cast = new CastIntentNames(
             ProductIdentity.CastAction,
             ProductIdentity.QuickSpellAction,
+            ProductIdentity.UiActionContract);
+        // Mixing is one payload action and no key, for the same reason casting is two: which two of the things
+        // the party carries a player put together is what the pack screen's own rows name.
+        _mix = new MixIntentNames(
+            ProductIdentity.MixAction,
             ProductIdentity.UiActionContract);
         // The act control is one intent and one action, because the act is one act: what a member does with
         // it is the ruleset's answer about that member, and a player presses the same control for a spell, a
@@ -276,7 +282,8 @@ public sealed class CrawlerProduct : IEngineProduct
                 Conversation: _conversation,
                 Combat: _combat,
                 Skills: _skills,
-                Cast: _cast);
+                Cast: _cast,
+                Mix: _mix);
 
             // The start switch travels with the context and is answered at the ruleset's one composition
             // entry: a resumed run reads the save the slot holds and composes a session from it, and a slot

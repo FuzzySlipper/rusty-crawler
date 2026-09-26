@@ -40,6 +40,20 @@ Owns:
   row states its capacity, and an item that empties leaves through the inventory's own custody. A charged
   item in hand is the weapon a fight fires (`CombatWeapon`, `ICombatWeaponRule`), so the attack is the
   spell it carries, one charge goes with it, and the recovery it costs is the fight's own answer.
+- Alchemy (`Alchemy/`): the one mixing workflow — resolve the character and the two things out of the
+  party's own pack, look the pair up in the game's own mixture table, judge the rung its result asks for
+  against that character's mastery through the skill entry every ceiling and lesson already reads, ask the
+  pack whether it can take what would come out, take both ingredients out through `ConsumeItem`, and put the
+  potion back through `AcquireItem` — so a mixture is a transfer of the party's own things and a pack that
+  cannot take the result refuses the whole attempt. A pair the game's table states as incompatible is
+  carried out as its own row states it: both ingredients are destroyed and what the burst costs the mixing
+  character is the game's answer (`IAlchemyRule.Backfire`), applied through the member's one damage entry and
+  their own conditions. The kit knows no reagent, no potion, and no recipe: a mixture is two definitions and
+  what the table says about them, and a source scan in `tests/PartyRpg.Kit.Tests` holds it to that. A
+  potion's effect is not a mechanism of its own — it is an item that carries one, drunk through the one
+  casting workflow with the item as the spell's source, and read at the strength the instance itself states
+  (`ItemState.Potency`), which is what makes a potion the way a character with no school gets a spell's
+  effect.
 - Combat: attack execution, targeting and current target, attack resolution, damage kinds,
   resistance and immunity, conditions a hit leaves, and the thresholds a wound is judged against
   application, real-time and turn-based mode coordination, what a downed creature leaves

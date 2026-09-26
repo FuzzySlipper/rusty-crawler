@@ -9,6 +9,16 @@ Owns:
 - Classes, races, ranks, and the two-stage promotion ladder whose second step
   splits each class into a light and a dark alternative.
 - Skills with their class- and rank-specific mastery ceilings, and skill points.
+- Alchemy (`MightAndMagic7Alchemy`, `MightAndMagic7Potions`): the mixtures the shipped `POTION.TXT` states,
+  read from the pack the importer writes — which reagent makes which potion, which pairs make something,
+  which go off and how hard, and the discovery each one records — with the rung each result asks for. The
+  tier is content, authored by the importer from the donor's four id bands
+  (`OpenEnroth/src/GUI/UI/UIPopup.cpp:2092-2112`); what a mixture comes out at and what a burst costs are
+  this ruleset's readings over the donor's own
+  arithmetic (`src/GUI/UI/UIPopup.cpp:2141-2162, 2267-2268`, `:2118-2131`). What each potion does when drunk
+  is one row per shipped potion id, authored from the donor's drinking switch
+  (`src/Engine/Objects/Character.cpp:3080-3300`) and expressed through the same effect path a spell uses, so
+  `docs/magic-coverage.md` lists the potions beside the spells and cannot drift from them.
 - The nine spell schools and their 99 spells (`MightAndMagic7Spells`): which skill gates each school, the
   tier each spell requires, what one casting costs at each rung of that school's mastery, how long it makes
   the caster recover, what it rolls, what it is aimed at, and which of the design's eight effect categories

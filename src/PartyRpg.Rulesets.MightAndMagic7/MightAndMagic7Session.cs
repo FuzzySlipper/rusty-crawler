@@ -64,7 +64,21 @@ internal sealed class MightAndMagic7Session : IGameSession
         // books are lessons whose requirements are this game's learning rule, a creature's spell lands with
         // the spell's own numbers, and the session's casting workflow judges mastery and price against the
         // same reading. One reading of one table is what keeps a book, a cast, and a creature's spell in step.
-        MightAndMagic7Spells? spells = MightAndMagic7Spells.Read(Declared(context.Content), skills);
+        // This game's alchemy is read once, here, beside its skills and before its magic: the mixtures its own
+        // potion table states, the rung each result asks for, and what a mixture that goes off costs. The
+        // reading is handed to the magic below, because a potion's effect and a potion's mixture are two
+        // readings of one table and a second one would be free to disagree.
+        //
+        // Whether a character may act at all is this game's one answer about its own conditions — the same
+        // answer the fight's own gate reads — so a character a blow laid out can neither swing nor mix, and
+        // the two can never disagree about which condition that is.
+        MightAndMagic7Alchemy? alchemy = MightAndMagic7Alchemy.Read(
+            Declared(context.Content),
+            skills,
+            context.Engine?.Random,
+            MightAndMagic7Conditions.CanAct);
+
+        MightAndMagic7Spells? spells = MightAndMagic7Spells.Read(Declared(context.Content), skills, alchemy);
 
         // The party and the world the effects act on do not exist yet on the path that creates its party, so
         // the effect path is handed providers rather than the state itself: it reads them when a cast actually
@@ -194,7 +208,10 @@ internal sealed class MightAndMagic7Session : IGameSession
                     skillInput: context.Skills,
                     spells: spells,
                     spellEffects: spellEffects,
-                    castInput: context.Cast);
+                    castInput: context.Cast,
+                    alchemy: alchemy,
+                    mixtures: alchemy?.Catalog,
+                    mixInput: context.Mix);
                 return;
             }
 
@@ -234,7 +251,10 @@ internal sealed class MightAndMagic7Session : IGameSession
                     skillInput: context.Skills,
                     spells: spells,
                     spellEffects: spellEffects,
-                    castInput: context.Cast);
+                    castInput: context.Cast,
+                    alchemy: alchemy,
+                    mixtures: alchemy?.Catalog,
+                    mixInput: context.Mix);
                 return;
             }
 
@@ -271,7 +291,10 @@ internal sealed class MightAndMagic7Session : IGameSession
                 skillInput: context.Skills,
                 spells: spells,
                 spellEffects: spellEffects,
-                castInput: context.Cast);
+                castInput: context.Cast,
+                alchemy: alchemy,
+                mixtures: alchemy?.Catalog,
+                mixInput: context.Mix);
         }
         catch
         {

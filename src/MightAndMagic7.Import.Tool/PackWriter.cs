@@ -228,6 +228,7 @@ internal static class PackWriter
             ("monsters.json", "monsters", "monster", WriteMonsters(packDirectory, tables)),
             ("hostility.json", "hostility", "hostility", WriteHostility(packDirectory, tables)),
             ("items.json", "items", "item", WriteItems(packDirectory, tables)),
+            ("potions.json", "potions", "potion", WritePotions(packDirectory, tables)),
             ("quests.json", "quests", "quest", WriteQuests(packDirectory, tables)),
         ];
         // A place's own document names the people standing in it, so every one of them is declared as a
@@ -1090,6 +1091,81 @@ internal static class PackWriter
         }
 
         return WriteDocument(packDirectory, "items.json", "items", "item", entries);
+    }
+
+    /// <summary>
+    /// Writes the shipped potion table: every reagent, the bottle, the catalyst, and every potion, each with
+    /// what combining it with another row makes and what discovery that records.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The mixture matrix is written as an object keyed by the other row's id rather than as one entry per
+    /// pair, because that is the shape the shipped table states it in and because a matrix of a thousand
+    /// pairs would be a thousand documents' worth of rows for fifty rows of facts. A cell is the id of what
+    /// the pair makes, the word <c>none</c> for a pair that does nothing, or <c>burst:n</c> for a pair that
+    /// goes off at strength n, which is the donor's own reading of a cell
+    /// (<c>OpenEnroth</c> <c>src/Engine/Tables/ItemTable.cpp:252-278</c>).
+    /// </para>
+    /// <para>
+    /// <b>Two fields are ours and are written as ours.</b> <c>tier</c> is the rung of the mixing skill the row
+    /// requires, which the shipped table does not carry and which the donor's four id bands state
+    /// (<c>OpenEnroth</c> <c>src/GUI/UI/UIPopup.cpp:2092-2112</c>); and the catalyst's own mixtures are written
+    /// out from the rule the donor applies before it reads the matrix at all
+    /// (<c>src/GUI/UI/UIPopup.cpp:2075-2080</c>). Both are stated in
+    /// [`docs/research/mm7-map-formats.md`](../../../docs/research/mm7-map-formats.md) so a reader of the pack
+    /// knows which cells came from the table and which from its executable.
+    /// </para>
+    /// </remarks>
+    private static int WritePotions(string packDirectory, Mm7Tables tables)
+    {
+        List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];
+        foreach (PotionRecord potion in tables.Potions.Rows)
+        {
+            entries.Add((potion.Id.ToString(CultureInfo.InvariantCulture), writer =>
+            {
+                writer.WriteString("name", potion.Name);
+                writer.WriteString("description", potion.Description);
+                writer.WriteString("effect", potion.Effect);
+                writer.WriteString("kind", potion.Kind);
+
+                // The row's own colour composition, which is what a potion's mixture of two potions is read
+                // against in the game this approximates; a row that states none carries none.
+                if (potion.Units.Any(unit => unit != 0))
+                {
+                    writer.WriteStartArray("units");
+                    foreach (int unit in potion.Units) writer.WriteNumberValue(unit);
+                    writer.WriteEndArray();
+                }
+
+                // The rung the row's own mixture requires. Ours: see the remarks above.
+                writer.WriteNumber("tier", potion.Tier);
+                WriteOptionalNumber(writer, "power", potion.Power == 0 ? null : potion.Power);
+
+                if (potion.Mixtures.Count > 0)
+                {
+                    writer.WriteStartObject("mixtures");
+                    foreach ((int other, string outcome) in potion.Mixtures.OrderBy(pair => pair.Key))
+                    {
+                        writer.WriteString(other.ToString(CultureInfo.InvariantCulture), outcome);
+                    }
+
+                    writer.WriteEndObject();
+                }
+
+                if (potion.Notes.Count > 0)
+                {
+                    writer.WriteStartObject("notes");
+                    foreach ((int other, int note) in potion.Notes.OrderBy(pair => pair.Key))
+                    {
+                        writer.WriteNumber(other.ToString(CultureInfo.InvariantCulture), note);
+                    }
+
+                    writer.WriteEndObject();
+                }
+            }));
+        }
+
+        return WriteDocument(packDirectory, "potions.json", "potions", "potion", entries);
     }
 
     /// <summary>The spell an item's own reference column names, or null when the row carries none.</summary>

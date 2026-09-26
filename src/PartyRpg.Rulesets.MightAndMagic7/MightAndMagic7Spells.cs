@@ -100,6 +100,9 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
     /// <summary>The definition kind the shipped item table is declared under.</summary>
     internal const string ItemDefinitionKind = "item";
 
+    /// <summary>The item-table kind a potion's row carries, which is how a potion is told from a scroll.</summary>
+    internal const string PotionKind = "potion";
+
     /// <summary>The item field that names the spell a book teaches, which the importer writes.</summary>
     internal const string TeachesField = "spell";
 
@@ -317,6 +320,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
     private readonly Dictionary<ItemDefinitionId, SpellItemReading> _carried;
     private readonly Dictionary<ItemDefinitionId, string> _names;
     private readonly MightAndMagic7Skills? _skills;
+    private readonly MightAndMagic7Alchemy? _alchemy;
 
     private MightAndMagic7Spells(
         SpellCatalog catalog,
@@ -325,7 +329,8 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
         Dictionary<ItemDefinitionId, SpellId> books,
         Dictionary<ItemDefinitionId, SpellItemReading> carried,
         Dictionary<ItemDefinitionId, string> names,
-        MightAndMagic7Skills? skills)
+        MightAndMagic7Skills? skills,
+        MightAndMagic7Alchemy? alchemy)
     {
         Catalog = catalog;
         _facts = facts;
@@ -334,6 +339,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
         _carried = carried;
         _names = names;
         _skills = skills;
+        _alchemy = alchemy;
     }
 
     /// <inheritdoc />
@@ -347,7 +353,10 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
     /// </param>
     /// <returns>This game's magic, or null when there is no content to read it over.</returns>
     /// <exception cref="ContentValidationException">Content declares a spell this game has no numbers for; every problem is named.</exception>
-    internal static MightAndMagic7Spells? Read(ContentCatalog? catalog, MightAndMagic7Skills? skills = null)
+    internal static MightAndMagic7Spells? Read(
+        ContentCatalog? catalog,
+        MightAndMagic7Skills? skills = null,
+        MightAndMagic7Alchemy? alchemy = null)
     {
         if (catalog is null) return null;
 
@@ -417,6 +426,33 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
             bool book = string.Equals(entry.GetString(EquipStatField), BookEquipStat, StringComparison.OrdinalIgnoreCase);
             bool scroll = string.Equals(kind, ScrollKind, StringComparison.OrdinalIgnoreCase);
             bool wand = string.Equals(kind, WandKind, StringComparison.OrdinalIgnoreCase);
+
+            // A potion carries this game's own effect for its row rather than a spell the shipped table states:
+            // its row in the potion table names an effect, and drinking it is a casting whose source is the
+            // item exactly as reading a scroll is. A potion row this game states no effect for carries none,
+            // so the panel does not offer it and a use of it is refused by name.
+            if (string.Equals(kind, PotionKind, StringComparison.OrdinalIgnoreCase))
+            {
+                if (!int.TryParse(entry.Id, NumberStyles.None, CultureInfo.InvariantCulture, out int potionId)) continue;
+                if (MightAndMagic7Potions.Row(potionId) is not { } effect) continue;
+                SpellDefinition definition = new(
+                    MightAndMagic7Potions.EffectId(potionId),
+                    entry.GetString(NameField),
+                    MightAndMagic7Potions.School,
+                    alchemy?.Skill ?? default,
+                    alchemy?.TierOf(new ItemDefinitionId(entry.Id)) ?? SkillTier.None,
+                    Cost: 0,
+                    effect.Targeting,
+                    effect.Effect);
+                definitions.Add(definition);
+                facts[definition.Id] = new Facts(
+                    definition,
+                    Entry(potionId, [0, 0, 0, 0], [0, 0, 0, 0], 0, 0, definition.Tier.Value, effect.Targeting, effect.Effect, effect.Reading),
+                    Harm: null);
+                carried[new ItemDefinitionId(entry.Id)] = SpellItemReading.Consumed(definition.Id);
+                continue;
+            }
+
             if (!book && !scroll && !wand) continue;
 
             string teaches = Taught(entry);
@@ -456,7 +492,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
                 issues);
         }
 
-        return new MightAndMagic7Spells(new SpellCatalog(definitions), facts, byName, books, carried, names, skills);
+        return new MightAndMagic7Spells(new SpellCatalog(definitions), facts, byName, books, carried, names, skills, alchemy);
     }
 
     /// <summary>How many rows this game states numbers for, which content's own table declares.</summary>
@@ -626,6 +662,37 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
     internal SpellReading ReadingOf(SpellDefinition spell)
     {
         return _facts.TryGetValue(spell.Id, out Facts facts) ? facts.Numbers.Reading : SpellReading.None;
+    }
+
+    /// <summary>
+    /// What level a casting is made at: an item's own strength when one carried the spell, otherwise the
+    /// caster's level in the spell's school.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A potion is the reason this is one question rather than two call sites: the donor passes the potion's
+    /// own strength where a spell passes the caster's school level, because a potion is exactly the way a
+    /// character makes an effect that is not theirs
+    /// (<c>OpenEnroth/src/Engine/Objects/Character.cpp:3081-3085</c>, <c>potionStrength</c> and the duration
+    /// built from it). A potion that reached the party without a stated strength is read at one, which is the
+    /// weakest strength the shipped table states at all; the same floor the mixture's own arithmetic keeps.
+    /// </para>
+    /// <para>
+    /// A session whose ruleset read no alchemy answers the caster's own school level for every casting, which
+    /// is what a game with no potions does anyway.
+    /// </para>
+    /// </remarks>
+    /// <param name="application">The casting being made.</param>
+    /// <returns>The level it is made at, never below one.</returns>
+    internal int LevelOf(SpellApplication application)
+    {
+        ArgumentNullException.ThrowIfNull(application);
+        if (_alchemy is { } alchemy && application.Source is { } source && alchemy.PotencyOf(source) is { } potency)
+        {
+            return Math.Max(1, potency);
+        }
+
+        return SkillLevelOf(application.Caster, application.Spell);
     }
 
     /// <summary>The rung of mastery the caster holds in a spell's school, as the donor counts them.</summary>

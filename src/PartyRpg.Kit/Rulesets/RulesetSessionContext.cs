@@ -126,4 +126,5 @@ public sealed record RulesetSessionContext(
     ConversationIntentNames? Conversation = null,
     CombatIntentNames? Combat = null,
     SkillRaiseIntentNames? Skills = null,
-    CastIntentNames? Cast = null);
+    CastIntentNames? Cast = null,
+    MixIntentNames? Mix = null);

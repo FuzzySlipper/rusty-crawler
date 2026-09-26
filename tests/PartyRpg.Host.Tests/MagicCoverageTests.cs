@@ -65,6 +65,22 @@ public sealed class MagicCoverageTests
         // Every state is present, and every gap names the owner that would close it: a "not yet" without a
         // receiver is exactly the unrouted silence the report exists to prevent.
         Assert.True(implemented > 0 && approximated > 0 && notYet > 0);
+
+        // The potions are counted on the same terms and by the same test: every one of the game's own potion
+        // rows is listed once, its three states add up to the rows, and every gap names the owner that would
+        // close it.
+        IReadOnlyList<MightAndMagic7Potions.PotionRowReading> potions = MightAndMagic7Potions.Rows;
+        Assert.Equal(MightAndMagic7Potions.Count, potions.Count);
+        Assert.Equal(potions.Count, potions.Select(row => row.Id).Distinct().Count());
+        Assert.Equal(
+            potions.Count,
+            potions.Count(row => row.Coverage.State == SpellEffectCoverageState.Implemented) +
+            potions.Count(row => row.Coverage.State == SpellEffectCoverageState.Approximated) +
+            potions.Count(row => row.Coverage.State == SpellEffectCoverageState.NotYet));
+        Assert.DoesNotContain(potions, row => string.IsNullOrWhiteSpace(row.Effect));
+        Assert.All(
+            potions.Where(row => row.Coverage.State == SpellEffectCoverageState.NotYet),
+            row => Assert.False(string.IsNullOrWhiteSpace(row.Coverage.Receiver), $"potion {row.Id} leaves its gap unrouted"));
         Assert.All(
             rows.Where(row => row.Coverage.State == SpellEffectCoverageState.NotYet),
             row => Assert.False(string.IsNullOrWhiteSpace(row.Coverage.Receiver), $"spell {row.Id} leaves its gap unrouted"));
@@ -145,6 +161,7 @@ public sealed class MagicCoverageTests
             | --- | --- |
             | a scroll | the one spell it carries, once, and the scroll is used up; the donor's own scroll cast carries no mana cost at all (OpenEnroth `src/Engine/Spells/CastSpellInfo.cpp:207`, the `overrideSkillValue` branch that sets `uRequiredMana = 0`) |
             | a wand | the spell it carries, fired as the weapon it is wielded as, one charge spent per use, and the item leaves the party through the inventory when its last charge goes; the donor fires it at a fixed eighth level of novice mastery (OpenEnroth `src/Engine/Spells/CastSpellInfo.h:61`, `WANDS_SKILL_VALUE`) |
+            | a potion | the effect this game states for its own row, once, and the potion is used up; what it is read at is the potion's own strength rather than any character's school level (OpenEnroth `src/Engine/Objects/Character.cpp:3081-3085`, `potionStrength`), which is what makes a potion the way a character with no school at all gets a spell's effect |
 
             What this build does not take from the donor is the fixed skill reading of a scroll cast: the donor
             casts one at the fifth level of master mastery (OpenEnroth `src/Engine/Spells/CastSpellInfo.h:60`,
@@ -153,6 +170,31 @@ public sealed class MagicCoverageTests
             with the caster rather than with the item that carried the spell (receiver: the fight's ability
             resolution, which would have to be handed the casting's own skill reading). A wand's own value *is*
             taken, because a wand is the weapon the fight resolves the attack with.
+
+            ## Potions
+
+            A potion is an item that carries one effect, and drinking it is a casting whose source is the item:
+            the same workflow that reads a scroll, the same effect path that applies a spell, and a per-character
+            deadline on the one clock wherever the donor's potion lasts. What is different is where the strength
+            comes from — a potion's own, not a caster's school — and that this game authors the effect's numbers
+            from the donor's drinking switch (OpenEnroth `src/Engine/Objects/Character.cpp:3080-3300`), because
+            the shipped `POTION.TXT` states what each potion is for in words and no numbers at all.
+
+            | potion | category | aim | state | what it does, or what is missing | receiver |
+            | --- | --- | --- | --- | --- | --- |
+
+            """
+            + "\n");
+
+        foreach (MightAndMagic7Potions.PotionRowReading potion in MightAndMagic7Potions.Rows)
+        {
+            text.Append(string.Create(
+                CultureInfo.InvariantCulture,
+                $"| {potion.Id} | {potion.Effect} | {potion.Targeting} | {SpellEffectCoverageStates.WireName(potion.Coverage.State)} | {Cell(potion.Coverage.Note)} | {Cell(potion.Coverage.Receiver)} |\n"));
+        }
+
+        text.Append(
+            """
 
             ## Counts
 

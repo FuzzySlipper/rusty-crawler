@@ -31,6 +31,24 @@ namespace PartyRpg.Kit.Magic;
 /// with no actor aim acts on — a place a portal reaches, a thing a hand moves — and empty when nothing was
 /// named at all. Only the effect owner can judge such a word, which is why it travels here unread.
 /// </param>
+/// <param name="Source">
+/// The item the casting took its spell from, or null when it came from the caster's own spellbook.
+/// </param>
+/// <remarks>
+/// <para>
+/// <b>What carried the spell travels with the casting because an item may state the strength.</b> A spell cast
+/// from a spellbook is made at the caster's own mastery of its school and nothing else can say otherwise, but
+/// a thing that carries a spell can also state how strong it is — the game's own potions are exactly that —
+/// and the effect owner is the only place that reading is applied. Handing the instance over is what lets a
+/// game read a strength the item states instead of inventing one from a character who may hold none of the
+/// school at all.
+/// </para>
+/// <para>
+/// It is the instance rather than a number because what an item states is the item's own business: a game
+/// reads its own state — a potion's strength, a wand's remaining charges — where its effect is applied, so
+/// the mechanism never learns which kinds of thing carry a strength.
+/// </para>
+/// </remarks>
 public sealed record SpellApplication(
     PartyEntity Party,
     PartyMember Caster,
@@ -38,7 +56,8 @@ public sealed record SpellApplication(
     SpellDefinition Spell,
     CombatState? Fight,
     CombatantId? Target,
-    string TargetName);
+    string TargetName,
+    ItemInstance? Source = null);
 
 /// <summary>What applying a spell's effect did, as the effect owner reports it.</summary>
 /// <remarks>

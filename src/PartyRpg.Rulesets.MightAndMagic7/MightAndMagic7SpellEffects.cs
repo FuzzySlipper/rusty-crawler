@@ -276,7 +276,7 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
             return Unexpressed(application, "no member to give health to");
         }
 
-        int level = MightAndMagic7Spells.SkillLevelOf(application.Caster, application.Spell);
+        int level = _spells.LevelOf(application);
         int mastery = MightAndMagic7Spells.MasteryOf(application.Caster, application.Spell);
         int amount = reading.HealBase + (reading.HealByMastery ? mastery : 1) * reading.HealPerLevel * level;
         List<SpellEffectFact> facts = [];
@@ -461,6 +461,27 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     private SpellApplicationOutcome Afflict(SpellApplication application)
     {
         SpellReading reading = _spells.ReadingOf(application.Spell);
+
+        // A reading that leaves a condition rather than lifting one is the drinking of a catalyst, which the
+        // donor's own case poisons the drinker with; it lands on the character the casting named, through their
+        // own condition state, exactly as a cure lands there.
+        if (reading.Leaves is { } leaves)
+        {
+            List<SpellEffectFact> left = [];
+            foreach (PartyMember member in Members(application))
+            {
+                member.Conditions.Apply(new ActiveCondition(leaves, reading.LeavesSeverity));
+                left.Add(new SpellEffectFact("conditions", Conditions(member)));
+            }
+
+            return left.Count == 0
+                ? Unexpressed(application, "nobody to leave that condition on")
+                : SpellApplicationOutcome.Expressed(
+                    application.Spell.Effect,
+                    $"{application.Spell.Name}: {leaves} is left on {string.Join(", ", Members(application).Select(member => member.Profile.Name))}.",
+                    left);
+        }
+
         if (reading.Clears is not { Length: > 0 } clears)
         {
             return Unexpressed(application, "a condition this build cannot leave on that target");
@@ -505,7 +526,7 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     {
         if (Ledger is not { } running) return Unexpressed(application, "no party to carry a light");
 
-        int level = Math.Max(1, MightAndMagic7Spells.SkillLevelOf(application.Caster, application.Spell));
+        int level = Math.Max(1, _spells.LevelOf(application));
         int mastery = MightAndMagic7Spells.MasteryOf(application.Caster, application.Spell);
         int power = mastery switch
         {
@@ -689,6 +710,23 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
                     [.. ended.Select(effect => new SpellEffectFact("dispelled", effect.Effect.Value))]);
         }
 
+        // Spell points given back: a potion's own shape, restored through each carrier's pool, which is the
+        // same owner a casting spends from. The pool stops at its own maximum, so an over-full drink is the
+        // same clamp the donor's own potion makes.
+        if (reading.ManaPerLevel > 0 || reading.ManaBase > 0)
+        {
+            List<PartyMember> restored = [.. reading.OnMember ? Carriers(application) : Members(application)];
+            if (restored.Count == 0) return Unexpressed(application, "nobody to give spell points to");
+
+            int level = _spells.LevelOf(application);
+            int points = reading.ManaBase + (reading.ManaPerLevel * level);
+            foreach (PartyMember member in restored) member.Resources.RestoreSpellPoints(points);
+            return Expressed(
+                application,
+                $"{string.Join(", ", restored.Select(member => member.Profile.Name))} — {points} spell point(s)",
+                [.. restored.Select(member => new SpellEffectFact("spellPoints", member.Resources.SpellPoints.Current.ToString(CultureInfo.InvariantCulture)))]);
+        }
+
         if (reading.Buff is not { } buff || Ledger is not { } running)
         {
             return Unexpressed(application, "a utility this build cannot apply to that target");
@@ -742,12 +780,12 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     }
 
     /// <summary>What a spell's own numbers are worth at this caster's school level and mastery.</summary>
-    private static (int Power, GameDuration Lasts) Worth(
+    private (int Power, GameDuration Lasts) Worth(
         SpellApplication application,
         Func<int, int, int> power,
         Func<int, int, GameDuration> lasts)
     {
-        int level = MightAndMagic7Spells.SkillLevelOf(application.Caster, application.Spell);
+        int level = _spells.LevelOf(application);
         int mastery = MightAndMagic7Spells.MasteryOf(application.Caster, application.Spell);
         return (power(level, mastery), lasts(level, mastery));
     }

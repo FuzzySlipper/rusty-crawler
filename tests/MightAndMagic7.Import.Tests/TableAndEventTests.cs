@@ -9,6 +9,78 @@ namespace MightAndMagic7.Import.Tests;
 /// <summary>The table reader, the event reader, and the graph they produce.</summary>
 public sealed class TableAndEventTests
 {
+
+    [Fact]
+    public void The_potion_table_reads_the_mixtures_the_shipped_table_states_and_the_second_layout_it_repeats()
+    {
+        LodInstall install = LodInstall.Open(SyntheticInstallation.Create());
+        Mm7Tables tables = Mm7Tables.Read(install);
+
+        // Seventy-two rows: twenty reagents, the bottle, the catalyst, and fifty potions — the shipped table's
+        // own shape, which is what a pack's potion document is written from.
+        Assert.Equal(72, tables.Potions.Rows.Count);
+        Assert.All(tables.Potions.Rows, row => Assert.False(string.IsNullOrWhiteSpace(row.Name)));
+
+        // A reagent's own recipe is the row's own words, resolved through the potion rows' own colour
+        // descriptions: "+ Bottle = Red Potion +1" becomes the bottle and the row the table calls red, at the
+        // power the same text states.
+        PotionRecord berries = tables.Potions.Rows.Single(row => row.Id == 200);
+        Assert.Equal("reagent", berries.Kind);
+        Assert.Equal("+ Bottle = Red Potion +1", berries.Effect);
+        Assert.Equal(1, berries.Power);
+        Assert.Equal("222", berries.Mixtures[220]);
+
+        PotionRecord stone = tables.Potions.Rows.Single(row => row.Id == 219);
+        Assert.Equal(75, stone.Power);
+        Assert.Equal("221", stone.Mixtures[220]);
+
+        // A potion row states what it is made of, the rung its own mixture asks for — which the shipped table
+        // does not carry and this importer authors from the donor's four id bands — and the matrix cells the
+        // donor reads: a result, the word "no" for the pair that does nothing, or a burst and its strength.
+        PotionRecord cure = tables.Potions.Rows.Single(row => row.Id == 222);
+        Assert.Equal("potion", cure.Kind);
+        Assert.Equal(0, cure.Tier);
+
+        // The three cells between the effect and the matrix are the potion's own colour composition, which the
+        // fixture states as a function of the row so a reader that shifted by one column would be caught.
+        Assert.Equal([(222 + 0) % 4, (222 + 1) % 4, (222 + 2) % 4], cure.Units);
+        Assert.Equal("none", cure.Mixtures[222]);
+        Assert.Contains(cure.Mixtures.Values, value => value.StartsWith("burst:", StringComparison.Ordinal));
+        Assert.Contains(cure.Mixtures.Values, value => int.TryParse(value, out _));
+
+        Assert.Equal(2, tables.Potions.Rows.Single(row => row.Id == 228).Tier);
+        Assert.Equal(4, tables.Potions.Rows.Single(row => row.Id == 262).Tier);
+
+        // The catalyst's rows come from the donor's own rule rather than from a matrix cell, because the donor
+        // decides before it reads the matrix at all: a catalyst with anything is that thing, and two catalysts
+        // are a catalyst.
+        PotionRecord catalyst = tables.Potions.Rows.Single(row => row.Id == 221);
+        Assert.Equal("catalyst", catalyst.Kind);
+        Assert.Equal("221", catalyst.Mixtures[221]);
+        Assert.Equal("228", catalyst.Mixtures[228]);
+        Assert.Empty(tables.Potions.Rows.Single(row => row.Id == 220).Mixtures);
+
+        // The discovery table is read for the real potion rows only, which is where the donor reads it: a note
+        // belongs to a pair of potions rather than to a reagent's own recipe.
+        Assert.NotEmpty(cure.Notes);
+        Assert.Empty(berries.Notes);
+    }
+
+    [Fact]
+    public void A_potion_table_that_states_something_this_reader_cannot_read_names_the_row_it_failed_on()
+    {
+        // A reagent whose effect cell is not the bottle recipe the reader understands is a defect rather than a
+        // recipe silently dropped, and the message names the row it came from.
+        string header = "\tName\tDescription\tEffect\t\t\t\n";
+        LodInstall install = LodInstall.Open(LodFixture.Installation(
+            "MMVII",
+            LodFixture.TextTable("POTION.TXT", header + "200\tBerry\tReagent\tMix me with something\t\t\t\t\n"),
+            LodFixture.TextTable("POTNOTES.TXT", header)));
+        LodFormatException refused = Assert.Throws<LodFormatException>(() => PotionTable.Read(install));
+        Assert.Contains("200", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("bottle recipe", refused.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void The_table_reader_honours_quotes_tabs_and_newlines_inside_fields()
     {

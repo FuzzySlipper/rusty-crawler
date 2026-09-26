@@ -179,6 +179,33 @@ public sealed class PartyEntity : IDisposable
     }
 
     /// <summary>
+    /// Creates an item instance that already carries a state, held by nobody until the party takes it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// An instance made outside the party does not always start blank: a mixture produces a potion at the
+    /// strength the mixing came to, and a container a game seeds with a specified thing is the same shape. The
+    /// state is handed in whole rather than applied to a fresh instance afterwards, so a caller cannot leave
+    /// an instance that was briefly a different thing, and the identity still comes from the one source that
+    /// mints them.
+    /// </para>
+    /// <para>
+    /// What the party does with the instance is unchanged: it lies detached until
+    /// <see cref="AcquireItem(ItemInstance)"/> admits it, and that admission is the capacity rule's answer.
+    /// </para>
+    /// </remarks>
+    /// <param name="definition">The content definition the instance is a copy of.</param>
+    /// <param name="state">The condition the instance starts in.</param>
+    /// <param name="stackCount">How many of the definition the instance carries, which must be at least one.</param>
+    /// <returns>The instance, held by nobody.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The stack count is below one.</exception>
+    public ItemInstance CreateItem(ItemDefinitionId definition, ItemState state, int stackCount = 1)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return new ItemInstance(Identity.MintItemId(), definition, stackCount, state);
+    }
+
+    /// <summary>
     /// Takes items the party is offered into its one shared pack.
     /// </summary>
     /// <remarks>

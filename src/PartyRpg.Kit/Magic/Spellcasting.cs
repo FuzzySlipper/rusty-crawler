@@ -348,7 +348,12 @@ public sealed class Spellcasting
             return Record(SpellCastResult.Refused(request.Member, caster.Profile.Name, request.Spell, spell.Name, refused!));
         }
 
-        SpellApplication application = new(_party, caster, casterId, spell, _fight, target, targetName);
+        // What the spell came from travels with the application, so an effect owner can read a strength the
+        // item itself states — which is what makes a potion a spell at the strength it was made rather than at
+        // the mastery of a character who may hold none of the spell's school. A casting from the spellbook
+        // names no item, and a game that reads no strengths is handed null and reads none.
+        ItemInstance? origin = source is { } from ? _party.FindItem(from.Id) : null;
+        SpellApplication application = new(_party, caster, casterId, spell, _fight, target, targetName, origin);
         if (_effects is not { } effects)
         {
             return Record(SpellCastResult.Refused(

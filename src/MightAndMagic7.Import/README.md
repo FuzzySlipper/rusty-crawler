@@ -11,7 +11,11 @@ Owns, once implemented:
 - Source formats: the original archive, rule-table, map, sprite, sound, and image
   formats, with the structure layouts this repository relies on.
 - Conversion quirks: the special cases that make an otherwise regular file
-  differ, recorded where the conversion happens rather than in runtime code.
+  differ, recorded where the conversion happens rather than in runtime code. The
+  potion table's own two are recorded in
+  [`../../docs/research/mm7-map-formats.md`](../../docs/research/mm7-map-formats.md) §9 with the counts
+  they produce: its last thirty-two rows appear twice, the second time with the number column blank, and a
+  reagent's one recipe is written as text in its own effect cell.
 - Provenance: where each imported artifact came from — game, release or build,
   source file, and what was transformed.
 - Differential validation: comparisons against the donor reimplementation so an

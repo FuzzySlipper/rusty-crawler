@@ -92,6 +92,28 @@ internal static class MightAndMagic7Conditions
     internal static readonly ConditionId Good = new("Good");
 
     /// <summary>Every condition a temple can end, in the order a panel reads them.</summary>
+    /// <summary>
+    /// Whether this game's own conditions leave a character able to act at all.
+    /// </summary>
+    /// <remarks>
+    /// OpenEnroth <c>src/Engine/Objects/Character.cpp:350-357</c> (<c>Character::CanAct</c>): sleep,
+    /// paralysis, unconsciousness, death, petrification, and eradication stop a character acting, and the
+    /// weaker conditions do not. This is the one answer the fight's own gate and the mixing workflow both
+    /// read, so a character a blow laid out can neither swing nor mix a potion.
+    /// </remarks>
+    /// <param name="member">The character whose conditions are read.</param>
+    /// <returns>Whether they may act.</returns>
+    internal static bool CanAct(PartyMember member)
+    {
+        ArgumentNullException.ThrowIfNull(member);
+        return !member.Conditions.Has(Sleep) &&
+               !member.Conditions.Has(Paralyzed) &&
+               !member.Conditions.Has(Unconscious) &&
+               !member.Conditions.Has(Dead) &&
+               !member.Conditions.Has(Petrified) &&
+               !member.Conditions.Has(Eradicated);
+    }
+
     internal static readonly IReadOnlyList<ConditionId> Afflictions =
     [
         Cursed, Weak, Sleep, Fear, Drunk, Insane,

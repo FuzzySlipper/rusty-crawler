@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Globalization;
 using System.Text;
 using MightAndMagic7.Import.Events;
 
@@ -117,6 +118,8 @@ internal static class SyntheticInstallation
                     LodFixture.TextTable("HOSTILE.TXT", Hostility()),
                     LodFixture.TextTable("SPELLS.TXT", Spells()),
                     LodFixture.TextTable("ITEMS.TXT", Items()),
+                    LodFixture.TextTable("POTION.TXT", Potions()),
+                    LodFixture.TextTable("POTNOTES.TXT", PotionNotes()),
                     LodFixture.TextTable("RNDITEMS.TXT", RandomItems()),
                     LodFixture.TextTable("QUESTS.TXT", Quests()),
                     LodFixture.TextTable("npcdata.txt", Npcs()),
@@ -346,6 +349,147 @@ internal static class SyntheticInstallation
         return text.ToString();
     }
 
+    /// <summary>The first reagent row id the fixture's potion table declares.</summary>
+    private const int FirstReagent = 200;
+
+    /// <summary>The last reagent row id the fixture's potion table declares.</summary>
+    private const int LastReagent = 219;
+
+    /// <summary>The empty bottle's row id, which is the other half of a reagent's own recipe.</summary>
+    private const int Bottle = 220;
+
+    /// <summary>The catalyst's row id, whose own description is the gray the gray reagents are mixed into.</summary>
+    private const int Catalyst = 221;
+
+    /// <summary>The first real potion's row id, which is where the mixture matrix begins.</summary>
+    private const int FirstPotion = 222;
+
+    /// <summary>The last real potion's row id.</summary>
+    private const int LastPotion = 271;
+
+    /// <summary>
+    /// What one reagent's own power is, in the shipped table's own ascending pattern.
+    /// </summary>
+    private static int ReagentPower(int reagent) => reagent switch
+    {
+        219 => 75,
+        // The braces matter: a switch expression binds tighter than %, so an unparenthesised remainder would
+        // be read as `% (5 switch {...})` and every reagent would come out at its own remainder.
+        _ => ((reagent - FirstReagent) % 5) switch { 0 => 1, 1 => 5, 2 => 10, 3 => 20, _ => 50 },
+    };
+
+    /// <summary>The colour word one reagent is mixed into, which the potion rows' own descriptions state.</summary>
+    private static string ReagentColour(int reagent) => reagent switch
+    {
+        <= 204 => "Red",
+        <= 209 => "Blue",
+        <= 214 => "Yellow",
+        _ => "Gray",
+    };
+
+    /// <summary>
+    /// The fixture's potion table, in the shape the shipped one states: four label columns, three colour-unit
+    /// cells on the real potion rows, and the mixture matrix behind them.
+    /// </summary>
+    /// <remarks>
+    /// The matrix is sparse and symmetric, and a cell is written exactly as the shipped table writes one: the
+    /// id of what the pair makes, <c>no</c> for the diagonal, or <c>E</c> and a strength for a pair that goes
+    /// off. The last thirty-two rows are repeated with the number column blank and the unit cells omitted,
+    /// which is the second layout the shipped file carries and which the reader checks rather than trusts.
+    /// </remarks>
+    private static string Potions()
+    {
+        StringBuilder text = new("\tName\tDescription\tEffect\t\t\t");
+        for (int potion = FirstPotion; potion <= LastPotion; potion++) text.Append('\t');
+        text.Append('\n');
+
+        for (int row = FirstReagent; row <= LastPotion; row++)
+        {
+            text.Append(Row(row, withUnits: true));
+        }
+
+        for (int row = 240; row <= LastPotion; row++) text.Append(Row(row, withUnits: false));
+        return text.ToString();
+    }
+
+    /// <summary>One row of the fixture's potion table, in either of the two layouts the shipped file uses.</summary>
+    private static string Row(int row, bool withUnits)
+    {
+        StringBuilder text = new();
+        text.Append(withUnits ? row.ToString(CultureInfo.InvariantCulture) : string.Empty);
+        text.Append('\t');
+        text.Append(row switch
+        {
+            Bottle => "Potion Bottle",
+            Catalyst => "Catalyst",
+            _ => row <= LastReagent ? $"Reagent {row}" : $"Potion {row}",
+        });
+        text.Append('\t');
+        text.Append(row switch
+        {
+            Bottle => "Empty Bottle",
+            Catalyst => "Gray Potion",
+            >= FirstPotion and <= 224 => $"{new[] { "Red", "Blue", "Yellow" }[row - FirstPotion]} Potion",
+            >= FirstPotion => $"White Potion {row}",
+            _ => "Reagent",
+        });
+        text.Append('\t');
+        text.Append(row switch
+        {
+            Bottle => "None",
+            Catalyst => "Boost Potion",
+            _ when row <= LastReagent => $"+ Bottle = {ReagentColour(row)} Potion +{ReagentPower(row).ToString(CultureInfo.InvariantCulture)}",
+            _ => $"Effect {row}",
+        });
+
+        if (withUnits)
+        {
+            for (int unit = 0; unit < 3; unit++)
+            {
+                text.Append('\t');
+                if (row >= FirstPotion) text.Append(((row + unit) % 4).ToString(CultureInfo.InvariantCulture));
+            }
+
+            // A reagent has one recipe and no matrix; the real potion rows state the matrix itself.
+            if (row <= LastReagent) text.Append('\t').Append(Bottle.ToString(CultureInfo.InvariantCulture));
+            else if (row == Catalyst) text.Append('\t').Append(FirstPotion.ToString(CultureInfo.InvariantCulture));
+            else
+            {
+                for (int other = FirstPotion; other <= LastPotion; other++) text.Append('\t').Append(Cell(row, other));
+            }
+        }
+
+        return text.Append('\n').ToString();
+    }
+
+    /// <summary>One cell of the fixture's mixture matrix, which is a function of the pair and nothing else.</summary>
+    private static string Cell(int row, int other)
+    {
+        if (row == other) return "no";
+        int sum = row + other;
+        if (sum % 7 == 0) return sum % 14 == 0 ? Math.Min(row, other).ToString(CultureInfo.InvariantCulture) : Math.Max(row, other).ToString(CultureInfo.InvariantCulture);
+        if (sum % 11 == 0) return $"E{(sum % 4) + 1}";
+        return string.Empty;
+    }
+
+    /// <summary>
+    /// The fixture's discovery table: the potion table's own layout with a note index in each stated cell.
+    /// </summary>
+    private static string PotionNotes()
+    {
+        StringBuilder text = new("\tName\tDescription\tEffect\t\t\t");
+        for (int potion = FirstPotion; potion <= LastPotion; potion++) text.Append('\t');
+        text.Append('\n');
+
+        for (int row = FirstReagent; row <= LastPotion; row++)
+        {
+            text.Append(Row(row, withUnits: true).TrimEnd('\n'));
+            text.Append('\n');
+        }
+
+        return text.ToString();
+    }
+
     private static string Items()
     {
         StringBuilder text = new("Item #\tPic File\tName\tValue\tEquip Stat\tSkill Group\tMod1\tMod2\tMaterial\tID/Rep/St\tNot identified name\tSprite Index\tVarA\tVarB\n");
@@ -363,6 +507,15 @@ internal static class SyntheticInstallation
             if (item == 400)
             {
                 text.Append($"{item}\titem{item:D3}\tFire Bolt\t200\tBook\tMisc\tS2\t1\t3\t1\tBook of Learning\t{item % 300}\t0\t0\n");
+                continue;
+            }
+
+            // The shipped reagent rows carry their own power in the table's damage column, which is where the
+            // donor reads it from; the potion table's reader checks its own reading of the same number against
+            // it, so the fixture states the two rows consistently.
+            if (item is >= FirstReagent and <= LastReagent)
+            {
+                text.Append($"{item}\titem{item:D3}\tReagent {item}\t10\tReagent\tMisc\t{ReagentPower(item)}\t0\t1\t0\tReagent\t{item % 300}\t0\t0\n");
                 continue;
             }
 

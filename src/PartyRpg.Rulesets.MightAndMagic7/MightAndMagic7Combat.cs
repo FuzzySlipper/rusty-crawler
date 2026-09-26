@@ -968,12 +968,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     {
         ArgumentNullException.ThrowIfNull(subject);
         if (subject.Member is not { } member) return true;
-        return !member.Conditions.Has(MightAndMagic7Conditions.Sleep) &&
-               !member.Conditions.Has(MightAndMagic7Conditions.Paralyzed) &&
-               !member.Conditions.Has(MightAndMagic7Conditions.Unconscious) &&
-               !member.Conditions.Has(MightAndMagic7Conditions.Dead) &&
-               !member.Conditions.Has(MightAndMagic7Conditions.Petrified) &&
-               !member.Conditions.Has(MightAndMagic7Conditions.Eradicated);
+        return MightAndMagic7Conditions.CanAct(member);
     }
 
     /// <inheritdoc />

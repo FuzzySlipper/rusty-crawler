@@ -6,6 +6,7 @@ using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Movement;
+using PartyRpg.Kit.Alchemy;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Progression;
@@ -114,8 +115,11 @@ public sealed class PartyRpgSession : IGameSession
     private readonly IMonsterAiPolicy? _monsterAi;
     private readonly ISpellRule? _spellRule;
     private readonly ISpellEffectRule? _spellEffects;
+    private readonly IAlchemyRule? _alchemyRule;
+    private readonly AlchemyCatalog? _mixtures;
     private bool _magicObserved;
     private readonly CastInput? _castInput;
+    private readonly MixInput? _mixInput;
     private readonly GameClock? _clock;
     private readonly IDiagnosticsService? _diagnostics;
     private readonly ISessionSaveStore? _saveStore;
@@ -143,6 +147,7 @@ public sealed class PartyRpgSession : IGameSession
     private CombatState? _combat;
     private CombatDirector? _director;
     private Spellcasting? _casting;
+    private PotionMixing? _mixing;
     private CombatantId? _lastCastActor;
     private readonly TimeOwners _timeOwners = new();
     private WorldSnapshot _world = WorldSnapshot.Empty;
@@ -336,7 +341,10 @@ public sealed class PartyRpgSession : IGameSession
         SkillRaiseIntentNames? skillInput = null,
         ISpellRule? spells = null,
         ISpellEffectRule? spellEffects = null,
-        CastIntentNames? castInput = null)
+        CastIntentNames? castInput = null,
+        IAlchemyRule? alchemy = null,
+        AlchemyCatalog? mixtures = null,
+        MixIntentNames? mixInput = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(composition.Title);
         if (creation is not null && (world is not null || party is not null))
@@ -374,6 +382,13 @@ public sealed class PartyRpgSession : IGameSession
         _spellRule = spells;
         _spellEffects = spellEffects;
         _castInput = castInput is null ? null : new CastInput(castInput);
+
+        // The mixing control is one payload action beside casting's: the pack's own rows name the two things
+        // a player put together, and a mixture is not a cast — it changes what the pack holds rather than what
+        // a spell does — so it is read through its own declared action and no key claims it.
+        _alchemyRule = alchemy;
+        _mixtures = mixtures;
+        _mixInput = mixInput is null ? null : new MixInput(mixInput);
         _creation = creation;
         _clock = clock;
         _party = party;
@@ -407,6 +422,7 @@ public sealed class PartyRpgSession : IGameSession
         // fight the session just composed: a spell's aim and the caster's ability to act are judged against
         // the same fight the act control orders through, so a cast and a swing are paced by one state.
         ComposeMagic();
+        ComposeAlchemy();
         // A session publishes as soon as it exists: the engine expects a create-time projection, and a
         // client that attaches before the first update should see the session it has attached to.
         Publish();
@@ -717,6 +733,10 @@ public sealed class PartyRpgSession : IGameSession
         // the spell is aimed at the fight this update's own world read left standing. The quick slot is read
         // whatever is open, because which spell a character keeps there is her own state and not an act.
         bool cast = DriveCasts(update.Input, allowed: !screenOwnsControls);
+
+        // Mixing is read in the same breath: it is the pack screen's own act, and a mixture that arrived while
+        // a screen owned the controls is refused by name rather than quietly dropped.
+        DriveMixes(update.Input, allowed: !screenOwnsControls);
         DriveCombat(attacked, skipped, waited, cast, seconds);
 
         // The mode is resolved after the fight has had its say, because the fight is what decides whether the
@@ -1402,6 +1422,75 @@ public sealed class PartyRpgSession : IGameSession
     }
 
     /// <summary>
+    /// Composes the mixing workflow over the party, this game's own mixture table, and its answers about
+    /// mixing.
+    /// </summary>
+    /// <remarks>
+    /// It is composed beside the casting workflow and over the same party, because mixing is a transfer of the
+    /// party's own things rather than an act in the world: the ingredients come out of the shared pack and the
+    /// potion goes back into it through the party's own two entries. A session whose ruleset answered no
+    /// mixtures holds no workflow at all, and publishes that rather than a pack screen whose mixing control
+    /// nothing could carry out.
+    /// </remarks>
+    private void ComposeAlchemy()
+    {
+        if (_alchemyRule is not { } rule || _mixtures is not { } catalog || _party is not { } party) return;
+        _mixing = new PotionMixing(party, catalog, rule);
+    }
+
+    /// <summary>
+    /// Applies the mixtures this update carried, in the order they arrived.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A mixture is an instant, like a cast and a raise: it is read inside this one admitted update and it
+    /// changes what the party's own pack holds rather than what the world is. Every attempt goes through the
+    /// one workflow, so a pair the game states no mixture for, a character whose mastery does not reach the
+    /// result's rung, a character who cannot act, and a pack that cannot take the potion are each refused by
+    /// name and leave both ingredients exactly where they lay.
+    /// </para>
+    /// <para>
+    /// A refusal is published rather than thrown, because a screen's own control must be able to report it: a
+    /// button the panel offers and the product ignores would be a control that looks like it did nothing.
+    /// </para>
+    /// </remarks>
+    /// <param name="input">The admitted input slice of one update.</param>
+    /// <param name="allowed">Whether a mixture may be applied this update, which a screen owning the controls forbids.</param>
+    /// <returns>Whether a mixture this update was applied.</returns>
+    private bool DriveMixes(ReadOnlySpan<ProductInputEvent> input, bool allowed)
+    {
+        if (_mixInput is null || _mixing is not { } mixing) return false;
+
+        bool mixed = false;
+        foreach (MixRequest request in _mixInput.Read(input))
+        {
+            if (!allowed)
+            {
+                _diagnostics?.Publish(new DiagnosticsPublishRequest(
+                    DiagnosticsSeverity.Info,
+                    DiagnosticsDisposition.RejectedRecoverable,
+                    Source: "alchemy",
+                    Code: "mixture-screen-open",
+                    Message: "A mixture arrived while a screen owned the player's controls, so nothing was mixed and both ingredients are still where they were.",
+                    Correlation: string.Empty));
+                continue;
+            }
+
+            MixingResult result = mixing.Mix(new MixingRequest(request.Member, request.First, request.Second));
+            mixed |= result.IsMixed;
+            _diagnostics?.Publish(new DiagnosticsPublishRequest(
+                result.IsMixed ? DiagnosticsSeverity.Info : DiagnosticsSeverity.Warning,
+                result.IsMixed ? DiagnosticsDisposition.Accepted : DiagnosticsDisposition.RejectedRecoverable,
+                Source: "alchemy",
+                Code: result.Code,
+                Message: result.Message,
+                Correlation: string.Empty));
+        }
+
+        return mixed;
+    }
+
+    /// <summary>
     /// Applies the castings and quick-slot choices this update carried, in the order they arrived.
     /// </summary>
     /// <remarks>
@@ -1825,7 +1914,12 @@ public sealed class PartyRpgSession : IGameSession
         // workflow the ruleset's answers composed: a session whose ruleset stated no magic, a party that has
         // learned nothing, and one whose spell was refused for its mastery or its pool are three different
         // facts, and the price on every row is the workflow's own answer for that caster.
-        MagicSnapshot.From(_casting, _skillRule));
+        MagicSnapshot.From(_casting, _skillRule),
+        // What in the pack mixes and what the last mixture did, read from the mixing workflow the ruleset's
+        // answers composed: a session whose ruleset stated no mixtures, a pack holding nothing that mixes,
+        // and a mixture refused for a mastery or for want of room are three different facts, and the rows
+        // are the pack's own instances rather than a list of recipes the screen keeps.
+        AlchemySnapshot.From(_mixing));
 
     /// <summary>Publishes the world as it stands now, after a caller moved the party.</summary>
     public void PublishWorld()

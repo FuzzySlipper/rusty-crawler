@@ -103,7 +103,8 @@ public readonly record struct SessionSnapshot(
     CombatSnapshot Combat = default,
     ProgressionSnapshot Progression = default,
     SkillsSnapshot Skills = default,
-    MagicSnapshot Magic = default);
+    MagicSnapshot Magic = default,
+    AlchemySnapshot Alchemy = default);
 
 /// <summary>Where the party is in the world, as the panel needs it: which place, where in it, and how much of the world is known.</summary>
 /// <param name="Place">The place the party is in, empty when the session has no world.</param>
@@ -195,6 +196,9 @@ public static class SessionProjection
 
     /// <summary>The name of the projection field the magic block is published under.</summary>
     public const string MagicField = "magic";
+
+    /// <summary>The name of the projection field the alchemy block is published under.</summary>
+    public const string AlchemyField = "alchemy";
 
     /// <summary>Builds the projection value for a snapshot.</summary>
     public static UiValue Build(SessionSnapshot snapshot)
@@ -323,7 +327,12 @@ public static class SessionProjection
             // session's ruleset stated no magic policy", "nobody has learned a spell", and "a member holds a
             // spell their mastery or their pool will not pay for" are three different facts, and a block
             // that only appeared once somebody had cast would leave a screen unable to tell them apart.
-            (MagicField, Magic(builder, snapshot.Magic)));
+            (MagicField, Magic(builder, snapshot.Magic)),
+            // The alchemy block is published in every mode for the same reason the magic block is: "this
+            // session's ruleset stated no mixtures", "the pack holds nothing that mixes", and "a mixture was
+            // refused for a mastery or for want of room" are three different facts, and a block that only
+            // appeared once something had been mixed would leave a pack screen unable to tell them apart.
+            (AlchemyField, Alchemy(builder, snapshot.Alchemy)));
         return builder.Build(root);
     }
 
@@ -836,6 +845,83 @@ public static class SessionProjection
             ("memberRunning", builder.Array([.. memberRunning])),
             ("items", builder.Array([.. items])),
             ("sight", builder.String(magic.Sight ?? string.Empty)));
+    }
+
+    /// <summary>Builds the alchemy block: what in the pack mixes, and what the last mixture did.</summary>
+    /// <remarks>
+    /// The pairs are sent as the two instance identities the pack holds, so a screen sends back exactly what
+    /// it drew and the session resolves it against the pack it holds inside the same update. Nothing about
+    /// what a pair will do is published: the game's own table is what a player learns, and the outcome row is
+    /// where an attempt's own answer arrives.
+    /// </remarks>
+    private static uint Alchemy(UiValueBuilder builder, AlchemySnapshot alchemy)
+    {
+        List<uint> members = [];
+        foreach (AlchemyMemberSnapshot member in alchemy.Members ?? [])
+        {
+            members.Add(builder.Object(
+                ("index", builder.Number(member.Index)),
+                ("member", builder.String(member.Member)),
+                ("name", builder.String(member.Name)),
+                ("alchemy", builder.Number(member.Alchemy))));
+        }
+
+        List<uint> items = [];
+        foreach (AlchemyItemSnapshot item in alchemy.Items ?? [])
+        {
+            items.Add(builder.Object(
+                ("item", builder.String(item.Item)),
+                ("definition", builder.String(item.Definition)),
+                ("name", builder.String(item.Name)),
+                ("kind", builder.String(item.Kind)),
+                ("potency", builder.Number(item.Potency)),
+                ("count", builder.Number(item.Count))));
+        }
+
+        List<uint> mixtures = [];
+        foreach (AlchemyMixtureSnapshot mixture in alchemy.Mixtures ?? [])
+        {
+            mixtures.Add(builder.Object(
+                ("first", builder.String(mixture.First)),
+                ("second", builder.String(mixture.Second)),
+                ("firstName", builder.String(mixture.FirstName)),
+                ("secondName", builder.String(mixture.SecondName))));
+        }
+
+        uint outcome = alchemy.Outcome is { } last
+            ? builder.Object(
+                ("member", builder.Number(last.Member)),
+                ("mixer", builder.String(last.Mixer)),
+                ("outcome", builder.String(last.Outcome)),
+                ("result", builder.String(last.Result)),
+                ("resultName", builder.String(last.ResultName)),
+                ("power", builder.Number(last.Power)),
+                ("burst", builder.Number(last.Burst)),
+                ("harm", builder.Number(last.Harm)),
+                ("condition", builder.String(last.Condition)),
+                ("note", builder.Number(last.Note)),
+                ("code", builder.String(last.Code)),
+                ("message", builder.String(last.Message)))
+            : builder.Object(
+                ("member", builder.Number(0)),
+                ("mixer", builder.String(string.Empty)),
+                ("outcome", builder.String(string.Empty)),
+                ("result", builder.String(string.Empty)),
+                ("resultName", builder.String(string.Empty)),
+                ("power", builder.Number(0)),
+                ("burst", builder.Number(0)),
+                ("harm", builder.Number(0)),
+                ("condition", builder.String(string.Empty)),
+                ("note", builder.Number(0)),
+                ("code", builder.String(string.Empty)),
+                ("message", builder.String(string.Empty)));
+
+        return builder.Object(
+            ("available", builder.Boolean(alchemy.Available)),
+            ("members", builder.Array([.. members])),
+            ("items", builder.Array([.. items])),
+            ("mixtures", builder.Array([.. mixtures])),
+            ("outcome", outcome));
     }
 
     private static uint Rest(UiValueBuilder builder, RestSnapshot rest) =>

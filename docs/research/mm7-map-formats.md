@@ -593,3 +593,68 @@ the ground"]**. In this data one arrival is 1536 units above the nearest standab
 North Start, z 1536 where the terrain is 0), and one interior's Party Start sits 80 units below its
 floor (mdt05, z 0 where the floor is 80) **[verified: data]** — the engine's controller resolves the
 drop, and the party lands on geometry either way.
+
+## 9. The potion table and the alchemy document
+
+`Events.lod:POTION.TXT` is where this game keeps its mixtures, and `POTNOTES.TXT` is the same table again
+with a discovery index in place of each outcome. Both are read by the importer into one `potions.json`
+document of kind `potion`, one entry per row, from which the ruleset reads the recipes it plays.
+
+**The shipped layout [verified: data].** One header line, then 72 rows of four label columns — the row's own
+item id, its name, its colour word, and what it does in the game's own words — followed by the mixture
+matrix. Twenty rows are reagents (ids 200–219, whose colour word is `Reagent`), then the empty bottle (220),
+the catalyst (221), and fifty real potions (222–271). The real potion rows carry three more cells between the
+effect and the matrix, which are the potion's own red, blue, and yellow composition (Catalyst `[0,0,0]`, Haste
+`[2,0,1]`, Stone to Flesh `[3,2,3]`). The matrix is symmetric and covers the fifty real potions in both
+directions, one column each: a cell is the id of what the pair makes, the word `no` for the diagonal, or `E`
+and a strength for a pair that goes off. The importer reads it exactly as the donor does
+**[donor `src/Engine/Tables/ItemTable.cpp:252-278`]**, which is what makes the matrix's own offsets the ones
+that matter: a cell sits at field 7 + (other − 222), and a reagent row carries none at all.
+
+**Two source quirks this reader has to know about.** First, the file's last thirty-two rows (240–271) appear
+**twice**: once with their ids and unit cells, and again with the number column blank and the three unit cells
+omitted. The second block is the same rows in a second layout, and the donor skips it outright
+**[donor `src/Engine/Tables/ItemTable.cpp:257`, `if (tokens[0].empty()) continue;`]**. This importer skips it
+too, but checks the three label cells against the rows that carry ids first, so a block that was *not* the
+same rows would fail the import rather than be dropped. Second, a reagent's one recipe is written in its own
+effect cell as text — `+ Bottle = Red Potion +1` — and the colour word in it is resolved through the potion
+rows' own description column rather than through an id table here; the power in the same text is checked
+against the item table's damage column for the same row, which is where the donor's `GetReagentPower` reads it
+**[donor `src/Engine/Tables/ItemTable.cpp:166`, `items[i].reagentPower = items[i].damageDice`]**.
+
+**What the shipped table does not carry, and what this importer therefore authors [ours].** Two things:
+
+- `tier` — the rung of Alchemy a mixture's result asks for. The donor gates a mixture on the rung its
+  *result* needs, in four bands over the potion ids **[donor `src/GUI/UI/UIPopup.cpp:2092-2112`]**: nothing
+  for 222–224, the first rung for 225–227, the second for 228–239, the third for 240–261, and the fourth for
+  262–271. Each row of the pack states that rung, so the requirement travels with the recipe rather than being
+  computed from an id range at play time.
+- the catalyst's own mixtures — no matrix cell covers the catalyst, because the donor decides before it reads
+  the matrix that a catalyst with anything is that thing and two catalysts are a catalyst
+  **[donor `src/GUI/UI/UIPopup.cpp:2075-2080`]**. Those 51 rows are written out from that rule.
+
+Everything else in the document is the table's own words: `name`, `description`, `effect`, `kind`, the unit
+cells, each matrix cell as `none`, `burst:n`, or a result id, and the `notes` object from `POTNOTES.TXT`
+(`no` and a zero are both "no discovery"). A row's `power` is the reagent's own power, which is the item
+table's damage column for the same row.
+
+```
+potions.json  (documentId "potions", definitionKind "potion")
+{ "id": "200", "name": "Widowsweep Berries", "description": "Reagent",
+  "effect": "+ Bottle = Red Potion +1", "kind": "reagent", "tier": 0, "power": 1,
+  "mixtures": { "220": "222" } }
+{ "id": "222", "name": "Cure Wounds", "description": "Red Potion", "effect": "Heal 10+skill HP",
+  "kind": "potion", "units": [1, 0, 0], "tier": 0,
+  "mixtures": { "222": "none", "223": "226", "…": "…", "271": "burst:4" } }
+```
+
+What the rows *count* to over the operator's own copy, so a later reader can check a re-import:
+**[verified: data]** 72 rows and **1,346 mixtures**: 20 reagent recipes, the catalyst's 51 authored pairs, 50
+diagonals, and the 1,225 unordered pairs of distinct real potions. Of those 1,225 pairs, **228 make
+something** — 51 distinct results, the catalyst 60 times and the three first potions 37 times each — and
+**997 go off**: 15 at the first strength, 36 at the second, 501 at the third, and 445 at the fourth. The 50
+diagonals do nothing, and a reagent mixes with the bottle and with nothing else.
+
+What a mixture *costs* a character, and what drinking a potion does, are the executable's rather than any
+table's **[donor `src/GUI/UI/UIPopup.cpp:1978-2270` for mixing, `src/Engine/Objects/Character.cpp:3080-3300`
+for drinking]**; those readings live in the ruleset, which cites them where each one is stated.

@@ -590,6 +590,9 @@ function snapshot(mode, seconds = 0, steps = 0, updates = 0, facts = undefined, 
   // The magic block is published in every mode too, so a case that asks for none covers a projection whose
   // ruleset stated no spell policy.
   if (blocks?.magic !== undefined) value.magic = blocks.magic;
+  // The alchemy block is published on the same terms: a case that asks for none covers a projection whose
+  // ruleset stated no mixtures.
+  if (blocks?.alchemy !== undefined) value.alchemy = blocks.alchemy;
   return value;
 }
 
@@ -899,6 +902,67 @@ function magic(overrides = {}) {
     source: '',
     sight: '',
     ...overrides,
+  };
+}
+
+function alchemy(overrides = {}) {
+  return {
+    available: true,
+    members: [
+      { index: 0, member: '1', name: 'Aelina', alchemy: 2 },
+      { index: 1, member: '2', name: 'Borin', alchemy: 0 },
+    ],
+    items: [
+      { item: '11', definition: '200', name: 'Widowsweep Berries', kind: 'reagent', potency: 1, count: 1 },
+      { item: '12', definition: '220', name: 'Potion Bottle', kind: 'bottle', potency: 0, count: 2 },
+    ],
+    mixtures: [
+      { first: '11', second: '12', firstName: 'Widowsweep Berries', secondName: 'Potion Bottle' },
+    ],
+    outcome: {
+      member: 0,
+      mixer: '',
+      outcome: '',
+      result: '',
+      resultName: '',
+      power: 0,
+      burst: 0,
+      harm: 0,
+      condition: '',
+      note: 0,
+      code: '',
+      message: '',
+    },
+    ...overrides,
+  };
+}
+
+/** The mixing section as a person reads it: the pack's rows, the pairs, and the last attempt's answer. */
+function alchemyPanel(h) {
+  const panel = h.panel();
+  const section = panel?.querySelector('.crawler-alchemy');
+  const result = section?.querySelector('.crawler-alchemy-result');
+  return {
+    section,
+    hidden: section?.hidden,
+    state: section?.querySelector('.crawler-alchemy-state')?.textContent ?? null,
+    items: [...(section?.querySelectorAll('.crawler-alchemy-item') ?? [])].map((row) => ({
+      item: row.getAttribute('data-item'),
+      definition: row.getAttribute('data-definition'),
+      kind: row.getAttribute('data-kind'),
+      potency: row.getAttribute('data-potency'),
+      text: row.textContent,
+    })),
+    mixtures: [...(section?.querySelectorAll('.crawler-alchemy-mixture') ?? [])].map((row) => ({
+      first: row.getAttribute('data-first'),
+      second: row.getAttribute('data-second'),
+      text: row.querySelector('.crawler-row-label')?.textContent ?? '',
+      mixers: [...row.querySelectorAll('.crawler-alchemy-mixer option')].map((option) => option.textContent),
+      mix: row.querySelector('.crawler-mix'),
+    })),
+    outcome: result?.getAttribute('data-outcome') ?? null,
+    code: result?.getAttribute('data-code') ?? null,
+    message: result?.textContent ?? null,
   };
 }
 
@@ -3305,6 +3369,114 @@ test('the panel shows what a cast changed, what is running, and where a spell ma
     assert.deepEqual(quiet.facts, []);
     assert.equal(quiet.running.hidden, true);
     assert.equal(quiet.running.text, '');
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the panel shows what in the pack mixes, sends the mixture a player pressed, and reads one refusal', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // A session whose ruleset stated no mixtures shows no mixing section at all — a different fact from a
+    // pack that holds nothing which mixes — and the panel says which of the two it is looking at.
+    h.emit(snapshot('running', 1, 60, 60, movement()));
+    assert.equal(h.panel().getAttribute('data-alchemy'), 'none');
+    assert.equal(alchemyPanel(h).hidden, true);
+
+    h.emit(snapshot('running', 2, 120, 121, movement(), { alchemy: alchemy() }));
+    assert.equal(h.panel().getAttribute('data-alchemy'), 'present');
+    const pack = alchemyPanel(h);
+    assert.equal(pack.hidden, false);
+
+    // What the pack holds for mixing, as the product published it: the two rows, what kind each is, and the
+    // strength the instance carries — a potion mixed from a dragon's eye and one mixed from a berry are the
+    // same drink at two strengths, and the panel shows which it is holding.
+    assert.deepEqual(pack.items, [
+      { item: '11', definition: '200', kind: 'reagent', potency: '1', text: 'Widowsweep Berries · reagent · strength 1' },
+      { item: '12', definition: '220', kind: 'bottle', potency: '0', text: 'Potion Bottle · bottle · strength 0 · 2' },
+    ]);
+
+    // The pair the product offered, with the members a mixture may be asked of and the rung each stands at:
+    // who mixes is the character's own mastery, and the screen decides nothing about it.
+    assert.equal(pack.mixtures.length, 1);
+    assert.equal(pack.mixtures[0].text, 'Widowsweep Berries + Potion Bottle');
+    assert.deepEqual(pack.mixtures[0].mixers, ['Aelina (rung 2)', 'Borin (rung 0)']);
+
+    // The control sends the two instance identities and the chosen member on the product's own action
+    // contract: the product resolves the pair against the pack it holds, and the screen names what it drew.
+    const [mixture] = pack.mixtures;
+    const mixer = mixture.section?.querySelector?.('.crawler-alchemy-mixer')
+      ?? mixture.mix?.parentElement?.querySelector('.crawler-alchemy-mixer');
+    mixer.value = '1';
+    mixture.mix.dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
+    assert.deepEqual(h.claims.at(-1), {
+      intent: 'crawler.ui',
+      value: {
+        kind: 'product-payload',
+        contract: 'crawler.ui.action.v1',
+        data: { action: 'party.mix', member: 1, first: '11', second: '12' },
+      },
+    });
+
+    // What a mixture did is the product's own report: the potion it made, its strength, and the ingredients
+    // it spent — the panel parses none of it.
+    h.emit(snapshot('running', 3, 180, 181, movement(), {
+      alchemy: alchemy({
+        items: [
+          { item: '13', definition: '222', name: 'Cure Wounds', kind: 'potion', potency: 5, count: 1 },
+        ],
+        mixtures: [],
+        outcome: {
+          member: 0,
+          mixer: 'Aelina',
+          outcome: 'potion',
+          result: '222',
+          resultName: 'Cure Wounds',
+          power: 5,
+          burst: 0,
+          harm: 0,
+          condition: '',
+          note: 58,
+          code: 'mixture-mixed',
+          message: 'Aelina mixes Widowsweep Berries with Potion Bottle into Cure Wounds of strength 5, and learns something worth remembering.',
+        },
+      }),
+    }));
+    const mixed = alchemyPanel(h);
+    assert.equal(mixed.outcome, 'potion');
+    assert.equal(mixed.code, 'mixture-mixed');
+    assert.match(mixed.message, /into Cure Wounds of strength 5/);
+    assert.equal(h.panel().getAttribute('data-alchemy-outcome'), 'potion');
+    assert.deepEqual(mixed.items.map((item) => item.text), ['Cure Wounds · potion · strength 5']);
+
+    // A refusal keeps its own code and sentence, which is where a player reads what blocked the mixture and
+    // what would raise the mastery it asked for.
+    h.emit(snapshot('running', 4, 240, 241, movement(), {
+      alchemy: alchemy({
+        outcome: {
+          member: 1,
+          mixer: 'Borin',
+          outcome: 'refused',
+          result: '',
+          resultName: '',
+          power: 0,
+          burst: 0,
+          harm: 0,
+          condition: '',
+          note: 0,
+          code: 'mixture-mastery-too-low',
+          message: 'Borin stands at untrained in Alchemy and Cure Wounds is mixed at expert; a mastery lesson in Alchemy at a counter that teaches it raises the rung.',
+        },
+      }),
+    }));
+    const refused = alchemyPanel(h);
+    assert.equal(refused.outcome, 'refused');
+    assert.equal(refused.code, 'mixture-mastery-too-low');
+    assert.match(refused.message, /raises the rung/);
 
     ui.dispose();
   } finally {

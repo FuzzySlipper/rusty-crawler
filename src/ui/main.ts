@@ -88,6 +88,13 @@ const ACTION_RAISE_SKILL = 'party.raise-skill';
  */
 const ACTION_CAST = 'party.cast';
 const ACTION_QUICK_SPELL = 'party.quick-spell';
+
+/**
+ * The mixing action this companion reports. A mixture names two of the things the party carries and the
+ * member who puts them together, which is what the product's own mixing control takes — one action, because
+ * which two of the pack's rows a player meant is one decision and no key can say it.
+ */
+const ACTION_MIX = 'party.mix';
 const ACTION_SERVICE_BUY = 'service.buy';
 const ACTION_SERVICE_SELL = 'service.sell';
 const ACTION_SERVICE_IDENTIFY = 'service.identify';
@@ -698,6 +705,57 @@ interface CreationView {
   readonly party: readonly CreationPartyMemberView[];
 }
 
+/** One thing in the pack that some mixture takes part in, as the panel draws it. */
+interface AlchemyItemView {
+  readonly item: string;
+  readonly definition: string;
+  readonly name: string;
+  readonly kind: string;
+  readonly potency: number;
+  readonly count: number;
+}
+
+/** One mixture the pack currently offers: two of the pack's rows, and nothing about what they will do. */
+interface AlchemyMixtureView {
+  readonly first: string;
+  readonly second: string;
+  readonly firstName: string;
+  readonly secondName: string;
+}
+
+/** What the last mixture did, or why nothing was mixed. */
+interface AlchemyOutcomeView {
+  readonly member: number;
+  readonly mixer: string;
+  readonly outcome: string;
+  readonly result: string;
+  readonly resultName: string;
+  readonly power: number;
+  readonly burst: number;
+  readonly harm: number;
+  readonly condition: string;
+  readonly note: number;
+  readonly code: string;
+  readonly message: string;
+}
+
+/** One character a mixture may be asked of, as the panel's own chooser names them. */
+interface AlchemyMemberView {
+  readonly index: number;
+  readonly member: string;
+  readonly name: string;
+  readonly alchemy: number;
+}
+
+/** The alchemy the pack screen shows: what mixes, who may mix it, and what the last attempt did. */
+interface AlchemyView {
+  readonly available: boolean;
+  readonly members: readonly AlchemyMemberView[];
+  readonly items: readonly AlchemyItemView[];
+  readonly mixtures: readonly AlchemyMixtureView[];
+  readonly outcome: AlchemyOutcomeView;
+}
+
 interface SnapshotView {
   readonly composition: CompositionView;
   readonly session: SessionView;
@@ -715,6 +773,7 @@ interface SnapshotView {
   readonly progression: ProgressionView;
   readonly skills: SkillsView;
   readonly magic: MagicView;
+  readonly alchemy: AlchemyView;
 }
 
 /** The clock of a session that has none, which the panel shows as not knowing rather than as a date. */
@@ -929,6 +988,72 @@ interface MagicView {
   /** What the party sees by: `daylight`, `light`, `dark`, or empty when nothing states it. */
   readonly sight: string;
 }
+
+function readAlchemy(value: unknown): AlchemyView {
+  if (!isRecord(value)) return NO_ALCHEMY;
+  const number = (entry: unknown): number => (typeof entry === 'number' ? entry : 0);
+  const text = (entry: unknown): string => (typeof entry === 'string' ? entry : '');
+  const outcome = isRecord(value.outcome) ? value.outcome : {};
+  return {
+    available: value.available === true,
+    members: readList(value.members, (member) => ({
+      index: number(member.index),
+      member: text(member.member),
+      name: text(member.name),
+      alchemy: number(member.alchemy),
+    })),
+    items: readList(value.items, (item) => ({
+      item: text(item.item),
+      definition: text(item.definition),
+      name: text(item.name),
+      kind: text(item.kind),
+      potency: number(item.potency),
+      count: number(item.count),
+    })),
+    mixtures: readList(value.mixtures, (mixture) => ({
+      first: text(mixture.first),
+      second: text(mixture.second),
+      firstName: text(mixture.firstName),
+      secondName: text(mixture.secondName),
+    })),
+    outcome: {
+      member: number(outcome.member),
+      mixer: text(outcome.mixer),
+      outcome: text(outcome.outcome),
+      result: text(outcome.result),
+      resultName: text(outcome.resultName),
+      power: number(outcome.power),
+      burst: number(outcome.burst),
+      harm: number(outcome.harm),
+      condition: text(outcome.condition),
+      note: number(outcome.note),
+      code: text(outcome.code),
+      message: text(outcome.message),
+    },
+  };
+}
+
+/** The alchemy of a session whose ruleset stated no mixtures: nothing can be mixed. */
+const NO_ALCHEMY: AlchemyView = {
+  available: false,
+  members: [],
+  items: [],
+  mixtures: [],
+  outcome: {
+    member: 0,
+    mixer: '',
+    outcome: '',
+    result: '',
+    resultName: '',
+    power: 0,
+    burst: 0,
+    harm: 0,
+    condition: '',
+    note: 0,
+    code: '',
+    message: '',
+  },
+};
 
 /** The skills of a session whose ruleset stated no skill policy: nothing may be raised. */
 const SKILLS_NONE: SkillsView = {
@@ -1276,6 +1401,15 @@ const STYLES = `
 .crawler-magic-member .crawler-row-label { display: block; color: #cfc3a2; font-size: 0.72rem; }
 .crawler-spell { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; font-size: 0.7rem; color: #c6bb9c; }
 .crawler-magic .crawler-cast, .crawler-magic .crawler-quick { width: auto; padding: 0.15rem 0.35rem; font-size: 0.7rem; }
+.crawler-alchemy { margin: 0 0 0.5rem; border-top: 1px solid rgba(210, 196, 158, 0.25); padding-top: 0.5rem; }
+.crawler-alchemy[hidden] { display: none; }
+.crawler-alchemy .crawler-step-head { margin: 0 0 0.2rem; color: #d8cba6; font-size: 0.82rem; }
+.crawler-alchemy-state { margin: 0 0 0.25rem; color: #b9ad8c; font-size: 0.72rem; }
+.crawler-alchemy-item, .crawler-alchemy-mixture { margin: 0 0 0.3rem; }
+.crawler-alchemy-item .crawler-row-label, .crawler-alchemy-mixture .crawler-row-label { display: block; color: #cfc3a2; font-size: 0.72rem; }
+.crawler-alchemy-result { margin: 0.2rem 0 0; color: #d8cba6; font-size: 0.74rem; }
+.crawler-alchemy-result[hidden] { display: none; }
+.crawler-alchemy .crawler-mix { width: auto; padding: 0.15rem 0.35rem; font-size: 0.7rem; }
 .crawler-magic .crawler-target { font-size: 0.7rem; }
 .crawler-magic-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
 .crawler-magic-result[hidden] { display: none; }
@@ -2141,6 +2275,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
   const progression = readProgression(value.progression);
   const skills = readSkills(value.skills);
   const magic = readMagic(value.magic);
+  const alchemy = readAlchemy(value.alchemy);
   const { ruleset, title, bundle, contentPacks } = composition;
   const { mode, simulationSeconds, admittedSteps, updates } = session;
   if (
@@ -2212,6 +2347,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
     progression,
     skills,
     magic,
+    alchemy,
   };
 }
 
@@ -2554,6 +2690,27 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   magicItems.hidden = true;
   magic.append(magicHead, magicState, magicMembers, magicResult, magicFacts, magicRunning, magicMemberRunning, magicItems);
 
+  // The mixing screen: what the pack holds that mixes, which of the band a mixture may be asked of, the
+  // pairs the product published, and the answer the last attempt got. Nothing here knows a recipe: the pairs
+  // are the pack's own rows crossed with the game's own table, and the panel sends back the two instance
+  // identities and the member it drew.
+  const alchemy = document.createElement('section');
+  alchemy.className = 'crawler-alchemy';
+  alchemy.hidden = true;
+  const alchemyHead = document.createElement('p');
+  alchemyHead.className = 'crawler-step-head';
+  alchemyHead.textContent = 'Mixing';
+  const alchemyState = document.createElement('p');
+  alchemyState.className = 'crawler-alchemy-state';
+  const alchemyItems = document.createElement('div');
+  alchemyItems.className = 'crawler-alchemy-items';
+  const alchemyMixtures = document.createElement('div');
+  alchemyMixtures.className = 'crawler-alchemy-mixtures';
+  const alchemyResult = document.createElement('p');
+  alchemyResult.className = 'crawler-alchemy-result';
+  alchemyResult.hidden = true;
+  alchemy.append(alchemyHead, alchemyState, alchemyItems, alchemyMixtures, alchemyResult);
+
   // The stop controls: one button per act, and the answer the last one got. A rest heals and a wait does
   // not, so the buttons are never collapsed into one; and the fatigue line is the clock's own deadline,
   // which is why a player can see when the party next needs to sleep.
@@ -2666,6 +2823,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     progression,
     skills,
     magic,
+    alchemy,
     details,
     action,
     saveButton,
@@ -3726,6 +3884,81 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     );
   };
 
+  // The mixing screen's own renderer: the pack's rows, the pairs the product published, and the last
+  // attempt's answer. Every row is rebuilt from the projection, and the Mix control sends the two instance
+  // identities and the member the chooser holds — the panel knows no recipe and decides no outcome.
+  const renderAlchemy = (view: AlchemyView): void => {
+    panel.dataset.alchemy = view.available ? 'present' : 'none';
+    panel.dataset.alchemyOutcome = view.outcome.outcome;
+    alchemy.hidden = !view.available;
+    alchemyState.textContent = !view.available
+      ? ''
+      : view.items.length === 0
+        ? 'The pack holds nothing that mixes.'
+        : `${view.items.length} thing${view.items.length === 1 ? '' : 's'} in the pack that mixes · ${view.mixtures.length} mixture${view.mixtures.length === 1 ? '' : 's'} to attempt`;
+
+    alchemyItems.replaceChildren(
+      ...view.items.map((item) => {
+        const row = document.createElement('div');
+        row.className = 'crawler-alchemy-item';
+        row.dataset.item = item.item;
+        row.dataset.definition = item.definition;
+        row.dataset.kind = item.kind;
+        row.dataset.potency = String(item.potency);
+        const label = document.createElement('span');
+        label.className = 'crawler-row-label';
+        label.textContent = `${item.name} · ${item.kind} · strength ${item.potency}${item.count === 1 ? '' : ` · ${item.count}`}`;
+        row.append(label);
+        return row;
+      }),
+    );
+
+    alchemyMixtures.replaceChildren(
+      ...view.mixtures.map((mixture) => {
+        const row = document.createElement('div');
+        row.className = 'crawler-alchemy-mixture';
+        row.dataset.first = mixture.first;
+        row.dataset.second = mixture.second;
+        const label = document.createElement('span');
+        label.className = 'crawler-row-label';
+        label.textContent = `${mixture.firstName} + ${mixture.secondName}`;
+        row.append(label);
+
+        // Who mixes is the character's own mastery, so the chooser is the party's own rows and the rung each
+        // stands at; the product refuses a mixture the chosen character's mastery does not reach.
+        const mixer = document.createElement('select');
+        mixer.className = 'crawler-alchemy-mixer';
+        for (const member of view.members) {
+          const choice = document.createElement('option');
+          choice.value = String(member.index);
+          choice.textContent = `${member.name} (rung ${member.alchemy})`;
+          mixer.append(choice);
+        }
+
+        row.append(mixer);
+        const mix = document.createElement('button');
+        mix.type = 'button';
+        mix.className = 'crawler-mix';
+        mix.textContent = 'Mix';
+        mix.disabled = view.members.length === 0;
+        mix.addEventListener('click', () =>
+          claim(ACTION_MIX, {
+            member: Number(mixer.value),
+            first: mixture.first,
+            second: mixture.second,
+          }),
+        );
+        row.append(mix);
+        return row;
+      }),
+    );
+
+    alchemyResult.hidden = view.outcome.message === '';
+    alchemyResult.dataset.outcome = view.outcome.outcome;
+    alchemyResult.dataset.code = view.outcome.code;
+    alchemyResult.textContent = view.outcome.message;
+  };
+
   const render = (snapshot: SnapshotView): void => {
     current = snapshot.session.mode;
     title.textContent = 'Rusty Crawler';
@@ -3816,6 +4049,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     renderProgression(snapshot.progression);
     renderSkills(snapshot.skills);
     renderMagic(snapshot.magic);
+    renderAlchemy(snapshot.alchemy);
     const world = snapshot.world;
     place.textContent =
       world.places === 0

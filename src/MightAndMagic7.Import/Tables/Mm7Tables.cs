@@ -15,6 +15,7 @@ public sealed class Mm7Tables
         SpellTable spells,
         ItemTable items,
         RandomItemsTable randomItems,
+        PotionTable potions,
         QuestTable quests,
         PersonTable people)
     {
@@ -27,6 +28,7 @@ public sealed class Mm7Tables
         Spells = spells;
         Items = items;
         RandomItems = randomItems;
+        Potions = potions;
         Quests = quests;
         People = people;
     }
@@ -58,6 +60,9 @@ public sealed class Mm7Tables
     /// <summary>What each item weighs at each treasure level, which is what random loot draws from.</summary>
     public RandomItemsTable RandomItems { get; }
 
+    /// <summary>Reagents, potions, and what combining a pair of them makes.</summary>
+    public PotionTable Potions { get; }
+
     /// <summary>Quest text.</summary>
     public QuestTable Quests { get; }
 
@@ -68,6 +73,10 @@ public sealed class Mm7Tables
     public static Mm7Tables Read(LodInstall install)
     {
         ArgumentNullException.ThrowIfNull(install);
+
+        // The item table is read first because the potion table checks a reagent's stated power against the
+        // damage column of the same row, which is where the donor reads that power from.
+        ItemTable items = ItemTable.Read(install);
         return new Mm7Tables(
             ClassTable.Read(install),
             SkillTable.Read(install),
@@ -76,8 +85,9 @@ public sealed class Mm7Tables
             MonsterTable.Read(install),
             HostilityTable.Read(install),
             SpellTable.Read(install),
-            ItemTable.Read(install),
+            items,
             RandomItemsTable.Read(install),
+            PotionTable.Read(install, items),
             QuestTable.Read(install),
             PersonTable.Read(install));
     }

@@ -79,6 +79,17 @@ internal static class WardFormulas
     /// <summary>The donor's protection spells: the skill's level times the mastery rung.</summary>
     internal static readonly Func<int, int, int> MasteryTimesLevel = (level, mastery) => level * mastery;
 
+    /// <summary>
+    /// Thirty minutes for every point of the mixture's strength, which is the donor's one duration for its
+    /// potions (<c>OpenEnroth/src/Engine/Objects/Character.cpp:3084-3085</c>, <c>30 * potionStrength</c>
+    /// minutes) and what the shipped item table's own notes state in words ("for 30 minutes per point of
+    /// potion strength").
+    /// </summary>
+    internal static readonly Func<int, int, GameDuration> ThirtyMinutesPerPoint = (level, _) => GameDuration.FromMinutes(30 * level);
+
+    /// <summary>Three times the mixture's strength, which is what the donor's own potions raise a score or a resistance by.</summary>
+    internal static readonly Func<int, int, int> ThreePerPoint = (level, _) => 3 * level;
+
     /// <summary>A flat power plus a stated amount per level.</summary>
     internal static Func<int, int, int> LevelPlus(int perLevel, int flat) => (level, _) => (level * perLevel) + flat;
 
@@ -211,6 +222,10 @@ internal readonly record struct SpellReading(
     ConditionId[]? Clears,
     ConditionId[]? Lifts,
     ConditionId? Inflicts,
+    ConditionId? Leaves,
+    int LeavesSeverity,
+    int ManaBase,
+    int ManaPerLevel,
     WardReading? Ward,
     BuffReading? Buff,
     TravelShape Travel,
@@ -232,6 +247,10 @@ internal readonly record struct SpellReading(
         Clears: null,
         Lifts: null,
         Inflicts: null,
+        Leaves: null,
+        LeavesSeverity: 0,
+        ManaBase: 0,
+        ManaPerLevel: 0,
         Ward: null,
         Buff: null,
         Travel: TravelShape.None,
@@ -281,6 +300,33 @@ internal static class Readings
     /// <summary>A spell that leaves a condition on a target that is not a party member.</summary>
     internal static SpellReading Inflict(ConditionId condition) =>
         SpellReading.None with { Inflicts = condition, Missing = "a condition on a world actor", Receiver = "the fight's own condition model, which is the party's" };
+
+    /// <summary>
+    /// A condition left on the character the casting lands on, at a stated severity.
+    /// </summary>
+    /// <remarks>
+    /// The donor leaves a condition on the drinking character in one place — a catalyst drunk on its own
+    /// poisons them weakly (<c>OpenEnroth/src/Engine/Objects/Character.cpp:3087-3089</c>,
+    /// <c>SetCondition(CONDITION_POISON_WEAK, 1)</c>) — and a spell that leaves a condition on a party member
+    /// is the same act, so it is stated rather than folded into <see cref="Inflict"/>, which names a
+    /// condition on a world actor this build cannot carry.
+    /// </remarks>
+    /// <param name="condition">The condition left.</param>
+    /// <param name="severity">How severe it is left, zero when the game states none.</param>
+    internal static SpellReading Afflicts(ConditionId condition, int severity = 0) =>
+        SpellReading.None with { Leaves = condition, LeavesSeverity = severity };
+
+    /// <summary>Spell points given back through the member's own pool.</summary>
+    /// <remarks>
+    /// The donor's potion of magic adds its strength plus ten to the drinker's mana and stops at their maximum
+    /// (<c>OpenEnroth/src/Engine/Objects/Character.cpp:3091-3096</c>), and its divine power adds five times the
+    /// strength (<c>:3222-3227</c>). No shipped spell restores spell points, so this reading exists for the
+    /// mixtures that do; the pool's own clamp is what stops it at the maximum.
+    /// </remarks>
+    /// <param name="perLevel">How many points each point of strength is worth.</param>
+    /// <param name="flat">A flat amount the mixture states.</param>
+    internal static SpellReading RestoresMana(int perLevel, int flat) =>
+        SpellReading.None with { ManaPerLevel = perLevel, ManaBase = flat };
 
     /// <summary>A ward against the kinds of harm it names, at the donor's own power and duration.</summary>
     internal static SpellReading Ward(DamageKindId[] kinds, Func<int, int, int> power, Func<int, int, GameDuration> lasts) =>

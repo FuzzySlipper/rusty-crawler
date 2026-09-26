@@ -48,6 +48,7 @@ no school skill and no spell point is asked for, and the item is what pays.
 | --- | --- |
 | a scroll | the one spell it carries, once, and the scroll is used up; the donor's own scroll cast carries no mana cost at all (OpenEnroth `src/Engine/Spells/CastSpellInfo.cpp:207`, the `overrideSkillValue` branch that sets `uRequiredMana = 0`) |
 | a wand | the spell it carries, fired as the weapon it is wielded as, one charge spent per use, and the item leaves the party through the inventory when its last charge goes; the donor fires it at a fixed eighth level of novice mastery (OpenEnroth `src/Engine/Spells/CastSpellInfo.h:61`, `WANDS_SKILL_VALUE`) |
+| a potion | the effect this game states for its own row, once, and the potion is used up; what it is read at is the potion's own strength rather than any character's school level (OpenEnroth `src/Engine/Objects/Character.cpp:3081-3085`, `potionStrength`), which is what makes a potion the way a character with no school at all gets a spell's effect |
 
 What this build does not take from the donor is the fixed skill reading of a scroll cast: the donor
 casts one at the fifth level of master mastery (OpenEnroth `src/Engine/Spells/CastSpellInfo.h:60`,
@@ -56,6 +57,70 @@ damaging spell's numbers are resolved by the fight's own ability answer and that
 with the caster rather than with the item that carried the spell (receiver: the fight's ability
 resolution, which would have to be handed the casting's own skill reading). A wand's own value *is*
 taken, because a wand is the weapon the fight resolves the attack with.
+
+## Potions
+
+A potion is an item that carries one effect, and drinking it is a casting whose source is the item:
+the same workflow that reads a scroll, the same effect path that applies a spell, and a per-character
+deadline on the one clock wherever the donor's potion lasts. What is different is where the strength
+comes from — a potion's own, not a caster's school — and that this game authors the effect's numbers
+from the donor's drinking switch (OpenEnroth `src/Engine/Objects/Character.cpp:3080-3300`), because
+the shipped `POTION.TXT` states what each potion is for in words and no numbers at all.
+
+| potion | category | aim | state | what it does, or what is missing | receiver |
+| --- | --- | --- | --- | --- | --- |
+
+| 221 | condition | caster | implemented | a condition left on the character drinking it through their own condition state (Poison Weak) |  |
+| 222 | healing | caster | implemented | hit points restored through the member's own pool, at the potion's own strength |  |
+| 223 | utility | caster | implemented | spell points given back through the member's own pool, at the potion's own strength |  |
+| 224 | condition | caster | implemented | the conditions the potion names lifted from the drinker's own condition state |  |
+| 225 | condition | caster | implemented | the conditions the potion names lifted from the drinker's own condition state |  |
+| 226 | condition | caster | implemented | the conditions the potion names lifted from the drinker's own condition state |  |
+| 227 | condition | caster | implemented | the conditions the potion names lifted from the drinker's own condition state |  |
+| 228 | utility | caster | implemented | a carried effect of its own identity (spell.haste) on that character, read where it applies and ended by a deadline on the one clock |  |
+| 229 | utility | caster | implemented | a carried effect of its own identity (spell.heroism) on that character, read where it applies and ended by a deadline on the one clock |  |
+| 230 | utility | caster | implemented | a carried effect of its own identity (spell.bless) on that character, read where it applies and ended by a deadline on the one clock |  |
+| 231 | utility | caster | not yet | the party's gear protected from harm | item state, which carries what a spell would protect |
+| 232 | resistance | caster | implemented | armour class carried by the character and read by the fight's own armour class, with a deadline on the one clock |  |
+| 233 | utility | none | not yet | an item whose charges are given back | an item-aim owner: the pack holds the party's items and nothing aims a potion at one |
+| 234 | resistance | caster | implemented | armour class carried by the character and read by the fight's own armour class, with a deadline on the one clock |  |
+| 235 | utility | caster | not yet | water breathed under rather than walked over | the party's mover, which walks and falls and does nothing else |
+| 236 | utility | none | not yet | an item made harder to break | an item-aim owner: the pack holds the party's items and nothing aims a potion at one |
+| 237 | condition | caster | implemented | the conditions the potion names lifted from the drinker's own condition state |  |
+| 238 | condition | caster | implemented | the conditions the potion names lifted from the drinker's own condition state |  |
+| 239 | condition | caster | implemented | the conditions the potion names lifted from the drinker's own condition state |  |
+| 240 | utility | caster | not yet | Might raised for a while | the attribute readings a fight is priced by |
+| 241 | utility | caster | not yet | Intellect raised for a while | the attribute readings a fight is priced by |
+| 242 | utility | caster | not yet | Personality raised for a while | the attribute readings a fight is priced by |
+| 243 | utility | caster | not yet | Endurance raised for a while | the attribute readings a fight is priced by |
+| 244 | utility | caster | not yet | Speed raised for a while | the attribute readings a fight is priced by |
+| 245 | utility | caster | not yet | Accuracy raised for a while | the attribute readings a fight is priced by |
+| 246 | utility | none | not yet | a weapon given the property of flame | an item-aim owner: the pack holds the party's items and nothing aims a potion at one |
+| 247 | utility | none | not yet | a weapon given the property of frost | an item-aim owner: the pack holds the party's items and nothing aims a potion at one |
+| 248 | utility | none | not yet | a weapon given the property of poison | an item-aim owner: the pack holds the party's items and nothing aims a potion at one |
+| 249 | utility | none | not yet | a weapon given the property of sparks | an item-aim owner: the pack holds the party's items and nothing aims a potion at one |
+| 250 | utility | none | not yet | a weapon given the property of swiftness | an item-aim owner: the pack holds the party's items and nothing aims a potion at one |
+| 251 | condition | caster | implemented | the conditions the potion names lifted from the drinker's own condition state |  |
+| 252 | condition | caster | implemented | the conditions the potion names lifted from the drinker's own condition state |  |
+| 253 | healing | caster | implemented | hit points restored through the member's own pool, at the potion's own strength |  |
+| 254 | utility | caster | implemented | spell points given back through the member's own pool, at the potion's own strength |  |
+| 255 | utility | caster | implemented | a carried effect of its own identity (spell.fate) on that character, read where it applies and ended by a deadline on the one clock |  |
+| 256 | resistance | caster | implemented | a resistance carried by the character and read by the fight's own resistance sum, with a deadline on the one clock |  |
+| 257 | resistance | caster | implemented | a resistance carried by the character and read by the fight's own resistance sum, with a deadline on the one clock |  |
+| 258 | resistance | caster | implemented | a resistance carried by the character and read by the fight's own resistance sum, with a deadline on the one clock |  |
+| 259 | resistance | caster | implemented | a resistance carried by the character and read by the fight's own resistance sum, with a deadline on the one clock |  |
+| 260 | resistance | caster | implemented | a resistance carried by the character and read by the fight's own resistance sum, with a deadline on the one clock |  |
+| 261 | resistance | caster | implemented | a resistance carried by the character and read by the fight's own resistance sum, with a deadline on the one clock |  |
+| 262 | condition | caster | implemented | the conditions the potion names lifted from the drinker's own condition state |  |
+| 263 | utility | none | not yet | a weapon made deadly to dragons | an item-aim owner: the pack holds the party's items and nothing aims a potion at one |
+| 264 | utility | caster | not yet | Luck raised for good | progression, which owns a character's attributes and their growth |
+| 265 | utility | caster | not yet | Speed raised for good | progression, which owns a character's attributes and their growth |
+| 266 | utility | caster | not yet | Intellect raised for good | progression, which owns a character's attributes and their growth |
+| 267 | utility | caster | not yet | Endurance raised for good | progression, which owns a character's attributes and their growth |
+| 268 | utility | caster | not yet | Personality raised for good | progression, which owns a character's attributes and their growth |
+| 269 | utility | caster | not yet | Accuracy raised for good | progression, which owns a character's attributes and their growth |
+| 270 | utility | caster | not yet | Might raised for good | progression, which owns a character's attributes and their growth |
+| 271 | utility | caster | not yet | unnatural ageing undone | progression, which owns a character's age |
 
 ## Counts
 

@@ -43,6 +43,12 @@ public static class Mm7TableSources
     /// <summary>How often each item appears at each treasure level, which is what random loot draws from.</summary>
     public static LodSource RandomItems { get; } = new("random-items", RulesArchive, "rnditems.txt");
 
+    /// <summary>Reagents, potions, and what combining a pair of them makes.</summary>
+    public static LodSource Potions { get; } = new("potions", RulesArchive, "potion.txt");
+
+    /// <summary>The discovery each mixture records, which mirrors the potion table's own matrix.</summary>
+    public static LodSource PotionNotes { get; } = new("potion-notes", RulesArchive, "potnotes.txt");
+
     /// <summary>Class and rank descriptions.</summary>
     public static LodSource Classes { get; } = new("classes", RulesArchive, "class.txt");
 
@@ -74,6 +80,8 @@ public static class Mm7TableSources
         Spells,
         Items,
         RandomItems,
+        Potions,
+        PotionNotes,
         Classes,
         Skills,
         Quests,
