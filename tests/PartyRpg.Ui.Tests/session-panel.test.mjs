@@ -2396,3 +2396,31 @@ test('every pace control asks for the act it was shown, on the product contract'
     h.restore();
   }
 });
+
+test('a paced fight is a running session, so the pause control stays the one it has', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+    h.emit(snapshot('turnbased', 1, 60, 60, movement(), { combat: paced() }));
+    const control = [...h.panel().querySelectorAll('button')].find(
+      (button) => button.textContent === 'Pause session',
+    );
+    assert.notEqual(control, undefined);
+    assert.equal(control.disabled, false);
+
+    control.click();
+    assert.deepEqual(h.claims.map((claim) => claim.value.data), [{ action: 'session.pause' }]);
+
+    // And a held session offers the release instead, so the same control always says what it will do.
+    h.emit(snapshot('paused', 2, 120, 121, movement(), { combat: paced() }));
+    const released = [...h.panel().querySelectorAll('button')].find(
+      (button) => button.textContent === 'Resume session',
+    );
+    assert.notEqual(released, undefined);
+    assert.equal(released.disabled, false);
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});

@@ -1,6 +1,7 @@
 using System.Globalization;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Rulesets;
@@ -428,6 +429,30 @@ public sealed class TurnBasedTests
         session.Update(Update(22, 1, Attack()));
         Assert.NotEqual(waiting, channel.Latest().Field("combat").Field("turn").Field("actorName").AsString());
         Assert.Equal("applied", channel.Latest().Field("combat").Field("outcome").AsString());
+    }
+
+    [Fact]
+    public void A_paced_fight_is_still_a_running_session_the_player_can_hold()
+    {
+        using RecordingUiProjectionChannel channel = new();
+        using PartyEntity party = Party(members: 1);
+        using SessionWorld world = World(party, quickAt: 120);
+        using PartyRpgSession session = Session(channel, world, party);
+
+        session.Start();
+        session.Update(Update(1, 1));
+        session.Update(Update(2, 1, Turn("combat.turn-based")));
+        Assert.Equal(SessionMode.TurnBased, session.Mode);
+
+        // The hold control means what it means everywhere else: a paced fight waits for a turn rather than for
+        // the player to let it go, so it is a running session and holding it is the player's to ask for.
+        SessionInputRouter.Apply(session, SessionCommand.ToggleHold);
+        Assert.Equal(SessionMode.Paused, session.Mode);
+        SessionInputRouter.Apply(session, SessionCommand.ToggleHold);
+        Assert.Equal(SessionMode.TurnBased, session.Mode);
+
+        // And a held session releases nobody: the turn is still the same actor's, waiting.
+        Assert.True(channel.Latest().Field("combat").Field("turn").Field("playerTurn").AsBoolean());
     }
 
     [Fact]

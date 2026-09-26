@@ -2064,7 +2064,9 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   };
 
   action.addEventListener('click', () => {
-    if (current === 'running') claim(ACTION_PAUSE);
+    // A paced fight is a running session that happens to be waiting for a turn, so the pause control is the
+    // one it has everywhere else.
+    if (current === 'running' || current === 'turnbased') claim(ACTION_PAUSE);
     else if (current === 'paused') claim(ACTION_RESUME);
   });
 
@@ -2847,7 +2849,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
       movement.fallDistance > 0
         ? `${movement.fallDistance.toFixed(0)} · ${movement.fallDamage.toFixed(0)} damage`
         : '—';
-    if (current === 'running') {
+    if (current === 'running' || current === 'turnbased') {
       action.disabled = false;
       action.textContent = 'Pause session';
     } else if (current === 'paused') {

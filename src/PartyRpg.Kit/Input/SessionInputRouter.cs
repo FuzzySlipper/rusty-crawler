@@ -97,7 +97,9 @@ public sealed class SessionInputRouter
                 session.ReleaseHold();
                 break;
             case SessionCommand.ToggleHold:
-                if (session.Mode == SessionMode.Running) session.Hold();
+                // A paced fight is still a running session: it waits for a committed turn rather than for the
+                // player to let it go, so the player keeps the hold control it has everywhere else.
+                if (session.Mode is SessionMode.Running or SessionMode.TurnBased) session.Hold();
                 else if (session.Mode == SessionMode.Paused) session.ReleaseHold();
                 break;
             default:
