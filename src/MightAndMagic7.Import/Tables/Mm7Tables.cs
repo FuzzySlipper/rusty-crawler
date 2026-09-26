@@ -13,7 +13,8 @@ public sealed class Mm7Tables
         MonsterTable monsters,
         SpellTable spells,
         ItemTable items,
-        QuestTable quests)
+        QuestTable quests,
+        PersonTable people)
     {
         Classes = classes;
         Skills = skills;
@@ -23,6 +24,7 @@ public sealed class Mm7Tables
         Spells = spells;
         Items = items;
         Quests = quests;
+        People = people;
     }
 
     /// <summary>Classes and ranks.</summary>
@@ -49,6 +51,9 @@ public sealed class Mm7Tables
     /// <summary>Quest text.</summary>
     public QuestTable Quests { get; }
 
+    /// <summary>The people the world holds, what they say when met, and what they can be asked about.</summary>
+    public PersonTable People { get; }
+
     /// <summary>Reads every typed table from an installation.</summary>
     public static Mm7Tables Read(LodInstall install)
     {
@@ -61,6 +66,7 @@ public sealed class Mm7Tables
             MonsterTable.Read(install),
             SpellTable.Read(install),
             ItemTable.Read(install),
-            QuestTable.Read(install));
+            QuestTable.Read(install),
+            PersonTable.Read(install));
     }
 }

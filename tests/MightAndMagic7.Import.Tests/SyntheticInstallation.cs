@@ -36,7 +36,17 @@ internal static class SyntheticInstallation
     /// raise those events. It is a separate choice so the suites about tables, geometry, and containers
     /// keep the fixture they always had.
     /// </param>
-    internal static string Create(bool withMaps = false, bool withContainers = false, bool withServices = false)
+    /// <param name="withPeople">
+    /// Whether a map's own delta carries somebody standing in the open as well as the game's tables placing
+    /// people in buildings. It is a separate choice for the same reason as the others: the people tables are
+    /// always present, because every reader of the tables reads them, and this adds the record that makes a
+    /// person stand where a map says.
+    /// </param>
+    internal static string Create(
+        bool withMaps = false,
+        bool withContainers = false,
+        bool withServices = false,
+        bool withPeople = false)
     {
         string root = Path.Combine(Path.GetTempPath(), $"mm7-synthetic-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(root, "DATA"));
@@ -98,6 +108,10 @@ internal static class SyntheticInstallation
                     LodFixture.TextTable("SPELLS.TXT", Spells()),
                     LodFixture.TextTable("ITEMS.TXT", Items()),
                     LodFixture.TextTable("QUESTS.TXT", Quests()),
+                    LodFixture.TextTable("npcdata.txt", Npcs()),
+                    LodFixture.TextTable("npcgreet.txt", Greetings()),
+                    LodFixture.TextTable("npctopic.txt", Topics()),
+                    LodFixture.TextTable("npctext.txt", TopicTexts()),
                     .. events,
                 ]));
         if (withMaps)
@@ -105,7 +119,7 @@ internal static class SyntheticInstallation
             // One payload per map file the per-map table names, so every place decodes and each is
             // identified by its own name.
             byte[] outdoor = MapDecoderTests.OutdoorPayload();
-            byte[] outdoorDelta = MapDecoderTests.OutdoorDeltaPayload();
+            byte[] outdoorDelta = MapDecoderTests.OutdoorDeltaPayload(withPeople);
             // The container map raises one event per chest on one face each, so both of the delta's records
             // are placed, and its fixture positions are a hundred units apart, which is inside the spread a
             // container's faces may have.
@@ -296,6 +310,60 @@ internal static class SyntheticInstallation
             text.Append($"{item}\titem{item:D3}\tItem {item}\t{item * 10}\tWeapon\tSword\t1D6\t2\tSteel\t10\tUnidentified {item}\t{item % 300}\t0\t0\n");
         }
 
+        return text.ToString();
+    }
+
+    /// <summary>
+    /// The people the fixture's world holds: two rows placed in buildings and one with no building, one of
+    /// them with dialogue events so a reply's residue has something to be about.
+    /// </summary>
+    /// <remarks>
+    /// The columns are the donor's own (OpenEnroth <c>src/Engine/Tables/NPCTable.cpp:57-80</c>): the row's
+    /// number, the name, the portrait, three group columns, the building, the profession, the greeting, the
+    /// join flag, and six dialogue events. Row one is placed in building ninety-eight, which the service
+    /// fixture hangs an event on and so places a door for, and row three is placed in a building nothing was
+    /// placed for, so a reader that dropped an unreachable person instead of reporting one would be visible.
+    /// </remarks>
+    private static string Npcs()
+    {
+        StringBuilder text = new("NPC Data (Special)\t\t\tGroup\t\t\tCurrent\tProfession\tGreet\tJoin\tEvent\tEvent\tEvent\tEvent\tEvent\tEvent\t\n");
+        text.Append("#\tName\tPic\tA\tB\tC\t2D Location\t 1 - 76\t#\tY / N\t# A\t# B\t# C\t# D\t# E\t# F\tNotes\n");
+        text.Append("1\tTester One\t709\t0\t0\t0\t98\t0\t1\tN\t7\t9\t0\t0\t0\t0\tPlaced in the weapon shop the service fixture places\n");
+        text.Append("2\tTester Two\t707\t0\t0\t0\t0\t0\t2\tY\t0\t0\t0\t0\t0\t0\tPlaced nowhere\n");
+        text.Append("3\tTester Three\t162\t0\t0\t0\t999\t0\t3\tN\t0\t0\t0\t0\t0\t0\tPlaced in a building with no door\n");
+        return text.ToString();
+    }
+
+    /// <summary>What each person says when met and when met again, keyed by the greeting column.</summary>
+    private static string Greetings()
+    {
+        StringBuilder text = new("#\tGreeting 1\tGreeting 2\tNotes\tOwner\n");
+        text.Append("1\t\"Well met, travellers.\"\t\"Back again, are you?\"\t\tTester One\n");
+        text.Append("2\t\"A fine day for it.\"\t\"Still at it, then?\"\t\tTester Two\n");
+        text.Append("3\t\"Mind the step.\"\t\"Careful, I said.\"\t\tTester Three\n");
+        return text.ToString();
+    }
+
+    /// <summary>
+    /// What the fixture's people can be asked about: one plain line, one the table gates on an errand, and
+    /// one the table states with no answer at all.
+    /// </summary>
+    private static string Topics()
+    {
+        StringBuilder text = new("#\tTopic\tRequires\tNotes\tText #\tOwner(s)\tOwner #\n");
+        text.Append("1\tThe contest\t0\tPlain line\t1\tTester One\t1\n");
+        text.Append("2\tThe errand\t1\tGated on an errand\t2\tTester Two\t2\n");
+        text.Append("3\tThe stub\t0\tNo answer at all\t\tTester Three\t3\n");
+        return text.ToString();
+    }
+
+    /// <summary>What the fixture's people answer with, keyed by the number a topic names.</summary>
+    private static string TopicTexts()
+    {
+        StringBuilder text = new("#\tText\tNotes\tOwner\n");
+        text.Append("1\t\"The first to bring the items wins.\"\t\tTester One\n");
+        text.Append("2\t\"I have work for you, if you are willing.\"\t\tTester Two\n");
+        text.Append("3\t\"Nothing to say about that.\"\t\tTester Three\n");
         return text.ToString();
     }
 

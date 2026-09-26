@@ -82,6 +82,12 @@ public enum SessionStart
 /// stop is its own control because every stop is a different act, and without them a session never stops on
 /// its own — which is what a product that offers no stop controls gets.
 /// </param>
+/// <param name="Conversation">
+/// The conversation controls the host declares, when it declares any, stated for the same reason and in the
+/// same shape as the others: which intent ends a conversation, and which payload contract a screen's own
+/// choices arrive on. Entering a conversation is deliberately not among them — the party speaks with
+/// somebody by using the person it faces — so a host declares the way out and the choices, and nothing else.
+/// </param>
 public sealed record RulesetSessionContext(
     IUiProjectionChannel Projection,
     BundleSelection Selection = default,
@@ -94,4 +100,5 @@ public sealed record RulesetSessionContext(
     UseIntentNames? Use = null,
     SessionStart Start = SessionStart.Fresh,
     ServiceIntentNames? Service = null,
-    RestIntentNames? Rest = null);
+    RestIntentNames? Rest = null,
+    ConversationIntentNames? Conversation = null);

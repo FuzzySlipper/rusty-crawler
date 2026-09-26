@@ -502,8 +502,15 @@ public sealed class MapDecoderTests
         return writer.ToArray();
     }
 
-    /// <summary>An outdoor delta with the counts the outdoor fixture's geometry implies.</summary>
-    internal static byte[] OutdoorDeltaPayload()
+    /// <summary>
+    /// An outdoor delta with the counts the outdoor fixture's geometry implies.
+    /// </summary>
+    /// <param name="withPerson">
+    /// Whether the delta's first actor is one of the game's people rather than a nameless creature, which
+    /// is what a delta carries when somebody stands in the open. The second actor stays a monster, so a
+    /// reader that placed every actor would be visible.
+    /// </param>
+    internal static byte[] OutdoorDeltaPayload(bool withPerson = false)
     {
         MapWriter writer = new();
         writer.Zero(40);                        // header, zero throughout the shipped deltas
@@ -512,7 +519,23 @@ public sealed class MapDecoderTests
         writer.U32(0);                          // face attributes, one per map face
         writer.U16(0).U16(0).U16(0);            // decoration flags, one per decoration
         writer.U32(2);                          // actors
-        writer.Zero(2 * 0x344);
+        int person = writer.Length;
+        writer.Zero(0x344);
+        if (withPerson)
+        {
+            // The actor's record at the offsets the donor's own snapshot declares: a name, the NPC identity
+            // it is, the monster it is not, and where it stands and faces.
+            writer.SetText(person, "Tester One", 32);
+            writer.SetI16(person + 0x20, 1);
+            writer.SetI16(person + 0x28, 20);
+            writer.SetI16(person + 0x86, 0);
+            writer.SetI16(person + 0x8E, 320);
+            writer.SetI16(person + 0x90, -640);
+            writer.SetI16(person + 0x92, 64);
+            writer.SetU16(person + 0x9A, 512);
+        }
+
+        writer.Zero(0x344);
         writer.U32(1);                          // sprite objects
         writer.Zero(0x70);
         writer.U32(4);                          // chests

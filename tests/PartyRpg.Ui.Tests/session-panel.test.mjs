@@ -218,6 +218,53 @@ function rest(overrides = {}) {
 }
 
 /**
+ * The conversation block as the product publishes it. `available` is false when the session holds no
+ * conversation mechanism at all; `open` says whether anybody is being spoken with; `topics` is what the
+ * state offers and `withheld` what it does not, each with the reason it is not.
+ */
+function conversation(overrides = {}) {
+  return {
+    available: true,
+    open: false,
+    subject: '',
+    speaker: '',
+    greeting: '',
+    people: [],
+    topics: [],
+    withheld: [],
+    said: [],
+    action: '',
+    outcome: 'none',
+    code: '',
+    message: '',
+    residue: '',
+    handoff: '',
+    topic: '',
+    ...overrides,
+  };
+}
+
+/** Somebody the party is speaking with: a person on their own, with a line to say and two topics. */
+function talking(overrides = {}) {
+  return conversation({
+    open: true,
+    subject: 'person-0',
+    speaker: 'Tester Two',
+    greeting: "'A fine day for it.'",
+    people: [{ id: 'np-2', name: 'Tester Two', portrait: '707', speaking: true }],
+    topics: [{ id: 'topic-1', label: 'The contest', available: true, reason: '' }],
+    withheld: [{ id: 'topic-2', label: 'The errand', available: false, reason: 'the errand the table calls 7 is not finished' }],
+    said: [
+      { speaker: 'np-2', text: "'A fine day for it.'", residue: 'the event programs behind a reply are not run' },
+    ],
+    action: 'open',
+    outcome: 'applied',
+    message: "Tester Two: 'A fine day for it.'",
+    ...overrides,
+  });
+}
+
+/**
  * The creation block as the product publishes it while a party is being made: the flow's own options and
  * the member's own answers, so every choice below arrived in the projection.
  */
@@ -311,6 +358,9 @@ function snapshot(mode, seconds = 0, steps = 0, updates = 0, facts = undefined, 
   // The rest block is published in every mode too, so a case that asks for none covers a projection whose
   // session holds no rest mechanism.
   if (blocks?.rest !== undefined) value.rest = blocks.rest;
+  // The conversation block is published in every mode too, so a case that asks for none covers a projection
+  // whose session holds no conversation mechanism.
+  if (blocks?.conversation !== undefined) value.conversation = blocks.conversation;
   return value;
 }
 
@@ -498,6 +548,58 @@ function restPanel(h) {
     messageOutcome: result?.getAttribute('data-outcome'),
     messageCode: result?.getAttribute('data-code'),
   };
+}
+
+/** The conversation section as a person reads it: who is here, what may be asked, and what was said. */
+function conversationPanel(h) {
+  const panel = h.panel();
+  const section = panel?.querySelector('.crawler-conversation');
+  const result = section?.querySelector('.crawler-conversation-result');
+  return {
+    state: panel?.getAttribute('data-conversation'),
+    action: panel?.getAttribute('data-conversation-action'),
+    outcome: panel?.getAttribute('data-conversation-outcome'),
+    hidden: section?.hidden,
+    head: section?.querySelector('.crawler-step-head')?.textContent,
+    greeting: section?.querySelector('.crawler-conversation-greeting')?.textContent,
+    people: [...(section?.querySelectorAll('.crawler-row button') ?? [])].map((button) => ({
+      id: button.dataset.person,
+      text: button.textContent,
+      disabled: button.disabled,
+    })),
+    topics: [...(section?.querySelectorAll('.crawler-options button') ?? [])].map((button) => ({
+      id: button.dataset.id,
+      text: button.textContent,
+      disabled: button.disabled,
+    })),
+    withheld: [...(section?.querySelectorAll('.crawler-withheld li') ?? [])].map((item) => item.textContent),
+    said: [...(section?.querySelectorAll('.crawler-said li') ?? [])].map((item) => item.textContent),
+    leave: [...(section?.querySelectorAll('.crawler-actions button') ?? [])].map((button) => button.textContent),
+    message: result?.hidden ? '' : result?.textContent,
+    messageOutcome: result?.getAttribute('data-outcome'),
+    messageCode: result?.getAttribute('data-code'),
+    residue: section?.querySelector('.crawler-conversation-residue')?.hidden
+      ? ''
+      : section?.querySelector('.crawler-conversation-residue')?.textContent,
+  };
+}
+
+/** Clicks the topic a conversation offers, as a person chooses it. */
+function clickTopic(h, id) {
+  const button = [...h.panel().querySelectorAll('.crawler-conversation .crawler-options button')].find(
+    (entry) => entry.dataset.id === id,
+  );
+  assert.ok(button, `the conversation offers no topic '${id}'`);
+  button.dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
+}
+
+/** Clicks the person a conversation offers to turn to. */
+function clickPerson(h, id) {
+  const button = [...h.panel().querySelectorAll('.crawler-conversation .crawler-row button')].find(
+    (entry) => entry.dataset.person === id,
+  );
+  assert.ok(button, `the conversation offers no person '${id}'`);
+  button.dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
 }
 
 /** Clicks the stop control a case names, as a person presses it. */
@@ -1548,6 +1650,135 @@ test('the panel shows the hours a place keeps, the hour it stands at, and what t
     assert.match(restPanel(h).status, /^Tired · landed 1×$/);
 
     ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the panel renders the conversation the product published, with what it offers and withholds', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+    ui; // The companion publishes nothing of its own; the projection below is the whole subject.
+
+    // A session with no conversation mechanism, one that is speaking with nobody, and one that is talking
+    // are three different facts, and the panel tells them apart before it renders anything.
+    h.emit(snapshot('running', 1, 60, 60, movement(), { conversation: conversation({ available: false }) }));
+    assert.equal(conversationPanel(h).state, 'none');
+    assert.equal(conversationPanel(h).hidden, true);
+
+    h.emit(snapshot('running', 1, 60, 60, movement(), { conversation: conversation() }));
+    assert.equal(conversationPanel(h).state, 'available');
+    assert.equal(conversationPanel(h).hidden, true);
+
+    // What the person says, who is here, what may be brought up, and what the state withholds with the
+    // reason: every word of it came from the projection and the panel spells none of it itself.
+    h.emit(snapshot('running', 1, 60, 60, movement(), { conversation: talking() }));
+    const shown = conversationPanel(h);
+    assert.equal(shown.state, 'open');
+    assert.equal(shown.hidden, false);
+    assert.equal(shown.head, 'Speaking with Tester Two');
+    assert.equal(shown.greeting, "'A fine day for it.'");
+    assert.deepEqual(shown.people, [{ id: 'np-2', text: 'Tester Two', disabled: true }]);
+    assert.deepEqual(shown.topics, [{ id: 'topic-1', text: 'The contest', disabled: false }]);
+    assert.deepEqual(shown.withheld, ['The errand — the errand the table calls 7 is not finished']);
+    assert.deepEqual(shown.said, [
+      "'A fine day for it.' the event programs behind a reply are not run",
+    ]);
+    assert.deepEqual(shown.leave, ['Take your leave']);
+    assert.equal(shown.message, "Tester Two: 'A fine day for it.'");
+    assert.equal(shown.messageOutcome, 'applied');
+  } finally {
+    h.restore();
+  }
+});
+
+test('a refusal in a conversation is shown with its code and what the answer could not deliver', () => {
+  const h = harness();
+  try {
+    mountProductUi(h.root, h.context);
+
+    // What was said, the residue beside it, and the refusal's own code: a topic the state withholds is an
+    // answer a player acts on rather than a button that quietly did nothing.
+    h.emit(
+      snapshot('running', 1, 60, 60, movement(), {
+        conversation: talking({
+          action: 'say',
+          topic: 'topic-2',
+          outcome: 'refused',
+          code: 'conversation-topic-withheld',
+          message: 'Tester Two does not bring up The errand yet: the errand the table calls 7 is not finished.',
+        }),
+      }),
+    );
+    let shown = conversationPanel(h);
+    assert.equal(shown.outcome, 'refused');
+    assert.equal(shown.messageCode, 'conversation-topic-withheld');
+    assert.equal(shown.messageOutcome, 'refused');
+
+    h.emit(
+      snapshot('running', 2, 120, 121, movement(), {
+        conversation: talking({
+          action: 'say',
+          topic: 'topic-1',
+          message: "Tester Two: 'The first to bring the items wins.'",
+          residue: 'the event programs behind a reply are not run',
+        }),
+      }),
+    );
+    shown = conversationPanel(h);
+    assert.equal(shown.residue, 'the event programs behind a reply are not run');
+  } finally {
+    h.restore();
+  }
+});
+
+test('every conversation control asks for the choice it was shown, on the product contract', () => {
+  const h = harness();
+  try {
+    mountProductUi(h.root, h.context);
+
+    // A household of two: the person speaking is shown as chosen, the other is a button that turns the
+    // conversation, and a topic is a button that takes it. Nothing here is decided by the screen.
+    h.emit(
+      snapshot('running', 1, 60, 60, movement(), {
+        conversation: talking({
+          speaker: 'Mira',
+          people: [
+            { id: 'mira', name: 'Mira', portrait: '709', speaking: true },
+            { id: 'simon', name: 'Simon', portrait: '707', speaking: false },
+          ],
+          topics: [
+            { id: 'topic-1', label: 'The contest', available: true, reason: '' },
+            { id: 'topic-2', label: 'The errand', available: false, reason: 'the errand the table calls 7 is not finished' },
+          ],
+        }),
+      }),
+    );
+
+    clickTopic(h, 'topic-1');
+    clickPerson(h, 'simon');
+    clickFlow(h, 'Take your leave');
+
+    assert.deepEqual(
+      h.claims.map((claim) => claim.value.data),
+      [
+        { action: 'conversation.topic', target: 'topic-1' },
+        { action: 'conversation.person', target: 'simon' },
+        { action: 'conversation.leave' },
+      ],
+    );
+    for (const claim of h.claims) {
+      assert.equal(claim.intent, ACTION_INTENT);
+      assert.equal(claim.value.kind, 'product-payload');
+      assert.equal(claim.value.contract, ACTION_CONTRACT);
+    }
+
+    // A topic the state withholds is shown disabled, so a choice that cannot be made cannot be pressed.
+    const withheld = [...h.panel().querySelectorAll('.crawler-conversation .crawler-options button')].find(
+      (button) => button.dataset.id === 'topic-2',
+    );
+    assert.equal(withheld.disabled, true);
   } finally {
     h.restore();
   }

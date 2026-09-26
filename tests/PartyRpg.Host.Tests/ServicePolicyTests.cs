@@ -37,6 +37,9 @@ public sealed class ServicePolicyTests
         ProductIdentity.UseIntent,
         ProductIdentity.UseAction,
         ProductIdentity.UiActionContract);
+    private static readonly ConversationIntentNames ConversationControls = new(
+        ProductIdentity.ConversationLeaveIntent,
+        ProductIdentity.UiActionContract);
 
     [Fact]
     public void The_service_controls_are_declared_in_code_in_the_project_file_and_in_the_companion()
@@ -82,7 +85,7 @@ public sealed class ServicePolicyTests
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(ShopContent());
 
         using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
-            ProductTestContext.RulesetContext(context, ui) with { Use = UseControls, Service = ServiceControls });
+            ProductTestContext.RulesetContext(context, ui) with { Use = UseControls, Service = ServiceControls, Conversation = ConversationControls });
         session.Start();
 
         // A session that holds the mechanism and stands at no counter says exactly that, which is a different
@@ -94,8 +97,19 @@ public sealed class ServicePolicyTests
 
         // The admitted update faces the counter, and the declared use control walks the party in.
         session.Update(ProductTestContext.Update(1, 1));
-        Assert.Equal("The Sword and Shield, kept by Bertram", ProjectedNode.Of(ui.Latest().Value).Field("interaction").Field("label").AsString());
+        // What the reticle names is whoever keeps the counter, not the sign above it: a person is what the
+        // party talks to, and the shop's own name is what the counter's screen publishes beside them.
+        Assert.Equal("Bertram", ProjectedNode.Of(ui.Latest().Value).Field("interaction").Field("label").AsString());
         session.Update(ProductTestContext.Update(2, 1, ProductTestContext.Digital(ProductIdentity.UseIntent)));
+
+        // Talking opens the conversation rather than the shop: the keeper greets the party, and what they
+        // keep is one of their own offers. The counter is what the offer hands the party to.
+        ProjectedNode talking = ProjectedNode.Of(ui.Latest().Value).Field("conversation");
+        Assert.True(talking.Field("open").AsBoolean());
+        Assert.Equal("Bertram", talking.Field("speaker").AsString());
+        Assert.Contains("counter", talking.Field("topics").Item(0).Field("id").AsString(), StringComparison.Ordinal);
+
+        session.Update(ProductTestContext.Update(3, 1, ProductTestContext.ChooseTopic(MightAndMagic7Conversation.CounterTopicId)));
         ProjectedNode opened = ProjectedNode.Of(ui.Latest().Value).Field("service");
         Assert.True(opened.Field("open").AsBoolean());
         Assert.Equal("applied", opened.Field("outcome").AsString());
@@ -183,10 +197,12 @@ public sealed class ServicePolicyTests
         })
         {
             using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
-                ProductTestContext.RulesetContext(context, ui) with { Use = UseControls, Service = ServiceControls });
+                ProductTestContext.RulesetContext(context, ui) with { Use = UseControls, Service = ServiceControls, Conversation = ConversationControls });
             session.Start();
             session.Update(ProductTestContext.Update(1, 1));
             session.Update(ProductTestContext.Update(2, 1, ProductTestContext.Digital(ProductIdentity.UseIntent)));
+            // The conversation hands the party to the counter, which is the one way a counter is entered.
+            session.Update(ProductTestContext.Update(3, 1, ProductTestContext.ChooseTopic(MightAndMagic7Conversation.CounterTopicId)));
 
             ProjectedNode shop = ProjectedNode.Of(ui.Latest().Value).Field("service");
             Assert.Equal(expected, shop.Field("stock").Item(0).Field("price").AsNumber());
@@ -209,10 +225,11 @@ public sealed class ServicePolicyTests
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(GuildContent());
 
         using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
-            ProductTestContext.RulesetContext(context, ui) with { Use = UseControls, Service = ServiceControls });
+            ProductTestContext.RulesetContext(context, ui) with { Use = UseControls, Service = ServiceControls, Conversation = ConversationControls });
         session.Start();
         session.Update(ProductTestContext.Update(1, 1));
         session.Update(ProductTestContext.Update(2, 1, ProductTestContext.Digital(ProductIdentity.UseIntent)));
+        session.Update(ProductTestContext.Update(3, 1, ProductTestContext.ChooseTopic(MightAndMagic7Conversation.CounterTopicId)));
         ProjectedNode guild = ProjectedNode.Of(ui.Latest().Value).Field("service");
         Assert.Equal("Fire Guild", guild.Field("name").AsString());
         Assert.Equal(0, guild.Field("memberships").Length());
@@ -269,7 +286,7 @@ public sealed class ServicePolicyTests
             { "id": "1", "kind": "Weapon Shop", "name": "The Knight's Blade", "proprietor": "Tor", "mapId": 1, "openHour": 6, "closedHour": 18, "priceMultiplier": 1.5, "skillPriceMultiplier": 1, "stockIntervalDays": 7 }
             """));
         using (IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
-            ProductTestContext.RulesetContext(shopContext, shopUi) with { Use = UseControls, Service = ServiceControls }))
+            ProductTestContext.RulesetContext(shopContext, shopUi) with { Use = UseControls, Service = ServiceControls, Conversation = ConversationControls }))
         {
             session.Start();
             ProjectedNode counter = Walk(session, shopUi);
@@ -292,7 +309,7 @@ public sealed class ServicePolicyTests
             { "id": "139", "kind": "Fire Guild", "name": "Initiate Guild of Fire", "proprietor": "Sethric", "mapId": 1, "openHour": 6, "closedHour": 18, "priceMultiplier": 2, "skillPriceMultiplier": 1, "stockIntervalDays": 14 }
             """));
         using (IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
-            ProductTestContext.RulesetContext(guildContext, guildUi) with { Use = UseControls, Service = ServiceControls }))
+            ProductTestContext.RulesetContext(guildContext, guildUi) with { Use = UseControls, Service = ServiceControls, Conversation = ConversationControls }))
         {
             session.Start();
             ProjectedNode counter = Walk(session, guildUi);
@@ -325,7 +342,7 @@ public sealed class ServicePolicyTests
             { "id": "87", "kind": "Temple", "name": "Sanctuary", "proprietor": "Father Brom", "mapId": 1, "openHour": 6, "closedHour": 18, "priceMultiplier": 2, "skillPriceMultiplier": 1 }
             """));
         using (IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
-            ProductTestContext.RulesetContext(templeContext, templeUi) with { Use = UseControls, Service = ServiceControls }))
+            ProductTestContext.RulesetContext(templeContext, templeUi) with { Use = UseControls, Service = ServiceControls, Conversation = ConversationControls }))
         {
             session.Start();
             ProjectedNode counter = Walk(session, templeUi);
@@ -347,12 +364,17 @@ public sealed class ServicePolicyTests
             Assert.False(ProjectedNode.Of(templeUi.Latest().Value).Field("service").Field("open").AsBoolean());
         }
 
-        /// <summary>The admitted update that faces the counter and the declared use that walks in.</summary>
+        /// <summary>
+        /// The two updates that walk the party in: the use that opens the conversation with whoever keeps
+        /// the counter, and the choice of what they offer that hands the party to the counter itself.
+        /// </summary>
         static ProjectedNode Walk(IGameSession session, RecordingUiService ui)
         {
             session.Update(ProductTestContext.Update(1, 1));
             Assert.Equal("talk", ProjectedNode.Of(ui.Latest().Value).Field("interaction").Field("verb").AsString());
             session.Update(ProductTestContext.Update(2, 1, ProductTestContext.Digital(ProductIdentity.UseIntent)));
+            Assert.True(ProjectedNode.Of(ui.Latest().Value).Field("conversation").Field("open").AsBoolean());
+            session.Update(ProductTestContext.Update(3, 1, ProductTestContext.ChooseTopic(MightAndMagic7Conversation.CounterTopicId)));
             ProjectedNode counter = ProjectedNode.Of(ui.Latest().Value).Field("service");
             Assert.True(counter.Field("open").AsBoolean());
             return counter;

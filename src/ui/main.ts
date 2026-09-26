@@ -73,6 +73,10 @@ const ACTION_SERVICE_LEAVE = 'service.leave';
  * act: a rest heals and a wait does not, and one button cannot mean both. The names are the product's wire
  * vocabulary, exactly as the service actions are.
  */
+const ACTION_CONVERSATION_TOPIC = 'conversation.topic';
+const ACTION_CONVERSATION_PERSON = 'conversation.person';
+const ACTION_CONVERSATION_LEAVE = 'conversation.leave';
+
 const ACTION_REST = 'rest.rest';
 const ACTION_CAMP = 'rest.camp';
 const ACTION_WAIT_DAWN = 'rest.wait-dawn';
@@ -311,6 +315,53 @@ interface ServiceView {
  * did nothing must not look like one that did. `kind` is what was asked for, `interrupted` says a night was
  * broken, and the fatigue facts are the clock's own deadline rather than a count kept here.
  */
+/** One person present in a conversation, as the product publishes them. */
+interface ConversationPersonView {
+  readonly id: string;
+  readonly name: string;
+  readonly portrait: string;
+  readonly speaking: boolean;
+}
+
+/** One topic a speaker has: on offer, or withheld with the reason the state gives. */
+interface ConversationTopicView {
+  readonly id: string;
+  readonly label: string;
+  readonly available: boolean;
+  readonly reason: string;
+}
+
+/** One thing said while the conversation has been open. */
+interface ConversationLineView {
+  readonly speaker: string;
+  readonly text: string;
+  readonly residue: string;
+}
+
+/**
+ * The conversation block as the product publishes it: who is here, what was said, which topics are on
+ * offer, and which the state withholds with its reason. The companion renders the offers as choices and
+ * the withheld topics as the reasons they are not, and decides nothing about either.
+ */
+interface ConversationView {
+  readonly available: boolean;
+  readonly open: boolean;
+  readonly subject: string;
+  readonly speaker: string;
+  readonly greeting: string;
+  readonly people: readonly ConversationPersonView[];
+  readonly topics: readonly ConversationTopicView[];
+  readonly withheld: readonly ConversationTopicView[];
+  readonly said: readonly ConversationLineView[];
+  readonly action: string;
+  readonly outcome: string;
+  readonly code: string;
+  readonly message: string;
+  readonly residue: string;
+  readonly handoff: string;
+  readonly topic: string;
+}
+
 interface RestView {
   readonly available: boolean;
   /** What the last stop asked for: `rest`, `camp`, `wait-dawn`, `wait-hour`, or `wait-five-minutes`. */
@@ -437,6 +488,7 @@ interface SnapshotView {
   readonly interaction: InteractionView;
   readonly service: ServiceView;
   readonly rest: RestView;
+  readonly conversation: ConversationView;
 }
 
 /** The clock of a session that has none, which the panel shows as not knowing rather than as a date. */
@@ -535,6 +587,26 @@ const SERVICE_NONE: ServiceView = {
 };
 
 /** The rest of a session that holds no mechanism, or one this companion cannot read as a stop. */
+/** A session with no conversation mechanism: there is nobody to speak with and nothing to say. */
+const CONVERSATION_NONE: ConversationView = {
+  available: false,
+  open: false,
+  subject: '',
+  speaker: '',
+  greeting: '',
+  people: [],
+  topics: [],
+  withheld: [],
+  said: [],
+  action: '',
+  outcome: 'none',
+  code: '',
+  message: '',
+  residue: '',
+  handoff: '',
+  topic: '',
+};
+
 const REST_NONE: RestView = {
   available: false,
   kind: '',
@@ -631,6 +703,23 @@ const STYLES = `
 .crawler-refusal[hidden] { display: none; }
 .crawler-accepted { margin: 0.35rem 0 0; padding: 0; list-style: none; color: #d8cba6; font-size: 0.75rem; }
 .crawler-session .crawler-save { margin: 0.3rem 0 0; }
+.crawler-conversation { margin: 0 0 0.5rem; border-top: 1px solid rgba(210, 196, 158, 0.25); padding-top: 0.5rem; }
+.crawler-conversation[hidden] { display: none; }
+.crawler-conversation .crawler-step-head { margin: 0 0 0.2rem; color: #d8cba6; font-size: 0.82rem; }
+.crawler-conversation-greeting { margin: 0 0 0.35rem; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(210, 196, 158, 0.5); color: #e6dcc0; font-size: 0.78rem; }
+.crawler-conversation .crawler-row { display: flex; flex-wrap: wrap; gap: 0.2rem; margin: 0 0 0.3rem; }
+.crawler-conversation .crawler-row button { width: auto; padding: 0.1rem 0.35rem; font-size: 0.72rem; }
+.crawler-conversation .crawler-options { display: flex; flex-wrap: wrap; gap: 0.2rem; }
+.crawler-conversation .crawler-options button { width: auto; padding: 0.15rem 0.4rem; font-size: 0.74rem; }
+.crawler-withheld { margin: 0.3rem 0 0; padding: 0; list-style: none; color: #a89a78; font-size: 0.7rem; }
+.crawler-said { margin: 0.35rem 0 0; padding: 0; list-style: none; color: #dcc9a0; font-size: 0.74rem; }
+.crawler-conversation .crawler-actions { display: flex; gap: 0.2rem; margin-top: 0.3rem; }
+.crawler-conversation .crawler-actions button { padding: 0.2rem 0.4rem; font-size: 0.75rem; }
+.crawler-conversation-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
+.crawler-conversation-result[hidden] { display: none; }
+.crawler-conversation-result[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
+.crawler-conversation-residue { margin: 0.15rem 0 0; color: #b8a888; font-size: 0.7rem; }
+.crawler-conversation-residue[hidden] { display: none; }
 .crawler-service { margin: 0 0 0.5rem; border-top: 1px solid rgba(210, 196, 158, 0.25); padding-top: 0.5rem; }
 .crawler-service[hidden] { display: none; }
 .crawler-service .crawler-step-head { margin: 0 0 0.2rem; color: #d8cba6; font-size: 0.82rem; }
@@ -935,6 +1024,66 @@ function readService(value: unknown): ServiceView {
  * describes stops through a mechanism this companion cannot read, and saying so is honest where refusing to
  * render everything else would hide the rest of the session behind it.
  */
+/**
+ * Reads the conversation block, or the empty conversation. The block is published in every mode, so a
+ * session that holds no mechanism and one that is speaking with nobody both read as empty here — and the
+ * screen then shows no conversation at all, which is a different reading from somebody with nothing to say.
+ */
+function readConversation(value: unknown): ConversationView {
+  if (!isRecord(value)) return CONVERSATION_NONE;
+  const { subject, speaker, greeting, action, outcome, code, message, residue, handoff, topic } = value;
+  if (
+    typeof subject !== 'string' ||
+    typeof speaker !== 'string' ||
+    typeof greeting !== 'string' ||
+    typeof action !== 'string' ||
+    typeof outcome !== 'string' ||
+    typeof code !== 'string' ||
+    typeof message !== 'string' ||
+    typeof residue !== 'string' ||
+    typeof handoff !== 'string' ||
+    typeof topic !== 'string'
+  ) {
+    return CONVERSATION_NONE;
+  }
+
+  const people = readList(value.people, (entry) => {
+    const { id, name, portrait } = entry;
+    if (typeof id !== 'string' || typeof name !== 'string' || typeof portrait !== 'string') return null;
+    return { id, name, portrait, speaking: entry.speaking === true };
+  });
+  const readTopics = (entries: unknown): ConversationTopicView[] =>
+    readList(entries, (entry) => {
+      const { id, label, reason } = entry;
+      if (typeof id !== 'string' || typeof label !== 'string' || typeof reason !== 'string') return null;
+      return { id, label, available: entry.available === true, reason };
+    });
+  const said = readList(value.said, (entry) => {
+    const { speaker: who, text, residue: left } = entry;
+    if (typeof who !== 'string' || typeof text !== 'string' || typeof left !== 'string') return null;
+    return { speaker: who, text, residue: left };
+  });
+
+  return {
+    available: value.available === true,
+    open: value.open === true,
+    subject,
+    speaker,
+    greeting,
+    people,
+    topics: readTopics(value.topics),
+    withheld: readTopics(value.withheld),
+    said,
+    action,
+    outcome,
+    code,
+    message,
+    residue,
+    handoff,
+    topic,
+  };
+}
+
 function readRest(value: unknown): RestView {
   if (!isRecord(value)) return REST_NONE;
   const { kind, outcome, code, message, from, to, unit, cleared, shortage, fatigueDue } = value;
@@ -1087,6 +1236,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
   const interaction = readInteraction(value.interaction);
   const service = readService(value.service);
   const rest = readRest(value.rest);
+  const conversation = readConversation(value.conversation);
   const { ruleset, title, bundle, contentPacks } = composition;
   const { mode, simulationSeconds, admittedSteps, updates } = session;
   if (
@@ -1153,6 +1303,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
     interaction,
     service,
     rest,
+    conversation,
   };
 }
 
@@ -1182,6 +1333,9 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   panel.dataset.serviceState = 'unknown';
   panel.dataset.serviceAction = '';
   panel.dataset.serviceOutcome = 'none';
+  panel.dataset.conversation = 'none';
+  panel.dataset.conversationAction = '';
+  panel.dataset.conversationOutcome = 'none';
   panel.dataset.rest = 'none';
   panel.dataset.restAction = '';
   panel.dataset.restOutcome = 'none';
@@ -1332,6 +1486,50 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     acceptedList,
   );
 
+  // The conversation screen: who the party is speaking with, what they said, what can be brought up, and
+  // what the state withholds. It comes before the counter's screen because it is what a player reaches a
+  // counter through: a person is talked to first, and stepping up to what they keep is one of their offers.
+  const conversation = document.createElement('section');
+  conversation.className = 'crawler-conversation';
+  conversation.hidden = true;
+  const conversationHead = document.createElement('p');
+  conversationHead.className = 'crawler-step-head';
+  const conversationGreeting = document.createElement('p');
+  conversationGreeting.className = 'crawler-conversation-greeting';
+  const conversationPeople = document.createElement('div');
+  conversationPeople.className = 'crawler-row';
+  const conversationTopics = document.createElement('div');
+  conversationTopics.className = 'crawler-options';
+  const conversationWithheld = document.createElement('ul');
+  conversationWithheld.className = 'crawler-withheld';
+  const conversationSaid = document.createElement('ul');
+  conversationSaid.className = 'crawler-said';
+  const conversationActions = document.createElement('div');
+  conversationActions.className = 'crawler-actions';
+  const conversationLeave = document.createElement('button');
+  conversationLeave.type = 'button';
+  conversationLeave.dataset.id = ACTION_CONVERSATION_LEAVE;
+  conversationLeave.textContent = 'Take your leave';
+  conversationLeave.addEventListener('click', () => claim(ACTION_CONVERSATION_LEAVE));
+  conversationActions.append(conversationLeave);
+  const conversationResult = document.createElement('p');
+  conversationResult.className = 'crawler-conversation-result';
+  conversationResult.hidden = true;
+  const conversationResidue = document.createElement('p');
+  conversationResidue.className = 'crawler-conversation-residue';
+  conversationResidue.hidden = true;
+  conversation.append(
+    conversationHead,
+    conversationGreeting,
+    conversationPeople,
+    conversationTopics,
+    conversationWithheld,
+    conversationSaid,
+    conversationActions,
+    conversationResult,
+    conversationResidue,
+  );
+
   // The service screen: the counter the party stands at, what its shelves hold and at what price, what it
   // teaches, what it would buy, and what the last command did. Every list is rebuilt from the projection,
   // so the screen holds nothing the product did not publish and decides no price itself.
@@ -1412,6 +1610,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     bundle,
     place,
     creation,
+    conversation,
     service,
     rest,
     details,
@@ -1426,6 +1625,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   root.append(style, panel);
 
   let current = 'starting';
+  let renderedConversation = '';
   const claim = (name: string, data: Record<string, unknown> = {}): void => {
     context.intents?.claim(UI_ACTION_INTENT, {
       kind: 'product-payload',
@@ -1666,6 +1866,97 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
    * time because they are what a player must not miss.
    */
   let renderedService = '';
+  /**
+   * Renders the conversation and the choices it offers. The offers are buttons that report the topic or the
+   * person they name, and a topic the state withholds is shown as the reason it is withheld rather than as a
+   * choice: the product would refuse it by name, and a button that cannot work must not look like one that
+   * can. Every word here came from the product — the greeting, each topic, each reason, and what was said —
+   * and the panel spells none of them itself.
+   */
+  const renderConversation = (view: ConversationView): void => {
+    // A session with no mechanism, one that is speaking with nobody, and one whose last choice was refused
+    // are three different facts: a panel that hid the section for the first would leave a product without
+    // dialogue looking like a party that had simply not spoken to anybody.
+    panel.dataset.conversation = !view.available ? 'none' : view.open ? 'open' : view.outcome === 'none' ? 'available' : 'closed';
+    panel.dataset.conversationAction = view.action;
+    panel.dataset.conversationOutcome = view.outcome;
+    conversation.hidden = !view.available || (!view.open && view.outcome === 'none');
+    conversationHead.textContent =
+      view.speaker === ''
+        ? ''
+        : view.people.length > 1
+          ? `Speaking with ${view.speaker} (${view.people.length} here)`
+          : `Speaking with ${view.speaker}`;
+    conversationGreeting.textContent = view.greeting;
+    conversationResult.hidden = view.message === '';
+    conversationResult.dataset.outcome = view.outcome;
+    conversationResult.dataset.code = view.code;
+    conversationResult.textContent = view.message;
+    conversationResidue.hidden = view.residue === '';
+    conversationResidue.textContent = view.residue;
+
+    const signature = JSON.stringify(view);
+    if (signature === renderedConversation) return;
+    renderedConversation = signature;
+
+    if (!view.open) {
+      conversationPeople.replaceChildren();
+      conversationTopics.replaceChildren();
+      conversationWithheld.replaceChildren();
+      conversationSaid.replaceChildren();
+      return;
+    }
+
+    // Who is here: one button per person, which turns the conversation to them. The person speaking is
+    // shown as the one already chosen, because a button that does nothing must not look like one that does.
+    conversationPeople.replaceChildren(
+      ...view.people.map((person) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.id = person.id;
+        button.dataset.person = person.id;
+        button.textContent = person.name;
+        if (person.speaking) button.disabled = true;
+        else button.addEventListener('click', () => claim(ACTION_CONVERSATION_PERSON, { target: person.id }));
+        return button;
+      }),
+    );
+
+    conversationTopics.replaceChildren(
+      ...view.topics.map((topic) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.id = topic.id;
+        button.textContent = topic.label;
+        if (!topic.available) button.disabled = true;
+        else button.addEventListener('click', () => claim(ACTION_CONVERSATION_TOPIC, { target: topic.id }));
+        return button;
+      }),
+    );
+
+    // What the state withholds, with the reason each is withheld: the same vocabulary a locked door uses,
+    // so a player learns what the person is waiting for instead of seeing a shorter list.
+    conversationWithheld.replaceChildren(
+      ...view.withheld.map((topic) => {
+        const item = document.createElement('li');
+        item.dataset.id = topic.id;
+        item.textContent = `${topic.label} — ${topic.reason}`;
+        return item;
+      }),
+    );
+
+    // What has been said while the conversation has been open, oldest first, so a line taken is still
+    // readable after it leaves the list of things to bring up.
+    conversationSaid.replaceChildren(
+      ...view.said.map((line) => {
+        const item = document.createElement('li');
+        item.dataset.speaker = line.speaker;
+        item.textContent = line.residue === '' ? line.text : `${line.text} ${line.residue}`;
+        return item;
+      }),
+    );
+  };
+
   const renderService = (view: ServiceView): void => {
     // A session with no mechanism, one that stands at no counter, one that is browsing, and one that was
     // turned away are four different facts: a panel that called the second 'closed' would show every player
@@ -1951,6 +2242,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     rows.creationStep.textContent = creating.step === '' ? '—' : creating.step;
     rows.pool.textContent = creating.active ? String(creating.pool) : '—';
     renderCreation(creating, save.resumed);
+    renderConversation(snapshot.conversation);
     renderService(snapshot.service);
     renderRest(snapshot.rest);
     const world = snapshot.world;

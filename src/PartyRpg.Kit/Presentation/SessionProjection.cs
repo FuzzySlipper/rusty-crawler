@@ -62,6 +62,11 @@ namespace PartyRpg.Kit.Presentation;
 /// when the session holds no rest mechanism. Defaulted for the same reason the others are: a session whose
 /// ruleset answered no rest policy publishes that rather than a rest that never happened.
 /// </param>
+/// <param name="Conversation">
+/// What the party is saying and to whom, or the no-mechanism value when the session holds no conversation
+/// mechanism. Defaulted for the same reason the others are: a session whose ruleset answered no dialogue
+/// policy publishes that rather than an empty conversation that looks like somebody with nothing to say.
+/// </param>
 public readonly record struct SessionSnapshot(
     SessionComposition Composition,
     SessionMode Mode,
@@ -76,7 +81,8 @@ public readonly record struct SessionSnapshot(
     SaveSnapshot Save = default,
     InteractionSnapshot Interaction = default,
     ServiceSnapshot Service = default,
-    RestSnapshot Rest = default);
+    RestSnapshot Rest = default,
+    ConversationSnapshot Conversation = default);
 
 /// <summary>Where the party is in the world, as the panel needs it: which place, where in it, and how much of the world is known.</summary>
 /// <param name="Place">The place the party is in, empty when the session has no world.</param>
@@ -153,6 +159,9 @@ public static class SessionProjection
 
     /// <summary>The rest object's wire name.</summary>
     public const string RestField = "rest";
+
+    /// <summary>The conversation object's wire name.</summary>
+    public const string ConversationField = "conversation";
 
     /// <summary>Builds the projection value for a snapshot.</summary>
     public static UiValue Build(SessionSnapshot snapshot)
@@ -250,7 +259,13 @@ public static class SessionProjection
             // session holds no rest mechanism", "the party has not stopped yet", and "the party was refused a
             // night's sleep" are three different facts, and a block that only appeared after a stop would
             // leave a player unable to tell a quiet street from a refused camp.
-            (RestField, Rest(builder, snapshot.Rest)));
+            (RestField, Rest(builder, snapshot.Rest)),
+            // The conversation block is published in every mode for the same reason the rest block is:
+            // "this session holds no conversation mechanism", "nobody is being spoken with", and "the
+            // person has nothing to say about that" are three different facts, and a block that only
+            // appeared while somebody was talking would leave a player unable to tell an empty road from a
+            // topic the state withholds.
+            (ConversationField, Conversation(builder, snapshot.Conversation)));
         return builder.Build(root);
     }
 
@@ -363,6 +378,74 @@ public static class SessionProjection
             ("earned", builder.Number(service.Earned)),
             ("coins", builder.Number(service.Coins)));
     }
+
+    /// <summary>Builds the conversation block: who is here, what was said, and what may be asked about.</summary>
+    /// <remarks>
+    /// Every list is sent whole so the screen decides nothing: the people present, the topics on offer, the
+    /// topics the state withholds with the reason each is withheld, and what has been said so far. A
+    /// snapshot built without conversation facts carries the default value, whose strings and lists are null
+    /// rather than empty: they are published as empty so a reader never sees a name that is not there,
+    /// exactly as the rest and service blocks do.
+    /// </remarks>
+    private static uint Conversation(UiValueBuilder builder, ConversationSnapshot conversation)
+    {
+        List<uint> people = [];
+        foreach (ConversationPersonSnapshot person in conversation.People ?? [])
+        {
+            people.Add(builder.Object(
+                ("id", builder.String(person.Id)),
+                ("name", builder.String(person.Name)),
+                ("portrait", builder.String(person.Portrait)),
+                ("speaking", builder.Boolean(person.Speaking))));
+        }
+
+        List<uint> topics = [];
+        foreach (ConversationTopicSnapshot topic in conversation.Topics ?? [])
+        {
+            topics.Add(Topic(builder, topic));
+        }
+
+        List<uint> withheld = [];
+        foreach (ConversationTopicSnapshot topic in conversation.Withheld ?? [])
+        {
+            withheld.Add(Topic(builder, topic));
+        }
+
+        List<uint> said = [];
+        foreach (ConversationLineSnapshot line in conversation.Said ?? [])
+        {
+            said.Add(builder.Object(
+                ("speaker", builder.String(line.Speaker)),
+                ("text", builder.String(line.Text)),
+                ("residue", builder.String(line.Residue))));
+        }
+
+        return builder.Object(
+            ("available", builder.Boolean(conversation.Available)),
+            ("open", builder.Boolean(conversation.Open)),
+            ("subject", builder.String(conversation.Subject ?? string.Empty)),
+            ("speaker", builder.String(conversation.Speaker ?? string.Empty)),
+            ("greeting", builder.String(conversation.Greeting ?? string.Empty)),
+            ("people", builder.Array([.. people])),
+            ("topics", builder.Array([.. topics])),
+            ("withheld", builder.Array([.. withheld])),
+            ("said", builder.Array([.. said])),
+            ("action", builder.String(conversation.Action ?? string.Empty)),
+            ("outcome", builder.String(conversation.Outcome ?? string.Empty)),
+            ("code", builder.String(conversation.Code ?? string.Empty)),
+            ("message", builder.String(conversation.Message ?? string.Empty)),
+            ("residue", builder.String(conversation.Residue ?? string.Empty)),
+            ("handoff", builder.String(conversation.Handoff ?? string.Empty)),
+            ("topic", builder.String(conversation.Topic ?? string.Empty)));
+    }
+
+    /// <summary>Builds one topic of a conversation block, on offer or withheld.</summary>
+    private static uint Topic(UiValueBuilder builder, ConversationTopicSnapshot topic) =>
+        builder.Object(
+            ("id", builder.String(topic.Id)),
+            ("label", builder.String(topic.Label)),
+            ("available", builder.Boolean(topic.Available)),
+            ("reason", builder.String(topic.Reason)));
 
     /// <summary>Builds the rest block: what the last stop did, what it cost, and what sleep debt stands.</summary>
     /// <remarks>

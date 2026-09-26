@@ -14,6 +14,9 @@ internal static class MapDeltaRecord
     /// <summary>Size of a chest record, which is its two-word header, 140 items, and a 140-cell grid.</summary>
     internal const int ChestSize = 5324;
 
+    /// <summary>Size of an actor record, which is the donor's own snapshot width.</summary>
+    internal const int ActorSize = 0x344;
+
     /// <summary>Size of a sprite object record.</summary>
     internal const int SpriteObjectSize = 0x70;
 
@@ -28,6 +31,18 @@ internal static class MapDeltaRecord
 
     /// <summary>Where the identifier sits inside an item structure.</summary>
     private const int ItemIdOffset = 0x00;
+
+    // Field offsets inside Actor_MM7 (OpenEnroth src/Engine/Snapshots/EntitySnapshots.h:764-809).
+    private const int ActorNameWidth = 32;
+    private const int ActorNpcIdOffset = 0x20;
+    private const int ActorAttributesOffset = 0x24;
+    private const int ActorHitPointsOffset = 0x28;
+    private const int ActorMonsterIdOffset = 0x86;
+    private const int ActorPositionOffset = 0x8E;
+    private const int ActorYawAngleOffset = 0x9A;
+    private const int ActorSectorIdOffset = 0x9E;
+    private const int ActorGroupOffset = 0x2E8;
+    private const int ActorUniqueNameIndexOffset = 0x334;
 
     // Field offsets inside SpriteObject_MM7.
     private const int SpriteIdOffset = 0x00;
@@ -68,6 +83,38 @@ internal static class MapDeltaRecord
         }
 
         return chests;
+    }
+
+    /// <summary>Reads every actor record the delta carries.</summary>
+    /// <remarks>
+    /// Every field the walk steps over is consumed by the record's fixed width; the ones read here are the
+    /// ones that say who the actor is and where it stands. The offsets are the donor's snapshot layout, and
+    /// the identity fields are read as signed values because that is how the record stores them — a zero
+    /// identity means "no NPC" and "no monster" respectively, which is a fact rather than a missing one.
+    /// </remarks>
+    /// <param name="records">The actor array, exactly as many records as the delta declared.</param>
+    /// <param name="count">How many actor records the array holds.</param>
+    internal static MapActor[] Actors(ReadOnlySpan<byte> records, int count)
+    {
+        MapActor[] actors = new MapActor[count];
+        for (int index = 0; index < count; index++)
+        {
+            ReadOnlySpan<byte> record = records.Slice(index * ActorSize, ActorSize);
+            actors[index] = new MapActor(
+                index,
+                MapRecord.Text(record, 0, ActorNameWidth),
+                MapRecord.Int16(record, ActorNpcIdOffset),
+                MapRecord.Int16(record, ActorMonsterIdOffset),
+                MapRecord.Int16(record, ActorHitPointsOffset),
+                MapRecord.Int32(record, ActorAttributesOffset),
+                MapRecord.ShortPoint(record, ActorPositionOffset),
+                MapRecord.UInt16(record, ActorYawAngleOffset),
+                MapRecord.Int16(record, ActorSectorIdOffset),
+                MapRecord.Int32(record, ActorGroupOffset),
+                MapRecord.Int32(record, ActorUniqueNameIndexOffset));
+        }
+
+        return actors;
     }
 
     /// <summary>Reads every sprite object the delta carries.</summary>

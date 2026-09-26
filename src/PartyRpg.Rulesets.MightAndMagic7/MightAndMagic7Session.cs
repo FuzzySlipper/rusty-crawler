@@ -56,6 +56,28 @@ internal sealed class MightAndMagic7Session : IGameSession
         // reading of one placement is what keeps what a use offers and what a transaction does in step.
         MightAndMagic7Services? services = MightAndMagic7Services.Read(Declared(context.Content));
 
+        // This game's answers about people are read once here, for the same reason: the world needs them to
+        // say who stands at a placement the party faces, and the session needs the one instance to speak
+        // with them, so what a use reaches and who answers can never be two readings of one placement.
+        MightAndMagic7Conversation? conversation = MightAndMagic7Conversation.Read(Declared(context.Content), services);
+        if (conversation is not null)
+        {
+            // What reading the people tables noticed is reported where the other composition notes are: a
+            // person row nothing can be placed for, a topic without an answer, and the counts themselves are
+            // facts about the operator's data rather than defects, so they are published and the session
+            // starts.
+            foreach (string note in conversation.Notes)
+            {
+                context.Engine?.Diagnostics?.Publish(new DiagnosticsPublishRequest(
+                    DiagnosticsSeverity.Info,
+                    DiagnosticsDisposition.Accepted,
+                    Source: "people",
+                    Code: "people-note",
+                    Message: note,
+                    Correlation: string.Empty));
+            }
+        }
+
         // This game's answers about stopping are read once, here, beside its service answers: what a night
         // costs, where it may be taken, what breaks it, and what going without sleep does. The engine's
         // random service travels with them, because a camp's risk is a keyed draw of the engine's own
@@ -79,7 +101,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             {
                 party = MightAndMagic7Party.Restore(save.Party);
                 PartyResourceLedger ledger = Ledger(party);
-                world = MightAndMagic7World.Compose(context.Content, context, clock, ledger, party, save, services);
+                world = MightAndMagic7World.Compose(context.Content, context, clock, ledger, party, save, services, conversation);
                 _session = new PartyRpgSession(
                     composition,
                     context.Projection,
@@ -97,7 +119,9 @@ internal sealed class MightAndMagic7Session : IGameSession
                     accounts: ledger,
                     serviceInput: context.Service,
                     rest: rest,
-                    restInput: context.Rest);
+                    restInput: context.Rest,
+                    conversation: conversation,
+                    conversationInput: context.Conversation);
                 return;
             }
 
@@ -120,13 +144,15 @@ internal sealed class MightAndMagic7Session : IGameSession
                     creation: new SessionCreation(
                         MightAndMagic7Creation.Start(declared),
                         description => MightAndMagic7Party.Factory().Create(description),
-                        created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created), created, services: services)),
+                        created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created), created, services: services, conversation: conversation)),
                     saveInput: context.Save,
                     useInput: use,
                     service: services,
                     serviceInput: context.Service,
                     rest: rest,
-                    restInput: context.Rest);
+                    restInput: context.Rest,
+                    conversation: conversation,
+                    conversationInput: context.Conversation);
                 return;
             }
 
@@ -135,7 +161,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             // to the world here is the same composition order the created path takes, one accept earlier.
             party = MightAndMagic7Party.Compose(context.Content);
             PartyResourceLedger? accounts = party is null ? null : Ledger(party);
-            world = MightAndMagic7World.Compose(context.Content, context, clock, accounts, party, services: services);
+            world = MightAndMagic7World.Compose(context.Content, context, clock, accounts, party, services: services, conversation: conversation);
             _session = new PartyRpgSession(
                 composition,
                 context.Projection,
@@ -152,7 +178,9 @@ internal sealed class MightAndMagic7Session : IGameSession
                 accounts: accounts,
                 serviceInput: context.Service,
                 rest: rest,
-                restInput: context.Rest);
+                restInput: context.Rest,
+                conversation: conversation,
+                conversationInput: context.Conversation);
         }
         catch
         {

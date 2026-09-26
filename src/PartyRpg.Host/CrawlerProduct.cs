@@ -41,6 +41,7 @@ public sealed class CrawlerProduct : IEngineProduct
     private readonly UseIntentNames _use;
     private readonly ServiceIntentNames _service;
     private readonly RestIntentNames _rest;
+    private readonly ConversationIntentNames _conversation;
     private readonly BundleSelection _selection;
     private readonly ContentCatalog? _content;
     private IGameSession _session;
@@ -84,6 +85,11 @@ public sealed class CrawlerProduct : IEngineProduct
             ProductIdentity.UiActionContract);
         _service = new ServiceIntentNames(
             ProductIdentity.ServiceLeaveIntent,
+            ProductIdentity.UiActionContract);
+        // The conversation's controls are declared the same way the counter's are: one key that leaves, and
+        // the choices on the payload contract the companion's own buttons claim.
+        _conversation = new ConversationIntentNames(
+            ProductIdentity.ConversationLeaveIntent,
             ProductIdentity.UiActionContract);
         // Every stop is declared with its own control, so a key and a screen button ask for exactly the same
         // night's sleep or wait: one name per act, on the digital intents above and on the payload contract
@@ -236,7 +242,8 @@ public sealed class CrawlerProduct : IEngineProduct
                 Save: _save,
                 Use: _use,
                 Service: _service,
-                Rest: _rest);
+                Rest: _rest,
+                Conversation: _conversation);
 
             // The start switch travels with the context and is answered at the ruleset's one composition
             // entry: a resumed run reads the save the slot holds and composes a session from it, and a slot

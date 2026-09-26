@@ -1,4 +1,5 @@
 using System.Text;
+using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Movement;
@@ -95,6 +96,8 @@ public sealed class PartyRpgSession : IGameSession
     private readonly CreationInput? _creationInput;
     private readonly ServiceInput? _serviceInput;
     private readonly IServiceRule? _serviceRule;
+    private readonly ConversationInput? _conversationInput;
+    private readonly IConversationRule? _conversationRule;
     private readonly RestInput? _restInput;
     private readonly IRestRule? _restRule;
     private readonly GameClock? _clock;
@@ -118,6 +121,7 @@ public sealed class PartyRpgSession : IGameSession
     private PartyEntity? _party;
     private PartyResourceLedger? _accounts;
     private PartyServices? _services;
+    private PartyConversations? _conversations;
     private PartyRest? _rest;
     private readonly TimeOwners _timeOwners = new();
     private WorldSnapshot _world = WorldSnapshot.Empty;
@@ -240,7 +244,9 @@ public sealed class PartyRpgSession : IGameSession
         PartyResourceLedger? accounts = null,
         ServiceIntentNames? serviceInput = null,
         IRestRule? rest = null,
-        RestIntentNames? restInput = null)
+        RestIntentNames? restInput = null,
+        IConversationRule? conversation = null,
+        ConversationIntentNames? conversationInput = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(composition.Title);
         if (creation is not null && (world is not null || party is not null))
@@ -264,6 +270,8 @@ public sealed class PartyRpgSession : IGameSession
         _creationInput = creationInput;
         _serviceInput = serviceInput is null ? null : new ServiceInput(serviceInput);
         _serviceRule = service;
+        _conversationInput = conversationInput is null ? null : new ConversationInput(conversationInput);
+        _conversationRule = conversation;
         _restInput = restInput is null ? null : new RestInput(restInput);
         _restRule = rest;
         _creation = creation;
@@ -288,6 +296,7 @@ public sealed class PartyRpgSession : IGameSession
         // composes it when creation is accepted, which is the moment that party exists. The rest mechanism is
         // composed beside it, over the same party, clock, and world, so a night is judged where it is taken.
         ComposeServices();
+        ComposeConversations();
         ComposeRest();
         // A session publishes as soon as it exists: the engine expects a create-time projection, and a
         // client that attaches before the first update should see the session it has attached to.
@@ -318,6 +327,15 @@ public sealed class PartyRpgSession : IGameSession
     /// served by, and what the projection publishes about a counter is read from it.
     /// </summary>
     public PartyServices? Services => _services;
+
+    /// <summary>
+    /// The conversation mechanism this session speaks through, or null when its ruleset answered no dialogue
+    /// policy. It is the one mechanism every person is spoken with by, and what the projection publishes
+    /// about a conversation is read from it. It is composed whether or not the session holds a party: a
+    /// conversation with nobody to record anything on is still a conversation, and a condition that needs
+    /// the party is then unmet rather than invented.
+    /// </summary>
+    public PartyConversations? Conversations => _conversations;
 
     /// <summary>
     /// The rest mechanism this session stops through, or null when its ruleset answered no rest policy or
@@ -469,12 +487,12 @@ public sealed class PartyRpgSession : IGameSession
         // session that is not running admits no interval for either of them.
         double seconds = AdmittedSeconds(tick);
 
-        // A service visit owns the player's controls: the counter's screen is what they act on, so the party
-        // does not step and nothing is faced while a visit is open, and a party cannot walk away from a shop
-        // by holding a key at its menu. The world itself keeps advancing — one clock, one update, and a
-        // screen does not pause a real-time world — so the shops that close and the places that respawn do
-        // so behind the counter exactly as they do in the street.
-        if (_services is not { IsOpen: true })
+        // A service visit or a conversation owns the player's controls: the screen is what they act on, so
+        // the party does not step and nothing is faced while one is open, and a party cannot walk away from
+        // a shop or a person by holding a key at a menu. The world itself keeps advancing — one clock, one
+        // update, and a screen does not pause a real-time world — so the shops that close and the places
+        // that respawn do so behind the counter exactly as they do in the street.
+        if (_services is not { IsOpen: true } && _conversations is not { IsOpen: true })
         {
             StepParty(update.Input, seconds);
             // Using something follows the step that carried the party to it, in the same update: the reticle
@@ -487,6 +505,7 @@ public sealed class PartyRpgSession : IGameSession
         }
 
         DriveServices(update.Input);
+        DriveConversations(update.Input);
         StepClock(seconds);
 
         Advance(tick);
@@ -692,18 +711,100 @@ public sealed class PartyRpgSession : IGameSession
     /// for one, on the controls the host declared. A held session steps this too — a use is an instant rather
     /// than an interval, and a lever pulled while the world is held is an act — which is deliberately not how
     /// movement works. The mechanism is the world's, and this is where the one admitted update reaches it.
-    /// A use that lands on somebody keeping a counter hands off into the service mechanism, which is the one
-    /// way a service is entered: the interaction mechanism reached the person, and what stands behind them is
-    /// the service's business rather than a second way to reach a person.
+    /// A use that lands on somebody opens the conversation with them, which is the one way a person is
+    /// reached: the interaction mechanism found who the party is facing, the conversation is the general
+    /// case of talking to them, and what stands behind them — a counter, a household, an errand — is offered
+    /// from inside that conversation rather than through a second way in. A use that lands on a door or a
+    /// chest opens no conversation, because the ruleset answers that there is nobody there.
     /// </remarks>
     private void Interact(ReadOnlySpan<ProductInputEvent> input)
     {
         if (LiveWorld is not { } world) return;
         InteractionResult? result = world.Interact(_useInput is not null && _useInput.Read(input));
-        if (result is { IsApplied: true, Target: { } target } && _services is { } services)
+        if (result is { IsApplied: true, Target: { } target } && _conversations is { } conversations)
         {
-            services.OpenTarget(target.Id.Place, target.Placement);
+            conversations.OpenTarget(target.Id.Place, target.Placement);
         }
+    }
+
+    /// <summary>
+    /// Applies the conversation commands this update carried, in the order they arrived, and routes what an
+    /// answer hands the party to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The reader is consulted only while a conversation is open, exactly as the service reader is consulted
+    /// only while a counter is open: the commands belong to a screen, and one that arrives with nobody being
+    /// spoken with names nothing this session is doing. Each command goes through the mechanism's own
+    /// operation and its refusal is recorded rather than thrown, so a topic the state withholds is an answer
+    /// the screen shows and the conversation stays exactly where it was.
+    /// </para>
+    /// <para>
+    /// <b>A handoff is routed here, once.</b> A conversation names the owner an offer belongs to and never
+    /// carries it out itself; this session holds both mechanisms, so this is the one place that can hand the
+    /// party over. A service handoff opens the counter the person keeps through the service mechanism's own
+    /// entry — so a shop that is shut refuses by name, in the shop's own vocabulary, rather than through a
+    /// second copy of its hours — and a counter that opened takes the controls from the conversation, which
+    /// is closed because the party is now at the counter rather than at the door. A handoff nothing routes is
+    /// reported by name instead of being swallowed.
+    /// </para>
+    /// </remarks>
+    private void DriveConversations(ReadOnlySpan<ProductInputEvent> input)
+    {
+        if (_conversations is not { } conversations || _conversationInput is null) return;
+        foreach (ConversationCommand command in _conversationInput.Read(input))
+        {
+            ConversationResult result = command.Kind switch
+            {
+                ConversationCommandKind.Topic => conversations.Choose(command.Target),
+                ConversationCommandKind.Person => conversations.Turn(command.Target),
+                _ => conversations.Close(),
+            };
+
+            if (result is { IsApplied: true, Handoff: { } handoff }) Route(handoff, conversations);
+        }
+    }
+
+    /// <summary>Hands the party from a conversation to the owner an offer belongs to.</summary>
+    /// <remarks>
+    /// Only the service mechanism is routed, because it is the only owner of an offer that exists: the
+    /// counter whoever the party spoke with keeps. A handoff naming any other owner is reported with the
+    /// owner's name rather than being treated as done, which is what keeps a later stone's offers honest
+    /// until that stone lands.
+    /// </remarks>
+    private void Route(ConversationHandoff handoff, PartyConversations conversations)
+    {
+        if (!string.Equals(handoff.Kind, ConversationHandoffs.Service, StringComparison.Ordinal))
+        {
+            _diagnostics?.Publish(new DiagnosticsPublishRequest(
+                DiagnosticsSeverity.Warning,
+                DiagnosticsDisposition.RejectedRecoverable,
+                Source: "conversation",
+                Code: "conversation-handoff-unowned",
+                Message: $"What was said offers '{handoff}', and no owner in this build takes that handoff: the mechanism that will is not built.",
+                Correlation: string.Empty));
+            return;
+        }
+
+        if (_services is not { } services || conversations.Placement is not { } placement)
+        {
+            _diagnostics?.Publish(new DiagnosticsPublishRequest(
+                DiagnosticsSeverity.Warning,
+                DiagnosticsDisposition.RejectedRecoverable,
+                Source: "conversation",
+                Code: "conversation-handoff-unavailable",
+                Message: "What was said offers a counter and this session holds no service mechanism to hand the party to.",
+                Correlation: string.Empty));
+            return;
+        }
+
+        ServiceResult? opened = services.OpenTarget(conversations.Place, placement);
+
+        // The counter that took the party owns the controls from here, so the conversation ends where the
+        // counter begins: a party at a counter is not still standing at the door talking. A counter that
+        // refused leaves the party where it stands, so the conversation stays open and the service's own
+        // refusal is what the panel shows beside it.
+        if (opened is { IsApplied: true }) conversations.Close();
     }
 
     /// <summary>
@@ -818,6 +919,22 @@ public sealed class PartyRpgSession : IGameSession
         // because this is the moment the mechanism exists, which for a session that creates its party is when
         // creation is accepted.
         ObserveTimeWith(_services);
+    }
+
+    /// <summary>
+    /// Composes the conversation mechanism when the ruleset answered for one.
+    /// </summary>
+    /// <remarks>
+    /// It is composed over the party and the clock rather than over the world, because what a conversation
+    /// reads is the party's own history and the hour — the place and the placement it is happening in arrive
+    /// with the use that opened it. It is composed with no party when the session holds none, so a ruleset
+    /// that answers about people still publishes who is here; a condition a party would satisfy is then
+    /// unmet and says so.
+    /// </remarks>
+    private void ComposeConversations()
+    {
+        if (_conversations is not null || _conversationRule is null) return;
+        _conversations = new PartyConversations(_conversationRule, _party, _clock);
     }
 
     /// <summary>
@@ -948,7 +1065,11 @@ public sealed class PartyRpgSession : IGameSession
         // What the party's last stop did and what it cost, read from the rest mechanism beside it: a session
         // with no mechanism, one that has not stopped yet, and one whose night was refused are three
         // different facts, and the fatigue debt the clock is holding is published with them.
-        RestSnapshot.Read(_rest, _clock));
+        RestSnapshot.Read(_rest, _clock),
+        // What the party is saying and to whom, read from the conversation mechanism the ruleset's answers
+        // composed: a session with no mechanism, one that is speaking with nobody, and one whose topic the
+        // state withholds are three different facts the panel must be able to tell apart.
+        ConversationSnapshot.From(_conversations));
 
     /// <summary>Publishes the world as it stands now, after a caller moved the party.</summary>
     public void PublishWorld()

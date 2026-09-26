@@ -16,7 +16,6 @@ internal static class IndoorDeltaReader
 {
     private const int HeaderSize = 40;
     private const int VisibleOutlinesSize = 875;
-    private const int ActorSize = 0x344;
     private const int DoorSize = 80;
     private const int EventVariableSize = 200;
     private const int WeatherSkyNameWidth = 12;
@@ -59,8 +58,10 @@ internal static class IndoorDeltaReader
         reader.Skip(reader.BytesOf(counts.FaceCount, sizeof(uint), "faceAttributes"), "faceAttributes");
         reader.Skip(reader.BytesOf(counts.DecorationCount, sizeof(ushort), "decorationFlags"), "decorationFlags");
 
-        int actorCount = reader.ArrayCount(ActorSize, "actorCount");
-        reader.Skip(reader.BytesOf(actorCount, ActorSize, "actors"), "actors");
+        int actorCount = reader.ArrayCount(MapDeltaRecord.ActorSize, "actorCount");
+        ReadOnlySpan<byte> actorRecords = reader.Span(
+            reader.BytesOf(actorCount, MapDeltaRecord.ActorSize, "actors"),
+            "actors");
 
         int spriteObjectCount = reader.ArrayCount(MapDeltaRecord.SpriteObjectSize, "spriteObjectCount");
         ReadOnlySpan<byte> spriteObjectRecords = reader.Span(
@@ -102,6 +103,7 @@ internal static class IndoorDeltaReader
             counts.FaceCount,
             counts.DecorationCount,
             actorCount,
+            MapDeltaRecord.Actors(actorRecords, actorCount),
             MapDeltaRecord.SpriteObjects(spriteObjectRecords, spriteObjectCount),
             MapDeltaRecord.Chests(chestRecords, chestCount),
             lastVisitTime,

@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Movement;
@@ -40,6 +41,7 @@ public sealed class ServiceTests
     private static readonly PlaceId CounterPlace = new("1");
     private static readonly UseIntentNames UseControls = new("test.use", "test.use", "test.ui.action.v1");
     private static readonly ServiceIntentNames ServiceControls = new("test.service.leave", "test.ui.action.v1");
+    private static readonly ConversationIntentNames ConversationControls = new("test.conversation.leave", "test.ui.action.v1");
     private static readonly MovementIntentNames MovementControls = new(
         "test.move-forward",
         "test.move-back",
@@ -490,7 +492,9 @@ public sealed class ServiceTests
             accounts: counter.Accounts,
             service: counter.Rule,
             useInput: new InteractionUseInput(UseControls),
-            serviceInput: ServiceControls);
+            serviceInput: ServiceControls,
+            conversation: new CounterConversation(counter.Rule),
+            conversationInput: ConversationControls);
         // A session that was never started admits no interval, so the world would never be stepped at all;
         // starting it is what makes the next updates the session's own admitted time.
         session.Start();
@@ -503,10 +507,23 @@ public sealed class ServiceTests
         Assert.Equal("none", before.Field("outcome").AsString());
 
         // The first update puts the service placement in front of the party, and the press uses it: the
-        // interaction mechanism reached the person, and the service mechanism is what opened the counter.
+        // interaction mechanism reached the person, and the conversation with them is what opened.
         session.Update(Update(1, 1));
+        // What the reticle shows is the interaction answers' own word for the target, which in this test is
+        // the counter rather than a person: the kit holds no kind of thing, so a ruleset that names a person
+        // there names one and a ruleset that names a counter names that.
         Assert.Equal("The Sword and Shield, kept by Bertram", channel.Latest().Field(SessionProjection.InteractionField).Field("label").AsString());
         session.Update(Update(2, 1, Digital("test.use", InputEdge.Pressed)));
+        ProjectedNode talking = channel.Latest().Field(SessionProjection.ConversationField);
+        Assert.True(talking.Field("open").AsBoolean());
+        Assert.Equal("Bertram", talking.Field("speaker").AsString());
+
+        // What the keeper offers hands the party to the counter, which is the one mechanism that serves it:
+        // the conversation names the owner and the session routes it, so the counter's own hours and prices
+        // are read in one place rather than two.
+        Assert.Equal("counter", talking.Field("topics").Item(0).Field("id").AsString());
+        session.Update(Update(3, 1, Payload(ConversationControls.ActionContract, """{"action":"conversation.topic","target":"counter"}""")));
+        Assert.False(channel.Latest().Field(SessionProjection.ConversationField).Field("open").AsBoolean());
         ProjectedNode opened = channel.Latest().Field(SessionProjection.ServiceField);
         Assert.True(opened.Field("open").AsBoolean());
         Assert.Equal("applied", opened.Field("outcome").AsString());
@@ -524,7 +541,7 @@ public sealed class ServiceTests
 
         // A purchase the screen asked for arrives on the declared contract, moves the purse, and is part of
         // the same projection the command arrived in.
-        session.Update(Update(3, 1, Payload(ServiceControls.ActionContract, """{"action":"service.buy","target":"stock:sword","count":1}""")));
+        session.Update(Update(4, 1, Payload(ServiceControls.ActionContract, """{"action":"service.buy","target":"stock:sword","count":1}""")));
         ProjectedNode bought = channel.Latest().Field(SessionProjection.ServiceField);
         Assert.Equal("buy", bought.Field("action").AsString());
         Assert.Equal("applied", bought.Field("outcome").AsString());
@@ -534,18 +551,18 @@ public sealed class ServiceTests
         Assert.Equal(1, bought.Field("stock").Item(0).Field("count").AsNumber());
 
         // A refusal the party cannot cover is reported with its own code and moves nothing.
-        session.Update(Update(4, 1, Payload(ServiceControls.ActionContract, """{"action":"service.buy","target":"stock:sword","count":2}""")));
+        session.Update(Update(5, 1, Payload(ServiceControls.ActionContract, """{"action":"service.buy","target":"stock:sword","count":2}""")));
         ProjectedNode refused = channel.Latest().Field(SessionProjection.ServiceField);
         Assert.Equal("refused", refused.Field("outcome").AsString());
         Assert.Equal("service-not-enough-stock", refused.Field("code").AsString());
         Assert.Equal(400, refused.Field("coins").AsNumber());
 
         // A command that names nothing this counter has is refused by name rather than doing nothing.
-        session.Update(Update(5, 1, Payload(ServiceControls.ActionContract, """{"action":"service.sell","target":"99"}""")));
+        session.Update(Update(6, 1, Payload(ServiceControls.ActionContract, """{"action":"service.sell","target":"99"}""")));
         Assert.Equal("service-no-such-item", channel.Latest().Field(SessionProjection.ServiceField).Field("code").AsString());
 
         // The leave control the host declared ends the visit, and the panel says the party walked away.
-        session.Update(Update(6, 1, Digital("test.service.leave", InputEdge.Pressed)));
+        session.Update(Update(7, 1, Digital("test.service.leave", InputEdge.Pressed)));
         ProjectedNode left = channel.Latest().Field(SessionProjection.ServiceField);
         Assert.False(left.Field("open").AsBoolean());
         Assert.Equal("leave", left.Field("action").AsString());
@@ -571,7 +588,9 @@ public sealed class ServiceTests
             accounts: counter.Accounts,
             service: counter.Rule,
             useInput: new InteractionUseInput(UseControls),
-            serviceInput: ServiceControls);
+            serviceInput: ServiceControls,
+            conversation: new CounterConversation(counter.Rule),
+            conversationInput: ConversationControls);
         session.Start();
 
         // Before any counter is open, a held forward control walks the party, which is what makes the next
@@ -582,32 +601,40 @@ public sealed class ServiceTests
 
         session.Update(Update(2, 0));
         session.Update(Update(3, 1, Digital("test.use", InputEdge.Pressed)));
+
+        // Talking stops the party where it stands, exactly as standing at a counter does: the conversation is
+        // a screen that owns the player's controls, so a held forward control cannot walk away from it.
+        Assert.True(channel.Latest().Field(SessionProjection.ConversationField).Field("open").AsBoolean());
+        session.Update(Update(4, 1, Digital("test.move-forward", InputEdge.Held)));
+        Assert.True(session.Services!.IsOpen == false);
+        Assert.Equal(walked, counter.World.Party.PlacePose);
+        session.Update(Update(5, 1, Payload(ConversationControls.ActionContract, """{"action":"conversation.topic","target":"counter"}""")));
         Assert.True(session.Services!.IsOpen);
         Assert.Equal(2, session.Services.Browse()!.Stock[0].Count);
 
         // At the counter the party does not step: the shop owns the player's controls, so a held forward
         // control walks nowhere and the visit cannot be left by accident. The world keeps its own time.
         double before = session.SimulationSeconds;
-        session.Update(Update(4, 1, Digital("test.move-forward", InputEdge.Held)));
+        session.Update(Update(6, 1, Digital("test.move-forward", InputEdge.Held)));
         Assert.Equal(walked, counter.World.Party.PlacePose);
         Assert.True(session.SimulationSeconds > before);
 
         // Buying the shelf out leaves it empty, and it stays empty while the schedule has not come due.
-        session.Update(Update(5, 1, Payload(ServiceControls.ActionContract, """{"action":"service.buy","target":"stock:sword","count":2}""")));
+        session.Update(Update(7, 1, Payload(ServiceControls.ActionContract, """{"action":"service.buy","target":"stock:sword","count":2}""")));
         Assert.Equal(0, session.Services.Browse()!.Stock[0].Count);
-        for (ulong step = 6; step <= 9; step++) session.Update(Update(step, 1, Digital("test.move-forward", InputEdge.Held)));
+        for (ulong step = 8; step <= 11; step++) session.Update(Update(step, 1, Digital("test.move-forward", InputEdge.Held)));
         Assert.Equal(0, session.Services.Browse()!.Stock[0].Count);
         Assert.Equal(walked, counter.World.Party.PlacePose);
 
         // The hour the shelves refresh on passes in the same clock the street reads, so the schedule is game
         // time rather than a loop: the shelf is full again while the visit is still open.
-        session.Update(Update(10, 1, Digital("test.move-forward", InputEdge.Held)));
+        session.Update(Update(12, 1, Digital("test.move-forward", InputEdge.Held)));
         Assert.Equal(2, session.Services.Browse()!.Stock[0].Count);
 
         // Leaving gives the controls back: the same held control walks the party again.
-        session.Update(Update(11, 1, Digital("test.service.leave", InputEdge.Pressed)));
+        session.Update(Update(13, 1, Digital("test.service.leave", InputEdge.Pressed)));
         Assert.False(session.Services.IsOpen);
-        session.Update(Update(12, 1, Digital("test.move-forward", InputEdge.Held)));
+        session.Update(Update(14, 1, Digital("test.move-forward", InputEdge.Held)));
         Assert.NotEqual(walked, counter.World.Party.PlacePose);
     }
 
@@ -866,6 +893,32 @@ public sealed class ServiceTests
         public void Dispose()
         {
         }
+    }
+
+    /// <summary>
+    /// The conversation answers a test's sessions use: whoever keeps a counter greets the party and offers
+    /// the counter itself, so a counter is reached the way the product reaches one — through a person.
+    /// </summary>
+    /// <remarks>
+    /// The kit's own service tests prove the composition rather than assuming it: the interaction mechanism
+    /// reaches a person, the conversation mechanism is what opens, and the one offer it makes hands the party
+    /// to the service mechanism. Nothing here is a game's rule; it is the shape a ruleset supplies.
+    /// </remarks>
+    private sealed class CounterConversation(ShopRule rule) : IConversationRule
+    {
+        public ConversationSubject? Describe(ConversationTargetRequest request) =>
+            rule.Describe(new ServiceTargetRequest(request.Place, request.Placement)) is { } service
+                ? new ConversationSubject(request.Placement.Content.Id, [new ConversationPerson("keeper", service.Proprietor)])
+                : null;
+
+        public ConversationAnswer Greeting(ConversationContext context) =>
+            new($"'Welcome to {context.Subject.Id}.'");
+
+        public IReadOnlyList<ConversationOffer> Offers(ConversationContext context) =>
+            [new ConversationOffer(new ConversationTopic("counter", "Step up to the counter"), ConversationAvailability.OnOffer)];
+
+        public ConversationAnswer Take(ConversationTopic topic, ConversationContext context) =>
+            new("The party steps up to the counter.", handoff: new ConversationHandoff(ConversationHandoffs.Service));
     }
 
     /// <summary>A world where nothing is charged for walking, so a test's coins are spent at the counter.</summary>

@@ -96,6 +96,20 @@ internal static class ProductIdentity
     internal const string ServiceLeaveIntent = "service.leave";
 
     /// <summary>
+    /// The digital intent that ends the conversation the party is in.
+    /// </summary>
+    /// <remarks>
+    /// Entering a conversation is deliberately not a control of its own: the party speaks with somebody by
+    /// using the person the interaction mechanism reached, on the use control above, so there is one way to
+    /// walk up to somebody. Leaving is its own control — a player at a conversation needs a way out that is
+    /// not walking — and the conversation's own choices are payload actions on the contract the companion
+    /// already claims. The original leaves a house's dialogue with Escape
+    /// (OpenEnroth <c>src/GUI/UI/UIHouses.cpp:556-582</c>, <c>houseDialogPressEscape</c>), so this build keeps
+    /// Escape for the same act.
+    /// </remarks>
+    internal const string ConversationLeaveIntent = "conversation.leave";
+
+    /// <summary>
     /// The digital intent that rests and heals where the party stands.
     /// </summary>
     /// <remarks>

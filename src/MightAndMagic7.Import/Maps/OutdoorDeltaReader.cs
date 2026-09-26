@@ -14,7 +14,6 @@ namespace MightAndMagic7.Import.Maps;
 internal static class OutdoorDeltaReader
 {
     private const int RevelationCells = 88 * 11;
-    private const int ActorSize = 0x344;
     private const int EventVariableSize = 200;
     private const int WeatherSkyNameWidth = 12;
     private const int WeatherUnusedSize = 24;
@@ -41,8 +40,10 @@ internal static class OutdoorDeltaReader
         reader.Skip(reader.BytesOf(faceCount, sizeof(uint), "faceAttributes"), "faceAttributes");
         reader.Skip(reader.BytesOf(decorationCount, sizeof(ushort), "decorationFlags"), "decorationFlags");
 
-        int actorCount = reader.ArrayCount(ActorSize, "actorCount");
-        reader.Skip(reader.BytesOf(actorCount, ActorSize, "actors"), "actors");
+        int actorCount = reader.ArrayCount(MapDeltaRecord.ActorSize, "actorCount");
+        ReadOnlySpan<byte> actorRecords = reader.Span(
+            reader.BytesOf(actorCount, MapDeltaRecord.ActorSize, "actors"),
+            "actors");
         int spriteObjectCount = reader.ArrayCount(MapDeltaRecord.SpriteObjectSize, "spriteObjectCount");
         ReadOnlySpan<byte> spriteObjectRecords = reader.Span(
             reader.BytesOf(spriteObjectCount, MapDeltaRecord.SpriteObjectSize, "spriteObjects"),
@@ -67,6 +68,7 @@ internal static class OutdoorDeltaReader
             faceCount,
             decorationCount,
             actorCount,
+            MapDeltaRecord.Actors(actorRecords, actorCount),
             MapDeltaRecord.SpriteObjects(spriteObjectRecords, spriteObjectCount),
             MapDeltaRecord.Chests(chestRecords, chestCount),
             lastVisitTime,

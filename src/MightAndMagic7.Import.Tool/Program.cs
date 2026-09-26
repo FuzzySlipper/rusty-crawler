@@ -27,6 +27,7 @@ internal static class Program
                 "verify" => InventoryCheck.Run(RequireInstall(arguments)),
                 "write" => Write(RequireInstall(arguments), RequireOption(arguments, "--output"), arguments.Contains("--check-determinism")),
                 "maps" => Maps(RequireInstall(arguments)),
+                "people" => PeopleDetail(RequireInstall(arguments)),
                 "media" => Media(RequireInstall(arguments), RequireOption(arguments, "--output")),
                 _ => Unknown(arguments[0]),
             };
@@ -239,7 +240,89 @@ internal static class Program
                 geometry = Describe(result.Geometry),
                 entrances = Describe(result.Entrances),
                 services = Describe(result.Services),
+                people = Describe(result.People),
                 use = "add these pack ids to a bundle under content/partyrpg/bundles to load them",
+            },
+            Json));
+        return 0;
+    }
+
+    /// <summary>
+    /// What the people derivation produced: who the tables carry, where they stand, and everything nothing
+    /// was placed for.
+    /// </summary>
+    /// <remarks>
+    /// The counts are stated per source because the two sources are different facts about the data: the NPC
+    /// table's own placement column is who lives in a building, and a map's actor records are who is
+    /// standing in the open. A person nothing was placed for is listed with its reason rather than only
+    /// counted, because an unreachable person is a remainder the operator has to see to judge the import.
+    /// </remarks>
+    private static object Describe(Packs.PlacePeopleSummary people) => new
+    {
+        persons = people.PersonCount,
+        topics = people.TopicCount,
+        gatedTopics = people.GatedTopicCount,
+        branchedTopics = people.BranchedTopicCount,
+        greeted = people.GreetedCount,
+        scripted = people.ScriptedCount,
+        standingInTheOpen = people.PlacementCount,
+        distinctPeopleInTheOpen = people.PlacedPersonCount,
+        inBuildings = people.ResidentCount,
+        buildingsWithPeople = people.HouseholdCount,
+        reachedBuildings = people.ReachableHouseholdCount,
+        unreachableResidents = people.UnreachableResidentCount,
+        refusals = people.Refusals.Select(refusal => new
+        {
+            subject = refusal.Subject,
+            reason = refusal.Code,
+            detail = refusal.Reason,
+        }),
+    };
+
+    /// <summary>
+    /// Reports the people the operator's own data carries, per source, with every remainder named.
+    /// </summary>
+    /// <remarks>
+    /// This is the read-only half of the people import: it decodes the maps and reads the tables the same
+    /// way the writer does, so what it reports is what a write would emit, without writing anything. It
+    /// exists because the counts are the answer to "is there anybody in the world", which is a question an
+    /// operator asks before generating packs rather than after playing them.
+    /// </remarks>
+    private static int PeopleDetail(string installRoot)
+    {
+        Lod.LodInstall install = Lod.LodInstall.Open(installRoot);
+        Tables.Mm7Tables tables = Tables.Mm7Tables.Read(install);
+        IReadOnlyList<Events.EvtProgram> programs = Events.EvtProgram.ReadAll(install);
+        MapDecodeReport report = MapDecoder.DecodeAll(install);
+        Dictionary<int, DecodedMap> maps = [];
+        foreach (MapDecodeOutcome outcome in report.Decoded)
+        {
+            if (outcome.Decoded is not null) maps[outcome.Map.Id] = outcome.Decoded;
+        }
+
+        Packs.PlaceServiceSummary services = Packs.PlaceServiceEmitter.Emit(tables.Services, tables, programs, maps);
+        Packs.PlacePeopleSummary people = Packs.PlacePeopleEmitter.Emit(tables.People, maps, services);
+
+        Console.WriteLine(JsonSerializer.Serialize(
+            new
+            {
+                install = install.Root,
+                maps = maps.Count,
+                actors = maps.Values.Sum(map => map.Delta?.ActorCount ?? 0),
+                peopleWithAnIdentity = maps.Values.Sum(map => map.Delta?.PersonCount ?? 0),
+                npcRows = tables.People.Npcs.Count,
+                npcRowsInABuilding = tables.People.PlacedCount,
+                buildingsNamed = tables.People.PlacedHouseCount,
+                greetings = tables.People.Greetings.Count,
+                topics = tables.People.Topics.Count,
+                texts = tables.People.Texts.Count,
+                derived = Describe(people),
+                notes = people.Notes,
+                topicsByOwner = tables.People.Topics
+                    .SelectMany(topic => topic.OwnerIds.Select(owner => (Owner: owner, Topic: topic)))
+                    .GroupBy(entry => entry.Owner)
+                    .OrderBy(group => group.Key)
+                    .Select(group => new { npc = group.Key, topics = group.Count() }),
             },
             Json));
         return 0;

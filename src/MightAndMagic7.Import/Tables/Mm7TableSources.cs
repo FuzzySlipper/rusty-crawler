@@ -46,6 +46,18 @@ public static class Mm7TableSources
     /// <summary>Quest bit text.</summary>
     public static LodSource Quests { get; } = new("quests", RulesArchive, "quests.txt");
 
+    /// <summary>The people the world holds: names, portraits, buildings, and dialogue events.</summary>
+    public static LodSource Npcs { get; } = new("npcs", RulesArchive, "npcdata.txt");
+
+    /// <summary>What each person says when met, and when met again.</summary>
+    public static LodSource Greetings { get; } = new("npc-greetings", RulesArchive, "npcgreet.txt");
+
+    /// <summary>What each person can be asked about, and who owns each topic.</summary>
+    public static LodSource Topics { get; } = new("npc-topics", RulesArchive, "npctopic.txt");
+
+    /// <summary>What a person answers with, keyed by the number a topic names.</summary>
+    public static LodSource TopicTexts { get; } = new("npc-texts", RulesArchive, "npctext.txt");
+
     /// <summary>Every declared table source.</summary>
     public static IReadOnlyList<LodSource> All { get; } =
     [
@@ -57,5 +69,9 @@ public static class Mm7TableSources
         Classes,
         Skills,
         Quests,
+        Npcs,
+        Greetings,
+        Topics,
+        TopicTexts,
     ];
 }

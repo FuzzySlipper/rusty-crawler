@@ -23,6 +23,10 @@ namespace MightAndMagic7.Import.Tool;
 /// What the building table's emission produced: the counters, the households, the rows nothing was placed
 /// for, and the passages the stables and docks sell.
 /// </param>
+/// <param name="People">
+/// What the game's people tables and the maps' actor records produced: who exists, what they can be asked
+/// about, where they stand, and everything nothing was placed for.
+/// </param>
 internal sealed record PackWriteResult(
     string OutputRoot,
     InstallProvenance Provenance,
@@ -30,7 +34,8 @@ internal sealed record PackWriteResult(
     CollisionSummary Geometry,
     PlaceEntranceSummary Entrances,
     PlaceContainerSummary Containers,
-    PlaceServiceSummary Services)
+    PlaceServiceSummary Services,
+    PlacePeopleSummary People)
 {
     /// <summary>The pack ids, in the order they were written.</summary>
     internal IReadOnlyList<string> PackIds => [.. Packs.Select(pack => pack.PackId)];
@@ -58,7 +63,7 @@ internal static class PackWriter
     /// leaving a checker to infer absence from a missing key.
     /// </remarks>
     private static readonly string[] PlacementKinds =
-        ["spawn", "decoration", "door", "light", "container", "sprite", "service", "residence"];
+        ["spawn", "decoration", "door", "light", "container", "sprite", "service", "residence", "person"];
 
     /// <summary>How much of a place's map data an import reads.</summary>
     internal enum MapDetail
@@ -115,14 +120,20 @@ internal static class PackWriter
         // up to.
         PlaceServiceSummary services = PlaceServiceEmitter.Emit(tables.Services, tables, programs, maps);
 
+        // The people the game's own tables carry, joined to the positions the maps give them: a person the
+        // NPC table places in a building stands where that building's door is, and a person a map's actor
+        // record places stands where the record says. An import that decoded no map has neither, and says
+        // so per person rather than emitting somebody nobody can walk up to.
+        PlacePeopleSummary people = PlacePeopleEmitter.Emit(tables.People, maps, services);
+
         Directory.CreateDirectory(outputRoot);
         List<(string, int, int)> packs =
         [
-            WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers, services),
+            WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers, services, people),
             WriteWorld(tables, graph, provenance, Path.Combine(outputRoot, "mm7-world"), maps, collisions, entrances, services),
         ];
         WriteBundleFragment(outputRoot, provenance, packs);
-        return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions), entrances, containers, services);
+        return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions), entrances, containers, services, people);
     }
 
     /// <summary>
@@ -193,11 +204,13 @@ internal static class PackWriter
         string packDirectory,
         IReadOnlyDictionary<int, DecodedMap> maps,
         PlaceContainerSummary containers,
-        PlaceServiceSummary services)
+        PlaceServiceSummary services,
+        PlacePeopleSummary people)
     {
         List<(string Path, string DocumentId, string Kind, int Entries)> documents =
         [
-            ("places.json", "places", "place", WritePlaces(packDirectory, tables, maps, containers, services)),
+            ("places.json", "places", "place", WritePlaces(packDirectory, tables, maps, containers, services, people)),
+            ("people.json", "people", PlacePeopleEmitter.PersonDefinitionKind, WritePeople(packDirectory, people)),
             ("services.json", "services", "service", WriteServices(packDirectory, services)),
             ("classes.json", "classes", "class", WriteClasses(packDirectory, tables)),
             ("skills.json", "skills", "skill", WriteSkills(packDirectory, tables)),
@@ -206,12 +219,25 @@ internal static class PackWriter
             ("items.json", "items", "item", WriteItems(packDirectory, tables)),
             ("quests.json", "quests", "quest", WriteQuests(packDirectory, tables)),
         ];
+        // A place's own document names the people standing in it, so every one of them is declared as a
+        // reference: a placement naming a person no entry describes is then a load defect rather than
+        // somebody who silently is not there.
+        IReadOnlyList<string> peopleReferences =
+        [
+            .. people.Placements.Select(placement => $"{PlacePeopleEmitter.PersonDefinitionKind}:{placement.PersonId}").Distinct().Order(StringComparer.Ordinal),
+            .. people.Households.SelectMany(household => household.PersonIds)
+                .Select(id => $"{PlacePeopleEmitter.PersonDefinitionKind}:{id}").Distinct().Order(StringComparer.Ordinal),
+        ];
         WriteManifest(
             packDirectory,
             "mm7-tables",
             "definitions",
             provenance,
-            documents.Select(document => (document.Path, document.DocumentId, document.Kind, (IReadOnlyList<string>)[])).ToArray());
+            [.. documents.Select(document => (
+                document.Path,
+                document.DocumentId,
+                document.Kind,
+                (IReadOnlyList<string>)(string.Equals(document.DocumentId, "places", StringComparison.Ordinal) ? peopleReferences : [])))]);
         return ("mm7-tables", documents.Count, documents.Sum(document => document.Entries));
     }
 
@@ -377,7 +403,8 @@ internal static class PackWriter
         Mm7Tables tables,
         IReadOnlyDictionary<int, DecodedMap> maps,
         PlaceContainerSummary containers,
-        PlaceServiceSummary services)
+        PlaceServiceSummary services,
+        PlacePeopleSummary people)
     {
         // A place's counters and households are emitted into its placements, which is where the interaction
         // mechanism reads them from: a service placement is a target the party talks to, and nothing about
@@ -391,6 +418,16 @@ internal static class PackWriter
         Dictionary<int, IReadOnlyList<PlaceSpriteObjectPlacement>> objectsByPlace = containers.SpriteObjects
             .GroupBy(placement => placement.PlaceId)
             .ToDictionary(group => group.Key, group => (IReadOnlyList<PlaceSpriteObjectPlacement>)[.. group]);
+
+        // A building's people are written into the building's own placement, so a counter and the people
+        // behind it are one thing the party walks up to rather than two targets standing in one spot: the
+        // party faces the building, and who is there is what the placement holds.
+        Dictionary<int, IReadOnlyList<string>> residentsByBuilding = people.Households
+            .Where(household => household.PersonIds.Count > 0)
+            .ToDictionary(household => household.BuildingId, household => household.PersonIds);
+        Dictionary<int, IReadOnlyList<PlacePersonPlacement>> peopleByPlace = people.Placements
+            .GroupBy(placement => placement.PlaceId)
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<PlacePersonPlacement>)[.. group]);
         List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];
         foreach (MapStatsRecord map in tables.Maps.Maps)
         {
@@ -440,7 +477,9 @@ internal static class PackWriter
                         decoded,
                         containersByPlace.GetValueOrDefault(map.Id, []),
                         objectsByPlace.GetValueOrDefault(map.Id, []),
-                        countersByPlace.GetValueOrDefault(map.Id, []));
+                        countersByPlace.GetValueOrDefault(map.Id, []),
+                        peopleByPlace.GetValueOrDefault(map.Id, []),
+                        residentsByBuilding);
                 }
             }));
         }
@@ -490,7 +529,9 @@ internal static class PackWriter
         DecodedMap map,
         IReadOnlyList<PlaceChestPlacement> containers,
         IReadOnlyList<PlaceSpriteObjectPlacement> spriteObjects,
-        IReadOnlyList<PlaceServicePlacement> counters)
+        IReadOnlyList<PlaceServicePlacement> counters,
+        IReadOnlyList<PlacePersonPlacement> people,
+        IReadOnlyDictionary<int, IReadOnlyList<string>> residentsByBuilding)
     {
         List<Placement> placements = [];
         foreach (MapSpawnPoint spawn in map.SpawnPoints)
@@ -612,6 +653,25 @@ internal static class PackWriter
                     if (counter.SourceModelName.Length > 0) field.WriteString("sourceModelName", counter.SourceModelName);
                     field.WriteNumber("eventFaces", counter.FaceCount);
                     field.WriteString("heightSource", counter.HeightSource);
+                    WritePeople(field, residentsByBuilding.GetValueOrDefault(counter.BuildingId));
+                }));
+        }
+
+        // Somebody a map's own actor record places stands where the record puts them, which is a position
+        // the map states rather than one this importer derived from a face.
+        foreach (PlacePersonPlacement person in people)
+        {
+            placements.Add(new Placement(
+                PlacePeopleEmitter.PersonPlacementKind,
+                person.SourceActorIndex,
+                "actors",
+                new PlacementPoint(person.X, person.Y, person.Z),
+                (int)person.Yaw,
+                null,
+                field =>
+                {
+                    field.WriteString("actorName", person.SourceActorName);
+                    WritePeople(field, [person.PersonId]);
                 }));
         }
 
@@ -642,6 +702,60 @@ internal static class PackWriter
         }
 
         writer.WriteEndArray();
+    }
+
+    /// <summary>Writes the people a placement holds, leaving the field out when it holds nobody.</summary>
+    private static void WritePeople(Utf8JsonWriter writer, IReadOnlyList<string>? people)
+    {
+        if (people is not { Count: > 0 }) return;
+        writer.WriteStartArray(PlacePeopleEmitter.PlacementPeopleField);
+        foreach (string person in people) writer.WriteStringValue(person);
+        writer.WriteEndArray();
+    }
+
+    /// <summary>
+    /// Writes the people the game's own tables carry: who they are, what they say when met, and everything
+    /// they can be asked about with the first answer the topic table names.
+    /// </summary>
+    /// <remarks>
+    /// A person's topics are written inside the person because that is what they are: the topic table owns
+    /// each row to one NPC, and a separate document would make every reader join the two back together. The
+    /// count of a topic's texts travels beside the first one so a reader can tell a plain line from a line
+    /// the original chooses among.
+    /// </remarks>
+    private static int WritePeople(string packDirectory, PlacePeopleSummary people)
+    {
+        List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];
+        foreach (PlacePerson person in people.People)
+        {
+            entries.Add((person.Id, writer =>
+            {
+                writer.WriteNumber("npcId", person.NpcId);
+                writer.WriteString("name", person.Name);
+                if (person.Portrait.Length > 0) writer.WriteString("portrait", person.Portrait);
+                if (person.Greeting.Length > 0) writer.WriteString("greeting", person.Greeting);
+                if (person.GreetingAgain.Length > 0) writer.WriteString("greetingAgain", person.GreetingAgain);
+                if (person.House != 0) writer.WriteNumber("house", person.House);
+                if (person.DialogueEvents > 0) writer.WriteNumber("dialogueEvents", person.DialogueEvents);
+                if (person.CanJoin) writer.WriteBoolean("canJoin", true);
+                writer.WriteNumber("sourceRow", person.SourceRow);
+                writer.WriteStartArray("topics");
+                foreach (PlacePersonTopic topic in person.Topics)
+                {
+                    writer.WriteStartObject();
+                    writer.WriteString("id", topic.Id);
+                    writer.WriteString("label", topic.Label);
+                    writer.WriteString("text", topic.Text);
+                    writer.WriteNumber("textCount", topic.TextCount);
+                    if (topic.Requires != 0) writer.WriteNumber("requires", topic.Requires);
+                    writer.WriteEndObject();
+                }
+
+                writer.WriteEndArray();
+            }));
+        }
+
+        return WriteDocument(packDirectory, "people.json", "people", PlacePeopleEmitter.PersonDefinitionKind, entries);
     }
 
     /// <summary>

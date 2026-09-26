@@ -240,6 +240,44 @@ placed records hold 1203 item references of which 1050 are random requests — s
 not item names at all**. Every shipped sprite object carries a positive `containingItem` and zero attributes, which
 is what an item lying on the floor looks like.
 
+#### 3.1.2 The actors in a delta, and who among them is a person
+
+A delta's actor array is the runtime's own `Actor_MM7` records: 0x344 bytes each, count-prefixed, and stored at the
+same offset in both families — after `faceAttributes` and `decorationFlags` and before the sprite objects. The
+layout is the donor's snapshot struct **[verified: OE:src/Engine/Snapshots/EntitySnapshots.h:764-809;
+src/Engine/Snapshots/CompositeSnapshots.h:54-67,113-125]**, and the fields this import reads are:
+
+| offset | field | what it holds |
+| --- | --- | --- |
+| 0x00 | `char[32] name` | a display name the original does not use — the shipped records spell it with the creature's kind (`"Peasant"`) even when the actor is a named person |
+| 0x20 | `i16 npcId` | **the NPC table row this actor is**, or zero for a monster **[verified: OE:src/Engine/Objects/Actor.cpp:2354-2358]** (`GetDisplayName` prefers `uniqueNameIndex`, then `npcId` through the NPC table, then the monster table) |
+| 0x24 | `u32 attributes` | actor attribute bits |
+| 0x28 | `i16 hp` | current hit points |
+| 0x86 | `i16 monsterId` | the monster definition, zero on a person |
+| 0x8E | `Vec3s pos` | where the actor stands — **three 16-bit coordinates**, not the 32-bit form a sprite object stores |
+| 0x9A | `u16 yawAngle` | facing, 2048 units to a turn |
+| 0x9E | `i16 sectorId` | the sector, meaningful indoors |
+| 0x2E8 | `u32 group` | the actor's group |
+| 0x334 | `i32 uniqueNameIndex` | an index into the placed-monster names, non-zero only for a monster with a name of its own |
+
+**What the shipped data carries [verified: data].** 826 actors over the 76 deltas, of which **123 name an NPC row**
+(121 distinct rows) and the remaining 703 are monsters. The people are what the NPC table calls them rather than what
+the record spells: actor records for NPC rows 4–8 on Emerald Island are all named `"Peasant"`, and rows 279–283 stand
+in Castle Harmondale, The Pit, and the like with their own names. So a person standing in the open is an actor whose
+`npcId` is non-zero, and the person's name, portrait, greetings, and topics come from `Npcdata.txt`, `npcgreet.txt`,
+and `npctopic.txt`, whose columns the data inventory records (`docs/research/mm7-data-inventory.md`, *Characters*).
+
+The same tables place **246 further people inside buildings**: `Npcdata.txt`'s `2D Location` column is the
+`2DEvents.txt` row the person lives in (195 distinct buildings), which is how a shopkeeper or a household's
+residents are reached without standing in the open. Of those 195 buildings, the import places a door for 193; the
+other two (rows 453 and 521) raise no event on any face of their map, so their two people are unreachable and are
+reported as such rather than dropped.
+
+**The `Npctopic.txt` requirement column gates rows that carry no answer.** Six rows state a requirement (1, 2, or 3 —
+the `Trading Triangle` topics) and every one of them names no text row, so in this release the only machine-readable
+topic gate in the shipped data is on topics the original raises rather than says. The import carries the column as an
+errand condition and refuses the rows without answers, 118 in all across the 572 topics.
+
 ## 4. Entry/exit points and spawn points
 
 * **Arrival is a decoration, not a header field.** The party arrives at the level decoration named `"Party Start"`,
@@ -372,9 +410,9 @@ with the data; each is recorded here with what was measured, and the decoder fol
 
 The decoder's own boundaries are stated where they are enforced: the outdoor attribute map and both
 normal blocks (sizes verified, meaning unestablished), faces ordering, model BSP nodes, the decoration
-map, indoor fluid and cog contents, map outlines, BSP ordering, and the delta records' actor layout are
-consumed by size and not surfaced as meaning. A delta's sprite objects and chests are kept: they are the
-only place a level's containers and the items lying in it are recorded (§3.1.1).
+map, indoor fluid and cog contents, map outlines, and BSP ordering are consumed by size and not surfaced as
+meaning. A delta's actors, sprite objects, and chests are kept: the actors are who stands in the place (§3.1.2),
+and the other two are the only place a level's containers and the items lying in it are recorded (§3.1.1).
 
 ## 8. Collision geometry: the engine's spatial artifact
 

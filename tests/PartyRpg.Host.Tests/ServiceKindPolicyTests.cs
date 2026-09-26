@@ -355,17 +355,18 @@ public sealed class ServiceKindPolicyTests
         // this build has no combat for.
         Assert.Empty(hall.Current!.Operations);
 
-        // A house is a household rather than a counter: the interaction mechanism reaches it as a person to
-        // talk to, and the use names who the table says lives there.
+        // A house is somebody's home rather than a counter: the interaction mechanism reaches it as a person
+        // to talk to, and the use names whoever the table says lives there. The name comes from the dialogue
+        // policy the conversation itself asks, so what the reticle shows and who answers are one reading.
         PlacePopulationContent population = PlacePopulationContent.Read(PlaceGraphLoader.Load(fixture.Catalog));
         PlacementDefinition residence = Assert.Single(
             population.PlacementsOf(new PlaceId("1")),
             placement => placement.Content.Kind == "residence");
-        MightAndMagic7ServiceInteraction interaction = new(fixture.Rule, new MightAndMagic7Interaction());
+        MightAndMagic7PeopleInteraction interaction = new(fixture.Conversation, new MightAndMagic7Interaction());
         InteractionTargetDefinition target = interaction.Describe(new InteractionTargetRequest(new PlaceId("1"), residence, string.Empty))!;
-        Assert.Equal("household", target.Kind.Value);
+        Assert.Equal(MightAndMagic7Conversation.PersonTargetKind, target.Kind.Value);
         Assert.Equal(InteractionVerb.Talk, target.Verb);
-        Assert.Equal("House of Ash, where Mira lives", target.Name);
+        Assert.Equal("Mira", target.Name);
 
         InteractionOutcome outcome = interaction.Apply(target, new InteractionContext(
             new PlaceId("1"),
@@ -373,14 +374,21 @@ public sealed class ServiceKindPolicyTests
             target,
             fixture.Party,
             fixture.Clock));
-        Assert.Equal("The party speaks with House of Ash, where Mira lives.", outcome.Message);
+        Assert.Equal("The party speaks with Mira.", outcome.Message);
     }
 
     /// <summary>A party, the content the counters are read from, and the one mechanism that serves them.</summary>
     private sealed class Fixture : IDisposable
     {
-        private Fixture(ContentCatalog catalog, MightAndMagic7Services rule, PartyEntity party, GameClock clock, PartyServices services)
+        private Fixture(
+            ContentCatalog catalog,
+            MightAndMagic7Services rule,
+            MightAndMagic7Conversation conversation,
+            PartyEntity party,
+            GameClock clock,
+            PartyServices services)
         {
+            Conversation = conversation;
             Catalog = catalog;
             Rule = rule;
             Party = party;
@@ -392,6 +400,9 @@ public sealed class ServiceKindPolicyTests
         internal ContentCatalog Catalog { get; }
 
         internal MightAndMagic7Services Rule { get; }
+
+        /// <summary>This game's answers about people, read over the fixture's own content.</summary>
+        internal MightAndMagic7Conversation Conversation { get; }
 
         internal PartyEntity Party { get; }
 
@@ -428,6 +439,8 @@ public sealed class ServiceKindPolicyTests
 
             MightAndMagic7Services rule = MightAndMagic7Services.Read(catalog)
                 ?? throw new InvalidOperationException("The content declares services, so the policy must be read.");
+            MightAndMagic7Conversation conversation = MightAndMagic7Conversation.Read(catalog, rule)
+                ?? throw new InvalidOperationException("The content declares places, so the dialogue policy must be read.");
             GameClock clock = new(
                 GameCalendar.TwelveMonthsOfFourWeeks,
                 new GameDate(1168, 1, 1, 9, 0, 0),
@@ -456,7 +469,7 @@ public sealed class ServiceKindPolicyTests
                 reputation: 0,
                 fame: 0));
             PartyResourceLedger accounts = new(party);
-            return new Fixture(catalog, rule, party, clock, new PartyServices(rule, party, accounts, clock));
+            return new Fixture(catalog, rule, conversation, party, clock, new PartyServices(rule, party, accounts, clock));
         }
 
         public void Dispose() => Party.Dispose();

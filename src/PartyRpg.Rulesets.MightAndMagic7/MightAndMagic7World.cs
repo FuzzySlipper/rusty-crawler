@@ -81,6 +81,12 @@ internal static class MightAndMagic7World
     /// never be two readings of one placement. Without it a service placement is not a target at all and
     /// walking into a shop is not possible, which is what a session with no services gets.
     /// </param>
+    /// <param name="conversation">
+    /// This game's answers about people, when its content declares any. Whether a placement holds somebody
+    /// and what they are called is read from here, so the reticle's target and the person who answers are one
+    /// reading of one placement rather than two. Without it nobody is reachable: every placement is answered
+    /// as it was before people existed.
+    /// </param>
     internal static SessionWorld? Compose(
         ContentCatalog? catalog,
         RulesetSessionContext context,
@@ -88,7 +94,8 @@ internal static class MightAndMagic7World
         PartyResourceLedger? resources,
         PartyEntity? entity = null,
         SessionSave? resume = null,
-        MightAndMagic7Services? services = null)
+        MightAndMagic7Services? services = null,
+        MightAndMagic7Conversation? conversation = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(clock);
@@ -161,23 +168,24 @@ internal static class MightAndMagic7World
             clock,
             resources,
             entity,
-            new InteractionPolicy(Interaction(services, schedules.Schedule), MightAndMagic7Movement.Space, MightAndMagic7Interaction.Aim),
+            new InteractionPolicy(Interaction(conversation, schedules.Schedule), MightAndMagic7Movement.Space, MightAndMagic7Interaction.Aim),
             schedules.Schedule);
     }
 
     /// <summary>
-    /// This game's answers about using what a place holds, with its counters added when it has any.
+    /// This game's answers about using what a place holds, with its people added when it has any.
     /// </summary>
     /// <remarks>
-    /// The service answers wrap the doors-and-fixtures answers rather than replacing them, which is what
-    /// keeps one interaction mechanism: a placement this game's service content calls a counter is a person
-    /// to talk to, and everything else is answered exactly as it was. The doors-and-fixtures answers carry
-    /// this game's schedule, which is what locks a door outside the hours its place keeps.
+    /// The people answers wrap the doors-and-fixtures answers rather than replacing them, which is what keeps
+    /// one interaction mechanism: a placement somebody stands at is somebody to talk to — a counter, a
+    /// household, or a person a map places in the open — and everything else is answered exactly as it was.
+    /// The doors-and-fixtures answers carry this game's schedule, which is what locks a door outside the
+    /// hours its place keeps.
     /// </remarks>
-    private static IInteractionRule Interaction(MightAndMagic7Services? services, PlaceSchedule schedule) =>
-        services is null
+    private static IInteractionRule Interaction(MightAndMagic7Conversation? conversation, PlaceSchedule schedule) =>
+        conversation is null
             ? new MightAndMagic7Interaction(schedule)
-            : new MightAndMagic7ServiceInteraction(services, new MightAndMagic7Interaction(schedule));
+            : new MightAndMagic7PeopleInteraction(conversation, new MightAndMagic7Interaction(schedule));
 
     /// <summary>
     /// The party's movement, when the host handed this ruleset an engine to move in.

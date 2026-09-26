@@ -82,6 +82,14 @@
          same control. -->
     <RustyEngineProductInputIntent Include="service.leave" Value="digital" />
     <RustyEngineProductInputMapping Include="service.leave.key-x" Intent="service.leave" Trigger="key:key-x:pressed" />
+    <!-- The conversation control: one press leaves the conversation the party is in. Entering is not a
+         control of its own — the party speaks with somebody by using whoever the interaction mechanism
+         reached, on the use control above — and the conversation's own choices (a topic, another person)
+         are payload actions on the `crawler.ui` channel below. Escape is the original's own way out of a
+         house's dialogue. The declaration and the code constant in ProductIdentity.cs are the two halves of
+         the same control. -->
+    <RustyEngineProductInputIntent Include="conversation.leave" Value="digital" />
+    <RustyEngineProductInputMapping Include="conversation.leave.key-escape" Intent="conversation.leave" Trigger="key:escape:pressed" />
     <!-- The stop controls: one per act, because a rest heals and a wait does not, and one key cannot mean
          both. R is the original's own rest key. T, H, C, and M are letters the original spends on its book
          screens and its casting, which this build does not have yet: the stones that add them move these

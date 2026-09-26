@@ -121,6 +121,18 @@ internal static class ProductTestContext
         Encoding.UTF8.GetBytes(ProductIdentity.UiActionContract), Encoding.UTF8.GetBytes(json));
 
     /// <summary>
+    /// One semantic action choosing a topic in a conversation, as the companion's own button sends it.
+    /// </summary>
+    /// <remarks>
+    /// A party reaches a counter through the conversation rather than through a second way in: the use opens
+    /// the conversation with whoever keeps it, and this is the choice that hands the party over to the
+    /// counter's own mechanism. That is why every walk-in a suite performs is two updates rather than one.
+    /// </remarks>
+    /// <param name="topic">The topic's identity.</param>
+    internal static ProductInputEvent ChooseTopic(string topic) =>
+        Payload($$"""{ "action": "conversation.topic", "target": "{{topic}}" }""");
+
+    /// <summary>
     /// A pack declaring the class and skill definitions this game's creation is checked against, which any
     /// bundle a player creates a party in must carry.
     /// </summary>

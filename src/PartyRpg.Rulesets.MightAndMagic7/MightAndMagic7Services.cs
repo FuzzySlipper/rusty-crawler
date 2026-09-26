@@ -257,6 +257,18 @@ internal sealed class MightAndMagic7Services : IServiceRule
     }
 
     /// <summary>
+    /// Whether a table's own name is the word it uses for a row it reserves rather than for somebody.
+    /// </summary>
+    /// <remarks>
+    /// Several building and NPC rows are named "Placeholder", which is the table's own marker for a row
+    /// whose name was never written. Naming a person that would put the word on the screen as though it
+    /// were somebody's name, so a reader that finds it falls back to what the row does state.
+    /// </remarks>
+    /// <param name="name">The name as the table wrote it.</param>
+    internal static bool IsPlaceholderName(string name) =>
+        name.Contains("Placeholder", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Who lives in a placement that is a household rather than a counter, or null when it is not one.
     /// </summary>
     /// <remarks>
