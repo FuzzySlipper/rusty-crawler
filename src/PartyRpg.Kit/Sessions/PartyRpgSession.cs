@@ -104,6 +104,7 @@ public sealed class PartyRpgSession : IGameSession
     private readonly IRestRule? _restRule;
     private readonly CombatInput? _combatInput;
     private readonly ICombatRule? _combatRule;
+    private readonly IMonsterAiPolicy? _monsterAi;
     private readonly GameClock? _clock;
     private readonly IDiagnosticsService? _diagnostics;
     private readonly ISessionSaveStore? _saveStore;
@@ -128,6 +129,7 @@ public sealed class PartyRpgSession : IGameSession
     private PartyConversations? _conversations;
     private PartyRest? _rest;
     private CombatState? _combat;
+    private CombatDirector? _director;
     private readonly TimeOwners _timeOwners = new();
     private WorldSnapshot _world = WorldSnapshot.Empty;
     private bool _started;
@@ -234,6 +236,12 @@ public sealed class PartyRpgSession : IGameSession
     /// fight at all, and the act control quietly does nothing — which is what a ruleset that has not answered
     /// yet gets.
     /// </param>
+    /// <param name="monsterAi">
+    /// This game's answer about how a creature behaves, when its ruleset gives one. With it, every creature
+    /// the party is fighting decides and acts through the same gated entry the player's control uses; the
+    /// party's own members are never driven from here. Without it the fight is one-sided: the state still
+    /// paces the opposition and still refuses what it refuses, and nothing on the other side acts.
+    /// </param>
     /// <param name="combatInput">
     /// The act control the host declared, when it declared one: the intent and the payload action a player's
     /// order to attack arrives on. Without it the fight is still composed and still reads the world — what is
@@ -266,7 +274,8 @@ public sealed class PartyRpgSession : IGameSession
         IConversationRule? conversation = null,
         ConversationIntentNames? conversationInput = null,
         ICombatRule? combat = null,
-        CombatIntentNames? combatInput = null)
+        CombatIntentNames? combatInput = null,
+        IMonsterAiPolicy? monsterAi = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(composition.Title);
         if (creation is not null && (world is not null || party is not null))
@@ -296,6 +305,7 @@ public sealed class PartyRpgSession : IGameSession
         _restRule = rest;
         _combatInput = combatInput is null ? null : new CombatInput(combatInput);
         _combatRule = combat;
+        _monsterAi = monsterAi;
         _creation = creation;
         _clock = clock;
         _party = party;
@@ -567,7 +577,7 @@ public sealed class PartyRpgSession : IGameSession
         // rather than something remembered from an earlier update. The order the player gave is applied in
         // the same breath, and only then is the update consumed and its projection published, so what the
         // panel reads is the fight this update left behind rather than the one before it.
-        DriveCombat(attacked);
+        DriveCombat(attacked, seconds);
 
         Advance(tick);
 
@@ -924,12 +934,35 @@ public sealed class PartyRpgSession : IGameSession
     /// reports one twice. What the panel shows is read from the fight's own last answer.
     /// </para>
     /// </remarks>
+    /// <para>
+    /// The opposition is driven between the two: the fight re-reads the world, every creature that is
+    /// fighting decides and acts through the same gate, and the player's own order is applied last so that
+    /// what a player did this update is the newest fact on the panel rather than one buried under the
+    /// creatures that answered it. The interval the update admitted is what a creature's movement covers;
+    /// an update that admits none still lets it act, because an attack is an instant, and moves nobody,
+    /// because movement is an interval.
+    /// </para>
     /// <param name="attacked">Whether this update carried an order to attack.</param>
-    private void DriveCombat(bool attacked)
+    /// <param name="seconds">The world time this update admitted, which may be zero.</param>
+    private void DriveCombat(bool attacked, double seconds)
     {
         if (_combat is not { } combat) return;
         combat.Step();
-        if (attacked) combat.Engage();
+        if (_director is { } director && _liveWorld is { } world)
+        {
+            director.Step(world.Place, seconds);
+
+            // The party's own order is applied after the creatures have had their turn, so the field is read
+            // once more afterwards: a party that brings the last creature down in this update has emptied the
+            // place in this update, and a place left unmarked until the next one would be populated again if
+            // the party walked straight out through the door it came in by.
+            if (attacked) combat.Engage();
+            director.Observe(world.Place);
+        }
+        else if (attacked)
+        {
+            combat.Engage();
+        }
     }
 
     /// <summary>Whether this update's admitted input orders the party to attack.</summary>
@@ -957,6 +990,14 @@ public sealed class PartyRpgSession : IGameSession
         if (_combat is not null || _combatRule is null || _party is not { } party) return;
         _combat = new CombatState(_combatRule, party, _liveWorld, _clock, _diagnostics);
         ObserveTimeWith(_combat);
+
+        // The driver is composed over the fight and the world's own collision, which is what makes a
+        // creature's step and the party's step one scene. A session whose ruleset answered no AI has no
+        // driver at all, and its fight is one-sided rather than driven by an invented policy.
+        if (_monsterAi is { } policy)
+        {
+            _director = new CombatDirector(_combat, policy, _liveWorld?.Creatures, _liveWorld?.Places, _diagnostics);
+        }
     }
 
     /// <summary>
@@ -1184,7 +1225,7 @@ public sealed class PartyRpgSession : IGameSession
         // Who is fighting, who may act, and what the party's last order did, read from the fight the
         // ruleset's answers composed: a session with no mechanism, a quiet place, and a party in a fight
         // with three members recovering are different facts the panel must be able to tell apart.
-        CombatSnapshot.From(_combat));
+        CombatSnapshot.From(_combat, _director));
 
     /// <summary>Publishes the world as it stands now, after a caller moved the party.</summary>
     public void PublishWorld()

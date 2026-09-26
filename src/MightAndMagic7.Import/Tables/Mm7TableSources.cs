@@ -31,6 +31,9 @@ public static class Mm7TableSources
     /// <summary>Monster statistics.</summary>
     public static LodSource Monsters { get; } = new("monsters", RulesArchive, "monsters.txt");
 
+    /// <summary>What every kind of monster thinks of every other kind, and of the party.</summary>
+    public static LodSource Hostility { get; } = new("hostility", RulesArchive, "hostile.txt");
+
     /// <summary>Spell definitions by school.</summary>
     public static LodSource Spells { get; } = new("spells", RulesArchive, "spells.txt");
 
@@ -64,6 +67,7 @@ public static class Mm7TableSources
         MapStats,
         Services,
         Monsters,
+        Hostility,
         Spells,
         Items,
         Classes,

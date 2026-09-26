@@ -27,6 +27,10 @@ namespace MightAndMagic7.Import.Tool;
 /// What the game's people tables and the maps' actor records produced: who exists, what they can be asked
 /// about, where they stand, and everything nothing was placed for.
 /// </param>
+/// <param name="Creatures">
+/// What the levels' spawn records produced: the creatures standing in each place, and every record nothing
+/// was emitted for with its reason.
+/// </param>
 internal sealed record PackWriteResult(
     string OutputRoot,
     InstallProvenance Provenance,
@@ -35,7 +39,8 @@ internal sealed record PackWriteResult(
     PlaceEntranceSummary Entrances,
     PlaceContainerSummary Containers,
     PlaceServiceSummary Services,
-    PlacePeopleSummary People)
+    PlacePeopleSummary People,
+    PlaceCreatureSummary Creatures)
 {
     /// <summary>The pack ids, in the order they were written.</summary>
     internal IReadOnlyList<string> PackIds => [.. Packs.Select(pack => pack.PackId)];
@@ -63,7 +68,7 @@ internal static class PackWriter
     /// leaving a checker to infer absence from a missing key.
     /// </remarks>
     private static readonly string[] PlacementKinds =
-        ["spawn", "decoration", "door", "light", "container", "sprite", "service", "residence", "person"];
+        ["spawn", "monster", "decoration", "door", "light", "container", "sprite", "service", "residence", "person"];
 
     /// <summary>How much of a place's map data an import reads.</summary>
     internal enum MapDetail
@@ -126,14 +131,18 @@ internal static class PackWriter
         // so per person rather than emitting somebody nobody can walk up to.
         PlacePeopleSummary people = PlacePeopleEmitter.Emit(tables.People, maps, services);
 
+        // The creatures are emitted from the same decoded spawn records the places document carries, so a
+        // spawn point and the creatures standing on it are one reading of one record rather than two.
+        PlaceCreatureSummary creatures = PlaceCreatures.Emit(tables, maps);
+
         Directory.CreateDirectory(outputRoot);
         List<(string, int, int)> packs =
         [
-            WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers, services, people),
+            WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers, services, people, creatures),
             WriteWorld(tables, graph, provenance, Path.Combine(outputRoot, "mm7-world"), maps, collisions, entrances, services),
         ];
         WriteBundleFragment(outputRoot, provenance, packs);
-        return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions), entrances, containers, services, people);
+        return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions), entrances, containers, services, people, creatures);
     }
 
     /// <summary>
@@ -205,17 +214,19 @@ internal static class PackWriter
         IReadOnlyDictionary<int, DecodedMap> maps,
         PlaceContainerSummary containers,
         PlaceServiceSummary services,
-        PlacePeopleSummary people)
+        PlacePeopleSummary people,
+        PlaceCreatureSummary creatures)
     {
         List<(string Path, string DocumentId, string Kind, int Entries)> documents =
         [
-            ("places.json", "places", "place", WritePlaces(packDirectory, tables, maps, containers, services, people)),
+            ("places.json", "places", "place", WritePlaces(packDirectory, tables, maps, containers, services, people, creatures)),
             ("people.json", "people", PlacePeopleEmitter.PersonDefinitionKind, WritePeople(packDirectory, people)),
             ("services.json", "services", "service", WriteServices(packDirectory, services)),
             ("classes.json", "classes", "class", WriteClasses(packDirectory, tables)),
             ("skills.json", "skills", "skill", WriteSkills(packDirectory, tables)),
             ("spells.json", "spells", "spell", WriteSpells(packDirectory, tables)),
             ("monsters.json", "monsters", "monster", WriteMonsters(packDirectory, tables)),
+            ("hostility.json", "hostility", "hostility", WriteHostility(packDirectory, tables)),
             ("items.json", "items", "item", WriteItems(packDirectory, tables)),
             ("quests.json", "quests", "quest", WriteQuests(packDirectory, tables)),
         ];
@@ -227,6 +238,11 @@ internal static class PackWriter
             .. people.Placements.Select(placement => $"{PlacePeopleEmitter.PersonDefinitionKind}:{placement.PersonId}").Distinct().Order(StringComparer.Ordinal),
             .. people.Households.SelectMany(household => household.PersonIds)
                 .Select(id => $"{PlacePeopleEmitter.PersonDefinitionKind}:{id}").Distinct().Order(StringComparer.Ordinal),
+
+            // Every creature names a monster row, so the place's own document refers to the row it stands
+            // for: a creature whose row the pack does not carry is then a load defect rather than a
+            // creature nothing can say the hit points of.
+            .. creatures.Placements.Select(placement => $"monster:{placement.MonsterId.ToString(CultureInfo.InvariantCulture)}").Distinct().Order(StringComparer.Ordinal),
         ];
         WriteManifest(
             packDirectory,
@@ -404,7 +420,8 @@ internal static class PackWriter
         IReadOnlyDictionary<int, DecodedMap> maps,
         PlaceContainerSummary containers,
         PlaceServiceSummary services,
-        PlacePeopleSummary people)
+        PlacePeopleSummary people,
+        PlaceCreatureSummary creatures)
     {
         // A place's counters and households are emitted into its placements, which is where the interaction
         // mechanism reads them from: a service placement is a target the party talks to, and nothing about
@@ -428,6 +445,12 @@ internal static class PackWriter
         Dictionary<int, IReadOnlyList<PlacePersonPlacement>> peopleByPlace = people.Placements
             .GroupBy(placement => placement.PlaceId)
             .ToDictionary(group => group.Key, group => (IReadOnlyList<PlacePersonPlacement>)[.. group]);
+
+        // A creature stands where its spawn record put it, so the creatures are grouped by the place their
+        // map's records belong to and written into that place's own placements.
+        Dictionary<int, IReadOnlyList<PlaceCreaturePlacement>> creaturesByPlace = creatures.Placements
+            .GroupBy(placement => placement.PlaceId)
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<PlaceCreaturePlacement>)[.. group]);
         List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];
         foreach (MapStatsRecord map in tables.Maps.Maps)
         {
@@ -440,7 +463,7 @@ internal static class PackWriter
                         : "interior");
                 writer.WriteString("mapFile", map.FileName);
                 writer.WriteStartArray("monsters");
-                foreach (string monster in new[] { map.MonsterSlot1, map.MonsterSlot2, map.MonsterSlot3 })
+                foreach (string monster in map.Slots.Select(slot => slot.Monster))
                 {
                     // An unused slot is the table's own zero, which names no beast; only named ones are
                     // written, so a place that spawns nothing carries an empty list rather than a monster
@@ -475,6 +498,7 @@ internal static class PackWriter
                     WritePlacements(
                         writer,
                         decoded,
+                        creaturesByPlace.GetValueOrDefault(map.Id, []),
                         containersByPlace.GetValueOrDefault(map.Id, []),
                         objectsByPlace.GetValueOrDefault(map.Id, []),
                         countersByPlace.GetValueOrDefault(map.Id, []),
@@ -527,6 +551,7 @@ internal static class PackWriter
     private static void WritePlacements(
         Utf8JsonWriter writer,
         DecodedMap map,
+        IReadOnlyList<PlaceCreaturePlacement> creatures,
         IReadOnlyList<PlaceChestPlacement> containers,
         IReadOnlyList<PlaceSpriteObjectPlacement> spriteObjects,
         IReadOnlyList<PlaceServicePlacement> counters,
@@ -544,6 +569,31 @@ internal static class PackWriter
                 field.WriteNumber("attributes", spawn.Attributes);
                 field.WriteNumber("group", spawn.Group);
             }));
+        }
+
+        // Every creature stands on the spawn record that asked for it, and carries the row it is under the
+        // field name the ruleset reads a creature from. Everything else on the placement is the reading
+        // that produced it — the encounter slot, the grade, the count, and the record's own group and
+        // radius — so an operator can follow a creature back to the record and see why it is there.
+        foreach (PlaceCreaturePlacement creature in creatures)
+        {
+            placements.Add(new Placement("monster", creature.SourceSpawnIndex, "spawnPoints", new PlacementPoint(creature.X, creature.Y, creature.Z), (int)creature.Yaw, "spawn-record", field =>
+            {
+                field.WriteNumber("monster", creature.MonsterId);
+                field.WriteString("monsterName", creature.MonsterName);
+                field.WriteNumber("spawn", creature.SourceSpawnIndex);
+                field.WriteNumber("encounter", creature.EncounterIndex);
+                field.WriteString("grade", creature.Grade);
+                field.WriteNumber("quantity", creature.Quantity);
+                field.WriteNumber("unit", creature.Unit);
+                field.WriteNumber("group", creature.Group);
+                field.WriteNumber("attributes", creature.Attributes);
+                field.WriteNumber("radius", creature.Radius);
+                field.WriteNumber("appearMin", creature.AppearMin);
+                field.WriteNumber("appearMax", creature.AppearMax);
+                field.WriteString("gradeSource", creature.GradeDrawn ? "difficulty-odds" : "spawn-slot");
+                field.WriteString("countSource", creature.CountDrawn ? "slot-range-floor" : "spawn-slot");
+            }, creature.PlacementId));
         }
 
         foreach (MapDecoration decoration in map.Decorations)
@@ -671,6 +721,12 @@ internal static class PackWriter
                 field =>
                 {
                     field.WriteString("actorName", person.SourceActorName);
+
+                    // A person a map's own actor record places carries the monster row that record names,
+                    // which is the row this person fights as: a peasant, a guard, a named adept. A person
+                    // the NPC table places in a building states none, and the ruleset reads the row this
+                    // game gives somebody whose own record says nothing.
+                    if (person.MonsterId != 0) field.WriteNumber("monster", person.MonsterId);
                     WritePeople(field, [person.PersonId]);
                 }));
         }
@@ -790,6 +846,11 @@ internal static class PackWriter
     /// <param name="Yaw">Its facing, or null when the source states none.</param>
     /// <param name="PositionSource">Where a derived position came from, or null when the source stores one.</param>
     /// <param name="Fields">The kind-specific fields to write beside the identity.</param>
+    /// <param name="ExplicitId">
+    /// The placement's identity, when one source record puts more than one placement in a place and
+    /// <c>kind-index</c> would name them all the same thing. Null for the ordinary case, where the kind and
+    /// the source index are the identity.
+    /// </param>
     private sealed record Placement(
         string Kind,
         int SourceIndex,
@@ -797,10 +858,11 @@ internal static class PackWriter
         PlacementPoint Position,
         int? Yaw,
         string? PositionSource,
-        Action<Utf8JsonWriter> Fields)
+        Action<Utf8JsonWriter> Fields,
+        string? ExplicitId = null)
     {
         /// <summary>The placement's identity within its place, which is what a rule resolves.</summary>
-        public string Id { get; } = $"{Kind}-{SourceIndex}";
+        public string Id { get; } = ExplicitId ?? $"{Kind}-{SourceIndex}";
     }
 
     /// <summary>
@@ -890,12 +952,73 @@ internal static class PackWriter
                 writer.WriteNumber("speed", monster.Speed);
                 writer.WriteNumber("recovery", monster.Recovery);
                 writer.WriteString("aiType", monster.AiType);
+                writer.WriteString("movement", monster.Movement);
+                writer.WriteString("fly", monster.Fly);
                 WriteOptionalString(writer, "treasure", monster.Treasure);
                 WriteColumns(writer, monster.Fields);
             }));
         }
 
         return WriteDocument(packDirectory, "monsters.json", "monsters", "monster", entries);
+    }
+
+    /// <summary>
+    /// Writes what every kind of monster thinks of every other kind and of the party, as the shipped
+    /// matrix states it.
+    /// </summary>
+    /// <remarks>
+    /// One entry per kind, carrying the bands it holds toward the kinds the header names, in the header's
+    /// own column order. The party's own row and column are written with the rest: the party's row is what
+    /// a creature fighting for the party reads its targets from, and the party's column is what a kind
+    /// thinks of the party, so neither is an empty cell a reader would have to special-case.
+    /// </remarks>
+    private static int WriteHostility(string packDirectory, Mm7Tables tables)
+    {
+        HostilityTable matrix = tables.Hostility;
+        int row = 0;
+        // The header is an entry of its own so the pack names which kind every column index is: a band is
+        // written against the column it was read from, and a reader that wanted to print one as a name
+        // rather than as a number has the data's own order to print it from.
+        List<(string Id, Action<Utf8JsonWriter> Write)> entries =
+        [
+            ("kinds", Kinds),
+        ];
+
+        void Kinds(Utf8JsonWriter writer)
+        {
+            writer.WriteStartArray("columns");
+            foreach (string column in matrix.Columns) writer.WriteStringValue(column);
+            writer.WriteEndArray();
+        }
+
+        foreach (HostilityRow feelings in matrix.Rows)
+        {
+            // The kind is the row's own position, which is how the donor reads the matrix: a row's number is
+            // the monster type it is about, and the header is only names. Matching by name would leave every
+            // row whose spelling the header does not repeat — twenty-four of them, in the shipped file —
+            // without a kind at all.
+            int kind = row++;
+            entries.Add((feelings.Kind, writer =>
+            {
+                writer.WriteNumber("kind", kind);
+
+                // Only the bands the data states are written, against the column index they were read from,
+                // and a band the file leaves out is friendly: the donor's own reader fills every relation
+                // with friendly before it reads a cell
+                // (OpenEnroth src/Engine/Tables/HostilityTable.cpp:17-18), so an omitted cell and a stated
+                // zero are one fact in the data's own terms.
+                writer.WriteStartObject("hostility");
+                for (int column = 0; column < matrix.Columns.Count; column++)
+                {
+                    if (feelings.BandAt(column) is not { } band || band == 0) continue;
+                    writer.WriteNumber(column.ToString(CultureInfo.InvariantCulture), band);
+                }
+
+                writer.WriteEndObject();
+            }));
+        }
+
+        return WriteDocument(packDirectory, "hostility.json", "hostility", "hostility", entries);
     }
 
     private static int WriteItems(string packDirectory, Mm7Tables tables)

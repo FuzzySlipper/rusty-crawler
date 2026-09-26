@@ -17,14 +17,19 @@ Bundle assembles. Host launches.**
 > **Current state: foundation stone 6 is in progress.** The spine, the world, the party and its
 > resources, the one clock and calendar, character creation, what a crossing costs, the one interaction
 > mechanism with its doors, containers and people, every shipped service kind, schedules, rest and
-> camping, conversations, combat's first landing, and now attack resolution have landed: a session with
-> imported content walks its party, settles what it spends, talks to the people it meets, and fights —
-> over the live world, in real time, paced by one recovery quantity per actor, with hostility as world
-> state rather than a mode flag, and with every attack resolving into a hit or a miss, damage its target's
-> resistance may take a share of, the condition the blow leaves, and the death a character's own health
-> decides. What combat does not do yet is drive a creature: no monster AI, no turn-based mode, no loot,
-> and no corpses. Magic and quests are still to come, and the shipped bundle carries no content — so a
-> running product without imported packs reports no world and no party. See
+> camping, conversations, combat's first landing, attack resolution, and now the other half of a fight —
+> monsters — have landed: a session with imported content walks its party, settles what it spends, talks to
+> the people it meets, and fights, over the live world, in real time, paced by one recovery quantity per
+> actor, with hostility as world state rather than a mode flag, with every attack resolving into a hit or a
+> miss, damage its target's resistance may take a share of, the condition the blow leaves, and the death a
+> character's own health decides, and with an imported place holding real opposition: 1,900 creatures
+> emitted from the levels' own spawn records across 72 places, each driven by this game's own policy — the
+> monster table's AI class, movement, speed, second attack, and spells, and the shipped hostility matrix
+> between kinds — through the same gated entry the player's control uses. What combat does not do yet is
+> turn-based pacing, corpses as lootable things, and loot itself; a creature that cannot see its target
+> walks straight at it rather than around geometry, because no place carries a navigation projection yet.
+> Magic and quests are still to come, and the shipped bundle carries no content — so a running product
+> without imported packs reports no world and no party. See
 > [`AGENTS.md`](AGENTS.md) for the exact current state.
 
 ## Ownership
@@ -201,6 +206,17 @@ dotnet src/MightAndMagic7.Import.Tool/bin/Release/net10.0/mm7import.dll verify -
 `verify` checks the readers against the recorded inventory in `docs/research/mm7-data-inventory.md`
 and fails when a reader drifts from the data. `scripts/verify.sh` runs `verify` when the installation
 is present, and says so plainly when it is not.
+
+`creatures` prints the opposition the levels' own spawn records put on the field, which is the read-only
+half of the monster import:
+
+```bash
+dotnet src/MightAndMagic7.Import.Tool/bin/Release/net10.0/mm7import.dll creatures --install /path/to/mm7
+```
+
+Over the operator's own installation that is 3,175 spawn records of which 1,843 ask for an actor, 1,900
+creatures emitted into 72 places from 74 distinct monster rows, and 43 records refused by name because the
+encounter slot they name is one their map leaves empty. `write` states the same counts in its summary.
 
 `write` produces the content packs the product loads, and proves its own reproducibility:
 

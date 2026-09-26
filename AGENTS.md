@@ -262,17 +262,47 @@ availability follows the party's own state.**
   until the temple's cure — or the rest the ruleset names — ends it. Recovery is not the only gate now: what
   an actor's conditions leave it able to do is the ruleset's answer, and an actor it lays out is refused by
   name without spending anything.
-- **What combat does not do yet.** No creature acts on its own: the state paces the opposition and offers any
-  driver the same gated entry the player's control uses, and the AI that would drive a monster is the
-  monsters-and-AI task's. Nothing creates a monster either: a creature exists only where content places a
-  placement of kind `monster` naming a monster row, and the shipped packs place spawn *points*, so an imported
-  world holds no creature yet — the fight can bring a person or a creature down, and what a corpse means
-  belongs to the stones that own monsters and loot. A character's resistance and armour class are the donor's
-  sum only where this build can read them — an unarmed accuracy bonus for the blow, a speed bonus and dodging
-  for the armour class, and nothing at all for the six resistances — because a party cannot wear anything
-  until the stone that brings items and equipment lands; a monster's second attack and its spell attacks are
-  the AI's choice, so a creature's blow resolves its first attack. Turn-based mode, corpses, and loot are not
-  here.
+- Monsters exist, are placed, and act. The importer emits **1,900 creatures into 72 places** from the levels'
+  own spawn records: an actor spawn names one of its map's twelve encounter slots rather than a monster row, so
+  the slot's kind and the grade the map's difficulty odds favour resolve the row, a graded slot puts exactly one
+  creature on the field and a random one the fewest its own range states, and every creature carries the
+  reading that produced it (encounter, grade, quantity, group, radius, appear range, and whether the grade and
+  the count were drawn). 43 records are refused by name because the slot they name is one their map leaves
+  empty. The `.dlv`'s own 703 monster actor records are the *saved* population of a played game and are not
+  emitted. A creature is a placement of kind `monster` naming its row, its health is its own
+  (`CreatureHealth`, a component on the entity's actor, attached the first time a fight reads it, so a sprung
+  trap and a creature's bite are one path into a person), and a person a map's own actor record places reads
+  the monster row that record names instead of one peasant row for everybody.
+- The opposition is driven, by this game's data. `CombatDirector` gives every creature the party is fighting a
+  decision each update and orders it through `CombatState.Order` — the same gated entry the player's control
+  uses, so a recovering creature is refused by name exactly as a member is — while movement goes through the
+  engine's own character step (`EngineCreatureMotion`, the same spatial scene the party walks in, no C#
+  collision) at the speed the creature's own row states. `IMonsterAiPolicy` is the seam and
+  `MightAndMagic7MonsterAi` is this game's answer: the row's AI class decides whether it runs (`Wimp` always,
+  `Normal` at twenty percent of its hit points, `Aggress` at ten, `Suicidal` never), its movement column whether
+  it closes or holds its post, its own chance columns which way it attacks in the donor's own order (first
+  spell, second spell, second attack, then the first), and every chance is drawn from the engine's keyed random
+  service keyed by the place, the creature, and its round, so a fight replays identically. Which kinds are each
+  other's enemies is the shipped `hostile.txt` matrix, written into the packs by the importer and read
+  positionally as the donor reads it; creatures placed as one non-zero group do not turn on each other. A
+  creature's second attack resolves with that attack's own dice and kind of harm, and a spell with the spell's
+  own kind of harm from the spell content and the row's dice until the magic stone brings a spell's numbers; a
+  spell the imported spell table describes no harm for — a shield, a cure, a dispel — is one this build cannot
+  cast, so a creature keeps it on its row and never chooses it.
+- A place remembers being emptied, and the clock brings its population back. When everything in a place that
+  fights the party is down — a creature's own nature decides that, so a person going about their day is not
+  what a party cleared — the place is marked cleared through the world's own per-place state, and the mark is
+  read after the party's own order in the same update, so a party that kills the last creature and walks out
+  leaves it cleared. A cleared place holds nobody until its own interval elapses; the world's advance then
+  restores it and the population is rebuilt from the same placements.
+- **What combat does not do yet.** A creature that cannot see its target walks straight at it and slides along
+  the wall: the mover asks the engine's own navigation for a waypoint, and these places have none — the
+  collision artifact carries collision and no cells, and nothing derives navigation from it yet, which needs a
+  place's bounds to be carried by content (`ISpatialService.ReplaceCollisionNavigation` is the engine half).
+  Turn-based pacing, corpses as lootable things, and loot are not here either. A character's resistance and
+  armour class are the donor's sum only where this build can read them — an unarmed accuracy bonus for the
+  blow, a speed bonus and dodging for the armour class, and nothing at all for the six resistances — because a
+  party cannot wear anything until the stone that brings items and equipment lands.
 - **No magic or quests exists, a save carries no deadlines, and a save carries no fight.** Do not describe,
   review, or accept behavior those stones will add as though it were here. What a player can do today is
   create a party, walk it, open doors and containers, get caught by a trap, buy and sell at a counter, learn

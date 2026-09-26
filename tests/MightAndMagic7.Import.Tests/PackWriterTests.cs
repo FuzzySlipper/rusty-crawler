@@ -148,14 +148,27 @@ public sealed class PackWriterTests
             // Arrival is a decoration, so a place that has one has it among its placements too: the
             // entry point and the placement are two readings of the same decoded record, not two
             // records, and neither is allowed to quietly lose it. The region's delta also carries one
-            // sprite object, which is a placement of its own whether or not it holds anything.
+            // sprite object, which is a placement of its own whether or not it holds anything, and the
+            // spawn record puts a creature on the field beside the spawn point it came from.
             PlacePopulationContent placements = PlacePopulationContent.Read(graph);
             IReadOnlyList<PlacementDefinition> regionPlacements = placements.PlacementsOf(region.Id);
-            Assert.Equal(5, regionPlacements.Count);
+            Assert.Equal(6, regionPlacements.Count);
             Assert.Equal(3, regionPlacements.Count(placement => placement.Content.Kind == "decoration"));
             Assert.Equal(1, regionPlacements.Count(placement => placement.Content.Kind == "spawn"));
+            Assert.Equal(1, regionPlacements.Count(placement => placement.Content.Kind == "monster"));
             Assert.Equal(1, regionPlacements.Count(placement => placement.Content.Kind == "sprite"));
             Assert.Contains(regionPlacements, placement => placement.Content.Id == "decoration-0");
+
+            // The creature is content the ruleset can fight: it names the monster row it is under the field
+            // the ruleset reads, and it says which spawn record put it there and which reading of that record
+            // it came from, so a creature can always be followed back to the data.
+            PlacementDefinition creature = regionPlacements.First(placement => placement.Content.Kind == "monster");
+            Assert.Equal("monster-0-0", creature.Content.Id);
+            Assert.Equal(4, creature.Source.GetInt32("monster"));
+            Assert.Equal(0, creature.Source.GetInt32("spawn"));
+            Assert.Equal(5, creature.Source.GetInt32("encounter"));
+            Assert.Equal("A", creature.Source.GetString("grade"));
+            Assert.Equal("spawn-slot", creature.Source.GetString("countSource"));
             PlacementDefinition firstDecoration = regionPlacements.First(placement => placement.Content.Kind == "decoration");
             Assert.Equal("decorations", firstDecoration.SourceField);
             Assert.Equal(0, firstDecoration.SourceIndex);
@@ -196,9 +209,15 @@ public sealed class PackWriterTests
             Assert.Equal(63, expectedDoors);
             Assert.Equal(126, expectedLights);
 
+            // Every one of the fixture's spawn records asks for an actor and names the graded slot A of its
+            // map's second encounter, which puts exactly one creature on the field: the count a graded slot
+            // spawns is the donor's fixed one, and only the three random slots draw a number.
+            Assert.Equal(76, expectedSpawns);
+
             // The document itself: every place declares its placements and a count per kind, and the
             // counts are what a checker can verify without decoding a map.
             int spawns = 0;
+            int creatures = 0;
             int decorations = 0;
             int doors = 0;
             int lights = 0;
@@ -229,6 +248,7 @@ public sealed class PackWriterTests
                     }
 
                     spawns += counts.GetProperty("spawn").GetInt32();
+                    creatures += counts.GetProperty("monster").GetInt32();
                     decorations += counts.GetProperty("decoration").GetInt32();
                     doors += counts.GetProperty("door").GetInt32();
                     lights += counts.GetProperty("light").GetInt32();
@@ -236,6 +256,7 @@ public sealed class PackWriterTests
             }
 
             Assert.Equal(expectedSpawns, spawns);
+            Assert.Equal(expectedSpawns, creatures);
             Assert.Equal(expectedDecorations, decorations);
             Assert.Equal(expectedDoors, doors);
             Assert.Equal(expectedLights, lights);
@@ -248,8 +269,9 @@ public sealed class PackWriterTests
             PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog);
             PlacePopulationContent content = PlacePopulationContent.Read(graph);
             PlaceDefinition interior = graph.Places.First(place => place.Kind == PlaceKind.Interior);
-            Assert.Equal(5, content.PlacementsOf(interior.Id).Count);
+            Assert.Equal(6, content.PlacementsOf(interior.Id).Count);
             Assert.Equal(1, content.PlacementsOf(interior.Id).Count(placement => placement.Content.Kind == "spawn"));
+            Assert.Equal(1, content.PlacementsOf(interior.Id).Count(placement => placement.Content.Kind == "monster"));
             Assert.Equal(1, content.PlacementsOf(interior.Id).Count(placement => placement.Content.Kind == "door"));
 
             // A door stores no position of its own, so the record says its position came from the
@@ -258,8 +280,9 @@ public sealed class PackWriterTests
             {
                 IReadOnlyList<PlacePopulationEntity> entities = population.Step(interior.Id, []);
                 Assert.Equal(content.PlacementsOf(interior.Id).Select(placement => placement.Content), entities.Select(entity => entity.Content));
-                Assert.Equal(5, population.Diagnostics.EntityCount);
+                Assert.Equal(6, population.Diagnostics.EntityCount);
                 Assert.Equal(1, population.Diagnostics.CountOf("spawn"));
+                Assert.Equal(1, population.Diagnostics.CountOf("monster"));
                 Assert.Equal(1, population.Diagnostics.CountOf("decoration"));
                 Assert.Equal(1, population.Diagnostics.CountOf("door"));
                 Assert.Equal(2, population.Diagnostics.CountOf("light"));

@@ -501,7 +501,8 @@ public static class SessionProjection
             ("damageKind", builder.String(combat.DamageKind ?? string.Empty)),
             ("resistance", builder.String(combat.Resistance ?? string.Empty)),
             ("condition", builder.String(combat.Condition ?? string.Empty)),
-            ("targetDown", builder.Boolean(combat.TargetDown)));
+            ("targetDown", builder.Boolean(combat.TargetDown)),
+            ("byParty", builder.Boolean(combat.ByParty)));
     }
 
     /// <summary>Builds one actor of a fight block: who it is, whether it may act, and how long it owes.</summary>
@@ -515,7 +516,8 @@ public static class SessionProjection
             ("hitPoints", builder.Number(actor.HitPoints)),
             ("hitPointsMax", builder.Number(actor.HitPointsMax)),
             ("conditions", builder.String(actor.Conditions ?? string.Empty)),
-            ("down", builder.Boolean(actor.Down)));
+            ("down", builder.Boolean(actor.Down)),
+            ("activity", builder.String(actor.Activity ?? string.Empty)));
 
     /// <summary>Builds the rest block: what the last stop did, what it cost, and what sleep debt stands.</summary>
     /// <remarks>

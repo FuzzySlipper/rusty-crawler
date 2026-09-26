@@ -65,6 +65,10 @@ public sealed record PlacePerson(
 /// <param name="Yaw">Which way the person faces, in the game's own angle units.</param>
 /// <param name="SourceActorIndex">The actor record's index in the delta's own array.</param>
 /// <param name="SourceActorName">The name the actor record carries, empty when it states none.</param>
+/// <param name="MonsterId">
+/// The monster row the record's own monster info names, which is what this person is as far as a fight is
+/// concerned; zero when the record states none.
+/// </param>
 public sealed record PlacePersonPlacement(
     int PlaceId,
     string PlacementId,
@@ -74,7 +78,8 @@ public sealed record PlacePersonPlacement(
     double Z,
     double Yaw,
     int SourceActorIndex,
-    string SourceActorName);
+    string SourceActorName,
+    int MonsterId);
 
 /// <summary>Everybody a building holds, by the NPC table's own placement column.</summary>
 /// <param name="BuildingId">The building's id, which is the row the table places people in.</param>
@@ -277,7 +282,8 @@ public static class PlacePeopleEmitter
                     actor.Position.Z,
                     actor.YawAngle,
                     actor.Index,
-                    actor.Name));
+                    actor.Name,
+                    actor.MonsterId));
             }
         }
 

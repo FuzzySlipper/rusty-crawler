@@ -37,7 +37,7 @@ internal static class MapDeltaRecord
     private const int ActorNpcIdOffset = 0x20;
     private const int ActorAttributesOffset = 0x24;
     private const int ActorHitPointsOffset = 0x28;
-    private const int ActorMonsterIdOffset = 0x86;
+    private const int ActorMonsterIdOffset = 0x60;
     private const int ActorPositionOffset = 0x8E;
     private const int ActorYawAngleOffset = 0x9A;
     private const int ActorSectorIdOffset = 0x9E;
@@ -90,7 +90,18 @@ internal static class MapDeltaRecord
     /// Every field the walk steps over is consumed by the record's fixed width; the ones read here are the
     /// ones that say who the actor is and where it stands. The offsets are the donor's snapshot layout, and
     /// the identity fields are read as signed values because that is how the record stores them — a zero
-    /// identity means "no NPC" and "no monster" respectively, which is a fact rather than a missing one.
+    /// identity means "no NPC" and "no monster row" respectively, which is a fact rather than a missing one.
+    /// </remarks>
+    /// <remarks>
+    /// <b>The monster row is the one inside the embedded monster info.</b> An actor record carries both a
+    /// whole <c>MonsterInfo_MM7</c> block and, after it, a descriptor id
+    /// (<c>OpenEnroth src/Engine/Snapshots/EntitySnapshots.h:764-809</c>): the block's own <c>id</c> is the
+    /// monster row the actor is, and the descriptor names the model it is drawn with. Every person the
+    /// shipped maps place states a peasant row there — the donor's own reading of a person standing in a
+    /// level is an actor with a monster row
+    /// (<c>src/Engine/Objects/MonsterEnumFunctions.h:56-58</c>, <c>isPeasant</c>) — while the descriptor is
+    /// zero on the shipped deltas for people and beasts alike, which is why the row is read from the block
+    /// and not from the field after it.
     /// </remarks>
     /// <param name="records">The actor array, exactly as many records as the delta declared.</param>
     /// <param name="count">How many actor records the array holds.</param>

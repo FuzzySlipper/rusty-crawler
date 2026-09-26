@@ -24,7 +24,13 @@ namespace PartyRpg.Kit.Combat;
 /// What it attacks, or null when there is nothing to attack: an actor with nothing in reach still acts, and
 /// an attack at nothing is a real outcome rather than a refused order.
 /// </param>
-public sealed record AttackOrder(CombatantId Actor, AttackKind Kind, CombatantId? Target);
+/// <param name="Ability">
+/// Which of the actor's own ways of attacking this is, when whoever ordered it wants a particular one — a
+/// creature's second attack, one of its spells — named in the ruleset's own vocabulary and handed back to
+/// it untouched. The kit never learns one of these names and never branches on one: an order naming none is
+/// resolved by whatever the ruleset answers for the kind alone, which is what every order gives today.
+/// </param>
+public sealed record AttackOrder(CombatantId Actor, AttackKind Kind, CombatantId? Target, string? Ability = null);
 
 /// <summary>
 /// What one accepted attack was, as the fight initiated it.
@@ -49,6 +55,11 @@ public sealed record AttackOrder(CombatantId Actor, AttackKind Kind, CombatantId
 /// <param name="TargetName">What the target is called, empty when there was none.</param>
 /// <param name="At">When on the game calendar it happened, or null when the session keeps no clock.</param>
 /// <param name="Recovery">How much game time the actor must now recover before it may act again.</param>
+/// <param name="Ability">
+/// Which of the actor's own ways of attacking this was, as the order named it, empty when it named none. It
+/// is what makes a creature's second attack and its spells readable as themselves rather than as more of the
+/// same blow.
+/// </param>
 public sealed record AttackInitiation(
     CombatantId Actor,
     string ActorName,
@@ -56,7 +67,8 @@ public sealed record AttackInitiation(
     CombatantId? Target,
     string TargetName,
     GameDate? At,
-    GameDuration Recovery)
+    GameDuration Recovery,
+    string Ability = "")
 {
     /// <summary>Whether the attack was aimed at anything.</summary>
     public bool HasTarget => Target is not null;

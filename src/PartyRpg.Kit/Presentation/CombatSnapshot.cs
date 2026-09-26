@@ -27,6 +27,11 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="HitPointsMax">What it can take altogether, which is the measure the first number needs.</param>
 /// <param name="Conditions">What is acting on the actor, in the words the party already carries, empty when nothing is.</param>
 /// <param name="Down">Whether the actor is out of the fight: laid out by what is on it, or taken down by harm.</param>
+/// <param name="Activity">
+/// What the actor is doing, for an actor something drives: <c>closing</c>, <c>backing away</c>,
+/// <c>holding</c>, <c>attacking</c>, or <c>down</c>. Empty for the party's own members, whose doing is the
+/// player's and is published as the last order instead.
+/// </param>
 public readonly record struct CombatActorSnapshot(
     string Id,
     string Name,
@@ -36,7 +41,8 @@ public readonly record struct CombatActorSnapshot(
     int HitPoints = 0,
     int HitPointsMax = 0,
     string Conditions = "",
-    bool Down = false);
+    bool Down = false,
+    string Activity = "");
 
 /// <summary>
 /// What the fight is, who is in it, and what the party's last order did.
@@ -80,6 +86,11 @@ public readonly record struct CombatActorSnapshot(
 /// <param name="Resistance">What the target resisted of that kind: <c>immune</c>, a weight, or empty when nothing was resolved.</param>
 /// <param name="Condition">What the last hit left on its target besides harm, empty when it left nothing.</param>
 /// <param name="TargetDown">Whether the last hit is what took its target down.</param>
+/// <param name="ByParty">
+/// Whether the last order was the party's own rather than a creature's. A fight is two-sided once
+/// something drives the opposition, so the last thing that happened may be a blow the party took; a panel
+/// that could not tell the two apart would show a wound with no author.
+/// </param>
 public readonly record struct CombatSnapshot(
     bool Available,
     bool Engaged,
@@ -102,7 +113,8 @@ public readonly record struct CombatSnapshot(
     string DamageKind = "",
     string Resistance = "",
     string Condition = "",
-    bool TargetDown = false)
+    bool TargetDown = false,
+    bool ByParty = false)
 {
     /// <summary>No fight mechanism: nothing can be ordered and nothing is hostile.</summary>
     public static CombatSnapshot None => new(
@@ -122,10 +134,20 @@ public readonly record struct CombatSnapshot(
 
     /// <summary>Reads the fight's facts out of the session's mechanism.</summary>
     /// <param name="combat">The session's fight, or null when it holds none.</param>
+    /// <param name="director">
+    /// The driver of the opposition, when the session has one: what each creature is doing is its own fact
+    /// and no part of the fight, so a session that drives nothing publishes no activity rather than
+    /// inventing some.
+    /// </param>
     /// <returns>The facts the panel shows, or <see cref="None"/> when there is no mechanism.</returns>
-    public static CombatSnapshot From(CombatState? combat)
+    public static CombatSnapshot From(CombatState? combat, CombatDirector? director = null)
     {
         if (combat is null) return None;
+        Dictionary<CombatantId, string> activity = [];
+        foreach (CreatureActivity doing in director?.Activity ?? [])
+        {
+            activity[doing.Creature] = doing.Action;
+        }
 
         List<CombatActorSnapshot> members = [];
         List<CombatActorSnapshot> enemies = [];
@@ -148,7 +170,8 @@ public readonly record struct CombatSnapshot(
                 hitPoints,
                 hitPointsMax,
                 conditions,
-                combat.IsDown(combatant));
+                combat.IsDown(combatant),
+                activity.GetValueOrDefault(combatant.Id, string.Empty));
             if (combatant.Side != CombatSide.Party)
             {
                 // Only the actors actually fighting are published as enemies: a creature that has not
@@ -192,6 +215,9 @@ public readonly record struct CombatSnapshot(
             DamageKind: resolution?.DamageKind.Value ?? string.Empty,
             Resistance: resolution?.Resistance.ToString() ?? string.Empty,
             Condition: resolution?.Condition?.ToString() ?? string.Empty,
-            TargetDown: resolution?.TargetDown ?? false);
+            TargetDown: resolution?.TargetDown ?? false,
+            // The last order's own side is read from the fight rather than assumed: once the opposition is
+            // driven, the last thing that happened may be a blow the party took.
+            ByParty: order is not null && combat.Find(order.Actor)?.Side == CombatSide.Party);
     }
 }

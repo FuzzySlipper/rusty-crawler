@@ -94,10 +94,19 @@ kind of attack takes — the fight consumes the `AttackInitiation` it published,
 through keyed `AttackRolls` under a key that names the attack, applies what is left to whoever owns the
 target's health, applies the `CombatCondition` a landed hit leaves, records a `CombatResolution`, and
 reports it, with `DamageKindId`, `DamageRoll` (dice, a bonus, and a floor), `Resistance` (a weight or full
-immunity), `HitChance` in ten-thousandths, and `AttackPlan` as the vocabulary; `Combatant.Wounds` keeps
-what a fight has done to an actor the party does not own, and `CombatState.Vitals`, `IsDown`, and
-`LastResolution` are what the panel reads; no scene, no second population, no per-kind cooldown, no
-per-kind damage class, and no timer), one damage entry for a character's own health
+immunity), `HitChance` in ten-thousandths, and `AttackPlan` as the vocabulary; `CreatureHealth` is a
+creature's own health, a component on the entity's actor attached the first time a fight reads it, so a
+fight keeps no tally of its own beside it, and `CombatState.Vitals`, `IsDown`, and `LastResolution` are
+what the panel reads; no scene, no second population, no per-kind cooldown, no per-kind damage class, and
+no timer), the driver that gives the opposition its half
+(`Combat/` — `CombatDirector` decides for every creature the fight has engaged and orders it through the
+same `CombatState.Order` gate the player's control uses, asks the `IMonsterAiPolicy` seam who is whose
+enemy, how fast a creature moves, and what it does with its moment, applies a decision as an order or as a
+step through the `ICreatureMover` seam, reports what every creature is doing, and marks a place whose
+opposition is all down as cleared through the world's own per-place state; `EngineCreatureMotion` is the
+engine-backed mover — one character step per creature in the party's own collision scene, steered by the
+engine's navigation when a place has one, and no C# collision anywhere), one damage entry for a character's
+own health
 (`Party/` — `PartyMember.TakeDamage` is where every wound arrives, a creature's bite and a sprung trap
 alike, taking harm into the party's own pool, keeping `CharacterResources.Deficit` for how far past empty
 it went, and asking the `ICharacterHealthRule` seam which condition the wound leaves and which it moves

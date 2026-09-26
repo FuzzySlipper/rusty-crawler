@@ -11,4 +11,10 @@ Boundary rules:
 - It is built by `scripts/verify.sh`, so a change to the import API cannot leave
   the tool silently broken.
 
-Implemented: `info`, `list`, `report`, `verify`, `maps`, `media`, and `write` (see the root README).
+Implemented: `info`, `list`, `report`, `verify`, `maps`, `creatures`, `media`, and `write` (see the root
+README). `creatures` is the read-only half of the monster import: it decodes the maps, resolves every
+actor spawn through its map's encounter slots and the monster table, and prints what a write would emit —
+the creatures per place, the records nothing was emitted for with their reason, and the notes the reading
+makes (3,175 spawn records read, 1,900 creatures into 72 places, 43 refused over the operator's own
+install). `write` states the same counts in its summary so an operator does not have to run two commands
+to see them.

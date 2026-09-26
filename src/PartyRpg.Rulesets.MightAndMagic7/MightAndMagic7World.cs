@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Movement;
@@ -162,14 +163,15 @@ internal static class MightAndMagic7World
             // tears the same state, so a seat bought in one town cannot be spent in another's name.
             new MightAndMagic7TravelCostRule(entity),
             clock,
-            Mover(party, context),
+            Movers(party, context).Mover,
             context.Engine?.Diagnostics,
             PlaceEntranceLoader.Load(catalog, graph),
             clock,
             resources,
             entity,
             new InteractionPolicy(Interaction(conversation, schedules.Schedule), MightAndMagic7Movement.Space, MightAndMagic7Interaction.Aim),
-            schedules.Schedule);
+            schedules.Schedule,
+            Movers(party, context).Creatures);
     }
 
     /// <summary>
@@ -188,29 +190,40 @@ internal static class MightAndMagic7World
             : new MightAndMagic7PeopleInteraction(conversation, new MightAndMagic7Interaction(schedule));
 
     /// <summary>
-    /// The party's movement, when the host handed this ruleset an engine to move in.
+    /// How the party and the place's creatures move, when the host handed this ruleset an engine to move in.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Movement needs both halves: places to walk between, which the world supplies, and an engine whose
     /// spatial service owns collision and resolves the step. Without the engine there is no movement at
     /// all, and the session says so by stepping nothing rather than by standing in for a spatial service
     /// the product does not have.
+    /// </para>
+    /// <para>
+    /// <b>Both walk in one scene.</b> The creature mover is built over the party's own spatial session and
+    /// the party's own controller profile, so a creature is swept against the ground the place admitted and
+    /// moves by the same physics the party does, at the pace its own row states. Two scenes would let a
+    /// creature stand on a floor the party cannot see.
+    /// </para>
     /// </remarks>
-    private static IPartyMover? Mover(PartyPoseOwner party, RulesetSessionContext context)
+    /// <param name="party">The party's own pose, which its movement asks to move.</param>
+    /// <param name="context">What the host handed the ruleset, which carries the engine the world moves in.</param>
+    private static (IPartyMover? Mover, ICreatureMover? Creatures) Movers(PartyPoseOwner party, RulesetSessionContext context)
     {
-        if (context.Engine is not { } engine) return null;
+        if (context.Engine is not { } engine) return (null, null);
 
         // A context that carries no engine, or an engine that answers with no spatial service, means the
         // product has no collision to move through: there is no movement then, rather than movement that
         // walks through walls.
-        if (engine.Spatial is not { } spatial) return null;
+        if (engine.Spatial is not { } spatial) return (null, null);
 
+        MovementTuning tuning = MightAndMagic7Movement.Tuning(spatial);
         PartyMovement movement = new(
             spatial,
             party,
             MightAndMagic7Movement.Space,
             MightAndMagic7Movement.Session,
-            MightAndMagic7Movement.Tuning(spatial));
+            tuning);
 
         // A place's geometry comes from the catalog when content carries any. Without a catalog there is no
         // world either, but the mover is composed here where both are still in hand.
@@ -218,7 +231,9 @@ internal static class MightAndMagic7World
             ? new ContentPlaceGeometry(catalog, GeometryDefinitionKind, GeometryArtifactProperty)
             : null;
 
-        return new EnginePartyMover(spatial, movement, engine.Content, geometry);
+        return (
+            new EnginePartyMover(spatial, movement, engine.Content, geometry),
+            new EngineCreatureMotion(spatial, movement.Session, MightAndMagic7Movement.Space, tuning.Controller));
     }
 
     private static (PlaceId Place, string? EntryPoint)? ReadStart(ContentCatalog catalog)

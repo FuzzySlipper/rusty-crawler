@@ -27,7 +27,10 @@ namespace MightAndMagic7.Import.Maps;
 /// <param name="Index">The actor's position in the delta's own array.</param>
 /// <param name="Name">The name the record carries, empty on the shipped records that state none.</param>
 /// <param name="NpcId">The NPC table row the actor is, or zero when the actor is a monster.</param>
-/// <param name="MonsterId">The monster definition the actor is, or zero on a person.</param>
+/// <param name="MonsterId">
+/// The monster row the actor is, read from the record's own embedded monster info, which is what a person
+/// in a level is as far as a fight is concerned too; zero when the record states none.
+/// </param>
 /// <param name="HitPoints">The actor's current hit points, as the record stores them.</param>
 /// <param name="Attributes">The actor's attribute bits, as the record stores them.</param>
 /// <param name="Position">Where the actor stands, in the level's own coordinates.</param>

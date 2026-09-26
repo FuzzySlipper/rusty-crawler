@@ -1,6 +1,9 @@
 using System.Text.Json;
+using MightAndMagic7.Import.Lod;
 using MightAndMagic7.Import.Maps;
 using MightAndMagic7.Import.Media;
+using MightAndMagic7.Import.Packs;
+using MightAndMagic7.Import.Tables;
 
 namespace MightAndMagic7.Import.Tool;
 
@@ -27,6 +30,7 @@ internal static class Program
                 "verify" => InventoryCheck.Run(RequireInstall(arguments)),
                 "write" => Write(RequireInstall(arguments), RequireOption(arguments, "--output"), arguments.Contains("--check-determinism")),
                 "maps" => Maps(RequireInstall(arguments)),
+                "creatures" => Creatures(RequireInstall(arguments)),
                 "people" => PeopleDetail(RequireInstall(arguments)),
                 "media" => Media(RequireInstall(arguments), RequireOption(arguments, "--output")),
                 _ => Unknown(arguments[0]),
@@ -134,6 +138,8 @@ internal static class Program
                 buildings = tables.Services.Buildings.Count,
                 services = tables.Services.Services.Count(),
                 monsters = tables.Monsters.Monsters.Count,
+                hostilityKinds = tables.Hostility.Rows.Count,
+                hostilityNameMismatches = tables.Hostility.MismatchedNames,
                 spells = tables.Spells.Spells.Count,
                 spellSchools = tables.Spells.Schools.Count,
                 quests = tables.Quests.Quests.Count,
@@ -167,6 +173,56 @@ internal static class Program
         }
 
         return arguments[index];
+    }
+
+    /// <summary>
+    /// Reports the creatures the operator's own spawn records put on the field, per place, with everything
+    /// nothing was emitted for and why.
+    /// </summary>
+    /// <remarks>
+    /// This is the read-only half of the creature import and the same reading the writer makes: it decodes
+    /// the maps, resolves every actor spawn through its map's encounter slots and the monster table, and
+    /// prints what a write would emit without writing anything. It exists because "does the world hold
+    /// monsters, and where" is a question an operator asks before generating packs rather than after
+    /// playing them, and because a remainder has to be a named record rather than a smaller total.
+    /// </remarks>
+    private static int Creatures(string installRoot)
+    {
+        LodInstall install = LodInstall.Open(installRoot);
+        Mm7Tables tables = Mm7Tables.Read(install);
+        MapDecodeReport report = MapDecoder.DecodeAll(install);
+        Dictionary<int, DecodedMap> maps = report.Decoded
+            .Where(outcome => outcome.Decoded is not null)
+            .ToDictionary(outcome => outcome.Map.Id, outcome => outcome.Decoded!);
+        PlaceCreatureSummary summary = PlaceCreatures.Emit(tables, maps);
+
+        Console.WriteLine(JsonSerializer.Serialize(
+            new
+            {
+                install = install.Root,
+                placesHoldingCreatures = summary.PopulatedPlaces,
+                creatures = summary.CreatureCount,
+                distinctMonsters = summary.DistinctMonsters,
+                spawnRecords = summary.SpawnRecords,
+                actorSpawns = summary.ActorSpawns,
+                treasureSpawns = summary.TreasureSpawns,
+                perPlace = summary.PerPlace.Select(count => new
+                {
+                    place = count.Key,
+                    name = tables.Maps.Maps.First(map => map.Id == count.Key).Name,
+                    creatures = count.Value,
+                }),
+                refusalsByReason = summary.RefusalCodes,
+                refusals = summary.Refusals.Select(refusal => new
+                {
+                    reason = refusal.Code,
+                    subject = refusal.Subject,
+                    detail = refusal.Reason,
+                }),
+                notes = summary.Notes,
+            },
+            Json));
+        return 0;
     }
 
     private static int Maps(string installRoot)
@@ -241,11 +297,39 @@ internal static class Program
                 entrances = Describe(result.Entrances),
                 services = Describe(result.Services),
                 people = Describe(result.People),
+                creatures = Describe(result.Creatures),
                 use = "add these pack ids to a bundle under content/partyrpg/bundles to load them",
             },
             Json));
         return 0;
     }
+
+    /// <summary>
+    /// What the creature derivation produced: how many records asked for a creature, how many creatures were
+    /// emitted where, and every record nothing was emitted for with its reason.
+    /// </summary>
+    /// <remarks>
+    /// The counts are stated because "the world holds monsters" is a claim about the operator's own data:
+    /// the actor spawns are the records a creature can come from, the treasure spawns are the ones that ask
+    /// for loot instead, and a refusal is listed rather than only counted so an operator can see which
+    /// record asked for something the import could not read.
+    /// </remarks>
+    private static object Describe(Packs.PlaceCreatureSummary creatures) => new
+    {
+        spawnRecords = creatures.SpawnRecords,
+        actorSpawns = creatures.ActorSpawns,
+        treasureSpawns = creatures.TreasureSpawns,
+        emitted = creatures.CreatureCount,
+        places = creatures.PopulatedPlaces,
+        distinctMonsters = creatures.DistinctMonsters,
+        refusals = creatures.Refusals.Select(refusal => new
+        {
+            subject = refusal.Subject,
+            reason = refusal.Code,
+            detail = refusal.Reason,
+        }),
+        notes = creatures.Notes,
+    };
 
     /// <summary>
     /// What the people derivation produced: who the tables carry, where they stand, and everything nothing

@@ -42,11 +42,17 @@ internal static class SyntheticInstallation
     /// always present, because every reader of the tables reads them, and this adds the record that makes a
     /// person stand where a map says.
     /// </param>
+    /// <param name="emptyEncounterSlots">
+    /// Whether the maps' second and third encounter slots name no monster, which is what the shipped maps
+    /// state where a level spawns only one kind of creature. It is a separate choice so the suites that
+    /// read placed creatures keep the slots they always had.
+    /// </param>
     internal static string Create(
         bool withMaps = false,
         bool withContainers = false,
         bool withServices = false,
-        bool withPeople = false)
+        bool withPeople = false,
+        bool emptyEncounterSlots = false)
     {
         string root = Path.Combine(Path.GetTempPath(), $"mm7-synthetic-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(root, "DATA"));
@@ -102,9 +108,10 @@ internal static class SyntheticInstallation
                 [
                     LodFixture.TextTable("CLASS.TXT", Classes()),
                     LodFixture.TextTable("SKILLDES.TXT", Skills()),
-                    LodFixture.TextTable("MAPSTATS.TXT", Maps(withMaps)),
+                    LodFixture.TextTable("MAPSTATS.TXT", Maps(withMaps, emptyEncounterSlots)),
                     LodFixture.TextTable("2DEvents.txt", Buildings(withServices)),
                     LodFixture.TextTable("MONSTERS.TXT", Monsters()),
+                    LodFixture.TextTable("HOSTILE.TXT", Hostility()),
                     LodFixture.TextTable("SPELLS.TXT", Spells()),
                     LodFixture.TextTable("ITEMS.TXT", Items()),
                     LodFixture.TextTable("QUESTS.TXT", Quests()),
@@ -214,9 +221,11 @@ internal static class SyntheticInstallation
         return text.ToString();
     }
 
-    private static string Maps(bool withMaps)
+    private static string Maps(bool withMaps, bool emptyEncounterSlots)
     {
         _ = withMaps;
+        string second = emptyEncounterSlots ? "0\t0\t1\t 0-0" : "Monster 2\tMonster 2\t1\t 1-3";
+        string third = emptyEncounterSlots ? "0\t0\t1\t 0-0" : "Monster 3\tMonster 3\t5\t 1-3";
         StringBuilder text = new("map stats\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n");
         text.Append(new string('\t', 32)).Append('\n');
         text.Append("#\tName\tFile name\t#\tDay\t0-20\tDays\tDays\tPerm\t0-20\t0-10\t0-6\t%\t%\t%\t%\tMon1 Pic\tMon 1\t 1-5\t#\tMon2 Pic\tMon 2\t 1-5\t#\tMon3 Pic\tMon 3\t 1-5\t#\tTrack\tEAX\tDesigner\tNotes\n");
@@ -227,7 +236,11 @@ internal static class SyntheticInstallation
             string file = map <= 13 ? $"Out{map:D2}.odm" : $"D{map - 13:D2}.blv";
             // The trap columns (9 and 10) are non-zero so a written container's trap numbers are the ones
             // the map's own row declares rather than a default nothing wrote.
-            text.Append($"{map}\tMap {map}\t{file}\t0\t0\t0\t672\t7\t0\t{(map % 20) + 1}\t{(map % 10) + 1}\t1\t0\t10\t100\t0\t0\tMonster {map}\tMonster {map}\t1\t 2-5\t0\t0\t1\t 1-3\t0\t0\t1\t 1-3\t20\tFOREST\tDesigner\tNotes for map {map}\n");
+            // The encounter columns are the table's own: each slot names the monster it spawns in both
+            // its picture and its name column, states the difficulty its grade odds are read at, and the
+            // range of creatures it puts on the field. The slots name the graded groups the monster
+            // fixture's rows carry, so a spawn record resolves to a row.
+            text.Append($"{map}\tMap {map}\t{file}\t0\t0\t0\t672\t7\t0\t{(map % 20) + 1}\t{(map % 10) + 1}\t1\t0\t10\t100\t0\tMonster 1\tMonster 1\t{(map % 5) + 1}\t 2-5\t{second}\t{third}\t20\tFOREST\tDesigner\tNotes for map {map}\n");
         }
 
         return text.ToString();
@@ -271,9 +284,32 @@ internal static class SyntheticInstallation
             // data; one row here carries that shape so the reader keeps handling it.
             string hp = monster % 16 == 0 ? $"\" {monster * 1000:N0} \"" : (monster * 10).ToString();
             string experience = monster % 16 == 0 ? $"\" {monster * 10000:N0} \"" : (monster * 25).ToString();
-            text.Append($"{monster}\tMonster {monster}\tzmon\t{monster}\t{hp}\t{monster % 40}\t{experience}\t2D6\t0\tN\tLong\tAggress\t3\t140\t100\t0\t0\tPhys\t2D8\t0\t0\n");
+            // The internal name is the slot's own kind plus the graded variant, which is the shape the real
+            // table writes and the join a spawn record is resolved through: three rows share a kind, so a
+            // map naming "Monster 2" and a record naming grade A meet at row 4.
+            string variant = ((monster - 1) % 3) switch { 0 => "A", 1 => "B", _ => "C" };
+            text.Append($"{monster}\tMonster {monster}\tMonster {((monster - 1) / 3) + 1} {variant}\t{monster}\t{hp}\t{monster % 40}\t{experience}\t2D6\t0\tN\tLong\tAggress\t3\t140\t100\t0\t0\tPhys\t2D8\t0\t0\n");
         }
 
+        return text.ToString();
+    }
+
+    /// <summary>
+    /// The shipped hostility matrix's shape: a header naming every kind of monster and one row per kind,
+    /// each carrying a band per column.
+    /// </summary>
+    /// <remarks>
+    /// The fixture states four kinds — the first four graded groups the monster rows belong to — and gives
+    /// two of them a feud: the second and third hate each other with the two widest bands and are friendly
+    /// to the rest, which is what a test reads to prove the matrix came from content rather than from code.
+    /// </remarks>
+    private static string Hostility()
+    {
+        StringBuilder text = new("\tParty\tMonster 1\tMonster 2\tMonster 3\n");
+        text.Append("Party\t0\t0\t0\t0\n");
+        text.Append("Monster 1\t0\t0\t0\t0\n");
+        text.Append("Monster 2\t0\t0\t0\t4\n");
+        text.Append("Monster 3\t0\t0\t3\t0\n");
         return text.ToString();
     }
 

@@ -231,11 +231,11 @@ function combat(overrides = {}) {
     members: [
       {
         id: 'member:1', name: 'Roderick', ready: true, recoverySeconds: 0, distance: 0,
-        hitPoints: 40, hitPointsMax: 40, conditions: '', down: false,
+        hitPoints: 40, hitPointsMax: 40, conditions: '', down: false, activity: '',
       },
       {
         id: 'member:2', name: 'Aelina', ready: true, recoverySeconds: 0, distance: 0,
-        hitPoints: 24, hitPointsMax: 24, conditions: '', down: false,
+        hitPoints: 24, hitPointsMax: 24, conditions: '', down: false, activity: '',
       },
     ],
     enemies: [],
@@ -255,6 +255,7 @@ function combat(overrides = {}) {
     resistance: '',
     condition: '',
     targetDown: false,
+    byParty: true,
     ...overrides,
   };
 }
@@ -278,7 +279,7 @@ function fighting(overrides = {}) {
     enemies: [
       {
         id: 'actor:1', name: 'A beast', ready: true, recoverySeconds: 0, distance: 100,
-        hitPoints: 14, hitPointsMax: 40, conditions: '', down: false,
+        hitPoints: 14, hitPointsMax: 40, conditions: '', down: false, activity: 'attacking',
       },
     ],
     actor: 'Roderick',
@@ -296,6 +297,18 @@ function fighting(overrides = {}) {
     resistance: '0',
     condition: '',
     targetDown: false,
+    byParty: true,
+    ...overrides,
+  });
+}
+
+/** The same fight a moment later: the creature's own blow, which the party took. */
+function struck(overrides = {}) {
+  return fighting({
+    actor: 'A beast',
+    target: 'Roderick',
+    message: 'A beast attacks Roderick (melee) and must recover 23438ms of game time. A beast hits Roderick (melee): 7 Phys damage landed; Roderick is at 33/40.',
+    byParty: false,
     ...overrides,
   });
 }
@@ -619,6 +632,7 @@ function servicePanel(h) {
     resistance: result?.getAttribute('data-resistance'),
     condition: result?.getAttribute('data-condition'),
     targetDown: result?.getAttribute('data-target-down'),
+    byParty: result?.getAttribute('data-by-party'),
   };
 }
 
@@ -651,6 +665,7 @@ function restPanel(h) {
     resistance: result?.getAttribute('data-resistance'),
     condition: result?.getAttribute('data-condition'),
     targetDown: result?.getAttribute('data-target-down'),
+    byParty: result?.getAttribute('data-by-party'),
   };
 }
 
@@ -668,6 +683,7 @@ function combatPanel(h) {
       health: row.getAttribute('data-health'),
       conditions: row.getAttribute('data-conditions'),
       down: row.getAttribute('data-down'),
+      activity: row.getAttribute('data-activity'),
     }));
   return {
     state: panel?.getAttribute('data-combat'),
@@ -691,6 +707,7 @@ function combatPanel(h) {
     resistance: result?.getAttribute('data-resistance'),
     condition: result?.getAttribute('data-condition'),
     targetDown: result?.getAttribute('data-target-down'),
+    byParty: result?.getAttribute('data-by-party'),
   };
 }
 
@@ -1962,6 +1979,19 @@ test('the panel renders the fight, who may act, and what the party did', () => {
     assert.match(engaged.enemies[0].name, /A beast — ready at 100/);
     assert.equal(engaged.messageOutcome, 'applied');
     assert.match(engaged.message, /attacks A beast/);
+
+    // The enemy row says what the creature is doing, which is the product's own word for it rather than a
+    // guess the screen makes from a position it saw change.
+    assert.equal(engaged.enemies[0].activity, 'attacking');
+
+    // A fight is two-sided: the panel says whether the last order was the party's own or a creature's, so a
+    // wound the party took does not read as the party's own doing.
+    assert.equal(engaged.byParty, 'yes');
+    h.emit(snapshot('running', 4, 240, 245, movement(), { combat: struck() }));
+    const incoming = combatPanel(h);
+    assert.equal(incoming.byParty, 'no');
+    assert.match(incoming.message, /A beast attacks Roderick/);
+    assert.match(incoming.message, /Roderick is at 33\/40/);
 
     // A recovering party cannot act from the panel: the control is disabled while the product says no member
     // may act, which is the fight's own readiness rather than a countdown this screen runs.

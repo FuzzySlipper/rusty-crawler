@@ -39,7 +39,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// equipment, and their place is the sum below.
 /// </para>
 /// </remarks>
-internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule
+internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule, ICombatAbilityResolutionRule
 {
     /// <summary>The definition kind a monster row is imported under.</summary>
     internal const string MonsterDefinitionKind = "monster";
@@ -76,6 +76,21 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule
     /// <summary>The monster row field that states its name.</summary>
     internal const string NameField = "name";
 
+    /// <summary>The monster row field that states its AI class, which is what decides whether it runs.</summary>
+    internal const string AiTypeField = "aiType";
+
+    /// <summary>The monster row field that states how the creature moves.</summary>
+    internal const string MovementField = "movement";
+
+    /// <summary>The monster row field that states how fast it covers ground.</summary>
+    internal const string SpeedField = "speed";
+
+    /// <summary>The definition kind a spell's own entry is declared under.</summary>
+    internal const string SpellDefinitionKind = "spell";
+
+    /// <summary>The spell entry field that states the kind of harm the spell does.</summary>
+    internal const string SpellResistField = "resist";
+
     /// <summary>The placement kind a person standing in a place stands under.</summary>
     internal const string PersonPlacementKind = "person";
 
@@ -94,6 +109,18 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule
     /// <summary>The monster row field that states its armor class.</summary>
     internal const string ArmorClassField = "armorClass";
 
+    /// <summary>The name this game gives a creature's first attack, as an order and a resolution both spell it.</summary>
+    internal const string AbilityAttack1 = "attack1";
+
+    /// <summary>The name this game gives a creature's second attack.</summary>
+    internal const string AbilityAttack2 = "attack2";
+
+    /// <summary>The name this game gives the first spell a creature casts.</summary>
+    internal const string AbilitySpell1 = "spell1";
+
+    /// <summary>The name this game gives the second spell a creature casts.</summary>
+    internal const string AbilitySpell2 = "spell2";
+
     /// <summary>The monster row column that states what its first attack does, and of what kind.</summary>
     /// <remarks>
     /// The table's own columns, named in its header row and read by the donor at the same positions
@@ -110,6 +137,32 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule
 
     /// <summary>The column that states what a monster's first attack throws, empty when it is a blow.</summary>
     internal const int AttackMissileColumn = 19;
+
+    /// <summary>The column that states how often a monster uses its second attack, in percent.</summary>
+    /// <remarks>The table's own <c>Att%</c> header, read by the donor at <c>src/Engine/Objects/Monsters.cpp:540</c>.</remarks>
+    internal const int SecondAttackChanceColumn = 20;
+
+    /// <summary>The column that states the damage type of a monster's second attack.</summary>
+    internal const int SecondAttackTypeColumn = 21;
+
+    /// <summary>The column that states the dice of a monster's second attack.</summary>
+    internal const int SecondAttackDamageColumn = 22;
+
+    /// <summary>The column that states what a monster's second attack throws, empty when it is a blow.</summary>
+    internal const int SecondAttackMissileColumn = 23;
+
+    /// <summary>The column that states how often a monster casts its first spell, in percent.</summary>
+    /// <remarks>The table's own first <c>Use%</c> header, read by the donor at <c>src/Engine/Objects/Monsters.cpp:542</c>.</remarks>
+    internal const int FirstSpellChanceColumn = 24;
+
+    /// <summary>The column that states which spell a monster casts first, with its mastery and skill.</summary>
+    internal const int FirstSpellColumn = 25;
+
+    /// <summary>The column that states how often a monster casts its second spell, in percent.</summary>
+    internal const int SecondSpellChanceColumn = 26;
+
+    /// <summary>The column that states which spell a monster casts second.</summary>
+    internal const int SecondSpellColumn = 27;
 
     /// <summary>The name the shipped table gives the people it places in the world.</summary>
     /// <remarks>
@@ -329,7 +382,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule
     {
         if (catalog is null) return new MightAndMagic7Combat([], [], null, random);
         List<ContentValidationIssue> issues = [];
-        Dictionary<int, MonsterFacts> monsters = ReadMonsters(catalog, issues);
+        Dictionary<int, MonsterFacts> monsters = ReadMonsters(catalog, ReadSpells(catalog), issues);
         Dictionary<string, string> people = ReadPeople(catalog);
         ValidateCreatures(catalog, monsters, issues);
 
@@ -457,15 +510,24 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule
 
     /// <inheritdoc />
     /// <remarks>
-    /// A creature reaches as far as the donor's closest-target pick searches, and a character reaches as far
-    /// as the kind of attack it makes: hand-to-hand at arm's length, a shot or a spell as far as the party
-    /// can pick anything to aim at.
+    /// <para>
+    /// Everything reaches as far as the kind of attack it makes: hand-to-hand at arm's length, and a shot, a
+    /// throw, or a spell as far as the donor's own closest-target pick searches.
+    /// </para>
+    /// <para>
+    /// <b>A creature's swing is short and its throw is long.</b> The donor's own melee test is a distance
+    /// less than the melee range (<c>src/Engine/Objects/Character.cpp:6378</c>) and it is the same test for an
+    /// actor's blow, while an actor's missile and its spells are resolved against targets within its own
+    /// notice radius (<c>src/Engine/Objects/Actor.cpp:2698-2760</c>, where the ability decides whether the
+    /// creature pursues or throws). Reading one reach for everything would have a creature swing at
+    /// something five thousand units away, which is what its throw is for.
+    /// </para>
     /// </remarks>
     public double ReachOf(CombatSubject subject, AttackKind kind)
     {
         ArgumentNullException.ThrowIfNull(subject);
-        if (Creature(subject) is not null) return CreatureReach;
-        return kind == AttackKind.Melee ? MeleeReach : RangedReach;
+        if (kind == AttackKind.Melee) return MeleeReach;
+        return Facts(subject) is not null ? CreatureReach : RangedReach;
     }
 
     /// <inheritdoc />
@@ -519,6 +581,67 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule
             : CreatureHitChance(Facts(attacker)?.Level ?? 0, armor);
 
         return new AttackPlan(chance, damageKind, damage, ResistanceOf(target, damageKind));
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// <para>
+    /// <b>A creature's own ways of attacking are the table's.</b> Its second attack has its own dice and its
+    /// own kind of harm and its own projectile (<c>monsters.txt</c> columns 20-23, read by the donor at
+    /// <c>src/Engine/Objects/Monsters.cpp:540-541</c>), so an order naming one resolves as that attack
+    /// rather than as another swing of the first.
+    /// </para>
+    /// <para>
+    /// <b>A monster's spell lands with the row's own dice.</b> The donor takes a spell's harm from its own
+    /// per-spell table (<c>CalcSpellDamage</c>, <c>src/Engine/Spells/Spells.cpp:813</c>, over
+    /// <c>pSpellDatas</c> at <c>Spells.cpp:193</c>), which the imported spell content states as a kind of
+    /// harm and a description rather than as dice. What this game can state is the kind — read from the
+    /// spell's own <c>Resist</c> column, so a creature's fire bolt is fire and its mind blast is mind — and
+    /// the dice are the row's first attack until the stone that brings spells brings their numbers. The hit
+    /// test is the creature's own, because a spell this build casts is aimed like any other attack.
+    /// </para>
+    /// <para>
+    /// A member of the party has no such abilities: what a character's attack is worth is answered for the
+    /// kind alone, which is where a weapon, a bow, and a quick spell will each state their own.
+    /// </para>
+    /// </remarks>
+    public AttackPlan PlanOfAbility(CombatSubject attacker, CombatSubject target, AttackKind kind, string ability)
+    {
+        ArgumentNullException.ThrowIfNull(attacker);
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentException.ThrowIfNullOrWhiteSpace(ability);
+
+        if (Facts(attacker) is not { } facts) return PlanOf(attacker, target, kind);
+        (DamageRoll damage, DamageKindId damageKind) = ability switch
+        {
+            // A row that states no second attack at all — no dice and no bonus — is a row with one attack,
+            // and an order naming a second one resolves as the first rather than as a blow for nothing.
+            AbilityAttack2 when facts.Second.Roll.Maximum > 0 => (facts.Second.Roll, facts.Second.Kind),
+            AbilitySpell1 when facts.FirstSpell.IsUsable => (facts.Attack, facts.FirstSpell.Damage),
+            AbilitySpell2 when facts.SecondSpell.IsUsable => (facts.Attack, facts.SecondSpell.Damage),
+            _ => (facts.Attack, facts.AttackKind),
+        };
+
+        return new AttackPlan(
+            CreatureHitChance(facts.Level, ArmorClassOf(target)),
+            damageKind,
+            damage,
+            ResistanceOf(target, damageKind));
+    }
+
+    /// <summary>What one actor's own row is worth to a fight, which is what a policy reads to decide with.</summary>
+    /// <remarks>
+    /// This is the one place a creature's numbers leave this policy: the AI answers what a creature does,
+    /// and it can only answer it from the same row the fight prices it by — how it is classed, how it moves,
+    /// how fast, what its chances are, and what its spells are. Nothing outside this assembly sees it, and
+    /// the kit never sees it at all.
+    /// </remarks>
+    /// <param name="subject">The actor to read.</param>
+    /// <returns>The row, or null when nothing states one.</returns>
+    internal MonsterFacts? FactsOf(CombatSubject subject)
+    {
+        ArgumentNullException.ThrowIfNull(subject);
+        return Facts(subject);
     }
 
     /// <inheritdoc />
@@ -804,7 +927,42 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule
 
     /// <summary>The monster row a subject is, whichever kind of actor it is, or null when nothing states one.</summary>
     private MonsterFacts? Facts(CombatSubject subject) =>
-        Creature(subject) ?? (IsPerson(subject) ? _person : null);
+        Creature(subject) ?? PersonFacts(subject);
+
+    /// <summary>
+    /// The monster row a person standing in the world is, or null when the subject is not a person.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A person the map places is the row the map's own record names.</b> The donor reads a person
+    /// standing in a level as an actor with a monster row of their own
+    /// (OpenEnroth <c>src/Engine/Objects/MonsterEnumFunctions.h:56-58</c>, <c>isPeasant</c>), and the
+    /// shipped levels use that to give a guard, an adept, and a peasant their own hit points and armor
+    /// class: the actor record's embedded monster info states the row, and the importer carries it onto the
+    /// placement as its <c>monster</c> field.
+    /// </para>
+    /// <para>
+    /// <b>A person the NPC table places in a building states no row.</b> The table's own placement column
+    /// says who lives there and not what any of them fights as, so this reads the first shipped peasant row
+    /// for them — which is the donor's own reading of a person, and the only one this game can make where
+    /// the data says nothing. A person whose placement names a row the content does not carry reads the
+    /// same, because a missing row is not a fight nobody can price: it is a person whose own record states
+    /// nothing this build can read.
+    /// </para>
+    /// </remarks>
+    /// <param name="subject">The actor to read.</param>
+    private MonsterFacts? PersonFacts(CombatSubject subject)
+    {
+        if (!IsPerson(subject)) return null;
+        if (subject.Placement is { } placement &&
+            int.TryParse(placement.Source.GetId(MonsterField), NumberStyles.None, CultureInfo.InvariantCulture, out int id) &&
+            _monsters.TryGetValue(id, out MonsterFacts? stated))
+        {
+            return stated;
+        }
+
+        return _person;
+    }
 
     /// <summary>Whether a subject is a person standing in the world rather than a creature of a row.</summary>
     private static bool IsPerson(CombatSubject subject) =>
@@ -885,7 +1043,10 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule
     /// time at all is a defect named where the session is composed: a creature nobody can pace is a fight
     /// that either never acts or acts forever.
     /// </remarks>
-    private static Dictionary<int, MonsterFacts> ReadMonsters(ContentCatalog catalog, List<ContentValidationIssue> issues)
+    private static Dictionary<int, MonsterFacts> ReadMonsters(
+        ContentCatalog catalog,
+        IReadOnlyDictionary<string, DamageKindId> spells,
+        List<ContentValidationIssue> issues)
     {
         Dictionary<int, MonsterFacts> monsters = [];
         foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in catalog.Entries(MonsterDefinitionKind))
@@ -923,7 +1084,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule
                 continue;
             }
 
-            MonsterFacts? facts = Facts(entry, id, recovery, hostility == 0 ? 0 : NoticeRanges[hostility], Defect);
+            MonsterFacts? facts = Facts(entry, id, recovery, hostility == 0 ? 0 : NoticeRanges[hostility], spells, Defect);
             if (facts is not null) monsters[id] = facts;
         }
 
@@ -953,6 +1114,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule
         int id,
         int recoveryTicks,
         double noticeRange,
+        IReadOnlyDictionary<string, DamageKindId> spells,
         Action<string, string> defect)
     {
         IReadOnlyList<JsonElement> columns = entry.GetArray("columns");
@@ -981,8 +1143,15 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule
                 DamageRoll.Flat(0),
                 MightAndMagic7Damage.Physical,
                 Throws: false,
+                new MonsterAttack(DamageRoll.Flat(0), MightAndMagic7Damage.Physical, Throws: false),
+                SecondChance: 0,
+                MonsterSpell.None,
+                MonsterSpell.None,
                 new MonsterSpecialAttack(MightAndMagic7SpecialAttackKind.None, 1),
-                new Dictionary<DamageKindId, Resistance>());
+                new Dictionary<DamageKindId, Resistance>(),
+                AiType: string.Empty,
+                Movement: string.Empty,
+                Speed: 0);
         }
 
         if (cells.Count < MightAndMagic7Damage.MonsterColumns)
@@ -1010,6 +1179,22 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule
                 $"monster '{name}' ({id}) states '{cells[AttackDamageColumn]}' as its damage, which is not dice this game can roll.");
             return null;
         }
+
+        DamageKindId secondKind = MightAndMagic7Damage.Known(cells[SecondAttackTypeColumn].Trim()) ?? MightAndMagic7Damage.Physical;
+        if (!TryReadDice(cells[SecondAttackDamageColumn], out DamageRoll second))
+        {
+            defect(
+                "monster-attack-unreadable",
+                $"monster '{name}' ({id}) states '{cells[SecondAttackDamageColumn]}' as its second attack's damage, which is not dice this game can roll.");
+            return null;
+        }
+
+        // A monster's spells are named the way the table names them and their harm is read from the spell
+        // table the same content carries. A spell that table describes no harm for — a shield, a cure, a
+        // dispel — is a spell this build cannot cast, so the creature keeps it on its row and never chooses
+        // it; it is content the data carries rather than a defect in it.
+        MonsterSpell first = MonsterSpell.Read(cells[FirstSpellColumn], cells[FirstSpellChanceColumn], spells);
+        MonsterSpell secondSpell = MonsterSpell.Read(cells[SecondSpellColumn], cells[SecondSpellChanceColumn], spells);
 
         Dictionary<DamageKindId, Resistance> resistances = [];
         foreach (DamageKindId kind in new[]
@@ -1042,8 +1227,45 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule
             attack,
             attackKind,
             cells[AttackMissileColumn].Trim().Length > 0 && cells[AttackMissileColumn].Trim() != "0",
+            new MonsterAttack(second, secondKind, HasMissile(cells[SecondAttackMissileColumn])),
+            ChanceFrom(cells[SecondAttackChanceColumn]),
+            first,
+            secondSpell,
             special,
-            resistances);
+            resistances,
+            entry.GetString(AiTypeField),
+            entry.GetString(MovementField),
+            entry.GetInt32(SpeedField) ?? 0);
+    }
+
+    /// <summary>Whether a missile column states a projectile rather than a blow.</summary>
+    private static bool HasMissile(string cell) => cell.Trim().Length > 0 && cell.Trim() != "0";
+
+    /// <summary>Reads a percentage column, which the shipped table writes as a number and may pad.</summary>
+    private static int ChanceFrom(string cell) =>
+        int.TryParse(cell.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int chance) ? chance : 0;
+
+    /// <summary>
+    /// What kind of harm each spell in this content does, by the spell's own name.
+    /// </summary>
+    /// <remarks>
+    /// The spell table the packs carry states, per spell, the kind of harm it does — its own <c>Resist</c>
+    /// column, which is the same vocabulary the monster table's attack columns use. A monster row names the
+    /// spells it casts, so this is the join between the two: what a creature casts is content, and what that
+    /// spell does to a target is content too. A spell the table describes no harm for casts nothing this
+    /// build can resolve, and is left out rather than counted as physical.
+    /// </remarks>
+    private static Dictionary<string, DamageKindId> ReadSpells(ContentCatalog catalog)
+    {
+        Dictionary<string, DamageKindId> spells = new(StringComparer.OrdinalIgnoreCase);
+        foreach ((_, _, ContentEntry entry) in catalog.Entries(SpellDefinitionKind))
+        {
+            string name = entry.GetString(NameField);
+            if (name.Length == 0) continue;
+            if (MightAndMagic7Damage.Known(entry.GetString(SpellResistField).Trim()) is { } kind) spells[name] = kind;
+        }
+
+        return spells;
     }
 
     /// <summary>
@@ -1104,7 +1326,8 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule
             foreach (JsonElement placement in place.GetArray("placements"))
             {
                 if (!string.Equals(ContentEntry.ReadString(placement, "kind"), CreaturePlacementKind, StringComparison.Ordinal)) continue;
-                string named = ContentEntry.ReadString(placement, MonsterField);
+                // An identity, not a string: the pack writes the row as the number it is.
+                string named = ContentEntry.ReadId(placement, MonsterField);
                 if (!int.TryParse(named, NumberStyles.None, CultureInfo.InvariantCulture, out int id) || !monsters.ContainsKey(id))
                 {
                     issues.Add(new ContentValidationIssue(
@@ -1128,7 +1351,9 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule
     {
         if (subject.Placement is not { } placement) return null;
         if (!string.Equals(placement.Content.Kind, CreaturePlacementKind, StringComparison.Ordinal)) return null;
-        string named = placement.Source.GetString(MonsterField);
+        // The row is read as an identity rather than as text: the importer writes it as the number it is, and
+        // hand-authored content may write it as a string, and both name the same row.
+        string named = placement.Source.GetId(MonsterField);
         return int.TryParse(named, NumberStyles.None, CultureInfo.InvariantCulture, out int id)
             ? _monsters.GetValueOrDefault(id)
             : null;
@@ -1179,9 +1404,16 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule
     /// <param name="Attack">What the row's first attack rolls.</param>
     /// <param name="AttackKind">What kind of harm that attack does.</param>
     /// <param name="Throws">Whether the row's first attack is thrown rather than swung.</param>
+    /// <param name="Second">What the row's second attack rolls, and of what kind.</param>
+    /// <param name="SecondChance">How often the row uses its second attack instead, in percent.</param>
+    /// <param name="FirstSpell">The spell the row casts first, when its content names one it can cast.</param>
+    /// <param name="SecondSpell">The spell it casts second.</param>
     /// <param name="Special">What the row's attack leaves on a character, if anything.</param>
     /// <param name="Resistances">What the row resists, by kind of harm.</param>
-    private sealed record MonsterFacts(
+    /// <param name="AiType">The row's AI class, which is what decides whether it runs when hurt.</param>
+    /// <param name="Movement">How the row moves, which is what decides whether it closes or holds.</param>
+    /// <param name="Speed">How fast it covers ground, in place units per second.</param>
+    internal sealed record MonsterFacts(
         int Id,
         string Name,
         int RecoveryTicks,
@@ -1192,14 +1424,108 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule
         DamageRoll Attack,
         DamageKindId AttackKind,
         bool Throws,
+        MonsterAttack Second,
+        int SecondChance,
+        MonsterSpell FirstSpell,
+        MonsterSpell SecondSpell,
         MonsterSpecialAttack Special,
-        IReadOnlyDictionary<DamageKindId, Resistance> Resistances)
+        IReadOnlyDictionary<DamageKindId, Resistance> Resistances,
+        string AiType,
+        string Movement,
+        int Speed)
     {
         /// <summary>The row's recovery as the game time a fight advances by.</summary>
         public GameDuration Recovery { get; } = Ticks(RecoveryTicks);
 
+        /// <summary>Whether the row moves at all: a stationary creature holds its post.</summary>
+        /// <remarks>
+        /// OpenEnroth <c>src/Engine/Objects/MonsterEnums.h:445</c> — <c>MONSTER_MOVEMENT_TYPE_STATIONARY</c>,
+        /// which the shipped table spells <c>stand</c> (<c>src/Engine/Objects/Monsters.cpp:264</c>).
+        /// </remarks>
+        public bool IsStationary => string.Equals(Movement.Trim(), "stand", StringComparison.OrdinalIgnoreCase);
+
         /// <summary>What the row resists of one kind of harm, nothing when no column covers it.</summary>
         public Resistance ResistanceOf(DamageKindId kind) =>
             Resistances.TryGetValue(kind, out Resistance reading) ? reading : Resistance.Of(0);
+
+        /// <summary>The first attack, as an ability rather than as two fields.</summary>
+        public MonsterAttack First => new(Attack, AttackKind, Throws);
+    }
+
+    /// <summary>
+    /// One way a monster hurts somebody: what it rolls, what kind of harm it does, and whether it is thrown.
+    /// </summary>
+    /// <param name="Roll">What the attack rolls for harm.</param>
+    /// <param name="Kind">What kind of harm it does.</param>
+    /// <param name="Throws">Whether it is thrown rather than swung, which is what makes it reach.</param>
+    internal sealed record MonsterAttack(DamageRoll Roll, DamageKindId Kind, bool Throws)
+    {
+        /// <summary>How the attack is made, as a fight spells it: a missile is thrown, anything else is swung.</summary>
+        public AttackKind AttackKind => Throws ? AttackKind.Ranged : AttackKind.Melee;
+    }
+
+    /// <summary>
+    /// One spell a monster casts: which spell it is, how often it is chosen, and what harm it does.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The cell the table writes is <c>&lt;name&gt;,&lt;mastery&gt;,&lt;skill&gt;</c> — the donor's own three
+    /// parts (<c>OpenEnroth src/Engine/Objects/Monsters.cpp:269-291</c>, <c>parseSpellEntry</c>) — and the
+    /// harm the spell does is read from the spell's own entry in the same content.
+    /// </para>
+    /// <para>
+    /// <b>What this build cannot cast is left out rather than faked.</b> A spell whose content states no
+    /// kind of harm is a buff, a cure, or a utility: the donor applies those to the caster or their allies
+    /// out of its own spell data and actor buffs (<c>src/Engine/Spells/Spells.cpp:193</c>,
+    /// <c>pSpellDatas</c>, and <c>src/Engine/Objects/Actor.cpp:3593-3641</c>,
+    /// <c>_427102_IsOkToCastSpell</c>), neither of which exists here yet, so a creature does not choose one.
+    /// The stone that brings spells and actor effects is where those become castable, and it is the same
+    /// place the numbers of a damaging spell belong: the donor takes them from its own per-spell table
+    /// (<c>CalcSpellDamage</c>, <c>src/Engine/Spells/Spells.cpp:813</c>), which this build's imported spell
+    /// content states as a kind and a description rather than as dice.
+    /// </para>
+    /// </remarks>
+    /// <param name="Name">The spell's name, as the table writes it, empty when the row casts none.</param>
+    /// <param name="UseChance">How often the creature chooses it, in percent.</param>
+    /// <param name="Kind">What kind of harm it does, which is what the spell's own content states.</param>
+    internal sealed record MonsterSpell(string Name, int UseChance, DamageKindId? Kind)
+    {
+        /// <summary>The spell this game cannot cast yet: a row that casts none, or one whose spell harms nobody.</summary>
+        public static MonsterSpell None { get; } = new(string.Empty, 0, MightAndMagic7Damage.Physical);
+
+        /// <summary>What the spell does to a target, for the one harm this build can state of it.</summary>
+        public DamageKindId Damage => Kind ?? MightAndMagic7Damage.Magic;
+
+        /// <summary>
+        /// Whether the creature may choose this spell at all.
+        /// </summary>
+        /// <remarks>
+        /// A spell whose own content states a kind of harm is one a fight can resolve; one that states none —
+        /// a shield, a cure, a dispel, a ward — is a spell the donor applies to the caster or their allies out
+        /// of spell data and actor buffs this build does not have yet, so a creature never chooses it. That is
+        /// the same answer the donor's own gate gives a spell it is not useful to cast
+        /// (<c>src/Engine/Objects/Actor.cpp:3593-3641</c>, <c>_427102_IsOkToCastSpell</c>), stated where this
+        /// build's own lack is: the stone that brings spells and actor effects is where these become
+        /// castable, and the creature keeps them on its row until then.
+        /// </remarks>
+        public bool IsUsable => Name.Length > 0 && UseChance > 0 && Kind is not null;
+
+        /// <summary>Reads one spell cell and its chance, and what the spell's own content says it does.</summary>
+        /// <param name="cell">The table's own spell cell.</param>
+        /// <param name="chanceCell">The table's own use-chance cell.</param>
+        /// <param name="spells">
+        /// What each spell in this content does, by name; a spell this content does not describe harms nobody
+        /// this build can state, which is a spell the creature keeps and never chooses.
+        /// </param>
+        internal static MonsterSpell Read(string cell, string chanceCell, IReadOnlyDictionary<string, DamageKindId> spells)
+        {
+            string text = cell.Trim();
+            int chance = ChanceFrom(chanceCell);
+            if (text.Length == 0 || text == "0") return None;
+
+            string spell = text.Split(',')[0].Trim();
+            if (spell.Length == 0) return None;
+            return new MonsterSpell(spell, chance, spells.TryGetValue(spell, out DamageKindId kind) ? kind : null);
+        }
     }
 }

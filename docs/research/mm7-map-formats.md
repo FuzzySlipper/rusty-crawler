@@ -311,6 +311,41 @@ errand condition and refuses the rows without answers, 118 in all across the 572
   `u16 attributes`, `u32 group` **[verified: OE:...EntitySnapshots.h:945-953; donor-doc MMX:...01 common structs.lua:2346-2366]**.
   Outdoor spawns are map-global in the `.odm`; indoor spawns are in the `.blv`, and levels also spawn actors from the
   `.dlv` `Actor_MM7` array **[verified: OE:...CompositeSnapshots.cpp:363-366]**.
+* **What the shipped spawn records actually hold** **[verified: data, all 76 maps]**: 3,175 records, of which
+  **1,843 state `type == 3`** (an actor) and 1,332 state `type == 2` (treasure). Every record states `radius == 32`
+  and `attributes == 0`, and 2,033 state `group == 0` with the rest in groups 4, 5, 6, 7, and 10. The
+  `treasureLevelOrMonsterIndex` of an actor record is **not a monster row**: it is one of the map's twelve
+  encounter slots. The donor reads it as three kinds by four grades
+  **[verified: OE:src/Engine/Objects/Actor.cpp:4226-4252]** — cases 1–3 are the map's three slots with **both the
+  grade and the count drawn**, cases 4–6 are those slots graded A, 7–9 graded B, and 10–12 graded C, each of which
+  puts **exactly one** creature on the field — and the map table states, per slot, the kind of monster (its internal
+  name), the difficulty its grade odds are read at (`Dif`, column 18/22/26), and the range of creatures it spawns
+  (`Appear`, column 19/23/27) **[verified: OE:src/Engine/Tables/MapTable.cpp:80-89]**. The shipped actor records name
+  slots 1–8 and 11; 100 of them name one of the three random slots and the other 1,700 name a graded one.
+* **How this import emits creatures from those records**: a record naming a graded slot takes that grade and one
+  creature; a record naming a random slot takes the grade the map's own difficulty odds favour (the largest of the
+  donor's three weights per difficulty, `word_4E8152` **[verified: OE:src/Engine/Objects/Actor.cpp:63,4291-4311]**)
+  and **the fewest creatures the slot states**, which is the floor the data gives rather than an average it never
+  states. The monster row is the one whose own internal-name column equals the slot's name plus the grade. Over the
+  operator's install that is **1,900 creatures in 72 places** (74 distinct rows), with **43 records refused** because
+  the slot they name is one their map leaves empty — every refusal named per place and record rather than dropped.
+* **The `.dlv` also carries the level's own actor array** — 703 monster records and 123 people over the operator's
+  install, each with its own monster row, hit points, and position **[verified: data; OE:
+  src/Engine/Snapshots/EntitySnapshots.h:764-809]**. That array is the *saved* runtime population of a played game,
+  so this import emits the creatures a first visit creates from the spawn records above and leaves the array as the
+  other source it does not read; a person's own record still states the monster row that person fights as, which is
+  what gives a guard, an adept, and a peasant their own hit points.
+* **`hostile.txt` is the monster-hostility matrix** (1,740 bytes in `Events.lod`) **[verified: data; OE:
+  src/Engine/Tables/HostilityTable.cpp:15-22]**: one header row naming every kind — the party's own first — then one
+  row per kind beginning with its name and carrying one band per column. A band of zero is friendly and one to four
+  are the four bands that also serve as notice ranges **[verified: OE:src/Engine/Objects/MonsterEnums.h:494-498]**.
+  The donor indexes it by monster *type* — the group of three graded variants a monster row belongs to,
+  `(id - 1) / 3 + 1` **[verified: OE:src/Engine/Objects/MonsterEnumFunctions.h:38-40]** — and reads the matrix
+  **positionally**, zipping the file's rows against a segment of numbers and never matching a name
+  **[verified: OE:src/Engine/Tables/HostilityTable.cpp:17-21]**: 24 of the shipped rows spell their kind differently
+  from the column at the same position (`Peasant Human2 MaleC` against the header's `Peasant Human Male 2 C`). The
+  import therefore reads a row's kind from its own position, which is what the donor does, and writes each kind's
+  non-zero bands against the column index they were read from.
 
 ## 5. Minimal viable decode
 

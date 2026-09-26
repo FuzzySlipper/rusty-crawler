@@ -93,6 +93,12 @@ internal sealed class MightAndMagic7Session : IGameSession
         // gives an order.
         MightAndMagic7Combat combat = MightAndMagic7Combat.Compose(Declared(context.Content), context.Engine?.Random);
 
+        // This game's answers about how a monster behaves are read once here, beside them: who hates whom is
+        // the shipped hostility matrix as content, and what a creature does with its moment is its own row's
+        // AI class, speed, attacks, and spells. The driver that asks these questions is the kit's, so the
+        // other side of every fight is decided by this game's data rather than by a class per monster.
+        MightAndMagic7MonsterAi monsterAi = MightAndMagic7MonsterAi.Compose(Declared(context.Content), combat, context.Engine?.Random);
+
         PartyEntity? party = null;
         SessionWorld? world = null;
         EngineSessionSaveStore? store = MightAndMagic7Persistence.Store(context.Engine);
@@ -131,7 +137,8 @@ internal sealed class MightAndMagic7Session : IGameSession
                     conversation: conversation,
                     conversationInput: context.Conversation,
                     combat: combat,
-                    combatInput: context.Combat);
+                    combatInput: context.Combat,
+                    monsterAi: monsterAi);
                 return;
             }
 
@@ -164,7 +171,8 @@ internal sealed class MightAndMagic7Session : IGameSession
                     conversation: conversation,
                     conversationInput: context.Conversation,
                     combat: combat,
-                    combatInput: context.Combat);
+                    combatInput: context.Combat,
+                    monsterAi: monsterAi);
                 return;
             }
 
@@ -194,7 +202,8 @@ internal sealed class MightAndMagic7Session : IGameSession
                 conversation: conversation,
                 conversationInput: context.Conversation,
                 combat: combat,
-                combatInput: context.Combat);
+                combatInput: context.Combat,
+                monsterAi: monsterAi);
         }
         catch
         {
@@ -303,6 +312,16 @@ internal sealed class MightAndMagic7Session : IGameSession
 
     /// <summary>The party this session plays, or null when it holds none yet.</summary>
     internal PartyEntity? Party => _session.Party;
+
+    /// <summary>
+    /// The world this session stands in, or null when it holds none.
+    /// </summary>
+    /// <remarks>
+    /// The session the product composes owns the world, and this is that same world read one layer out
+    /// rather than a second one: what a live check or a suite reads about a place — its state, its
+    /// population, where the party stands — is what the session it plays is standing in.
+    /// </remarks>
+    internal SessionWorld? World => _session.LiveWorld;
 
     /// <inheritdoc />
     public void PublishInitial() => _session.PublishInitial();

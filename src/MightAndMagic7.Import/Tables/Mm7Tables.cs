@@ -11,6 +11,7 @@ public sealed class Mm7Tables
         MapStatsTable maps,
         ServiceTable services,
         MonsterTable monsters,
+        HostilityTable hostility,
         SpellTable spells,
         ItemTable items,
         QuestTable quests,
@@ -21,6 +22,7 @@ public sealed class Mm7Tables
         Maps = maps;
         Services = services;
         Monsters = monsters;
+        Hostility = hostility;
         Spells = spells;
         Items = items;
         Quests = quests;
@@ -41,6 +43,9 @@ public sealed class Mm7Tables
 
     /// <summary>Monsters.</summary>
     public MonsterTable Monsters { get; }
+
+    /// <summary>What every kind of monster thinks of every other kind, and of the party.</summary>
+    public HostilityTable Hostility { get; }
 
     /// <summary>Spells.</summary>
     public SpellTable Spells { get; }
@@ -64,6 +69,7 @@ public sealed class Mm7Tables
             MapStatsTable.Read(install),
             ServiceTable.Read(install),
             MonsterTable.Read(install),
+            HostilityTable.Read(install),
             SpellTable.Read(install),
             ItemTable.Read(install),
             QuestTable.Read(install),

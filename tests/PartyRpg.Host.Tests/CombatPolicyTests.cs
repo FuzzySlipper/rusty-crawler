@@ -381,6 +381,12 @@ public sealed class CombatPolicyTests
     }
 
     /// <summary>One monster blow against a member, read off the panel before the session is disposed.</summary>
+    /// <remarks>
+    /// The blow is the creature's own: the driver reads the world, notices the party inside the row's own
+    /// notice band, and orders the creature through the fight's one gated entry as soon as its first
+    /// recovery has elapsed. Nothing here orders it, because nothing in the product does — a creature that
+    /// has to be driven by the test would be a creature the product does not have.
+    /// </remarks>
     private static BlowFacts Blow(string special, int level, long roll)
     {
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(
@@ -390,28 +396,31 @@ public sealed class CombatPolicyTests
 
         using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(ProductTestContext.RulesetContext(context, ui, combat: true));
         session.Start();
-        session.Update(ProductTestContext.Update(1, 1));
+        ProjectedNode combat = ProjectedNode.Of(ui.Latest().Value).Field("combat");
 
         // A creature's first recovery is drawn, so a moment of game time passes before it may act; the one
         // clock advancing is what releases it, exactly as it releases a character.
-        for (int index = 0; index < 5; index++) session.Update(ProductTestContext.Update(2, 1));
+        for (ulong step = 1; step <= 120 && !CreatureStruck(combat); step++)
+        {
+            session.Update(ProductTestContext.Update(step, 1));
+            combat = ProjectedNode.Of(ui.Latest().Value).Field("combat");
+        }
 
-        // The creature strikes the party's member through the fight's own one entry, which is the same gated
-        // door the player's control and a later AI owner use.
+        Assert.True(CreatureStruck(combat), $"the creature never struck the party: {combat.Field("message").AsString()}");
         MightAndMagic7Session played = (MightAndMagic7Session)session;
         PartyMember member = played.Party!.Members[0];
-        CombatState fight = played.Combat!;
-        CombatResult result = fight.Order(new AttackOrder(fight.Opposition[0].Id, AttackKind.Melee, fight.Combatants[0].Id));
-        Assert.True(result.IsApplied, $"{result.Code}: {result.Message}");
-        session.Update(ProductTestContext.Update(3, 1));
-
-        ProjectedNode combat = ProjectedNode.Of(ui.Latest().Value).Field("combat");
         return new BlowFacts(
             combat,
             member.Conditions.Active.Select(condition => condition.Condition).ToArray(),
             member.Resources.HitPoints.Current,
             MightAndMagic7Conditions.Cures(member.Conditions.Active));
     }
+
+    /// <summary>Whether the panel's last order is a creature's own resolved blow against the party.</summary>
+    private static bool CreatureStruck(ProjectedNode combat) =>
+        combat.Field("outcome").AsString() == "applied" &&
+        !combat.Field("byParty").AsBoolean() &&
+        combat.Field("resolved").AsBoolean();
 
     /// <summary>What one blow of the party's hand came to, as the panel published it.</summary>
     private sealed record StrikeFacts(double Chance, double Rolled, double Damage, double HitPoints);
@@ -458,19 +467,32 @@ public sealed class CombatPolicyTests
 
         private MightAndMagic7Session Played => (MightAndMagic7Session)_session;
 
-        /// <summary>Lets the creature recover, strikes the member, and returns what the panel now shows.</summary>
+        /// <summary>
+        /// Lets the creature act and returns the panel the blow it landed left.
+        /// </summary>
+        /// <remarks>
+        /// A row's hundred ticks are twenty-three and a half game seconds, and one admitted update of a
+        /// sixtieth of a second at this game's scale is half a second of game time: the creature's first
+        /// recovery is past after some fifty of them, and the driver then strikes of its own accord. The wait
+        /// is bounded rather than exact because when the creature acts is the fight's business, and a test
+        /// that assumed a number would be testing the number.
+        /// </remarks>
         internal ProjectedNode Strike()
         {
-            // A row's hundred ticks are twenty-three and a half game seconds, and one admitted update of a
-            // sixtieth of a second at this game's scale is half a second of game time: sixty of them are half
-            // a minute, which is past what the creature owes between blows.
-            for (int index = 0; index < 60; index++) _session.Update(ProductTestContext.Update(++_step, 1));
-            CombatState fight = Played.Combat!;
-            CombatResult result = fight.Order(new AttackOrder(fight.Opposition[0].Id, AttackKind.Melee, fight.Combatants[0].Id));
-            Assert.True(result.IsApplied, $"{result.Code}: {result.Message}");
-            _session.Update(ProductTestContext.Update(++_step, 1));
-            return ProjectedNode.Of(_ui.Latest().Value).Field("combat");
+            ProjectedNode combat = ProjectedNode.Of(_ui.Latest().Value).Field("combat");
+            int before = MemberHitPoints(combat);
+            for (int index = 0; index < 180 && MemberHitPoints(combat) == before; index++)
+            {
+                _session.Update(ProductTestContext.Update(++_step, 1));
+                combat = ProjectedNode.Of(_ui.Latest().Value).Field("combat");
+            }
+
+            return combat;
         }
+
+        /// <summary>What the panel says the party's first member has left.</summary>
+        private static int MemberHitPoints(ProjectedNode combat) =>
+            (int)combat.Field("members").Item(0).Field("hitPoints").AsNumber();
 
         /// <inheritdoc />
         public void Dispose() => _session.Dispose();

@@ -118,6 +118,14 @@ public sealed class CombatState : IGameTimeObserver
     /// <summary>Whether anything in the place is fighting the party right now.</summary>
     public bool IsEngaged => _combatants.Any(combatant => combatant.Side == CombatSide.Opposition && !IsDown(combatant));
 
+    /// <summary>Where the party stands, which is what every actor's distance is measured from.</summary>
+    /// <remarks>
+    /// It is the world's own position, read here rather than copied: a driver that has to decide what a
+    /// creature does about the party needs the same point the fight measured every distance from, and a
+    /// second reading of it could disagree with the fight's by one step.
+    /// </remarks>
+    public PlacePose PartyPose => _world?.Pose ?? PlacePose.Origin;
+
     /// <summary>What the last accepted attack was, or null before anything has attacked.</summary>
     /// <remarks>
     /// This is what an attack <em>was</em>: who acted, how, against what, when, and what it cost. What came
@@ -195,10 +203,23 @@ public sealed class CombatState : IGameTimeObserver
             foreach (PlacePopulationEntity entity in world.Population)
             {
                 if (!entity.IsAlive) continue;
-                CombatSubject subject = new(CombatantId.Of(entity.Id), world.Place, entity.Pose, member: null, entity);
+
+                // Where a creature stands is what its placement said — until something moves it, and then it
+                // is the live position whoever moved it owns. Reading the placement of a creature that has
+                // closed on the party would measure every distance, notice range, and target against where
+                // the creature used to be.
+                CombatantId id = CombatantId.Of(entity.Id);
+                PlacePose pose = _world is ICombatPositions positions && positions.PoseOf(id) is { } standing
+                    ? standing
+                    : entity.Pose;
+                CombatSubject subject = new(id, world.Place, pose, member: null, entity);
                 if (_rule.NatureOf(subject) is not { IsCreature: true } nature) continue;
 
-                double distance = Distance(world.Pose, subject.Pose);
+                // A creature's health is the creature's own from the moment a fight reads it: the maximum is
+                // the ruleset's answer about what it can take, and nothing that happens later re-states it.
+                CreatureHealth.Of(entity.Actor, _resolution?.HitPointsOf(subject) ?? 0);
+
+                double distance = Distance(world.Pose, pose);
                 CombatSide side = _provoked.Contains(subject.Id) || nature.Notices(distance)
                     ? CombatSide.Opposition
                     : CombatSide.Neutral;
@@ -223,6 +244,26 @@ public sealed class CombatState : IGameTimeObserver
         // provocation that outlived its actor would make the next visit's entity hostile for something done
         // to a creature that no longer exists.
         _provoked.RemoveWhere(id => !_byId.ContainsKey(id));
+    }
+
+    /// <summary>
+    /// Whether an actor's own nature is to attack the party on sight, which is not the same question as the
+    /// side it is on.
+    /// </summary>
+    /// <remarks>
+    /// A side is what a fight has decided by now: a creature out of its notice range is neutral, and a person
+    /// the party has attacked is an enemy even though nothing about them starts a fight. Whether something
+    /// fights on sight is the ruleset's answer about what it is, which is what tells a place's opposition
+    /// from the people standing in it — and it is why a place is cleared of what fought there rather than of
+    /// everybody who happened to be indoors.
+    /// </remarks>
+    /// <param name="combatant">The actor to judge.</param>
+    /// <returns>Whether it attacks the party on sight.</returns>
+    /// <exception cref="ArgumentNullException">No combatant was supplied.</exception>
+    public bool IsHostile(Combatant combatant)
+    {
+        ArgumentNullException.ThrowIfNull(combatant);
+        return _rule.NatureOf(combatant.Subject).AttacksOnSight;
     }
 
     /// <summary>
@@ -277,7 +318,7 @@ public sealed class CombatState : IGameTimeObserver
     /// outcomes, which is a product that paces a fight without yet knowing what a blow is worth.
     /// </para>
     /// </remarks>
-    /// <param name="order">Who acts, how, and against what.</param>
+    /// <param name="order">Who acts, how, against what, and by which of its own ways of attacking.</param>
     /// <returns>What the order did, or why it did not.</returns>
     /// <exception cref="ArgumentNullException">No order was supplied.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The order names no kind of attack this kit knows.</exception>
@@ -364,13 +405,14 @@ public sealed class CombatState : IGameTimeObserver
             target?.Id,
             target?.Name ?? string.Empty,
             _clock?.Now,
-            recovery);
+            recovery,
+            order.Ability ?? string.Empty);
         _lastAttack = initiation;
 
         // Resolution happens at the moment of initiation and nowhere else: there is one place where an
         // attack becomes an outcome, so a melee swing, a shot, and a spell cannot drift into three paths
         // that damage a target differently.
-        CombatResolution? resolution = Resolve(actor, target, order.Kind);
+        CombatResolution? resolution = Resolve(actor, target, order.Kind, order.Ability);
         _lastResolution = resolution;
         return Report(CombatResult.Applied(initiation, resolution));
     }
@@ -379,10 +421,11 @@ public sealed class CombatState : IGameTimeObserver
     /// What an actor has left to lose and what it can take altogether, read from wherever that is owned.
     /// </summary>
     /// <remarks>
-    /// A member's pool is the party's own and is read live; a world actor's health has no owner until the
-    /// monsters-and-AI stone gives creatures theirs, so what the fight has done to one is measured against
-    /// the ruleset's reading of how much it can take. The panel reads both through here, so what it shows
-    /// and what the fight acted on are one fact rather than two.
+    /// A member's pool is the party's own and is read live. A world actor's health is the creature's own,
+    /// attached to its entity the first time a fight read it, so what the panel shows, what a rest reads
+    /// about the creature near the camp, and what the fight acted on are one quantity rather than three
+    /// opinions. A world actor nothing has given health to — one a fight never read — is measured against
+    /// the ruleset's answer about what it can take, which is the same number it will be attached with.
     /// </remarks>
     /// <param name="combatant">The actor to measure.</param>
     /// <returns>What it has left, and what it can take altogether.</returns>
@@ -395,8 +438,9 @@ public sealed class CombatState : IGameTimeObserver
             return (member.Resources.HitPoints.Current, member.Resources.HitPoints.Maximum);
         }
 
+        if (Health(combatant.Subject) is { } health) return (health.Current, health.Maximum);
         int maximum = _resolution?.HitPointsOf(combatant.Subject) ?? 0;
-        return (Math.Max(0, maximum - combatant.Wounds), maximum);
+        return (maximum, maximum);
     }
 
     /// <summary>
@@ -418,8 +462,7 @@ public sealed class CombatState : IGameTimeObserver
         if (_resolution is { } rule && !rule.CanAct(combatant.Subject)) return true;
         if (combatant.Subject.Member is not null) return false;
 
-        int maximum = _resolution?.HitPointsOf(combatant.Subject) ?? 0;
-        return maximum > 0 && combatant.Wounds >= maximum;
+        return Health(combatant.Subject)?.IsDown ?? false;
     }
 
     /// <summary>
@@ -438,7 +481,7 @@ public sealed class CombatState : IGameTimeObserver
     /// and an attack at nothing resolves nothing because there is nothing there to resolve against.
     /// </para>
     /// </remarks>
-    private CombatResolution? Resolve(Combatant actor, Combatant? target, AttackKind kind)
+    private CombatResolution? Resolve(Combatant actor, Combatant? target, AttackKind kind, string? ability)
     {
         if (_resolution is not { } resolution || target is null) return null;
 
@@ -450,7 +493,12 @@ public sealed class CombatState : IGameTimeObserver
         if (resolution.RollsFor(actor.Subject, key) is not { } rolls) return null;
         _attacksResolved++;
 
-        AttackPlan plan = resolution.PlanOf(actor.Subject, target.Subject, kind);
+        // Which of the actor's own ways of attacking this is decides what the blow is worth, when the order
+        // named one and the ruleset answers for them: a creature's second attack has its own dice and its own
+        // kind of harm, and a spell its own. Nothing here reads the name; it is handed straight back.
+        AttackPlan plan = ability is { Length: > 0 } named && resolution is ICombatAbilityResolutionRule abilities
+            ? abilities.PlanOfAbility(actor.Subject, target.Subject, kind, named)
+            : resolution.PlanOf(actor.Subject, target.Subject, kind);
         int hitRoll = rolls.Roll("hit", 0, HitChance.Certain - 1);
         (int current, int maximum) = Vitals(target);
         if (!plan.Chance.Hits(hitRoll))
@@ -473,7 +521,7 @@ public sealed class CombatState : IGameTimeObserver
             ? 0
             : Math.Max(0, resolution.DamageAfterResistance(target.Subject, plan.Kind, rolled, rolls));
         CombatCondition? condition = resolution.ConditionOf(actor.Subject, target.Subject, plan.Kind, rolls);
-        bool down = Wound(target, damage, condition, maximum);
+        bool down = Wound(target, damage, condition);
         (current, maximum) = Vitals(target);
         return CombatResolution.Landed(
             actor.Id,
@@ -505,11 +553,13 @@ public sealed class CombatState : IGameTimeObserver
     /// conditions.
     /// </para>
     /// <para>
-    /// A world actor's harm is kept by the fight, because nothing owns a creature's health yet: the fight
-    /// records what it has done to one and takes it down when that reaches what the ruleset says it can take.
+    /// A world actor's harm lands on the creature's own health, which is the same handoff in the other
+    /// direction: what a creature's own state holds is what the fight subtracts from, and a creature that
+    /// has taken everything it can is down. A creature no health was ever attached for cannot be measured,
+    /// so the harm is discarded rather than kept as a tally beside a health nobody gave it.
     /// </para>
     /// </remarks>
-    private bool Wound(Combatant target, int damage, CombatCondition? condition, int maximum)
+    private bool Wound(Combatant target, int damage, CombatCondition? condition)
     {
         if (target.Subject.Member is { } member)
         {
@@ -524,15 +574,12 @@ public sealed class CombatState : IGameTimeObserver
             return laid;
         }
 
-        if (damage > 0)
-        {
-            bool before = maximum > 0 && target.Wounds >= maximum;
-            target.Wound(damage);
-            return !before && maximum > 0 && target.Wounds >= maximum;
-        }
-
-        return false;
+        return damage > 0 && Health(target.Subject) is { } health && health.Wound(damage);
     }
+
+    /// <summary>The creature's own health, when the actor is a world entity that has any.</summary>
+    private static CreatureHealth? Health(CombatSubject subject) =>
+        subject.Entity is { } entity ? CreatureHealth.Find(entity.Actor) : null;
 
     /// <summary>What is acting on an actor, in the words the kit already carries, for a refusal to name.</summary>
     private static string Describe(Combatant actor) => actor.Subject.Member is { } member && member.Conditions.Count > 0

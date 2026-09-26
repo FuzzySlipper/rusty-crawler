@@ -386,7 +386,7 @@ public sealed class EnginePartyMover : IPartyMover
 /// game. Arriving and travelling both mark the place visited, so knowledge accrues the same way
 /// wherever the party goes.
 /// </remarks>
-public sealed class SessionWorld : IDisposable, IInteractionWorld, IRestSite, ICombatWorld
+public sealed class SessionWorld : IDisposable, IInteractionWorld, IRestSite, ICombatWorld, ICombatPositions
 {
     private readonly TransitionExecutive _transitions;
     private readonly IWorldTimeSource? _time;
@@ -446,6 +446,11 @@ public sealed class SessionWorld : IDisposable, IInteractionWorld, IRestSite, IC
     /// what the panel shows about the town the party stands in. Without one every place is open at every
     /// hour, because nothing has said otherwise.
     /// </param>
+    /// <param name="creatures">
+    /// How the place's creatures move, which is the same engine service and the same collision scene the
+    /// party walks in. Without one creatures stand where content placed them: a product with no engine has
+    /// nothing to move them with, and says so rather than sliding them through walls.
+    /// </param>
     /// <exception cref="ArgumentNullException">A required collaborator is missing.</exception>
     public SessionWorld(
         PlaceGraph graph,
@@ -460,7 +465,8 @@ public sealed class SessionWorld : IDisposable, IInteractionWorld, IRestSite, IC
         PartyResourceLedger? resources = null,
         PartyEntity? partyEntity = null,
         InteractionPolicy? interaction = null,
-        PlaceSchedule? schedule = null)
+        PlaceSchedule? schedule = null,
+        ICreatureMover? creatures = null)
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(party);
@@ -480,6 +486,7 @@ public sealed class SessionWorld : IDisposable, IInteractionWorld, IRestSite, IC
         _population = new PlacePopulation(graph, places);
         _entrances = Index(graph, entrances);
         Mover = mover;
+        Creatures = creatures;
         Schedule = schedule ?? PlaceSchedule.Empty;
         Interaction = interaction is null ? null : new PartyInteraction(this, interaction.Rule, interaction.Space, interaction.Tuning);
         // The place the party starts in is entered exactly as any other is, so the scene it walks in is
@@ -498,6 +505,16 @@ public sealed class SessionWorld : IDisposable, IInteractionWorld, IRestSite, IC
 
     /// <summary>The party's movement, or null when the world has no engine to move in.</summary>
     public IPartyMover? Mover { get; }
+
+    /// <summary>
+    /// How the place's creatures move, or null when this world has no engine to move them in.
+    /// </summary>
+    /// <remarks>
+    /// The mover is the world's own because the collision scene is: a creature walks in the ground the place
+    /// admitted for the party, so the two cannot end up in different worlds. Whoever drives the opposition
+    /// asks for it here rather than composing a second scene of its own.
+    /// </remarks>
+    public ICreatureMover? Creatures { get; }
 
     /// <summary>
     /// Which places are clocked and when their doors stand open, as this game's content says.
@@ -706,6 +723,10 @@ public sealed class SessionWorld : IDisposable, IInteractionWorld, IRestSite, IC
         if (_disposed) return;
         _disposed = true;
         _population.Dispose();
+
+        // The creature mover walks in the party mover's own spatial session, so it is released first and
+        // releases nothing of its own beyond the walkers it kept: the scene belongs to the movement.
+        (Creatures as IDisposable)?.Dispose();
         Mover?.Dispose();
     }
 
@@ -820,6 +841,17 @@ public sealed class SessionWorld : IDisposable, IInteractionWorld, IRestSite, IC
 
     /// <summary>Where the party stands, which is what every actor's distance from the party is measured from.</summary>
     PlacePose ICombatWorld.Pose => Party.PlacePose;
+
+    /// <summary>
+    /// Where an actor stands now, which for a creature that has moved is not where content placed it.
+    /// </summary>
+    /// <remarks>
+    /// Only the creatures this world has actually moved have a live position; everything else stands where
+    /// its placement put it, and the fight reads the placement itself. Answering null rather than the
+    /// placement keeps the two apart: a world that has no position of its own for an actor must not claim
+    /// content's, because a fight that read one would measure a creature that moved against where it began.
+    /// </remarks>
+    PlacePose? ICombatPositions.PoseOf(CombatantId actor) => Creatures?.PoseOf(actor);
 
     /// <summary>
     /// What is alive in the place right now, which is what a fight decides who is hostile from.

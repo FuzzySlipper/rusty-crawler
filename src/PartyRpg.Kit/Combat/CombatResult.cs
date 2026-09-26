@@ -77,13 +77,16 @@ public sealed record CombatResult
     public static CombatResult Applied(AttackInitiation initiation, CombatResolution? resolution = null)
     {
         ArgumentNullException.ThrowIfNull(initiation);
+        string how = initiation.Ability.Length > 0
+            ? $"{AttackKinds.WireName(initiation.Kind)}: {initiation.Ability}"
+            : AttackKinds.WireName(initiation.Kind);
         string attempt = initiation.HasTarget
             ? string.Create(
                 CultureInfo.InvariantCulture,
-                $"{initiation.ActorName} attacks {initiation.TargetName} ({AttackKinds.WireName(initiation.Kind)}) and must recover {initiation.Recovery.Milliseconds}ms of game time.")
+                $"{initiation.ActorName} attacks {initiation.TargetName} ({how}) and must recover {initiation.Recovery.Milliseconds}ms of game time.")
             : string.Create(
                 CultureInfo.InvariantCulture,
-                $"{initiation.ActorName} attacks nothing in reach ({AttackKinds.WireName(initiation.Kind)}) and must recover {initiation.Recovery.Milliseconds}ms of game time.");
+                $"{initiation.ActorName} attacks nothing in reach ({how}) and must recover {initiation.Recovery.Milliseconds}ms of game time.");
         string message = resolution is null ? attempt : $"{attempt} {resolution.Message}";
         return new CombatResult(initiation.Actor, initiation.ActorName, isApplied: true, string.Empty, message, initiation, resolution);
     }

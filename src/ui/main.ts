@@ -387,6 +387,11 @@ interface FighterView {
   readonly conditions: string;
   /** Whether the actor is out of the fight: laid out by what is on it, or taken down by harm. */
   readonly down: boolean;
+  /**
+   * What the actor is doing, for an actor the product drives: `closing`, `backing away`, `holding`,
+   * `attacking`, or `down`; empty for the party's own members, whose doing is the player's.
+   */
+  readonly activity: string;
 }
 
 /**
@@ -439,6 +444,12 @@ interface CombatView {
   readonly condition: string;
   /** Whether the last hit is what took its target down. */
   readonly targetDown: boolean;
+  /**
+   * Whether the last order was the party's own. A fight is two-sided, so the last thing that happened may
+   * be a blow the party took, and a panel that could not tell the two apart would show a wound with no
+   * author.
+   */
+  readonly byParty: boolean;
 }
 
 interface RestView {
@@ -690,6 +701,7 @@ const COMBAT_NONE: CombatView = {
   resistance: '',
   condition: '',
   targetDown: false,
+  byParty: false,
 };
 
 /** The rest of a session that holds no mechanism, or one this companion cannot read as a stop. */
@@ -861,6 +873,10 @@ const STYLES = `
 .crawler-combat-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
 .crawler-combat-result[hidden] { display: none; }
 .crawler-combat-result[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
+.crawler-combat-result[data-by-party='no'] { border-color: rgba(226, 170, 96, 0.85); color: #ecd6ac; }
+.crawler-fighter[data-activity='closing'] { color: #e2cba0; }
+.crawler-fighter[data-activity='backing away'] { color: #b9c8a4; }
+.crawler-fighter[data-activity='down'] { color: #8f8878; text-decoration: line-through; }
 .crawler-rest { margin: 0 0 0.5rem; border-top: 1px solid rgba(210, 196, 158, 0.25); padding-top: 0.5rem; }
 .crawler-rest[hidden] { display: none; }
 .crawler-rest .crawler-step-head { margin: 0 0 0.2rem; color: #d8cba6; font-size: 0.82rem; }
@@ -1218,6 +1234,7 @@ function readFighter(value: unknown): FighterView | null {
     hitPointsMax: typeof value.hitPointsMax === 'number' ? value.hitPointsMax : 0,
     conditions: typeof value.conditions === 'string' ? value.conditions : '',
     down: value.down === true,
+    activity: typeof value.activity === 'string' ? value.activity : '',
   };
 }
 
@@ -1261,6 +1278,7 @@ function readCombat(value: unknown): CombatView {
     resistance: typeof value.resistance === 'string' ? value.resistance : '',
     condition: typeof value.condition === 'string' ? value.condition : '',
     targetDown: value.targetDown === true,
+    byParty: value.byParty === true,
   };
 }
 
@@ -2406,8 +2424,10 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
       row.dataset.down = actor.down ? 'yes' : 'no';
       const pools = actor.hitPointsMax > 0 ? ` — ${actor.hitPoints}/${actor.hitPointsMax} hp` : '';
       const conditions = actor.conditions === '' ? '' : ` — ${actor.conditions}`;
+      const doing = actor.activity === '' ? '' : ` — ${actor.activity}`;
       const down = actor.down ? ' — down' : '';
-      row.textContent = `${actor.name} — ${clause}${pools}${conditions}${down}`;
+      row.dataset.activity = actor.activity;
+      row.textContent = `${actor.name} — ${clause}${pools}${conditions}${doing}${down}`;
       return row;
     };
 
@@ -2444,6 +2464,10 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     combatResult.dataset.resistance = view.resistance;
     combatResult.dataset.condition = view.condition;
     combatResult.dataset.targetDown = view.targetDown ? 'yes' : 'no';
+    // Whose blow the last order was: the party's own or a creature's. The sentence is the product's own and
+    // is shown unchanged; the fact of which side acted is what the attribute and the styling carry, so a
+    // wound the party took does not read as the party's own doing.
+    combatResult.dataset.byParty = view.byParty ? 'yes' : 'no';
     combatResult.textContent = view.message;
   };
 

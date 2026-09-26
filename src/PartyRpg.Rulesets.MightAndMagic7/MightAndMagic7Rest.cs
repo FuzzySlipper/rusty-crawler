@@ -1,4 +1,5 @@
 using System.Globalization;
+using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Time;
@@ -66,15 +67,13 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// </remarks>
 internal sealed class MightAndMagic7Rest : IRestRule
 {
-    /// <summary>The placement kind a level spawns creatures from.</summary>
-    internal const string SpawnPlacementKind = "spawn";
-
-    /// <summary>The spawn record's object reference for an actor, which is what makes a spawn a creature.</summary>
-    /// <remarks>OpenEnroth <c>src/Engine/Pid.h:12</c>: <c>OBJECT_Actor = 0x3</c>.</remarks>
-    internal const int ActorObjectType = 3;
-
-    /// <summary>The spawn record's field carrying that object reference.</summary>
-    internal const string SpawnTypeField = "type";
+    /// <summary>The placement kind a creature standing in a place is.</summary>
+    /// <remarks>
+    /// The same kind a fight reads a creature from, so what keeps a party from camping is exactly what a
+    /// fight can be had with: a spawn point is where a level puts a creature and not the creature itself,
+    /// and the creatures emitted from those records are what stands there now.
+    /// </remarks>
+    internal const string CreaturePlacementKind = MightAndMagic7Combat.CreaturePlacementKind;
 
     /// <summary>The place-entry field that states the ground the party would camp on.</summary>
     internal const string TerrainField = "terrain";
@@ -323,9 +322,18 @@ internal sealed class MightAndMagic7Rest : IRestRule
 
     /// <summary>How many living creatures stand within a range of the party, in the place's own units.</summary>
     /// <remarks>
-    /// A spawn point is a creature when the level would put an actor there, which is what the donor's own
-    /// spawn placement check asks before it spawns one (<c>src/Engine/Objects/Actor.cpp:4211</c>), and a
-    /// spawn whose entity the party's visit no longer holds is not near anybody.
+    /// <para>
+    /// A creature is a placement of the creature kind, and a creature the party has brought down is not one
+    /// the party has to lie down beside: its own health is where that is read from
+    /// (<see cref="PartyRpg.Kit.Combat.CreatureHealth"/>), so a corpse does not keep a camp from being made
+    /// and a creature nothing has wounded does. A creature whose health nothing has attached yet is alive,
+    /// which is what it is.
+    /// </para>
+    /// <para>
+    /// The donor's own check counts the actors standing near the party and refuses the rest
+    /// (<c>OpenEnroth src/Engine/Objects/Actor.cpp:3458-3481</c>); this game asks the same question of the
+    /// creatures its content places.
+    /// </para>
     /// </remarks>
     private static int HostilesNear(RestRequest request, double range)
     {
@@ -335,8 +343,8 @@ internal sealed class MightAndMagic7Rest : IRestRule
         foreach (PlacePopulationEntity entity in request.Site.Population)
         {
             if (!entity.IsAlive) continue;
-            if (!string.Equals(entity.Content.Kind, SpawnPlacementKind, StringComparison.Ordinal)) continue;
-            if (entity.Placement.Source.GetInt32(SpawnTypeField) != ActorObjectType) continue;
+            if (!string.Equals(entity.Content.Kind, CreaturePlacementKind, StringComparison.Ordinal)) continue;
+            if (CreatureHealth.Find(entity.Actor) is { IsDown: true }) continue;
             PlacePose at = entity.Pose;
             double x = at.X - party.X;
             double y = at.Y - party.Y;

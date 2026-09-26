@@ -352,8 +352,11 @@ public sealed class RestAndSchedulePolicyTests
         int encounterPercent,
         double? hostileAt = null)
     {
+        // A creature is a placement of the creature kind naming its own monster row, which is the shape the
+        // importer emits from a level's spawn records: what keeps a party from camping is a creature standing
+        // there, not the spawn record it came from.
         string spawn = hostileAt is { } at
-            ? $$""", { "id": "spawn-0", "kind": "spawn", "x": {{at}}, "y": 0, "z": 0, "radius": 32, "type": 3, "treasureLevelOrMonsterIndex": 1 }"""
+            ? $$""", { "id": "monster-0", "kind": "monster", "monster": "7", "monsterName": "A beast", "x": {{at}}, "y": 0, "z": 0 }"""
             : string.Empty;
         (ProductCreateContext context, RecordingUiService service) = ProductTestContext.Create(Content(
             places:
@@ -386,12 +389,27 @@ public sealed class RestAndSchedulePolicyTests
               "documents": [
                 { "path": "places.json", "documentId": "places", "definitionKind": "place" },
                 { "path": "start.json", "documentId": "start", "definitionKind": "scenario-start" },
-                { "path": "party.json", "documentId": "party", "definitionKind": "scenario-party" }
+                { "path": "party.json", "documentId": "party", "definitionKind": "scenario-party" },
+                { "path": "monsters.json", "documentId": "monsters", "definitionKind": "monster" }
                 {{(services is null ? string.Empty : ", { \"path\": \"services.json\", \"documentId\": \"services\", \"definitionKind\": \"service\" }")}}
               ]
             }
             """),
         ($"{ProductTestContext.ContentDirectory}/content-packs/world/places.json", Places(places)),
+        ($"{ProductTestContext.ContentDirectory}/content-packs/world/monsters.json",
+            """
+            {
+              "documentId": "monsters",
+              "definitionKind": "monster",
+              "entries": [
+                { "id": "7", "name": "A beast", "level": 2, "hitPoints": 40, "armorClass": 5,
+                  "hostility": 2, "recovery": 100, "speed": 140,
+                  "columns": [ "7", "A beast", "A beast A", "2", "40", "5", "0", "0", "0", "N", "Long", "Normal",
+                               "2", "140", "100", "0", "0", "Phys", "2D8+10", "0", "0", "0", "0", "0", "0", "0",
+                               "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0" ] }
+              ]
+            }
+            """),
         ($"{ProductTestContext.ContentDirectory}/content-packs/world/start.json",
             $$"""
             { "documentId": "start", "definitionKind": "scenario-start", "entries": [ { "id": "start", "place": "{{start}}", "entryPoint": "Party Start" } ] }

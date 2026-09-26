@@ -52,12 +52,26 @@ itself), what fighting costs here (`MightAndMagic7Combat` — a monster's recove
 paced by the donor's own attack-recovery sum as far as this build can read it: the base for a character
 holding nothing, the armsmaster reduction, and the speed bonus, since a party cannot wear anything yet; a
 creature's first recovery is a keyed draw over the actor so a group placed together does not strike in
-lockstep, and a creature is recognized by a placement of kind `monster` naming the row it is — the
-interface the monsters-and-AI task fills — and what one attack does here is the same policy's other half,
+lockstep, a creature is recognized by a placement of kind `monster` naming the row it is, and a person a
+map's own record places reads the monster row that record names rather than one peasant row for everybody),
+what a creature does with its moment (`MightAndMagic7MonsterAi` — the row's `AI Type` column decides
+whether it runs and at how many hit points (`Wimp` always, `Normal` at twenty percent, `Aggress` at ten,
+`Suicidal` never), its `Move` column whether it closes or holds its post, its speed column how fast it
+walks, and its own chance columns which of its ways of attacking it uses in the donor's own order (the
+first spell, the second, the second attack, then the first attack — `Actor.cpp:3644-3657`), with every
+chance drawn from the engine's keyed service so the same fight replays identically; which kinds of monster
+are each other's enemies is the shipped `hostile.txt` matrix read as content
+(`MightAndMagic7Hostility`), and a spell the imported spell table describes no harm for is one this build
+cannot cast, so a creature keeps it on its row and never chooses it), and what one attack does here is the
+same policy's other half,
+`ICombatResolutionRule` and `ICombatAbilityResolutionRule`: a character's chance to land a blow is the
+donor's own hit test
 `ICombatResolutionRule`: a character's chance to land a blow is the donor's own hit test
 (`Character.cpp:6263-6300`) and a creature's is its other one (`Actor.cpp:3691-3707`), a character's blow is
 the unarmed three-sided die plus their might and armsmaster bonuses (`Character.cpp:814-856`) while a
-creature's is its row's own dice, harm is of the row's own kind (`ItemEnums.h:10-23`, read from the monster
+creature's is its row's own dice — its second attack's dice and kind of harm when the order names that
+way of attacking, and a spell's own kind with the row's dice until the magic stone brings a spell's numbers
+— harm is of the row's own kind (`ItemEnums.h:10-23`, read from the monster
 table's own attack-type column) and a monster's blow may leave the condition its special-attack column names
 through the donor's chance and saving throw (`Character.cpp:1333-1600`), and resistance is the donor's four
 checks over the resistance plus thirty (`Actor.cpp:3743-3758`, `Character.cpp:1097-1108`) with the table's
