@@ -114,7 +114,9 @@ public readonly record struct CombatSnapshot(
     string Resistance = "",
     string Condition = "",
     bool TargetDown = false,
-    bool ByParty = false)
+    bool ByParty = false,
+    CombatPacing Pacing = CombatPacing.RealTime,
+    CombatTurnSnapshot? Turn = null)
 {
     /// <summary>No fight mechanism: nothing can be ordered and nothing is hostile.</summary>
     public static CombatSnapshot None => new(
@@ -218,6 +220,123 @@ public readonly record struct CombatSnapshot(
             TargetDown: resolution?.TargetDown ?? false,
             // The last order's own side is read from the fight rather than assumed: once the opposition is
             // driven, the last thing that happened may be a blow the party took.
-            ByParty: order is not null && combat.Find(order.Actor)?.Side == CombatSide.Party);
+            ByParty: order is not null && combat.Find(order.Actor)?.Side == CombatSide.Party,
+            Pacing: combat.Pacing,
+            Turn: TurnFrom(combat));
     }
+
+    /// <summary>Reads the round the fight is in, as the panel reads it.</summary>
+    /// <remarks>
+    /// Every fact here is the pacing's own, read at the moment the projection is built: whose turn it is, how
+    /// much of the round has passed, and the order the actors will act in. Nothing is counted down by a
+    /// reader, and the order is the fight's own reading of its actors' recovery rather than a list kept beside
+    /// it, so a panel that shows a member due in two seconds is showing what the fight holds.
+    /// </remarks>
+    private static CombatTurnSnapshot TurnFrom(CombatState combat)
+    {
+        TurnBasedPacing turns = combat.Turns;
+        List<TurnOrderActorSnapshot> order = [];
+        foreach (TurnOrderEntry entry in turns.Order)
+        {
+            order.Add(new TurnOrderActorSnapshot(
+                entry.Id.ToString(),
+                entry.Name,
+                entry.Side,
+                entry.Remaining.TotalSeconds,
+                entry.Ready,
+                entry.CanAct,
+                entry.Waiting,
+                entry.Current));
+        }
+
+        return new CombatTurnSnapshot(
+            turns.Phase,
+            turns.Round,
+            turns.Current?.Id.ToString() ?? string.Empty,
+            turns.Current?.Name ?? string.Empty,
+            turns.WaitsForPlayer,
+            turns.Due.TotalSeconds,
+            turns.Length.TotalSeconds,
+            turns.Elapsed.TotalSeconds,
+            turns.MovementLeft.TotalSeconds,
+            turns.Last is { } last ? TurnActionName(last) : string.Empty,
+            order);
+    }
+
+    /// <summary>What a committed turn did, in the words the projection publishes.</summary>
+    /// <param name="action">The action to name.</param>
+    /// <returns>The wire name of the action.</returns>
+    public static string TurnActionName(TurnAction action) => action switch
+    {
+        TurnAction.Act => "act",
+        TurnAction.Skip => "skip",
+        _ => "wait",
+    };
 }
+
+/// <summary>
+/// One actor's place in the order a turn-based round acts in, as the panel reads it.
+/// </summary>
+/// <remarks>
+/// It is the fight's own reading of the actor's recovery — the same quantity the real-time pacing releases —
+/// published rather than recomputed, so the order a player sees is the order the fight will act in. A reader
+/// that ran its own initiative, or counted a recovery down for itself, would show a turn arriving before or
+/// after the fight agreed.
+/// </remarks>
+/// <param name="Id">The actor's identity, as the fight names it.</param>
+/// <param name="Name">What the actor is called, as the ruleset named it.</param>
+/// <param name="Side">Which side of the fight the actor is on.</param>
+/// <param name="RemainingSeconds">How much game time it must still recover, zero when it is ready.</param>
+/// <param name="Ready">Whether it may act now.</param>
+/// <param name="CanAct">Whether the fight leaves it able to act at all.</param>
+/// <param name="Waiting">Whether it has deferred its turn to the end of the round.</param>
+/// <param name="Current">Whether this is the actor whose turn it is.</param>
+public readonly record struct TurnOrderActorSnapshot(
+    string Id,
+    string Name,
+    CombatSide Side,
+    double RemainingSeconds,
+    bool Ready,
+    bool CanAct,
+    bool Waiting,
+    bool Current);
+
+/// <summary>
+/// The round the fight is in, as the panel needs it: which phase, whose turn, and what is left to act.
+/// </summary>
+/// <remarks>
+/// <para>
+/// It is published in both pacings, because "this fight is being played in real time", "a round is under way
+/// and the party's turn is waiting for the player", and "the party is walking its movement phase" are three
+/// different things a player must be able to tell apart; <see cref="Phase"/> is none when no round is under
+/// way, which is what the real-time pacing publishes.
+/// </para>
+/// <para>
+/// <see cref="PlayerTurn"/> is the session's own reason to wait: while it holds, the session steps no world
+/// and advances no clock, so a panel that showed the fight moving on would be showing something the product
+/// is not doing.
+/// </para>
+/// </remarks>
+/// <param name="Phase">Which part of the round the fight is in.</param>
+/// <param name="Round">Which round is being fought, counting from one, or zero when none is.</param>
+/// <param name="Actor">The identity of the actor whose turn it is, empty when no turn is out.</param>
+/// <param name="ActorName">What that actor is called, empty when no turn is out.</param>
+/// <param name="PlayerTurn">Whether the session is waiting for the player's committed turn.</param>
+/// <param name="DueSeconds">How much game time passes before the current turn, zero when it is due now.</param>
+/// <param name="RoundSeconds">How long this round's action phase is.</param>
+/// <param name="ElapsedSeconds">How much of it has passed.</param>
+/// <param name="MovementSeconds">What is left of the party's movement phase.</param>
+/// <param name="Last">What the party's last committed turn did: <c>act</c>, <c>skip</c>, or <c>wait</c>, empty before one.</param>
+/// <param name="Order">The fight's actors in the order they act, ascending remaining recovery.</param>
+public readonly record struct CombatTurnSnapshot(
+    TurnPhase Phase,
+    int Round,
+    string Actor,
+    string ActorName,
+    bool PlayerTurn,
+    double DueSeconds,
+    double RoundSeconds,
+    double ElapsedSeconds,
+    double MovementSeconds,
+    string Last,
+    IReadOnlyList<TurnOrderActorSnapshot> Order);

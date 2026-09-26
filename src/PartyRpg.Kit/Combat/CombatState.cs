@@ -93,6 +93,54 @@ public sealed class CombatState : IGameTimeObserver
         _world = world;
         _clock = clock;
         _diagnostics = diagnostics;
+        Turns = new TurnBasedPacing(this);
+    }
+
+    /// <summary>Which of the two pacings this one fight is being played in.</summary>
+    /// <remarks>
+    /// The pacing is the only thing a switch changes. Health, position, conditions, recovery, corpses, and
+    /// what the party has provoked are the fight's state, and both pacings read exactly as it stands — which
+    /// is why a fight can be switched in the middle of a round and continued in the other mode.
+    /// </remarks>
+    public CombatPacing Pacing { get; private set; } = CombatPacing.RealTime;
+
+    /// <summary>The turn-based pacing of this same fight: the order, the round, and the two phases.</summary>
+    /// <remarks>
+    /// It is always present and always reads this state; it holds nothing while the pacing is real time,
+    /// because a round exists only while the mode is on. It is not a second combat: what it keeps is the
+    /// round's own bookkeeping — whose turn it is, how much of the round has passed, and what is left of the
+    /// party's movement phase — and every quantity it orders or prices an actor by is read from here.
+    /// </remarks>
+    public TurnBasedPacing Turns { get; }
+
+    /// <summary>
+    /// Switches the pacing, and changes nothing else about the fight.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the whole of what the toggle does. No actor is re-read, no recovery is reset, no condition is
+    /// cleared, and no body is removed: the same state that was being paced in real time is paced in rounds
+    /// from the recovery it already holds, so a party that switches mid-fight keeps the recovery each of its
+    /// members owed and the creatures keep the distance they had closed.
+    /// </para>
+    /// <para>
+    /// A round begins when the pacing is switched on into a fight, or by itself when a fight starts while the
+    /// mode is already on. Switching the mode off abandons the round, never the fight.
+    /// </para>
+    /// </remarks>
+    /// <returns>The pacing the fight is in now.</returns>
+    public CombatPacing TogglePacing()
+    {
+        Pacing = Pacing == CombatPacing.TurnBased ? CombatPacing.RealTime : CombatPacing.TurnBased;
+        if (Pacing == CombatPacing.TurnBased) Turns.Enter();
+        else Turns.Leave();
+
+        Report(
+            "combat-pacing",
+            Pacing == CombatPacing.TurnBased
+                ? "The fight is now paced turn-based: its actors act one at a time in the order their own remaining recovery states, in rounds, and the session waits for each of the party's turns."
+                : "The fight is now paced in real time: its actors act as their own recovery elapses and the world keeps stepping.");
+        return Pacing;
     }
 
     /// <summary>
@@ -102,7 +150,8 @@ public sealed class CombatState : IGameTimeObserver
     /// <remarks>
     /// The order is stable and content's own rather than an ordering the fight invents, so a projection and a
     /// test read the same fight the same way twice. It is deliberately not an initiative order: which actor
-    /// acts first is the pacing's business, and the second pacing will state its own.
+    /// acts first is the pacing's business, and <see cref="Turns"/> states that order from the recovery each
+    /// actor holds.
     /// </remarks>
     public IReadOnlyList<Combatant> Combatants => _combatants;
 
@@ -256,6 +305,11 @@ public sealed class CombatState : IGameTimeObserver
         // provocation that outlived its actor would make the next visit's entity hostile for something done
         // to a creature that no longer exists.
         _provoked.RemoveWhere(id => !_byId.ContainsKey(id));
+
+        // The turn-based pacing reads the fight after every re-read, so a round begins when a fight the party
+        // can take turns in begins and lets go when it ends: what it holds is always this fight, never a
+        // remembered copy of it.
+        Turns.Reconcile();
     }
 
     /// <summary>
@@ -310,6 +364,71 @@ public sealed class CombatState : IGameTimeObserver
 
         return results;
     }
+
+    /// <summary>
+    /// One actor attacks what it can reach, which is what a turn-based turn's act action means.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It is the same attack the act control orders in real time, addressed to one actor instead of to the
+    /// whole party: the target is the nearest one the ruleset's reach allows, what the actor does with the
+    /// order — a swing, a shot, a spell — is the ruleset's answer about that actor, and the recovery it pays
+    /// is the same quantity that decides when its next turn comes. A paced fight needs this because only one
+    /// actor's turn is being taken; real time needs <see cref="Engage()"/> because the whole party acts as
+    /// each member's recovery elapses.
+    /// </para>
+    /// <para>
+    /// An actor that is not in this fight, or one the fight refuses — it is recovering, or what is acting on
+    /// it leaves it unable to act — is answered by name and spends nothing, exactly as an order to the whole
+    /// party is.
+    /// </para>
+    /// </remarks>
+    /// <param name="actor">The actor whose turn it is.</param>
+    /// <returns>What the order did, or why it did not.</returns>
+    public CombatResult Engage(CombatantId actor)
+    {
+        if (!_byId.TryGetValue(actor, out Combatant? combatant))
+        {
+            return Report(CombatResult.Refused(
+                actor,
+                actorName: null,
+                "unknown-combatant",
+                $"No combatant '{actor}' is in this fight, so nothing acted; a fight holds the party's members and the creatures of the place the party stands in."));
+        }
+
+        Combatant? target = Nearest(combatant);
+        return Order(new AttackOrder(combatant.Id, combatant.PreferredKind, target?.Id));
+    }
+
+    /// <summary>
+    /// How long an actor owes for one action of the kind it makes, which is the length both pacings are
+    /// built on.
+    /// </summary>
+    /// <remarks>
+    /// It is the ruleset's own answer, asked the same way every time: the same actor and the same kind are
+    /// worth the same length of game time whether it is pricing what an attack costs in real time or how long
+    /// a round lasts and whose turn is next in a paced one. Nothing here caches or adjusts it, so a ruleset
+    /// whose answer changed between calls would be a defect this exposes rather than one it hides.
+    /// </remarks>
+    /// <param name="combatant">The actor to price.</param>
+    /// <returns>How long it owes after one action of its own kind.</returns>
+    /// <exception cref="ArgumentNullException">No combatant was supplied.</exception>
+    public GameDuration RecoveryOf(Combatant combatant)
+    {
+        ArgumentNullException.ThrowIfNull(combatant);
+        return _rule.RecoveryAfter(combatant.Subject, combatant.PreferredKind);
+    }
+
+    /// <summary>
+    /// Charges an actor for the action it did not take, which is what passing a turn costs.
+    /// </summary>
+    /// <remarks>
+    /// A passed turn is not a free one: the donor charges the actor its attack recovery and then moves the
+    /// queue on (<c>src/Engine/TurnEngine/TurnEngine.cpp:322-350</c>, the donor's own pass handling), which is what keeps skipping
+    /// a decision about this round rather than a way to act again sooner.
+    /// </remarks>
+    /// <param name="combatant">The actor whose turn was passed.</param>
+    internal void ChargeTurn(Combatant combatant) => combatant.Spend(RecoveryOf(combatant));
 
     /// <summary>
     /// Applies one order to attack, resolves what it does, if the actor may act.
@@ -685,5 +804,23 @@ public sealed class CombatState : IGameTimeObserver
                 : result.Message,
             Correlation: string.Empty));
         return result;
+    }
+
+    /// <summary>Reports something the fight itself changed, which no order carries.</summary>
+    /// <remarks>
+    /// Changing the pacing is a fact about the fight rather than about an actor, so it cannot travel as a
+    /// <see cref="CombatResult"/>; it is reported all the same, because a mode nobody can see in the
+    /// diagnostics looks exactly like a toggle that never arrived. The place and the pose travel with it for
+    /// the same reason every order's report carries them.
+    /// </remarks>
+    private void Report(string code, string message)
+    {
+        _diagnostics?.Publish(new DiagnosticsPublishRequest(
+            DiagnosticsSeverity.Info,
+            DiagnosticsDisposition.Accepted,
+            Source: "combat",
+            Code: code,
+            Message: _world is { } world ? $"In place '{world.Place}' at {world.Pose}: {message}" : message,
+            Correlation: string.Empty));
     }
 }

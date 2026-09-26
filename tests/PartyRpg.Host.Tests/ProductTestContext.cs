@@ -221,7 +221,12 @@ internal static class ProductTestContext
                 ? new CombatIntentNames(
                     ProductIdentity.AttackIntent,
                     ProductIdentity.AttackAction,
-                    ProductIdentity.UiActionContract)
+                    ProductIdentity.UiActionContract,
+                    new TurnIntentNames(
+                        ProductIdentity.TurnBasedToggleIntent,
+                        ProductIdentity.TurnSkipIntent,
+                        ProductIdentity.TurnWaitIntent,
+                        ProductIdentity.UiActionContract))
                 : null);
     }
 }

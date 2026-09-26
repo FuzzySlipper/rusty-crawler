@@ -161,6 +161,41 @@ internal static class ProductIdentity
     internal const string AttackAction = "party.attack";
 
     /// <summary>
+    /// The digital intent that switches a fight between real-time and turn-based pacing.
+    /// </summary>
+    /// <remarks>
+    /// The original's own toggle is Enter (<c>docs/research/mm7-manual-outline.md</c> p.33: "Enter toggles
+    /// real-time and turn-based at any moment"), and this product keeps it: Enter also confirms a creation
+    /// step, and the two controls are never both live — creation owns the key while a party is being made and
+    /// play owns it afterwards — so the two share a key exactly as the donor's own screens do. The
+    /// declaration here and the mapping in the project file are the two halves of one control, because the
+    /// engine refuses a mapping whose intent it was never told about.
+    /// </remarks>
+    internal const string TurnBasedToggleIntent = TurnActions.Toggle;
+
+    /// <summary>
+    /// The digital intent that forfeits the current actor's turn for the rest of the round.
+    /// </summary>
+    /// <remarks>
+    /// The donor spends B on passing a turn (OpenEnroth <c>src/Application/GameConfig.h:554</c>, and the
+    /// manual's own "B skips a turn", p.34), and this build gives B to the act control in both pacings — the
+    /// act key means the same act whoever holds the turn — so skipping takes K, which no other control claims
+    /// during play and which the panel names in its hint.
+    /// </remarks>
+    internal const string TurnSkipIntent = TurnActions.Skip;
+
+    /// <summary>
+    /// The digital intent that defers the current actor's turn to the end of the round.
+    /// </summary>
+    /// <remarks>
+    /// Y yields the turn: a letter the original spends on a screen this build does not have yet, so the stone
+    /// that adds that screen moves this control deliberately rather than inheriting a collision. Waiting has
+    /// its own control because its consequence differs from skipping's — it owes nothing and keeps the turn
+    /// for the end of the round — and the panel names it in its hint.
+    /// </remarks>
+    internal const string TurnWaitIntent = TurnActions.Wait;
+
+    /// <summary>
     /// The payload action name that asks the live session to save, sent by the DOM companion's save control
     /// on the UI action contract.
     /// </summary>

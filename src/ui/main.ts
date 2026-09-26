@@ -48,6 +48,17 @@ const ACTION_USE = 'party.use';
 const ACTION_ATTACK = 'party.attack';
 
 /**
+ * The pace controls: switching the one fight between real-time and turn-based pacing, and the two turn
+ * actions a paced fight has beyond acting. Each is the name of an intent the product declared and the panel
+ * action that asks for the same thing, so a key and a button are one control. Acting is deliberately not
+ * among them: the act control above is the same control in both pacings, because the act is the same act
+ * whoever holds the turn.
+ */
+const ACTION_TURN_BASED = 'combat.turn-based';
+const ACTION_TURN_SKIP = 'combat.turn-skip';
+const ACTION_TURN_WAIT = 'combat.turn-wait';
+
+/**
  * The creation actions this companion reports. Each names a choice, the product's flow validates it, and
  * its refusal is what the screen shows. The names are the product's wire vocabulary: this companion sends
  * them and reads nothing back except the projection.
@@ -402,9 +413,68 @@ interface FighterView {
 }
 
 /**
- * The fight the party is in, as the product published it: who is in it, who may act, and what the last order
- * did. Every number here is the product's — the panel runs no countdown of its own, because a screen that
- * ticked a recovery down for itself would show a character ready before the product says so.
+ * One actor's place in the order a paced round acts in, as the product published it.
+ *
+ * The remaining recovery is the fight's own quantity rather than a bar this screen fills: a row that counted
+ * down for itself would show a turn arriving before the product agreed, and the order is the fight's own
+ * reading of the same recovery that paces real time.
+ */
+interface TurnOrderView {
+  readonly id: string;
+  readonly name: string;
+  /** `party`, `opposition`, or `neutral`, as the fight reads the actor's side. */
+  readonly side: string;
+  /** How much game time it must still recover, zero when it is ready. */
+  readonly remainingSeconds: number;
+  /** Whether it may act now. */
+  readonly ready: boolean;
+  /** Whether the fight leaves it able to act at all. */
+  readonly canAct: boolean;
+  /** Whether it has deferred its turn to the end of the round. */
+  readonly waiting: boolean;
+  /** Whether this is the actor whose turn it is. */
+  readonly current: boolean;
+}
+
+/**
+ * The round a paced fight is in, as the product published it: which phase, whose turn, and what is left to
+ * act. `phase` is `none` while the fight is being played in real time, which is a different fact from a
+ * round nobody's turn is in.
+ */
+interface TurnView {
+  /** `none`, `action`, or `movement`. */
+  readonly phase: string;
+  /** Which round is being fought, counting from one, or zero when none is. */
+  readonly round: number;
+  /** The identity of the actor whose turn it is, empty when no turn is out. */
+  readonly actor: string;
+  /** What that actor is called. */
+  readonly actorName: string;
+  /**
+   * Whether the product is waiting for the player's committed turn. While it holds, the world does not step
+   * and game time does not pass — so a screen that showed it moving on would be showing what is not
+   * happening.
+   */
+  readonly playerTurn: boolean;
+  /** How much game time passes before the current turn, zero when it is due now. */
+  readonly dueSeconds: number;
+  /** How long this round's action phase is. */
+  readonly roundSeconds: number;
+  /** How much of it has passed. */
+  readonly elapsedSeconds: number;
+  /** What is left of the party's movement phase. */
+  readonly movementSeconds: number;
+  /** What the party's last committed turn did: `act`, `skip`, `wait`, or empty before one. */
+  readonly last: string;
+  /** The fight's actors in the order they act, ascending remaining recovery. */
+  readonly order: readonly TurnOrderView[];
+}
+
+/**
+ * The fight the party is in, as the product published it: who is in it, who may act, what the last order
+ * did, and which pacing it is being played in. Every number here is the product's — the panel runs no
+ * countdown of its own, because a screen that ticked a recovery down for itself would show a character ready
+ * before the product says so.
  */
 interface CombatView {
   /** Whether the session holds a fight mechanism at all. */
@@ -457,6 +527,10 @@ interface CombatView {
    * author.
    */
   readonly byParty: boolean;
+  /** Which pacing the one fight is being played in: `realtime` or `turnbased`. */
+  readonly pacing: string;
+  /** The round it is in, or the no-round value while it is played in real time. */
+  readonly turn: TurnView;
 }
 
 interface RestView {
@@ -687,6 +761,21 @@ const SERVICE_NONE: ServiceView = {
 };
 
 /** The fight of a session that holds no mechanism, or one this companion cannot read as a fight. */
+/** The round of a fight that is being played in real time, or of one this companion cannot read. */
+const TURN_NONE: TurnView = {
+  phase: '',
+  round: 0,
+  actor: '',
+  actorName: '',
+  playerTurn: false,
+  dueSeconds: 0,
+  roundSeconds: 0,
+  elapsedSeconds: 0,
+  movementSeconds: 0,
+  last: '',
+  order: [],
+};
+
 const COMBAT_NONE: CombatView = {
   available: false,
   engaged: false,
@@ -711,6 +800,8 @@ const COMBAT_NONE: CombatView = {
   condition: '',
   targetDown: false,
   byParty: false,
+  pacing: 'realtime',
+  turn: TURN_NONE,
 };
 
 /** The rest of a session that holds no mechanism, or one this companion cannot read as a stop. */
@@ -879,6 +970,10 @@ const STYLES = `
 .crawler-combat .crawler-actions button { width: auto; padding: 0.2rem 0.4rem; font-size: 0.75rem; }
 .crawler-combat-members, .crawler-combat-enemies { margin: 0.2rem 0 0; padding: 0; list-style: none; color: #cfc3a2; font-size: 0.72rem; }
 .crawler-fighter[data-ready='no'] { color: #a8967a; }
+.crawler-combat-turn { margin: 0.2rem 0 0.25rem; color: #cfc3a2; font-size: 0.75rem; }
+.crawler-turn-order { margin: 0.2rem 0 0; padding: 0; list-style: none; color: #b9ad8c; font-size: 0.72rem; }
+.crawler-turn-order .crawler-turn-actor[data-current='yes'] { color: #efe6c8; }
+.crawler-turn-order .crawler-turn-actor[data-waiting='yes'] { font-style: italic; }
 .crawler-combat-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
 .crawler-combat-result[hidden] { display: none; }
 .crawler-combat-result[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
@@ -1253,6 +1348,59 @@ function readFighter(value: unknown): FighterView | null {
   };
 }
 
+/**
+ * Reads one actor's place in the round's order, or null when the block does not describe one. Every fact is
+ * the product's own; a row this companion cannot read is dropped rather than invented.
+ */
+function readTurnOrder(value: unknown): TurnOrderView | null {
+  if (!isRecord(value)) return null;
+  const { id, name, side } = value;
+  if (typeof id !== 'string' || typeof name !== 'string' || typeof side !== 'string') return null;
+  const number = (entry: unknown): number => (typeof entry === 'number' ? entry : 0);
+  return {
+    id,
+    name,
+    side,
+    remainingSeconds: number(value.remainingSeconds),
+    ready: value.ready === true,
+    canAct: value.canAct !== false,
+    waiting: value.waiting === true,
+    current: value.current === true,
+  };
+}
+
+/** Reads the round a paced fight is in, or the no-round value when the block carries none. */
+function readTurn(value: unknown): TurnView {
+  if (!isRecord(value)) return TURN_NONE;
+  const { phase, actor, actorName, last } = value;
+  if (
+    typeof phase !== 'string' ||
+    typeof actor !== 'string' ||
+    typeof actorName !== 'string' ||
+    typeof last !== 'string'
+  ) {
+    return TURN_NONE;
+  }
+
+  const number = (entry: unknown): number => (typeof entry === 'number' ? entry : 0);
+  const order = Array.isArray(value.order)
+    ? value.order.map(readTurnOrder).filter((entry): entry is TurnOrderView => entry !== null)
+    : [];
+  return {
+    phase,
+    round: number(value.round),
+    actor,
+    actorName,
+    playerTurn: value.playerTurn === true,
+    dueSeconds: number(value.dueSeconds),
+    roundSeconds: number(value.roundSeconds),
+    elapsedSeconds: number(value.elapsedSeconds),
+    movementSeconds: number(value.movementSeconds),
+    last,
+    order,
+  };
+}
+
 function readCombat(value: unknown): CombatView {
   if (!isRecord(value)) return COMBAT_NONE;
   const { actor, kind, target, outcome, code, message } = value;
@@ -1294,6 +1442,8 @@ function readCombat(value: unknown): CombatView {
     condition: typeof value.condition === 'string' ? value.condition : '',
     targetDown: value.targetDown === true,
     byParty: value.byParty === true,
+    pacing: typeof value.pacing === 'string' ? value.pacing : 'realtime',
+    turn: readTurn(value.turn),
   };
 }
 
@@ -1829,21 +1979,54 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   combatHead.textContent = 'Fight';
   const combatState = document.createElement('p');
   combatState.className = 'crawler-combat-state';
+  // Which pacing the one fight is being played in, and the round it is in: whose turn it is and what that
+  // actor still owes, printed from the product's own numbers rather than counted down here.
+  const combatTurn = document.createElement('p');
+  combatTurn.className = 'crawler-combat-turn';
   const combatActions = document.createElement('div');
   combatActions.className = 'crawler-actions';
   const attackButton = document.createElement('button');
   attackButton.type = 'button';
   attackButton.className = 'crawler-attack';
   attackButton.textContent = 'Attack';
-  combatActions.append(attackButton);
+  // Switching the pacing is its own control because it is its own act: the fight is the same fight either
+  // way, and a player needs a way to say which pacing they want it played in.
+  const paceButton = document.createElement('button');
+  paceButton.type = 'button';
+  paceButton.className = 'crawler-pace';
+  paceButton.textContent = 'Turn-based';
+  // Skipping and waiting are separate controls because their consequences differ: a skipped turn forfeits
+  // the round and owes the action it did not take, and a waited turn is deferred to the round's end.
+  const skipButton = document.createElement('button');
+  skipButton.type = 'button';
+  skipButton.className = 'crawler-skip';
+  skipButton.textContent = 'Skip';
+  const waitButton = document.createElement('button');
+  waitButton.type = 'button';
+  waitButton.className = 'crawler-wait';
+  waitButton.textContent = 'Wait';
+  combatActions.append(attackButton, paceButton, skipButton, waitButton);
   const combatMembers = document.createElement('ul');
   combatMembers.className = 'crawler-combat-members';
   const combatEnemies = document.createElement('ul');
   combatEnemies.className = 'crawler-combat-enemies';
+  // The order the round will act in, as the fight itself reads it: the same recovery that paces real time,
+  // so a player can see whose turn is coming without the screen keeping an initiative of its own.
+  const combatOrder = document.createElement('ul');
+  combatOrder.className = 'crawler-turn-order';
   const combatResult = document.createElement('p');
   combatResult.className = 'crawler-combat-result';
   combatResult.hidden = true;
-  combat.append(combatHead, combatState, combatActions, combatMembers, combatEnemies, combatResult);
+  combat.append(
+    combatHead,
+    combatState,
+    combatTurn,
+    combatActions,
+    combatMembers,
+    combatEnemies,
+    combatOrder,
+    combatResult,
+  );
 
   // The creation screen comes before the long list of facts below: while a party is being made its
   // choices are what a player acts on, and a screen whose controls sat below twenty rows of values would
@@ -1887,6 +2070,9 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
 
   saveButton.addEventListener('click', () => claim(ACTION_SAVE));
   attackButton.addEventListener('click', () => claim(ACTION_ATTACK));
+  paceButton.addEventListener('click', () => claim(ACTION_TURN_BASED));
+  skipButton.addEventListener('click', () => claim(ACTION_TURN_SKIP));
+  waitButton.addEventListener('click', () => claim(ACTION_TURN_WAIT));
   serviceLeave.addEventListener('click', () => claim(ACTION_SERVICE_LEAVE));
   useButton.addEventListener('click', () => claim(ACTION_USE));
   advanceButton.addEventListener('click', () => claim(ACTION_ADVANCE));
@@ -2463,10 +2649,65 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
         ),
       ),
     );
+    // The pacing is printed as the product published it, with the round it is in and what the actor whose
+    // turn it is still owes: a player pressing the act key needs to know whether the world is waiting for
+    // them, and nothing here works that out for itself.
+    const paced = view.pacing === 'turnbased';
+    panel.dataset.pacing = view.available ? view.pacing : 'none';
+    panel.dataset.turnPhase = view.turn.phase;
+    panel.dataset.turnRound = String(view.turn.round);
+    panel.dataset.turnActor = view.turn.actorName;
+    panel.dataset.turnPlayer = view.turn.playerTurn ? 'yes' : 'no';
+    panel.dataset.turnLast = view.turn.last;
+    combatTurn.textContent = !view.available
+      ? ''
+      : !paced
+        ? 'Real time: actors act as their own recovery elapses.'
+        : view.turn.phase === 'movement'
+          ? `Move: round ${view.turn.round}, ${view.turn.movementSeconds.toFixed(1)}s of movement left — any turn control ends it.`
+          : view.turn.phase === 'action'
+            ? `Round ${view.turn.round} — ${view.turn.actorName}'s turn${
+                view.turn.playerTurn ? ' (yours)' : ''
+              }${view.turn.dueSeconds > 0 ? `, due in ${view.turn.dueSeconds.toFixed(1)}s` : ''}${
+                view.turn.roundSeconds > 0 ? ` · ${view.turn.roundSeconds.toFixed(1)}s round` : ''
+              }${view.turn.last === '' ? '' : ` · last turn ${view.turn.last}`}`
+            : 'Turn-based: nothing is being fought, so no round is under way.';
+    // The order is the fight's own reading of each actor's recovery, printed with the amount each still owes:
+    // the row whose turn it is says so, and a row that has deferred its turn says that too.
+    combatOrder.replaceChildren(
+      ...view.turn.order.map((actor) => {
+        const row = document.createElement('li');
+        row.className = 'crawler-turn-actor';
+        row.dataset.turnActor = actor.id;
+        row.dataset.side = actor.side;
+        row.dataset.ready = actor.ready ? 'yes' : 'no';
+        row.dataset.current = actor.current ? 'yes' : 'no';
+        row.dataset.waiting = actor.waiting ? 'yes' : 'no';
+        row.dataset.remaining = actor.remainingSeconds.toFixed(3);
+        const state = !actor.canAct
+          ? ' — out of the fight'
+          : actor.ready
+            ? ' — ready'
+            : ` — ${actor.remainingSeconds.toFixed(1)}s`;
+        row.textContent = `${actor.name}${state}${actor.current ? ' — this turn' : ''}${
+          actor.waiting ? ' — waiting' : ''
+        }`;
+        return row;
+      }),
+    );
+
     // The control is offered whenever the mechanism is there and somebody may act. A recovering party keeps
     // it disabled: an order while everybody is recovering is refused by the product, and a control that
-    // looked pressable and did nothing would be the very confusion this panel exists to prevent.
-    attackButton.disabled = !view.available || view.ready === 0;
+    // looked pressable and did nothing would be the very confusion this panel exists to prevent. In a paced
+    // fight one press spends one turn, which is why the control follows whose turn it is rather than who is
+    // ready.
+    attackButton.disabled = !view.available || (paced ? view.turn.phase === '' : view.ready === 0);
+    // Switching the pacing is offered whenever there is a fight mechanism to pace; the two turn actions are
+    // offered while a round is under way, because outside one there is no turn of the player's to pass.
+    paceButton.disabled = !view.available;
+    paceButton.textContent = paced ? 'Real-time' : 'Turn-based';
+    skipButton.disabled = !view.available || !paced || view.turn.phase === '';
+    waitButton.disabled = !view.available || !paced || view.turn.phase === '';
     combatResult.hidden = view.message === '';
     combatResult.dataset.outcome = view.outcome;
     combatResult.dataset.code = view.code;
@@ -2636,7 +2877,13 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     const restHint = snapshot.rest.available
       ? ' Rest with the button or the R key; camp with C; wait with T, H, or M.'
       : '';
-    const combatHint = snapshot.combat.available ? ' Attack with the button or the B key.' : '';
+    const combatHint = snapshot.combat.available
+      ? ` Attack with the button or the B key.${
+          snapshot.combat.pacing === 'turnbased'
+            ? ' Switch the pacing with the button or the Enter key; skip a turn with K; wait with Y.'
+            : ' Switch to turn-based pacing with the button or the Enter key.'
+        }`
+      : '';
     hint.textContent =
       current === 'creating'
         ? 'Choose a portrait, a class, a name, attributes, and skills. Enter confirms the step you are on; Space accepts a finished party.'

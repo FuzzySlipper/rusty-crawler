@@ -104,11 +104,18 @@ public sealed class CrawlerProduct : IEngineProduct
             ProductIdentity.UiActionContract);
         // The act control is one intent and one action, because the act is one act: what a member does with
         // it is the ruleset's answer about that member, and a player presses the same control for a spell, a
-        // shot, or a swing.
+        // shot, or a swing. The pace controls travel with it, because a paced fight is the same fight: one
+        // control switches the pacing, and skipping and waiting each have their own because their
+        // consequences differ.
         _combat = new CombatIntentNames(
             ProductIdentity.AttackIntent,
             ProductIdentity.AttackAction,
-            ProductIdentity.UiActionContract);
+            ProductIdentity.UiActionContract,
+            new TurnIntentNames(
+                ProductIdentity.TurnBasedToggleIntent,
+                ProductIdentity.TurnSkipIntent,
+                ProductIdentity.TurnWaitIntent,
+                ProductIdentity.UiActionContract));
         (_selection, _content) = SelectBundle(context, bundleId ?? BuiltInBundles.Default);
         _session = CreateSession();
     }

@@ -489,6 +489,10 @@ public static class SessionProjection
             ("engaged", builder.Boolean(combat.Engaged)),
             ("opposition", builder.Number(combat.Opposition)),
             ("ready", builder.Number(combat.Ready)),
+            // Which pacing this one fight is being played in, and the round it is in: a panel that could not
+            // tell a real-time fight from a paced one could not say why the world is waiting for it.
+            ("pacing", builder.String(WireName(combat.Pacing))),
+            ("turn", Turn(builder, combat.Turn)),
             ("members", builder.Array([.. members])),
             ("enemies", builder.Array([.. enemies])),
             ("actor", builder.String(combat.Actor ?? string.Empty)),
@@ -509,6 +513,46 @@ public static class SessionProjection
             ("targetDown", builder.Boolean(combat.TargetDown)),
             ("byParty", builder.Boolean(combat.ByParty)));
     }
+
+    /// <summary>
+    /// Builds the round a paced fight is in: the phase, whose turn it is, and the order actors act in.
+    /// </summary>
+    /// <remarks>
+    /// Every number here is the pacing's own — a length of game time, never a countdown the screen runs — and
+    /// the order is the fight's own reading of each actor's recovery, so a panel that shows a member due in
+    /// two seconds is showing what the fight holds rather than what the panel worked out. A snapshot built
+    /// without a round publishes zeros and no phase, which is what the real-time pacing is.
+    /// </remarks>
+    private static uint Turn(UiValueBuilder builder, CombatTurnSnapshot? turn)
+    {
+        List<uint> order = [];
+        foreach (TurnOrderActorSnapshot actor in turn?.Order ?? []) order.Add(Ordered(builder, actor));
+
+        return builder.Object(
+            ("phase", builder.String(turn is { } paced ? WireName(paced.Phase) : string.Empty)),
+            ("round", builder.Number(turn?.Round ?? 0)),
+            ("actor", builder.String(turn?.Actor ?? string.Empty)),
+            ("actorName", builder.String(turn?.ActorName ?? string.Empty)),
+            ("playerTurn", builder.Boolean(turn?.PlayerTurn ?? false)),
+            ("dueSeconds", builder.Number(turn?.DueSeconds ?? 0)),
+            ("roundSeconds", builder.Number(turn?.RoundSeconds ?? 0)),
+            ("elapsedSeconds", builder.Number(turn?.ElapsedSeconds ?? 0)),
+            ("movementSeconds", builder.Number(turn?.MovementSeconds ?? 0)),
+            ("last", builder.String(turn?.Last ?? string.Empty)),
+            ("order", builder.Array([.. order])));
+    }
+
+    /// <summary>Builds one actor of the order a paced round acts in.</summary>
+    private static uint Ordered(UiValueBuilder builder, TurnOrderActorSnapshot actor) =>
+        builder.Object(
+            ("id", builder.String(actor.Id)),
+            ("name", builder.String(actor.Name)),
+            ("side", builder.String(WireName(actor.Side))),
+            ("remainingSeconds", builder.Number(actor.RemainingSeconds)),
+            ("ready", builder.Boolean(actor.Ready)),
+            ("canAct", builder.Boolean(actor.CanAct)),
+            ("waiting", builder.Boolean(actor.Waiting)),
+            ("current", builder.Boolean(actor.Current)));
 
     /// <summary>Builds one actor of a fight block: who it is, whether it may act, and how long it owes.</summary>
     private static uint Fighter(UiValueBuilder builder, CombatActorSnapshot actor) =>
@@ -695,8 +739,40 @@ public static class SessionProjection
         SessionMode.Creating => "creating",
         SessionMode.Running => "running",
         SessionMode.Paused => "paused",
+        SessionMode.TurnBased => "turnbased",
         SessionMode.Stopped => "stopped",
         _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown session mode."),
+    };
+
+    /// <summary>The wire name for which pacing a fight is being played in.</summary>
+    public static string WireName(CombatPacing pacing) => pacing switch
+    {
+        CombatPacing.RealTime => "realtime",
+        CombatPacing.TurnBased => "turnbased",
+        _ => throw new ArgumentOutOfRangeException(nameof(pacing), pacing, "Unknown combat pacing."),
+    };
+
+    /// <summary>The wire name for which part of a paced round a fight is in.</summary>
+    /// <remarks>
+    /// A phase with no word is refused rather than published as an empty string: "no round is under way" has
+    /// its own name, and a panel that could not tell it from a phase this wire cannot describe would show a
+    /// real-time fight as a paused round.
+    /// </remarks>
+    public static string WireName(TurnPhase phase) => phase switch
+    {
+        TurnPhase.None => "none",
+        TurnPhase.Action => "action",
+        TurnPhase.Movement => "movement",
+        _ => throw new ArgumentOutOfRangeException(nameof(phase), phase, "Unknown turn phase."),
+    };
+
+    /// <summary>The wire name for which side of a fight an actor is on.</summary>
+    public static string WireName(CombatSide side) => side switch
+    {
+        CombatSide.Party => "party",
+        CombatSide.Opposition => "opposition",
+        CombatSide.Neutral => "neutral",
+        _ => throw new ArgumentOutOfRangeException(nameof(side), side, "Unknown combat side."),
     };
 
     /// <summary>The wire name for how a session stands with its save slot.</summary>

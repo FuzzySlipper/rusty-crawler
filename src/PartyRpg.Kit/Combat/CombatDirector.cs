@@ -139,6 +139,90 @@ public sealed class CombatDirector
     /// <returns>What every driven creature decided.</returns>
     public IReadOnlyList<CreatureActivity> Step(PlaceId place, double elapsedSeconds)
     {
+        Align(place);
+
+        List<CreatureActivity> decided = [];
+        foreach (Combatant combatant in _combat.Combatants.Where(entry => entry.Side == CombatSide.Opposition).ToList())
+        {
+            CreatureActivity activity = Turn(place, combatant, elapsedSeconds);
+            if (!_combat.IsDown(combatant)) decided.Add(activity);
+        }
+
+        // The place is looked at again once the driving is done, because what stands there can have changed
+        // under it: a creature that was brought down earlier this update is a body by now.
+        Observe(place);
+        return decided;
+    }
+
+    /// <summary>
+    /// Takes one creature's turn: the same decision and the same gate as <see cref="Step"/>, for one actor
+    /// instead of every actor.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A turn-based round hands out one turn at a time, so it needs one creature to decide and act rather
+    /// than all of them every update. Everything else is deliberately the same: the ruleset's own policy
+    /// decides, the order goes through <see cref="CombatState.Order"/>, movement goes through the world's own
+    /// collision, and the decision is keyed by the turn this creature is taking — so a fight paced in rounds
+    /// is the same fight with the same AI, not a second one.
+    /// </para>
+    /// <para>
+    /// The admitted interval is what its movement covers: in real time that is the update the round was
+    /// fought in, and in a paced fight it is the game time between this creature's turn and the last one,
+    /// converted to the unit the world's own mover measures in. A turn that covers no time still lets the
+    /// creature attack, because an attack is an instant, and moves it nowhere, because movement is not.
+    /// </para>
+    /// </remarks>
+    /// <param name="place">The place the party stands in, which is where its creatures are.</param>
+    /// <param name="creature">The creature whose turn it is.</param>
+    /// <param name="elapsedSeconds">The world time this turn covers, which may be zero.</param>
+    /// <returns>What the creature decided.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">No actor in the fight has that identity.</exception>
+    public CreatureActivity TakeTurn(PlaceId place, CombatantId creature, double elapsedSeconds)
+    {
+        Align(place);
+
+        Combatant combatant = _combat.Find(creature) ?? throw new ArgumentOutOfRangeException(
+            nameof(creature),
+            creature,
+            "No actor in this fight has that identity, so there is no turn to take; a turn is handed to an actor the fight itself published.");
+
+        return Turn(place, combatant, elapsedSeconds);
+    }
+
+    /// <summary>One creature's turn, for a driver that has already read the place it is standing in.</summary>
+    private CreatureActivity Turn(PlaceId place, Combatant combatant, double elapsedSeconds)
+    {
+        if (_combat.IsDown(combatant))
+        {
+            // A body is not driven: it neither acts nor is forgotten, because it is still where it fell and
+            // the fight still publishes it. It stops counting as an enemy by the fight's own reading.
+            CreatureActivity body = new(combatant.Id, combatant.Name, "down", string.Empty, Applied: false);
+            _activity[combatant.Id] = body;
+            return body;
+        }
+
+        long round = _rounds.GetValueOrDefault(combatant.Id);
+        _rounds[combatant.Id] = round + 1;
+        CreatureActivity activity = Apply(combatant, Situation(combatant, round, place), elapsedSeconds);
+        _activity[combatant.Id] = activity;
+        Report(place, activity);
+        return activity;
+    }
+
+    /// <summary>
+    /// Forgets what belonged to a place the party has left, and drops the creatures that are gone.
+    /// </summary>
+    /// <remarks>
+    /// Positions and counters belong to the place they were made in: a fresh place starts from content's own
+    /// placements, and nothing may carry a coordinate or a creature's turn count across. A creature that is
+    /// no longer fighting — it went down, or the place was restored under the party and its entity is gone —
+    /// is forgotten here for the same reason, and the forgetting is what makes a fresh population a fresh
+    /// fight. Both <see cref="Step"/> and <see cref="TakeTurn"/> begin here, so whichever of them the pacing
+    /// uses, the driver is answering about the place the party is standing in now.
+    /// </remarks>
+    private void Align(PlaceId place)
+    {
         if (_place is { } previous && previous != place)
         {
             // Positions belonged to the place the party has left: a fresh place starts from content's own
@@ -150,38 +234,15 @@ public sealed class CombatDirector
 
         _place = place;
 
-        List<Combatant> opposition = [.. _combat.Combatants.Where(combatant => combatant.Side == CombatSide.Opposition)];
-        HashSet<CombatantId> live = [.. opposition.Select(combatant => combatant.Id)];
+        HashSet<CombatantId> live = [.. _combat.Combatants
+            .Where(combatant => combatant.Side == CombatSide.Opposition)
+            .Select(combatant => combatant.Id)];
         foreach (CombatantId gone in _rounds.Keys.Where(id => !live.Contains(id)).ToList())
         {
             _rounds.Remove(gone);
             _activity.Remove(gone);
             _mover?.Forget(gone);
         }
-
-        List<CreatureActivity> decided = [];
-        foreach (Combatant combatant in opposition)
-        {
-            if (_combat.IsDown(combatant))
-            {
-                // A body is not driven: it neither acts nor is forgotten, because it is still where it fell
-                // and the fight still publishes it. It stops counting as an enemy by the fight's own reading.
-                _activity[combatant.Id] = new CreatureActivity(combatant.Id, combatant.Name, "down", string.Empty, Applied: false);
-                continue;
-            }
-
-            long round = _rounds.GetValueOrDefault(combatant.Id);
-            _rounds[combatant.Id] = round + 1;
-            CreatureActivity activity = Apply(combatant, Situation(combatant, round, place), elapsedSeconds);
-            _activity[combatant.Id] = activity;
-            decided.Add(activity);
-            Report(place, activity);
-        }
-
-        // The place is looked at again once the driving is done, because what stands there can have changed
-        // under it: a creature that was brought down earlier this update is a body by now.
-        Observe(place);
-        return decided;
     }
 
     /// <summary>

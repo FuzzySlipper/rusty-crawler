@@ -192,6 +192,22 @@ public sealed class MovementInput
         return Intent(claimed, jumpStarted);
     }
 
+    /// <summary>
+    /// Drops every control the player was holding, which is what a change of pacing does to them.
+    /// </summary>
+    /// <remarks>
+    /// A key held across a mode change belonged to the pacing the player was in: walking is an interval the
+    /// real-time mode admits, and a fight that is waiting for a committed turn admits none, so the hold is
+    /// released rather than carried over as a step the new mode never asked for. A key the engine is still
+    /// reporting as down is reported again by the very next update, so nothing the player is still holding is
+    /// lost — what is dropped is the intent the session was holding at the moment of the switch.
+    /// </remarks>
+    public void Release()
+    {
+        _held = Controls.None;
+        _stateDriven = Controls.None;
+    }
+
     /// <summary>Builds the intent from what is held, plus what a direct claim asked for in this update only.</summary>
     private MovementIntent Intent(Controls claimed, bool jumpStarted)
     {

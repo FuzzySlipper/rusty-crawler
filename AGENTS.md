@@ -74,8 +74,10 @@ documents decide, and the difference is recorded rather than silently rounded.
 
 **Foundation stone 6 is in progress: combat is one state over the live world with both sides acting — the
 party strikes, monsters are placed and driven by this game's own data, harm resolves into damage,
-resistance and conditions, and a place remembers being emptied. Turn-based pacing, corpses as searchable
-things, and loot are the rest of the stone.**
+resistance and conditions, a place remembers being emptied, what a death leaves lies there searchable, and
+the same state is played in either of the two pacings: real time by recovery, or turn-based in rounds with
+the session waiting for each of the player's turns. A creature that cannot see its target still walks
+straight at it rather than around geometry, which is the one piece of the stone left.**
 
 - `src/PartyRpg.Kit`, `src/PartyRpg.Rulesets.MightAndMagic7`, and `src/PartyRpg.Host` build against
   the pinned Engine pair. The host declares the one product entry, one admitted update, the
@@ -237,7 +239,10 @@ things, and loot are the rest of the stone.**
   quantity advanced from the game time the session's one clock reports inside the admitted update and by
   nothing else, so a held session releases nobody and no frame or timer moves it; a recovering actor cannot
   act, and attack initiation of every kind is gated by that same quantity rather than by a per-kind cooldown.
-  That quantity is what the turn-based pacing will derive its order from. Hostility is world state: a creature
+  That quantity is also the whole of the initiative, because the second pacing is a second reading of the same
+  state: actors act one at a time in ascending remaining recovery — ready being exactly zero — with the fight's
+  own order breaking ties, so a faster actor acts more than once in a round as arithmetic rather than as a
+  special case. Hostility is world state: a creature
   is an enemy because of what it is — this game reads the monster table's own hostility band as the distance
   at which it notices the party — or because of what the party has done, which is remembered for as long as
   the creature stands there, and a place the world restores starts with nobody provoked. The act control (B,
@@ -295,18 +300,34 @@ things, and loot are the rest of the stone.**
   read after the party's own order in the same update, so a party that kills the last creature and walks out
   leaves it cleared. A cleared place holds nobody until its own interval elapses; the world's advance then
   restores it and the population is rebuilt from the same placements.
+- The fight is played in either pacing, and switching between them changes the pacing and nothing else. One
+  toggle (Enter, the original's own key) turns turn-based pacing on and off mid-fight or out of it, and no
+  health, position, condition, recovery, body, or provocation moves with it: the round is read from the
+  recovery the state already holds, so a party that switches mid-fight keeps every debt each of its members
+  owed. A round is an action phase and then the party's movement phase: in the action phase each actor whose
+  recovery has elapsed takes its turn in order — acting, skipping (which forfeits the round and owes the
+  action it did not take, the donor's own `_406457`), or waiting (which defers the turn to the round's end
+  and owes nothing) — and an actor that can do nothing is passed over rather than stalling it. The action
+  phase lasts the longest recovery any actor in the fight owes, so the slowest actor acts once and everyone
+  faster acts again inside the same round. The movement phase is the party's own step, priced by the party's
+  own recovery, and any turn control ends it. While a turn of the party's is outstanding the session waits:
+  it steps no world and advances no clock of its own, held input is released and a hold that spanned the
+  switch must be let go before it acts again, and each turn arrives as a committed action inside the update
+  that carries it. K skips and Y waits beside the act control (B, the same control in both pacings), the
+  panel publishes the pacing, the round, whose turn it is, and the order with what each actor still owes, and
+  a position, pose, and condition are read off the panel in `local/verify/turn-based/`.
 - **What combat does not do yet.** A creature that cannot see its target walks straight at it and slides along
   the wall: the mover asks the engine's own navigation for a waypoint, and these places have none — the
   collision artifact carries collision and no cells, and nothing derives navigation from it yet, which needs a
   place's bounds to be carried by content (`ISpatialService.ReplaceCollisionNavigation` is the engine half).
-  Turn-based pacing, corpses as lootable things, and loot are not here either. A character's resistance and
+  Corpses are searchable things and loot is here; what is not is a creature's pathing. A character's resistance and
   armour class are the donor's sum only where this build can read them — an unarmed accuracy bonus for the
   blow, a speed bonus and dodging for the armour class, and nothing at all for the six resistances — because a
   party cannot wear anything until the stone that brings items and equipment lands.
 - **No magic or quests exists, a save carries no deadlines, and a save carries no fight.** Do not describe,
   review, or accept behavior those stones will add as though it were here. What a player can do today is
   create a party, walk it, open doors and containers, get caught by a trap, buy and sell at a counter, learn
-  from a guild, rest or camp, talk to people, fight by recovery, and save or resume: on the agent playtest service's remote browser a held `W` walks the
+  from a guild, rest or camp, talk to people, fight by recovery or in rounds, and save or resume: on the agent playtest service's remote browser a held `W` walks the
   party about 382 units a second and the released key
   stops it where it stands (Emerald Island, `12552, 800, 193` to `12552, 3859, 98` over eight seconds
   of held key, the pose then unchanged for the next seventy seconds while the admitted steps kept

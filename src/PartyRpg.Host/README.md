@@ -17,12 +17,14 @@ Implemented today:
   mapping, the movement intents and their keys, the save control (`session.save` on F), the use control
   (`party.use` on G, using whatever the party faces), the service and conversation ways out, the stop
   controls, the act control (`party.attack` on B, held, so a held key keeps attacking as each member's
-  recovery elapses — the donor's own key and trigger), the creation screen's two controls
+  recovery elapses — the donor's own key and trigger), the pace controls (the toggle `combat.turn-based` on
+  Enter, the original's own key, and the two turn actions `combat.turn-skip` on K and `combat.turn-wait` on
+  Y), the creation screen's two controls
   (`creation.advance` on Enter and `creation.accept` on Space) with the `crawler.ui` payload channel
   its choices and its panel buttons arrive on, and the TypeScript build target.
 
 Still to come: bundle selection, launcher and diagnostics surfaces, content bundles, and the gameplay
-intents (a look or aim control, and the turn-based toggle) that arrive with the stones that implement
+intents (a look or aim control, screen keys, and casting) that arrive with the stones that implement
 them.
 
 Boundary rules:

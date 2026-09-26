@@ -29,8 +29,11 @@ Bundle assembles. Host launches.**
 > leaves a corpse where it fell, searchable through the same container mechanism a chest is, holding what
 > this game's own treasure tables say the death left: the monster table's cell for the row that fell, and
 > the item table's own weights drawn under a key that names the death, so the same kill yields the same
-> loot. What combat does not do yet is turn-based pacing; a creature that cannot see its target
-> walks straight at it rather than around geometry, because no place carries a navigation projection yet.
+> loot. The same fight is played in either pacing: real time by recovery, or turn-based in rounds — one
+> toggle, initiative read from that same recovery, an action phase and the party's movement phase, skip and
+> wait, and a session that waits for each of the player's committed turns instead of stepping the world. What
+> combat does not do yet is let a creature see its way around geometry: one that cannot see its target
+> walks straight at it, because no place carries a navigation projection yet.
 > Magic and quests are still to come, and the shipped bundle carries no content — so a running product
 > without imported packs reports no world and no party. See
 > [`AGENTS.md`](AGENTS.md) for the exact current state.

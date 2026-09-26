@@ -103,6 +103,7 @@ public sealed class PartyRpgSession : IGameSession
     private readonly RestInput? _restInput;
     private readonly IRestRule? _restRule;
     private readonly CombatInput? _combatInput;
+    private readonly TurnInput? _turnInput;
     private readonly ICombatRule? _combatRule;
     private readonly IMonsterAiPolicy? _monsterAi;
     private readonly GameClock? _clock;
@@ -136,6 +137,35 @@ public sealed class PartyRpgSession : IGameSession
     private bool _enginePaused;
     private bool _held;
     private bool _disposed;
+
+    /// <summary>
+    /// Whether the act control was already down at the end of the last update.
+    /// </summary>
+    /// <remarks>
+    /// In real time a held act control means "keep attacking as each member recovers", so what matters is
+    /// that it is down. In a paced fight it means a committed turn, and turns are decisions rather than a
+    /// state: this is what tells a press from a key that happens to still be down, so holding the act control
+    /// cannot spend turn after turn.
+    /// </remarks>
+    private bool _attackHeld;
+
+    /// <summary>
+    /// Whether the act control must be let go before it orders anything again, because the pacing changed.
+    /// </summary>
+    /// <remarks>
+    /// A key held across a mode change belonged to the pacing the player was in — in real time it means "keep
+    /// attacking as members recover", and in a paced fight it would mean "keep committing turns" — so the
+    /// hold is dropped and the control has to come up before it counts again. What comes up is the engine's
+    /// own report, which is why the control also has to be seen <em>down</em> after the switch before its
+    /// absence means anything: the update the toggle arrived in carries no attack event either, and reading
+    /// that as a release would let the very next update order again. Without both halves, a key that was down
+    /// when the toggle arrived would order one more attack, or spend one more turn, in a mode the player has
+    /// not asked it for.
+    /// </remarks>
+    private bool _attackSuppressed;
+
+    /// <summary>Whether the act control has been reported down since the pacing last changed.</summary>
+    private bool _attackSeenDown;
 
     /// <summary>Creates a session for a compiled ruleset over the mechanisms the kit supplies.</summary>
     /// <param name="composition">The identity the session presents.</param>
@@ -304,6 +334,7 @@ public sealed class PartyRpgSession : IGameSession
         _restInput = restInput is null ? null : new RestInput(restInput);
         _restRule = rest;
         _combatInput = combatInput is null ? null : new CombatInput(combatInput);
+        _turnInput = combatInput?.Turn is { } turn ? new TurnInput(turn) : null;
         _combatRule = combat;
         _monsterAi = monsterAi;
         _creation = creation;
@@ -525,15 +556,32 @@ public sealed class PartyRpgSession : IGameSession
         // admitted interval the same update measures, and the clock is advanced by that same interval. The
         // party's motion and the passage of game time are therefore one interval, not two loops, and a
         // session that is not running admits no interval for either of them.
+        //
+        // The pacing control is settled first of all, for the same reason and one step earlier: a press that
+        // switches the mode changes what this very update does with the world, so it cannot wait for the
+        // update after the one it arrived in.
+        TurnControls turn = _turnInput?.Read(update.Input) ?? TurnControls.None;
+        if (turn.Toggle) TogglePacing();
+
         double seconds = AdmittedSeconds(tick);
+
+        // A turn-based fight the party can still take turns in owns the player's controls while it waits for
+        // one: the session steps no world and measures no interval, exactly as a screen that owns the
+        // controls does, and every turn arrives as the committed action below. Its movement phase is the one
+        // part that does step the world, and it is the party's own step: the fight holds while it lasts but
+        // the party walks.
+        bool awaitingTurn = _combat is { Turns.WaitsForPlayer: true };
+        bool screenOwnsControls = _services is { IsOpen: true } || _conversations is { IsOpen: true };
 
         // A service visit or a conversation owns the player's controls: the screen is what they act on, so
         // the party does not step and nothing is faced while one is open, and a party cannot walk away from
-        // a shop or a person by holding a key at a menu. The world itself keeps advancing — one clock, one
-        // update, and a screen does not pause a real-time world — so the shops that close and the places
-        // that respawn do so behind the counter exactly as they do in the street.
+        // a shop or a person by holding a key at a menu. The world itself keeps advancing behind a screen —
+        // one clock, one update, and a screen does not pause a real-time world — but a fight waiting for a
+        // committed turn does pause it, because time is what a turn spends rather than what updates carry.
         bool attacked = false;
-        if (_services is not { IsOpen: true } && _conversations is not { IsOpen: true })
+        bool skipped = false;
+        bool waited = false;
+        if (!awaitingTurn && !screenOwnsControls)
         {
             StepParty(update.Input, seconds);
             // Using something follows the step that carried the party to it, in the same update: the reticle
@@ -543,11 +591,46 @@ public sealed class PartyRpgSession : IGameSession
             // A stop is an instant like a use, and the whole period is applied here: the clock the step above
             // moved is moved on by the hours the party slept or waited for, inside this same admitted update.
             DriveRest(update.Input);
-            // Whether the party is being ordered to attack is read here, with the other controls, because the
-            // act control belongs to the player's controls: a screen that owns them owns this one too. The
-            // order itself is applied below, after the world has moved everything a fight reads.
-            attacked = ReadsAttack(update.Input);
         }
+        else if (!screenOwnsControls)
+        {
+            // A use and a stop are instants rather than intervals, so they are still applied while a turn is
+            // being taken: what the party faces is refreshed from where it actually stands, and a rest that
+            // the fight's own rules refuse is refused by name rather than by a mode.
+            Interact(update.Input);
+            DriveRest(update.Input);
+        }
+
+        // The act control is read once per update whatever the mode, because what it holds is a fact about the
+        // key: in real time a hold keeps attacking as members recover, and in a paced fight only a press
+        // commits a turn, so a held key cannot spend turn after turn.
+        bool attackHeld = !screenOwnsControls && ReadsAttack(update.Input);
+        bool pressed = attackHeld && !_attackHeld && !_attackSuppressed;
+        if (_attackSuppressed)
+        {
+            if (attackHeld) _attackSeenDown = true;
+            else if (_attackSeenDown)
+            {
+                // It came up: the next press is a decision about the pacing the player is in now.
+                _attackSuppressed = false;
+                _attackSeenDown = false;
+            }
+        }
+        if (!screenOwnsControls && _combat is { Pacing: CombatPacing.TurnBased })
+        {
+            // A paced fight takes one turn per decision, so what orders here is a press rather than a hold.
+            attacked = pressed;
+            skipped = turn.Skip;
+            waited = turn.Wait;
+        }
+        else
+        {
+            // Real time keeps the hold's own meaning, and a hold the mode change dropped still has to come up
+            // before it orders again.
+            attacked = attackHeld && !_attackSuppressed;
+        }
+
+        _attackHeld = attackHeld;
 
         DriveServices(update.Input);
         DriveConversations(update.Input);
@@ -577,7 +660,12 @@ public sealed class PartyRpgSession : IGameSession
         // rather than something remembered from an earlier update. The order the player gave is applied in
         // the same breath, and only then is the update consumed and its projection published, so what the
         // panel reads is the fight this update left behind rather than the one before it.
-        DriveCombat(attacked, seconds);
+        DriveCombat(attacked, skipped, waited, seconds);
+
+        // The mode is resolved after the fight has had its say, because the fight is what decides whether the
+        // next update waits for a committed turn: a round that began in this update is published in the same
+        // update, so the panel never shows a fight whose turn it is not yet waiting for.
+        ResolveMode();
 
         Advance(tick);
 
@@ -943,11 +1031,31 @@ public sealed class PartyRpgSession : IGameSession
     /// because movement is an interval.
     /// </para>
     /// <param name="attacked">Whether this update carried an order to attack.</param>
+    /// <param name="skipped">Whether this update carried a committed turn that forfeits the round's turn.</param>
+    /// <param name="waited">Whether this update carried a committed turn that defers to the round's end.</param>
     /// <param name="seconds">The world time this update admitted, which may be zero.</param>
-    private void DriveCombat(bool attacked, double seconds)
+    private void DriveCombat(bool attacked, bool skipped, bool waited, double seconds)
     {
         if (_combat is not { } combat) return;
         combat.Step();
+
+        // A fight that is being paced turn-based, and has a round to pace, is driven by its own turns: the
+        // opposition acts when its turns come rather than every update, and the party's action is the turn it
+        // committed. A pacing that holds nothing — nothing hostile, or a party that can no longer act — is the
+        // real-time path below, because then the world proceeds exactly as it does outside the mode.
+        if (combat.Pacing == CombatPacing.TurnBased && combat.Turns.IsHolding)
+        {
+            DrivePacedCombat(combat, attacked, skipped, waited, seconds);
+            return;
+        }
+
+        if (skipped || waited)
+        {
+            ReportRefusedTurn(
+                "no-turn",
+                "A turn was passed or deferred while this fight had no turn to give: the pacing is not turn-based, nothing is being fought, or the party has nobody left who can act.");
+        }
+
         if (_director is { } director && _liveWorld is { } world)
         {
             director.Step(world.Place, seconds);
@@ -964,6 +1072,200 @@ public sealed class PartyRpgSession : IGameSession
             combat.Engage();
         }
     }
+
+    /// <summary>
+    /// Drives a paced fight: the party's committed turn, then every turn that comes before the next one of
+    /// the party's.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the second pacing's whole effect on the admitted update, and it is not a second update: it runs
+    /// inside the one the engine admitted, it is triggered by the committed action that update carried, and
+    /// the only thing it does with the world is advance the session's own clock by the game time each turn
+    /// costs — the same clock, the same owners, and therefore the same recovery arithmetic real time runs on.
+    /// </para>
+    /// <para>
+    /// The action phase hands out turns until one of them belongs to the party, which is where the session
+    /// starts waiting for the player instead of stepping anything, or until the round's own time is spent,
+    /// which is where the party's movement phase begins.
+    /// </para>
+    /// <para>
+    /// The movement phase is the party's own step: the update's admitted step already moved it, and what is
+    /// spent here is the game time that step covered. Any committed turn ends the phase — the donor's own
+    /// controls do exactly that, since pressing the act or pass key while the party is moving ends the
+    /// movement phase rather than reaching the actor — and so does spending the allowance.
+    /// </para>
+    /// </remarks>
+    private void DrivePacedCombat(CombatState combat, bool attacked, bool skipped, bool waited, double seconds)
+    {
+        TurnBasedPacing turns = combat.Turns;
+
+        if (turns.Phase == TurnPhase.Movement)
+        {
+            // What the party's step covered is game time, priced by the party's own recovery. A session that
+            // admits no interval — a held one — spends nothing and stays in the phase; a session with no clock
+            // at all has no scale to convert its step by and so no allowance anything could ever spend, and
+            // its phase therefore ends with the update that entered it rather than holding a world forever.
+            turns.SpendMovement(GameTime(seconds));
+            bool committed = attacked || skipped || waited;
+            if (!committed && _clock is not null && !turns.MovementLeft.IsNone) return;
+            turns.EndMovement();
+            ResolveTurns(combat, seconds);
+            return;
+        }
+
+        if (turns.WaitsForPlayer)
+        {
+            if (attacked)
+            {
+                // The turn is only spent if the actor actually acted: a refusal — an actor the fight's own
+                // rules leave unable to act, or one whose recovery has not elapsed because this session has no
+                // clock to elapse it — leaves the turn where it was, so the player can see the answer and act
+                // again rather than losing a turn to a refusal.
+                if (combat.Engage(turns.Current!.Id).IsApplied) turns.Took();
+                ResolveTurns(combat, seconds);
+                return;
+            }
+
+            if (skipped)
+            {
+                turns.Skipped();
+                ResolveTurns(combat, seconds);
+                return;
+            }
+
+            if (waited)
+            {
+                if (!turns.Waited())
+                {
+                    ReportRefusedTurn(
+                        "already-waited",
+                        $"{turns.Current?.Name ?? "That actor"} has already deferred its turn this round, so waiting again would hold the round open for a decision nothing has changed.");
+                }
+
+                ResolveTurns(combat, seconds);
+                return;
+            }
+
+            // Nothing was committed: the session keeps waiting rather than stepping anything, which is what
+            // makes a turn-based fight wait for the player.
+            return;
+        }
+
+        ResolveTurns(combat, seconds);
+    }
+
+    /// <summary>
+    /// Hands out the turns that come before the party's next one, letting the opposition take them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The loop is the pacing's own protocol: ask whose turn is next and how much game time passes first,
+    /// advance the one clock by it, and let a creature act through the same driver the real-time pacing uses.
+    /// It stops when a party member holds the turn — the session waits for the player there — and when no
+    /// turn is due at all, which is the round's action phase ending.
+    /// </para>
+    /// <para>
+    /// It always terminates: every turn either advances the clock by a length of game time the round still
+    /// has, or is taken by an actor that has not acted at this moment, and the moment only holds as many turns
+    /// as the fight has actors.
+    /// </para>
+    /// </remarks>
+    private void ResolveTurns(CombatState combat, double seconds)
+    {
+        while (true)
+        {
+            GameDuration interval = combat.Turns.Next();
+            if (!interval.IsNone) AdvanceTurnTime(interval);
+            if (combat.Turns.Current is not { } actor) return;
+            if (actor.Side == CombatSide.Party) return;
+            if (_director is { } director && _liveWorld is { } world)
+            {
+                director.TakeTurn(world.Place, actor.Id, AdmittedSecondsFor(interval));
+            }
+
+            combat.Turns.Took();
+        }
+    }
+
+    /// <summary>The engine's own seconds for a length of game time, which is what a creature's step covers.</summary>
+    /// <remarks>
+    /// A turn is game time and the world's mover measures in the admitted seconds the engine reports, so the
+    /// two are related by the scale the one clock already carries — the same relation the session uses in the
+    /// other direction when an admitted interval becomes game time. A session with no clock has no scale and
+    /// moves nothing, which is the same answer its recovery already gives.
+    /// </remarks>
+    private double AdmittedSecondsFor(GameDuration interval) =>
+        _clock is { } clock ? interval.TotalSeconds / clock.Scale.GameSecondsPerRealSecond : 0;
+
+    /// <summary>The game time an admitted interval covers, at the one clock's own scale.</summary>
+    private GameDuration GameTime(double admittedSeconds) =>
+        _clock is { } clock
+            ? GameDuration.FromMilliseconds((long)Math.Round(
+                admittedSeconds * clock.Scale.GameSecondsPerRealSecond * GameDuration.MillisecondsPerSecond,
+                MidpointRounding.AwayFromZero))
+            : GameDuration.None;
+
+    /// <summary>
+    /// Switches the pacing of the fight this session plays, and changes nothing else about it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is what the toggle control reaches. It touches the fight and nothing else: no party state, no
+    /// world state, and no position moves, which is why a fight can be switched in the middle of a round and
+    /// continued in the other mode from exactly the state it was in.
+    /// </para>
+    /// <para>
+    /// <b>What the player was holding is released.</b> A key held across the switch belonged to the pacing
+    /// they were in — walking is an interval only real time admits, and the act control's hold means "keep
+    /// attacking as members recover" — so both readers drop what they held and the act control's own hold
+    /// flag is cleared. A key the engine still reports as down arrives again in the next update, so what is
+    /// dropped is the intent the session was carrying over, not the player's key.
+    /// </para>
+    /// </remarks>
+    private void TogglePacing()
+    {
+        if (_combat is not { } combat)
+        {
+            _diagnostics?.Publish(new DiagnosticsPublishRequest(
+                DiagnosticsSeverity.Warning,
+                DiagnosticsDisposition.RejectedRecoverable,
+                Source: "combat",
+                Code: "combat-pacing-unavailable",
+                Message: "The pacing was asked to switch and this session holds no fight to pace: its ruleset answered no combat policy, so there is nothing to play in rounds.",
+                Correlation: string.Empty));
+            return;
+        }
+
+        CombatPacing pacing = combat.TogglePacing();
+        // What the player was holding at the moment of the switch is what must be let go; a control that was
+        // up then is a control the next press orders with, in the pacing the player has just chosen.
+        _attackSuppressed = _attackHeld;
+        _attackSeenDown = false;
+        _movementInput?.Release();
+        _combatInput?.Release();
+        _attackHeld = false;
+
+        _diagnostics?.Publish(new DiagnosticsPublishRequest(
+            DiagnosticsSeverity.Info,
+            DiagnosticsDisposition.Accepted,
+            Source: "combat",
+            Code: "combat-pacing-toggle",
+            Message: pacing == CombatPacing.TurnBased
+                ? "The fight is paced turn-based: every turn of the party's now arrives as a committed action and the world waits for it."
+                : "The fight is paced in real time again: recovery elapses with the world it always did.",
+            Correlation: string.Empty));
+    }
+
+    /// <summary>Reports a committed turn the fight had nowhere to put.</summary>
+    private void ReportRefusedTurn(string code, string message) =>
+        _diagnostics?.Publish(new DiagnosticsPublishRequest(
+            DiagnosticsSeverity.Warning,
+            DiagnosticsDisposition.RejectedRecoverable,
+            Source: "combat",
+            Code: code,
+            Message: message,
+            Correlation: string.Empty));
 
     /// <summary>Whether this update's admitted input orders the party to attack.</summary>
     /// <remarks>
@@ -1032,10 +1334,42 @@ public sealed class PartyRpgSession : IGameSession
     private void StepClock(double admittedSeconds)
     {
         if (_clock is not { } clock || admittedSeconds <= 0) return;
-        ClockAdvance advance = clock.AdvanceAdmittedSeconds(admittedSeconds);
         // Every owner that keeps something against game time hears the same advance, in one place: a shelf
         // whose refresh came due is filled by the service mechanism, and a debt of sleep that the interval
         // ran past lands on the party, in the update that moved the clock.
+        ApplyClockAdvance(clock.AdvanceAdmittedSeconds(admittedSeconds));
+    }
+
+    /// <summary>
+    /// Advances the one clock by a length of game time, which is how a paced turn spends it.
+    /// </summary>
+    /// <remarks>
+    /// It is the same clock, the same owners, and the same onward work as an admitted interval: a paced fight
+    /// does not measure time differently, it spends it in the amounts its turns cost rather than in the
+    /// amounts the engine admitted. Recovery is released by this advance and by nothing else, so an actor's
+    /// turn is due exactly when its own debt has been paid — the same arithmetic that releases it in real
+    /// time, reached from the other direction.
+    /// </remarks>
+    private void AdvanceTurnTime(GameDuration interval)
+    {
+        if (_clock is not { } clock || interval.IsNone) return;
+        ApplyClockAdvance(clock.Advance(interval));
+    }
+
+    /// <summary>
+    /// Hands one clock advance to everything that keeps time, and reports what it brought due.
+    /// </summary>
+    /// <remarks>
+    /// The clock returns its effects rather than publishing them, so this is where they reach their owners:
+    /// the boundaries it crossed are measured in whole game days, and the world's places are brought up to
+    /// the day the clock now stands on in the next update's own advance. The advance reaches the mechanisms
+    /// before anything is reported, so a shelf whose refresh deadline came due is filled in the update that
+    /// reached it. A deadline is still reported by name, because the report is how a deadline nothing owns is
+    /// visible: one a schedule acted on says so, and one no owner holds says that too rather than being
+    /// dropped.
+    /// </remarks>
+    private void ApplyClockAdvance(ClockAdvance advance)
+    {
         _timeOwners.Observe(advance);
         foreach (DeadlineDue due in advance.Due)
         {
@@ -1175,12 +1509,19 @@ public sealed class PartyRpgSession : IGameSession
                 // and the flow must keep taking the player's choices while the world is held.
                 : _creation is not null
                     ? SessionMode.Creating
-                    : _enginePaused || _held ? SessionMode.Paused : SessionMode.Running;
+                    : _enginePaused || _held
+                        ? SessionMode.Paused
+                        // A paced fight waiting for one of the party's turns owns the update exactly as a
+                        // screen does: no world is stepped and no clock is advanced, and the turn arrives as
+                        // the committed action of the update that carries it. A hold still outranks it,
+                        // because a player who asked the session to stop has asked for nothing to move.
+                        : _combat is { Turns.WaitsForPlayer: true } ? SessionMode.TurnBased : SessionMode.Running;
 
         if (next == _mode) return;
         _mode = next;
-        // Stepping stops and resumes with the mode, so the held interval is never measured.
-        if (_mode == SessionMode.Paused) _accountedThroughStep = null;
+        // Stepping stops and resumes with the mode, so the held interval is never measured. A paced fight
+        // waits the same way: the interval it waits through is nobody's game time.
+        if (_mode is SessionMode.Paused or SessionMode.TurnBased) _accountedThroughStep = null;
         Publish();
     }
 

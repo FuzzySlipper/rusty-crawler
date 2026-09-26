@@ -113,6 +113,21 @@
          two halves of the same control. -->
     <RustyEngineProductInputIntent Include="party.attack" Value="digital" />
     <RustyEngineProductInputMapping Include="party.attack.key-b" Intent="party.attack" Trigger="key:key-b:held" />
+    <!-- The pace controls: switching the one fight between real-time and turn-based pacing, and the two turn
+         actions a paced fight has beyond acting. Enter is the original's own toggle (docs/research/
+         mm7-manual-outline.md p.33, "Enter toggles real-time and turn-based at any moment"), and it is free
+         during play because the creation screen is the only other control on it and creation is never live
+         while the party is playing. K skips the current actor's turn and Y yields it to the end of the round;
+         neither letter is claimed by another control during play. Acting is deliberately not declared here:
+         the act control above is the same control in both pacings, because the act is the same act whoever
+         holds the turn. Every declaration here has its constant in ProductIdentity.cs, and the engine refuses
+         a mapping whose intent the product never declared. -->
+    <RustyEngineProductInputIntent Include="combat.turn-based" Value="digital" />
+    <RustyEngineProductInputMapping Include="combat.turn-based.key-enter" Intent="combat.turn-based" Trigger="key:enter:pressed" />
+    <RustyEngineProductInputIntent Include="combat.turn-skip" Value="digital" />
+    <RustyEngineProductInputMapping Include="combat.turn-skip.key-k" Intent="combat.turn-skip" Trigger="key:key-k:pressed" />
+    <RustyEngineProductInputIntent Include="combat.turn-wait" Value="digital" />
+    <RustyEngineProductInputMapping Include="combat.turn-wait.key-y" Intent="combat.turn-wait" Trigger="key:key-y:pressed" />
     <RustyEngineProductInputIntent Include="crawler.ui" Value="payload:crawler.ui.action.v1" />
   </ItemGroup>
 

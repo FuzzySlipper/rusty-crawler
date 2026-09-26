@@ -102,9 +102,16 @@ immunity), `HitChance` in ten-thousandths, and `AttackPlan` as the vocabulary; `
 creature's own health, a component on the entity's actor attached the first time a fight reads it, so a
 fight keeps no tally of its own beside it, and `CombatState.Vitals`, `IsDown`, and `LastResolution` are
 what the panel reads; no scene, no second population, no per-kind cooldown, no per-kind damage class, and
-no timer), the driver that gives the opposition its half
+no timer); the second pacing of that same state is a reading of it rather than a second fight
+(`Combat/` — `CombatPacing` on the state, and a `TurnBasedPacing` that orders the fight's actors by ascending
+remaining recovery with the fight's own order breaking ties, lengths a round by the longest recovery any
+actor owes, runs an action phase into the party's movement phase, publishes `TurnOrderEntry` rows for the
+panel, and carries `TurnAction.Act`, `Skip`, and `Wait` with the fight's own recovery charged for the action a
+skip did not take; the fight's `Step` reconciles it with the world every update, so a round begins when a
+fight does and lets go when the fight does, and switching the pacing touches nothing else), the driver that gives the opposition its half
 (`Combat/` — `CombatDirector` decides for every creature the fight has engaged and orders it through the
-same `CombatState.Order` gate the player's control uses, asks the `IMonsterAiPolicy` seam who is whose
+same `CombatState.Order` gate the player's control uses, whether it is driving every creature in an update
+or taking the one turn a paced round handed it, asks the `IMonsterAiPolicy` seam who is whose
 enemy, how fast a creature moves, and what it does with its moment, applies a decision as an order or as a
 step through the `ICreatureMover` seam, reports what every creature is doing, and marks a place whose
 opposition is all down as cleared through the world's own per-place state; `EngineCreatureMotion` is the

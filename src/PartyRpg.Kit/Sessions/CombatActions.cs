@@ -27,12 +27,18 @@ public sealed record CombatIntentNames
     /// <param name="attack">The intent that orders the party to attack what it faces.</param>
     /// <param name="action">The payload action name that orders the same attack.</param>
     /// <param name="actionContract">The payload contract that action arrives on.</param>
+    /// <param name="turn">
+    /// The pace controls declared beside the act control, when the product declares any: the toggle and the
+    /// two turn actions a paced fight has beyond attacking. A product that declares none still fights — its
+    /// fight is simply played in real time, because nothing can switch the pacing or pass a turn.
+    /// </param>
     /// <exception cref="ArgumentException">A name is missing, so no event could ever be claimed for it.</exception>
-    public CombatIntentNames(string attack, string action, string actionContract)
+    public CombatIntentNames(string attack, string action, string actionContract, TurnIntentNames? turn = null)
     {
         Attack = Require(attack, nameof(attack));
         Action = Require(action, nameof(action));
         ActionContract = Require(actionContract, nameof(actionContract));
+        Turn = turn;
     }
 
     /// <summary>The intent that orders the party to attack.</summary>
@@ -43,6 +49,9 @@ public sealed record CombatIntentNames
 
     /// <summary>The payload contract that action arrives on.</summary>
     public string ActionContract { get; }
+
+    /// <summary>The pace controls declared beside the act control, or null when the product declared none.</summary>
+    public TurnIntentNames? Turn { get; }
 
     private static string Require(string name, string parameterName) =>
         !string.IsNullOrWhiteSpace(name)
@@ -145,6 +154,22 @@ public sealed class CombatInput
         // update set is dropped first, so a key the player let go of stops ordering attacks.
         _stateDriven = state;
         return _held || _stateDriven || claimed;
+    }
+
+    /// <summary>
+    /// Drops what the control was holding, which is what a change of pacing does to it.
+    /// </summary>
+    /// <remarks>
+    /// A key held across a mode change belonged to the pacing the player was in: in real time it means "keep
+    /// attacking as each member recovers", and in a paced fight it would mean "keep committing turns", which
+    /// is not the same decision. Releasing it here makes the switch an edge rather than a state — the player
+    /// presses again for the mode they are in now — and a key the engine is still reporting as down is
+    /// reported again by the next update, so nothing is lost that the player is still holding.
+    /// </remarks>
+    public void Release()
+    {
+        _held = false;
+        _stateDriven = false;
     }
 
     /// <summary>

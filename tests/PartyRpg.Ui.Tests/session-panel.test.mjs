@@ -258,8 +258,98 @@ function combat(overrides = {}) {
     condition: '',
     targetDown: false,
     byParty: true,
+    pacing: 'realtime',
+    turn: round(),
     ...overrides,
   };
+}
+
+/** The round of a fight that is being played in real time: no phase, no turn, and an empty order. */
+function round(overrides = {}) {
+  return {
+    phase: 'none',
+    round: 0,
+    actor: '',
+    actorName: '',
+    playerTurn: false,
+    dueSeconds: 0,
+    roundSeconds: 0,
+    elapsedSeconds: 0,
+    movementSeconds: 0,
+    last: '',
+    order: [],
+    ...overrides,
+  };
+}
+
+/** One actor's place in a paced round's order, as the product publishes it. */
+function ordered(overrides = {}) {
+  return {
+    id: 'member:1',
+    name: 'Roderick',
+    side: 'party',
+    remainingSeconds: 0,
+    ready: true,
+    canAct: true,
+    waiting: false,
+    current: false,
+    ...overrides,
+  };
+}
+
+/**
+ * A fight being paced turn-based: the first member holds the turn, the creature owes a second, and the order
+ * is the fight's own reading of the same recovery that paces real time.
+ */
+function paced(overrides = {}) {
+  return combat({
+    engaged: true,
+    opposition: 1,
+    ready: 1,
+    pacing: 'turnbased',
+    turn: round({
+      phase: 'action',
+      round: 2,
+      actor: 'member:1',
+      actorName: 'Roderick',
+      playerTurn: true,
+      dueSeconds: 0,
+      roundSeconds: 23.438,
+      elapsedSeconds: 4,
+      last: 'skip',
+      order: [
+        ordered({ current: true }),
+        ordered({ id: 'member:2', name: 'Aelina', side: 'party', remainingSeconds: 1.5, ready: false }),
+        ordered({ id: 'actor:1', name: 'A beast', side: 'opposition', remainingSeconds: 1, ready: false }),
+      ],
+    }),
+    members: [
+      {
+        id: 'member:1', name: 'Roderick', ready: true, recoverySeconds: 0, distance: 0,
+        hitPoints: 27, hitPointsMax: 40, conditions: 'Poison Weak', down: false, activity: '',
+      },
+      {
+        id: 'member:2', name: 'Aelina', ready: false, recoverySeconds: 1.5, distance: 0,
+        hitPoints: 24, hitPointsMax: 24, conditions: '', down: false, activity: '',
+      },
+    ],
+    enemies: [
+      {
+        id: 'actor:1', name: 'A beast', ready: false, recoverySeconds: 1, distance: 100,
+        hitPoints: 120, hitPointsMax: 200, conditions: '', down: false, activity: 'attacking',
+      },
+    ],
+    actor: 'A beast',
+    kind: 'melee',
+    target: 'Roderick',
+    outcome: 'applied',
+    message: 'A beast attacks Roderick (melee: attack1) and must recover 23438ms of game time.',
+    resolved: true,
+    hit: true,
+    damage: 13,
+    byParty: false,
+    ...overrides,
+  });
 }
 
 /** A fight in progress: one creature engaged with the party, which has just swung at it. */
@@ -687,6 +777,19 @@ function combatPanel(h) {
       down: row.getAttribute('data-down'),
       activity: row.getAttribute('data-activity'),
     }));
+  const pace = section?.querySelector('.crawler-pace');
+  const skip = section?.querySelector('.crawler-skip');
+  const wait = section?.querySelector('.crawler-wait');
+  const order = (list) =>
+    [...(list?.querySelectorAll('.crawler-turn-actor') ?? [])].map((row) => ({
+      name: row.textContent,
+      id: row.getAttribute('data-turn-actor'),
+      side: row.getAttribute('data-side'),
+      ready: row.getAttribute('data-ready'),
+      current: row.getAttribute('data-current'),
+      waiting: row.getAttribute('data-waiting'),
+      remaining: row.getAttribute('data-remaining'),
+    }));
   return {
     state: panel?.getAttribute('data-combat'),
     ready: panel?.getAttribute('data-combat-ready'),
@@ -694,7 +797,18 @@ function combatPanel(h) {
     outcome: panel?.getAttribute('data-combat-outcome'),
     hidden: section?.hidden,
     status: section?.querySelector('.crawler-combat-state')?.textContent,
+    pacing: panel?.getAttribute('data-pacing'),
+    phase: panel?.getAttribute('data-turn-phase'),
+    round: panel?.getAttribute('data-turn-round'),
+    turnActor: panel?.getAttribute('data-turn-actor'),
+    playerTurn: panel?.getAttribute('data-turn-player'),
+    last: panel?.getAttribute('data-turn-last'),
+    turn: section?.querySelector('.crawler-combat-turn')?.textContent,
+    order: order(section?.querySelector('.crawler-turn-order')),
     attack: { disabled: attack?.disabled, text: attack?.textContent },
+    pace: { disabled: pace?.disabled, text: pace?.textContent },
+    skip: { disabled: skip?.disabled, text: skip?.textContent },
+    wait: { disabled: wait?.disabled, text: wait?.textContent },
     members: fighters(section?.querySelector('.crawler-combat-members')),
     enemies: fighters(section?.querySelector('.crawler-combat-enemies')),
     message: result?.hidden ? '' : result?.textContent,
@@ -2162,6 +2276,120 @@ test('the fight control asks for the attack it was shown, on the product contrac
     // The keyboard hint names the key the product declared, so a player who never presses the button knows
     // the control exists.
     assert.match(h.panel().textContent, /Attack with the button or the B key/);
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the panel renders the pacing, whose turn it is, and what is left to act', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+    // Real time first: there is a fight and no round, which the panel says in the product's own words — and
+    // the turn controls are there but not offered, because there is no turn of the player's to pass.
+    h.emit(snapshot('running', 1, 60, 60, movement(), { combat: fighting() }));
+    const real = combatPanel(h);
+    assert.equal(real.pacing, 'realtime');
+    assert.equal(real.phase, 'none');
+    assert.match(real.turn, /Real time/);
+    assert.equal(real.skip.disabled, true);
+    assert.equal(real.wait.disabled, true);
+    assert.equal(real.pace.text, 'Turn-based');
+
+    // A paced fight: the round, the actor whose turn it is, and what each actor in the order still owes —
+    // every number the product published, and none of it counted down by this screen.
+    h.emit(snapshot('turnbased', 2, 120, 121, movement(), { combat: paced() }));
+    assert.equal(h.panel().getAttribute('data-mode'), 'turnbased');
+    const pacedPanel = combatPanel(h);
+    const turn = pacedPanel;
+    assert.equal(turn.pacing, 'turnbased');
+    assert.equal(turn.phase, 'action');
+    assert.equal(turn.round, '2');
+    assert.equal(turn.turnActor, 'Roderick');
+    assert.equal(turn.playerTurn, 'yes');
+    assert.equal(turn.last, 'skip');
+    assert.match(turn.turn, /Round 2 — Roderick's turn \(yours\)/);
+    assert.match(turn.turn, /23\.4s round/);
+    assert.match(turn.turn, /last turn skip/);
+    assert.equal(turn.pace.text, 'Real-time');
+    assert.equal(turn.skip.disabled, false);
+    assert.equal(turn.wait.disabled, false);
+
+    // The order is rendered as the fight read it, with the amount each actor still owes and the row whose
+    // turn it is saying so.
+    assert.equal(turn.order.length, 3);
+    assert.deepEqual(
+      turn.order.map((actor) => [actor.name, actor.side, actor.ready, actor.current]),
+      [
+        ['Roderick — ready — this turn', 'party', 'yes', 'yes'],
+        ['Aelina — 1.5s', 'party', 'no', 'no'],
+        ['A beast — 1.0s', 'opposition', 'no', 'no'],
+      ],
+    );
+    assert.equal(turn.order[0].remaining, '0.000');
+    assert.equal(turn.order[2].remaining, '1.000');
+
+    // A deferred turn says so, and the movement phase says what is left of it: the panel prints the round
+    // the product published rather than working out a phase of its own.
+    h.emit(snapshot('running', 3, 180, 182, movement(), {
+      combat: paced({
+        turn: round({
+          phase: 'movement',
+          round: 2,
+          movementSeconds: 6.5,
+          order: [ordered({ waiting: true })],
+        }),
+      }),
+    }));
+    const moving = combatPanel(h);
+    assert.equal(moving.phase, 'movement');
+    assert.match(moving.turn, /round 2, 6\.5s of movement left/);
+    assert.equal(moving.order[0].waiting, 'yes');
+
+    // A fight that is paced with nothing hostile says exactly that, rather than showing a round that is not
+    // under way.
+    h.emit(snapshot('running', 4, 240, 245, movement(), { combat: combat({ pacing: 'turnbased' }) }));
+    assert.match(combatPanel(h).turn, /nothing is being fought/);
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('every pace control asks for the act it was shown, on the product contract', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+    h.emit(snapshot('turnbased', 1, 60, 60, movement(), { combat: paced() }));
+    const section = h.panel().querySelector('.crawler-combat');
+    section.querySelector('.crawler-attack').click();
+    section.querySelector('.crawler-pace').click();
+    section.querySelector('.crawler-skip').click();
+    section.querySelector('.crawler-wait').click();
+
+    // One control per act, and each asks for exactly the action the product declared: the act control is the
+    // same control in both pacings, and the pacing and the two turn actions are the names the product
+    // declared as intents and reads off this contract.
+    assert.deepEqual(
+      h.claims.map((claim) => claim.value.data),
+      [
+        { action: 'party.attack' },
+        { action: 'combat.turn-based' },
+        { action: 'combat.turn-skip' },
+        { action: 'combat.turn-wait' },
+      ],
+    );
+    assert.equal(h.claims[0].intent, ACTION_INTENT);
+    assert.equal(h.claims[0].value.contract, ACTION_CONTRACT);
+
+    // The hint names the keys the product declared, so a player who never presses a button knows the
+    // controls exist.
+    assert.match(h.panel().textContent, /Enter key/);
+    assert.match(h.panel().textContent, /skip a turn with K/);
+    assert.match(h.panel().textContent, /wait with Y/);
 
     ui.dispose();
   } finally {
