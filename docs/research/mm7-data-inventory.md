@@ -54,6 +54,13 @@ The other 353 rows use 267 distinct free-text `Type` strings, none engine-classi
 
 **9 schools, 11 spells each, 99 spells total** in `SPELLS.TXT` **[data]**. Section header rows (empty first column) name the school: the first 11 spells are Fire (its header is the file's title row), then `Air Spells`, `Water Spells`, `Earth Spells`, `Spirit Spells`, `Mind Spells`, `Body Spells`, `Light Spells`, `Dark Spells`. School order matches `src/Engine/Spells/SpellEnums.h` `MAGIC_SCHOOL_FIRE..MAGIC_SCHOOL_DARK` **[donor]**. Columns **[data]**: `#` global spell id 1–99; `Lvl` level within the school 1–11; `<School> Spells` localized name; `Res` damage/resistance type (`none`, `Fire`, `Air`, `Water`, `Earth`, `Spirit`, `Mind`, `Body`, `Light`, `Dark` — `None` and `none` both appear, and Light's rows 4–5 are out of level order); `Short Name`; `Spell Description`; `Normal`/`Expert`/`Master`/`Grand Master` effect text; `Stats`, a flag string OpenEnroth reads for `m` (castable by monster), `e` (castable by event) and `c`/`x` (shift-click castable) (`Spells.cpp`) **[donor]**.
 
+**A spell book names its spell in the item table's own reference column.** The 99 `Book` rows carry the
+spell they teach in `Mod1` as the letter `S` and the spell's global id — item 400 is "Torch Light" with
+`S1`, item 498 "Souldrinker" with `S99` — which is the join the donor turns into a spell id by position
+(`src/Engine/Objects/ItemEnumFunctions.cpp:282`, `spellForSpellbook`, over a table generated from these
+rows). The importer writes that join out as an `spell` field on the item, so no runtime reader parses the
+shipped spelling. **[data]**
+
 **Guild association is not in the data** — `SPELLS.TXT` has no guild column. Spells reach guilds through the school: `2dEvents.txt` carries `<School> Guild` houses (Fire/Air/Water/Earth/Spirit/Mind/Body ×4 tiers each, plus Light ×2 and Dark ×2), and the maximum spell level a guild tier may sell is the executable array `GuildSpellLevels` (MM7 house ids 139–170), documented at MMExtension `Scripts/Structs/00 structs.lua:500` **[donor]** — not extracted or verified here. **[uncertain]**
 
 ## Items and monsters

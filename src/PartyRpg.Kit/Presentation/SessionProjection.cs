@@ -1,5 +1,6 @@
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Interaction;
+using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
@@ -78,6 +79,11 @@ namespace PartyRpg.Kit.Presentation;
 /// Defaulted for the same reason the others are: a session whose ruleset answered no progression policy
 /// publishes that rather than a party whose levels nothing could rise.
 /// </param>
+/// <param name="Magic">
+/// What the party can cast and what the last casting did, or the no-magic value when the session holds no
+/// spell policy. Defaulted for the same reason the others are: a session whose ruleset answered no magic
+/// publishes that rather than a spellbook nothing could cast from.
+/// </param>
 public readonly record struct SessionSnapshot(
     SessionComposition Composition,
     SessionMode Mode,
@@ -96,7 +102,8 @@ public readonly record struct SessionSnapshot(
     ConversationSnapshot Conversation = default,
     CombatSnapshot Combat = default,
     ProgressionSnapshot Progression = default,
-    SkillsSnapshot Skills = default);
+    SkillsSnapshot Skills = default,
+    MagicSnapshot Magic = default);
 
 /// <summary>Where the party is in the world, as the panel needs it: which place, where in it, and how much of the world is known.</summary>
 /// <param name="Place">The place the party is in, empty when the session has no world.</param>
@@ -185,6 +192,9 @@ public static class SessionProjection
 
     /// <summary>The name of the projection field the skills block is published under.</summary>
     public const string SkillsField = "skills";
+
+    /// <summary>The name of the projection field the magic block is published under.</summary>
+    public const string MagicField = "magic";
 
     /// <summary>Builds the projection value for a snapshot.</summary>
     public static UiValue Build(SessionSnapshot snapshot)
@@ -308,7 +318,12 @@ public static class SessionProjection
             // session's ruleset stated no skill policy", "the party holds no skills yet", and "a member's
             // blade is at the ceiling their class allows" are three different facts, and a block that only
             // appeared once somebody had spent a point would leave a screen unable to tell them apart.
-            (SkillsField, Skills(builder, snapshot.Skills)));
+            (SkillsField, Skills(builder, snapshot.Skills)),
+            // The magic block is published in every mode for the same reason the skills block is: "this
+            // session's ruleset stated no magic policy", "nobody has learned a spell", and "a member holds a
+            // spell their mastery or their pool will not pay for" are three different facts, and a block
+            // that only appeared once somebody had cast would leave a screen unable to tell them apart.
+            (MagicField, Magic(builder, snapshot.Magic)));
         return builder.Build(root);
     }
 
@@ -692,6 +707,69 @@ public static class SessionProjection
     /// facts carries the default value, whose strings are null rather than empty: they are published as
     /// empty so a reader never sees a name that is not there, exactly as the service and save blocks do.
     /// </remarks>
+    /// <summary>Builds the magic block: each member's spellbook, what a casting costs, and what the last one did.</summary>
+    /// <remarks>
+    /// Every row and every target is sent whole so the screen decides nothing: which spells a member knows,
+    /// what each costs that caster, what each is aimed at, and which actors a casting could name with the
+    /// side each is on. A snapshot built without magic facts carries the default value, whose lists are null
+    /// rather than empty: they are published as empty so a reader never sees a name that is not there,
+    /// exactly as the service and skills blocks do.
+    /// </remarks>
+    private static uint Magic(UiValueBuilder builder, MagicSnapshot magic)
+    {
+        List<uint> members = [];
+        foreach (SpellMemberSnapshot member in magic.Members ?? [])
+        {
+            List<uint> spells = [];
+            foreach (SpellRowSnapshot spell in member.Spells ?? [])
+            {
+                spells.Add(builder.Object(
+                    ("spell", builder.String(spell.Spell)),
+                    ("name", builder.String(spell.Name)),
+                    ("school", builder.String(spell.School)),
+                    ("tier", builder.String(spell.Tier)),
+                    ("tierRung", builder.Number(spell.TierRung)),
+                    ("cost", builder.Number(spell.Cost)),
+                    ("targeting", builder.String(spell.Targeting)),
+                    ("effect", builder.String(spell.Effect))));
+            }
+
+            members.Add(builder.Object(
+                ("index", builder.Number(member.Index)),
+                ("member", builder.String(member.Member)),
+                ("name", builder.String(member.Name)),
+                ("class", builder.String(member.Class)),
+                ("spellPoints", builder.Number(member.SpellPoints)),
+                ("spellPointsMax", builder.Number(member.SpellPointsMax)),
+                ("quickSpell", builder.String(member.QuickSpell)),
+                ("quickSpellName", builder.String(member.QuickSpellName)),
+                ("spells", builder.Array([.. spells]))));
+        }
+
+        List<uint> targets = [];
+        foreach (SpellTargetSnapshot target in magic.Targets ?? [])
+        {
+            targets.Add(builder.Object(
+                ("target", builder.String(target.Target)),
+                ("name", builder.String(target.Name)),
+                ("side", builder.String(target.Side))));
+        }
+
+        return builder.Object(
+            ("available", builder.Boolean(magic.Available)),
+            ("members", builder.Array([.. members])),
+            ("targets", builder.Array([.. targets])),
+            ("outcome", builder.String(magic.Outcome ?? string.Empty)),
+            ("member", builder.Number(magic.Member)),
+            ("caster", builder.String(magic.Caster ?? string.Empty)),
+            ("spell", builder.String(magic.Spell ?? string.Empty)),
+            ("cost", builder.Number(magic.Cost)),
+            ("target", builder.String(magic.Target ?? string.Empty)),
+            ("effect", builder.String(magic.Effect ?? string.Empty)),
+            ("code", builder.String(magic.Code ?? string.Empty)),
+            ("message", builder.String(magic.Message ?? string.Empty)));
+    }
+
     private static uint Rest(UiValueBuilder builder, RestSnapshot rest) =>
         builder.Object(
             ("available", builder.Boolean(rest.Available)),

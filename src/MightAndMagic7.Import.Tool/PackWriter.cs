@@ -1067,6 +1067,20 @@ internal static class PackWriter
 
                 writer.WriteString("damageDice", item.DamageDice);
                 writer.WriteString("damageModifier", item.DamageModifier);
+
+                // A spell book's row states the spell it teaches in the item table's own damage column, as the
+                // letter S and the spell's global id: item 400 is the book of "Torch Light" and carries S1,
+                // item 498 the book of "Souldrinker" and carries S99 (the shipped table's own spelling, which
+                // the donor's spellbook lookup turns into a spell id by position —
+                // OpenEnroth src/Engine/Objects/ItemEnumFunctions.cpp:282, spellForSpellbook, over
+                // spellBySpellbook generated from the item table). That spelling is a source-format quirk, so
+                // the join is written out here as a field of its own rather than left for a reader to parse,
+                // and only for a row the spell table actually declares.
+                if (BookSpell(item, tables.Spells) is { } taught)
+                {
+                    writer.WriteString("spell", taught.ToString(CultureInfo.InvariantCulture));
+                }
+
                 writer.WriteString("material", item.Material);
                 writer.WriteString("picture", item.Picture);
                 WriteOptionalNumber(writer, "spriteIndex", item.SpriteIndex == 0 ? null : item.SpriteIndex);
@@ -1076,6 +1090,26 @@ internal static class PackWriter
 
         return WriteDocument(packDirectory, "items.json", "items", "item", entries);
     }
+
+    /// <summary>The spell a book's own reference column names, or null when the row is not a book of one.</summary>
+    /// <remarks>
+    /// The reference is the shipped table's spelling — the letter <c>S</c> and the spell's id — and it is
+    /// read only for a row the item table itself calls a book. A row whose reference names no spell the spell
+    /// table declares is left without the field rather than given a number nothing answers.
+    /// </remarks>
+    private static int? BookSpell(ItemRecord item, SpellTable spells)
+    {
+        if (!string.Equals(item.EquipStat, BookEquipStat, StringComparison.OrdinalIgnoreCase)) return null;
+        string reference = item.DamageDice.Trim();
+        if (reference.Length < 2 || !reference.StartsWith("S", StringComparison.OrdinalIgnoreCase)) return null;
+        return int.TryParse(reference[1..], NumberStyles.None, CultureInfo.InvariantCulture, out int id) &&
+            spells.Spells.Any(spell => spell.Id == id)
+            ? id
+            : null;
+    }
+
+    /// <summary>The item table's own word for a spell book, as the equipment column states it.</summary>
+    private const string BookEquipStat = "Book";
 
     private static int WriteQuests(string packDirectory, Mm7Tables tables)
     {

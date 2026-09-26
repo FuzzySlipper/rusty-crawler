@@ -587,6 +587,9 @@ function snapshot(mode, seconds = 0, steps = 0, updates = 0, facts = undefined, 
   // The skills block is published in every mode too, so a case that asks for none covers a projection whose
   // ruleset stated no skill policy.
   if (blocks?.skills !== undefined) value.skills = blocks.skills;
+  // The magic block is published in every mode too, so a case that asks for none covers a projection whose
+  // ruleset stated no spell policy.
+  if (blocks?.magic !== undefined) value.magic = blocks.magic;
   return value;
 }
 
@@ -844,6 +847,71 @@ function skills(overrides = {}) {
     code: '',
     message: '',
     ...overrides,
+  };
+}
+
+/** The magic block as the product publishes it: one member's spellbook and the actors a cast may name. */
+function magic(overrides = {}) {
+  return {
+    available: true,
+    members: [
+      {
+        index: 0, member: '1', name: 'Aelina', class: 'Sorcerer',
+        spellPoints: 33, spellPointsMax: 36, quickSpell: '', quickSpellName: '',
+        spells: [
+          {
+            spell: '2', name: 'Fire Bolt', school: 'Fire', tier: 'basic', tierRung: 1,
+            cost: 2, targeting: 'foe', effect: 'damage',
+          },
+          {
+            spell: '1', name: 'Torch Light', school: 'Fire', tier: 'basic', tierRung: 1,
+            cost: 1, targeting: 'party', effect: 'light',
+          },
+        ],
+      },
+    ],
+    targets: [
+      { target: 'member:1', name: 'Aelina', side: 'party' },
+      { target: 'actor:9', name: 'A beast', side: 'opposition' },
+    ],
+    outcome: 'none',
+    member: 0,
+    caster: '',
+    spell: '',
+    cost: 0,
+    target: '',
+    effect: '',
+    code: '',
+    message: '',
+    ...overrides,
+  };
+}
+
+function magicPanel(h) {
+  const panel = h.panel();
+  const section = panel?.querySelector('.crawler-magic');
+  const result = section?.querySelector('.crawler-magic-result');
+  return {
+    section,
+    hidden: section?.hidden,
+    state: section?.querySelector('.crawler-magic-state')?.textContent ?? null,
+    outcome: result?.getAttribute('data-outcome') ?? null,
+    code: result?.getAttribute('data-code') ?? null,
+    message: result?.textContent ?? null,
+    members: [...(section?.querySelectorAll('.crawler-magic-member') ?? [])].map((row) => ({
+      label: row.querySelector('.crawler-row-label')?.textContent ?? null,
+      id: row.getAttribute('data-member'),
+      spells: [...row.querySelectorAll('.crawler-spell')].map((line) => ({
+        text: line.querySelector('span')?.textContent ?? null,
+        spell: line.getAttribute('data-spell'),
+        school: line.getAttribute('data-school'),
+        targeting: line.getAttribute('data-targeting'),
+        targets: [...line.querySelectorAll('.crawler-target option')].map((option) => option.value),
+        cast: line.querySelector('.crawler-cast')?.textContent ?? null,
+        castDisabled: line.querySelector('.crawler-cast')?.disabled ?? null,
+        quick: line.querySelector('.crawler-quick')?.textContent ?? null,
+      })),
+    })),
   };
 }
 
@@ -2912,6 +2980,100 @@ test('the panel renders every member\'s skills with their ceilings and what a ra
     assert.equal(refused.outcome, 'refused');
     assert.equal(refused.code, 'insufficient-skill-points');
     assert.match(refused.message, /1 remain unspent/);
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+
+test('the panel renders every member\'s spellbook, casts the row a player pressed, and sets the quick spell', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // A session whose ruleset stated no spell policy shows no spellbook at all — a different fact from a
+    // party that has learned nothing — and the panel says which of the two it is looking at.
+    h.emit(snapshot('running', 1, 60, 60, movement()));
+    assert.equal(h.panel().getAttribute('data-magic'), 'none');
+    assert.equal(magicPanel(h).hidden, true);
+
+    h.emit(snapshot('running', 2, 120, 121, movement(), { magic: magic() }));
+    assert.equal(h.panel().getAttribute('data-magic'), 'present');
+    const one = magicPanel(h);
+    assert.equal(one.hidden, false);
+    assert.deepEqual(one.members.map((member) => member.label), [
+      'Aelina — Sorcerer · 33/36 spell points · quick none',
+    ]);
+
+    // Everything a row reads came from the product: the spell, its school, the rung it asks for, what
+    // casting it costs this caster, and what it is aimed at.
+    assert.deepEqual(
+      one.members[0].spells.map((spell) => spell.text),
+      [
+        'Fire Bolt · Fire · basic · 2 points · foe · damage',
+        'Torch Light · Fire · basic · 1 point · party · light',
+      ],
+    );
+
+    // The target list a row offers is the product's own: a spell aimed at an opponent offers the
+    // opposition's actors and nothing else, and a spell that names nobody offers no target at all.
+    assert.deepEqual(one.members[0].spells[0].targets, ['actor:9']);
+    assert.deepEqual(one.members[0].spells[1].targets, []);
+
+    // The cast control names the member, the spell, and the target the row was shown, on the product's own
+    // action contract: the product resolves and judges the casting, the screen names the row.
+    const cast = one.section.querySelector('.crawler-cast');
+    cast.dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
+    assert.deepEqual(h.claims.at(-1), {
+      intent: 'crawler.ui',
+      value: {
+        kind: 'product-payload',
+        contract: 'crawler.ui.action.v1',
+        data: { action: 'party.cast', member: 0, spell: '2', target: 'actor:9' },
+      },
+    });
+
+    // The quick-slot control sends the member and the spell its slot should hold, and the button reads as
+    // clearing the slot when the row is the spell already in it.
+    const quick = one.section.querySelector('.crawler-quick');
+    quick.dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
+    assert.deepEqual(h.claims.at(-1).value.data, {
+      action: 'party.quick-spell',
+      member: 0,
+      spell: '2',
+    });
+
+    // What a casting did is the product's own report, and a refusal keeps its code and sentence.
+    h.emit(snapshot('running', 3, 180, 181, movement(), {
+      magic: magic({
+        outcome: 'cast',
+        caster: 'Aelina',
+        spell: '2',
+        cost: 2,
+        target: 'A beast',
+        effect: 'damage',
+        code: 'spell-effect-applied',
+        message: 'Aelina casts Fire Bolt for 2 spell point(s): Aelina attacks A beast.',
+      }),
+    }));
+    const cast2 = magicPanel(h);
+    assert.equal(cast2.outcome, 'cast');
+    assert.equal(h.panel().getAttribute('data-magic-outcome'), 'cast');
+    assert.match(cast2.message, /casts Fire Bolt for 2 spell point\(s\)/);
+
+    h.emit(snapshot('running', 4, 240, 241, movement(), {
+      magic: magic({
+        outcome: 'refused',
+        code: 'spell-mastery-too-low',
+        message: 'Fireball asks for a expert mastery of its school, and Aelina stands at basic.',
+      }),
+    }));
+    const refused = magicPanel(h);
+    assert.equal(refused.outcome, 'refused');
+    assert.equal(refused.code, 'spell-mastery-too-low');
+    assert.match(refused.message, /Aelina stands at basic/);
 
     ui.dispose();
   } finally {

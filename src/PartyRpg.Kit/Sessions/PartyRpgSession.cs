@@ -3,6 +3,7 @@ using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Input;
+using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
@@ -111,6 +112,9 @@ public sealed class PartyRpgSession : IGameSession
     private readonly TurnInput? _turnInput;
     private readonly ICombatRule? _combatRule;
     private readonly IMonsterAiPolicy? _monsterAi;
+    private readonly ISpellRule? _spellRule;
+    private readonly ISpellEffectRule? _spellEffects;
+    private readonly CastInput? _castInput;
     private readonly GameClock? _clock;
     private readonly IDiagnosticsService? _diagnostics;
     private readonly ISessionSaveStore? _saveStore;
@@ -137,6 +141,8 @@ public sealed class PartyRpgSession : IGameSession
     private PartyRest? _rest;
     private CombatState? _combat;
     private CombatDirector? _director;
+    private Spellcasting? _casting;
+    private CombatantId? _lastCastActor;
     private readonly TimeOwners _timeOwners = new();
     private WorldSnapshot _world = WorldSnapshot.Empty;
     private bool _started;
@@ -326,7 +332,10 @@ public sealed class PartyRpgSession : IGameSession
         IMonsterAiPolicy? monsterAi = null,
         IProgressionRule? progression = null,
         ISkillRule? skills = null,
-        SkillRaiseIntentNames? skillInput = null)
+        SkillRaiseIntentNames? skillInput = null,
+        ISpellRule? spells = null,
+        ISpellEffectRule? spellEffects = null,
+        CastIntentNames? castInput = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(composition.Title);
         if (creation is not null && (world is not null || party is not null))
@@ -361,6 +370,9 @@ public sealed class PartyRpgSession : IGameSession
         _turnInput = combatInput?.Turn is { } turn ? new TurnInput(turn) : null;
         _combatRule = combat;
         _monsterAi = monsterAi;
+        _spellRule = spells;
+        _spellEffects = spellEffects;
+        _castInput = castInput is null ? null : new CastInput(castInput);
         _creation = creation;
         _clock = clock;
         _party = party;
@@ -390,6 +402,10 @@ public sealed class PartyRpgSession : IGameSession
         ComposeConversations();
         ComposeRest();
         ComposeCombat();
+        // The casting workflow is composed over the party, this game's spell answers, the effect path, and the
+        // fight the session just composed: a spell's aim and the caster's ability to act are judged against
+        // the same fight the act control orders through, so a cast and a swing are paced by one state.
+        ComposeMagic();
         // A session publishes as soon as it exists: the engine expects a create-time projection, and a
         // client that attaches before the first update should see the session it has attached to.
         Publish();
@@ -696,7 +712,11 @@ public sealed class PartyRpgSession : IGameSession
         // rather than something remembered from an earlier update. The order the player gave is applied in
         // the same breath, and only then is the update consumed and its projection published, so what the
         // panel reads is the fight this update left behind rather than the one before it.
-        DriveCombat(attacked, skipped, waited, seconds);
+        // A casting is read where the act control is: a screen that owns the controls owns casting too, and
+        // the spell is aimed at the fight this update's own world read left standing. The quick slot is read
+        // whatever is open, because which spell a character keeps there is her own state and not an act.
+        bool cast = DriveCasts(update.Input, allowed: !screenOwnsControls);
+        DriveCombat(attacked, skipped, waited, cast, seconds);
 
         // The mode is resolved after the fight has had its say, because the fight is what decides whether the
         // next update waits for a committed turn: a round that began in this update is published in the same
@@ -843,6 +863,7 @@ public sealed class PartyRpgSession : IGameSession
         ComposeServices();
         ComposeRest();
         ComposeCombat();
+        ComposeMagic();
         // Leaving creation is a mode change like any other, so it resolves and publishes through the one
         // path that decides what a mode means: the next admitted update steps the world the party is in.
         ResolveMode();
@@ -1071,7 +1092,7 @@ public sealed class PartyRpgSession : IGameSession
     /// <param name="skipped">Whether this update carried a committed turn that forfeits the round's turn.</param>
     /// <param name="waited">Whether this update carried a committed turn that defers to the round's end.</param>
     /// <param name="seconds">The world time this update admitted, which may be zero.</param>
-    private void DriveCombat(bool attacked, bool skipped, bool waited, double seconds)
+    private void DriveCombat(bool attacked, bool skipped, bool waited, bool cast, double seconds)
     {
         if (_combat is not { } combat) return;
         combat.Step();
@@ -1082,7 +1103,7 @@ public sealed class PartyRpgSession : IGameSession
         // real-time path below, because then the world proceeds exactly as it does outside the mode.
         if (combat.Pacing == CombatPacing.TurnBased && combat.Turns.IsHolding)
         {
-            DrivePacedCombat(combat, attacked, skipped, waited, seconds);
+            DrivePacedCombat(combat, attacked, skipped, waited, cast, seconds);
             return;
         }
 
@@ -1133,7 +1154,7 @@ public sealed class PartyRpgSession : IGameSession
     /// movement phase rather than reaching the actor — and so does spending the allowance.
     /// </para>
     /// </remarks>
-    private void DrivePacedCombat(CombatState combat, bool attacked, bool skipped, bool waited, double seconds)
+    private void DrivePacedCombat(CombatState combat, bool attacked, bool skipped, bool waited, bool cast, double seconds)
     {
         TurnBasedPacing turns = combat.Turns;
 
@@ -1160,6 +1181,16 @@ public sealed class PartyRpgSession : IGameSession
                 // clock to elapse it — leaves the turn where it was, so the player can see the answer and act
                 // again rather than losing a turn to a refusal.
                 if (combat.Engage(turns.Current!.Id).IsApplied) turns.Took();
+                ResolveTurns(combat, seconds);
+                return;
+            }
+
+            if (cast)
+            {
+                // A casting this update is this actor's action: the spell has already gone through the
+                // fight's own gated entry, so the turn it was taken on is spent here rather than offered
+                // again to an actor who has just acted.
+                if (turns.Current is { } caster && _lastCastActor == caster.Id) turns.Took();
                 ResolveTurns(combat, seconds);
                 return;
             }
@@ -1337,6 +1368,124 @@ public sealed class PartyRpgSession : IGameSession
         {
             _director = new CombatDirector(_combat, policy, _liveWorld?.Creatures, _liveWorld?.Places, _diagnostics);
         }
+    }
+
+    /// <summary>
+    /// Composes the casting workflow over the party, this game's spell answers, the effect path, and the fight.
+    /// </summary>
+    /// <remarks>
+    /// It is composed where the fight is, and over the same fight, so a casting's two gates — what acts on the
+    /// caster and how much of its recovery is left — are the fight's own answers rather than a second reading
+    /// of the same state. A session whose ruleset answered no magic holds no workflow at all, and publishes
+    /// that rather than a spellbook nothing could cast from.
+    /// </remarks>
+    private void ComposeMagic()
+    {
+        if (_spellRule is null || _party is not { } party) return;
+        _casting = new Spellcasting(
+            party,
+            _spellRule,
+            _spellEffects,
+            _combat,
+            _skillRule is { } skills ? skills.TierName : null);
+    }
+
+    /// <summary>
+    /// Applies the castings and quick-slot choices this update carried, in the order they arrived.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A casting is an instant, like a use and a raise: it is read inside this one admitted update and it
+    /// changes what the party's own state holds rather than what the world is. Every casting goes through the
+    /// one workflow, so a spell the caster never learned, one their school mastery does not reach, one their
+    /// pool cannot pay for, one aimed at nothing the fight holds, and one whose caster is still recovering or
+    /// laid out are each refused by name and leave the pool exactly as it stood.
+    /// </para>
+    /// <para>
+    /// The actor that cast is remembered so a paced fight can spend its turn: the cast has already been
+    /// ordered through the fight's own gated entry, and the turn it belongs to is consumed by the pacing that
+    /// asked for it rather than by a second order.
+    /// </para>
+    /// </remarks>
+    /// <param name="allowed">
+    /// Whether a casting may be applied this update. A screen that owns the player's controls owns casting
+    /// too — the party stands at a counter or speaks with somebody, and nothing is faced or acted on until
+    /// it leaves — but the quick slot is the character's own state rather than an act in the world, so
+    /// choosing it is read whatever is open.
+    /// </param>
+    /// <returns>Whether a casting this update was applied.</returns>
+    private bool DriveCasts(ReadOnlySpan<ProductInputEvent> input, bool allowed)
+    {
+        _lastCastActor = null;
+        if (_castInput is null || _casting is not { } casting) return false;
+
+        foreach (QuickSpellRequest choice in _castInput.ReadQuick(input))
+        {
+            if (choice.Member < 0 || choice.Member >= casting.Party.Members.Count)
+            {
+                _diagnostics?.Publish(new DiagnosticsPublishRequest(
+                    DiagnosticsSeverity.Warning,
+                    DiagnosticsDisposition.RejectedRecoverable,
+                    Source: "magic",
+                    Code: "spell-member-unknown",
+                    Message: $"A quick spell named member {choice.Member + 1}, and the party has {casting.Party.Members.Count}.",
+                    Correlation: string.Empty));
+                continue;
+            }
+
+            PartyMember member = casting.Party.Members[choice.Member];
+            try
+            {
+                member.Spells.SetQuickSpell(choice.Spell);
+            }
+            catch (ArgumentException refused)
+            {
+                // The slot holds a spell its owner can cast, so choosing one the character never learned is
+                // refused where it is asked for rather than kept as a key that would fail every press.
+                _diagnostics?.Publish(new DiagnosticsPublishRequest(
+                    DiagnosticsSeverity.Warning,
+                    DiagnosticsDisposition.RejectedRecoverable,
+                    Source: "magic",
+                    Code: "spell-quick-refused",
+                    Message: refused.Message,
+                    Correlation: string.Empty));
+            }
+        }
+
+        bool cast = false;
+        foreach (CastRequest request in _castInput.Read(input))
+        {
+            if (!allowed)
+            {
+                // A casting that arrives while a screen owns the controls is refused by name rather than
+                // quietly dropped: a button the panel offers and the product ignores would be a control that
+                // looks like it did nothing, which is the failure this refusal exists to prevent.
+                _diagnostics?.Publish(new DiagnosticsPublishRequest(
+                    DiagnosticsSeverity.Info,
+                    DiagnosticsDisposition.RejectedRecoverable,
+                    Source: "magic",
+                    Code: "spell-screen-open",
+                    Message: "A casting arrived while a screen owned the player's controls, so nothing was cast and no spell point was spent.",
+                    Correlation: string.Empty));
+                continue;
+            }
+
+            SpellCastResult result = casting.Cast(new SpellCastRequest(request.Member, request.Spell, request.Target));
+            cast |= result.IsCast;
+            if (result.IsCast) _lastCastActor = CombatantId.Of(casting.Party.Members[result.Member].Id);
+            if (!result.IsCast)
+            {
+                _diagnostics?.Publish(new DiagnosticsPublishRequest(
+                    DiagnosticsSeverity.Info,
+                    DiagnosticsDisposition.RejectedRecoverable,
+                    Source: "magic",
+                    Code: result.Code,
+                    Message: result.Message,
+                    Correlation: string.Empty));
+            }
+        }
+
+        return cast;
     }
 
     /// <summary>
@@ -1660,7 +1809,12 @@ public sealed class PartyRpgSession : IGameSession
         // What each member can hold and what the next point would buy, read from the same owner: the rows
         // are content's, the ceilings are the ruleset's, and what a raise would cost or why it is refused is
         // the owner's own answer, so a screen renders a price rather than working one out.
-        SkillsSnapshot.From(_progression));
+        SkillsSnapshot.From(_progression),
+        // What each member can cast, what a casting costs, and what the last one did, read from the casting
+        // workflow the ruleset's answers composed: a session whose ruleset stated no magic, a party that has
+        // learned nothing, and one whose spell was refused for its mastery or its pool are three different
+        // facts, and the price on every row is the workflow's own answer for that caster.
+        MagicSnapshot.From(_casting, _skillRule));
 
     /// <summary>Publishes the world as it stands now, after a caller moved the party.</summary>
     public void PublishWorld()

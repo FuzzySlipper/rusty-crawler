@@ -191,6 +191,18 @@ public sealed class TreasureTableTests
             JsonElement sword = itemRows[1];
             Assert.Equal("sword", sword.GetProperty("skill").GetString());
             Assert.Equal("single-handed", sword.GetProperty("type").GetString());
+
+            // A spell book's own reference column names the spell it teaches, and the importer writes that
+            // join out as a field rather than leaving the shipped spelling for a reader to parse:
+            // OpenEnroth src/Engine/Objects/ItemEnumFunctions.cpp:282, spellForSpellbook.
+            JsonElement book = itemRows[400];
+            Assert.Equal("Book", book.GetProperty("equipStat").GetString());
+            Assert.Equal("book", book.GetProperty("type").GetString());
+            Assert.Equal("S2", book.GetProperty("damageDice").GetString());
+            Assert.Equal("2", book.GetProperty("spell").GetString());
+
+            // A row that is not a book of a spell the table declares carries no such field at all.
+            Assert.False(sword.TryGetProperty("spell", out _));
             Assert.Equal([5, 5, 5, 5, 5, 5], [.. sword.GetProperty("lootWeights").EnumerateArray().Select(weight => weight.GetInt32())]);
             Assert.False(itemRows[0].TryGetProperty("lootWeights", out _));
         }

@@ -78,32 +78,34 @@ public sealed class ServiceKindPolicyTests
     }
 
     [Fact]
-    public void A_guild_sells_its_membership_teaches_its_school_and_gates_its_spell_books_by_tier()
+    public void A_guild_sells_its_membership_teaches_its_school_and_sells_the_spells_its_rung_allows()
     {
         using Fixture fixture = Fixture.Build();
         PartyServices guild = fixture.Open("139");
 
-        // The guild's rung in its own school is what its shelves may hold: an initiate guild sells the
-        // first four spell levels of its school (OpenEnroth src/Engine/Objects/CharacterEnumFunctions.h:33-46),
-        // so the school's first- and second-level books are on the shelf and its fifth-level one is not —
-        // and no other school's book is either.
+        // A guild's shelves hold no goods at all: what it sells is its school's spell books, and a book is
+        // a lesson rather than a line of stock, because it is consumed by the learning. So the rung gate
+        // shows up in what the counter offers: an initiate guild of Fire sells the school's novice spells
+        // and not its expert one, and no other school's book at all
+        // (OpenEnroth src/Engine/Objects/CharacterEnumFunctions.h:33-46, spellCountForMastery, and
+        // src/GUI/UI/Houses/MagicGuild.cpp:317-345, generateSpellBooksForGuild).
         IReadOnlyList<ServiceStockLine> shelves = fixture.Rule.Stock(new ServiceStockRequest(guild.Current!, fixture.Party, fixture.Clock));
-        Assert.Contains(shelves, line => line.Definition.Value == "40");
-        Assert.Contains(shelves, line => line.Definition.Value == "41");
-        Assert.DoesNotContain(shelves, line => line.Definition.Value == "42");
-        Assert.DoesNotContain(shelves, line => line.Definition.Value == "43");
+        Assert.Empty(shelves);
 
-        // The shelf is behind the membership, which is party-carried state the counter sells: buying a book
-        // before joining is refused by name and moves nothing.
-        ServiceResult refused = guild.Transact(new ServiceCommand(ServiceCommandKind.Buy, "stock:40"));
-        Assert.Equal("service-membership-required", refused.Code);
-        Assert.Equal(fixture.Party.Purse.Coins, fixture.FixtureCoins);
-
-        // The membership is one lesson, and a guild teaches its own school and its second skill.
         IReadOnlyList<ServiceLesson> lessons = fixture.Rule.Lessons(new ServiceLessonRequest(guild.Current!, fixture.Party, fixture.Clock));
         Assert.Contains(lessons, lesson => lesson.Kind == ServiceLessonKind.Effect && lesson.Subject == "guild.fire");
         Assert.Contains(lessons, lesson => lesson.Kind == ServiceLessonKind.Skill && lesson.Subject == "Fire");
         Assert.Contains(lessons, lesson => lesson.Kind == ServiceLessonKind.Skill && lesson.Subject == "Learning");
+        Assert.Contains(lessons, lesson => lesson.Kind == ServiceLessonKind.Spell && lesson.Subject == "1");
+        Assert.Contains(lessons, lesson => lesson.Kind == ServiceLessonKind.Spell && lesson.Subject == "2");
+        Assert.DoesNotContain(lessons, lesson => lesson.Kind == ServiceLessonKind.Spell && lesson.Subject == "5");
+        Assert.DoesNotContain(lessons, lesson => lesson.Kind == ServiceLessonKind.Spell && lesson.Subject == "78");
+
+        // The book is behind the membership, which is party-carried state the counter sells: a spell bought
+        // before joining is refused by name and moves nothing.
+        ServiceResult refused = guild.Transact(new ServiceCommand(ServiceCommandKind.Teach, "2", Member: 0));
+        Assert.Equal("service-membership-required", refused.Code);
+        Assert.Equal(fixture.Party.Purse.Coins, fixture.FixtureCoins);
 
         ServiceResult joined = guild.Transact(new ServiceCommand(ServiceCommandKind.Teach, "guild.fire", Member: 0));
         Assert.True(joined.IsApplied);
@@ -111,15 +113,19 @@ public sealed class ServiceKindPolicyTests
         Assert.Equal(1000, joined.Paid);
 
         // A member is served, and the same membership is not sold twice.
-        Assert.True(guild.Transact(new ServiceCommand(ServiceCommandKind.Buy, "stock:40")).IsApplied);
         Assert.Equal("service-membership-held", guild.Transact(new ServiceCommand(ServiceCommandKind.Teach, "guild.fire", Member: 0)).Code);
 
-        // An adept guild of the same school reaches further up the ladder, which is the tier gate rather
-        // than a second kind of counter.
+        // No school skill, no spell: the learning rule is this game's magic's own answer, read by the
+        // counter rather than restated here, and it names the school the member has never learned.
+        ServiceResult unskilled = guild.Transact(new ServiceCommand(ServiceCommandKind.Teach, "2", Member: 0));
+        Assert.Equal("spell-school-missing", unskilled.Code);
+
+        // An adept guild of the same school reaches the expert tier, which is the rung gate rather than a
+        // second kind of counter.
         PartyServices adept = fixture.Open("140");
-        IReadOnlyList<ServiceStockLine> deeper = fixture.Rule.Stock(new ServiceStockRequest(adept.Current!, fixture.Party, fixture.Clock));
-        Assert.Contains(deeper, line => line.Definition.Value == "42");
-        Assert.DoesNotContain(deeper, line => line.Definition.Value == "43");
+        IReadOnlyList<ServiceLesson> deeper = fixture.Rule.Lessons(new ServiceLessonRequest(adept.Current!, fixture.Party, fixture.Clock));
+        Assert.Contains(deeper, lesson => lesson.Kind == ServiceLessonKind.Spell && lesson.Subject == "5");
+        Assert.DoesNotContain(deeper, lesson => lesson.Kind == ServiceLessonKind.Spell && lesson.Subject == "78");
     }
 
     [Fact]
@@ -586,10 +592,10 @@ public sealed class ServiceKindPolicyTests
                 { "id": "20", "name": "Leather Armor", "value": 60, "equipStat": "Armor", "skillGroup": "Leather", "material": "6" },
                 { "id": "30", "name": "Cure Wounds", "value": 25, "equipStat": "Bottle", "skillGroup": "Misc", "material": "2" },
                 { "id": "31", "name": "Widowsweep Berries", "value": 5, "equipStat": "Reagent", "skillGroup": "Misc", "material": "1" },
-                { "id": "40", "name": "Torch Light", "value": 100, "equipStat": "Book", "skillGroup": "Misc", "material": "3" },
-                { "id": "41", "name": "Fire Bolt", "value": 200, "equipStat": "Book", "skillGroup": "Misc", "material": "3" },
-                { "id": "42", "name": "Fireball", "value": 750, "equipStat": "Book", "skillGroup": "Misc", "material": "3" },
-                { "id": "43", "name": "Light Bolt", "value": 1000, "equipStat": "Book", "skillGroup": "Misc", "material": "3" }
+                { "id": "40", "name": "Torch Light", "value": 100, "equipStat": "Book", "skillGroup": "Misc", "material": "3", "spell": "1" },
+                { "id": "41", "name": "Fire Bolt", "value": 200, "equipStat": "Book", "skillGroup": "Misc", "material": "3", "spell": "2" },
+                { "id": "42", "name": "Fireball", "value": 750, "equipStat": "Book", "skillGroup": "Misc", "material": "3", "spell": "5" },
+                { "id": "43", "name": "Light Bolt", "value": 1000, "equipStat": "Book", "skillGroup": "Misc", "material": "3", "spell": "78" }
               ]
             }
             """;

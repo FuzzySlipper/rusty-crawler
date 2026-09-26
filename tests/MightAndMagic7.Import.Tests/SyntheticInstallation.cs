@@ -357,6 +357,15 @@ internal static class SyntheticInstallation
                 continue;
             }
 
+            // One row of the fixture is a spell book, because the item table's own reference column carries
+            // the spell a book teaches as the letter S and the spell's id: item 400 is "Fire Bolt" with S2,
+            // which is the join the importer writes out for the ruleset to read.
+            if (item == 400)
+            {
+                text.Append($"{item}\titem{item:D3}\tFire Bolt\t200\tBook\tMisc\tS2\t1\t3\t1\tBook of Learning\t{item % 300}\t0\t0\n");
+                continue;
+            }
+
             text.Append($"{item}\titem{item:D3}\tItem {item}\t{item * 10}\tWeapon\tSword\t1D6\t2\tSteel\t10\tUnidentified {item}\t{item % 300}\t0\t0\n");
         }
 

@@ -203,6 +203,29 @@ internal static class ProductIdentity
     internal const string SaveAction = "session.save";
 
     /// <summary>
+    /// The payload action name that casts one member's named spell at a named target, sent by the DOM
+    /// companion's spellbook rows on the UI action contract.
+    /// </summary>
+    /// <remarks>
+    /// Casting is a payload action rather than a key: a spell and the thing it is aimed at cannot be said by
+    /// one press, and the original's own casting has no key either
+    /// (<c>docs/research/mm7-manual-outline.md</c> — a spell is chosen on the spellbook screen). The row a
+    /// player pressed names the member, the spell, and the target the projection offered, and no control of
+    /// the keyboard means "cast this one".
+    /// </remarks>
+    internal const string CastAction = "party.cast";
+
+    /// <summary>
+    /// The payload action name that puts one spell in one member's quick slot, or clears it.
+    /// </summary>
+    /// <remarks>
+    /// The quick spell is the character's own slot for one-key casting, so the control names the member and
+    /// the spell; a payload that names no spell empties the slot. It is an action rather than a key because
+    /// what a key would do — cast the slot — needs a target as well, and that is <see cref="CastAction"/>.
+    /// </remarks>
+    internal const string QuickSpellAction = "party.quick-spell";
+
+    /// <summary>
     /// The payload action name that asks the live session to spend a member's skill points on a raise, sent
     /// by the DOM companion's skills rows on the UI action contract.
     /// </summary>

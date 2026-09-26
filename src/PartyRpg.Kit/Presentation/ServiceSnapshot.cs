@@ -214,6 +214,7 @@ public readonly record struct ServiceSnapshot(
     public static string WireName(ServiceLessonKind kind) => kind switch
     {
         ServiceLessonKind.Skill => "skill",
+        ServiceLessonKind.Spell => "spell",
         ServiceLessonKind.Effect => "effect",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown lesson kind."),
     };

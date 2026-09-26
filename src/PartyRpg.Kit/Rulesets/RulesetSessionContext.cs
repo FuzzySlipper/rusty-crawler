@@ -102,6 +102,14 @@ public enum SessionStart
 /// never spends a skill point of its own — the owner still holds the pool and the panel still publishes what
 /// a raise would cost — which is what a product that offers no such control gets.
 /// </param>
+/// <param name="Cast">
+/// The casting controls the host declares, when it declares any, stated for the same reason and in the same
+/// shape as the others: which payload action casts a named spell at a named target, and which one puts a
+/// spell in a member's quick slot. Casting has no key of its own — a spell and a target cannot be said by
+/// one press — so a host declares the two actions and a screen's own rows drive them. Without them a
+/// session still resolves and refuses castings and still publishes what the party can cast; no casting ever
+/// reaches it, which is what a product that offers no such control gets.
+/// </param>
 public sealed record RulesetSessionContext(
     IUiProjectionChannel Projection,
     BundleSelection Selection = default,
@@ -117,4 +125,5 @@ public sealed record RulesetSessionContext(
     RestIntentNames? Rest = null,
     ConversationIntentNames? Conversation = null,
     CombatIntentNames? Combat = null,
-    SkillRaiseIntentNames? Skills = null);
+    SkillRaiseIntentNames? Skills = null,
+    CastIntentNames? Cast = null);

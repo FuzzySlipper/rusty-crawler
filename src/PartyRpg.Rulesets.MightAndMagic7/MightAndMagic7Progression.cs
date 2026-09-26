@@ -127,6 +127,24 @@ internal sealed class MightAndMagic7Progression : IProgressionRule
     /// <summary>The highest rank this game's class ladder states, which is the donor's own tier three.</summary>
     internal const int HighestRank = 3;
 
+    /// <summary>How much one level of a base class at a rank adds to a member's spell point pool.</summary>
+    /// <remarks>
+    /// The same table a level rise reads, so a member's pool and the formula that states what it can hold
+    /// read one number rather than two: the donor's per-level mana array
+    /// (<c>OpenEnroth/src/Engine/Objects/Character.cpp:173-209</c>, <c>pBaseManaPerLevelByClass</c>), whose
+    /// value is both what a rise grants and what a caster's level term is worth in
+    /// <c>Character::GetMaxMana</c> (<c>:1845-1856</c>). A class or rank this table does not carry answers
+    /// nothing, and the spell policy then states no pool for it.
+    /// </remarks>
+    /// <param name="characterClass">The base class's name, as this game's ladder spells it.</param>
+    /// <param name="rank">The member's rank in its class ladder, counting from one.</param>
+    /// <returns>How much one level adds, zero when the class or rank states none.</returns>
+    internal static int SpellPointsPerLevel(string characterClass, int rank)
+    {
+        if (!GrowthByClass.TryGetValue(characterClass, out ProgressionGrowth[]? ladder)) return 0;
+        return rank >= 1 && rank <= ladder.Length ? ladder[rank - 1].SpellPoints : 0;
+    }
+
     /// <inheritdoc />
     /// <remarks>
     /// OpenEnroth <c>src/GUI/UI/Houses/Training.cpp:37</c> and

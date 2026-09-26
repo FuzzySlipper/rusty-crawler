@@ -276,7 +276,7 @@ public sealed class PartyEntityFactory
         entity.Add(new CharacterProfile(id, seed.Name, seed.Race, seed.Class, seed.Portrait));
         entity.Add(new CharacterAttributes(seed.Attributes));
         entity.Add(new CharacterSkills(seed.Skills));
-        entity.Add(new CharacterSpells(seed.Spells));
+        entity.Add(new CharacterSpells(seed.Spells, seed.QuickSpell));
         entity.Add(new CharacterProgression(seed.Experience, seed.Level, seed.SkillPoints, seed.ClassRank));
         entity.Add(new CharacterConditions(seed.Conditions));
         entity.Add(new CharacterResources(seed.HitPoints, seed.SpellPoints));

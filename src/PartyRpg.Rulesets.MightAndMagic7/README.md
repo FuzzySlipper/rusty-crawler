@@ -9,7 +9,13 @@ Owns:
 - Classes, races, ranks, and the two-stage promotion ladder whose second step
   splits each class into a light and a dark alternative.
 - Skills with their class- and rank-specific mastery ceilings, and skill points.
-- The nine spell schools, spell tiers, costs, and effects.
+- The nine spell schools and their 99 spells (`MightAndMagic7Spells`): which skill gates each school, the
+  tier each spell requires, what one casting costs at each rung of that school's mastery, how long it makes
+  the caster recover, what it rolls, what it is aimed at, and which of the design's eight effect categories
+  it is. The costs, recovery, damage, and required mastery are the donor's transcription of the executable
+  (`pSpellDatas`); the targeting and the categories are ours. Also the spell-point pool each class and its
+  casting score add up to, the learning rule a book is judged against, the guild rung that gates which of a
+  school's books a counter sells, and the effect path this build expresses harm through.
 - Monster, item, service, and condition definitions and their interpretation.
 - Combat, damage, resistance, conditions, recovery, reward, and experience formulas.
 - Progression policy: the experience curve, how a party's award divides, what a

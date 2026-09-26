@@ -42,6 +42,7 @@ public sealed class CrawlerProduct : IEngineProduct
     private readonly UseIntentNames _use;
     private readonly ServiceIntentNames _service;
     private readonly SkillRaiseIntentNames _skills;
+    private readonly CastIntentNames _cast;
     private readonly RestIntentNames _rest;
     private readonly ConversationIntentNames _conversation;
     private readonly CombatIntentNames _combat;
@@ -108,6 +109,13 @@ public sealed class CrawlerProduct : IEngineProduct
         // screen's own act, and the screen names the member and the skill it drew.
         _skills = new SkillRaiseIntentNames(
             ProductIdentity.SkillRaiseAction,
+            ProductIdentity.UiActionContract);
+        // Casting is two payload actions and no key, for the same reason: a spell, a caster, and a target are
+        // what a screen's own rows name, and one press of a key could say none of them. The quick slot is the
+        // second action, because which spell a character keeps there is a choice the spellbook screen makes.
+        _cast = new CastIntentNames(
+            ProductIdentity.CastAction,
+            ProductIdentity.QuickSpellAction,
             ProductIdentity.UiActionContract);
         // The act control is one intent and one action, because the act is one act: what a member does with
         // it is the ruleset's answer about that member, and a player presses the same control for a spell, a
@@ -267,7 +275,8 @@ public sealed class CrawlerProduct : IEngineProduct
                 Rest: _rest,
                 Conversation: _conversation,
                 Combat: _combat,
-                Skills: _skills);
+                Skills: _skills,
+                Cast: _cast);
 
             // The start switch travels with the context and is answered at the ruleset's one composition
             // entry: a resumed run reads the save the slot holds and composes a session from it, and a slot

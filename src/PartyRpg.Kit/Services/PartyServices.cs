@@ -839,6 +839,18 @@ public sealed class PartyServices : IGameTimeObserver
                     return null;
                 }
 
+                if (lesson.Kind == ServiceLessonKind.Spell)
+                {
+                    // A spell book is consumed by the learning rather than carried: the counter sells the
+                    // book, the fee has been settled through the party's one ledger above, and what the
+                    // character takes away is the spell. Whether the member may learn it at all — the
+                    // school's skill, the rung the spell asks for, and a spellbook that does not already
+                    // hold it — is the spell policy's answer, which judged this already, so one writer of a
+                    // spellbook is enough.
+                    recipient.Spells.Learn(new SpellId(lesson.Subject));
+                    return null;
+                }
+
                 // A membership is party-carried state: the effect is applied to the band, where the access
                 // requirement reads it back and the party's own save already records it.
                 _party.Effects.Apply(new PartyEffect(new EffectId(lesson.Subject), lesson.Amount));
@@ -881,6 +893,8 @@ public sealed class PartyServices : IGameTimeObserver
                 $"The party pays {quote.Charge.Coins} coin(s) for a passage to {subject.Offer!.Subject}, which takes {subject.Offer.Amount} day(s).",
             ServiceOperationKind.Teach when subject.Lesson!.Kind == ServiceLessonKind.Skill =>
                 $"{_party.Member(member).Profile.Name} is taught {subject.Lesson.Label} to level {subject.Lesson.Amount} for {quote.Charge.Coins} coin(s).",
+            ServiceOperationKind.Teach when subject.Lesson!.Kind == ServiceLessonKind.Spell =>
+                $"{_party.Member(member).Profile.Name} learns {subject.Lesson.Label} from the book for {quote.Charge.Coins} coin(s), and the book is used up.",
             ServiceOperationKind.Teach =>
                 $"The party pays {quote.Charge.Coins} coin(s) for {subject.Lesson!.Label}.",
             _ => $"The party's transaction at {visit.Service.Name} is done.",

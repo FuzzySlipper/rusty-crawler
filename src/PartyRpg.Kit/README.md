@@ -14,6 +14,12 @@ Owns:
   the one award entry every source arrives at (a kill's worth coming from the
   ruleset that reads the creature's own row), the training step a counter
   settles through that owner, and the growth a level gives.
+- Magic (`Magic/`): the spell catalog content declares, the one casting workflow — resolve the caster and
+  the spell, judge its tier against that character's mastery of its school, resolve the aim, ask the effect
+  path whether the casting may go ahead, pay the spell points through the member's own pool, hand the
+  casting over — and the effect seam a game fills. The kit knows no spell, no school, no cost, and no
+  effect: a definition carries the school's skill, the rung it asks for, the price this caster pays, what it
+  is aimed at, and an opaque effect identity, and `ISpellEffectRule` is where every effect is expressed.
 - Combat: attack execution, targeting and current target, attack resolution, damage kinds,
   resistance and immunity, conditions a hit leaves, and the thresholds a wound is judged against
   application, real-time and turn-based mode coordination, what a downed creature leaves

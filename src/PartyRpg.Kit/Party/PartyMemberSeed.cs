@@ -32,6 +32,10 @@ public sealed record PartyMemberSeed
     /// presentation because in this game family the face decides the race, so a character that lost the
     /// portrait it was created with has lost part of who it is.
     /// </param>
+    /// <param name="quickSpell">
+    /// The spell the character casts with one key, or null when they have chosen none. It is part of what a
+    /// character is, like the spellbook it is drawn from, so a save carries it and a restore puts it back.
+    /// </param>
     /// <exception cref="ArgumentException">The name is blank.</exception>
     public PartyMemberSeed(
         string name,
@@ -47,7 +51,8 @@ public sealed record PartyMemberSeed
         IReadOnlyList<ActiveCondition> conditions,
         ResourcePool hitPoints,
         ResourcePool spellPoints,
-        PortraitId? portrait = null)
+        PortraitId? portrait = null,
+        SpellId? quickSpell = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(attributes);
@@ -68,6 +73,7 @@ public sealed record PartyMemberSeed
         HitPoints = hitPoints;
         SpellPoints = spellPoints;
         Portrait = portrait;
+        QuickSpell = quickSpell;
     }
 
     /// <summary>The name a player reads.</summary>
@@ -117,4 +123,11 @@ public sealed record PartyMemberSeed
     /// portrait is which face the player picked, and two characters of one race are only told apart by it.
     /// </remarks>
     public PortraitId? Portrait { get; }
+
+    /// <summary>The spell the character casts with one key, or null when they have chosen none.</summary>
+    /// <remarks>
+    /// Recorded beside the spells rather than derived from them, because which of several known spells a
+    /// player keeps in the slot is their choice and not something a spellbook can work out.
+    /// </remarks>
+    public SpellId? QuickSpell { get; }
 }

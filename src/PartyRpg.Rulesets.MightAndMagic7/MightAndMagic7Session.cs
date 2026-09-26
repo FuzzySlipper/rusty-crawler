@@ -60,10 +60,17 @@ internal sealed class MightAndMagic7Session : IGameSession
         // One reading of one table is what keeps a lesson, a raise, and an equip in step.
         MightAndMagic7Skills? skills = MightAndMagic7Skills.Read(Declared(context.Content));
 
+        // This game's magic is read once, here, beside its skills and before its services: a guild's spell
+        // books are lessons whose requirements are this game's learning rule, a creature's spell lands with
+        // the spell's own numbers, and the session's casting workflow judges mastery and price against the
+        // same reading. One reading of one table is what keeps a book, a cast, and a creature's spell in step.
+        MightAndMagic7Spells? spells = MightAndMagic7Spells.Read(Declared(context.Content), skills);
+        MightAndMagic7SpellEffects? spellEffects = spells is null ? null : new MightAndMagic7SpellEffects(spells);
+
         // This game's services are read once, here, and the same answers are handed to the world — which
         // needs them to describe a counter the party talks to — and to the session, which serves it. One
         // reading of one placement is what keeps what a use offers and what a transaction does in step.
-        MightAndMagic7Services? services = MightAndMagic7Services.Read(Declared(context.Content), skills);
+        MightAndMagic7Services? services = MightAndMagic7Services.Read(Declared(context.Content), skills, spells);
 
         // This game's answers about people are read once here, for the same reason: the world needs them to
         // say who stands at a placement the party faces, and the session needs the one instance to speak
@@ -117,7 +124,7 @@ internal sealed class MightAndMagic7Session : IGameSession
         // makes reading it here honest rather than a second reading of the table.
         MightAndMagic7Combat? composed = null;
         ProgressionAwards awards = new(Worth, () => Progression, corpseAnswers);
-        composed = MightAndMagic7Combat.Compose(Declared(context.Content), context.Engine?.Random, awards);
+        composed = MightAndMagic7Combat.Compose(Declared(context.Content), context.Engine?.Random, awards, spells);
         MightAndMagic7Combat combat = composed;
 
         long Worth(PlacementDefinition placement) =>
@@ -146,7 +153,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             InteractionUseInput? use = Use(context);
             if (resume is { } save)
             {
-                party = MightAndMagic7Party.Restore(save.Party, Declared(context.Content));
+                party = Capacity(MightAndMagic7Party.Restore(save.Party, Declared(context.Content)), spells)!;
                 PartyResourceLedger ledger = Ledger(party);
                 world = MightAndMagic7World.Compose(context.Content, context, clock, ledger, party, save, services, conversation, corpseAnswers, loot);
                 _session = new PartyRpgSession(
@@ -174,7 +181,10 @@ internal sealed class MightAndMagic7Session : IGameSession
                     monsterAi: monsterAi,
                     progression: MightAndMagic7Progression.Instance,
                     skills: skills,
-                    skillInput: context.Skills);
+                    skillInput: context.Skills,
+                    spells: spells,
+                    spellEffects: spellEffects,
+                    castInput: context.Cast);
                 return;
             }
 
@@ -196,7 +206,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                     creationInput: creation,
                     creation: new SessionCreation(
                         MightAndMagic7Creation.Start(declared),
-                        description => MightAndMagic7Party.Factory(declared).Create(description),
+                        description => Capacity(MightAndMagic7Party.Factory(declared).Create(description), spells, fill: true)!,
                         created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created), created, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot)),
                     saveInput: context.Save,
                     useInput: use,
@@ -211,14 +221,17 @@ internal sealed class MightAndMagic7Session : IGameSession
                     monsterAi: monsterAi,
                     progression: MightAndMagic7Progression.Instance,
                     skills: skills,
-                    skillInput: context.Skills);
+                    skillInput: context.Skills,
+                    spells: spells,
+                    spellEffects: spellEffects,
+                    castInput: context.Cast);
                 return;
             }
 
             // No creation screen was declared, so this session plays the party its scenario fixes: the
             // scripted path — a live check, a test, or a product that offers no creation. Handing that party
             // to the world here is the same composition order the created path takes, one accept earlier.
-            party = MightAndMagic7Party.Compose(context.Content);
+            party = Capacity(MightAndMagic7Party.Compose(context.Content), spells, fill: true);
             PartyResourceLedger? accounts = party is null ? null : Ledger(party);
             world = MightAndMagic7World.Compose(context.Content, context, clock, accounts, party, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot);
             _session = new PartyRpgSession(
@@ -245,7 +258,10 @@ internal sealed class MightAndMagic7Session : IGameSession
                 monsterAi: monsterAi,
                 progression: MightAndMagic7Progression.Instance,
                 skills: skills,
-                skillInput: context.Skills);
+                skillInput: context.Skills,
+                spells: spells,
+                spellEffects: spellEffects,
+                castInput: context.Cast);
         }
         catch
         {
@@ -257,6 +273,42 @@ internal sealed class MightAndMagic7Session : IGameSession
             store?.Dispose();
             throw;
         }
+    }
+
+    /// <summary>
+    /// Gives a party the spell points its class, level, and scores add up to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the one moment a member's capacity is stated, and it is stated from the ruleset's own formula
+    /// rather than from a number content happens to carry: creation seeds each class's base and every level
+    /// adds the class's own per-level grant, so a party that exists holds exactly what
+    /// <see cref="MightAndMagic7Spells.SpellPointCapacity"/> says it holds — a level-one character just
+    /// created, one raised by a training hall, and one restored from a save are one arithmetic. Attributes do
+    /// not grow in this build yet, so nothing re-states the capacity afterwards; the stone that grows them
+    /// applies this same answer where it moves them.
+    /// </para>
+    /// <para>
+    /// A party that has just come into being holds all of it, exactly as creation leaves its pools full; a
+    /// party restored from a save keeps what it had left, because what a save records is what a member had
+    /// spent and re-filling it would hand back points the player had used.
+    /// </para>
+    /// </remarks>
+    /// <param name="party">The party that came into being, or null when content declares none.</param>
+    /// <param name="spells">This game's magic, or null when there is no content to read it over.</param>
+    /// <param name="fill">Whether this party is new, so its pools are filled rather than left as recorded.</param>
+    /// <returns>The same party.</returns>
+    private static PartyEntity? Capacity(PartyEntity? party, MightAndMagic7Spells? spells, bool fill = false)
+    {
+        if (party is null || spells is null) return party;
+        foreach (PartyMember member in party.Members)
+        {
+            int capacity = spells.SpellPointCapacity(member);
+            member.Resources.SetMaximumSpellPoints(capacity);
+            if (fill) member.Resources.RestoreSpellPoints(capacity);
+        }
+
+        return party;
     }
 
     /// <summary>

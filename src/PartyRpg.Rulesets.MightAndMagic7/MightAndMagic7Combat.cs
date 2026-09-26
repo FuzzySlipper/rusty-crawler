@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
@@ -359,19 +360,22 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     private readonly MonsterFacts? _person;
     private readonly IRandomService? _random;
     private readonly IFallenCreatureObserver? _fallen;
+    private readonly MightAndMagic7Spells? _spells;
 
     private MightAndMagic7Combat(
         Dictionary<int, MonsterFacts> monsters,
         Dictionary<string, string> people,
         MonsterFacts? person,
         IRandomService? random,
-        IFallenCreatureObserver? fallen)
+        IFallenCreatureObserver? fallen,
+        MightAndMagic7Spells? spells)
     {
         _monsters = monsters;
         _people = people;
         _person = person;
         _random = random;
         _fallen = fallen;
+        _spells = spells;
     }
 
     /// <summary>
@@ -394,13 +398,21 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// that keeps the bodies, which is also where the award for a death is made. A fight that is told nobody
     /// reports nothing, and everything about the fight itself is unchanged.
     /// </param>
+    /// <param name="spells">
+    /// This game's magic, which states what each spell a creature casts is worth and rolls. A caller that
+    /// composed none gets one read here, so a creature's spell still lands with the spell's own numbers.
+    /// </param>
     /// <returns>This game's combat policy.</returns>
     /// <exception cref="ContentValidationException">Content declares a monster or a creature this game cannot fight; every problem is named.</exception>
-    internal static MightAndMagic7Combat Compose(ContentCatalog? catalog, IRandomService? random, IFallenCreatureObserver? fallen = null)
+    internal static MightAndMagic7Combat Compose(
+        ContentCatalog? catalog,
+        IRandomService? random,
+        IFallenCreatureObserver? fallen = null,
+        MightAndMagic7Spells? spells = null)
     {
-        if (catalog is null) return new MightAndMagic7Combat([], [], null, random, fallen);
+        if (catalog is null) return new MightAndMagic7Combat([], [], null, random, fallen, spells);
         List<ContentValidationIssue> issues = [];
-        Dictionary<int, MonsterFacts> monsters = ReadMonsters(catalog, ReadSpells(catalog), issues);
+        Dictionary<int, MonsterFacts> monsters = ReadMonsters(catalog, spells ?? MightAndMagic7Spells.Read(catalog), issues);
         Dictionary<string, string> people = ReadPeople(catalog);
         ValidateCreatures(catalog, monsters, issues);
 
@@ -419,7 +431,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             .OrderBy(row => row.Id)
             .FirstOrDefault();
 
-        return new MightAndMagic7Combat(monsters, people, person, random, fallen);
+        return new MightAndMagic7Combat(monsters, people, person, random, fallen, spells ?? MightAndMagic7Spells.Read(catalog));
     }
 
     /// <summary>What the fight read as down in one place, handed to whoever keeps what the fallen left.</summary>
@@ -505,6 +517,21 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     {
         ArgumentNullException.ThrowIfNull(subject);
         if (Creature(subject) is { } creature) return creature.Recovery;
+
+        // A character's spell is paced by the spell's own row at the character's mastery, which is the donor's
+        // own recovery column (<c>src/Engine/Spells/Spells.cpp:162-168</c>, <c>recovery_per_skill</c>), read
+        // for the spell the character keeps in its quick slot — the one the donor's own act key casts
+        // (<c>src/Engine/Objects/Character.cpp:3361-3400</c>). The fight's pacing contract asks one actor one
+        // number for one kind of attack, so a named cast of another spell is paced by this same quantity:
+        // per-spell pacing needs an order that carries the spell, which is a change to the kit's contract
+        // rather than a rule this game can state on its own.
+        if (kind == AttackKind.Spell && subject.Member is { } caster && _spells is { } spells &&
+            caster.Spells.QuickSpell is { } quick && spells.Spell(quick.Value) is { } chosen)
+        {
+            int ticks = spells.RecoveryTicks(caster, chosen) - AttributeBonus(caster.Attributes[SpeedAttribute]);
+            return Ticks(Math.Max(MinimumRangedTicks, ticks));
+        }
+
         return CharacterRecovery(subject.Member, kind);
     }
 
@@ -640,14 +667,27 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         ArgumentNullException.ThrowIfNull(target);
         ArgumentException.ThrowIfNullOrWhiteSpace(ability);
 
+        // A party member's own way of attacking with magic is a spell the casting workflow ordered: the order
+        // names the spell's content identity, and this reads that spell's own dice and kind of harm out of the
+        // table this game states them in. A name no spell answers falls back to the kind's own answer, which
+        // is what a weapon, a bow, and a creature's blow do.
+        if (attacker.Member is not null && _spells?.Spell(ability) is { } cast)
+        {
+            return SpellPlan(attacker, target, cast);
+        }
+
         if (Facts(attacker) is not { } facts) return PlanOf(attacker, target, kind);
         (DamageRoll damage, DamageKindId damageKind) = ability switch
         {
             // A row that states no second attack at all — no dice and no bonus — is a row with one attack,
             // and an order naming a second one resolves as the first rather than as a blow for nothing.
             AbilityAttack2 when facts.Second.Roll.Maximum > 0 => (facts.Second.Roll, facts.Second.Kind),
-            AbilitySpell1 when facts.FirstSpell.IsUsable => (facts.Attack, facts.FirstSpell.Damage),
-            AbilitySpell2 when facts.SecondSpell.IsUsable => (facts.Attack, facts.SecondSpell.Damage),
+
+            // A creature's spell lands with the spell's own dice now that this game states them: the row names
+            // the spell and its own mastery and skill, and the damage is read from the spell's row rather than
+            // borrowed from the creature's first attack.
+            AbilitySpell1 when facts.FirstSpell.IsUsable => (facts.FirstSpell.Roll ?? facts.Attack, facts.FirstSpell.Damage),
+            AbilitySpell2 when facts.SecondSpell.IsUsable => (facts.SecondSpell.Roll ?? facts.Attack, facts.SecondSpell.Damage),
             _ => (facts.Attack, facts.AttackKind),
         };
 
@@ -656,6 +696,27 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             damageKind,
             damage,
             ResistanceOf(target, damageKind));
+    }
+
+    /// <summary>What one casting of a spell is worth against a target, from this game's own table.</summary>
+    /// <remarks>
+    /// The spell's own kind of harm comes from its shipped row and its dice from this game's authored table —
+    /// the donor's base damage plus one die per level of the caster's skill in the spell's school
+    /// (<c>CalcSpellDamage</c>, <c>OpenEnroth/src/Engine/Spells/Spells.cpp:813-838</c>) — and the hit test is
+    /// the caster's own, because a spell is aimed like any other attack. A spell whose row states no harm at
+    /// all still resolves as the kind of harm magic does in general, which is the honest reading for a spell
+    /// this table describes no element for.
+    /// </remarks>
+    private AttackPlan SpellPlan(CombatSubject attacker, CombatSubject target, SpellDefinition spell)
+    {
+        PartyMember caster = attacker.Member!;
+        DamageKindId kind = _spells?.Harm(spell) ?? MightAndMagic7Damage.Magic;
+        DamageRoll damage = _spells?.Damage(spell, MightAndMagic7Spells.SkillLevelOf(caster, spell)) ?? DamageRoll.Flat(0);
+        return new AttackPlan(
+            CharacterHitChance(caster, ArmorClassOf(target), AttackKind.Spell, Distance(attacker, target)),
+            kind,
+            damage,
+            ResistanceOf(target, kind));
     }
 
     /// <summary>What one actor's own row is worth to a fight, which is what a policy reads to decide with.</summary>
@@ -1077,7 +1138,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// </remarks>
     private static Dictionary<int, MonsterFacts> ReadMonsters(
         ContentCatalog catalog,
-        IReadOnlyDictionary<string, DamageKindId> spells,
+        MightAndMagic7Spells? spells,
         List<ContentValidationIssue> issues)
     {
         Dictionary<int, MonsterFacts> monsters = [];
@@ -1146,7 +1207,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         int id,
         int recoveryTicks,
         double noticeRange,
-        IReadOnlyDictionary<string, DamageKindId> spells,
+        MightAndMagic7Spells? spells,
         Action<string, string> defect)
     {
         IReadOnlyList<JsonElement> columns = entry.GetArray("columns");
@@ -1548,7 +1609,11 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// <param name="Name">The spell's name, as the table writes it, empty when the row casts none.</param>
     /// <param name="UseChance">How often the creature chooses it, in percent.</param>
     /// <param name="Kind">What kind of harm it does, which is what the spell's own content states.</param>
-    internal sealed record MonsterSpell(string Name, int UseChance, DamageKindId? Kind)
+    /// <param name="Roll">
+    /// What one casting rolls, read from the spell's own row at the mastery and skill the creature's cell
+    /// states, or null when the creature's row names a spell this game states no harm for.
+    /// </param>
+    internal sealed record MonsterSpell(string Name, int UseChance, DamageKindId? Kind, DamageRoll? Roll = null)
     {
         /// <summary>The spell this game cannot cast yet: a row that casts none, or one whose spell harms nobody.</summary>
         public static MonsterSpell None { get; } = new(string.Empty, 0, MightAndMagic7Damage.Physical);
@@ -1568,7 +1633,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         /// build's own lack is: the stone that brings spells and actor effects is where these become
         /// castable, and the creature keeps them on its row until then.
         /// </remarks>
-        public bool IsUsable => Name.Length > 0 && UseChance > 0 && Kind is not null;
+        public bool IsUsable => Name.Length > 0 && UseChance > 0 && Kind is not null && Roll is not null;
 
         /// <summary>Reads one spell cell and its chance, and what the spell's own content says it does.</summary>
         /// <param name="cell">The table's own spell cell.</param>
@@ -1577,15 +1642,24 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         /// What each spell in this content does, by name; a spell this content does not describe harms nobody
         /// this build can state, which is a spell the creature keeps and never chooses.
         /// </param>
-        internal static MonsterSpell Read(string cell, string chanceCell, IReadOnlyDictionary<string, DamageKindId> spells)
+        internal static MonsterSpell Read(string cell, string chanceCell, MightAndMagic7Spells? spells)
         {
             string text = cell.Trim();
             int chance = ChanceFrom(chanceCell);
             if (text.Length == 0 || text == "0") return None;
 
-            string spell = text.Split(',')[0].Trim();
+            string[] parts = text.Split(',');
+            string spell = parts[0].Trim();
             if (spell.Length == 0) return None;
-            return new MonsterSpell(spell, chance, spells.TryGetValue(spell, out DamageKindId kind) ? kind : null);
+            if (spells?.SpellByName(spell) is not { } known || spells.Harm(known) is not { } kind) return new MonsterSpell(spell, chance, null);
+
+            // The cell's own two numbers are the mastery and the skill the creature casts at
+            // (OpenEnroth src/Engine/Objects/Monsters.cpp:269-291, parseSpellEntry), and the damage is the
+            // spell's own row read at that skill — the same expression a character's cast rolls.
+            int skill = parts.Length > 2 && int.TryParse(parts[2].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int levels)
+                ? levels
+                : 0;
+            return new MonsterSpell(spell, chance, kind, spells.Damage(known, skill));
         }
     }
 }

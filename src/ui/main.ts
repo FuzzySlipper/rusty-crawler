@@ -80,6 +80,14 @@ const ACTION_ACCEPT = 'creation.accept';
  * only ever asks for what happens at a counter it was already shown.
  */
 const ACTION_RAISE_SKILL = 'party.raise-skill';
+
+/**
+ * The casting actions this companion reports. A casting names the member, the spell, and the target the
+ * product published for it — one action rather than a mode, because a spell and what it is aimed at are one
+ * decision. The quick-slot action names the member and the spell its slot should hold, or none to clear it.
+ */
+const ACTION_CAST = 'party.cast';
+const ACTION_QUICK_SPELL = 'party.quick-spell';
 const ACTION_SERVICE_BUY = 'service.buy';
 const ACTION_SERVICE_SELL = 'service.sell';
 const ACTION_SERVICE_IDENTIFY = 'service.identify';
@@ -706,6 +714,7 @@ interface SnapshotView {
   readonly combat: CombatView;
   readonly progression: ProgressionView;
   readonly skills: SkillsView;
+  readonly magic: MagicView;
 }
 
 /** The clock of a session that has none, which the panel shows as not knowing rather than as a date. */
@@ -784,6 +793,59 @@ interface SkillsView {
   readonly skill: string;
   readonly level: number;
   readonly cost: number;
+  readonly code: string;
+  readonly message: string;
+}
+
+/** One spell a member knows, as the product published it. */
+interface SpellRowView {
+  readonly spell: string;
+  readonly name: string;
+  readonly school: string;
+  /** The rung of the school's ladder the spell asks for, as the game's own word. */
+  readonly tier: string;
+  readonly tierRung: number;
+  /** What one casting costs this caster, as the product's own answer for that member. */
+  readonly cost: number;
+  /** What the spell is aimed at: `none`, `caster`, `ally`, `foe`, or `party`. */
+  readonly targeting: string;
+  /** The effect identity the spell carries, which the panel shows and never interprets. */
+  readonly effect: string;
+}
+
+/** One member's spellbook and what casting from it costs. */
+interface MagicMemberView {
+  readonly index: number;
+  readonly member: string;
+  readonly name: string;
+  readonly class: string;
+  readonly spellPoints: number;
+  readonly spellPointsMax: number;
+  readonly quickSpell: string;
+  readonly quickSpellName: string;
+  readonly spells: readonly SpellRowView[];
+}
+
+/** One actor a casting may be aimed at, with the side it is on. */
+interface SpellTargetView {
+  readonly target: string;
+  readonly name: string;
+  /** Which side the actor is on: `party` or `opposition`. */
+  readonly side: string;
+}
+
+/** What the party can cast, what it may aim at, and what the last casting did. */
+interface MagicView {
+  readonly available: boolean;
+  readonly members: readonly MagicMemberView[];
+  readonly targets: readonly SpellTargetView[];
+  readonly outcome: string;
+  readonly member: number;
+  readonly caster: string;
+  readonly spell: string;
+  readonly cost: number;
+  readonly target: string;
+  readonly effect: string;
   readonly code: string;
   readonly message: string;
 }
@@ -1126,6 +1188,18 @@ const STYLES = `
 .crawler-skills-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
 .crawler-skills-result[hidden] { display: none; }
 .crawler-skills-result[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
+.crawler-magic { margin: 0 0 0.5rem; border-top: 1px solid rgba(210, 196, 158, 0.25); padding-top: 0.5rem; }
+.crawler-magic[hidden] { display: none; }
+.crawler-magic .crawler-step-head { margin: 0 0 0.2rem; color: #d8cba6; font-size: 0.82rem; }
+.crawler-magic-state { margin: 0 0 0.25rem; color: #b9ad8c; font-size: 0.72rem; }
+.crawler-magic-member { margin: 0 0 0.3rem; }
+.crawler-magic-member .crawler-row-label { display: block; color: #cfc3a2; font-size: 0.72rem; }
+.crawler-spell { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; font-size: 0.7rem; color: #c6bb9c; }
+.crawler-magic .crawler-cast, .crawler-magic .crawler-quick { width: auto; padding: 0.15rem 0.35rem; font-size: 0.7rem; }
+.crawler-magic .crawler-target { font-size: 0.7rem; }
+.crawler-magic-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
+.crawler-magic-result[hidden] { display: none; }
+.crawler-magic-result[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
 .crawler-rest { margin: 0 0 0.5rem; border-top: 1px solid rgba(210, 196, 158, 0.25); padding-top: 0.5rem; }
 .crawler-rest[hidden] { display: none; }
 .crawler-rest .crawler-step-head { margin: 0 0 0.2rem; color: #d8cba6; font-size: 0.82rem; }
@@ -1428,6 +1502,69 @@ function readSkills(value: unknown): SkillsView {
  * holds no mechanism and one that stands at no counter both read as empty here — and the screen then shows
  * no counter at all, which is a different reading from a counter that is shut.
  */
+/**
+ * Reads the magic block, or the no-magic block. A block this companion cannot read is read as no magic
+ * rather than as a party whose spellbook is empty: the panel then offers no casting, which is what a session
+ * whose ruleset stated no magic policy gets.
+ */
+function readMagic(value: unknown): MagicView {
+  if (!isRecord(value)) return NO_MAGIC;
+  const number = (entry: unknown): number => (typeof entry === 'number' ? entry : 0);
+  return {
+    available: value.available === true,
+    members: readList(value.members, (entry) => ({
+      index: number(entry.index),
+      member: typeof entry.member === 'string' ? entry.member : '',
+      name: typeof entry.name === 'string' ? entry.name : '',
+      class: typeof entry.class === 'string' ? entry.class : '',
+      spellPoints: number(entry.spellPoints),
+      spellPointsMax: number(entry.spellPointsMax),
+      quickSpell: typeof entry.quickSpell === 'string' ? entry.quickSpell : '',
+      quickSpellName: typeof entry.quickSpellName === 'string' ? entry.quickSpellName : '',
+      spells: readList(entry.spells, (spell) => ({
+        spell: typeof spell.spell === 'string' ? spell.spell : '',
+        name: typeof spell.name === 'string' ? spell.name : '',
+        school: typeof spell.school === 'string' ? spell.school : '',
+        tier: typeof spell.tier === 'string' ? spell.tier : '',
+        tierRung: number(spell.tierRung),
+        cost: number(spell.cost),
+        targeting: typeof spell.targeting === 'string' ? spell.targeting : 'none',
+        effect: typeof spell.effect === 'string' ? spell.effect : '',
+      })),
+    })),
+    targets: readList(value.targets, (entry) => ({
+      target: typeof entry.target === 'string' ? entry.target : '',
+      name: typeof entry.name === 'string' ? entry.name : '',
+      side: typeof entry.side === 'string' ? entry.side : '',
+    })),
+    outcome: typeof value.outcome === 'string' ? value.outcome : 'none',
+    member: number(value.member),
+    caster: typeof value.caster === 'string' ? value.caster : '',
+    spell: typeof value.spell === 'string' ? value.spell : '',
+    cost: number(value.cost),
+    target: typeof value.target === 'string' ? value.target : '',
+    effect: typeof value.effect === 'string' ? value.effect : '',
+    code: typeof value.code === 'string' ? value.code : '',
+    message: typeof value.message === 'string' ? value.message : '',
+  };
+}
+
+/** The magic of a session whose ruleset stated no spell policy: nothing can be cast. */
+const NO_MAGIC: MagicView = {
+  available: false,
+  members: [],
+  targets: [],
+  outcome: 'none',
+  member: 0,
+  caster: '',
+  spell: '',
+  cost: 0,
+  target: '',
+  effect: '',
+  code: '',
+  message: '',
+};
+
 function readService(value: unknown): ServiceView {
   if (!isRecord(value)) return SERVICE_NONE;
   const { id, kind, name, proprietor, state, hours, action, outcome, code, message } = value;
@@ -1870,6 +2007,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
   const combat = readCombat(value.combat);
   const progression = readProgression(value.progression);
   const skills = readSkills(value.skills);
+  const magic = readMagic(value.magic);
   const { ruleset, title, bundle, contentPacks } = composition;
   const { mode, simulationSeconds, admittedSteps, updates } = session;
   if (
@@ -1940,6 +2078,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
     combat,
     progression,
     skills,
+    magic,
   };
 }
 
@@ -2244,6 +2383,25 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   skillsResult.hidden = true;
   skills.append(skillsHead, skillsState, skillsMembers, skillsResult);
 
+  // The spellbook: each member's own spells with what casting one costs that caster, the actors a casting
+  // may be aimed at, and the answer the last casting got. Nothing here is computed: the price, the rung, the
+  // aim, and the target list are the product's own published answers, and the panel's buttons name the row
+  // a player pressed.
+  const magic = document.createElement('section');
+  magic.className = 'crawler-magic';
+  magic.hidden = true;
+  const magicHead = document.createElement('p');
+  magicHead.className = 'crawler-step-head';
+  magicHead.textContent = 'Spellbook';
+  const magicState = document.createElement('p');
+  magicState.className = 'crawler-magic-state';
+  const magicMembers = document.createElement('div');
+  magicMembers.className = 'crawler-magic-members';
+  const magicResult = document.createElement('p');
+  magicResult.className = 'crawler-magic-result';
+  magicResult.hidden = true;
+  magic.append(magicHead, magicState, magicMembers, magicResult);
+
   // The stop controls: one button per act, and the answer the last one got. A rest heals and a wait does
   // not, so the buttons are never collapsed into one; and the fatigue line is the clock's own deadline,
   // which is why a player can see when the party next needs to sleep.
@@ -2355,6 +2513,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     combat,
     progression,
     skills,
+    magic,
     details,
     action,
     saveButton,
@@ -2370,6 +2529,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   let renderedConversation = '';
   let renderedProgression = '';
   let renderedSkills = '';
+  let renderedMagic = '';
   const claim = (name: string, data: Record<string, unknown> = {}): void => {
     context.intents?.claim(UI_ACTION_INTENT, {
       kind: 'product-payload',
@@ -3111,6 +3271,106 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   };
 
   /**
+   * Renders every member's spellbook and the controls that cast from it.
+   *
+   * Each row prints what the product published — the spell, its school, the rung it asks for, and what one
+   * casting costs this caster — and offers the target the spell's own aim allows, chosen from the actors the
+   * product listed with the side each is on. A spell that names nobody is cast with no target; a spell aimed
+   * at an opponent offers only the opposition's rows, so the panel narrows nothing the product did not
+   * already state, and the product judges the aim it is handed all the same.
+   */
+  const renderMagic = (view: MagicView): void => {
+    panel.dataset.magic = view.available ? 'present' : 'none';
+    panel.dataset.magicOutcome = view.outcome;
+    magic.hidden = !view.available;
+    magicState.textContent = view.available
+      ? `${view.members.length} character${view.members.length === 1 ? '' : 's'} · ${view.targets.length} target${view.targets.length === 1 ? '' : 's'} in reach`
+      : '';
+    magicResult.hidden = view.message === '';
+    magicResult.dataset.outcome = view.outcome;
+    magicResult.dataset.code = view.code;
+    magicResult.textContent = view.message;
+
+    const signature = JSON.stringify(view);
+    if (signature === renderedMagic) return;
+    renderedMagic = signature;
+
+    /** The targets a spell's aim offers, as the product stated them. */
+    const candidates = (targeting: string): readonly SpellTargetView[] => {
+      if (targeting === 'foe') return view.targets.filter((target) => target.side === 'opposition');
+      if (targeting === 'ally') return view.targets.filter((target) => target.side === 'party');
+      return [];
+    };
+
+    magicMembers.replaceChildren(
+      ...view.members.map((member) => {
+        const block = document.createElement('div');
+        block.className = 'crawler-magic-member';
+        block.dataset.member = member.member;
+        const label = document.createElement('span');
+        label.className = 'crawler-row-label';
+        label.textContent = `${member.name} — ${member.class} · ${member.spellPoints}/${member.spellPointsMax} spell points · quick ${member.quickSpellName === '' ? 'none' : member.quickSpellName}`;
+        block.append(label);
+
+        for (const row of member.spells) {
+          const line = document.createElement('div');
+          line.className = 'crawler-spell';
+          line.dataset.spell = row.spell;
+          line.dataset.school = row.school;
+          line.dataset.targeting = row.targeting;
+          const text = document.createElement('span');
+          text.textContent = `${row.name} · ${row.school} · ${row.tier} · ${row.cost} point${row.cost === 1 ? '' : 's'} · ${row.targeting} · ${row.effect}`;
+          line.append(text);
+
+          const options = candidates(row.targeting);
+          let picker: HTMLSelectElement | null = null;
+          if (options.length > 0) {
+            picker = document.createElement('select');
+            picker.className = 'crawler-target';
+            for (const option of options) {
+              const choice = document.createElement('option');
+              choice.value = option.target;
+              choice.textContent = option.name;
+              picker.append(choice);
+            }
+
+            line.append(picker);
+          }
+
+          const cast = document.createElement('button');
+          cast.type = 'button';
+          cast.className = 'crawler-cast';
+          cast.textContent = `Cast for ${row.cost}`;
+          cast.disabled = options.length === 0 && (row.targeting === 'foe' || row.targeting === 'ally');
+          cast.addEventListener('click', () =>
+            claim(ACTION_CAST, {
+              member: member.index,
+              spell: row.spell,
+              target: picker === null ? '' : picker.value,
+            }),
+          );
+          line.append(cast);
+
+          const quick = document.createElement('button');
+          quick.type = 'button';
+          quick.className = 'crawler-quick';
+          quick.textContent = member.quickSpell === row.spell ? 'Clear quick spell' : 'Make quick spell';
+          quick.addEventListener('click', () =>
+            claim(ACTION_QUICK_SPELL, {
+              member: member.index,
+              spell: member.quickSpell === row.spell ? '' : row.spell,
+            }),
+          );
+          line.append(quick);
+          block.append(line);
+        }
+
+        return block;
+      }),
+    );
+  };
+
+  /**
    * Renders every member's skills and the control that spends a point on one.
    *
    * Each row prints what the product published — the level, the rung's own word, the ceiling the class and
@@ -3269,6 +3529,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     renderCombat(snapshot.combat);
     renderProgression(snapshot.progression);
     renderSkills(snapshot.skills);
+    renderMagic(snapshot.magic);
     const world = snapshot.world;
     place.textContent =
       world.places === 0
@@ -3330,6 +3591,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     const restHint = snapshot.rest.available
       ? ' Rest with the button or the R key; camp with C; wait with T, H, or M.'
       : '';
+    const magicHint = snapshot.magic.available ? ' Cast from the spellbook rows.' : '';
     const combatHint = snapshot.combat.available
       ? ` Attack with the button or the B key.${
           snapshot.combat.pacing === 'turnbased'
@@ -3340,7 +3602,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     hint.textContent =
       current === 'creating'
         ? 'Choose a portrait, a class, a name, attributes, and skills. Enter confirms the step you are on; Space accepts a finished party.'
-        : `${pauseHint}${saveHint}${useHint}${serviceHint}${restHint}${combatHint}`;
+        : `${pauseHint}${saveHint}${useHint}${serviceHint}${restHint}${combatHint}${magicHint}`;
   };
 
   const unsubscribe = context.projection?.subscribe((projection) => {

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Services;
 using PartyRpg.Kit.Time;
@@ -138,6 +139,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
     private readonly Dictionary<(string Place, string Placement), ServiceHousehold> _households;
     private readonly IReadOnlyList<ItemFacts> _catalogue;
     private readonly MightAndMagic7Skills? _skills;
+    private readonly MightAndMagic7Spells? _magic;
 
     private MightAndMagic7Services(
         Dictionary<ServiceId, ServiceDefinition> services,
@@ -149,12 +151,14 @@ internal sealed class MightAndMagic7Services : IServiceRule
         Dictionary<string, int> monsterLevels,
         Dictionary<(string Place, string Placement), ServiceHousehold> households,
         IReadOnlyList<ItemFacts> catalogue,
-        MightAndMagic7Skills? skills)
+        MightAndMagic7Skills? skills,
+        MightAndMagic7Spells? magic)
     {
         _services = services;
         _facts = facts;
         _items = items;
         _spells = spells;
+        _magic = magic;
         _placeMonsters = placeMonsters;
         _placeRoads = placeRoads;
         _monsterLevels = monsterLevels;
@@ -174,7 +178,10 @@ internal sealed class MightAndMagic7Services : IServiceRule
     /// <param name="catalog">The validated content the product loaded, when it loaded any.</param>
     /// <returns>This game's service policy over that content, or null when no content was loaded.</returns>
     /// <exception cref="ContentValidationException">Content declares a service that cannot be served; every problem is named.</exception>
-    internal static MightAndMagic7Services? Read(ContentCatalog? catalog, MightAndMagic7Skills? skillPolicy = null)
+    internal static MightAndMagic7Services? Read(
+        ContentCatalog? catalog,
+        MightAndMagic7Skills? skillPolicy = null,
+        MightAndMagic7Spells? spellPolicy = null)
     {
         if (catalog is null) return null;
         List<ContentValidationIssue> issues = [];
@@ -244,7 +251,11 @@ internal sealed class MightAndMagic7Services : IServiceRule
             // The mastery lessons a counter offers are this game's skill policy's answer about its own
             // table, so the session composes one reading of it and hands it over; a caller that composed
             // none gets one read here, so a counter still teaches what its kind states.
-            skillPolicy ?? MightAndMagic7Skills.Read(catalog));
+            skillPolicy ?? MightAndMagic7Skills.Read(catalog),
+            // A guild's spell books are this game's magic's answer about its own table: which spell each book
+            // teaches and which rung of a school's ladder the guild stands at. A caller that composed none
+            // gets one read here, so a guild still sells its school's spells.
+            spellPolicy ?? MightAndMagic7Spells.Read(catalog, skillPolicy));
     }
 
     /// <inheritdoc />
@@ -372,7 +383,55 @@ internal sealed class MightAndMagic7Services : IServiceRule
             lessons.Insert(0, new ServiceLesson(ServiceLessonKind.Effect, facts.Membership, 1, LessonValue(service), facts.MembershipName));
         }
 
-        return lessons;
+        return [.. lessons, .. SpellBooks(service, facts)];
+    }
+
+    /// <summary>
+    /// The spell books a guild's rung of its own school may sell, as lessons one book each.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A book bought at a guild is a lesson, and the book is consumed by it.</b> The shipped item table
+    /// carries one book per spell — 99 rows whose reference column names the spell and whose value is the
+    /// book's price ([`docs/research/mm7-data-inventory.md`](../../../docs/research/mm7-data-inventory.md),
+    /// <i>Items and monsters</i>: 99 of the 800 rows are books) — and the donor's own guild screen stocks a
+    /// random sample of the books its school and rung allow
+    /// (<c>src/GUI/UI/Houses/MagicGuild.cpp:317-345</c>, <c>generateSpellBooksForGuild</c> over
+    /// <c>spellsForSchool</c>). The price here is the book's own value, charged through the same lesson price
+    /// the counter's other lessons go through, and what the party takes away is the spell: a purchased book
+    /// that landed in the pack would be a second thing to carry, a second way to learn, and an item with no
+    /// other use.
+    /// </para>
+    /// <para>
+    /// The order is the catalogue's, which is the item table's own, so two imports of one installation offer
+    /// the same books in the same order rather than a random sample a second run would draw differently. What
+    /// the guild may sell is <see cref="MightAndMagic7Spells.Sells"/>: every spell of its school whose tier is
+    /// at most the rung the guild stands at.
+    /// </para>
+    /// </remarks>
+    private IReadOnlyList<ServiceLesson> SpellBooks(ServiceDefinition service, ServiceFacts facts)
+    {
+        if (_magic is not { } magic || facts.School.Length == 0) return [];
+        int rung = MightAndMagic7ServiceKinds.MasteryDepth(
+            facts.GuildRung,
+            MightAndMagic7ServiceKinds.IsPairedGuild(service.Kind.Value));
+
+        List<ServiceLesson> books = [];
+        foreach (ItemFacts item in _catalogue)
+        {
+            if (!string.Equals(item.EquipStat, MightAndMagic7Spells.BookEquipStat, StringComparison.OrdinalIgnoreCase)) continue;
+            if (magic.TaughtBy(item.Definition) is not { } taught) continue;
+            if (magic.Spell(taught.Value) is not { } spell) continue;
+            if (!string.Equals(spell.School, facts.School, StringComparison.OrdinalIgnoreCase)) continue;
+            if (!MightAndMagic7Spells.Sells(rung, spell)) continue;
+
+            // The lesson's own rung is the first, because a book teaches one spell rather than a rung of a
+            // ladder: the rung a lesson carries is what a mastery lesson raises a skill to, and the price it
+            // implies is the flat mastery fee rather than the book's own value.
+            books.Add(new ServiceLesson(ServiceLessonKind.Spell, spell.Id.Value, amount: 1, item.Value, spell.Name));
+        }
+
+        return books;
     }
 
     /// <inheritdoc />
@@ -627,6 +686,20 @@ internal sealed class MightAndMagic7Services : IServiceRule
     private ServiceEligibility JudgeLesson(ServiceEligibilityRequest request)
     {
         if (request.Subject.Lesson is not { } teaching) return ServiceEligibility.Allowed;
+
+        // A spell lesson is this game's magic's own answer about who may learn it: the school's skill, the
+        // rung the spell asks for, and a spellbook that does not already hold it. The counter judges nothing
+        // of it itself, so a book refused at a guild and a book refused anywhere else are one refusal.
+        if (teaching.Kind == ServiceLessonKind.Spell)
+        {
+            if (_magic is not { } magic) return ServiceEligibility.Allowed;
+            PartyMember learner = request.Party.Member(request.Member);
+            SpellDefinition spell = magic.Catalog.Read(new SpellId(teaching.Subject));
+            return magic.MayLearn(learner, spell) is { } refused
+                ? ServiceEligibility.Refused(refused.Code, refused.Message)
+                : ServiceEligibility.Allowed;
+        }
+
         if (teaching.Kind == ServiceLessonKind.Effect)
         {
             return request.Party.Effects.Has(new EffectId(teaching.Subject))
@@ -1124,7 +1197,6 @@ internal sealed class MightAndMagic7Services : IServiceRule
                 Membership: membership,
                 MembershipName: membership,
                 School: string.Empty,
-                SpellLevels: 0,
                 TrainingCap: 0,
                 FareDays: 0,
                 ProvisionPortions: 0,
@@ -1174,7 +1246,6 @@ internal sealed class MightAndMagic7Services : IServiceRule
     {
         string? school = MightAndMagic7ServiceKinds.GuildSchool(kind);
         int rung = school is not null && guildRungs.TryGetValue($"{school}:{entry.Id}", out int found) ? found : 0;
-        int spellLevels = school is null ? 0 : MightAndMagic7ServiceKinds.SpellsForTier(rung, MightAndMagic7ServiceKinds.IsPairedGuild(kind));
         int cap = entry.GetInt32("trainingCap") ?? (string.Equals(kind, MightAndMagic7ServiceKinds.Training, StringComparison.Ordinal) ? UncappedTraining : 0);
         int portions = string.Equals(kind, MightAndMagic7ServiceKinds.Tavern, StringComparison.Ordinal)
             ? (int)Math.Round(entry.GetDouble("priceMultiplier") ?? 1)
@@ -1219,7 +1290,6 @@ internal sealed class MightAndMagic7Services : IServiceRule
             Membership: effect,
             MembershipName: school is null ? effect : $"{school} Guild membership",
             School: school ?? string.Empty,
-            SpellLevels: spellLevels,
             TrainingCap: cap,
             FareDays: 0,
             ProvisionPortions: portions,
@@ -1380,19 +1450,10 @@ internal sealed class MightAndMagic7Services : IServiceRule
     {
         List<ItemFacts> candidates = [];
 
-        if (facts.School.Length > 0)
-        {
-            foreach (ItemFacts item in _catalogue)
-            {
-                if (!string.Equals(item.EquipStat, "Book", StringComparison.OrdinalIgnoreCase)) continue;
-                if (!_spells.TryGetValue(item.Name, out SpellFacts spell)) continue;
-                if (!string.Equals(spell.School, facts.School, StringComparison.OrdinalIgnoreCase)) continue;
-                if (spell.Level > facts.SpellLevels) continue;
-                candidates.Add(item);
-            }
-
-            return [.. candidates.Select(item => new ServiceStockLine(item.Definition, 1, item.Value, item.Name))];
-        }
+        // A guild's shelves hold no goods at all: what it sells is its school's spell books, which are
+        // lessons rather than stock, because a book is consumed by the learning and a line of stock would be
+        // a second way to buy the same spell.
+        if (facts.School.Length > 0) return [];
 
         IReadOnlyList<string> trades = MightAndMagic7ServiceKinds.StockEquipStats(service.Kind.Value);
         if (trades.Count == 0) return [];
@@ -1588,7 +1649,6 @@ internal sealed class MightAndMagic7Services : IServiceRule
         string Membership,
         string MembershipName,
         string School,
-        int SpellLevels,
         int TrainingCap,
         int FareDays,
         int ProvisionPortions,

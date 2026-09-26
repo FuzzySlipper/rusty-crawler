@@ -198,38 +198,6 @@ internal static class MightAndMagic7ServiceKinds
     internal static bool IsPairedGuild(string kind) => GuildSchool(kind) is "Light" or "Dark";
 
     /// <summary>
-    /// How many spell levels of its school a guild of one tier stocks, which is the donor's own gate.
-    /// </summary>
-    /// <remarks>
-    /// OpenEnroth <c>src/Engine/Objects/CharacterEnumFunctions.h:33-46</c>, <c>spellCountForMastery</c>: a
-    /// novice guild sells four spells of its school, an expert seven, a master ten, and a grand master all
-    /// eleven, and <c>src/Engine/Objects/ItemEnumFunctions.h:107-114</c> turns that into the range of the
-    /// school's spell books. The tier itself is the guild's rung in its own school, which the shipped
-    /// names state — initiate, adept, master, paramount — and which this reads from the table's order
-    /// within a school rather than from the words, so a renamed guild keeps its rung.
-    /// </remarks>
-    /// <param name="tier">The guild's rung among its school's guilds, counting from one.</param>
-    /// <param name="paired">
-    /// Whether the school keeps two guilds rather than four, which light and dark do: the donor's own
-    /// pairs put the first at expert and the second at grand master
-    /// (OpenEnroth <c>src/GUI/UI/Houses/MagicGuild.cpp:79-90</c>, <c>guildSpellsMastery</c>).
-    /// </param>
-    internal static int SpellsForTier(int tier, bool paired)
-    {
-        int rung = paired
-            ? tier <= 1 ? 2 : 4
-            : Math.Clamp(tier, 1, 4);
-
-        return rung switch
-        {
-            1 => 4,
-            2 => 7,
-            3 => 10,
-            _ => 11,
-        };
-    }
-
-    /// <summary>
     /// The deepest rung of a skill's ladder a counter can teach a member, given the guild rung it stands at.
     /// </summary>
     /// <remarks>

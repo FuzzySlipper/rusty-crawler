@@ -1,0 +1,149 @@
+using PartyRpg.Kit.Combat;
+using PartyRpg.Kit.Party;
+
+namespace PartyRpg.Kit.Magic;
+
+/// <summary>One casting handed to the effect path: the spell, who cast it, and what it was aimed at.</summary>
+/// <remarks>
+/// <para>
+/// This is the whole of what the casting mechanism says to whatever applies a spell's effect, and it is
+/// deliberately everything that decision needs rather than a pre-digested answer: the definition as this
+/// game read it, the caster with its own state, the fight the party is in when it is in one, and the actor
+/// the spell was aimed at. What the effect is worth is not here — the spell's identity is, and the effect
+/// owner reads its own tables.
+/// </para>
+/// <para>
+/// <b>The fight travels with the application because a spell's harm is a fight's business.</b> A damaging
+/// spell applied to a creature is an attack of the spell kind, resolved by the same path a swing and a shot
+/// take; handing the fight over is what lets the effect owner order that attack through the fight's own
+/// gated entry rather than resolving it beside the fight. A session with no fight hands nothing, and an
+/// effect that needs one says so.
+/// </para>
+/// </remarks>
+/// <param name="Party">The party the caster belongs to, with the state an effect may act on.</param>
+/// <param name="Caster">The member who cast the spell.</param>
+/// <param name="CasterId">The caster's identity inside the fight, when the session is playing one.</param>
+/// <param name="Spell">The spell as this game read it.</param>
+/// <param name="Fight">The fight the party is in, or null when the session is playing none.</param>
+/// <param name="Target">The actor the spell was aimed at, or null when its aim names nobody.</param>
+/// <param name="TargetName">What that actor is called, empty when the aim named nobody.</param>
+public sealed record SpellApplication(
+    PartyEntity Party,
+    PartyMember Caster,
+    CombatantId CasterId,
+    SpellDefinition Spell,
+    CombatState? Fight,
+    CombatantId? Target,
+    string TargetName);
+
+/// <summary>What applying a spell's effect did, as the effect owner reports it.</summary>
+/// <remarks>
+/// <para>
+/// The outcome is a value rather than a changed world, so the casting workflow can publish exactly what
+/// happened without learning a single effect: whether this build expressed anything for the spell at all,
+/// which effect identity it was handed, the fight's own record when the effect went through the fight, and
+/// a sentence a person reads.
+/// </para>
+/// <para>
+/// <b>An unexpressed effect is a fact, not a failure.</b> A spell this build has no implementation for is
+/// still learned, still paid for, and still delivered here; the difference is that nothing in the world
+/// changed, and this says so in the spell's own identity rather than reporting a cast that quietly did
+/// nothing. That is the seam's whole purpose: what a spell does arrives behind it without the casting
+/// mechanism changing.
+/// </para>
+/// </remarks>
+public sealed record SpellApplicationOutcome
+{
+    private SpellApplicationOutcome(bool expressed, string effect, string code, string message, CombatResult? attack)
+    {
+        IsExpressed = expressed;
+        Effect = effect;
+        Code = code;
+        Message = message;
+        Attack = attack;
+    }
+
+    /// <summary>Whether this build expressed anything for the spell's effect.</summary>
+    public bool IsExpressed { get; }
+
+    /// <summary>The effect identity the spell carried, as the ruleset named it.</summary>
+    public string Effect { get; }
+
+    /// <summary>The outcome's own code, which is what a test and a diagnostic compare.</summary>
+    public string Code { get; }
+
+    /// <summary>What applying the effect did, in a sentence a person reads.</summary>
+    public string Message { get; }
+
+    /// <summary>The fight's own record of the attack the effect was applied as, or null when none was made.</summary>
+    public CombatResult? Attack { get; }
+
+    /// <summary>The effect was applied, and this is what it did.</summary>
+    /// <param name="effect">The effect identity the spell carried.</param>
+    /// <param name="message">What it did, in a sentence.</param>
+    /// <param name="attack">The fight's own record, when the effect was applied as an attack.</param>
+    /// <returns>The outcome.</returns>
+    /// <exception cref="ArgumentException">The effect or the message is blank.</exception>
+    public static SpellApplicationOutcome Expressed(string effect, string message, CombatResult? attack = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(effect);
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        return new SpellApplicationOutcome(expressed: true, effect, "spell-effect-applied", message, attack);
+    }
+
+    /// <summary>
+    /// Nothing was expressed for the effect: the spell was cast and this build has no behaviour for it yet.
+    /// </summary>
+    /// <param name="effect">The effect identity the spell carried.</param>
+    /// <param name="message">What a person should read about it.</param>
+    /// <returns>The outcome.</returns>
+    /// <exception cref="ArgumentException">The effect or the message is blank.</exception>
+    public static SpellApplicationOutcome Unexpressed(string effect, string message)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(effect);
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        return new SpellApplicationOutcome(expressed: false, effect, "spell-effect-unexpressed", message, attack: null);
+    }
+
+    /// <inheritdoc />
+    public override string ToString() => $"{Code}: {Message}";
+}
+
+/// <summary>
+/// Where a spell goes once it has been learned, paid for, and aimed: the one application point every effect
+/// is expressed behind.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>This is a seam, not a set of effects.</b> The casting mechanism resolves the spell, judges the
+/// caster's mastery and pool, spends the points, resolves the aim, and hands the casting here; what the
+/// spell then does is this interface's answer and nothing else's. The categories of effect a spell can have
+/// — harm, healing, a resistance, a condition, light, travel, detection, and the utilities — are
+/// implementations behind this seam, which is why the mechanism never grows a branch per effect and never
+/// learns an effect's name.
+/// </para>
+/// <para>
+/// <b>The harm half already exists and is used.</b> A spell aimed at an opponent is applied as an attack of
+/// the spell kind through the fight's own gated entry, so a spell's numbers, its target's resistance, the
+/// condition it leaves, and the recovery it costs are the same mechanism a swing and a shot use. A spell
+/// whose effect this build expresses nothing for is still cast: the outcome says which effect it carried
+/// and that nothing changed, rather than reporting a cast that silently did nothing.
+/// </para>
+/// <para>
+/// <b>Judged before anything is paid.</b> <see cref="Judge"/> is asked first, because whether the caster may
+/// act and whether the aim resolves are facts that must stop a cast before its points are spent; a cast the
+/// party paid for and that then could not be carried out would be the worst of both.
+/// </para>
+/// </remarks>
+public interface ISpellEffectRule
+{
+    /// <summary>Whether this casting may be carried out at all, asked before any spell point is spent.</summary>
+    /// <param name="application">The casting, resolved but not yet paid for.</param>
+    /// <returns>The refusal, or null when the casting may go ahead.</returns>
+    SpellRefusal? Judge(SpellApplication application);
+
+    /// <summary>Applies a casting the party has paid for.</summary>
+    /// <param name="application">The casting, resolved and paid for.</param>
+    /// <returns>What applying the effect did.</returns>
+    SpellApplicationOutcome Apply(SpellApplication application);
+}

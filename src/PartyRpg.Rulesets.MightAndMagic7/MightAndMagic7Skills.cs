@@ -693,6 +693,17 @@ internal sealed class MightAndMagic7Skills : ISkillRule
     }
 
     /// <summary>The base class a promoted class belongs to, from this game's own ladder.</summary>
+    /// <remarks>
+    /// A member stands on its base class's name until a promotion renames it, and the tables that are keyed
+    /// by class — growth, ceilings, and the spell point formula — state their rows for the base class, so a
+    /// promoted member reads its family's own row. A class this game's ladder does not carry is its own base,
+    /// which is what a partial import or a test's own class gets.
+    /// </remarks>
+    /// <param name="characterClass">The class's name, as content or the member states it.</param>
+    /// <returns>The base class of its family.</returns>
+    internal static string BaseClassOf(string characterClass) => BaseOf(characterClass);
+
+    /// <summary>The base class a promoted class belongs to, from this game's own ladder.</summary>
     private static string BaseOf(string characterClass)
     {
         foreach (string[] family in Families)

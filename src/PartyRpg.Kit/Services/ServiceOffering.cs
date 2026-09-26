@@ -49,25 +49,35 @@ public sealed record ServiceStockLine
     public string Label => Name.Length > 0 ? Name : Definition.Value;
 }
 
-/// <summary>What a lesson grants: a member's skill, or a party-wide effect such as a guild membership.</summary>
+/// <summary>What a lesson grants: a member's skill, a member's spell, or a party-wide effect such as a guild membership.</summary>
 /// <remarks>
 /// <para>
-/// A lesson is one of the two things a service can teach, because those are the two the party's state has:
-/// a skill on a member, and an effect acting on the whole band. A guild's membership is the second kind —
-/// the ruleset names the effect, content states which effect a membership is, and the service's access
-/// requirement reads the same effect back — so buying a membership and checking one are one piece of party
-/// state rather than two that could disagree.
+/// A lesson is one of the three things a service can teach, because those are the three the party's state
+/// has: a skill on a member, a spell in a member's spellbook, and an effect acting on the whole band. A
+/// guild's membership is the third kind — the ruleset names the effect, content states which effect a
+/// membership is, and the service's access requirement reads the same effect back — so buying a membership
+/// and checking one are one piece of party state rather than two that could disagree.
 /// </para>
 /// <para>
-/// Which of the two a lesson is is content's answer about that lesson, not a kind of service: the same
-/// guild counter can teach a skill and sell its membership, and the mechanism applies whichever the lesson
-/// says.
+/// <b>A spell lesson is a book bought at a counter.</b> This game sells its spells as books, and the book is
+/// consumed by the learning rather than carried: the counter's lesson names the spell, the price is the
+/// book's own price, and what the party takes away is what the character learned. That is why a spell is a
+/// lesson rather than a line of stock — a purchased book that landed in the pack would be a second thing to
+/// carry and a second way to learn, and the shipped books have no use other than the one they teach.
+/// </para>
+/// <para>
+/// Which of the three a lesson is is content's answer about that lesson, not a kind of service: the same
+/// guild counter can teach a skill, sell its membership, and sell its school's spell books, and the
+/// mechanism applies whichever the lesson says.
 /// </para>
 /// </remarks>
 public enum ServiceLessonKind
 {
     /// <summary>A member learns or improves a skill.</summary>
     Skill,
+
+    /// <summary>A member learns a spell, which is what a spell book bought at a counter is.</summary>
+    Spell,
 
     /// <summary>The whole party gains an effect, which is what a membership is.</summary>
     Effect,

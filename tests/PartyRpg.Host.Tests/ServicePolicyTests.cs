@@ -314,10 +314,23 @@ public sealed class ServicePolicyTests
             session.Start();
             ProjectedNode counter = Walk(session, guildUi);
             Assert.Equal("Fire Guild", counter.Field("kind").AsString());
-            Assert.Equal("Fire Bolt", counter.Field("stock").Item(0).Field("name").AsString());
 
-            // Not a member: the shelf is refused by name, and joining is the lesson that changes it.
-            session.Update(ProductTestContext.Update(3, 1, ProductTestContext.Payload("""{"action":"service.buy","target":"stock:41","count":1}""")));
+            // What its shelves hold is its school's books, and a book is a lesson rather than a line of
+            // goods: an initiate guild sells the first rung of Fire, so its second spell is on offer as a
+            // lesson and its fifth is not.
+            Assert.Equal(0, counter.Field("stock").Length());
+            ProjectedNode lessons = counter.Field("lessons");
+            bool offersFireBolt = false;
+            for (int position = 0; position < lessons.Length(); position++)
+            {
+                ProjectedNode lesson = lessons.Item(position);
+                if (lesson.Field("kind").AsString() == "spell" && lesson.Field("name").AsString() == "Fire Bolt") offersFireBolt = true;
+            }
+
+            Assert.True(offersFireBolt, "an initiate Fire guild offers its school's second spell as a lesson.");
+
+            // Not a member: the book is refused by name before its own requirements are even read.
+            session.Update(ProductTestContext.Update(3, 1, ProductTestContext.Payload("""{"action":"service.teach","target":"2","member":0,"tier":1}""")));
             Assert.Equal("service-membership-required", ProjectedNode.Of(guildUi.Latest().Value).Field("service").Field("code").AsString());
 
             session.Update(ProductTestContext.Update(4, 1, ProductTestContext.Payload("""{"action":"service.teach","target":"guild.fire","member":0}""")));
@@ -326,12 +339,14 @@ public sealed class ServicePolicyTests
             Assert.Equal(1000, joined.Field("paid").AsNumber());
             Assert.Equal(1, joined.Field("memberships").Length());
 
-            session.Update(ProductTestContext.Update(5, 1, ProductTestContext.Payload("""{"action":"service.buy","target":"stock:41","count":1}""")));
-            ProjectedNode book = ProjectedNode.Of(guildUi.Latest().Value).Field("service");
-            Assert.Equal("applied", book.Field("outcome").AsString());
-            Assert.Equal(400, book.Field("paid").AsNumber());
-            Assert.Equal(1100, book.Field("coins").AsNumber());
-            Assert.Equal(0, book.Field("stock").Item(0).Field("count").AsNumber());
+            // A member who has never learned the school's skill cannot learn one of its spells, and the
+            // refusal names the school: the learning rule is this game's magic's own answer, read through
+            // the counter rather than restated by it. A knight is such a member, which is why this staged
+            // party cannot buy the book — the same answer a product gives a player who tried.
+            session.Update(ProductTestContext.Update(5, 1, ProductTestContext.Payload("""{"action":"service.teach","target":"2","member":0,"tier":1}""")));
+            ProjectedNode refusedBook = ProjectedNode.Of(guildUi.Latest().Value).Field("service");
+            Assert.Equal("spell-school-missing", refusedBook.Field("code").AsString());
+            Assert.Contains("Fire", refusedBook.Field("message").AsString());
         }
 
         // A temple: what it offers is the skills the donor gives it, and a lesson goes to the member the
@@ -439,7 +454,7 @@ public sealed class ServicePolicyTests
               "definitionKind": "item",
               "entries": [
                 { "id": "10", "name": "A crude longsword", "value": 50, "equipStat": "Weapon", "skillGroup": "Sword", "material": "8" },
-                { "id": "41", "name": "Fire Bolt", "value": 200, "equipStat": "Book", "skillGroup": "Misc", "material": "3" }
+                { "id": "41", "name": "Fire Bolt", "value": 200, "equipStat": "Book", "skillGroup": "Misc", "material": "3", "spell": "2" }
               ]
             }
             """),

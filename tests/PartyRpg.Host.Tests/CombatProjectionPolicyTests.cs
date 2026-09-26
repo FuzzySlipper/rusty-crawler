@@ -62,8 +62,13 @@ public sealed class CombatProjectionPolicyTests
         Assert.True(party.Field("present").AsBoolean());
         Assert.Equal(64d, party.Field("hitPoints").AsNumber());
         Assert.Equal(64d, party.Field("hitPointsMax").AsNumber());
-        Assert.Equal(15d, party.Field("spellPoints").AsNumber());
-        Assert.Equal(15d, party.Field("spellPointsMax").AsNumber());
+        // The pool is the ruleset's own formula over the class, the level, and the scores
+        // (MightAndMagic7Spells.SpellPointCapacity): a sorcerer's base of fifteen, plus the class's three a
+        // level times the level one plus the intellect bonus the member's own score earns, which is nothing
+        // for a record that states no intellect. A party that has just come into being holds all of it, so
+        // what the scenario declared as its pool is the formula's answer rather than the scenario's number.
+        Assert.Equal(18d, party.Field("spellPoints").AsNumber());
+        Assert.Equal(18d, party.Field("spellPointsMax").AsNumber());
         Assert.Equal(string.Empty, party.Field("conditions").AsString());
 
         // The act control as the companion sends it: a payload action on the product's own contract, which is

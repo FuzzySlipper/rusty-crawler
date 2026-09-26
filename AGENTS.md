@@ -291,10 +291,32 @@ stone.**
   service keyed by the place, the creature, and its round, so a fight replays identically. Which kinds are each
   other's enemies is the shipped `hostile.txt` matrix, written into the packs by the importer and read
   positionally as the donor reads it; creatures placed as one non-zero group do not turn on each other. A
-  creature's second attack resolves with that attack's own dice and kind of harm, and a spell with the spell's
-  own kind of harm from the spell content and the row's dice until the magic stone brings a spell's numbers; a
-  spell the imported spell table describes no harm for — a shield, a cure, a dispel — is one this build cannot
-  cast, so a creature keeps it on its row and never chooses it.
+  creature's second attack resolves with that attack's own dice and kind of harm, and its spell with the
+  spell's own dice and kind of harm, read from this game's per-spell table at the mastery and skill the row's
+  own cell states (`MightAndMagic7Spells.Damage`, the donor's `CalcSpellDamage`). A spell that table describes
+  no harm for — a shield, a cure, a dispel — is still one a creature keeps on its row and never chooses,
+  because what those spells do to a creature is the effect categories' work rather than a blow.
+- Magic exists: a catalog, learning, and one casting workflow. The nine schools and their 99 spells come
+  from content as the shipped table declares them, and what each costs, requires, aims at, and does is this
+  game's own authored reading of the donor's per-spell table (`MightAndMagic7Spells`: the donor's mana,
+  recovery, base and per-skill damage, and required mastery per spell — the numbers the shipped table does
+  not carry, recorded as ours). Each spell carries one of the design's eight effect categories as its
+  identity, which is what keeps the mechanism free of a per-spell branch. Learning goes through the counters
+  that already exist: a guild sells its school's spell books as lessons, priced from the operator's own item
+  rows, gated by the rung the guild stands at in its school and judged against the character's mastery of
+  that school — a book is consumed into the character's spellbook rather than carried, and a refused
+  purchase names what is missing (no membership, no school skill, a tier the mastery does not allow, a spell
+  already known). Casting is one workflow for exploration and combat: resolve the caster and the spell, judge
+  the spell's tier against that character's school mastery, resolve the aim, ask the effect path whether the
+  casting may go ahead, pay the spell points through the member's own pool, and hand the casting to the
+  effect seam — refusing by name for no such spell, a spell not in the spellbook, mastery too low, points
+  short, no valid target, and a caster that cannot act. A character's spell points are the ruleset's own
+  formula over class, level, and the score that class casts from (the donor's `GetMaxMana`), applied where
+  the party comes into being, and each character keeps one quick spell. **What a spell does is not here
+  yet**: this build applies the harm category through the fight's own resolution path — so a creature's
+  spell now lands with the spell's own dice and a party's cast at an opponent is one more order through the
+  same gated entry — and the other seven categories are delivered to the seam and reported as this build
+  expressing nothing for them. Filling those categories is task #8501's, and the seam is what it fills.
 - A place remembers being emptied, and the clock brings its population back. When everything in a place that
   fights the party is down — a creature's own nature decides that, so a person going about their day is not
   what a party cleared — the place is marked cleared through the world's own per-place state, and the mark is
@@ -334,10 +356,13 @@ stone.**
   companion honest: the runtime check that rendering starts no timer, a source scan that fails on a clock
   or on any arithmetic between a combat quantity and anything else, and a test that feeds it
   contradictory projections and requires it to echo them.
-- **No magic or quests exists, a save carries no deadlines, and a save carries no fight.** Do not describe,
-  review, or accept behavior those stones will add as though it were here. What a player can do today is
+- **Magic exists as a catalog, learning, and one casting workflow; what a spell *does* is still to come, and
+  quests, deadlines in a save, and a fight in a save are not here yet.** Do not describe, review, or accept
+  behavior those stones will add as though it were here. What a player can do today is
   create a party, walk it, open doors and containers, get caught by a trap, buy and sell at a counter, learn
-  from a guild, rest or camp, talk to people, fight by recovery or in rounds, and save or resume: on the agent playtest service's remote browser a held `W` walks the
+  from a guild (a skill, a membership, and a spell book whose spell lands in a character's spellbook), rest or
+  camp, talk to people, fight by recovery or in rounds, cast a spell from that spellbook at a target the
+  panel offers, set one quick spell per character, and save or resume: on the agent playtest service's remote browser a held `W` walks the
   party about 382 units a second and the released key
   stops it where it stands (Emerald Island, `12552, 800, 193` to `12552, 3859, 98` over eight seconds
   of held key, the pose then unchanged for the next seventy seconds while the admitted steps kept

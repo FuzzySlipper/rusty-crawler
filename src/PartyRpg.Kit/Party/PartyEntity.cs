@@ -369,7 +369,8 @@ public sealed class PartyEntity : IDisposable
                 [.. member.Conditions.Active],
                 member.Resources.HitPoints,
                 member.Resources.SpellPoints,
-                member.Profile.Portrait)));
+                member.Profile.Portrait,
+                member.Spells.QuickSpell)));
         }
 
         List<ItemSave> items = [];
