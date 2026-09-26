@@ -2619,7 +2619,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     // Every fact a fighter row shows is the product's own: what it is called, what it has left to lose,
     // what is acting on it, and whether it is out of the fight. Nothing here is derived from a bar or a
     // countdown the screen runs for itself, and a death is a row that says so rather than a missing row.
-    const fighter = (actor: FighterView, clause: string): HTMLLIElement => {
+    const fighter = (actor: FighterView, at = ''): HTMLLIElement => {
       const row = document.createElement('li');
       row.className = 'crawler-fighter';
       row.dataset.ready = actor.ready ? 'yes' : 'no';
@@ -2627,29 +2627,27 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
       row.dataset.health = actor.hitPointsMax > 0 ? `${actor.hitPoints}/${actor.hitPointsMax}` : '';
       row.dataset.conditions = actor.conditions;
       row.dataset.down = actor.down ? 'yes' : 'no';
+      // What the row says of the actor is the product's readiness word, and being out of the fight outranks
+      // it: a laid-out character is not recovering toward an act, and a row that read "recovering 0.0s"
+      // would be showing a ready light for somebody who cannot act.
+      const word = actor.down
+        ? 'down'
+        : actor.ready
+          ? 'ready'
+          : `recovering ${actor.recoverySeconds.toFixed(1)}s`;
       const pools = actor.hitPointsMax > 0 ? ` — ${actor.hitPoints}/${actor.hitPointsMax} hp` : '';
       const conditions = actor.conditions === '' ? '' : ` — ${actor.conditions}`;
-      const doing = actor.activity === '' ? '' : ` — ${actor.activity}`;
-      const down = actor.down ? ' — down' : '';
+      // What a driven actor is doing is its own fact and is printed beside the state — unless it is the same
+      // word, which is what a creature that has gone down reports twice.
+      const doing = actor.activity === '' || actor.activity === word ? '' : ` — ${actor.activity}`;
       row.dataset.activity = actor.activity;
-      row.textContent = `${actor.name} — ${clause}${pools}${conditions}${doing}${down}`;
+      row.textContent = `${actor.name} — ${word}${at}${pools}${conditions}${doing}`;
       return row;
     };
 
-    combatMembers.replaceChildren(
-      ...view.members.map((member) =>
-        fighter(member, member.ready ? 'ready' : `recovering ${member.recoverySeconds.toFixed(1)}s`),
-      ),
-    );
+    combatMembers.replaceChildren(...view.members.map((member) => fighter(member)));
     combatEnemies.replaceChildren(
-      ...view.enemies.map((enemy) =>
-        fighter(
-          enemy,
-          enemy.ready
-            ? `ready at ${enemy.distance.toFixed(0)}`
-            : `recovering ${enemy.recoverySeconds.toFixed(1)}s at ${enemy.distance.toFixed(0)}`,
-        ),
-      ),
+      ...view.enemies.map((enemy) => fighter(enemy, ` at ${enemy.distance.toFixed(0)}`)),
     );
     // The pacing is printed as the product published it, with the round it is in and what the actor whose
     // turn it is still owes: a player pressing the act key needs to know whether the world is waiting for
@@ -2698,18 +2696,26 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
       }),
     );
 
-    // The control is offered whenever the mechanism is there and somebody may act. A recovering party keeps
-    // it disabled: an order while everybody is recovering is refused by the product, and a control that
-    // looked pressable and did nothing would be the very confusion this panel exists to prevent. In a paced
-    // fight one press spends one turn, which is why the control follows whose turn it is rather than who is
-    // ready.
-    attackButton.disabled = !view.available || (paced ? view.turn.phase === '' : view.ready === 0);
+    // Whether a round of a paced fight is actually under way is the product's own word for the phase: `none`
+    // is what real time publishes, and what a paced fight with nothing to pace publishes too. Every control
+    // below follows that one published fact rather than working a round out for itself.
+    const roundHolds = view.turn.phase === 'action' || view.turn.phase === 'movement';
+
+    // The act control is offered exactly when the product would take the order. Outside a round that is when
+    // somebody may act — the panel's own readiness count, so a party that is entirely recovering or entirely
+    // laid out keeps it disabled rather than sending an order the fight answers with a refusal. Inside one the
+    // act is the party's turn, which is what the product says the session is waiting for, and in the movement
+    // phase it is the act that ends the phase; on the party's turn it stays offered even when that actor's own
+    // recovery is still owed, because there the refusal is the answer a player has to see.
+    const actsInRound = view.turn.phase === 'movement' || view.turn.playerTurn;
+    attackButton.disabled = !view.available || (roundHolds ? !actsInRound : view.ready === 0);
     // Switching the pacing is offered whenever there is a fight mechanism to pace; the two turn actions are
-    // offered while a round is under way, because outside one there is no turn of the player's to pass.
+    // offered while a round is under way, because outside one there is no turn of the player's to pass and
+    // the product's answer would be a refusal this panel has nowhere to show.
     paceButton.disabled = !view.available;
     paceButton.textContent = paced ? 'Real-time' : 'Turn-based';
-    skipButton.disabled = !view.available || !paced || view.turn.phase === '';
-    waitButton.disabled = !view.available || !paced || view.turn.phase === '';
+    skipButton.disabled = !view.available || !paced || !roundHolds;
+    waitButton.disabled = !view.available || !paced || !roundHolds;
     combatResult.hidden = view.message === '';
     combatResult.dataset.outcome = view.outcome;
     combatResult.dataset.code = view.code;

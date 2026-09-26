@@ -470,11 +470,12 @@ public static class SessionProjection
     /// <summary>Builds the fight block: who is in it, who may act, and what the last order did.</summary>
     /// <remarks>
     /// Both sides are sent whole so the screen decides nothing: the party's members with their readiness,
-    /// and the actors fighting them. Readiness is published as the recovery the fight holds — a length of
-    /// game time — so the panel shows what the product says and never counts a cooldown down for itself. A
-    /// snapshot built without fight facts carries the default value, whose lists are null rather than empty:
-    /// they are published as empty so a reader never sees an actor that is not there, exactly as the rest and
-    /// conversation blocks do.
+    /// and the actors fighting them. Readiness is the ready light itself — an actor may act when its recovery
+    /// has elapsed and nothing has laid it out — and the recovery is sent beside it as the length of game
+    /// time the fight holds, so the panel shows what the product says and never counts a cooldown down for
+    /// itself. A snapshot built without fight facts carries the default value, whose lists are null rather
+    /// than empty: they are published as empty so a reader never sees an actor that is not there, exactly as
+    /// the rest and conversation blocks do.
     /// </remarks>
     private static uint Combat(UiValueBuilder builder, CombatSnapshot combat)
     {

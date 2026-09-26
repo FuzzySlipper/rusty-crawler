@@ -14,13 +14,19 @@ namespace PartyRpg.Kit.Presentation;
 /// says so, and the two would disagree the moment the session was held or the browser tab was throttled.
 /// </para>
 /// <para>
-/// <see cref="Ready"/> and <see cref="RecoverySeconds"/> are two readings of one value, published together
-/// because a player needs both: whether the ready light is on, and how long until it is.
+/// <see cref="Ready"/> and <see cref="RecoverySeconds"/> are two readings of one actor, published together
+/// because a player needs both: whether the ready light is on, and how much game time is still owed. The
+/// light is off for two different reasons and both are the actor's own state — it still owes recovery, or it
+/// is out of the fight — so <see cref="Ready"/> is false for an actor that is recovering and for one that is
+/// down, and <see cref="Down"/> is what tells the two apart.
 /// </para>
 /// </remarks>
 /// <param name="Id">The combatant's identity, as the fight names it.</param>
 /// <param name="Name">What the actor is called, as the ruleset named it.</param>
-/// <param name="Ready">Whether the actor may act now.</param>
+/// <param name="Ready">
+/// Whether the actor may act now: its recovery has elapsed and nothing has laid it out. This is the ready
+/// light the panel shows, and the flag a control that offers an act follows.
+/// </param>
 /// <param name="RecoverySeconds">How much game time it must still recover, zero when it is ready.</param>
 /// <param name="Distance">How far it stands from the party, in the place's own units.</param>
 /// <param name="HitPoints">What the actor has left to lose, read from wherever that is owned.</param>
@@ -67,7 +73,11 @@ public readonly record struct CombatActorSnapshot(
 /// <param name="Available">Whether the session holds a fight mechanism at all.</param>
 /// <param name="Engaged">Whether anything is fighting the party right now.</param>
 /// <param name="Opposition">How many actors are fighting the party.</param>
-/// <param name="Ready">How many of the party's members may act now.</param>
+/// <param name="Ready">
+/// How many of the party's members may act now. This is the count the panel's own line reads — "two of four
+/// ready" — so it counts the members a player could order, not the members whose recovery happens to have
+/// elapsed while they lie unconscious or dead.
+/// </param>
 /// <param name="Members">The party's members, in roster order, each with its readiness.</param>
 /// <param name="Enemies">The actors fighting the party, in combatant order.</param>
 /// <param name="Actor">Who attacked last, empty before the party has attacked.</param>
@@ -163,16 +173,21 @@ public readonly record struct CombatSnapshot(
             string conditions = combatant.Subject.Member is { } carried && carried.Conditions.Count > 0
                 ? string.Join(", ", carried.Conditions.Active)
                 : string.Empty;
+            // The ready light is one fact with two ways to be off, and both are the fight's own answers: an
+            // actor still owes recovery, or what is acting on it leaves it unable to act. Publishing the
+            // recovery alone would light a laid-out character up the moment its debt elapsed — and a panel
+            // whose control follows this flag would then offer an act the fight refuses by name.
+            bool down = combat.IsDown(combatant);
             CombatActorSnapshot actor = new(
                 combatant.Id.ToString(),
                 combatant.Name,
-                combatant.IsReady,
+                combatant.IsReady && !down,
                 combatant.Recovery.TotalSeconds,
                 combatant.Distance,
                 hitPoints,
                 hitPointsMax,
                 conditions,
-                combat.IsDown(combatant),
+                down,
                 activity.GetValueOrDefault(combatant.Id, string.Empty));
             if (combatant.Side != CombatSide.Party)
             {
@@ -182,7 +197,7 @@ public readonly record struct CombatSnapshot(
                 continue;
             }
 
-            if (combatant.IsReady) ready++;
+            if (actor.Ready) ready++;
             members.Add(actor);
         }
 

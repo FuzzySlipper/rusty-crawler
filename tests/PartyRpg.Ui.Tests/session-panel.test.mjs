@@ -4,6 +4,7 @@
  * covered by tests/PartyRpg.Kit.Tests/SessionInputRouterTests.cs.
  */
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 import { JSDOM } from 'jsdom';
 
@@ -2240,7 +2241,10 @@ test('the panel shows the pools, the conditions, and the death the product publi
     assert.equal(hurt.members[0].health, '0/40');
     assert.equal(hurt.members[0].conditions, 'Unconscious');
     assert.equal(hurt.members[0].down, 'yes');
-    assert.match(hurt.members[0].name, /Roderick — recovering 23\.0s — 0\/40 hp — Unconscious — down/);
+    // A member the fight has laid out reads as down rather than as recovering toward an act: the row's own
+    // word is the product's readiness, and being out of the fight outranks the recovery it still owes, so a
+    // row for somebody who cannot act never reads as a light that is about to come on.
+    assert.match(hurt.members[0].name, /Roderick — down — 0\/40 hp — Unconscious/);
     assert.equal(hurt.members[1].conditions, 'Dead');
     assert.equal(hurt.members[1].down, 'yes');
     assert.match(hurt.members[1].name, /Aelina .*Dead/);
@@ -2424,3 +2428,179 @@ test('a paced fight is a running session, so the pause control stays the one it 
     h.restore();
   }
 });
+
+test('the fight controls are offered exactly when the product would take the order', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // Real time with everybody recovering: the product refuses an order now, so the panel does not offer one,
+    // and there is no round for the two turn actions to pass a turn in.
+    h.emit(snapshot('running', 1, 60, 60, movement(), { combat: fighting() }));
+    const recovering = combatPanel(h);
+    assert.equal(recovering.ready, '0');
+    assert.equal(recovering.attack.disabled, true);
+    assert.equal(recovering.skip.disabled, true);
+    assert.equal(recovering.wait.disabled, true);
+
+    // Real time with somebody able to act: the same control is offered, because the product would take it.
+    h.emit(snapshot('running', 2, 120, 121, movement(), { combat: combat() }));
+    assert.equal(combatPanel(h).attack.disabled, false);
+
+    // A paced fight with a round under way: one press spends the turn, so the control follows the round the
+    // product published rather than the members' readiness — and the two turn actions are offered with it.
+    h.emit(snapshot('turnbased', 3, 180, 182, movement(), { combat: paced({ ready: 0 }) }));
+    const holding = combatPanel(h);
+    assert.equal(holding.phase, 'action');
+    assert.equal(holding.attack.disabled, false);
+    assert.equal(holding.skip.disabled, false);
+    assert.equal(holding.wait.disabled, false);
+
+    // The party's movement phase: the act control ends it, so it stays offered with nobody ready.
+    h.emit(snapshot('turnbased', 4, 240, 245, movement(), {
+      combat: paced({
+        ready: 0,
+        turn: round({ phase: 'movement', round: 2, movementSeconds: 6.5, order: [ordered({ waiting: true })] }),
+      }),
+    }));
+    const moving = combatPanel(h);
+    assert.equal(moving.attack.disabled, false);
+    assert.equal(moving.skip.disabled, false);
+    assert.equal(moving.wait.disabled, false);
+
+    // Turn-based pacing with nothing to pace: no round is under way, so the world steps as it does in real
+    // time and every control follows readiness again. This is the state a panel that read the phase as an
+    // empty string would offer an act in — and the product's answer there is a refusal reported where no
+    // player can see it, which is exactly the silent control this panel exists to prevent.
+    h.emit(snapshot('running', 5, 300, 306, movement(), { combat: fighting({ pacing: 'turnbased' }) }));
+    const idle = combatPanel(h);
+    assert.equal(idle.phase, 'none');
+    assert.equal(idle.attack.disabled, true);
+    assert.equal(idle.skip.disabled, true);
+    assert.equal(idle.wait.disabled, true);
+    assert.match(idle.turn, /Turn-based: nothing is being fought/);
+
+    // The pacing toggle is the one control always offered while the mechanism is there: it asks for a pacing
+    // rather than for an act, and the product can answer it whatever the fight is doing.
+    assert.equal(idle.pace.disabled, false);
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the panel echoes the fight it was published rather than working the fight out', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // Two members contradicting the arithmetic a screen might do: one that still owes game time and is
+    // published as ready, and one that owes none and is published as unable to act. A panel that derived
+    // readiness from the seconds — or ran a countdown of its own toward zero — would show the opposite of
+    // both, which is exactly the second opinion the projection exists to prevent.
+    h.emit(snapshot('running', 1, 60, 60, movement(), {
+      combat: combat({
+        ready: 1,
+        members: [
+          { ...combat().members[0], ready: true, recoverySeconds: 12.5 },
+          { ...combat().members[1], ready: false, recoverySeconds: 0 },
+        ],
+      }),
+    }));
+    const readied = combatPanel(h);
+    assert.equal(readied.ready, '1');
+    assert.equal(readied.members[0].ready, 'yes');
+    assert.match(readied.members[0].name, /Roderick — ready/);
+    assert.equal(readied.members[1].ready, 'no');
+    assert.match(readied.members[1].name, /Aelina — recovering 0\.0s/);
+    // One member may act, so the act control is offered: the count, the rows, and the control are one fact.
+    assert.equal(readied.attack.disabled, false);
+
+    // The same for the aggro half of the ready light: what is hostile, and how much of it, is the product's
+    // own count rather than the length of the list the panel happens to have been sent.
+    h.emit(snapshot('running', 2, 120, 121, movement(), {
+      combat: combat({ engaged: true, opposition: 3, enemies: [] }),
+    }));
+    const engaged = combatPanel(h);
+    assert.equal(engaged.state, 'engaged');
+    assert.equal(engaged.opposition, '3');
+    assert.match(engaged.status, /Engaged with 3 — 2 of 2 ready/);
+    assert.equal(engaged.enemies.length, 0);
+
+    h.emit(snapshot('running', 3, 180, 182, movement(), {
+      combat: combat({ engaged: false, opposition: 2, enemies: [combat().members[0]] }),
+    }));
+    const quiet = combatPanel(h);
+    assert.equal(quiet.state, 'quiet');
+    assert.match(quiet.status, /Nobody is hostile — 2 of 2 ready/);
+    assert.equal(quiet.enemies.length, 1);
+
+    // A creature that is down says so once: the fight's own state word and the word its driver reports for
+    // what it is doing are the same fact there, and a row that printed both would repeat itself.
+    h.emit(snapshot('running', 4, 240, 245, movement(), {
+      combat: combat({
+        enemies: [
+          {
+            id: 'actor:1', name: 'A beast', ready: false, recoverySeconds: 0, distance: 100,
+            hitPoints: 0, hitPointsMax: 40, conditions: '', down: true, activity: 'down',
+          },
+        ],
+      }),
+    }));
+    assert.equal(combatPanel(h).enemies[0].name, 'A beast — down at 100 — 0/40 hp');
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the companion reaches for no clock and computes no combat quantity', async () => {
+  const source = await readFile(new URL('../../src/ui/main.ts', import.meta.url), 'utf8');
+
+  // The fight is paced by game time the product measures. A screen that reached for a clock or a timer would
+  // be running a second pacing — and would show a character ready before the fight agreed, which is the
+  // failure publishing the recovery rather than counting it down exists to prevent.
+  for (const forbidden of [
+    'setTimeout(',
+    'setInterval(',
+    'requestAnimationFrame(',
+    'requestIdleCallback(',
+    'queueMicrotask(',
+    'Date.now',
+    'new Date',
+    'performance.now',
+  ]) {
+    assert.equal(source.includes(forbidden), false, `the companion reaches for ${forbidden}`);
+  }
+
+  // The fight's own rendering is the only place a combat value is touched, and there each is read, compared,
+  // and printed — never combined. A rule appearing there looks like an operator between a combat quantity and
+  // anything else, which is what this scan fails on. Formatting a value (`toFixed`), reading the length of a
+  // published list, and comparing a value (`> 0`, `=== 'action'`) are all presentation, and stay allowed.
+  const fight = source.slice(source.indexOf('const renderCombat'), source.indexOf('const render = ('));
+  assert.notEqual(fight.length, 0, 'the companion no longer renders a fight at all');
+  // A quantity is named as the projection spells it, however it was reached — `view.ready`, `actor.hitPoints`.
+  const quantity =
+    '(?:[A-Za-z_$][\\w$]*\\.)*(?:recoverySeconds|remainingSeconds|roundSeconds|movementSeconds|dueSeconds|elapsedSeconds|hitPoints|hitPointsMax|distance|damage|damageRolled|chance|opposition|ready|down|engaged|playerTurn)';
+  const patterns = [
+    new RegExp(`${quantity}\\s*[-+*/%]`),
+    new RegExp(`[-+*/%]\\s*${quantity}`),
+    new RegExp(`Math\\.[a-z]+\\([^)]*${quantity}`),
+  ];
+  // A template's `${...}` placeholders hold the reads themselves, and the separator between two of them —
+  // `${hitPoints}/${hitPointsMax}` — is a slash this scan would otherwise read as division. They are replaced
+  // by a single marker first, so what is left is the code around them; each placeholder's own body is then
+  // scanned the same way, so a rule cannot hide inside an interpolation either.
+  const code = fight.replaceAll(/\$\{[^}]*\}/g, '_');
+  for (const pattern of patterns) {
+    const match = pattern.exec(code);
+    assert.equal(match, null, `the fight rendering computes a combat quantity: ${match?.[0] ?? ''}`);
+    for (const placeholder of fight.matchAll(/\$\{([^}]*)\}/g)) {
+      const inside = pattern.exec(placeholder[1]);
+      assert.equal(inside, null, `a placeholder computes a combat quantity: ${inside?.[0] ?? ''}`);
+    }
+  }
+});
+
