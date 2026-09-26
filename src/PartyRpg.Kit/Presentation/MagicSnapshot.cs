@@ -17,11 +17,57 @@ namespace PartyRpg.Kit.Magic;
 /// <param name="Kind">What sort of thing it is, as the game's own word.</param>
 public readonly record struct SpellAimSnapshot(string Aim, string Name, string Kind);
 
-/// <summary>One effect a spell has left running on the party, as the panel shows it.</summary>
+/// <summary>One effect a spell has left running, as the panel shows it.</summary>
 /// <param name="Effect">The effect identity the spell left, which the panel shows and never interprets.</param>
 /// <param name="Magnitude">The magnitude it acts at.</param>
 /// <param name="EndsAt">When the clock ends it, formatted for a person, empty when nothing states an end.</param>
 public readonly record struct SpellRunningSnapshot(string Effect, int Magnitude, string EndsAt);
+
+/// <summary>One effect a spell has left running on one character, as the panel shows it.</summary>
+/// <remarks>
+/// The row names the character because that is what makes a per-character ward visible at all: a panel that
+/// listed the effect without saying whose it was would leave a player unable to tell a blessing they cast on
+/// one member from one the whole party carries.
+/// </remarks>
+/// <param name="Member">The member's durable identity, which the row belongs to.</param>
+/// <param name="Name">What the member is called.</param>
+/// <param name="Effect">The effect identity the spell left, which the panel shows and never interprets.</param>
+/// <param name="Magnitude">The magnitude it acts at.</param>
+/// <param name="EndsAt">When the clock ends it, formatted for a person, empty when nothing states an end.</param>
+public readonly record struct SpellMemberRunningSnapshot(string Member, string Name, string Effect, int Magnitude, string EndsAt);
+
+/// <summary>One item the party holds that carries a spell, as the panel shows it.</summary>
+/// <remarks>
+/// A scroll and a wand are the same row because they are the same fact — an item, the spell it carries, and
+/// what is left of it — and what differs is how using it spends the item, which the row states rather than
+/// the panel inferring it. The charges are read from the party's own item state against the game's own
+/// capacity, so a wand's row and a wand's attack cannot disagree about how full it is.
+/// </remarks>
+/// <param name="Item">The instance's durable identity, which a use command echoes back.</param>
+/// <param name="Name">What a person reads for it.</param>
+/// <param name="Kind">How using it spends it: <c>consumed</c> for an item a use uses up, <c>charged</c> for one that holds uses.</param>
+/// <param name="Spell">The spell it carries, as content names it.</param>
+/// <param name="SpellName">What that spell is called.</param>
+/// <param name="Targeting">
+/// What the spell it carries is aimed at, as the wire spells it, which is what tells a screen whether using
+/// the item needs a target and which actors it may offer — read from the game's own reading of the spell
+/// rather than from whether some member happens to know it.
+/// </param>
+/// <param name="Charges">How many uses it holds now; zero for an item a use uses up.</param>
+/// <param name="ChargesMax">How many uses its kind holds when full; zero for an item a use uses up.</param>
+/// <param name="Wielded">Whether a member has it equipped, which is what an item that holds charges needs.</param>
+/// <param name="Member">The member wearing it, empty when nobody does.</param>
+public readonly record struct SpellItemSnapshot(
+    string Item,
+    string Name,
+    string Kind,
+    string Spell,
+    string SpellName,
+    string Targeting,
+    int Charges,
+    int ChargesMax,
+    bool Wielded,
+    string Member);
 
 /// <summary>One reading a cast left behind, as the panel shows it.</summary>
 /// <param name="Name">What the reading is about.</param>
@@ -117,6 +163,16 @@ public readonly record struct SpellTargetSnapshot(string Target, string Name, st
 /// <param name="Facts">What the last casting changed, as readings of the state it changed.</param>
 /// <param name="Running">The effects spells have left running on the party, in the order they were applied.</param>
 /// <param name="Sight">What the party sees by now, as the wire spells it, empty when nothing states it.</param>
+/// <param name="MemberRunning">
+/// The effects spells have left running on the party's own characters, in the order they were applied, each
+/// naming the character it is on. This is the block that makes a ward cast on one member visible as theirs.
+/// </param>
+/// <param name="Items">
+/// The items the party carries that hold a spell — a scroll it can read and a wand it can fire — with what is
+/// left of each, in the order the pack holds them. A session whose ruleset reads no spells for its items
+/// publishes none.
+/// </param>
+/// <param name="Source">What carried the last casting, empty when it came from the caster's own spellbook.</param>
 public readonly record struct MagicSnapshot(
     bool Available,
     IReadOnlyList<SpellMemberSnapshot> Members,
@@ -132,7 +188,10 @@ public readonly record struct MagicSnapshot(
     string Message,
     IReadOnlyList<SpellFactSnapshot> Facts,
     IReadOnlyList<SpellRunningSnapshot> Running,
-    string Sight)
+    string Sight,
+    IReadOnlyList<SpellMemberRunningSnapshot> MemberRunning,
+    IReadOnlyList<SpellItemSnapshot> Items,
+    string Source)
 {
     /// <summary>No magic: nobody's spellbook is readable and nothing can be cast.</summary>
     public static MagicSnapshot None => new(
@@ -150,7 +209,10 @@ public readonly record struct MagicSnapshot(
         Message: string.Empty,
         Facts: [],
         Running: [],
-        Sight: string.Empty);
+        Sight: string.Empty,
+        MemberRunning: [],
+        Items: [],
+        Source: string.Empty);
 
     /// <summary>Reads every member's magic out of the casting owner, or none when it holds no policy.</summary>
     /// <param name="casting">The session's casting workflow, or null when it composes none.</param>
@@ -237,6 +299,48 @@ public readonly record struct MagicSnapshot(
             }
         }
 
+        // What a spell has left on each character, read from the same ledger: a ward cast on one member is
+        // that member's row, which is how a player sees that the rest of the band is unaffected.
+        List<SpellMemberRunningSnapshot> memberRunning = [];
+        if (owner.Effects is IMemberSpellEffects onMembers)
+        {
+            foreach (RunningSpellEffect effect in onMembers.RunningOnMembers)
+            {
+                if (effect.Member is not { } id) continue;
+                string name = owner.Party.TryMember(id, out PartyMember? on) && on is not null ? on.Profile.Name : id.ToString();
+                memberRunning.Add(new SpellMemberRunningSnapshot(id.ToString(), name, effect.Effect.Value, effect.Magnitude, Moment(effect.EndsAt)));
+            }
+        }
+
+        // The items the party carries that hold a spell: a scroll it could read and a wand it could fire, each
+        // with how much of it is left. The reading is the game's own rows and the count is the party's item
+        // state, so nothing here decides what an item is worth or how full it is.
+        List<SpellItemSnapshot> items = [];
+        if (owner.Rule is ISpellItemRule spellItems)
+        {
+            ISpellItemNames? names = owner.Rule as ISpellItemNames;
+            foreach (ItemInstance item in owner.Party.Items)
+            {
+                if (spellItems.Reading(item.Definition) is not { } reading) continue;
+                SpellDefinition carried = owner.Rule.Catalog.Read(reading.Spell);
+                int left = reading.ConsumedByUse ? 0 : Math.Max(0, reading.Charges - item.State.ChargesSpent);
+                string worn = item.Custody.IsEquipped && owner.Party.TryMember(item.Custody.Member, out PartyMember? wearer) && wearer is not null
+                    ? wearer.Profile.Name
+                    : string.Empty;
+                items.Add(new SpellItemSnapshot(
+                    item.Id.ToString(),
+                    names is { } naming && naming.NameOf(item.Definition).Length > 0 ? naming.NameOf(item.Definition) : item.Definition.Value,
+                    reading.ConsumedByUse ? "consumed" : "charged",
+                    reading.Spell.Value,
+                    carried.Name,
+                    SpellTargetings.WireName(carried.Targeting),
+                    left,
+                    reading.Charges,
+                    item.Custody.IsEquipped,
+                    worn));
+            }
+        }
+
         string sight = owner.Effects is IPartySightRule light ? PartySights.WireName(light.Sight) : string.Empty;
         if (owner.Last is { } last)
         {
@@ -255,7 +359,10 @@ public readonly record struct MagicSnapshot(
                 Message: last.Message,
                 Facts: facts,
                 Running: running,
-                Sight: sight);
+                Sight: sight,
+                MemberRunning: memberRunning,
+                Items: items,
+                Source: last.Source);
         }
 
         return new MagicSnapshot(
@@ -273,7 +380,10 @@ public readonly record struct MagicSnapshot(
             Message: string.Empty,
             Facts: facts,
             Running: running,
-            Sight: sight);
+            Sight: sight,
+            MemberRunning: memberRunning,
+            Items: items,
+            Source: string.Empty);
     }
 
     /// <summary>What one spell may be pointed at right now, empty when its aim names no such thing.</summary>

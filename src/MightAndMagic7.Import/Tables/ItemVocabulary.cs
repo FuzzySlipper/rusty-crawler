@@ -31,6 +31,15 @@ public static class ItemVocabulary
     /// <summary>The tag an item with no readable kind carries, and the skill the donor falls back to.</summary>
     public const string Misc = "misc";
 
+    /// <summary>The tag a teaching book carries, which the donor reads a spell from.</summary>
+    public const string Book = "book";
+
+    /// <summary>The tag a spell scroll carries, which the donor reads a spell from.</summary>
+    public const string SpellScroll = "spell-scroll";
+
+    /// <summary>The tag a wand carries, which the donor reads a spell from.</summary>
+    public const string Wand = "wand";
+
     /// <summary>The kinds the donor's equipment map names, in the data's own spellings.</summary>
     private static readonly Dictionary<string, string> KindsByEquipStat = new(StringComparer.OrdinalIgnoreCase)
     {

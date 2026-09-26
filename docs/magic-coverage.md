@@ -19,19 +19,57 @@ id in `src/PartyRpg.Rulesets.MightAndMagic7/MightAndMagic7Spells.cs`.
 | approximated | the cast changes real state through that owner, more coarsely than the game does; the difference is named |
 | not yet | nothing this build reads changes, and the owner that would close the gap is named |
 
+## What a duration does across a save
+
+A duration is a deadline registered with the session's one clock, and the effect it ends is carried
+state: an effect a spell aimed at one character is written under that character's own entry, and a
+spell aimed at the party is carried by the party. Neither the deadline nor the effect's end moment
+is a number the effect carries, which is what makes the save boundary's own answer the honest one:
+
+| what | across a save today |
+| --- | --- |
+| an item's spent charges | carried: a charge is item state, written with the instance's damage and enchantments, so a half-spent wand resumes half spent |
+| an effect's existence and magnitude | not carried: while any deadline is registered the clock refuses to be captured, so a session holding a running ward, light, or haste cannot be saved at all |
+| when an effect ends | not carried, for the same reason: the save records elapsed game time and no deadlines |
+
+The refusal is by name rather than silent — `PartyRpg.Kit.Persistence.ClockSave.Capture` throws a
+`SessionSaveException` listing the deadlines the clock holds — so a save taken while magic runs is
+refused where a player can read it instead of dropping the schedule. Carrying deadlines (which
+owner registered one, when it is due, and how it repeats) is Den task #8617's own requirement, and
+it names the spell-effect deadlines among the owners that task must carry.
+
+## Casting from an item
+
+A scroll and a wand carry one spell each, read from the shipped item table's own reference column,
+and both are cast through the session's one casting workflow with the item as the spell's source:
+no school skill and no spell point is asked for, and the item is what pays.
+
+| what is used | how |
+| --- | --- |
+| a scroll | the one spell it carries, once, and the scroll is used up; the donor's own scroll cast carries no mana cost at all (OpenEnroth `src/Engine/Spells/CastSpellInfo.cpp:207`, the `overrideSkillValue` branch that sets `uRequiredMana = 0`) |
+| a wand | the spell it carries, fired as the weapon it is wielded as, one charge spent per use, and the item leaves the party through the inventory when its last charge goes; the donor fires it at a fixed eighth level of novice mastery (OpenEnroth `src/Engine/Spells/CastSpellInfo.h:61`, `WANDS_SKILL_VALUE`) |
+
+What this build does not take from the donor is the fixed skill reading of a scroll cast: the donor
+casts one at the fifth level of master mastery (OpenEnroth `src/Engine/Spells/CastSpellInfo.h:60`,
+`SCROLL_OR_NPC_SPELL_SKILL_VALUE`), while this build casts it at the caster's own school, because a
+damaging spell's numbers are resolved by the fight's own ability answer and that answer is asked
+with the caster rather than with the item that carried the spell (receiver: the fight's ability
+resolution, which would have to be handed the casting's own skill reading). A wand's own value *is*
+taken, because a wand is the weapon the fight resolves the attack with.
+
 ## Counts
 
 | category | implemented | approximated | not yet | spells |
 | --- | --- | --- | --- | --- |
 | damage | 34 | 0 | 0 | 34 |
 | healing | 5 | 1 | 1 | 7 |
-| resistance | 2 | 7 | 1 | 10 |
+| resistance | 8 | 1 | 1 | 10 |
 | condition | 9 | 0 | 10 | 19 |
 | light | 1 | 0 | 0 | 1 |
 | travel | 2 | 0 | 4 | 6 |
 | detection | 3 | 0 | 0 | 3 |
-| utility | 2 | 5 | 12 | 19 |
-| **all** | **58** | **13** | **28** | **99** |
+| utility | 6 | 1 | 12 | 19 |
+| **all** | **68** | **3** | **28** | **99** |
 
 ## Every spell
 
@@ -42,7 +80,7 @@ master, and four grand master.
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | light | 1 | party | implemented | a light carried by the party, read against the clock's own daylight and ended by its own deadline |  |
 | 2 | damage | 1 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
-| 3 | resistance | 1 | ally | approximated | the donor's own buff belongs to the character it is cast on; this build's wards are carried by the party, so every member gets it (receiver: a per-member effect owner, which the party model does not have) |  |
+| 3 | resistance | 1 | ally | implemented | a ward on the character the casting named, read by the fight's own resistance for that character and ended by its own deadline; the donor gives several of these to the whole party at once (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:767-801, pPartyBuffs[PARTY_BUFF_RESIST_*]), and this game's own table aims each one at a single character |  |
 | 4 | utility | 1 | ally | not yet | a weapon in hand | an item-aim owner: the pack holds the party's items and nothing aims a spell at one |
 | 5 | utility | 2 | party | implemented | a party-carried effect read by the fight's own resolution |  |
 | 6 | damage | 2 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
@@ -53,7 +91,7 @@ master, and four grand master.
 | 11 | damage | 4 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 12 | detection | 1 | party | implemented | a report read from the places and the population the world holds |  |
 | 13 | travel | 1 | party | not yet | a fall slowed until it cannot hurt | the party's mover, which walks and falls and does nothing else |
-| 14 | resistance | 1 | ally | approximated | the donor's own buff belongs to the character it is cast on; this build's wards are carried by the party, so every member gets it (receiver: a per-member effect owner, which the party model does not have) |  |
+| 14 | resistance | 1 | ally | implemented | a ward on the character the casting named, read by the fight's own resistance for that character and ended by its own deadline; the donor gives several of these to the whole party at once (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:767-801, pPartyBuffs[PARTY_BUFF_RESIST_*]), and this game's own table aims each one at a single character |  |
 | 15 | damage | 1 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 16 | travel | 2 | caster | not yet | a jump that carries the party over what it could not walk past | the party's mover, which walks and falls and does nothing else |
 | 17 | resistance | 2 | caster | not yet | a shield that turns a missile aside | the fight's own ranged resolution |
@@ -64,7 +102,7 @@ master, and four grand master.
 | 22 | damage | 4 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 23 | condition | 1 | ally | implemented | the named conditions lifted through the member's own condition state |  |
 | 24 | damage | 1 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
-| 25 | resistance | 1 | ally | approximated | the donor's own buff belongs to the character it is cast on; this build's wards are carried by the party, so every member gets it (receiver: a per-member effect owner, which the party model does not have) |  |
+| 25 | resistance | 1 | ally | implemented | a ward on the character the casting named, read by the fight's own resistance for that character and ended by its own deadline; the donor gives several of these to the whole party at once (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:767-801, pPartyBuffs[PARTY_BUFF_RESIST_*]), and this game's own table aims each one at a single character |  |
 | 26 | damage | 1 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 27 | travel | 2 | party | not yet | water walked over rather than swum through | the party's mover, which walks and falls and does nothing else |
 | 28 | utility | 2 | none | not yet | an item whose charges are given back | an item-aim owner: the pack holds the party's items and nothing aims a spell at one |
@@ -75,7 +113,7 @@ master, and four grand master.
 | 33 | travel | 4 | none | implemented | a beacon set in the party's own carried state and recalled through the world's own transition path |  |
 | 34 | condition | 1 | foe | not yet | a condition on a world actor | the fight's own condition model, which is the party's |
 | 35 | condition | 1 | foe | not yet | a creature slowed | the fight's own actor state, which paces an actor by its row |
-| 36 | resistance | 1 | ally | approximated | the donor's own buff belongs to the character it is cast on; this build's wards are carried by the party, so every member gets it (receiver: a per-member effect owner, which the party model does not have) |  |
+| 36 | resistance | 1 | ally | implemented | a ward on the character the casting named, read by the fight's own resistance for that character and ended by its own deadline; the donor gives several of these to the whole party at once (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:767-801, pPartyBuffs[PARTY_BUFF_RESIST_*]), and this game's own table aims each one at a single character |  |
 | 37 | damage | 1 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 38 | resistance | 2 | party | implemented | armour class carried by the party and read by the fight's own armour class |  |
 | 39 | damage | 2 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
@@ -85,19 +123,19 @@ master, and four grand master.
 | 43 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 44 | damage | 4 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 45 | detection | 1 | caster | implemented | a report read from the places and the population the world holds |  |
-| 46 | utility | 1 | ally | approximated | the donor's own buff belongs to the character it is cast on; this build's wards are carried by the party, so every member gets it (receiver: a per-member effect owner, which the party model does not have) |  |
-| 47 | utility | 1 | ally | approximated | the donor's own buff belongs to the character it is cast on; this build's wards are carried by the party, so every member gets it (receiver: a per-member effect owner, which the party model does not have) |  |
+| 46 | utility | 1 | ally | implemented | an effect on the character the casting named, read by the fight's own resolution for that character and ended by its own deadline; the donor rewards a blessing, a fate, and hammerhands to one character below the rungs where it widens them to the party (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:846-880, :1631-1656, :2364-2384), and this game's own table aims each one at a single character |  |
+| 47 | utility | 1 | ally | implemented | an effect on the character the casting named, read by the fight's own resolution for that character and ended by its own deadline; the donor rewards a blessing, a fate, and hammerhands to one character below the rungs where it widens them to the party (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:846-880, :1631-1656, :2364-2384), and this game's own table aims each one at a single character |  |
 | 48 | condition | 1 | foe | not yet | a creature turned away from the party | the fight's allegiance state, which is a side rather than a fear |
 | 49 | condition | 2 | ally | implemented | the named conditions lifted through the member's own condition state |  |
 | 50 | utility | 2 | caster | not yet | the party's gear protected from harm | item state, which carries what a spell would protect |
-| 51 | utility | 2 | ally | approximated | the donor's own buff belongs to the character it is cast on; this build's wards are carried by the party, so every member gets it (receiver: a per-member effect owner, which the party model does not have) |  |
+| 51 | utility | 2 | ally | implemented | an effect on the character the casting named, read by the fight's own resolution for that character and ended by its own deadline; the donor rewards a blessing, a fate, and hammerhands to one character below the rungs where it widens them to the party (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:846-880, :1631-1656, :2364-2384), and this game's own table aims each one at a single character |  |
 | 52 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 53 | healing | 3 | ally | implemented | a member stood back up at one hit point, with what laid them out lifted from their own conditions |  |
 | 54 | healing | 3 | ally | implemented | the party's health pooled and shared through each member's own pool |  |
 | 55 | healing | 4 | ally | implemented | a member stood back up at one hit point, with what laid them out lifted from their own conditions |  |
 | 56 | condition | 1 | ally | implemented | the named conditions lifted through the member's own condition state |  |
 | 57 | damage | 1 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
-| 58 | resistance | 1 | ally | approximated | the donor's own buff belongs to the character it is cast on; this build's wards are carried by the party, so every member gets it (receiver: a per-member effect owner, which the party model does not have) |  |
+| 58 | resistance | 1 | ally | implemented | a ward on the character the casting named, read by the fight's own resistance for that character and ended by its own deadline; the donor gives several of these to the whole party at once (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:767-801, pPartyBuffs[PARTY_BUFF_RESIST_*]), and this game's own table aims each one at a single character |  |
 | 59 | detection | 1 | caster | implemented | a report read from the places and the population the world holds |  |
 | 60 | condition | 2 | foe | not yet | a charmed creature that fights for the party | the fight's allegiance state, which is a side rather than a loyalty |
 | 61 | condition | 2 | ally | implemented | the named conditions lifted through the member's own condition state |  |
@@ -108,11 +146,11 @@ master, and four grand master.
 | 66 | condition | 4 | foe | not yet | an enslaved creature that fights for the party | the fight's allegiance state, which is a side rather than a loyalty |
 | 67 | condition | 1 | ally | implemented | the named conditions lifted through the member's own condition state |  |
 | 68 | healing | 1 | ally | implemented | hit points restored through the member's own pool |  |
-| 69 | resistance | 1 | ally | approximated | the donor's own buff belongs to the character it is cast on; this build's wards are carried by the party, so every member gets it (receiver: a per-member effect owner, which the party model does not have) |  |
+| 69 | resistance | 1 | ally | implemented | a ward on the character the casting named, read by the fight's own resistance for that character and ended by its own deadline; the donor gives several of these to the whole party at once (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:767-801, pPartyBuffs[PARTY_BUFF_RESIST_*]), and this game's own table aims each one at a single character |  |
 | 70 | damage | 1 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 71 | healing | 2 | ally | not yet | health given back over a duration | this effect path's own clock observation: the running-effect ledger hears every advance |
 | 72 | condition | 2 | ally | implemented | the named conditions lifted through the member's own condition state |  |
-| 73 | utility | 2 | caster | approximated | the donor's own buff belongs to the character it is cast on; this build's wards are carried by the party, so every member gets it (receiver: a per-member effect owner, which the party model does not have) |  |
+| 73 | utility | 2 | caster | implemented | an effect on the character the casting named, read by the fight's own resolution for that character and ended by its own deadline; the donor rewards a blessing, a fate, and hammerhands to one character below the rungs where it widens them to the party (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:846-880, :1631-1656, :2364-2384), and this game's own table aims each one at a single character |  |
 | 74 | condition | 3 | ally | implemented | the named conditions lifted through the member's own condition state |  |
 | 75 | resistance | 3 | party | approximated | the donor reads this buff as a chance to resist a spell rather than as a resistance of one kind of harm; this build reads it as a ward against magic harm (receiver: the fight's spell resolution, which would make the check) |  |
 | 76 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |

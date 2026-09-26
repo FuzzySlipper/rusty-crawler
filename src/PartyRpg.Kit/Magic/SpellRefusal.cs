@@ -120,6 +120,44 @@ public sealed record SpellRefusal
         "spell-no-effect-path",
         "This session composes no effect path, so a spell could be resolved but nothing could apply it.");
 
+    /// <summary>The party holds no such item, so a casting has no source to take its spell from.</summary>
+    /// <param name="item">The instance identity the casting named.</param>
+    /// <returns>The refusal.</returns>
+    public static SpellRefusal ItemNotHeld(string item) => new(
+        "spell-item-not-held",
+        $"The party holds no item {item}, so no spell could be cast from it.");
+
+    /// <summary>The item carries no spell this game can read, so casting from it would do nothing.</summary>
+    /// <param name="item">The item definition the instance is a copy of.</param>
+    /// <returns>The refusal.</returns>
+    public static SpellRefusal ItemCarriesNoSpell(string item) => new(
+        "spell-item-carries-none",
+        $"Item '{item}' carries no spell this game reads, so casting from it would use it up for nothing.");
+
+    /// <summary>The item carries a different spell than the casting named.</summary>
+    /// <param name="item">What the item is called.</param>
+    /// <param name="carried">What the item carries.</param>
+    /// <param name="named">What the casting named.</param>
+    /// <returns>The refusal.</returns>
+    public static SpellRefusal ItemCarriesAnother(string item, string carried, string named) => new(
+        "spell-item-carries-another",
+        $"Item '{item}' carries {carried}, and the casting named {named}, so which spell the item would cast is ambiguous.");
+
+    /// <summary>An item that spends charges is used as a weapon, so it must be wielded rather than lying in the pack.</summary>
+    /// <param name="item">What the item is called.</param>
+    /// <returns>The refusal.</returns>
+    public static SpellRefusal ItemNotWielded(string item) => new(
+        "spell-item-not-wielded",
+        $"Item '{item}' holds charges and is used as a weapon, so it has to be wielded before its spell can be aimed.");
+
+    /// <summary>The item holds no charges left, so using it would spend nothing.</summary>
+    /// <param name="item">What the item is called.</param>
+    /// <param name="charges">How many uses its kind holds when full.</param>
+    /// <returns>The refusal.</returns>
+    public static SpellRefusal ItemSpent(string item, int charges) => new(
+        "spell-item-no-charges",
+        $"Item '{item}' holds none of the {charges} charge(s) its kind states, so using it would spend nothing.");
+
     /// <summary>What acts on the caster leaves it unable to cast, or it has not recovered yet.</summary>
     /// <param name="name">What the caster is called.</param>
     /// <param name="because">The sentence that says what stopped it.</param>

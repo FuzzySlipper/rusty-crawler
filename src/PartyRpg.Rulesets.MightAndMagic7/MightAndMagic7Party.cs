@@ -102,13 +102,126 @@ internal static class MightAndMagic7Party
         // answer now — a weapon or armour needs the skill its own row names, and the five places the manual
         // exempts need none — while pack capacity, stacking, and the hired limit are still rules nobody has
         // stated, and a factory composed with no rule gates nothing rather than guessing one.
-        return Factory(content).Create(new PartyCreation(
+        PartyEntity party = Factory(content).Create(new PartyCreation(
             members,
             coins,
             food,
             ProvisionUnit.Portions,
             reputation,
             fame));
+
+        // A scenario that fixes a party may also say what the party carries: what each member wears goes on
+        // through the same gated equip a counted purchase takes, and what the band carries loose goes into the
+        // one shared pack through the one acquisition path, so a staged start and a played party hold their
+        // items the same way. A start that asks for an item the party cannot carry is a defect rather than a
+        // party that quietly began without it, so every refusal is reported and the composition fails.
+        foreach ((int position, IReadOnlyList<StartingEquipment> equipment) in Equipment(entry, members, Defect))
+        {
+            PartyMember member = party.Members[position - 1];
+            foreach (StartingEquipment start in equipment)
+            {
+                ItemAcquisition taken = party.AcquireItem(start.Definition);
+                if (taken.Refusal is { } noRoom)
+                {
+                    Defect("party-equipment-refused", $"party '{entry.Id}' gives {member.Profile.Name} a '{start.Definition}' the party cannot carry: {noRoom}");
+                    continue;
+                }
+
+                EquipmentChange change = party.Equip(member.Id, start.Slot, taken.Item!.Id);
+                if (change.Refusal is { } refused)
+                {
+                    Defect(
+                        "party-equipment-refused",
+                        $"party '{entry.Id}' gives {member.Profile.Name} a '{start.Definition}' in '{start.Slot}', which this game refuses: {refused}");
+                }
+            }
+        }
+
+        foreach ((ItemDefinitionId definition, int count) in Pack(entry, Defect))
+        {
+            ItemAcquisition taken = party.AcquireItem(definition, count);
+            if (taken.Refusal is { } noRoom)
+            {
+                Defect("party-pack-refused", $"party '{entry.Id}' carries {count} of '{definition}', which its pack cannot take: {noRoom}");
+            }
+        }
+
+        if (issues.Count > 0)
+        {
+            party.Dispose();
+            throw new ContentValidationException(
+                $"The scenario's party cannot be carried: {issues[0].Message}",
+                issues);
+        }
+
+        return party;
+    }
+
+    /// <summary>Reads what each member of a scenario's party starts wearing.</summary>
+    /// <remarks>
+    /// The slot is content's own word — a figure's places are a game's vocabulary rather than the kit's — so a
+    /// scenario names the place it means and the equipment gate judges whether that member may fill it.
+    /// </remarks>
+    /// <param name="entry">The party entry.</param>
+    /// <param name="members">The members it declares, in the order they stand in.</param>
+    /// <param name="defect">Where a defect is reported.</param>
+    private static List<(int Position, IReadOnlyList<StartingEquipment> Equipment)> Equipment(
+        ContentEntry entry,
+        IReadOnlyList<MemberCreation> members,
+        Action<string, string> defect)
+    {
+        List<(int Position, IReadOnlyList<StartingEquipment> Equipment)> equipment = [];
+        int position = 0;
+        foreach (JsonElement element in Elements(entry.Payload, MembersField))
+        {
+            position++;
+            if (position > members.Count) break;
+            List<StartingEquipment> worn = [];
+            foreach (JsonElement declared in Elements(element, "equipment"))
+            {
+                string slot = ContentEntry.ReadId(declared, "slot");
+                string item = ContentEntry.ReadId(declared, "item");
+                if (slot.Length == 0 || item.Length == 0)
+                {
+                    defect("party-equipment-incomplete", $"member {position} declares equipment without a slot and an item.");
+                    continue;
+                }
+
+                worn.Add(new StartingEquipment(new EquipmentSlot(slot), new ItemDefinitionId(item)));
+            }
+
+            if (worn.Count > 0) equipment.Add((position, worn));
+        }
+
+        return equipment;
+    }
+
+    /// <summary>Reads what a scenario's party carries loose in its shared pack.</summary>
+    /// <param name="entry">The party entry.</param>
+    /// <param name="defect">Where a defect is reported.</param>
+    private static List<(ItemDefinitionId Definition, int Count)> Pack(ContentEntry entry, Action<string, string> defect)
+    {
+        List<(ItemDefinitionId, int)> pack = [];
+        foreach (JsonElement declared in Elements(entry.Payload, "pack"))
+        {
+            string item = ContentEntry.ReadId(declared, "item");
+            if (item.Length == 0)
+            {
+                defect("party-pack-incomplete", $"party '{entry.Id}' carries an item with no identity.");
+                continue;
+            }
+
+            int count = (int)(ContentEntry.ReadDouble(declared, "count") ?? 1);
+            if (count < 1)
+            {
+                defect("party-pack-invalid", $"party '{entry.Id}' carries {count} of item '{item}', which is not a whole count.");
+                continue;
+            }
+
+            pack.Add((new ItemDefinitionId(item), count));
+        }
+
+        return pack;
     }
 
     /// <summary>

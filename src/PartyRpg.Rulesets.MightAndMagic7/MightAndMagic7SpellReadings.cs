@@ -196,6 +196,7 @@ internal readonly record struct BuffReading(EffectId Effect, Func<int, int, int>
 /// <param name="Buff">The party-carried effect the spell leaves, when it leaves one.</param>
 /// <param name="Travel">What the spell does with the party's place.</param>
 /// <param name="Detection">What the spell reports over.</param>
+/// <param name="OnMember">Whether the effect lands on the character the casting named rather than on the whole party.</param>
 /// <param name="Dispels">Whether the spell ends the effects other spells have left running.</param>
 /// <param name="Weakness">How weak a raising spell leaves the member it stands up, or null when it leaves none.</param>
 /// <param name="Unaimable">Whether the spell acts on something this build has no way to aim at, so a casting is refused before it is paid for.</param>
@@ -214,6 +215,7 @@ internal readonly record struct SpellReading(
     BuffReading? Buff,
     TravelShape Travel,
     DetectionScope Detection,
+    bool OnMember,
     bool Dispels,
     int? Weakness,
     bool Unaimable,
@@ -234,6 +236,7 @@ internal readonly record struct SpellReading(
         Buff: null,
         Travel: TravelShape.None,
         Detection: DetectionScope.None,
+        OnMember: false,
         Dispels: false,
         Weakness: null,
         Unaimable: false,
@@ -324,16 +327,27 @@ internal static class Readings
         reading with { Divergence = divergence };
 
     /// <summary>
-    /// How coarse a ward a character's own buff becomes when the party carries it.
+    /// An effect that lands on the character the casting named rather than on the whole party.
     /// </summary>
     /// <remarks>
-    /// The donor's six protections and its blessing, fate, heroism, and hammerhands are the character's own
-    /// buffs, applied to the character the caster names. The party model carries effects party-wide — which is
-    /// the design's own shape for a buff — so a ward raised for one member is carried by all of them. That is
-    /// coarser than the game and is stated on every spell it touches rather than hidden.
+    /// <para>
+    /// The donor's own buffs are not one shape. Its six protections and its heroism are party buffs
+    /// (<c>OpenEnroth/src/Engine/Spells/CastSpellInfo.cpp:767-801</c>, <c>pPartyBuffs[PARTY_BUFF_RESIST_*]</c>,
+    /// and <c>:930-945</c> for heroism), its blessing is one character's below expert mastery and the party's
+    /// at expert and above (<c>:846-880</c>), its fate is one character's (<c>:1631-1656</c>), and its
+    /// hammerhands is one character's below grand master and the party's at grand master
+    /// (<c>:2364-2384</c>). What decides here is this game's own table: a spell the table aims at one
+    /// character lands on that character, with their own deadline, and a spell it aims at the party is carried
+    /// by the party. That is finer-grained than the donor where the donor buffs a whole party, and it is
+    /// stated per spell in the coverage report rather than hidden in an effect path.
+    /// </para>
+    /// <para>
+    /// Why it is worth being finer: the effect is read where it applies — a resistance by that character's own
+    /// resistance sum, a blessing by their own chance to land — so a ward one member was given cannot be a
+    /// ward the whole band was given for the price of one casting.
+    /// </para>
     /// </remarks>
-    internal const string PartyWideWard =
-        "the donor's own buff belongs to the character it is cast on; this build's wards are carried by the party, so every member gets it (receiver: a per-member effect owner, which the party model does not have)";
+    internal static SpellReading OnOne(this SpellReading reading) => reading with { OnMember = true };
 }
 
 /// <summary>

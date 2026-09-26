@@ -344,6 +344,81 @@ public sealed class PartyEntity : IDisposable
         return EquipmentChange.Changed(null, item);
     }
 
+    /// <summary>
+    /// Spends one of an item's charges, and takes the item away through the party's own custody when that
+    /// was the last one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is the one entry point a charge moves through.</b> The instance is found wherever the party
+    /// holds it — the shared pack or a member's slot — the charge is spent through the instance's own state,
+    /// and what is left is the game's capacity for the item's kind less what the instance has now spent. A
+    /// caller that kept its own count of a wand's charges would be a second answer to how full the wand is,
+    /// which is why the capacity travels in rather than being stored here: the row that states it is the
+    /// ruleset's, and the pack holds instances rather than definitions.
+    /// </para>
+    /// <para>
+    /// <b>An item that empties leaves by the custody route, never by an edit to a figure.</b> The last
+    /// charge detaches the instance from wherever it lies and leaves it held by nobody, which is the same
+    /// move <see cref="ReleaseItem"/> makes: a discharged wand must not be left in a member's hand as an item
+    /// that is still equipped, and nothing else in the product may reach into a member's equipment.
+    /// </para>
+    /// </remarks>
+    /// <param name="id">The instance whose charge is spent.</param>
+    /// <param name="capacity">How many charges an item of this definition holds when full, which is the game's own reading of its row.</param>
+    /// <returns>What is left of the item, whether it vanished, or why nothing was spent.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The capacity is negative, which no row states.</exception>
+    public ItemChargeSpend SpendItemCharge(ItemInstanceId id, int capacity)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentOutOfRangeException.ThrowIfNegative(capacity);
+        ItemInstance? item = FindItem(id);
+        if (item is null)
+        {
+            return ItemChargeSpend.Refused(new PartyRefusal(
+                "item-not-held",
+                $"The party holds no item {id}, so no charge was spent."));
+        }
+
+        int left = capacity - item.State.ChargesSpent;
+        if (left <= 0)
+        {
+            return ItemChargeSpend.Refused(new PartyRefusal(
+                "item-no-charges",
+                $"Item {id} holds none of the {capacity} charge(s) its kind states, so nothing was spent and it stays where it lies."));
+        }
+
+        item.SpendCharge();
+        if (left > 1) return ItemChargeSpend.Held(left - 1, item);
+
+        // The last charge takes the item with it: the same detach a release performs, so a member's figure is
+        // emptied by the owner of custody rather than by whoever was holding the wand.
+        Detach(item);
+        item.Place(ItemCustody.Detached);
+        return ItemChargeSpend.Emptied(item);
+    }
+
+    /// <summary>
+    /// Uses an item up whole: it leaves the party and nothing keeps it, which is what reading a scroll does.
+    /// </summary>
+    /// <remarks>
+    /// This is the other half of the same entry point: an item consumed whole and an item emptied of its last
+    /// charge both leave through the party's own detach and end held by nobody, so a read scroll is not a
+    /// second kind of removal from the pack. The instance returned is the party's own record of what left;
+    /// the caller drops it, because a used-up thing is not placed anywhere.
+    /// </remarks>
+    /// <param name="id">The instance to use up.</param>
+    /// <returns>The instance that left the party, or null when it held none with that identity.</returns>
+    public ItemInstance? ConsumeItem(ItemInstanceId id)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ItemInstance? item = FindItem(id);
+        if (item is null) return null;
+        Detach(item);
+        item.Place(ItemCustody.Detached);
+        return item;
+    }
+
     /// <summary>Captures the party's durable state: what a save writes and a restore rebuilds from.</summary>
     /// <remarks>
     /// The capture is a snapshot of values, not a view of live state: member seeds and item states are

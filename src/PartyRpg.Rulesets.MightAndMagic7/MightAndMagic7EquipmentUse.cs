@@ -44,6 +44,18 @@ internal sealed class MightAndMagic7EquipmentUse : IEquipmentUseRule
     /// person writes: a pack that says "Boots", "boots", or "Cape" is describing the same place on the
     /// figure.
     /// </remarks>
+    /// <summary>
+    /// The skill group the shipped item table files its wands, rings, and potions under.
+    /// </summary>
+    /// <remarks>
+    /// The donor's reader turns any word its skill map does not name into its hidden misc skill
+    /// (OpenEnroth <c>src/Engine/Tables/ItemTable.cpp:146</c>), and the shipped table writes that group as
+    /// "Misc": no character trains it, and the donor's own wand path never reads a skill at all. Naming it
+    /// here is what lets a wand be wielded while a row filed under a skill this game does not carry — the
+    /// shipped table's clubs — is still refused.
+    /// </remarks>
+    private const string MiscGroup = "misc";
+
     private static readonly string[] NoSkillSlots =
         ["belt", "boots", "cloak", "cape", "helm", "helmet", "gauntlets", "gauntlet"];
 
@@ -87,13 +99,20 @@ internal sealed class MightAndMagic7EquipmentUse : IEquipmentUseRule
         ArgumentNullException.ThrowIfNull(item);
         if (NeedsNoSkill(slot.Value)) return null;
 
-        // An item whose definition names no skill, or names one this game does not carry, is not a thing a
-        // character may be said to be trained for: the first is what a potion, a ring, or a scroll is, and
-        // the second is refused below by the skill it names.
+        // An item whose definition names no skill is not a thing a character may be said to be trained for:
+        // that is what a potion, a ring, or a scroll is.
         if (!_required.TryGetValue(item.Definition, out string? named))
         {
             return null;
         }
+
+        // The shipped table files its wands under the group the donor reads as its own hidden misc skill
+        // (OpenEnroth src/Engine/Tables/ItemTable.cpp:146, `valueOr(equipSkillMap, tokens[5], SKILL_MISC)`,
+        // and `src/GUI/UI/NPC2.cpp`-era tables where misc is hidden and available to every class), and a wand
+        // is fired at the donor's own fixed skill value rather than at its bearer's
+        // (src/Engine/Spells/CastSpellInfo.h:61, WANDS_SKILL_VALUE) — so a wand needs no skill this game can
+        // train, which is what this group means here.
+        if (string.Equals(named, MiscGroup, StringComparison.OrdinalIgnoreCase)) return null;
 
         if (_skills.Resolve(named) is not { } skill)
         {

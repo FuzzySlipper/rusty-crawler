@@ -116,6 +116,44 @@ public sealed class MagicCoverageTests
             | approximated | the cast changes real state through that owner, more coarsely than the game does; the difference is named |
             | not yet | nothing this build reads changes, and the owner that would close the gap is named |
 
+            ## What a duration does across a save
+
+            A duration is a deadline registered with the session's one clock, and the effect it ends is carried
+            state: an effect a spell aimed at one character is written under that character's own entry, and a
+            spell aimed at the party is carried by the party. Neither the deadline nor the effect's end moment
+            is a number the effect carries, which is what makes the save boundary's own answer the honest one:
+
+            | what | across a save today |
+            | --- | --- |
+            | an item's spent charges | carried: a charge is item state, written with the instance's damage and enchantments, so a half-spent wand resumes half spent |
+            | an effect's existence and magnitude | not carried: while any deadline is registered the clock refuses to be captured, so a session holding a running ward, light, or haste cannot be saved at all |
+            | when an effect ends | not carried, for the same reason: the save records elapsed game time and no deadlines |
+
+            The refusal is by name rather than silent — `PartyRpg.Kit.Persistence.ClockSave.Capture` throws a
+            `SessionSaveException` listing the deadlines the clock holds — so a save taken while magic runs is
+            refused where a player can read it instead of dropping the schedule. Carrying deadlines (which
+            owner registered one, when it is due, and how it repeats) is Den task #8617's own requirement, and
+            it names the spell-effect deadlines among the owners that task must carry.
+
+            ## Casting from an item
+
+            A scroll and a wand carry one spell each, read from the shipped item table's own reference column,
+            and both are cast through the session's one casting workflow with the item as the spell's source:
+            no school skill and no spell point is asked for, and the item is what pays.
+
+            | what is used | how |
+            | --- | --- |
+            | a scroll | the one spell it carries, once, and the scroll is used up; the donor's own scroll cast carries no mana cost at all (OpenEnroth `src/Engine/Spells/CastSpellInfo.cpp:207`, the `overrideSkillValue` branch that sets `uRequiredMana = 0`) |
+            | a wand | the spell it carries, fired as the weapon it is wielded as, one charge spent per use, and the item leaves the party through the inventory when its last charge goes; the donor fires it at a fixed eighth level of novice mastery (OpenEnroth `src/Engine/Spells/CastSpellInfo.h:61`, `WANDS_SKILL_VALUE`) |
+
+            What this build does not take from the donor is the fixed skill reading of a scroll cast: the donor
+            casts one at the fifth level of master mastery (OpenEnroth `src/Engine/Spells/CastSpellInfo.h:60`,
+            `SCROLL_OR_NPC_SPELL_SKILL_VALUE`), while this build casts it at the caster's own school, because a
+            damaging spell's numbers are resolved by the fight's own ability answer and that answer is asked
+            with the caster rather than with the item that carried the spell (receiver: the fight's ability
+            resolution, which would have to be handed the casting's own skill reading). A wand's own value *is*
+            taken, because a wand is the weapon the fight resolves the attack with.
+
             ## Counts
 
             """

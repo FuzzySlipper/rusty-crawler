@@ -785,6 +785,38 @@ public static class SessionProjection
                 ("endsAt", builder.String(effect.EndsAt))));
         }
 
+        // What runs on each character rather than on the band, each row naming them: this is what makes a ward
+        // cast on one member visible as theirs while the other members' rows stay empty.
+        List<uint> memberRunning = [];
+        foreach (SpellMemberRunningSnapshot effect in magic.MemberRunning ?? [])
+        {
+            memberRunning.Add(builder.Object(
+                ("member", builder.String(effect.Member)),
+                ("name", builder.String(effect.Name)),
+                ("effect", builder.String(effect.Effect)),
+                ("magnitude", builder.Number(effect.Magnitude)),
+                ("endsAt", builder.String(effect.EndsAt))));
+        }
+
+        // The items the party carries that hold a spell: what each is, what it carries, and how much of it is
+        // left. A panel shows them and sends back the instance identity it was handed, so using one asks the
+        // product about the item it drew rather than about a row number.
+        List<uint> items = [];
+        foreach (SpellItemSnapshot item in magic.Items ?? [])
+        {
+            items.Add(builder.Object(
+                ("item", builder.String(item.Item)),
+                ("name", builder.String(item.Name)),
+                ("kind", builder.String(item.Kind)),
+                ("spell", builder.String(item.Spell)),
+                ("spellName", builder.String(item.SpellName)),
+                ("targeting", builder.String(item.Targeting)),
+                ("charges", builder.Number(item.Charges)),
+                ("chargesMax", builder.Number(item.ChargesMax)),
+                ("wielded", builder.Boolean(item.Wielded)),
+                ("member", builder.String(item.Member))));
+        }
+
         return builder.Object(
             ("available", builder.Boolean(magic.Available)),
             ("members", builder.Array([.. members])),
@@ -798,8 +830,11 @@ public static class SessionProjection
             ("effect", builder.String(magic.Effect ?? string.Empty)),
             ("code", builder.String(magic.Code ?? string.Empty)),
             ("message", builder.String(magic.Message ?? string.Empty)),
+            ("source", builder.String(magic.Source ?? string.Empty)),
             ("facts", builder.Array([.. facts])),
             ("running", builder.Array([.. running])),
+            ("memberRunning", builder.Array([.. memberRunning])),
+            ("items", builder.Array([.. items])),
             ("sight", builder.String(magic.Sight ?? string.Empty)));
     }
 

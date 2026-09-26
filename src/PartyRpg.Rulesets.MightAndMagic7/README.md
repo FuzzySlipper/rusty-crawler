@@ -18,13 +18,21 @@ Owns:
   school's books a counter sells, and the effect path every category is applied through
   (`MightAndMagic7SpellEffects`): harm as an attack of the spell kind through the fight's own gated entry,
   health through the member's own pool in the donor's four shapes, conditions through the member's own
-  condition state, wards and utilities as party-carried effects with a deadline on the one clock and read by
-  the fight's own answers (resistance, armour class, recovery, the chance to land, what a blow is worth, the
-  luck a save reads, whether a creature notices the party), light ended by the clock's daylight window,
-  travel as a portal through the world's own transition path with a beacon in the party's carried state, and
-  detection over the places and the population the world holds. What each spell does inside its category is
-  its row in `MightAndMagic7SpellReadings`, and how far this build expresses each one is reported per spell
-  in `docs/magic-coverage.md`, which a test generates and checks against those rows.
+  condition state, a ward or a buff the table aims at one character landed on that character with its own
+  deadline and read where it applies for them (the six elemental and body protections, blessing, fate,
+  heroism, and hammerhands), a ward or a buff aimed at the band carried by the party, all of them read by the
+  fight's own answers (resistance, armour class, recovery, the chance to land, what a blow is worth, the
+  luck a save reads, whether a creature notices the party) and ended by the clock, by a dispelling, or by
+  the character no longer carrying anything; light ended by the clock's daylight window, travel as a portal
+  through the world's own transition path with a beacon in the party's carried state, and detection over
+  the places and the population the world holds. What each spell does inside its category is its row in
+  `MightAndMagic7SpellReadings`, and how far this build expresses each one is reported per spell in
+  `docs/magic-coverage.md`, which a test generates and checks against those rows.
+- Items that carry a spell (`MightAndMagic7Spells.Reading`): a scroll read once and used up, and a wand
+  fired as the weapon it is, one charge per shot, at the donor's own fixed skill value rather than at its
+  bearer's. Both are read from the shipped item table's own reference column through the same join a book's
+  lesson uses, and a scenario's party may declare what it wears and what its pack holds
+  (`MightAndMagic7Party`), which the live checks stage their starts with.
 - Monster, item, service, and condition definitions and their interpretation.
 - Combat, damage, resistance, conditions, recovery, reward, and experience formulas.
 - Progression policy: the experience curve, how a party's award divides, what a

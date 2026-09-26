@@ -1481,7 +1481,7 @@ public sealed class PartyRpgSession : IGameSession
                 continue;
             }
 
-            SpellCastResult result = casting.Cast(new SpellCastRequest(request.Member, request.Spell, request.Target));
+            SpellCastResult result = casting.Cast(new SpellCastRequest(request.Member, request.Spell, request.Target, request.Item));
             cast |= result.IsCast;
             if (result.IsCast) _lastCastActor = CombatantId.Of(casting.Party.Members[result.Member].Id);
             if (!result.IsCast)

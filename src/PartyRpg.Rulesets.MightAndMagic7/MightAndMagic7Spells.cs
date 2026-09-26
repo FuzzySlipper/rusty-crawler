@@ -92,7 +92,7 @@ internal static class SpellEffects
 /// no target named until an item-aim owner exists.
 /// </para>
 /// </remarks>
-internal sealed class MightAndMagic7Spells : ISpellRule
+internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellItemNames
 {
     /// <summary>The definition kind the shipped spell table is declared under.</summary>
     internal const string SpellDefinitionKind = "spell";
@@ -102,6 +102,18 @@ internal sealed class MightAndMagic7Spells : ISpellRule
 
     /// <summary>The item field that names the spell a book teaches, which the importer writes.</summary>
     internal const string TeachesField = "spell";
+
+    /// <summary>The item field that states what sort of equipment a row is.</summary>
+    internal const string TypeField = "type";
+
+    /// <summary>The item field that states how much damage modifier a weapon adds, which is what a wand's charges are read from.</summary>
+    internal const string DamageModifierField = "damageModifier";
+
+    /// <summary>The kind tag the shipped item table's spell scrolls are written under.</summary>
+    internal const string ScrollKind = "spell-scroll";
+
+    /// <summary>The kind tag the shipped item table's wands are written under.</summary>
+    internal const string WandKind = "wand";
 
     /// <summary>The item field the shipped table's own spell reference is carried in.</summary>
     internal const string DamageDiceField = "damageDice";
@@ -200,7 +212,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule
     [
         Entry(1, [1, 1, 1, 1], [60, 60, 60, 40], 0, 0, 1, SpellTargeting.Party, SpellEffects.Light),   // Torch Light
         Entry(2, [2, 2, 2, 2], [110, 110, 100, 90], 0, 3, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Fire Bolt
-        Entry(3, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Fire], WardFormulas.MasteryTimesLevel, WardFormulas.HoursPerLevel).Coarser(Readings.PartyWideWard)),   // Fire Resistance
+        Entry(3, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Fire], WardFormulas.MasteryTimesLevel, WardFormulas.HoursPerLevel).OnOne()),   // Fire Resistance
         Entry(4, [4, 4, 4, 4], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Utility, Readings.Unaimable("a weapon in hand", "an item-aim owner: the pack holds the party's items and nothing aims a spell at one")),   // Fire Aura
         Entry(5, [5, 5, 5, 5], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Party, SpellEffects.Utility, Readings.Buff(SpellEffectIds.Haste, WardFormulas.Flat(25), WardFormulas.HourAndFewMinutesByMastery)),   // Haste
         Entry(6, [8, 8, 8, 8], [100, 100, 90, 80], 0, 6, 2, SpellTargeting.Foe, SpellEffects.Damage),   // Fireball
@@ -211,7 +223,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule
         Entry(11, [30, 30, 30, 30], [90, 90, 90, 90], 15, 15, 4, SpellTargeting.Foe, SpellEffects.Damage),   // Incinerate
         Entry(12, [1, 1, 1, 0], [60, 60, 60, 60], 0, 0, 1, SpellTargeting.Party, SpellEffects.Detection, Readings.Detect(DetectionScope.Places)),   // Wizard Eye
         Entry(13, [2, 2, 2, 2], [120, 120, 120, 100], 0, 0, 1, SpellTargeting.Party, SpellEffects.Travel, Readings.Movement("a fall slowed until it cannot hurt")),   // Feather Fall
-        Entry(14, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Air], WardFormulas.MasteryTimesLevel, WardFormulas.HoursPerLevel).Coarser(Readings.PartyWideWard)),   // Air Resistance
+        Entry(14, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Air], WardFormulas.MasteryTimesLevel, WardFormulas.HoursPerLevel).OnOne()),   // Air Resistance
         Entry(15, [4, 4, 4, 4], [110, 100, 90, 80], 2, 1, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Sparks
         Entry(16, [5, 5, 5, 5], [90, 90, 70, 50], 0, 0, 2, SpellTargeting.Caster, SpellEffects.Travel, Readings.Movement("a jump that carries the party over what it could not walk past")),   // Jump
         Entry(17, [8, 8, 8, 8], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Caster, SpellEffects.Resistance, Readings.NotYet("a shield that turns a missile aside", "the fight's own ranged resolution")),   // Shield
@@ -222,7 +234,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule
         Entry(22, [30, 30, 30, 30], [90, 90, 90, 90], 20, 1, 4, SpellTargeting.Foe, SpellEffects.Damage),   // Starburst
         Entry(23, [1, 1, 1, 1], [60, 60, 60, 20], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Condition, Readings.Cure(MightAndMagic7Conditions.Sleep)),   // Awaken
         Entry(24, [2, 2, 2, 2], [110, 100, 90, 70], 2, 2, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Poison Spray
-        Entry(25, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Water], WardFormulas.MasteryTimesLevel, WardFormulas.HoursPerLevel).Coarser(Readings.PartyWideWard)),   // Water Resistance
+        Entry(25, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Water], WardFormulas.MasteryTimesLevel, WardFormulas.HoursPerLevel).OnOne()),   // Water Resistance
         Entry(26, [4, 4, 4, 4], [110, 100, 90, 80], 0, 4, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Ice Bolt
         Entry(27, [5, 5, 5, 5], [150, 150, 150, 150], 0, 0, 2, SpellTargeting.Party, SpellEffects.Travel, Readings.Movement("water walked over rather than swum through")),   // Water Walk
         Entry(28, [8, 8, 8, 8], [200, 200, 200, 200], 0, 0, 2, SpellTargeting.None, SpellEffects.Utility, Readings.Unaimable("an item whose charges are given back", "an item-aim owner: the pack holds the party's items and nothing aims a spell at one")),   // Recharge Item
@@ -233,7 +245,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule
         Entry(33, [30, 30, 30, 30], [250, 250, 250, 250], 0, 0, 4, SpellTargeting.None, SpellEffects.Travel, Readings.Beacon()),   // Lloyd's Beacon
         Entry(34, [1, 1, 1, 1], [80, 80, 80, 80], 0, 0, 1, SpellTargeting.Foe, SpellEffects.Condition, Readings.Inflict(MightAndMagic7Conditions.Paralyzed)),   // Stun
         Entry(35, [2, 2, 2, 2], [100, 100, 100, 100], 0, 0, 1, SpellTargeting.Foe, SpellEffects.Condition, Readings.NotYet("a creature slowed", "the fight's own actor state, which paces an actor by its row")),   // Slow
-        Entry(36, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Earth], WardFormulas.MasteryTimesLevel, WardFormulas.HoursPerLevel).Coarser(Readings.PartyWideWard)),   // Earth Resistance
+        Entry(36, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Earth], WardFormulas.MasteryTimesLevel, WardFormulas.HoursPerLevel).OnOne()),   // Earth Resistance
         Entry(37, [4, 4, 4, 4], [110, 100, 90, 80], 5, 3, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Deadly Swarm
         Entry(38, [5, 5, 5, 5], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Party, SpellEffects.Resistance, Readings.Armour(WardFormulas.LevelPlus(1, 5), WardFormulas.HourAndMinutesByMastery)),   // Stone Skin
         Entry(39, [8, 8, 8, 8], [100, 100, 90, 80], 0, 9, 2, SpellTargeting.Foe, SpellEffects.Damage),   // Blades
@@ -243,19 +255,19 @@ internal sealed class MightAndMagic7Spells : ISpellRule
         Entry(43, [25, 25, 25, 25], [100, 100, 100, 90], 20, 1, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Death Blossom
         Entry(44, [30, 30, 30, 30], [90, 90, 90, 90], 25, 2, 4, SpellTargeting.Foe, SpellEffects.Damage),   // Mass Distortion
         Entry(45, [1, 1, 1, 1], [100, 100, 100, 100], 0, 0, 1, SpellTargeting.Caster, SpellEffects.Detection, Readings.Detect(DetectionScope.Life)),   // Detect Life
-        Entry(46, [2, 2, 2, 2], [100, 100, 100, 100], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Utility, Readings.Buff(SpellEffectIds.Bless, WardFormulas.LevelPlus(1, 5), WardFormulas.HourAndMinutesByMastery).Coarser(Readings.PartyWideWard)),   // Bless
-        Entry(47, [3, 3, 3, 3], [90, 90, 90, 90], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Utility, Readings.Buff(SpellEffectIds.Fate, WardFormulas.FatePower, WardFormulas.FiveMinutes).Coarser(Readings.PartyWideWard)),   // Fate
+        Entry(46, [2, 2, 2, 2], [100, 100, 100, 100], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Utility, Readings.Buff(SpellEffectIds.Bless, WardFormulas.LevelPlus(1, 5), WardFormulas.HourAndMinutesByMastery).OnOne()),   // Bless
+        Entry(47, [3, 3, 3, 3], [90, 90, 90, 90], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Utility, Readings.Buff(SpellEffectIds.Fate, WardFormulas.FatePower, WardFormulas.FiveMinutes).OnOne()),   // Fate
         Entry(48, [4, 4, 4, 4], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Foe, SpellEffects.Condition, Readings.NotYet("a creature turned away from the party", "the fight's allegiance state, which is a side rather than a fear")),   // Turn Undead
         Entry(49, [5, 5, 5, 5], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Ally, SpellEffects.Condition, Readings.Cure(MightAndMagic7Conditions.Cursed)),   // Remove Curse
         Entry(50, [8, 8, 8, 8], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Caster, SpellEffects.Utility, Readings.NotYet("the party's gear protected from harm", "item state, which carries what a spell would protect")),   // Preservation
-        Entry(51, [10, 10, 10, 10], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Ally, SpellEffects.Utility, Readings.Buff(SpellEffectIds.Heroism, WardFormulas.LevelPlus(1, 5), WardFormulas.HourAndMinutesByMastery).Coarser(Readings.PartyWideWard)),   // Heroism
+        Entry(51, [10, 10, 10, 10], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Ally, SpellEffects.Utility, Readings.Buff(SpellEffectIds.Heroism, WardFormulas.LevelPlus(1, 5), WardFormulas.HourAndMinutesByMastery).OnOne()),   // Heroism
         Entry(52, [15, 15, 15, 15], [100, 100, 100, 100], 10, 8, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Spirit Lash
         Entry(53, [20, 20, 20, 20], [240, 240, 240, 240], 0, 0, 3, SpellTargeting.Ally, SpellEffects.Healing, Readings.Raise(weakness: 0, MightAndMagic7Conditions.Dead, MightAndMagic7Conditions.Unconscious)),   // Raise Dead
         Entry(54, [25, 25, 25, 25], [150, 150, 150, 150], 0, 0, 3, SpellTargeting.Ally, SpellEffects.Healing, Readings.Share(perLevel: 3)),   // Shared Life
         Entry(55, [30, 30, 30, 30], [1000, 1000, 1000, 1000], 0, 0, 4, SpellTargeting.Ally, SpellEffects.Healing, Readings.Raise(weakness: 1, MightAndMagic7Conditions.Eradicated, MightAndMagic7Conditions.Dead, MightAndMagic7Conditions.Unconscious)),   // Resurrection
         Entry(56, [1, 1, 1, 1], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Condition, Readings.Cure(MightAndMagic7Conditions.Fear)),   // Remove Fear
         Entry(57, [2, 2, 2, 2], [110, 110, 110, 110], 3, 3, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Mind Blast
-        Entry(58, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Mind], WardFormulas.MasteryTimesLevel, WardFormulas.HoursPerLevel).Coarser(Readings.PartyWideWard)),   // Mind Resistance
+        Entry(58, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Mind], WardFormulas.MasteryTimesLevel, WardFormulas.HoursPerLevel).OnOne()),   // Mind Resistance
         Entry(59, [4, 4, 4, 4], [110, 100, 90, 80], 0, 0, 1, SpellTargeting.Caster, SpellEffects.Detection, Readings.Detect(DetectionScope.Minds)),   // Telepathy
         Entry(60, [5, 5, 5, 5], [100, 100, 100, 100], 0, 0, 2, SpellTargeting.Foe, SpellEffects.Condition, Readings.NotYet("a charmed creature that fights for the party", "the fight's allegiance state, which is a side rather than a loyalty")),   // Charm
         Entry(61, [8, 8, 8, 8], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Ally, SpellEffects.Condition, Readings.Cure(MightAndMagic7Conditions.Paralyzed)),   // Cure Paralysis
@@ -266,11 +278,11 @@ internal sealed class MightAndMagic7Spells : ISpellRule
         Entry(66, [30, 30, 30, 30], [120, 120, 120, 120], 0, 0, 4, SpellTargeting.Foe, SpellEffects.Condition, Readings.NotYet("an enslaved creature that fights for the party", "the fight's allegiance state, which is a side rather than a loyalty")),   // Enslave
         Entry(67, [1, 1, 1, 1], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Condition, Readings.Cure(MightAndMagic7Conditions.Weak)),   // Cure Weakness
         Entry(68, [2, 2, 2, 2], [100, 100, 100, 100], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Healing, Readings.Restore(perLevel: 1, flat: 5, byMastery: true)),   // Heal
-        Entry(69, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Body], WardFormulas.MasteryTimesLevel, WardFormulas.HoursPerLevel).Coarser(Readings.PartyWideWard)),   // Body Resistance
+        Entry(69, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Body], WardFormulas.MasteryTimesLevel, WardFormulas.HoursPerLevel).OnOne()),   // Body Resistance
         Entry(70, [4, 4, 4, 4], [110, 100, 90, 80], 8, 2, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Harm
         Entry(71, [5, 5, 5, 5], [110, 110, 110, 110], 0, 0, 2, SpellTargeting.Ally, SpellEffects.Healing, Readings.NotYet("health given back over a duration", "this effect path's own clock observation: the running-effect ledger hears every advance")),   // Regeneration
         Entry(72, [8, 8, 8, 8], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Ally, SpellEffects.Condition, Readings.Cure(MightAndMagic7Conditions.PoisonWeak, MightAndMagic7Conditions.PoisonMedium, MightAndMagic7Conditions.PoisonSevere)),   // Cure Poison
-        Entry(73, [10, 10, 10, 10], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Caster, SpellEffects.Utility, Readings.Buff(SpellEffectIds.Hammerhands, WardFormulas.LevelPlus(1, 0), WardFormulas.HoursPerLevel).Coarser(Readings.PartyWideWard)),   // Hammerhands
+        Entry(73, [10, 10, 10, 10], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Caster, SpellEffects.Utility, Readings.Buff(SpellEffectIds.Hammerhands, WardFormulas.LevelPlus(1, 0), WardFormulas.HoursPerLevel).OnOne()),   // Hammerhands
         Entry(74, [15, 15, 15, 15], [120, 120, 120, 120], 0, 0, 3, SpellTargeting.Ally, SpellEffects.Condition, Readings.Cure(MightAndMagic7Conditions.DiseaseWeak, MightAndMagic7Conditions.DiseaseMedium, MightAndMagic7Conditions.DiseaseSevere)),   // Cure Disease
         Entry(75, [20, 20, 20, 20], [120, 120, 120, 120], 0, 0, 3, SpellTargeting.Party, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Magic], WardFormulas.LevelPlus(1, 0), WardFormulas.HoursPerLevel).Coarser("the donor reads this buff as a chance to resist a spell rather than as a resistance of one kind of harm; this build reads it as a ward against magic harm (receiver: the fight's spell resolution, which would make the check)")),   // Protection from Magic
         Entry(76, [25, 25, 25, 25], [110, 110, 110, 100], 30, 5, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Flying Fist
@@ -302,6 +314,8 @@ internal sealed class MightAndMagic7Spells : ISpellRule
     private readonly Dictionary<SpellId, Facts> _facts;
     private readonly Dictionary<string, SpellDefinition> _byName;
     private readonly Dictionary<ItemDefinitionId, SpellId> _books;
+    private readonly Dictionary<ItemDefinitionId, SpellItemReading> _carried;
+    private readonly Dictionary<ItemDefinitionId, string> _names;
     private readonly MightAndMagic7Skills? _skills;
 
     private MightAndMagic7Spells(
@@ -309,12 +323,16 @@ internal sealed class MightAndMagic7Spells : ISpellRule
         Dictionary<SpellId, Facts> facts,
         Dictionary<string, SpellDefinition> byName,
         Dictionary<ItemDefinitionId, SpellId> books,
+        Dictionary<ItemDefinitionId, SpellItemReading> carried,
+        Dictionary<ItemDefinitionId, string> names,
         MightAndMagic7Skills? skills)
     {
         Catalog = catalog;
         _facts = facts;
         _byName = byName;
         _books = books;
+        _carried = carried;
+        _names = names;
         _skills = skills;
     }
 
@@ -389,22 +407,46 @@ internal sealed class MightAndMagic7Spells : ISpellRule
         // importer writes out as the spell's id; a book whose spell this content does not declare is a lesson
         // nothing could teach, so it is a defect rather than a purchase that silently does nothing.
         Dictionary<ItemDefinitionId, SpellId> books = [];
+        Dictionary<ItemDefinitionId, SpellItemReading> carried = [];
+        Dictionary<ItemDefinitionId, string> names = [];
         foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in catalog.Entries(ItemDefinitionKind))
         {
-            if (!string.Equals(entry.GetString(EquipStatField), BookEquipStat, StringComparison.OrdinalIgnoreCase)) continue;
+            string name = entry.GetString(NameField);
+            if (name.Length > 0) names[new ItemDefinitionId(entry.Id)] = name;
+            string kind = entry.GetString(TypeField).Trim();
+            bool book = string.Equals(entry.GetString(EquipStatField), BookEquipStat, StringComparison.OrdinalIgnoreCase);
+            bool scroll = string.Equals(kind, ScrollKind, StringComparison.OrdinalIgnoreCase);
+            bool wand = string.Equals(kind, WandKind, StringComparison.OrdinalIgnoreCase);
+            if (!book && !scroll && !wand) continue;
+
             string teaches = Taught(entry);
             if (teaches.Length == 0) continue;
             if (!facts.ContainsKey(new SpellId(teaches)))
             {
                 issues.Add(new ContentValidationIssue(
-                    "spell-book-unknown",
-                    $"item '{entry.Id}' ({entry.GetString(NameField)}) is a book of spell '{teaches}', which this content does not declare.",
+                    "spell-item-unknown",
+                    $"item '{entry.Id}' ({entry.GetString(NameField)}) carries spell '{teaches}', which this content does not declare.",
                     pack.PackId,
                     document.DocumentId));
                 continue;
             }
 
-            books[new ItemDefinitionId(entry.Id)] = new SpellId(teaches);
+            SpellId spell = new(teaches);
+            if (book)
+            {
+                books[new ItemDefinitionId(entry.Id)] = spell;
+                continue;
+            }
+
+            // A scroll is used up by the one spell it carries; a wand holds charges and spends one per use.
+            // The count is ours over the donor's own draw: the donor gives a wand `random(6) + modifier + 1`
+            // charges off a monster, the map, or a script and `random(21) + 10` out of a chest
+            // (OpenEnroth src/Engine/Objects/Item.cpp:746-752), and this build states one number instead of
+            // drawing — the row's own modifier, which the shipped table carries in the same column a weapon's
+            // damage bonus comes from, plus four, the donor's mean rounded up.
+            carried[new ItemDefinitionId(entry.Id)] = scroll
+                ? SpellItemReading.Consumed(spell)
+                : SpellItemReading.Charged(spell, WandCharges(entry));
         }
 
         if (issues.Count > 0)
@@ -414,7 +456,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule
                 issues);
         }
 
-        return new MightAndMagic7Spells(new SpellCatalog(definitions), facts, byName, books, skills);
+        return new MightAndMagic7Spells(new SpellCatalog(definitions), facts, byName, books, carried, names, skills);
     }
 
     /// <summary>How many rows this game states numbers for, which content's own table declares.</summary>
@@ -652,9 +694,16 @@ internal sealed class MightAndMagic7Spells : ISpellRule
                 HealingMode.Raise => "a member stood back up at one hit point, with what laid them out lifted from their own conditions",
                 _ => "hit points restored through the member's own pool",
             },
-            SpellEffects.Resistance => reading.Ward is { Armour: true }
-                ? "armour class carried by the party and read by the fight's own armour class"
-                : "a ward carried by the party and read by the fight's own resistance",
+            SpellEffects.Resistance => reading.Ward switch
+            {
+                { Armour: true } => "armour class carried by the party and read by the fight's own armour class",
+                // A ward aimed at one character is that character's own, read by the resistance their own
+                // fight sums; a ward aimed at the party is carried by the party. The donor's own casts differ
+                // per spell, which the sentence states rather than hiding.
+                { } ward when reading.OnMember =>
+                    "a ward on the character the casting named, read by the fight's own resistance for that character and ended by its own deadline; the donor gives several of these to the whole party at once (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:767-801, pPartyBuffs[PARTY_BUFF_RESIST_*]), and this game's own table aims each one at a single character",
+                _ => "a ward carried by the party and read by the fight's own resistance",
+            },
             SpellEffects.Condition => "the named conditions lifted through the member's own condition state",
             SpellEffects.Light => "a light carried by the party, read against the clock's own daylight and ended by its own deadline",
             SpellEffects.Travel => reading.Travel switch
@@ -665,7 +714,9 @@ internal sealed class MightAndMagic7Spells : ISpellRule
             SpellEffects.Detection => "a report read from the places and the population the world holds",
             SpellEffects.Utility => reading.Dispels
                 ? "the effects other spells have left running ended through the ledger that holds their deadlines"
-                : "a party-carried effect read by the fight's own resolution",
+                : reading.OnMember
+                    ? "an effect on the character the casting named, read by the fight's own resolution for that character and ended by its own deadline; the donor rewards a blessing, a fate, and hammerhands to one character below the rungs where it widens them to the party (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:846-880, :1631-1656, :2364-2384), and this game's own table aims each one at a single character"
+                    : "a party-carried effect read by the fight's own resolution",
             _ => "the spell's own category path",
         };
     }
@@ -711,6 +762,46 @@ internal sealed class MightAndMagic7Spells : ISpellRule
     /// <param name="book">The item definition.</param>
     internal SpellId? TaughtBy(ItemDefinitionId book) =>
         _books.TryGetValue(book, out SpellId spell) ? spell : null;
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// A scroll carries one spell and is used up by it; a wand carries one and spends a charge per use. Both
+    /// are read from the item table's own rows through the same join a book's lesson uses — the shipped
+    /// reference column, written out by the importer as the item's <c>spell</c> field — so what a counter
+    /// sells, what a chest holds, and what a casting takes its spell from are one reading of one table.
+    /// </remarks>
+    public SpellItemReading? Reading(ItemDefinitionId definition) =>
+        _carried.TryGetValue(definition, out SpellItemReading reading) ? reading : null;
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// The shipped table's own name column, which is what a person reads on a shelf and in a pack; a pack that
+    /// names nothing answers empty and the panel falls back to the identity the item is known by.
+    /// </remarks>
+    public string NameOf(ItemDefinitionId definition) =>
+        _names.TryGetValue(definition, out string? name) ? name : string.Empty;
+
+    /// <summary>How many charges a wand's own row states, which is what one wand of that kind holds when full.</summary>
+    /// <remarks>
+    /// The donor draws a wand's charges from its damage modifier (OpenEnroth
+    /// <c>src/Engine/Objects/Item.cpp:746-752</c>: <c>random(6) + GetDamageMod() + 1</c> for a wand off a
+    /// monster, the map, or a script, and <c>random(21) + 10</c> out of a chest). This build states one
+    /// number rather than drawing — the shipped row's own modifier plus four, the donor's mean rounded up —
+    /// so a wand is the same wand wherever the party finds it and a save has no draw to reproduce. A row
+    /// whose modifier is not a number carries four charges rather than none, because a wand that can never
+    /// be fired is a piece of content this game's rows do not describe.
+    /// </remarks>
+    private static int WandCharges(ContentEntry entry)
+    {
+        string modifier = entry.GetString(DamageModifierField).Trim();
+        int bonus = int.TryParse(modifier, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed) && parsed > 0
+            ? parsed
+            : 0;
+        return bonus + WandChargeBonus;
+    }
+
+    /// <summary>What every wand adds to its own row's modifier to state how many charges it holds.</summary>
+    private const int WandChargeBonus = 4;
 
     /// <summary>The spell a shipped book's own reference column names, empty when it names none.</summary>
     /// <remarks>

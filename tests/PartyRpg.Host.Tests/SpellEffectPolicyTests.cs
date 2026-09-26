@@ -118,18 +118,66 @@ public sealed class SpellEffectPolicyTests
         Assert.Equal(100, policy.DamageAfterResistance(defender, MightAndMagic7Damage.Fire, 100, Rolls));
 
         // Fire resistance is the donor's own ward: the school's level times the mastery rung, for an hour a
-        // level (OpenEnroth src/Engine/Spells/Spells.cpp:748-762).
+        // level (OpenEnroth src/Engine/Spells/Spells.cpp:748-762). It lands on the character the casting named
+        // rather than on the band, so the panel publishes it on that member's own row.
         Cast(session, ui, 1, "3", Target(live.Party!.Members[0]));
         ProjectedNode magic = Magic(ui);
         Assert.Equal("cast", magic.Field("outcome").AsString());
         Assert.Equal("resistance", magic.Field("effect").AsString());
-        Assert.Equal(12d, Running(magic, "spell.resist.Fire").Field("magnitude").AsNumber());
+        ProjectedNode ward = MemberRunning(magic, live.Party.Members[0].Id.ToString(), "spell.resist.Fire");
+        Assert.Equal(12d, ward.Field("magnitude").AsNumber());
+        Assert.Equal(live.Party.Members[0].Profile.Name, ward.Field("name").AsString());
+        Assert.Equal(0, magic.Field("running").Length());
 
         // The same blow, read by the same fight, is now resisted: it takes its share four times over, which is
         // measurable in what lands rather than merely stated.
         AttackPlan warded = policy.PlanOf(attacker, defender, AttackKind.Melee);
         Assert.Equal(12, warded.Resistance.Points);
         Assert.Equal(6, policy.DamageAfterResistance(defender, MightAndMagic7Damage.Fire, 100, Rolls));
+
+        // And the character the casting did not name carries nothing: the panel publishes no row for them, and
+        // the same fight reads no resistance for them either, which is what makes the ward that member's own.
+        Assert.Equal(1, magic.Field("memberRunning").Length());
+        CombatSubject other = SubjectOf(live, policy, "Borin");
+        AttackPlan unwarded = policy.PlanOf(attacker, other, AttackKind.Melee);
+        Assert.Equal(0, unwarded.Resistance.Points);
+        Assert.Equal(100, policy.DamageAfterResistance(other, MightAndMagic7Damage.Fire, 100, Rolls));
+    }
+
+    [Fact]
+    public void A_ward_on_one_character_ends_when_that_character_is_laid_out()
+    {
+        (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(Content());
+        using IGameSession session = Casting(context, ui);
+        MightAndMagic7Session live = (MightAndMagic7Session)session;
+        MightAndMagic7Combat policy = Fight(context, live.Party!);
+
+        // A ward the casting named one character with, and the reading that shows it acting. The panel is
+        // read first: a casting that was refused would leave nothing to read a resistance from.
+        Cast(session, ui, 1, "3", Target(live.Party!.Members[0]));
+        Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
+        Assert.Equal(1, Magic(ui).Field("memberRunning").Length());
+        CombatSubject beast = Attacker(live, policy);
+        CombatSubject warded = SubjectOf(live, policy, "Aelina");
+        Assert.Equal(12, policy.PlanOf(beast, warded, AttackKind.Melee).Resistance.Points);
+
+        // Death ends what a spell left on a character: the fight lays the member out, and where that character
+        // is next read the ward is gone — from the party's own state, from the fight's reading, and from what
+        // the panel shows. Nothing else in the product is told that a wound killed somebody.
+        live.Party.Members[0].TakeDamage(1000);
+        live.Party.Members[0].Conditions.Apply(new ActiveCondition(MightAndMagic7Conditions.Dead, 1));
+        Cast(session, ui, 2, "5", string.Empty);
+
+        Assert.Equal(0, Magic(ui).Field("memberRunning").Length());
+        Assert.Equal(0, policy.PlanOf(beast, warded, AttackKind.Melee).Resistance.Points);
+    }
+
+    /// <summary>The fight's own subject for one named member, read from the live party.</summary>
+    private static CombatSubject SubjectOf(MightAndMagic7Session live, ICombatRule rule, string name)
+    {
+        CombatState fight = FightOf(live, rule);
+        return fight.Combatants.First(
+            combatant => combatant.Subject.IsMember && combatant.Subject.Member?.Profile.Name == name).Subject;
     }
 
     [Fact]
@@ -321,8 +369,19 @@ public sealed class SpellEffectPolicyTests
             ContentLayout.Under(ProductTestContext.ContentDirectory)).RequireValid();
         MightAndMagic7Spells spells = MightAndMagic7Spells.Read(catalog)
             ?? throw new InvalidOperationException("The content declares spells, so reading them must produce a table.");
-        return MightAndMagic7Combat.Compose(catalog, random: null, fallen: null, spells, () => party);
+
+        // What a spell left on one character is the party's own carried effect state, so a policy composed over
+        // the same party reads the same ward the session's cast wrote: the ledger that applied it is only what
+        // holds when it ends, and a fight composed without one still reads the ward the party carries.
+        RunningSpellEffects effects = new(party, clock: null, StillCarries);
+        return MightAndMagic7Combat.Compose(catalog, random: null, fallen: null, spells, () => party, () => effects);
     }
+
+    /// <summary>Whether a character still carries what a spell left on them, as this game answers it.</summary>
+    private static bool StillCarries(PartyMember member) =>
+        !member.Conditions.Has(MightAndMagic7Conditions.Dead) &&
+        !member.Conditions.Has(MightAndMagic7Conditions.Petrified) &&
+        !member.Conditions.Has(MightAndMagic7Conditions.Eradicated);
 
     /// <summary>A fight over the session's own world, read once, so its subjects are the live ones.</summary>
     private static CombatState FightOf(MightAndMagic7Session live, ICombatRule rule)
@@ -384,6 +443,23 @@ public sealed class SpellEffectPolicyTests
         }
 
         throw new InvalidOperationException($"Aelina does not know spell {spell}.");
+    }
+
+    /// <summary>One effect the panel published running on one member under an identity.</summary>
+    private static ProjectedNode MemberRunning(ProjectedNode magic, string member, string effect)
+    {
+        ProjectedNode running = magic.Field("memberRunning");
+        for (int index = 0; index < running.Length(); index++)
+        {
+            if (running.Item(index).Field("member").AsString() == member &&
+                running.Item(index).Field("effect").AsString() == effect)
+            {
+                return running.Item(index);
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"No effect '{effect}' is running on member {member}; the panel published {running.Length()} character effect(s).");
     }
 
     /// <summary>One running effect the panel published under an identity.</summary>

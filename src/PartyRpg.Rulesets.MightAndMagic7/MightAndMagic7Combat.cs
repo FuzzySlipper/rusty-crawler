@@ -40,7 +40,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// equipment, and their place is the sum below.
 /// </para>
 /// </remarks>
-internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule, ICombatAbilityResolutionRule, IFallenCreatureObserver
+internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule, ICombatAbilityResolutionRule, ICombatWeaponRule, IFallenCreatureObserver
 {
     /// <summary>The definition kind a monster row is imported under.</summary>
     internal const string MonsterDefinitionKind = "monster";
@@ -343,6 +343,16 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     internal static readonly int[] ParameterBonuses =
         [30, 25, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6];
 
+    /// <summary>
+    /// How many levels of a spell's school a charged item fires at, which is the donor's own fixed value.
+    /// </summary>
+    /// <remarks>
+    /// OpenEnroth <c>src/Engine/Spells/CastSpellInfo.h:61</c>: a wand casts at novice mastery of the eighth
+    /// level, whatever its bearer's own skill in that school is — which is why a wand is worth carrying by a
+    /// character who has never learned the school at all.
+    /// </remarks>
+    internal const int WandSkillLevel = 8;
+
     /// <summary>The seed every roll of this game's fights is drawn from.</summary>
     /// <remarks>
     /// The engine's random service takes an explicit seed and reads no wall clock, so the product states one.
@@ -362,6 +372,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     private readonly IFallenCreatureObserver? _fallen;
     private readonly MightAndMagic7Spells? _spells;
     private readonly Func<PartyEntity?> _party;
+    private readonly Func<IMemberSpellEffects?> _memberEffects;
 
     private MightAndMagic7Combat(
         Dictionary<int, MonsterFacts> monsters,
@@ -370,7 +381,8 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         IRandomService? random,
         IFallenCreatureObserver? fallen,
         MightAndMagic7Spells? spells,
-        Func<PartyEntity?>? party)
+        Func<PartyEntity?>? party,
+        Func<IMemberSpellEffects?>? memberEffects)
     {
         _monsters = monsters;
         _people = people;
@@ -379,6 +391,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         _fallen = fallen;
         _spells = spells;
         _party = party ?? (() => null);
+        _memberEffects = memberEffects ?? (() => null);
     }
 
     /// <summary>
@@ -395,6 +408,18 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
 
     /// <summary>What a spell has left acting under one identity, or zero when nothing is.</summary>
     private int SpellWard(EffectId effect) => SpellEffects?.MagnitudeOf(effect) ?? 0;
+
+    /// <summary>
+    /// What a spell has left acting on one character, read from that character's own effects.
+    /// </summary>
+    /// <remarks>
+    /// A ward the donor's own buff puts on a character is that character's, so the fight reads it where that
+    /// character is in hand — their resistance, their luck, what their blow is worth, their chance to land —
+    /// and never from the party's own carried effects: a blessing cast on one member is that member's, and a
+    /// fight that read it for everybody would give the whole band a spell one of them paid for.
+    /// </remarks>
+    private int MemberWard(PartyMember member, EffectId effect) =>
+        _memberEffects()?.MagnitudeOn(member, effect) ?? 0;
 
     /// <summary>
     /// Reads this game's monsters and people, and judges every creature the content places against them.
@@ -425,6 +450,13 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// resistance off a blow, a blessing when it prices a chance to land, a haste when it charges recovery.
     /// It is a provider because this policy is composed before a created party exists.
     /// </param>
+    /// <param name="memberEffects">
+    /// The effects spells have left on the party's own characters, which is what a ward cast on one member is
+    /// read from — their resistance, their luck, what their blow is worth, their chance to land. It is a
+    /// provider for the same reason the party is: the ledger that holds the deadlines is composed before the
+    /// party it applies them to. A fight composed with none reads no character's own effects, which is what a
+    /// session whose ruleset answered no magic gets.
+    /// </param>
     /// <returns>This game's combat policy.</returns>
     /// <exception cref="ContentValidationException">Content declares a monster or a creature this game cannot fight; every problem is named.</exception>
     internal static MightAndMagic7Combat Compose(
@@ -432,9 +464,10 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         IRandomService? random,
         IFallenCreatureObserver? fallen = null,
         MightAndMagic7Spells? spells = null,
-        Func<PartyEntity?>? party = null)
+        Func<PartyEntity?>? party = null,
+        Func<IMemberSpellEffects?>? memberEffects = null)
     {
-        if (catalog is null) return new MightAndMagic7Combat([], [], null, random, fallen, spells, party);
+        if (catalog is null) return new MightAndMagic7Combat([], [], null, random, fallen, spells, party, memberEffects);
         List<ContentValidationIssue> issues = [];
         Dictionary<int, MonsterFacts> monsters = ReadMonsters(catalog, spells ?? MightAndMagic7Spells.Read(catalog), issues);
         Dictionary<string, string> people = ReadPeople(catalog);
@@ -455,7 +488,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             .OrderBy(row => row.Id)
             .FirstOrDefault();
 
-        return new MightAndMagic7Combat(monsters, people, person, random, fallen, spells ?? MightAndMagic7Spells.Read(catalog), party);
+        return new MightAndMagic7Combat(monsters, people, person, random, fallen, spells ?? MightAndMagic7Spells.Read(catalog), party, memberEffects);
     }
 
     /// <summary>What the fight read as down in one place, handed to whoever keeps what the fallen left.</summary>
@@ -550,20 +583,79 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         if (Creature(subject) is { } creature) return creature.Recovery;
 
         // A character's spell is paced by the spell's own row at the character's mastery, which is the donor's
-        // own recovery column (<c>src/Engine/Spells/Spells.cpp:162-168</c>, <c>recovery_per_skill</c>), read
-        // for the spell the character keeps in its quick slot — the one the donor's own act key casts
-        // (<c>src/Engine/Objects/Character.cpp:3361-3400</c>). The fight's pacing contract asks one actor one
-        // number for one kind of attack, so a named cast of another spell is paced by this same quantity:
-        // per-spell pacing needs an order that carries the spell, which is a change to the kit's contract
-        // rather than a rule this game can state on its own.
-        if (kind == AttackKind.Spell && subject.Member is { } caster && _spells is { } spells &&
-            caster.Spells.QuickSpell is { } quick && spells.Spell(quick.Value) is { } chosen)
+        // own recovery column (<c>src/Engine/Spells/Spells.cpp:162-168</c>, <c>recovery_per_skill</c>). Which
+        // spell that is: the one a charged item in hand carries when there is one — the donor's own wand shot
+        // is paced as the spell the wand fires — and otherwise the spell the character keeps in its quick
+        // slot, which is the one the donor's own act key casts
+        // (<c>src/Engine/Objects/Character.cpp:3361-3400</c>, <c>:6323-6380</c> for the wand in the main
+        // hand). The fight's pacing contract asks one actor one number for one kind of attack, so a named cast
+        // of another spell is still paced by this same quantity: per-spell pacing needs an order that carries
+        // the spell to the pacing answer, which is a change to the kit's contract rather than a rule this game
+        // can state on its own.
+        if (kind == AttackKind.Spell && subject.Member is { } caster && _spells is { } spells)
         {
-            int ticks = spells.RecoveryTicks(caster, chosen) - AttributeBonus(caster.Attributes[SpeedAttribute]) - HasteTicks;
-            return Ticks(Math.Max(MinimumRangedTicks, ticks));
+            SpellDefinition? chosen = Wielded(caster) is { } wand
+                ? spells.Spell(wand.Reading.Spell.Value)
+                : caster.Spells.QuickSpell is { } quick ? spells.Spell(quick.Value) : null;
+            if (chosen is { } paced)
+            {
+                int ticks = spells.RecoveryTicks(caster, paced) - AttributeBonus(caster.Attributes[SpeedAttribute]) - HasteTicks;
+                return Ticks(Math.Max(MinimumRangedTicks, ticks));
+            }
         }
 
         return CharacterRecovery(subject.Member, kind);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// <para>
+    /// <b>A charged item in hand is the weapon, and it strikes as the spell it carries.</b> The donor's own
+    /// act order is a quick spell, then a bow or a wand, then hand-to-hand
+    /// (<c>OpenEnroth/src/Engine/Objects/Character.cpp:6323-6380</c>): a wand in the main hand is fired as the
+    /// spell the item table gives it, one charge of it is spent, and the shot is paced as that spell. This is
+    /// that answer — the kind of attack, the spell's own identity as the ability the fight resolves with, and
+    /// the instance whose charge is spent — so a wand meets the fight's own order path and nothing about its
+    /// attack is resolved beside the fight.
+    /// </para>
+    /// <para>
+    /// <b>What the hand holds is content's vocabulary rather than this policy's.</b> This build's figures are
+    /// filled by content and no slot is named as a hand yet, so a charged item the member wears is what they
+    /// wield; when the owner of items and equipment states a figure's own slots, this reads the hand rather
+    /// than the whole figure (receiver: the item and equipment stone, whose slot vocabulary would name it).
+    /// </para>
+    /// </remarks>
+    /// <param name="attacker">The actor whose weapon is read.</param>
+    /// <returns>The weapon, or null when the actor brings none this game reads.</returns>
+    public CombatWeapon? WeaponOf(CombatSubject attacker)
+    {
+        ArgumentNullException.ThrowIfNull(attacker);
+        if (attacker.Member is not { } member) return null;
+        if (Wielded(member) is not { } wand) return null;
+        return new CombatWeapon(AttackKind.Spell, wand.Reading.Spell.Value, wand.Item.Id, wand.Reading.Charges);
+    }
+
+    /// <summary>
+    /// The charged item a member wields, or null when the figure holds none this game reads a spell for.
+    /// </summary>
+    /// <remarks>
+    /// An item that is used up by its one spell is not a weapon — a scroll is read, not wielded — and an item
+    /// whose charges are all spent is not functional, which is the donor's own test of a wand
+    /// (<c>OpenEnroth/src/Engine/Objects/Item.cpp:755-757</c>, <c>isFunctional</c>: broken, or a wand with no
+    /// charges, is not). Both are read here rather than in each caller, so the weapon answer and the spell a
+    /// shot is paced by cannot disagree about which item is in hand.
+    /// </remarks>
+    private (SpellItemReading Reading, ItemInstance Item)? Wielded(PartyMember member)
+    {
+        if (_spells is not ISpellItemRule items) return null;
+        foreach (EquippedItem equipped in member.Equipment.Items)
+        {
+            if (items.Reading(equipped.Item.Definition) is not { ConsumedByUse: false } reading) continue;
+            if (reading.Charges - equipped.Item.State.ChargesSpent <= 0) continue;
+            return (reading, equipped.Item);
+        }
+
+        return null;
     }
 
     /// <summary>How much of a character's recovery a haste takes off, or nothing when none acts.</summary>
@@ -751,7 +843,17 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     {
         PartyMember caster = attacker.Member!;
         DamageKindId kind = _spells?.Harm(spell) ?? MightAndMagic7Damage.Magic;
-        DamageRoll damage = _spells?.Damage(spell, MightAndMagic7Spells.SkillLevelOf(caster, spell)) ?? DamageRoll.Flat(0);
+
+        // A spell fired from a charged item in the caster's hand is worth the item's own reading rather than
+        // the caster's school: the donor fires a wand at a fixed eighth level of novice mastery
+        // (OpenEnroth <c>src/Engine/Spells/CastSpellInfo.h:61</c>, <c>WANDS_SKILL_VALUE</c>), which is why a
+        // fighter's wand is worth what a mage's is. The one case this cannot tell apart is a spell cast from
+        // the caster's own spellbook while they hold a wand of that very spell: telling those apart needs the
+        // order to carry the casting's own skill reading to this answer.
+        int level = Wielded(caster) is { } wand && string.Equals(wand.Reading.Spell.Value, spell.Id.Value, StringComparison.Ordinal)
+            ? WandSkillLevel
+            : MightAndMagic7Spells.SkillLevelOf(caster, spell);
+        DamageRoll damage = _spells?.Damage(spell, level) ?? DamageRoll.Flat(0);
         return new AttackPlan(
             CharacterHitChance(caster, ArmorClassOf(target), AttackKind.Spell, Distance(attacker, target)),
             kind,
@@ -909,7 +1011,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     private Resistance CharacterResistance(PartyMember member, DamageKindId kind)
     {
         ArgumentNullException.ThrowIfNull(member);
-        int points = SpellWard(SpellEffectIds.Resistance(kind));
+        int points = MemberWard(member, SpellEffectIds.Resistance(kind));
         return points <= 0 ? Resistance.Of(0) : Resistance.Of(points);
     }
 
@@ -918,7 +1020,8 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// A fate is the donor's own luck buff, read at ATTRIBUTE_LUCK, and luck is the term the resistance check
     /// and the saving throw both carry (OpenEnroth <c>src/Engine/Objects/Character.cpp:2380-2384</c>).
     /// </remarks>
-    private int LuckOf(PartyMember member) => AttributeBonus(member.Attributes[LuckAttribute]) + SpellWard(SpellEffectIds.Fate);
+    private int LuckOf(PartyMember member) =>
+        AttributeBonus(member.Attributes[LuckAttribute]) + MemberWard(member, SpellEffectIds.Fate);
 
     /// <summary>What a target resists of one kind of harm, read from whatever states it.</summary>
     private Resistance ResistanceOf(CombatSubject target, DamageKindId kind) => target.Member is { } member
@@ -944,8 +1047,8 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         // Heroism and hammerhands are the donor's own bonuses to what an unarmed blow is worth: heroism at
         // ATTRIBUTE_MELEE_DMG_BONUS and hammerhands on the unarmed damage of a character who wears nothing
         // (OpenEnroth src/Engine/Objects/Character.cpp:2355-2357 and CastSpellInfo.cpp:2366-2380).
-        bonus += SpellWard(SpellEffectIds.Heroism);
-        bonus += SpellWard(SpellEffectIds.Hammerhands);
+        bonus += MemberWard(member, SpellEffectIds.Heroism);
+        bonus += MemberWard(member, SpellEffectIds.Hammerhands);
         return new DamageRoll(dice: 1, sides: 3, bonus: bonus, floor: 1);
     }
 
@@ -1004,7 +1107,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         // A blessing is added to the attack bonus it is a blessing of: the donor's own buff is read at
         // ATTRIBUTE_ATTACK, which is the quantity this test is built on (OpenEnroth
         // src/Engine/Objects/Character.cpp:2351-2354).
-        int outcomes = armor + (2 * (AttackBonus(member) + SpellWard(SpellEffectIds.Bless))) + 30;
+        int outcomes = armor + (2 * (AttackBonus(member) + MemberWard(member, SpellEffectIds.Bless))) + 30;
         return HitChance.Of(outcomes - needed, Math.Max(1, outcomes));
     }
 

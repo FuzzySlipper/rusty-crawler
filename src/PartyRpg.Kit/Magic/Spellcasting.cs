@@ -5,18 +5,28 @@ using PartyRpg.Kit.Party;
 
 namespace PartyRpg.Kit.Magic;
 
-/// <summary>One casting a screen asked for: which member casts, which spell, and what it is aimed at.</summary>
+/// <summary>One casting a screen asked for: which member casts, which spell, what it is aimed at, and what carries it.</summary>
 /// <remarks>
+/// <para>
 /// The member is the party's own index rather than a durable identity, exactly as a service lesson's member
 /// and a skill raise's are: the screen was shown the party in its order and names the row it drew, and the
 /// session resolves that row against the party it holds inside the same update. The spell is content's own
 /// identity, and the target is the identity the projection published for it — a fight's combatant, in the
 /// form the panel was handed — or empty when the spell's aim names nobody.
+/// </para>
+/// <para>
+/// <b>The item is the casting's source, and it is named rather than guessed.</b> A casting that names one
+/// takes its spell from that item instead of from the caster's spellbook: no skill and no spell point is
+/// asked for, and the item is spent — used up whole, or one of its charges. A casting that names none is a
+/// casting from the spellbook, exactly as before, which is what keeps a scroll and a spellbook entry for the
+/// same spell from being the same request.
+/// </para>
 /// </remarks>
 /// <param name="Member">The caster's place in the party, counted from zero.</param>
 /// <param name="Spell">The spell the screen named, as content names it.</param>
 /// <param name="Target">What the spell is aimed at, or empty when its aim names nobody.</param>
-public readonly record struct SpellCastRequest(int Member, SpellId Spell, string Target);
+/// <param name="Item">The item the spell is cast from, or null when it comes from the caster's own spellbook.</param>
+public readonly record struct SpellCastRequest(int Member, SpellId Spell, string Target, ItemInstanceId? Item = null);
 
 /// <summary>What one casting did, or why nothing was cast, as a report a panel can show.</summary>
 /// <remarks>
@@ -38,7 +48,8 @@ public sealed record SpellCastResult
         string spellName,
         int cost,
         string target,
-        SpellApplicationOutcome? outcome)
+        SpellApplicationOutcome? outcome,
+        string source)
     {
         IsCast = isCast;
         Code = code;
@@ -50,6 +61,7 @@ public sealed record SpellCastResult
         Cost = cost;
         Target = target;
         Outcome = outcome;
+        Source = source;
     }
 
     /// <summary>Whether the spell was cast.</summary>
@@ -82,6 +94,16 @@ public sealed record SpellCastResult
     /// <summary>What applying the effect did, or null when nothing was cast.</summary>
     public SpellApplicationOutcome? Outcome { get; }
 
+    /// <summary>
+    /// What carried the spell, empty when it came from the caster's own spellbook.
+    /// </summary>
+    /// <remarks>
+    /// A casting from an item is the same workflow and a different source, so a panel that showed only the
+    /// caster and the spell would leave a player unable to tell which of the two paid for it — and the pool is
+    /// exactly the number they would check.
+    /// </remarks>
+    public string Source { get; }
+
     /// <summary>The spell was cast, and this is what applying its effect did.</summary>
     /// <param name="caster">What the caster is called.</param>
     /// <param name="member">The caster's place in the party.</param>
@@ -89,6 +111,10 @@ public sealed record SpellCastResult
     /// <param name="cost">What it cost.</param>
     /// <param name="target">What it was aimed at, empty when its aim named nobody.</param>
     /// <param name="outcome">What applying the effect did.</param>
+    /// <param name="source">
+    /// What carried the spell, empty when it came from the caster's own spellbook: a casting from an item
+    /// names it, because what paid for the spell is the item rather than the caster's pool.
+    /// </param>
     /// <returns>The result.</returns>
     /// <exception cref="ArgumentNullException">No outcome was supplied.</exception>
     public static SpellCastResult Cast(
@@ -97,22 +123,28 @@ public sealed record SpellCastResult
         SpellDefinition spell,
         int cost,
         string target,
-        SpellApplicationOutcome outcome)
+        SpellApplicationOutcome outcome,
+        string source = "")
     {
         ArgumentNullException.ThrowIfNull(outcome);
         return new SpellCastResult(
             isCast: true,
             code: outcome.Code,
-            message: string.Create(
-                CultureInfo.InvariantCulture,
-                $"{caster} casts {spell.Name} for {cost} spell point(s): {outcome.Message}"),
+            message: source.Length == 0
+                ? string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{caster} casts {spell.Name} for {cost} spell point(s): {outcome.Message}")
+                : string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{caster} casts {spell.Name} from {source}: {outcome.Message}"),
             member,
             caster,
             spell.Id,
             spell.Name,
             cost,
             target,
-            outcome);
+            outcome,
+            source);
     }
 
     /// <summary>Nothing was cast, and this is why.</summary>
@@ -141,7 +173,8 @@ public sealed record SpellCastResult
             spellName,
             cost: 0,
             target: string.Empty,
-            outcome: null);
+            outcome: null,
+            source: string.Empty);
     }
 
     /// <inheritdoc />
@@ -245,7 +278,7 @@ public sealed class Spellcasting
     }
 
     /// <summary>Casts one spell for one member, or refuses by name and changes nothing.</summary>
-    /// <param name="request">Who casts, what they cast, and what it is aimed at.</param>
+    /// <param name="request">Who casts, what they cast, what it is aimed at, and what carries it.</param>
     /// <returns>What the casting did, or why nothing was cast.</returns>
     public SpellCastResult Cast(SpellCastRequest request)
     {
@@ -261,35 +294,52 @@ public sealed class Spellcasting
 
         PartyMember caster = _party.Members[request.Member];
         SpellDefinition spell = _rule.Catalog.Read(request.Spell);
-        if (!_rule.Catalog.Declares(request.Spell))
-        {
-            return Record(SpellCastResult.Refused(request.Member, caster.Profile.Name, request.Spell, spellName: string.Empty, SpellRefusal.Unknown(request.Spell.Value)));
-        }
 
-        // Knowing a spell and being allowed to cast it are different questions, and the answer names which
-        // one blocked the casting: a spell the character never learned is refused before its mastery or its
-        // price is even considered.
-        if (!caster.Spells.Knows(request.Spell))
+        // What carries the spell decides the questions asked before it is cast, and nothing else: a spell from
+        // the caster's own spellbook is known, gated by their mastery, and paid for out of their pool, while a
+        // spell from an item is that item's own reading and costs the item instead. The aim, the judgement,
+        // and the application that follow are one path either way, which is what keeps a scroll from being a
+        // second way to cast.
+        SpellItem? source = null;
+        int cost = 0;
+        if (request.Item is { } item)
         {
-            return Record(SpellCastResult.Refused(request.Member, caster.Profile.Name, request.Spell, spell.Name, SpellRefusal.NotKnown(caster.Profile.Name, spell.Name)));
+            (SpellItem? carried, SpellCastResult? refusal) = FromItem(caster, request, item);
+            if (carried is null) return Record(refusal!);
+            source = carried;
         }
-
-        SkillTier held = caster.Skills.TierOf(spell.SchoolSkill);
-        if (held.Value < spell.Tier.Value)
+        else
         {
-            return Record(SpellCastResult.Refused(
-                request.Member,
-                caster.Profile.Name,
-                request.Spell,
-                spell.Name,
-                SpellRefusal.MasteryTooLow(caster.Profile.Name, spell.Name, _rungName(spell.Tier), _rungName(held))));
-        }
+            if (!_rule.Catalog.Declares(request.Spell))
+            {
+                return Record(SpellCastResult.Refused(request.Member, caster.Profile.Name, request.Spell, spellName: string.Empty, SpellRefusal.Unknown(request.Spell.Value)));
+            }
 
-        int cost = _rule.CostFor(caster, spell);
-        int available = caster.Resources.SpellPoints.Current;
-        if (available < cost)
-        {
-            return Record(SpellCastResult.Refused(request.Member, caster.Profile.Name, request.Spell, spell.Name, SpellRefusal.NotEnoughPoints(caster.Profile.Name, spell.Name, cost, available)));
+            // Knowing a spell and being allowed to cast it are different questions, and the answer names which
+            // one blocked the casting: a spell the character never learned is refused before its mastery or its
+            // price is even considered.
+            if (!caster.Spells.Knows(request.Spell))
+            {
+                return Record(SpellCastResult.Refused(request.Member, caster.Profile.Name, request.Spell, spell.Name, SpellRefusal.NotKnown(caster.Profile.Name, spell.Name)));
+            }
+
+            SkillTier held = caster.Skills.TierOf(spell.SchoolSkill);
+            if (held.Value < spell.Tier.Value)
+            {
+                return Record(SpellCastResult.Refused(
+                    request.Member,
+                    caster.Profile.Name,
+                    request.Spell,
+                    spell.Name,
+                    SpellRefusal.MasteryTooLow(caster.Profile.Name, spell.Name, _rungName(spell.Tier), _rungName(held))));
+            }
+
+            cost = _rule.CostFor(caster, spell);
+            int available = caster.Resources.SpellPoints.Current;
+            if (available < cost)
+            {
+                return Record(SpellCastResult.Refused(request.Member, caster.Profile.Name, request.Spell, spell.Name, SpellRefusal.NotEnoughPoints(caster.Profile.Name, spell.Name, cost, available)));
+            }
         }
 
         CombatantId casterId = CombatantId.Of(caster.Id);
@@ -310,13 +360,13 @@ public sealed class Spellcasting
         }
 
         // The effect owner judges first: whether the caster may act at all and whether the casting can be
-        // carried out are facts that must stop the cast before its points are spent.
+        // carried out are facts that must stop the cast before its points — or its item — are spent.
         if (effects.Judge(application) is { } judged)
         {
             return Record(SpellCastResult.Refused(request.Member, caster.Profile.Name, request.Spell, spell.Name, judged));
         }
 
-        if (!caster.Resources.TrySpendSpellPoints(cost))
+        if (source is null && !caster.Resources.TrySpendSpellPoints(cost))
         {
             // The pool answered the same question a moment ago, so this is a state that changed between two
             // readings inside one call: it is reported rather than charged, and nothing is applied.
@@ -329,7 +379,89 @@ public sealed class Spellcasting
         }
 
         SpellApplicationOutcome outcome = effects.Apply(application);
-        return Record(SpellCastResult.Cast(caster.Profile.Name, request.Member, spell, cost, targetName, outcome));
+
+        // The item is spent only once the effect was expressed: a casting this build has no behaviour for
+        // changes nothing, and burning a scroll for it would take the party's item for a spell that did not
+        // happen. A casting whose effect was expressed spends it through the party's own item entry, so a
+        // wand's charge and a scroll's use leave the party by one route.
+        bool spentItem = source is not null && outcome.IsExpressed;
+        if (spentItem) Spend(source!.Value);
+
+        return Record(SpellCastResult.Cast(
+            caster.Profile.Name,
+            request.Member,
+            spell,
+            cost,
+            targetName,
+            outcome,
+            spentItem && source is { } used ? Name(_rule as ISpellItemNames, used.Definition) : string.Empty));
+    }
+
+    /// <summary>
+    /// Reads the item a casting takes its spell from, or says why it cannot carry that casting.
+    /// </summary>
+    /// <remarks>
+    /// Every question here is about the item rather than about the caster: the party must hold it, the game's
+    /// own rows must state a spell for its kind, the spell must be the one the casting named, and an item that
+    /// spends charges is used as a weapon and therefore has to be wielded and must hold a charge. What the
+    /// caster knows and what rung of a school they stand at is deliberately not asked — an item is the way a
+    /// character casts a spell that is not theirs, which is the whole point of carrying one.
+    /// </remarks>
+    private (SpellItem? Item, SpellCastResult? Refusal) FromItem(PartyMember caster, SpellCastRequest request, ItemInstanceId id)
+    {
+        SpellCastResult Refuse(SpellRefusal refusal) =>
+            SpellCastResult.Refused(request.Member, caster.Profile.Name, request.Spell, spellName: string.Empty, refusal);
+
+        ISpellItemNames? names = _rule as ISpellItemNames;
+        if (_party.FindItem(id) is not { } instance) return (null, Refuse(SpellRefusal.ItemNotHeld(id.ToString())));
+        string called = Name(names, instance.Definition);
+        if (_rule is not ISpellItemRule items || items.Reading(instance.Definition) is not { } reading)
+        {
+            return (null, Refuse(SpellRefusal.ItemCarriesNoSpell(called)));
+        }
+
+        if (!_rule.Catalog.Declares(reading.Spell))
+        {
+            return (null, Refuse(SpellRefusal.Unknown(reading.Spell.Value)));
+        }
+
+        if (!string.Equals(reading.Spell.Value, request.Spell.Value, StringComparison.Ordinal))
+        {
+            SpellDefinition carried = _rule.Catalog.Read(reading.Spell);
+            SpellDefinition named = _rule.Catalog.Read(request.Spell);
+            return (null, Refuse(SpellRefusal.ItemCarriesAnother(called, carried.Name, named.Name)));
+        }
+
+        if (!reading.ConsumedByUse)
+        {
+            if (!instance.Custody.IsEquipped) return (null, Refuse(SpellRefusal.ItemNotWielded(called)));
+            if (reading.Charges - instance.State.ChargesSpent <= 0)
+            {
+                return (null, Refuse(SpellRefusal.ItemSpent(called, reading.Charges)));
+            }
+        }
+
+        return (new SpellItem(reading, id, instance.Definition), null);
+    }
+
+    /// <summary>What a person reads for an item, or its identity when this game names none.</summary>
+    private static string Name(ISpellItemNames? names, ItemDefinitionId definition)
+    {
+        if (names is not { } naming) return definition.Value;
+        string called = naming.NameOf(definition);
+        return called.Length > 0 ? called : definition.Value;
+    }
+
+    /// <summary>Spends the item a casting took its spell from, through the party's own item entry.</summary>
+    private void Spend(SpellItem source)
+    {
+        if (source.Reading.ConsumedByUse)
+        {
+            _party.ConsumeItem(source.Id);
+            return;
+        }
+
+        _party.SpendItemCharge(source.Id, source.Reading.Charges);
     }
 
     /// <summary>
@@ -424,4 +556,10 @@ public sealed class Spellcasting
         Last = result;
         return result;
     }
+
+    /// <summary>The item one casting takes its spell from, as its reading and identity.</summary>
+    /// <param name="Reading">What the item's kind carries and how using it spends it.</param>
+    /// <param name="Id">The instance the spell comes from.</param>
+    /// <param name="Definition">What the instance is a copy of, which is what a panel and a refusal name.</param>
+    private readonly record struct SpellItem(SpellItemReading Reading, ItemInstanceId Id, ItemDefinitionId Definition);
 }

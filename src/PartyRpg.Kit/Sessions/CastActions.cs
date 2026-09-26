@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -62,11 +63,17 @@ public static class CastActions
     public const string QuickSpell = "party.quick-spell";
 }
 
-/// <summary>One casting a screen asked for: which member, which spell, and what it is aimed at.</summary>
+/// <summary>One casting a screen asked for: which member, which spell, what it is aimed at, and what carries it.</summary>
 /// <param name="Member">The caster's place in the party, counted from zero.</param>
 /// <param name="Spell">The spell the screen drew.</param>
 /// <param name="Target">The identity the projection published for the spell's target, empty when none.</param>
-public readonly record struct CastRequest(int Member, SpellId Spell, string Target);
+/// <param name="Item">
+/// The item the spell is cast from, or null when it comes from the caster's own spellbook. A screen that drew
+/// a row for a scroll or a wand it holds names the instance that row was published for, and the workflow takes
+/// that item as the spell's source — which is why the payload carries it rather than the session guessing
+/// which of a character's spells came from where.
+/// </param>
+public readonly record struct CastRequest(int Member, SpellId Spell, string Target, ItemInstanceId? Item = null);
 
 /// <summary>One quick-slot choice a screen made: which member, and which spell the slot should hold.</summary>
 /// <param name="Member">The member's place in the party, counted from zero.</param>
@@ -139,7 +146,23 @@ public sealed class CastInput
         if (action is null || !string.Equals(action.Action, _cast, StringComparison.Ordinal)) return null;
         string spell = Spell(action.Spell);
         if (spell.Length == 0) return null;
-        return new CastRequest(action.Member ?? 0, new SpellId(spell), action.Target ?? string.Empty);
+        return new CastRequest(action.Member ?? 0, new SpellId(spell), action.Target ?? string.Empty, Item(action.Item));
+    }
+
+    /// <summary>
+    /// The item a payload names as a casting's source, or null when it names none or an unreadable one.
+    /// </summary>
+    /// <remarks>
+    /// An identity that is not a whole number above zero names no instance, and a casting with no source is a
+    /// casting from the spellbook rather than a defect: an input channel must not throw on hostile bytes, and
+    /// the workflow refuses what it cannot resolve by name where a person can see it.
+    /// </remarks>
+    private static ItemInstanceId? Item(JsonElement? element)
+    {
+        string written = Spell(element);
+        return ulong.TryParse(written, NumberStyles.None, CultureInfo.InvariantCulture, out ulong value) && value > 0
+            ? new ItemInstanceId(value)
+            : null;
     }
 
     /// <summary>
@@ -183,8 +206,8 @@ public sealed class CastInput
     }
 }
 
-/// <summary>The casting payload's wire record: an action name plus the member, spell, and target.</summary>
-internal sealed record CastDto(string? Action, int? Member, JsonElement? Spell, string? Target);
+/// <summary>The casting payload's wire record: an action name plus the member, spell, target, and item.</summary>
+internal sealed record CastDto(string? Action, int? Member, JsonElement? Spell, string? Target, JsonElement? Item);
 
 /// <summary>Source-generated JSON for the casting payload, so reading it stays AOT-safe.</summary>
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]

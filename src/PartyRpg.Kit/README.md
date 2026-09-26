@@ -22,13 +22,24 @@ Owns:
   is aimed at, and an opaque effect identity, and `ISpellEffectRule` is where every effect is expressed.
 - Magic's effect mechanisms (`Magic/Effects/`): what a game's category paths apply through. A duration is
   a deadline on the session's one clock, held by `RunningSpellEffects` and applied through the party's own
-  carried effects, so a ward or a light lapses on an advance and not on a count of updates; a cast's
+  carried effects, so a ward or a light lapses on an advance and not on a count of updates; an effect a
+  casting aimed at one character is that character's own entry, with its own deadline, read where it
+  applies (`IMemberSpellEffects`) and ended by the clock, by a dispelling, or by the game's own answer about
+  a character who no longer carries anything (`RunningSpellEffects.StartOn`); a cast's
   outcome carries named readings of the state it changed (`SpellEffectFact`) rather than a field per
   category; what a spell may be pointed at when its aim names no actor is the effect path's own offer
   (`ISpellAimRule`); what the party sees by is read against the clock's daylight window through the game's
   answer (`PartySight`, `IPartySightRule`); and how far each spell is expressed is the game's own report
   (`SpellEffectCoverage`). The kit still names no spell and no effect: it carries an identity and hands it
   back, which a source scan in `tests/PartyRpg.Kit.Tests` holds it to.
+- Magic in the pack (`Magic/SpellItems.cs`): the one casting workflow also takes an item as the spell's
+  source — a scroll read once and used up, a charged item that is wielded and spends a use — through the
+  game's own reading of its item rows (`ISpellItemRule`) and the party's own item state, so there is no
+  second cast path and no second count of what is left. An item's charges are spent through the party
+  (`PartyEntity.SpendItemCharge`, `ConsumeItem`): the instance records the uses it has paid for, the game's
+  row states its capacity, and an item that empties leaves through the inventory's own custody. A charged
+  item in hand is the weapon a fight fires (`CombatWeapon`, `ICombatWeaponRule`), so the attack is the
+  spell it carries, one charge goes with it, and the recovery it costs is the fight's own answer.
 - Combat: attack execution, targeting and current target, attack resolution, damage kinds,
   resistance and immunity, conditions a hit leaves, and the thresholds a wound is judged against
   application, real-time and turn-based mode coordination, what a downed creature leaves

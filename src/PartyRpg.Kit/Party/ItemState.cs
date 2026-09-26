@@ -3,20 +3,28 @@ using System.Text.Json.Serialization;
 namespace PartyRpg.Kit.Party;
 
 /// <summary>
-/// What is true of one item instance beyond its kind: whether it is identified, how damaged it is, and
-/// which enchantments it carries.
+/// What is true of one item instance beyond its kind: whether it is identified, how damaged it is, which
+/// enchantments it carries, and how many charges of it have been spent.
 /// </summary>
 /// <remarks>
 /// <para>
 /// This is mutable item state kept as an immutable value so a captured save cannot be changed by playing
 /// on: every change produces a new state and the instance replaces the one it held. Identifying, taking
-/// damage, repairing, and enchanting are therefore the instance's own business, while where the instance
-/// lies and how many share it belong to the container that holds it.
+/// damage, repairing, enchanting, and spending a charge are therefore the instance's own business, while
+/// where the instance lies and how many share it belong to the container that holds it.
 /// </para>
 /// <para>
-/// Value equality is element-wise — including the enchantments — because the shared inventory merges
-/// stacks of things that are the same in every respect and must not merge a damaged item into a sound one.
-/// <see cref="Matches"/> is the same comparison under a name that reads as what it decides.
+/// <b>A charge is held by the item and recorded as what has been spent.</b> How many charges a kind of
+/// thing holds when it is full is a reading of the game's own item table — the pack holds items, not item
+/// definitions — so what the instance records is the uses it has paid for. What is left is the row's own
+/// figure less this, which keeps an item found in a chest and one restored from a save the same arithmetic
+/// and keeps the row the one place a wand's capacity is stated.
+/// </para>
+/// <para>
+/// Value equality is element-wise — including the enchantments and the charges spent — because the shared
+/// inventory merges stacks of things that are the same in every respect and must not merge a damaged item
+/// into a sound one or a used wand into a fresh one. <see cref="Matches"/> is the same comparison under a
+/// name that reads as what it decides.
 /// </para>
 /// </remarks>
 public readonly struct ItemState : IEquatable<ItemState>
@@ -27,18 +35,25 @@ public readonly struct ItemState : IEquatable<ItemState>
     /// <param name="isIdentified">Whether the item's true nature is known to the party.</param>
     /// <param name="damage">How damaged the item is; zero is sound.</param>
     /// <param name="enchantments">The enchantments the instance carries, in the order they were added.</param>
-    /// <exception cref="ArgumentOutOfRangeException">The damage is negative, which is not a state an item can be in.</exception>
+    /// <param name="chargesSpent">How many charges of the item have been spent; zero when none has.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The damage or the charges spent are negative, which is not a state an item can be in.</exception>
     /// <remarks>
     /// A save reads this value back through this constructor: the metadata the product writes saves with
     /// binds a document's field to a constructor parameter, so a value created empty would silently lose it.
     /// </remarks>
     [JsonConstructor]
-    public ItemState(bool isIdentified = false, int damage = 0, IReadOnlyList<ItemEnchantment>? enchantments = null)
+    public ItemState(
+        bool isIdentified = false,
+        int damage = 0,
+        IReadOnlyList<ItemEnchantment>? enchantments = null,
+        int chargesSpent = 0)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(damage);
+        ArgumentOutOfRangeException.ThrowIfNegative(chargesSpent);
         IsIdentified = isIdentified;
         Damage = damage;
         _enchantments = enchantments is null ? [] : [.. enchantments];
+        ChargesSpent = chargesSpent;
     }
 
     /// <summary>An item nobody has identified yet, sound, and carrying nothing.</summary>
@@ -53,8 +68,17 @@ public readonly struct ItemState : IEquatable<ItemState>
     /// <summary>The enchantments the instance carries, in the order they were added.</summary>
     public IReadOnlyList<ItemEnchantment> Enchantments => _enchantments ?? [];
 
+    /// <summary>
+    /// How many charges of the item have been spent: a wand's own count of the uses it has paid for.
+    /// </summary>
+    /// <remarks>
+    /// What is left is this read against the game's own row for the item's kind, which is the one place a
+    /// capacity is stated; an item whose kind holds no charges leaves this at zero whatever it does.
+    /// </remarks>
+    public int ChargesSpent { get; }
+
     /// <summary>The same state, identified.</summary>
-    public ItemState Identified() => IsIdentified ? this : new ItemState(true, Damage, Enchantments);
+    public ItemState Identified() => IsIdentified ? this : new ItemState(true, Damage, Enchantments, ChargesSpent);
 
     /// <summary>The same state, carrying the given damage rather than its own.</summary>
     /// <param name="damage">The damage to record, which cannot be negative.</param>
@@ -62,7 +86,22 @@ public readonly struct ItemState : IEquatable<ItemState>
     public ItemState WithDamage(int damage)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(damage);
-        return new ItemState(IsIdentified, damage, Enchantments);
+        return new ItemState(IsIdentified, damage, Enchantments, ChargesSpent);
+    }
+
+    /// <summary>The same state, with one more charge spent.</summary>
+    /// <exception cref="OverflowException">The count would leave the numbers a state is described in.</exception>
+    public ItemState WithChargeSpent() => new(IsIdentified, Damage, Enchantments, checked(ChargesSpent + 1));
+
+    /// <summary>
+    /// The same state, with the given number of charges spent, which is how a recharge gives uses back.
+    /// </summary>
+    /// <param name="spent">How many charges are spent; zero is a full item.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The count is negative.</exception>
+    public ItemState WithChargesSpent(int spent)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(spent);
+        return new ItemState(IsIdentified, Damage, Enchantments, spent);
     }
 
     /// <summary>The same state, damaged further.</summary>
@@ -72,7 +111,7 @@ public readonly struct ItemState : IEquatable<ItemState>
     public ItemState Damaged(int amount)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(amount);
-        return new ItemState(IsIdentified, checked(Damage + amount), Enchantments);
+        return new ItemState(IsIdentified, checked(Damage + amount), Enchantments, ChargesSpent);
     }
 
     /// <summary>The same state, repaired by an amount and never past sound.</summary>
@@ -81,7 +120,7 @@ public readonly struct ItemState : IEquatable<ItemState>
     public ItemState Repaired(int amount)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(amount);
-        return new ItemState(IsIdentified, Math.Max(0, Damage - amount), Enchantments);
+        return new ItemState(IsIdentified, Math.Max(0, Damage - amount), Enchantments, ChargesSpent);
     }
 
     /// <summary>
@@ -107,7 +146,7 @@ public readonly struct ItemState : IEquatable<ItemState>
         }
 
         if (!replaced) enchantments.Add(enchantment);
-        return new ItemState(IsIdentified, Damage, enchantments);
+        return new ItemState(IsIdentified, Damage, enchantments, ChargesSpent);
     }
 
     /// <summary>The same state, without the given enchantment.</summary>
@@ -120,14 +159,14 @@ public readonly struct ItemState : IEquatable<ItemState>
             if (existing.Enchantment != enchantment) enchantments.Add(existing);
         }
 
-        return new ItemState(IsIdentified, Damage, enchantments);
+        return new ItemState(IsIdentified, Damage, enchantments, ChargesSpent);
     }
 
     /// <summary>Whether two states are the same in every respect, which is what lets two stacks merge.</summary>
     /// <param name="other">The state to compare with.</param>
     public bool Matches(ItemState other)
     {
-        if (IsIdentified != other.IsIdentified || Damage != other.Damage) return false;
+        if (IsIdentified != other.IsIdentified || Damage != other.Damage || ChargesSpent != other.ChargesSpent) return false;
 
         IReadOnlyList<ItemEnchantment> mine = Enchantments;
         IReadOnlyList<ItemEnchantment> theirs = other.Enchantments;
@@ -152,6 +191,7 @@ public readonly struct ItemState : IEquatable<ItemState>
         HashCode hash = new();
         hash.Add(IsIdentified);
         hash.Add(Damage);
+        hash.Add(ChargesSpent);
         foreach (ItemEnchantment enchantment in Enchantments) hash.Add(enchantment);
         return hash.ToHashCode();
     }
@@ -168,5 +208,5 @@ public readonly struct ItemState : IEquatable<ItemState>
 
     /// <inheritdoc />
     public override string ToString() =>
-        $"{(IsIdentified ? "identified" : "unidentified")}, damage {Damage}, {Enchantments.Count} enchantment(s)";
+        $"{(IsIdentified ? "identified" : "unidentified")}, damage {Damage}, {Enchantments.Count} enchantment(s), {ChargesSpent} charge(s) spent";
 }

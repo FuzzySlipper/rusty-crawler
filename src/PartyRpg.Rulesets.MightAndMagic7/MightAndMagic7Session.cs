@@ -129,12 +129,14 @@ internal sealed class MightAndMagic7Session : IGameSession
         // whichever party it ends up playing. The fight is what reads the row, so it is reached through the
         // local below — a death cannot be reported before the fight that reports it exists, which is what
         // makes reading it here honest rather than a second reading of the table.
-        // The fight reads what spells have left on the party — a ward where a resistance is asked, a haste
-        // where recovery is charged — so it is handed the party the same way: as a provider, read at the
-        // moment the quantity is wanted rather than captured when the policy was composed.
+        // The fight reads what spells have left — a ward where a resistance is asked, a haste where recovery is
+        // charged, a blessing where a chance to land is priced — so it is handed the party and the effects'
+        // own ledger the same way: as providers, read at the moment the quantity is wanted rather than
+        // captured when the policy was composed. What a ward on one character is worth is that character's own
+        // reading, which is why the ledger travels beside the party rather than the party's effects alone.
         MightAndMagic7Combat? composed = null;
         ProgressionAwards awards = new(Worth, () => Progression, corpseAnswers);
-        composed = MightAndMagic7Combat.Compose(Declared(context.Content), context.Engine?.Random, awards, spells, () => party);
+        composed = MightAndMagic7Combat.Compose(Declared(context.Content), context.Engine?.Random, awards, spells, () => party, () => spellEffects);
         MightAndMagic7Combat combat = composed;
 
         long Worth(PlacementDefinition placement) =>

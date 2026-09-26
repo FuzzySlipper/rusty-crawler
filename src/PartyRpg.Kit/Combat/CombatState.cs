@@ -44,6 +44,7 @@ public sealed class CombatState : IGameTimeObserver
 {
     private readonly ICombatRule _rule;
     private readonly ICombatResolutionRule? _resolution;
+    private readonly ICombatWeaponRule? _weapons;
     private readonly IFallenCreatureObserver? _fallen;
     private readonly PartyEntity _party;
     private readonly ICombatWorld? _world;
@@ -88,6 +89,7 @@ public sealed class CombatState : IGameTimeObserver
     {
         _rule = rule ?? throw new ArgumentNullException(nameof(rule));
         _resolution = rule as ICombatResolutionRule;
+        _weapons = rule as ICombatWeaponRule;
         _fallen = rule as IFallenCreatureObserver;
         _party = party ?? throw new ArgumentNullException(nameof(party));
         _world = world;
@@ -239,7 +241,9 @@ public sealed class CombatState : IGameTimeObserver
             if (!member.IsAlive) continue;
             CombatSubject subject = new(CombatantId.Of(member.Id), place, partyPose, member, entity: null);
             string name = _rule.NameOf(subject);
-            AttackKind kind = _rule.AttackKindFor(subject);
+            // What a member attacks with is its weapon's own answer where the game states one — a wand in
+            // hand makes its attack a spell — and the kind alone otherwise.
+            AttackKind kind = _weapons?.WeaponOf(subject)?.Kind ?? _rule.AttackKindFor(subject);
             // A member of the party begins ready: standing somewhere is not a reason for a character to be
             // unable to act, and the donor's own party members enter turn-based mode with their recovery as
             // it stands, which is how a party enters a turn-based fight with the recovery it already owed.
@@ -276,7 +280,7 @@ public sealed class CombatState : IGameTimeObserver
                     ? CombatSide.Opposition
                     : CombatSide.Neutral;
                 string name = _rule.NameOf(subject);
-                AttackKind kind = _rule.AttackKindFor(subject);
+                AttackKind kind = _weapons?.WeaponOf(subject)?.Kind ?? _rule.AttackKindFor(subject);
                 Combatant combatant = Existing(subject.Id) ??
                     new Combatant(subject, side, name, kind, distance, _rule.InitialRecovery(subject, kind));
                 combatant.Observe(side, name, kind, distance);
@@ -522,7 +526,38 @@ public sealed class CombatState : IGameTimeObserver
             }
         }
 
-        GameDuration recovery = _rule.RecoveryAfter(actor.Subject, order.Kind);
+        // What the actor's own weapon makes of this attack, asked here — at the one moment an attack is
+        // initiated — and only when the order names no ability of its own: an order that names what it strikes
+        // with is a spell the casting workflow resolved, and a wand in the caster's hand must not pay for it.
+        // This is the donor's own order of answers: what a hand holds decides how the attack is made, and a
+        // charged item spends a charge of itself when it is fired.
+        CombatWeapon? weapon = order.Ability is { Length: > 0 } ? null : _weapons?.WeaponOf(actor.Subject);
+        string ability = order.Ability ?? weapon?.Ability ?? string.Empty;
+        AttackKind kind = weapon?.Kind ?? order.Kind;
+        if (weapon is { SpendsACharge: true } charged)
+        {
+            if (target is null)
+            {
+                return Report(CombatResult.Refused(
+                    actor.Id,
+                    actor.Name,
+                    "weapon-no-target",
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"{actor.Name} has nothing to aim the charged item in hand at, so no charge was spent; a weapon that carries a spell is fired at a target.")));
+            }
+
+            ItemChargeSpend spend = _party.SpendItemCharge(charged.Charge!.Value, charged.Charges);
+            if (!spend.Spent)
+            {
+                // The item answered a moment ago, and the answer the state gives now is the one that counts:
+                // an emptied wand or one the party no longer holds leaves the attack unmade and the actor's
+                // recovery unspent.
+                return Report(CombatResult.Refused(actor.Id, actor.Name, spend.Refusal!.Code, spend.Refusal.Message));
+            }
+        }
+
+        GameDuration recovery = _rule.RecoveryAfter(actor.Subject, kind);
         actor.Spend(recovery);
 
         // What the party has done is what puts a creature into the fight: attacking it is remembered, so it
@@ -536,18 +571,18 @@ public sealed class CombatState : IGameTimeObserver
         AttackInitiation initiation = new(
             actor.Id,
             actor.Name,
-            order.Kind,
+            kind,
             target?.Id,
             target?.Name ?? string.Empty,
             _clock?.Now,
             recovery,
-            order.Ability ?? string.Empty);
+            ability);
         _lastAttack = initiation;
 
         // Resolution happens at the moment of initiation and nowhere else: there is one place where an
         // attack becomes an outcome, so a melee swing, a shot, and a spell cannot drift into three paths
         // that damage a target differently.
-        CombatResolution? resolution = Resolve(actor, target, order.Kind, order.Ability);
+        CombatResolution? resolution = Resolve(actor, target, kind, ability);
         _lastResolution = resolution;
 
         // A death this order caused is a body the place holds now, and the reading that states what the place

@@ -894,6 +894,9 @@ function magic(overrides = {}) {
     message: '',
     facts: [],
     running: [],
+    memberRunning: [],
+    items: [],
+    source: '',
     sight: '',
     ...overrides,
   };
@@ -919,6 +922,27 @@ function magicPanel(h) {
       sight: section?.querySelector('.crawler-magic-running')?.getAttribute('data-sight') ?? null,
       text: section?.querySelector('.crawler-magic-running')?.textContent ?? null,
     },
+    memberRunning: {
+      hidden: section?.querySelector('.crawler-magic-member-running')?.hidden ?? null,
+      rows: [...(section?.querySelectorAll('.crawler-magic-member-running-row') ?? [])].map((row) => ({
+        member: row.getAttribute('data-member'),
+        effect: row.getAttribute('data-effect'),
+        endsAt: row.getAttribute('data-ends-at'),
+        text: row.textContent,
+      })),
+    },
+    items: [...(section?.querySelectorAll('.crawler-magic-item') ?? [])].map((row) => ({
+      item: row.getAttribute('data-item'),
+      kind: row.getAttribute('data-kind'),
+      spell: row.getAttribute('data-spell'),
+      targeting: row.getAttribute('data-targeting'),
+      charges: row.getAttribute('data-charges'),
+      chargesMax: row.getAttribute('data-charges-max'),
+      wielded: row.getAttribute('data-wielded'),
+      label: row.querySelector('.crawler-row-label')?.textContent ?? null,
+      button: row.querySelector('.crawler-use-item')?.textContent ?? null,
+      targets: [...row.querySelectorAll('.crawler-target option')].map((option) => option.value),
+    })),
     members: [...(section?.querySelectorAll('.crawler-magic-member') ?? [])].map((row) => ({
       label: row.querySelector('.crawler-row-label')?.textContent ?? null,
       id: row.getAttribute('data-member'),
@@ -3104,6 +3128,106 @@ test('the panel renders every member\'s spellbook, casts the row a player presse
     assert.equal(refused.outcome, 'refused');
     assert.equal(refused.code, 'spell-mastery-too-low');
     assert.match(refused.message, /Aelina stands at basic/);
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the panel shows the effects running on each character, and the magic the pack carries', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // A ward cast on one character is published on that character's own row, with the moment the clock ends
+    // it: the panel names whose effect it is, which is the whole difference between a ward one member carries
+    // and one the band does.
+    h.emit(snapshot('running', 1, 60, 60, movement(), {
+      magic: magic({
+        memberRunning: [
+          { member: '1', name: 'Aelina', effect: 'spell.resist.Fire', magnitude: 12, endsAt: '1168-01-01 10:00' },
+        ],
+        running: [{ effect: 'spell.haste', magnitude: 25, endsAt: '1168-01-01 11:00' }],
+        sight: 'daylight',
+      }),
+    }));
+
+    const warded = magicPanel(h);
+    assert.equal(warded.memberRunning.hidden, false);
+    assert.deepEqual(warded.memberRunning.rows, [
+      {
+        member: '1',
+        effect: 'spell.resist.Fire',
+        endsAt: '1168-01-01 10:00',
+        text: 'Aelina: spell.resist.Fire (12) until 1168-01-01 10:00',
+      },
+    ]);
+
+    // The party's own carried effects stay on the party's own line, so the two are never mixed.
+    assert.match(warded.running.text, /running: spell\.haste \(25\) until 1168-01-01 11:00/);
+
+    // The magic the pack carries: a scroll read once, and a wand with its charges and who is wearing it. Both
+    // come from the product, and the panel prints what it published rather than working anything out.
+    h.emit(snapshot('running', 2, 120, 121, movement(), {
+      magic: magic({
+        items: [
+          {
+            item: '7', name: 'Scroll of Fire Bolt', kind: 'consumed', spell: '2', spellName: 'Fire Bolt',
+            targeting: 'foe', charges: 0, chargesMax: 0, wielded: false, member: '',
+          },
+          {
+            item: '9', name: 'Wand of Fire', kind: 'charged', spell: '2', spellName: 'Fire Bolt',
+            targeting: 'foe', charges: 12, chargesMax: 39, wielded: true, member: 'Aelina',
+          },
+        ],
+      }),
+    }));
+
+    const carried = magicPanel(h);
+    assert.deepEqual(carried.items, [
+      {
+        item: '7', kind: 'consumed', spell: '2', targeting: 'foe', charges: '0', chargesMax: '0', wielded: 'packed',
+        label: 'Scroll of Fire Bolt — Fire Bolt · one use', button: 'Read it', targets: ['actor:9'],
+      },
+      {
+        item: '9', kind: 'charged', spell: '2', targeting: 'foe', charges: '12', chargesMax: '39', wielded: 'wielded',
+        label: 'Wand of Fire — Fire Bolt · 12/39 charges · wielded by Aelina', button: 'Fire it', targets: ['actor:9'],
+      },
+    ]);
+
+    // Using one names the item the row was published for, beside the member and the target the player chose,
+    // so the product takes the item as the spell's source rather than the caster's spellbook.
+    const wand = carried.section.querySelector('.crawler-magic-item[data-item="9"]');
+    const member = wand.querySelector('.crawler-item-member');
+    member.value = '0';
+    const picker = wand.querySelector('.crawler-target');
+    picker.value = 'actor:9';
+    wand.querySelector('.crawler-use-item').dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
+    assert.deepEqual(h.claims.at(-1).value.data, {
+      action: 'party.cast',
+      member: 0,
+      spell: '2',
+      target: 'actor:9',
+      item: '9',
+    });
+
+    // What carried the last casting is published with it, and a cast from an item says so in its own sentence.
+    h.emit(snapshot('running', 3, 180, 181, movement(), {
+      magic: magic({
+        outcome: 'cast',
+        caster: 'Aelina',
+        spell: '2',
+        cost: 0,
+        effect: 'damage',
+        code: 'spell-effect-applied',
+        message: 'Aelina casts Fire Bolt from Scroll of Fire Bolt: Aelina attacks A beast.',
+      }),
+    }));
+
+    const read = magicPanel(h);
+    assert.equal(read.outcome, 'cast');
+    assert.match(read.message, /from Scroll of Fire Bolt/);
 
     ui.dispose();
   } finally {

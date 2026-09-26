@@ -807,7 +807,7 @@ interface SpellAimView {
   readonly kind: string;
 }
 
-/** One effect a spell has left running on the party, as the product published it. */
+/** One effect a spell has left running, as the product published it. */
 interface SpellRunningView {
   /** The effect identity the spell left, which the panel shows and never interprets. */
   readonly effect: string;
@@ -815,6 +815,44 @@ interface SpellRunningView {
   readonly magnitude: number;
   /** When the clock ends it, empty when nothing has said. */
   readonly endsAt: string;
+}
+
+/** One effect a spell has left running on one character, as the product published it. */
+interface SpellMemberRunningView {
+  /** The member's durable identity, which the row belongs to. */
+  readonly member: string;
+  /** What the member is called. */
+  readonly name: string;
+  /** The effect identity the spell left. */
+  readonly effect: string;
+  /** The magnitude it acts at. */
+  readonly magnitude: number;
+  /** When the clock ends it, empty when nothing has said. */
+  readonly endsAt: string;
+}
+
+/** One item the party holds that carries a spell, as the product published it. */
+interface SpellItemView {
+  /** The instance identity a use command echoes back. */
+  readonly item: string;
+  /** What a person reads for it. */
+  readonly name: string;
+  /** How using it spends it: `consumed` for an item a use uses up, `charged` for one that holds uses. */
+  readonly kind: string;
+  /** The spell it carries. */
+  readonly spell: string;
+  /** What that spell is called. */
+  readonly spellName: string;
+  /** What the spell it carries is aimed at: `none`, `caster`, `ally`, `foe`, or `party`. */
+  readonly targeting: string;
+  /** How many uses it holds now. */
+  readonly charges: number;
+  /** How many uses its kind holds when full. */
+  readonly chargesMax: number;
+  /** Whether a member has it equipped, which is what an item that holds charges needs. */
+  readonly wielded: boolean;
+  /** The member wearing it, empty when nobody does. */
+  readonly member: string;
 }
 
 /** One reading a cast left behind, as the product published it. */
@@ -882,6 +920,12 @@ interface MagicView {
   readonly facts: readonly SpellFactView[];
   /** The effects spells have left running on the party, in the order they were applied. */
   readonly running: readonly SpellRunningView[];
+  /** The effects spells have left running on the party's characters, each naming the character. */
+  readonly memberRunning: readonly SpellMemberRunningView[];
+  /** The items the party carries that hold a spell, in the order the pack holds them. */
+  readonly items: readonly SpellItemView[];
+  /** What carried the last casting, empty when it came from the caster's own spellbook. */
+  readonly source: string;
   /** What the party sees by: `daylight`, `light`, `dark`, or empty when nothing states it. */
   readonly sight: string;
 }
@@ -1240,6 +1284,14 @@ const STYLES = `
 .crawler-magic-facts[hidden] { display: none; }
 .crawler-magic-running { margin: 0.2rem 0 0; color: #b9c9a8; font-size: 0.72rem; }
 .crawler-magic-running[hidden] { display: none; }
+.crawler-magic-member-running { margin: 0.15rem 0 0; padding-left: 1.1rem; color: #a8bcc9; font-size: 0.72rem; }
+.crawler-magic-member-running[hidden] { display: none; }
+.crawler-magic-items { margin: 0.3rem 0 0; }
+.crawler-magic-items[hidden] { display: none; }
+.crawler-magic-item { margin: 0 0 0.3rem; }
+.crawler-magic-item .crawler-row-label { display: block; color: #cfc3a2; font-size: 0.72rem; }
+.crawler-magic-items .crawler-item-member, .crawler-magic-items .crawler-target { font-size: 0.7rem; }
+.crawler-magic-items .crawler-use-item { width: auto; padding: 0.15rem 0.35rem; font-size: 0.7rem; }
 .crawler-rest { margin: 0 0 0.5rem; border-top: 1px solid rgba(210, 196, 158, 0.25); padding-top: 0.5rem; }
 .crawler-rest[hidden] { display: none; }
 .crawler-rest .crawler-step-head { margin: 0 0 0.2rem; color: #d8cba6; font-size: 0.82rem; }
@@ -1595,6 +1647,26 @@ function readMagic(value: unknown): MagicView {
       name: typeof fact.name === 'string' ? fact.name : '',
       value: typeof fact.value === 'string' ? fact.value : '',
     })),
+    memberRunning: readList(value.memberRunning, (effect) => ({
+      member: typeof effect.member === 'string' ? effect.member : '',
+      name: typeof effect.name === 'string' ? effect.name : '',
+      effect: typeof effect.effect === 'string' ? effect.effect : '',
+      magnitude: typeof effect.magnitude === 'number' ? effect.magnitude : 0,
+      endsAt: typeof effect.endsAt === 'string' ? effect.endsAt : '',
+    })),
+    items: readList(value.items, (item) => ({
+      item: typeof item.item === 'string' ? item.item : '',
+      name: typeof item.name === 'string' ? item.name : '',
+      kind: typeof item.kind === 'string' ? item.kind : '',
+      spell: typeof item.spell === 'string' ? item.spell : '',
+      spellName: typeof item.spellName === 'string' ? item.spellName : '',
+      targeting: typeof item.targeting === 'string' ? item.targeting : '',
+      charges: typeof item.charges === 'number' ? item.charges : 0,
+      chargesMax: typeof item.chargesMax === 'number' ? item.chargesMax : 0,
+      wielded: item.wielded === true,
+      member: typeof item.member === 'string' ? item.member : '',
+    })),
+    source: typeof value.source === 'string' ? value.source : '',
     running: readList(value.running, (effect) => ({
       effect: typeof effect.effect === 'string' ? effect.effect : '',
       magnitude: number(effect.magnitude),
@@ -1620,6 +1692,9 @@ const NO_MAGIC: MagicView = {
   message: '',
   facts: [],
   running: [],
+  memberRunning: [],
+  items: [],
+  source: '',
   sight: '',
 };
 
@@ -2464,7 +2539,20 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   const magicRunning = document.createElement('p');
   magicRunning.className = 'crawler-magic-running';
   magicRunning.hidden = true;
-  magic.append(magicHead, magicState, magicMembers, magicResult, magicFacts, magicRunning);
+
+  // What runs on each character, as its own list: a ward cast on one member has to be readable as that
+  // member's, beside the party's own carried effects rather than mixed into them.
+  const magicMemberRunning = document.createElement('ul');
+  magicMemberRunning.className = 'crawler-magic-member-running';
+  magicMemberRunning.hidden = true;
+
+  // The magic the party carries in its pack: a scroll it can read and a wand it can fire, each with what is
+  // left of it and the controls that use it. The panel offers the row the product published and sends back
+  // the instance identity it was handed, so using one names the item rather than a row number.
+  const magicItems = document.createElement('div');
+  magicItems.className = 'crawler-magic-items';
+  magicItems.hidden = true;
+  magic.append(magicHead, magicState, magicMembers, magicResult, magicFacts, magicRunning, magicMemberRunning, magicItems);
 
   // The stop controls: one button per act, and the answer the last one got. A rest heals and a wait does
   // not, so the buttons are never collapsed into one; and the fatigue line is the clock's own deadline,
@@ -3384,6 +3472,21 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
       .join(' · ');
     magicRunning.hidden = magicRunning.textContent === '';
 
+    // What each character carries of a spell, one row per effect, with the character and the moment it ends:
+    // this is the row that shows a ward landing on one member while the others go without.
+    magicMemberRunning.replaceChildren(
+      ...view.memberRunning.map((effect) => {
+        const row = document.createElement('li');
+        row.className = 'crawler-magic-member-running-row';
+        row.dataset.member = effect.member;
+        row.dataset.effect = effect.effect;
+        row.dataset.endsAt = effect.endsAt;
+        row.textContent = `${effect.name}: ${effect.effect} (${effect.magnitude})${effect.endsAt === '' ? '' : ` until ${effect.endsAt}`}`;
+        return row;
+      }),
+    );
+    magicMemberRunning.hidden = view.memberRunning.length === 0;
+
     const signature = JSON.stringify(view);
     if (signature === renderedMagic) return;
     renderedMagic = signature;
@@ -3394,6 +3497,81 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
       if (targeting === 'ally') return view.targets.filter((target) => target.side === 'party');
       return [];
     };
+
+    /** A member picker, which is who a carried item's spell would be cast by. */
+    const memberPicker = (): HTMLSelectElement => {
+      const picker = document.createElement('select');
+      picker.className = 'crawler-item-member';
+      for (const member of view.members) {
+        const choice = document.createElement('option');
+        choice.value = String(member.index);
+        choice.textContent = member.name;
+        picker.append(choice);
+      }
+
+      return picker;
+    };
+
+    /** A target picker for one spell's own aim, or null when the aim names no actor. */
+    const targetPicker = (targeting: string, className: string): HTMLSelectElement | null => {
+      const options = candidates(targeting);
+      if (options.length === 0) return null;
+      const picker = document.createElement('select');
+      picker.className = className;
+      for (const target of options) {
+        const choice = document.createElement('option');
+        choice.value = target.target;
+        choice.textContent = target.name;
+        picker.append(choice);
+      }
+
+      return picker;
+    };
+
+    // The pack's own carried magic: what each item is, what spell it holds, how much of it is left, and who
+    // is wearing it. The use control names the item, the member, and the target, which is exactly what the
+    // product's casting control takes.
+    magicItems.replaceChildren(
+      ...view.items.map((item) => {
+        const row = document.createElement('div');
+        row.className = 'crawler-magic-item';
+        row.dataset.item = item.item;
+        row.dataset.kind = item.kind;
+        row.dataset.spell = item.spell;
+        row.dataset.targeting = item.targeting;
+        row.dataset.charges = String(item.charges);
+        row.dataset.chargesMax = String(item.chargesMax);
+        row.dataset.wielded = item.wielded ? 'wielded' : 'packed';
+        const label = document.createElement('span');
+        label.className = 'crawler-row-label';
+        label.textContent =
+          item.kind === 'charged'
+            ? `${item.name} — ${item.spellName} · ${item.charges}/${item.chargesMax} charge${item.chargesMax === 1 ? '' : 's'} · ${item.wielded ? `wielded by ${item.member}` : 'not wielded'}`
+            : `${item.name} — ${item.spellName} · one use`;
+        row.append(label);
+
+        const caster = memberPicker();
+        row.append(caster);
+        const picker = targetPicker(item.targeting, 'crawler-target');
+        if (picker !== null) row.append(picker);
+        const use = document.createElement('button');
+        use.type = 'button';
+        use.className = 'crawler-use-item';
+        use.textContent = item.kind === 'charged' ? 'Fire it' : 'Read it';
+        use.disabled = view.members.length === 0;
+        use.addEventListener('click', () =>
+          claim(ACTION_CAST, {
+            member: Number(caster.value),
+            spell: item.spell,
+            target: picker === null ? '' : picker.value,
+            item: item.item,
+          }),
+        );
+        row.append(use);
+        return row;
+      }),
+    );
+    magicItems.hidden = view.items.length === 0;
 
     magicMembers.replaceChildren(
       ...view.members.map((member) => {

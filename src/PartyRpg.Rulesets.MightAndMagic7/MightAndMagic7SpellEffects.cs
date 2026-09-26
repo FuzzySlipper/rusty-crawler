@@ -34,7 +34,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// named a place the party can actually reach.
 /// </para>
 /// </remarks>
-internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRule, IPartySightRule, IRunningSpellEffects, IGameTimeObserver
+internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRule, IPartySightRule, IRunningSpellEffects, IMemberSpellEffects, IGameTimeObserver
 {
     private readonly MightAndMagic7Spells _spells;
     private readonly GameClock? _clock;
@@ -117,8 +117,11 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         ArgumentNullException.ThrowIfNull(application);
 
         // The party the casting names is the state every effect here changes, so the ledger is created over
-        // it on the first cast. Two sessions cannot share one path: the ledger holds one party's effects.
-        _running ??= new RunningSpellEffects(application.Party, _clock);
+        // it on the first cast. Two sessions cannot share one path: the ledger holds one party's effects. What
+        // a character still carries is this game's answer — a member that death, petrification, or eradication
+        // has laid out carries nothing a spell left, so their effects end where the ledger next reads or
+        // advances rather than standing over a body.
+        _running ??= new RunningSpellEffects(application.Party, _clock, member => !LaidOut(member));
         return application.Spell.Effect switch
         {
             SpellEffects.Damage => Harm(application),
@@ -178,6 +181,24 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     /// <summary>Whether an effect a spell applied is still running.</summary>
     /// <param name="effect">The effect to look for.</param>
     public bool IsRunning(EffectId effect) => _running?.IsRunning(effect) == true;
+
+    /// <summary>The effects running on the party's own characters, read from the ledger they were applied through.</summary>
+    /// <remarks>
+    /// A session with no cast behind it holds no ledger, and this then reports nothing rather than an empty
+    /// party: a panel shows that no spell has left anything on anybody.
+    /// </remarks>
+    public IReadOnlyList<RunningSpellEffect> RunningOnMembers => _running?.RunningOnMembers ?? [];
+
+    /// <summary>What one character carries of one effect, which is what the fight's own readings ask.</summary>
+    /// <remarks>
+    /// A character the game has laid out carries nothing, and the call ends what a death ended: the ledger is
+    /// the one owner that knows which effects belong to which character, so the reading and the ending are the
+    /// same question asked once.
+    /// </remarks>
+    /// <param name="member">The character to read.</param>
+    /// <param name="effect">The effect definition to read.</param>
+    /// <returns>The magnitude it acts at, or zero when the character does not carry it.</returns>
+    public int MagnitudeOn(PartyMember member, EffectId effect) => _running?.MagnitudeOn(member, effect) ?? 0;
 
     /// <inheritdoc />
     /// <remarks>
@@ -344,40 +365,90 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
             facts);
     }
 
-    /// <summary>Resistance: a ward carried by the party that the fight's own readings consult.</summary>
+    /// <summary>Resistance: a ward on the character the casting named, or on the party, as the table aims it.</summary>
     /// <remarks>
-    /// A protection is a party-carried effect, which is where a party-wide buff already lives, and the fight
-    /// reads it through the very answers it already asks: a resistance when it lets the target's share off a
-    /// blow's harm, and armour class when it prices a chance to land. The duration is a deadline on the
-    /// session's one clock, so a ward lapses on the road exactly as it does standing still.
+    /// <para>
+    /// A protection is a carried effect with a deadline on the session's one clock, so a ward lapses on the
+    /// road exactly as it does standing still; the fight reads it through the very answers it already asks —
+    /// a resistance when it lets the target's share off a blow's harm, and armour class when it prices a
+    /// chance to land.
+    /// </para>
+    /// <para>
+    /// <b>Whose ward it is, is the table's own aim.</b> A reading marked as landing on one character is
+    /// applied to the member the casting named, under that member's own entry, so the fight reads it for them
+    /// and nobody else; a reading aimed at the party is carried by the party, which is where a party-wide buff
+    /// already lives. The donor's own casts differ per spell and are cited where the row is stated, and the
+    /// coverage report says which is which rather than leaving it to be inferred from the numbers.
+    /// </para>
     /// </remarks>
     private SpellApplicationOutcome Ward(SpellApplication application)
     {
-        if (_spells.ReadingOf(application.Spell).Ward is not { } ward || Ledger is not { } running)
+        SpellReading reading = _spells.ReadingOf(application.Spell);
+        if (reading.Ward is not { } ward || Ledger is not { } running)
         {
             return Unexpressed(application, "no ward this build can raise");
         }
 
         (int power, GameDuration lasts) = Worth(application, ward.Power, ward.Lasts);
-        foreach (DamageKindId kind in ward.Kinds)
+        IReadOnlyList<PartyMember> carries = reading.OnMember ? Carriers(application) : [];
+        if (reading.OnMember && carries.Count == 0)
         {
-            running.Start(SpellEffectIds.Resistance(kind), power, lasts);
+            return Unexpressed(application, "no character to carry a ward the table aims at one");
         }
 
-        if (ward.Armour) running.Start(SpellEffectIds.Armour, power, lasts);
+        if (carries.Count == 0)
+        {
+            foreach (DamageKindId kind in ward.Kinds) running.Start(SpellEffectIds.Resistance(kind), power, lasts);
+            if (ward.Armour) running.Start(SpellEffectIds.Armour, power, lasts);
+        }
+        else
+        {
+            foreach (PartyMember member in carries)
+            {
+                foreach (DamageKindId kind in ward.Kinds)
+                {
+                    running.StartOn(member, SpellEffectIds.Resistance(kind), power, lasts);
+                }
+
+                if (ward.Armour) running.StartOn(member, SpellEffectIds.Armour, power, lasts);
+            }
+        }
 
         string warded = ward.Armour
             ? "armour class"
             : string.Join(", ", ward.Kinds.Select(kind => kind.Value));
+        string who = carries.Count switch
+        {
+            0 => "the party",
+            1 => carries[0].Profile.Name,
+            _ => "the party",
+        };
         return Expressed(
             application,
-            $"the party is warded against {warded} at {power}, until the clock reaches the end of {Describe(lasts)}",
+            $"{who} is warded against {warded} at {power}, until the clock reaches the end of {Describe(lasts)}",
             [
                 new SpellEffectFact("ward", warded),
                 new SpellEffectFact("power", power.ToString(CultureInfo.InvariantCulture)),
                 new SpellEffectFact("until", Moment(application, lasts)),
+                .. carries.Select(member => new SpellEffectFact("warded", member.Profile.Name)),
             ]);
     }
+
+    /// <summary>
+    /// The characters an effect aimed at one member lands on, in the order the party stands in.
+    /// </summary>
+    /// <remarks>
+    /// A spell whose aim names the caster lands on the caster and one aimed at an ally lands on the member the
+    /// casting named; a spell aimed at the party names nobody in particular and is carried by the party
+    /// instead, which is why this answers nothing for it.
+    /// </remarks>
+    private static IReadOnlyList<PartyMember> Carriers(SpellApplication application) =>
+        application.Spell.Targeting switch
+        {
+            SpellTargeting.Caster => [application.Caster],
+            SpellTargeting.Ally => Members(application),
+            _ => [],
+        };
 
     /// <summary>Condition: a condition lifted from a member, or left on a target that is not one.</summary>
     /// <remarks>
@@ -593,14 +664,15 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
             facts);
     }
 
-    /// <summary>Utility: a party-carried effect, or the ending of the ones other spells left.</summary>
+    /// <summary>Utility: a carried effect on the character the table aims it at or on the party, or the ending of the ones other spells left.</summary>
     /// <remarks>
-    /// A buff is the same shape as a ward — a party-carried effect with a deadline — and what reads it is a
-    /// fight's own answer: a haste is recovery, a blessing is the chance to land a blow, heroism and
-    /// hammerhands are what a blow is worth, a fate is the luck a resistance check and a saving throw read,
-    /// and invisibility is whether a creature notices the party at all. A dispelling is the ledger's own
-    /// ending of what spells left running, which is why it takes nothing a counter sold: a passage and a
-    /// membership are party-carried effects too and are not magic.
+    /// A buff is the same shape as a ward — a carried effect with a deadline, on one character or on the band
+    /// as the table's own aim states — and what reads it is a fight's own answer: a haste is recovery, a
+    /// blessing is the chance to land a blow, heroism and hammerhands are what a blow is worth, a fate is the
+    /// luck a resistance check and a saving throw read, and invisibility is whether a creature notices the
+    /// party at all. A dispelling is the ledger's own ending of what spells left running, on the party and on
+    /// its characters alike, which is why it takes nothing a counter sold: a passage and a membership are
+    /// carried effects too and are not magic.
     /// </remarks>
     private SpellApplicationOutcome Utility(SpellApplication application)
     {
@@ -623,14 +695,30 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         }
 
         (int power, GameDuration lasts) = Worth(application, buff.Power, buff.Lasts);
-        running.Start(buff.Effect, power, lasts);
+        IReadOnlyList<PartyMember> carries = reading.OnMember ? Carriers(application) : [];
+        if (reading.OnMember && carries.Count == 0)
+        {
+            return Unexpressed(application, "no character to carry an effect the table aims at one");
+        }
+
+        if (carries.Count == 0)
+        {
+            running.Start(buff.Effect, power, lasts);
+        }
+        else
+        {
+            foreach (PartyMember member in carries) running.StartOn(member, buff.Effect, power, lasts);
+        }
+
+        string who = carries.Count == 1 ? carries[0].Profile.Name : "the party";
         return Expressed(
             application,
-            $"the party carries it at {power} until the clock reaches the end of {Describe(lasts)}",
+            $"{who} carries it at {power} until the clock reaches the end of {Describe(lasts)}",
             [
                 new SpellEffectFact("effect", buff.Effect.Value),
                 new SpellEffectFact("power", power.ToString(CultureInfo.InvariantCulture)),
                 new SpellEffectFact("until", Moment(application, lasts)),
+                .. carries.Select(member => new SpellEffectFact("carried", member.Profile.Name)),
             ]);
     }
 

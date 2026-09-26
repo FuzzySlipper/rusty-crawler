@@ -75,6 +75,16 @@ public sealed class ItemInstance
     /// <exception cref="ArgumentOutOfRangeException">The amount is negative.</exception>
     public void Repair(int amount) => State = State.Repaired(amount);
 
+    /// <summary>
+    /// Spends one of the instance's charges.
+    /// </summary>
+    /// <remarks>
+    /// Only the party spends a charge, because only the party can take the item away when the last one goes:
+    /// what is left is the game's own reading of the item's row less what the instance records as spent, and
+    /// a second writer of that count would be a second answer to how full the item is.
+    /// </remarks>
+    internal void SpendCharge() => State = State.WithChargeSpent();
+
     /// <summary>Adds or replaces one enchantment on the instance.</summary>
     /// <param name="enchantment">The enchantment to carry.</param>
     public void Enchant(ItemEnchantment enchantment) => State = State.Enchanted(enchantment);

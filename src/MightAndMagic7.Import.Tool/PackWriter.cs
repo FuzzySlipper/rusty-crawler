@@ -1068,15 +1068,16 @@ internal static class PackWriter
                 writer.WriteString("damageDice", item.DamageDice);
                 writer.WriteString("damageModifier", item.DamageModifier);
 
-                // A spell book's row states the spell it teaches in the item table's own damage column, as the
-                // letter S and the spell's global id: item 400 is the book of "Torch Light" and carries S1,
-                // item 498 the book of "Souldrinker" and carries S99 (the shipped table's own spelling, which
-                // the donor's spellbook lookup turns into a spell id by position —
-                // OpenEnroth src/Engine/Objects/ItemEnumFunctions.cpp:282, spellForSpellbook, over
-                // spellBySpellbook generated from the item table). That spelling is a source-format quirk, so
-                // the join is written out here as a field of its own rather than left for a reader to parse,
-                // and only for a row the spell table actually declares.
-                if (BookSpell(item, tables.Spells) is { } taught)
+                // A book's, a scroll's, and a wand's row all state the spell they carry in the item table's
+                // own damage column, as the letter S and the spell's global id: item 400 is the book of
+                // "Torch Light" and carries S1, item 300 the scroll of the same spell, item 135 the Wand of
+                // Fire with S2, and item 498 the book of "Souldrinker" with S99 (the shipped table's own
+                // spelling, which the donor's three lookups turn into a spell id by position —
+                // OpenEnroth src/Engine/Objects/ItemEnumFunctions.cpp:282-292, spellForSpellbook,
+                // spellForScroll, and spellForWand, each over a table generated from the item table). That
+                // spelling is a source-format quirk, so the join is written out here as a field of its own
+                // rather than left for a reader to parse, and only for a row the spell table declares.
+                if (ItemSpell(item, tables.Spells) is { } taught)
                 {
                     writer.WriteString("spell", taught.ToString(CultureInfo.InvariantCulture));
                 }
@@ -1091,15 +1092,31 @@ internal static class PackWriter
         return WriteDocument(packDirectory, "items.json", "items", "item", entries);
     }
 
-    /// <summary>The spell a book's own reference column names, or null when the row is not a book of one.</summary>
+    /// <summary>The spell an item's own reference column names, or null when the row carries none.</summary>
     /// <remarks>
-    /// The reference is the shipped table's spelling — the letter <c>S</c> and the spell's id — and it is
-    /// read only for a row the item table itself calls a book. A row whose reference names no spell the spell
-    /// table declares is left without the field rather than given a number nothing answers.
+    /// <para>
+    /// The reference is the shipped table's spelling — the letter <c>S</c> and the spell's id — and it is read
+    /// only for a row that is one of the three things the donor reads a spell for: a book, a spell scroll, or
+    /// a wand. The three share the column and the spelling, which is why one join serves all of them and why
+    /// the kind each is read as travels separately in the item's own <c>type</c> tag.
+    /// </para>
+    /// <para>
+    /// A row whose reference names no spell the spell table declares is left without the field rather than
+    /// given a number nothing answers.
+    /// </para>
     /// </remarks>
-    private static int? BookSpell(ItemRecord item, SpellTable spells)
+    private static int? ItemSpell(ItemRecord item, SpellTable spells)
     {
-        if (!string.Equals(item.EquipStat, BookEquipStat, StringComparison.OrdinalIgnoreCase)) return null;
+        // The equipment words the shipped table uses for the three kinds that carry a spell, read through the
+        // same vocabulary the pack's own kind tag comes from so the two cannot drift.
+        string kind = ItemVocabulary.KindOf(item.EquipStat);
+        if (!string.Equals(kind, ItemVocabulary.Book, StringComparison.Ordinal) &&
+            !string.Equals(kind, ItemVocabulary.SpellScroll, StringComparison.Ordinal) &&
+            !string.Equals(kind, ItemVocabulary.Wand, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
         string reference = item.DamageDice.Trim();
         if (reference.Length < 2 || !reference.StartsWith("S", StringComparison.OrdinalIgnoreCase)) return null;
         return int.TryParse(reference[1..], NumberStyles.None, CultureInfo.InvariantCulture, out int id) &&
@@ -1107,9 +1124,6 @@ internal static class PackWriter
             ? id
             : null;
     }
-
-    /// <summary>The item table's own word for a spell book, as the equipment column states it.</summary>
-    private const string BookEquipStat = "Book";
 
     private static int WriteQuests(string packDirectory, Mm7Tables tables)
     {
