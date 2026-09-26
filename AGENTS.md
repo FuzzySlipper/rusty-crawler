@@ -72,8 +72,10 @@ documents decide, and the difference is recorded rather than silently rounded.
 
 ## Current state
 
-**Foundation stone 4 has landed: the party, its resources, the clock and calendar, character creation,
-what a crossing costs, persistence, and the ways a player reaches creation and saving.**
+**Foundation stone 5 has landed: the world is inhabited and usable — one interaction mechanism for doors,
+containers and people, one service mechanism serving every shipped building kind from imported data,
+schedules that lock doors outside their hours, rest and camping, and conversations with topics whose
+availability follows the party's own state.**
 
 - `src/PartyRpg.Kit`, `src/PartyRpg.Rulesets.MightAndMagic7`, and `src/PartyRpg.Host` build against
   the pinned Engine pair. The host declares the one product entry, one admitted update, the
@@ -188,9 +190,51 @@ what a crossing costs, persistence, and the ways a player reaches creation and s
   the running product: a party created in the product crossed into Emerald Island on `1168-01-02`, was
   saved, and a restarted host resumed that same party, place, clock, and per-place state at the saved
   pose (`local/verify/save-resume/`).
-- **No combat, magic, services, or quests exists.** Do not describe, review, or accept
-  behavior those stones will add as though it were here. What a player can do today is create a party,
-  hold and release the session, walk it, and save or resume it: on the agent playtest service's remote browser a held `W` walks the
+- The world is usable through one interaction mechanism. A target is discovered from the current place's
+  placements and the party's pose, never hand-listed, and one workflow — identify, judge the requirements
+  in order, apply, report — serves search, open, unlock, pull, talk and read, so a new target kind is
+  content plus a ruleset answer rather than a class. Requirements are a small vocabulary (an item, which
+  is how a key works, a skill, a flag, a time of day) whose meaning this game supplies; a refusal names
+  what blocked it. Reach, sight and identity are re-validated at use, and every use and refusal is
+  reported to diagnostics with the party's pose. Over the operator's data this finds 786 in-use doors in
+  54 interiors, 60 event decorations, and containers decoded from the map deltas: 1,520 chest records and
+  722 sprite objects become 357 containers in 57 places, with traps read from the place's own map-stats
+  row and their harm landing on the members the party foundation gave resources. A *chest* is placed by
+  the face whose event program opens it, not by a sprite object — a distinction the format spec now
+  records, alongside the chest flag bit the two donors disagree about, which nothing reads.
+- Every shipped service kind is served by one mechanism from imported data. A building-table row joined to
+  the faces that raise it becomes a counter — kind, proprietor, hours, multipliers, stock interval,
+  training cap, with its source row as provenance — and **136 of the 172 recognised rows across all 21
+  kinds are enterable**, with 84 fares and 358 placements, and the remainders named rather than averaged
+  away. Buy, sell, identify, repair, teach, cure, train, provision, stay, deposit, withdraw and fare all
+  take one path: resolve, judge eligibility, quote a price, settle through the party's one ledger, apply,
+  credit. Shelves are lots on a repeating game-time deadline that travel time also feeds; a passage and a
+  bank balance are party-carried effects, so a seat bought in one town is honoured on the road and cannot
+  be spent in another's name. The kit gained capabilities, not kinds — adding a service kind means adding
+  content and a ruleset answer.
+- Towns are clocked. A place's hours come from the counters standing in it or from the place's own entry,
+  and a door in a clocked place carries those hours as an ordinary requirement judged against the one
+  clock, so a shut door refuses in the mechanism's own sentence and opens again when the hour comes —
+  nothing is remembered. Rest, camp and wait are three different things: a night under a roof fills both
+  pools, clears the conditions the rule names and settles the day's provisions through the ledger (a
+  larder left short has the last word); camping in the open is priced by the donor's ground table, refuses
+  near hostiles, draws its risk from the place's own encounter chance through the engine's keyed random
+  service, and a broken night advances one hour while restoring and spending nothing; the waits advance
+  time and restore nobody. Fatigue is a deadline on that clock, not a counter in the world step.
+- People stand in the world and can be talked to. The delta's actor records are 0x344 each with an NPC row
+  at +0x20 and a 16-bit position, and the NPC table names the rest: over the operator's install that is
+  826 actors of which 123 name an NPC row, plus 246 people inside 195 buildings, with 2 residents named
+  unreachable because their rows raise no event on any face. They are emitted as content and as
+  placements, and a `Talk` use opens one conversation owner whose topics are content and whose
+  availability is recomputed per read against real party state — a flag, standing, a class, a race, the
+  hour, an errand — so a topic appears and disappears as the state does and a stale choice is refused
+  with its reason. A service is now reached *through* the conversation: a person who keeps a counter
+  offers it as an ordinary topic whose answer hands off to the service mechanism, and a handoff nothing
+  routes is reported by name. An answer records what it told the party as party-carried state.
+- **No combat, magic, or quests exists, and a save carries no deadlines.** Do not describe, review, or
+  accept behavior those stones will add as though it were here. What a player can do today is create a
+  party, walk it, open doors and containers, get caught by a trap, buy and sell at a counter, learn from a
+  guild, rest or camp, talk to people, and save or resume: on the agent playtest service's remote browser a held `W` walks the
   party about 382 units a second and the released key
   stops it where it stands (Emerald Island, `12552, 800, 193` to `12552, 3859, 98` over eight seconds
   of held key, the pose then unchanged for the next seventy seconds while the admitted steps kept
