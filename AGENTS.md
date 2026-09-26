@@ -72,12 +72,13 @@ documents decide, and the difference is recorded rather than silently rounded.
 
 ## Current state
 
-**Foundation stone 6 is in progress: combat is one state over the live world with both sides acting — the
+**Foundation stone 6 has landed: combat is one state over the live world with both sides acting — the
 party strikes, monsters are placed and driven by this game's own data, harm resolves into damage,
 resistance and conditions, a place remembers being emptied, what a death leaves lies there searchable, and
 the same state is played in either of the two pacings: real time by recovery, or turn-based in rounds with
 the session waiting for each of the player's turns. A creature that cannot see its target still walks
-straight at it rather than around geometry, which is the one piece of the stone left.**
+straight at it rather than around geometry, which is a defect with its own task rather than a gap in the
+stone.**
 
 - `src/PartyRpg.Kit`, `src/PartyRpg.Rulesets.MightAndMagic7`, and `src/PartyRpg.Host` build against
   the pinned Engine pair. The host declares the one product entry, one admitted update, the
@@ -324,6 +325,15 @@ straight at it rather than around geometry, which is the one piece of the stone 
   armour class are the donor's sum only where this build can read them — an unarmed accuracy bonus for the
   blow, a speed bonus and dodging for the armour class, and nothing at all for the six resistances — because a
   party cannot wear anything until the stone that brings items and equipment lands.
+- The fight is readable, and the panel owns none of it. Every fact it shows is projected from the state
+  the session holds within one update: each character's readiness — which now means *may act*, recovery
+  elapsed **and** not laid out, so the ready light and the act control never offer an action the ruleset
+  will refuse — health, conditions and who is down, what is hostile and how far off, the pacing, the
+  round, whose turn it is with what each actor owes, what the last action did down to the chance, the
+  damage, the resistance and the condition it left, and what bodies lie here. Three checks keep the
+  companion honest: the runtime check that rendering starts no timer, a source scan that fails on a clock
+  or on any arithmetic between a combat quantity and anything else, and a test that feeds it
+  contradictory projections and requires it to echo them.
 - **No magic or quests exists, a save carries no deadlines, and a save carries no fight.** Do not describe,
   review, or accept behavior those stones will add as though it were here. What a player can do today is
   create a party, walk it, open doors and containers, get caught by a trap, buy and sell at a counter, learn
