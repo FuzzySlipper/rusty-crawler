@@ -23,12 +23,14 @@ public readonly record struct ServiceStockSnapshot(
 /// <param name="Name">What a person reads for it.</param>
 /// <param name="Amount">The skill level the lesson reaches, or the effect's magnitude.</param>
 /// <param name="Price">What the lesson costs the party.</param>
+/// <param name="Tier">The rung of a skill's ladder the lesson leaves a member at, where one is the first.</param>
 public readonly record struct ServiceLessonSnapshot(
     string Kind,
     string Subject,
     string Name,
     int Amount,
-    int Price);
+    int Price,
+    int Tier);
 
 /// <summary>One of the party's own items, as a service that would buy it shows it.</summary>
 /// <param name="Item">The instance's durable identity, which a sell command names.</param>
@@ -158,7 +160,7 @@ public readonly record struct ServiceSnapshot(
         List<ServiceLessonSnapshot> lessons = [];
         foreach (ServiceLessonOffer offer in teaching)
         {
-            lessons.Add(new ServiceLessonSnapshot(WireName(offer.Kind), offer.Subject, offer.Name, offer.Amount, offer.Price));
+            lessons.Add(new ServiceLessonSnapshot(WireName(offer.Kind), offer.Subject, offer.Name, offer.Amount, offer.Price, offer.Tier));
         }
 
         List<ServiceSaleSnapshot> sales = [];

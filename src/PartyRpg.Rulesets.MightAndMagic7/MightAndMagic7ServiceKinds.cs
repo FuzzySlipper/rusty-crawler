@@ -229,6 +229,39 @@ internal static class MightAndMagic7ServiceKinds
         };
     }
 
+    /// <summary>
+    /// The deepest rung of a skill's ladder a counter can teach a member, given the guild rung it stands at.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Ours, over the donor's own guild ladder.</b> The donor's mastery teachers are people in the world
+    /// rather than counters: an NPC dialogue topic teaches a skill at expert, master, or grand master, keyed
+    /// by the skill and the teacher's level (<c>src/GUI/UI/NPCTopics.cpp:434-540</c>,
+    /// <c>masteryTeacherOptionString</c>), and none of those topics is in the shipped topic table this build
+    /// imports — 1,000 people carry 2,000-odd topics and not one names a skill's rung (checked over the
+    /// operator's own people pack). What the donor does state per guild is how deep in its own school each
+    /// guild's knowledge runs: the nine school guilds are four houses apiece, and the house's rung is the
+    /// spell mastery it may sell, read from the table's own order rather than from the words
+    /// (<c>src/GUI/UI/Houses/MagicGuild.cpp:64-99</c>, <c>guildSpellsMastery</c>).
+    /// </para>
+    /// <para>
+    /// So the keeper of a guild is the master teacher for its school's skill: the rung the guild stands at in
+    /// its own ladder is the deepest rung of that skill the guild can take a member to — an initiate guild
+    /// teaches the first rung, an adept guild expert, a master guild the master rung, and a paramount guild
+    /// grand master. A guild of the Light or the Dark has two houses rather than four, and the donor puts the
+    /// first at expert and the second at grand master (<c>MagicGuild.cpp:79-90</c>), which is the same
+    /// reading of the same table. Every other counter teaches one rung and no more, which is why a shop that
+    /// sells a skill's first lesson does not also sell its mastery.
+    /// </para>
+    /// </remarks>
+    /// <param name="tier">The guild's rung among its school's guilds, counting from one.</param>
+    /// <param name="paired">Whether the school keeps two guilds rather than four, which light and dark do.</param>
+    internal static int MasteryDepth(int tier, bool paired)
+    {
+        if (paired) return tier <= 1 ? 2 : 4;
+        return Math.Clamp(tier, 1, 4);
+    }
+
     /// <summary>What a fare costs before the counter's multiplier, by the kind that sells it.</summary>
     /// <remarks>
     /// OpenEnroth <c>src/Engine/PriceCalculator.cpp:162-174</c>, <c>transportCostForPlayer</c>: a boat is

@@ -10,6 +10,7 @@ using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Services;
+using PartyRpg.Kit.Skills;
 using PartyRpg.Kit.Time;
 using Rusty.Engine;
 
@@ -100,6 +101,8 @@ public sealed class PartyRpgSession : IGameSession
     private readonly ServiceInput? _serviceInput;
     private readonly IServiceRule? _serviceRule;
     private readonly IProgressionRule? _progressionRule;
+    private readonly ISkillRule? _skillRule;
+    private readonly SkillRaiseInput? _skillInput;
     private readonly ConversationInput? _conversationInput;
     private readonly IConversationRule? _conversationRule;
     private readonly RestInput? _restInput;
@@ -280,6 +283,18 @@ public sealed class PartyRpgSession : IGameSession
     /// order to attack arrives on. Without it the fight is still composed and still reads the world — what is
     /// hostile, who is ready — and no order ever reaches it.
     /// </param>
+    /// <param name="skills">
+    /// This game's answers about its own skills, when its ruleset has any: the catalog content declares, the
+    /// ceiling a class and rank impose, and what a raise costs. Without one the progression owner still
+    /// holds the points a level grants and cannot spend them, which is what a ruleset that has not said how
+    /// far a skill may grow gets.
+    /// </param>
+    /// <param name="skillInput">
+    /// The skill-spend control the host declared, when it declared one: the payload action a screen's raise
+    /// control arrives on. Without it the owner is still composed and the panel still publishes what a raise
+    /// would cost, and no raise ever reaches it — which is what a product that declares no such control
+    /// gets.
+    /// </param>
     /// <exception cref="ArgumentException">
     /// The session is composed both to create a party and to hold one, or to create one without the controls
     /// its commands arrive on.
@@ -309,7 +324,9 @@ public sealed class PartyRpgSession : IGameSession
         ICombatRule? combat = null,
         CombatIntentNames? combatInput = null,
         IMonsterAiPolicy? monsterAi = null,
-        IProgressionRule? progression = null)
+        IProgressionRule? progression = null,
+        ISkillRule? skills = null,
+        SkillRaiseIntentNames? skillInput = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(composition.Title);
         if (creation is not null && (world is not null || party is not null))
@@ -334,6 +351,8 @@ public sealed class PartyRpgSession : IGameSession
         _serviceInput = serviceInput is null ? null : new ServiceInput(serviceInput);
         _serviceRule = service;
         _progressionRule = progression;
+        _skillRule = skills;
+        _skillInput = skillInput is null ? null : new SkillRaiseInput(skillInput);
         _conversationInput = conversationInput is null ? null : new ConversationInput(conversationInput);
         _conversationRule = conversation;
         _restInput = restInput is null ? null : new RestInput(restInput);
@@ -649,6 +668,7 @@ public sealed class PartyRpgSession : IGameSession
         _attackHeld = attackHeld;
 
         DriveServices(update.Input);
+        DriveRaises(update.Input);
         DriveConversations(update.Input);
         StepClock(seconds);
 
@@ -1336,6 +1356,38 @@ public sealed class PartyRpgSession : IGameSession
     }
 
     /// <summary>
+    /// Applies the skill raises this update carried, in the order they arrived.
+    /// </summary>
+    /// <remarks>
+    /// A raise is an instant like a use and is read whatever the mode, because it touches nothing the world
+    /// or the clock holds: it spends points the progression owner keeps and raises a skill on the member the
+    /// screen named. Every raise goes through the owner's one spend path, so a raise past the ceiling or one
+    /// the pool cannot cover is refused with the limit or the shortfall named and nothing moves; a raise the
+    /// screen named for a row the party no longer has is refused the same way rather than applied to whoever
+    /// stands there now.
+    /// </remarks>
+    private void DriveRaises(ReadOnlySpan<ProductInputEvent> input)
+    {
+        if (_skillInput is null || _progression is not { } progression) return;
+        foreach (SkillRaiseRequest raise in _skillInput.Read(input))
+        {
+            if (raise.Member < 0 || raise.Member >= progression.Party.Members.Count)
+            {
+                _diagnostics?.Publish(new DiagnosticsPublishRequest(
+                    DiagnosticsSeverity.Warning,
+                    DiagnosticsDisposition.RejectedRecoverable,
+                    Source: "progression",
+                    Code: "skill-member-unknown",
+                    Message: $"A raise named member {raise.Member + 1}, and the party has {progression.Party.Members.Count}.",
+                    Correlation: string.Empty));
+                continue;
+            }
+
+            progression.RaiseSkill(progression.Party.Members[raise.Member].Id, raise.Skill, raise.Levels);
+        }
+    }
+
+    /// <summary>
     /// Advances the one clock by the interval this update admitted, and hands on what the advance crossed
     /// and brought due.
     /// </summary>
@@ -1417,7 +1469,7 @@ public sealed class PartyRpgSession : IGameSession
     private void ComposeProgression()
     {
         if (_progression is not null || _progressionRule is null || _party is not { } party) return;
-        _progression = new PartyProgression(_progressionRule, party);
+        _progression = new PartyProgression(_progressionRule, party, _skillRule);
     }
 
     /// <summary>
@@ -1604,7 +1656,11 @@ public sealed class PartyRpgSession : IGameSession
         // counter: a session with no owner, a party that has earned nothing, and a member who has banked
         // the experience a level takes are three different facts, and the fee is the counter's own quote
         // rather than a number this projection worked out.
-        ProgressionSnapshot.From(_progression, _services));
+        ProgressionSnapshot.From(_progression, _services),
+        // What each member can hold and what the next point would buy, read from the same owner: the rows
+        // are content's, the ceilings are the ruleset's, and what a raise would cost or why it is refused is
+        // the owner's own answer, so a screen renders a price rather than working one out.
+        SkillsSnapshot.From(_progression));
 
     /// <summary>Publishes the world as it stands now, after a caller moved the party.</summary>
     public void PublishWorld()

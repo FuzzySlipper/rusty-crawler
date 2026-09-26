@@ -1,5 +1,6 @@
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Progression;
+using PartyRpg.Kit.Skills;
 using PartyRpg.Kit.World;
 using Rusty.Engine.Entities;
 using Xunit;
@@ -392,16 +393,19 @@ public sealed class PartyEntityTests
             skillPoints: 5,
             new SkillEntry(Blades, 1, SkillTier.None, 0));
         PartyMember ann = party.Members[0];
-        PartyProgression progression = new(new NoProgressionRule(), party);
+        PartyProgression progression = new(new NoProgressionRule(), party, new TestSkills());
 
-        Assert.Null(progression.RaiseSkill(ann.Id, Blades, levels: 2, points: 3));
+        // The price of the raise is the skill rule's, so the caller states levels and nothing else: this
+        // test's rule charges two points a level, so two levels cost four of the five the member holds.
+        SkillRaiseResult raised = progression.RaiseSkill(ann.Id, Blades, levels: 2);
+        Assert.True(raised.IsRaised);
 
-        Assert.Equal(2, ann.Progression.SkillPoints);
+        Assert.Equal(1, ann.Progression.SkillPoints);
         Assert.Equal(3, ann.Skills.LevelOf(Blades));
-        Assert.Equal(3, ann.Skills.Entries.Single().PointsSpent);
+        Assert.Equal(4, ann.Skills.Entries.Single().PointsSpent);
 
-        PartyRefusal? refused = progression.RaiseSkill(ann.Id, Blades, levels: 1, points: 3);
-        Assert.Equal("insufficient-skill-points", refused!.Code);
+        SkillRaiseResult refused = progression.RaiseSkill(ann.Id, Blades, levels: 1);
+        Assert.Equal("insufficient-skill-points", refused.Refusal!.Code);
         Assert.Equal(3, ann.Skills.LevelOf(Blades));
     }
 
@@ -666,6 +670,21 @@ public sealed class PartyEntityTests
     /// This test is about the skill raise, which reads none of the rule's answers, so the rule states the
     /// smallest thing that is still a rule rather than an answer invented for the test to assert on.
     /// </remarks>
+    /// <summary>
+    /// The skill policy this test's owner runs on: the skill the member holds, a ceiling well above it, and
+    /// this test's own two points a level.
+    /// </summary>
+    private sealed class TestSkills : ISkillRule
+    {
+        public SkillCatalog Catalog { get; } = new([new SkillDefinition(new SkillId("blades"), SkillBlock.Weapon)]);
+
+        public SkillCeiling Ceiling(PartyMember member, SkillId skill) => new(60, new SkillTier(4));
+
+        public int RaiseCost(SkillEntry skill, int levels) => 2 * levels;
+
+        public string TierName(SkillTier tier) => tier.Value == 0 ? "untrained" : "trained";
+    }
+
     private sealed class NoProgressionRule : IProgressionRule
     {
         public long ExperienceForLevel(int level) => 0;

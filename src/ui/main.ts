@@ -79,6 +79,7 @@ const ACTION_ACCEPT = 'creation.accept';
  * one of them: the party enters by using the person it is facing, on the use control above, so the screen
  * only ever asks for what happens at a counter it was already shown.
  */
+const ACTION_RAISE_SKILL = 'party.raise-skill';
 const ACTION_SERVICE_BUY = 'service.buy';
 const ACTION_SERVICE_SELL = 'service.sell';
 const ACTION_SERVICE_IDENTIFY = 'service.identify';
@@ -316,6 +317,8 @@ interface ServiceLessonView {
   readonly name: string;
   readonly amount: number;
   readonly price: number;
+  /** The rung of a skill's ladder the lesson leaves a member at, where one is the first rung. */
+  readonly tier: number;
 }
 
 /** One of the party's own items, as a counter that would buy it shows it. */
@@ -702,6 +705,7 @@ interface SnapshotView {
   readonly conversation: ConversationView;
   readonly combat: CombatView;
   readonly progression: ProgressionView;
+  readonly skills: SkillsView;
 }
 
 /** The clock of a session that has none, which the panel shows as not knowing rather than as a date. */
@@ -728,6 +732,73 @@ const PARTY_UNKNOWN: PartyView = {
   hitPointsMax: 0,
   spellPoints: 0,
   spellPointsMax: 0,
+};
+
+/**
+ * The skill-spend control this companion reports, on the product's own action contract: the screen names the
+ * member it drew and the skill on that row, and the product judges the ceiling and the price.
+ */
+const ACTION_RAISE = 'party.raise-skill';
+
+/** One skill a member holds, as the product published it. */
+interface SkillRowView {
+  readonly skill: string;
+  /** `weapon`, `armour`, `magic`, `miscellaneous`, or `unused`. */
+  readonly block: string;
+  readonly level: number;
+  /** What the rung the member stands at is called, in the product's own word. */
+  readonly tier: string;
+  readonly ceilingLevel: number;
+  /** What the highest rung the member's class and rank allow is called. */
+  readonly ceilingTier: string;
+  readonly pointsSpent: number;
+  /** The level one more point would leave the skill at, as the product worked it out. */
+  readonly reached: number;
+  /** What one more level would cost, zero when it would be refused. */
+  readonly cost: number;
+  /** Why one more level would be refused, empty when it would land. */
+  readonly refusal: string;
+}
+
+/** One member's skills, as the product published them. */
+interface SkillMemberView {
+  readonly index: number;
+  readonly member: string;
+  readonly name: string;
+  readonly class: string;
+  readonly rank: number;
+  readonly skills: readonly SkillRowView[];
+}
+
+/**
+ * What every member can hold and what the next point would buy, as the product published it. `available` is
+ * false when the session's ruleset stated no skill policy, which is what a game that never said how far a
+ * skill may grow gets.
+ */
+interface SkillsView {
+  readonly available: boolean;
+  readonly members: readonly SkillMemberView[];
+  /** What the last raise was: `none`, `raised`, or `refused`. */
+  readonly outcome: string;
+  readonly member: string;
+  readonly skill: string;
+  readonly level: number;
+  readonly cost: number;
+  readonly code: string;
+  readonly message: string;
+}
+
+/** The skills of a session whose ruleset stated no skill policy: nothing may be raised. */
+const SKILLS_NONE: SkillsView = {
+  available: false,
+  members: [],
+  outcome: 'none',
+  member: '',
+  skill: '',
+  level: 0,
+  cost: 0,
+  code: '',
+  message: '',
 };
 
 /** The progression of a session that holds no owner: nobody grows and no level has a price. */
@@ -1043,6 +1114,18 @@ const STYLES = `
 .crawler-progression-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
 .crawler-progression-result[hidden] { display: none; }
 .crawler-progression-result[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
+.crawler-skills { margin: 0 0 0.5rem; border-top: 1px solid rgba(210, 196, 158, 0.25); padding-top: 0.5rem; }
+.crawler-skills[hidden] { display: none; }
+.crawler-skills .crawler-step-head { margin: 0 0 0.2rem; color: #d8cba6; font-size: 0.82rem; }
+.crawler-skills-state { margin: 0 0 0.25rem; color: #b9ad8c; font-size: 0.72rem; }
+.crawler-skills-member { margin: 0 0 0.3rem; }
+.crawler-skills-member .crawler-row-label { display: block; color: #cfc3a2; font-size: 0.72rem; }
+.crawler-skill { display: flex; align-items: center; gap: 0.4rem; margin: 0 0 0.15rem; font-size: 0.72rem; color: #cfc3a2; }
+.crawler-skill-refusal { color: #e8c8b0; }
+.crawler-skills .crawler-raise { width: auto; padding: 0.15rem 0.35rem; font-size: 0.7rem; }
+.crawler-skills-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
+.crawler-skills-result[hidden] { display: none; }
+.crawler-skills-result[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
 .crawler-rest { margin: 0 0 0.5rem; border-top: 1px solid rgba(210, 196, 158, 0.25); padding-top: 0.5rem; }
 .crawler-rest[hidden] { display: none; }
 .crawler-rest .crawler-step-head { margin: 0 0 0.2rem; color: #d8cba6; font-size: 0.82rem; }
@@ -1271,6 +1354,76 @@ function readProgression(value: unknown): ProgressionView {
 }
 
 /**
+ * Reads the skills block, or the no-policy skills. A block this companion cannot read is read as no policy
+ * rather than as a party whose skills cannot grow: the panel then shows nothing to raise, which is what a
+ * ruleset that answered no skill policy actually published.
+ */
+function readSkills(value: unknown): SkillsView {
+  if (!isRecord(value) || value.available !== true) return SKILLS_NONE;
+  const { outcome, member, skill, level, cost, code, message } = value;
+  if (
+    typeof outcome !== 'string' ||
+    typeof member !== 'string' ||
+    typeof skill !== 'string' ||
+    typeof level !== 'number' ||
+    typeof cost !== 'number' ||
+    typeof code !== 'string' ||
+    typeof message !== 'string'
+  ) {
+    return SKILLS_NONE;
+  }
+
+  return {
+    available: true,
+    members: readList(value.members, (entry) =>
+      typeof entry.index === 'number' &&
+      typeof entry.member === 'string' &&
+      typeof entry.name === 'string' &&
+      typeof entry.class === 'string' &&
+      typeof entry.rank === 'number'
+        ? {
+            index: entry.index,
+            member: entry.member,
+            name: entry.name,
+            class: entry.class,
+            rank: entry.rank,
+            skills: readList(entry.skills, (row) =>
+              typeof row.skill === 'string' &&
+              typeof row.block === 'string' &&
+              typeof row.level === 'number' &&
+              typeof row.tier === 'string' &&
+              typeof row.ceilingLevel === 'number' &&
+              typeof row.ceilingTier === 'string' &&
+              typeof row.pointsSpent === 'number' &&
+              typeof row.reached === 'number' &&
+              typeof row.cost === 'number' &&
+              typeof row.refusal === 'string'
+                ? {
+                    skill: row.skill,
+                    block: row.block,
+                    level: row.level,
+                    tier: row.tier,
+                    ceilingLevel: row.ceilingLevel,
+                    ceilingTier: row.ceilingTier,
+                    pointsSpent: row.pointsSpent,
+                    reached: row.reached,
+                    cost: row.cost,
+                    refusal: row.refusal,
+                  }
+                : null),
+          }
+        : null),
+    outcome,
+    member,
+    skill,
+    level,
+    cost,
+    code,
+    message,
+  };
+}
+
+/**
  * Reads the service block, or the empty service. The block is published in every mode, so a session that
  * holds no mechanism and one that stands at no counter both read as empty here — and the screen then shows
  * no counter at all, which is a different reading from a counter that is shut.
@@ -1337,6 +1490,7 @@ function readService(value: unknown): ServiceView {
             name: entry.name,
             amount: entry.amount,
             price: entry.price,
+            tier: typeof entry.tier === 'number' ? entry.tier : 1,
           }
         : null),
     sales: readList(value.sales, (entry) =>
@@ -1715,6 +1869,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
   const conversation = readConversation(value.conversation);
   const combat = readCombat(value.combat);
   const progression = readProgression(value.progression);
+  const skills = readSkills(value.skills);
   const { ruleset, title, bundle, contentPacks } = composition;
   const { mode, simulationSeconds, admittedSteps, updates } = session;
   if (
@@ -1784,6 +1939,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
     conversation,
     combat,
     progression,
+    skills,
   };
 }
 
@@ -2069,6 +2225,25 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   progressionResult.hidden = true;
   progression.append(progressionHead, progressionState, progressionMembers, progressionResult);
 
+  // The skills sit under the levels they were bought with: each member's own rows, the ceiling their class
+  // and rank impose, and one control per row that raises it. The panel prints the price and the refusal the
+  // product worked out and raises nothing itself, which is what keeps one spend path in the product rather
+  // than one per screen.
+  const skills = document.createElement('section');
+  skills.className = 'crawler-skills';
+  skills.hidden = true;
+  const skillsHead = document.createElement('p');
+  skillsHead.className = 'crawler-step-head';
+  skillsHead.textContent = 'Skills';
+  const skillsState = document.createElement('p');
+  skillsState.className = 'crawler-skills-state';
+  const skillsMembers = document.createElement('div');
+  skillsMembers.className = 'crawler-skills-members';
+  const skillsResult = document.createElement('p');
+  skillsResult.className = 'crawler-skills-result';
+  skillsResult.hidden = true;
+  skills.append(skillsHead, skillsState, skillsMembers, skillsResult);
+
   // The stop controls: one button per act, and the answer the last one got. A rest heals and a wait does
   // not, so the buttons are never collapsed into one; and the fatigue line is the clock's own deadline,
   // which is why a player can see when the party next needs to sleep.
@@ -2179,6 +2354,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     rest,
     combat,
     progression,
+    skills,
     details,
     action,
     saveButton,
@@ -2193,6 +2369,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   let current = 'starting';
   let renderedConversation = '';
   let renderedProgression = '';
+  let renderedSkills = '';
   const claim = (name: string, data: Record<string, unknown> = {}): void => {
     context.intents?.claim(UI_ACTION_INTENT, {
       kind: 'product-payload',
@@ -2686,11 +2863,20 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
         : offers(
             'Taught here',
             view.lessons.map((entry) => ({
-              id: entry.subject,
-              text: `${entry.name} ${entry.kind === 'skill' ? `to level ${entry.amount}` : ''} — ${entry.price}`.replace('  ', ' '),
+              // A skill can be taught at more than one rung, so the row's identity is the subject and the
+              // rung together: two lessons of one skill are two rows, and the one a player presses is the
+              // one the command names.
+              id: `${entry.subject}@${entry.tier}`,
+              // A lesson that grants a skill says the level it leaves it at; one that grants a rung of a
+              // skill says the rung in its own name, which the product composed.
+              text:
+                entry.kind === 'skill' && entry.tier <= 1
+                  ? `${entry.name} to level ${entry.amount} — ${entry.price}`
+                  : `${entry.name} — ${entry.price}`,
               action: view.operations.includes('teach') ? ACTION_SERVICE_TEACH : undefined,
               payload: () => ({
                 target: entry.subject,
+                tier: entry.tier,
                 member: Number(serviceMemberSelect.value === '' ? '0' : serviceMemberSelect.value),
               }),
             })),
@@ -2924,6 +3110,76 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     );
   };
 
+  /**
+   * Renders every member's skills and the control that spends a point on one.
+   *
+   * Each row prints what the product published — the level, the rung's own word, the ceiling the class and
+   * rank impose, and what the next point would cost or the sentence that refuses it. A row the product would
+   * refuse carries the refusal and no control, so a button this panel offers is one the product would take;
+   * a row it would accept carries the price the product quoted and asks for exactly that raise.
+   */
+  const renderSkills = (view: SkillsView): void => {
+    panel.dataset.skills = view.available ? 'present' : 'none';
+    panel.dataset.skillsOutcome = view.outcome;
+    skills.hidden = !view.available;
+    skillsState.textContent = view.available
+      ? `${view.members.length} character${view.members.length === 1 ? '' : 's'}`
+      : '';
+    skillsResult.hidden = view.message === '';
+    skillsResult.dataset.outcome = view.outcome;
+    skillsResult.dataset.code = view.code;
+    skillsResult.textContent = view.message;
+
+    const signature = JSON.stringify(view);
+    if (signature === renderedSkills) return;
+    renderedSkills = signature;
+
+    skillsMembers.replaceChildren(
+      ...view.members.map((member) => {
+        const block = document.createElement('div');
+        block.className = 'crawler-skills-member';
+        block.dataset.member = member.member;
+        const label = document.createElement('span');
+        label.className = 'crawler-row-label';
+        label.textContent = `${member.name} — ${member.class} of rank ${member.rank}`;
+        block.append(label);
+
+        for (const row of member.skills) {
+          const line = document.createElement('div');
+          line.className = 'crawler-skill';
+          line.dataset.skill = row.skill;
+          line.dataset.block = row.block;
+          line.dataset.tier = row.tier;
+          line.dataset.refusal = row.refusal;
+          const text = document.createElement('span');
+          // What the row reads: the skill, the rung it stands at, how far it has come against the ceiling
+          // the product published, and either the price of the next point or why there is none.
+          text.textContent =
+            row.refusal === ''
+              ? `${row.skill} · ${row.block} · ${row.tier} · ${row.level}/${row.ceilingLevel} (${row.ceilingTier})`
+              : `${row.skill} · ${row.block} · ${row.tier} · ${row.level}/${row.ceilingLevel} (${row.ceilingTier}) · ${row.refusal}`;
+          if (row.refusal !== '') text.className = 'crawler-skill-refusal';
+          line.append(text);
+
+          if (row.refusal === '') {
+            const raise = document.createElement('button');
+            raise.type = 'button';
+            raise.className = 'crawler-raise';
+            raise.textContent = `Raise to ${row.reached} for ${row.cost} point${row.cost === 1 ? '' : 's'}`;
+            raise.addEventListener('click', () =>
+              claim(ACTION_RAISE, { member: member.index, skill: row.skill }),
+            );
+            line.append(raise);
+          }
+
+          block.append(line);
+        }
+
+        return block;
+      }),
+    );
+  };
+
   const render = (snapshot: SnapshotView): void => {
     current = snapshot.session.mode;
     title.textContent = 'Rusty Crawler';
@@ -3012,6 +3268,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     renderRest(snapshot.rest);
     renderCombat(snapshot.combat);
     renderProgression(snapshot.progression);
+    renderSkills(snapshot.skills);
     const world = snapshot.world;
     place.textContent =
       world.places === 0

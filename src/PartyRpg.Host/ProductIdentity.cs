@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Sessions;
 
 namespace PartyRpg.Host;
@@ -200,6 +201,18 @@ internal static class ProductIdentity
     /// on the UI action contract.
     /// </summary>
     internal const string SaveAction = "session.save";
+
+    /// <summary>
+    /// The payload action name that asks the live session to spend a member's skill points on a raise, sent
+    /// by the DOM companion's skills rows on the UI action contract.
+    /// </summary>
+    /// <remarks>
+    /// Raising a skill is the character screen's own act in the original — the panel's skill rows are where a
+    /// player spends points (<c>docs/research/mm7-manual-outline.md</c> §2, printed p.21: "spent on the
+    /// Skills screen by clicking a skill") — so it is a payload action rather than a key: the screen names
+    /// the member and the skill it drew, and no control of the keyboard means "raise this one".
+    /// </remarks>
+    internal const string SkillRaiseAction = SkillRaiseActions.Raise;
 
     /// <summary>
     /// The environment variable that selects how a product run begins: a fresh session, or the one the save

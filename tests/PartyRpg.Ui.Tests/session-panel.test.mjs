@@ -166,7 +166,12 @@ function openShop(overrides = {}) {
       { lot: 'sold:7', item: 'dagger', name: 'dagger', count: 1, price: 22, sale: true },
       { lot: 'stock:potion', item: 'potion', name: 'potion', count: 0, price: 30, sale: false },
     ],
-    lessons: [{ kind: 'skill', subject: 'Sword', name: 'Basic Sword', amount: 1, price: 25 }],
+    // Two lessons of one skill: the first rung every counter that teaches a trade sells, and the mastery the
+    // guild's own depth reaches. The rung is part of what identifies a lesson, so both rows are real.
+    lessons: [
+      { kind: 'skill', subject: 'Sword', name: 'Sword', amount: 1, price: 25, tier: 1 },
+      { kind: 'skill', subject: 'Sword', name: 'Sword, expert', amount: 1, price: 1000, tier: 2 },
+    ],
     sales: [{ item: '3', definition: 'shield', name: 'shield', price: 12, damage: 3, identified: false }],
     members: [
       { index: 0, name: 'Roderick' },
@@ -579,6 +584,9 @@ function snapshot(mode, seconds = 0, steps = 0, updates = 0, facts = undefined, 
   // The progression block is published in every mode too, so a case that asks for none covers a projection
   // whose session holds no progression owner.
   if (blocks?.progression !== undefined) value.progression = blocks.progression;
+  // The skills block is published in every mode too, so a case that asks for none covers a projection whose
+  // ruleset stated no skill policy.
+  if (blocks?.skills !== undefined) value.skills = blocks.skills;
   return value;
 }
 
@@ -806,6 +814,61 @@ function progressionPanel(h) {
       id: row.getAttribute('data-member'),
       level: row.getAttribute('data-level'),
       train: row.querySelector('.crawler-train')?.textContent ?? null,
+    })),
+  };
+}
+
+/**
+ * The skills block as the product publishes it: each member's own rows with the rung they stand at, the
+ * ceiling their class and rank impose, and what one more point would cost or why it would be refused.
+ */
+function skills(overrides = {}) {
+  return {
+    available: true,
+    members: [
+      {
+        index: 0, member: '1', name: 'Roderick', class: 'Knight', rank: 1,
+        skills: [
+          {
+            skill: 'Sword', block: 'weapon', level: 3, tier: 'basic', ceilingLevel: 12,
+            ceilingTier: 'master', pointsSpent: 5, reached: 4, cost: 4, refusal: '',
+          },
+        ],
+      },
+    ],
+    outcome: 'none',
+    member: '',
+    skill: '',
+    level: 0,
+    cost: 0,
+    code: '',
+    message: '',
+    ...overrides,
+  };
+}
+
+function skillsPanel(h) {
+  const panel = h.panel();
+  const section = panel?.querySelector('.crawler-skills');
+  const result = section?.querySelector('.crawler-skills-result');
+  return {
+    section,
+    hidden: section?.hidden,
+    state: section?.querySelector('.crawler-skills-state')?.textContent ?? null,
+    outcome: result?.getAttribute('data-outcome') ?? null,
+    code: result?.getAttribute('data-code') ?? null,
+    message: result?.textContent ?? null,
+    members: [...(section?.querySelectorAll('.crawler-skills-member') ?? [])].map((row) => ({
+      label: row.querySelector('.crawler-row-label')?.textContent ?? null,
+      id: row.getAttribute('data-member'),
+      skills: [...row.querySelectorAll('.crawler-skill')].map((line) => ({
+        text: line.querySelector('span')?.textContent ?? null,
+        skill: line.getAttribute('data-skill'),
+        block: line.getAttribute('data-block'),
+        tier: line.getAttribute('data-tier'),
+        refusal: line.getAttribute('data-refusal'),
+        raise: line.querySelector('.crawler-raise')?.textContent ?? null,
+      })),
     })),
   };
 }
@@ -1711,7 +1774,8 @@ test('the panel renders the counter the party stands at, with every price the pr
       'Sell shield, damaged 3, unidentified — 12',
       'Identify shield',
       'Repair shield',
-      'Basic Sword to level 1 — 25',
+      'Sword to level 1 — 25',
+      'Sword, expert — 1000',
     ]);
     // A line the counter has sold out of is shown disabled: the product would refuse the purchase by name,
     // and a button that cannot work must not look like one that can.
@@ -1773,14 +1837,19 @@ test('every service control asks for the command it was shown, on the product co
     assert.deepEqual(claims().value.data, { action: 'service.identify', target: '3' });
     clickService(h, 'repair-3');
     assert.deepEqual(claims().value.data, { action: 'service.repair', target: '3' });
-    clickService(h, 'Sword');
-    assert.deepEqual(claims().value.data, { action: 'service.teach', target: 'Sword', member: 0 });
+    clickService(h, 'Sword@1');
+    assert.deepEqual(claims().value.data, { action: 'service.teach', target: 'Sword', tier: 1, member: 0 });
+
+    // A lesson that grants a rung of a skill is its own row, and the rung the player pressed is the rung the
+    // command names: two lessons of one skill are two rows rather than one ambiguous one.
+    clickService(h, 'Sword@2');
+    assert.deepEqual(claims().value.data, { action: 'service.teach', target: 'Sword', tier: 2, member: 0 });
 
     // The lesson goes to the member the picker shows, and the picker is offered only when there is a choice.
     const select = h.panel().querySelector('.crawler-service select');
     select.value = '1';
-    clickService(h, 'Sword');
-    assert.deepEqual(claims().value.data, { action: 'service.teach', target: 'Sword', member: 1 });
+    clickService(h, 'Sword@1');
+    assert.deepEqual(claims().value.data, { action: 'service.teach', target: 'Sword', tier: 1, member: 1 });
 
     const leave = [...h.panel().querySelectorAll('.crawler-service .crawler-actions button')].find(
       (button) => button.textContent === 'Leave the counter',
@@ -2743,6 +2812,106 @@ test('the panel renders what each member earned and what a level would cost', ()
     assert.equal(refused.outcome, 'refused');
     assert.equal(refused.code, 'progression-experience-short');
     assert.match(refused.message, /needs 2000 more experience/);
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the panel renders every member\'s skills with their ceilings and what a raise would cost', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // A session whose ruleset stated no skill policy shows nothing to raise — which is a different fact from
+    // a party that has spent every point — and the panel says which of the two it is looking at.
+    h.emit(snapshot('running', 1, 60, 60, movement()));
+    assert.equal(h.panel().getAttribute('data-skills'), 'none');
+    assert.equal(skillsPanel(h).hidden, true);
+
+    h.emit(snapshot('running', 2, 120, 121, movement(), { skills: skills() }));
+    assert.equal(h.panel().getAttribute('data-skills'), 'present');
+    const one = skillsPanel(h);
+    assert.equal(one.hidden, false);
+    assert.deepEqual(one.members.map((member) => member.label), ['Roderick — Knight of rank 1']);
+    // Everything the row reads came from the product: the level, the rung's own word, the ceiling the class
+    // and rank impose, and the price the owner quoted for the next point.
+    assert.deepEqual(one.members[0].skills, [
+      {
+        text: 'Sword · weapon · basic · 3/12 (master)',
+        skill: 'Sword',
+        block: 'weapon',
+        tier: 'basic',
+        refusal: '',
+        raise: 'Raise to 4 for 4 points',
+      },
+    ]);
+
+    // The control asks for exactly the raise it was shown, naming the member and the skill on that row, on
+    // the product's own action contract: the product judges the ceiling and the price, the screen names the
+    // row.
+    const raise = one.section.querySelector('.crawler-raise');
+    raise.dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
+    assert.deepEqual(h.claims.at(-1), {
+      intent: 'crawler.ui',
+      value: {
+        kind: 'product-payload',
+        contract: 'crawler.ui.action.v1',
+        data: { action: 'party.raise-skill', member: 0, skill: 'Sword' },
+      },
+    });
+
+    // A row the product would refuse carries the refusal and no control at all: a button this panel offered
+    // there would be one the product refuses, which is the shape the product's own plan exists to prevent.
+    h.emit(snapshot('running', 3, 180, 181, movement(), {
+      skills: skills({
+        members: [
+          {
+            index: 0, member: '1', name: 'Roderick', class: 'Knight', rank: 1,
+            skills: [
+              {
+                skill: 'Sword', block: 'weapon', level: 12, tier: 'master', ceilingLevel: 12,
+                ceilingTier: 'master', pointsSpent: 78, reached: 13, cost: 0,
+                refusal: 'Sword stands at level 12 and Roderick, a Knight of rank 1, may raise it to 12 and no further; a promotion raises the ceiling.',
+              },
+            ],
+          },
+        ],
+      }),
+    }));
+    const capped = skillsPanel(h);
+    assert.equal(capped.members[0].skills[0].raise, null);
+    assert.match(capped.members[0].skills[0].text, /may raise it to 12 and no further/);
+    assert.match(capped.members[0].skills[0].refusal, /a promotion raises the ceiling/);
+
+    // What a raise did is the product's own report, and a refusal keeps its code and sentence.
+    h.emit(snapshot('running', 4, 240, 241, movement(), {
+      skills: skills({
+        outcome: 'raised',
+        member: 'Roderick',
+        skill: 'Sword',
+        level: 4,
+        cost: 4,
+        message: 'Roderick raised Sword to level 4 for 4 skill point(s), leaving 1.',
+      }),
+    }));
+    const raised = skillsPanel(h);
+    assert.equal(raised.outcome, 'raised');
+    assert.equal(h.panel().getAttribute('data-skills-outcome'), 'raised');
+    assert.match(raised.message, /raised Sword to level 4 for 4 skill point\(s\), leaving 1/);
+
+    h.emit(snapshot('running', 5, 300, 301, movement(), {
+      skills: skills({
+        outcome: 'refused',
+        code: 'insufficient-skill-points',
+        message: 'Raising Sword to level 4 costs 4 skill point(s) and 1 remain unspent.',
+      }),
+    }));
+    const refused = skillsPanel(h);
+    assert.equal(refused.outcome, 'refused');
+    assert.equal(refused.code, 'insufficient-skill-points');
+    assert.match(refused.message, /1 remain unspent/);
 
     ui.dispose();
   } finally {

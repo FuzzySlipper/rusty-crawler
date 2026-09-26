@@ -1,5 +1,6 @@
 using System.Globalization;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Skills;
 
 namespace PartyRpg.Kit.Progression;
 
@@ -18,10 +19,18 @@ namespace PartyRpg.Kit.Progression;
 /// </para>
 /// <para>
 /// <b>The ruleset supplies the policy; this supplies the mechanism.</b> The curve a level takes, how an
-/// award divides among the party, what a level adds to the pools, how many points it grants, and what the
-/// world makes of an award are all <see cref="IProgressionRule"/>'s answers. Nothing here decides a number:
-/// this asks, applies, and reports, which is what keeps a formula out of the kit and out of every call site
-/// that would otherwise restate it.
+/// award divides among the party, what a level adds to the pools, how many points it grants, how far a
+/// class and rank let a skill grow, and what a raise costs are all the ruleset's answers —
+/// <see cref="IProgressionRule"/> for growth and <see cref="ISkillRule"/> for the skills it pays for.
+/// Nothing here decides a number: this asks, applies, and reports, which is what keeps a formula out of the
+/// kit and out of every call site that would otherwise restate it.
+/// </para>
+/// <para>
+/// <b>A raise is judged whole before anything moves.</b> The ceiling the class and rank impose and the
+/// points the pool holds are both settled before the pool is charged and the skill rises together, so a
+/// raise that was refused leaves the character exactly where they stood — no points spent for nothing and
+/// no skill that grew for free. How a skill's <em>rung</em> moves is not here: a rung is taught by a
+/// lesson at a counter, which the service mechanism applies, and a raise never moves it.
 /// </para>
 /// <para>
 /// <b>The fee is settled before this is asked.</b> A training step is charged through the party's one
@@ -41,15 +50,23 @@ public sealed class PartyProgression
 {
     private readonly IProgressionRule _rule;
     private readonly PartyEntity _party;
+    private readonly ISkillRule? _skills;
 
     /// <summary>Creates the owner over the party whose members grow.</summary>
     /// <param name="rule">This game's answers about the curve, the division, the growth, and the standing.</param>
     /// <param name="party">The party whose members' experience, levels, and points this owns.</param>
+    /// <param name="skills">
+    /// This game's answers about its skills, when its ruleset answered for any: the catalog, the ceiling a
+    /// class and rank impose, the price of a raise, and the words a rung reads as. A ruleset that answers
+    /// none leaves the owner unable to raise a skill, which is the honest state of a game that has not said
+    /// how far one may go.
+    /// </param>
     /// <exception cref="ArgumentNullException">The rule or the party is missing.</exception>
-    public PartyProgression(IProgressionRule rule, PartyEntity party)
+    public PartyProgression(IProgressionRule rule, PartyEntity party, ISkillRule? skills = null)
     {
         _rule = rule ?? throw new ArgumentNullException(nameof(rule));
         _party = party ?? throw new ArgumentNullException(nameof(party));
+        _skills = skills;
     }
 
     /// <summary>This game's answers about progression.</summary>
@@ -58,11 +75,17 @@ public sealed class PartyProgression
     /// <summary>The party whose members this owns.</summary>
     public PartyEntity Party => _party;
 
+    /// <summary>This game's answers about its skills, or null when its ruleset answered none.</summary>
+    public ISkillRule? Skills => _skills;
+
     /// <summary>What the last award did, or null before the party has earned experience.</summary>
     public ProgressionAwardResult? LastAward { get; private set; }
 
     /// <summary>What the last training step did, or null before anybody has trained.</summary>
     public ProgressionTrainingResult? LastTraining { get; private set; }
+
+    /// <summary>What the last skill raise did, or null before anybody has spent a point.</summary>
+    public SkillRaiseResult? LastRaise { get; private set; }
 
     /// <summary>How much experience the member must have banked to be trained from the level it stands at.</summary>
     /// <remarks>
@@ -211,50 +234,173 @@ public sealed class PartyProgression
             Refusal: null));
     }
 
+    /// <summary>Reads what raising a member's skill would cost and how far it would reach, without spending.</summary>
+    /// <remarks>
+    /// <para>
+    /// The same judgement <see cref="RaiseSkill"/> performs, performed as a read: a screen shows what a
+    /// raise would cost or why it would be refused, and what it shows is the answer the raise itself acts
+    /// on. A panel that multiplied a level by a price would be a second copy of the ruleset's arithmetic,
+    /// and the two would disagree the first time either changed.
+    /// </para>
+    /// <para>
+    /// Nothing here moves: the plan is a value, and a caller that wants the raise performs it through
+    /// <see cref="RaiseSkill"/>.
+    /// </para>
+    /// </remarks>
+    /// <param name="member">The member whose skill is being asked about.</param>
+    /// <param name="skill">The skill to ask about.</param>
+    /// <param name="levels">How many levels the raise would add, which must be at least one.</param>
+    /// <returns>What the raise would cost and reach, or why it would be refused.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The levels are below one.</exception>
+    public SkillRaisePlan Plan(PartyMemberId member, SkillId skill, int levels = 1)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(levels);
+        PartyMember character = _party.Member(member);
+
+        // A session whose ruleset answered no skill policy can state no ceiling, no price, and no ladder:
+        // the refusal names that rather than pretending a skill may grow for free.
+        if (_skills is null)
+        {
+            return new SkillRaisePlan(
+                skill,
+                levels,
+                character.Skills.LevelOf(skill),
+                character.Skills.LevelOf(skill),
+                SkillCeiling.None,
+                Points: 0,
+                new PartyRefusal(
+                    "skill-policy-missing",
+                    "This session's ruleset states no skill policy, so nothing says how far a skill may grow or what raising one costs."));
+        }
+
+        if (!character.Skills.TryGet(skill, out SkillEntry entry))
+        {
+            return new SkillRaisePlan(
+                skill,
+                levels,
+                Level: 0,
+                Reached: levels,
+                _skills.Ceiling(character, skill),
+                Points: 0,
+                new PartyRefusal(
+                    "skill-not-learned",
+                    $"{character.Profile.Name} has not learned {Describe(skill)}, so there is nothing to raise; a lesson comes first."));
+        }
+
+        SkillCeiling ceiling = _skills.Ceiling(character, skill);
+        int reached = checked(entry.Level + levels);
+
+        // The ceiling is judged before the price, because the two refusals answer different questions: a
+        // member asking to pass a limit they can never pass should be told the limit rather than what the
+        // levels they cannot buy would have cost.
+        if (ceiling.IsNone)
+        {
+            return new SkillRaisePlan(
+                skill,
+                levels,
+                entry.Level,
+                reached,
+                ceiling,
+                Points: 0,
+                new PartyRefusal(
+                    "skill-not-permitted",
+                    $"{character.Profile.Name} is a {character.Profile.Class} and this game's table lets that class hold no {Describe(skill)} at all."));
+        }
+
+        if (reached > ceiling.MaximumLevel)
+        {
+            return new SkillRaisePlan(
+                skill,
+                levels,
+                entry.Level,
+                reached,
+                ceiling,
+                Points: 0,
+                new PartyRefusal(
+                    "skill-ceiling-reached",
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"{Describe(skill)} stands at level {entry.Level} and {character.Profile.Name}, a {character.Profile.Class} of rank {character.Progression.ClassRank}, may raise it to {ceiling.MaximumLevel} and no further; a promotion raises the ceiling.")));
+        }
+
+        int points = _skills.RaiseCost(entry, levels);
+        ArgumentOutOfRangeException.ThrowIfNegative(points);
+        if (character.Progression.SkillPoints < points)
+        {
+            return new SkillRaisePlan(
+                skill,
+                levels,
+                entry.Level,
+                reached,
+                ceiling,
+                points,
+                new PartyRefusal(
+                    "insufficient-skill-points",
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"Raising {Describe(skill)} to level {reached} costs {points} skill point(s) and {character.Progression.SkillPoints} remain unspent.")));
+        }
+
+        return new SkillRaisePlan(skill, levels, entry.Level, reached, ceiling, points, Refusal: null);
+    }
+
     /// <summary>Spends skill points on raising a skill the member knows, in one operation.</summary>
     /// <remarks>
     /// <para>
-    /// The cost of a level and the ceiling a class and rank impose are the ruleset's formulas, so the caller
-    /// brings them; what happens here is that the points leave the pool this owner holds and the raise lands
-    /// on the skill together, which is why the two cannot drift into a character who paid for nothing or
-    /// gained for free.
+    /// The ceiling a class and rank impose and the cost of the levels are the ruleset's, so they are asked
+    /// of it rather than handed in: the points leave the pool this owner holds and the raise lands on the
+    /// skill together, which is why the two cannot drift into a character who paid for nothing or gained
+    /// for free. A raise past the ceiling is refused with the limit named, and one the pool cannot cover is
+    /// refused with what it costs and what remains.
     /// </para>
     /// <para>
     /// This is the one entry that spends skill points. A member's own type offers no spend of its own, so a
     /// skill raised without paying, or points spent without a raise, are both shapes the code does not have.
+    /// A lesson bought at a counter raises a skill's <em>rung</em> and its first level for coin rather than
+    /// points, which is the mechanism's own path and spends none of this pool.
     /// </para>
     /// </remarks>
     /// <param name="member">The member whose pool pays and whose skill rises.</param>
     /// <param name="skill">The skill to raise, which the member must already have learned.</param>
     /// <param name="levels">How many levels to add, which must be at least one.</param>
-    /// <param name="points">How many skill points the raise costs, which cannot be negative.</param>
-    /// <returns>A refusal when the pool cannot pay, or null when the raise landed.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">The levels are below one or the points are negative.</exception>
-    /// <exception cref="InvalidOperationException">The member has not learned the skill.</exception>
-    public PartyRefusal? RaiseSkill(PartyMemberId member, SkillId skill, int levels, int points)
+    /// <returns>What the raise reached and cost, or why nothing was raised.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The levels are below one.</exception>
+    public SkillRaiseResult RaiseSkill(PartyMemberId member, SkillId skill, int levels = 1)
     {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(levels);
-        ArgumentOutOfRangeException.ThrowIfNegative(points);
-
+        SkillRaisePlan plan = Plan(member, skill, levels);
         PartyMember character = _party.Member(member);
+        if (!plan.IsPossible)
+        {
+            return RecordRaise(SkillRaiseResult.Refused(
+                member,
+                character.Profile.Name,
+                skill,
+                levels,
+                plan.Level,
+                character.Skills.TierOf(skill),
+                character.Progression.SkillPoints,
+                plan.Refusal!));
+        }
 
-        // Everything that can fail is settled before the pool is charged: a raise that cost points and then
-        // failed would take a character's skill points for nothing.
-        if (!character.Skills.Knows(skill))
+        // Everything that can fail has been settled before the pool is charged: a raise that cost points and
+        // then failed would take a character's skill points for nothing.
+        if (!character.Progression.SpendSkillPoints(plan.Points))
         {
             throw new InvalidOperationException(
-                $"The member has not learned '{skill}', so there is nothing to raise; learning comes first.");
+                $"Raising '{skill}' planned {plan.Points} skill point(s) and the member holds {character.Progression.SkillPoints}, so the plan and the pool disagree.");
         }
 
-        if (!character.Progression.SpendSkillPoints(points))
-        {
-            return new PartyRefusal(
-                "insufficient-skill-points",
-                $"Raising '{skill}' costs {points} skill point(s) and {character.Progression.SkillPoints} remain unspent.");
-        }
-
-        character.Skills.RaiseLevel(skill, levels, points);
-        return null;
+        character.Skills.RaiseLevel(skill, levels, plan.Points);
+        return RecordRaise(new SkillRaiseResult(
+            member,
+            character.Profile.Name,
+            skill,
+            levels,
+            plan.Reached,
+            character.Skills.TierOf(skill),
+            plan.Points,
+            character.Progression.SkillPoints,
+            Refusal: null));
     }
 
     /// <summary>
@@ -286,4 +432,20 @@ public sealed class PartyProgression
         LastTraining = result;
         return result;
     }
+
+    /// <summary>Records a raise as the last one and hands it back.</summary>
+    private SkillRaiseResult RecordRaise(SkillRaiseResult result)
+    {
+        LastRaise = result;
+        return result;
+    }
+
+    /// <summary>How one skill reads in a sentence a person acts on: its name, in the game's own spelling.</summary>
+    /// <remarks>
+    /// The catalog is what turns a skill's identity into a word, and a skill content does not declare still
+    /// has to read as something: the identity itself is the honest answer there, because a message that
+    /// dropped the name would leave a player unable to tell which of their skills was refused.
+    /// </remarks>
+    private string Describe(SkillId skill) =>
+        _skills is { } policy && policy.Catalog.Declares(skill) ? skill.Value : $"'{skill.Value}'";
 }

@@ -2,6 +2,7 @@ using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Presentation;
+using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Sessions;
 using Rusty.Engine;
 
@@ -95,6 +96,12 @@ public enum SessionStart
 /// not something a player picks per press. Without it a session never attacks on its own — the fight is
 /// still composed and still reads the world — which is what a product that declares no act control gets.
 /// </param>
+/// <param name="Skills">
+/// The skill-spend control the host declares, when it declares any, stated for the same reason and in the
+/// same shape as the others: which payload action a screen's raise control arrives on. Without it a session
+/// never spends a skill point of its own — the owner still holds the pool and the panel still publishes what
+/// a raise would cost — which is what a product that offers no such control gets.
+/// </param>
 public sealed record RulesetSessionContext(
     IUiProjectionChannel Projection,
     BundleSelection Selection = default,
@@ -109,4 +116,5 @@ public sealed record RulesetSessionContext(
     ServiceIntentNames? Service = null,
     RestIntentNames? Rest = null,
     ConversationIntentNames? Conversation = null,
-    CombatIntentNames? Combat = null);
+    CombatIntentNames? Combat = null,
+    SkillRaiseIntentNames? Skills = null);

@@ -95,7 +95,8 @@ public readonly record struct SessionSnapshot(
     RestSnapshot Rest = default,
     ConversationSnapshot Conversation = default,
     CombatSnapshot Combat = default,
-    ProgressionSnapshot Progression = default);
+    ProgressionSnapshot Progression = default,
+    SkillsSnapshot Skills = default);
 
 /// <summary>Where the party is in the world, as the panel needs it: which place, where in it, and how much of the world is known.</summary>
 /// <param name="Place">The place the party is in, empty when the session has no world.</param>
@@ -181,6 +182,9 @@ public static class SessionProjection
 
     /// <summary>The progression object's wire name.</summary>
     public const string ProgressionField = "progression";
+
+    /// <summary>The name of the projection field the skills block is published under.</summary>
+    public const string SkillsField = "skills";
 
     /// <summary>Builds the projection value for a snapshot.</summary>
     public static UiValue Build(SessionSnapshot snapshot)
@@ -299,7 +303,12 @@ public static class SessionProjection
             // what a level takes" are three different facts, and a block that only appeared once somebody
             // had levelled would leave a player unable to tell an unearned level from a mechanism that is
             // not there.
-            (ProgressionField, Progression(builder, snapshot.Progression)));
+            (ProgressionField, Progression(builder, snapshot.Progression)),
+            // The skills block is published in every mode for the same reason the progression block is: "this
+            // session's ruleset stated no skill policy", "the party holds no skills yet", and "a member's
+            // blade is at the ceiling their class allows" are three different facts, and a block that only
+            // appeared once somebody had spent a point would leave a screen unable to tell them apart.
+            (SkillsField, Skills(builder, snapshot.Skills)));
         return builder.Build(root);
     }
 
@@ -367,7 +376,11 @@ public static class SessionProjection
                 ("subject", builder.String(offer.Subject)),
                 ("name", builder.String(offer.Name)),
                 ("amount", builder.Number(offer.Amount)),
-                ("price", builder.Number(offer.Price))));
+                ("price", builder.Number(offer.Price)),
+                // The rung is published because two lessons of one skill are two rows on the screen: a
+                // teach command names the subject and the rung together, and the row a player pressed is
+                // the row it sends back.
+                ("tier", builder.Number(offer.Tier))));
         }
 
         List<uint> sales = [];
@@ -617,6 +630,58 @@ public static class SessionProjection
             ("earned", builder.Number(progression.Earned)),
             ("code", builder.String(progression.Code ?? string.Empty)),
             ("message", builder.String(progression.Message ?? string.Empty)));
+    }
+
+    /// <summary>Builds the skills block: each member's skills, their ceilings, and what a raise would buy.</summary>
+    /// <remarks>
+    /// Every row is sent whole — the skill, its block, the level, the rung's own word, the ceiling level and
+    /// the ceiling rung's word, what the next level would cost and the sentence that refuses it — so the
+    /// screen reads a plan rather than computing one. A snapshot built without skill facts carries the
+    /// default value, whose list is null rather than empty: it is published as empty so a reader never sees
+    /// a member that is not there, exactly as the progression and fight blocks do.
+    /// </remarks>
+    private static uint Skills(UiValueBuilder builder, SkillsSnapshot skills)
+    {
+        List<uint> members = [];
+        foreach (SkillMemberSnapshot member in skills.Members ?? [])
+        {
+            List<uint> rows = [];
+            foreach (SkillRowSnapshot row in member.Skills)
+            {
+                rows.Add(builder.Object(
+                    ("skill", builder.String(row.Skill)),
+                    ("block", builder.String(row.Block)),
+                    ("level", builder.Number(row.Level)),
+                    ("tier", builder.String(row.Tier)),
+                    ("ceilingLevel", builder.Number(row.CeilingLevel)),
+                    ("ceilingTier", builder.String(row.CeilingTier)),
+                    ("pointsSpent", builder.Number(row.PointsSpent)),
+                    // What the next point would reach, published rather than added up by the screen: a panel
+                    // that showed "raise to level 5" would otherwise be doing the ruleset's arithmetic.
+                    ("reached", builder.Number(row.Reached)),
+                    ("cost", builder.Number(row.Cost)),
+                    ("refusal", builder.String(row.Refusal))));
+            }
+
+            members.Add(builder.Object(
+                ("index", builder.Number(member.Index)),
+                ("member", builder.String(member.Member)),
+                ("name", builder.String(member.Name)),
+                ("class", builder.String(member.Class)),
+                ("rank", builder.Number(member.Rank)),
+                ("skills", builder.Array([.. rows]))));
+        }
+
+        return builder.Object(
+            ("available", builder.Boolean(skills.Available)),
+            ("members", builder.Array([.. members])),
+            ("outcome", builder.String(skills.Outcome ?? string.Empty)),
+            ("member", builder.String(skills.Member ?? string.Empty)),
+            ("skill", builder.String(skills.Skill ?? string.Empty)),
+            ("level", builder.Number(skills.Level)),
+            ("cost", builder.Number(skills.Cost)),
+            ("code", builder.String(skills.Code ?? string.Empty)),
+            ("message", builder.String(skills.Message ?? string.Empty)));
     }
 
     /// <summary>Builds the rest block: what the last stop did, what it cost, and what sleep debt stands.</summary>

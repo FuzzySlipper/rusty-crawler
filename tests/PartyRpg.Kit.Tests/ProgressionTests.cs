@@ -3,6 +3,7 @@ using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Progression;
+using PartyRpg.Kit.Skills;
 using PartyRpg.Kit.Services;
 using PartyRpg.Kit.World;
 using Xunit;
@@ -233,12 +234,13 @@ public sealed class ProgressionTests
     public void Spending_skill_points_is_the_owner_s_entry_and_charges_the_raise_with_them()
     {
         using PartyEntity party = PartyOfTwo();
-        PartyProgression progression = new(new TestRule(), party);
+        PartyProgression progression = new(new TestRule(), party, new TestSkills());
         PartyMember student = party.Members[0];
         student.Skills.Learn(Blades, new SkillTier(1));
 
-        PartyRefusal? nothing = progression.RaiseSkill(student.Id, Blades, levels: 1, points: 1);
-        Assert.Equal("insufficient-skill-points", nothing!.Code);
+        SkillRaiseResult nothing = progression.RaiseSkill(student.Id, Blades, levels: 1);
+        Assert.False(nothing.IsRaised);
+        Assert.Equal("insufficient-skill-points", nothing.Refusal!.Code);
         Assert.Equal(1, student.Skills.LevelOf(Blades));
 
         // The points a spend has to work with are a level's own grant, so the member trains one: the pool
@@ -250,9 +252,14 @@ public sealed class ProgressionTests
         Assert.True(step.IsTrained);
         Assert.Equal(7, student.Progression.SkillPoints);
 
-        Assert.Null(progression.RaiseSkill(student.Id, Blades, levels: 2, points: 3));
+        // The price is the rule's, not the caller's: this test's own rule charges two points a level, so
+        // two levels cost four of the seven the level granted and three are left.
+        SkillRaiseResult raised = progression.RaiseSkill(student.Id, Blades, levels: 2);
+        Assert.True(raised.IsRaised);
+        Assert.Equal(4, raised.Points);
+        Assert.Equal(3, raised.Remaining);
         Assert.Equal(3, student.Skills.LevelOf(Blades));
-        Assert.Equal(4, student.Progression.SkillPoints);
+        Assert.Equal(3, student.Progression.SkillPoints);
     }
 
     [Fact]
@@ -270,6 +277,12 @@ public sealed class ProgressionTests
             "GrantSkillPoints(",
             "SpendSkillPoints(",
             "SetClassRank(",
+            // What a skill entry itself holds is moved by the same owner and by the counter's own lesson: a
+            // raise spends points through the owner, and a lesson bought with coin grants a skill, moves its
+            // rung, and sets the first level it is learned at. Those two are the only writers of an entry, so
+            // a third one anywhere in the product fails here rather than becoming a skill that grew unasked.
+            "RaiseLevel(",
+            "SetTier(",
         ];
 
         string root = RepositoryRoot();
@@ -283,9 +296,17 @@ public sealed class ProgressionTests
 
         string owner = Path.Combine(root, "src", "PartyRpg.Kit", "Progression");
         string fields = Path.Combine(root, "src", "PartyRpg.Kit", "Party", "CharacterProgression.cs");
+        string lessons = Path.Combine(root, "src", "PartyRpg.Kit", "Services", "PartyServices.cs");
+        string entries = Path.Combine(root, "src", "PartyRpg.Kit", "Party", "CharacterSkills.cs");
         foreach (string source in sources)
         {
-            if (source.StartsWith(owner, StringComparison.Ordinal) || string.Equals(source, fields, StringComparison.Ordinal)) continue;
+            if (source.StartsWith(owner, StringComparison.Ordinal)
+                || string.Equals(source, fields, StringComparison.Ordinal)
+                || string.Equals(source, lessons, StringComparison.Ordinal)
+                || string.Equals(source, entries, StringComparison.Ordinal))
+            {
+                continue;
+            }
             string text = File.ReadAllText(source);
             foreach (string mutator in mutators)
             {
@@ -373,6 +394,33 @@ public sealed class ProgressionTests
             request.Event == ProgressionEventKind.Award
                 ? new ProgressionStanding(0, (int)(request.Amount / 100))
                 : ProgressionStanding.None;
+    }
+
+    /// <summary>
+    /// The skill policy these tests run on: one skill content declares, a ceiling generous enough that the
+    /// raise itself is what is under test, and a flat two points a level.
+    /// </summary>
+    /// <remarks>
+    /// The price is deliberately this rule's own rather than the game's — the numbers are the ruleset's, and
+    /// the kit's suite is checking that the owner asks for them rather than that any particular game charges
+    /// what it charges.
+    /// </remarks>
+    private sealed class TestSkills : ISkillRule
+    {
+        public SkillCatalog Catalog { get; } = new([new SkillDefinition(new SkillId("blades"), SkillBlock.Weapon)]);
+
+        public SkillCeiling Ceiling(PartyMember member, SkillId skill) => new(60, new SkillTier(4));
+
+        public int RaiseCost(SkillEntry skill, int levels) => 2 * levels;
+
+        public string TierName(SkillTier tier) => tier.Value switch
+        {
+            0 => "untrained",
+            1 => "basic",
+            2 => "expert",
+            3 => "master",
+            _ => "grand master",
+        };
     }
 
     /// <summary>

@@ -302,7 +302,7 @@ public sealed class PartyServices : IGameTimeObserver
         foreach (ServiceLesson lesson in _rule.Lessons(new ServiceLessonRequest(service, _party, _clock)))
         {
             int price = Price(service, ServiceOperationKind.Teach, ServiceSubject.OfLesson(lesson), default).Charge.Coins;
-            lessons.Add(new ServiceLessonOffer(lesson.Kind, lesson.Subject, lesson.Label, lesson.Amount, price));
+            lessons.Add(new ServiceLessonOffer(lesson.Kind, lesson.Subject, lesson.Label, lesson.Amount, price, lesson.Tier));
         }
 
         // What else the counter offers is priced the same way its lessons are: the operation the offer is
@@ -620,10 +620,15 @@ public sealed class PartyServices : IGameTimeObserver
 
             case ServiceCommandKind.Teach:
             {
+                // A counter can teach one skill at more than one rung — a guild sells its school's first
+                // lesson and the deeper ones its own house reaches — so a lesson is resolved by its subject
+                // and its rung together. A command that names no rung means the first, which is what every
+                // lesson that teaches a skill rather than a rung of one is.
                 ServiceLesson? lesson = null;
                 foreach (ServiceLesson candidate in _rule.Lessons(new ServiceLessonRequest(service, _party, _clock)))
                 {
-                    if (string.Equals(candidate.Subject, command.Target, StringComparison.Ordinal))
+                    if (string.Equals(candidate.Subject, command.Target, StringComparison.Ordinal)
+                        && candidate.Tier == command.Tier)
                     {
                         lesson = candidate;
                         break;

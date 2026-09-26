@@ -30,12 +30,19 @@ public readonly record struct ServiceStockOffer(
 /// <param name="Name">What a person reads for it.</param>
 /// <param name="Amount">The skill level the lesson reaches, or the effect's magnitude.</param>
 /// <param name="Price">What the lesson costs the party.</param>
+/// <param name="Tier">
+/// The rung of a skill's ladder the lesson leaves a member at, where one is the first rung. A counter can
+/// teach the same skill at more than one rung — a guild sells its school's first lesson and its own deeper
+/// ones — so a lesson is named by its subject and its rung together, and a command that names only the
+/// subject means the first rung.
+/// </param>
 public readonly record struct ServiceLessonOffer(
     ServiceLessonKind Kind,
     string Subject,
     string Name,
     int Amount,
-    int Price);
+    int Price,
+    int Tier = 1);
 
 /// <summary>One of the party's own items as a service sees it when it would buy it.</summary>
 /// <remarks>

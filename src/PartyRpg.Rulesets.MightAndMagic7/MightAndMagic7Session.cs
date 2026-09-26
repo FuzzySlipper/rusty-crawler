@@ -54,10 +54,16 @@ internal sealed class MightAndMagic7Session : IGameSession
         // then moved its clock would spend its first update crossing a boundary it had already crossed.
         resume?.Clock.ApplyTo(clock);
 
+        // This game's skills are read once, here, and the same reading is handed to the service mechanism,
+        // which needs the ceilings and the fees to offer a mastery lesson, to the progression owner, which
+        // judges a raise against them, and to the equipment gate, which resolves what an item's row names.
+        // One reading of one table is what keeps a lesson, a raise, and an equip in step.
+        MightAndMagic7Skills? skills = MightAndMagic7Skills.Read(Declared(context.Content));
+
         // This game's services are read once, here, and the same answers are handed to the world — which
         // needs them to describe a counter the party talks to — and to the session, which serves it. One
         // reading of one placement is what keeps what a use offers and what a transaction does in step.
-        MightAndMagic7Services? services = MightAndMagic7Services.Read(Declared(context.Content));
+        MightAndMagic7Services? services = MightAndMagic7Services.Read(Declared(context.Content), skills);
 
         // This game's answers about people are read once here, for the same reason: the world needs them to
         // say who stands at a placement the party faces, and the session needs the one instance to speak
@@ -140,7 +146,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             InteractionUseInput? use = Use(context);
             if (resume is { } save)
             {
-                party = MightAndMagic7Party.Restore(save.Party);
+                party = MightAndMagic7Party.Restore(save.Party, Declared(context.Content));
                 PartyResourceLedger ledger = Ledger(party);
                 world = MightAndMagic7World.Compose(context.Content, context, clock, ledger, party, save, services, conversation, corpseAnswers, loot);
                 _session = new PartyRpgSession(
@@ -166,7 +172,9 @@ internal sealed class MightAndMagic7Session : IGameSession
                     combat: combat,
                     combatInput: context.Combat,
                     monsterAi: monsterAi,
-                    progression: MightAndMagic7Progression.Instance);
+                    progression: MightAndMagic7Progression.Instance,
+                    skills: skills,
+                    skillInput: context.Skills);
                 return;
             }
 
@@ -188,7 +196,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                     creationInput: creation,
                     creation: new SessionCreation(
                         MightAndMagic7Creation.Start(declared),
-                        description => MightAndMagic7Party.Factory().Create(description),
+                        description => MightAndMagic7Party.Factory(declared).Create(description),
                         created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created), created, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot)),
                     saveInput: context.Save,
                     useInput: use,
@@ -201,7 +209,9 @@ internal sealed class MightAndMagic7Session : IGameSession
                     combat: combat,
                     combatInput: context.Combat,
                     monsterAi: monsterAi,
-                    progression: MightAndMagic7Progression.Instance);
+                    progression: MightAndMagic7Progression.Instance,
+                    skills: skills,
+                    skillInput: context.Skills);
                 return;
             }
 
@@ -233,7 +243,9 @@ internal sealed class MightAndMagic7Session : IGameSession
                 combat: combat,
                 combatInput: context.Combat,
                 monsterAi: monsterAi,
-                progression: MightAndMagic7Progression.Instance);
+                progression: MightAndMagic7Progression.Instance,
+                skills: skills,
+                skillInput: context.Skills);
         }
         catch
         {

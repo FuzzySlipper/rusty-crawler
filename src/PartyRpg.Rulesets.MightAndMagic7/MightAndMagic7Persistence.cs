@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.World;
 using Rusty.Engine;
@@ -79,12 +80,13 @@ internal static class MightAndMagic7Persistence
     /// </remarks>
     /// <param name="save">The document that would be resumed.</param>
     /// <param name="places">The world's places, which the save's recorded places and pose must belong to.</param>
+    /// <param name="content">The validated content the rules of rebuildability are read over, or null when none loaded.</param>
     /// <exception cref="SessionSaveException">The save cannot be resumed; the message names every problem found.</exception>
-    internal static void RequireLoadable(SessionSave save, PlaceGraph places)
+    internal static void RequireLoadable(SessionSave save, PlaceGraph places, ContentCatalog? content)
     {
         ArgumentNullException.ThrowIfNull(save);
         ArgumentNullException.ThrowIfNull(places);
-        IReadOnlyList<string> problems = save.Problems(places, MightAndMagic7Party.Factory());
+        IReadOnlyList<string> problems = save.Problems(places, MightAndMagic7Party.Factory(content));
         if (problems.Count > 0)
         {
             throw new SessionSaveException(

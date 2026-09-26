@@ -137,6 +137,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
     private readonly Dictionary<string, int> _monsterLevels;
     private readonly Dictionary<(string Place, string Placement), ServiceHousehold> _households;
     private readonly IReadOnlyList<ItemFacts> _catalogue;
+    private readonly MightAndMagic7Skills? _skills;
 
     private MightAndMagic7Services(
         Dictionary<ServiceId, ServiceDefinition> services,
@@ -147,7 +148,8 @@ internal sealed class MightAndMagic7Services : IServiceRule
         Dictionary<int, IReadOnlyList<string>> placeRoads,
         Dictionary<string, int> monsterLevels,
         Dictionary<(string Place, string Placement), ServiceHousehold> households,
-        IReadOnlyList<ItemFacts> catalogue)
+        IReadOnlyList<ItemFacts> catalogue,
+        MightAndMagic7Skills? skills)
     {
         _services = services;
         _facts = facts;
@@ -158,6 +160,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
         _monsterLevels = monsterLevels;
         _households = households;
         _catalogue = catalogue;
+        _skills = skills;
     }
 
     /// <summary>
@@ -171,7 +174,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
     /// <param name="catalog">The validated content the product loaded, when it loaded any.</param>
     /// <returns>This game's service policy over that content, or null when no content was loaded.</returns>
     /// <exception cref="ContentValidationException">Content declares a service that cannot be served; every problem is named.</exception>
-    internal static MightAndMagic7Services? Read(ContentCatalog? catalog)
+    internal static MightAndMagic7Services? Read(ContentCatalog? catalog, MightAndMagic7Skills? skillPolicy = null)
     {
         if (catalog is null) return null;
         List<ContentValidationIssue> issues = [];
@@ -237,7 +240,11 @@ internal sealed class MightAndMagic7Services : IServiceRule
             placeRoads,
             monsterLevels,
             households,
-            catalogue);
+            catalogue,
+            // The mastery lessons a counter offers are this game's skill policy's answer about its own
+            // table, so the session composes one reading of it and hands it over; a caller that composed
+            // none gets one read here, so a counter still teaches what its kind states.
+            skillPolicy ?? MightAndMagic7Skills.Read(catalog));
     }
 
     /// <inheritdoc />
@@ -333,12 +340,31 @@ internal sealed class MightAndMagic7Services : IServiceRule
         if (service.Lessons.Count > 0) return service.Lessons;
         if (!_facts.TryGetValue(service.Id, out ServiceFacts? facts)) return [];
 
+        // The rung a counter can take a member to is the rung it stands at itself: a guild's own depth in
+        // its school (see MightAndMagic7ServiceKinds.MasteryDepth), and one for every other kind of counter.
+        // The lessons follow: the first rung every counter that teaches a skill already offers, and — where
+        // the counter stands deeper — the mastery lessons above it, each priced at the donor's own flat fee
+        // for that rung and labelled with the rung's own word.
+        int depth = MightAndMagic7ServiceKinds.MasteryDepth(
+            facts.GuildRung,
+            MightAndMagic7ServiceKinds.IsPairedGuild(service.Kind.Value));
         List<ServiceLesson> lessons = [];
         HashSet<string> seen = new(StringComparer.Ordinal);
         foreach (string skill in facts.TaughtSkills)
         {
             if (!seen.Add(skill)) continue;
             lessons.Add(new ServiceLesson(ServiceLessonKind.Skill, skill, 1, LessonValue(service), skill));
+            if (_skills is null) continue;
+            for (int tier = 2; tier <= depth; tier++)
+            {
+                lessons.Add(new ServiceLesson(
+                    ServiceLessonKind.Skill,
+                    skill,
+                    amount: 1,
+                    MightAndMagic7Skills.MasteryFee(new SkillId(skill), tier),
+                    _skills.LessonName(new SkillId(skill), tier),
+                    tier));
+            }
         }
 
         if (facts.Membership.Length > 0)
@@ -598,7 +624,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
     }
 
     /// <summary>Whether the party may be taught the lesson it named.</summary>
-    private static ServiceEligibility JudgeLesson(ServiceEligibilityRequest request)
+    private ServiceEligibility JudgeLesson(ServiceEligibilityRequest request)
     {
         if (request.Subject.Lesson is not { } teaching) return ServiceEligibility.Allowed;
         if (teaching.Kind == ServiceLessonKind.Effect)
@@ -616,10 +642,19 @@ internal sealed class MightAndMagic7Services : IServiceRule
         SkillId skill = new(teaching.Subject);
         int level = recipient.Skills.LevelOf(skill);
         int tier = recipient.Skills.TierOf(skill).Value;
-        return level >= teaching.Amount && tier >= teaching.Tier
-            ? ServiceEligibility.Refused(
+        if (level >= teaching.Amount && tier >= teaching.Tier)
+        {
+            return ServiceEligibility.Refused(
                 "service-nothing-to-learn",
-                $"{recipient.Profile.Name} already has {teaching.Label} at level {level} and rung {tier}, which is what the lesson teaches.")
+                $"{recipient.Profile.Name} already has {teaching.Label} at level {level} and rung {tier}, which is what the lesson teaches.");
+        }
+
+        // Whether this member's class and rank may hold the rung at all — and, when they may not, which
+        // promotion would open it — is this game's skill policy's answer rather than the mechanism's: the
+        // ceiling, the rung below, the skill level a teacher wants, and the donor's own extra conditions all
+        // live beside the table they are read from.
+        return _skills?.Lesson(recipient, skill, teaching.Tier, teaching.Amount) is { } refusal
+            ? ServiceEligibility.Refused(refusal.Code, refusal.Message)
             : ServiceEligibility.Allowed;
     }
 
@@ -770,7 +805,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
             ServiceOperationKind.Sell => Sell(service, request.Subject, merchant),
             ServiceOperationKind.Identify => Charge(merchant, ServicePricing.Coins(IdentificationBase, service.PriceMultiplier)),
             ServiceOperationKind.Repair => Charge(merchant, ServicePricing.Coins(ValueOf(request.Subject.Item), 1 / (6 - service.PriceMultiplier))),
-            ServiceOperationKind.Teach => Charge(merchant, ServicePricing.Coins(request.Subject.Value, service.SkillPriceMultiplier)),
+            ServiceOperationKind.Teach => TeachPrice(request, merchant),
             ServiceOperationKind.Cure => Cure(request, merchant),
             ServiceOperationKind.Train => Training(request, merchant),
             ServiceOperationKind.Provision => Charge(merchant, request.Subject.Value),
@@ -855,6 +890,20 @@ internal sealed class MightAndMagic7Services : IServiceRule
         int price = ServicePricing.Percent(basePrice, merchant);
         return ServiceQuote.Charging(ServicePricing.AtLeast(price, Math.Max(1, basePrice / 3)), basePrice);
     }
+
+    /// <summary>What a lesson costs: a counter's own price for the first rung, the donor's flat fee for a mastery.</summary>
+    /// <remarks>
+    /// A first-rung lesson is priced as it always was — the donor's five hundred over the counter's own
+    /// skill multiplier, with the party's merchant standing taking its share. A mastery lesson is not: the
+    /// donor's teacher states a fee and the party pays exactly it (OpenEnroth
+    /// <c>src/GUI/UI/NPCTopics.cpp:481-527</c>, where the cost is read from the skill's own table and no
+    /// multiplier is applied), so what a mastery costs is the same in every house that teaches it and is
+    /// not discounted. Two lessons of one skill are two prices, which is why the rung decides.
+    /// </remarks>
+    private static ServiceQuote TeachPrice(ServiceQuoteRequest request, int merchant) =>
+        request.Subject.Lesson is { Tier: > 1 } mastery
+            ? ServiceQuote.Charging(mastery.Value, mastery.Value)
+            : Charge(merchant, ServicePricing.Coins(request.Subject.Value, request.Service.SkillPriceMultiplier));
 
     /// <summary>What a temple charges to end the conditions its cure claims.</summary>
     /// <remarks>
@@ -1071,6 +1120,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
             facts[id] = new ServiceFacts(
                 MapId: mapId,
                 TaughtSkills: [],
+                GuildRung: 0,
                 Membership: membership,
                 MembershipName: membership,
                 School: string.Empty,
@@ -1165,6 +1215,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
         return new ServiceFacts(
             MapId: 0,
             TaughtSkills: taught,
+            GuildRung: rung,
             Membership: effect,
             MembershipName: school is null ? effect : $"{school} Guild membership",
             School: school ?? string.Empty,
@@ -1533,6 +1584,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
     private sealed record ServiceFacts(
         int MapId,
         IReadOnlyList<string> TaughtSkills,
+        int GuildRung,
         string Membership,
         string MembershipName,
         string School,

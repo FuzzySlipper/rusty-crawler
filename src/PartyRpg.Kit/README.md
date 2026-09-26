@@ -82,10 +82,21 @@ one progression owner (`Progression/` — `PartyProgression` is where experience
 point move and nowhere else: `Award` is the one entry a kill, a quest, or any other source arrives at and
 divides by the ruleset's own rule, `Train` is what a counter's step settles through — the fee charged by
 the party's one ledger, the level's pools grown by the ruleset's class and rank tables, the points granted,
-and both pools filled — and `RaiseSkill` is the only way a skill point is spent, with `ProgressionAwards`
+and both pools filled — and `RaiseSkill` is the only way a skill point is spent: it asks the skill policy
+for the price of the levels and the ceiling the member's class and rank impose, refuses past that ceiling
+with the limit named or with what the pool is short, and charges the pool and raises the skill together, so
+a raise that failed leaves the character exactly where they stood — with `Plan` publishing the same answer
+to a screen that is only asking, with `ProgressionAwards`
 paying each death the fight reports exactly once from the ledger of deaths it is still reading, and
 `ProgressionSnapshot` publishing the level, the experience against the curve, the points held, and the fee
-the counter the party stands at quoted — every number the ruleset's, none of them the screen's), the
+the counter the party stands at quoted — every number the ruleset's, none of them the screen's), the skill
+catalog and its ceilings (`Skills/` — `SkillCatalog` is content's own rows as a ruleset reads them, each
+`SkillDefinition` carrying the block it belongs to or `SkillBlock.Unused` for a shipped row the game does
+not use, and `ISkillRule` is the ruleset's four answers over them: the catalog, the `SkillCeiling` a class
+and rank impose, what a raise costs, and the word a rung reads as — with `SkillsSnapshot` publishing each
+member's levels, rungs, ceilings, the level the next point would reach, and either its price or the sentence
+that refuses it, so a screen renders a spend rather than working one out, and `SkillRaiseInput` reading the
+one control a screen's raise arrives on), the
 creation flow (`PartyCreationFlow` over the `PartyCreationOptions` a ruleset supplies — races, classes,
 portraits, an attribute pool bought through `AttributeCreationRange` prices, and the skills a class fixes
 and offers — taken one step at a time with `CreationMember` as the answer to each, refusing an illegal

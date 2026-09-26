@@ -2,6 +2,7 @@ using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Presentation;
+using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
 using Rusty.Engine;
@@ -40,6 +41,7 @@ public sealed class CrawlerProduct : IEngineProduct
     private readonly SaveIntentNames _save;
     private readonly UseIntentNames _use;
     private readonly ServiceIntentNames _service;
+    private readonly SkillRaiseIntentNames _skills;
     private readonly RestIntentNames _rest;
     private readonly ConversationIntentNames _conversation;
     private readonly CombatIntentNames _combat;
@@ -101,6 +103,11 @@ public sealed class CrawlerProduct : IEngineProduct
             ProductIdentity.WaitUntilDawnIntent,
             ProductIdentity.WaitAnHourIntent,
             ProductIdentity.WaitFiveMinutesIntent,
+            ProductIdentity.UiActionContract);
+        // The skill-spend control is one payload action and no key: spending a point is the character
+        // screen's own act, and the screen names the member and the skill it drew.
+        _skills = new SkillRaiseIntentNames(
+            ProductIdentity.SkillRaiseAction,
             ProductIdentity.UiActionContract);
         // The act control is one intent and one action, because the act is one act: what a member does with
         // it is the ruleset's answer about that member, and a player presses the same control for a spell, a
@@ -259,7 +266,8 @@ public sealed class CrawlerProduct : IEngineProduct
                 Service: _service,
                 Rest: _rest,
                 Conversation: _conversation,
-                Combat: _combat);
+                Combat: _combat,
+                Skills: _skills);
 
             // The start switch travels with the context and is answered at the ruleset's one composition
             // entry: a resumed run reads the save the slot holds and composes a session from it, and a slot

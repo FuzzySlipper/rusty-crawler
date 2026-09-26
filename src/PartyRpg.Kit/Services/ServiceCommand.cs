@@ -72,7 +72,17 @@ public enum ServiceCommandKind
 /// </param>
 /// <param name="Member">Which member a lesson, a cure, or a training step is for, counted from zero.</param>
 /// <param name="Count">How many of the thing named to act on, at least one.</param>
-public sealed record ServiceCommand(ServiceCommandKind Kind, string Target = "", int Member = 0, int Count = 1)
+/// <param name="Tier">
+/// Which rung of a skill a lesson leaves a member at, where one is the first rung. It is part of what names
+/// a lesson rather than a property of the command: a counter can teach the same skill at more than one rung,
+/// and the screen sends the rung of the row the player pressed.
+/// </param>
+public sealed record ServiceCommand(
+    ServiceCommandKind Kind,
+    string Target = "",
+    int Member = 0,
+    int Count = 1,
+    int Tier = 1)
 {
     /// <summary>Creates a command that names nothing.</summary>
     /// <param name="kind">Which command to state.</param>

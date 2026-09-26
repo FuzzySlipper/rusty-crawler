@@ -120,7 +120,16 @@ division of a party award with the learning skill's bonus, the per-level class a
 the skill points a level grants, and the fame the party's deeds earn — and `MightAndMagic7Combat` hands each
 death's own row, its experience column included, to the one award path the fight reports through, so a kill,
 a quest, and any later deed grow a character through the same owner and a training hall only charges the fee
-and quotes the step. Everything else
+and quotes the step. This game's skills are landed beside it: `MightAndMagic7Skills` reads the shipped
+table's 37 rows into the four blocks the manual states — 34 usable, with Blaster, Diplomacy, and Thievery
+reported as the rows this game does not use — and answers the ceiling a class and rank impose from its own
+transcription of the donor's per-class mastery matrix, its authored level bands over the donor's own rung
+thresholds, and the donor's per-skill mastery fees, so a raise past the limit is refused with the limit and
+the promotion that would raise it named. The keeper of a guild is that school's master teacher: the rung a
+guild stands at in its own ladder is the deepest rung of its skill the counter offers, bought through the
+conversation's counter handoff and the service mechanism's own lesson path, and `MightAndMagic7EquipmentUse`
+refuses a weapon or armour whose row names a skill the member has not learned while the manual's five
+exempt places need none. Everything else
 listed above — the remaining class, skill, spell, monster, item, and formula policy, and rest and
 fatigue and service hours — attaches to the session as its stone lands. Fidelity per system — what matches
 the original, what is approximate, and what is deliberately ours — is fixed in

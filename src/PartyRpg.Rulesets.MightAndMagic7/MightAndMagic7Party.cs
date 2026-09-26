@@ -58,15 +58,19 @@ internal static class MightAndMagic7Party
         {
             // The first entry wins, exactly as the scenario's starting place does: two parties would leave
             // which band the player leads to the order the packs happened to load in.
-            return Create(pack, document, entry);
+            return Create(catalog, pack, document, entry);
         }
 
         return null;
     }
 
     /// <summary>Creates the party one content entry describes.</summary>
+    /// <param name="content">The validated content, which is what the rules the party obeys are read over.</param>
+    /// <param name="pack">The pack the party entry came from, which a defect is reported against.</param>
+    /// <param name="document">The document the entry came from.</param>
+    /// <param name="entry">The entry describing the party.</param>
     /// <exception cref="ContentValidationException">The entry does not describe a party that can be created.</exception>
-    private static PartyEntity Create(LoadedPack pack, ContentDocument document, ContentEntry entry)
+    private static PartyEntity Create(ContentCatalog? content, LoadedPack pack, ContentDocument document, ContentEntry entry)
     {
         List<ContentValidationIssue> issues = [];
         void Defect(string code, string message) =>
@@ -94,11 +98,11 @@ internal static class MightAndMagic7Party
                 issues);
         }
 
-        // The rules the party obeys are the item and skill owners' policy — equipment gating, pack
-        // capacity, stacking, the hired limit — and none of them exists yet. A factory composed with no
-        // rule gates nothing, which is the honest state of a product whose ruleset has not answered: no
-        // constant here stands in for an answer nobody gave.
-        return Factory().Create(new PartyCreation(
+        // The rules the party obeys are the item and skill owners' policy. Equipment gating is this game's
+        // answer now — a weapon or armour needs the skill its own row names, and the five places the manual
+        // exempts need none — while pack capacity, stacking, and the hired limit are still rules nobody has
+        // stated, and a factory composed with no rule gates nothing rather than guessing one.
+        return Factory(content).Create(new PartyCreation(
             members,
             coins,
             food,
@@ -118,21 +122,30 @@ internal static class MightAndMagic7Party
     /// <param name="save">The recorded party.</param>
     /// <returns>The restored party, owning the store its entities live in.</returns>
     /// <exception cref="ArgumentException">The save cannot be rebuilt; the message names every problem found.</exception>
-    internal static PartyEntity Restore(PartySave save) => Factory().Restore(save);
+    internal static PartyEntity Restore(PartySave save, ContentCatalog? content) => Factory(content).Restore(save);
 
     /// <summary>
     /// The rules every party of this game obeys, composed in one place so a created party and a loaded one
     /// are the same party.
     /// </summary>
     /// <remarks>
-    /// Equipment gating, pack capacity, stacking, and the hired limit are the item and skill owners' policy
-    /// and none of them exists yet, so this factory gates nothing yet. What it does state is what a wound
-    /// leaves on a character, because that answer must reach both creation and a load: a member built by
-    /// either path obeys the same thresholds, and a trap sprung in the world lands on the same health rule a
-    /// creature's bite does. It is one method rather than two call sites so that when the remaining rules
-    /// land they land for both paths at once, instead of one of the two quietly keeping an older answer.
+    /// It is one method rather than two call sites so that the rules every party obeys land for both paths
+    /// at once instead of one of the two quietly keeping an older answer: a created party and a restored one
+    /// gate equipment the same way, and a member built by either path obeys the same health thresholds, so a
+    /// trap sprung in the world lands on the same rule a creature's bite does. A session composed without
+    /// content gates nothing, which is the honest state of a product whose content has not been generated.
     /// </remarks>
-    internal static PartyEntityFactory Factory() => new(health: new MightAndMagic7Health());
+    /// <param name="content">The validated content the product loaded, or null when it loaded none.</param>
+    internal static PartyEntityFactory Factory(ContentCatalog? content)
+    {
+        // One reading of this game's skills serves the equipment gate: what an item's row names as its skill
+        // is resolved against the very skills content declares, so an item whose skill this game's table does
+        // not carry is refused by name instead of quietly passing.
+        MightAndMagic7Skills? skills = MightAndMagic7Skills.Read(content);
+        return new PartyEntityFactory(
+            equipmentUse: MightAndMagic7EquipmentUse.Read(content, skills),
+            health: new MightAndMagic7Health());
+    }
 
     /// <summary>Reads the members a party entry declares, reporting every one it cannot read.</summary>
     private static List<MemberCreation> Members(ContentEntry entry, Action<string, string> defect)

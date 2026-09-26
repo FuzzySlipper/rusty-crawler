@@ -456,7 +456,7 @@ public sealed class ServicePolicyTests
             {
               "documentId": "skills",
               "definitionKind": "skill",
-              "entries": [ { "id": "Sword" }, { "id": "Fire" }, { "id": "Learning" }, { "id": "Unarmed" }, { "id": "Dodging" }, { "id": "Merchant" } ]
+              "entries": [ { "id": "Sword" }, { "id": "Axe" }, { "id": "Fire" }, { "id": "Learning" }, { "id": "Unarmed" }, { "id": "Dodging" }, { "id": "Merchant" } ]
             }
             """),
         ($"{ProductTestContext.ContentDirectory}/content-packs/world/services.json",
@@ -484,8 +484,17 @@ public sealed class ServicePolicyTests
                 { "path": "start.json", "documentId": "start", "definitionKind": "scenario-start" },
                 { "path": "party.json", "documentId": "party", "definitionKind": "scenario-party" },
                 { "path": "services.json", "documentId": "services", "definitionKind": "service" },
-                { "path": "items.json", "documentId": "items", "definitionKind": "item" }
+                { "path": "items.json", "documentId": "items", "definitionKind": "item" },
+                { "path": "skills.json", "documentId": "skills", "definitionKind": "skill" }
               ]
+            }
+            """),
+        ($"{ProductTestContext.ContentDirectory}/content-packs/world/skills.json",
+            """
+            {
+              "documentId": "skills",
+              "definitionKind": "skill",
+              "entries": [ { "id": "Sword" }, { "id": "Axe" }, { "id": "Fire" }, { "id": "Merchant" } ]
             }
             """),
         ($"{ProductTestContext.ContentDirectory}/content-packs/world/places.json",

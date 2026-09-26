@@ -70,7 +70,11 @@ public static class ServiceActions
     /// <summary>Pays to have an item repaired, carrying the instance.</summary>
     public const string Repair = "service.repair";
 
-    /// <summary>Pays for a lesson, carrying its subject and the member it goes to.</summary>
+    /// <summary>Pays for a lesson, carrying its subject, its rung, and the member it goes to.</summary>
+    /// <remarks>
+    /// The rung is carried because a counter can teach one skill at more than one rung: the row a player
+    /// pressed is the row the command names, and a command that leaves it out means the first.
+    /// </remarks>
     public const string Teach = "service.teach";
 
     /// <summary>Pays a counter to train one member a level, carrying the member it goes to.</summary>
@@ -166,7 +170,11 @@ public sealed class ServiceInput
             ServiceActions.Sell => new ServiceCommand(ServiceCommandKind.Sell, target),
             ServiceActions.Identify => new ServiceCommand(ServiceCommandKind.Identify, target),
             ServiceActions.Repair => new ServiceCommand(ServiceCommandKind.Repair, target),
-            ServiceActions.Teach => new ServiceCommand(ServiceCommandKind.Teach, target, action.Member ?? 0),
+            ServiceActions.Teach => new ServiceCommand(
+                ServiceCommandKind.Teach,
+                target,
+                action.Member ?? 0,
+                Tier: action.Tier is { } tier && tier > 0 ? tier : 1),
             ServiceActions.Train => new ServiceCommand(ServiceCommandKind.Train, Member: action.Member ?? 0),
             ServiceActions.Leave => ServiceCommand.Of(ServiceCommandKind.Leave),
             _ => null,
@@ -210,7 +218,8 @@ internal sealed record ServiceActionDto(
     string? Action,
     JsonElement? Target,
     int? Member,
-    int? Count);
+    int? Count,
+    int? Tier);
 
 /// <summary>Source-generated JSON for the service action payload, so reading it stays AOT-safe.</summary>
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
