@@ -150,16 +150,27 @@ public sealed record SpellApplicationOutcome
 /// learns an effect's name.
 /// </para>
 /// <para>
-/// <b>The harm half already exists and is used.</b> A spell aimed at an opponent is applied as an attack of
-/// the spell kind through the fight's own gated entry, so a spell's numbers, its target's resistance, the
-/// condition it leaves, and the recovery it costs are the same mechanism a swing and a shot use. A spell
-/// whose effect this build expresses nothing for is still cast: the outcome says which effect it carried
-/// and that nothing changed, rather than reporting a cast that silently did nothing.
+/// <b>Every category is applied behind it, and each through the owner that holds the state it changes.</b>
+/// Harm is an attack of the spell kind through the fight's own gated entry, so a spell's numbers, its target's
+/// resistance, the condition it leaves, and the recovery it costs are the same mechanism a swing and a shot
+/// use; health is given through the member's own pool; conditions are lifted and left through the member's own
+/// condition state; a ward or a utility is a party-carried effect with a deadline on the one clock, read by
+/// whichever answer it changes; a light is read against that clock's daylight; travel goes through the world's
+/// own transition path; and a detection reports over the places and the population the world holds. A spell
+/// whose effect this build expresses nothing for is still cast: the outcome says which effect it carried and
+/// that nothing changed, rather than reporting a cast that silently did nothing.
+/// </para>
+/// <para>
+/// <b>What the effect path offers beyond applying.</b> A game may also answer what a spell with no actor aim
+/// may be pointed at (<see cref="ISpellAimRule"/>), what the party sees by (<see cref="IPartySightRule"/>),
+/// and what effects spells have left running (<see cref="IRunningSpellEffects"/>) — all optional, all read by
+/// the projection, and none of them a rule the casting mechanism learns.
 /// </para>
 /// <para>
 /// <b>Judged before anything is paid.</b> <see cref="Judge"/> is asked first, because whether the caster may
-/// act and whether the aim resolves are facts that must stop a cast before its points are spent; a cast the
-/// party paid for and that then could not be carried out would be the worst of both.
+/// act, whether the aim resolves, and whether the spell acts on something this build can aim at are facts
+/// that must stop a cast before its points are spent; a cast the party paid for and that then could not be
+/// carried out would be the worst of both.
 /// </para>
 /// </remarks>
 public interface ISpellEffectRule
