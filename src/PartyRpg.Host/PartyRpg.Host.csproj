@@ -105,6 +105,14 @@
     <RustyEngineProductInputMapping Include="rest.wait-hour.key-h" Intent="rest.wait-hour" Trigger="key:key-h:pressed" />
     <RustyEngineProductInputIntent Include="rest.wait-five-minutes" Value="digital" />
     <RustyEngineProductInputMapping Include="rest.wait-five-minutes.key-m" Intent="rest.wait-five-minutes" Trigger="key:key-m:pressed" />
+    <!-- The act control: one held key orders the party to attack what it can reach, repeating while it is
+         down exactly as the donor's own `pass` control does (OpenEnroth src/Application/GameConfig.h:554
+         binds it to B; src/Io/InputEnumFunctions.cpp:103 triggers it with key repeat). Every attack is still
+         gated by the acting member's own recovery, so the key repeating and the member acting are different
+         things. B is free during play. The declaration and the code constant in ProductIdentity.cs are the
+         two halves of the same control. -->
+    <RustyEngineProductInputIntent Include="party.attack" Value="digital" />
+    <RustyEngineProductInputMapping Include="party.attack.key-b" Intent="party.attack" Trigger="key:key-b:held" />
     <RustyEngineProductInputIntent Include="crawler.ui" Value="payload:crawler.ui.action.v1" />
   </ItemGroup>
 

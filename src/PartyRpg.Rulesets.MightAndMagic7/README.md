@@ -47,7 +47,13 @@ event as a fixture whose use names the event nothing executes yet, a `requires` 
 this game's locks, and a refusal that says what it needs), which places are clocked
 (`MightAndMagic7Schedules` — the counters' own hours, or the hours a place states in its own entry, read
 against the one clock so a door outside them is an unmet requirement rather than a menu entry that hides
-itself), and what stopping costs here (`MightAndMagic7Rest` — eight hours under a roof or in the open, the
+itself), what fighting costs here (`MightAndMagic7Combat` — a monster's recovery is the monster table's own
+`Recovery` column, its hostility band is the distance at which it notices the party, and a character is
+paced by the donor's own attack-recovery sum as far as this build can read it: the base for a character
+holding nothing, the armsmaster reduction, and the speed bonus, since a party cannot wear anything yet; a
+creature's first recovery is a keyed draw over the actor so a group placed together does not strike in
+lockstep, and a creature is recognized by a placement of kind `monster` naming the row it is — the
+interface the monsters-and-AI task fills), and what stopping costs here (`MightAndMagic7Rest` — eight hours under a roof or in the open, the
 donor's ground table for what a camp eats, its own proximity rule for a party that will not lie down with
 creatures near, an interrupted night that lasts only the hours it lasted, and the day-long debt of sleep
 that weakens the party on the clock's own deadline). Party creation's game definitions are landed too:

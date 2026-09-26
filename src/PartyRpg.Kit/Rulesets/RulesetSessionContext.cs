@@ -88,6 +88,13 @@ public enum SessionStart
 /// choices arrive on. Entering a conversation is deliberately not among them — the party speaks with
 /// somebody by using the person it faces — so a host declares the way out and the choices, and nothing else.
 /// </param>
+/// <param name="Combat">
+/// The act control the host declares, when it declares any, stated for the same reason and in the same shape
+/// as the others: which intent and which payload action order the party to attack. One control rather than
+/// one per kind of attack, because what a member does with it is this game's answer about that member and
+/// not something a player picks per press. Without it a session never attacks on its own — the fight is
+/// still composed and still reads the world — which is what a product that declares no act control gets.
+/// </param>
 public sealed record RulesetSessionContext(
     IUiProjectionChannel Projection,
     BundleSelection Selection = default,
@@ -101,4 +108,5 @@ public sealed record RulesetSessionContext(
     SessionStart Start = SessionStart.Fresh,
     ServiceIntentNames? Service = null,
     RestIntentNames? Rest = null,
-    ConversationIntentNames? Conversation = null);
+    ConversationIntentNames? Conversation = null,
+    CombatIntentNames? Combat = null);

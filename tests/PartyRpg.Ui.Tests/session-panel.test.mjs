@@ -218,6 +218,54 @@ function rest(overrides = {}) {
 }
 
 /**
+ * The fight block as the product publishes it. `available` is false when the session holds no fight at all;
+ * `engaged` says whether anything is hostile; each member and enemy carries the readiness the product
+ * published, which is the only thing the panel shows.
+ */
+function combat(overrides = {}) {
+  return {
+    available: true,
+    engaged: false,
+    opposition: 0,
+    ready: 2,
+    members: [
+      { id: 'member:1', name: 'Roderick', ready: true, recoverySeconds: 0, distance: 0 },
+      { id: 'member:2', name: 'Aelina', ready: true, recoverySeconds: 0, distance: 0 },
+    ],
+    enemies: [],
+    actor: '',
+    kind: '',
+    target: '',
+    outcome: 'none',
+    code: '',
+    message: '',
+    recoverySeconds: 0,
+    ...overrides,
+  };
+}
+
+/** A fight in progress: one creature engaged with the party, which has just swung at it. */
+function fighting(overrides = {}) {
+  return combat({
+    engaged: true,
+    opposition: 1,
+    ready: 0,
+    members: [
+      { id: 'member:1', name: 'Roderick', ready: false, recoverySeconds: 22.969, distance: 0 },
+      { id: 'member:2', name: 'Aelina', ready: false, recoverySeconds: 22.266, distance: 0 },
+    ],
+    enemies: [{ id: 'actor:1', name: 'A beast', ready: true, recoverySeconds: 0, distance: 100 }],
+    actor: 'Roderick',
+    kind: 'melee',
+    target: 'A beast',
+    outcome: 'applied',
+    message: 'Roderick attacks A beast (melee) and must recover 22969ms of game time.',
+    recoverySeconds: 22.969,
+    ...overrides,
+  });
+}
+
+/**
  * The conversation block as the product publishes it. `available` is false when the session holds no
  * conversation mechanism at all; `open` says whether anybody is being spoken with; `topics` is what the
  * state offers and `withheld` what it does not, each with the reason it is not.
@@ -361,6 +409,9 @@ function snapshot(mode, seconds = 0, steps = 0, updates = 0, facts = undefined, 
   // The conversation block is published in every mode too, so a case that asks for none covers a projection
   // whose session holds no conversation mechanism.
   if (blocks?.conversation !== undefined) value.conversation = blocks.conversation;
+  // The fight block is published in every mode too, so a case that asks for none covers a projection whose
+  // session holds no fight mechanism.
+  if (blocks?.combat !== undefined) value.combat = blocks.combat;
   return value;
 }
 
@@ -544,6 +595,34 @@ function restPanel(h) {
       text: button.textContent,
       disabled: button.disabled,
     })),
+    message: result?.hidden ? '' : result?.textContent,
+    messageOutcome: result?.getAttribute('data-outcome'),
+    messageCode: result?.getAttribute('data-code'),
+  };
+}
+
+/** The fight section as a person reads it: who is in it, who may act, and what the last order did. */
+function combatPanel(h) {
+  const panel = h.panel();
+  const section = panel?.querySelector('.crawler-combat');
+  const attack = section?.querySelector('.crawler-attack');
+  const result = section?.querySelector('.crawler-combat-result');
+  const fighters = (list) =>
+    [...(list?.querySelectorAll('.crawler-fighter') ?? [])].map((row) => ({
+      name: row.textContent,
+      ready: row.getAttribute('data-ready'),
+      id: row.getAttribute('data-fighter'),
+    }));
+  return {
+    state: panel?.getAttribute('data-combat'),
+    ready: panel?.getAttribute('data-combat-ready'),
+    opposition: panel?.getAttribute('data-combat-opposition'),
+    outcome: panel?.getAttribute('data-combat-outcome'),
+    hidden: section?.hidden,
+    status: section?.querySelector('.crawler-combat-state')?.textContent,
+    attack: { disabled: attack?.disabled, text: attack?.textContent },
+    members: fighters(section?.querySelector('.crawler-combat-members')),
+    enemies: fighters(section?.querySelector('.crawler-combat-enemies')),
     message: result?.hidden ? '' : result?.textContent,
     messageOutcome: result?.getAttribute('data-outcome'),
     messageCode: result?.getAttribute('data-code'),
@@ -1779,6 +1858,93 @@ test('every conversation control asks for the choice it was shown, on the produc
       (button) => button.dataset.id === 'topic-2',
     );
     assert.equal(withheld.disabled, true);
+  } finally {
+    h.restore();
+  }
+});
+
+test('the panel renders the fight, who may act, and what the party did', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // A session with no fight mechanism at all says so by hiding the section: a quiet street and a product
+    // that cannot fight are different facts, and the panel must not make them look alike.
+    h.emit(snapshot('running', 0, 0, 1, movement()));
+    assert.equal(combatPanel(h).hidden, true);
+
+    // A fight that has been read but is not engaged: the party's readiness is shown and nothing is hostile.
+    h.emit(snapshot('running', 1, 60, 60, movement(), { combat: combat() }));
+    assert.equal(h.panel().getAttribute('data-combat'), 'quiet');
+    assert.equal(h.panel().getAttribute('data-combat-opposition'), '0');
+    const quiet = combatPanel(h);
+    assert.equal(quiet.hidden, false);
+    assert.match(quiet.status, /Nobody is hostile — 2 of 2 ready/);
+    assert.deepEqual(quiet.members.map((member) => member.ready), ['yes', 'yes']);
+    assert.equal(quiet.attack.disabled, false);
+    assert.equal(quiet.enemies.length, 0);
+
+    // A fight in progress: the creature is engaged, both members are recovering and say how long they owe,
+    // and the panel reports the answer the product gave rather than one of its own.
+    h.emit(snapshot('running', 2, 120, 121, movement(), { combat: fighting() }));
+    assert.equal(h.panel().getAttribute('data-combat'), 'engaged');
+    assert.equal(h.panel().getAttribute('data-combat-ready'), '0');
+    assert.equal(h.panel().getAttribute('data-combat-outcome'), 'applied');
+    const engaged = combatPanel(h);
+    assert.match(engaged.status, /Engaged with 1 — 0 of 2 ready/);
+    assert.deepEqual(engaged.members.map((member) => member.ready), ['no', 'no']);
+    assert.match(engaged.members[0].name, /Roderick — recovering 23\.0s/);
+    assert.match(engaged.enemies[0].name, /A beast — ready at 100/);
+    assert.equal(engaged.messageOutcome, 'applied');
+    assert.match(engaged.message, /attacks A beast/);
+
+    // A recovering party cannot act from the panel: the control is disabled while the product says no member
+    // may act, which is the fight's own readiness rather than a countdown this screen runs.
+    assert.equal(engaged.attack.disabled, true);
+
+    // An order refused while everybody recovers keeps the product's code and sentence.
+    h.emit(snapshot('running', 3, 180, 182, movement(), {
+      combat: fighting({
+        outcome: 'refused',
+        code: 'recovering',
+        message: 'Roderick is still recovering: 21969ms of game time must pass before it can act again.',
+        recoverySeconds: 0,
+      }),
+    }));
+    const refused = combatPanel(h);
+    assert.equal(h.panel().getAttribute('data-combat-outcome'), 'refused');
+    assert.equal(refused.messageOutcome, 'refused');
+    assert.equal(refused.messageCode, 'recovering');
+    assert.match(refused.message, /still recovering/);
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the fight control asks for the attack it was shown, on the product contract', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+    h.emit(snapshot('running', 1, 60, 60, movement(), { combat: combat() }));
+
+    combatPanel(h);
+    h.panel().querySelector('.crawler-attack').click();
+
+    assert.deepEqual(
+      h.claims.map((claim) => claim.value.data),
+      [{ action: 'party.attack' }],
+    );
+    assert.equal(h.claims[0].intent, ACTION_INTENT);
+    assert.equal(h.claims[0].value.kind, 'product-payload');
+    assert.equal(h.claims[0].value.contract, ACTION_CONTRACT);
+
+    // The keyboard hint names the key the product declared, so a player who never presses the button knows
+    // the control exists.
+    assert.match(h.panel().textContent, /Attack with the button or the B key/);
+
+    ui.dispose();
   } finally {
     h.restore();
   }

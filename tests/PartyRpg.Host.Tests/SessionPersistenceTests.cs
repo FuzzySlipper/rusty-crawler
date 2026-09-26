@@ -45,7 +45,7 @@ public sealed class SessionPersistenceTests
         InMemoryPersistenceService persistence = new();
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(
             persistence,
-            [ProductTestContext.Bundle(BuiltInBundles.Default, "world", "scenario"), .. World(), .. Scenario()]);
+            [ProductTestContext.Bundle(BuiltInBundles.Default, "world", "scenario"), .. World(), .. Monsters(), .. Scenario()]);
 
         using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(Context(context, ui));
         session.Start();
@@ -70,7 +70,7 @@ public sealed class SessionPersistenceTests
         // A resume composes a fresh session from those bytes, over the same content.
         (ProductCreateContext resumedContext, RecordingUiService resumedUi) = ProductTestContext.Create(
             persistence,
-            [ProductTestContext.Bundle(BuiltInBundles.Default, "world", "scenario"), .. World(), .. Scenario()]);
+            [ProductTestContext.Bundle(BuiltInBundles.Default, "world", "scenario"), .. World(), .. Monsters(), .. Scenario()]);
         using IGameSession resumed = MightAndMagic7Ruleset.Instance.ResumeSession(Context(resumedContext, resumedUi));
 
         ProjectedNode after = ProjectedNode.Of(resumedUi.Latest().Value);
@@ -98,6 +98,7 @@ public sealed class SessionPersistenceTests
         [
             ProductTestContext.Bundle(BuiltInBundles.Default, "world", "scenario"),
             .. World(),
+            .. Monsters(),
             .. Scenario(),
             // The host offers a creation screen, so a new product starts in creation and its party is the one
             // the player accepts. A bundle a player creates a party in must declare the classes and skills
@@ -202,7 +203,7 @@ public sealed class SessionPersistenceTests
         InMemoryPersistenceService persistence = new();
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(
             persistence,
-            [ProductTestContext.Bundle(BuiltInBundles.Default, "world", "scenario"), .. World(), .. Scenario()]);
+            [ProductTestContext.Bundle(BuiltInBundles.Default, "world", "scenario"), .. World(), .. Monsters(), .. Scenario()]);
 
         SessionSaveException refused = Assert.Throws<SessionSaveException>(
             () => MightAndMagic7Ruleset.Instance.ResumeSession(Context(context, ui)));
@@ -218,7 +219,7 @@ public sealed class SessionPersistenceTests
         persistence.Seed(Scope, Slot, Encoding.UTF8.GetBytes("{\"party\": {\"nextMemberValue\": 1"));
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(
             persistence,
-            [ProductTestContext.Bundle(BuiltInBundles.Default, "world", "scenario"), .. World(), .. Scenario()]);
+            [ProductTestContext.Bundle(BuiltInBundles.Default, "world", "scenario"), .. World(), .. Monsters(), .. Scenario()]);
 
         SessionSaveException refused = Assert.Throws<SessionSaveException>(
             () => MightAndMagic7Ruleset.Instance.ResumeSession(Context(context, ui)));
@@ -233,7 +234,7 @@ public sealed class SessionPersistenceTests
         InMemoryPersistenceService persistence = new();
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(
             persistence,
-            [ProductTestContext.Bundle(BuiltInBundles.Default, "world", "scenario"), .. World(), .. Scenario()]);
+            [ProductTestContext.Bundle(BuiltInBundles.Default, "world", "scenario"), .. World(), .. Monsters(), .. Scenario()]);
 
         using (IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(Context(context, ui)))
         {
@@ -263,7 +264,7 @@ public sealed class SessionPersistenceTests
     public void A_host_with_no_engine_cannot_resume_a_session()
     {
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(
-            [ProductTestContext.Bundle(BuiltInBundles.Default, "world", "scenario"), .. World(), .. Scenario()]);
+            [ProductTestContext.Bundle(BuiltInBundles.Default, "world", "scenario"), .. World(), .. Monsters(), .. Scenario()]);
 
         SessionSaveException refused = Assert.Throws<SessionSaveException>(
             () => MightAndMagic7Ruleset.Instance.ResumeSession(Context(context, ui, engine: false)));
@@ -276,7 +277,7 @@ public sealed class SessionPersistenceTests
     {
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(
             new NoPersistenceRoot(),
-            [ProductTestContext.Bundle(BuiltInBundles.Default, "world", "scenario"), .. World(), .. Scenario()]);
+            [ProductTestContext.Bundle(BuiltInBundles.Default, "world", "scenario"), .. World(), .. Monsters(), .. Scenario()]);
 
         // A host that selected no persistence root still plays; asking it to write reports the engine's own
         // refusal, naming what is lost, instead of a session that looks saved and is not.
@@ -329,7 +330,10 @@ public sealed class SessionPersistenceTests
               "packId": "world",
               "kind": "definitions",
               "provenance": { "description": "authored for a test" },
-              "documents": [ { "path": "world.json", "documentId": "world", "definitionKind": "place" } ]
+              "documents": [
+                { "path": "world.json", "documentId": "world", "definitionKind": "place" },
+                { "path": "monsters.json", "documentId": "monsters", "definitionKind": "monster" }
+              ]
             }
             """),
         ($"{ProductTestContext.ContentDirectory}/content-packs/world/world.json",
@@ -340,10 +344,26 @@ public sealed class SessionPersistenceTests
               "entries": [
                 { "id": "1", "kind": "region", "name": "Home", "respawnDays": 1,
                   "entryPoints": [ { "id": "Party Start", "x": 1, "y": 2, "z": 3, "yaw": 512 } ],
-                  "placements": [ { "kind": "monster", "id": "wanderer", "x": 4, "y": 5, "z": 0 } ] },
+                  "placements": [ { "kind": "monster", "id": "wanderer", "monster": "1", "x": 4, "y": 5, "z": 0 } ] },
                 { "id": "2", "kind": "interior", "name": "Cave", "respawnDays": 1,
                   "entryPoints": [ { "id": "Party Start", "x": 5, "y": 6, "z": 7, "yaw": 0 } ] }
               ]
+            }
+            """),
+    ];
+
+    /// <summary>
+    /// The monster row the world's one creature stands on. A creature placement names the row it is, so the
+    /// fixture states one rather than placing a being nothing describes.
+    /// </summary>
+    private static (string Path, string Text)[] Monsters() =>
+    [
+        ($"{ProductTestContext.ContentDirectory}/content-packs/world/monsters.json",
+            """
+            {
+              "documentId": "monsters",
+              "definitionKind": "monster",
+              "entries": [ { "id": "1", "name": "A wanderer", "hostility": 2, "recovery": 100 } ]
             }
             """),
     ];

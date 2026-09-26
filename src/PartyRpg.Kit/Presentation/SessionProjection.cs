@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Sessions;
@@ -67,6 +68,11 @@ namespace PartyRpg.Kit.Presentation;
 /// mechanism. Defaulted for the same reason the others are: a session whose ruleset answered no dialogue
 /// policy publishes that rather than an empty conversation that looks like somebody with nothing to say.
 /// </param>
+/// <param name="Combat">
+/// Who is fighting, who may act, and what the party's last order did, or the no-mechanism value when the
+/// session holds no fight. Defaulted for the same reason the others are: a session whose ruleset answered no
+/// combat policy publishes that rather than a quiet street that looks like a fight nobody can see.
+/// </param>
 public readonly record struct SessionSnapshot(
     SessionComposition Composition,
     SessionMode Mode,
@@ -82,7 +88,8 @@ public readonly record struct SessionSnapshot(
     InteractionSnapshot Interaction = default,
     ServiceSnapshot Service = default,
     RestSnapshot Rest = default,
-    ConversationSnapshot Conversation = default);
+    ConversationSnapshot Conversation = default,
+    CombatSnapshot Combat = default);
 
 /// <summary>Where the party is in the world, as the panel needs it: which place, where in it, and how much of the world is known.</summary>
 /// <param name="Place">The place the party is in, empty when the session has no world.</param>
@@ -162,6 +169,9 @@ public static class SessionProjection
 
     /// <summary>The conversation object's wire name.</summary>
     public const string ConversationField = "conversation";
+
+    /// <summary>The fight object's wire name.</summary>
+    public const string CombatField = "combat";
 
     /// <summary>Builds the projection value for a snapshot.</summary>
     public static UiValue Build(SessionSnapshot snapshot)
@@ -265,7 +275,12 @@ public static class SessionProjection
             // person has nothing to say about that" are three different facts, and a block that only
             // appeared while somebody was talking would leave a player unable to tell an empty road from a
             // topic the state withholds.
-            (ConversationField, Conversation(builder, snapshot.Conversation)));
+            (ConversationField, Conversation(builder, snapshot.Conversation)),
+            // The fight block is published in every mode for the same reason the conversation block is:
+            // "this session holds no fight", "nothing is hostile", and "the party is fighting and two of its
+            // members are recovering" are three different facts, and a block that only appeared once
+            // something was hostile would leave a player unable to tell a quiet street from a fight.
+            (CombatField, Combat(builder, snapshot.Combat)));
         return builder.Build(root);
     }
 
@@ -446,6 +461,48 @@ public static class SessionProjection
             ("label", builder.String(topic.Label)),
             ("available", builder.Boolean(topic.Available)),
             ("reason", builder.String(topic.Reason)));
+
+    /// <summary>Builds the fight block: who is in it, who may act, and what the last order did.</summary>
+    /// <remarks>
+    /// Both sides are sent whole so the screen decides nothing: the party's members with their readiness,
+    /// and the actors fighting them. Readiness is published as the recovery the fight holds — a length of
+    /// game time — so the panel shows what the product says and never counts a cooldown down for itself. A
+    /// snapshot built without fight facts carries the default value, whose lists are null rather than empty:
+    /// they are published as empty so a reader never sees an actor that is not there, exactly as the rest and
+    /// conversation blocks do.
+    /// </remarks>
+    private static uint Combat(UiValueBuilder builder, CombatSnapshot combat)
+    {
+        List<uint> members = [];
+        foreach (CombatActorSnapshot actor in combat.Members ?? []) members.Add(Fighter(builder, actor));
+
+        List<uint> enemies = [];
+        foreach (CombatActorSnapshot actor in combat.Enemies ?? []) enemies.Add(Fighter(builder, actor));
+
+        return builder.Object(
+            ("available", builder.Boolean(combat.Available)),
+            ("engaged", builder.Boolean(combat.Engaged)),
+            ("opposition", builder.Number(combat.Opposition)),
+            ("ready", builder.Number(combat.Ready)),
+            ("members", builder.Array([.. members])),
+            ("enemies", builder.Array([.. enemies])),
+            ("actor", builder.String(combat.Actor ?? string.Empty)),
+            ("kind", builder.String(combat.Kind ?? string.Empty)),
+            ("target", builder.String(combat.Target ?? string.Empty)),
+            ("outcome", builder.String(combat.Outcome ?? string.Empty)),
+            ("code", builder.String(combat.Code ?? string.Empty)),
+            ("message", builder.String(combat.Message ?? string.Empty)),
+            ("recoverySeconds", builder.Number(combat.RecoverySeconds)));
+    }
+
+    /// <summary>Builds one actor of a fight block: who it is, whether it may act, and how long it owes.</summary>
+    private static uint Fighter(UiValueBuilder builder, CombatActorSnapshot actor) =>
+        builder.Object(
+            ("id", builder.String(actor.Id)),
+            ("name", builder.String(actor.Name)),
+            ("ready", builder.Boolean(actor.Ready)),
+            ("recoverySeconds", builder.Number(actor.RecoverySeconds)),
+            ("distance", builder.Number(actor.Distance)));
 
     /// <summary>Builds the rest block: what the last stop did, what it cost, and what sleep debt stands.</summary>
     /// <remarks>

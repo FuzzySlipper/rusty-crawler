@@ -231,10 +231,33 @@ availability follows the party's own state.**
   with its reason. A service is now reached *through* the conversation: a person who keeps a counter
   offers it as an ordinary topic whose answer hands off to the service mechanism, and a handoff nothing
   routes is reported by name. An answer records what it told the party as party-carried state.
-- **No combat, magic, or quests exists, and a save carries no deadlines.** Do not describe, review, or
-  accept behavior those stones will add as though it were here. What a player can do today is create a
-  party, walk it, open doors and containers, get caught by a trap, buy and sell at a counter, learn from a
-  guild, rest or camp, talk to people, and save or resume: on the agent playtest service's remote browser a held `W` walks the
+- Combat is one state over the live world, paced by recovery. Entering a fight changes nothing about where the
+  party is, what exists, or what place it is in: no battle scene, no encounter world, no second population.
+  Every combatant — each of the party's members and each creature standing in the place — carries one recovery
+  quantity advanced from the game time the session's one clock reports inside the admitted update and by
+  nothing else, so a held session releases nobody and no frame or timer moves it; a recovering actor cannot
+  act, and attack initiation of every kind is gated by that same quantity rather than by a per-kind cooldown.
+  That quantity is what the turn-based pacing will derive its order from. Hostility is world state: a creature
+  is an enemy because of what it is — this game reads the monster table's own hostility band as the distance
+  at which it notices the party — or because of what the party has done, which is remembered for as long as
+  the creature stands there, and a place the world restores starts with nobody provoked. The act control (B,
+  held, as the donor's own key is) orders every member who may act to attack the nearest creature in reach,
+  and each pays its own recovery; an order while recovering is refused by name. The panel publishes who is
+  engaged, who is ready, and what the last order did, and runs no countdown of its own.
+- **What combat does not do yet.** Nothing resolves an attack: no damage, no resistance, no conditions, and no
+  death. The fight publishes what each attack *was* — who, how, against what, when, and what it cost — and
+  nothing consumes it yet. No creature acts on its own: the state paces the opposition and offers any driver
+  the same gated entry the player's control uses, and the AI that would drive a monster is the
+  monsters-and-AI task's. Nothing creates a monster either: a creature exists only where content places a
+  placement of kind `monster` naming a monster row, and the shipped packs place spawn *points*, so an imported
+  world holds no creature yet and a live fight shows the party's own half. A character's recovery is the
+  donor's sum only where this build can read it — the base for a character holding nothing, the armsmaster
+  reduction, and the speed bonus — because a party cannot wear anything until the stone that brings items and
+  equipment lands. Turn-based mode, corpses, and loot are not here.
+- **No magic or quests exists, a save carries no deadlines, and a save carries no fight.** Do not describe,
+  review, or accept behavior those stones will add as though it were here. What a player can do today is
+  create a party, walk it, open doors and containers, get caught by a trap, buy and sell at a counter, learn
+  from a guild, rest or camp, talk to people, fight by recovery, and save or resume: on the agent playtest service's remote browser a held `W` walks the
   party about 382 units a second and the released key
   stops it where it stands (Emerald Island, `12552, 800, 193` to `12552, 3859, 98` over eight seconds
   of held key, the pose then unchanged for the next seventy seconds while the admitted steps kept

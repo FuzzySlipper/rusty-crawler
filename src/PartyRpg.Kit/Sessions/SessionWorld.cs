@@ -1,6 +1,7 @@
 using System.Numerics;
 using System.Text;
 using System.Text.Json;
+using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Movement;
@@ -385,7 +386,7 @@ public sealed class EnginePartyMover : IPartyMover
 /// game. Arriving and travelling both mark the place visited, so knowledge accrues the same way
 /// wherever the party goes.
 /// </remarks>
-public sealed class SessionWorld : IDisposable, IInteractionWorld, IRestSite
+public sealed class SessionWorld : IDisposable, IInteractionWorld, IRestSite, ICombatWorld
 {
     private readonly TransitionExecutive _transitions;
     private readonly IWorldTimeSource? _time;
@@ -809,6 +810,27 @@ public sealed class SessionWorld : IDisposable, IInteractionWorld, IRestSite
     /// shopkeeper are content's words, and the ruleset answers for them.
     /// </remarks>
     IReadOnlyList<PlacePopulationEntity> IRestSite.Population => _population.Entities;
+
+    /// <summary>
+    /// The place a fight happens in, which is the place the party already stands in: a fight is over the
+    /// live world, so it is handed the same place the interaction and rest mechanisms read rather than a
+    /// battle scene of its own.
+    /// </summary>
+    PlaceId ICombatWorld.Place => Party.Place;
+
+    /// <summary>Where the party stands, which is what every actor's distance from the party is measured from.</summary>
+    PlacePose ICombatWorld.Pose => Party.PlacePose;
+
+    /// <summary>
+    /// What is alive in the place right now, which is what a fight decides who is hostile from.
+    /// </summary>
+    /// <remarks>
+    /// The population is the live entities of the party's own visit, created from the place's placements and
+    /// destroyed when it walks out, so a fight sees what is actually standing there and a place the party has
+    /// left holds nobody to fight. The world holds no opinion about which of them is hostile: that is the
+    /// ruleset's answer about what each thing is, plus what the party has done to it.
+    /// </remarks>
+    IReadOnlyList<PlacePopulationEntity> ICombatWorld.Population => _population.Entities;
 
     /// <summary>Reports what one use did, whether it applied or was refused.</summary>
     /// <remarks>

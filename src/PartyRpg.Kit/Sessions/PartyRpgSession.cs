@@ -1,4 +1,6 @@
 using System.Text;
+using PartyRpg.Kit.Combat;
+using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Interaction;
@@ -100,6 +102,8 @@ public sealed class PartyRpgSession : IGameSession
     private readonly IConversationRule? _conversationRule;
     private readonly RestInput? _restInput;
     private readonly IRestRule? _restRule;
+    private readonly CombatInput? _combatInput;
+    private readonly ICombatRule? _combatRule;
     private readonly GameClock? _clock;
     private readonly IDiagnosticsService? _diagnostics;
     private readonly ISessionSaveStore? _saveStore;
@@ -123,6 +127,7 @@ public sealed class PartyRpgSession : IGameSession
     private PartyServices? _services;
     private PartyConversations? _conversations;
     private PartyRest? _rest;
+    private CombatState? _combat;
     private readonly TimeOwners _timeOwners = new();
     private WorldSnapshot _world = WorldSnapshot.Empty;
     private bool _started;
@@ -221,6 +226,19 @@ public sealed class PartyRpgSession : IGameSession
     /// arrive on, and the payload contract a screen's own stop buttons arrive on. Without them the mechanism
     /// is still composed and its schedule still runs, and no stop ever reaches it.
     /// </param>
+    /// <param name="combat">
+    /// This game's answers about fighting, when its ruleset has any: what each actor is worth in recovery,
+    /// what hostility means, what an attack reaches, and what an actor is called. The fight itself is the
+    /// kit's mechanism, composed over the party the session plays and the world it stands in, so what the
+    /// party faces is the world's own population rather than a battle scene. Without one the session holds no
+    /// fight at all, and the act control quietly does nothing — which is what a ruleset that has not answered
+    /// yet gets.
+    /// </param>
+    /// <param name="combatInput">
+    /// The act control the host declared, when it declared one: the intent and the payload action a player's
+    /// order to attack arrives on. Without it the fight is still composed and still reads the world — what is
+    /// hostile, who is ready — and no order ever reaches it.
+    /// </param>
     /// <exception cref="ArgumentException">
     /// The session is composed both to create a party and to hold one, or to create one without the controls
     /// its commands arrive on.
@@ -246,7 +264,9 @@ public sealed class PartyRpgSession : IGameSession
         IRestRule? rest = null,
         RestIntentNames? restInput = null,
         IConversationRule? conversation = null,
-        ConversationIntentNames? conversationInput = null)
+        ConversationIntentNames? conversationInput = null,
+        ICombatRule? combat = null,
+        CombatIntentNames? combatInput = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(composition.Title);
         if (creation is not null && (world is not null || party is not null))
@@ -274,6 +294,8 @@ public sealed class PartyRpgSession : IGameSession
         _conversationRule = conversation;
         _restInput = restInput is null ? null : new RestInput(restInput);
         _restRule = rest;
+        _combatInput = combatInput is null ? null : new CombatInput(combatInput);
+        _combatRule = combat;
         _creation = creation;
         _clock = clock;
         _party = party;
@@ -298,6 +320,7 @@ public sealed class PartyRpgSession : IGameSession
         ComposeServices();
         ComposeConversations();
         ComposeRest();
+        ComposeCombat();
         // A session publishes as soon as it exists: the engine expects a create-time projection, and a
         // client that attaches before the first update should see the session it has attached to.
         Publish();
@@ -343,6 +366,13 @@ public sealed class PartyRpgSession : IGameSession
     /// projection publishes about a night is read from it.
     /// </summary>
     public PartyRest? Rest => _rest;
+
+    /// <summary>
+    /// The fight this session stands in, or null when its ruleset answered no combat policy or the session
+    /// holds no party yet. It is the one state every attack is paced by, whether the actor is a character or
+    /// a creature, and what the projection publishes about a fight is read from it.
+    /// </summary>
+    public CombatState? Combat => _combat;
 
     /// <summary>
     /// The party the session holds, or null while it is creating one and when no content or creation
@@ -492,6 +522,7 @@ public sealed class PartyRpgSession : IGameSession
         // a shop or a person by holding a key at a menu. The world itself keeps advancing — one clock, one
         // update, and a screen does not pause a real-time world — so the shops that close and the places
         // that respawn do so behind the counter exactly as they do in the street.
+        bool attacked = false;
         if (_services is not { IsOpen: true } && _conversations is not { IsOpen: true })
         {
             StepParty(update.Input, seconds);
@@ -502,29 +533,47 @@ public sealed class PartyRpgSession : IGameSession
             // A stop is an instant like a use, and the whole period is applied here: the clock the step above
             // moved is moved on by the hours the party slept or waited for, inside this same admitted update.
             DriveRest(update.Input);
+            // Whether the party is being ordered to attack is read here, with the other controls, because the
+            // act control belongs to the player's controls: a screen that owns them owns this one too. The
+            // order itself is applied below, after the world has moved everything a fight reads.
+            attacked = ReadsAttack(update.Input);
         }
 
         DriveServices(update.Input);
         DriveConversations(update.Input);
         StepClock(seconds);
 
-        Advance(tick);
-
         // The world advances with the same admitted time the session measures: one clock, one update. The
         // day boundary the clock just crossed is what its places are restored against, so a crossing
         // reaches respawn here rather than through a schedule of the world's own.
+        bool restored = false;
+        bool changed = false;
         if (_liveWorld is { } world)
         {
             // What the world stands on now is read once, before anything is published: a snapshot taken after
             // a publish would leave the world's own facts — the place, the pose, and the hours its doors keep
             // — one update behind the clock published beside them, which is exactly how a shop that shut at
             // six would still read open in the projection that shows the clock striking six.
-            bool restored = world.AdvanceTime().Count > 0;
+            restored = world.AdvanceTime().Count > 0;
             WorldSnapshot live = world.Snapshot;
-            bool changed = live != _world;
+            changed = live != _world;
             _world = live;
-            if (restored || changed) Publish();
         }
+
+        // The fight is stepped last of all the world's readers, once the update has moved everything it
+        // reads: the party has taken its step, the clock has passed, and a place the advance restored holds
+        // its population again. Re-reading the world here is what makes hostility a fact about where the
+        // party is now — a creature that notices it as it walks, or a place that was rebuilt under it —
+        // rather than something remembered from an earlier update. The order the player gave is applied in
+        // the same breath, and only then is the update consumed and its projection published, so what the
+        // panel reads is the fight this update left behind rather than the one before it.
+        DriveCombat(attacked);
+
+        Advance(tick);
+
+        // A world that changed or was restored publishes again, so the place and the fight stand beside the
+        // clock this update moved rather than one publish behind it.
+        if (restored || changed) Publish();
 
         return ProductUpdateResult.None;
     }
@@ -618,11 +667,15 @@ public sealed class PartyRpgSession : IGameSession
             party = creation.BuildParty(creation.Flow.ToCreation());
             world = creation.ComposeWorld(party);
         }
-        catch (ArgumentException error)
+        catch (Exception error) when (error is ArgumentException or ContentValidationException)
         {
-            // The factory or the world refused what the flow produced. Both are released here: an accepted
-            // party that is not played would be a second party, and the session stays in creation so the
-            // player can change the choice that produced it.
+            // The factory or the world refused what the flow produced — a party the rules will not build, or
+            // content the world, an interaction, or a fight refuses to be composed over. Both are released
+            // here: an accepted party that is not played would be a second party, and the session stays in
+            // creation so the player can change the choice that produced it. A content refusal is caught
+            // with the party refusals because this is where the world is composed, and a defect that reached
+            // the engine's update boundary would stop the product instead of telling the player what is
+            // wrong with the content they loaded.
             world?.Dispose();
             party?.Dispose();
             _creationRefusal = new PartyRefusal(
@@ -654,6 +707,7 @@ public sealed class PartyRpgSession : IGameSession
         _accounts ??= _liveWorld?.Accounts;
         ComposeServices();
         ComposeRest();
+        ComposeCombat();
         // Leaving creation is a mode change like any other, so it resolves and publishes through the one
         // path that decides what a mode means: the next admitted update steps the world the party is in.
         ResolveMode();
@@ -846,6 +900,63 @@ public sealed class PartyRpgSession : IGameSession
                 ? $"The party stopped ({result.Kind}) from {result.From} to {result.To} in place '{_liveWorld?.Place}': {result.Message}"
                 : $"The party's stop ({result.Kind}) in place '{_liveWorld?.Place}' was refused ({result.Code}): {result.Message}",
             Correlation: string.Empty));
+    }
+
+    /// <summary>
+    /// Steps the fight inside the one admitted update: it re-reads the world, and an order the player gave is
+    /// applied to it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The fight is stepped in every update, whether or not its control was pressed, because what it reads is
+    /// the world: which creatures stand in the place, which of them have noticed the party, and how much
+    /// recovery each actor has left. A held session's world does not move, so the re-read finds the same
+    /// fight; a session that walked closer to something finds a different one.
+    /// </para>
+    /// <para>
+    /// An order is an instant rather than an interval, so a held session still takes one — a lever pulled
+    /// while the world is held is an act, and so is a swing — and the recovery it charges waits for game
+    /// time, which while the session is held does not pass. That is deliberately not how movement works: a
+    /// held session admits no interval for motion.
+    /// </para>
+    /// <para>
+    /// The fight reports every order and every refusal to the engine's diagnostics itself, so nothing here
+    /// reports one twice. What the panel shows is read from the fight's own last answer.
+    /// </para>
+    /// </remarks>
+    /// <param name="attacked">Whether this update carried an order to attack.</param>
+    private void DriveCombat(bool attacked)
+    {
+        if (_combat is not { } combat) return;
+        combat.Step();
+        if (attacked) combat.Engage();
+    }
+
+    /// <summary>Whether this update's admitted input orders the party to attack.</summary>
+    /// <remarks>
+    /// The reader is consulted only where the other controls are, so a screen that owns the player's controls
+    /// owns this one: a party shopping or talking is not also swinging. A session whose ruleset answered no
+    /// combat policy reads nothing at all rather than reading an order nothing could take.
+    /// </remarks>
+    private bool ReadsAttack(ReadOnlySpan<ProductInputEvent> input) =>
+        _combatInput is not null && _combat is not null && _combatInput.Read(input);
+
+    /// <summary>
+    /// Composes the fight over the party the session plays and the world it stands in, when the ruleset
+    /// answered for one.
+    /// </summary>
+    /// <remarks>
+    /// It is composed once, when the party exists, and over the world rather than over a copy of it: the
+    /// place's live entities are what a fight reads, so entering a fight changes nothing about where the
+    /// party is or what exists. The fight joins the owners the one clock reports to, which is what makes
+    /// recovery advance with the same game time a shelf restocks on and a debt of sleep falls due on —
+    /// including the time a journey or a night spends, which no admitted update measures.
+    /// </remarks>
+    private void ComposeCombat()
+    {
+        if (_combat is not null || _combatRule is null || _party is not { } party) return;
+        _combat = new CombatState(_combatRule, party, _liveWorld, _clock, _diagnostics);
+        ObserveTimeWith(_combat);
     }
 
     /// <summary>
@@ -1069,7 +1180,11 @@ public sealed class PartyRpgSession : IGameSession
         // What the party is saying and to whom, read from the conversation mechanism the ruleset's answers
         // composed: a session with no mechanism, one that is speaking with nobody, and one whose topic the
         // state withholds are three different facts the panel must be able to tell apart.
-        ConversationSnapshot.From(_conversations));
+        ConversationSnapshot.From(_conversations),
+        // Who is fighting, who may act, and what the party's last order did, read from the fight the
+        // ruleset's answers composed: a session with no mechanism, a quiet place, and a party in a fight
+        // with three members recovering are different facts the panel must be able to tell apart.
+        CombatSnapshot.From(_combat));
 
     /// <summary>Publishes the world as it stands now, after a caller moved the party.</summary>
     public void PublishWorld()

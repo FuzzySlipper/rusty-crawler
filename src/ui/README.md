@@ -27,3 +27,10 @@ verb, state and distance, the reason the reticle holds or refuses it, what it re
 outcome with its code, sentence, and the residue a use could not deliver. The use button claims the
 product's `party.use` action and is offered disabled while the session holds no interaction or faces
 nothing, so a control that cannot work never looks like one that can.
+
+It reports the fight on the same terms: whether anything is hostile, each of the party's members with the
+readiness the product published, the actors fighting them and how far off they stand, and what the last
+order did with its code and sentence. The attack button claims the product's `party.attack` action and is
+offered disabled while the product says no member may act. The panel runs no countdown of its own — a
+recovering member shows the game time the product published and nothing ticks on screen — because a screen
+that timed recovery itself would show a character ready before the fight agreed.

@@ -82,7 +82,13 @@ where the flow stands, every choice it offers, and the rule the last illegal cho
 structured UI value builder, the Engine-backed projection channel and the session projection, the admitted-input router that turns
 engine events into session commands, the population owner that fills a place from its placements and
 empties it on leaving, the Engine-backed movement owner with its vertical and surface policy, the reaches that let a party walk
-into a transition, the movement facts the panel reports, and the one interaction mechanism
+into a transition, the movement facts the panel reports, the one combat state
+(`Combat/` — a `CombatState` over the live world and nothing else, with a `Combatant` per party member and
+per creature the ruleset recognizes in the party's place, one `Combatant.Recovery` quantity each advanced
+from the game time the one clock reports and gated before any `AttackOrder` is applied, `Hostility` as a
+ruleset answer about what a thing is plus the fight's own memory of what the party has done to it, and an
+`ICombatRule` seam for recovery values, notice ranges, reach, and names; no scene, no second population, no
+per-kind cooldown, and no timer), and the one interaction mechanism
 (`Interaction/` — an `InteractionTarget` discovered from the place's own placements and the party's pose
 rather than from a list, with the engine's own reticle selection composed over the candidates, one use
 workflow that identifies the target, judges each `InteractionRequirement` in the order the ruleset stated

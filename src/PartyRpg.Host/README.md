@@ -15,12 +15,15 @@ Implemented today:
   the two drift.
 - The project file declares the product metadata, the `session.pause-toggle` intent and its key
   mapping, the movement intents and their keys, the save control (`session.save` on F), the use control
-  (`party.use` on G, using whatever the party faces), the creation screen's two controls
+  (`party.use` on G, using whatever the party faces), the service and conversation ways out, the stop
+  controls, the act control (`party.attack` on B, held, so a held key keeps attacking as each member's
+  recovery elapses — the donor's own key and trigger), the creation screen's two controls
   (`creation.advance` on Enter and `creation.accept` on Space) with the `crawler.ui` payload channel
-  its choices arrive on, and the TypeScript build target.
+  its choices and its panel buttons arrive on, and the TypeScript build target.
 
 Still to come: bundle selection, launcher and diagnostics surfaces, content bundles, and the gameplay
-intents (look, combat) that arrive with the stones that implement them.
+intents (a look or aim control, and the turn-based toggle) that arrive with the stones that implement
+them.
 
 Boundary rules:
 

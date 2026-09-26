@@ -42,6 +42,7 @@ public sealed class CrawlerProduct : IEngineProduct
     private readonly ServiceIntentNames _service;
     private readonly RestIntentNames _rest;
     private readonly ConversationIntentNames _conversation;
+    private readonly CombatIntentNames _combat;
     private readonly BundleSelection _selection;
     private readonly ContentCatalog? _content;
     private IGameSession _session;
@@ -100,6 +101,13 @@ public sealed class CrawlerProduct : IEngineProduct
             ProductIdentity.WaitUntilDawnIntent,
             ProductIdentity.WaitAnHourIntent,
             ProductIdentity.WaitFiveMinutesIntent,
+            ProductIdentity.UiActionContract);
+        // The act control is one intent and one action, because the act is one act: what a member does with
+        // it is the ruleset's answer about that member, and a player presses the same control for a spell, a
+        // shot, or a swing.
+        _combat = new CombatIntentNames(
+            ProductIdentity.AttackIntent,
+            ProductIdentity.AttackAction,
             ProductIdentity.UiActionContract);
         (_selection, _content) = SelectBundle(context, bundleId ?? BuiltInBundles.Default);
         _session = CreateSession();
@@ -243,7 +251,8 @@ public sealed class CrawlerProduct : IEngineProduct
                 Use: _use,
                 Service: _service,
                 Rest: _rest,
-                Conversation: _conversation);
+                Conversation: _conversation,
+                Combat: _combat);
 
             // The start switch travels with the context and is answered at the ruleset's one composition
             // entry: a resumed run reads the save the slot holds and composes a session from it, and a slot

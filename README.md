@@ -14,14 +14,16 @@ PartyRpg architecture.
 The working formula is: **Engine guarantees. Kit shapes. Ruleset decides.
 Bundle assembles. Host launches.**
 
-> **Current state: foundation stone 4 is in progress.** The spine, the world, the party and its
-> resources, the one clock and calendar, character creation, and what a crossing costs have landed:
-> a session with imported content walks its party, places it where a scenario says, settles the
-> crossing it takes against the purse, the larder, and the clock, and saves and loads the whole
-> session under one current schema. Combat, magic, services, and quests are still to come, no session
-> mode reaches the creation flow yet, and the shipped bundle carries no content — so a running product
-> without imported packs reports no world and no party. See [`AGENTS.md`](AGENTS.md) for the exact
-> current state.
+> **Current state: foundation stone 6 is in progress.** The spine, the world, the party and its
+> resources, the one clock and calendar, character creation, what a crossing costs, the one interaction
+> mechanism with its doors, containers and people, every shipped service kind, schedules, rest and
+> camping, conversations, and combat's first landing have landed: a session with imported content walks
+> its party, settles what it spends, talks to the people it meets, and now fights — over the live world,
+> in real time, paced by one recovery quantity per actor, with hostility as world state rather than a
+> mode flag. What combat does not do yet is resolve an attack: no damage, no conditions, no monster AI,
+> no turn-based mode, no loot. Magic and quests are still to come, and the shipped bundle carries no
+> content — so a running product without imported packs reports no world and no party. See
+> [`AGENTS.md`](AGENTS.md) for the exact current state.
 
 ## Ownership
 

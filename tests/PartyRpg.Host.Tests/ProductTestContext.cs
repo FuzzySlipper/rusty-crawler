@@ -184,11 +184,17 @@ internal static class ProductTestContext
     /// rather than play the one its scenario fixes.
     /// </param>
     /// <param name="engine">Whether the host is running inside an engine.</param>
+    /// <param name="combat">
+    /// Whether the host declared its act control, which is what a session reads an order to attack from. A
+    /// context that declared none is still composed with the fight — it reads the world and publishes who is
+    /// hostile — and no order ever reaches it.
+    /// </param>
     internal static RulesetSessionContext RulesetContext(
         ProductCreateContext context,
         RecordingUiService ui,
         bool creation = false,
-        bool engine = true)
+        bool engine = true,
+        bool combat = false)
     {
         ContentBootstrapResult bootstrap = ContentBootstrap.Load(
             new ProductContentSource(context.Content),
@@ -209,6 +215,12 @@ internal static class ProductTestContext
                 ? new CreationIntentNames(
                     ProductIdentity.CreationAdvanceIntent,
                     ProductIdentity.CreationAcceptIntent,
+                    ProductIdentity.UiActionContract)
+                : null,
+            Combat: combat
+                ? new CombatIntentNames(
+                    ProductIdentity.AttackIntent,
+                    ProductIdentity.AttackAction,
                     ProductIdentity.UiActionContract)
                 : null);
     }

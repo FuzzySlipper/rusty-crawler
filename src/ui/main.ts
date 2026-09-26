@@ -41,6 +41,13 @@ const ACTION_SAVE = 'session.save';
 const ACTION_USE = 'party.use';
 
 /**
+ * The act control: one press orders the party to attack what it can reach. It is held rather than pressed —
+ * the product repeats while it is down — so a player who keeps it down keeps attacking as each member's own
+ * recovery elapses. The button sends the same action the B key does.
+ */
+const ACTION_ATTACK = 'party.attack';
+
+/**
  * The creation actions this companion reports. Each names a choice, the product's flow validates it, and
  * its refusal is what the screen shows. The names are the product's wire vocabulary: this companion sends
  * them and reads nothing back except the projection.
@@ -362,6 +369,52 @@ interface ConversationView {
   readonly topic: string;
 }
 
+/** One actor of a fight, as the fight published it. */
+interface FighterView {
+  readonly id: string;
+  readonly name: string;
+  /** Whether the actor may act now, as the fight's own recovery says. */
+  readonly ready: boolean;
+  /** How much game time it must still recover, zero when it is ready. */
+  readonly recoverySeconds: number;
+  /** How far it stands from the party, in the place's own units. */
+  readonly distance: number;
+}
+
+/**
+ * The fight the party is in, as the product published it: who is in it, who may act, and what the last order
+ * did. Every number here is the product's — the panel runs no countdown of its own, because a screen that
+ * ticked a recovery down for itself would show a character ready before the product says so.
+ */
+interface CombatView {
+  /** Whether the session holds a fight mechanism at all. */
+  readonly available: boolean;
+  /** Whether anything is fighting the party right now. */
+  readonly engaged: boolean;
+  /** How many actors are fighting the party. */
+  readonly opposition: number;
+  /** How many of the party's members may act now. */
+  readonly ready: number;
+  /** The party's members, in the order the fight reads them. */
+  readonly members: readonly FighterView[];
+  /** The actors fighting the party. */
+  readonly enemies: readonly FighterView[];
+  /** Who attacked last, empty before the party has attacked. */
+  readonly actor: string;
+  /** How the last attack was made: `melee`, `ranged`, or `spell`; empty before any. */
+  readonly kind: string;
+  /** What the last attack was aimed at, empty when it was aimed at nothing. */
+  readonly target: string;
+  /** `none`, `applied`, or `refused`. */
+  readonly outcome: string;
+  /** The last refusal's code, empty when the last order applied or none has been given. */
+  readonly code: string;
+  /** What the last order reported. */
+  readonly message: string;
+  /** What the last attack cost in game time, zero for a refusal. */
+  readonly recoverySeconds: number;
+}
+
 interface RestView {
   readonly available: boolean;
   /** What the last stop asked for: `rest`, `camp`, `wait-dawn`, `wait-hour`, or `wait-five-minutes`. */
@@ -489,6 +542,7 @@ interface SnapshotView {
   readonly service: ServiceView;
   readonly rest: RestView;
   readonly conversation: ConversationView;
+  readonly combat: CombatView;
 }
 
 /** The clock of a session that has none, which the panel shows as not knowing rather than as a date. */
@@ -584,6 +638,23 @@ const SERVICE_NONE: ServiceView = {
   paid: 0,
   earned: 0,
   coins: 0,
+};
+
+/** The fight of a session that holds no mechanism, or one this companion cannot read as a fight. */
+const COMBAT_NONE: CombatView = {
+  available: false,
+  engaged: false,
+  opposition: 0,
+  ready: 0,
+  members: [],
+  enemies: [],
+  actor: '',
+  kind: '',
+  target: '',
+  outcome: 'none',
+  code: '',
+  message: '',
+  recoverySeconds: 0,
 };
 
 /** The rest of a session that holds no mechanism, or one this companion cannot read as a stop. */
@@ -745,6 +816,16 @@ const STYLES = `
 .crawler-save-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
 .crawler-save-result[hidden] { display: none; }
 .crawler-save-result[data-state='failed'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
+.crawler-combat { margin: 0 0 0.5rem; border-top: 1px solid rgba(210, 196, 158, 0.25); padding-top: 0.5rem; }
+.crawler-combat[hidden] { display: none; }
+.crawler-combat .crawler-step-head { margin: 0 0 0.2rem; color: #d8cba6; font-size: 0.82rem; }
+.crawler-combat-state { margin: 0 0 0.25rem; color: #b9ad8c; font-size: 0.72rem; }
+.crawler-combat .crawler-actions button { width: auto; padding: 0.2rem 0.4rem; font-size: 0.75rem; }
+.crawler-combat-members, .crawler-combat-enemies { margin: 0.2rem 0 0; padding: 0; list-style: none; color: #cfc3a2; font-size: 0.72rem; }
+.crawler-fighter[data-ready='no'] { color: #a8967a; }
+.crawler-combat-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
+.crawler-combat-result[hidden] { display: none; }
+.crawler-combat-result[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
 .crawler-rest { margin: 0 0 0.5rem; border-top: 1px solid rgba(210, 196, 158, 0.25); padding-top: 0.5rem; }
 .crawler-rest[hidden] { display: none; }
 .crawler-rest .crawler-step-head { margin: 0 0 0.2rem; color: #d8cba6; font-size: 0.82rem; }
@@ -1084,6 +1165,57 @@ function readConversation(value: unknown): ConversationView {
   };
 }
 
+/**
+ * Reads one actor of a fight: the fight's own facts, or null when the entry is not one. A readiness that is
+ * not published is not assumed ready — a fighter the panel cannot read is one it will not offer to act with.
+ */
+function readFighter(value: unknown): FighterView | null {
+  if (!isRecord(value)) return null;
+  const { id, name } = value;
+  if (typeof id !== 'string' || typeof name !== 'string') return null;
+  return {
+    id,
+    name,
+    ready: value.ready === true,
+    recoverySeconds: typeof value.recoverySeconds === 'number' ? value.recoverySeconds : 0,
+    distance: typeof value.distance === 'number' ? value.distance : 0,
+  };
+}
+
+function readCombat(value: unknown): CombatView {
+  if (!isRecord(value)) return COMBAT_NONE;
+  const { actor, kind, target, outcome, code, message } = value;
+  if (
+    typeof actor !== 'string' ||
+    typeof kind !== 'string' ||
+    typeof target !== 'string' ||
+    typeof outcome !== 'string' ||
+    typeof code !== 'string' ||
+    typeof message !== 'string'
+  ) {
+    return COMBAT_NONE;
+  }
+
+  const fighters = (entries: unknown): FighterView[] =>
+    Array.isArray(entries) ? entries.map(readFighter).filter((entry): entry is FighterView => entry !== null) : [];
+  const number = (entry: unknown): number => (typeof entry === 'number' ? entry : 0);
+  return {
+    available: value.available === true,
+    engaged: value.engaged === true,
+    opposition: number(value.opposition),
+    ready: number(value.ready),
+    members: fighters(value.members),
+    enemies: fighters(value.enemies),
+    actor,
+    kind,
+    target,
+    outcome,
+    code,
+    message,
+    recoverySeconds: number(value.recoverySeconds),
+  };
+}
+
 function readRest(value: unknown): RestView {
   if (!isRecord(value)) return REST_NONE;
   const { kind, outcome, code, message, from, to, unit, cleared, shortage, fatigueDue } = value;
@@ -1237,6 +1369,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
   const service = readService(value.service);
   const rest = readRest(value.rest);
   const conversation = readConversation(value.conversation);
+  const combat = readCombat(value.combat);
   const { ruleset, title, bundle, contentPacks } = composition;
   const { mode, simulationSeconds, admittedSteps, updates } = session;
   if (
@@ -1304,6 +1437,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
     service,
     rest,
     conversation,
+    combat,
   };
 }
 
@@ -1600,6 +1734,34 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   restResult.hidden = true;
   rest.append(restHead, restState, restActions, restResult);
 
+  // The fight sits beside the stop controls: it is what a player acts on while something is hostile, and it
+  // is shown whether or not anything is — a session with no fight mechanism, a quiet place, and a fight in
+  // progress are three different facts. The attack button is disabled while no member may act, which is the
+  // product's own readiness read off the projection rather than a countdown this screen runs.
+  const combat = document.createElement('section');
+  combat.className = 'crawler-combat';
+  combat.hidden = true;
+  const combatHead = document.createElement('p');
+  combatHead.className = 'crawler-step-head';
+  combatHead.textContent = 'Fight';
+  const combatState = document.createElement('p');
+  combatState.className = 'crawler-combat-state';
+  const combatActions = document.createElement('div');
+  combatActions.className = 'crawler-actions';
+  const attackButton = document.createElement('button');
+  attackButton.type = 'button';
+  attackButton.className = 'crawler-attack';
+  attackButton.textContent = 'Attack';
+  combatActions.append(attackButton);
+  const combatMembers = document.createElement('ul');
+  combatMembers.className = 'crawler-combat-members';
+  const combatEnemies = document.createElement('ul');
+  combatEnemies.className = 'crawler-combat-enemies';
+  const combatResult = document.createElement('p');
+  combatResult.className = 'crawler-combat-result';
+  combatResult.hidden = true;
+  combat.append(combatHead, combatState, combatActions, combatMembers, combatEnemies, combatResult);
+
   // The creation screen comes before the long list of facts below: while a party is being made its
   // choices are what a player acts on, and a screen whose controls sat below twenty rows of values would
   // put them off the bottom of a short window. The service screen sits beside it for the same reason: a
@@ -1613,6 +1775,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     conversation,
     service,
     rest,
+    combat,
     details,
     action,
     saveButton,
@@ -1640,6 +1803,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   });
 
   saveButton.addEventListener('click', () => claim(ACTION_SAVE));
+  attackButton.addEventListener('click', () => claim(ACTION_ATTACK));
   serviceLeave.addEventListener('click', () => claim(ACTION_SERVICE_LEAVE));
   useButton.addEventListener('click', () => claim(ACTION_USE));
   advanceButton.addEventListener('click', () => claim(ACTION_ADVANCE));
@@ -2164,6 +2328,57 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     }
   };
 
+  /**
+   * Renders the fight and the last order's answer. Readiness is printed as the product published it: a member
+   * that may act says so, and one that is recovering says how much game time it still owes. Nothing here
+   * counts that time down — the product republishes it, and a screen that ran its own clock would show a
+   * character ready before the fight agreed.
+   */
+  const renderCombat = (view: CombatView): void => {
+    panel.dataset.combat = !view.available ? 'none' : view.engaged ? 'engaged' : 'quiet';
+    panel.dataset.combatReady = String(view.ready);
+    panel.dataset.combatOpposition = String(view.opposition);
+    panel.dataset.combatOutcome = view.outcome;
+    combat.hidden = !view.available;
+    combatState.textContent = !view.available
+      ? ''
+      : view.engaged
+        ? `Engaged with ${view.opposition} — ${view.ready} of ${view.members.length} ready`
+        : `Nobody is hostile — ${view.ready} of ${view.members.length} ready`;
+    combatMembers.replaceChildren(
+      ...view.members.map((member) => {
+        const row = document.createElement('li');
+        row.className = 'crawler-fighter';
+        row.dataset.ready = member.ready ? 'yes' : 'no';
+        row.dataset.fighter = member.id;
+        row.textContent = member.ready
+          ? `${member.name} — ready`
+          : `${member.name} — recovering ${member.recoverySeconds.toFixed(1)}s`;
+        return row;
+      }),
+    );
+    combatEnemies.replaceChildren(
+      ...view.enemies.map((enemy) => {
+        const row = document.createElement('li');
+        row.className = 'crawler-fighter';
+        row.dataset.ready = enemy.ready ? 'yes' : 'no';
+        row.dataset.fighter = enemy.id;
+        row.textContent = enemy.ready
+          ? `${enemy.name} — ready at ${enemy.distance.toFixed(0)}`
+          : `${enemy.name} — recovering ${enemy.recoverySeconds.toFixed(1)}s at ${enemy.distance.toFixed(0)}`;
+        return row;
+      }),
+    );
+    // The control is offered whenever the mechanism is there and somebody may act. A recovering party keeps
+    // it disabled: an order while everybody is recovering is refused by the product, and a control that
+    // looked pressable and did nothing would be the very confusion this panel exists to prevent.
+    attackButton.disabled = !view.available || view.ready === 0;
+    combatResult.hidden = view.message === '';
+    combatResult.dataset.outcome = view.outcome;
+    combatResult.dataset.code = view.code;
+    combatResult.textContent = view.message;
+  };
+
   const render = (snapshot: SnapshotView): void => {
     current = snapshot.session.mode;
     title.textContent = 'Rusty Crawler';
@@ -2245,6 +2460,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     renderConversation(snapshot.conversation);
     renderService(snapshot.service);
     renderRest(snapshot.rest);
+    renderCombat(snapshot.combat);
     const world = snapshot.world;
     place.textContent =
       world.places === 0
@@ -2306,10 +2522,11 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     const restHint = snapshot.rest.available
       ? ' Rest with the button or the R key; camp with C; wait with T, H, or M.'
       : '';
+    const combatHint = snapshot.combat.available ? ' Attack with the button or the B key.' : '';
     hint.textContent =
       current === 'creating'
         ? 'Choose a portrait, a class, a name, attributes, and skills. Enter confirms the step you are on; Space accepts a finished party.'
-        : `${pauseHint}${saveHint}${useHint}${serviceHint}${restHint}`;
+        : `${pauseHint}${saveHint}${useHint}${serviceHint}${restHint}${combatHint}`;
   };
 
   const unsubscribe = context.projection?.subscribe((projection) => {

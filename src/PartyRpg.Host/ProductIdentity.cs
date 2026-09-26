@@ -140,6 +140,27 @@ internal static class ProductIdentity
     internal const string WaitFiveMinutesIntent = RestActions.WaitFiveMinutes;
 
     /// <summary>
+    /// The digital intent that orders the party to attack what it can reach.
+    /// </summary>
+    /// <remarks>
+    /// The donor's own act key is <c>pass</c>, bound to B by default and triggered with key repeat
+    /// (OpenEnroth <c>src/Application/GameConfig.h:554</c>, and
+    /// <c>src/Io/InputEnumFunctions.cpp:103</c>, <c>TRIGGER_WITH_KEYREPEAT</c>), so a held key keeps
+    /// attacking as each character's recovery elapses. This build keeps the same key and the same behaviour:
+    /// one control, because what a member does with it — a spell, a bow, or hand-to-hand — is the ruleset's
+    /// answer about that member rather than a choice the player makes per press. The declaration here and
+    /// the mapping in the project file are the two halves of one control, because the engine refuses a
+    /// mapping whose intent it was never told about.
+    /// </remarks>
+    internal const string AttackIntent = "party.attack";
+
+    /// <summary>
+    /// The payload action name that orders the same attack, sent by the DOM companion's attack control on the
+    /// UI action contract.
+    /// </summary>
+    internal const string AttackAction = "party.attack";
+
+    /// <summary>
     /// The payload action name that asks the live session to save, sent by the DOM companion's save control
     /// on the UI action contract.
     /// </summary>

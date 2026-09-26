@@ -85,6 +85,13 @@ internal sealed class MightAndMagic7Session : IGameSession
         // risk, and a camp where something could find the party is then refused by name.
         MightAndMagic7Rest rest = MightAndMagic7Rest.Compose(Declared(context.Content), context.Engine?.Random);
 
+        // This game's combat policy is read once, here, beside its rest and service answers: what each monster
+        // row is worth in recovery, what its hostility band notices, what an attack reaches, and what every
+        // actor is called. It is composed whether or not the host declared an act control, because the fight
+        // is what reads the world — what is hostile, who is ready — and the control is only how a player
+        // gives an order.
+        MightAndMagic7Combat combat = MightAndMagic7Combat.Compose(Declared(context.Content), context.Engine?.Random);
+
         PartyEntity? party = null;
         SessionWorld? world = null;
         EngineSessionSaveStore? store = MightAndMagic7Persistence.Store(context.Engine);
@@ -121,7 +128,9 @@ internal sealed class MightAndMagic7Session : IGameSession
                     rest: rest,
                     restInput: context.Rest,
                     conversation: conversation,
-                    conversationInput: context.Conversation);
+                    conversationInput: context.Conversation,
+                    combat: combat,
+                    combatInput: context.Combat);
                 return;
             }
 
@@ -152,7 +161,9 @@ internal sealed class MightAndMagic7Session : IGameSession
                     rest: rest,
                     restInput: context.Rest,
                     conversation: conversation,
-                    conversationInput: context.Conversation);
+                    conversationInput: context.Conversation,
+                    combat: combat,
+                    combatInput: context.Combat);
                 return;
             }
 
@@ -180,7 +191,9 @@ internal sealed class MightAndMagic7Session : IGameSession
                 rest: rest,
                 restInput: context.Rest,
                 conversation: conversation,
-                conversationInput: context.Conversation);
+                conversationInput: context.Conversation,
+                combat: combat,
+                combatInput: context.Combat);
         }
         catch
         {
