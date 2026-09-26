@@ -312,11 +312,27 @@ stone.**
   effect seam — refusing by name for no such spell, a spell not in the spellbook, mastery too low, points
   short, no valid target, and a caster that cannot act. A character's spell points are the ruleset's own
   formula over class, level, and the score that class casts from (the donor's `GetMaxMana`), applied where
-  the party comes into being, and each character keeps one quick spell. **What a spell does is not here
-  yet**: this build applies the harm category through the fight's own resolution path — so a creature's
-  spell now lands with the spell's own dice and a party's cast at an opponent is one more order through the
-  same gated entry — and the other seven categories are delivered to the seam and reported as this build
-  expressing nothing for them. Filling those categories is task #8501's, and the seam is what it fills.
+  the party comes into being, and each character keeps one quick spell. **A spell now does something, and
+  every category reaches the owner that holds the state it changes.** Behind the seam stand eight
+  application paths and no per-spell branch: harm is an attack of the spell kind through the fight's own
+  gated entry, so a creature's spell lands with the spell's own dice and a party's cast at an opponent is one
+  more order through the same entry; health is given through the member's own pool in the donor's four
+  shapes (an amount, a shared pool, every pool filled, a raising that stands a member up and leaves them
+  weak); conditions are lifted and left through the member's own condition state, with the donor's cures and
+  the weakness a raising leaves; wards and utilities are party-carried effects with a deadline on the one
+  clock, read where they apply — a resistance by the fight's own resistance sum, armour class by its own
+  armour class, a haste by the recovery it charges, a blessing by the chance to land, heroism and
+  hammerhands by what a blow is worth, a fate by the luck a saving throw reads, invisibility by whether a
+  creature notices the party, and a dispelling by the ledger of what spells left running; light is a
+  party-carried light ended by the deadline the clock's own daylight window sets, and the panel reads
+  daylight, light, or dark from it; travel is a portal taken through the world's own transition path, with
+  the places the party has been to offered as the aims and a beacon kept in its own carried state; and
+  detection reports over the places and the population the world holds. What is not applied is named rather
+  than faked: `docs/magic-coverage.md` is generated from the ruleset's own rows and checked by a test on
+  every run, listing every one of the 99 spells as implemented, approximated, or not yet, with what is
+  missing and which owner would close it — 58 implemented, 13 approximated, 28 not yet — and the spells
+  whose effect needs a target this build cannot aim at (an item, a thing across the room, a follower) are
+  refused by name before a spell point is spent.
 - A place remembers being emptied, and the clock brings its population back. When everything in a place that
   fights the party is down — a creature's own nature decides that, so a person going about their day is not
   what a party cleared — the place is marked cleared through the world's own per-place state, and the mark is
@@ -356,9 +372,11 @@ stone.**
   companion honest: the runtime check that rendering starts no timer, a source scan that fails on a clock
   or on any arithmetic between a combat quantity and anything else, and a test that feeds it
   contradictory projections and requires it to echo them.
-- **Magic exists as a catalog, learning, and one casting workflow; what a spell *does* is still to come, and
-  quests, deadlines in a save, and a fight in a save are not here yet.** Do not describe, review, or accept
-  behavior those stones will add as though it were here. What a player can do today is
+- **Magic exists as a catalog, learning, one casting workflow, and an effect for every category; what the
+  effects' own depths are is stated per spell, and quests, deadlines in a save, and a fight in a save are not
+  here yet.** Do not describe, review, or accept behavior those stones will add as though it were here; for a
+  spell's effect, `docs/magic-coverage.md` is the statement of what is applied, what is coarser than the
+  game, and what is not applied yet. What a player can do today is
   create a party, walk it, open doors and containers, get caught by a trap, buy and sell at a counter, learn
   from a guild (a skill, a membership, and a spell book whose spell lands in a character's spellbook), rest or
   camp, talk to people, fight by recovery or in rounds, cast a spell from that spellbook at a target the

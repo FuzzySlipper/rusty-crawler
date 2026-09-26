@@ -18,6 +18,12 @@ namespace PartyRpg.Kit.World;
 /// caller defect, so it throws: arriving anyway would be exactly the teleport this path exists to prevent,
 /// and quietly refusing would hide the bug as if the player's journey had been declined.
 ///
+/// One kind of travel is issued by its caller rather than by a place: a portal is opened where the party
+/// stands and reaches a place the world holds, so it is taken as a transition the graph need not declare.
+/// The same departure check applies to it — the party must be where the portal opens — and the destination
+/// must be a place this world has, which is what keeps magical travel from being a way to arrive somewhere
+/// nobody has ever been.
+///
 /// The executive stops at the cost. Charging it — advancing the session's clock, taking provisions from the
 /// party's food, and the weakened state a party suffers when it arrives short of food — belongs to the
 /// owners of the clock and the party, which the kit does not have. The result reports what was quoted so
@@ -81,6 +87,23 @@ public sealed class TransitionExecutive
         PlaceTransition transition = request.Transition;
         if (!request.Graph.Transitions.Contains(transition))
         {
+            // Magical travel is issued by whoever opened the way rather than by a place: a portal stands where
+            // the party is and reaches a place the world holds, so the transition it is taken as need not be
+            // one content declared. What is still verified is everything that keeps a portal from being a way
+            // to arrive somewhere the world has never heard of: the party must stand where the portal opens,
+            // and the destination must be a place this world has.
+            if (request.Kind == TransitionKind.Portal && !transition.IsWorldIssued)
+            {
+                if (transition.From != request.PartyPlace)
+                {
+                    throw new InvalidOperationException(
+                        $"The party is in place '{request.PartyPlace}', but transition '{transition.Source}' leaves place '{transition.From}'.");
+                }
+
+                request.Graph.Require(transition.To);
+                return;
+            }
+
             throw new InvalidOperationException(
                 $"The world does not issue the transition '{transition.Source}' from '{transition.From}' to '{transition.To}', so it cannot be taken.");
         }

@@ -200,100 +200,100 @@ internal sealed class MightAndMagic7Spells : ISpellRule
     [
         Entry(1, [1, 1, 1, 1], [60, 60, 60, 40], 0, 0, 1, SpellTargeting.Party, SpellEffects.Light),   // Torch Light
         Entry(2, [2, 2, 2, 2], [110, 110, 100, 90], 0, 3, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Fire Bolt
-        Entry(3, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance),   // Fire Resistance
-        Entry(4, [4, 4, 4, 4], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Utility),   // Fire Aura
-        Entry(5, [5, 5, 5, 5], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Party, SpellEffects.Utility),   // Haste
+        Entry(3, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Fire], WardFormulas.MasteryTimesLevel, WardFormulas.HoursPerLevel).Coarser(Readings.PartyWideWard)),   // Fire Resistance
+        Entry(4, [4, 4, 4, 4], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Utility, Readings.Unaimable("a weapon in hand", "an item-aim owner: the pack holds the party's items and nothing aims a spell at one")),   // Fire Aura
+        Entry(5, [5, 5, 5, 5], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Party, SpellEffects.Utility, Readings.Buff(SpellEffectIds.Haste, WardFormulas.Flat(25), WardFormulas.HourAndFewMinutesByMastery)),   // Haste
         Entry(6, [8, 8, 8, 8], [100, 100, 90, 80], 0, 6, 2, SpellTargeting.Foe, SpellEffects.Damage),   // Fireball
         Entry(7, [10, 10, 10, 10], [150, 150, 150, 150], 0, 6, 2, SpellTargeting.Foe, SpellEffects.Damage),   // Fire Spike
         Entry(8, [15, 15, 15, 15], [120, 120, 120, 120], 0, 6, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Immolation
         Entry(9, [20, 20, 20, 20], [100, 100, 100, 90], 0, 8, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Meteor Shower
         Entry(10, [25, 25, 25, 25], [100, 100, 100, 90], 12, 1, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Inferno
         Entry(11, [30, 30, 30, 30], [90, 90, 90, 90], 15, 15, 4, SpellTargeting.Foe, SpellEffects.Damage),   // Incinerate
-        Entry(12, [1, 1, 1, 0], [60, 60, 60, 60], 0, 0, 1, SpellTargeting.Party, SpellEffects.Detection),   // Wizard Eye
-        Entry(13, [2, 2, 2, 2], [120, 120, 120, 100], 0, 0, 1, SpellTargeting.Party, SpellEffects.Travel),   // Feather Fall
-        Entry(14, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance),   // Air Resistance
+        Entry(12, [1, 1, 1, 0], [60, 60, 60, 60], 0, 0, 1, SpellTargeting.Party, SpellEffects.Detection, Readings.Detect(DetectionScope.Places)),   // Wizard Eye
+        Entry(13, [2, 2, 2, 2], [120, 120, 120, 100], 0, 0, 1, SpellTargeting.Party, SpellEffects.Travel, Readings.Movement("a fall slowed until it cannot hurt")),   // Feather Fall
+        Entry(14, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Air], WardFormulas.MasteryTimesLevel, WardFormulas.HoursPerLevel).Coarser(Readings.PartyWideWard)),   // Air Resistance
         Entry(15, [4, 4, 4, 4], [110, 100, 90, 80], 2, 1, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Sparks
-        Entry(16, [5, 5, 5, 5], [90, 90, 70, 50], 0, 0, 2, SpellTargeting.Caster, SpellEffects.Travel),   // Jump
-        Entry(17, [8, 8, 8, 8], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Caster, SpellEffects.Resistance),   // Shield
+        Entry(16, [5, 5, 5, 5], [90, 90, 70, 50], 0, 0, 2, SpellTargeting.Caster, SpellEffects.Travel, Readings.Movement("a jump that carries the party over what it could not walk past")),   // Jump
+        Entry(17, [8, 8, 8, 8], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Caster, SpellEffects.Resistance, Readings.NotYet("a shield that turns a missile aside", "the fight's own ranged resolution")),   // Shield
         Entry(18, [10, 10, 10, 10], [100, 100, 90, 70], 0, 8, 2, SpellTargeting.Foe, SpellEffects.Damage),   // Lightning Bolt
-        Entry(19, [15, 15, 15, 15], [200, 200, 200, 200], 0, 0, 3, SpellTargeting.Party, SpellEffects.Utility),   // Invisibility
+        Entry(19, [15, 15, 15, 15], [200, 200, 200, 200], 0, 0, 3, SpellTargeting.Party, SpellEffects.Utility, Readings.Buff(SpellEffectIds.Invisibility, WardFormulas.LevelPlus(3, 0), WardFormulas.TenMinutesPerLevel)),   // Invisibility
         Entry(20, [20, 20, 20, 20], [100, 100, 100, 90], 10, 10, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Implosion
-        Entry(21, [25, 25, 25, 25], [250, 250, 250, 250], 0, 0, 3, SpellTargeting.Party, SpellEffects.Travel),   // Fly
+        Entry(21, [25, 25, 25, 25], [250, 250, 250, 250], 0, 0, 3, SpellTargeting.Party, SpellEffects.Travel, Readings.Movement("flight over what the party could not walk across")),   // Fly
         Entry(22, [30, 30, 30, 30], [90, 90, 90, 90], 20, 1, 4, SpellTargeting.Foe, SpellEffects.Damage),   // Starburst
-        Entry(23, [1, 1, 1, 1], [60, 60, 60, 20], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Condition),   // Awaken
+        Entry(23, [1, 1, 1, 1], [60, 60, 60, 20], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Condition, Readings.Cure(MightAndMagic7Conditions.Sleep)),   // Awaken
         Entry(24, [2, 2, 2, 2], [110, 100, 90, 70], 2, 2, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Poison Spray
-        Entry(25, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance),   // Water Resistance
+        Entry(25, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Water], WardFormulas.MasteryTimesLevel, WardFormulas.HoursPerLevel).Coarser(Readings.PartyWideWard)),   // Water Resistance
         Entry(26, [4, 4, 4, 4], [110, 100, 90, 80], 0, 4, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Ice Bolt
-        Entry(27, [5, 5, 5, 5], [150, 150, 150, 150], 0, 0, 2, SpellTargeting.Party, SpellEffects.Travel),   // Water Walk
-        Entry(28, [8, 8, 8, 8], [200, 200, 200, 200], 0, 0, 2, SpellTargeting.None, SpellEffects.Utility),   // Recharge Item
+        Entry(27, [5, 5, 5, 5], [150, 150, 150, 150], 0, 0, 2, SpellTargeting.Party, SpellEffects.Travel, Readings.Movement("water walked over rather than swum through")),   // Water Walk
+        Entry(28, [8, 8, 8, 8], [200, 200, 200, 200], 0, 0, 2, SpellTargeting.None, SpellEffects.Utility, Readings.Unaimable("an item whose charges are given back", "an item-aim owner: the pack holds the party's items and nothing aims a spell at one")),   // Recharge Item
         Entry(29, [10, 10, 10, 10], [100, 100, 90, 80], 9, 9, 2, SpellTargeting.Foe, SpellEffects.Damage),   // Acid Burst
-        Entry(30, [15, 15, 15, 15], [140, 140, 140, 140], 0, 0, 3, SpellTargeting.None, SpellEffects.Utility),   // Enchant Item
-        Entry(31, [20, 20, 20, 20], [200, 200, 200, 200], 0, 0, 3, SpellTargeting.None, SpellEffects.Travel),   // Town Portal
+        Entry(30, [15, 15, 15, 15], [140, 140, 140, 140], 0, 0, 3, SpellTargeting.None, SpellEffects.Utility, Readings.Unaimable("an item to enchant", "an item-aim owner: the pack holds the party's items and nothing aims a spell at one")),   // Enchant Item
+        Entry(31, [20, 20, 20, 20], [200, 200, 200, 200], 0, 0, 3, SpellTargeting.None, SpellEffects.Travel, Readings.Portal()),   // Town Portal
         Entry(32, [25, 25, 25, 25], [80, 80, 80, 80], 12, 3, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Ice Blast
-        Entry(33, [30, 30, 30, 30], [250, 250, 250, 250], 0, 0, 4, SpellTargeting.None, SpellEffects.Travel),   // Lloyd's Beacon
-        Entry(34, [1, 1, 1, 1], [80, 80, 80, 80], 0, 0, 1, SpellTargeting.Foe, SpellEffects.Condition),   // Stun
-        Entry(35, [2, 2, 2, 2], [100, 100, 100, 100], 0, 0, 1, SpellTargeting.Foe, SpellEffects.Condition),   // Slow
-        Entry(36, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance),   // Earth Resistance
+        Entry(33, [30, 30, 30, 30], [250, 250, 250, 250], 0, 0, 4, SpellTargeting.None, SpellEffects.Travel, Readings.Beacon()),   // Lloyd's Beacon
+        Entry(34, [1, 1, 1, 1], [80, 80, 80, 80], 0, 0, 1, SpellTargeting.Foe, SpellEffects.Condition, Readings.Inflict(MightAndMagic7Conditions.Paralyzed)),   // Stun
+        Entry(35, [2, 2, 2, 2], [100, 100, 100, 100], 0, 0, 1, SpellTargeting.Foe, SpellEffects.Condition, Readings.NotYet("a creature slowed", "the fight's own actor state, which paces an actor by its row")),   // Slow
+        Entry(36, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Earth], WardFormulas.MasteryTimesLevel, WardFormulas.HoursPerLevel).Coarser(Readings.PartyWideWard)),   // Earth Resistance
         Entry(37, [4, 4, 4, 4], [110, 100, 90, 80], 5, 3, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Deadly Swarm
-        Entry(38, [5, 5, 5, 5], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Party, SpellEffects.Resistance),   // Stone Skin
+        Entry(38, [5, 5, 5, 5], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Party, SpellEffects.Resistance, Readings.Armour(WardFormulas.LevelPlus(1, 5), WardFormulas.HourAndMinutesByMastery)),   // Stone Skin
         Entry(39, [8, 8, 8, 8], [100, 100, 90, 80], 0, 9, 2, SpellTargeting.Foe, SpellEffects.Damage),   // Blades
-        Entry(40, [10, 10, 10, 10], [140, 140, 140, 140], 0, 0, 2, SpellTargeting.Ally, SpellEffects.Condition),   // Stone to Flesh
+        Entry(40, [10, 10, 10, 10], [140, 140, 140, 140], 0, 0, 2, SpellTargeting.Ally, SpellEffects.Condition, Readings.Cure(MightAndMagic7Conditions.Petrified)),   // Stone to Flesh
         Entry(41, [15, 15, 15, 15], [90, 90, 90, 80], 0, 8, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Rock Blast
-        Entry(42, [20, 20, 20, 20], [150, 150, 150, 150], 0, 0, 3, SpellTargeting.None, SpellEffects.Utility),   // Telekinesis
+        Entry(42, [20, 20, 20, 20], [150, 150, 150, 150], 0, 0, 3, SpellTargeting.None, SpellEffects.Utility, Readings.Unaimable("a door or a container across the room", "an item-aim owner: the interaction mechanism reaches what stands in front of the party")),   // Telekinesis
         Entry(43, [25, 25, 25, 25], [100, 100, 100, 90], 20, 1, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Death Blossom
         Entry(44, [30, 30, 30, 30], [90, 90, 90, 90], 25, 2, 4, SpellTargeting.Foe, SpellEffects.Damage),   // Mass Distortion
-        Entry(45, [1, 1, 1, 1], [100, 100, 100, 100], 0, 0, 1, SpellTargeting.Caster, SpellEffects.Detection),   // Detect Life
-        Entry(46, [2, 2, 2, 2], [100, 100, 100, 100], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Utility),   // Bless
-        Entry(47, [3, 3, 3, 3], [90, 90, 90, 90], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Utility),   // Fate
-        Entry(48, [4, 4, 4, 4], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Foe, SpellEffects.Condition),   // Turn Undead
-        Entry(49, [5, 5, 5, 5], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Ally, SpellEffects.Condition),   // Remove Curse
-        Entry(50, [8, 8, 8, 8], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Caster, SpellEffects.Utility),   // Preservation
-        Entry(51, [10, 10, 10, 10], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Ally, SpellEffects.Utility),   // Heroism
+        Entry(45, [1, 1, 1, 1], [100, 100, 100, 100], 0, 0, 1, SpellTargeting.Caster, SpellEffects.Detection, Readings.Detect(DetectionScope.Life)),   // Detect Life
+        Entry(46, [2, 2, 2, 2], [100, 100, 100, 100], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Utility, Readings.Buff(SpellEffectIds.Bless, WardFormulas.LevelPlus(1, 5), WardFormulas.HourAndMinutesByMastery).Coarser(Readings.PartyWideWard)),   // Bless
+        Entry(47, [3, 3, 3, 3], [90, 90, 90, 90], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Utility, Readings.Buff(SpellEffectIds.Fate, WardFormulas.FatePower, WardFormulas.FiveMinutes).Coarser(Readings.PartyWideWard)),   // Fate
+        Entry(48, [4, 4, 4, 4], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Foe, SpellEffects.Condition, Readings.NotYet("a creature turned away from the party", "the fight's allegiance state, which is a side rather than a fear")),   // Turn Undead
+        Entry(49, [5, 5, 5, 5], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Ally, SpellEffects.Condition, Readings.Cure(MightAndMagic7Conditions.Cursed)),   // Remove Curse
+        Entry(50, [8, 8, 8, 8], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Caster, SpellEffects.Utility, Readings.NotYet("the party's gear protected from harm", "item state, which carries what a spell would protect")),   // Preservation
+        Entry(51, [10, 10, 10, 10], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Ally, SpellEffects.Utility, Readings.Buff(SpellEffectIds.Heroism, WardFormulas.LevelPlus(1, 5), WardFormulas.HourAndMinutesByMastery).Coarser(Readings.PartyWideWard)),   // Heroism
         Entry(52, [15, 15, 15, 15], [100, 100, 100, 100], 10, 8, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Spirit Lash
-        Entry(53, [20, 20, 20, 20], [240, 240, 240, 240], 0, 0, 3, SpellTargeting.Ally, SpellEffects.Healing),   // Raise Dead
-        Entry(54, [25, 25, 25, 25], [150, 150, 150, 150], 0, 0, 3, SpellTargeting.Ally, SpellEffects.Healing),   // Shared Life
-        Entry(55, [30, 30, 30, 30], [1000, 1000, 1000, 1000], 0, 0, 4, SpellTargeting.Ally, SpellEffects.Healing),   // Resurrection
-        Entry(56, [1, 1, 1, 1], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Condition),   // Remove Fear
+        Entry(53, [20, 20, 20, 20], [240, 240, 240, 240], 0, 0, 3, SpellTargeting.Ally, SpellEffects.Healing, Readings.Raise(weakness: 0, MightAndMagic7Conditions.Dead, MightAndMagic7Conditions.Unconscious)),   // Raise Dead
+        Entry(54, [25, 25, 25, 25], [150, 150, 150, 150], 0, 0, 3, SpellTargeting.Ally, SpellEffects.Healing, Readings.Share(perLevel: 3)),   // Shared Life
+        Entry(55, [30, 30, 30, 30], [1000, 1000, 1000, 1000], 0, 0, 4, SpellTargeting.Ally, SpellEffects.Healing, Readings.Raise(weakness: 1, MightAndMagic7Conditions.Eradicated, MightAndMagic7Conditions.Dead, MightAndMagic7Conditions.Unconscious)),   // Resurrection
+        Entry(56, [1, 1, 1, 1], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Condition, Readings.Cure(MightAndMagic7Conditions.Fear)),   // Remove Fear
         Entry(57, [2, 2, 2, 2], [110, 110, 110, 110], 3, 3, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Mind Blast
-        Entry(58, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance),   // Mind Resistance
-        Entry(59, [4, 4, 4, 4], [110, 100, 90, 80], 0, 0, 1, SpellTargeting.Caster, SpellEffects.Detection),   // Telepathy
-        Entry(60, [5, 5, 5, 5], [100, 100, 100, 100], 0, 0, 2, SpellTargeting.Foe, SpellEffects.Condition),   // Charm
-        Entry(61, [8, 8, 8, 8], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Ally, SpellEffects.Condition),   // Cure Paralysis
-        Entry(62, [10, 10, 10, 10], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Foe, SpellEffects.Condition),   // Berserk
-        Entry(63, [15, 15, 15, 15], [80, 80, 80, 80], 0, 0, 3, SpellTargeting.Foe, SpellEffects.Condition),   // Mass Fear
-        Entry(64, [20, 20, 20, 20], [120, 120, 120, 120], 0, 0, 3, SpellTargeting.Ally, SpellEffects.Condition),   // Cure Insanity
+        Entry(58, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Mind], WardFormulas.MasteryTimesLevel, WardFormulas.HoursPerLevel).Coarser(Readings.PartyWideWard)),   // Mind Resistance
+        Entry(59, [4, 4, 4, 4], [110, 100, 90, 80], 0, 0, 1, SpellTargeting.Caster, SpellEffects.Detection, Readings.Detect(DetectionScope.Minds)),   // Telepathy
+        Entry(60, [5, 5, 5, 5], [100, 100, 100, 100], 0, 0, 2, SpellTargeting.Foe, SpellEffects.Condition, Readings.NotYet("a charmed creature that fights for the party", "the fight's allegiance state, which is a side rather than a loyalty")),   // Charm
+        Entry(61, [8, 8, 8, 8], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Ally, SpellEffects.Condition, Readings.Cure(MightAndMagic7Conditions.Paralyzed)),   // Cure Paralysis
+        Entry(62, [10, 10, 10, 10], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Foe, SpellEffects.Condition, Readings.NotYet("a creature driven against its own", "the fight's allegiance state, which is a side rather than a rage")),   // Berserk
+        Entry(63, [15, 15, 15, 15], [80, 80, 80, 80], 0, 0, 3, SpellTargeting.Foe, SpellEffects.Condition, Readings.NotYet("creatures made afraid", "the fight's own actor state, which is not the party's condition model")),   // Mass Fear
+        Entry(64, [20, 20, 20, 20], [120, 120, 120, 120], 0, 0, 3, SpellTargeting.Ally, SpellEffects.Condition, Readings.Cure(MightAndMagic7Conditions.Insane)),   // Cure Insanity
         Entry(65, [25, 25, 25, 25], [110, 110, 110, 100], 12, 12, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Psychic Shock
-        Entry(66, [30, 30, 30, 30], [120, 120, 120, 120], 0, 0, 4, SpellTargeting.Foe, SpellEffects.Condition),   // Enslave
-        Entry(67, [1, 1, 1, 1], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Condition),   // Cure Weakness
-        Entry(68, [2, 2, 2, 2], [100, 100, 100, 100], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Healing),   // Heal
-        Entry(69, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance),   // Body Resistance
+        Entry(66, [30, 30, 30, 30], [120, 120, 120, 120], 0, 0, 4, SpellTargeting.Foe, SpellEffects.Condition, Readings.NotYet("an enslaved creature that fights for the party", "the fight's allegiance state, which is a side rather than a loyalty")),   // Enslave
+        Entry(67, [1, 1, 1, 1], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Condition, Readings.Cure(MightAndMagic7Conditions.Weak)),   // Cure Weakness
+        Entry(68, [2, 2, 2, 2], [100, 100, 100, 100], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Healing, Readings.Restore(perLevel: 1, flat: 5, byMastery: true)),   // Heal
+        Entry(69, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Body], WardFormulas.MasteryTimesLevel, WardFormulas.HoursPerLevel).Coarser(Readings.PartyWideWard)),   // Body Resistance
         Entry(70, [4, 4, 4, 4], [110, 100, 90, 80], 8, 2, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Harm
-        Entry(71, [5, 5, 5, 5], [110, 110, 110, 110], 0, 0, 2, SpellTargeting.Ally, SpellEffects.Healing),   // Regeneration
-        Entry(72, [8, 8, 8, 8], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Ally, SpellEffects.Condition),   // Cure Poison
-        Entry(73, [10, 10, 10, 10], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Caster, SpellEffects.Utility),   // Hammerhands
-        Entry(74, [15, 15, 15, 15], [120, 120, 120, 120], 0, 0, 3, SpellTargeting.Ally, SpellEffects.Condition),   // Cure Disease
-        Entry(75, [20, 20, 20, 20], [120, 120, 120, 120], 0, 0, 3, SpellTargeting.Party, SpellEffects.Resistance),   // Protection from Magic
+        Entry(71, [5, 5, 5, 5], [110, 110, 110, 110], 0, 0, 2, SpellTargeting.Ally, SpellEffects.Healing, Readings.NotYet("health given back over a duration", "this effect path's own clock observation: the running-effect ledger hears every advance")),   // Regeneration
+        Entry(72, [8, 8, 8, 8], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Ally, SpellEffects.Condition, Readings.Cure(MightAndMagic7Conditions.PoisonWeak, MightAndMagic7Conditions.PoisonMedium, MightAndMagic7Conditions.PoisonSevere)),   // Cure Poison
+        Entry(73, [10, 10, 10, 10], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Caster, SpellEffects.Utility, Readings.Buff(SpellEffectIds.Hammerhands, WardFormulas.LevelPlus(1, 0), WardFormulas.HoursPerLevel).Coarser(Readings.PartyWideWard)),   // Hammerhands
+        Entry(74, [15, 15, 15, 15], [120, 120, 120, 120], 0, 0, 3, SpellTargeting.Ally, SpellEffects.Condition, Readings.Cure(MightAndMagic7Conditions.DiseaseWeak, MightAndMagic7Conditions.DiseaseMedium, MightAndMagic7Conditions.DiseaseSevere)),   // Cure Disease
+        Entry(75, [20, 20, 20, 20], [120, 120, 120, 120], 0, 0, 3, SpellTargeting.Party, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Magic], WardFormulas.LevelPlus(1, 0), WardFormulas.HoursPerLevel).Coarser("the donor reads this buff as a chance to resist a spell rather than as a resistance of one kind of harm; this build reads it as a ward against magic harm (receiver: the fight's spell resolution, which would make the check)")),   // Protection from Magic
         Entry(76, [25, 25, 25, 25], [110, 110, 110, 100], 30, 5, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Flying Fist
-        Entry(77, [30, 30, 30, 30], [100, 100, 100, 100], 0, 0, 4, SpellTargeting.Ally, SpellEffects.Healing),   // Power Cure
+        Entry(77, [30, 30, 30, 30], [100, 100, 100, 100], 0, 0, 4, SpellTargeting.Ally, SpellEffects.Healing, Readings.RestoreParty(perLevel: 5, flat: 10)),   // Power Cure
         Entry(78, [5, 5, 5, 5], [110, 100, 90, 80], 0, 4, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Light Bolt
         Entry(79, [10, 10, 10, 10], [120, 110, 100, 90], 16, 16, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Destroy Undead
-        Entry(80, [15, 15, 15, 15], [120, 110, 100, 90], 0, 0, 1, SpellTargeting.Foe, SpellEffects.Utility),   // Dispel Magic
-        Entry(81, [20, 20, 20, 20], [160, 140, 120, 100], 0, 0, 1, SpellTargeting.Foe, SpellEffects.Condition),   // Paralyze
-        Entry(82, [25, 25, 25, 25], [140, 140, 140, 140], 0, 0, 2, SpellTargeting.Caster, SpellEffects.Utility),   // Summon Elemental
-        Entry(83, [30, 30, 30, 30], [500, 500, 500, 500], 0, 0, 2, SpellTargeting.Party, SpellEffects.Utility),   // Day of the Gods
+        Entry(80, [15, 15, 15, 15], [120, 110, 100, 90], 0, 0, 1, SpellTargeting.None, SpellEffects.Utility, Readings.Dispel().Coarser("the donor dispels the buffs of the creature it is cast on; this build's spell effects are the party's, so the casting ends what spells have left running on the party (receiver: an actor-buff owner for world actors)")),   // Dispel Magic
+        Entry(81, [20, 20, 20, 20], [160, 140, 120, 100], 0, 0, 1, SpellTargeting.Foe, SpellEffects.Condition, Readings.Inflict(MightAndMagic7Conditions.Paralyzed)),   // Paralyze
+        Entry(82, [25, 25, 25, 25], [140, 140, 140, 140], 0, 0, 2, SpellTargeting.Caster, SpellEffects.Utility, Readings.NotYet("a creature summoned to stand with the party", "the world's population, which places what content declares")),   // Summon Elemental
+        Entry(83, [30, 30, 30, 30], [500, 500, 500, 500], 0, 0, 2, SpellTargeting.Party, SpellEffects.Utility, Readings.NotYet("six attributes raised for a day", "the attribute readings a fight is priced by")),   // Day of the Gods
         Entry(84, [35, 35, 35, 35], [135, 135, 120, 100], 25, 1, 2, SpellTargeting.Foe, SpellEffects.Damage),   // Prismatic Light
-        Entry(85, [40, 40, 40, 40], [500, 500, 500, 500], 0, 0, 3, SpellTargeting.Party, SpellEffects.Resistance),   // Day of Protection
-        Entry(86, [45, 45, 45, 45], [250, 250, 250, 250], 0, 0, 3, SpellTargeting.Party, SpellEffects.Utility),   // Hour of Power
+        Entry(85, [40, 40, 40, 40], [500, 500, 500, 500], 0, 0, 3, SpellTargeting.Party, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Body, MightAndMagic7Damage.Mind, MightAndMagic7Damage.Fire, MightAndMagic7Damage.Water, MightAndMagic7Damage.Air, MightAndMagic7Damage.Earth], WardFormulas.FivePerLevel, WardFormulas.FiveHoursPerLevel)),   // Day of Protection
+        Entry(86, [45, 45, 45, 45], [250, 250, 250, 250], 0, 0, 3, SpellTargeting.Party, SpellEffects.Utility, Readings.NotYet("every attribute and resistance raised for an hour", "the attribute and resistance readings a fight is priced by")),   // Hour of Power
         Entry(87, [50, 50, 50, 50], [150, 150, 150, 135], 20, 20, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Sunray
-        Entry(88, [55, 55, 55, 55], [300, 300, 300, 300], 0, 0, 4, SpellTargeting.Party, SpellEffects.Healing),   // Divine Intervention
-        Entry(89, [10, 10, 10, 10], [140, 140, 140, 140], 0, 0, 1, SpellTargeting.Foe, SpellEffects.Utility),   // Reanimate
+        Entry(88, [55, 55, 55, 55], [300, 300, 300, 300], 0, 0, 4, SpellTargeting.Party, SpellEffects.Healing, Readings.Fill().Coarser("the donor allows three castings a day and ages the caster by ten; neither a daily count nor ageing exists in this build (receiver: a per-day cast count and progression's ageing)")),   // Divine Intervention
+        Entry(89, [10, 10, 10, 10], [140, 140, 140, 140], 0, 0, 1, SpellTargeting.Foe, SpellEffects.Utility, Readings.NotYet("a corpse raised to fight for the party", "the world's bodies and the fight's allegiance state")),   // Reanimate
         Entry(90, [15, 15, 15, 15], [120, 110, 100, 90], 25, 10, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Toxic Cloud
-        Entry(91, [20, 20, 20, 20], [120, 100, 90, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Utility),   // Vampiric Weapon
-        Entry(92, [25, 25, 25, 25], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Foe, SpellEffects.Condition),   // Shrinking Ray
+        Entry(91, [20, 20, 20, 20], [120, 100, 90, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Utility, Readings.Unaimable("a weapon to bear", "an item-aim owner: the pack holds the party's items and nothing aims a spell at one")),   // Vampiric Weapon
+        Entry(92, [25, 25, 25, 25], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Foe, SpellEffects.Condition, Readings.NotYet("a creature shrunk", "the fight's own actor state, which is not the party's condition model")),   // Shrinking Ray
         Entry(93, [30, 30, 30, 30], [90, 90, 80, 70], 6, 6, 2, SpellTargeting.Foe, SpellEffects.Damage),   // Shrapmetal
-        Entry(94, [35, 35, 35, 35], [120, 120, 100, 80], 0, 0, 2, SpellTargeting.Foe, SpellEffects.Condition),   // Control Undead
-        Entry(95, [40, 40, 40, 40], [110, 110, 110, 110], 0, 0, 2, SpellTargeting.Caster, SpellEffects.Utility),   // Pain Reflection
-        Entry(96, [45, 45, 45, 45], [200, 200, 200, 150], 0, 0, 3, SpellTargeting.None, SpellEffects.Utility),   // Sacrifice
+        Entry(94, [35, 35, 35, 35], [120, 120, 100, 80], 0, 0, 2, SpellTargeting.Foe, SpellEffects.Condition, Readings.NotYet("an undead creature made to fight for the party", "the fight's allegiance state, which is a side rather than a loyalty")),   // Control Undead
+        Entry(95, [40, 40, 40, 40], [110, 110, 110, 110], 0, 0, 2, SpellTargeting.Caster, SpellEffects.Utility, Readings.NotYet("harm reflected onto whoever struck the party", "the fight's damage application")),   // Pain Reflection
+        Entry(96, [45, 45, 45, 45], [200, 200, 200, 150], 0, 0, 3, SpellTargeting.None, SpellEffects.Utility, Readings.Unaimable("a follower to give up", "an item-aim owner: the party's followers exist and nothing aims a spell at one")),   // Sacrifice
         Entry(97, [50, 50, 50, 50], [120, 120, 120, 100], 0, 25, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Dragon Breath
         Entry(98, [55, 55, 55, 55], [250, 250, 250, 250], 50, 1, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Armageddon
         Entry(99, [60, 60, 60, 60], [300, 300, 300, 300], 25, 8, 4, SpellTargeting.Foe, SpellEffects.Damage),   // Souldrinker
@@ -415,6 +415,40 @@ internal sealed class MightAndMagic7Spells : ISpellRule
         }
 
         return new MightAndMagic7Spells(new SpellCatalog(definitions), facts, byName, books, skills);
+    }
+
+    /// <summary>How many rows this game states numbers for, which content's own table declares.</summary>
+    internal static int RowCount => Table.Length;
+
+    /// <summary>
+    /// Every row this game states numbers for, in the order the shipped table declares them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the compiled reading the coverage report is generated from: content declares which spells exist
+    /// and what they are called, and these rows state what each one is read as — its category, its rung, what
+    /// it is aimed at, and how far this build expresses it. It is built from the table rather than from a
+    /// catalog because a report has to be readable where no operator content is present, and because a row's
+    /// coverage is a fact about this game's code rather than about a pack.
+    /// </para>
+    /// <para>
+    /// The rows are keyed by the spell id content uses, so a report generated from here and a catalog loaded
+    /// from a pack are about the same spells: the load itself refuses content that declares a spell this table
+    /// does not state numbers for, or states one where this table has another.
+    /// </para>
+    /// </remarks>
+    internal static IReadOnlyList<SpellRowReading> Rows
+    {
+        get
+        {
+            List<SpellRowReading> rows = [];
+            foreach (Numbers numbers in Table)
+            {
+                rows.Add(new SpellRowReading(numbers.Id, numbers.Effect, numbers.Tier, numbers.Targeting, CoverageOf(numbers)));
+            }
+
+            return rows;
+        }
     }
 
     /// <summary>What one member can hold of what casting spends, from the class, the level, and the scores.</summary>
@@ -541,6 +575,101 @@ internal sealed class MightAndMagic7Spells : ISpellRule
             : DamageRoll.Flat(numbers.Base);
     }
 
+    /// <summary>What one spell does inside its category, as its own row states it.</summary>
+    /// <remarks>
+    /// A spell content declares but this table carries no row for reads as <see cref="SpellReading.None"/>,
+    /// which is the same answer a spell that only harms gives: nothing to do beyond the category's own path.
+    /// </remarks>
+    /// <param name="spell">The spell being read.</param>
+    internal SpellReading ReadingOf(SpellDefinition spell)
+    {
+        return _facts.TryGetValue(spell.Id, out Facts facts) ? facts.Numbers.Reading : SpellReading.None;
+    }
+
+    /// <summary>The rung of mastery the caster holds in a spell's school, as the donor counts them.</summary>
+    /// <param name="member">The member whose mastery is read.</param>
+    /// <param name="spell">The spell whose school is read.</param>
+    /// <returns>One for novice through four for grand master, never below one.</returns>
+    internal static int MasteryOf(PartyMember member, SpellDefinition spell)
+    {
+        ArgumentNullException.ThrowIfNull(member);
+        return Rung(member, spell);
+    }
+
+    /// <summary>
+    /// How far this build expresses one spell's effect, and what that leaves out.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The answer is read from the same row the effect path applies by, so the coverage report cannot say a
+    /// spell does something the path does not do: a row that names what is missing is
+    /// <see cref="SpellEffectCoverageState.NotYet"/> and names its receiver, a row that states how its reading
+    /// is coarser than the game's is <see cref="SpellEffectCoverageState.Approximated"/>, and every other row
+    /// is expressed through its category's own owner.
+    /// </para>
+    /// <para>
+    /// <b>What the category's own path guarantees.</b> The implemented sentences below are not descriptions of
+    /// the numbers — those are the row's — but of where the spell's effect lands: the fight for harm, the
+    /// member's own pool for health, the party's carried effects for a ward, a member's own conditions for an
+    /// affliction, the world's transitions for travel, and the world's own state for a report.
+    /// </para>
+    /// </remarks>
+    /// <param name="spell">The spell whose coverage is being read.</param>
+    /// <returns>How far this build expresses it, and what that leaves out.</returns>
+    internal SpellEffectCoverage CoverageOf(SpellDefinition spell)
+    {
+        if (!_facts.TryGetValue(spell.Id, out Facts facts))
+        {
+            return SpellEffectCoverage.NotYet(
+                $"spell '{spell.Id}' is not one of the {ExpectedSpells} rows this game states numbers for",
+                "the content the product loads");
+        }
+
+        return CoverageOf(facts.Numbers);
+    }
+
+    /// <summary>How far this build expresses one row of the table, and what that leaves out.</summary>
+    private static SpellEffectCoverage CoverageOf(Numbers numbers)
+    {
+        SpellReading reading = numbers.Reading;
+        if (reading.Missing.Length > 0) return SpellEffectCoverage.NotYet(reading.Missing, reading.Receiver);
+        if (reading.Divergence.Length > 0) return SpellEffectCoverage.Approximated(reading.Divergence);
+        return SpellEffectCoverage.Implemented(Expressed(numbers));
+    }
+
+    /// <summary>What a spell this build expresses does, and through which owner.</summary>
+    private static string Expressed(Numbers numbers)
+    {
+        SpellReading reading = numbers.Reading;
+        return numbers.Effect switch
+        {
+            SpellEffects.Damage =>
+                "harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves",
+            SpellEffects.Healing => reading.Healing switch
+            {
+                HealingMode.Share => "the party's health pooled and shared through each member's own pool",
+                HealingMode.Fill => "every pool filled and every condition lifted through the member's own state",
+                HealingMode.Raise => "a member stood back up at one hit point, with what laid them out lifted from their own conditions",
+                _ => "hit points restored through the member's own pool",
+            },
+            SpellEffects.Resistance => reading.Ward is { Armour: true }
+                ? "armour class carried by the party and read by the fight's own armour class"
+                : "a ward carried by the party and read by the fight's own resistance",
+            SpellEffects.Condition => "the named conditions lifted through the member's own condition state",
+            SpellEffects.Light => "a light carried by the party, read against the clock's own daylight and ended by its own deadline",
+            SpellEffects.Travel => reading.Travel switch
+            {
+                TravelShape.Beacon => "a beacon set in the party's own carried state and recalled through the world's own transition path",
+                _ => "a portal taken through the world's own transition path, charged by the world's own cost rule",
+            },
+            SpellEffects.Detection => "a report read from the places and the population the world holds",
+            SpellEffects.Utility => reading.Dispels
+                ? "the effects other spells have left running ended through the ledger that holds their deadlines"
+                : "a party-carried effect read by the fight's own resolution",
+            _ => "the spell's own category path",
+        };
+    }
+
     /// <summary>How many levels of a spell's school the caster holds, which is what its damage scales by.</summary>
     /// <param name="member">The member casting it.</param>
     /// <param name="spell">The spell being cast.</param>
@@ -623,6 +752,14 @@ internal sealed class MightAndMagic7Spells : ISpellRule
         return ParameterBonusSteps[^1].Bonus;
     }
 
+    /// <summary>One row of this game's table, as the coverage report reads it.</summary>
+    /// <param name="Id">The spell's global id, which is content's own identity for it.</param>
+    /// <param name="Effect">Which of the eight categories the row is read under.</param>
+    /// <param name="Tier">The rung of the school's ladder the row requires.</param>
+    /// <param name="Targeting">What the row is aimed at.</param>
+    /// <param name="Coverage">How far this build expresses the row's effect.</param>
+    internal readonly record struct SpellRowReading(int Id, string Effect, int Tier, SpellTargeting Targeting, SpellEffectCoverage Coverage);
+
     /// <summary>One spell's authored row: what it costs and recovers at each rung, and what it does.</summary>
     /// <param name="Id">The spell's global id, which is the row's own place plus one.</param>
     /// <param name="Mana">What one casting costs at each of the four rungs.</param>
@@ -632,6 +769,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule
     /// <param name="Tier">The rung of the school's ladder the spell requires.</param>
     /// <param name="Targeting">What the spell is aimed at.</param>
     /// <param name="Effect">Which of the eight categories the spell's effect is.</param>
+    /// <param name="Reading">What the spell does inside its category, as its own row states it.</param>
     private readonly record struct Numbers(
         int Id,
         int[] Mana,
@@ -640,7 +778,8 @@ internal sealed class MightAndMagic7Spells : ISpellRule
         int Skill,
         int Tier,
         SpellTargeting Targeting,
-        string Effect);
+        string Effect,
+        SpellReading Reading);
 
     /// <summary>One spell's reading: its definition, its authored numbers, and the harm its content states.</summary>
     /// <param name="Definition">The definition the catalog carries.</param>
@@ -649,6 +788,15 @@ internal sealed class MightAndMagic7Spells : ISpellRule
     private readonly record struct Facts(SpellDefinition Definition, Numbers Numbers, DamageKindId? Harm);
 
     /// <summary>States one authored row, so the table above reads as the donor's own columns.</summary>
+    /// <param name="id">The spell's global id, which is the row's own place plus one.</param>
+    /// <param name="mana">What one casting costs at each of the four rungs.</param>
+    /// <param name="recovery">How long the caster recovers at each rung, in the donor's ticks.</param>
+    /// <param name="baseDamage">The flat damage the spell adds to its dice.</param>
+    /// <param name="skillDamage">How many faces each die has, one die per level of the caster's school skill.</param>
+    /// <param name="tier">The rung of the school's ladder the spell requires.</param>
+    /// <param name="targeting">What the spell is aimed at.</param>
+    /// <param name="effect">Which of the eight categories the spell's effect is.</param>
+    /// <param name="reading">What the spell does inside its category, which a spell that only harms does not state.</param>
     private static Numbers Entry(
         int id,
         int[] mana,
@@ -657,6 +805,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule
         int skillDamage,
         int tier,
         SpellTargeting targeting,
-        string effect) =>
-        new(id, mana, recovery, baseDamage, skillDamage, tier, targeting, effect);
+        string effect,
+        SpellReading? reading = null) =>
+        new(id, mana, recovery, baseDamage, skillDamage, tier, targeting, effect, reading ?? SpellReading.None);
 }

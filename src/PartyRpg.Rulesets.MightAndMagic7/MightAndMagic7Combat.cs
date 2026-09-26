@@ -361,6 +361,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     private readonly IRandomService? _random;
     private readonly IFallenCreatureObserver? _fallen;
     private readonly MightAndMagic7Spells? _spells;
+    private readonly Func<PartyEntity?> _party;
 
     private MightAndMagic7Combat(
         Dictionary<int, MonsterFacts> monsters,
@@ -368,7 +369,8 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         MonsterFacts? person,
         IRandomService? random,
         IFallenCreatureObserver? fallen,
-        MightAndMagic7Spells? spells)
+        MightAndMagic7Spells? spells,
+        Func<PartyEntity?>? party)
     {
         _monsters = monsters;
         _people = people;
@@ -376,7 +378,23 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         _random = random;
         _fallen = fallen;
         _spells = spells;
+        _party = party ?? (() => null);
     }
+
+    /// <summary>
+    /// What a spell has left acting on the party, which the fight's own readings consult.
+    /// </summary>
+    /// <remarks>
+    /// A ward or a blessing is party-carried state, so the fight reads it from the party the same way it reads
+    /// a member's skills: through the owner that holds it, at the moment it is asked. The provider is a
+    /// function rather than the party itself because this policy is composed before the session's party
+    /// exists on the path that creates one, and because a product playing no party has none to read — and a
+    /// fight with no party reads no spells, which is the honest answer rather than an invented ward.
+    /// </remarks>
+    private PartyEffects? SpellEffects => _party()?.Effects;
+
+    /// <summary>What a spell has left acting under one identity, or zero when nothing is.</summary>
+    private int SpellWard(EffectId effect) => SpellEffects?.MagnitudeOf(effect) ?? 0;
 
     /// <summary>
     /// Reads this game's monsters and people, and judges every creature the content places against them.
@@ -402,15 +420,21 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// This game's magic, which states what each spell a creature casts is worth and rolls. A caller that
     /// composed none gets one read here, so a creature's spell still lands with the spell's own numbers.
     /// </param>
+    /// <param name="party">
+    /// The party whose carried spell effects the fight's own readings consult — a ward when it lets a target's
+    /// resistance off a blow, a blessing when it prices a chance to land, a haste when it charges recovery.
+    /// It is a provider because this policy is composed before a created party exists.
+    /// </param>
     /// <returns>This game's combat policy.</returns>
     /// <exception cref="ContentValidationException">Content declares a monster or a creature this game cannot fight; every problem is named.</exception>
     internal static MightAndMagic7Combat Compose(
         ContentCatalog? catalog,
         IRandomService? random,
         IFallenCreatureObserver? fallen = null,
-        MightAndMagic7Spells? spells = null)
+        MightAndMagic7Spells? spells = null,
+        Func<PartyEntity?>? party = null)
     {
-        if (catalog is null) return new MightAndMagic7Combat([], [], null, random, fallen, spells);
+        if (catalog is null) return new MightAndMagic7Combat([], [], null, random, fallen, spells, party);
         List<ContentValidationIssue> issues = [];
         Dictionary<int, MonsterFacts> monsters = ReadMonsters(catalog, spells ?? MightAndMagic7Spells.Read(catalog), issues);
         Dictionary<string, string> people = ReadPeople(catalog);
@@ -431,7 +455,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             .OrderBy(row => row.Id)
             .FirstOrDefault();
 
-        return new MightAndMagic7Combat(monsters, people, person, random, fallen, spells ?? MightAndMagic7Spells.Read(catalog));
+        return new MightAndMagic7Combat(monsters, people, person, random, fallen, spells ?? MightAndMagic7Spells.Read(catalog), party);
     }
 
     /// <summary>What the fight read as down in one place, handed to whoever keeps what the fallen left.</summary>
@@ -476,6 +500,13 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         if (subject.Member is not null) return Hostility.Peaceful;
         if (Creature(subject) is { } creature)
         {
+            // An invisible party is not noticed: the donor's own invisibility is what stops a creature from
+            // seeing the party at all, so a creature whose hostility is its notice band reads as one that
+            // starts no fight (OpenEnroth src/Engine/Objects/Actor.cpp:2080-2090, where the band is tested
+            // against what the actor can see). A creature the party has already attacked stays hostile,
+            // because that is the fight's own memory of what the party did rather than of what it looks like.
+            if (SpellWard(SpellEffectIds.Invisibility) > 0) return Hostility.Peaceful;
+
             // Band zero is the donor's friendly creature: something that walks the world and never starts a
             // fight, which the party can still attack.
             return creature.NoticeRange <= 0
@@ -528,12 +559,21 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         if (kind == AttackKind.Spell && subject.Member is { } caster && _spells is { } spells &&
             caster.Spells.QuickSpell is { } quick && spells.Spell(quick.Value) is { } chosen)
         {
-            int ticks = spells.RecoveryTicks(caster, chosen) - AttributeBonus(caster.Attributes[SpeedAttribute]);
+            int ticks = spells.RecoveryTicks(caster, chosen) - AttributeBonus(caster.Attributes[SpeedAttribute]) - HasteTicks;
             return Ticks(Math.Max(MinimumRangedTicks, ticks));
         }
 
         return CharacterRecovery(subject.Member, kind);
     }
+
+    /// <summary>How much of a character's recovery a haste takes off, or nothing when none acts.</summary>
+    /// <remarks>
+    /// OpenEnroth <c>src/Engine/Objects/Character.cpp:1723-1728</c> (<c>GetAttackRecoveryTime</c>): a haste,
+    /// the character's or the party's, takes exactly twenty-five ticks off whatever the action costs. The
+    /// donor applies it to every action rather than to one kind, which is why it is subtracted from the whole
+    /// recovery here and not from a named attack's own row.
+    /// </remarks>
+    private int HasteTicks => SpellWard(SpellEffectIds.Haste);
 
     /// <inheritdoc />
     /// <remarks>
@@ -760,7 +800,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         if (reading.IsImmune) return 0;
 
         int points = reading.Points;
-        if (target.Member is { } member) points += AttributeBonus(member.Attributes[LuckAttribute]);
+        if (target.Member is { } member) points += LuckOf(member);
         if (points <= 0) return damage;
 
         int divisor = points + ResistanceThreshold;
@@ -866,12 +906,19 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// go: the sum, in the donor's own order.
     /// </para>
     /// </remarks>
-    private static Resistance CharacterResistance(PartyMember member, DamageKindId kind)
+    private Resistance CharacterResistance(PartyMember member, DamageKindId kind)
     {
         ArgumentNullException.ThrowIfNull(member);
-        _ = kind;
-        return Resistance.Of(0);
+        int points = SpellWard(SpellEffectIds.Resistance(kind));
+        return points <= 0 ? Resistance.Of(0) : Resistance.Of(points);
     }
+
+    /// <summary>What a character's luck is worth, with whatever a spell has added to it.</summary>
+    /// <remarks>
+    /// A fate is the donor's own luck buff, read at ATTRIBUTE_LUCK, and luck is the term the resistance check
+    /// and the saving throw both carry (OpenEnroth <c>src/Engine/Objects/Character.cpp:2380-2384</c>).
+    /// </remarks>
+    private int LuckOf(PartyMember member) => AttributeBonus(member.Attributes[LuckAttribute]) + SpellWard(SpellEffectIds.Fate);
 
     /// <summary>What a target resists of one kind of harm, read from whatever states it.</summary>
     private Resistance ResistanceOf(CombatSubject target, DamageKindId kind) => target.Member is { } member
@@ -889,10 +936,16 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// dice, an enchantment, a spell — are read off an equipped figure this build cannot fill, and they
     /// belong in this sum with the items stone.
     /// </remarks>
-    private static DamageRoll CharacterDamage(PartyMember member)
+    private DamageRoll CharacterDamage(PartyMember member)
     {
         int bonus = Bonus(member, MightAttribute);
         bonus += Multiplier(Armsmaster(member), 0, 0, 1, 2) * Armsmaster(member).Level;
+
+        // Heroism and hammerhands are the donor's own bonuses to what an unarmed blow is worth: heroism at
+        // ATTRIBUTE_MELEE_DMG_BONUS and hammerhands on the unarmed damage of a character who wears nothing
+        // (OpenEnroth src/Engine/Objects/Character.cpp:2355-2357 and CastSpellInfo.cpp:2366-2380).
+        bonus += SpellWard(SpellEffectIds.Heroism);
+        bonus += SpellWard(SpellEffectIds.Hammerhands);
         return new DamageRoll(dice: 1, sides: 3, bonus: bonus, floor: 1);
     }
 
@@ -919,7 +972,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// what is left is the speed bonus and the dodging skill, which the donor adds at its own multipliers
     /// while no armour is worn (<c>Character.cpp:2596-2647</c>).
     /// </remarks>
-    private static int CharacterArmorClass(PartyMember member)
+    private int CharacterArmorClass(PartyMember member)
     {
         int armor = Bonus(member, SpeedAttribute);
         if (member.Skills.TryGet(DodgeSkill, out SkillEntry dodge) && dodge.Level > 0)
@@ -927,7 +980,10 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             armor += Multiplier(dodge, 1, 2, 3, 3) * dodge.Level;
         }
 
-        return Math.Max(0, armor);
+        // A stone skin is the donor's own armour-class buff, and it is read here for the reason the donor
+        // reads it here: it is armour, not a resistance, and a blow's chance to land is what it changes
+        // (OpenEnroth src/Engine/Objects/Character.cpp:2388-2392, ATTRIBUTE_AC_BONUS).
+        return Math.Max(0, armor + SpellWard(SpellEffectIds.Armour));
     }
 
     /// <summary>What an actor's armor class is, from its body or its row.</summary>
@@ -936,7 +992,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         : Facts(target)?.ArmorClass ?? 0;
 
     /// <summary>A character's chance to land a blow or a shot on a target of a stated armor class.</summary>
-    private static HitChance CharacterHitChance(PartyMember member, int armor, AttackKind kind, double distance)
+    private HitChance CharacterHitChance(PartyMember member, int armor, AttackKind kind, double distance)
     {
         // A projectile past the donor's own limit never resolves against anything that is not in its full
         // AI state, so it cannot land at all rather than landing on a worse band.
@@ -945,7 +1001,10 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         int needed = kind != AttackKind.Melee && distance >= MediumRange
             ? ((armor + 15) / 2) + armor + 15
             : armor + 15;
-        int outcomes = armor + (2 * AttackBonus(member)) + 30;
+        // A blessing is added to the attack bonus it is a blessing of: the donor's own buff is read at
+        // ATTRIBUTE_ATTACK, which is the quantity this test is built on (OpenEnroth
+        // src/Engine/Objects/Character.cpp:2351-2354).
+        int outcomes = armor + (2 * (AttackBonus(member) + SpellWard(SpellEffectIds.Bless))) + 30;
         return HitChance.Of(outcomes - needed, Math.Max(1, outcomes));
     }
 
@@ -962,7 +1021,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// saving throw is the luck bonus plus this plus thirty. The resistance terms are what a character
     /// resists, which this build states as nothing at all.
     /// </remarks>
-    private static int SaveBonus(PartyMember member, MightAndMagic7SpecialAttackKind kind) => kind switch
+    private int SaveBonus(PartyMember member, MightAndMagic7SpecialAttackKind kind) => kind switch
     {
         MightAndMagic7SpecialAttackKind.Curse => Bonus(member, PersonalityAttribute),
         MightAndMagic7SpecialAttackKind.Insane or
@@ -1076,12 +1135,12 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// <remarks>
     /// The donor's sum is the weapon's base plus armour and shield, less the armsmaster reduction, the
     /// weapon's own enchantment, haste, the weapon skill's expert reduction, and the speed bonus
-    /// (OpenEnroth <c>src/Engine/Objects/Character.cpp:1636-1750</c>). Of those, this build can state three:
-    /// the base for a character holding nothing, the armsmaster reduction, and the speed bonus. The rest are
-    /// read off an equipped figure this product cannot fill yet, and they belong to the stone that brings
-    /// items and equipment — this sum is where they go, in the donor's own order.
+    /// (OpenEnroth <c>src/Engine/Objects/Character.cpp:1636-1750</c>). Of those, this build can state four:
+    /// the base for a character holding nothing, the armsmaster reduction, haste, and the speed bonus. The
+    /// rest are read off an equipped figure this product cannot fill yet, and they belong to the stone that
+    /// brings items and equipment — this sum is where they go, in the donor's own order.
     /// </remarks>
-    private static GameDuration CharacterRecovery(PartyMember? member, AttackKind kind)
+    private GameDuration CharacterRecovery(PartyMember? member, AttackKind kind)
     {
         int ticks = UnarmedBaseTicks;
         if (member is not null)
@@ -1102,6 +1161,9 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
 
             ticks -= AttributeBonus(member.Attributes[SpeedAttribute]);
         }
+
+        // A haste shortens every action, standing or swinging, which is where the donor subtracts it.
+        ticks -= HasteTicks;
 
         int minimum = kind == AttackKind.Melee ? MinimumMeleeTicks : MinimumRangedTicks;
         if (ticks < minimum) ticks = minimum;

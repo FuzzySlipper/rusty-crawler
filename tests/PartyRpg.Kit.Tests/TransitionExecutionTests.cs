@@ -151,7 +151,7 @@ public sealed class TransitionExecutionTests
     }
 
     [Fact]
-    public void A_transition_the_world_does_not_issue_cannot_be_taken()
+    public void A_transition_the_world_does_not_issue_cannot_be_taken_except_as_magical_travel()
     {
         PlaceGraph graph = Graph();
         PlaceId home = new("1");
@@ -159,11 +159,37 @@ public sealed class TransitionExecutionTests
         RecordingRule rule = new(CostFor);
         TransitionExecutive executive = new(rule);
 
+        // Walked, bought, or scripted, a transition the graph does not hold is a caller defect: the road the
+        // party never walked cannot be taken, and the cost rule is not even asked about it.
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => executive.Take(
-            new TransitionRequest(graph, invented, TransitionKind.Portal, home, PlacePose.Origin)));
+            new TransitionRequest(graph, invented, TransitionKind.Walking, home, PlacePose.Origin)));
 
         Assert.Contains("invented", error.Message);
         Assert.Empty(rule.Asked);
+
+        // A portal is the one kind of travel its caller issues rather than a place: it stands where the party
+        // is and reaches a place the world holds, so the graph need not declare the edge. What is still
+        // checked is the departure and the destination, which is what keeps magical travel from arriving
+        // somewhere the world has never heard of.
+        TransitionResult recalled = executive.Take(
+            new TransitionRequest(graph, invented, TransitionKind.Portal, home, PlacePose.Origin));
+
+        Assert.True(recalled.Arrived);
+        Assert.Equal(new PlaceId("3"), recalled.Place);
+        Assert.Single(rule.Asked);
+
+        InvalidOperationException elsewhere = Assert.Throws<InvalidOperationException>(() => executive.Take(
+            new TransitionRequest(graph, invented, TransitionKind.Portal, new PlaceId("2"), PlacePose.Origin)));
+        Assert.Contains("leaves place", elsewhere.Message);
+
+        ContentValidationException unknown = Assert.Throws<ContentValidationException>(() => executive.Take(
+            new TransitionRequest(
+                graph,
+                new PlaceTransition(home, new PlaceId("99"), PlaceArrival.AtPose(PlacePose.Origin), "invented elsewhere"),
+                TransitionKind.Portal,
+                home,
+                PlacePose.Origin)));
+        Assert.Contains("99", unknown.Message);
     }
 
     [Fact]

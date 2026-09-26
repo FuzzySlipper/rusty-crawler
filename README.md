@@ -34,12 +34,15 @@ Bundle assembles. Host launches.**
 > wait, and a session that waits for each of the player's committed turns instead of stepping the world. What
 > combat does not do yet is let a creature see its way around geometry: one that cannot see its target
 > walks straight at it, because no place carries a navigation projection yet.
-> Magic has landed as a catalog, learning, and one casting workflow: nine schools and their 99 spells read
-> from the shipped table with this game's own numbers beside them, spell books bought at a guild and consumed
-> into a character's spellbook, one casting workflow shared by exploration and combat with the spell points
-> the ruleset derives for each character, a quick spell each, and a harm category applied through the fight's
-> own resolution path. What a spell *does* beyond harm is the next task's: the casting mechanism hands every
-> spell to one effect seam, and the remaining categories are what fills it. Quests are still to come, and the
+> Magic has landed as a catalog, learning, one casting workflow, and what a spell does: nine schools and
+> their 99 spells read from the shipped table with this game's own numbers beside them, spell books bought at
+> a guild and consumed into a character's spellbook, one casting workflow shared by exploration and combat
+> with the spell points the ruleset derives for each character, a quick spell each, and all eight effect
+> categories applied through the seam — harm through the fight's own resolution, health through a member's
+> pool, conditions through the condition model, wards and hastes through the effects the fight reads, light
+> through a deadline on the one clock, travel through the world's own transition path, detection over the
+> places the world holds, and the utilities through the state they change. `docs/magic-coverage.md` states,
+> per spell, how far each one is expressed. Quests are still to come, and the
 > shipped bundle carries no content — so a running product without imported packs reports no world and no
 > party. See [`AGENTS.md`](AGENTS.md) for the exact current state.
 

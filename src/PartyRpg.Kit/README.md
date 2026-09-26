@@ -20,6 +20,15 @@ Owns:
   casting over — and the effect seam a game fills. The kit knows no spell, no school, no cost, and no
   effect: a definition carries the school's skill, the rung it asks for, the price this caster pays, what it
   is aimed at, and an opaque effect identity, and `ISpellEffectRule` is where every effect is expressed.
+- Magic's effect mechanisms (`Magic/Effects/`): what a game's category paths apply through. A duration is
+  a deadline on the session's one clock, held by `RunningSpellEffects` and applied through the party's own
+  carried effects, so a ward or a light lapses on an advance and not on a count of updates; a cast's
+  outcome carries named readings of the state it changed (`SpellEffectFact`) rather than a field per
+  category; what a spell may be pointed at when its aim names no actor is the effect path's own offer
+  (`ISpellAimRule`); what the party sees by is read against the clock's daylight window through the game's
+  answer (`PartySight`, `IPartySightRule`); and how far each spell is expressed is the game's own report
+  (`SpellEffectCoverage`). The kit still names no spell and no effect: it carries an identity and hands it
+  back, which a source scan in `tests/PartyRpg.Kit.Tests` holds it to.
 - Combat: attack execution, targeting and current target, attack resolution, damage kinds,
   resistance and immunity, conditions a hit leaves, and the thresholds a wound is judged against
   application, real-time and turn-based mode coordination, what a downed creature leaves

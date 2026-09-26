@@ -710,10 +710,13 @@ public static class SessionProjection
     /// <summary>Builds the magic block: each member's spellbook, what a casting costs, and what the last one did.</summary>
     /// <remarks>
     /// Every row and every target is sent whole so the screen decides nothing: which spells a member knows,
-    /// what each costs that caster, what each is aimed at, and which actors a casting could name with the
-    /// side each is on. A snapshot built without magic facts carries the default value, whose lists are null
-    /// rather than empty: they are published as empty so a reader never sees a name that is not there,
-    /// exactly as the service and skills blocks do.
+    /// what each costs that caster, what each is aimed at, what it may be pointed at when its aim names no
+    /// actor, and which actors a casting could name with the side each is on. What the last casting changed
+    /// is published as named readings of the state it changed, and what spells have left running is published
+    /// with the moment each one lapses, so the panel shows a cast's outcome and the party's wards from state
+    /// rather than from the wording of a message. A snapshot built without magic facts carries the default
+    /// value, whose lists are null rather than empty: they are published as empty so a reader never sees a
+    /// name that is not there, exactly as the service and skills blocks do.
     /// </remarks>
     private static uint Magic(UiValueBuilder builder, MagicSnapshot magic)
     {
@@ -723,6 +726,15 @@ public static class SessionProjection
             List<uint> spells = [];
             foreach (SpellRowSnapshot spell in member.Spells ?? [])
             {
+                List<uint> aims = [];
+                foreach (SpellAimSnapshot aim in spell.Aims ?? [])
+                {
+                    aims.Add(builder.Object(
+                        ("aim", builder.String(aim.Aim)),
+                        ("name", builder.String(aim.Name)),
+                        ("kind", builder.String(aim.Kind))));
+                }
+
                 spells.Add(builder.Object(
                     ("spell", builder.String(spell.Spell)),
                     ("name", builder.String(spell.Name)),
@@ -731,7 +743,8 @@ public static class SessionProjection
                     ("tierRung", builder.Number(spell.TierRung)),
                     ("cost", builder.Number(spell.Cost)),
                     ("targeting", builder.String(spell.Targeting)),
-                    ("effect", builder.String(spell.Effect))));
+                    ("effect", builder.String(spell.Effect)),
+                    ("aims", builder.Array([.. aims]))));
             }
 
             members.Add(builder.Object(
@@ -755,6 +768,23 @@ public static class SessionProjection
                 ("side", builder.String(target.Side))));
         }
 
+        List<uint> facts = [];
+        foreach (SpellFactSnapshot fact in magic.Facts ?? [])
+        {
+            facts.Add(builder.Object(
+                ("name", builder.String(fact.Name)),
+                ("value", builder.String(fact.Value))));
+        }
+
+        List<uint> running = [];
+        foreach (SpellRunningSnapshot effect in magic.Running ?? [])
+        {
+            running.Add(builder.Object(
+                ("effect", builder.String(effect.Effect)),
+                ("magnitude", builder.Number(effect.Magnitude)),
+                ("endsAt", builder.String(effect.EndsAt))));
+        }
+
         return builder.Object(
             ("available", builder.Boolean(magic.Available)),
             ("members", builder.Array([.. members])),
@@ -767,7 +797,10 @@ public static class SessionProjection
             ("target", builder.String(magic.Target ?? string.Empty)),
             ("effect", builder.String(magic.Effect ?? string.Empty)),
             ("code", builder.String(magic.Code ?? string.Empty)),
-            ("message", builder.String(magic.Message ?? string.Empty)));
+            ("message", builder.String(magic.Message ?? string.Empty)),
+            ("facts", builder.Array([.. facts])),
+            ("running", builder.Array([.. running])),
+            ("sight", builder.String(magic.Sight ?? string.Empty)));
     }
 
     private static uint Rest(UiValueBuilder builder, RestSnapshot rest) =>

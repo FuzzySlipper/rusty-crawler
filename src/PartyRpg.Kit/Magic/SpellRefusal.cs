@@ -90,6 +90,23 @@ public sealed record SpellRefusal
         "spell-target-invalid",
         $"{spell} has no valid target in '{target}', which is neither a member of the party nor a creature this fight holds.");
 
+    /// <summary>
+    /// The spell acts on something this build cannot aim at, so the casting is refused before it is paid for.
+    /// </summary>
+    /// <remarks>
+    /// This is the refusal for a spell whose effect needs a target the session has no way to name — an item
+    /// in the pack, a thing across the room, a follower. It stops the cast before a point is spent, because a
+    /// spell that would be paid for and then change nothing is worse than one that never happened; the
+    /// sentence names the owner that would make the target nameable.
+    /// </remarks>
+    /// <param name="spell">What the spell is called.</param>
+    /// <param name="missing">What the spell would act on.</param>
+    /// <param name="receiver">Which owner would have to supply a way to name it.</param>
+    /// <returns>The refusal.</returns>
+    public static SpellRefusal TargetUnavailable(string spell, string missing, string receiver) => new(
+        "spell-target-unavailable",
+        $"{spell} acts on {missing}, and this build has no way to aim a spell at one (receiver: {receiver}).");
+
     /// <summary>The party has no such member, so a casting has nobody to go to.</summary>
     /// <param name="position">The place in the party the casting named, counted from zero.</param>
     /// <returns>The refusal.</returns>

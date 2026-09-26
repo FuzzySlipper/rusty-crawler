@@ -26,7 +26,11 @@ namespace PartyRpg.Kit.Magic;
 /// <param name="Spell">The spell as this game read it.</param>
 /// <param name="Fight">The fight the party is in, or null when the session is playing none.</param>
 /// <param name="Target">The actor the spell was aimed at, or null when its aim names nobody.</param>
-/// <param name="TargetName">What that actor is called, empty when the aim named nobody.</param>
+/// <param name="TargetName">
+/// What the casting named: the actor's name when the aim names one, or the screen's own word for what a spell
+/// with no actor aim acts on — a place a portal reaches, a thing a hand moves — and empty when nothing was
+/// named at all. Only the effect owner can judge such a word, which is why it travels here unread.
+/// </param>
 public sealed record SpellApplication(
     PartyEntity Party,
     PartyMember Caster,
@@ -54,13 +58,20 @@ public sealed record SpellApplication(
 /// </remarks>
 public sealed record SpellApplicationOutcome
 {
-    private SpellApplicationOutcome(bool expressed, string effect, string code, string message, CombatResult? attack)
+    private SpellApplicationOutcome(
+        bool expressed,
+        string effect,
+        string code,
+        string message,
+        CombatResult? attack,
+        IReadOnlyList<SpellEffectFact> facts)
     {
         IsExpressed = expressed;
         Effect = effect;
         Code = code;
         Message = message;
         Attack = attack;
+        Facts = facts;
     }
 
     /// <summary>Whether this build expressed anything for the spell's effect.</summary>
@@ -78,17 +89,33 @@ public sealed record SpellApplicationOutcome
     /// <summary>The fight's own record of the attack the effect was applied as, or null when none was made.</summary>
     public CombatResult? Attack { get; }
 
+    /// <summary>
+    /// What the effect changed, as named readings of the state it changed, in the order it changed them.
+    /// </summary>
+    /// <remarks>
+    /// The sentence says what happened and these say what the world now holds — a pool after the healing,
+    /// the condition that was lifted, the place the party arrived in, the moment a light ends. They are
+    /// published so a panel shows a cast's outcome from state rather than from the message's wording, and so
+    /// a test can compare a number without parsing prose.
+    /// </remarks>
+    public IReadOnlyList<SpellEffectFact> Facts { get; }
+
     /// <summary>The effect was applied, and this is what it did.</summary>
     /// <param name="effect">The effect identity the spell carried.</param>
     /// <param name="message">What it did, in a sentence.</param>
+    /// <param name="facts">What it changed, as readings of the state it changed.</param>
     /// <param name="attack">The fight's own record, when the effect was applied as an attack.</param>
     /// <returns>The outcome.</returns>
     /// <exception cref="ArgumentException">The effect or the message is blank.</exception>
-    public static SpellApplicationOutcome Expressed(string effect, string message, CombatResult? attack = null)
+    public static SpellApplicationOutcome Expressed(
+        string effect,
+        string message,
+        IReadOnlyList<SpellEffectFact>? facts = null,
+        CombatResult? attack = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(effect);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        return new SpellApplicationOutcome(expressed: true, effect, "spell-effect-applied", message, attack);
+        return new SpellApplicationOutcome(expressed: true, effect, "spell-effect-applied", message, attack, facts ?? []);
     }
 
     /// <summary>
@@ -102,7 +129,7 @@ public sealed record SpellApplicationOutcome
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(effect);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        return new SpellApplicationOutcome(expressed: false, effect, "spell-effect-unexpressed", message, attack: null);
+        return new SpellApplicationOutcome(expressed: false, effect, "spell-effect-unexpressed", message, attack: null, facts: []);
     }
 
     /// <inheritdoc />

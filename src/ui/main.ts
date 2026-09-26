@@ -797,6 +797,34 @@ interface SkillsView {
   readonly message: string;
 }
 
+/** Something a spell whose aim names no actor may be pointed at, as the product offered it. */
+interface SpellAimView {
+  /** The identity a casting echoes back to choose this. */
+  readonly aim: string;
+  /** What a person reads for it. */
+  readonly name: string;
+  /** What sort of thing it is, as the game's own word. */
+  readonly kind: string;
+}
+
+/** One effect a spell has left running on the party, as the product published it. */
+interface SpellRunningView {
+  /** The effect identity the spell left, which the panel shows and never interprets. */
+  readonly effect: string;
+  /** The magnitude it acts at. */
+  readonly magnitude: number;
+  /** When the clock ends it, empty when nothing has said. */
+  readonly endsAt: string;
+}
+
+/** One reading a cast left behind, as the product published it. */
+interface SpellFactView {
+  /** What the reading is about. */
+  readonly name: string;
+  /** What it reads as. */
+  readonly value: string;
+}
+
 /** One spell a member knows, as the product published it. */
 interface SpellRowView {
   readonly spell: string;
@@ -811,6 +839,8 @@ interface SpellRowView {
   readonly targeting: string;
   /** The effect identity the spell carries, which the panel shows and never interprets. */
   readonly effect: string;
+  /** What it may be pointed at when its aim names no actor, empty when its aim names nothing. */
+  readonly aims: readonly SpellAimView[];
 }
 
 /** One member's spellbook and what casting from it costs. */
@@ -848,6 +878,12 @@ interface MagicView {
   readonly effect: string;
   readonly code: string;
   readonly message: string;
+  /** What the last casting changed, as readings of the state it changed. */
+  readonly facts: readonly SpellFactView[];
+  /** The effects spells have left running on the party, in the order they were applied. */
+  readonly running: readonly SpellRunningView[];
+  /** What the party sees by: `daylight`, `light`, `dark`, or empty when nothing states it. */
+  readonly sight: string;
 }
 
 /** The skills of a session whose ruleset stated no skill policy: nothing may be raised. */
@@ -1200,6 +1236,10 @@ const STYLES = `
 .crawler-magic-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
 .crawler-magic-result[hidden] { display: none; }
 .crawler-magic-result[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
+.crawler-magic-facts { margin: 0.2rem 0 0; padding-left: 1.1rem; color: #cfe0e8; font-size: 0.72rem; }
+.crawler-magic-facts[hidden] { display: none; }
+.crawler-magic-running { margin: 0.2rem 0 0; color: #b9c9a8; font-size: 0.72rem; }
+.crawler-magic-running[hidden] { display: none; }
 .crawler-rest { margin: 0 0 0.5rem; border-top: 1px solid rgba(210, 196, 158, 0.25); padding-top: 0.5rem; }
 .crawler-rest[hidden] { display: none; }
 .crawler-rest .crawler-step-head { margin: 0 0 0.2rem; color: #d8cba6; font-size: 0.82rem; }
@@ -1530,6 +1570,11 @@ function readMagic(value: unknown): MagicView {
         cost: number(spell.cost),
         targeting: typeof spell.targeting === 'string' ? spell.targeting : 'none',
         effect: typeof spell.effect === 'string' ? spell.effect : '',
+        aims: readList(spell.aims, (aim) => ({
+          aim: typeof aim.aim === 'string' ? aim.aim : '',
+          name: typeof aim.name === 'string' ? aim.name : '',
+          kind: typeof aim.kind === 'string' ? aim.kind : '',
+        })),
       })),
     })),
     targets: readList(value.targets, (entry) => ({
@@ -1546,6 +1591,16 @@ function readMagic(value: unknown): MagicView {
     effect: typeof value.effect === 'string' ? value.effect : '',
     code: typeof value.code === 'string' ? value.code : '',
     message: typeof value.message === 'string' ? value.message : '',
+    facts: readList(value.facts, (fact) => ({
+      name: typeof fact.name === 'string' ? fact.name : '',
+      value: typeof fact.value === 'string' ? fact.value : '',
+    })),
+    running: readList(value.running, (effect) => ({
+      effect: typeof effect.effect === 'string' ? effect.effect : '',
+      magnitude: number(effect.magnitude),
+      endsAt: typeof effect.endsAt === 'string' ? effect.endsAt : '',
+    })),
+    sight: typeof value.sight === 'string' ? value.sight : '',
   };
 }
 
@@ -1563,6 +1618,9 @@ const NO_MAGIC: MagicView = {
   effect: '',
   code: '',
   message: '',
+  facts: [],
+  running: [],
+  sight: '',
 };
 
 function readService(value: unknown): ServiceView {
@@ -2400,7 +2458,13 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   const magicResult = document.createElement('p');
   magicResult.className = 'crawler-magic-result';
   magicResult.hidden = true;
-  magic.append(magicHead, magicState, magicMembers, magicResult);
+  const magicFacts = document.createElement('ul');
+  magicFacts.className = 'crawler-magic-facts';
+  magicFacts.hidden = true;
+  const magicRunning = document.createElement('p');
+  magicRunning.className = 'crawler-magic-running';
+  magicRunning.hidden = true;
+  magic.append(magicHead, magicState, magicMembers, magicResult, magicFacts, magicRunning);
 
   // The stop controls: one button per act, and the answer the last one got. A rest heals and a wait does
   // not, so the buttons are never collapsed into one; and the fatigue line is the clock's own deadline,
@@ -3291,6 +3355,35 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     magicResult.dataset.code = view.code;
     magicResult.textContent = view.message;
 
+    // What the casting changed, as the product's own readings of the state it changed: every fact is a name
+    // and the value it reads as, so a panel that showed only the sentence would leave a player guessing
+    // whether the cure restored anything.
+    magicFacts.replaceChildren(
+      ...view.facts.map((fact) => {
+        const item = document.createElement('li');
+        item.className = 'crawler-magic-fact';
+        item.dataset.fact = fact.name;
+        item.textContent = `${fact.name}: ${fact.value}`;
+        return item;
+      }),
+    );
+    magicFacts.hidden = view.facts.length === 0;
+
+    // What the party sees by, and what spells have left running with the moment each one lapses. The panel
+    // shows the effect identity the product published and never interprets it.
+    magicRunning.dataset.sight = view.sight;
+    magicRunning.textContent = [
+      view.sight === '' ? '' : `sight: ${view.sight}`,
+      view.running.length === 0
+        ? ''
+        : `running: ${view.running
+            .map((effect) => `${effect.effect} (${effect.magnitude})${effect.endsAt === '' ? '' : ` until ${effect.endsAt}`}`)
+            .join(', ')}`,
+    ]
+      .filter((part) => part !== '')
+      .join(' · ');
+    magicRunning.hidden = magicRunning.textContent === '';
+
     const signature = JSON.stringify(view);
     if (signature === renderedMagic) return;
     renderedMagic = signature;
@@ -3322,6 +3415,10 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
           text.textContent = `${row.name} · ${row.school} · ${row.tier} · ${row.cost} point${row.cost === 1 ? '' : 's'} · ${row.targeting} · ${row.effect}`;
           line.append(text);
 
+          // A spell whose aim names an actor offers that side's rows; a spell whose aim names no actor offers
+          // what the product said it may be pointed at — the places a portal reaches, the beacon the party
+          // set — and a spell neither names is cast with no target at all. The panel chooses nothing: it
+          // draws the rows and echoes back the identity of the one a player picked.
           const options = candidates(row.targeting);
           let picker: HTMLSelectElement | null = null;
           if (options.length > 0) {
@@ -3335,13 +3432,24 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
             }
 
             line.append(picker);
+          } else if (row.aims.length > 0) {
+            picker = document.createElement('select');
+            picker.className = 'crawler-target';
+            for (const aim of row.aims) {
+              const choice = document.createElement('option');
+              choice.value = aim.aim;
+              choice.textContent = `${aim.name} (${aim.kind})`;
+              picker.append(choice);
+            }
+
+            line.append(picker);
           }
 
           const cast = document.createElement('button');
           cast.type = 'button';
           cast.className = 'crawler-cast';
           cast.textContent = `Cast for ${row.cost}`;
-          cast.disabled = options.length === 0 && (row.targeting === 'foe' || row.targeting === 'ally');
+          cast.disabled = options.length === 0 && row.aims.length === 0 && (row.targeting === 'foe' || row.targeting === 'ally');
           cast.addEventListener('click', () =>
             claim(ACTION_CAST, {
               member: member.index,

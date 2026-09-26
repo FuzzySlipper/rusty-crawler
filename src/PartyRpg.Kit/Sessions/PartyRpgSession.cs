@@ -114,6 +114,7 @@ public sealed class PartyRpgSession : IGameSession
     private readonly IMonsterAiPolicy? _monsterAi;
     private readonly ISpellRule? _spellRule;
     private readonly ISpellEffectRule? _spellEffects;
+    private bool _magicObserved;
     private readonly CastInput? _castInput;
     private readonly GameClock? _clock;
     private readonly IDiagnosticsService? _diagnostics;
@@ -1388,6 +1389,16 @@ public sealed class PartyRpgSession : IGameSession
             _spellEffects,
             _combat,
             _skillRule is { } skills ? skills.TierName : null);
+
+        // An effect path that keeps a duration hears the session's one clock like every other owner of it: a
+        // ward or a light ends in the very advance that reaches its deadline, whether that advance came from
+        // an admitted update or from a journey's charge. The list is added to once, because a second
+        // registration would land the same deadlines on the same owner twice.
+        if (!_magicObserved && _spellEffects is IGameTimeObserver observer)
+        {
+            _magicObserved = true;
+            ObserveTimeWith(observer);
+        }
     }
 
     /// <summary>

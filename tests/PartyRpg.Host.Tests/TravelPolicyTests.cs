@@ -92,16 +92,20 @@ public sealed class TravelPolicyTests
     }
 
     [Fact]
-    public void Magical_travel_is_refused_by_name_rather_than_travelled_free()
+    public void Magical_travel_costs_no_road_because_the_spell_already_paid_for_it()
     {
         ContentCatalog catalog = Catalog(World());
         PlaceGraph graph = PlaceGraphLoader.Load(catalog);
         PlaceTransition road = Assert.Single(graph.TransitionsFrom(Home));
         MightAndMagic7TravelCostRule rule = new();
 
-        TravelRefusal portal = rule.Quote(new TransitionRequest(graph, road, TransitionKind.Portal, Home, PlacePose.Origin)).Refusal!;
-        Assert.Equal("travel-portal-unowned", portal.Code);
-        Assert.Contains("beacon", portal.Message, StringComparison.Ordinal);
+        // A portal crosses no ground: the spell that opened it was paid for in spell points, so the crossing
+        // itself quotes no day on the road and eats nothing out of the party's larder. What a portal may
+        // reach is the casting's own judgement, which the effect path makes before a point is spent.
+        TravelCostQuote portal = rule.Quote(new TransitionRequest(graph, road, TransitionKind.Portal, Home, PlacePose.Origin));
+
+        Assert.Null(portal.Refusal);
+        Assert.True(portal.Cost.IsFree);
     }
 
     [Fact]

@@ -65,7 +65,14 @@ internal sealed class MightAndMagic7Session : IGameSession
         // the spell's own numbers, and the session's casting workflow judges mastery and price against the
         // same reading. One reading of one table is what keeps a book, a cast, and a creature's spell in step.
         MightAndMagic7Spells? spells = MightAndMagic7Spells.Read(Declared(context.Content), skills);
-        MightAndMagic7SpellEffects? spellEffects = spells is null ? null : new MightAndMagic7SpellEffects(spells);
+
+        // The party and the world the effects act on do not exist yet on the path that creates its party, so
+        // the effect path is handed providers rather than the state itself: it reads them when a cast actually
+        // arrives, which is always after the composition that created them. A product with no world gives it
+        // nothing to travel through, and a spell that travels says so rather than moving anybody.
+        PartyEntity? party = null;
+        SessionWorld? world = null;
+        MightAndMagic7SpellEffects? spellEffects = spells is null ? null : new MightAndMagic7SpellEffects(spells, clock, () => world);
 
         // This game's services are read once, here, and the same answers are handed to the world — which
         // needs them to describe a counter the party talks to — and to the session, which serves it. One
@@ -122,9 +129,12 @@ internal sealed class MightAndMagic7Session : IGameSession
         // whichever party it ends up playing. The fight is what reads the row, so it is reached through the
         // local below — a death cannot be reported before the fight that reports it exists, which is what
         // makes reading it here honest rather than a second reading of the table.
+        // The fight reads what spells have left on the party — a ward where a resistance is asked, a haste
+        // where recovery is charged — so it is handed the party the same way: as a provider, read at the
+        // moment the quantity is wanted rather than captured when the policy was composed.
         MightAndMagic7Combat? composed = null;
         ProgressionAwards awards = new(Worth, () => Progression, corpseAnswers);
-        composed = MightAndMagic7Combat.Compose(Declared(context.Content), context.Engine?.Random, awards, spells);
+        composed = MightAndMagic7Combat.Compose(Declared(context.Content), context.Engine?.Random, awards, spells, () => party);
         MightAndMagic7Combat combat = composed;
 
         long Worth(PlacementDefinition placement) =>
@@ -139,8 +149,6 @@ internal sealed class MightAndMagic7Session : IGameSession
         // other side of every fight is decided by this game's data rather than by a class per monster.
         MightAndMagic7MonsterAi monsterAi = MightAndMagic7MonsterAi.Compose(Declared(context.Content), combat, context.Engine?.Random);
 
-        PartyEntity? party = null;
-        SessionWorld? world = null;
         EngineSessionSaveStore? store = MightAndMagic7Persistence.Store(context.Engine);
         try
         {

@@ -812,6 +812,15 @@ function progressionPanel(h) {
     outcome: result?.getAttribute('data-outcome') ?? null,
     code: result?.getAttribute('data-code') ?? null,
     message: result?.textContent ?? null,
+    facts: [...(section?.querySelectorAll('.crawler-magic-fact') ?? [])].map((fact) => ({
+      name: fact.getAttribute('data-fact'),
+      text: fact.textContent,
+    })),
+    running: {
+      hidden: section?.querySelector('.crawler-magic-running')?.hidden ?? null,
+      sight: section?.querySelector('.crawler-magic-running')?.getAttribute('data-sight') ?? null,
+      text: section?.querySelector('.crawler-magic-running')?.textContent ?? null,
+    },
     members: [...(section?.querySelectorAll('.crawler-progression-member') ?? [])].map((row) => ({
       label: row.querySelector('.crawler-row-label')?.textContent ?? null,
       id: row.getAttribute('data-member'),
@@ -861,11 +870,11 @@ function magic(overrides = {}) {
         spells: [
           {
             spell: '2', name: 'Fire Bolt', school: 'Fire', tier: 'basic', tierRung: 1,
-            cost: 2, targeting: 'foe', effect: 'damage',
+            cost: 2, targeting: 'foe', effect: 'damage', aims: [],
           },
           {
             spell: '1', name: 'Torch Light', school: 'Fire', tier: 'basic', tierRung: 1,
-            cost: 1, targeting: 'party', effect: 'light',
+            cost: 1, targeting: 'party', effect: 'light', aims: [],
           },
         ],
       },
@@ -883,6 +892,9 @@ function magic(overrides = {}) {
     effect: '',
     code: '',
     message: '',
+    facts: [],
+    running: [],
+    sight: '',
     ...overrides,
   };
 }
@@ -898,6 +910,15 @@ function magicPanel(h) {
     outcome: result?.getAttribute('data-outcome') ?? null,
     code: result?.getAttribute('data-code') ?? null,
     message: result?.textContent ?? null,
+    facts: [...(section?.querySelectorAll('.crawler-magic-fact') ?? [])].map((fact) => ({
+      name: fact.getAttribute('data-fact'),
+      text: fact.textContent,
+    })),
+    running: {
+      hidden: section?.querySelector('.crawler-magic-running')?.hidden ?? null,
+      sight: section?.querySelector('.crawler-magic-running')?.getAttribute('data-sight') ?? null,
+      text: section?.querySelector('.crawler-magic-running')?.textContent ?? null,
+    },
     members: [...(section?.querySelectorAll('.crawler-magic-member') ?? [])].map((row) => ({
       label: row.querySelector('.crawler-row-label')?.textContent ?? null,
       id: row.getAttribute('data-member'),
@@ -926,6 +947,15 @@ function skillsPanel(h) {
     outcome: result?.getAttribute('data-outcome') ?? null,
     code: result?.getAttribute('data-code') ?? null,
     message: result?.textContent ?? null,
+    facts: [...(section?.querySelectorAll('.crawler-magic-fact') ?? [])].map((fact) => ({
+      name: fact.getAttribute('data-fact'),
+      text: fact.textContent,
+    })),
+    running: {
+      hidden: section?.querySelector('.crawler-magic-running')?.hidden ?? null,
+      sight: section?.querySelector('.crawler-magic-running')?.getAttribute('data-sight') ?? null,
+      text: section?.querySelector('.crawler-magic-running')?.textContent ?? null,
+    },
     members: [...(section?.querySelectorAll('.crawler-skills-member') ?? [])].map((row) => ({
       label: row.querySelector('.crawler-row-label')?.textContent ?? null,
       id: row.getAttribute('data-member'),
@@ -3074,6 +3104,83 @@ test('the panel renders every member\'s spellbook, casts the row a player presse
     assert.equal(refused.outcome, 'refused');
     assert.equal(refused.code, 'spell-mastery-too-low');
     assert.match(refused.message, /Aelina stands at basic/);
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the panel shows what a cast changed, what is running, and where a spell may be pointed', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // What a casting changed is published as readings of the state it changed, and what spells have left
+    // running carries the moment each one lapses. The panel prints both and interprets neither: the effect
+    // identity is the product's own word.
+    h.emit(snapshot('running', 1, 60, 60, movement(), {
+      magic: magic({
+        outcome: 'cast',
+        caster: 'Aelina',
+        spell: '68',
+        cost: 3,
+        target: 'Nyx',
+        effect: 'healing',
+        code: 'spell-effect-applied',
+        message: 'Aelina casts Heal for 3 spell point(s): Heal: Nyx — 7 hit point(s) each.',
+        facts: [{ name: 'hitPoints', value: 'Nyx 12/20' }],
+        running: [{ effect: 'spell.light', magnitude: 2, endsAt: '1168-01-01 18:00' }],
+        sight: 'light',
+      }),
+    }));
+
+    const panel = magicPanel(h);
+    assert.deepEqual(panel.facts, [{ name: 'hitPoints', text: 'hitPoints: Nyx 12/20' }]);
+    assert.equal(panel.running.hidden, false);
+    assert.equal(panel.running.sight, 'light');
+    assert.match(panel.running.text, /sight: light/);
+    assert.match(panel.running.text, /spell\.light \(2\) until 1168-01-01 18:00/);
+
+    // A spell whose aim names no actor offers the things the product said it may be pointed at, and the cast
+    // names the identity the player picked rather than anything the panel worked out.
+    h.emit(snapshot('running', 2, 120, 121, movement(), {
+      magic: magic({
+        members: [
+          {
+            index: 0, member: '1', name: 'Aelina', class: 'Sorcerer',
+            spellPoints: 30, spellPointsMax: 36, quickSpell: '', quickSpellName: '',
+            spells: [
+              {
+                spell: '31', name: 'Town Portal', school: 'Water', tier: 'expert', tierRung: 2, cost: 20,
+                targeting: 'none', effect: 'travel',
+                aims: [
+                  { aim: '2', name: 'Cave', kind: 'place' },
+                  { aim: '3', name: 'Village', kind: 'place' },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    }));
+
+    const aimed = magicPanel(h);
+    const row = aimed.section.querySelector('.crawler-spell');
+    assert.deepEqual([...row.querySelectorAll('.crawler-target option')].map((option) => option.value), ['2', '3']);
+    assert.deepEqual([...row.querySelectorAll('.crawler-target option')].map((option) => option.textContent), ['Cave (place)', 'Village (place)']);
+    const picker = row.querySelector('.crawler-target');
+    picker.value = '3';
+    row.querySelector('.crawler-cast').dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
+    assert.deepEqual(h.claims.at(-1).value.data, { action: 'party.cast', member: 0, spell: '31', target: '3' });
+
+    // A casting with nothing to report publishes no readings and no running effects, and the panel shows no
+    // line rather than an empty one: a party that has cast nothing is not a party whose wards are unknown.
+    h.emit(snapshot('running', 3, 180, 181, movement(), { magic: magic() }));
+    const quiet = magicPanel(h);
+    assert.deepEqual(quiet.facts, []);
+    assert.equal(quiet.running.hidden, true);
+    assert.equal(quiet.running.text, '');
 
     ui.dispose();
   } finally {

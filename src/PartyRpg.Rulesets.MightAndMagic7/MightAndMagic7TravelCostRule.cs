@@ -31,6 +31,13 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// counter through the party's one settlement path, so boarding charges no coin a second time.
 /// </para>
 /// <para>
+/// <b>A portal crosses no ground.</b> Magical travel is opened by the spell that paid for it, in spell
+/// points rather than in days, so a transition taken as a portal quotes a journey of no time and eats
+/// nothing: the party arrives where it named, and the road it did not walk is the reason there is no road
+/// cost. What a portal may reach is the spell's own business — this rule only prices the crossing it is
+/// handed, exactly as it prices a walk and a fare.
+/// </para>
+/// <para>
 /// A scripted move is the world placing the party rather than the party walking anywhere, so it quotes
 /// nothing: the scenario start already takes that path, and a script that moves the band across the world
 /// is not a journey it made.
@@ -74,9 +81,7 @@ internal sealed class MightAndMagic7TravelCostRule : ITravelCostRule
             TransitionKind.Walking or TransitionKind.Entrance => TravelCostQuote.Payable(Crossing),
             TransitionKind.Scripted => TravelCostQuote.Payable(TravelCost.Free),
             TransitionKind.PaidService => Board(request),
-            TransitionKind.Portal => TravelCostQuote.Refused(new TravelRefusal(
-                "travel-portal-unowned",
-                "Magical travel needs the spell and beacon owners, which arrive with magic; until then a portal cannot be opened or charged.")),
+            TransitionKind.Portal => TravelCostQuote.Payable(TravelCost.Free),
             _ => TravelCostQuote.Refused(new TravelRefusal(
                 "travel-kind-unknown",
                 $"Travel kind '{request.Kind}' has no cost policy.")),

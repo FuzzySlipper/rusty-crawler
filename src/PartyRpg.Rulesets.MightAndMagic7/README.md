@@ -15,7 +15,16 @@ Owns:
   it is. The costs, recovery, damage, and required mastery are the donor's transcription of the executable
   (`pSpellDatas`); the targeting and the categories are ours. Also the spell-point pool each class and its
   casting score add up to, the learning rule a book is judged against, the guild rung that gates which of a
-  school's books a counter sells, and the effect path this build expresses harm through.
+  school's books a counter sells, and the effect path every category is applied through
+  (`MightAndMagic7SpellEffects`): harm as an attack of the spell kind through the fight's own gated entry,
+  health through the member's own pool in the donor's four shapes, conditions through the member's own
+  condition state, wards and utilities as party-carried effects with a deadline on the one clock and read by
+  the fight's own answers (resistance, armour class, recovery, the chance to land, what a blow is worth, the
+  luck a save reads, whether a creature notices the party), light ended by the clock's daylight window,
+  travel as a portal through the world's own transition path with a beacon in the party's carried state, and
+  detection over the places and the population the world holds. What each spell does inside its category is
+  its row in `MightAndMagic7SpellReadings`, and how far this build expresses each one is reported per spell
+  in `docs/magic-coverage.md`, which a test generates and checks against those rows.
 - Monster, item, service, and condition definitions and their interpretation.
 - Combat, damage, resistance, conditions, recovery, reward, and experience formulas.
 - Progression policy: the experience curve, how a party's award divides, what a
@@ -49,8 +58,9 @@ through the same factory creation hands a party to, never a party of its own inv
 that declared no creation screen plays), the larder's
 policy (`MightAndMagic7Provisions` — one ration a day, and the weak condition a larder left short puts
 on every member), and what a crossing costs (`MightAndMagic7TravelCostRule` — a day on the road and the
-rations it eats, with paid and magical travel refused by name until the services that sell a fare and
-the magic that opens a portal exist), and what using something means here (`MightAndMagic7Interaction` —
+rations it eats; a fare is honoured by the passage the party bought, and a portal — a crossing the caster
+issues rather than a place — is free of road time because the spell already paid for it), and what using
+something means here (`MightAndMagic7Interaction` —
 a door from the delta's own stored state with the donor's interaction range, a decoration that raises an
 event as a fixture whose use names the event nothing executes yet, a `requires` array on a placement as
 this game's locks, and a refusal that says what it needs), which places are clocked

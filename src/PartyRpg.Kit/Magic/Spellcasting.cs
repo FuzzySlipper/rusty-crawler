@@ -219,6 +219,17 @@ public sealed class Spellcasting
     /// <summary>The fight every casting is judged against, or null when the party is in none.</summary>
     public CombatState? Fight => _fight;
 
+    /// <summary>
+    /// Where a casting goes once it is paid for, or null when this session composes no effect path.
+    /// </summary>
+    /// <remarks>
+    /// It is published because the effect path is the only owner that knows what a spell may be pointed at
+    /// when its aim names no actor — the places a portal reaches, the things a hand may move — and because
+    /// the effects spells have left running are its state. A reader asks it rather than keeping a second copy
+    /// of either answer.
+    /// </remarks>
+    public ISpellEffectRule? Effects => _effects;
+
     /// <summary>What the last casting did, or why it did nothing.</summary>
     public SpellCastResult? Last { get; private set; }
 
@@ -347,6 +358,11 @@ public sealed class Spellcasting
         {
             case SpellTargeting.None:
             case SpellTargeting.Party:
+                // A spell whose aim names no actor may still be told what it acts on — the place a portal
+                // reaches, the thing a hand moves — and that word travels to the effect owner, which is the
+                // only thing that can judge it. It is carried unread, exactly as the spell's effect identity
+                // is: the mechanism has no list of destinations and no notion of a thing.
+                targetName = named;
                 return true;
 
             case SpellTargeting.Caster:
