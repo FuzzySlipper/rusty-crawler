@@ -18,6 +18,9 @@ internal static class SyntheticInstallation
     private const int MonsterRows = 276;
     private const int SpellRows = 99;
     private const int ItemRows = 800;
+
+    /// <summary>How many item rows the fixture's random-loot table weighs, which the shipped one does too.</summary>
+    private const int RandomItemRows = 618;
     private const int QuestRows = 512;
 
     /// <summary>Writes a synthetic installation and returns its root.</summary>
@@ -114,6 +117,7 @@ internal static class SyntheticInstallation
                     LodFixture.TextTable("HOSTILE.TXT", Hostility()),
                     LodFixture.TextTable("SPELLS.TXT", Spells()),
                     LodFixture.TextTable("ITEMS.TXT", Items()),
+                    LodFixture.TextTable("RNDITEMS.TXT", RandomItems()),
                     LodFixture.TextTable("QUESTS.TXT", Quests()),
                     LodFixture.TextTable("npcdata.txt", Npcs()),
                     LodFixture.TextTable("npcgreet.txt", Greetings()),
@@ -288,7 +292,17 @@ internal static class SyntheticInstallation
             // table writes and the join a spawn record is resolved through: three rows share a kind, so a
             // map naming "Monster 2" and a record naming grade A meet at row 4.
             string variant = ((monster - 1) % 3) switch { 0 => "A", 1 => "B", _ => "C" };
-            text.Append($"{monster}\tMonster {monster}\tMonster {((monster - 1) / 3) + 1} {variant}\t{monster}\t{hp}\t{monster % 40}\t{experience}\t2D6\t0\tN\tLong\tAggress\t3\t140\t100\t0\t0\tPhys\t2D8\t0\t0\n");
+            // The treasure cells cover the shapes the shipped file states: a creature that drops nothing,
+            // one that drops coin alone, one that states a chance, coin, a level and a kind, and one that
+            // states no chance at all and so drops its item every time.
+            string treasure = (monster % 4) switch
+            {
+                0 => "0",
+                1 => "2D6",
+                2 => "10%10D20+L3Sword",
+                _ => "5D10+L1Cape",
+            };
+            text.Append($"{monster}\tMonster {monster}\tMonster {((monster - 1) / 3) + 1} {variant}\t{monster}\t{hp}\t{monster % 40}\t{experience}\t{treasure}\t0\tN\tLong\tAggress\t3\t140\t100\t0\t0\tPhys\t2D8\t0\t0\n");
         }
 
         return text.ToString();
@@ -346,6 +360,40 @@ internal static class SyntheticInstallation
             text.Append($"{item}\titem{item:D3}\tItem {item}\t{item * 10}\tWeapon\tSword\t1D6\t2\tSteel\t10\tUnidentified {item}\t{item % 300}\t0\t0\n");
         }
 
+        return text.ToString();
+    }
+
+    /// <summary>
+    /// What the fixture's items weigh at each treasure level, in the shape the shipped table states it.
+    /// </summary>
+    /// <remarks>
+    /// The shipped file weighs 618 items in its first section and holds the enchantment chances below them;
+    /// the fixture states the same shape, with a second section whose rows carry no item id so a reader that
+    /// read past the section boundary instead of stopping at it would be visible. The weights themselves are
+    /// chosen so every level has something: the first level weighs the earliest items only, and each level
+    /// below reaches further into the table.
+    /// </remarks>
+    private static string RandomItems()
+    {
+        StringBuilder text = new("Random Item Generation By Treasure Level 1 - 6\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n");
+        text.Append("\t\tChance By Level\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n");
+        text.Append("Item #\tPic File\t1\t2\t3\t4\t5\t6\t\t\tBackup from MM6\t\t\t\t\t\t\n");
+        text.Append("0\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n");
+        for (int item = 1; item <= RandomItemRows; item++)
+        {
+            // Item 1 weighs at every level and every later item weighs nothing at the first: the fixture's
+            // level one pool is one item, which is what a suite can assert a draw against.
+            string weights = item == 1
+                ? "5\t5\t5\t5\t5\t5"
+                : string.Join('\t', Enumerable.Range(1, 6).Select(level => level == 1 ? "0" : ((item + level) % 7 == 0 ? "10" : "1")));
+            text.Append($"{item}\titem{item:D3}\t{weights}\t\t\tBackup {item}\t\t\t\t\t\t\n");
+        }
+
+        text.Append("\n\n\n\n");
+        text.Append("Bonus chance by level %\t\t1\t2\t3\t4\t5\t6\n");
+        text.Append("\tStandard\t0\t40\t50\t60\t70\t80\n");
+        text.Append("\tSpecial\t0\t0\t10\t20\t30\t40\n");
+        text.Append("Weapons\tSpecial %\t0\t0\t10\t20\t30\t40\n");
         return text.ToString();
     }
 

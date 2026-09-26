@@ -223,6 +223,19 @@ the map's own treasure level and generating 1–5 items, gold, or an artifact
 `inventoryMatrix` is the item's cell in the chest's 9×9 face (every chest type is 9×9 in MM7, taken from
 `chestTable`, not from the record **[verified: OE:src/Engine/Tables/ChestTable.cpp:5-19]**).
 
+**What a level means is a rule table, not the map.** A request's level is read through the map's own treasure
+level (column 11 of `MAPSTATS.TXT`, 0–6 **[verified: OE:src/Engine/Tables/MapTable.cpp:76]**) by a fixed 7×7 table of
+ranges — rows are the requested level 1–7 and columns the place's 0–6, and one level inside the resulting range is
+drawn **[verified: OE:src/Engine/Objects/Item.cpp:760-783]**, "original offset was 0x004E8168". The level then draws
+from the item table's own per-level weights, which are not in `ITEMS.TXT` at all: `RNDITEMS.TXT`'s **first section**
+weighs 618 items by how often each appears at levels 1–6, its second section holds the standard, special, and
+weapon-enchantment chances, and a seventh-level request is not a weighted draw but a guaranteed artifact from the
+spawnable range **[verified: OE:src/Engine/Tables/ItemTable.cpp:201-219; src/Engine/Objects/ItemEnums.h:974-978]**.
+A monster row carries the same rule in one cell — `"[NN%][MdS][+]Llvl[ItemType]"`, where a missing percent sign is
+a certainty and the item-type word is looked up in the donor's own map, an unknown word asking for anything
+**[verified: OE:src/Engine/Objects/Monsters.cpp:299-325,440-490]**. Both the cell and the weights are read by the
+importer into the packs, so the runtime carries the numbers rather than the format.
+
 **The flag word.** OpenEnroth reads `0x1 CHEST_TRAPPED`, `0x2 CHEST_ITEMS_PLACED`, `0x4 CHEST_OPENED`
 **[verified: OE:src/Engine/Objects/ChestEnums.h:5-10]**; MMExtension reads `Trapped = 1`, `ItemsPlaced = 2`,
 `Identified = 4` **[donor-doc MMExtension:Scripts/Core/ConstAndBits.lua:116-120]**. **The donors disagree about

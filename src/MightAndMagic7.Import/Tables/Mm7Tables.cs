@@ -14,6 +14,7 @@ public sealed class Mm7Tables
         HostilityTable hostility,
         SpellTable spells,
         ItemTable items,
+        RandomItemsTable randomItems,
         QuestTable quests,
         PersonTable people)
     {
@@ -25,6 +26,7 @@ public sealed class Mm7Tables
         Hostility = hostility;
         Spells = spells;
         Items = items;
+        RandomItems = randomItems;
         Quests = quests;
         People = people;
     }
@@ -53,6 +55,9 @@ public sealed class Mm7Tables
     /// <summary>Items.</summary>
     public ItemTable Items { get; }
 
+    /// <summary>What each item weighs at each treasure level, which is what random loot draws from.</summary>
+    public RandomItemsTable RandomItems { get; }
+
     /// <summary>Quest text.</summary>
     public QuestTable Quests { get; }
 
@@ -72,6 +77,7 @@ public sealed class Mm7Tables
             HostilityTable.Read(install),
             SpellTable.Read(install),
             ItemTable.Read(install),
+            RandomItemsTable.Read(install),
             QuestTable.Read(install),
             PersonTable.Read(install));
     }

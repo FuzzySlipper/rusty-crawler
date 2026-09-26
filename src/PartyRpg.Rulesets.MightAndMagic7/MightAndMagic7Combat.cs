@@ -39,7 +39,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// equipment, and their place is the sum below.
 /// </para>
 /// </remarks>
-internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule, ICombatAbilityResolutionRule
+internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule, ICombatAbilityResolutionRule, IFallenCreatureObserver
 {
     /// <summary>The definition kind a monster row is imported under.</summary>
     internal const string MonsterDefinitionKind = "monster";
@@ -348,17 +348,20 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     private readonly Dictionary<string, string> _people;
     private readonly MonsterFacts? _person;
     private readonly IRandomService? _random;
+    private readonly MightAndMagic7Corpses? _corpses;
 
     private MightAndMagic7Combat(
         Dictionary<int, MonsterFacts> monsters,
         Dictionary<string, string> people,
         MonsterFacts? person,
-        IRandomService? random)
+        IRandomService? random,
+        MightAndMagic7Corpses? corpses)
     {
         _monsters = monsters;
         _people = people;
         _person = person;
         _random = random;
+        _corpses = corpses;
     }
 
     /// <summary>
@@ -376,11 +379,16 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// creature takes its whole recovery before it first acts, which is deterministic and is the honest
     /// answer for a product that cannot draw.
     /// </param>
+    /// <param name="corpses">
+    /// What this game keeps of the creatures the party brings down, when a session has one: a fight that is
+    /// told where its fallen go reports them, and a fight that is told nobody does not. It is the same owner
+    /// the interaction answers read, so what one half of a session writes the other half finds.
+    /// </param>
     /// <returns>This game's combat policy.</returns>
     /// <exception cref="ContentValidationException">Content declares a monster or a creature this game cannot fight; every problem is named.</exception>
-    internal static MightAndMagic7Combat Compose(ContentCatalog? catalog, IRandomService? random)
+    internal static MightAndMagic7Combat Compose(ContentCatalog? catalog, IRandomService? random, MightAndMagic7Corpses? corpses = null)
     {
-        if (catalog is null) return new MightAndMagic7Combat([], [], null, random);
+        if (catalog is null) return new MightAndMagic7Combat([], [], null, random, corpses);
         List<ContentValidationIssue> issues = [];
         Dictionary<int, MonsterFacts> monsters = ReadMonsters(catalog, ReadSpells(catalog), issues);
         Dictionary<string, string> people = ReadPeople(catalog);
@@ -401,8 +409,19 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             .OrderBy(row => row.Id)
             .FirstOrDefault();
 
-        return new MightAndMagic7Combat(monsters, people, person, random);
+        return new MightAndMagic7Combat(monsters, people, person, random, corpses);
     }
+
+    /// <summary>What the fight read as down in one place, handed to whoever keeps what the fallen left.</summary>
+    /// <remarks>
+    /// The kit's fight owns no body: it states what it read and this game decides what that means — which is
+    /// what makes a kill leave a searchable thing without the fight learning what loot is.
+    /// </remarks>
+    /// <param name="place">The place the fight read.</param>
+    /// <param name="fallen">Every creature it read as down there, in the order it read them.</param>
+    /// <returns>The bodies lying in that place now.</returns>
+    public IReadOnlyList<Corpse> Observe(PlaceId place, IReadOnlyList<FallenCreature> fallen) =>
+        _corpses?.Observe(place, fallen) ?? [];
 
     /// <summary>How many monster rows this policy can fight.</summary>
     internal int MonsterCount => _monsters.Count;

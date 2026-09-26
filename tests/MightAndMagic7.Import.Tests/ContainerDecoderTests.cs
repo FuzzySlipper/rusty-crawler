@@ -18,7 +18,7 @@ namespace MightAndMagic7.Import.Tests;
 /// </remarks>
 public sealed class ContainerDecoderTests
 {
-    private static readonly PlaceTrapNumbers Traps = new(4, 2);
+    private static readonly PlaceMapNumbers Traps = new(4, 2, 3);
 
     [Fact]
     public void A_delta_decodes_the_chests_and_the_objects_a_map_holds()
@@ -69,7 +69,7 @@ public sealed class ContainerDecoderTests
         PlaceContainerSummary summary = PlaceContainerEmitter.Emit(
             new Dictionary<int, DecodedMap> { [7] = map },
             [Program(("a", 176, 0))],
-            new Dictionary<int, PlaceTrapNumbers> { [7] = Traps });
+            new Dictionary<int, PlaceMapNumbers> { [7] = Traps });
 
         // One face opens container 0, and the container is placed at that face's own bounding-box centre:
         // a one-face container has nowhere else to be, and its spread is zero.
@@ -108,7 +108,7 @@ public sealed class ContainerDecoderTests
         PlaceContainerSummary close = PlaceContainerEmitter.Emit(
             new Dictionary<int, DecodedMap> { [7] = near },
             [Program(("a", 176, 0))],
-            new Dictionary<int, PlaceTrapNumbers> { [7] = Traps });
+            new Dictionary<int, PlaceMapNumbers> { [7] = Traps });
 
         PlaceChestPlacement placed = Assert.Single(close.Chests);
         Assert.Equal(2, placed.SourceFaceCount);
@@ -124,7 +124,7 @@ public sealed class ContainerDecoderTests
         PlaceContainerSummary spread = PlaceContainerEmitter.Emit(
             new Dictionary<int, DecodedMap> { [7] = far },
             [Program(("a", 176, 0))],
-            new Dictionary<int, PlaceTrapNumbers> { [7] = Traps });
+            new Dictionary<int, PlaceMapNumbers> { [7] = Traps });
 
         Assert.Empty(spread.Chests);
         PlaceContainerRefusal refusal = Assert.Single(spread.Refusals);
@@ -139,7 +139,7 @@ public sealed class ContainerDecoderTests
         PlaceContainerSummary summary = PlaceContainerEmitter.Emit(
             new Dictionary<int, DecodedMap> { [7] = Map(176) },
             [Program(("a", 176, 5))],
-            new Dictionary<int, PlaceTrapNumbers> { [7] = Traps });
+            new Dictionary<int, PlaceMapNumbers> { [7] = Traps });
 
         Assert.Empty(summary.Chests);
         PlaceContainerRefusal refusal = Assert.Single(summary.Refusals);
@@ -158,7 +158,7 @@ public sealed class ContainerDecoderTests
         PlaceContainerSummary summary = PlaceContainerEmitter.Emit(
             new Dictionary<int, DecodedMap> { [7] = Map(176) },
             [],
-            new Dictionary<int, PlaceTrapNumbers> { [7] = Traps });
+            new Dictionary<int, PlaceMapNumbers> { [7] = Traps });
 
         Assert.Empty(summary.Chests);
         PlaceContainerRefusal refusal = Assert.Single(summary.Refusals);
@@ -179,7 +179,7 @@ public sealed class ContainerDecoderTests
         Assert.Throws<LodFormatException>(() => PlaceContainerEmitter.Emit(
             new Dictionary<int, DecodedMap> { [7] = Map(176) },
             [Program(("a", 176, 0))],
-            new Dictionary<int, PlaceTrapNumbers>()));
+            new Dictionary<int, PlaceMapNumbers>()));
     }
 
     [Fact]
@@ -197,7 +197,7 @@ public sealed class ContainerDecoderTests
         PlaceContainerSummary summary = PlaceContainerEmitter.Emit(
             new Dictionary<int, DecodedMap> { [1] = map },
             [Program(("a", 176, 0))],
-            new Dictionary<int, PlaceTrapNumbers> { [1] = Traps });
+            new Dictionary<int, PlaceMapNumbers> { [1] = Traps });
 
         Assert.Empty(summary.Chests);
         Assert.Equal(4, summary.UnplacedRecords);

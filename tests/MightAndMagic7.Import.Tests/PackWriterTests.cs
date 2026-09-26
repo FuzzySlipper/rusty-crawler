@@ -508,7 +508,7 @@ public sealed class PackWriterTests
             PlaceContainerSummary expected = PlaceContainerEmitter.Emit(
                 byPlace,
                 EvtProgram.ReadAll(install),
-                PlaceTrapNumbersTable.Read(Mm7Tables.Read(install)));
+                PlaceMapNumbersTable.Read(Mm7Tables.Read(install)));
 
             // The pack's own counts are what the writer emitted, and the container/object totals the write
             // reports are the ones the document carries.

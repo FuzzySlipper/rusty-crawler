@@ -226,7 +226,11 @@ public static class SessionProjection
                 ("hitPoints", builder.Number(snapshot.Party.HitPoints)),
                 ("hitPointsMax", builder.Number(snapshot.Party.HitPointsMax)),
                 ("spellPoints", builder.Number(snapshot.Party.SpellPoints)),
-                ("spellPointsMax", builder.Number(snapshot.Party.SpellPointsMax)))),
+                ("spellPointsMax", builder.Number(snapshot.Party.SpellPointsMax)),
+                // What the party carries: everything a search, a purchase, or a kill put in the one shared
+                // pack, so what a corpse held is visible as a number that moved rather than only as a
+                // sentence about it.
+                ("pack", builder.Number(snapshot.Party.Pack)))),
             // Published even when nothing has moved: the motion word says which of "the world refused me"
             // and "the party has not stepped yet" the panel is looking at, and a block that only appeared
             // once something had moved would leave the two indistinguishable again.
@@ -305,6 +309,7 @@ public static class SessionProjection
             ("distance", builder.Number(interaction.Distance)),
             ("reason", builder.String(interaction.Reason ?? string.Empty)),
             ("requires", builder.Array([.. requires])),
+            ("bodies", builder.Number(interaction.Bodies)),
             ("outcome", builder.String(interaction.Outcome ?? string.Empty)),
             ("code", builder.String(interaction.Code ?? string.Empty)),
             ("message", builder.String(interaction.Message ?? string.Empty)),

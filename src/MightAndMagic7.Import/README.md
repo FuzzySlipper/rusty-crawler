@@ -41,6 +41,9 @@ Boundary rules:
   translate donor code (see the licensing posture in `AGENTS.md`).
 
 Implemented: every container decodes, the rule tables, event programs, place graph,
+the treasure rules the tables carry (a monster row's own cell read into a drop chance, coin dice, a
+treasure level and the kind of thing asked for, and the random-item table's 618 weighed rows carried onto
+the items they weigh, so the packs state numbers rather than a string every reader would spell again),
 and all 76 map payloads reproduce the recorded inventory, media extraction writes its
 manifest, and `write` emits the content packs — each place's collision artifact and
 the reaches a walking party can take its transitions through included. The source-format shapes are recorded in

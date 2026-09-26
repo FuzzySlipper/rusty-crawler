@@ -33,6 +33,7 @@ namespace MightAndMagic7.Import.Packs;
 /// <param name="Chest">The chest record itself, with its type, flags, and item references.</param>
 /// <param name="TrapDifficulty">The place's own trap difficulty, copied from the per-map table.</param>
 /// <param name="TrapDamageDice">The place's own trap damage, as a count of twenty-sided dice, copied from the per-map table.</param>
+/// <param name="MapTreasureLevel">The place's own danger level, copied from the per-map table.</param>
 public sealed record PlaceChestPlacement(
     int PlaceId,
     string FileName,
@@ -44,7 +45,8 @@ public sealed record PlaceChestPlacement(
     double FaceSpread,
     MapChest Chest,
     int TrapDifficulty,
-    int TrapDamageDice);
+    int TrapDamageDice,
+    int MapTreasureLevel);
 
 /// <summary>One sprite object a place holds.</summary>
 /// <remarks>
@@ -65,10 +67,11 @@ public sealed record PlaceSpriteObjectPlacement(int PlaceId, string FileName, Ma
 /// <param name="Reason">Why the container cannot be placed, in terms a person can act on.</param>
 public sealed record PlaceContainerRefusal(int PlaceId, string FileName, int? ChestIndex, string Code, string Reason);
 
-/// <summary>The trap numbers one place's own row of the per-map table declares.</summary>
+/// <summary>The numbers one place's own row of the per-map table declares for what its containers do.</summary>
 /// <param name="Difficulty">The place's disarm difficulty, which a trap's check is made against.</param>
 /// <param name="DamageDice">How many twenty-sided dice the place's traps roll for damage.</param>
-public readonly record struct PlaceTrapNumbers(int Difficulty, int DamageDice);
+/// <param name="TreasureLevel">The place's danger level, which every random item it holds is remapped through.</param>
+public readonly record struct PlaceMapNumbers(int Difficulty, int DamageDice, int TreasureLevel);
 
 /// <summary>What one import's container derivation produced, over every map it decoded.</summary>
 /// <param name="Chests">Every chest an event face places, in place and container order.</param>
@@ -160,7 +163,7 @@ public static class PlaceContainerEmitter
     public static PlaceContainerSummary Emit(
         IReadOnlyDictionary<int, DecodedMap> maps,
         IReadOnlyList<EvtProgram> programs,
-        IReadOnlyDictionary<int, PlaceTrapNumbers> traps)
+        IReadOnlyDictionary<int, PlaceMapNumbers> traps)
     {
         ArgumentNullException.ThrowIfNull(maps);
         ArgumentNullException.ThrowIfNull(programs);
@@ -208,7 +211,7 @@ public static class PlaceContainerEmitter
             }
 
             Dictionary<int, List<(double X, double Y, double Z)>> facesByChest = OpeningFaces(program, decoded);
-            if (!traps.TryGetValue(placeId, out PlaceTrapNumbers place))
+            if (!traps.TryGetValue(placeId, out PlaceMapNumbers place))
             {
                 throw new LodFormatException(
                     $"Place {placeId} ('{fileName}') holds containers and no trap numbers, so its traps could only be written as harmless.");
@@ -237,7 +240,7 @@ public static class PlaceContainerEmitter
                     continue;
                 }
 
-                chests.Add(new PlaceChestPlacement(placeId, fileName, chest.Index, x, y, z, points.Count, spread, chest, place.Difficulty, place.DamageDice));
+                chests.Add(new PlaceChestPlacement(placeId, fileName, chest.Index, x, y, z, points.Count, spread, chest, place.Difficulty, place.DamageDice, place.TreasureLevel));
             }
 
             // A chest id an event names but the delta has no record for is a broken reference rather than a
@@ -345,41 +348,43 @@ public static class PlaceContainerEmitter
 }
 
 /// <summary>
-/// Reads every place's trap numbers from the per-map table's own columns.
+/// Reads every place's container numbers from the per-map table's own columns.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The table's column 9 is a map's disarm difficulty and column 10 is how many twenty-sided dice its traps
-/// roll, in the donor's own reading (OpenEnroth <c>src/Engine/Tables/MapTable.cpp:74-75</c>,
-/// <c>tokens[9]</c> and <c>tokens[10]</c>). Both are read here rather than from the typed per-map record
-/// because a container is their only consumer: the trap belongs to the container's own use, so the numbers
-/// travel with the container instead of widening every reader of the map table.
+/// The table's column 9 is a map's disarm difficulty, column 10 is how many twenty-sided dice its traps
+/// roll, and column 11 is its own treasure level, in the donor's own reading (OpenEnroth
+/// <c>src/Engine/Tables/MapTable.cpp:74-76</c>, <c>tokens[9]</c>, <c>tokens[10]</c>, and <c>tokens[11]</c>).
+/// All three are read here rather than from the typed per-map record because a container is their only
+/// consumer: the trap belongs to the container's own use and the danger level to what its random references
+/// yield, so the numbers travel with the container instead of widening every reader of the map table.
 /// </para>
 /// <para>
 /// The row is found by the map id in the table's own first column rather than by position, so a table whose
 /// rows were reordered cannot silently give one place another's traps.
 /// </para>
 /// </remarks>
-public static class PlaceTrapNumbersTable
+public static class PlaceMapNumbersTable
 {
-    /// <summary>Reads every place's trap numbers, keyed by the place's id.</summary>
+    /// <summary>Reads every place's container numbers, keyed by the place's id.</summary>
     /// <param name="tables">The tables the places were read from.</param>
     /// <exception cref="ArgumentNullException">The tables are null.</exception>
     /// <exception cref="LodFormatException">A map row cannot be read, or two rows claim one place id.</exception>
-    public static IReadOnlyDictionary<int, PlaceTrapNumbers> Read(Mm7Tables tables)
+    public static IReadOnlyDictionary<int, PlaceMapNumbers> Read(Mm7Tables tables)
     {
         ArgumentNullException.ThrowIfNull(tables);
-        Dictionary<int, PlaceTrapNumbers> numbers = [];
+        Dictionary<int, PlaceMapNumbers> numbers = [];
         foreach (TabularRow row in tables.Maps.Table.Rows)
         {
             int id = TableValue.Integer(tables.Maps.Table, row, 0, "#");
-            PlaceTrapNumbers place = new(
+            PlaceMapNumbers place = new(
                 TableValue.Integer(tables.Maps.Table, row, 9, "0-20 (disarm)"),
-                TableValue.Integer(tables.Maps.Table, row, 10, "0-10 (trap damage)"));
+                TableValue.Integer(tables.Maps.Table, row, 10, "0-10 (trap damage)"),
+                TableValue.Integer(tables.Maps.Table, row, 11, "0-6 (treasure)"));
             if (!numbers.TryAdd(id, place))
             {
                 throw new LodFormatException(
-                    $"{tables.Maps.Table.Source}: place {id} has more than one row, so its traps have two difficulties.");
+                    $"{tables.Maps.Table.Source}: place {id} has more than one row, so its containers have two sets of numbers.");
             }
         }
 

@@ -20,6 +20,13 @@ namespace PartyRpg.Kit.Interaction;
 /// usable by content and a ruleset answer, and nothing here changes.
 /// </para>
 /// <para>
+/// <b>What a visit makes is discovered the same way.</b> A body a fight left is not content and no pack can
+/// declare it, so it arrives beside the place's placements as the creature's own placement lying where it
+/// fell, and everything after that is the one workflow: the ruleset describes it, its requirements are
+/// judged, the trap it holds is spent or defeated, and what it yields is judged before anything moves. A
+/// corpse is therefore a container the visit made rather than a mechanism the kit grew.
+/// </para>
+/// <para>
 /// <b>One workflow serves every verb.</b> Identify the target, judge each requirement in the order the
 /// ruleset stated them, settle what the use costs through the party's one settlement path, ask the ruleset
 /// what the use produces, apply it, record the state, and report it. Search, open, unlock, pull, talk, and
@@ -45,11 +52,13 @@ public sealed class PartyInteraction : IWorldInteractionScene
 
     private readonly IInteractionWorld _world;
     private readonly IInteractionRule _rule;
+    private readonly ICorpseSource? _corpses;
     private readonly PlaceSpace _space;
     private readonly InteractionTuning _tuning;
     private readonly WorldInteraction _selection;
     private readonly List<InteractionCandidate> _candidates = [];
     private readonly List<InteractionTarget> _targets = [];
+    private readonly List<PlacementDefinition> _bodies = [];
     private InteractionReadout _focus = new(null, InteractionReason.NoCandidate, []);
     private InteractionResult? _result;
 
@@ -66,6 +75,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
     {
         _world = world ?? throw new ArgumentNullException(nameof(world));
         _rule = rule ?? throw new ArgumentNullException(nameof(rule));
+        _corpses = rule as ICorpseSource;
         _space = space;
         _tuning = tuning;
         _selection = new WorldInteraction(this);
@@ -79,6 +89,18 @@ public sealed class PartyInteraction : IWorldInteractionScene
 
     /// <summary>Why the reticle holds what it holds: the engine's own reason for the selection.</summary>
     public InteractionReason FocusReason { get; private set; } = InteractionReason.NoCandidate;
+
+    /// <summary>
+    /// The bodies lying in the party's place as the last refresh read them, empty when none do.
+    /// </summary>
+    /// <remarks>
+    /// These are the placements the mechanism merged beside the place's content: a creature's own placement
+    /// lying where it fell. They are published because a body is something a player has to be able to see is
+    /// there at all — a place whose only usable thing is a corpse would otherwise show an empty reticle and
+    /// nothing else — and because what the panel reports about a place should be what the mechanism found
+    /// in it rather than a second reading of the same state.
+    /// </remarks>
+    public IReadOnlyList<PlacementDefinition> Bodies => _bodies;
 
     /// <summary>The last use this mechanism resolved, or null before the party has used anything.</summary>
     public InteractionResult? LastResult => _result;
@@ -152,11 +174,20 @@ public sealed class PartyInteraction : IWorldInteractionScene
     /// Builds the candidates and the query one refresh resolves against, in the engine's world axes.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The party's eye and every target's point are placed through the movement's own space rule, so the
     /// distance the reticle measures is the distance the party walks, and a target at the party's own height
     /// is a target it can look at rather than one below its feet. Sight is cast only for what could be used
     /// at all: a place holds hundreds of placements and a ray per placement per update would be work spent
     /// on things the party is nowhere near.
+    /// </para>
+    /// <para>
+    /// <b>A body stands in for the creature it was.</b> What the party finds lying in a place is merged
+    /// beside the place's own content, because a body is made by a visit rather than declared by a pack. A
+    /// placement a body answers for is not offered as itself in the same refresh: the creature and its body
+    /// share one content identity, and a reticle that held both would hold the same thing twice, once where
+    /// content placed the creature and once where it fell.
+    /// </para>
     /// </remarks>
     private InteractionSceneSnapshot Build()
     {
@@ -165,11 +196,28 @@ public sealed class PartyInteraction : IWorldInteractionScene
         Vector3 eye = _space.Position(_world.Pose);
         _candidates.Clear();
         _targets.Clear();
+        _bodies.Clear();
         double furthest = 0;
 
-        for (int index = 0; index < placements.Count; index++)
+        // What the bodies answer for is read first, so the content pass can leave those placements to them.
+        HashSet<PlacementContentId> replaced = [];
+        if (_corpses?.CorpsesOf(place) is { Count: > 0 } bodies)
         {
-            PlacementDefinition placement = placements[index];
+            foreach (PlacementDefinition body in bodies)
+            {
+                _bodies.Add(body);
+                replaced.Add(body.Content);
+            }
+        }
+
+        for (int index = 0; index < placements.Count + _bodies.Count; index++)
+        {
+            // The bodies come last so a place's own content keeps the order it declared, and a body stands
+            // where the creature fell rather than where content placed it.
+            bool isBody = index >= placements.Count;
+            PlacementDefinition placement = isBody ? _bodies[index - placements.Count] : placements[index];
+            if (!isBody && replaced.Contains(placement.Content)) continue;
+
             InteractionTargetState state = _world.States.StateOf(place, placement.Content);
             if (_rule.Describe(new InteractionTargetRequest(place, placement, state.State)) is not { } definition) continue;
 

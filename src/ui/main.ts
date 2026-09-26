@@ -163,6 +163,8 @@ interface ClockView {
 interface PartyView {
   readonly present: boolean;
   readonly members: number;
+  /** How many items lie in the party's one shared pack, which is where everything the party takes goes. */
+  readonly pack: number;
   readonly coins: number;
   readonly provisions: number;
   /** The unit the provisions are stated in, so the number is never shown without its measure. */
@@ -224,6 +226,11 @@ interface InteractionView {
   readonly reason: string;
   /** What the focused target requires, in the order the checks happen. */
   readonly requires: readonly string[];
+  /**
+   * How many bodies lie in the place the party stands in. A body is what the party killed, and a place whose
+   * only usable thing is one would otherwise read exactly like an empty room.
+   */
+  readonly bodies: number;
   /** `none`, `applied`, or `refused`. */
   readonly outcome: string;
   /** The last refusal's code, empty when the last use applied or none has happened. */
@@ -595,6 +602,7 @@ const CLOCK_UNKNOWN: ClockView = {
 const PARTY_UNKNOWN: PartyView = {
   present: false,
   members: 0,
+  pack: 0,
   coins: 0,
   provisions: 0,
   unit: '',
@@ -627,6 +635,7 @@ const INTERACTION_NONE: InteractionView = {  available: false,
   distance: 0,
   reason: '',
   requires: [],
+  bodies: 0,
   outcome: 'none',
   code: '',
   message: '',
@@ -945,8 +954,10 @@ function readParty(value: unknown): PartyView {
   const hitPointsMax = typeof value.hitPointsMax === 'number' ? value.hitPointsMax : 0;
   const spellPoints = typeof value.spellPoints === 'number' ? value.spellPoints : 0;
   const spellPointsMax = typeof value.spellPointsMax === 'number' ? value.spellPointsMax : 0;
+  const pack = typeof value.pack === 'number' ? value.pack : 0;
   if (
     typeof members !== 'number' ||
+    typeof pack !== 'number' ||
     typeof coins !== 'number' ||
     typeof provisions !== 'number' ||
     typeof unit !== 'string' ||
@@ -960,6 +971,7 @@ function readParty(value: unknown): PartyView {
   return {
     present: true,
     members,
+    pack,
     coins,
     provisions,
     unit,
@@ -1013,6 +1025,7 @@ function readInteraction(value: unknown): InteractionView {
   if (!isRecord(value)) return INTERACTION_NONE;
   const { target, label, verb, state, reason, outcome, code, message, residue } = value;
   const distance = value.distance ?? 0;
+  const bodies = value.bodies ?? 0;
   const requires = Array.isArray(value.requires)
     ? value.requires.filter((entry): entry is string => typeof entry === 'string')
     : [];
@@ -1023,6 +1036,7 @@ function readInteraction(value: unknown): InteractionView {
     typeof state !== 'string' ||
     typeof distance !== 'number' ||
     typeof reason !== 'string' ||
+    typeof bodies !== 'number' ||
     typeof outcome !== 'string' ||
     typeof code !== 'string' ||
     typeof message !== 'string' ||
@@ -1040,6 +1054,7 @@ function readInteraction(value: unknown): InteractionView {
     distance,
     reason,
     requires,
+    bodies,
     outcome,
     code,
     message,
@@ -1561,6 +1576,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     ['time', 'Time'],
     ['days', 'Days'],
     ['party', 'Party'],
+    ['pack', 'Pack'],
     ['coins', 'Coins'],
     ['food', 'Food'],
     ['standing', 'Standing'],
@@ -1581,6 +1597,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     ['save', 'Save'],
     ['start', 'Start'],
     ['facing', 'Facing'],
+    ['bodies', 'Bodies here'],
     ['requires', 'Requires'],
     ['use', 'Use'],
   ] as const) {
@@ -2499,6 +2516,9 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     rows.days.textContent = clock.present ? String(clock.elapsedDays) : '—';
     // The party's accounts and standing are read from the party the product holds, never counted here.
     rows.party.textContent = party.present ? String(party.members) : '—';
+    // What the party carries and what it has: everything a search put in the shared pack is this number
+    // moving, so what a corpse held is visible on the panel rather than only in the sentence about it.
+    rows.pack.textContent = party.present ? String(party.pack) : '—';
     rows.coins.textContent = party.present ? String(party.coins) : '—';
     rows.food.textContent = party.present ? `${party.provisions} ${party.unit}` : '—';
     rows.standing.textContent = party.present ? `${party.reputation} / ${party.fame}` : '—';
@@ -2529,6 +2549,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     // the sentence a refusal answered with — and the panel spells none of them itself.
     const { interaction } = snapshot;
     panel.dataset.interaction = interaction.available ? interaction.reason : 'none';
+    panel.dataset.bodies = String(interaction.bodies);
     panel.dataset.use = interaction.outcome;
     rows.facing.textContent =
       !interaction.available
@@ -2536,6 +2557,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
         : interaction.label === ''
           ? interaction.reason
           : `${interaction.label} · ${interaction.verb}${interaction.state === '' ? '' : ` · ${interaction.state}`} · ${interaction.distance.toFixed(0)}`;
+    rows.bodies.textContent = interaction.available ? String(interaction.bodies) : '—';
     rows.requires.textContent = interaction.requires.length === 0 ? '—' : interaction.requires.join(', ');
     rows.use.textContent = interaction.outcome === 'none' ? '—' : interaction.outcome;
     useResult.hidden = interaction.message === '';

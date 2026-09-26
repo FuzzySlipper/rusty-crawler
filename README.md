@@ -25,8 +25,11 @@ Bundle assembles. Host launches.**
 > character's own health decides, and with an imported place holding real opposition: 1,900 creatures
 > emitted from the levels' own spawn records across 72 places, each driven by this game's own policy — the
 > monster table's AI class, movement, speed, second attack, and spells, and the shipped hostility matrix
-> between kinds — through the same gated entry the player's control uses. What combat does not do yet is
-> turn-based pacing, corpses as lootable things, and loot itself; a creature that cannot see its target
+> between kinds — through the same gated entry the player's control uses. A creature the party brings down
+> leaves a corpse where it fell, searchable through the same container mechanism a chest is, holding what
+> this game's own treasure tables say the death left: the monster table's cell for the row that fell, and
+> the item table's own weights drawn under a key that names the death, so the same kill yields the same
+> loot. What combat does not do yet is turn-based pacing; a creature that cannot see its target
 > walks straight at it rather than around geometry, because no place carries a navigation projection yet.
 > Magic and quests are still to come, and the shipped bundle carries no content — so a running product
 > without imported packs reports no world and no party. See

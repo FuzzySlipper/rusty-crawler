@@ -1,5 +1,6 @@
 using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Interaction;
+using PartyRpg.Kit.World;
 
 namespace PartyRpg.Rulesets.MightAndMagic7;
 
@@ -29,7 +30,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// not say what a shop needs.
 /// </para>
 /// </remarks>
-internal sealed class MightAndMagic7PeopleInteraction : IInteractionRule
+internal sealed class MightAndMagic7PeopleInteraction : IInteractionRule, ICorpseSource
 {
     /// <summary>The state word a person the party has spoken with holds.</summary>
     internal const string SpokenState = "spoken";
@@ -97,4 +98,13 @@ internal sealed class MightAndMagic7PeopleInteraction : IInteractionRule
 
         return InteractionOutcome.Applied(SpokenState, $"The party speaks with {target.Name}.");
     }
+
+    /// <summary>What is lying in one place, which the answers about everything else keep.</summary>
+    /// <remarks>
+    /// The wrapper adds people and delegates every other question, and a body is one of those: it travels
+    /// through this rule so the mechanism's single source of bodies is the rule it was handed, whichever
+    /// answers that rule composes.
+    /// </remarks>
+    public IReadOnlyList<PlacementDefinition> CorpsesOf(PlaceId place) =>
+        _inner is ICorpseSource bodies ? bodies.CorpsesOf(place) : [];
 }

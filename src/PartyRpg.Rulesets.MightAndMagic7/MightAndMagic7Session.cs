@@ -91,7 +91,18 @@ internal sealed class MightAndMagic7Session : IGameSession
         // actor is called. It is composed whether or not the host declared an act control, because the fight
         // is what reads the world — what is hostile, who is ready — and the control is only how a player
         // gives an order.
-        MightAndMagic7Combat combat = MightAndMagic7Combat.Compose(Declared(context.Content), context.Engine?.Random);
+        // This game's loot is read once, here, and the same reading answers both halves of a session: what a
+        // death left, which the fight's report generates, and what a container's random reference resolves
+        // to, which the world's interaction answers read. One loot owner means one table read and one seed.
+        MightAndMagic7Loot loot = MightAndMagic7Loot.Compose(Declared(context.Content), context.Engine?.Random);
+
+        // What the party brings down is kept in one place, and both halves hold it: the fight reports the
+        // creatures it read as down, and the world's interaction answers describe what is lying there. It is
+        // composed here because the ruleset is the one point both halves are composed over.
+        CorpseGround corpses = new();
+        MightAndMagic7Corpses corpseAnswers = new(corpses, loot);
+
+        MightAndMagic7Combat combat = MightAndMagic7Combat.Compose(Declared(context.Content), context.Engine?.Random, corpseAnswers);
 
         // This game's answers about how a monster behaves are read once here, beside them: who hates whom is
         // the shipped hostility matrix as content, and what a creature does with its moment is its own row's
@@ -115,7 +126,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             {
                 party = MightAndMagic7Party.Restore(save.Party);
                 PartyResourceLedger ledger = Ledger(party);
-                world = MightAndMagic7World.Compose(context.Content, context, clock, ledger, party, save, services, conversation);
+                world = MightAndMagic7World.Compose(context.Content, context, clock, ledger, party, save, services, conversation, corpseAnswers, loot);
                 _session = new PartyRpgSession(
                     composition,
                     context.Projection,
@@ -161,7 +172,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                     creation: new SessionCreation(
                         MightAndMagic7Creation.Start(declared),
                         description => MightAndMagic7Party.Factory().Create(description),
-                        created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created), created, services: services, conversation: conversation)),
+                        created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created), created, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot)),
                     saveInput: context.Save,
                     useInput: use,
                     service: services,
@@ -181,7 +192,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             // to the world here is the same composition order the created path takes, one accept earlier.
             party = MightAndMagic7Party.Compose(context.Content);
             PartyResourceLedger? accounts = party is null ? null : Ledger(party);
-            world = MightAndMagic7World.Compose(context.Content, context, clock, accounts, party, services: services, conversation: conversation);
+            world = MightAndMagic7World.Compose(context.Content, context, clock, accounts, party, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot);
             _session = new PartyRpgSession(
                 composition,
                 context.Projection,

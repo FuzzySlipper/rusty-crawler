@@ -60,6 +60,7 @@ function party(overrides = {}) {
   return {
     present: true,
     members: 4,
+    pack: 0,
     coins: 200,
     provisions: 6,
     unit: 'portions',
@@ -106,6 +107,7 @@ function interaction(overrides = {}) {
     distance: 0,
     reason: 'no-candidate',
     requires: [],
+    bodies: 0,
     outcome: 'none',
     code: '',
     message: '',
@@ -811,7 +813,7 @@ test('renders nothing until the product publishes, then renders what it publishe
       title: '',
       button: 'Starting…',
       disabled: true,
-      values: Array(31).fill('—'),
+      values: Array(33).fill('—'),
       place: '',
     });
 
@@ -825,17 +827,17 @@ test('renders nothing until the product publishes, then renders what it publishe
       disabled: false,
       values: [
         'running', '12.3 s', '740', '741', '2',
-        // The date, the time, the days, the party, the purse, the food, the standing, and the conditions,
-        // then what the party has left to lose and to cast with: a projection that carries no party block
-        // shows all ten as not known.
-        '—', '—', '—', '—', '—', '—', '—', '—', '—', '—',
+        // The date, the time, the days, the party, what it carries, the purse, the food, the standing, and
+        // the conditions, then what the party has left to lose and to cast with: a projection that carries
+        // no party block shows all eleven as not known.
+        '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—',
         '1', '—', '1234, 5678, 0 @ 512', '1 / 76', 'grounded', '—', '—', '—',
         '—', '—', '—',
         // A projection that carries no save block is a session this companion cannot read as saveable, and
         // the panel says so on the Save row rather than offering a save it cannot make. A projection that
-        // carries no interaction block is a session with nothing to use, and the three interaction rows say
-        // the same thing rather than showing an empty reticle that looks like an empty room.
-        'unavailable', 'fresh', '—', '—', '—',
+        // carries no interaction block is a session with nothing to use, and its four rows say the same
+        // thing rather than showing an empty reticle that looks like an empty room.
+        'unavailable', 'fresh', '—', '—', '—', '—',
       ],
       place: 'Emerald Island · region',
     });
@@ -937,10 +939,10 @@ test('the companion holds no state and starts no timer', () => {
     // Rendering the newest projection replaces the previous values rather than accumulating them.
     assert.deepEqual(readPanel(h).values, [
       'running', '3.0 s', '180', '182', '2',
-      '—', '—', '—', '—', '—', '—', '—', '—', '—', '—',
+      '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—',
       '1', '—', '1234, 5678, 0 @ 512', '1 / 76', '—', '—', '—', '—',
       '—', '—', '—',
-      'unavailable', 'fresh', '—', '—', '—',
+      'unavailable', 'fresh', '—', '—', '—', '—',
     ]);
     assert.equal(h.root.querySelectorAll('.crawler-session').length, 1);
 
@@ -1380,6 +1382,57 @@ test('a resumed session says so, and shows the party it resumed', () => {
     assert.equal(rows(h, 'Save').Save, '—');
 
     ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the panel shows the bodies lying in the place and what searching one gave', () => {
+  const h = harness();
+  try {
+    mountProductUi(h.root, h.context);
+
+    // Nothing killed yet: the place holds no body, and the row says so rather than leaving a reader to
+    // guess whether the fact is zero or missing.
+    h.emit(snapshot('running', 1, 60, 60, movement(), { interaction: interaction() }));
+    assert.equal(h.panel().getAttribute('data-bodies'), '0');
+    assert.equal(rows(h, 'Bodies here')['Bodies here'], '0');
+
+    // A kill: the place holds one body, and the reticle holds it as a container the visit made.
+    h.emit(snapshot('running', 2, 120, 122, movement(), {
+      interaction: interaction({
+        target: 'container',
+        label: 'The body of A beast',
+        verb: 'search',
+        distance: 120,
+        reason: 'selected',
+        bodies: 1,
+      }),
+    }));
+    assert.equal(h.panel().getAttribute('data-bodies'), '1');
+    assert.equal(rows(h, 'Bodies here')['Bodies here'], '1');
+    assert.equal(rows(h, 'Facing').Facing, 'The body of A beast · search · 120');
+
+    // And what the search found is the product's own sentence, with the pack and the purse after it: the
+    // panel prints what it was told rather than counting what it thinks was found.
+    h.emit(snapshot('running', 3, 180, 184, movement(), {
+      interaction: interaction({
+        target: 'container',
+        label: 'The body of A beast',
+        verb: 'search',
+        state: 'searched',
+        distance: 120,
+        reason: 'selected',
+        bodies: 1,
+        outcome: 'applied',
+        message: 'The body of A beast holds Sword and 34 gold.',
+      }),
+      party: party({ coins: 34, pack: 1 }),
+    }));
+    assert.equal(h.panel().getAttribute('data-use'), 'applied');
+    assert.equal(h.panel().querySelector('.crawler-use-result').textContent, 'The body of A beast holds Sword and 34 gold.');
+    assert.equal(rows(h, 'Pack').Pack, '1');
+    assert.equal(rows(h, 'Coins').Coins, '34');
   } finally {
     h.restore();
   }

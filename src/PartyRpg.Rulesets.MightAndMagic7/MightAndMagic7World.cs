@@ -88,6 +88,16 @@ internal static class MightAndMagic7World
     /// reading of one placement rather than two. Without it nobody is reachable: every placement is answered
     /// as it was before people existed.
     /// </param>
+    /// <param name="corpses">
+    /// What this game keeps of the creatures the party brought down, when a session has one: the world's
+    /// interaction answers read the bodies lying in a place from it, so the same owner the fight reports to
+    /// is the one a search finds. Without it no placement is a body.
+    /// </param>
+    /// <param name="loot">
+    /// This game's loot, which a container's random references and a body's own contents are answered by.
+    /// Without one a container holding a random reference is refused by name rather than emptied of invented
+    /// contents.
+    /// </param>
     internal static SessionWorld? Compose(
         ContentCatalog? catalog,
         RulesetSessionContext context,
@@ -96,7 +106,9 @@ internal static class MightAndMagic7World
         PartyEntity? entity = null,
         SessionSave? resume = null,
         MightAndMagic7Services? services = null,
-        MightAndMagic7Conversation? conversation = null)
+        MightAndMagic7Conversation? conversation = null,
+        MightAndMagic7Corpses? corpses = null,
+        MightAndMagic7Loot? loot = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(clock);
@@ -169,7 +181,7 @@ internal static class MightAndMagic7World
             clock,
             resources,
             entity,
-            new InteractionPolicy(Interaction(conversation, schedules.Schedule), MightAndMagic7Movement.Space, MightAndMagic7Interaction.Aim),
+            new InteractionPolicy(Interaction(conversation, schedules.Schedule, corpses, loot), MightAndMagic7Movement.Space, MightAndMagic7Interaction.Aim),
             schedules.Schedule,
             Movers(party, context).Creatures);
     }
@@ -182,12 +194,18 @@ internal static class MightAndMagic7World
     /// one interaction mechanism: a placement somebody stands at is somebody to talk to — a counter, a
     /// household, or a person a map places in the open — and everything else is answered exactly as it was.
     /// The doors-and-fixtures answers carry this game's schedule, which is what locks a door outside the
-    /// hours its place keeps.
+    /// hours its place keeps, and this game's bodies and loot, which is what makes a kill searchable and a
+    /// chest that holds a random reference answerable.
     /// </remarks>
-    private static IInteractionRule Interaction(MightAndMagic7Conversation? conversation, PlaceSchedule schedule) =>
-        conversation is null
-            ? new MightAndMagic7Interaction(schedule)
-            : new MightAndMagic7PeopleInteraction(conversation, new MightAndMagic7Interaction(schedule));
+    private static IInteractionRule Interaction(
+        MightAndMagic7Conversation? conversation,
+        PlaceSchedule schedule,
+        MightAndMagic7Corpses? corpses,
+        MightAndMagic7Loot? loot)
+    {
+        MightAndMagic7Interaction answers = new(schedule, corpses, loot);
+        return conversation is null ? answers : new MightAndMagic7PeopleInteraction(conversation, answers);
+    }
 
     /// <summary>
     /// How the party and the place's creatures move, when the host handed this ruleset an engine to move in.

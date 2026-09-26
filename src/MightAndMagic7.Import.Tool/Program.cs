@@ -144,6 +144,10 @@ internal static class Program
                 spellSchools = tables.Spells.Schools.Count,
                 quests = tables.Quests.Quests.Count,
                 itemRows = tables.Items.Items.Count,
+                randomItemRows = tables.RandomItems.Rows.Count,
+                randomItemsDrawn = tables.RandomItems.DrawnCount,
+                monsterRowsDroppingSomething = tables.Monsters.Monsters.Count(monster => monster.TreasureRoll.IsAnything),
+                monsterRowsDroppingAnItem = tables.Monsters.Monsters.Count(monster => monster.TreasureRoll.WantsItem),
             },
             eventPrograms = programs.Count,
             mapMoves = graph.MoveInstructionCount,
@@ -275,6 +279,7 @@ internal static class Program
     private static int Write(string installRoot, string outputRoot, bool checkDeterminism)
     {
         Lod.LodInstall install = Lod.LodInstall.Open(installRoot);
+        Tables.Mm7Tables tables = Tables.Mm7Tables.Read(install);
         PackWriteResult result = PackWriter.Write(install, outputRoot);
         if (checkDeterminism)
         {
@@ -298,11 +303,34 @@ internal static class Program
                 services = Describe(result.Services),
                 people = Describe(result.People),
                 creatures = Describe(result.Creatures),
+                loot = Describe(result.Containers, tables),
                 use = "add these pack ids to a bundle under content/partyrpg/bundles to load them",
             },
             Json));
         return 0;
     }
+
+    /// <summary>
+    /// What the loot tables and the containers that draw from them hold, as the operator's own data states
+    /// it: how many items any treasure level may draw, how many item references the emitted containers
+    /// carry, and how many of those ask for a random item rather than naming one.
+    /// </summary>
+    /// <remarks>
+    /// The counts are stated because "treasure comes from the data" is a claim about the operator's own
+    /// installation: the weighed item rows are what a random item of a level draws from, and a container's
+    /// random references are the requests the loot owner answers rather than something the product invented.
+    /// </remarks>
+    private static object Describe(Packs.PlaceContainerSummary containers, Tables.Mm7Tables tables) => new
+    {
+        weighedItemRows = tables.RandomItems.Rows.Count,
+        itemsAnyLevelDraws = tables.RandomItems.DrawnCount,
+        monsterRowsWithAnItem = tables.Monsters.Monsters.Count(monster => monster.TreasureRoll.WantsItem),
+        containers = containers.ContainerCount,
+        containersHoldingSomething = containers.StockedCount,
+        containersTrapped = containers.TrappedCount,
+        itemReferences = containers.ItemReferenceCount,
+        randomItemReferences = containers.RandomItemReferenceCount,
+    };
 
     /// <summary>
     /// What the creature derivation produced: how many records asked for a creature, how many creatures were

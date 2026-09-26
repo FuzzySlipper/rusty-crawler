@@ -1,6 +1,8 @@
+using System.Globalization;
 using System.Text.Json;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Interaction;
+using PartyRpg.Kit.Loot;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.World;
 
@@ -20,10 +22,11 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// <para>
 /// <b>What the shipped data holds.</b> A container record stores its items as identifiers, and a shipped
 /// one mostly stores the donor's negative references, which ask for a random item of a treasure level
-/// (<c>src/Engine/Objects/ItemEnums.h:956-963</c>). Those references are answered by refusing the search
-/// and naming them, because the item generator that turns a treasure level into items is not built: the
-/// pack carries the request exactly as the map recorded it, and inventing the answer here would be
-/// inventing content.
+/// (<c>src/Engine/Objects/ItemEnums.h:956-963</c>). Those references are answered here, by the loot owner
+/// that turns a level into things, through the place's own danger level and the donor's own shape for one
+/// finding (<c>src/Engine/Objects/Chest.cpp:323-365</c>). A reference is therefore resolved once, under a
+/// key that names the container and the slot it stood in, so a search refused for want of room and tried
+/// again finds exactly what the first attempt would have given.
 /// </para>
 /// <para>
 /// <b>Traps.</b> A record's own flag word says whether it is trapped (<c>Trapped = 0x1</c>, which both
@@ -45,9 +48,11 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// than the donor's, and it is why noticing and defeating are two separate answers here.
 /// </para>
 /// <para>
-/// <b>No dice are rolled.</b> The donor rolls the trap's damage; this build has no owner of randomness, so
-/// the dice are taken at their mean and the number is the same every time. When a dice owner lands, the
-/// roll belongs there beside the loot generator, and this is the note that says so.
+/// <b>The trap's dice are taken at their mean.</b> The donor rolls them; this build prices a trap by the
+/// same number every time, because a trap's harm is applied by the interaction mechanism's own workflow
+/// rather than by a generator with a key to draw under. The loot this game gives a container is drawn, and
+/// the trap's dice are the one place the two readings differ — a difference stated here rather than hidden
+/// behind one number that looks rolled.
 /// </para>
 /// </remarks>
 internal static class MightAndMagic7Containers
@@ -81,6 +86,15 @@ internal static class MightAndMagic7Containers
 
     /// <summary>The placement field that carries the item a sprite object holds.</summary>
     internal const string ContainingItemField = "containingItem";
+
+    /// <summary>The placement field that carries the place's own map treasure level.</summary>
+    /// <remarks>
+    /// The donor reads it from the place's row of the per-map table and uses it to remap every random
+    /// reference a container holds (OpenEnroth <c>src/Engine/Tables/MapTable.cpp:76</c>,
+    /// <c>src/Engine/Objects/Chest.cpp:331</c>), so the number travels with the container the way its trap
+    /// numbers do rather than widening every reader of the map table.
+    /// </remarks>
+    internal const string MapTreasureLevelField = "mapTreasureLevel";
 
     /// <summary>The record flag that says a chest is trapped, which both donors agree on.</summary>
     internal const int TrappedFlag = 0x1;
@@ -194,9 +208,26 @@ internal static class MightAndMagic7Containers
     }
 
     /// <summary>What searching a container makes of it, given that nothing guards it any more.</summary>
+    /// <remarks>
+    /// <para>
+    /// Every reference is answered the same way whichever it is: a positive one names an item the catalog
+    /// carries, and a negative one asks the loot owner for a treasure level. The place's own danger level
+    /// travels with the container, so a reference in a dangerous place yields better than the same reference
+    /// in a quiet one, which is the donor's own reading of a container's contents.
+    /// </para>
+    /// <para>
+    /// Nothing is rolled twice. Each reference is drawn under a key that names the container and the slot it
+    /// stood in, so a search the party's pack could not take is refused whole and the retry finds the same
+    /// things — which is what makes the refusal a refusal rather than a reroll.
+    /// </para>
+    /// </remarks>
     /// <param name="target">The definition the container was given.</param>
     /// <param name="context">The container, its state, and the party.</param>
-    internal static InteractionOutcome Search(InteractionTargetDefinition target, InteractionContext context)
+    /// <param name="loot">This game's loot, or null when this ruleset cannot generate any.</param>
+    internal static InteractionOutcome Search(
+        InteractionTargetDefinition target,
+        InteractionContext context,
+        MightAndMagic7Loot? loot)
     {
         if (target.Verb == InteractionVerb.Unlock)
         {
@@ -211,33 +242,80 @@ internal static class MightAndMagic7Containers
         }
 
         IReadOnlyList<int> contents = References(context.Placement);
-        List<string> random = [.. contents.Where(item => item < 0).Select(item => $"treasure level {-item}")];
-        if (random.Count > 0)
-        {
-            return InteractionOutcome.Refused(
-                "container-contents-unresolved",
-                $"{target.Name} holds {string.Join(" and ", random)}, and the item generation that turns a treasure level into items is not built: the loot generator that owns it is a separate task, and what the map recorded is a request rather than an answer.");
-        }
-
         if (contents.Count == 0)
         {
             return InteractionOutcome.Applied(SearchedState, $"{target.Name} is empty.");
         }
 
-        // Identical references are one yield of that many, which is what a stack is: the record's slots hold
-        // no state that would tell two copies of one item apart, so two entries are two of that item.
-        List<InteractionItemYield> yields = [];
-        foreach (IGrouping<int, int> group in contents.GroupBy(item => item))
+        int placeLevel = context.Placement.Source.GetInt32(MapTreasureLevelField) ?? 0;
+        Dictionary<int, int> named = [];
+        List<LootItem> found = [];
+        int coins = 0;
+        for (int slot = 0; slot < contents.Count; slot++)
         {
-            yields.Add(new InteractionItemYield(new ItemDefinitionId(group.Key.ToString(System.Globalization.CultureInfo.InvariantCulture)), group.Count()));
+            int reference = contents[slot];
+            if (reference > 0)
+            {
+                named[reference] = named.GetValueOrDefault(reference) + 1;
+                continue;
+            }
+
+            // A reference is a request and this is the owner that answers it. Without one, or without a
+            // random service to draw through, the request stays unanswered and the search says which
+            // reference it could not answer rather than handing over a level's worth of nothing.
+            if (loot?.RollsFor(Key(context, slot)) is not { } rolls)
+            {
+                return InteractionOutcome.Refused(
+                    "container-contents-unresolved",
+                    $"{target.Name} holds treasure level {-reference} at slot {slot}, and this build has no loot generator to answer it: the request the map recorded is recorded and not answered.");
+            }
+
+            LootYield yielded = loot.Reference(-reference, placeLevel, rolls);
+            found.AddRange(yielded.Items);
+            coins += yielded.Coins;
         }
 
-        int held = contents.Count;
+        List<InteractionItemYield> yields = [];
+        List<string> words = [];
+        foreach ((int id, int count) in named)
+        {
+            ItemDefinitionId definition = new(id.ToString(CultureInfo.InvariantCulture));
+            yields.Add(new InteractionItemYield(definition, count));
+            words.Add(Word(loot, definition, count));
+        }
+
+        foreach (IGrouping<ItemDefinitionId, LootItem> group in found.GroupBy(item => item.Definition))
+        {
+            int count = group.Sum(item => item.Count);
+            yields.Add(new InteractionItemYield(group.Key, count));
+            words.Add(Word(loot, group.Key, count));
+        }
+
+        if (coins > 0) words.Add(string.Create(CultureInfo.InvariantCulture, $"{coins} gold"));
+        if (words.Count == 0) return InteractionOutcome.Applied(SearchedState, $"{target.Name} holds nothing after all.");
         return InteractionOutcome.Applied(
             SearchedState,
-            $"{target.Name} holds {held} item(s).",
-            items: yields);
+            $"{target.Name} holds {string.Join(" and ", words)}.",
+            items: yields,
+            gain: coins > 0 ? PartyCost.OfGold(coins) : PartyCost.Free);
     }
+
+    /// <summary>How one finding reads: the item's name, counted when there is more than one.</summary>
+    private static string Word(MightAndMagic7Loot? loot, ItemDefinitionId definition, int count)
+    {
+        string name = loot is null ? definition.Value : loot.NameOf(definition);
+        return count > 1 ? string.Create(CultureInfo.InvariantCulture, $"{count} × {name}") : name;
+    }
+
+    /// <summary>What one reference's draw is keyed on: the container, and which slot the reference stood in.</summary>
+    /// <remarks>
+    /// The slot is what separates two identical references in one container, so a chest holding two requests
+    /// for the same level yields two lots rather than two copies of one.
+    /// </remarks>
+    private static string Key(InteractionContext context, int slot) =>
+        string.Create(
+            CultureInfo.InvariantCulture,
+            $"container/{context.Place}/{context.Placement.Content}/{slot}");
 
     /// <summary>
     /// Everything a container placement's contents are read as: the item references, in slot order.

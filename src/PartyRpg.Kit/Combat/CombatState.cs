@@ -44,6 +44,7 @@ public sealed class CombatState : IGameTimeObserver
 {
     private readonly ICombatRule _rule;
     private readonly ICombatResolutionRule? _resolution;
+    private readonly IFallenCreatureObserver? _fallen;
     private readonly PartyEntity _party;
     private readonly ICombatWorld? _world;
     private readonly GameClock? _clock;
@@ -87,6 +88,7 @@ public sealed class CombatState : IGameTimeObserver
     {
         _rule = rule ?? throw new ArgumentNullException(nameof(rule));
         _resolution = rule as ICombatResolutionRule;
+        _fallen = rule as IFallenCreatureObserver;
         _party = party ?? throw new ArgumentNullException(nameof(party));
         _world = world;
         _clock = clock;
@@ -200,6 +202,7 @@ public sealed class CombatState : IGameTimeObserver
 
         if (_world is { } world)
         {
+            List<FallenCreature> fallen = [];
             foreach (PlacePopulationEntity entity in world.Population)
             {
                 if (!entity.IsAlive) continue;
@@ -229,8 +232,17 @@ public sealed class CombatState : IGameTimeObserver
                     new Combatant(subject, side, name, kind, distance, _rule.InitialRecovery(subject, kind));
                 combatant.Observe(side, name, kind, distance);
                 live.Add(combatant);
+
+                // What the creature left is read here, where its live position and its own health are both in
+                // hand: a body lies where the creature stood when it went down, which is not where content
+                // placed it. The reading is handed over whole below, so the owner of the bodies never has to
+                // guess which of them are still down.
+                if (CreatureHealth.Find(entity.Actor) is { IsDown: true }) fallen.Add(new FallenCreature(entity.Placement, pose, name));
             }
-        }
+
+            // The place's own reading replaces whatever the owner held: a creature standing again, or a place
+            // the party has left, cannot leave a body behind.
+            _fallen?.Observe(world.Place, fallen);        }
 
         _combatants.Clear();
         _byId.Clear();

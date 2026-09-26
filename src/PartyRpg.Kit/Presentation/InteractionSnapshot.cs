@@ -30,6 +30,11 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="Distance">How far it stands from the party, zero when nothing is focused.</param>
 /// <param name="Reason">Why the reticle holds or refuses what it does, as the selection's own reason.</param>
 /// <param name="Requires">What the focused target requires, in the order the checks happen.</param>
+/// <param name="Bodies">
+/// How many bodies lie in the place the party stands in, which is what the mechanism found beside the place's
+/// own content. It is published because a body is something a player has to be able to see is there: a place
+/// whose only usable thing is what the party killed would otherwise read exactly like an empty one.
+/// </param>
 /// <param name="Outcome">What the last use did: <c>none</c>, <c>applied</c>, or <c>refused</c>.</param>
 /// <param name="Code">The last refusal's code, empty when the last use applied or none has happened.</param>
 /// <param name="Message">What the last use reported, empty before the party has used anything.</param>
@@ -46,7 +51,8 @@ public readonly record struct InteractionSnapshot(
     string Outcome,
     string Code,
     string Message,
-    string Residue)
+    string Residue,
+    int Bodies = 0)
 {
     /// <summary>No interaction mechanism: there is nothing to focus and nothing to use.</summary>
     public static InteractionSnapshot None => new(
@@ -61,7 +67,8 @@ public readonly record struct InteractionSnapshot(
         Outcome: "none",
         Code: string.Empty,
         Message: string.Empty,
-        Residue: string.Empty);
+        Residue: string.Empty,
+        Bodies: 0);
 
     /// <summary>Reads the interaction facts out of the world's mechanism.</summary>
     /// <param name="interaction">The session's interaction mechanism, or null when it holds none.</param>
@@ -89,6 +96,7 @@ public readonly record struct InteractionSnapshot(
             Outcome: result is null ? "none" : result.IsApplied ? "applied" : "refused",
             Code: result?.Code ?? string.Empty,
             Message: result?.Message ?? string.Empty,
-            Residue: result?.Residue ?? string.Empty);
+            Residue: result?.Residue ?? string.Empty,
+            Bodies: interaction.Bodies.Count);
     }
 }

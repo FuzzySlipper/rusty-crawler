@@ -1,4 +1,5 @@
 using System.Text.Json;
+using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Party;
@@ -39,15 +40,20 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// when the clock reaches the hour its place opens at, because nothing about it was ever remembered.
 /// </para>
 /// <para>
+/// <b>A body is a container the fight made.</b> A creature the party brought down is described as the same
+/// kind of target a chest is, searched through the same workflow, and transferred into the same shared pack:
+/// the corpse answers come from <see cref="MightAndMagic7Corpses"/>, which reads what the fight reported, and
+/// this rule hands them the same way it hands a chest's. That is what makes a kill yield loot without a
+/// second mechanism for looting.
+/// </para>
+/// <para>
 /// <b>What this game cannot deliver yet, stated rather than hidden.</b> Opening a door records its state and
 /// reports it, and leaves the door's polygons standing as collision, because door geometry does not move in
 /// this build; that is the residue the outcome carries. A fixture's use raises an event nothing executes, so
-/// it is a refusal with the event named rather than a success that did nothing. A container whose contents
-/// are the map's random-item references is refused by name, because the item generation that would answer
-/// them is a separate owner and inventing contents would be inventing content.
+/// it is a refusal with the event named rather than a success that did nothing.
 /// </para>
 /// </remarks>
-internal sealed class MightAndMagic7Interaction : IInteractionRule
+internal sealed class MightAndMagic7Interaction : IInteractionRule, ICorpseSource
 {
     /// <summary>The placement kind an interior's door slot is imported as.</summary>
     internal const string DoorPlacementKind = "door";
@@ -110,13 +116,31 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     internal static InteractionTuning Aim { get; } = new(AcquisitionAngleRadians, ReleaseAngleRadians);
 
     private readonly PlaceSchedule? _schedule;
+    private readonly MightAndMagic7Corpses? _corpses;
+    private readonly MightAndMagic7Loot? _loot;
 
     /// <summary>Creates this game's interaction answers.</summary>
     /// <param name="schedule">
     /// Which places keep hours, when this game's content clocks any: a door in a clocked place is locked
     /// outside them. Without one no door is locked by the hour, and every other answer stands.
     /// </param>
-    internal MightAndMagic7Interaction(PlaceSchedule? schedule = null) => _schedule = schedule;
+    /// <param name="corpses">
+    /// What the fight reported, when this session has corpses to answer about. Without one no placement is a
+    /// body, which is the honest state of a session whose fight keeps no record of what it brought down.
+    /// </param>
+    /// <param name="loot">
+    /// This game's loot, which a container's random references are answered by. Without one a container
+    /// holding one is refused by name rather than emptied of invented contents.
+    /// </param>
+    internal MightAndMagic7Interaction(
+        PlaceSchedule? schedule = null,
+        MightAndMagic7Corpses? corpses = null,
+        MightAndMagic7Loot? loot = null)
+    {
+        _schedule = schedule;
+        _corpses = corpses;
+        _loot = loot;
+    }
 
     /// <summary>The door state the delta stores for a door at rest, which the donor calls open.</summary>
     /// <remarks>
@@ -194,6 +218,10 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
         PlacementDefinition placement = request.Placement;
         IReadOnlyList<InteractionRequirement> requires = ReadRequirements(placement);
 
+        // What is lying at a placement is asked first, because a creature's own placement is where its body
+        // lies: a door is never a body, and a creature the fight has not read as down is not a target at all.
+        if (_corpses?.Describe(request) is { } body) return body;
+
         if (string.Equals(placement.Content.Kind, DoorPlacementKind, StringComparison.Ordinal))
         {
             // A door whose lock is stated and not yet turned offers the use that turns it; the same door
@@ -248,11 +276,18 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     };
 
     /// <inheritdoc />
+    /// <remarks>
+    /// A body and a chest are the same kind of target, so the first question is whether anything is lying at
+    /// the placement: the answer decides whether the search reads a death's contents or a record's, and
+    /// everything else about the use is the same.
+    /// </remarks>
     public InteractionOutcome Apply(InteractionTargetDefinition target, InteractionContext context)
     {
         if (string.Equals(target.Kind.Value, MightAndMagic7Containers.TargetKind, StringComparison.Ordinal))
         {
-            return MightAndMagic7Containers.Search(target, context);
+            return _corpses is not null && _corpses.Describe(new InteractionTargetRequest(context.Place, context.Placement, target.State)) is not null
+                ? _corpses.Search(target, context)
+                : MightAndMagic7Containers.Search(target, context, _loot);
         }
 
         if (string.Equals(target.Kind.Value, FixtureTargetKind, StringComparison.Ordinal))
@@ -265,6 +300,16 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
 
         return Door(target, context);
     }
+
+    /// <summary>What is lying in one place, which is what the interaction mechanism merges beside content.</summary>
+    /// <remarks>
+    /// The bodies the fight reported travel to the mechanism from here because this rule is the one object
+    /// both halves of a session are composed over: the fight is handed this game's corpse owner to report to,
+    /// and the mechanism is handed this game's answers. A world-composed source would be a second owner of
+    /// one fact.
+    /// </remarks>
+    public IReadOnlyList<PlacementDefinition> CorpsesOf(PlaceId place) =>
+        _corpses?.CorpsesOf(place) ?? [];
 
     /// <summary>What using a door makes of it, given its state and what it requires.</summary>
     /// <remarks>

@@ -40,6 +40,9 @@ public static class Mm7TableSources
     /// <summary>Item definitions.</summary>
     public static LodSource Items { get; } = new("items", RulesArchive, "items.txt");
 
+    /// <summary>How often each item appears at each treasure level, which is what random loot draws from.</summary>
+    public static LodSource RandomItems { get; } = new("random-items", RulesArchive, "rnditems.txt");
+
     /// <summary>Class and rank descriptions.</summary>
     public static LodSource Classes { get; } = new("classes", RulesArchive, "class.txt");
 
@@ -70,6 +73,7 @@ public static class Mm7TableSources
         Hostility,
         Spells,
         Items,
+        RandomItems,
         Classes,
         Skills,
         Quests,

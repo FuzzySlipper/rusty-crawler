@@ -78,7 +78,18 @@ checks over the resistance plus thirty (`Actor.cpp:3743-3758`, `Character.cpp:10
 own `Imm` cell read as full immunity (`Monsters.cpp:327-330`) — `MightAndMagic7Damage` names the kinds and
 reads the resistance columns, `MightAndMagic7SpecialAttacks` reads the special-attack cell, and
 `MightAndMagic7Health` is what a wound leaves on a character: unconscious while their health plus base
-endurance is at least one, dead below that (`Character.cpp:1310-1316`)), and what stopping costs here (`MightAndMagic7Rest` — eight hours under a roof or in the open, the
+endurance is at least one, dead below that (`Character.cpp:1310-1316`)), what a kill leaves
+(`MightAndMagic7Corpses` — the fight reports what it read as down and this game generates each death's
+loot once, under a key that names the place, the creature, and which death it was, and holds it on the
+body: the monster table's own treasure cell, read by the importer into a chance, coin dice, a treasure
+level and the kind of thing asked for (`Monsters.cpp:440-490`), with the coin rolled and the item drawn
+from the item table's own weights by level (`ItemTable.cpp:316-374`) and the donor's fallback when a level
+offers nothing the cell asked for (`ItemTable.cpp:347`) — and `MightAndMagic7Loot`, which owns the same
+tables for a container's random reference: the level is remapped through the place's own danger level
+(`Item.cpp:760-783`) and yields one to five findings of nothing, coin or an item
+(`Chest.cpp:323-365`), with the seventh level handing over one of the table's own artifacts
+(`ItemEnums.h:977-978`) — a body and a chest are then searched through the one container mechanism, and a
+corpse reads as the same kind of target a chest is), and what stopping costs here (`MightAndMagic7Rest` — eight hours under a roof or in the open, the
 donor's ground table for what a camp eats, its own proximity rule for a party that will not lie down with
 creatures near, an interrupted night that lasts only the hours it lasted, and the day-long debt of sleep
 that weakens the party on the clock's own deadline). Party creation's game definitions are landed too:

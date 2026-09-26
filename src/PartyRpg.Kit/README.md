@@ -12,8 +12,12 @@ Owns:
   casting workflows, conditions and recovery, progression bookkeeping.
 - Combat: attack execution, targeting and current target, attack resolution, damage kinds,
   resistance and immunity, conditions a hit leaves, and the thresholds a wound is judged against
-  application, real-time and turn-based mode coordination, corpse and loot
-  machinery, monster presence and AI coordination.
+  application, real-time and turn-based mode coordination, what a downed creature leaves
+  (`CorpseGround`, fed by the fight's own reading), monster presence and AI coordination.
+- Loot: the keyed draws one generation makes (`LootRolls`), the candidates content weighs by
+  treasure level (`LootTable`, `LootCandidate`, `LootFilter`), the shape of a treasure request
+  (`TreasureRoll`), and what one generation produced (`LootYield`). Which numbers a game's tables
+  carry and what its levels mean stay the ruleset's.
 - World interaction: NPC conversation, services, quests and journal state,
   containers, doors, travel between world regions and indoor maps.
 - Session plumbing: compiled ruleset contracts, typed IDs, bundle and
@@ -118,7 +122,13 @@ them, settles what the use costs through the party's one settlement path, asks t
 produces, applies it against the party's owners, records the `InteractionTargetState` that use left, and
 reports an `InteractionResult`; every failure — nothing faced, out of reach, out of sight, a requirement
 unmet, a charge the party cannot cover, a ruleset's own refusal, a pack with no room for what was found —
-is an outcome with a code and a sentence rather than a silent no-op) and time (`GameClock` over a validated
+is an outcome with a code and a sentence rather than a silent no-op — and a corpse is a target that
+mechanism discovers: `CorpseGround` keeps what the fight read as down, the ruleset hands it back as the
+creature's own placement lying where it fell, and searching it is the same workflow a chest goes through),
+what a death leaves (`Loot/` — `TreasureRoll` is the shape a treasure rule takes once its format has been
+read, `LootTable` draws a weighted candidate at a level behind an opaque `LootFilter`, and `LootRolls`
+makes every draw under a key that names the death or the container, so the same kill yields the same loot
+twice; what the numbers mean stays the ruleset's), and time (`GameClock` over a validated
 `GameCalendar` — one explicit `Advance`/`AdvanceAdmittedSeconds` path with a returned `ClockAdvance`
 report of the hour, day, week, month, and year boundaries it crossed and the `DeadlineDue` entries it
 brought due once each, `GameDuration` and `GameDate` values, the `DeadlineId` handles travel, rest,

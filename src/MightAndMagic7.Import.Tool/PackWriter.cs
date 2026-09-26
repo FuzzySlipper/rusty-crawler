@@ -117,7 +117,7 @@ internal static class PackWriter
 
         // A place's containers are derived from the map faces whose events open them, which is also where
         // its walk-in reaches come from, so an import that decoded no map has neither.
-        PlaceContainerSummary containers = PlaceContainerEmitter.Emit(maps, programs, PlaceTrapNumbersTable.Read(tables));
+        PlaceContainerSummary containers = PlaceContainerEmitter.Emit(maps, programs, PlaceMapNumbersTable.Read(tables));
 
         // The counters are the building table's rows joined to the map faces that raise each house's own
         // event, which is the same reading of the maps the reaches and containers come from: an import that
@@ -651,6 +651,10 @@ internal static class PackWriter
                 field.WriteNumber("faceSpread", container.FaceSpread);
                 field.WriteNumber("trapDifficulty", container.TrapDifficulty);
                 field.WriteNumber("trapDamageDice", container.TrapDamageDice);
+                // The place's own danger level travels with the container for the same reason its trap
+                // numbers do: every random reference the container holds is remapped through it, and a
+                // ruleset never sees a place's fields.
+                field.WriteNumber("mapTreasureLevel", container.MapTreasureLevel);
                 field.WriteString("contentsSource", "chest-record");
                 field.WriteStartArray("contents");
                 foreach (MapChestItem item in container.Chest.Items)
@@ -955,6 +959,18 @@ internal static class PackWriter
                 writer.WriteString("movement", monster.Movement);
                 writer.WriteString("fly", monster.Fly);
                 WriteOptionalString(writer, "treasure", monster.Treasure);
+
+                // The cell as it stands is kept beside what it states, so the numbers a fight draws from can
+                // be checked against the bytes they came from; a creature that drops nothing states a cell of
+                // zero and a roll of nothing rather than no roll at all.
+                writer.WriteStartObject("treasureRoll");
+                writer.WriteNumber("chance", monster.TreasureRoll.Chance);
+                writer.WriteNumber("goldRolls", monster.TreasureRoll.GoldRolls);
+                writer.WriteNumber("goldSides", monster.TreasureRoll.GoldSides);
+                writer.WriteNumber("level", monster.TreasureRoll.Level);
+                if (monster.TreasureRoll.Kind.Length > 0) writer.WriteString("kind", monster.TreasureRoll.Kind);
+                if (monster.TreasureRoll.Skill.Length > 0) writer.WriteString("skill", monster.TreasureRoll.Skill);
+                writer.WriteEndObject();
                 WriteColumns(writer, monster.Fields);
             }));
         }
@@ -1033,6 +1049,22 @@ internal static class PackWriter
                 writer.WriteNumber("value", item.Value);
                 writer.WriteString("equipStat", item.EquipStat);
                 writer.WriteString("skillGroup", item.SkillGroup);
+
+                // The two tags the treasure rules compare, read from the table's own words here so nothing
+                // downstream has to know how the shipped file spells an equipment column.
+                writer.WriteString("type", ItemVocabulary.KindOf(item.EquipStat));
+                writer.WriteString("skill", ItemVocabulary.SkillOf(item.SkillGroup));
+
+                // What the item weighs at each treasure level, which is what a random item of that level
+                // draws from. An item the shipped table does not weigh carries no weights at all rather than
+                // six zeroes, so "never drawn" and "not stated" stay different facts.
+                if (tables.RandomItems.Rows.FirstOrDefault(row => row.Id == item.Id) is { Id: > 0 } weighed)
+                {
+                    writer.WriteStartArray("lootWeights");
+                    for (int level = 1; level <= RandomItemsTable.Levels; level++) writer.WriteNumberValue(weighed.ChanceAt(level));
+                    writer.WriteEndArray();
+                }
+
                 writer.WriteString("damageDice", item.DamageDice);
                 writer.WriteString("damageModifier", item.DamageModifier);
                 writer.WriteString("material", item.Material);

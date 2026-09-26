@@ -30,6 +30,11 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="HitPointsMax">What they could have between them, which is the measure the first number needs.</param>
 /// <param name="SpellPoints">What the members have left to cast with between them.</param>
 /// <param name="SpellPointsMax">What they could have between them.</param>
+/// <param name="Pack">
+/// How many item instances lie in the party's one shared pack, which is where everything the party takes
+/// goes: a search that was refused for want of room and one that landed are told apart by this number
+/// moving, and a panel that showed only the purse would leave loot invisible until it was sold.
+/// </param>
 public readonly record struct PartySnapshot(
     bool Present,
     int Members,
@@ -42,7 +47,8 @@ public readonly record struct PartySnapshot(
     int HitPoints = 0,
     int HitPointsMax = 0,
     int SpellPoints = 0,
-    int SpellPointsMax = 0)
+    int SpellPointsMax = 0,
+    int Pack = 0)
 {
     /// <summary>The party of a session that holds none.</summary>
     public static PartySnapshot None => new(false, 0, 0, 0, string.Empty, 0, 0, string.Empty);
@@ -80,7 +86,8 @@ public readonly record struct PartySnapshot(
             hitPoints,
             hitPointsMax,
             spellPoints,
-            spellPointsMax);
+            spellPointsMax,
+            party.Inventory.Count);
     }
 
     /// <summary>
