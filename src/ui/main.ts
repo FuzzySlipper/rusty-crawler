@@ -771,6 +771,7 @@ interface SnapshotView {
   readonly conversation: ConversationView;
   readonly combat: CombatView;
   readonly progression: ProgressionView;
+  readonly promotion: PromotionView;
   readonly skills: SkillsView;
   readonly magic: MagicView;
   readonly alchemy: AlchemyView;
@@ -852,6 +853,81 @@ interface SkillsView {
   readonly skill: string;
   readonly level: number;
   readonly cost: number;
+  readonly code: string;
+  readonly message: string;
+}
+
+/** One thing a rank asks for, as the product published it: what it is and how it reads. */
+interface PromotionRequirementView {
+  /** What kind of thing it is: `giver`, `item`, `award`, or `quest`. */
+  readonly kind: string;
+  readonly name: string;
+  readonly label: string;
+  readonly amount: number;
+  readonly text: string;
+}
+
+/** One rank a class leads to, as the product published it. */
+interface PromotionRankView {
+  readonly promotion: string;
+  readonly toClass: string;
+  readonly rank: number;
+  /** The alternative it takes: `light`, `dark`, or empty for a class's first promotion. */
+  readonly choice: string;
+  readonly giver: string;
+  readonly giverName: string;
+  readonly words: string;
+  readonly requirements: readonly PromotionRequirementView[];
+}
+
+/** One member and the ranks its class leads to. */
+interface PromotionMemberView {
+  readonly index: number;
+  readonly member: string;
+  readonly name: string;
+  readonly class: string;
+  readonly rank: number;
+  readonly promotions: readonly PromotionRankView[];
+}
+
+/** One member a rank was given to, as the product published it. */
+interface PromotionGrantView {
+  readonly member: string;
+  readonly name: string;
+  readonly fromClass: string;
+  readonly fromRank: number;
+  readonly toClass: string;
+  readonly rank: number;
+  readonly choice: string;
+  readonly met: readonly string[];
+}
+
+/** One member a rank was not given to, and what they were missing. */
+interface PromotionDenialView {
+  readonly member: string;
+  readonly name: string;
+  readonly class: string;
+  readonly rank: number;
+  readonly missing: readonly string[];
+}
+
+/**
+ * What the party may become and what its last rank did, as the product published it. `available` is false
+ * when the session's ruleset stated no ladder of ranks, which is what a game that never said how its classes
+ * advance gets — and a party at the top of its ladder is a different reading again: the block is there and
+ * no class leads anywhere.
+ */
+interface PromotionView {
+  readonly available: boolean;
+  readonly members: readonly PromotionMemberView[];
+  /** What the last rank was: `none`, `granted`, or `refused`. */
+  readonly outcome: string;
+  readonly promotion: string;
+  readonly toClass: string;
+  readonly rank: number;
+  readonly choice: string;
+  readonly granted: readonly PromotionGrantView[];
+  readonly denied: readonly PromotionDenialView[];
   readonly code: string;
   readonly message: string;
 }
@@ -1064,6 +1140,21 @@ const SKILLS_NONE: SkillsView = {
   skill: '',
   level: 0,
   cost: 0,
+  code: '',
+  message: '',
+};
+
+/** The ranks of a session whose ruleset stated no ladder: no class leads anywhere. */
+const PROMOTION_NONE: PromotionView = {
+  available: false,
+  members: [],
+  outcome: 'none',
+  promotion: '',
+  toClass: '',
+  rank: 0,
+  choice: '',
+  granted: [],
+  denied: [],
   code: '',
   message: '',
 };
@@ -1381,6 +1472,19 @@ const STYLES = `
 .crawler-progression-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
 .crawler-progression-result[hidden] { display: none; }
 .crawler-progression-result[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
+.crawler-promotion { margin: 0 0 0.5rem; border-top: 1px solid rgba(210, 196, 158, 0.25); padding-top: 0.5rem; }
+.crawler-promotion[hidden] { display: none; }
+.crawler-promotion .crawler-step-head { margin: 0 0 0.2rem; color: #d8cba6; font-size: 0.82rem; }
+.crawler-promotion-state { margin: 0 0 0.25rem; color: #b9ad8c; font-size: 0.72rem; }
+.crawler-promotion-member { margin: 0 0 0.3rem; }
+.crawler-promotion-member .crawler-row-label { display: block; color: #cfc3a2; font-size: 0.72rem; }
+.crawler-promotion-rank { margin: 0 0 0.15rem; font-size: 0.72rem; color: #cfc3a2; }
+.crawler-promotion-granted { margin: 0.2rem 0 0; }
+.crawler-promotion-grant { font-size: 0.72rem; color: #cfe0e8; }
+.crawler-promotion-denial { font-size: 0.72rem; color: #e8c8b0; }
+.crawler-promotion-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
+.crawler-promotion-result[hidden] { display: none; }
+.crawler-promotion-result[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
 .crawler-skills { margin: 0 0 0.5rem; border-top: 1px solid rgba(210, 196, 158, 0.25); padding-top: 0.5rem; }
 .crawler-skills[hidden] { display: none; }
 .crawler-skills .crawler-step-head { margin: 0 0 0.2rem; color: #d8cba6; font-size: 0.82rem; }
@@ -1718,6 +1822,116 @@ function readSkills(value: unknown): SkillsView {
     skill,
     level,
     cost,
+    code,
+    message,
+  };
+}
+
+/**
+ * Reads the promotion block, or the no-ladder ranks. A block this companion cannot read is read as no
+ * ladder rather than as a party at the top of one: the panel then shows no rank at all, which is what a
+ * ruleset that stated no ranks actually published.
+ */
+function readPromotion(value: unknown): PromotionView {
+  if (!isRecord(value) || value.available !== true) return PROMOTION_NONE;
+  const { outcome, promotion, toClass, rank, choice, code, message } = value;
+  if (
+    typeof outcome !== 'string' ||
+    typeof promotion !== 'string' ||
+    typeof toClass !== 'string' ||
+    typeof rank !== 'number' ||
+    typeof choice !== 'string' ||
+    typeof code !== 'string' ||
+    typeof message !== 'string'
+  ) {
+    return PROMOTION_NONE;
+  }
+
+  return {
+    available: true,
+    members: readList(value.members, (entry) =>
+      typeof entry.index === 'number' &&
+      typeof entry.member === 'string' &&
+      typeof entry.name === 'string' &&
+      typeof entry.class === 'string' &&
+      typeof entry.rank === 'number'
+        ? {
+            index: entry.index,
+            member: entry.member,
+            name: entry.name,
+            class: entry.class,
+            rank: entry.rank,
+            promotions: readList(entry.promotions, (row) =>
+              typeof row.promotion === 'string' &&
+              typeof row.toClass === 'string' &&
+              typeof row.rank === 'number' &&
+              typeof row.choice === 'string' &&
+              typeof row.giver === 'string' &&
+              typeof row.giverName === 'string' &&
+              typeof row.words === 'string'
+                ? {
+                    promotion: row.promotion,
+                    toClass: row.toClass,
+                    rank: row.rank,
+                    choice: row.choice,
+                    giver: row.giver,
+                    giverName: row.giverName,
+                    words: row.words,
+                    requirements: readList(row.requirements, (requirement) =>
+                      typeof requirement.kind === 'string' &&
+                      typeof requirement.name === 'string' &&
+                      typeof requirement.label === 'string' &&
+                      typeof requirement.amount === 'number' &&
+                      typeof requirement.text === 'string'
+                        ? {
+                            kind: requirement.kind,
+                            name: requirement.name,
+                            label: requirement.label,
+                            amount: requirement.amount,
+                            text: requirement.text,
+                          }
+                        : null),
+                  }
+                : null),
+          }
+        : null),
+    outcome,
+    promotion,
+    toClass,
+    rank,
+    choice,
+    granted: readList(value.granted, (entry) =>
+      typeof entry.member === 'string' &&
+      typeof entry.name === 'string' &&
+      typeof entry.fromClass === 'string' &&
+      typeof entry.fromRank === 'number' &&
+      typeof entry.toClass === 'string' &&
+      typeof entry.rank === 'number' &&
+      typeof entry.choice === 'string'
+        ? {
+            member: entry.member,
+            name: entry.name,
+            fromClass: entry.fromClass,
+            fromRank: entry.fromRank,
+            toClass: entry.toClass,
+            rank: entry.rank,
+            choice: entry.choice,
+            met: words(entry.met),
+          }
+        : null),
+    denied: readList(value.denied, (entry) =>
+      typeof entry.member === 'string' &&
+      typeof entry.name === 'string' &&
+      typeof entry.class === 'string' &&
+      typeof entry.rank === 'number'
+        ? {
+            member: entry.member,
+            name: entry.name,
+            class: entry.class,
+            rank: entry.rank,
+            missing: words(entry.missing),
+          }
+        : null),
     code,
     message,
   };
@@ -2273,6 +2487,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
   const conversation = readConversation(value.conversation);
   const combat = readCombat(value.combat);
   const progression = readProgression(value.progression);
+  const promotion = readPromotion(value.promotion);
   const skills = readSkills(value.skills);
   const magic = readMagic(value.magic);
   const alchemy = readAlchemy(value.alchemy);
@@ -2345,6 +2560,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
     conversation,
     combat,
     progression,
+    promotion,
     skills,
     magic,
     alchemy,
@@ -2633,6 +2849,25 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   progressionResult.hidden = true;
   progression.append(progressionHead, progressionState, progressionMembers, progressionResult);
 
+  // The ranks sit between the levels and the skills, because a promotion is what raises the ceiling the
+  // skill rows are read against: each member's class and rank, every rank that class leads to, who gives it,
+  // and what it asks for. Nothing here is a control — a rank is taken from the person who gives it, in the
+  // conversation the party reaches them through — so the panel shows the ladder and what the last rank did.
+  const promotion = document.createElement('section');
+  promotion.className = 'crawler-promotion';
+  promotion.hidden = true;
+  const promotionHead = document.createElement('p');
+  promotionHead.className = 'crawler-step-head';
+  promotionHead.textContent = 'Ranks';
+  const promotionState = document.createElement('p');
+  promotionState.className = 'crawler-promotion-state';
+  const promotionMembers = document.createElement('div');
+  promotionMembers.className = 'crawler-promotion-members';
+  const promotionResult = document.createElement('p');
+  promotionResult.className = 'crawler-promotion-result';
+  promotionResult.hidden = true;
+  promotion.append(promotionHead, promotionState, promotionMembers, promotionResult);
+
   // The skills sit under the levels they were bought with: each member's own rows, the ceiling their class
   // and rank impose, and one control per row that raises it. The panel prints the price and the refusal the
   // product worked out and raises nothing itself, which is what keeps one spend path in the product rather
@@ -2821,6 +3056,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     rest,
     combat,
     progression,
+    promotion,
     skills,
     magic,
     alchemy,
@@ -2839,6 +3075,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   let renderedConversation = '';
   let renderedProgression = '';
   let renderedSkills = '';
+  let renderedPromotion = '';
   let renderedMagic = '';
   const claim = (name: string, data: Record<string, unknown> = {}): void => {
     context.intents?.claim(UI_ACTION_INTENT, {
@@ -3822,6 +4059,92 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
    * refuse carries the refusal and no control, so a button this panel offers is one the product would take;
    * a row it would accept carries the price the product quoted and asks for exactly that raise.
    */
+  /**
+   * Renders the ladder and the last rank's report. Every row is the product's own: which class each rank
+   * names, which alternative it takes, who gives it, and what it asks for, down to the words of a
+   * requirement whose judgement the product has not made. What was met and what was missing is the owner's
+   * own report, printed rather than worked out here.
+   */
+  const renderPromotion = (view: PromotionView): void => {
+    panel.dataset.promotion = view.available ? 'present' : 'none';
+    panel.dataset.promotionOutcome = view.outcome;
+    promotion.hidden = !view.available;
+    promotionState.textContent = view.available
+      ? `${view.members.length} character${view.members.length === 1 ? '' : 's'}`
+      : '';
+    promotionResult.hidden = view.message === '';
+    promotionResult.dataset.outcome = view.outcome;
+    promotionResult.dataset.code = view.code;
+    promotionResult.textContent = view.message;
+
+    const signature = JSON.stringify(view);
+    if (signature === renderedPromotion) return;
+    renderedPromotion = signature;
+
+    promotionMembers.replaceChildren(
+      ...view.members.map((member) => {
+        const block = document.createElement('div');
+        block.className = 'crawler-promotion-member';
+        block.dataset.member = member.member;
+        block.dataset.class = member.class;
+        block.dataset.rank = String(member.rank);
+        const label = document.createElement('span');
+        label.className = 'crawler-row-label';
+        label.textContent = `${member.name} — ${member.class} of rank ${member.rank}`;
+        block.append(label);
+
+        if (member.promotions.length === 0) {
+          const top = document.createElement('div');
+          top.className = 'crawler-promotion-rank';
+          top.textContent = 'No rank leads on from here.';
+          block.append(top);
+          return block;
+        }
+
+        for (const rank of member.promotions) {
+          const line = document.createElement('div');
+          line.className = 'crawler-promotion-rank';
+          line.dataset.promotion = rank.promotion;
+          line.dataset.toClass = rank.toClass;
+          line.dataset.choice = rank.choice;
+          line.dataset.giver = rank.giver;
+          const text = document.createElement('span');
+          // The rank as a player reads it: what it makes them, which alternative it is, who gives it, and
+          // everything it asks for in the ladder's own words.
+          const alternative = rank.choice === '' ? '' : ` · the ${rank.choice} path`;
+          const asks = rank.requirements.map((requirement) => requirement.text).join('; ');
+          text.textContent = `${rank.toClass} (rank ${rank.rank})${alternative} · granted by ${rank.giverName} · asks for ${asks}`;
+          line.append(text);
+          block.append(line);
+        }
+
+        return block;
+      }),
+    );
+
+    // What the last rank did: who rose, from which class to which, and what each of them met — and, beside
+    // it, who it passed over and what they were missing, which is where a player reads what to bring next.
+    const report = document.createElement('div');
+    report.className = 'crawler-promotion-granted';
+    for (const grant of view.granted) {
+      const line = document.createElement('div');
+      line.className = 'crawler-promotion-grant';
+      line.dataset.member = grant.member;
+      line.textContent = `${grant.name} rose from ${grant.fromClass} (rank ${grant.fromRank}) to ${grant.toClass} (rank ${grant.rank})${grant.choice === '' ? '' : `, the ${grant.choice} path`}: met ${grant.met.join('; ')}`;
+      report.append(line);
+    }
+
+    for (const denial of view.denied) {
+      const line = document.createElement('div');
+      line.className = 'crawler-promotion-denial';
+      line.dataset.member = denial.member;
+      line.textContent = `${denial.name}, a ${denial.class} of rank ${denial.rank}, was missing ${denial.missing.join('; ')}`;
+      report.append(line);
+    }
+
+    promotionMembers.append(report.childElementCount === 0 ? document.createComment('') : report);
+  };
+
   const renderSkills = (view: SkillsView): void => {
     panel.dataset.skills = view.available ? 'present' : 'none';
     panel.dataset.skillsOutcome = view.outcome;
@@ -4047,6 +4370,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     renderRest(snapshot.rest);
     renderCombat(snapshot.combat);
     renderProgression(snapshot.progression);
+    renderPromotion(snapshot.promotion);
     renderSkills(snapshot.skills);
     renderMagic(snapshot.magic);
     renderAlchemy(snapshot.alchemy);

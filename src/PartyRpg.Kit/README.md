@@ -10,10 +10,12 @@ Owns:
   inventory over per-character equipment.
 - Character mechanisms: attributes, skill and spell catalogs, learning and
   casting workflows, conditions and recovery, and progression: experience,
-  levels, and skill points with one owner that moves them (`Progression/`),
+  levels, skill points, and rank with one owner that moves them (`Progression/`),
   the one award entry every source arrives at (a kill's worth coming from the
   ruleset that reads the creature's own row), the training step a counter
-  settles through that owner, and the growth a level gives.
+  settles through that owner, the growth a level gives, and the promotion that
+  hands a rank over (`Promotion/` for the ladder and the requirements it asks
+  for, `PartyProgression.Promote` for the transition itself).
 - Magic (`Magic/`): the spell catalog content declares, the one casting workflow — resolve the caster and
   the spell, judge its tier against that character's mastery of its school, resolve the aim, ask the effect
   path whether the casting may go ahead, pay the spell points through the member's own pool, hand the
@@ -118,8 +120,8 @@ one path that settles a `PartyCost` against the purse and the larder whole or no
 every shortfall named rather than overdrawing the purse — credits the same two accounts, and spends a
 travelling or camping day as a `ProvisionDay`, priced and judged by a ruleset's `ISettlementRule` and
 `IProvisionDayRule` with `SettlementQuote` and `ResourceSettlement` as the answer and the outcome), the
-one progression owner (`Progression/` — `PartyProgression` is where experience, a level, and a skill
-point move and nowhere else: `Award` is the one entry a kill, a quest, or any other source arrives at and
+one progression owner (`Progression/` — `PartyProgression` is where experience, a level, a skill
+point, and a rank move and nowhere else: `Award` is the one entry a kill, a quest, or any other source arrives at and
 divides by the ruleset's own rule, `Train` is what a counter's step settles through — the fee charged by
 the party's one ledger, the level's pools grown by the ruleset's class and rank tables, the points granted,
 and both pools filled — and `RaiseSkill` is the only way a skill point is spent: it asks the skill policy
@@ -129,7 +131,17 @@ a raise that failed leaves the character exactly where they stood — with `Plan
 to a screen that is only asking, with `ProgressionAwards`
 paying each death the fight reports exactly once from the ledger of deaths it is still reading, and
 `ProgressionSnapshot` publishing the level, the experience against the curve, the points held, and the fee
-the counter the party stands at quoted — every number the ruleset's, none of them the screen's), the skill
+the counter the party stands at quoted — every number the ruleset's, none of them the screen's — and
+`Promote` the one entry a rank arrives at: it asks the promotion policy for its ladder (`Promotion/` —
+`PromotionLadder` is content's or a ruleset's own table of ranks, each `PromotionRank` naming the class it
+promotes from and to, the rank it reaches, the alternative it takes, the record it leaves, and every
+`PromotionRequirement` it asks for; `IPromotionRule` is the ruleset's one answer over it), judges each
+requirement against the party — a giver the party is speaking with, an item the one inventory holds, a
+record the party carries, and an errand, which no owner in this build judges and which is therefore refused
+by name and travels to the owner that will — and moves the class and the rank together, so a ceiling, a
+growth table, and every class condition read one fact rather than three that could drift. `PromotionSnapshot`
+publishes the ladder a panel shows and the report a rank left: who rose, from which class to which, what
+each of them met, and who it passed over with what they were missing), the skill
 catalog and its ceilings (`Skills/` — `SkillCatalog` is content's own rows as a ruleset reads them, each
 `SkillDefinition` carrying the block it belongs to or `SkillBlock.Unused` for a shipped row the game does
 not use, and `ISkillRule` is the ruleset's four answers over them: the catalog, the `SkillCeiling` a class

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
@@ -10,6 +11,7 @@ using PartyRpg.Kit.Alchemy;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Progression;
+using PartyRpg.Kit.Promotion;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Services;
 using PartyRpg.Kit.Skills;
@@ -103,10 +105,25 @@ public sealed class PartyRpgSession : IGameSession
     private readonly ServiceInput? _serviceInput;
     private readonly IServiceRule? _serviceRule;
     private readonly IProgressionRule? _progressionRule;
+    private readonly IPromotionRule? _promotionRule;
     private readonly ISkillRule? _skillRule;
     private readonly SkillRaiseInput? _skillInput;
     private readonly ConversationInput? _conversationInput;
     private readonly IConversationRule? _conversationRule;
+
+    /// <summary>
+    /// Whether the conversation mechanism was composed over a party.
+    /// </summary>
+    /// <remarks>
+    /// A session that creates its party has none when the session is built, and the conversation is composed
+    /// then anyway — who stands in a place is a question content answers, and a session with nobody to lead
+    /// still publishes who is here. What such a conversation cannot do is read the party: it greets from the
+    /// content and keeps no record of the meeting, because there is nobody to carry one. When creation is
+    /// accepted the mechanism is composed again over the party that now exists, which is what makes a topic
+    /// that waits for the party's own state — an offer only somebody of a class may take, a line that
+    /// records having met somebody — answered for a party the player built rather than for nobody.
+    /// </remarks>
+    private bool _conversationsSeeTheParty;
     private readonly RestInput? _restInput;
     private readonly IRestRule? _restRule;
     private readonly CombatInput? _combatInput;
@@ -337,6 +354,7 @@ public sealed class PartyRpgSession : IGameSession
         CombatIntentNames? combatInput = null,
         IMonsterAiPolicy? monsterAi = null,
         IProgressionRule? progression = null,
+        IPromotionRule? promotions = null,
         ISkillRule? skills = null,
         SkillRaiseIntentNames? skillInput = null,
         ISpellRule? spells = null,
@@ -369,6 +387,7 @@ public sealed class PartyRpgSession : IGameSession
         _serviceInput = serviceInput is null ? null : new ServiceInput(serviceInput);
         _serviceRule = service;
         _progressionRule = progression;
+        _promotionRule = promotions;
         _skillRule = skills;
         _skillInput = skillInput is null ? null : new SkillRaiseInput(skillInput);
         _conversationInput = conversationInput is null ? null : new ConversationInput(conversationInput);
@@ -882,6 +901,10 @@ public sealed class PartyRpgSession : IGameSession
         _accounts ??= _liveWorld?.Accounts;
         ComposeProgression();
         ComposeServices();
+        // The conversation is composed over the party that now exists rather than over nobody: what a person
+        // offers and what a line records are read against the party, so a mechanism that captured none would
+        // withhold an offer only somebody of a class may take and keep no record of having met anybody.
+        ComposeConversations();
         ComposeRest();
         ComposeCombat();
         ComposeMagic();
@@ -998,13 +1021,19 @@ public sealed class PartyRpgSession : IGameSession
 
     /// <summary>Hands the party from a conversation to the owner an offer belongs to.</summary>
     /// <remarks>
-    /// Only the service mechanism is routed, because it is the only owner of an offer that exists: the
-    /// counter whoever the party spoke with keeps. A handoff naming any other owner is reported with the
-    /// owner's name rather than being treated as done, which is what keeps a later stone's offers honest
+    /// Two owners are routed: the counter whoever the party spoke with keeps, and the progression owner a
+    /// person empowered to grant a rank hands the party to. A handoff naming any other owner is reported with
+    /// the owner's name rather than being treated as done, which is what keeps a later stone's offers honest
     /// until that stone lands.
     /// </remarks>
     private void Route(ConversationHandoff handoff, PartyConversations conversations)
     {
+        if (string.Equals(handoff.Kind, PromotionHandoffs.Offer, StringComparison.Ordinal))
+        {
+            Give(handoff, conversations);
+            return;
+        }
+
         if (!string.Equals(handoff.Kind, ConversationHandoffs.Service, StringComparison.Ordinal))
         {
             _diagnostics?.Publish(new DiagnosticsPublishRequest(
@@ -1036,6 +1065,58 @@ public sealed class PartyRpgSession : IGameSession
         // refused leaves the party where it stands, so the conversation stays open and the service's own
         // refusal is what the panel shows beside it.
         if (opened is { IsApplied: true }) conversations.Close();
+    }
+
+    /// <summary>
+    /// Gives the rank a person offered, through the progression owner, and reports what became of it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A rank is given where it is offered.</b> The conversation hands over the rank's identity and this
+    /// applies it through the one owner that moves a rank, exactly as a counter's own mechanism is what
+    /// applies a purchase — so the party that walks away from a promoter holds the rank that person's offer
+    /// named, or a refusal that says what was missing.
+    /// </para>
+    /// <para>
+    /// Who the rank is taken from is the person being spoken with, read here rather than carried by the
+    /// handoff: the ladder's giver requirement is judged against them, so a conversation that offered a rank
+    /// its speaker does not give is refused by name rather than quietly granted.
+    /// </para>
+    /// <para>
+    /// A rank that landed closes the conversation, because the party and the person have finished the
+    /// business they were about; one that was refused leaves the conversation open, so the refusal stands
+    /// beside the person who gave it and the party can hear what was missing.
+    /// </para>
+    /// </remarks>
+    private void Give(ConversationHandoff handoff, PartyConversations conversations)
+    {
+        if (_progression is not { Promotions: not null } progression)
+        {
+            _diagnostics?.Publish(new DiagnosticsPublishRequest(
+                DiagnosticsSeverity.Warning,
+                DiagnosticsDisposition.RejectedRecoverable,
+                Source: "promotion",
+                Code: "promotion-unavailable",
+                Message: "What was said offers a rank and this session holds no ladder of them to give: the ruleset that states one is not composed.",
+                Correlation: string.Empty));
+            return;
+        }
+
+        PromotionResult result = progression.Promote(handoff.Target, conversations.Speaker?.Id ?? string.Empty);
+        _diagnostics?.Publish(new DiagnosticsPublishRequest(
+            result.IsGranted ? DiagnosticsSeverity.Info : DiagnosticsSeverity.Warning,
+            result.IsGranted ? DiagnosticsDisposition.Accepted : DiagnosticsDisposition.RejectedRecoverable,
+            Source: "promotion",
+            Code: result.IsGranted ? "promotion-granted" : result.Refusal!.Code,
+            Message: result.IsGranted
+                ? string.Join(" ", result.Granted.Select(grant =>
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"{grant.Name} rose from {grant.FromClass} (rank {grant.FromRank}) to {grant.ToClass} (rank {grant.Rank}) by the rank '{result.Promotion}'.")))
+                : result.Refusal!.Message,
+            Correlation: string.Empty));
+
+        if (result.IsGranted) conversations.Close();
     }
 
     /// <summary>
@@ -1718,7 +1799,7 @@ public sealed class PartyRpgSession : IGameSession
     private void ComposeProgression()
     {
         if (_progression is not null || _progressionRule is null || _party is not { } party) return;
-        _progression = new PartyProgression(_progressionRule, party, _skillRule);
+        _progression = new PartyProgression(_progressionRule, party, _skillRule, _promotionRule);
     }
 
     /// <summary>
@@ -1753,8 +1834,14 @@ public sealed class PartyRpgSession : IGameSession
     /// </remarks>
     private void ComposeConversations()
     {
-        if (_conversations is not null || _conversationRule is null) return;
+        if (_conversationRule is null) return;
+        // Composed over the party when there is one, and recomposed when one arrives: the mechanism holds
+        // the party it was built with, so a session that created its party would otherwise talk to it with a
+        // conversation that can read none of it. Nothing is lost by recomposing — a conversation cannot be
+        // open while a party is being made, because no use is read in creation and no person is faced.
+        if (_conversations is not null && (_conversationsSeeTheParty || _party is null)) return;
         _conversations = new PartyConversations(_conversationRule, _party, _clock);
+        _conversationsSeeTheParty = _party is not null;
     }
 
     /// <summary>
@@ -1906,6 +1993,11 @@ public sealed class PartyRpgSession : IGameSession
         // the experience a level takes are three different facts, and the fee is the counter's own quote
         // rather than a number this projection worked out.
         ProgressionSnapshot.From(_progression, _services),
+        // Which ranks the party's classes lead to and what the last rank did, read from the same owner: "this
+        // session's ruleset stated no ladder", "no class of the party's leads anywhere", and "a member rose a
+        // rank" are three different facts, and the requirements are the ladder's own words rather than a
+        // screen's reading of them.
+        PromotionSnapshot.From(_progression),
         // What each member can hold and what the next point would buy, read from the same owner: the rows
         // are content's, the ceilings are the ruleset's, and what a raise would cost or why it is refused is
         // the owner's own answer, so a screen renders a price rather than working one out.

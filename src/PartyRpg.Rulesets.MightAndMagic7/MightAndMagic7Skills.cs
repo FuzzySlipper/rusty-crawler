@@ -383,11 +383,16 @@ internal sealed class MightAndMagic7Skills : ISkillRule
     ];
 
     private readonly Dictionary<(string Class, int Rank), string> _tables;
+    private readonly MightAndMagic7Promotions? _promotions;
 
-    private MightAndMagic7Skills(SkillCatalog catalog, Dictionary<(string Class, int Rank), string> tables)
+    private MightAndMagic7Skills(
+        SkillCatalog catalog,
+        Dictionary<(string Class, int Rank), string> tables,
+        MightAndMagic7Promotions? promotions)
     {
         Catalog = catalog;
         _tables = tables;
+        _promotions = promotions;
     }
 
     /// <inheritdoc />
@@ -395,8 +400,13 @@ internal sealed class MightAndMagic7Skills : ISkillRule
 
     /// <summary>Reads this game's skills over the content the product loaded, or null when it loaded none.</summary>
     /// <param name="catalog">The validated content, or null when no bundle supplied any.</param>
+    /// <param name="promotions">
+    /// This game's ranks, when they were read: they are what lets a closed school say <em>why</em> it is
+    /// closed — the alternative a character took, or the rank above that would open it — which is one fact
+    /// about one character and belongs in the sentence that refuses them rather than in a panel's guess.
+    /// </param>
     /// <returns>This game's skill policy, or null when there is no content to read it over.</returns>
-    internal static MightAndMagic7Skills? Read(ContentCatalog? catalog)
+    internal static MightAndMagic7Skills? Read(ContentCatalog? catalog, MightAndMagic7Promotions? promotions = null)
     {
         if (catalog is null) return null;
 
@@ -433,7 +443,7 @@ internal sealed class MightAndMagic7Skills : ISkillRule
             }
         }
 
-        return new MightAndMagic7Skills(new SkillCatalog(definitions), tables);
+        return new MightAndMagic7Skills(new SkillCatalog(definitions), tables, promotions);
     }
 
     /// <summary>How far one member's class and rank let one skill grow.</summary>
@@ -449,7 +459,15 @@ internal sealed class MightAndMagic7Skills : ISkillRule
         // skills are.
         if (!Catalog.Declares(skill) || !Catalog.Read(skill).IsUsed) return SkillCeiling.None;
         SkillTier tier = RungOf(member, skill);
-        if (tier.IsNone) return SkillCeiling.None;
+        if (tier.IsNone)
+        {
+            // Closed, and this game can often say by whose doing: the alternative the character took, or the
+            // rank above that both alternatives are waiting behind. Where it cannot — a class that may hold
+            // no such skill however it is promoted — the ceiling carries no reason and a caller states the
+            // class, which is the whole truth there.
+            return SkillCeiling.None with { Reason = _promotions?.ClosedReason(member, skill) };
+        }
+
         return new SkillCeiling(LevelCeiling(member.Progression.ClassRank, tier), tier);
     }
 
@@ -584,7 +602,9 @@ internal sealed class MightAndMagic7Skills : ISkillRule
         SkillCeiling ceiling = Ceiling(member, skill);
         if (ceiling.IsNone)
         {
-            return new PartyRefusal(
+            // A closed skill the game can account for carries its own refusal, so a lesson refused for a path
+            // the character chose names that choice rather than the class it left them in.
+            return ceiling.Reason ?? new PartyRefusal(
                 "service-lesson-class-forbidden",
                 string.Create(
                     CultureInfo.InvariantCulture,

@@ -206,17 +206,23 @@ internal sealed class MightAndMagic7Progression : IProgressionRule
     /// read from the donor's arithmetic rather than from the manual's sentence.
     /// </para>
     /// <para>
-    /// A class or a rank this game describes no growth for is a defect rather than a level that quietly
-    /// gives nothing: a member is created in one of the nine base classes and promoted through the three
-    /// rungs of its own ladder, so anything else means content and this ruleset disagree about the class
-    /// ladder, and the message says which pair disagreed.
+    /// <b>A promoted member grows at its family's own rate.</b> The donor's tables state a row per base
+    /// class and rank, not per class name, and this game's ranks are classes: a Wizard, an Arch Mage, and a
+    /// Lich all read the Sorcerer's ladder at their own rank, which is why the base class is resolved first.
+    /// A pair this game describes no growth for is a defect rather than a level that quietly gives nothing —
+    /// a member is created in one of the nine base classes and promoted through the three rungs of its own
+    /// ladder — and the message says which pair disagreed.
     /// </para>
     /// </remarks>
     /// <exception cref="InvalidOperationException">The member's class or rank has no growth this game describes.</exception>
     public ProgressionGrowth Growth(ProgressionGrowthRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        string characterClass = request.Member.Profile.Class.Value;
+        // A member's growth is read from the base class's row, exactly as its spell points are: a promoted
+        // character belongs to a class the donor's table states no separate growth for — a Lich and an Arch
+        // Mage grow at their family's own rate — so the family is resolved first and the rank picks the row
+        // within it.
+        string characterClass = MightAndMagic7Skills.BaseClassOf(request.Member.Profile.Class.Value);
         int rank = request.Member.Progression.ClassRank;
         if (!GrowthByClass.TryGetValue(characterClass, out ProgressionGrowth[]? ladder))
         {

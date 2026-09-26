@@ -79,6 +79,11 @@ namespace PartyRpg.Kit.Presentation;
 /// Defaulted for the same reason the others are: a session whose ruleset answered no progression policy
 /// publishes that rather than a party whose levels nothing could rise.
 /// </param>
+/// <param name="Promotion">
+/// Which ranks the party's classes lead to and what the last rank did, or the no-ladder value when the
+/// session's ruleset stated none. Defaulted for the same reason the others are: a session whose ruleset
+/// answered no ladder publishes that rather than a party nothing could ever promote.
+/// </param>
 /// <param name="Magic">
 /// What the party can cast and what the last casting did, or the no-magic value when the session holds no
 /// spell policy. Defaulted for the same reason the others are: a session whose ruleset answered no magic
@@ -102,6 +107,7 @@ public readonly record struct SessionSnapshot(
     ConversationSnapshot Conversation = default,
     CombatSnapshot Combat = default,
     ProgressionSnapshot Progression = default,
+    PromotionSnapshot Promotion = default,
     SkillsSnapshot Skills = default,
     MagicSnapshot Magic = default,
     AlchemySnapshot Alchemy = default);
@@ -190,6 +196,9 @@ public static class SessionProjection
 
     /// <summary>The progression object's wire name.</summary>
     public const string ProgressionField = "progression";
+
+    /// <summary>The name of the projection field the promotion block is published under.</summary>
+    public const string PromotionField = "promotion";
 
     /// <summary>The name of the projection field the skills block is published under.</summary>
     public const string SkillsField = "skills";
@@ -318,6 +327,12 @@ public static class SessionProjection
             // had levelled would leave a player unable to tell an unearned level from a mechanism that is
             // not there.
             (ProgressionField, Progression(builder, snapshot.Progression)),
+            // The promotion block is published in every mode for the same reason the progression block is:
+            // "this session's ruleset stated no ladder", "no class of the party's leads anywhere", and "a
+            // member rose a rank" are three different facts, and a block that only appeared once somebody had
+            // been promoted would leave a screen unable to tell a party at the top of its ladder from a game
+            // that has no ranks at all.
+            (PromotionField, Promotion(builder, snapshot.Promotion)),
             // The skills block is published in every mode for the same reason the progression block is: "this
             // session's ruleset stated no skill policy", "the party holds no skills yet", and "a member's
             // blade is at the ceiling their class allows" are three different facts, and a block that only
@@ -654,6 +669,92 @@ public static class SessionProjection
             ("earned", builder.Number(progression.Earned)),
             ("code", builder.String(progression.Code ?? string.Empty)),
             ("message", builder.String(progression.Message ?? string.Empty)));
+    }
+
+    /// <summary>Builds the promotion block: which ranks the party's classes lead to, and what the last rank did.</summary>
+    /// <remarks>
+    /// Every member is sent whole — the class and rank they hold and, for each rank that class leads to, the
+    /// class it names, the alternative it takes, who gives it, and everything it asks for — so a screen shows
+    /// the ladder rather than composing one from rules it would have to know. What the last rank met and what
+    /// it missed is the owner's own report, published as it stands: the judgement belongs where the party's
+    /// state is, not on the screen.
+    /// </remarks>
+    private static uint Promotion(UiValueBuilder builder, PromotionSnapshot promotion)
+    {
+        List<uint> members = [];
+        foreach (PromotionMemberSnapshot member in promotion.Members ?? [])
+        {
+            List<uint> ranks = [];
+            foreach (PromotionRankSnapshot rank in member.Promotions)
+            {
+                List<uint> requirements = [];
+                foreach (PromotionRequirementSnapshot requirement in rank.Requirements)
+                {
+                    requirements.Add(builder.Object(
+                        ("kind", builder.String(requirement.Kind)),
+                        ("name", builder.String(requirement.Name)),
+                        ("label", builder.String(requirement.Label)),
+                        ("amount", builder.Number(requirement.Amount)),
+                        ("text", builder.String(requirement.Text))));
+                }
+
+                ranks.Add(builder.Object(
+                    ("promotion", builder.String(rank.Promotion)),
+                    ("toClass", builder.String(rank.ToClass)),
+                    ("rank", builder.Number(rank.Rank)),
+                    ("choice", builder.String(rank.Choice)),
+                    ("giver", builder.String(rank.Giver)),
+                    ("giverName", builder.String(rank.GiverName)),
+                    ("words", builder.String(rank.Words)),
+                    ("requirements", builder.Array([.. requirements]))));
+            }
+
+            members.Add(builder.Object(
+                ("index", builder.Number(member.Index)),
+                ("member", builder.String(member.Member)),
+                ("name", builder.String(member.Name)),
+                ("class", builder.String(member.Class)),
+                ("rank", builder.Number(member.Rank)),
+                ("promotions", builder.Array([.. ranks]))));
+        }
+
+        List<uint> granted = [];
+        foreach (PromotionGrantSnapshot grant in promotion.Granted ?? [])
+        {
+            granted.Add(builder.Object(
+                ("member", builder.String(grant.Member)),
+                ("name", builder.String(grant.Name)),
+                ("fromClass", builder.String(grant.FromClass)),
+                ("fromRank", builder.Number(grant.FromRank)),
+                ("toClass", builder.String(grant.ToClass)),
+                ("rank", builder.Number(grant.Rank)),
+                ("choice", builder.String(grant.Choice)),
+                ("met", builder.Array([.. grant.Met.Select(builder.String)]))));
+        }
+
+        List<uint> denied = [];
+        foreach (PromotionDenialSnapshot denial in promotion.Denied ?? [])
+        {
+            denied.Add(builder.Object(
+                ("member", builder.String(denial.Member)),
+                ("name", builder.String(denial.Name)),
+                ("class", builder.String(denial.Class)),
+                ("rank", builder.Number(denial.Rank)),
+                ("missing", builder.Array([.. denial.Missing.Select(builder.String)]))));
+        }
+
+        return builder.Object(
+            ("available", builder.Boolean(promotion.Available)),
+            ("members", builder.Array([.. members])),
+            ("outcome", builder.String(promotion.Outcome ?? string.Empty)),
+            ("promotion", builder.String(promotion.Promotion ?? string.Empty)),
+            ("toClass", builder.String(promotion.ToClass ?? string.Empty)),
+            ("rank", builder.Number(promotion.Rank)),
+            ("choice", builder.String(promotion.Choice ?? string.Empty)),
+            ("granted", builder.Array([.. granted])),
+            ("denied", builder.Array([.. denied])),
+            ("code", builder.String(promotion.Code ?? string.Empty)),
+            ("message", builder.String(promotion.Message ?? string.Empty)));
     }
 
     /// <summary>Builds the skills block: each member's skills, their ceilings, and what a raise would buy.</summary>

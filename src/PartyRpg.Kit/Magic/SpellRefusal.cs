@@ -54,6 +54,22 @@ public sealed record SpellRefusal
         "spell-school-missing",
         $"{name} has never learned {skill}, and a spell of that school is learned by a caster who holds its skill.");
 
+    /// <summary>The caster's own class closes the spell's school, so no mastery of it is theirs to hold.</summary>
+    /// <remarks>
+    /// A school a character may not hold at all is a different fact from a rung they have not reached: the
+    /// first is a limit their class states, and a game that can say why — the path the character took, the
+    /// promotion they did not — says it in <paramref name="because"/> rather than leaving a caster to guess
+    /// which of their own choices shut the door.
+    /// </remarks>
+    /// <param name="name">What the caster is called.</param>
+    /// <param name="spell">What the spell is called.</param>
+    /// <param name="school">What the school's skill is called.</param>
+    /// <param name="because">Why the school is closed, in the game's own words.</param>
+    /// <returns>The refusal.</returns>
+    public static SpellRefusal SchoolClosed(string name, string spell, string school, string because) => new(
+        "spell-school-closed",
+        $"{name} cannot cast {spell}: the school of {school} is closed to them, {because}");
+
     /// <summary>The caster's school mastery is below the rung the spell requires.</summary>
     /// <param name="name">What the caster is called.</param>
     /// <param name="spell">What the spell is called.</param>

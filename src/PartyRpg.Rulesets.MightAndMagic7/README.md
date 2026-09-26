@@ -7,7 +7,8 @@ in [`../../docs/code-organization.md`](../../docs/code-organization.md).
 Owns:
 
 - Classes, races, ranks, and the two-stage promotion ladder whose second step
-  splits each class into a light and a dark alternative.
+  splits each class into a light and a dark alternative (`MightAndMagic7Promotions`: the ladder itself, the
+  people who give each rank, what each rank asks for, and the record it leaves).
 - Skills with their class- and rank-specific mastery ceilings, and skill points.
 - Alchemy (`MightAndMagic7Alchemy`, `MightAndMagic7Potions`): the mixtures the shipped `POTION.TXT` states,
   read from the pack the importer writes — which reagent makes which potion, which pairs make something,
@@ -163,7 +164,25 @@ the promotion that would raise it named. The keeper of a guild is that school's 
 guild stands at in its own ladder is the deepest rung of its skill the counter offers, bought through the
 conversation's counter handoff and the service mechanism's own lesson path, and `MightAndMagic7EquipmentUse`
 refuses a weapon or armour whose row names a skill the member has not learned while the manual's five
-exempt places need none. Everything else
+exempt places need none. This game's ranks are landed with them: `MightAndMagic7Promotions` is the
+ladder — the shipped class table's 36 rows as 9 families of a base class, a first promotion, and two
+second-promotion alternatives — with the 27 ranks it states, the 18 people the shipped NPC and topic tables
+name as their givers, each rank's errand from the shipped quest table, the proof items the shipped item table
+carries where the errand's own words name one, the two counted deeds the original keeps as awards, the record
+each rank leaves on the party (`promotion:<rank>`, the original's own award bit under this game's name), and
+the eight classes whose pair of alternatives splits on the two schools. A rank asks for what this build can
+judge — its giver, what the party carries, what deeds it holds on record — and states an errand whose words
+name a deed as a quest requirement that no owner judges yet, refused by name and routed to the owner of
+quests rather than faked by a flag nothing sets. `PartyProgression.Promote` is the one writer: it judges every
+requirement before anything moves, refuses with what is missing named, and moves the class and the rank
+together, so the ceiling, the growth table, and every class condition read one fact. A person the ladder names
+as a giver offers the ranks they give through the conversation that already exists, and taking one hands the
+party to that owner through the promotion handoff; the ceiling a class and rank impose now answers with the
+path when a class's own choice closed a school, so a lesson, a book, and a casting are each refused with the
+alternative named (`skill-closed-by-path`); and `PromotionSnapshot` publishes the ladder and what each rank
+did, member by member, for the panel. What the shipped data carries, what this game authors, and the live
+promotion through both stages are recorded in `local/verify/promotions/` (ignored local evidence).
+Everything else
 listed above — the remaining class, skill, spell, monster, item, and formula policy, and rest and
 fatigue and service hours — attaches to the session as its stone lands. Fidelity per system — what matches
 the original, what is approximate, and what is deliberately ours — is fixed in

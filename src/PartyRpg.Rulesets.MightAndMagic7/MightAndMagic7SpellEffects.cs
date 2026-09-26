@@ -91,6 +91,18 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
             if (fight.IsDown(caster)) return SpellRefusal.CannotAct(caster.Name, "what is acting on them leaves them unable to cast");
         }
 
+        // A school the caster's own class closes is refused before anything is paid, and the refusal names the
+        // choice that closed it: a character who took one alternative of a second promotion holds its school
+        // and none of the other, and a spell of the other school that reached their spellbook anyway — a
+        // scenario's own party, an imported save of another game's shape — is not one they may cast. A
+        // casting from an item is deliberately not judged here: a scroll and a potion carry a spell at the
+        // strength they were made, and what their carrier may study is a different question from what the
+        // item does when it is spent.
+        if (application.Source is null && _spells.ClosedSchool(application.Caster, application.Spell) is { } closed)
+        {
+            return closed;
+        }
+
         // A spell this build cannot aim is refused before it is paid for, and the refusal names what the spell
         // would act on and who owns the way to name one. A spell that was paid for and then changed nothing
         // would be the worst of both: the points are gone and the player was told nothing.

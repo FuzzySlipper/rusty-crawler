@@ -596,6 +596,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
     {
         ArgumentNullException.ThrowIfNull(member);
         if (!Catalog.Declares(spell.Id)) return SpellRefusal.Unknown(spell.Id.Value);
+        if (ClosedSchool(member, spell) is { } closed) return closed;
         if (member.Spells.Knows(spell.Id)) return SpellRefusal.AlreadyKnown(member.Profile.Name, spell.Name);
         if (member.Skills.LevelOf(spell.SchoolSkill) <= 0)
         {
@@ -605,6 +606,32 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
         SkillTier held = member.Skills.TierOf(spell.SchoolSkill);
         if (held.Value >= spell.Tier.Value) return null;
         return SpellRefusal.MasteryTooLow(member.Profile.Name, spell.Name, RungName(spell.Tier), RungName(held));
+    }
+
+    /// <summary>
+    /// Whether the caster's own class closes the spell's school, or null when it is theirs to hold.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The ceiling a class and rank impose is this game's answer about who may hold a school at all, and the
+    /// one case it can account for in words is the second promotion's choice: a Master Archer took the light
+    /// path and a Lich the dark one, and each of them left the other's school to the alternative they did not
+    /// take. The refusal names that choice rather than saying the mastery is too low, because a caster whose
+    /// class may hold none of a school has nothing to raise.
+    /// </para>
+    /// <para>
+    /// A school a class may hold nothing of for its own reasons — a knight among wizards — is not this
+    /// answer: its ceiling carries no reason, the check below passes, and the ordinary answers about a
+    /// school's skill not being held or a rung not being reached are what a caster hears.
+    /// </para>
+    /// </remarks>
+    /// <param name="caster">The caster whose class and path are read.</param>
+    /// <param name="spell">The spell whose school is asked about.</param>
+    /// <returns>The refusal, or null when nothing about the caster's class closes the school.</returns>
+    internal SpellRefusal? ClosedSchool(PartyMember caster, SpellDefinition spell)
+    {
+        if (_skills?.Ceiling(caster, spell.SchoolSkill) is not { IsNone: true, Reason: { } reason }) return null;
+        return SpellRefusal.SchoolClosed(caster.Profile.Name, spell.Name, spell.SchoolSkill.Value, reason.Message);
     }
 
     /// <summary>How long one casting of a spell makes its caster recover, in the donor's own ticks.</summary>

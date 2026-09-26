@@ -58,7 +58,12 @@ internal sealed class MightAndMagic7Session : IGameSession
         // which needs the ceilings and the fees to offer a mastery lesson, to the progression owner, which
         // judges a raise against them, and to the equipment gate, which resolves what an item's row names.
         // One reading of one table is what keeps a lesson, a raise, and an equip in step.
-        MightAndMagic7Skills? skills = MightAndMagic7Skills.Read(Declared(context.Content));
+        // This game's ranks are read first, before its skills, because the ceilings answer with them: a class
+        // that took one alternative of a second promotion closes the other's school, and the sentence that
+        // refuses a caster says which choice did it. One reading of one ladder is what keeps a ceiling, a
+        // lesson, a book, and a casting in step about which schools a character may hold.
+        MightAndMagic7Promotions promotions = MightAndMagic7Promotions.Read(Declared(context.Content));
+        MightAndMagic7Skills? skills = MightAndMagic7Skills.Read(Declared(context.Content), promotions);
 
         // This game's magic is read once, here, beside its skills and before its services: a guild's spell
         // books are lessons whose requirements are this game's learning rule, a creature's spell lands with
@@ -96,7 +101,7 @@ internal sealed class MightAndMagic7Session : IGameSession
         // This game's answers about people are read once here, for the same reason: the world needs them to
         // say who stands at a placement the party faces, and the session needs the one instance to speak
         // with them, so what a use reaches and who answers can never be two readings of one placement.
-        MightAndMagic7Conversation? conversation = MightAndMagic7Conversation.Read(Declared(context.Content), services);
+        MightAndMagic7Conversation? conversation = MightAndMagic7Conversation.Read(Declared(context.Content), services, promotions);
         if (conversation is not null)
         {
             // What reading the people tables noticed is reported where the other composition notes are: a
@@ -113,6 +118,19 @@ internal sealed class MightAndMagic7Session : IGameSession
                     Message: note,
                     Correlation: string.Empty));
             }
+        }
+
+        // What reading the ladder noticed is reported where the other composition notes are: how many ranks
+        // are stated, how many people give them, and how many of the classes they name content declares.
+        foreach (string note in promotions.Notes)
+        {
+            context.Engine?.Diagnostics?.Publish(new DiagnosticsPublishRequest(
+                DiagnosticsSeverity.Info,
+                DiagnosticsDisposition.Accepted,
+                Source: "promotion",
+                Code: "promotion-note",
+                Message: note,
+                Correlation: string.Empty));
         }
 
         // This game's answers about stopping are read once, here, beside its service answers: what a night
@@ -204,6 +222,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                     combatInput: context.Combat,
                     monsterAi: monsterAi,
                     progression: MightAndMagic7Progression.Instance,
+                    promotions: promotions,
                     skills: skills,
                     skillInput: context.Skills,
                     spells: spells,
@@ -247,6 +266,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                     combatInput: context.Combat,
                     monsterAi: monsterAi,
                     progression: MightAndMagic7Progression.Instance,
+                    promotions: promotions,
                     skills: skills,
                     skillInput: context.Skills,
                     spells: spells,
@@ -287,6 +307,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                 combatInput: context.Combat,
                 monsterAi: monsterAi,
                 progression: MightAndMagic7Progression.Instance,
+                promotions: promotions,
                 skills: skills,
                 skillInput: context.Skills,
                 spells: spells,

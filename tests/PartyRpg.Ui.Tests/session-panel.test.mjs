@@ -587,6 +587,9 @@ function snapshot(mode, seconds = 0, steps = 0, updates = 0, facts = undefined, 
   // The skills block is published in every mode too, so a case that asks for none covers a projection whose
   // ruleset stated no skill policy.
   if (blocks?.skills !== undefined) value.skills = blocks.skills;
+  // The promotion block is published on the same terms: a case that asks for none covers a projection whose
+  // ruleset stated no ladder of ranks.
+  if (blocks?.promotion !== undefined) value.promotion = blocks.promotion;
   // The magic block is published in every mode too, so a case that asks for none covers a projection whose
   // ruleset stated no spell policy.
   if (blocks?.magic !== undefined) value.magic = blocks.magic;
@@ -1021,6 +1024,84 @@ function magicPanel(h) {
         quick: line.querySelector('.crawler-quick')?.textContent ?? null,
       })),
     })),
+  };
+}
+
+/** A promotion block as the product publishes it: one member, one rank, and everything it asks for. */
+function promotion(overrides = {}) {
+  return {
+    available: true,
+    outcome: 'none',
+    promotion: '',
+    toClass: '',
+    rank: 0,
+    choice: '',
+    granted: [],
+    denied: [],
+    code: '',
+    message: '',
+    members: [
+      {
+        index: 0,
+        member: '1',
+        name: 'Aelina',
+        class: 'Sorcerer',
+        rank: 1,
+        promotions: [
+          {
+            promotion: 'sorcerer-wizard',
+            toClass: 'Wizard',
+            rank: 2,
+            choice: '',
+            giver: 'npc-48',
+            giverName: 'Thomas Grey',
+            words: 'Collect the six golem pieces.',
+            requirements: [
+              { kind: 'giver', name: 'npc-48', label: 'Thomas Grey', amount: 1, text: 'granted by Thomas Grey' },
+              { kind: 'item', name: '639', label: 'Golem part', amount: 6, text: '6 × Golem part' },
+            ],
+          },
+        ],
+      },
+    ],
+    ...overrides,
+  };
+}
+
+/** The ranks as the panel rendered them: the ladder, who rose, and what a rank passed over. */
+function promotionPanel(h) {
+  const panel = h.panel();
+  const section = panel?.querySelector('.crawler-promotion');
+  const result = section?.querySelector('.crawler-promotion-result');
+  return {
+    section,
+    hidden: section?.hidden,
+    state: section?.querySelector('.crawler-promotion-state')?.textContent ?? null,
+    outcome: result?.getAttribute('data-outcome') ?? null,
+    code: result?.getAttribute('data-code') ?? null,
+    message: result?.textContent ?? null,
+    members: [...(section?.querySelectorAll('.crawler-promotion-member') ?? [])].map((row) => ({
+      label: row.querySelector('.crawler-row-label')?.textContent ?? null,
+      id: row.getAttribute('data-member'),
+      className: row.getAttribute('data-class'),
+      rank: row.getAttribute('data-rank'),
+      ranks: [...row.querySelectorAll('.crawler-promotion-rank')].map((line) => ({
+        text: line.textContent,
+        promotion: line.getAttribute('data-promotion'),
+        toClass: line.getAttribute('data-to-class'),
+        choice: line.getAttribute('data-choice'),
+        giver: line.getAttribute('data-giver'),
+      })),
+    })),
+    granted: [...(section?.querySelectorAll('.crawler-promotion-grant') ?? [])].map((line) => ({
+      member: line.getAttribute('data-member'),
+      text: line.textContent,
+    })),
+    denied: [...(section?.querySelectorAll('.crawler-promotion-denial') ?? [])].map((line) => ({
+      member: line.getAttribute('data-member'),
+      text: line.textContent,
+    })),
+    controls: [...(section?.querySelectorAll('button') ?? [])].length,
   };
 }
 
@@ -3477,6 +3558,118 @@ test('the panel shows what in the pack mixes, sends the mixture a player pressed
     assert.equal(refused.outcome, 'refused');
     assert.equal(refused.code, 'mixture-mastery-too-low');
     assert.match(refused.message, /raises the rung/);
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the panel shows the ranks a class leads to and what the last rank did', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // A session whose ruleset stated no ladder hides the section: a party at the top of its ladder and a
+    // game that has no ranks at all are different facts, and the panel says which of the two it is looking
+    // at by publishing whether the block is there.
+    h.emit(snapshot('running', 0, 0, 1, movement()));
+    assert.equal(h.panel().getAttribute('data-promotion'), 'none');
+    assert.equal(promotionPanel(h).hidden, true);
+
+    // The ladder as the product published it: each member's class and rank, and every rank that class leads
+    // to with the alternative it takes, who gives it, and everything it asks for in the ladder's own words.
+    h.emit(snapshot('running', 1, 60, 60, movement(), {
+      promotion: promotion(),
+    }));
+    const ladder = promotionPanel(h);
+    assert.equal(h.panel().getAttribute('data-promotion'), 'present');
+    assert.equal(ladder.hidden, false);
+    assert.deepEqual(ladder.members.map((member) => member.label), ['Aelina — Sorcerer of rank 1']);
+    assert.deepEqual(ladder.members[0].ranks.map((rank) => rank.promotion), ['sorcerer-wizard']);
+    assert.match(ladder.members[0].ranks[0].text, /Wizard \(rank 2\) · granted by Thomas Grey · asks for granted by Thomas Grey; 6 × Golem part/);
+
+    // A rank that was given: who rose, from which class to which, which alternative they took, and what
+    // each of them met. The panel prints the report rather than working out what changed.
+    h.emit(snapshot('running', 2, 120, 121, movement(), {
+      promotion: promotion({
+        outcome: 'granted',
+        promotion: 'sorcerer-wizard',
+        toClass: 'Wizard',
+        rank: 2,
+        granted: [
+          {
+            member: '1', name: 'Aelina', fromClass: 'Sorcerer', fromRank: 1, toClass: 'Wizard', rank: 2,
+            choice: '', met: ['granted by Thomas Grey', 'carries 6 × Golem part'],
+          },
+        ],
+        message: 'Aelina rose to Wizard at rank 2, meeting granted by Thomas Grey; 6 × Golem part.',
+      }),
+    }));
+    const granted = promotionPanel(h);
+    assert.equal(granted.outcome, 'granted');
+    assert.equal(h.panel().getAttribute('data-promotion-outcome'), 'granted');
+    assert.match(granted.granted[0].text, /Aelina rose from Sorcerer \(rank 1\) to Wizard \(rank 2\): met granted by Thomas Grey/);
+    assert.match(granted.message, /rose to Wizard at rank 2/);
+    assert.deepEqual(granted.denied, []);
+
+    // A rank that was refused: the code, the sentence, and the member it passed over with what they were
+    // missing — which is where a player reads what to bring next.
+    h.emit(snapshot('running', 3, 180, 181, movement(), {
+      promotion: promotion({
+        outcome: 'refused',
+        promotion: 'wizard-lich',
+        toClass: 'Lich',
+        rank: 3,
+        choice: 'dark',
+        denied: [
+          {
+            member: '1', name: 'Aelina', class: 'Wizard', rank: 2,
+            missing: ['needs Lich Jar, and the party carries 0'],
+          },
+        ],
+        code: 'promotion-requirements-unmet',
+        message: 'Aelina, a Wizard of rank 2, is missing needs Lich Jar, and the party carries 0, so the rank of Lich was not given.',
+      }),
+    }));
+    const refused = promotionPanel(h);
+    assert.equal(refused.outcome, 'refused');
+    assert.equal(refused.code, 'promotion-requirements-unmet');
+    assert.match(refused.message, /the rank of Lich was not given/);
+    assert.match(refused.denied[0].text, /Aelina, a Wizard of rank 2, was missing needs Lich Jar/);
+    assert.deepEqual(refused.granted, []);
+
+    // Two alternatives of one second promotion are two rows, each with its own alternative word: the screen
+    // shows the choice without deciding anything about it.
+    h.emit(snapshot('running', 4, 240, 241, movement(), {
+      promotion: promotion({
+        members: [
+          {
+            index: 0, member: '1', name: 'Aelina', class: 'Wizard', rank: 2,
+            promotions: [
+              {
+                promotion: 'wizard-arch-mage', toClass: 'Arch Mage', rank: 3, choice: 'light',
+                giver: 'npc-48', giverName: 'Thomas Grey', words: 'Find the book.',
+                requirements: [{ kind: 'item', name: '487', label: 'Divine Intervention', amount: 1, text: 'Divine Intervention' }],
+              },
+              {
+                promotion: 'wizard-lich', toClass: 'Lich', rank: 3, choice: 'dark',
+                giver: 'npc-49', giverName: 'Halfgild Wynac', words: 'Bring me the jars.',
+                requirements: [{ kind: 'item', name: '601', label: 'Lich Jar', amount: 1, text: 'Lich Jar' }],
+              },
+            ],
+          },
+        ],
+      }),
+    }));
+    const paths = promotionPanel(h);
+    assert.deepEqual(paths.members[0].ranks.map((rank) => rank.choice), ['light', 'dark']);
+    assert.match(paths.members[0].ranks[0].text, /Arch Mage \(rank 3\) · the light path/);
+    assert.match(paths.members[0].ranks[1].text, /Lich \(rank 3\) · the dark path · granted by Halfgild Wynac/);
+
+    // The section offers no control of its own: a rank is taken from the person who gives it, in the
+    // conversation the party reaches them through, so a button here would be a second way to be promoted.
+    assert.equal(paths.controls, 0);
 
     ui.dispose();
   } finally {

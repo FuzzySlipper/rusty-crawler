@@ -283,6 +283,11 @@ public sealed class ProgressionTests
             // a third one anywhere in the product fails here rather than becoming a skill that grew unasked.
             "RaiseLevel(",
             "SetTier(",
+            // A rank and the class that goes with it are one fact, so the promotion that moves the rank moves
+            // the class reference in the same act: a source that changed a member's class on its own would be
+            // a character whose name and whose abilities disagree, which is exactly the drift one owner exists
+            // to prevent.
+            "ChangeClass(",
         ];
 
         string root = RepositoryRoot();
@@ -296,12 +301,17 @@ public sealed class ProgressionTests
 
         string owner = Path.Combine(root, "src", "PartyRpg.Kit", "Progression");
         string fields = Path.Combine(root, "src", "PartyRpg.Kit", "Party", "CharacterProgression.cs");
+        // The class reference is held by the profile, which is content's statement of who a character is: the
+        // promotion rewrites it through that owner's own operation, and the file that defines the operation
+        // names it by definition rather than by use.
+        string profile = Path.Combine(root, "src", "PartyRpg.Kit", "Party", "CharacterProfile.cs");
         string lessons = Path.Combine(root, "src", "PartyRpg.Kit", "Services", "PartyServices.cs");
         string entries = Path.Combine(root, "src", "PartyRpg.Kit", "Party", "CharacterSkills.cs");
         foreach (string source in sources)
         {
             if (source.StartsWith(owner, StringComparison.Ordinal)
                 || string.Equals(source, fields, StringComparison.Ordinal)
+                || string.Equals(source, profile, StringComparison.Ordinal)
                 || string.Equals(source, lessons, StringComparison.Ordinal)
                 || string.Equals(source, entries, StringComparison.Ordinal))
             {

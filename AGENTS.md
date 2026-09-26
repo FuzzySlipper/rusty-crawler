@@ -72,13 +72,23 @@ documents decide, and the difference is recorded rather than silently rounded.
 
 ## Current state
 
-**Foundation stone 6 has landed: combat is one state over the live world with both sides acting — the
-party strikes, monsters are placed and driven by this game's own data, harm resolves into damage,
-resistance and conditions, a place remembers being emptied, what a death leaves lies there searchable, and
-the same state is played in either of the two pacings: real time by recovery, or turn-based in rounds with
-the session waiting for each of the player's turns. A creature that cannot see its target still walks
-straight at it rather than around geometry, which is a defect with its own task rather than a gap in the
-stone.**
+**Foundation stone 7 has landed: a character grows, and the game's rules decide how far. One owner holds
+experience, a level, the skill points a level grants, and the rank a promotion hands over; a level is bought
+at a training hall whose fee the party's one ledger settles, and what a level gives is this game's own class
+and rank tables. Skills are content's 37 rows read into the manual's four blocks, capped by the class and
+rank ceilings this game authors, and raised with points the owner spends. Magic is a catalog of nine schools
+and 99 spells, learned from the books a guild sells with its membership and the rung its counter stands at,
+cast through one workflow that judges the spell's tier against that character's mastery, pays the caster's
+own pool, and hands the casting to an effect seam where each of the design's eight categories reaches the
+owner that holds what it changes. Alchemy mixes the shipped potion table's own recipes. And every class
+advances through ranks by promotion: the shipped class table's 9 families and 36 rows, 27 ranks with the 18
+people the shipped NPC and topic tables name as their givers, the errands the shipped quest table states,
+the proof items the shipped item table carries, and the light/dark alternative a second promotion chooses —
+recorded in the character's own class, which is what makes it irreversible and what a save already carries.
+A rank whose errand is a deed is stated as a quest requirement and refused by name, because no owner of an
+errand's state exists yet. Two defects stand beside the stone rather than inside it: a creature that cannot
+see its target still walks straight at it rather than around geometry, and a session's own fight is not yet
+in a save.**
 
 - `src/PartyRpg.Kit`, `src/PartyRpg.Rulesets.MightAndMagic7`, and `src/PartyRpg.Host` build against
   the pinned Engine pair. The host declares the one product entry, one admitted update, the
@@ -193,6 +203,47 @@ stone.**
   the running product: a party created in the product crossed into Emerald Island on `1168-01-02`, was
   saved, and a restarted host resumed that same party, place, clock, and per-place state at the saved
   pose (`local/verify/save-resume/`).
+- Character growth has one owner, and every source of it arrives there. `PartyProgression` holds experience,
+  the level it buys, the skill points it grants, and a character's rank: a kill, a quest, and any later deed
+  reach the same award entry, a training hall's step is judged against the curve and the hall's own ceiling
+  with the fee the party's ledger already settled, and a raise asks the skill policy for the ceiling and the
+  price before the pool is charged and the skill rises together — so a refused raise leaves the character
+  exactly where they stood. A rank moves through the same owner, and it moves the class and the rank
+  together: the ceiling a class and rank impose, the growth a level gives, and every class condition read one
+  fact, which is why a promotion is one act rather than three that could drift. The source scan beside the
+  owner's tests fails the kit if any other source names a transition, and it now covers the class reference a
+  promotion rewrites as well as the rank.
+- **Skills and their ceilings are this game's own table over the shipped rows.** The 37 shipped rows are read
+  into the manual's four blocks — 34 in use, with Blaster, Diplomacy, and Thievery reported as the rows this
+  game does not use — and the ceiling a class and rank impose comes from the donor's transcribed per-class
+  mastery matrix, this game's authored level bands over the donor's own rung thresholds, and the donor's
+  per-skill mastery fees. A rung is learned from a person, not bought with points; a raise is refused with
+  the limit named, and the promotion that would raise it is named with it. A skill a class may hold nothing
+  of answers with a reason where this game has one, which is what lets a closed school say whose choice shut
+  it rather than only that the class holds none.
+- **Magic is a catalog, a learning rule, one casting workflow, and an effect for every category.** The nine
+  schools and 99 spells come from the shipped table; what each costs, requires, aims at, recovers, and rolls
+  is this game's reading of the donor's per-spell table, recorded per spell in `MightAndMagic7SpellReadings`
+  and reported in `docs/magic-coverage.md`, which a test generates and checks so the statement cannot drift
+  from the rows. Learning goes through the counters that already exist (a guild's membership and its rung
+  gate which books it sells, and a book is consumed into a spellbook), casting is one workflow for
+  exploration and combat that refuses by name for no such spell, a spell not in the spellbook, mastery too
+  low, points short, no valid target, and a caster that cannot act, and the eight effect categories each
+  reach the owner that holds what they change rather than growing a branch per spell. Alchemy is landed
+  beside it: the recipes the shipped potion table states, the rung each result asks for, what a mixture that
+  goes off costs, and one row per potion for what drinking it does.
+- **Ranks and the light/dark path choice.** `MightAndMagic7Promotions` states the ladder: the shipped class
+  table's 9 families and 36 rows as 27 ranks, the 18 people the shipped NPC and topic tables name as their
+  givers, each rank's errand from the shipped quest table, the proof items the shipped item table carries
+  where the errand's words name one, the two counted deeds the original keeps as awards, the record each rank
+  leaves on the party under this game's own name, and the eight classes whose pair of second-promotion
+  alternatives splits on the two schools. A rank asks for what this build can judge — its giver, what the
+  party carries, what deeds it holds on record — and states an errand whose words name a deed as a quest
+  requirement, which is refused by name because no owner of an errand's state exists yet. A promotion is
+  taken from a person: the giver offers the ranks they give in the conversation that already exists, taking
+  one hands the party to the progression owner through the promotion handoff, and the choice of alternative is
+  recorded in the character's own class — which is what makes it irreversible, what a save already carries,
+  and what lets the ceiling answer with the path when the opposed school is asked for.
 - The world is usable through one interaction mechanism. A target is discovered from the current place's
   placements and the party's pose, never hand-listed, and one workflow — identify, judge the requirements
   in order, apply, report — serves search, open, unlock, pull, talk and read, so a new target kind is
@@ -378,7 +429,9 @@ stone.**
   spell's effect, `docs/magic-coverage.md` is the statement of what is applied, what is coarser than the
   game, and what is not applied yet. What a player can do today is
   create a party, walk it, open doors and containers, get caught by a trap, buy and sell at a counter, learn
-  from a guild (a skill, a membership, and a spell book whose spell lands in a character's spellbook), rest or
+  from a guild (a skill, a membership, and a spell book whose spell lands in a character's spellbook), train a
+  level at a hall and spend the points it grants, take a rank from the person who gives it and choose which
+  of two second-promotion alternatives to become, mix the recipes the pack carries, rest or
   camp, talk to people, fight by recovery or in rounds, cast a spell from that spellbook at a target the
   panel offers, set one quick spell per character, and save or resume: on the agent playtest service's remote browser a held `W` walks the
   party about 382 units a second and the released key

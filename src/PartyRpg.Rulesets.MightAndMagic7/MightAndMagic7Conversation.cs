@@ -3,6 +3,7 @@ using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Promotion;
 using PartyRpg.Kit.Services;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
@@ -78,8 +79,21 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     /// <summary>The field a placement names the people standing there under.</summary>
     internal const string PeopleField = "people";
 
-    /// <summary>The identity a counter's own offer carries, which is the one topic this game adds.</summary>
+    /// <summary>The identity a counter's own offer carries, which is one of the two topics this game adds.</summary>
     internal const string CounterTopicId = "counter";
+
+    /// <summary>
+    /// The prefix a rank's own offer carries.
+    /// </summary>
+    /// <remarks>
+    /// A rank is offered by the person this game's ladder says gives it, and the offer is this game's rather
+    /// than the shipped topic table's: the rows that table carries for promotions name the rank and are
+    /// answered by the original's event programs, and where its text column is empty nothing at all is
+    /// carried. The offer is therefore composed from the ladder — one topic per rank this person gives —
+    /// and its identity is the rank's own, so taking it hands the party to the progression owner with the
+    /// rank to give.
+    /// </remarks>
+    internal const string PromotionTopicPrefix = "promote:";
 
     /// <summary>The party-carried prefix a person the party has met is recorded under.</summary>
     internal const string MetFlagPrefix = "met:";
@@ -106,19 +120,25 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     private readonly Dictionary<string, PersonFacts> _people;
     private readonly Dictionary<(string Place, string Placement), IReadOnlyList<string>> _present;
     private readonly MightAndMagic7Services? _services;
+    private readonly MightAndMagic7Promotions? _promotions;
     private readonly IReadOnlyList<string> _notes;
 
     private MightAndMagic7Conversation(
         Dictionary<string, PersonFacts> people,
         Dictionary<(string, string), IReadOnlyList<string>> present,
         MightAndMagic7Services? services,
+        MightAndMagic7Promotions? promotions,
         IReadOnlyList<string> notes)
     {
         _people = people;
         _present = present;
         _services = services;
+        _promotions = promotions;
         _notes = notes;
     }
+
+    /// <summary>How many ranks the people of this world can hand out, or zero when it states no ladder.</summary>
+    internal int RankCount => _promotions?.RankCount ?? 0;
 
     /// <summary>What reading the people tables noticed, for the composition to report.</summary>
     internal IReadOnlyList<string> Notes => _notes;
@@ -139,9 +159,17 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     /// </remarks>
     /// <param name="catalog">The validated content the product loaded, when it loaded any.</param>
     /// <param name="services">This game's service answers, which say whether a placement keeps a counter.</param>
+    /// <param name="promotions">
+    /// This game's ranks, when they were read: a person the ladder names as a giver offers the ranks they
+    /// give, which is what makes a promotion something taken from somebody in the world rather than from a
+    /// screen. Without a ladder nobody offers a rank, and the count says so.
+    /// </param>
     /// <returns>This game's dialogue policy over that content, or null when no content was loaded.</returns>
     /// <exception cref="ContentValidationException">Content declares people that cannot be spoken with; every problem is named.</exception>
-    internal static MightAndMagic7Conversation? Read(ContentCatalog? catalog, MightAndMagic7Services? services)
+    internal static MightAndMagic7Conversation? Read(
+        ContentCatalog? catalog,
+        MightAndMagic7Services? services,
+        MightAndMagic7Promotions? promotions = null)
     {
         if (catalog is null) return null;
         List<ContentValidationIssue> issues = [];
@@ -259,7 +287,15 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
             notes.Add($"{people.Count} people are carried, {people.Count(person => person.Value.Topics.Count > 0)} of them with something to say.");
         }
 
-        return new MightAndMagic7Conversation(people, present, services, notes);
+        if (promotions is { } ladder)
+        {
+            int given = ladder.Ladder.Ranks.Count(rank => people.ContainsKey(rank.Giver));
+            notes.Add(string.Create(
+                CultureInfo.InvariantCulture,
+                $"{ladder.RankCount} ranks are carried, {given} of them given by somebody this world holds."));
+        }
+
+        return new MightAndMagic7Conversation(people, present, services, promotions, notes);
     }
 
     /// <inheritdoc />
@@ -366,7 +402,56 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
                 CounterOffer(counter, context)));
         }
 
+        // A person the ladder names as a giver offers the ranks they give, in the ladder's own order. The
+        // offer is composed here rather than read from the shipped topic table because the original answers
+        // those rows with event programs this build does not run: what the table states is who gives which
+        // rank, and this is that fact turned into something a party can take.
+        if (_promotions is { } ladder)
+        {
+            foreach (PromotionRank rank in ladder.Ladder.GivenBy(context.Speaker))
+            {
+                string id = $"{PromotionTopicPrefix}{rank.Id}";
+                ConversationAvailability availability = RankOffer(rank, context);
+                if (availability.IsOnOffer && Said(context, id))
+                {
+                    availability = ConversationAvailability.Withheld("they have already said this in this conversation");
+                }
+
+                offers.Add(new ConversationOffer(new ConversationTopic(id, rank.To.Value), availability));
+            }
+        }
+
         return offers;
+    }
+
+    /// <summary>What one rank's own offer makes of itself right now, read from the party's own state.</summary>
+    /// <remarks>
+    /// A rank is offered by the person who gives it whether or not anybody can take it, and what the party
+    /// brings to it is judged when it is taken: the offer's own answer is the one thing a screen must not
+    /// have to work out — whether the party holds the class the rank promotes from, and at the rank it
+    /// continues from. Everything else the rank asks for is listed by the refusal, which is where a player
+    /// reads it.
+    /// </remarks>
+    private static ConversationAvailability RankOffer(PromotionRank rank, ConversationContext context)
+    {
+        if (context.Party is not { } party)
+        {
+            return ConversationAvailability.Withheld($"the rank of {rank.To} is given to a {rank.From}, and this world holds nobody to give it to");
+        }
+
+        List<string> held = [];
+        foreach (PartyMember member in party.Members)
+        {
+            if (!string.Equals(member.Profile.Class.Value, rank.From.Value, StringComparison.Ordinal)) continue;
+            if (member.Progression.ClassRank == rank.Rank - 1) return ConversationAvailability.OnOffer;
+            held.Add(string.Create(
+                CultureInfo.InvariantCulture,
+                $"{member.Profile.Name} stands at rank {member.Progression.ClassRank}"));
+        }
+
+        return held.Count == 0
+            ? ConversationAvailability.Withheld($"nobody in the party is a {rank.From}, and the rank of {rank.To} is given to one")
+            : ConversationAvailability.Withheld($"{string.Join(" and ", held)} of the {rank.From} ladder, and the rank of {rank.To} continues from rank {rank.Rank - 1}");
     }
 
     /// <inheritdoc />
@@ -380,6 +465,25 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
             return new ConversationAnswer(
                 $"'{counter.Name}' — the party steps up to the counter.",
                 handoff: new ConversationHandoff(ConversationHandoffs.Service, counter.Id.Value));
+        }
+
+        // A rank this person gives is handed to the owner that owns ranks rather than answered here, exactly
+        // as a counter is handed to the service mechanism: whether the party meets the rank's requirements is
+        // judged there, once, and the answer is what both the refusal and the panel read.
+        if (_promotions is { } ladder && topic.Id.StartsWith(PromotionTopicPrefix, StringComparison.Ordinal))
+        {
+            string id = topic.Id[PromotionTopicPrefix.Length..];
+            foreach (PromotionRank rank in ladder.Ladder.GivenBy(context.Speaker))
+            {
+                if (!string.Equals(rank.Id, id, StringComparison.Ordinal)) continue;
+                return new ConversationAnswer(
+                    rank.Words.Length > 0 ? rank.Words : $"'{rank.To}? Then let us see whether you have what it asks for.'",
+                    handoff: new ConversationHandoff(PromotionHandoffs.Offer, rank.Id));
+            }
+
+            return new ConversationAnswer(
+                "There is nothing this person grants under that name.",
+                $"This game's ladder carries no rank '{id}', so the offer names a rank nothing can give.");
         }
 
         if (Facts(context.Speaker) is { } person)

@@ -19,7 +19,14 @@ namespace PartyRpg.Kit.Skills;
 /// </remarks>
 /// <param name="MaximumLevel">The highest level the skill may reach, zero when the skill may not be had.</param>
 /// <param name="MaximumTier">The highest rung of the skill's ladder the character may reach.</param>
-public readonly record struct SkillCeiling(int MaximumLevel, SkillTier MaximumTier)
+/// <param name="Reason">
+/// Why the ceiling is what it is, or null when the game states none. A closed skill is the case this exists
+/// for: a class that may hold no magic of one school at all is a different fact from a skill that is merely
+/// at its limit, and a game that can say <em>why</em> — the promotion that was not taken, the path that was
+/// chosen against it — says it here rather than leaving a caller to compose a sentence the game's own rules
+/// would disagree with.
+/// </param>
+public readonly record struct SkillCeiling(int MaximumLevel, SkillTier MaximumTier, PartyRefusal? Reason = null)
 {
     /// <summary>A ceiling under which the skill may not be held at all.</summary>
     public static SkillCeiling None => default;
