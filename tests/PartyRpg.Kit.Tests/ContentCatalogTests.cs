@@ -52,6 +52,32 @@ public sealed class ContentCatalogTests
     }
 
     [Fact]
+    public void Two_packs_that_claim_one_id_are_refused_rather_than_the_first_of_them_winning()
+    {
+        // The same directory name under both roots: a bundle naming it would otherwise load whichever root was
+        // read first, and the other pack would drop out of the selection without a word.
+        InMemoryContentSource source = new InMemoryContentSource()
+            .Add("packs/tables/pack.json", Manifest("tables", "definitions", documents: Document("a.json", "authored", "place")))
+            .Add("packs/tables/a.json", """{ "documentId": "authored", "definitionKind": "place", "entries": [ { "id": "1" } ] }""")
+            .Add(
+                "imports/tables/pack.json",
+                Manifest(
+                    "tables",
+                    "world",
+                    provenance: "\"description\": \"generated\", \"game\": \"a game\", \"build\": \"a build\"",
+                    documents: Document("b.json", "imported", "place")))
+            .Add("imports/tables/b.json", """{ "documentId": "imported", "definitionKind": "place", "entries": [ { "id": "2" } ] }""");
+
+        ContentCatalog catalog = ContentCatalogLoader.Load(source, Layout);
+
+        ContentValidationIssue issue = Assert.Single(catalog.Issues);
+        Assert.Equal("pack-id-reused", issue.Code);
+        Assert.Contains("packs/tables", issue.Message);
+        Assert.Contains("imports/tables", issue.Message);
+        Assert.Single(catalog.Packs);
+    }
+
+    [Fact]
     public void Two_packs_that_declare_the_same_entry_name_both_sides()
     {
         InMemoryContentSource source = new InMemoryContentSource()

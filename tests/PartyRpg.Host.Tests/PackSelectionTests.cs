@@ -109,6 +109,33 @@ public sealed class PackSelectionTests
         Assert.Contains("2 scenario starts", error.Message);
     }
 
+    [Fact]
+    public void Two_parties_inside_one_pack_are_refused_with_both_candidates_named()
+    {
+        (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(
+        [
+            ProductTestContext.Bundle(BuiltInBundles.Default, "world", "twins"),
+            .. Places(),
+            .. Twins(),
+        ]);
+
+        ContentValidationException error = Assert.Throws<ContentValidationException>(() =>
+            MightAndMagic7Ruleset.Instance.CreateSession(ProductTestContext.RulesetContext(context, ui)));
+
+        // One pack, one start, and two answers to who the party is: which band the player leads would be the
+        // order the document's entries happened to be read in, so the refusal names both candidates — the pack,
+        // the document, the entry, and the members each one would have created the party from.
+        Assert.Equal(2, error.Issues.Count);
+        Assert.All(error.Issues, issue => Assert.Equal("scenario-party-ambiguous", issue.Code));
+        Assert.All(error.Issues, issue => Assert.Equal("twins", issue.PackId));
+        Assert.All(error.Issues, issue => Assert.Equal("twins-party", issue.DocumentId));
+        Assert.Contains("party-one", error.Message);
+        Assert.Contains("party-two", error.Message);
+        Assert.Contains("with 1 member", error.Message);
+        Assert.Contains("with 2 members", error.Message);
+        Assert.Contains("2 scenario parties", error.Message);
+    }
+
     /// <summary>The operator's content root in miniature: one place pack, and one pack per scenario.</summary>
     /// <param name="bundlePacks">The packs the shipped bundle names, in load order.</param>
     private static (string Path, string Text)[] Content(string[] bundlePacks) =>
@@ -182,6 +209,51 @@ public sealed class PackSelectionTests
                   "id": "party-{{packId}}", "coins": {{coins}}, "food": 6, "reputation": 0, "fame": 0,
                   "members": [
                     { "name": "{{name}}", "race": "Human", "class": "Knight", "level": 1, "hitPoints": 40, "spellPoints": 0 }
+                  ]
+                }
+              ]
+            }
+            """),
+    ];
+
+    /// <summary>One scenario pack that answers who the party is twice: its one start, and two parties.</summary>
+    /// <remarks>
+    /// The two parties are two entries of one document, because that is the shape the start rule cannot reach:
+    /// two scenario packs would each state a start and be refused by that rule, while one pack with one start
+    /// has nothing but the party rule to say which band the player leads.
+    /// </remarks>
+    private static (string Path, string Text)[] Twins() =>
+    [
+        ($"{ProductTestContext.ContentDirectory}/content-packs/twins/pack.json",
+            """
+            {
+              "schemaVersion": 1,
+              "packId": "twins",
+              "kind": "scenario",
+              "provenance": { "description": "authored for a test" },
+              "documents": [
+                { "path": "start.json", "documentId": "twins-start", "definitionKind": "scenario-start" },
+                { "path": "party.json", "documentId": "twins-party", "definitionKind": "scenario-party" }
+              ]
+            }
+            """),
+        ($"{ProductTestContext.ContentDirectory}/content-packs/twins/start.json",
+            """{ "documentId": "twins-start", "definitionKind": "scenario-start", "entries": [ { "id": "start-twins", "place": "1", "entryPoint": "Party Start" } ] }"""),
+        ($"{ProductTestContext.ContentDirectory}/content-packs/twins/party.json",
+            """
+            {
+              "documentId": "twins-party",
+              "definitionKind": "scenario-party",
+              "entries": [
+                {
+                  "id": "party-one", "coins": 11, "food": 6, "reputation": 0, "fame": 0,
+                  "members": [ { "name": "Alpha", "race": "Human", "class": "Knight", "level": 1, "hitPoints": 40, "spellPoints": 0 } ]
+                },
+                {
+                  "id": "party-two", "coins": 22, "food": 6, "reputation": 0, "fame": 0,
+                  "members": [
+                    { "name": "Beta", "race": "Human", "class": "Knight", "level": 1, "hitPoints": 40, "spellPoints": 0 },
+                    { "name": "Gamma", "race": "Human", "class": "Knight", "level": 1, "hitPoints": 40, "spellPoints": 0 }
                   ]
                 }
               ]

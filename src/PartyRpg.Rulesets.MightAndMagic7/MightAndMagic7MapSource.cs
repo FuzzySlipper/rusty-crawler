@@ -54,6 +54,9 @@ internal sealed class MightAndMagic7MapSource : IPlaceMapSource
     /// <summary>Reads one place's map out of the documents that carry them.</summary>
     private PlaceMap? Read(PlaceId place)
     {
+        // An entry id is unique among the entries of its definition kind across the whole root — the catalog
+        // refuses a second entry claiming one — so the first entry whose id is the place is the only entry
+        // that can carry this place's map.
         foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in _catalog.Entries(MapDefinitionKind))
         {
             if (!string.Equals(entry.Id, place.Value, StringComparison.Ordinal)) continue;

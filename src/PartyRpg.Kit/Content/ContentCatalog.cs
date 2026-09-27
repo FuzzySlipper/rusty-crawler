@@ -46,6 +46,10 @@ public sealed class ContentCatalog
     public bool IsValid => Issues.Count == 0;
 
     /// <summary>Finds a pack by id.</summary>
+    /// <remarks>
+    /// A pack id names exactly one pack — the loader refuses a second directory that claims one — so the
+    /// first match is the only match there is.
+    /// </remarks>
     public LoadedPack? Find(string packId) =>
         Packs.FirstOrDefault(pack => string.Equals(pack.PackId, packId, StringComparison.Ordinal));
 

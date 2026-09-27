@@ -86,7 +86,8 @@ speed, cited from the donor, and the engine's own controller tuning scaled to th
 (`MightAndMagic7Time` — the authored calendar, the donor's starting moment, its thirty-to-one rate, and
 the hours it calls daylight), the party its content declares as scenario state (`MightAndMagic7Party`,
 through the same factory creation hands a party to, never a party of its own invention, and what a host
-that declared no creation screen plays), the larder's
+that declared no creation screen plays — one party per selection, refused by name with every candidate
+when the selection states two, exactly as the scenario's starting place is), the larder's
 policy (`MightAndMagic7Provisions` — one ration a day, and the weak condition a larder left short puts
 on every member), and what a crossing costs (`MightAndMagic7TravelCostRule` — a day on the road and the
 rations it eats; a fare is honoured by the passage the party bought, and a portal — a crossing the caster

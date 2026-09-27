@@ -15,3 +15,9 @@ exist.
 
 Every pack here must record the game and the build it was taken from; the loader refuses an imported
 pack that does not say where it came from.
+
+A pack's directory name is its id, and one id belongs to one pack: a second directory claiming an id
+already in the root — the same name under both `content-packs/` and `imports/`, say — is refused by name
+rather than one of the two loading. The same holds inside a pack: an entry id or a document id declared
+twice anywhere in the root stops the product, which is what lets a reader look an entry up by id and
+find the only one there is.

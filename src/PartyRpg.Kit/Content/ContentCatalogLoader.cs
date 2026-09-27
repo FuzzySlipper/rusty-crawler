@@ -7,9 +7,9 @@ namespace PartyRpg.Kit.Content;
 /// </summary>
 /// <remarks>
 /// Validation is deliberately whole-catalog rather than per-pack: two packs can each be individually
-/// well formed and still disagree, by declaring the same entry id or by referring to an entry that
-/// neither of them has. Both are failures a player would meet as a missing monster or a wrong item, so
-/// they are caught here where the message can name both packs.
+/// well formed and still disagree, by claiming the same pack id, by declaring the same entry id, or by
+/// referring to an entry that neither of them has. Each is a failure a player would meet as a missing
+/// monster or a wrong item, so they are caught here where the message can name both packs.
 /// </remarks>
 public static class ContentCatalogLoader
 {
@@ -34,6 +34,7 @@ public static class ContentCatalogLoader
 
         List<ContentValidationIssue> issues = [];
         List<LoadedPack> packs = [];
+        Dictionary<string, string> packOwners = new(StringComparer.Ordinal);
         Dictionary<string, string> entryOwners = new(StringComparer.Ordinal);
         Dictionary<string, string> documentOwners = new(StringComparer.Ordinal);
         List<(string PackId, PackDocumentEntry Document)> pendingReferences = [];
@@ -56,6 +57,18 @@ public static class ContentCatalogLoader
 
                 PackManifest? manifest = ReadManifest(source, manifestPath, directory, imported, issues);
                 if (manifest is null) continue;
+
+                // A pack's identity is what a bundle names and the catalog finds, so two directories
+                // claiming one id would leave which pack a bundle loaded to the order the roots were read
+                // in — and the selection would silently hold one of the two rather than both.
+                if (!packOwners.TryAdd(manifest.PackId, packPath))
+                {
+                    issues.Add(new ContentValidationIssue(
+                        "pack-id-reused",
+                        $"pack id '{manifest.PackId}' is declared by both '{packOwners[manifest.PackId]}' and '{packPath}', so which pack a bundle naming it loads would depend on the order the pack roots are read in.",
+                        manifest.PackId));
+                    continue;
+                }
 
                 List<ContentDocument> documents = [];
                 foreach (PackDocumentEntry declared in manifest.Documents)

@@ -257,9 +257,12 @@ dotnet src/MightAndMagic7.Import.Tool/bin/Release/net10.0/mm7import.dll write \
 
 Packs land under `content/partyrpg/imports` (generated, never committed) and are loaded once their ids
 are listed in a bundle under `content/partyrpg/bundles`. The bundle is the selection: only the packs it
-names contribute definitions, placements, and the scenario's start, so a pack nobody selected changes
-nothing about what plays — while the whole root is still validated when the product starts, and a bundle
-naming a pack that is not present stops it with the missing pack named. `write` also
+names contribute definitions, placements, the scenario's start, and the scenario's party, so a pack nobody
+selected changes nothing about what plays — while the whole root is still validated when the product
+starts, and a bundle naming a pack that is not present stops it with the missing pack named. What the
+selection must state once it states as a set rather than as a sequence: two scenario starts, or two
+scenario parties, are refused with every candidate named rather than the first one playing because its
+pack loaded first. `write` also
 emits each place's collision geometry into the world pack, in the engine's own spatial artifact, and
 refuses a place whose solid faces cannot be closed enough for a party to stand on — the shape and the
 rules are in [`docs/research/mm7-map-formats.md`](docs/research/mm7-map-formats.md) §8.

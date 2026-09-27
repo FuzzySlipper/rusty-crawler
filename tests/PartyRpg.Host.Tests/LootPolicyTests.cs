@@ -95,6 +95,29 @@ public sealed class LootPolicyTests
     }
 
     [Fact]
+    public void A_person_reads_the_lowest_numbered_person_row_however_the_pack_orders_them()
+    {
+        // The shipped table names more than one row for a person, and this pack writes the higher-numbered one
+        // first. A person leaves what the lowest-numbered row states, because that is the row this game's fight
+        // reads for every person too: both take it by the row's own number, so the order the pack wrote its rows
+        // in cannot decide what a person leaves behind — and cannot make the fight and the loot disagree.
+        MightAndMagic7Loot loot = MightAndMagic7Loot.Compose(
+            Catalog(
+                Item(CrudeLongsword, "Crude Longsword", "single-handed", "sword", "steel", "[0,0,0,0,0,0]"),
+                Monster(9, "Peasant", Treasure(chance: 0, rolls: 7, sides: 6, level: 0)),
+                Monster(3, "Peasant", Treasure(chance: 0, rolls: 1, sides: 1, level: 0))),
+            random: Keyed());
+
+        // A person the map places states no row of its own, which is what makes it read the person row: the
+        // lower row's single coin is what is left, not the higher row's seven six-sided dice.
+        PlacementDefinition person = Placement("person", "someone", """{ "id": "someone", "kind": "person", "x": 100, "y": 0, "z": 0 }""");
+        LootYield found = loot.Death(person, Rolls("death/3/person:someone/1"));
+
+        Assert.Equal(1, found.Coins);
+        Assert.Empty(found.Items);
+    }
+
+    [Fact]
     public void A_creature_whose_row_states_no_treasure_leaves_nothing()
     {
         // Thirty-seven of the shipped rows state a literal zero. A death with no cell — or a cell of nothing

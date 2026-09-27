@@ -464,8 +464,12 @@ internal sealed class MightAndMagic7Loot
         foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in catalog.Entries(MightAndMagic7Combat.MonsterDefinitionKind))
         {
             if (!int.TryParse(entry.Id, NumberStyles.None, CultureInfo.InvariantCulture, out int id)) continue;
-            if (personRow is null &&
-                string.Equals(entry.GetString(MonsterNameField), MightAndMagic7Combat.PersonRowName, StringComparison.OrdinalIgnoreCase))
+
+            // A person's body is read from the lowest-numbered monster row named for a person, which is the
+            // one row this game's fight reads for every person as well: both readers take the row by its own
+            // number rather than by the order the packs were read, so they cannot name two different rows.
+            if (string.Equals(entry.GetString(MonsterNameField), MightAndMagic7Combat.PersonRowName, StringComparison.OrdinalIgnoreCase) &&
+                (personRow is not { } held || id < held))
             {
                 personRow = id;
             }

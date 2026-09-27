@@ -481,8 +481,10 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         }
 
         // A person standing in the world is an actor with a peasant's monster row in the donor, and the
-        // shipped table carries those rows; the first one is what this game reads for every person, because
-        // neither our people content nor the donor's placement states which tier a given person is.
+        // shipped table carries several of those rows; the lowest-numbered one is what this game reads for
+        // every person, because neither our people content nor the donor's placement states which tier a
+        // given person is. The order is the row's own number rather than the catalog's, so which row wins
+        // does not move with the order the packs happen to load in.
         MonsterFacts? person = monsters.Values
             .Where(row => string.Equals(row.Name, PersonRowName, StringComparison.OrdinalIgnoreCase))
             .OrderBy(row => row.Id)

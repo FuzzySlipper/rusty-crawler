@@ -137,22 +137,23 @@ it holds, and the `kind:id` references its entries make. Documents hold entries 
 fields kept as JSON for the ruleset that owns their meaning.
 
 The kit validates the whole catalog when a product starts, not each pack alone: two packs can each be
-well formed and still disagree by declaring the same entry id or referring to something neither has.
-A pack under the imports root must also record the game and build it came from, so imported content
-cannot silently mix editions. A bundle names a ruleset, the packs to load with it, and an optional
-tuning pack; a bundle that names a pack which is not present stops the product with every missing
-piece named at once. Content that is simply absent is not an error — a checkout whose packs have not
-been generated yet starts with no bundle selected and says so.
+well formed and still disagree by claiming the same pack id, by declaring the same entry id, or by
+referring to something neither has. A pack under the imports root must also record the game and build it
+came from, so imported content cannot silently mix editions. A bundle names a ruleset, the packs to load
+with it, and an optional tuning pack; a bundle that names a pack which is not present stops the product
+with every missing piece named at once. Content that is simply absent is not an error — a checkout whose
+packs have not been generated yet starts with no bundle selected and says so.
 
 **A bundle's selection is what loads.** The catalog a session reads holds exactly the packs the bundle
 named, so every mechanism that reads content — definitions, placements, the scenario's start, the
 scenario's party — reads the selection and nothing else. A pack nobody named contributes nothing
 however much of it sits under the content root, and no mechanism has to ask whether what it is looking
 at was selected. The whole root is still read and validated, which is what keeps a broken pack on disk
-a failure worth naming rather than a defect a narrower read would hide. The scenario's starting place
-is resolved from that selection and only from it: exactly one start, because two would leave which
-place the party begins in to the order the packs happened to load in — refused, with every candidate
-named, exactly as a selected pack that is present and wrong is refused.
+a failure worth naming rather than a defect a narrower read would hide. A scenario fact the selection
+must state once is resolved as a set and never as a sequence: the starting place and the party are each
+refused by name when the selection states two, because two would leave which one plays to the order the
+packs happened to load in, and a start that names no place or a party that names no member is refused
+rather than skipped — exactly as a selected pack that is present and wrong is refused.
 
 ## 7. Import pipeline
 

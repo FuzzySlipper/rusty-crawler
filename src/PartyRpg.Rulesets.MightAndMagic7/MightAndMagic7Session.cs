@@ -374,9 +374,27 @@ internal sealed class MightAndMagic7Session : IGameSession
             // No creation screen was declared, so this session plays the party its scenario fixes: the
             // scripted path — a live check, a test, or a product that offers no creation. Handing that party
             // to the world here is the same composition order the created path takes, one accept earlier.
-            party = Capacity(MightAndMagic7Party.Compose(context.Content), spells, fill: true);
+            //
+            // The scenario is read in the order it plays: which place the party begins in is the world's own
+            // start rule, and who the party is is the party rule, so a selection wrong about both hears about
+            // the start. A party refusal is therefore held where the party is read, and the world is composed
+            // over no party so the start rule can speak first; a party this selection cannot state leaves a
+            // world that is discarded with the refusal, because there is no band to lead into it.
+            ContentValidationException? parties = null;
+            PartyEntity? stated = null;
+            try
+            {
+                stated = Capacity(MightAndMagic7Party.Compose(context.Content), spells, fill: true);
+            }
+            catch (ContentValidationException refusal)
+            {
+                parties = refusal;
+            }
+
+            party = stated;
             PartyResourceLedger? accounts = party is null ? null : Ledger(party);
             world = MightAndMagic7World.Compose(context.Content, context, clock, accounts, party, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot, journal: () => Journal);
+            if (parties is not null) throw parties;
             _session = new PartyRpgSession(
                 composition,
                 context.Projection,

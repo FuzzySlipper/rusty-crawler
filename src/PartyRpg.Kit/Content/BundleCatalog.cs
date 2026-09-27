@@ -34,6 +34,10 @@ public sealed class BundleCatalog
     public bool IsValid => Issues.Count == 0;
 
     /// <summary>Finds a bundle by id.</summary>
+    /// <remarks>
+    /// A bundle's id is the directory it stands in and a bundle whose id and directory disagree is refused,
+    /// so an id names one directory and the first match is the only match there is.
+    /// </remarks>
     public GameBundle? Find(string bundleId) =>
         Bundles.FirstOrDefault(bundle => string.Equals(bundle.BundleId, bundleId, StringComparison.Ordinal));
 

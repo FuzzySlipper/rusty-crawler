@@ -17,6 +17,18 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// world runs with no places when content declares none, and nothing here fabricates one.
 /// </para>
 /// <para>
+/// <b>One party, or none.</b> Which band the player leads is the scenario's decision, so two parties inside
+/// the selected set would leave that decision to the order the packs happened to load in — a party nobody
+/// chose winning because its pack came first. That is refused with every candidate named, which is the
+/// posture the scenario's starting place already meets, and it is reachable inside a single pack: two
+/// scenario packs are already refused by the start rule they both state, but one pack that declares two
+/// parties has one start and two answers to who the party is.
+/// </para>
+/// <para>
+/// The catalog is already the selection — the packs the bundle named and no others — so a party in a pack
+/// nobody selected is not here to be found.
+/// </para>
+/// <para>
 /// <b>This is the scenario's path, not the creation screen.</b> <see cref="MightAndMagic7Creation"/> is the
 /// player-facing flow, whose members are chosen a step at a time and which a session will hold while a
 /// party is being created. A scenario that fixes the party — a scripted start, a live check, a test — is
@@ -50,18 +62,42 @@ internal static class MightAndMagic7Party
     /// </summary>
     /// <param name="catalog">The validated content the product loaded, when it loaded any.</param>
     /// <returns>The created party, or null when content supplies nothing to create one from.</returns>
-    /// <exception cref="ContentValidationException">Content declares a party that cannot be created, naming every problem found.</exception>
+    /// <exception cref="ContentValidationException">
+    /// The selection states more than one party, or a party that cannot be created; every problem found is named.
+    /// </exception>
     internal static PartyEntity? Compose(ContentCatalog? catalog)
     {
         if (catalog is null) return null;
-        foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in catalog.Entries(DefinitionKind))
+        List<(LoadedPack Pack, ContentDocument Document, ContentEntry Entry)> parties = [.. catalog.Entries(DefinitionKind)];
+        if (parties.Count == 0) return null;
+
+        if (parties.Count > 1)
         {
-            // The first entry wins, exactly as the scenario's starting place does: two parties would leave
-            // which band the player leads to the order the packs happened to load in.
-            return Create(catalog, pack, document, entry);
+            throw new ContentValidationException(
+                $"The content this product selected states {parties.Count} scenario parties, and which band the player leads would be the order the packs happened to load in. The candidates are {Joined(parties)}.",
+                [.. parties.Select(candidate => new ContentValidationIssue(
+                    "scenario-party-ambiguous",
+                    $"{Candidate(candidate)}, and it is one of {parties.Count} parties this selection states.",
+                    candidate.Pack.PackId,
+                    candidate.Document.DocumentId))]);
         }
 
-        return null;
+        (LoadedPack Pack, ContentDocument Document, ContentEntry Entry) only = parties[0];
+        return Create(catalog, only.Pack, only.Document, only.Entry);
+
+        // One candidate stated the way a refusal reads it: which pack and document declared the party,
+        // which entry it is, and the members it would create the band from.
+        static string Candidate((LoadedPack Pack, ContentDocument Document, ContentEntry Entry) party)
+        {
+            int members = party.Entry.GetArray(MembersField).Count;
+            string leads = members == 0
+                ? "no members"
+                : $"{members} member{(members == 1 ? string.Empty : "s")}";
+            return $"'{party.Entry.Id}' in {party.Pack.PackId}/{party.Document.DocumentId}, which begins the party with {leads}";
+        }
+
+        static string Joined(IReadOnlyList<(LoadedPack Pack, ContentDocument Document, ContentEntry Entry)> candidates) =>
+            string.Join("; ", candidates.Select(Candidate));
     }
 
     /// <summary>Creates the party one content entry describes.</summary>

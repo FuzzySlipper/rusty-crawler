@@ -138,6 +138,9 @@ public sealed class ContentPlaceGeometry : IPlaceGeometrySource
     /// </exception>
     public PlaceGeometry? For(PlaceId place)
     {
+        // An entry id is unique among the entries of its definition kind across the whole root — the
+        // catalog refuses a second entry claiming one — so the first entry whose id is the place is the
+        // only entry that carries this place's geometry.
         foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in _catalog.Entries(_definitionKind))
         {
             if (!string.Equals(entry.Id, place.Value, StringComparison.Ordinal)) continue;
