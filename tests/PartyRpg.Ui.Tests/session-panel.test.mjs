@@ -3615,6 +3615,10 @@ test('the panel shows the journal, what each errand asks, and why a turn-in was 
     h.emit(snapshot('running', 2, 120, 121, movement(), { quests: quests({ journal: [], outcome: { ...quests().outcome, action: 'none', outcome: 'none', code: '', message: '' } }) }));
     assert.equal(h.panel().getAttribute('data-quests'), 'present');
     assert.equal(questsPanel(h).state, 'The party has been offered nothing.');
+    // The errands belong to the quest owner, so a session that publishes them without a journal block still
+    // shows this book: the container it sits in is shown for it even though the journal mechanism is absent.
+    assert.equal(journalPanel(h).hidden, false);
+    assert.equal(questsPanel(h).hidden, false);
 
     // The errand as the product published it: what it is called, where it stands, who it is finished with,
     // the words the game tells about it, and every objective with the party's own progress.
@@ -3696,15 +3700,20 @@ test('the panel renders the five books from the projection and computes none of 
     const ui = mountProductUi(h.root, h.context);
 
     // A session that keeps no journal shows none: no books at all, rather than five that look like a party
-    // which has been nowhere and written nothing down.
-    h.emit(snapshot('running', 1, 60, 60, movement(), { quests: quests() }));
+    // which has been nowhere and written nothing down. The errands are the quest owner's rather than the
+    // journal's, so a projection that carries them still shows the book they are kept in.
+    h.emit(snapshot('running', 1, 60, 60, movement()));
     assert.equal(h.panel().getAttribute('data-journal'), 'none');
     assert.equal(journalPanel(h).hidden, true);
+    h.emit(snapshot('running', 2, 120, 121, movement(), { quests: quests() }));
+    assert.equal(h.panel().getAttribute('data-journal'), 'none');
+    assert.equal(journalPanel(h).hidden, false);
+    assert.equal(questsPanel(h).hidden, false);
 
     // The journal the product published: five books in its own order, each with the game's own title, its
     // state sentence, and its rows. A book whose owner the session does not compose is shown with the game's
     // reason rather than hidden, because "no owner keeps this yet" is a fact a player can act on.
-    h.emit(snapshot('running', 2, 120, 121, movement(), { quests: quests(), journal: journal() }));
+    h.emit(snapshot('running', 3, 180, 181, movement(), { quests: quests(), journal: journal() }));
     assert.equal(h.panel().getAttribute('data-journal'), 'present');
     const books = journalPanel(h);
     assert.equal(books.hidden, false);
@@ -3775,9 +3784,9 @@ test('a book reloaded from the projection holds exactly what the projection carr
     }));
     assert.deepEqual(journalPanel(h).books.map((book) => book.rows.length), [0, 0, 0, 0]);
 
-    h.emit(snapshot('running', 3, 180, 181, movement(), { quests: quests() }));
+    h.emit(snapshot('running', 4, 240, 241, movement(), { quests: quests() }));
     assert.equal(h.panel().getAttribute('data-journal'), 'none');
-    assert.equal(journalPanel(h).hidden, true);
+    assert.deepEqual(journalPanel(h).books.map((book) => [book.title, book.state, book.rows.length]), [['', '', 0], ['', '', 0], ['', '', 0], ['', '', 0]]);
 
     ui.dispose();
   } finally {

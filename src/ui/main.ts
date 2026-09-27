@@ -4507,6 +4507,19 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
         }),
       );
     }
+
+    // A projection that carries no journal empties the books rather than leaving the last one's rows behind
+    // a hidden section: what the panel shows is what the projection it was last given holds, so a reload
+    // cannot show a book the save no longer has.
+    if (!view.available) {
+      for (const rendered of journalBooks.values()) {
+        rendered.section.hidden = true;
+        rendered.section.dataset.available = 'false';
+        rendered.head.textContent = '';
+        rendered.state.textContent = '';
+        rendered.rows.replaceChildren();
+      }
+    }
   };
 
   // The journal's own renderer: each errand with its state, the words the game tells about it, every
@@ -4517,6 +4530,10 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     panel.dataset.quests = view.available ? 'present' : 'none';
     panel.dataset.questsOutcome = view.outcome.outcome;
     quests.hidden = !view.available;
+    // The errands belong to the quest owner rather than to the journal, so a session that publishes them
+    // without a journal block still shows this book: the books are a container, and hiding one because the
+    // mechanism beside it is absent would hide the errands themselves.
+    if (view.available) journal.hidden = false;
     quests.dataset.book = 'quests';
     quests.dataset.available = String(book?.available ?? view.available);
     // The book's own words when the product published them, and this companion's only when it did not: a
