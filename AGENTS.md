@@ -85,8 +85,10 @@ advances through ranks by promotion: the shipped class table's 9 families and 36
 people the shipped NPC and topic tables name as their givers, the errands the shipped quest table states,
 the proof items the shipped item table carries, and the light/dark alternative a second promotion chooses —
 recorded in the character's own class, which is what makes it irreversible and what a save already carries.
-A rank whose errand is a deed is stated as a quest requirement and refused by name, because no owner of an
-errand's state exists yet. Two defects stand beside the stone rather than inside it: a creature that cannot
+A rank whose errand is a deed is stated as the record a finished quest leaves, so the seventeen ranks whose
+errands the shipped quest table states are judged by real quest state rather than refused — quests have
+landed as their own stone's first part, with the journal and knowledge still to come. Two defects stand
+beside the stone rather than inside it: a creature that cannot
 see its target still walks straight at it rather than around geometry, and a session's own fight is not yet
 in a save.**
 
@@ -191,7 +193,12 @@ in a save.**
   one schema, replaced rather than evolved. Saving happens only where the product asks for it, and a
   load rebuilds what is transient (movement outcomes, projections, the population's runtime entities)
   so nothing points at a handle or an entity that belonged to the previous session. A malformed or
-  contradictory save is refused with every problem listed at once, not the first. Knowledge, quests,
+  contradictory save is refused with every problem listed at once, not the first. Quests have a section of
+  their own — every instance a party holds, with the stage it stands at, the progress recorded against the
+  objectives that are moments rather than states, and the place each offer was taken in, and no definition
+  at all, because what a quest means is read from the game's own content when the document is loaded; an
+  instance naming a quest the game no longer states, or a place the world no longer has, is refused with
+  that instance named rather than resumed as an errand nothing could finish. Knowledge,
   containers and scenario flags have no owner yet, so the document has no section for them rather than
   a placeholder. A save is asked for explicitly — the host declares `session.save` as a key and as a
   panel action, the session applies it before the update it arrives in steps anything, and exactly one
@@ -238,8 +245,10 @@ in a save.**
   where the errand's words name one, the two counted deeds the original keeps as awards, the record each rank
   leaves on the party under this game's own name, and the eight classes whose pair of second-promotion
   alternatives splits on the two schools. A rank asks for what this build can judge — its giver, what the
-  party carries, what deeds it holds on record — and states an errand whose words name a deed as a quest
-  requirement, which is refused by name because no owner of an errand's state exists yet. A promotion is
+  party carries, what deeds it holds on record — and states an errand whose words name a deed as the record a
+  finished quest leaves (`errand:<bit>`), which is the identity a shipped topic's own requirement column
+  already gates a person's line on, so seventeen ranks' errands are judged by real quest state rather than
+  refused. A promotion is
   taken from a person: the giver offers the ranks they give in the conversation that already exists, taking
   one hands the party to the progression owner through the promotion handoff, and the choice of alternative is
   recorded in the character's own class — which is what makes it irreversible, what a save already carries,
@@ -423,15 +432,45 @@ in a save.**
   companion honest: the runtime check that rendering starts no timer, a source scan that fails on a clock
   or on any arithmetic between a combat quantity and anything else, and a test that feeds it
   contradictory projections and requires it to echo them.
+- **Quests exist: a definition a game states, an instance a party holds, objectives that read the owners
+  already reporting them, and one turn-in that pays.** `PartyQuests` is the one owner of what a party has
+  been offered, taken, and finished, and nothing else writes a stage or a recorded count. A definition
+  states its giver, its offer and completion conditions, its objectives, what it pays, and the record it
+  leaves; an objective is one of six kinds — kill, retrieve, reach, talk, deliver, a flag check — and each
+  reads the owner that already holds the fact: the fight's own report of its dead for a creature the place's
+  placements name, the one inventory for something carried, the world's report of the place the party stands
+  in, the records the conversation leaves of meeting somebody, and the party's own carried flags. What
+  another owner can be asked is read from it at the moment it is asked and never copied; what is a moment
+  rather than a state — a death, a place — is recorded on the instance, which is what a save carries.
+  Completion is a reading rather than a stage, so nothing has to write it down and a party that loses the
+  thing an objective named stops being ready in the same breath. Every errand is offered in the conversation
+  that already exists, as topics whose stage is the party's state (hearing it, agreeing to it, handing it
+  back), and a turn-in is judged whole before anything moves: the giver, every objective, every condition,
+  and every owner a reward would reach, so a refusal names the objective that is unmet and leaves the party
+  exactly where it stood. What it then pays reaches each owner by its own path — experience at the
+  progression owner's one award entry, coin through the party's one ledger, items through the acquisition
+  path, records onto the party's effects — and the record the definition states is written last, so the mark
+  of a finished errand is never true before everything it promised arrived. An item a taken errand's
+  unfinished objective names is refused for sale, with the errand named, because a thing carried is what a
+  retrieve or delivery objective is judged against. This game's own reading is `MightAndMagic7Quests`: the
+  operator's 512 shipped quest rows carry the journal's own words, and the 17 promotion errands are stated
+  over them — each errand's giver taken from the ladder rather than stated twice, each objective resolved
+  against the places and creatures the packs carry, and what the original performs with an event program
+  (a weight moved, a code cracked, an altar defaced) stated as the errand's residue rather than faked. A pack
+  may state an errand of its own with a reading beside its words, and a town hall's board is the one errand
+  nobody authors: the beast is the place's own encounter row by the month the clock stands in, what it pays
+  is the donor's hundred times its level, and the keeper who offers it is the one the counter's placement
+  names.
 - **Magic exists as a catalog, learning, one casting workflow, and an effect for every category; what the
-  effects' own depths are is stated per spell, and quests, deadlines in a save, and a fight in a save are not
+  effects' own depths are is stated per spell, and deadlines in a save and a fight in a save are not
   here yet.** Do not describe, review, or accept behavior those stones will add as though it were here; for a
   spell's effect, `docs/magic-coverage.md` is the statement of what is applied, what is coarser than the
   game, and what is not applied yet. What a player can do today is
   create a party, walk it, open doors and containers, get caught by a trap, buy and sell at a counter, learn
   from a guild (a skill, a membership, and a spell book whose spell lands in a character's spellbook), train a
   level at a hall and spend the points it grants, take a rank from the person who gives it and choose which
-  of two second-promotion alternatives to become, mix the recipes the pack carries, rest or
+  of two second-promotion alternatives to become, mix the recipes the pack carries, hear an errand from the
+  person who gives it, take it on, do what it asks and hand it back finished for what it pays, rest or
   camp, talk to people, fight by recovery or in rounds, cast a spell from that spellbook at a target the
   panel offers, set one quick spell per character, and save or resume: on the agent playtest service's remote browser a held `W` walks the
   party about 382 units a second and the released key

@@ -42,7 +42,11 @@ Bundle assembles. Host launches.**
 > pool, conditions through the condition model, wards and hastes through the effects the fight reads, light
 > through a deadline on the one clock, travel through the world's own transition path, detection over the
 > places the world holds, and the utilities through the state they change. `docs/magic-coverage.md` states,
-> per spell, how far each one is expressed. Quests are still to come, and the
+> per spell, how far each one is expressed. Quests are landed with them: one owner of what a party has been
+> offered, taken, and finished, definitions a pack states over the 512 shipped quest rows, objectives that
+> read the fight's deaths, the pack, the world's places, the conversation's records, and the party's flags,
+> and one turn-in that pays experience, coin, items, and records to their own owners. Journal, knowledge, and
+> the rest of the stone are still to come, and the
 > shipped bundle carries no content — so a running product without imported packs reports no world and no
 > party. See [`AGENTS.md`](AGENTS.md) for the exact current state.
 

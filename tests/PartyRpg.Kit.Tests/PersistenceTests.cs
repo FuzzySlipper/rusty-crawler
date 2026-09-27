@@ -414,11 +414,11 @@ public sealed class PersistenceTests
         byte[] bytes = Encode(played.Session.Capture());
         string json = Encoding.UTF8.GetString(bytes);
 
-        // The document is exactly its three sections: no version marker, no schema number, and nothing a
+        // The document is exactly its four sections: no version marker, no schema number, and nothing a
         // compatibility reader could key on. A save is this shape or it is not read at all.
         using JsonDocument document = JsonDocument.Parse(bytes);
         Assert.Equal(
-            ["party", "clock", "world"],
+            ["party", "clock", "world", "quests"],
             document.RootElement.EnumerateObject().Select(property => property.Name));
         Assert.DoesNotContain("version", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("schema", json, StringComparison.OrdinalIgnoreCase);

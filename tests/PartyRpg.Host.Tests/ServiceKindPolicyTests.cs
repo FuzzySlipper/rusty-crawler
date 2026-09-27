@@ -459,7 +459,10 @@ public sealed class ServiceKindPolicyTests
                     .Add("packs/world/roads.json", Roads()),
                 Layout).RequireValid();
 
-            MightAndMagic7Services rule = MightAndMagic7Services.Read(catalog)
+            // The quest reading travels with the services because a town hall's notice and the errand its
+            // keeper offers are one reading of the place's own encounter row: the rule states no ladder here,
+            // so the errands it carries are none, and the board still posts what the row says.
+            MightAndMagic7Services rule = MightAndMagic7Services.Read(catalog, quests: MightAndMagic7Quests.Read(catalog, promotions: null))
                 ?? throw new InvalidOperationException("The content declares services, so the policy must be read.");
             MightAndMagic7Conversation conversation = MightAndMagic7Conversation.Read(catalog, rule)
                 ?? throw new InvalidOperationException("The content declares places, so the dialogue policy must be read.");

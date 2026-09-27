@@ -89,6 +89,11 @@ namespace PartyRpg.Kit.Presentation;
 /// spell policy. Defaulted for the same reason the others are: a session whose ruleset answered no magic
 /// publishes that rather than a spellbook nothing could cast from.
 /// </param>
+/// <param name="Quests">
+/// What the party's journal holds and what its last errand did, or the no-owner value when the session's
+/// ruleset stated no quests. Defaulted for the same reason the others are: a session whose ruleset answered
+/// no quest policy publishes that rather than a journal nobody fills.
+/// </param>
 public readonly record struct SessionSnapshot(
     SessionComposition Composition,
     SessionMode Mode,
@@ -110,7 +115,8 @@ public readonly record struct SessionSnapshot(
     PromotionSnapshot Promotion = default,
     SkillsSnapshot Skills = default,
     MagicSnapshot Magic = default,
-    AlchemySnapshot Alchemy = default);
+    AlchemySnapshot Alchemy = default,
+    QuestSnapshot Quests = default);
 
 /// <summary>Where the party is in the world, as the panel needs it: which place, where in it, and how much of the world is known.</summary>
 /// <param name="Place">The place the party is in, empty when the session has no world.</param>
@@ -208,6 +214,9 @@ public static class SessionProjection
 
     /// <summary>The name of the projection field the alchemy block is published under.</summary>
     public const string AlchemyField = "alchemy";
+
+    /// <summary>The name of the projection field the quests block is published under.</summary>
+    public const string QuestsField = "quests";
 
     /// <summary>Builds the projection value for a snapshot.</summary>
     public static UiValue Build(SessionSnapshot snapshot)
@@ -347,7 +356,12 @@ public static class SessionProjection
             // session's ruleset stated no mixtures", "the pack holds nothing that mixes", and "a mixture was
             // refused for a mastery or for want of room" are three different facts, and a block that only
             // appeared once something had been mixed would leave a pack screen unable to tell them apart.
-            (AlchemyField, Alchemy(builder, snapshot.Alchemy)));
+            (AlchemyField, Alchemy(builder, snapshot.Alchemy)),
+            // The quests block is published in every mode for the same reason the alchemy block is: "this
+            // session's ruleset stated no quests", "the party has taken nothing", and "an errand was refused
+            // because an objective is unmet" are three different facts, and a block that only appeared once
+            // somebody had taken an errand would leave a screen unable to tell them apart.
+            (QuestsField, Quests(builder, snapshot.Quests)));
         return builder.Build(root);
     }
 
@@ -955,6 +969,64 @@ public static class SessionProjection
     /// what a pair will do is published: the game's own table is what a player learns, and the outcome row is
     /// where an attempt's own answer arrives.
     /// </remarks>
+    /// <summary>Builds the quest block: every errand the party stands with, and what the last one did.</summary>
+    /// <remarks>
+    /// Every list is sent whole so the screen decides nothing: the journal with each quest's own objectives
+    /// and their progress, what a turn-in paid, and the words of a refusal. A snapshot built without quest
+    /// facts carries the default value, whose strings and lists are null rather than empty: they are
+    /// published as empty so a reader never sees a name that is not there, exactly as the other blocks do.
+    /// </remarks>
+    private static uint Quests(UiValueBuilder builder, QuestSnapshot quests)
+    {
+        List<uint> journal = [];
+        foreach (QuestJournalSnapshot quest in quests.Journal ?? [])
+        {
+            List<uint> objectives = [];
+            foreach (QuestObjectiveSnapshot objective in quest.Objectives ?? [])
+            {
+                objectives.Add(builder.Object(
+                    ("id", builder.String(objective.Id)),
+                    ("label", builder.String(objective.Label)),
+                    ("count", builder.Number(objective.Count)),
+                    ("required", builder.Number(objective.Required)),
+                    ("met", builder.Boolean(objective.Met))));
+            }
+
+            journal.Add(builder.Object(
+                ("quest", builder.String(quest.Quest)),
+                ("name", builder.String(quest.Name)),
+                ("state", builder.String(quest.State)),
+                ("giver", builder.String(quest.Giver)),
+                ("note", builder.String(quest.Note)),
+                ("residue", builder.String(quest.Residue)),
+                ("objectives", builder.Array([.. objectives])),
+                ("canTurnIn", builder.Boolean(quest.CanTurnIn))));
+        }
+
+        List<uint> items = [];
+        foreach (string item in quests.Items ?? []) items.Add(builder.String(item));
+
+        List<uint> records = [];
+        foreach (string record in quests.Records ?? []) records.Add(builder.String(record));
+
+        List<uint> delivered = [];
+        foreach (string item in quests.Delivered ?? []) delivered.Add(builder.String(item));
+
+        return builder.Object(
+            ("available", builder.Boolean(quests.Available)),
+            ("journal", builder.Array([.. journal])),
+            ("action", builder.String(quests.Action ?? string.Empty)),
+            ("outcome", builder.String(quests.Outcome ?? string.Empty)),
+            ("quest", builder.String(quests.Quest ?? string.Empty)),
+            ("experience", builder.Number(quests.Experience)),
+            ("coins", builder.Number(quests.Coins)),
+            ("items", builder.Array([.. items])),
+            ("records", builder.Array([.. records])),
+            ("delivered", builder.Array([.. delivered])),
+            ("code", builder.String(quests.Code ?? string.Empty)),
+            ("message", builder.String(quests.Message ?? string.Empty)));
+    }
+
     private static uint Alchemy(UiValueBuilder builder, AlchemySnapshot alchemy)
     {
         List<uint> members = [];

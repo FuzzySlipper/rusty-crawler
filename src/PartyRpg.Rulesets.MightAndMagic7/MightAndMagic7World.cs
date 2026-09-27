@@ -108,7 +108,8 @@ internal static class MightAndMagic7World
         MightAndMagic7Services? services = null,
         MightAndMagic7Conversation? conversation = null,
         MightAndMagic7Corpses? corpses = null,
-        MightAndMagic7Loot? loot = null)
+        MightAndMagic7Loot? loot = null,
+        MightAndMagic7Quests? quests = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(clock);
@@ -143,7 +144,7 @@ internal static class MightAndMagic7World
         {
             // Everything the save names is judged against this world before any of it is rebuilt, so a
             // document that does not fit leaves no half-composed world behind.
-            MightAndMagic7Persistence.RequireLoadable(save, graph, catalog);
+            MightAndMagic7Persistence.RequireLoadable(save, graph, catalog, quests);
 
             // The pose owner is created at the pose the party resumes at, which goes through the same
             // admission an entered pose goes through: a save can never put the party where its place would

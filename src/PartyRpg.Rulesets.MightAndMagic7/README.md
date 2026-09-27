@@ -50,7 +50,8 @@ Owns:
   level gives each class and rank, the skill points a level grants, and what the
   world makes of a party's deeds.
 - Time, calendar, rest, fatigue, and travel policy, including service hours.
-- Quest, guild, reputation, and journal policy.
+- Quest, guild, reputation, and journal policy: the errands the shipped quest table states, what each asks
+  and pays, who gives it, and the board a town hall posts.
 - Content interpretation and presentation meaning: what an imported region,
   map, sprite, or sound means to this ruleset.
 - Session composition: assembling the kit's named services with Might and Magic
@@ -172,8 +173,9 @@ carries where the errand's own words name one, the two counted deeds the origina
 each rank leaves on the party (`promotion:<rank>`, the original's own award bit under this game's name), and
 the eight classes whose pair of alternatives splits on the two schools. A rank asks for what this build can
 judge — its giver, what the party carries, what deeds it holds on record — and states an errand whose words
-name a deed as a quest requirement that no owner judges yet, refused by name and routed to the owner of
-quests rather than faked by a flag nothing sets. `PartyProgression.Promote` is the one writer: it judges every
+name a deed as the record a finished quest leaves (`errand:<bit>`, the same identity a shipped topic's own
+requirement column already gates a person's line on), so seventeen ranks' errands are judged by real quest
+state rather than refused. `PartyProgression.Promote` is the one writer: it judges every
 requirement before anything moves, refuses with what is missing named, and moves the class and the rank
 together, so the ceiling, the growth table, and every class condition read one fact. A person the ladder names
 as a giver offers the ranks they give through the conversation that already exists, and taking one hands the
@@ -182,7 +184,28 @@ path when a class's own choice closed a school, so a lesson, a book, and a casti
 alternative named (`skill-closed-by-path`); and `PromotionSnapshot` publishes the ladder and what each rank
 did, member by member, for the panel. What the shipped data carries, what this game authors, and the live
 promotion through both stages are recorded in `local/verify/promotions/` (ignored local evidence).
-Everything else
+This game's quests are landed beside them: `MightAndMagic7Quests` reads the operator's shipped quest
+table — 512 rows of a bit, the journal's own words, and an authoring column — and states the 17 promotion
+errands over it, taking each errand's giver from the ladder rather than stating it twice and leaving the
+shipped words as the note a player reads. What each errand asks is this game's own reading, resolved against
+the places and creatures the packs carry: a place the errand names is a reach objective, a creature it names
+is a kill objective, and where its words say *all* of a kind the count is every one the place's own
+placements hold. What the original performs with an event program — a weight moved, a code cracked, an altar
+defaced — is stated as the errand's residue rather than faked, so a player reads what this build judges beside
+what the original asked for. A finished errand leaves `errand:<bit>` on the party, which is what the topic
+table's own gate and a rank's requirement both read. A pack may state an errand of its own with a `reading`
+beside its words — giver, objectives, offer and completion conditions, and what a turn-in pays — and a town
+hall's board is the one errand nobody authors: the beast is the place's own encounter row by the month the
+clock stands in, what it pays is the donor's hundred times its level, and the keeper who offers it is the one
+the counter's placement names. The wait, the offer, and the turn-in all travel through the conversation that
+already exists, as three topics whose stage is the party's own state; a turn-in pays experience through the
+progression owner's one award entry, coin through the ledger, items through the acquisition path, and records
+onto the party's effects, and a counter refuses to buy what an unfinished errand still needs, naming the
+errand. What each of the 17 errands is read as is stated row by row in `MightAndMagic7Quests.Errands()`,
+with the shipped words it is written over, the place and creature names it resolves against content, and
+the residue that says what the original performs with an event program and this build does not judge; a
+test over the operator's own packs checks that every objective resolved and that a count taken from a
+place's placements is that place's own. Everything else
 listed above — the remaining class, skill, spell, monster, item, and formula policy, and rest and
 fatigue and service hours — attaches to the session as its stone lands. Fidelity per system — what matches
 the original, what is approximate, and what is deliberately ours — is fixed in

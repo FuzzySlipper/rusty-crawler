@@ -11,11 +11,13 @@ using PartyRpg.Kit.Alchemy;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Progression;
+using PartyRpg.Kit.Quests;
 using PartyRpg.Kit.Promotion;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Services;
 using PartyRpg.Kit.Skills;
 using PartyRpg.Kit.Time;
+using PartyRpg.Kit.World;
 using Rusty.Engine;
 
 namespace PartyRpg.Kit.Sessions;
@@ -110,6 +112,7 @@ public sealed class PartyRpgSession : IGameSession
     private readonly SkillRaiseInput? _skillInput;
     private readonly ConversationInput? _conversationInput;
     private readonly IConversationRule? _conversationRule;
+    private readonly IQuestRule? _questRule;
 
     /// <summary>
     /// Whether the conversation mechanism was composed over a party.
@@ -160,6 +163,8 @@ public sealed class PartyRpgSession : IGameSession
     private PartyProgression? _progression;
     private PartyServices? _services;
     private PartyConversations? _conversations;
+    private PartyQuests? _quests;
+    private readonly QuestSave? _questState;
     private PartyRest? _rest;
     private CombatState? _combat;
     private CombatDirector? _director;
@@ -362,7 +367,9 @@ public sealed class PartyRpgSession : IGameSession
         CastIntentNames? castInput = null,
         IAlchemyRule? alchemy = null,
         AlchemyCatalog? mixtures = null,
-        MixIntentNames? mixInput = null)
+        MixIntentNames? mixInput = null,
+        IQuestRule? quests = null,
+        QuestSave? questState = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(composition.Title);
         if (creation is not null && (world is not null || party is not null))
@@ -392,6 +399,8 @@ public sealed class PartyRpgSession : IGameSession
         _skillInput = skillInput is null ? null : new SkillRaiseInput(skillInput);
         _conversationInput = conversationInput is null ? null : new ConversationInput(conversationInput);
         _conversationRule = conversation;
+        _questRule = quests;
+        _questState = questState;
         _restInput = restInput is null ? null : new RestInput(restInput);
         _restRule = rest;
         _combatInput = combatInput is null ? null : new CombatInput(combatInput);
@@ -435,6 +444,7 @@ public sealed class PartyRpgSession : IGameSession
         // beside it, over the same party, clock, and world, so a night is judged where it is taken.
         ComposeServices();
         ComposeConversations();
+        ComposeQuests();
         ComposeRest();
         ComposeCombat();
         // The casting workflow is composed over the party, this game's spell answers, the effect path, and the
@@ -487,6 +497,13 @@ public sealed class PartyRpgSession : IGameSession
     /// the party is then unmet rather than invented.
     /// </summary>
     public PartyConversations? Conversations => _conversations;
+
+    /// <summary>
+    /// The quest owner this session keeps its journal through, or null when its ruleset stated no quests or
+    /// the session holds no party yet. It is the one owner of what a party has been offered, taken, and
+    /// finished, and what the projection publishes about quests is read from it.
+    /// </summary>
+    public PartyQuests? Quests => _quests;
 
     /// <summary>
     /// The rest mechanism this session stops through, or null when its ruleset answered no rest policy or
@@ -739,6 +756,11 @@ public sealed class PartyRpgSession : IGameSession
             WorldSnapshot live = world.Snapshot;
             changed = live != _world;
             _world = live;
+
+            // The place the party now stands in is read here, where the world's own report of it arrives, and
+            // handed to the quest owner: standing somewhere is a state rather than an event, so an errand that
+            // asks for a place is judged from the world's reading instead of from a step of the party's own.
+            if (live.Place.Length > 0) _quests?.Observe(new PlaceId(live.Place));
         }
 
         // The fight is stepped last of all the world's readers, once the update has moved everything it
@@ -905,6 +927,7 @@ public sealed class PartyRpgSession : IGameSession
         // offers and what a line records are read against the party, so a mechanism that captured none would
         // withhold an offer only somebody of a class may take and keep no record of having met anybody.
         ComposeConversations();
+        ComposeQuests();
         ComposeRest();
         ComposeCombat();
         ComposeMagic();
@@ -1021,16 +1044,22 @@ public sealed class PartyRpgSession : IGameSession
 
     /// <summary>Hands the party from a conversation to the owner an offer belongs to.</summary>
     /// <remarks>
-    /// Two owners are routed: the counter whoever the party spoke with keeps, and the progression owner a
-    /// person empowered to grant a rank hands the party to. A handoff naming any other owner is reported with
-    /// the owner's name rather than being treated as done, which is what keeps a later stone's offers honest
-    /// until that stone lands.
+    /// Three owners are routed: the counter whoever the party spoke with keeps, the quest owner a person's
+    /// errand belongs to, and the progression owner a person empowered to grant a rank hands the party to. A
+    /// handoff naming any other owner is reported with the owner's name rather than being treated as done,
+    /// which is what keeps a later stone's offers honest until that stone lands.
     /// </remarks>
     private void Route(ConversationHandoff handoff, PartyConversations conversations)
     {
         if (string.Equals(handoff.Kind, PromotionHandoffs.Offer, StringComparison.Ordinal))
         {
             Give(handoff, conversations);
+            return;
+        }
+
+        if (IsQuest(handoff.Kind))
+        {
+            Take(handoff, conversations);
             return;
         }
 
@@ -1065,6 +1094,73 @@ public sealed class PartyRpgSession : IGameSession
         // refused leaves the party where it stands, so the conversation stays open and the service's own
         // refusal is what the panel shows beside it.
         if (opened is { IsApplied: true }) conversations.Close();
+    }
+
+    /// <summary>Whether a handoff names one of the three operations the quest owner takes.</summary>
+    /// <remarks>
+    /// The words are the quest owner's own, exactly as a promotion's are, so a session that composes no rule
+    /// for quests still routes the handoff and reports that no owner takes it rather than swallowing it.
+    /// </remarks>
+    private static bool IsQuest(string kind) =>
+        string.Equals(kind, QuestHandoffs.Offer, StringComparison.Ordinal)
+        || string.Equals(kind, QuestHandoffs.Accept, StringComparison.Ordinal)
+        || string.Equals(kind, QuestHandoffs.TurnIn, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Takes the errand a person stated, the agreement to one already heard, or a finished one back to its
+    /// giver — through the quest owner, and reports what became of it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>An errand is offered where it is stated and finished where it is handed in.</b> The conversation
+    /// hands over the quest's identity and which of the three acts the line was, and this applies it through
+    /// the one owner that holds a party's quest state, exactly as a rank is applied through the progression
+    /// owner and a purchase through the counter — so the party that walks away from a giver holds the errand
+    /// the offer named, or a refusal that says what was missing.
+    /// </para>
+    /// <para>
+    /// Who the errand belongs to is the person being spoken with, read here rather than carried by the
+    /// handoff: the owner judges the giver again when the errand is offered or handed in, so a conversation
+    /// that offered somebody else's errand is refused by name rather than quietly recorded.
+    /// </para>
+    /// <para>
+    /// A refusal leaves the conversation open, so it stands beside the person who gave it and the party can
+    /// hear what was missing; an errand finished needs nobody's answer, so the conversation closes where the
+    /// business does — the same rule a lane change and a rank already follow.
+    /// </para>
+    /// </remarks>
+    private void Take(ConversationHandoff handoff, PartyConversations conversations)
+    {
+        if (_quests is not { } quests)
+        {
+            _diagnostics?.Publish(new DiagnosticsPublishRequest(
+                DiagnosticsSeverity.Warning,
+                DiagnosticsDisposition.RejectedRecoverable,
+                Source: "quest",
+                Code: "quest-unavailable",
+                Message: "What was said offers an errand and this session holds no owner of quest state: the ruleset that states one is not composed.",
+                Correlation: string.Empty));
+            return;
+        }
+
+        string person = conversations.Speaker?.Id ?? string.Empty;
+        QuestId quest = new(handoff.Target);
+        QuestResult result = handoff.Kind switch
+        {
+            QuestHandoffs.Offer => quests.Offer(quest, person, conversations.Place),
+            QuestHandoffs.Accept => quests.Accept(quest),
+            _ => quests.TurnIn(quest, person),
+        };
+
+        _diagnostics?.Publish(new DiagnosticsPublishRequest(
+            result.IsApplied ? DiagnosticsSeverity.Info : DiagnosticsSeverity.Warning,
+            result.IsApplied ? DiagnosticsDisposition.Accepted : DiagnosticsDisposition.RejectedRecoverable,
+            Source: "quest",
+            Code: result.IsApplied ? $"quest-{result.Action.ToString().ToLowerInvariant()}" : result.Refusal!.Code,
+            Message: result.Describe(),
+            Correlation: string.Empty));
+
+        if (result is { IsApplied: true, Action: QuestAction.TurnIn }) conversations.Close();
     }
 
     /// <summary>
@@ -1845,6 +1941,22 @@ public sealed class PartyRpgSession : IGameSession
     }
 
     /// <summary>
+    /// Composes the quest owner over the party the session plays, when the ruleset answered for one.
+    /// </summary>
+    /// <remarks>
+    /// It is composed once, when the party exists, and over the owners a turn-in pays through: the ledger a
+    /// fare already settles, the progression owner a level already rises through, and the party whose
+    /// inventory and records every other mechanism reads. A session that creates its party composes it when
+    /// creation is accepted, which is the moment that party exists; a session resumed from a save hands the
+    /// recorded state in, so a party that had taken an errand keeps it rather than being offered it again.
+    /// </remarks>
+    private void ComposeQuests()
+    {
+        if (_quests is not null || _questRule is null || _party is not { } party) return;
+        _quests = new PartyQuests(_questRule, party, _accounts, _progression, _clock, _questState);
+    }
+
+    /// <summary>
     /// Composes the rest mechanism over the party the session plays, when the ruleset answered for one.
     /// </summary>
     /// <remarks>
@@ -2011,7 +2123,12 @@ public sealed class PartyRpgSession : IGameSession
         // answers composed: a session whose ruleset stated no mixtures, a pack holding nothing that mixes,
         // and a mixture refused for a mastery or for want of room are three different facts, and the rows
         // are the pack's own instances rather than a list of recipes the screen keeps.
-        AlchemySnapshot.From(_mixing));
+        AlchemySnapshot.From(_mixing),
+        // What the party's journal holds and what its last errand did, read from the quest owner the
+        // ruleset's answers composed: "this session's ruleset stated no quests", "the party has taken
+        // nothing", and "a turn-in was refused because an objective is unmet" are three different facts,
+        // and the objectives are the quest's own words rather than a screen's reading of them.
+        QuestSnapshot.From(_quests));
 
     /// <summary>Publishes the world as it stands now, after a caller moved the party.</summary>
     public void PublishWorld()

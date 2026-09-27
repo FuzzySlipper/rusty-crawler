@@ -71,13 +71,15 @@ internal readonly record struct PromotionPath(string Choice, SkillId? Opens, Ski
 /// Harmondale" (Warrior Mage → Master Archer), bit 45 "Collect the six golem pieces and construct a
 /// complete golem, then return to Thomas Grey in the School of Sorcery" (Sorcerer → Wizard), bit 48
 /// "Retrieve the lich jars from the Proving Grounds in Celeste and bring them back to Halfgild Wynac in the
-/// Pit" (Wizard → Lich), and one row per promotion in between. Errands carry no quest state in this build,
-/// so a rank whose errand is a deed states it as a <see cref="PromotionRequirementKind.Quest"/> requirement
-/// naming the shipped bit, and that requirement is refused by name until the owner of quests judges it. Where
-/// the errand's own words name something the party brings back, and the shipped item table carries it, the
-/// rank asks for that item instead — holding it is state this build really has — and the quest bit it is the
-/// turn-in of is named in the row's own comment. Two errands are counts the original keeps as its own awards
-/// rather than as quests — five arena wins and ten thousand gold of bounties
+/// Pit" (Wizard → Lich), and one row per promotion in between. Seventeen of the twenty-seven ranks state
+/// that errand as a quest: <see cref="MightAndMagic7Quests"/> reads the shipped words, gives each errand
+/// its giver from this ladder, and states what it asks, so a rank whose errand is a deed now asks for a
+/// record the party really carries — <c>errand:&lt;bit&gt;</c>, written when the errand is turned in and
+/// read by the same gate a shipped topic's own requirement column uses. Where the errand's own words name
+/// something the party brings back, and the shipped item table carries it, the rank asks for that item
+/// instead — holding it is state this build really has — and the quest bit it is the turn-in of is named in
+/// the row's own comment. Two errands are counts the original keeps as its own awards rather than as quests
+/// — five arena wins and ten thousand gold of bounties
 /// (<c>OpenEnroth/src/Engine/Data/AwardEnums.h:88-91</c>, <c>AWARD_ARENA_*_WINS</c>; <c>:86</c>,
 /// <c>AWARD_BOUNTIES_COLLECTED</c>, and <c>src/Engine/Evt/EvtEnums.h:67</c>,
 /// <c>EVENT_IsTotalBountyHuntingAwardInRange</c>) — so those two rank requirements are stated as records
@@ -141,9 +143,16 @@ internal sealed class MightAndMagic7Promotions : IPromotionRule
     /// <summary>How many people the ladder names as givers of a rank.</summary>
     internal int GiverCount => Ladder.Ranks.Select(rank => rank.Giver).Distinct(StringComparer.Ordinal).Count();
 
-    /// <summary>How many ranks ask for an errand no owner in this build judges.</summary>
-    internal int QuestRequirementCount =>
-        Ladder.Ranks.Sum(rank => rank.Requirements.Count(requirement => requirement.Kind == PromotionRequirementKind.Quest));
+    /// <summary>How many ranks ask for an errand this game states a quest for.</summary>
+    /// <remarks>
+    /// An errand is stated as the record a finished quest leaves, so it is counted by the record's own
+    /// prefix rather than by a requirement kind: what the rank asks for is the party's own state, and the
+    /// kind it is carried in is the same one a deed the original keeps as an award uses.
+    /// </remarks>
+    internal int QuestRequirementCount => Ladder.Ranks.Sum(
+        rank => rank.Requirements.Count(requirement =>
+            requirement.Kind == PromotionRequirementKind.Award &&
+            requirement.Name.StartsWith(MightAndMagic7Conversation.ErrandFlagPrefix, StringComparison.Ordinal)));
 
     /// <summary>How many ranks ask for something the party carries, and could be given today.</summary>
     internal int ItemRequirementCount =>
@@ -280,9 +289,14 @@ internal sealed class MightAndMagic7Promotions : IPromotionRule
         bool proofInHand = award is not null || items is { Length: > 0 };
         if (!proofInHand)
         {
-            // A deed with a turn-in: the errand is the requirement, stated by the shipped quest table's own
-            // bit, and the owner that will judge it does not exist yet.
-            requirements.Add(PromotionRequirement.ForQuest(quest.ToString(CultureInfo.InvariantCulture), errand));
+            // A deed with a turn-in: the errand is the requirement, stated as the party-carried record the
+            // quest owner writes when the errand the shipped table states is turned in. The record's name is
+            // built from the shipped bit by the quest owner, so the rank and the town's own topic gate read
+            // one identity rather than two spellings of it.
+            requirements.Add(PromotionRequirement.ForAward(
+                MightAndMagic7Quests.ErrandRecord(quest.ToString(CultureInfo.InvariantCulture)),
+                1,
+                errand));
         }
 
         foreach ((string item, int count, string label) in items ?? [])

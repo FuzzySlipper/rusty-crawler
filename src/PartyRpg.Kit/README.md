@@ -64,8 +64,10 @@ Owns:
   treasure level (`LootTable`, `LootCandidate`, `LootFilter`), the shape of a treasure request
   (`TreasureRoll`), and what one generation produced (`LootYield`). Which numbers a game's tables
   carry and what its levels mean stay the ruleset's.
-- World interaction: NPC conversation, services, quests and journal state,
-  containers, doors, travel between world regions and indoor maps.
+- World interaction: NPC conversation, services, quests (`Quests/` — one owner of what a party has been
+  offered, taken, and finished, with definitions a game states, objectives that read the owners already
+  reporting them, and one turn-in that pays each reward to its own owner), containers, doors, travel
+  between world regions and indoor maps.
 - Session plumbing: compiled ruleset contracts, typed IDs, bundle and
   content-pack resolution, typed tuning handles, structured UI values, and
   bootstrap of an Engine-admitted session.
@@ -230,8 +232,13 @@ population's runtime entities, engine handles, and every store-local entity iden
 load — and a document wrong in several places is refused with every problem named at once, never only the
 first. A load also does not re-judge what it carries: the rules a party obeys are supplied when it is built,
 so a capacity rule that has changed gates new pickups and never loses an item the party already owned. The
-sections a session does not own yet — knowledge, quests and journal, containers and loose world items, and
-scenario flags — are absent because no owner holds their state; the schema grows a section when one does.
+sections a session does not own yet — knowledge, containers and loose world items, and scenario flags — are
+absent because no owner holds their state; the schema grows a section when one does. The quests section is
+the one that arrived with its owner: it carries every instance a party holds — the stage, the progress
+recorded against objectives that are moments rather than states, and the place each offer was taken in —
+and no definition at all, because what a quest is means is read from the game's own content when the
+document is loaded. A save whose instance names a quest the game no longer states, or a place the world no
+longer has, is refused with that instance named rather than resumed as an errand nothing could finish.
 
 The day shape follows the donor's day boundary: a new day takes one ration, the food store is spent down to
 empty rather than the day being refused, and the ruleset's consequence for the larder the day left — weakness

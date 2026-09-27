@@ -3,6 +3,7 @@ using System.Text.Json;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Quests;
 using PartyRpg.Kit.Services;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
@@ -133,9 +134,9 @@ internal sealed class MightAndMagic7Services : IServiceRule
     private readonly Dictionary<ServiceId, ServiceFacts> _facts;
     private readonly Dictionary<ItemDefinitionId, ItemFacts> _items;
     private readonly Dictionary<string, SpellFacts> _spells;
-    private readonly Dictionary<int, IReadOnlyList<string>> _placeMonsters;
+    private readonly MightAndMagic7Quests? _quests;
+    private readonly Func<PartyQuests?>? _journal;
     private readonly Dictionary<int, IReadOnlyList<string>> _placeRoads;
-    private readonly Dictionary<string, int> _monsterLevels;
     private readonly Dictionary<(string Place, string Placement), ServiceHousehold> _households;
     private readonly IReadOnlyList<ItemFacts> _catalogue;
     private readonly MightAndMagic7Skills? _skills;
@@ -146,25 +147,25 @@ internal sealed class MightAndMagic7Services : IServiceRule
         Dictionary<ServiceId, ServiceFacts> facts,
         Dictionary<ItemDefinitionId, ItemFacts> items,
         Dictionary<string, SpellFacts> spells,
-        Dictionary<int, IReadOnlyList<string>> placeMonsters,
         Dictionary<int, IReadOnlyList<string>> placeRoads,
-        Dictionary<string, int> monsterLevels,
         Dictionary<(string Place, string Placement), ServiceHousehold> households,
         IReadOnlyList<ItemFacts> catalogue,
         MightAndMagic7Skills? skills,
-        MightAndMagic7Spells? magic)
+        MightAndMagic7Spells? magic,
+        MightAndMagic7Quests? quests,
+        Func<PartyQuests?>? journal)
     {
         _services = services;
         _facts = facts;
         _items = items;
         _spells = spells;
         _magic = magic;
-        _placeMonsters = placeMonsters;
         _placeRoads = placeRoads;
-        _monsterLevels = monsterLevels;
         _households = households;
         _catalogue = catalogue;
         _skills = skills;
+        _quests = quests;
+        _journal = journal;
     }
 
     /// <summary>
@@ -181,15 +182,15 @@ internal sealed class MightAndMagic7Services : IServiceRule
     internal static MightAndMagic7Services? Read(
         ContentCatalog? catalog,
         MightAndMagic7Skills? skillPolicy = null,
-        MightAndMagic7Spells? spellPolicy = null)
+        MightAndMagic7Spells? spellPolicy = null,
+        MightAndMagic7Quests? quests = null,
+        Func<PartyQuests?>? journal = null)
     {
         if (catalog is null) return null;
         List<ContentValidationIssue> issues = [];
         Dictionary<ItemDefinitionId, ItemFacts> items = ReadItems(catalog);
         Dictionary<string, SpellFacts> spells = ReadSpells(catalog);
-        Dictionary<int, IReadOnlyList<string>> placeMonsters = ReadPlaceMonsters(catalog);
         Dictionary<int, IReadOnlyList<string>> placeRoads = ReadPlaceRoads(catalog);
-        Dictionary<string, int> monsterLevels = ReadMonsterLevels(catalog);
         Dictionary<ServiceId, ServiceDefinition> services = [];
         Dictionary<ServiceId, ServiceFacts> facts = [];
         HashSet<string> skills = [.. catalog.Entries(SkillDefinitionKind).Select(entry => entry.Entry.Id)];
@@ -243,9 +244,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
             facts,
             items,
             spells,
-            placeMonsters,
             placeRoads,
-            monsterLevels,
             households,
             catalogue,
             // The mastery lessons a counter offers are this game's skill policy's answer about its own
@@ -255,7 +254,9 @@ internal sealed class MightAndMagic7Services : IServiceRule
             // A guild's spell books are this game's magic's answer about its own table: which spell each book
             // teaches and which rung of a school's ladder the guild stands at. A caller that composed none
             // gets one read here, so a guild still sells its school's spells.
-            spellPolicy ?? MightAndMagic7Spells.Read(catalog, skillPolicy));
+            spellPolicy ?? MightAndMagic7Spells.Read(catalog, skillPolicy),
+            quests,
+            journal);
     }
 
     /// <inheritdoc />
@@ -512,6 +513,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
             ServiceOperationKind.Deposit => JudgeDeposit(request),
             ServiceOperationKind.Withdraw => JudgeWithdrawal(request),
             ServiceOperationKind.Fare => JudgeFare(request),
+            ServiceOperationKind.Sell => JudgeSale(request),
             _ => ServiceEligibility.Allowed,
         };
     }
@@ -646,18 +648,19 @@ internal sealed class MightAndMagic7Services : IServiceRule
     /// </remarks>
     private ServiceOffer? Bounty(int mapId, GameDate now)
     {
-        if (!_placeMonsters.TryGetValue(mapId, out IReadOnlyList<string>? monsters) || monsters.Count == 0) return null;
-        string beast = monsters[(Math.Max(1, now.Month) - 1) % monsters.Count];
-        int level = _monsterLevels.GetValueOrDefault(beast, 1);
-        int reward = 100 * Math.Max(1, level);
+        // The beast and what it pays are the quest reading's own answers, so what the hall advertises and
+        // what the keeper's contract is worth cannot disagree: the notice is the errand's own note, read
+        // from the one place the encounter row and the monster table are joined.
+        if (_quests is null) return null;
+        if (_quests.Bounty(new PlaceId(mapId.ToString(CultureInfo.InvariantCulture)), now) is not { } terms) return null;
         return new ServiceOffer(
             ServiceOfferKind.Notice,
             string.Create(
                 CultureInfo.InvariantCulture,
-                $"This month's bounty is on a {beast}: the hall pays {reward} coin(s) for proof of the kill."),
-            Subject: beast,
+                $"This month's bounty is on a {terms.Beast}: the hall pays {terms.Reward} coin(s) for proof of the kill."),
+            Subject: terms.Beast,
             Value: 0,
-            Amount: reward);
+            Amount: terms.Reward);
     }
 
     /// <summary>
@@ -680,6 +683,33 @@ internal sealed class MightAndMagic7Services : IServiceRule
             ServiceOfferKind.Notice,
             $"Travellers here speak of the roads to {list}.",
             Value: 0);
+    }
+
+    /// <summary>
+    /// Whether the party may sell what it named, or whether an errand still needs it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>What a quest needs cannot leave the party.</b> An errand that asks the party to carry something —
+    /// a delivery, a thing brought back — is only judgeable while the thing is still carried, so an item an
+    /// unmet objective of a taken errand names is refused for sale and the refusal says which errand and
+    /// what it asks. That is the difference between a quest item and any other item, and it is read from the
+    /// quest owner rather than from a list of names this rule keeps: what is needed is exactly what an
+    /// unfinished objective asks for.
+    /// </para>
+    /// <para>
+    /// The owner is read through a call for the same reason a death's worth is: this game's counters are
+    /// composed once for a session, and the party a quest belongs to is composed when a product creates one,
+    /// so the moment of the sale is the first moment the owner certainly exists.
+    /// </para>
+    /// </remarks>
+    private ServiceEligibility JudgeSale(ServiceEligibilityRequest request)
+    {
+        if (request.Subject.Item is not { } item) return ServiceEligibility.Allowed;
+        if (_journal?.Invoke()?.Needs(item.Definition) is not { } needed) return ServiceEligibility.Allowed;
+        return ServiceEligibility.Refused(
+            "service-item-needed-by-quest",
+            $"{needed.Statement} is not done yet, so {item.Definition} stays with the party until that errand is finished.");
     }
 
     /// <summary>Whether the party may be taught the lesson it named.</summary>
@@ -1540,32 +1570,6 @@ internal sealed class MightAndMagic7Services : IServiceRule
         return households;
     }
 
-    /// <summary>The encounter rows the places carry, keyed by the place a counter stands in.</summary>
-    /// <remarks>
-    /// A region's own row of the per-map table names the monsters that live there, which is what a town
-    /// hall's bounty is drawn from. A place that names none is a place with no bounty to post, rather than a
-    /// hall that invents a beast.
-    /// </remarks>
-    private static Dictionary<int, IReadOnlyList<string>> ReadPlaceMonsters(ContentCatalog catalog)
-    {
-        Dictionary<int, IReadOnlyList<string>> places = [];
-        foreach ((_, _, ContentEntry entry) in catalog.Entries(PlaceGraphLoader.PlaceDefinitionKind))
-        {
-            List<string> monsters = [];
-            foreach (JsonElement element in entry.GetArray("monsters"))
-            {
-                if (element.ValueKind == JsonValueKind.String && element.GetString() is { Length: > 0 } name) monsters.Add(name);
-            }
-
-            if (monsters.Count > 0 && int.TryParse(entry.Id, NumberStyles.None, CultureInfo.InvariantCulture, out int placeId))
-            {
-                places[placeId] = monsters;
-            }
-        }
-
-        return places;
-    }
-
     /// <summary>The named destinations of the roads that leave each place, for what a tavern tells.</summary>
     private static Dictionary<int, IReadOnlyList<string>> ReadPlaceRoads(ContentCatalog catalog)
     {
@@ -1581,20 +1585,6 @@ internal sealed class MightAndMagic7Services : IServiceRule
         }
 
         return places.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<string>)pair.Value);
-    }
-
-    /// <summary>The monster table's levels, which a bounty's reward is computed from.</summary>
-    private static Dictionary<string, int> ReadMonsterLevels(ContentCatalog catalog)
-    {
-        Dictionary<string, int> levels = new(StringComparer.Ordinal);
-        foreach ((_, _, ContentEntry entry) in catalog.Entries(MonsterDefinitionKind))
-        {
-            string name = entry.GetString("name");
-            if (name.Length == 0) continue;
-            levels[name] = entry.GetInt32("level") ?? 1;
-        }
-
-        return levels;
     }
 
     /// <summary>The order an identity states, which is how the table's numeric ids are walked.</summary>

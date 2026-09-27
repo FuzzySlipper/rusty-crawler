@@ -4,6 +4,7 @@ using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Promotion;
+using PartyRpg.Kit.Quests;
 using PartyRpg.Kit.Services;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
@@ -95,6 +96,35 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     /// </remarks>
     internal const string PromotionTopicPrefix = "promote:";
 
+    /// <summary>
+    /// The identity prefix a building's keeper is carried under.
+    /// </summary>
+    /// <remarks>
+    /// A counter's keeper is not an NPC row: the building table names them and the original answers them
+    /// from strings inside its executable. This game gives them an identity built from the placement they
+    /// stand at, so a keeper can be spoken with, offered an errand, and named as its giver without being
+    /// mistaken for somebody the NPC table describes.
+    /// </remarks>
+    internal const string KeeperIdPrefix = "keeper:";
+
+    /// <summary>
+    /// The identity prefix an errand's own offer carries.
+    /// </summary>
+    /// <remarks>
+    /// An errand a person gives is composed from this game's own reading of the shipped quest table rather
+    /// than from a topic row: the shipped rows for promotions name the rank and are answered by event
+    /// programs this build does not run. Hearing an errand and agreeing to it are two topics rather than one,
+    /// because they are two facts — what the party was told, and what it took on — and the journal shows
+    /// both.
+    /// </remarks>
+    internal const string ErrandTopicPrefix = "errand:";
+
+    /// <summary>The identity prefix the agreement to an errand already heard carries.</summary>
+    internal const string AcceptTopicPrefix = "accept:";
+
+    /// <summary>The identity prefix handing a finished errand back to its giver carries.</summary>
+    internal const string TurnInTopicPrefix = "turn-in:";
+
     /// <summary>The party-carried prefix a person the party has met is recorded under.</summary>
     internal const string MetFlagPrefix = "met:";
 
@@ -121,6 +151,8 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     private readonly Dictionary<(string Place, string Placement), IReadOnlyList<string>> _present;
     private readonly MightAndMagic7Services? _services;
     private readonly MightAndMagic7Promotions? _promotions;
+    private readonly MightAndMagic7Quests? _quests;
+    private readonly Func<PartyQuests?>? _journal;
     private readonly IReadOnlyList<string> _notes;
 
     private MightAndMagic7Conversation(
@@ -128,12 +160,16 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         Dictionary<(string, string), IReadOnlyList<string>> present,
         MightAndMagic7Services? services,
         MightAndMagic7Promotions? promotions,
+        MightAndMagic7Quests? quests,
+        Func<PartyQuests?>? journal,
         IReadOnlyList<string> notes)
     {
         _people = people;
         _present = present;
         _services = services;
         _promotions = promotions;
+        _quests = quests;
+        _journal = journal;
         _notes = notes;
     }
 
@@ -164,12 +200,25 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     /// give, which is what makes a promotion something taken from somebody in the world rather than from a
     /// screen. Without a ladder nobody offers a rank, and the count says so.
     /// </param>
+    /// <param name="quests">
+    /// This game's errands, when they were read: a person the reading names as a giver offers the errands
+    /// they give, which is what makes a quest something taken from somebody in the world rather than from a
+    /// journal that fills itself. Without one nobody offers an errand, and the count says so.
+    /// </param>
+    /// <param name="journal">
+    /// The quest owner of the party being played, or null while there is none: what the party has already
+    /// been offered, taken, and finished is the owner's state, and a person offers an errand only while the
+    /// party stands at the stage before it. It is read through a call for the same reason an award reads its
+    /// owner that way — the mechanism is composed before the party that creates one exists.
+    /// </param>
     /// <returns>This game's dialogue policy over that content, or null when no content was loaded.</returns>
     /// <exception cref="ContentValidationException">Content declares people that cannot be spoken with; every problem is named.</exception>
     internal static MightAndMagic7Conversation? Read(
         ContentCatalog? catalog,
         MightAndMagic7Services? services,
-        MightAndMagic7Promotions? promotions = null)
+        MightAndMagic7Promotions? promotions = null,
+        MightAndMagic7Quests? quests = null,
+        Func<PartyQuests?>? journal = null)
     {
         if (catalog is null) return null;
         List<ContentValidationIssue> issues = [];
@@ -295,7 +344,18 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
                 $"{ladder.RankCount} ranks are carried, {given} of them given by somebody this world holds."));
         }
 
-        return new MightAndMagic7Conversation(people, present, services, promotions, notes);
+        if (quests is not null)
+        {
+            // What the party has taken is live state the session owns, so the errands a person offers are
+            // counted from the rule and what the party stands with each of them is read through the owner
+            // the session composes when its party exists — the same shape the award path reads its owner by.
+            int errands = quests.ErrandCount;
+            notes.Add(string.Create(
+                CultureInfo.InvariantCulture,
+                $"{errands} errands are carried, over {quests.ErrandGiverCount} people who give them, at {quests.Definitions.Count} definitions in all."));
+        }
+
+        return new MightAndMagic7Conversation(people, present, services, promotions, quests, journal, notes);
     }
 
     /// <inheritdoc />
@@ -330,7 +390,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
                 ? proprietor
                 : building;
             people.Add(new ConversationPerson(
-                $"keeper:{request.Placement.Content.Id}",
+                $"{KeeperIdPrefix}{request.Placement.Content.Id}",
                 named2.Length > 0 ? named2 : "the keeper"));
         }
 
@@ -421,7 +481,143 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
             }
         }
 
+        AddErrands(offers, context);
+
         return offers;
+    }
+
+    /// <summary>
+    /// What a person has to say about errands: the one they give, and the board a town hall keeps.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>An errand is offered in the stage the party stands at.</b> A person who gives an errand the party
+    /// has not heard offers it; once it has been heard they offer to take it on; once taken, they ask after
+    /// it. Every stage is a topic rather than a single line that changes its meaning, because what a player
+    /// does with each is different and a topic is what a choice is made of.
+    /// </para>
+    /// <para>
+    /// <b>A town hall's board is the one errand nobody authors.</b> A hall's own encounter row names the
+    /// beasts that live around it and this game's clock says which month it is, so the keeper of a hall whose
+    /// place posts a bounty offers the hunt that month's row states. The errand is named by its own identity
+    /// rather than kept anywhere, so a party that leaves and returns — or saves and resumes — meets the same
+    /// contract the notice advertises.
+    /// </para>
+    /// <para>
+    /// The offer is withheld rather than absent when the party does not meet what the errand asks: a player
+    /// who can see the errand and read why not is better served than one who cannot see it at all, which is
+    /// the same rule a rank's offer follows.
+    /// </para>
+    /// </remarks>
+    private void AddErrands(List<ConversationOffer> offers, ConversationContext context)
+    {
+        if (_quests is not { } quests) return;
+        PartyQuests? journal = _journal?.Invoke();
+
+        foreach (QuestDefinition definition in quests.GivenBy(context.Speaker))
+        {
+            QuestInstance? instance = journal?.Instance(definition.Id);
+            if (instance is null)
+            {
+                offers.Add(Errand(definition, $"{ErrandTopicPrefix}{definition.Id}", definition.Name, context));
+                continue;
+            }
+
+            if (instance.Stage == QuestStage.Offered)
+            {
+                offers.Add(new ConversationOffer(
+                    new ConversationTopic($"{AcceptTopicPrefix}{definition.Id}", definition.Name),
+                    Said(context, $"{AcceptTopicPrefix}{definition.Id}")
+                        ? ConversationAvailability.Withheld("they have already said this in this conversation")
+                        : ConversationAvailability.OnOffer));
+                continue;
+            }
+
+            if (instance.Stage == QuestStage.Accepted)
+            {
+                offers.Add(new ConversationOffer(
+                    new ConversationTopic($"{TurnInTopicPrefix}{definition.Id}", definition.Name),
+                    ConversationAvailability.OnOffer));
+            }
+        }
+
+        if (Counter(context) is not { } hall || context.Clock is not { } now) return;
+        if (!string.Equals(hall.Kind.Value, MightAndMagic7ServiceKinds.TownHall, StringComparison.Ordinal)) return;
+
+        string bounty = quests.BountyQuest(context.Placement!.Content.Id, now.Now);
+        if (bounty.Length == 0) return;
+        if (journal?.Instance(new QuestId(bounty)) is not null) return;
+        if (quests.Definition(new QuestId(bounty)) is not { } hunt) return;
+        offers.Add(Errand(hunt, $"{ErrandTopicPrefix}{hunt.Id}", hunt.Name, context));
+    }
+
+    /// <summary>One errand's own offer, as its stated conditions leave it.</summary>
+    private static ConversationOffer Errand(
+        QuestDefinition definition,
+        string id,
+        string label,
+        ConversationContext context)
+    {
+        foreach (ConversationCondition condition in definition.OfferConditions)
+        {
+            if (Holds(condition, context.Party, context.Clock)) continue;
+            return new ConversationOffer(
+                new ConversationTopic(id, label),
+                ConversationAvailability.Withheld(Reason(condition, context)));
+        }
+
+        return new ConversationOffer(new ConversationTopic(id, label), ConversationAvailability.OnOffer);
+    }
+
+    /// <summary>The errand a topic names and which act it asks for, or null when the topic names neither.</summary>
+    /// <remarks>
+    /// The three prefixes each name one operation of the quest owner: hearing an errand, agreeing to one,
+    /// and handing a finished one back. A topic whose identity names no errand this game states answers
+    /// nothing, which is the same shape a rank's offer takes when its identity names no rank.
+    /// </remarks>
+    private static (QuestDefinition Definition, string Handoff)? ErrandTopic(string topic, MightAndMagic7Quests quests)
+    {
+        (string Prefix, string Handoff)[] acts =
+        [
+            (TurnInTopicPrefix, QuestHandoffs.TurnIn),
+            (AcceptTopicPrefix, QuestHandoffs.Accept),
+            (ErrandTopicPrefix, QuestHandoffs.Offer),
+        ];
+
+        foreach ((string prefix, string handoff) in acts)
+        {
+            if (!topic.StartsWith(prefix, StringComparison.Ordinal)) continue;
+            string id = topic[prefix.Length..];
+            return quests.Definition(new QuestId(id)) is { } definition ? (definition, handoff) : null;
+        }
+
+        return null;
+    }
+
+    /// <summary>What a person says when an errand is offered, agreed to, or asked after.</summary>
+    /// <remarks>
+    /// The offer says the shipped errand's own words, which is what a player hears; the agreement and the
+    /// asking are this game's own lines, because the original answers them from event programs this build
+    /// does not run. Where the shipped words say something this game does not judge, the asking line says so
+    /// rather than leaving the party to wonder what else it owes.
+    /// </remarks>
+    private static string ErrandWords(QuestDefinition definition, string handoff)
+    {
+        if (string.Equals(handoff, QuestHandoffs.TurnIn, StringComparison.Ordinal))
+        {
+            return definition.Residue.Length > 0
+                ? $"'{definition.Name}? {definition.Residue}'"
+                : $"'Well? Is {definition.Name} done?'";
+        }
+
+        if (string.Equals(handoff, QuestHandoffs.Accept, StringComparison.Ordinal))
+        {
+            return $"'Then it is agreed: {definition.Name} is yours to do.'";
+        }
+
+        return definition.Note.Length > 0
+            ? $"'{definition.Note}'"
+            : $"'There is something I would have you do: {definition.Name}.'";
     }
 
     /// <summary>What one rank's own offer makes of itself right now, read from the party's own state.</summary>
@@ -486,6 +682,16 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
                 $"This game's ladder carries no rank '{id}', so the offer names a rank nothing can give.");
         }
 
+        // An errand this person gives, or the board the counter they keep posts, is handed to the owner that
+        // owns quest state exactly as a rank is handed to the owner that owns ranks: whether the party meets
+        // what it asks is judged there, once, and what this says is only the line that goes with it.
+        if (_quests is { } quests && ErrandTopic(topic.Id, quests) is { } errand)
+        {
+            return new ConversationAnswer(
+                ErrandWords(errand.Definition, errand.Handoff),
+                handoff: new ConversationHandoff(errand.Handoff, errand.Definition.Id.Value));
+        }
+
         if (Facts(context.Speaker) is { } person)
         {
             foreach (TopicFacts candidate in person.Topics)
@@ -513,35 +719,60 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     /// Nothing is satisfied by an invented fact, and a kind whose owner is absent says so.
     /// </remarks>
     private static ConversationAvailability Judge(ConversationCondition condition, ConversationContext context) =>
+        Holds(condition, context.Party, context.Clock)
+            ? ConversationAvailability.OnOffer
+            : ConversationAvailability.Withheld(Reason(condition, context));
+
+    /// <summary>
+    /// Whether one stated condition holds, which is the whole meaning of this game's condition vocabulary.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the one reading of what a condition <em>means</em>, and it is deliberately separated from the
+    /// sentence a withheld topic gives: a quest states its offer and completion conditions in the same
+    /// vocabulary, and it is judged by the same answer through <c>IQuestRule</c>, so a topic and a quest that
+    /// wait for the same thing cannot disagree about whether it holds.
+    /// </para>
+    /// <para>
+    /// Nothing is satisfied by an invented fact. A party-carried flag and an errand are effects the party
+    /// actually holds, the standing is the party's own reputation, a class or a race is a member's own
+    /// profile, and the hour is the session's one clock; a condition whose owner is absent is unmet rather
+    /// than assumed.
+    /// </para>
+    /// </remarks>
+    /// <param name="condition">The condition as content or a quest states it.</param>
+    /// <param name="party">The party it is read against, or null when the world holds none.</param>
+    /// <param name="clock">The session's one clock, or null when its ruleset composed none.</param>
+    /// <returns>Whether it holds.</returns>
+    internal static bool Holds(ConversationCondition condition, PartyEntity? party, GameClock? clock) =>
         condition.Kind switch
         {
-            ConversationConditionKind.Flag => Carries(context, condition.Name)
-                ? ConversationAvailability.OnOffer
-                : ConversationAvailability.Withheld($"the party does not carry {condition.Label}"),
-            ConversationConditionKind.Reputation => (context.Party?.Reputation.Reputation ?? 0) >= condition.Amount
-                ? ConversationAvailability.OnOffer
-                : ConversationAvailability.Withheld(
-                    context.Party is null
-                        ? "this world holds no party whose standing could be read"
-                        : string.Create(
-                            CultureInfo.InvariantCulture,
-                            $"the party's standing is {context.Party.Reputation.Reputation} and this needs {condition.Amount}")),
-            ConversationConditionKind.Class => Anyone(context, member => string.Equals(member.Profile.Class.Value, condition.Name, StringComparison.Ordinal))
-                ? ConversationAvailability.OnOffer
-                : ConversationAvailability.Withheld($"nobody in the party is {condition.Label}"),
-            ConversationConditionKind.Race => Anyone(context, member => string.Equals(member.Profile.Race.Value, condition.Name, StringComparison.Ordinal))
-                ? ConversationAvailability.OnOffer
-                : ConversationAvailability.Withheld($"nobody in the party is {condition.Label}"),
-            ConversationConditionKind.Hour => PartOfDay(context) == condition.Name
-                ? ConversationAvailability.OnOffer
-                : ConversationAvailability.Withheld(
-                    context.Clock is null
-                        ? "nothing in this world keeps the hour"
-                        : $"the clock stands at {context.Clock.Now.Hour:00}:00"),
-            ConversationConditionKind.Errand => Carries(context, condition.Name)
-                ? ConversationAvailability.OnOffer
-                : ConversationAvailability.Withheld($"{condition.Label} is not finished"),
-            _ => ConversationAvailability.Withheld($"nothing in this build knows what '{condition.Kind}' asks for"),
+            ConversationConditionKind.Flag or ConversationConditionKind.Errand =>
+                party is { } carrier && carrier.Effects.Has(new EffectId(condition.Name)),
+            ConversationConditionKind.Reputation => (party?.Reputation.Reputation ?? 0) >= condition.Amount,
+            ConversationConditionKind.Class => Anyone(party, member => string.Equals(member.Profile.Class.Value, condition.Name, StringComparison.Ordinal)),
+            ConversationConditionKind.Race => Anyone(party, member => string.Equals(member.Profile.Race.Value, condition.Name, StringComparison.Ordinal)),
+            ConversationConditionKind.Hour => clock is { } now && PartOfDay(now) == condition.Name,
+            _ => false,
+        };
+
+    /// <summary>Why a condition is not met, in the words a person reads beside the withheld subject.</summary>
+    private static string Reason(ConversationCondition condition, ConversationContext context) =>
+        condition.Kind switch
+        {
+            ConversationConditionKind.Flag => $"the party does not carry {condition.Label}",
+            ConversationConditionKind.Reputation => context.Party is null
+                ? "this world holds no party whose standing could be read"
+                : string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"the party's standing is {context.Party.Reputation.Reputation} and this needs {condition.Amount}"),
+            ConversationConditionKind.Class => $"nobody in the party is {condition.Label}",
+            ConversationConditionKind.Race => $"nobody in the party is {condition.Label}",
+            ConversationConditionKind.Hour => context.Clock is null
+                ? "nothing in this world keeps the hour"
+                : $"the clock stands at {context.Clock.Now.Hour:00}:00",
+            ConversationConditionKind.Errand => $"{condition.Label} is not finished",
+            _ => $"nothing in this build knows what '{condition.Kind}' asks for",
         };
 
     /// <summary>Whether a counter the person keeps invites the party in at this hour.</summary>
@@ -564,9 +795,12 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     }
 
     /// <summary>Whether one of the party's members satisfies something.</summary>
-    private static bool Anyone(ConversationContext context, Func<PartyMember, bool> test)
+    private static bool Anyone(ConversationContext context, Func<PartyMember, bool> test) => Anyone(context.Party, test);
+
+    /// <summary>Whether one of a party's members satisfies something, or false when there is no party.</summary>
+    private static bool Anyone(PartyEntity? party, Func<PartyMember, bool> test)
     {
-        if (context.Party is not { } party) return false;
+        if (party is null) return false;
         foreach (PartyMember member in party.Members)
         {
             if (test(member)) return true;
@@ -581,7 +815,10 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
 
     /// <summary>Which part of the day the session's one clock stands in, or empty when it keeps none.</summary>
     private static string PartOfDay(ConversationContext context) =>
-        context.Clock is not { } clock ? string.Empty : clock.IsDaylight ? DayWord : NightWord;
+        context.Clock is not { } clock ? string.Empty : PartOfDay(clock);
+
+    /// <summary>Which part of the day one clock stands in, as this game's word for it.</summary>
+    private static string PartOfDay(GameClock clock) => clock.IsDaylight ? DayWord : NightWord;
 
     /// <summary>Whether the person has already answered a topic in this conversation.</summary>
     private static bool Said(ConversationContext context, string topic)
@@ -729,6 +966,11 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
             : [];
 
     /// <summary>The kind of state a condition's own word names, or null when nothing reads it.</summary>
+    /// <summary>The kind of state a content word names, as an authored quest's own conditions read it.</summary>
+    /// <param name="kind">The word content wrote.</param>
+    /// <returns>The kind, or null when this game reads no state of that name.</returns>
+    internal static ConversationConditionKind? ConditionKind(string kind) => ReadKind(kind);
+
     private static ConversationConditionKind? ReadKind(string kind) => kind.ToLowerInvariant() switch
     {
         "flag" => ConversationConditionKind.Flag,

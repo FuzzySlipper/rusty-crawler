@@ -756,6 +756,48 @@ interface AlchemyView {
   readonly outcome: AlchemyOutcomeView;
 }
 
+/** One thing a quest asks for, as the journal draws it. */
+interface QuestObjectiveView {
+  readonly id: string;
+  readonly label: string;
+  readonly count: number;
+  readonly required: number;
+  readonly met: boolean;
+}
+
+/** One quest the party stands with, as the journal draws it. */
+interface QuestJournalView {
+  readonly quest: string;
+  readonly name: string;
+  readonly state: string;
+  readonly giver: string;
+  readonly note: string;
+  readonly residue: string;
+  readonly objectives: readonly QuestObjectiveView[];
+  readonly canTurnIn: boolean;
+}
+
+/** What the last errand did: what was offered, taken, or handed in, and what it paid. */
+interface QuestOutcomeView {
+  readonly action: string;
+  readonly outcome: string;
+  readonly quest: string;
+  readonly experience: number;
+  readonly coins: number;
+  readonly items: readonly string[];
+  readonly records: readonly string[];
+  readonly delivered: readonly string[];
+  readonly code: string;
+  readonly message: string;
+}
+
+/** The party's journal, as the panel shows it: every errand it stands with, and what the last one did. */
+interface QuestsView {
+  readonly available: boolean;
+  readonly journal: readonly QuestJournalView[];
+  readonly outcome: QuestOutcomeView;
+}
+
 interface SnapshotView {
   readonly composition: CompositionView;
   readonly session: SessionView;
@@ -775,6 +817,7 @@ interface SnapshotView {
   readonly skills: SkillsView;
   readonly magic: MagicView;
   readonly alchemy: AlchemyView;
+  readonly quests: QuestsView;
 }
 
 /** The clock of a session that has none, which the panel shows as not knowing rather than as a date. */
@@ -1514,6 +1557,19 @@ const STYLES = `
 .crawler-alchemy-result { margin: 0.2rem 0 0; color: #d8cba6; font-size: 0.74rem; }
 .crawler-alchemy-result[hidden] { display: none; }
 .crawler-alchemy .crawler-mix { width: auto; padding: 0.15rem 0.35rem; font-size: 0.7rem; }
+.crawler-quests { margin: 0 0 0.5rem; border-top: 1px solid rgba(210, 196, 158, 0.25); padding-top: 0.5rem; }
+.crawler-quests[hidden] { display: none; }
+.crawler-quests .crawler-step-head { margin: 0 0 0.2rem; color: #d8cba6; font-size: 0.82rem; }
+.crawler-quests-state { margin: 0 0 0.25rem; color: #b9ad8c; font-size: 0.72rem; }
+.crawler-quest { margin: 0 0 0.35rem; }
+.crawler-quest .crawler-row-label { display: block; color: #cfc3a2; font-size: 0.72rem; }
+.crawler-quest-note { color: #b9ad8c; font-size: 0.72rem; }
+.crawler-quest-objective { color: #cfc3a2; font-size: 0.72rem; }
+.crawler-quest-objective[data-met='true'] { color: #cfe0c8; }
+.crawler-quest-residue { color: #d8c2a0; font-size: 0.7rem; font-style: italic; }
+.crawler-quests-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
+.crawler-quests-result[hidden] { display: none; }
+.crawler-quests-result[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
 .crawler-magic .crawler-target { font-size: 0.7rem; }
 .crawler-magic-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
 .crawler-magic-result[hidden] { display: none; }
@@ -2564,8 +2620,72 @@ function readSnapshot(value: unknown): SnapshotView | null {
     skills,
     magic,
     alchemy,
+    quests: readQuests(value.quests),
   };
 }
+
+/**
+ * Reads the quests block, or the no-journal state. A block this companion cannot read is read as a session
+ * whose ruleset stated no quests, which is the same thing a player sees: nothing to read rather than a
+ * journal invented from bytes that did not fit.
+ */
+function readQuests(value: unknown): QuestsView {
+  if (!isRecord(value)) return NO_QUESTS;
+  const number = (entry: unknown): number => (typeof entry === 'number' ? entry : 0);
+  const text = (entry: unknown): string => (typeof entry === 'string' ? entry : '');
+  const lines = (entry: unknown): readonly string[] =>
+    Array.isArray(entry) ? entry.filter((line): line is string => typeof line === 'string') : [];
+  const outcome = isRecord(value.outcome) ? value.outcome : {};
+  return {
+    available: value.available === true,
+    journal: readList(value.journal, (quest) => ({
+      quest: text(quest.quest),
+      name: text(quest.name),
+      state: text(quest.state),
+      giver: text(quest.giver),
+      note: text(quest.note),
+      residue: text(quest.residue),
+      objectives: readList(quest.objectives, (objective) => ({
+        id: text(objective.id),
+        label: text(objective.label),
+        count: number(objective.count),
+        required: number(objective.required),
+        met: objective.met === true,
+      })),
+      canTurnIn: quest.canTurnIn === true,
+    })),
+    outcome: {
+      action: text(outcome.action),
+      outcome: text(outcome.outcome),
+      quest: text(outcome.quest),
+      experience: number(outcome.experience),
+      coins: number(outcome.coins),
+      items: lines(outcome.items),
+      records: lines(outcome.records),
+      delivered: lines(outcome.delivered),
+      code: text(outcome.code),
+      message: text(outcome.message),
+    },
+  };
+}
+
+/** The journal of a session whose ruleset stated no quests: there is nothing to read. */
+const NO_QUESTS: QuestsView = {
+  available: false,
+  journal: [],
+  outcome: {
+    action: 'none',
+    outcome: 'none',
+    quest: '',
+    experience: 0,
+    coins: 0,
+    items: [],
+    records: [],
+    delivered: [],
+    code: '',
+    message: '',
+  },
+};
 
 /**
  * Mounts the companion into `root` and returns a disposer. The returned object holds the only
@@ -2946,6 +3066,25 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   alchemyResult.hidden = true;
   alchemy.append(alchemyHead, alchemyState, alchemyItems, alchemyMixtures, alchemyResult);
 
+  // The journal: every errand the party stands with, what each asks, and what the last one did. The panel
+  // decides nothing here — an errand is taken and handed in by talking to somebody, so this is a reading of
+  // the party's own state rather than a screen with commands, and what a refusal named is printed as it was
+  // written.
+  const quests = document.createElement('section');
+  quests.className = 'crawler-quests';
+  quests.hidden = true;
+  const questsHead = document.createElement('p');
+  questsHead.className = 'crawler-step-head';
+  questsHead.textContent = 'Journal';
+  const questsState = document.createElement('p');
+  questsState.className = 'crawler-quests-state';
+  const questsList = document.createElement('div');
+  questsList.className = 'crawler-quests-list';
+  const questsResult = document.createElement('p');
+  questsResult.className = 'crawler-quests-result';
+  questsResult.hidden = true;
+  quests.append(questsHead, questsState, questsList, questsResult);
+
   // The stop controls: one button per act, and the answer the last one got. A rest heals and a wait does
   // not, so the buttons are never collapsed into one; and the fatigue line is the clock's own deadline,
   // which is why a player can see when the party next needs to sleep.
@@ -3060,6 +3199,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     skills,
     magic,
     alchemy,
+    quests,
     details,
     action,
     saveButton,
@@ -4210,6 +4350,73 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   // The mixing screen's own renderer: the pack's rows, the pairs the product published, and the last
   // attempt's answer. Every row is rebuilt from the projection, and the Mix control sends the two instance
   // identities and the member the chooser holds — the panel knows no recipe and decides no outcome.
+  // The journal's own renderer: each errand with its state, the words the game tells about it, every
+  // objective with the party's own progress, and what the last offer, acceptance, or turn-in did. Nothing
+  // here judges a quest — whether an objective is met, whether the errand may be handed in, and why a
+  // turn-in refused are all the product's own answers, printed as they were given.
+  const renderQuests = (view: QuestsView): void => {
+    panel.dataset.quests = view.available ? 'present' : 'none';
+    panel.dataset.questsOutcome = view.outcome.outcome;
+    quests.hidden = !view.available;
+    questsState.textContent = !view.available
+      ? ''
+      : view.journal.length === 0
+        ? 'The party has been offered nothing.'
+        : `${view.journal.length} errand${view.journal.length === 1 ? '' : 's'} in the journal`;
+
+    questsResult.hidden = view.outcome.message === '';
+    questsResult.dataset.outcome = view.outcome.outcome;
+    questsResult.dataset.code = view.outcome.code;
+    questsResult.dataset.action = view.outcome.action;
+    questsResult.textContent = view.outcome.message;
+
+    questsList.replaceChildren(
+      ...view.journal.map((quest) => {
+        const block = document.createElement('div');
+        block.className = 'crawler-quest';
+        block.dataset.quest = quest.quest;
+        block.dataset.state = quest.state;
+        block.dataset.giver = quest.giver;
+        block.dataset.canTurnIn = String(quest.canTurnIn);
+
+        const label = document.createElement('span');
+        label.className = 'crawler-row-label';
+        // The errand as a player reads it: what it is called, where it stands, and who it is finished with.
+        label.textContent = `${quest.name} · ${quest.state} · given by ${quest.giver}`;
+        block.append(label);
+
+        if (quest.note !== '') {
+          const note = document.createElement('div');
+          note.className = 'crawler-quest-note';
+          note.textContent = quest.note;
+          block.append(note);
+        }
+
+        for (const objective of quest.objectives) {
+          const line = document.createElement('div');
+          line.className = 'crawler-quest-objective';
+          line.dataset.objective = objective.id;
+          line.dataset.met = String(objective.met);
+          line.textContent = objective.required > 1
+            ? `${objective.met ? '✓' : '·'} ${objective.label} (${objective.count}/${objective.required})`
+            : `${objective.met ? '✓' : '·'} ${objective.label}`;
+          block.append(line);
+        }
+
+        // What the errand asks for that this game does not judge is printed where the player reads the
+        // errand, so what the original wanted is never lost behind what this build can check.
+        if (quest.residue !== '') {
+          const residue = document.createElement('div');
+          residue.className = 'crawler-quest-residue';
+          residue.textContent = quest.residue;
+          block.append(residue);
+        }
+
+        return block;
+      }),
+    );
+  };
+
   const renderAlchemy = (view: AlchemyView): void => {
     panel.dataset.alchemy = view.available ? 'present' : 'none';
     panel.dataset.alchemyOutcome = view.outcome.outcome;
@@ -4374,6 +4581,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     renderSkills(snapshot.skills);
     renderMagic(snapshot.magic);
     renderAlchemy(snapshot.alchemy);
+    renderQuests(snapshot.quests);
     const world = snapshot.world;
     place.textContent =
       world.places === 0

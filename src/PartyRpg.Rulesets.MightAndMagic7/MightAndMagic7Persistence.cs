@@ -81,12 +81,21 @@ internal static class MightAndMagic7Persistence
     /// <param name="save">The document that would be resumed.</param>
     /// <param name="places">The world's places, which the save's recorded places and pose must belong to.</param>
     /// <param name="content">The validated content the rules of rebuildability are read over, or null when none loaded.</param>
+    /// <param name="quests">
+    /// This game's quests, when its ruleset read any: a save that records an errand this game no longer
+    /// states names an errand nothing could judge, finish, or pay, so it is refused by name here rather than
+    /// resumed as a journal entry that can never be completed.
+    /// </param>
     /// <exception cref="SessionSaveException">The save cannot be resumed; the message names every problem found.</exception>
-    internal static void RequireLoadable(SessionSave save, PlaceGraph places, ContentCatalog? content)
+    internal static void RequireLoadable(
+        SessionSave save,
+        PlaceGraph places,
+        ContentCatalog? content,
+        MightAndMagic7Quests? quests = null)
     {
         ArgumentNullException.ThrowIfNull(save);
         ArgumentNullException.ThrowIfNull(places);
-        IReadOnlyList<string> problems = save.Problems(places, MightAndMagic7Party.Factory(content));
+        IReadOnlyList<string> problems = save.Problems(places, MightAndMagic7Party.Factory(content), admission: null, quests: quests);
         if (problems.Count > 0)
         {
             throw new SessionSaveException(

@@ -50,7 +50,14 @@ public sealed class PromotionPolicyTests
         Assert.Equal(27, ladder.Ladder.Ranks.Count(rank => rank.Requirements.Any(requirement => requirement.Kind == PromotionRequirementKind.Giver)));
         Assert.Equal(17, ladder.QuestRequirementCount);
         Assert.Equal(14, ladder.ItemRequirementCount);
-        Assert.Equal(2, ladder.Ladder.Ranks.Count(rank => rank.Requirements.Any(requirement => requirement.Kind == PromotionRequirementKind.Award)));
+
+        // Nineteen ranks ask for a record of a deed: the seventeen errands, each stated as the record a
+        // finished quest leaves, and the two counts the original keeps as its own awards rather than as
+        // quests, which are the only award requirements that are not an errand's own record.
+        Assert.Equal(19, ladder.Ladder.Ranks.Count(rank => rank.Requirements.Any(requirement => requirement.Kind == PromotionRequirementKind.Award)));
+        Assert.Equal(2, ladder.Ladder.Ranks.Count(rank => rank.Requirements.Any(requirement =>
+            requirement.Kind == PromotionRequirementKind.Award &&
+            !requirement.Name.StartsWith(MightAndMagic7Conversation.ErrandFlagPrefix, StringComparison.Ordinal))));
         Assert.Equal(9, ladder.Ladder.Ranks.Count(rank => rank.Rank == 2));
         Assert.Equal(18, ladder.Ladder.Ranks.Count(rank => rank.Rank == 3));
         Assert.Equal(8, ladder.Paths.Count);
@@ -135,7 +142,7 @@ public sealed class PromotionPolicyTests
             ["639", "641", "642", "643", "644", "645"],
             wizard.Requirements.Where(requirement => requirement.Kind == PromotionRequirementKind.Item).Select(requirement => requirement.Name));
         Assert.Equal("promotion:sorcerer-wizard", wizard.Award);
-        Assert.DoesNotContain(wizard.Requirements, requirement => requirement.Kind == PromotionRequirementKind.Quest);
+        Assert.DoesNotContain(wizard.Requirements, requirement => requirement.Kind == PromotionRequirementKind.Award);
 
         PromotionRank lich = ladder.Ladder.Rank("wizard-lich")!;
         Assert.Equal("npc-49", lich.Giver);
@@ -144,16 +151,17 @@ public sealed class PromotionPolicyTests
             lich.Requirements.Where(requirement => requirement.Kind == PromotionRequirementKind.Item).Select(requirement => requirement.Name));
         Assert.Equal(MightAndMagic7Promotions.DarkChoice, lich.Choice);
 
-        // An errand whose words name a deed rather than a thing is stated as the quest table's own bit, which
-        // nothing in this build judges: the Priest's first rank is bit 43, the Spy's is bit 19, and both are
-        // refused by name until the owner of quests exists.
+        // An errand whose words name a deed rather than a thing is stated as the record a finished quest
+        // leaves: the Priest's first rank is bit 43, the Spy's is bit 19, and the record's own name is the
+        // one the shipped topic table's requirement column already gates a person's topic on, so the rank and
+        // the town read one identity rather than two spellings of it.
         PromotionRequirement priest = ladder.Ladder.Rank("cleric-priest")!
-            .Requirements.Single(requirement => requirement.Kind == PromotionRequirementKind.Quest);
-        Assert.Equal("43", priest.Name);
+            .Requirements.Single(requirement => requirement.Kind == PromotionRequirementKind.Award);
+        Assert.Equal(MightAndMagic7Quests.ErrandRecord("43"), priest.Name);
         Assert.Contains("find the lost pirate map", priest.Label, StringComparison.Ordinal);
         Assert.Equal(
-            "19",
-            ladder.Ladder.Rank("rogue-spy")!.Requirements.Single(requirement => requirement.Kind == PromotionRequirementKind.Quest).Name);
+            MightAndMagic7Quests.ErrandRecord("19"),
+            ladder.Ladder.Rank("rogue-spy")!.Requirements.Single(requirement => requirement.Kind == PromotionRequirementKind.Award).Name);
 
         // The two errands the original keeps as counts rather than as quests are stated as records with a
         // magnitude: five arena wins for the Champion (AwardEnums.h:88-91) and ten thousand gold of bounties

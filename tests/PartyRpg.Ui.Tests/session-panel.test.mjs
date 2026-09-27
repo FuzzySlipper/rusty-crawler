@@ -596,6 +596,9 @@ function snapshot(mode, seconds = 0, steps = 0, updates = 0, facts = undefined, 
   // The alchemy block is published on the same terms: a case that asks for none covers a projection whose
   // ruleset stated no mixtures.
   if (blocks?.alchemy !== undefined) value.alchemy = blocks.alchemy;
+  // The quests block is published in every mode too, so a case that asks for none covers a projection whose
+  // ruleset stated no quests at all.
+  if (blocks?.quests !== undefined) value.quests = blocks.quests;
   return value;
 }
 
@@ -937,6 +940,68 @@ function alchemy(overrides = {}) {
       message: '',
     },
     ...overrides,
+  };
+}
+
+function quests(overrides = {}) {
+  return {
+    available: true,
+    journal: [
+      {
+        quest: '35',
+        name: 'The Elven Treasury',
+        state: 'accepted',
+        giver: 'npc-43',
+        note: 'Raid the Elven Treasury at Castle Navan and return to Frederick Org.',
+        residue: 'the treasury is the castle\'s own event program, which this build does not run',
+        objectives: [
+          { id: 'reach-0', label: 'Reach Castle Navan', count: 0, required: 1, met: false },
+        ],
+        canTurnIn: false,
+      },
+    ],
+    outcome: {
+      action: 'turn-in',
+      outcome: 'refused',
+      quest: '35',
+      experience: 0,
+      coins: 0,
+      items: [],
+      records: [],
+      delivered: [],
+      code: 'quest-objectives-unmet',
+      message: "'The Elven Treasury' is not finished: Reach Castle Navan.",
+    },
+    ...overrides,
+  };
+}
+
+/** The journal as a person reads it: each errand's state and objectives, and the last errand's answer. */
+function questsPanel(h) {
+  const panel = h.panel();
+  const section = panel?.querySelector('.crawler-quests');
+  const result = section?.querySelector('.crawler-quests-result');
+  return {
+    section,
+    hidden: section?.hidden,
+    state: section?.querySelector('.crawler-quests-state')?.textContent ?? null,
+    quests: [...(section?.querySelectorAll('.crawler-quest') ?? [])].map((row) => ({
+      quest: row.getAttribute('data-quest'),
+      state: row.getAttribute('data-state'),
+      canTurnIn: row.getAttribute('data-can-turn-in'),
+      text: row.querySelector('.crawler-row-label')?.textContent ?? '',
+      note: row.querySelector('.crawler-quest-note')?.textContent ?? '',
+      residue: row.querySelector('.crawler-quest-residue')?.textContent ?? '',
+      objectives: [...row.querySelectorAll('.crawler-quest-objective')].map((objective) => ({
+        id: objective.getAttribute('data-objective'),
+        met: objective.getAttribute('data-met'),
+        text: objective.textContent,
+      })),
+    })),
+    outcome: result?.getAttribute('data-outcome') ?? null,
+    action: result?.getAttribute('data-action') ?? null,
+    code: result?.getAttribute('data-code') ?? null,
+    message: result?.textContent ?? null,
   };
 }
 
@@ -3452,6 +3517,96 @@ test('the panel shows what a cast changed, what is running, and where a spell ma
     assert.equal(quiet.running.text, '');
 
     ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the panel shows the journal, what each errand asks, and why a turn-in was refused', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // A session whose ruleset stated no quests shows no journal at all — a different fact from a party that
+    // has been offered nothing — and the panel says which of the two it is looking at.
+    h.emit(snapshot('running', 1, 60, 60, movement()));
+    assert.equal(h.panel().getAttribute('data-quests'), 'none');
+    assert.equal(questsPanel(h).hidden, true);
+
+    // A party with a journal but nothing in it is the third fact: the mechanism is there and no errand is.
+    h.emit(snapshot('running', 2, 120, 121, movement(), { quests: quests({ journal: [], outcome: { ...quests().outcome, action: 'none', outcome: 'none', code: '', message: '' } }) }));
+    assert.equal(h.panel().getAttribute('data-quests'), 'present');
+    assert.equal(questsPanel(h).state, 'The party has been offered nothing.');
+
+    // The errand as the product published it: what it is called, where it stands, who it is finished with,
+    // the words the game tells about it, and every objective with the party's own progress.
+    h.emit(snapshot('running', 3, 180, 181, movement(), { quests: quests() }));
+    const journal = questsPanel(h);
+    assert.equal(journal.hidden, false);
+    assert.equal(journal.state, '1 errand in the journal');
+    assert.equal(journal.quests.length, 1);
+    assert.equal(journal.quests[0].quest, '35');
+    assert.equal(journal.quests[0].state, 'accepted');
+    assert.equal(journal.quests[0].canTurnIn, 'false');
+    assert.equal(journal.quests[0].text, 'The Elven Treasury · accepted · given by npc-43');
+    assert.equal(journal.quests[0].note, 'Raid the Elven Treasury at Castle Navan and return to Frederick Org.');
+    assert.equal(journal.quests[0].objectives.length, 1);
+    assert.equal(journal.quests[0].objectives[0].id, 'reach-0');
+    assert.equal(journal.quests[0].objectives[0].met, 'false');
+    assert.equal(journal.quests[0].objectives[0].text, '· Reach Castle Navan');
+
+    // What the errand asks for and this game does not judge is printed where the player reads the errand,
+    // so the original's own deed is never lost behind what this build can check.
+    assert.match(journal.quests[0].residue, /event program/);
+
+    // A refusal is the product's own sentence and code, printed as they were given: the panel names no
+    // objective and judges nothing.
+    assert.equal(journal.outcome, 'refused');
+    assert.equal(journal.action, 'turn-in');
+    assert.equal(journal.code, 'quest-objectives-unmet');
+    assert.match(journal.message, /Reach Castle Navan/);
+
+    // An objective that is met is drawn as met, and an errand that may be handed in says so: both are the
+    // product's readings, and a screen that worked either out would be a second judge of one quest.
+    h.emit(snapshot('running', 4, 240, 241, movement(), {
+      quests: quests({
+        journal: [
+          {
+            ...quests().journal[0],
+            state: 'completed',
+            canTurnIn: true,
+            objectives: [
+              { id: 'reach-0', label: 'Reach Castle Navan', count: 1, required: 1, met: true },
+              { id: 'kill-0', label: 'Bring down every Ghast in The Haunted Mansion', count: 4, required: 10, met: false },
+            ],
+          },
+        ],
+        outcome: {
+          action: 'turn-in',
+          outcome: 'applied',
+          quest: '35',
+          experience: 4000,
+          coins: 250,
+          items: [],
+          records: ['errand:35 (1)'],
+          delivered: [],
+          code: '',
+          message: "The errand '35' was finished.",
+        },
+      }),
+    }));
+    const finished = questsPanel(h);
+    assert.equal(finished.quests[0].state, 'completed');
+    assert.equal(finished.quests[0].canTurnIn, 'true');
+    assert.equal(finished.quests[0].objectives[0].met, 'true');
+    assert.equal(finished.quests[0].objectives[0].text, '✓ Reach Castle Navan');
+    assert.equal(finished.quests[0].objectives[1].text, '· Bring down every Ghast in The Haunted Mansion (4/10)');
+    assert.equal(finished.outcome, 'applied');
+    assert.equal(finished.message, "The errand '35' was finished.");
+
+    // The journal publishes no control of its own: an errand is taken and handed in by talking to somebody,
+    // and a screen that could finish one would be a second way into the same owner.
+    assert.equal(journal.section.querySelectorAll('button').length, 0);
   } finally {
     h.restore();
   }

@@ -1,4 +1,5 @@
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Quests;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
@@ -20,10 +21,13 @@ namespace PartyRpg.Kit.Persistence;
 /// <b>What is here is what the session owns as state:</b> the party — members with their skills, spells,
 /// progression and portraits, the shared inventory with each instance's custody, damage and enchantments,
 /// the purse, the larder, reputation, followers, effects, and the identity cursors — the clock's elapsed
-/// game time, where the party stands, and what each place remembers. Sections arrive with the owners that
-/// hold their state: knowledge, quests, containers and loose world items, and scenario flags have no owner
-/// in the product yet, so a save has nothing of theirs to carry and this document does not pretend
-/// otherwise by holding a section nobody fills.
+/// game time, where the party stands, what each place remembers, and every quest the party has a state
+/// about. The quest section carries the instances the party took — their stage, their recorded progress,
+/// and the place each offer was taken in — and deliberately not the quests themselves, which are read back
+/// from the game's own content when the document is loaded. Sections arrive with the owners that hold their
+/// state: knowledge, containers and loose world items, and scenario flags have no owner in the product yet,
+/// so a save has nothing of theirs to carry and this document does not pretend otherwise by holding a
+/// section nobody fills.
 /// </para>
 /// <para>
 /// <b>What is deliberately absent is as decided as what is here.</b> In-flight movement outcomes, cached
@@ -41,8 +45,9 @@ public sealed record SessionSave
     /// <param name="party">The party, its items, its accounts, and its identity cursors.</param>
     /// <param name="clock">How much game time had elapsed since the session began.</param>
     /// <param name="world">Where the party stands and what each place remembers.</param>
+    /// <param name="quests">Every quest the party has a state about, or null when it has none.</param>
     /// <exception cref="ArgumentNullException">A section is null, which is not a session a load could rebuild.</exception>
-    public SessionSave(PartySave party, ClockSave clock, WorldSave world)
+    public SessionSave(PartySave party, ClockSave clock, WorldSave world, QuestSave? quests = null)
     {
         ArgumentNullException.ThrowIfNull(party);
         ArgumentNullException.ThrowIfNull(clock);
@@ -50,6 +55,7 @@ public sealed record SessionSave
         Party = party;
         Clock = clock;
         World = world;
+        Quests = quests ?? QuestSave.None;
     }
 
     /// <summary>The party, its items, its accounts, and its identity cursors.</summary>
@@ -60,6 +66,9 @@ public sealed record SessionSave
 
     /// <summary>Where the party stands and what each place remembers.</summary>
     public WorldSave World { get; }
+
+    /// <summary>Every quest the party has a state about, which is empty for a party that has taken none.</summary>
+    public QuestSave Quests { get; }
 
     /// <summary>
     /// Reads a live session into the current schema, without writing anything anywhere.
@@ -92,7 +101,14 @@ public sealed record SessionSave
                 missing);
         }
 
-        return new SessionSave(held.Capture(), ClockSave.Capture(time), place.Capture());
+        // The quest owner is absent from a session that holds one for no party and from one whose ruleset
+        // stated no quests at all: both are a party with no quest state, which is what an empty section
+        // records rather than a section nobody filled.
+        return new SessionSave(
+            held.Capture(),
+            ClockSave.Capture(time),
+            place.Capture(),
+            session.Quests?.Capture() ?? QuestSave.None);
     }
 
     /// <summary>
@@ -114,12 +130,18 @@ public sealed record SessionSave
     /// only refuse a pose that is not made of numbers, because where a place's bounds are is the ruleset's
     /// answer and not this layer's to invent.
     /// </param>
+    /// <param name="quests">
+    /// This game's quests, when its ruleset states any, which is what an instance's own quest is judged
+    /// against: a save that records an errand the game no longer states names an errand nothing can finish,
+    /// and that is a contradiction to refuse rather than a quest to guess at.
+    /// </param>
     /// <returns>Every problem found, in the order the document records them.</returns>
     /// <exception cref="ArgumentNullException">The world's places or the party factory are null.</exception>
     public IReadOnlyList<string> Problems(
         PlaceGraph places,
         PartyEntityFactory parties,
-        PlacePoseAdmission? admission = null)
+        PlacePoseAdmission? admission = null,
+        IQuestRule? quests = null)
     {
         ArgumentNullException.ThrowIfNull(places);
         ArgumentNullException.ThrowIfNull(parties);
@@ -156,7 +178,57 @@ public sealed record SessionSave
         }
 
         problems.AddRange(PoseProblems(places, admission));
+        problems.AddRange(QuestProblems(places, quests));
         return problems;
+    }
+
+    /// <summary>
+    /// Every problem with the quests the save records.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Three contradictions are possible, and each is named rather than repaired. An instance whose quest
+    /// this game's content no longer states is an errand nothing can judge, finish, or pay; one whose stage
+    /// word this build does not have is a document written by something else; and one whose recorded place
+    /// the world does not have is provenance pointing at nowhere — which is what a quest taken in a place
+    /// the content no longer carries looks like, and it is refused here rather than silently kept.
+    /// </para>
+    /// <para>
+    /// <b>An instance is not tied to its place.</b> Only the place an offer was taken in is recorded, and
+    /// only as provenance: an instance whose place still exists but whose party has long since walked away
+    /// is exactly what a quest is, so nothing here refuses a quest for being somewhere else.
+    /// </para>
+    /// </remarks>
+    private IEnumerable<string> QuestProblems(PlaceGraph places, IQuestRule? quests)
+    {
+        HashSet<QuestId> recorded = [];
+        foreach (QuestInstanceSave instance in Quests.Instances)
+        {
+            if (!recorded.Add(instance.Quest))
+            {
+                yield return $"the quest '{instance.Quest}' is recorded twice, so which instance the party's history belongs to would be ambiguous";
+            }
+
+            if (instance.Stage is not ("offered" or "accepted" or "turned-in"))
+            {
+                yield return $"the quest '{instance.Quest}' is recorded at the stage '{instance.Stage}', which is not one this build has";
+            }
+
+            if (quests is not null && quests.Definition(instance.Quest) is null)
+            {
+                yield return $"the quest '{instance.Quest}' is recorded and this game states no such quest, so nothing could judge, finish, or pay it";
+            }
+
+            if (instance.OfferedIn.Length > 0 && places.Find(new PlaceId(instance.OfferedIn)) is null)
+            {
+                yield return $"the quest '{instance.Quest}' was recorded as offered in place '{instance.OfferedIn}', which the world does not have";
+            }
+
+            if (string.IsNullOrWhiteSpace(instance.Giver))
+            {
+                yield return $"the quest '{instance.Quest}' records no giver, so nothing says who offered it or who it is finished with";
+            }
+        }
     }
 
     /// <summary>Every problem with where the save says the party is.</summary>

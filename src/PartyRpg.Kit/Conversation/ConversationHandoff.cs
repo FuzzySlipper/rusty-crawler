@@ -46,9 +46,10 @@ public sealed record ConversationHandoff
 
 /// <summary>The handoff kinds this kit routes, named as the words content and the session share.</summary>
 /// <remarks>
-/// Only the service mechanism is named here, because it is the only owner that exists: the counter a person
-/// keeps. A kind no owner routes is refused by name where it is taken, so a later stone adds its own word
-/// and its routing without this list pretending to know about it.
+/// The service mechanism is named here because it is the conversation's own neighbour: the counter a person
+/// keeps. An owner that owns more than one act brings its own words beside itself — a rank's offer travels
+/// under <c>PromotionHandoffs</c> and an errand's three acts under <c>QuestHandoffs</c> — so this list holds
+/// only what has no other home, and a kind no owner routes is refused by name where it is taken.
 /// </remarks>
 public static class ConversationHandoffs
 {

@@ -5,6 +5,7 @@ using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Progression;
+using PartyRpg.Kit.Quests;
 using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
@@ -93,15 +94,46 @@ internal sealed class MightAndMagic7Session : IGameSession
         SessionWorld? world = null;
         MightAndMagic7SpellEffects? spellEffects = spells is null ? null : new MightAndMagic7SpellEffects(spells, clock, () => world);
 
+        // This game's quests are read once, here, before its services: an errand is stated over the shipped
+        // quest table, its giver is the ladder's own, and what its objectives name is the world's and the
+        // monster table's own — so a town hall's bounty and the errand its keeper offers are one reading of
+        // one encounter row rather than two that could advertise different beasts.
+        MightAndMagic7Quests? quests = MightAndMagic7Quests.Read(Declared(context.Content), promotions);
+        if (quests is not null)
+        {
+            foreach (string note in quests.Notes)
+            {
+                context.Engine?.Diagnostics?.Publish(new DiagnosticsPublishRequest(
+                    DiagnosticsSeverity.Info,
+                    DiagnosticsDisposition.Accepted,
+                    Source: "quest",
+                    Code: "quest-note",
+                    Message: note,
+                    Correlation: string.Empty));
+            }
+        }
+
         // This game's services are read once, here, and the same answers are handed to the world — which
         // needs them to describe a counter the party talks to — and to the session, which serves it. One
         // reading of one placement is what keeps what a use offers and what a transaction does in step.
-        MightAndMagic7Services? services = MightAndMagic7Services.Read(Declared(context.Content), skills, spells);
+        // The quests travel with them, because a counter's bounty notice and a counter's refusal to buy
+        // what an errand still needs are both answers about the party's own quest state.
+        MightAndMagic7Services? services = MightAndMagic7Services.Read(
+            Declared(context.Content),
+            skills,
+            spells,
+            quests,
+            () => Quests);
 
         // This game's answers about people are read once here, for the same reason: the world needs them to
         // say who stands at a placement the party faces, and the session needs the one instance to speak
         // with them, so what a use reaches and who answers can never be two readings of one placement.
-        MightAndMagic7Conversation? conversation = MightAndMagic7Conversation.Read(Declared(context.Content), services, promotions);
+        MightAndMagic7Conversation? conversation = MightAndMagic7Conversation.Read(
+            Declared(context.Content),
+            services,
+            promotions,
+            quests,
+            () => Quests);
         if (conversation is not null)
         {
             // What reading the people tables noticed is reported where the other composition notes are: a
@@ -166,8 +198,12 @@ internal sealed class MightAndMagic7Session : IGameSession
         // own ledger the same way: as providers, read at the moment the quantity is wanted rather than
         // captured when the policy was composed. What a ward on one character is worth is that character's own
         // reading, which is why the ledger travels beside the party rather than the party's effects alone.
+        // A death reaches the quest owner before it reaches the purse: the errands a party has taken count what
+        // the fight read as down, and what a death pays is awarded on the same report, so a kill objective and
+        // the experience for the kill are one reading of one death rather than two.
         MightAndMagic7Combat? composed = null;
-        ProgressionAwards awards = new(Worth, () => Progression, corpseAnswers);
+        QuestDeaths deaths = new(() => Quests, corpseAnswers);
+        ProgressionAwards awards = new(Worth, () => Progression, deaths);
         composed = MightAndMagic7Combat.Compose(Declared(context.Content), context.Engine?.Random, awards, spells, () => party, () => spellEffects);
         MightAndMagic7Combat combat = composed;
 
@@ -197,7 +233,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             {
                 party = Capacity(MightAndMagic7Party.Restore(save.Party, Declared(context.Content)), spells)!;
                 PartyResourceLedger ledger = Ledger(party);
-                world = MightAndMagic7World.Compose(context.Content, context, clock, ledger, party, save, services, conversation, corpseAnswers, loot);
+                world = MightAndMagic7World.Compose(context.Content, context, clock, ledger, party, save, services, conversation, corpseAnswers, loot, quests);
                 _session = new PartyRpgSession(
                     composition,
                     context.Projection,
@@ -230,7 +266,9 @@ internal sealed class MightAndMagic7Session : IGameSession
                     castInput: context.Cast,
                     alchemy: alchemy,
                     mixtures: alchemy?.Catalog,
-                    mixInput: context.Mix);
+                    mixInput: context.Mix,
+                    quests: quests,
+                    questState: save.Quests);
                 return;
             }
 
@@ -315,7 +353,8 @@ internal sealed class MightAndMagic7Session : IGameSession
                 castInput: context.Cast,
                 alchemy: alchemy,
                 mixtures: alchemy?.Catalog,
-                mixInput: context.Mix);
+                mixInput: context.Mix,
+                quests: quests);
         }
         catch
         {
@@ -470,6 +509,17 @@ internal sealed class MightAndMagic7Session : IGameSession
     /// the owner was composed over exists.
     /// </remarks>
     internal PartyProgression? Progression => _session.Progression;
+
+    /// <summary>
+    /// The quest owner this session keeps its journal through, or null until the party exists.
+    /// </summary>
+    /// <remarks>
+    /// The session the product composes owns it, and this is that same owner read one layer out rather than
+    /// a second one: the fight asks for it the moment a death is reported and a counter asks for it the
+    /// moment the party tries to sell something, both of which happen after the party the owner was composed
+    /// over exists.
+    /// </remarks>
+    internal PartyQuests? Quests => _session.Quests;
 
     /// <summary>
     /// The world this session stands in, or null when it holds none.
