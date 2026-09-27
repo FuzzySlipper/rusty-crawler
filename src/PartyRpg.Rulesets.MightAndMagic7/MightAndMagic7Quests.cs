@@ -707,6 +707,22 @@ internal sealed class MightAndMagic7Quests : IQuestRule
                     $"Bring down a {terms.Beast}"),
             ],
             new QuestRewards(coins: terms.Reward),
+            // A hall posts its notice for a party the town regards well enough to know, which is this game's
+            // own reading: the donor's town halls hand their bounty to anybody who asks
+            // (<c>src/GUI/UI/Houses/TownHall.cpp:135-176</c>), and nothing there reads a standing. The
+            // threshold is the band this game's standing table opens at, so what a person will say about the
+            // party and what a hall will put its way open together. It is stated as an ordinary offer
+            // condition, which is the same vocabulary the conversation judges a topic's availability in, so
+            // the notice's own topic disappears and comes back with the standing rather than being special
+            // cased at either end.
+            offerConditions:
+            [
+                new ConversationCondition(
+                    ConversationConditionKind.Reputation,
+                    "reputation",
+                    MightAndMagic7Standing.WellRegarded,
+                    "the party's standing"),
+            ],
             note: string.Create(
                 CultureInfo.InvariantCulture,
                 $"This month's bounty is on a {terms.Beast}: the hall pays {terms.Reward} coin(s) for proof of the kill."),

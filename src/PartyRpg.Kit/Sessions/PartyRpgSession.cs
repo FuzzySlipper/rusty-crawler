@@ -109,6 +109,7 @@ public sealed class PartyRpgSession : IGameSession
     private readonly ServiceInput? _serviceInput;
     private readonly IServiceRule? _serviceRule;
     private readonly IProgressionRule? _progressionRule;
+    private readonly IStandingRule? _standingRule;
     private readonly IPromotionRule? _promotionRule;
     private readonly ISkillRule? _skillRule;
     private readonly SkillRaiseInput? _skillInput;
@@ -362,6 +363,14 @@ public sealed class PartyRpgSession : IGameSession
     /// notes carry elapsed game time rather than dates, so they are read back against the clock this session
     /// was composed with and a loaded note reads as the day it was learned.
     /// </param>
+    /// <param name="standing">
+    /// This game's words for the standing a party holds and for what it has accomplished, when its ruleset
+    /// gives any: the band the party's reputation falls in and what that band does, and the names of the
+    /// records the party carries. Both are read through <see cref="PartySnapshot"/> and printed by the panel
+    /// unchanged, because a screen that derived a band from a number or a title from a record identity would
+    /// be a second reading of a threshold and a table this kit does not own. Without one the two numbers are
+    /// still published and neither a band nor a list of accomplishments is claimed.
+    /// </param>
     /// <exception cref="ArgumentException">
     /// The session is composed both to create a party and to hold one, or to create one without the controls
     /// its commands arrive on.
@@ -392,6 +401,7 @@ public sealed class PartyRpgSession : IGameSession
         CombatIntentNames? combatInput = null,
         IMonsterAiPolicy? monsterAi = null,
         IProgressionRule? progression = null,
+        IStandingRule? standing = null,
         IPromotionRule? promotions = null,
         ISkillRule? skills = null,
         SkillRaiseIntentNames? skillInput = null,
@@ -431,6 +441,7 @@ public sealed class PartyRpgSession : IGameSession
         _serviceInput = serviceInput is null ? null : new ServiceInput(serviceInput);
         _serviceRule = service;
         _progressionRule = progression;
+        _standingRule = standing;
         _promotionRule = promotions;
         _skillRule = skills;
         _skillInput = skillInput is null ? null : new SkillRaiseInput(skillInput);
@@ -2268,7 +2279,7 @@ public sealed class PartyRpgSession : IGameSession
         _world,
         MovementSnapshot.From(LiveWorld?.Movement.Last),
         ClockSnapshot.From(_clock),
-        PartySnapshot.From(_party),
+        PartySnapshot.From(_party, _standingRule),
         // While a party is being made the flow is the screen's whole subject; once one has been accepted the
         // members shown are the party's own, read from the party rather than from the flow that described
         // it, so the accepted state is a fact about what is being played. A resumed session plays a party it

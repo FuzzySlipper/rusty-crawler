@@ -284,7 +284,16 @@ public static class SessionProjection
                 // What the party carries: everything a search, a purchase, or a kill put in the one shared
                 // pack, so what a corpse held is visible as a number that moved rather than only as a
                 // sentence about it.
-                ("pack", builder.Number(snapshot.Party.Pack)))),
+                ("pack", builder.Number(snapshot.Party.Pack)),
+                // Whether this game reads a standing at all, what it calls the band the party falls in, and
+                // what that band does. The words are the ruleset's, printed unchanged: a game that reads
+                // neither is a different fact from a party whose accomplishments happen to be empty.
+                ("standingRead", builder.Boolean(snapshot.Party.StandingRead)),
+                ("standing", builder.String(snapshot.Party.Standing ?? string.Empty)),
+                ("standingDetail", builder.String(snapshot.Party.StandingDetail ?? string.Empty)),
+                // What the party has accomplished, one row per record the game counts, each in the game's
+                // own words: a screen shows them and decides nothing about what a record means.
+                ("awards", Awards(builder, snapshot.Party.Awards)))),
             // Published even when nothing has moved: the motion word says which of "the world refused me"
             // and "the party has not stepped yet" the panel is looking at, and a block that only appeared
             // once something had moved would leave the two indistinguishable again.
@@ -492,6 +501,28 @@ public static class SessionProjection
             ("paid", builder.Number(service.Paid)),
             ("earned", builder.Number(service.Earned)),
             ("coins", builder.Number(service.Coins)));
+    }
+
+    /// <summary>Builds the awards list: what the party has accomplished, each row in the game's own words.</summary>
+    /// <remarks>
+    /// A snapshot built without a standing rule carries no list at all, and the rows are published as empty
+    /// here so a reader never sees an identity where a name should be; a game that counts nothing as an
+    /// accomplishment publishes the same empty list, and the two are told apart by whether the party block
+    /// reads a standing at all.
+    /// </remarks>
+    private static uint Awards(UiValueBuilder builder, IReadOnlyList<AwardSnapshot>? awards)
+    {
+        List<uint> rows = [];
+        foreach (AwardSnapshot award in awards ?? [])
+        {
+            rows.Add(builder.Object(
+                ("id", builder.String(award.Id)),
+                ("kind", builder.String(award.Kind)),
+                ("label", builder.String(award.Label)),
+                ("detail", builder.String(award.Detail))));
+        }
+
+        return builder.Array([.. rows]);
     }
 
     /// <summary>Builds the conversation block: who is here, what was said, and what may be asked about.</summary>

@@ -1,7 +1,20 @@
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.World;
 
 namespace PartyRpg.Kit.Presentation;
+
+/// <summary>One thing the party has accomplished, as the panel shows it.</summary>
+/// <remarks>
+/// The row is the reading a game gave of one party-carried record: what it is called, which family the game
+/// counts it in, and what is true of it beyond its name. Nothing here is worked out by the panel, and the
+/// identity travels with the words so a row can still be traced to the state that produced it.
+/// </remarks>
+/// <param name="Id">The record's own identity, which is the state the award is carried as.</param>
+/// <param name="Kind">What family the game counts it in, as the game words it.</param>
+/// <param name="Label">What the game calls it.</param>
+/// <param name="Detail">What is true of it beyond its name, empty when nothing is.</param>
+public readonly record struct AwardSnapshot(string Id, string Kind, string Label, string Detail);
 
 /// <summary>The party's own accounts and standing, as the panel shows them.</summary>
 /// <remarks>
@@ -16,6 +29,13 @@ namespace PartyRpg.Kit.Presentation;
 /// the food would leave the two states looking the same. They are the content identities the members
 /// actually carry, so the ruleset's own list of afflictions reaches the screen without this layer knowing
 /// any of them.
+/// </para>
+/// <para>
+/// <b>What the standing and the accomplishments read as is the ruleset's.</b> The two numbers are the
+/// party's own; the band they fall in, what that band does, and the names of the records the party has
+/// collected are this game's words, asked of the rule that owns its thresholds. A panel therefore prints
+/// "Friendly" and "the errand the hall posted" rather than working either out from a number or a record
+/// identity it would have to know how to spell.
 /// </para>
 /// </remarks>
 /// <param name="Present">Whether the session holds a party at all.</param>
@@ -35,6 +55,19 @@ namespace PartyRpg.Kit.Presentation;
 /// goes: a search that was refused for want of room and one that landed are told apart by this number
 /// moving, and a panel that showed only the purse would leave loot invisible until it was sold.
 /// </param>
+/// <param name="StandingRead">
+/// Whether this game reads a standing and its accomplishments at all. A session whose ruleset reads neither
+/// publishes that, which is a different fact from a party standing at the middle of a scale nobody named and
+/// from one whose accomplishments are merely empty.
+/// </param>
+/// <param name="Standing">
+/// What the game calls the band the party's standing falls in, empty when its ruleset names no bands.
+/// </param>
+/// <param name="StandingDetail">What that band means for how the party is treated, empty when nothing is read.</param>
+/// <param name="Awards">
+/// What the party has accomplished, in the game's own words, in the order the party carries the records;
+/// empty when it has done nothing this game counts or when its ruleset counts nothing.
+/// </param>
 public readonly record struct PartySnapshot(
     bool Present,
     int Members,
@@ -48,15 +81,24 @@ public readonly record struct PartySnapshot(
     int HitPointsMax = 0,
     int SpellPoints = 0,
     int SpellPointsMax = 0,
-    int Pack = 0)
+    int Pack = 0,
+    bool StandingRead = false,
+    string Standing = "",
+    string StandingDetail = "",
+    IReadOnlyList<AwardSnapshot>? Awards = null)
 {
     /// <summary>The party of a session that holds none.</summary>
     public static PartySnapshot None => new(false, 0, 0, 0, string.Empty, 0, 0, string.Empty);
 
     /// <summary>Reads the party as the panel needs it.</summary>
     /// <param name="party">The party the session holds, or null when it holds none.</param>
+    /// <param name="standing">
+    /// This game's words for the standing a party holds, or null when its ruleset reads none. Without one the
+    /// two numbers are still published and no band is claimed, because a band invented here would be this
+    /// layer's reading of a threshold it does not own.
+    /// </param>
     /// <returns>The party's accounts and standing, or the not-known value.</returns>
-    public static PartySnapshot From(PartyEntity? party)
+    public static PartySnapshot From(PartyEntity? party, IStandingRule? standing = null)
     {
         if (party is null) return None;
         int hitPoints = 0;
@@ -69,6 +111,16 @@ public readonly record struct PartySnapshot(
             hitPointsMax += member.Resources.HitPoints.Maximum;
             spellPoints += member.Resources.SpellPoints.Current;
             spellPointsMax += member.Resources.SpellPoints.Maximum;
+        }
+
+        StandingReading reading = standing?.Read(party) ?? StandingReading.None;
+        List<AwardSnapshot> awards = [];
+        if (standing is not null)
+        {
+            foreach (AwardReading award in standing.Awards(party))
+            {
+                awards.Add(new AwardSnapshot(award.Id, award.Kind, award.Label, award.Detail));
+            }
         }
 
         return new PartySnapshot(
@@ -87,7 +139,11 @@ public readonly record struct PartySnapshot(
             hitPointsMax,
             spellPoints,
             spellPointsMax,
-            party.Inventory.Count);
+            party.Inventory.Count,
+            standing is not null,
+            reading.Band ?? string.Empty,
+            reading.Reading ?? string.Empty,
+            awards);
     }
 
     /// <summary>

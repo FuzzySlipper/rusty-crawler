@@ -173,7 +173,7 @@ public sealed class PartyProgression
             taken.Add(share with { Name = member.Profile.Name });
         }
 
-        ProgressionStanding standing = ApplyStanding(ProgressionEventKind.Award, award.Amount);
+        ProgressionStanding standing = ApplyStanding(ProgressionEventKind.Award, award.Source, award.Amount);
         return Record(new ProgressionAwardResult(award.Source, award.Amount, taken, standing, Refusal: null));
     }
 
@@ -243,7 +243,7 @@ public sealed class PartyProgression
         trainee.Resources.RestoreAll();
         trainee.Progression.GrantSkillPoints(growth.SkillPoints);
 
-        ProgressionStanding standing = ApplyStanding(ProgressionEventKind.Training, terms.Fee);
+        ProgressionStanding standing = ApplyStanding(ProgressionEventKind.Training, terms.Counter, terms.Fee);
         return RecordTraining(new ProgressionTrainingResult(
             member,
             trainee.Profile.Name,
@@ -618,13 +618,19 @@ public sealed class PartyProgression
     /// Asks the rule what an event does to the party's standing and moves the party's own numbers by it.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// This is the only place a progression event reaches reputation or fame, and it reaches them through
     /// the party's own component rather than through fields of its own: the party already carries both, and
     /// a second copy kept beside them is exactly what a save would disagree about.
+    /// </para>
+    /// <para>
+    /// What earned the event travels with it, so the rule can tell an errand the world heard about from a
+    /// creature killed where nobody was watching: the two are the same kind of award and different news.
+    /// </para>
     /// </remarks>
-    private ProgressionStanding ApplyStanding(ProgressionEventKind kind, long amount)
+    private ProgressionStanding ApplyStanding(ProgressionEventKind kind, string source, long amount)
     {
-        ProgressionStanding standing = _rule.Standing(new ProgressionStandingRequest(_party, kind, amount));
+        ProgressionStanding standing = _rule.Standing(new ProgressionStandingRequest(_party, kind, source ?? string.Empty, amount));
         if (standing.Reputation != 0) _party.Reputation.ChangeReputation(standing.Reputation);
         if (standing.Fame != 0) _party.Reputation.ChangeFame(standing.Fame);
         return standing;

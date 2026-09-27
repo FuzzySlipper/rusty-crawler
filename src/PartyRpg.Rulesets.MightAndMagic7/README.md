@@ -52,6 +52,12 @@ Owns:
 - Time, calendar, rest, fatigue, and travel policy, including service hours.
 - Quest, guild, reputation, and journal policy: the errands the shipped quest table states, what each asks
   and pays, who gives it, and the board a town hall posts.
+- Standing policy (`MightAndMagic7Standing`): the world's opinion of the party — the donor's five band words
+  at the donor's four edges, what each band does to a person's line and to a hall's notice, what a finished
+  errand is worth to it, and the reading that names what the party has accomplished out of the tables that
+  wrote it. The services' price rule reads the same number, and the standing line a person speaks is composed
+  in `MightAndMagic7Conversation` as an ordinary standing condition, so the band, the gate, and the words are
+  one table.
 - Discovery policy (`MightAndMagic7Knowledge`): how a note about each kind of discovery reads, and which
   discoveries this game keeps — a find when the shipped item table marks it an artifact or a relic, a recipe
   when the potion table's own cell records one, and a landmark's effect or a line read when the event that
@@ -189,6 +195,57 @@ path when a class's own choice closed a school, so a lesson, a book, and a casti
 alternative named (`skill-closed-by-path`); and `PromotionSnapshot` publishes the ladder and what each rank
 did, member by member, for the panel. What the shipped data carries, what this game authors, and the live
 promotion through both stages are recorded in `local/verify/promotions/` (ignored local evidence).
+What the world makes of the party is landed beside them. `MightAndMagic7Standing` states the bands —
+the donor's own five words at the donor's own four edges (`UIGame.cpp:1645-1654`, `GetReputationString`),
+read into this game's convention in which a higher reputation is a better one, where the donor negates a
+location's reputation to print it (`LocationInfo.h:7`) — what each band does, and what a deed is worth to it.
+The mover is ours and stated as such: a finished errand moves the world's opinion by one point per thousand
+experience it paid, at least one, which is the donor's own figure for what word of a deed is worth read from
+the other side (`Party.cpp:371-379`, `Party::fame`); a creature killed where nobody was watching moves it not
+at all, which is the donor's own reading (`Actor.cpp:3164-3167`). **Nothing in this build lowers it yet**:
+the donor's three movers the other way — killing a townsperson (`Actor.cpp:1083-1105`,
+`ApplyFineForKillingPeasant`), being caught stealing (`Shops.cpp:1147-1174`), and the dark sacrifice the
+donor charges fifteen points for (`CastSpellInfo.cpp:2800-2809`) — belong to owners this build does not have,
+so the descent is named here rather than faked: the crime, theft, and dark-path effect stones carry it
+(file a task against whichever lands first, and it reaches the world's opinion through
+`PartyProgression.Award`'s one entry as every other deed does). A person says what the town makes of the party
+once the party is worth an opinion: `MightAndMagic7Conversation` composes one line for every person the NPC
+table describes, gated on a standing condition at the "Friendly" band's own floor — the same vocabulary every
+shipped topic's conditions are judged in, so the line appears with the standing and is withheld with the
+number it wants — and the words it says are the band's own reading. A town hall's notice is gated the same
+way, as an ordinary offer condition on the errand nobody authors, so the board a hall posts and the line a
+person speaks open together. The shipped data gates nothing on a standing and the host suite counts it: the
+operator's topic table carries 54 topics over 15 people and states no standing condition on any of them (the
+requirement column it does carry is a quest bit, and the six rows that name one are rows the original never
+gives text or an owner to), and none of the 17 shipped errands states an offer condition at all — so the
+standing gates this game ships are its own two, and they are stated in one table. What a counter does about
+standing is the donor's own arithmetic and nothing more: `MightAndMagic7Services.MerchantValue` is
+`playerMerchant` (`PriceCalculator.cpp:139-158`) read in this game's sign, so every point of standing moves
+what a counter charges and a party the world dislikes pays above the shelf; and a counter never refuses a
+party for its standing, which is the negative this game states rather than inventing a rule the donor does
+not have — the donor's counters gate on a membership, an hour, and a rung. What the party has accomplished is
+read from the records it already carries, in the three families the donor keeps as award bits
+(`AwardEnums.h:3-91`): a rank the ladder gave (`promotion:<rank>`, named by the class it made the character),
+an errand the quest definitions state (`errand:<bit>`, named by the errand's own words and its giver's own
+name), a counted deed the ladder keeps (`award:*`, named by the ladder's own label for it), and a guild's
+membership, named by the counter that sold it — "Fire Guild membership" rather than the effect a save spells.
+A record that is none of those — a ward still running, a passage bought, a line heard — is state rather than
+an accomplishment, and the panel shows only what this game can name. **Two counted deeds the ladder asks for
+are written by nobody**: `award:arena-wins` (five victories, the Champion's light errand) and
+`award:bounties` (ten thousand gold of town-hall bounties, the Hunter's dark one) are stated as records a
+rank requires, and neither the arena nor a bounty turn-in credits them — a bounty pays coin and leaves no
+record, and a party-carried effect holds one magnitude rather than accumulating, so a count is not something
+the record path can express yet. The reading above names either record if a later stone writes one; the
+receiver is whichever lands first of the arena and a counting record path (a quest reward that adds to a
+record rather than replacing it, which belongs to the party-effects owner). Fame carries no bands, because the donor
+gives it none: it prints fame as a bare number (`UIQuickReference.cpp:134-143`) and reads it in exactly one
+place, whether somebody will join the party, gated on the party's fame exceeding their own and disabled in the
+donor with a note that it is an MM8 behaviour (`UIDialogue.cpp:70-95`). Nothing can join a party in this build
+— there is no follower owner — so that gate has nothing to guard yet and is routed to the followers stone
+rather than faked. Standing and accomplishments ride the party's own save section: reputation, fame, and the
+party's effects are all durable state, and the host suite turns an errand in, saves through the engine's
+store, resumes, and reads the same band and the same record back.
+
 This game's quests are landed beside them: `MightAndMagic7Quests` reads the operator's shipped quest
 table — 512 rows of a bit, the journal's own words, and an authoring column — and states the 17 promotion
 errands over it, taking each errand's giver from the ladder rather than stating it twice and leaving the
@@ -202,8 +259,11 @@ table's own gate and a rank's requirement both read. A pack may state an errand 
 beside its words — giver, objectives, offer and completion conditions, and what a turn-in pays — and a town
 hall's board is the one errand nobody authors: the beast is the place's own encounter row by the month the
 clock stands in, what it pays is the donor's hundred times its level, and the keeper who offers it is the one
-the counter's placement names. The wait, the offer, and the turn-in all travel through the conversation that
-already exists, as three topics whose stage is the party's own state; a turn-in pays experience through the
+the counter's placement names. **Both composition paths hold the errand owner**: a session that plays the party its
+scenario fixes and one that creates its party hand the same quest owner to the shell, because the
+conversation composes an errand's offer from this game's quests on either path — a created party handed no
+owner would hear an errand and have nowhere to take it. The wait, the offer, and the turn-in all travel
+through the conversation that already exists, as three topics whose stage is the party's own state; a turn-in pays experience through the
 progression owner's one award entry, coin through the ledger, items through the acquisition path, and records
 onto the party's effects, and a counter refuses to buy what an unfinished errand still needs, naming the
 errand. What each of the 17 errands is read as is stated row by row in `MightAndMagic7Quests.Errands()`,

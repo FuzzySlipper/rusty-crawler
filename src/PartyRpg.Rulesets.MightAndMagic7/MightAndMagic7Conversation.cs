@@ -84,6 +84,21 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     internal const string CounterTopicId = "counter";
 
     /// <summary>
+    /// The identity this game's standing line carries.
+    /// </summary>
+    /// <remarks>
+    /// The line is this game's own rather than a row of the shipped topic table: the original writes what a
+    /// person says about the party's standing into the text of its NPC strings with a code that stands for
+    /// the reputation category (MMExtension, <c>MMExtension.htm</c>, "Special Codes in Texts"), and no row
+    /// of the shipped topic table carries it. Composing it here keeps the mechanism the same — a topic with
+    /// conditions, judged on every read — because the table has nothing to gate.
+    /// </remarks>
+    internal const string StandingTopicId = "standing";
+
+    /// <summary>What the standing line reads as in a list of things to bring up.</summary>
+    internal const string StandingLabel = "What do people say about us?";
+
+    /// <summary>
     /// The prefix a rank's own offer carries.
     /// </summary>
     /// <remarks>
@@ -453,6 +468,12 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
 
                 offers.Add(new ConversationOffer(topic.Topic, availability));
             }
+
+            // What the town makes of the party is one line every person the table describes can be asked
+            // for, and it waits for the party to be worth an opinion: the condition is an ordinary standing
+            // condition, judged by the same answer every other topic's conditions are judged by, so the line
+            // appears when the standing is there and is withheld with the number it wants when it is not.
+            offers.Add(StandingOffer(context));
         }
 
         if (Counter(context) is { } counter)
@@ -549,6 +570,42 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         if (journal?.Instance(new QuestId(bounty)) is not null) return;
         if (quests.Definition(new QuestId(bounty)) is not { } hunt) return;
         offers.Add(Errand(hunt, $"{ErrandTopicPrefix}{hunt.Id}", hunt.Name, context));
+    }
+
+    /// <summary>
+    /// What a person says about the party's standing, as the one condition it waits for leaves it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The condition is a standing condition in the vocabulary the whole mechanism judges, so nothing here
+    /// compares anything: <see cref="Holds"/> answers it and <see cref="Reason"/> says what it wanted, which
+    /// is the same pair of answers a shipped topic's own conditions get. Where the band begins is this game's
+    /// table, so a threshold moved there moves the line with it.
+    /// </para>
+    /// <para>
+    /// A person who has already answered it in this conversation withholds it for the same reason every
+    /// other topic does, so a party that asks twice is told so rather than hearing the same line again.
+    /// </para>
+    /// </remarks>
+    private static ConversationOffer StandingOffer(ConversationContext context)
+    {
+        ConversationCondition condition = new(
+            ConversationConditionKind.Reputation,
+            "reputation",
+            MightAndMagic7Standing.WellRegarded,
+            "the party's standing");
+        ConversationTopic topic = new(StandingTopicId, StandingLabel, [condition]);
+        foreach (ConversationCondition stated in topic.Conditions)
+        {
+            if (Holds(stated, context.Party, context.Clock)) continue;
+            return new ConversationOffer(topic, ConversationAvailability.Withheld(Reason(stated, context)));
+        }
+
+        return new ConversationOffer(
+            topic,
+            Said(context, StandingTopicId)
+                ? ConversationAvailability.Withheld("they have already said this in this conversation")
+                : ConversationAvailability.OnOffer);
     }
 
     /// <summary>One errand's own offer, as its stated conditions leave it.</summary>
@@ -653,6 +710,16 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     /// <inheritdoc />
     public ConversationAnswer Take(ConversationTopic topic, ConversationContext context)
     {
+        // What the town makes of the party is answered from the party's own standing rather than from a
+        // table: the person repeats the band the world has the party in, in this game's words for it, and
+        // what is said is recorded on the party the same way any other line is.
+        if (string.Equals(topic.Id, StandingTopicId, StringComparison.Ordinal) && context.Party is { } party)
+        {
+            return new ConversationAnswer(
+                MightAndMagic7Standing.Words(party),
+                records: [$"{HeardFlagPrefix}{StandingTopicId}"]);
+        }
+
         if (string.Equals(topic.Id, CounterTopicId, StringComparison.Ordinal)
             && Counter(context) is { } counter)
         {

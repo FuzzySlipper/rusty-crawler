@@ -67,6 +67,13 @@ function party(overrides = {}) {
     unit: 'portions',
     reputation: 0,
     fame: 0,
+    // A ruleset that reads a standing and a party that has accomplished nothing yet are two different facts,
+    // so the fixture states both rather than letting one stand for the other: a case that wants the game
+    // that keeps no account passes `standingRead: false`.
+    standingRead: true,
+    standing: '',
+    standingDetail: '',
+    awards: [],
     conditions: '',
     hitPoints: 40,
     hitPointsMax: 40,
@@ -1451,7 +1458,7 @@ test('renders nothing until the product publishes, then renders what it publishe
       title: '',
       button: 'Starting…',
       disabled: true,
-      values: Array(33).fill('—'),
+      values: Array(34).fill('—'),
       place: '',
     });
 
@@ -1465,10 +1472,10 @@ test('renders nothing until the product publishes, then renders what it publishe
       disabled: false,
       values: [
         'running', '12.3 s', '740', '741', '2',
-        // The date, the time, the days, the party, what it carries, the purse, the food, the standing, and
-        // the conditions, then what the party has left to lose and to cast with: a projection that carries
-        // no party block shows all eleven as not known.
-        '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—',
+        // The date, the time, the days, the party, what it carries, the purse, the food, the standing, what
+        // the standing means, and the conditions, then what the party has left to lose and to cast with: a
+        // projection that carries no party block shows all twelve as not known.
+        '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—',
         '1', '—', '1234, 5678, 0 @ 512', '1 / 76', 'grounded', '—', '—', '—',
         '—', '—', '—',
         // A projection that carries no save block is a session this companion cannot read as saveable, and
@@ -1577,7 +1584,7 @@ test('the companion holds no state and starts no timer', () => {
     // Rendering the newest projection replaces the previous values rather than accumulating them.
     assert.deepEqual(readPanel(h).values, [
       'running', '3.0 s', '180', '182', '2',
-      '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—',
+      '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—',
       '1', '—', '1234, 5678, 0 @ 512', '1 / 76', '—', '—', '—', '—',
       '—', '—', '—',
       'unavailable', 'fresh', '—', '—', '—', '—',
@@ -1650,6 +1657,68 @@ test('a session without movement facts shows that it does not know, and still re
   }
 });
 
+test('the panel prints what the game calls the party\'s standing, and what it has accomplished', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // A game that reads a standing hands the panel its own word for the band and its own sentence about what
+    // that band does, beside the two numbers the party carries; the rows are the game's, printed unchanged.
+    h.emit(snapshot('running', 1, 60, 60, movement(), {
+      party: party({
+        reputation: 12,
+        fame: 3,
+        standingRead: true,
+        standing: 'Friendly',
+        standingDetail: 'people speak well of the party, and a hall will put its notices its way',
+        awards: [
+          { id: 'promotion:rogue', kind: 'promotion', label: 'Rogue', detail: 'Thief' },
+          { id: 'errand:18', kind: 'errand', label: 'The vase of Lord Markham\'s Manor', detail: 'given by William Lasker' },
+        ],
+      }),
+    }));
+
+    assert.deepEqual(rows(h, 'Standing', 'Regard'), {
+      Standing: 'Friendly · 12 / 3',
+      Regard: 'people speak well of the party, and a hall will put its notices its way',
+    });
+    const awards = h.root.querySelectorAll('.crawler-award');
+    assert.equal(awards.length, 2);
+    assert.equal(awards[0].getAttribute('data-award'), 'promotion:rogue');
+    assert.equal(awards[0].getAttribute('data-kind'), 'promotion');
+    assert.equal(awards[0].textContent, 'Rogue · promotion · Thief');
+    assert.equal(awards[1].getAttribute('data-award'), 'errand:18');
+    assert.equal(
+      h.root.querySelector('.crawler-awards-state').textContent,
+      '2 things on record',
+    );
+
+    // A game whose ruleset reads no standing at all is not a party that has accomplished nothing: the panel
+    // shows the numbers with no band, and says that this game keeps no account rather than showing an empty
+    // list a player would read as "there is nothing to be proud of here".
+    h.emit(snapshot('running', 2, 120, 121, movement(), { party: party({ standingRead: false }) }));
+    assert.deepEqual(rows(h, 'Standing', 'Regard'), { Standing: '0 / 0', Regard: '—' });
+    assert.equal(h.root.querySelectorAll('.crawler-award').length, 0);
+    assert.equal(
+      h.root.querySelector('.crawler-awards-state').textContent,
+      'This game keeps no account of what the party has done.',
+    );
+
+    // A game that reads a standing and a party with nothing on record yet is the third fact, and it reads as
+    // its own sentence rather than as the one above.
+    h.emit(snapshot('running', 3, 180, 182, movement(), { party: party({ standingRead: true, standing: 'Neutral' }) }));
+    assert.equal(rows(h, 'Standing').Standing, 'Neutral · 0 / 0');
+    assert.equal(
+      h.root.querySelector('.crawler-awards-state').textContent,
+      'Nothing the party has done is on record yet.',
+    );
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
 test('the panel renders the clock and the party the product published', () => {
   const h = harness();
   try {
@@ -1667,11 +1736,14 @@ test('the panel renders the clock and the party the product published', () => {
       Time: '21:30 · night',
       Days: '12',
     });
-    assert.deepEqual(rows(h, 'Party', 'Coins', 'Food', 'Standing', 'Condition'), {
+    assert.deepEqual(rows(h, 'Party', 'Coins', 'Food', 'Standing', 'Regard', 'Condition'), {
       Party: '4',
       Coins: '200',
       Food: '3 portions',
+      // This fixture's party names no band, which is what a ruleset that reads no standing publishes: the
+      // numbers stand alone rather than a word this panel would have to invent from them.
       Standing: '3 / 1',
+      Regard: '—',
       Condition: 'weak (1)',
     });
     assert.equal(h.panel().getAttribute('data-clock'), 'present');

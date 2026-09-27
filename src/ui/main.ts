@@ -185,6 +185,22 @@ interface ClockView {
 }
 
 /**
+ * One thing the party has accomplished, as the product published it: the game's own words for a record the
+ * party carries, and the family the game counts it in. The panel prints the name and decides nothing — what
+ * a record means, and whether it is an accomplishment at all, is the ruleset's reading of its own tables.
+ */
+interface AwardView {
+  /** The record's own identity, which is the state the accomplishment is carried as. */
+  readonly id: string;
+  /** What family the game counts it in, as the game words it: a promotion, an errand, a membership, a deed. */
+  readonly kind: string;
+  /** What the game calls it. */
+  readonly label: string;
+  /** What is true of it beyond its name, empty when nothing is. */
+  readonly detail: string;
+}
+
+/**
  * The party's own accounts and standing, as the product published them. `present` is false when the
  * session holds no party, which is what content that declares none gets.
  */
@@ -199,6 +215,21 @@ interface PartyView {
   readonly unit: string;
   readonly reputation: number;
   readonly fame: number;
+  /**
+   * Whether this game reads a standing and the party's accomplishments at all. It is the fact that tells a
+   * game which keeps no such account from one whose records happen to be empty, and the panel needs it
+   * before it can say either.
+   */
+  readonly standingRead: boolean;
+  /**
+   * What the game calls the band the party's standing falls in, empty when its ruleset names no bands. The
+   * panel prints this word and works nothing out from the number beside it.
+   */
+  readonly standing: string;
+  /** What that band means for how the party is treated, empty when nothing is read. */
+  readonly standingDetail: string;
+  /** What the party has accomplished, in the game's own words, in the order the party carries the records. */
+  readonly awards: readonly AwardView[];
   /** The conditions acting on the party, empty when none act. */
   readonly conditions: string;
   /** What the members have left to lose between them, and the measure the first number needs. */
@@ -869,6 +900,10 @@ const PARTY_UNKNOWN: PartyView = {
   unit: '',
   reputation: 0,
   fame: 0,
+  standingRead: false,
+  standing: '',
+  standingDetail: '',
+  awards: [],
   conditions: '',
   hitPoints: 0,
   hitPointsMax: 0,
@@ -1600,6 +1635,12 @@ const STYLES = `
 .crawler-quests-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
 .crawler-quests-result[hidden] { display: none; }
 .crawler-quests-result[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
+.crawler-awards { margin: 0.4rem 0 0; border-top: 1px solid rgba(210, 196, 158, 0.35); padding-top: 0.5rem; }
+.crawler-awards[hidden] { display: none; }
+.crawler-awards > .crawler-step-head { margin: 0 0 0.3rem; color: #e0d3ae; font-size: 0.85rem; }
+.crawler-awards-state { margin: 0 0 0.3rem; }
+.crawler-awards-list { display: flex; flex-direction: column; gap: 0.15rem; }
+.crawler-award { font-size: 0.85rem; }
 .crawler-journal { margin: 0.4rem 0 0; border-top: 1px solid rgba(210, 196, 158, 0.35); padding-top: 0.5rem; }
 .crawler-journal[hidden] { display: none; }
 .crawler-journal > .crawler-step-head { margin: 0 0 0.3rem; color: #e0d3ae; font-size: 0.85rem; }
@@ -1686,6 +1727,27 @@ function readClock(value: unknown): ClockView {
   return { present: true, date, time, daylight, elapsedDays };
 }
 
+/**
+ * Reads the accomplishments the party block carries, skipping any row this panel cannot render.
+ *
+ * A row is the game's own words for a record the party holds, so a row missing its name is a row with
+ * nothing to show: it is left out rather than printed as an identity the panel would be spelling itself.
+ * A product that publishes no list at all is a party this panel knows nothing has been accomplished for,
+ * which is the same reading as an empty list.
+ */
+function readAwards(value: unknown): AwardView[] {
+  if (!Array.isArray(value)) return [];
+  const awards: AwardView[] = [];
+  for (const entry of value) {
+    if (!isRecord(entry)) continue;
+    const { id, kind, label, detail } = entry;
+    if (typeof id !== 'string' || typeof kind !== 'string' || typeof label !== 'string' || label === '') continue;
+    awards.push({ id, kind, label, detail: typeof detail === 'string' ? detail : '' });
+  }
+
+  return awards;
+}
+
 /** Reads the party block, or the not-known party, on the same terms as the clock block. */
 function readParty(value: unknown): PartyView {
   if (!isRecord(value) || value.present !== true) return PARTY_UNKNOWN;
@@ -1697,6 +1759,13 @@ function readParty(value: unknown): PartyView {
   const spellPoints = typeof value.spellPoints === 'number' ? value.spellPoints : 0;
   const spellPointsMax = typeof value.spellPointsMax === 'number' ? value.spellPointsMax : 0;
   const pack = typeof value.pack === 'number' ? value.pack : 0;
+  // What the standing and the accomplishments read as are the game's own words, so a product that publishes
+  // neither is a party whose band this panel cannot name rather than one standing nowhere: the numbers are
+  // still shown, and the words are shown only when the product supplied them.
+  const standingRead = value.standingRead === true;
+  const standing = typeof value.standing === 'string' ? value.standing : '';
+  const standingDetail = typeof value.standingDetail === 'string' ? value.standingDetail : '';
+  const awards = readAwards(value.awards);
   if (
     typeof members !== 'number' ||
     typeof pack !== 'number' ||
@@ -1719,6 +1788,10 @@ function readParty(value: unknown): PartyView {
     unit,
     reputation,
     fame,
+    standingRead,
+    standing,
+    standingDetail,
+    awards,
     conditions,
     hitPoints,
     hitPointsMax,
@@ -2820,6 +2893,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     ['coins', 'Coins'],
     ['food', 'Food'],
     ['standing', 'Standing'],
+    ['regard', 'Regard'],
     ['condition', 'Condition'],
     ['vitality', 'Vitality'],
     ['magic', 'Magic'],
@@ -3139,6 +3213,21 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   alchemyResult.hidden = true;
   alchemy.append(alchemyHead, alchemyState, alchemyItems, alchemyMixtures, alchemyResult);
 
+  // What the party has accomplished: one row per record this game counts as something the party did, in the
+  // game's own words, and nothing at all when the game counts nothing. The panel groups nothing, sorts
+  // nothing, and decides nothing — a record's family is the game's word in the row, printed as it arrived.
+  const awards = document.createElement('section');
+  awards.className = 'crawler-awards';
+  awards.hidden = true;
+  const awardsHead = document.createElement('p');
+  awardsHead.className = 'crawler-step-head';
+  awardsHead.textContent = 'Accomplishments';
+  const awardsState = document.createElement('p');
+  awardsState.className = 'crawler-awards-state';
+  const awardsList = document.createElement('div');
+  awardsList.className = 'crawler-awards-list';
+  awards.append(awardsHead, awardsState, awardsList);
+
   // The journal: the five books, and what each of them holds. The panel decides nothing here — an errand is
   // taken and handed in by talking to somebody, so the quests book is a reading of the party's own state
   // rather than a screen with commands, and what a refusal named is printed as it was written. The four other
@@ -3311,6 +3400,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     skills,
     magic,
     alchemy,
+    awards,
     journal,
     details,
     action,
@@ -4467,6 +4557,42 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   // list, because "no owner keeps this yet" and "the party has nothing written here" are different facts. The
   // quests book's page is the journal the quests block publishes, so its title and state are set here and its
   // rows are drawn by the quests renderer below.
+  /**
+   * Prints what the party has accomplished, one row per record this game counts, in the game's own words.
+   *
+   * The rows are the product's, in the product's own order, and the state sentence says whether the game
+   * counts anything rather than whether the list happens to be empty: a party that has done nothing it can
+   * be congratulated for and a game that keeps no such list are different facts, and the second is why this
+   * section is shown at all.
+   */
+  const renderAwards = (party: PartyView): void => {
+    awards.hidden = !party.present;
+    if (!party.present) {
+      awardsList.replaceChildren();
+      awardsState.textContent = '';
+      return;
+    }
+
+    awardsState.textContent = !party.standingRead
+      ? 'This game keeps no account of what the party has done.'
+      : party.awards.length === 0
+        ? 'Nothing the party has done is on record yet.'
+        : `${party.awards.length} thing${party.awards.length === 1 ? '' : 's'} on record`;
+    awardsList.replaceChildren(
+      ...party.awards.map((award) => {
+        const row = document.createElement('div');
+        row.className = 'crawler-award';
+        row.dataset.award = award.id;
+        row.dataset.kind = award.kind;
+        const label = document.createElement('span');
+        label.className = 'crawler-row-label';
+        label.textContent = award.detail === '' ? `${award.label} · ${award.kind}` : `${award.label} · ${award.kind} · ${award.detail}`;
+        row.append(label);
+        return row;
+      }),
+    );
+  };
+
   const renderJournal = (view: JournalView): void => {
     panel.dataset.journal = view.available ? 'present' : 'none';
     journal.hidden = !view.available;
@@ -4704,7 +4830,17 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     rows.pack.textContent = party.present ? String(party.pack) : '—';
     rows.coins.textContent = party.present ? String(party.coins) : '—';
     rows.food.textContent = party.present ? `${party.provisions} ${party.unit}` : '—';
-    rows.standing.textContent = party.present ? `${party.reputation} / ${party.fame}` : '—';
+    // The standing is the two numbers the party carries with the game's own word for the band they fall in
+    // in front of them, and the regard row is the game's own sentence about what that band does. Neither is
+    // worked out here: a product that names no band shows the numbers alone rather than a word invented for
+    // a threshold this panel does not own.
+    rows.standing.textContent = party.present
+      ? party.standing === ''
+        ? `${party.reputation} / ${party.fame}`
+        : `${party.standing} · ${party.reputation} / ${party.fame}`
+      : '—';
+    rows.regard.textContent = party.present && party.standingDetail !== '' ? party.standingDetail : '—';
+    renderAwards(party);
     rows.condition.textContent = party.present && party.conditions !== '' ? party.conditions : '—';
     // What the party has left to lose and to cast with: a night's sleep restores the pools, and a panel that
     // showed only food and conditions would leave a rested party and a wounded one looking the same.

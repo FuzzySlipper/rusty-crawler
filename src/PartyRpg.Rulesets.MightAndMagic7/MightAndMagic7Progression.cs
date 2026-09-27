@@ -253,11 +253,21 @@ internal sealed class MightAndMagic7Progression : IProgressionRule
     /// it.
     /// </para>
     /// <para>
-    /// <b>Reputation is untouched.</b> Neither the donor's kill path nor its training path changes it: a
-    /// kill awards experience (<c>src/Engine/Objects/Actor.cpp:3164-3167</c>) and a training step charges
-    /// gold (<c>src/GUI/UI/Houses/Training.cpp:65-88</c>), and the reputation a place holds is its own
-    /// (<c>src/Engine/LocationInfo.h:7</c>). A deed that does change what the world thinks — a quest
-    /// completed, a rank earned — answers here when it lands, through the same owner as the level it gave.
+    /// <b>Reputation moves on a deed the world can see, and this game states which deeds those are.</b>
+    /// Neither the donor's kill path nor its training path changes a location's reputation
+    /// (<c>src/Engine/Objects/Actor.cpp:3164-3167</c>, <c>src/GUI/UI/Houses/Training.cpp:65-88</c>), and the
+    /// donor's own movers are acts against people and their property rather than fights in the wild
+    /// (<c>src/Engine/Objects/Actor.cpp:1083-1105</c>, <c>src/GUI/UI/Houses/Shops.cpp:1147-1174</c>), so what
+    /// this answers is: a finished errand moves the world's opinion by the one point
+    /// <see cref="MightAndMagic7Standing"/> states, and an award that is not one — a creature brought down —
+    /// moves it not at all. What the world heard about is fame, and the party's whole experience is what fame
+    /// is read from, which is the donor's own figure.
+    /// </para>
+    /// <para>
+    /// <b>Nothing here lowers the world's opinion yet, and that is the honest state of this build.</b> The
+    /// donor's own three movers the other way — killing a townsperson, being caught stealing, and the dark
+    /// sacrifice the donor charges fifteen points for (<c>src/Engine/Spells/CastSpellInfo.cpp:2800-2809</c>)
+    /// — belong to owners this build does not have. The ruleset's README names where they are routed.
     /// </para>
     /// </remarks>
     public ProgressionStanding Standing(ProgressionStandingRequest request)
@@ -267,7 +277,7 @@ internal sealed class MightAndMagic7Progression : IProgressionRule
         foreach (PartyMember member in request.Party.Members) total = checked(total + member.Progression.Experience);
         int earned = (int)Math.Min(total / 1000, int.MaxValue);
         int fame = Math.Max(0, earned - request.Party.Reputation.Fame);
-        return new ProgressionStanding(Reputation: 0, Fame: fame);
+        return new ProgressionStanding(MightAndMagic7Standing.ReputationFor(request), fame);
     }
 
     /// <summary>

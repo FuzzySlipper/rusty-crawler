@@ -169,6 +169,54 @@ internal sealed class MightAndMagic7Services : IServiceRule
     }
 
     /// <summary>
+    /// Every membership this game's counters sell, each with the words it reads as.
+    /// </summary>
+    /// <remarks>
+    /// A membership is party-carried state and one of the three families the donor keeps as an award
+    /// (<c>src/Engine/Data/AwardEnums.h:50-60</c>, <c>AWARD_MEMBERSHIP_*</c>), so what the party holds has to
+    /// be nameable by whoever reads its accomplishments. The names come from the same lessons the counters
+    /// sell rather than from a second reading of the table: a guild whose lesson is called one thing and
+    /// whose membership reads as another would be the two-spellings defect this whole mechanism avoids.
+    /// </remarks>
+    internal IEnumerable<(string Effect, string Label)> Memberships =>
+        _services.Values
+            .Where(service => service.Membership.Length > 0)
+            .Select(service => (Effect: service.Membership, Label: MembershipName(service)))
+            .DistinctBy(pair => pair.Effect)
+            .OrderBy(pair => pair.Effect, StringComparer.Ordinal);
+
+    /// <summary>How a service's membership reads to a person, as the words the counter itself uses for it.</summary>
+    /// <remarks>
+    /// The name is the one the counter sells the membership under: the lesson that carries it when content
+    /// states one, and this game's own words for a counter whose kind supplies the membership when it does
+    /// not. Only a service that states neither falls back to the effect's own identity, which is a save's
+    /// spelling rather than something to show a person.
+    /// </remarks>
+    private string MembershipName(ServiceDefinition service)
+    {
+        if (_facts.TryGetValue(service.Id, out ServiceFacts? facts) && facts.MembershipName.Length > 0)
+        {
+            return facts.MembershipName;
+        }
+
+        return LessonName(service);
+    }
+
+    /// <summary>What the lesson that sells a membership is called, or the effect's identity when none does.</summary>
+    private static string LessonName(ServiceDefinition service)
+    {
+        foreach (ServiceLesson lesson in service.Lessons)
+        {
+            if (lesson.Kind == ServiceLessonKind.Effect && string.Equals(lesson.Subject, service.Membership, StringComparison.Ordinal))
+            {
+                return lesson.Label;
+            }
+        }
+
+        return service.Membership;
+    }
+
+    /// <summary>
     /// Reads every service the content declares, and judges it against the places that name one.
     /// </summary>
     /// <remarks>
@@ -921,12 +969,23 @@ internal sealed class MightAndMagic7Services : IServiceRule
 
     /// <summary>The value the party's best merchant and its reputation earn it, as the donor computes it.</summary>
     /// <remarks>
-    /// OpenEnroth <c>src/Engine/PriceCalculator.cpp:97-113</c>: a grand master always trades at the best
-    /// rate; otherwise the skill's mastery multiplier times its level, minus the party's reputation, plus
-    /// seven, capped at a hundred — and a party with no merchant skill at all trades on its reputation
-    /// alone. The sign convention is the donor's: a higher reputation number reduces the merchant value and
-    /// so raises what the party pays. Our parties begin at zero reputation, and what reputation means is
-    /// content's to set.
+    /// <para>
+    /// OpenEnroth <c>src/Engine/PriceCalculator.cpp:139-151</c> (<c>playerMerchant</c>): a grand master always
+    /// trades at the best rate; otherwise the skill's mastery multiplier times its level, with the standing
+    /// added, plus seven, capped at a hundred — and a party with no merchant skill at all trades on its
+    /// standing alone. The value is a discount percent, which <c>applyMerchantDiscount</c> (<c>:152-158</c>)
+    /// takes off the price, so a well-regarded party pays less and a badly regarded one pays more than the
+    /// shelf states.
+    /// </para>
+    /// <para>
+    /// <b>The sign is this game's, and it is the donor's own number read in it.</b> The donor keeps a
+    /// location's reputation flipped — <c>src/Engine/LocationInfo.h:7</c>, "negative value means positive
+    /// reputation" — so its <c>- rep</c> term rewards a party the town likes. This game states a party's
+    /// reputation the other way round, a higher number being a better one, so the term is added rather than
+    /// subtracted: the same arithmetic, read through the convention this game states. A party the world
+    /// dislikes therefore trades above the shelf price, which is the donor's own behaviour for one it
+    /// dislikes.
+    /// </para>
     /// </remarks>
     internal static int MerchantValue(PartyEntity party)
     {
@@ -946,7 +1005,10 @@ internal sealed class MightAndMagic7Services : IServiceRule
 
         int bonus = MerchantMultipliers[Math.Min(tier.Value, MerchantMultipliers.Length - 1)] * level;
         int reputation = party.Reputation.Reputation;
-        return bonus == 0 ? -reputation : Math.Min(bonus - reputation + 7, 100);
+        // The donor's own expression with its stand-in sign: a party the world thinks well of is quoted a
+        // larger discount, and one it thinks badly of is quoted above the shelf. Capped at a hundred percent
+        // as the donor caps it, because a counter that paid the party to take goods would be a second purse.
+        return bonus == 0 ? reputation : Math.Min(bonus + reputation + 7, 100);
     }
 
     /// <summary>What buying the goods the party named costs, with the merchant's adjustment and the item's floor.</summary>
@@ -1078,20 +1140,6 @@ internal sealed class MightAndMagic7Services : IServiceRule
     /// <summary>What an item is worth, as the imported item table states it.</summary>
     private int ValueOf(ItemInstance? item) =>
         item is { } instance && _items.TryGetValue(instance.Definition, out ItemFacts facts) ? facts.Value : 0;
-
-    /// <summary>How a service's membership reads to a person: its lesson's name, or its own effect id.</summary>
-    private static string MembershipName(ServiceDefinition service)
-    {
-        foreach (ServiceLesson lesson in service.Lessons)
-        {
-            if (lesson.Kind == ServiceLessonKind.Effect && string.Equals(lesson.Subject, service.Membership, StringComparison.Ordinal))
-            {
-                return lesson.Label;
-            }
-        }
-
-        return service.Membership;
-    }
 
     /// <summary>The base a kind-supplied lesson's fee is computed from, so the one quote formula prices it.</summary>
     /// <remarks>

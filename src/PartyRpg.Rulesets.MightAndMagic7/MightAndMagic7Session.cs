@@ -154,6 +154,14 @@ internal sealed class MightAndMagic7Session : IGameSession
             }
         }
 
+        // What this game makes of a party's standing is read once, here, over the tables that write what a
+        // party accomplishes: the ladder that names a rank and its record, the quest definitions that name an
+        // errand and its record, the counted deeds the ladder asks for, and the memberships the counters sell.
+        // It is a policy and not state — the reputation and the records are the party's own — and the same
+        // instance answers the conversation's standing line, the composition's projection, and the reading of
+        // what an event does to the world's opinion, so one table states every threshold this game has.
+        MightAndMagic7Standing standing = new(promotions, quests, services);
+
         // What reading the ladder noticed is reported where the other composition notes are: how many ranks
         // are stated, how many people give them, and how many of the classes they name content declares.
         foreach (string note in promotions.Notes)
@@ -275,6 +283,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                     combatInput: context.Combat,
                     monsterAi: monsterAi,
                     progression: MightAndMagic7Progression.Instance,
+                    standing: standing,
                     promotions: promotions,
                     skills: skills,
                     skillInput: context.Skills,
@@ -325,6 +334,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                     combatInput: context.Combat,
                     monsterAi: monsterAi,
                     progression: MightAndMagic7Progression.Instance,
+                    standing: standing,
                     promotions: promotions,
                     skills: skills,
                     skillInput: context.Skills,
@@ -334,6 +344,14 @@ internal sealed class MightAndMagic7Session : IGameSession
                     alchemy: alchemy,
                     mixtures: alchemy?.Catalog,
                     mixInput: context.Mix,
+                    // The errand owner travels on this path exactly as it does on the scenario one. Without it
+                    // a party that creates its characters hears an errand and has nowhere to take it: the
+                    // conversation composes the offer from this game's quests and the session would then hold
+                    // no owner to route the offer, the agreement, or the turn-in to — so the errands a created
+                    // party is given would be lines nothing could act on. A created session has no saved quest
+                    // state, which is what the null asks for: a new game holds no instance yet.
+                    quests: quests,
+                    questState: null,
                     journal: journal,
                     knowledge: knowledge);
                 return;
@@ -368,6 +386,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                 combatInput: context.Combat,
                 monsterAi: monsterAi,
                 progression: MightAndMagic7Progression.Instance,
+                standing: standing,
                 promotions: promotions,
                 skills: skills,
                 skillInput: context.Skills,

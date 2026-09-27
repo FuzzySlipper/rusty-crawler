@@ -67,15 +67,25 @@ public readonly record struct ProgressionStanding(int Reputation, int Fame)
 
 /// <summary>What a progression event is asked about its effect on the party's standing.</summary>
 /// <remarks>
+/// <para>
 /// The party travels whole because fame and reputation in this game family are read from what the party has
 /// done rather than from the event alone: what the party's deeds are worth to the world is a function of
 /// the party's state, and the rule is asked after the award landed so that it reads the state the event
 /// produced.
+/// </para>
+/// <para>
+/// <b>What earned it travels too, because the world does not treat every deed alike.</b> A creature brought
+/// down and an errand finished are both awards of experience and are not the same thing to the people who
+/// live where it happened, so the caller's own word for what it was — <c>kill</c>, <c>quest</c>, an act this
+/// game names — is handed over with the amount. The word is not interpreted here: which words move the
+/// world's opinion is the ruleset's reading of its own game.
+/// </para>
 /// </remarks>
 /// <param name="Party">The party after the event, with the state the answer is read from.</param>
 /// <param name="Event">Which kind of event happened.</param>
+/// <param name="Source">What earned it, as the caller named it, empty when the event is not an award.</param>
 /// <param name="Amount">What the event was worth, zero when it is not measured in experience.</param>
-public sealed record ProgressionStandingRequest(PartyEntity Party, ProgressionEventKind Event, long Amount);
+public sealed record ProgressionStandingRequest(PartyEntity Party, ProgressionEventKind Event, string Source, long Amount);
 
 /// <summary>
 /// What this game answers about progression: the curve a level takes, how an award divides, what a level

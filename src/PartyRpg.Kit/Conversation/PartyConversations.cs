@@ -222,16 +222,32 @@ public sealed class PartyConversations
 
     /// <summary>Takes a topic the speaker offers, and reports what they said.</summary>
     /// <remarks>
+    /// <para>
     /// The list is re-read here rather than taken from whatever a screen was showing when the choice was
     /// made, so a topic whose conditions stopped holding is refused with the reason its condition states
     /// instead of being applied from a stale answer.
+    /// </para>
+    /// <para>
+    /// <b>A command that names nothing is refused rather than thrown out of.</b> This is reached from the
+    /// one admitted update, by a reader of a screen's own payload, so a payload that named no topic would
+    /// otherwise carry an exception out of the product's callback and take the runtime with it — which is a
+    /// lost session rather than a player told that nothing was chosen. The refusal names what happened, so a
+    /// screen that sent nothing sees the same kind of answer as one that sent a topic the state withholds.
+    /// </para>
     /// </remarks>
-    /// <param name="topic">The identity of the topic to take.</param>
+    /// <param name="topic">The identity of the topic to take, or empty when the command named none.</param>
     /// <returns>What taking it did, or why it did nothing.</returns>
-    /// <exception cref="ArgumentException">The topic's identity is blank, which names nothing to take.</exception>
     public ConversationResult Choose(string topic)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(topic);
+        if (string.IsNullOrWhiteSpace(topic))
+        {
+            return Record(ConversationResult.Refused(
+                "say",
+                "conversation-topic-unnamed",
+                "Nothing was named to speak about, so there is nothing to say.",
+                _speaker?.Name ?? string.Empty));
+        }
+
         if (_subject is null) return NotOpen("say");
 
         ConversationOffer? offered = null;
