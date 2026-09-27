@@ -41,6 +41,104 @@ public sealed class BundleSelectionTests
     }
 
     [Fact]
+    public void A_bundle_selects_the_packs_it_names_and_the_catalog_reads_only_those()
+    {
+        InMemoryContentSource source = new InMemoryContentSource()
+            .Add("packs/places/pack.json", Pack("places", "definitions", "places", "place"))
+            .Add("packs/places/places.json", """{ "documentId": "places", "definitionKind": "place", "entries": [ { "id": "1" } ] }""")
+            .Add("packs/monsters/pack.json", Pack("monsters", "definitions", "monsters", "monster"))
+            .Add("packs/monsters/monsters.json", """{ "documentId": "monsters", "definitionKind": "monster", "entries": [ { "id": "7" } ] }""")
+            .Add("packs/scenario/pack.json", Pack("scenario", "scenario", "scenario", "scenario-start"))
+            .Add("packs/scenario/scenario.json", """{ "documentId": "scenario", "definitionKind": "scenario-start", "entries": [ { "id": "start", "place": "1" } ] }""")
+            .Add("bundles/default/bundle.json", Bundle("default", "partyrpg", """["places"]"""));
+
+        ContentBootstrapResult result = ContentBootstrap.Load(source, Layout, "default");
+
+        Assert.True(result.IsValid);
+        LoadedPack selected = Assert.Single(result.Catalog.Packs);
+        Assert.Equal("places", selected.PackId);
+        // Every pack is still read and judged, so a selection is a narrowing of content rather than a way
+        // to stop looking at it.
+        Assert.Equal(3, ContentCatalogLoader.Load(source, Layout).Packs.Count);
+        // What the bundle did not name contributes nothing: no definitions of its own, and no scenario start
+        // to begin the game in.
+        Assert.Null(result.Catalog.Find("monsters"));
+        Assert.Null(result.Catalog.Find("scenario"));
+        Assert.Equal("1", Assert.Single(result.Catalog.Entries("place")).Entry.Id);
+        Assert.Empty(result.Catalog.Entries("monster"));
+        Assert.Empty(result.Catalog.Entries("scenario-start"));
+    }
+
+    [Fact]
+    public void An_empty_bundle_selects_none_of_the_packs_on_disk()
+    {
+        InMemoryContentSource source = new InMemoryContentSource()
+            .Add("packs/places/pack.json", Pack("places", "definitions", "places", "place"))
+            .Add("packs/places/places.json", """{ "documentId": "places", "definitionKind": "place", "entries": [ { "id": "1" } ] }""")
+            .Add("packs/scenario/pack.json", Pack("scenario", "scenario", "scenario", "scenario-start"))
+            .Add("packs/scenario/scenario.json", """{ "documentId": "scenario", "definitionKind": "scenario-start", "entries": [ { "id": "start", "place": "1" } ] }""")
+            .Add("bundles/default/bundle.json", Bundle("default", "partyrpg", "[]"));
+
+        ContentBootstrapResult result = ContentBootstrap.Load(source, Layout, "default");
+
+        Assert.True(result.IsValid);
+        Assert.NotNull(result.Selection);
+        Assert.Empty(result.Catalog.Packs);
+        Assert.Empty(result.Catalog.Entries("place"));
+        Assert.Empty(result.Catalog.Entries("scenario-start"));
+    }
+
+    [Fact]
+    public void The_bundle_and_the_packs_it_resolved_to_are_both_reported()
+    {
+        InMemoryContentSource source = new InMemoryContentSource()
+            .Add("packs/places/pack.json", Pack("places", "definitions", "places", "place"))
+            .Add("packs/places/places.json", """{ "documentId": "places", "definitionKind": "place", "entries": [ { "id": "1" } ] }""")
+            .Add("packs/scenario/pack.json", Pack("scenario", "scenario", "scenario", "scenario-start"))
+            .Add("packs/scenario/scenario.json", """{ "documentId": "scenario", "definitionKind": "scenario-start", "entries": [ { "id": "start", "place": "1" } ] }""")
+            .Add("bundles/default/bundle.json", Bundle("default", "partyrpg", """["places", "scenario"]"""));
+
+        ContentBootstrapResult result = ContentBootstrap.Load(source, Layout, "default");
+
+        ResolvedBundle selection = Assert.IsType<ResolvedBundle>(result.Selection);
+        Assert.Equal(2, selection.Packs.Count);
+        Assert.Equal(2, result.Catalog.Packs.Count);
+        Assert.Equal(["places", "scenario"], result.Catalog.Packs.Select(pack => pack.PackId));
+    }
+
+    [Fact]
+    public void A_bundle_that_names_the_same_pack_twice_is_refused()
+    {
+        InMemoryContentSource source = new InMemoryContentSource()
+            .Add("packs/places/pack.json", Pack("places", "definitions", "places", "place"))
+            .Add("packs/places/places.json", """{ "documentId": "places", "definitionKind": "place", "entries": [ { "id": "1" } ] }""")
+            .Add("bundles/default/bundle.json", Bundle("default", "partyrpg", """["places", "places"]"""));
+
+        ContentBootstrapResult result = ContentBootstrap.Load(source, Layout, "default");
+
+        Assert.False(result.IsValid);
+        Assert.Null(result.Selection);
+        Assert.Contains(result.Issues, issue => issue.Code == "bundle-pack-repeated" && issue.Message.Contains("places"));
+    }
+
+    [Fact]
+    public void A_selection_that_did_not_come_from_the_catalog_is_refused()
+    {
+        InMemoryContentSource source = new InMemoryContentSource()
+            .Add("packs/places/pack.json", Pack("places", "definitions", "places", "place"))
+            .Add("packs/places/places.json", """{ "documentId": "places", "definitionKind": "place", "entries": [ { "id": "1" } ] }""");
+
+        ContentCatalog catalog = ContentCatalogLoader.Load(source, Layout);
+        LoadedPack invented = new(
+            new PackManifest(1, "invented", ContentPackKind.Definitions, new ContentProvenance("authored"), []),
+            []);
+
+        ArgumentException error = Assert.Throws<ArgumentException>(() => catalog.Selected([invented]));
+
+        Assert.Contains("invented", error.Message);
+    }
+
+    [Fact]
     public void Content_that_has_not_been_generated_yet_is_not_a_failure()
     {
         InMemoryContentSource source = new InMemoryContentSource();

@@ -68,8 +68,21 @@ public sealed class BundleCatalog
         ArgumentNullException.ThrowIfNull(catalog);
         List<ContentValidationIssue> issues = [];
         List<LoadedPack> packs = [];
+        HashSet<string> named = new(StringComparer.Ordinal);
         foreach (string packId in bundle.ContentPacks)
         {
+            // A pack is either selected or it is not, so naming one twice is a mistake in the selection
+            // rather than a second helping of it: a doubled pack would declare every one of its entries
+            // twice, which reads downstream as content that disagrees with itself.
+            if (!named.Add(packId))
+            {
+                issues.Add(new ContentValidationIssue(
+                    "bundle-pack-repeated",
+                    $"bundle '{bundle.BundleId}' names pack '{packId}' more than once.",
+                    bundle.BundleId));
+                continue;
+            }
+
             LoadedPack? pack = catalog.Find(packId);
             if (pack is null)
             {

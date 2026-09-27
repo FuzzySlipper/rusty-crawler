@@ -419,7 +419,9 @@ public sealed class StandingPolicyTests
         InMemoryPersistenceService persistence = new();
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(
             persistence,
-            [ProductTestContext.Bundle(BuiltInBundles.Default, "world"), .. ErrandContent()[1..], .. ProductTestContext.CreationTables()]);
+            // The bundle names the creation tables because this case creates its party: the selection is what
+            // loads, so the pack that declares the classes and skills creation offers has to be in it.
+            [ProductTestContext.Bundle(BuiltInBundles.Default, "world", "creation-tables"), .. ErrandContent()[1..], .. ProductTestContext.CreationTables()]);
         using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
             ProductTestContext.RulesetContext(context, ui, creation: true) with
             {

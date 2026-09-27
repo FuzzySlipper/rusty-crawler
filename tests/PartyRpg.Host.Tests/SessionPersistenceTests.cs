@@ -96,13 +96,14 @@ public sealed class SessionPersistenceTests
         InMemoryPersistenceService persistence = new();
         (string Path, string Text)[] content =
         [
-            ProductTestContext.Bundle(BuiltInBundles.Default, "world", "scenario"),
+            ProductTestContext.Bundle(BuiltInBundles.Default, "world", "scenario", "creation-tables"),
             .. World(),
             .. Monsters(),
             .. Scenario(),
             // The host offers a creation screen, so a new product starts in creation and its party is the one
-            // the player accepts. A bundle a player creates a party in must declare the classes and skills
-            // creation offers, which is what this fixture stages.
+            // the player accepts. A bundle a player creates a party in must name the pack that declares the
+            // classes and skills creation offers: the selection is what loads, so a pack staged but not named
+            // is a pack the creation screen cannot read.
             .. ProductTestContext.CreationTables(),
         ];
 

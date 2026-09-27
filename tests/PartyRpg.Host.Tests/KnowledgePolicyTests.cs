@@ -257,7 +257,9 @@ public sealed class KnowledgePolicyTests
     /// </remarks>
     private static (string Path, string Text)[] CreationContent() =>
     [
-        ProductTestContext.Bundle("partyrpg-default", "creation"),
+        // The creation tables are named because this content is used by a case that creates its party: the
+        // selection is what loads, so the pack declaring the classes and skills creation offers has to be in it.
+        ProductTestContext.Bundle("partyrpg-default", "creation", "creation-tables"),
         ($"{ProductTestContext.ContentDirectory}/content-packs/creation/pack.json",
             """
             {

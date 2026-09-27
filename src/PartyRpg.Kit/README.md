@@ -112,7 +112,9 @@ keeps and when that next changes, read against the clock's position rather than 
 stops a party takes on it (`PartyRest`, `FatigueWatch`, `IRestRule`, `IRestSite`: rest, camp, and wait, each
 advancing the one clock by a game-time period, settling the day through the party's own ledger, and holding
 the debt of sleep as a deadline the clock brings due) — the compiled ruleset and session contracts, the pack envelope with its
-catalog loader, validator and bundle resolution, the world (`PlaceGraph`, `PlaceGraphLoader`,
+catalog loader, validator and bundle resolution (`ContentCatalog.Selected` is the one place a bundle's
+selection becomes the content a session reads: the packs it named contribute, and the packs it did not
+are not loaded at all), the world (`PlaceGraph`, `PlaceGraphLoader`,
 `PlaceStateLedger`, `TransitionExecutive` with its required cost contract, and the entrances a walking
 party takes — `PlaceEntrance` with its loader, consulted inside the movement step so a step that
 carries the party into an entrance's reach travels through that one transition path; a crossing taken

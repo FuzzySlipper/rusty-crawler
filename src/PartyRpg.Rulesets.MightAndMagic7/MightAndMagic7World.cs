@@ -265,16 +265,71 @@ internal static class MightAndMagic7World
             new EngineCreatureMotion(spatial, movement.Session, MightAndMagic7Movement.Space, tuning.Controller));
     }
 
+    /// <summary>
+    /// The one place the selected packs start the party in, or null when they state no start.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>One start, or none.</b> Which place a game begins in is the scenario's decision, so two starts
+    /// inside the selected set would leave that decision to the order the packs happened to load in — a
+    /// place nobody chose winning because its pack came first. That is refused with every candidate named,
+    /// which is the same posture a selected pack that is present and wrong already meets.
+    /// </para>
+    /// <para>
+    /// A start that names no place is refused the same way rather than skipped: a scenario that says where
+    /// the party begins and then says nothing is a defect, and quietly falling through to the next entry
+    /// would decide the start by the shape of the mistake.
+    /// </para>
+    /// <para>
+    /// The catalog is already the selection — the packs the bundle named and no others — so a start in a
+    /// pack nobody selected is not here to be found.
+    /// </para>
+    /// </remarks>
+    /// <param name="catalog">The content the product selected.</param>
+    /// <returns>The starting place and the arrival point it names, or null when the selection states no start.</returns>
+    /// <exception cref="ContentValidationException">The selection states more than one start, or one that names no place.</exception>
     private static (PlaceId Place, string? EntryPoint)? ReadStart(ContentCatalog catalog)
     {
-        foreach ((_, _, ContentEntry entry) in catalog.Entries(StartDefinitionKind))
+        List<(LoadedPack Pack, ContentDocument Document, ContentEntry Entry)> starts = [.. catalog.Entries(StartDefinitionKind)];
+        if (starts.Count == 0) return null;
+
+        if (starts.Count > 1)
         {
-            string place = entry.GetId("place");
-            if (place.Length == 0) continue;
-            string entryPoint = entry.GetId("entryPoint");
-            return (new PlaceId(place), entryPoint.Length == 0 ? null : entryPoint);
+            throw new ContentValidationException(
+                $"The content this product selected states {starts.Count} scenario starts, and which place the party begins in would be the order the packs happened to load in. The candidates are {Joined(starts)}.",
+                [.. starts.Select(candidate => new ContentValidationIssue(
+                    "scenario-start-ambiguous",
+                    $"{Candidate(candidate)}, and it is one of {starts.Count} starts this selection states.",
+                    candidate.Pack.PackId,
+                    candidate.Document.DocumentId))]);
         }
 
-        return null;
+        (LoadedPack Pack, ContentDocument Document, ContentEntry Entry) only = starts[0];
+        string place = only.Entry.GetId("place");
+        if (place.Length == 0)
+        {
+            throw new ContentValidationException(
+                $"The scenario start '{only.Entry.Id}' names no place, so there is nowhere for the party to begin: {Candidate(only)}.",
+                [new ContentValidationIssue(
+                    "scenario-start-incomplete",
+                    $"start '{only.Entry.Id}' names no place, so the party has nowhere to begin.",
+                    only.Pack.PackId,
+                    only.Document.DocumentId)]);
+        }
+
+        string entryPoint = only.Entry.GetId("entryPoint");
+        return (new PlaceId(place), entryPoint.Length == 0 ? null : entryPoint);
+
+        // One candidate stated the way a refusal reads it: which pack and document declared the start,
+        // which entry it is, and the place it would put the party in.
+        static string Candidate((LoadedPack Pack, ContentDocument Document, ContentEntry Entry) start)
+        {
+            string place = start.Entry.GetId("place");
+            string begins = place.Length == 0 ? "no place" : $"place '{place}'";
+            return $"'{start.Entry.Id}' in {start.Pack.PackId}/{start.Document.DocumentId}, which begins the party in {begins}";
+        }
+
+        static string Joined(IReadOnlyList<(LoadedPack Pack, ContentDocument Document, ContentEntry Entry)> candidates) =>
+            string.Join("; ", candidates.Select(Candidate));
     }
 }
