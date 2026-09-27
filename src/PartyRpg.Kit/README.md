@@ -68,6 +68,9 @@ Owns:
   offered, taken, and finished, with definitions a game states, objectives that read the owners already
   reporting them, and one turn-in that pays each reward to its own owner), containers, doors, travel
   between world regions and indoor maps.
+- Journal and history (`Journal/` — one owner of what a party has written down: dated lines reported by
+  the owners of the events themselves, the same event written once, a bounded history that outlives the
+  places it happened in, and the five books a session reads its record and its world through).
 - Session plumbing: compiled ruleset contracts, typed IDs, bundle and
   content-pack resolution, typed tuning handles, structured UI values, and
   bootstrap of an Engine-admitted session.
@@ -238,7 +241,13 @@ the one that arrived with its owner: it carries every instance a party holds —
 recorded against objectives that are moments rather than states, and the place each offer was taken in —
 and no definition at all, because what a quest is means is read from the game's own content when the
 document is loaded. A save whose instance names a quest the game no longer states, or a place the world no
-longer has, is refused with that instance named rather than resumed as an errand nothing could finish.
+longer has, is refused with that instance named rather than resumed as an errand nothing could finish. The
+journal section is the party's own history beside it: dated lines carried as the game time they happened at
+rather than as dates — the calendar and the starting date are the ruleset's policy and are supplied again on
+the way back — with the line's own words frozen as they were written, so a renamed quest or a place the world
+no longer carries cannot rewrite what the party did. Its bound is enforced on the way out and on the way in,
+and a document that dates a line after the game time it had reached, or records one event twice, is refused
+with that line named.
 
 The day shape follows the donor's day boundary: a new day takes one ration, the food store is spent down to
 empty rather than the day being refused, and the ruleset's consequence for the larder the day left — weakness

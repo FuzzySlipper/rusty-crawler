@@ -65,7 +65,7 @@ public sealed class SessionPersistenceTests
         Assert.NotNull(payload);
         Assert.Equal(Encode(written), payload);
         using JsonDocument document = JsonDocument.Parse(payload);
-        Assert.Equal(["party", "clock", "world", "quests"], document.RootElement.EnumerateObject().Select(property => property.Name));
+        Assert.Equal(["party", "clock", "world", "quests", "journal"], document.RootElement.EnumerateObject().Select(property => property.Name));
 
         // A resume composes a fresh session from those bytes, over the same content.
         (ProductCreateContext resumedContext, RecordingUiService resumedUi) = ProductTestContext.Create(

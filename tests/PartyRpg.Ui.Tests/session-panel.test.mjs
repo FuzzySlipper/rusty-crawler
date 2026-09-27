@@ -599,6 +599,9 @@ function snapshot(mode, seconds = 0, steps = 0, updates = 0, facts = undefined, 
   // The quests block is published in every mode too, so a case that asks for none covers a projection whose
   // ruleset stated no quests at all.
   if (blocks?.quests !== undefined) value.quests = blocks.quests;
+  // The journal block is published on the same terms: a case that asks for none covers a projection whose
+  // session keeps no journal, which is a different fact from a party that has written nothing down.
+  if (blocks?.journal !== undefined) value.journal = blocks.journal;
   return value;
 }
 
@@ -943,6 +946,80 @@ function alchemy(overrides = {}) {
   };
 }
 
+/** The five books as the product publishes them: the game's words, what each holds, and its rows. */
+function journal(overrides = {}) {
+  return {
+    available: true,
+    books: [
+      { kind: 'quests', title: 'Current Quests', available: true, state: '1 errand in the journal', rows: [] },
+      {
+        kind: 'notes',
+        title: 'Auto Notes',
+        available: false,
+        state: 'This build keeps no auto notes: what a party learns about the world belongs to the knowledge owner, which is not composed yet.',
+        rows: [],
+      },
+      {
+        kind: 'maps',
+        title: 'Maps',
+        available: true,
+        state: '2 of 76 places known',
+        rows: [
+          { id: '1', label: 'Emerald Island', detail: 'region', state: 'visited', source: 'world', marked: true },
+          { id: '2', label: 'The Dragon\'s Lair', detail: 'interior', state: 'known', source: 'world', marked: false },
+        ],
+      },
+      {
+        kind: 'calendar',
+        title: 'Calendar',
+        available: true,
+        state: '1168-01-03',
+        rows: [
+          { id: 'date', label: 'Today', detail: '1168-01-03', state: '', source: 'clock', marked: false },
+          { id: 'time', label: 'Time', detail: '09:00', state: 'day', source: 'clock', marked: false },
+        ],
+      },
+      {
+        kind: 'history',
+        title: 'History',
+        available: true,
+        state: '3 entries',
+        rows: [
+          { id: 'place|1|1', label: 'Entered Emerald Island', detail: '1168-01-01 09:00', state: 'Emerald Island', source: 'world', marked: false },
+          { id: 'quest-offered|35|', label: 'Was offered The Elven Treasury', detail: '1168-01-02 10:00', state: '', source: 'quest', marked: false },
+          { id: 'find|511|2', label: 'Found the Ruby of Ultimate Power', detail: '1168-01-03 09:00', state: 'The Dragon\'s Lair', source: 'search', marked: false },
+        ],
+      },
+    ],
+    ...overrides,
+  };
+}
+
+/** The books as a person reads them: each book's words, its state, and its rows. */
+function journalPanel(h) {
+  const panel = h.panel();
+  const section = panel?.querySelector('.crawler-journal');
+  return {
+    section,
+    hidden: section?.hidden,
+    books: [...(section?.querySelectorAll('.crawler-book') ?? [])].map((book) => ({
+      kind: book.getAttribute('data-book'),
+      available: book.getAttribute('data-available'),
+      hidden: book.hidden,
+      title: book.querySelector('.crawler-step-head')?.textContent ?? '',
+      state: book.querySelector('.crawler-book-state')?.textContent ?? '',
+      rows: [...book.querySelectorAll('.crawler-book-row')].map((row) => ({
+        id: row.getAttribute('data-id'),
+        source: row.getAttribute('data-source'),
+        marked: row.getAttribute('data-marked'),
+        label: row.querySelector('.crawler-row-label')?.textContent ?? '',
+        detail: row.querySelector('.crawler-book-detail')?.textContent ?? '',
+        state: row.querySelector('.crawler-book-row-state')?.textContent ?? '',
+      })),
+    })),
+  };
+}
+
 function quests(overrides = {}) {
   return {
     available: true,
@@ -984,6 +1061,7 @@ function questsPanel(h) {
   return {
     section,
     hidden: section?.hidden,
+    head: section?.querySelector('.crawler-step-head')?.textContent ?? null,
     state: section?.querySelector('.crawler-quests-state')?.textContent ?? null,
     quests: [...(section?.querySelectorAll('.crawler-quest') ?? [])].map((row) => ({
       quest: row.getAttribute('data-quest'),
@@ -3607,6 +3685,101 @@ test('the panel shows the journal, what each errand asks, and why a turn-in was 
     // The journal publishes no control of its own: an errand is taken and handed in by talking to somebody,
     // and a screen that could finish one would be a second way into the same owner.
     assert.equal(journal.section.querySelectorAll('button').length, 0);
+  } finally {
+    h.restore();
+  }
+});
+
+test('the panel renders the five books from the projection and computes none of them', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // A session that keeps no journal shows none: no books at all, rather than five that look like a party
+    // which has been nowhere and written nothing down.
+    h.emit(snapshot('running', 1, 60, 60, movement(), { quests: quests() }));
+    assert.equal(h.panel().getAttribute('data-journal'), 'none');
+    assert.equal(journalPanel(h).hidden, true);
+
+    // The journal the product published: five books in its own order, each with the game's own title, its
+    // state sentence, and its rows. A book whose owner the session does not compose is shown with the game's
+    // reason rather than hidden, because "no owner keeps this yet" is a fact a player can act on.
+    h.emit(snapshot('running', 2, 120, 121, movement(), { quests: quests(), journal: journal() }));
+    assert.equal(h.panel().getAttribute('data-journal'), 'present');
+    const books = journalPanel(h);
+    assert.equal(books.hidden, false);
+    assert.deepEqual(books.books.map((book) => book.kind), ['notes', 'maps', 'calendar', 'history']);
+    assert.deepEqual(books.books.map((book) => book.title), ['Auto Notes', 'Maps', 'Calendar', 'History']);
+    assert.deepEqual(books.books.map((book) => book.available), ['false', 'true', 'true', 'true']);
+    assert.match(books.books[0].state, /knowledge owner/);
+    assert.equal(books.books[0].rows.length, 0);
+
+    // The maps book is the world's own knowledge as the product read it, and the day is the date the product
+    // gave: the panel prints both and derives neither.
+    assert.equal(books.books[1].state, '2 of 76 places known');
+    assert.deepEqual(books.books[1].rows.map((row) => row.label), ['✓ Emerald Island', '· The Dragon\'s Lair']);
+    assert.deepEqual(books.books[1].rows.map((row) => row.state), ['visited', 'known']);
+    assert.deepEqual(books.books[1].rows.map((row) => row.source), ['world', 'world']);
+    assert.equal(books.books[2].state, '1168-01-03');
+    assert.deepEqual(books.books[2].rows.map((row) => `${row.label} ${row.detail}`), ['· Today 1168-01-03', '· Time 09:00']);
+
+    // The history is the party's own dated lines, oldest first, each with when it happened and where it was
+    // reported from — the panel dates nothing and attributes nothing itself.
+    assert.equal(books.books[3].state, '3 entries');
+    assert.deepEqual(books.books[3].rows.map((row) => row.label), [
+      '· Entered Emerald Island',
+      '· Was offered The Elven Treasury',
+      '· Found the Ruby of Ultimate Power',
+    ]);
+    assert.deepEqual(books.books[3].rows.map((row) => row.detail), [
+      '1168-01-01 09:00',
+      '1168-01-02 10:00',
+      '1168-01-03 09:00',
+    ]);
+    assert.deepEqual(books.books[3].rows.map((row) => row.source), ['world', 'quest', 'search']);
+    assert.equal(books.books[3].rows[2].state, 'The Dragon\'s Lair');
+    assert.deepEqual(books.books[3].rows.map((row) => row.id), [
+      'place|1|1',
+      'quest-offered|35|',
+      'find|511|2',
+    ]);
+
+    // The quests book is the one page the quests block draws: its title and its state sentence are the
+    // product's own words, printed on the section that already held the errands.
+    assert.equal(questsPanel(h).head, 'Current Quests');
+    assert.equal(questsPanel(h).state, '1 errand in the journal');
+    assert.equal(h.panel().querySelector('.crawler-quests')?.getAttribute('data-book'), 'quests');
+  } finally {
+    h.restore();
+  }
+});
+
+test('a book reloaded from the projection holds exactly what the projection carried', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // The panel keeps no store of its own: the same projection emitted twice draws the same book, and a
+    // projection that carries no journal empties it again rather than leaving the last one on screen. That is
+    // what makes a reload show exactly what the save holds — the rows are the save's, and nothing here
+    // remembers them between projections.
+    const published = snapshot('running', 1, 60, 60, movement(), { quests: quests(), journal: journal() });
+    h.emit(published);
+    const first = journalPanel(h);
+    h.emit(published);
+    assert.deepEqual(journalPanel(h), first);
+
+    h.emit(snapshot('running', 2, 120, 121, movement(), {
+      quests: quests(),
+      journal: journal({ books: journal().books.map((book) => ({ ...book, rows: [] })) }),
+    }));
+    assert.deepEqual(journalPanel(h).books.map((book) => book.rows.length), [0, 0, 0, 0]);
+
+    h.emit(snapshot('running', 3, 180, 181, movement(), { quests: quests() }));
+    assert.equal(h.panel().getAttribute('data-journal'), 'none');
+    assert.equal(journalPanel(h).hidden, true);
+
+    ui.dispose();
   } finally {
     h.restore();
   }

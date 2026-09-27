@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Journal;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Quests;
 using PartyRpg.Kit.Sessions;
@@ -21,13 +22,16 @@ namespace PartyRpg.Kit.Persistence;
 /// <b>What is here is what the session owns as state:</b> the party — members with their skills, spells,
 /// progression and portraits, the shared inventory with each instance's custody, damage and enchantments,
 /// the purse, the larder, reputation, followers, effects, and the identity cursors — the clock's elapsed
-/// game time, where the party stands, what each place remembers, and every quest the party has a state
-/// about. The quest section carries the instances the party took — their stage, their recorded progress,
-/// and the place each offer was taken in — and deliberately not the quests themselves, which are read back
-/// from the game's own content when the document is loaded. Sections arrive with the owners that hold their
-/// state: knowledge, containers and loose world items, and scenario flags have no owner in the product yet,
-/// so a save has nothing of theirs to carry and this document does not pretend otherwise by holding a
-/// section nobody fills.
+/// game time, where the party stands, what each place remembers, every quest the party has a state about,
+/// and every line of the party's own history. The quest section carries the instances the party took — their
+/// stage, their recorded progress, and the place each offer was taken in — and deliberately not the quests
+/// themselves, which are read back from the game's own content when the document is loaded. The journal
+/// section carries the dated lines a party has written down, and it carries them as the game time they
+/// happened at rather than as dates, for the same reason the clock is saved that way: a date stored beside a
+/// ruleset that composes another calendar or starting date would silently move a party's whole history.
+/// Sections arrive with the owners that hold their state: knowledge, containers and loose world items, and
+/// scenario flags have no owner in the product yet, so a save has nothing of theirs to carry and this
+/// document does not pretend otherwise by holding a section nobody fills.
 /// </para>
 /// <para>
 /// <b>What is deliberately absent is as decided as what is here.</b> In-flight movement outcomes, cached
@@ -46,8 +50,9 @@ public sealed record SessionSave
     /// <param name="clock">How much game time had elapsed since the session began.</param>
     /// <param name="world">Where the party stands and what each place remembers.</param>
     /// <param name="quests">Every quest the party has a state about, or null when it has none.</param>
+    /// <param name="journal">Every line of the party's own history, or null when it has written none.</param>
     /// <exception cref="ArgumentNullException">A section is null, which is not a session a load could rebuild.</exception>
-    public SessionSave(PartySave party, ClockSave clock, WorldSave world, QuestSave? quests = null)
+    public SessionSave(PartySave party, ClockSave clock, WorldSave world, QuestSave? quests = null, JournalSave? journal = null)
     {
         ArgumentNullException.ThrowIfNull(party);
         ArgumentNullException.ThrowIfNull(clock);
@@ -56,6 +61,7 @@ public sealed record SessionSave
         Clock = clock;
         World = world;
         Quests = quests ?? QuestSave.None;
+        Journal = journal ?? JournalSave.None;
     }
 
     /// <summary>The party, its items, its accounts, and its identity cursors.</summary>
@@ -69,6 +75,9 @@ public sealed record SessionSave
 
     /// <summary>Every quest the party has a state about, which is empty for a party that has taken none.</summary>
     public QuestSave Quests { get; }
+
+    /// <summary>Every line of the party's own history, which is empty for a party that has written none.</summary>
+    public JournalSave Journal { get; }
 
     /// <summary>
     /// Reads a live session into the current schema, without writing anything anywhere.
@@ -103,12 +112,14 @@ public sealed record SessionSave
 
         // The quest owner is absent from a session that holds one for no party and from one whose ruleset
         // stated no quests at all: both are a party with no quest state, which is what an empty section
-        // records rather than a section nobody filled.
+        // records rather than a section nobody filled. The journal is absent on the same terms — a session
+        // whose ruleset stated no journal, or that holds no clock to date a line by, has written nothing down.
         return new SessionSave(
             held.Capture(),
             ClockSave.Capture(time),
             place.Capture(),
-            session.Quests?.Capture() ?? QuestSave.None);
+            session.Quests?.Capture() ?? QuestSave.None,
+            session.Journal?.Capture() ?? JournalSave.None);
     }
 
     /// <summary>
@@ -179,6 +190,12 @@ public sealed record SessionSave
 
         problems.AddRange(PoseProblems(places, admission));
         problems.AddRange(QuestProblems(places, quests));
+
+        // The journal is judged against the clock the save itself recorded, which is the one thing that says
+        // how far into the session the party had got: a line dated after it happened in a future the party
+        // never lived. Its own bound is asked of the journal rather than spelled here, so the rule that keeps
+        // a history from growing without limit is stated in one place and enforced on both paths.
+        problems.AddRange(Journal.Problems(Clock.ElapsedMilliseconds, JournalHistory.MaxEntries));
         return problems;
     }
 

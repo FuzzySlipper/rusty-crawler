@@ -262,6 +262,26 @@ internal sealed class MightAndMagic7Loot
     internal string NameOf(ItemDefinitionId definition) =>
         _names.TryGetValue(definition.Value, out string? name) && name.Length > 0 ? name : definition.Value;
 
+    /// <summary>
+    /// Whether the shipped table marks an item as one this game hands out as an artifact or a relic.
+    /// </summary>
+    /// <remarks>
+    /// This is the same reading a treasure draw uses to decide what it may yield, asked about one item rather
+    /// than about the whole range: the journal makes a line of a notable find, and what this game calls
+    /// notable is exactly what its own table calls an artifact or a relic.
+    /// </remarks>
+    /// <param name="definition">The item definition.</param>
+    /// <returns>Whether the table marks it as an artifact or a relic.</returns>
+    internal bool IsArtifact(ItemDefinitionId definition)
+    {
+        foreach (LootCandidate artifact in _artifacts)
+        {
+            if (artifact.Definition == definition) return true;
+        }
+
+        return false;
+    }
+
     /// <summary>The rolls one generation is drawn under, or null when this product cannot draw.</summary>
     /// <param name="key">What is being generated, which must name the death or the container it belongs to.</param>
     /// <returns>The rolls, or null when there is no random service.</returns>

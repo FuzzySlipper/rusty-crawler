@@ -94,6 +94,11 @@ namespace PartyRpg.Kit.Presentation;
 /// ruleset stated no quests. Defaulted for the same reason the others are: a session whose ruleset answered
 /// no quest policy publishes that rather than a journal nobody fills.
 /// </param>
+/// <param name="Journal">
+/// The five books and what each holds, or the no-journal value when the session holds no journal owner.
+/// Defaulted for the same reason the others are: a session whose ruleset stated no journal publishes that
+/// rather than five empty books that look like a party which has been nowhere and done nothing.
+/// </param>
 public readonly record struct SessionSnapshot(
     SessionComposition Composition,
     SessionMode Mode,
@@ -116,7 +121,8 @@ public readonly record struct SessionSnapshot(
     SkillsSnapshot Skills = default,
     MagicSnapshot Magic = default,
     AlchemySnapshot Alchemy = default,
-    QuestSnapshot Quests = default);
+    QuestSnapshot Quests = default,
+    JournalSnapshot Journal = default);
 
 /// <summary>Where the party is in the world, as the panel needs it: which place, where in it, and how much of the world is known.</summary>
 /// <param name="Place">The place the party is in, empty when the session has no world.</param>
@@ -217,6 +223,9 @@ public static class SessionProjection
 
     /// <summary>The name of the projection field the quests block is published under.</summary>
     public const string QuestsField = "quests";
+
+    /// <summary>The name of the projection field the journal's books are published under.</summary>
+    public const string JournalField = "journal";
 
     /// <summary>Builds the projection value for a snapshot.</summary>
     public static UiValue Build(SessionSnapshot snapshot)
@@ -361,7 +370,12 @@ public static class SessionProjection
             // session's ruleset stated no quests", "the party has taken nothing", and "an errand was refused
             // because an objective is unmet" are three different facts, and a block that only appeared once
             // somebody had taken an errand would leave a screen unable to tell them apart.
-            (QuestsField, Quests(builder, snapshot.Quests)));
+            (QuestsField, Quests(builder, snapshot.Quests)),
+            // The journal block is published in every mode for the same reason the quests block is: "this
+            // session's ruleset stated no journal at all", "the party has been nowhere and written nothing
+            // down", and "a book no owner fills yet" are three different facts, and a block that only
+            // appeared once something had been written would leave a screen unable to tell them apart.
+            (JournalField, Journal(builder, snapshot.Journal)));
         return builder.Build(root);
     }
 
@@ -1025,6 +1039,45 @@ public static class SessionProjection
             ("delivered", builder.Array([.. delivered])),
             ("code", builder.String(quests.Code ?? string.Empty)),
             ("message", builder.String(quests.Message ?? string.Empty)));
+    }
+
+    /// <summary>Builds the journal block: the five books and what each of them holds.</summary>
+    /// <remarks>
+    /// Every row is sent whole, with the words the owner gave it and the state the owner reports, so a screen
+    /// that shows a book decides nothing about it: it prints a title, a state sentence, and rows. The quests
+    /// book carries no rows because its page is the quests block, read from the same owner at the same
+    /// moment: publishing the errands twice would be two readings of one fact on one wire. A snapshot built
+    /// without a journal carries the default value, whose list is null rather than empty, and it is published
+    /// as no books at all so a reader never sees a book nobody filled.
+    /// </remarks>
+    private static uint Journal(UiValueBuilder builder, JournalSnapshot journal)
+    {
+        List<uint> books = [];
+        foreach (JournalBookSnapshot book in journal.Books ?? [])
+        {
+            List<uint> rows = [];
+            foreach (JournalRowSnapshot row in book.Rows ?? [])
+            {
+                rows.Add(builder.Object(
+                    ("id", builder.String(row.Id)),
+                    ("label", builder.String(row.Label)),
+                    ("detail", builder.String(row.Detail)),
+                    ("state", builder.String(row.State)),
+                    ("source", builder.String(row.Source)),
+                    ("marked", builder.Boolean(row.Marked))));
+            }
+
+            books.Add(builder.Object(
+                ("kind", builder.String(book.Kind)),
+                ("title", builder.String(book.Title)),
+                ("available", builder.Boolean(book.Available)),
+                ("state", builder.String(book.State)),
+                ("rows", builder.Array([.. rows]))));
+        }
+
+        return builder.Object(
+            ("available", builder.Boolean(journal.Available)),
+            ("books", builder.Array([.. books])));
     }
 
     private static uint Alchemy(UiValueBuilder builder, AlchemySnapshot alchemy)

@@ -798,6 +798,35 @@ interface QuestsView {
   readonly outcome: QuestOutcomeView;
 }
 
+/** One row of one book, as the product published it. */
+interface JournalRowView {
+  readonly id: string;
+  readonly label: string;
+  readonly detail: string;
+  readonly state: string;
+  readonly source: string;
+  readonly marked: boolean;
+}
+
+/** One of the five books, as the product published it. */
+interface JournalBookView {
+  readonly kind: string;
+  readonly title: string;
+  readonly available: boolean;
+  readonly state: string;
+  readonly rows: readonly JournalRowView[];
+}
+
+/**
+ * The five books, as the panel shows them. Every value here is the product's own: a book's title is the
+ * game's word for it, its state sentence says what it holds or why it cannot be filled, and its rows are the
+ * owner's readings. The panel prints them, counts nothing, and keeps nothing.
+ */
+interface JournalView {
+  readonly available: boolean;
+  readonly books: readonly JournalBookView[];
+}
+
 interface SnapshotView {
   readonly composition: CompositionView;
   readonly session: SessionView;
@@ -818,6 +847,7 @@ interface SnapshotView {
   readonly magic: MagicView;
   readonly alchemy: AlchemyView;
   readonly quests: QuestsView;
+  readonly journal: JournalView;
 }
 
 /** The clock of a session that has none, which the panel shows as not knowing rather than as a date. */
@@ -1570,6 +1600,18 @@ const STYLES = `
 .crawler-quests-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
 .crawler-quests-result[hidden] { display: none; }
 .crawler-quests-result[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
+.crawler-journal { margin: 0.4rem 0 0; border-top: 1px solid rgba(210, 196, 158, 0.35); padding-top: 0.5rem; }
+.crawler-journal[hidden] { display: none; }
+.crawler-journal > .crawler-step-head { margin: 0 0 0.3rem; color: #e0d3ae; font-size: 0.85rem; }
+.crawler-book { margin: 0 0 0.45rem; padding-left: 0.5rem; border-left: 2px solid rgba(150, 140, 110, 0.5); }
+.crawler-book[hidden] { display: none; }
+.crawler-book[data-available='false'] { border-left-color: rgba(150, 140, 110, 0.25); }
+.crawler-book .crawler-step-head { margin: 0 0 0.15rem; color: #d8cba6; font-size: 0.78rem; }
+.crawler-book-state { margin: 0 0 0.2rem; color: #b9ad8c; font-size: 0.72rem; }
+.crawler-book-row { margin: 0 0 0.25rem; }
+.crawler-book-row .crawler-row-label { display: block; color: #cfc3a2; font-size: 0.72rem; }
+.crawler-book-detail { color: #b9ad8c; font-size: 0.7rem; }
+.crawler-book-row-state { color: #a8bcc9; font-size: 0.7rem; }
 .crawler-magic .crawler-target { font-size: 0.7rem; }
 .crawler-magic-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
 .crawler-magic-result[hidden] { display: none; }
@@ -2621,8 +2663,39 @@ function readSnapshot(value: unknown): SnapshotView | null {
     magic,
     alchemy,
     quests: readQuests(value.quests),
+    journal: readJournal(value.journal),
   };
 }
+
+/**
+ * Reads the journal block, or the no-books state. A block this companion cannot read is read as a session
+ * that keeps no journal at all, which is the same thing a player sees: no books rather than books invented
+ * from bytes that did not fit. The five books' own order is the product's and is preserved here.
+ */
+function readJournal(value: unknown): JournalView {
+  if (!isRecord(value)) return NO_JOURNAL;
+  const text = (entry: unknown): string => (typeof entry === 'string' ? entry : '');
+  return {
+    available: value.available === true,
+    books: readList(value.books, (book) => ({
+      kind: text(book.kind),
+      title: text(book.title),
+      available: book.available === true,
+      state: text(book.state),
+      rows: readList(book.rows, (row) => ({
+        id: text(row.id),
+        label: text(row.label),
+        detail: text(row.detail),
+        state: text(row.state),
+        source: text(row.source),
+        marked: row.marked === true,
+      })),
+    })),
+  };
+}
+
+/** The journal of a session whose ruleset stated none: there are no books to read. */
+const NO_JOURNAL: JournalView = { available: false, books: [] };
 
 /**
  * Reads the quests block, or the no-journal state. A block this companion cannot read is read as a session
@@ -3066,16 +3139,29 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   alchemyResult.hidden = true;
   alchemy.append(alchemyHead, alchemyState, alchemyItems, alchemyMixtures, alchemyResult);
 
-  // The journal: every errand the party stands with, what each asks, and what the last one did. The panel
-  // decides nothing here — an errand is taken and handed in by talking to somebody, so this is a reading of
-  // the party's own state rather than a screen with commands, and what a refusal named is printed as it was
-  // written.
+  // The journal: the five books, and what each of them holds. The panel decides nothing here — an errand is
+  // taken and handed in by talking to somebody, so the quests book is a reading of the party's own state
+  // rather than a screen with commands, and what a refusal named is printed as it was written. The four other
+  // books are printed the same way: their titles are the game's words, their state sentences and rows come
+  // from the product, and this companion counts, dates, and remembers nothing of its own.
+  const journal = document.createElement('section');
+  journal.className = 'crawler-journal';
+  journal.hidden = true;
+  const journalHead = document.createElement('p');
+  journalHead.className = 'crawler-step-head';
+  journalHead.textContent = 'Journal';
+  const journalState = document.createElement('p');
+  journalState.className = 'crawler-journal-state';
+  journal.append(journalHead, journalState);
+
+  // The quests book is the journal the quests block publishes, kept as its own element with its own classes:
+  // it is the one book whose page existed before the others, and its rows are the errands themselves.
   const quests = document.createElement('section');
   quests.className = 'crawler-quests';
   quests.hidden = true;
   const questsHead = document.createElement('p');
   questsHead.className = 'crawler-step-head';
-  questsHead.textContent = 'Journal';
+  questsHead.textContent = 'Current Quests';
   const questsState = document.createElement('p');
   questsState.className = 'crawler-quests-state';
   const questsList = document.createElement('div');
@@ -3084,6 +3170,32 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   questsResult.className = 'crawler-quests-result';
   questsResult.hidden = true;
   quests.append(questsHead, questsState, questsList, questsResult);
+  journal.append(quests);
+
+  // The other four books, one element each, printed from the projection in the product's own order. A book
+  // whose owner the session does not compose says so in the game's words rather than showing an empty list,
+  // which is why each carries its own state sentence and its availability as an attribute a reader can check.
+  const journalBooks = new Map<string, {
+    readonly section: HTMLElement;
+    readonly head: HTMLElement;
+    readonly state: HTMLElement;
+    readonly rows: HTMLElement;
+  }>();
+  for (const kind of ['notes', 'maps', 'calendar', 'history'] as const) {
+    const section = document.createElement('section');
+    section.className = 'crawler-book';
+    section.dataset.book = kind;
+    section.hidden = true;
+    const head = document.createElement('p');
+    head.className = 'crawler-step-head';
+    const state = document.createElement('p');
+    state.className = 'crawler-book-state';
+    const rows = document.createElement('div');
+    rows.className = 'crawler-book-rows';
+    section.append(head, state, rows);
+    journalBooks.set(kind, { section, head, state, rows });
+    journal.append(section);
+  }
 
   // The stop controls: one button per act, and the answer the last one got. A rest heals and a wait does
   // not, so the buttons are never collapsed into one; and the fatigue line is the clock's own deadline,
@@ -3199,7 +3311,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     skills,
     magic,
     alchemy,
-    quests,
+    journal,
     details,
     action,
     saveButton,
@@ -4350,16 +4462,69 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   // The mixing screen's own renderer: the pack's rows, the pairs the product published, and the last
   // attempt's answer. Every row is rebuilt from the projection, and the Mix control sends the two instance
   // identities and the member the chooser holds — the panel knows no recipe and decides no outcome.
+  // The books' own renderer: each book's title, its state sentence, and its rows, all printed as the product
+  // published them. A book the session cannot fill is shown with the game's reason rather than with an empty
+  // list, because "no owner keeps this yet" and "the party has nothing written here" are different facts. The
+  // quests book's page is the journal the quests block publishes, so its title and state are set here and its
+  // rows are drawn by the quests renderer below.
+  const renderJournal = (view: JournalView): void => {
+    panel.dataset.journal = view.available ? 'present' : 'none';
+    journal.hidden = !view.available;
+    for (const book of view.books) {
+      if (book.kind === 'quests') continue;
+      const rendered = journalBooks.get(book.kind);
+      if (rendered === undefined) continue;
+      rendered.section.hidden = false;
+      rendered.section.dataset.available = String(book.available);
+      rendered.head.textContent = book.title;
+      rendered.state.textContent = book.state;
+      rendered.rows.replaceChildren(
+        ...book.rows.map((row) => {
+          const line = document.createElement('div');
+          line.className = 'crawler-book-row';
+          line.dataset.id = row.id;
+          line.dataset.source = row.source;
+          line.dataset.marked = String(row.marked);
+          const label = document.createElement('span');
+          label.className = 'crawler-row-label';
+          label.textContent = `${row.marked ? '✓' : '·'} ${row.label}`;
+          line.append(label);
+          if (row.detail !== '') {
+            const detail = document.createElement('div');
+            detail.className = 'crawler-book-detail';
+            detail.textContent = row.detail;
+            line.append(detail);
+          }
+
+          if (row.state !== '') {
+            const state = document.createElement('div');
+            state.className = 'crawler-book-row-state';
+            state.textContent = row.state;
+            line.append(state);
+          }
+
+          return line;
+        }),
+      );
+    }
+  };
+
   // The journal's own renderer: each errand with its state, the words the game tells about it, every
   // objective with the party's own progress, and what the last offer, acceptance, or turn-in did. Nothing
   // here judges a quest — whether an objective is met, whether the errand may be handed in, and why a
   // turn-in refused are all the product's own answers, printed as they were given.
-  const renderQuests = (view: QuestsView): void => {
+  const renderQuests = (view: QuestsView, book: JournalBookView | undefined): void => {
     panel.dataset.quests = view.available ? 'present' : 'none';
     panel.dataset.questsOutcome = view.outcome.outcome;
     quests.hidden = !view.available;
-    questsState.textContent = !view.available
-      ? ''
+    quests.dataset.book = 'quests';
+    quests.dataset.available = String(book?.available ?? view.available);
+    // The book's own words when the product published them, and this companion's only when it did not: a
+    // session whose ruleset stated no journal still shows the errands it holds, and one that names its books
+    // has its names printed rather than a heading this screen invented.
+    questsHead.textContent = book?.title ?? 'Current Quests';
+    questsState.textContent = book !== undefined
+      ? book.state
       : view.journal.length === 0
         ? 'The party has been offered nothing.'
         : `${view.journal.length} errand${view.journal.length === 1 ? '' : 's'} in the journal`;
@@ -4581,7 +4746,10 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     renderSkills(snapshot.skills);
     renderMagic(snapshot.magic);
     renderAlchemy(snapshot.alchemy);
-    renderQuests(snapshot.quests);
+    // The books first, so the quests book's own title and state sentence are the product's words, and then
+    // the quests renderer draws that book's rows underneath them.
+    renderJournal(snapshot.journal);
+    renderQuests(snapshot.quests, snapshot.journal.books.find((book) => book.kind === 'quests'));
     const world = snapshot.world;
     place.textContent =
       world.places === 0

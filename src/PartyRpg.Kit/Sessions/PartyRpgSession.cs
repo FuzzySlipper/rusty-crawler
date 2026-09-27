@@ -4,6 +4,7 @@ using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Input;
+using PartyRpg.Kit.Journal;
 using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Movement;
@@ -113,6 +114,7 @@ public sealed class PartyRpgSession : IGameSession
     private readonly ConversationInput? _conversationInput;
     private readonly IConversationRule? _conversationRule;
     private readonly IQuestRule? _questRule;
+    private readonly IJournalRule? _journalRule;
 
     /// <summary>
     /// Whether the conversation mechanism was composed over a party.
@@ -165,6 +167,8 @@ public sealed class PartyRpgSession : IGameSession
     private PartyConversations? _conversations;
     private PartyQuests? _quests;
     private readonly QuestSave? _questState;
+    private PartyJournal? _journal;
+    private readonly JournalSave? _journalState;
     private PartyRest? _rest;
     private CombatState? _combat;
     private CombatDirector? _director;
@@ -329,6 +333,18 @@ public sealed class PartyRpgSession : IGameSession
     /// would cost, and no raise ever reaches it — which is what a product that declares no such control
     /// gets.
     /// </param>
+    /// <param name="journal">
+    /// This game's answers about its journal, when its ruleset has any: what its five books are called, how a
+    /// line reads, and what is worth writing down at all. The owner is composed over the session's one clock,
+    /// because every line is dated in game time and a journal without a clock would be a list of things that
+    /// happened at no particular time. Without one the session keeps no record at all, and its projection says
+    /// so rather than showing five empty books.
+    /// </param>
+    /// <param name="journalState">
+    /// What a save recorded of the party's history, or null for a party that has written nothing down. Its
+    /// lines carry elapsed game time rather than dates, so they are read back against the clock this session
+    /// was composed with and a loaded entry reads as the day it happened.
+    /// </param>
     /// <exception cref="ArgumentException">
     /// The session is composed both to create a party and to hold one, or to create one without the controls
     /// its commands arrive on.
@@ -369,7 +385,9 @@ public sealed class PartyRpgSession : IGameSession
         AlchemyCatalog? mixtures = null,
         MixIntentNames? mixInput = null,
         IQuestRule? quests = null,
-        QuestSave? questState = null)
+        QuestSave? questState = null,
+        IJournalRule? journal = null,
+        JournalSave? journalState = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(composition.Title);
         if (creation is not null && (world is not null || party is not null))
@@ -401,6 +419,8 @@ public sealed class PartyRpgSession : IGameSession
         _conversationRule = conversation;
         _questRule = quests;
         _questState = questState;
+        _journalRule = journal;
+        _journalState = journalState;
         _restInput = restInput is null ? null : new RestInput(restInput);
         _restRule = rest;
         _combatInput = combatInput is null ? null : new CombatInput(combatInput);
@@ -445,6 +465,9 @@ public sealed class PartyRpgSession : IGameSession
         ComposeServices();
         ComposeConversations();
         ComposeQuests();
+        // The journal is composed beside the quest owner and not over it: it keeps the party's dated record,
+        // and what its books show is read from the owners that hold those facts when the projection is built.
+        ComposeJournal();
         ComposeRest();
         ComposeCombat();
         // The casting workflow is composed over the party, this game's spell answers, the effect path, and the
@@ -504,6 +527,13 @@ public sealed class PartyRpgSession : IGameSession
     /// finished, and what the projection publishes about quests is read from it.
     /// </summary>
     public PartyQuests? Quests => _quests;
+
+    /// <summary>
+    /// The journal this session keeps the party's record in, or null when its ruleset stated none or the
+    /// session holds no clock. It is the one owner of what a party has written down, and what the projection
+    /// publishes about the books is read from it and from the owners each book's own facts belong to.
+    /// </summary>
+    public PartyJournal? Journal => _journal;
 
     /// <summary>
     /// The rest mechanism this session stops through, or null when its ruleset answered no rest policy or
@@ -739,6 +769,21 @@ public sealed class PartyRpgSession : IGameSession
         DriveServices(update.Input);
         DriveRaises(update.Input);
         DriveConversations(update.Input);
+
+        // Who the party is speaking with is read here, once the update's own use and answers have been
+        // applied: a conversation opens from a use and turns from an answer, so both arrive at this one read.
+        // Being in somebody's company is a state rather than an edge — a party that stands talking for a
+        // hundred updates met them once — so the journal is what decides that the first report was news.
+        if (_conversations is { IsOpen: true, Speaker: { } speaker })
+        {
+            _journal?.Record(new JournalEvent(
+                JournalEntryKind.Meeting,
+                Source: "conversation",
+                Subject: speaker.Id,
+                Name: speaker.Name.Length > 0 ? speaker.Name : speaker.Id,
+                Place: _conversations.Place.Value));
+        }
+
         StepClock(seconds);
 
         // The world advances with the same admitted time the session measures: one clock, one update. The
@@ -761,6 +806,19 @@ public sealed class PartyRpgSession : IGameSession
             // handed to the quest owner: standing somewhere is a state rather than an event, so an errand that
             // asks for a place is judged from the world's reading instead of from a step of the party's own.
             if (live.Place.Length > 0) _quests?.Observe(new PlaceId(live.Place));
+
+            // The same reading is what the journal is told about, and it is told about it every update the
+            // party stands there: entering a place is a state the world reports rather than an edge it
+            // announces, so the journal is what decides that the first report was news and the rest were not.
+            if (live.Place.Length > 0)
+            {
+                _journal?.Record(new JournalEvent(
+                    JournalEntryKind.Place,
+                    Source: "world",
+                    Subject: live.Place,
+                    Name: live.Name.Length > 0 ? live.Name : live.Place,
+                    Place: live.Place));
+            }
         }
 
         // The fight is stepped last of all the world's readers, once the update has moved everything it
@@ -928,6 +986,9 @@ public sealed class PartyRpgSession : IGameSession
         // withhold an offer only somebody of a class may take and keep no record of having met anybody.
         ComposeConversations();
         ComposeQuests();
+        // The journal is composed beside the quest owner and not over it: it keeps the party's dated record,
+        // and what its books show is read from the owners that hold those facts when the projection is built.
+        ComposeJournal();
         ComposeRest();
         ComposeCombat();
         ComposeMagic();
@@ -1160,8 +1221,35 @@ public sealed class PartyRpgSession : IGameSession
             Message: result.Describe(),
             Correlation: string.Empty));
 
+        // What the errand owner did is reported to the journal here, where its own answer arrives: the stage
+        // is the owner's fact and this only says which of the three happened, naming the errand in the words
+        // the owner reads for it. A refusal is not reported, because nothing happened to write down.
+        if (result.IsApplied && result.Stage is { } stage && quests.Read(quest) is { } reading)
+        {
+            _journal?.Record(new JournalEvent(
+                QuestKind(stage),
+                Source: "quest",
+                Subject: quest.Value,
+                Name: reading.Name,
+                Place: conversations.Place.Value));
+        }
+
         if (result is { IsApplied: true, Action: QuestAction.TurnIn }) conversations.Close();
     }
+
+    /// <summary>The journal's own word for the stage the quest owner moved an errand to.</summary>
+    /// <remarks>
+    /// A turn-in is a finished errand and not a stage a party can keep working at, which is why the three
+    /// stages the owner has become the three kinds of line a journal writes about an errand.
+    /// </remarks>
+    /// <param name="stage">The stage the errand now stands at.</param>
+    /// <returns>What kind of line records it.</returns>
+    private static JournalEntryKind QuestKind(QuestStage stage) => stage switch
+    {
+        QuestStage.Offered => JournalEntryKind.QuestOffered,
+        QuestStage.Accepted => JournalEntryKind.QuestTaken,
+        _ => JournalEntryKind.QuestFinished,
+    };
 
     /// <summary>
     /// Gives the rank a person offered, through the progression owner, and reports what became of it.
@@ -1211,6 +1299,19 @@ public sealed class PartyRpgSession : IGameSession
                         $"{grant.Name} rose from {grant.FromClass} (rank {grant.FromRank}) to {grant.ToClass} (rank {grant.Rank}) by the rank '{result.Promotion}'.")))
                 : result.Refusal!.Message,
             Correlation: string.Empty));
+
+        // A rank that landed is one moment in the party's record, named by the class it reached rather than by
+        // the members who rose: the rank is what the party took, and which of its members met the requirements
+        // is the promotion report's own fact. A rank nobody rose to wrote nothing down.
+        if (result.IsGranted)
+        {
+            _journal?.Record(new JournalEvent(
+                JournalEntryKind.Rank,
+                Source: "progression",
+                Subject: result.Promotion,
+                Name: result.ToClass,
+                Place: conversations.Place.Value));
+        }
 
         if (result.IsGranted) conversations.Close();
     }
@@ -1957,6 +2058,30 @@ public sealed class PartyRpgSession : IGameSession
     }
 
     /// <summary>
+    /// Composes the journal over the session's one clock, when the ruleset answered for one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A journal needs the clock and nothing else.</b> Every line it keeps is dated in game time and a line
+    /// it loaded is read back against the clock's own calendar, so a session without one composes no journal
+    /// rather than keeping a list of things that happened at no particular time. It is deliberately not
+    /// composed over the quest owner, the world, or the party: what the journal's books show is read from
+    /// those owners when the projection is built, so this owner holds the party's dated record and no copy of
+    /// anything else.
+    /// </para>
+    /// <para>
+    /// A session that creates its party composes it when creation is accepted, which is the moment that party
+    /// exists; a session resumed from a save hands the recorded lines in, and they are dated against the clock
+    /// the session was resumed on rather than the moment it was loaded.
+    /// </para>
+    /// </remarks>
+    private void ComposeJournal()
+    {
+        if (_journal is not null || _journalRule is null || _clock is not { } clock) return;
+        _journal = new PartyJournal(_journalRule, clock, _journalState);
+    }
+
+    /// <summary>
     /// Composes the rest mechanism over the party the session plays, when the ruleset answered for one.
     /// </summary>
     /// <remarks>
@@ -2128,7 +2253,12 @@ public sealed class PartyRpgSession : IGameSession
         // ruleset's answers composed: "this session's ruleset stated no quests", "the party has taken
         // nothing", and "a turn-in was refused because an objective is unmet" are three different facts,
         // and the objectives are the quest's own words rather than a screen's reading of them.
-        QuestSnapshot.From(_quests));
+        QuestSnapshot.From(_quests),
+        // The five books and what each holds, read from the owners that own their facts: the quest owner's
+        // errands, the world's knowledge of its places, the one clock's date, and the journal's own dated
+        // lines. "This session's ruleset stated no journal", "the party has been nowhere and written nothing
+        // down", and "a book no owner fills yet" are three different facts a screen must tell apart.
+        JournalSnapshot.From(_journal, _quests, _liveWorld, _clock));
 
     /// <summary>Publishes the world as it stands now, after a caller moved the party.</summary>
     public void PublishWorld()

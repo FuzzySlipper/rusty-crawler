@@ -45,10 +45,17 @@ Bundle assembles. Host launches.**
 > per spell, how far each one is expressed. Quests are landed with them: one owner of what a party has been
 > offered, taken, and finished, definitions a pack states over the 512 shipped quest rows, objectives that
 > read the fight's deaths, the pack, the world's places, the conversation's records, and the party's flags,
-> and one turn-in that pays experience, coin, items, and records to their own owners. Journal, knowledge, and
-> the rest of the stone are still to come, and the
-> shipped bundle carries no content — so a running product without imported packs reports no world and no
-> party. See [`AGENTS.md`](AGENTS.md) for the exact current state.
+> and one turn-in that pays experience, coin, items, and records to their own owners. The party keeps a
+> record beside them: a journal whose dated lines are written by the owners of the events themselves — the
+> place the world reports, each moment of an errand, a rank taken, a person met, a notable find — with the
+> same event written once, dated in game time rather than wall time, bounded so it cannot grow without
+> limit, and carried through a save as the game time it happened at. Its five books (current quests, auto
+> notes, maps, calendar, and history) are one projection the panel renders without deciding anything: the
+> quests are read from the quest owner, the maps from the world's own knowledge, the calendar from the one
+> clock, and the history from the journal itself, while auto notes waits for the knowledge owner the next
+> part of the stone brings. Knowledge is still to come, and the shipped bundle carries no content — so a
+> running product without imported packs reports no world and no party.
+> See [`AGENTS.md`](AGENTS.md) for the exact current state.
 
 ## Ownership
 

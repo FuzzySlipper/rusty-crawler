@@ -2,6 +2,7 @@ using System.Text.Json;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Interaction;
+using PartyRpg.Kit.Journal;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
@@ -118,6 +119,7 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule, ICorpseSourc
     private readonly PlaceSchedule? _schedule;
     private readonly MightAndMagic7Corpses? _corpses;
     private readonly MightAndMagic7Loot? _loot;
+    private readonly Func<PartyJournal?>? _journal;
 
     /// <summary>Creates this game's interaction answers.</summary>
     /// <param name="schedule">
@@ -132,14 +134,22 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule, ICorpseSourc
     /// This game's loot, which a container's random references are answered by. Without one a container
     /// holding one is refused by name rather than emptied of invented contents.
     /// </param>
+    /// <param name="journal">
+    /// The party's journal, asked the moment a search yields something, or null when this session keeps none.
+    /// It is read through a call rather than held because a session composes its world before it composes the
+    /// owner that keeps the record — and a product that creates its party has no party at all until the player
+    /// accepts one — so a mechanism holding the owner it was built with would report finds to nobody.
+    /// </param>
     internal MightAndMagic7Interaction(
         PlaceSchedule? schedule = null,
         MightAndMagic7Corpses? corpses = null,
-        MightAndMagic7Loot? loot = null)
+        MightAndMagic7Loot? loot = null,
+        Func<PartyJournal?>? journal = null)
     {
         _schedule = schedule;
         _corpses = corpses;
         _loot = loot;
+        _journal = journal;
     }
 
     /// <summary>The door state the delta stores for a door at rest, which the donor calls open.</summary>
@@ -285,9 +295,16 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule, ICorpseSourc
     {
         if (string.Equals(target.Kind.Value, MightAndMagic7Containers.TargetKind, StringComparison.Ordinal))
         {
-            return _corpses is not null && _corpses.Describe(new InteractionTargetRequest(context.Place, context.Placement, target.State)) is not null
+            InteractionOutcome search = _corpses is not null && _corpses.Describe(new InteractionTargetRequest(context.Place, context.Placement, target.State)) is not null
                 ? _corpses.Search(target, context)
                 : MightAndMagic7Containers.Search(target, context, _loot);
+
+            // What a search yielded is reported to the party's journal from here, because this is the one
+            // place both a chest's contents and a body's are answered: the rule that decided what the thing
+            // held is the owner of the find, and the journal is the owner of whether it is worth a line. The
+            // report carries the item's own name as this game words it, so the journal never names a thing.
+            if (search is { IsApplied: true, Items.Count: > 0 }) Report(search, target, context);
+            return search;
         }
 
         if (string.Equals(target.Kind.Value, FixtureTargetKind, StringComparison.Ordinal))
@@ -310,6 +327,39 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule, ICorpseSourc
     /// </remarks>
     public IReadOnlyList<PlacementDefinition> CorpsesOf(PlaceId place) =>
         _corpses?.CorpsesOf(place) ?? [];
+
+    /// <summary>
+    /// Reports what one search yielded to the party's journal, one event per distinct item.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every yield is reported and none is judged here: whether a find is worth a line is this game's own
+    /// threshold, stated once in <see cref="MightAndMagic7Journal"/>, and whether the same find is already
+    /// written down is the journal's. What this reports is what the search actually handed over — the outcome
+    /// the mechanism is about to apply — so a find the party could not take is not written into its record.
+    /// </para>
+    /// <para>
+    /// The subject is the item's identity and the place is where it was found, which together are what makes
+    /// two finds the same one: two of a thing in one chest are one find, and the same thing found in two
+    /// places is two.
+    /// </para>
+    /// </remarks>
+    /// <param name="search">What the search produced.</param>
+    /// <param name="target">What was searched, as the ruleset described it.</param>
+    /// <param name="context">The body, its state, and the party.</param>
+    private void Report(InteractionOutcome search, InteractionTargetDefinition target, InteractionContext context)
+    {
+        if (_journal?.Invoke() is not { } journal) return;
+        foreach (InteractionItemYield yield in search.Items)
+        {
+            journal.Record(new JournalEvent(
+                JournalEntryKind.Find,
+                Source: "search",
+                Subject: yield.Definition.Value,
+                Name: _loot?.NameOf(yield.Definition) ?? yield.Definition.Value,
+                Place: context.Place.Value));
+        }
+    }
 
     /// <summary>What using a door makes of it, given its state and what it requires.</summary>
     /// <remarks>

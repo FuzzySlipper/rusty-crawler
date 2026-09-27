@@ -2,6 +2,7 @@ using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Interaction;
+using PartyRpg.Kit.Journal;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Progression;
@@ -182,6 +183,14 @@ internal sealed class MightAndMagic7Session : IGameSession
         // to, which the world's interaction answers read. One loot owner means one table read and one seed.
         MightAndMagic7Loot loot = MightAndMagic7Loot.Compose(Declared(context.Content), context.Engine?.Random);
 
+        // This game's journal policy is read once, here, over the loot reading that knows which item rows the
+        // shipped table hands out as artifacts and relics: that is the one threshold this game states about
+        // what is worth writing down, and the words for its five books are stated beside it rather than in a
+        // screen. It is a policy and not state — the owner that keeps the record is composed by the session
+        // when it has a party and a clock — so a session that creates its party states it before the party
+        // exists.
+        MightAndMagic7Journal journal = new(loot);
+
         // What the party brings down is kept in one place, and both halves hold it: the fight reports the
         // creatures it read as down, and the world's interaction answers describe what is lying there. It is
         // composed here because the ruleset is the one point both halves are composed over.
@@ -233,7 +242,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             {
                 party = Capacity(MightAndMagic7Party.Restore(save.Party, Declared(context.Content)), spells)!;
                 PartyResourceLedger ledger = Ledger(party);
-                world = MightAndMagic7World.Compose(context.Content, context, clock, ledger, party, save, services, conversation, corpseAnswers, loot, quests);
+                world = MightAndMagic7World.Compose(context.Content, context, clock, ledger, party, save, services, conversation, corpseAnswers, loot, quests, () => Journal);
                 _session = new PartyRpgSession(
                     composition,
                     context.Projection,
@@ -268,7 +277,9 @@ internal sealed class MightAndMagic7Session : IGameSession
                     mixtures: alchemy?.Catalog,
                     mixInput: context.Mix,
                     quests: quests,
-                    questState: save.Quests);
+                    questState: save.Quests,
+                    journal: journal,
+                    journalState: save.Journal);
                 return;
             }
 
@@ -291,7 +302,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                     creation: new SessionCreation(
                         MightAndMagic7Creation.Start(declared),
                         description => Capacity(MightAndMagic7Party.Factory(declared).Create(description), spells, fill: true)!,
-                        created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created), created, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot)),
+                        created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created), created, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot, journal: () => Journal)),
                     saveInput: context.Save,
                     useInput: use,
                     service: services,
@@ -312,7 +323,8 @@ internal sealed class MightAndMagic7Session : IGameSession
                     castInput: context.Cast,
                     alchemy: alchemy,
                     mixtures: alchemy?.Catalog,
-                    mixInput: context.Mix);
+                    mixInput: context.Mix,
+                    journal: journal);
                 return;
             }
 
@@ -321,7 +333,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             // to the world here is the same composition order the created path takes, one accept earlier.
             party = Capacity(MightAndMagic7Party.Compose(context.Content), spells, fill: true);
             PartyResourceLedger? accounts = party is null ? null : Ledger(party);
-            world = MightAndMagic7World.Compose(context.Content, context, clock, accounts, party, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot);
+            world = MightAndMagic7World.Compose(context.Content, context, clock, accounts, party, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot, journal: () => Journal);
             _session = new PartyRpgSession(
                 composition,
                 context.Projection,
@@ -354,7 +366,8 @@ internal sealed class MightAndMagic7Session : IGameSession
                 alchemy: alchemy,
                 mixtures: alchemy?.Catalog,
                 mixInput: context.Mix,
-                quests: quests);
+                quests: quests,
+                journal: journal);
         }
         catch
         {
@@ -520,6 +533,17 @@ internal sealed class MightAndMagic7Session : IGameSession
     /// over exists.
     /// </remarks>
     internal PartyQuests? Quests => _session.Quests;
+
+    /// <summary>
+    /// The party's journal, or null until the session holds a clock and a party to write about.
+    /// </summary>
+    /// <remarks>
+    /// The session the product composes owns it, and this is that same owner read one layer out rather than a
+    /// second one: the world's interaction answers ask for it the moment a search yields something, which
+    /// happens long after the party the owner was composed over exists. Reading it through a call is what
+    /// lets this world be composed first and a party that is created later still have its finds written down.
+    /// </remarks>
+    internal PartyJournal? Journal => _session.Journal;
 
     /// <summary>
     /// The world this session stands in, or null when it holds none.

@@ -1,0 +1,209 @@
+using System.Globalization;
+using PartyRpg.Kit.Journal;
+using PartyRpg.Kit.Quests;
+using PartyRpg.Kit.Sessions;
+using PartyRpg.Kit.Time;
+using PartyRpg.Kit.World;
+
+namespace PartyRpg.Kit.Presentation;
+
+/// <summary>One row of one book, as the panel shows it.</summary>
+/// <param name="Id">The row's identity, which is the owner's own identity for what it names.</param>
+/// <param name="Label">What it is called.</param>
+/// <param name="Detail">What is true of it, empty when nothing is.</param>
+/// <param name="State">Its state, as the owner words it, empty when it has none.</param>
+/// <param name="Source">Which owner reported it, which is what the row is attributable to.</param>
+/// <param name="Marked">Whether the owner marks it, which a screen shows as done rather than working out.</param>
+public readonly record struct JournalRowSnapshot(
+    string Id,
+    string Label,
+    string Detail,
+    string State,
+    string Source,
+    bool Marked);
+
+/// <summary>One of the five books, as the panel shows it.</summary>
+/// <remarks>
+/// The book's words are the ruleset's, its rows are read from the owner that holds each fact at the moment
+/// the projection is built, and its state says what it holds or why it holds nothing. A book whose owner the
+/// session does not compose is published as unavailable with the game's own sentence for that, which is a
+/// different fact from a book that is merely empty.
+/// </remarks>
+/// <param name="Kind">The book's kind, as the wire spells it.</param>
+/// <param name="Title">What the game calls it.</param>
+/// <param name="Available">Whether the session holds the owner that fills it.</param>
+/// <param name="State">What the game says about it.</param>
+/// <param name="Rows">What it holds, in the owner's own order.</param>
+public readonly record struct JournalBookSnapshot(
+    string Kind,
+    string Title,
+    bool Available,
+    string State,
+    IReadOnlyList<JournalRowSnapshot> Rows);
+
+/// <summary>The party's journal as the panel needs it: its five books, and what each holds.</summary>
+/// <remarks>
+/// <para>
+/// <b>The books are readings of the owners that hold their facts, not copies kept here.</b> The quests book's
+/// page is the errands the quest owner reports — the quests block the panel renders — and this block says
+/// that book's name, whether the session can fill it, and how much it holds; the maps book reads the world's
+/// own knowledge of its places; the calendar reads the one clock; and the history reads the journal's dated
+/// lines. A screen therefore renders what it is given, computes no date, counts no place, and decides no
+/// quest.
+/// </para>
+/// <para>
+/// <b>A session with no journal owner has no books at all.</b> Its ruleset stated no journal, so the block
+/// says the mechanism is not there and carries no list: five empty books would look exactly like a party
+/// that has been nowhere and done nothing.
+/// </para>
+/// <para>
+/// <b>The notes book is deliberately unavailable in this build.</b> What a party learns about the world —
+/// a potion's recipe discovered, a fountain's effect, an obelisk's clue — belongs to a knowledge store that
+/// no owner holds yet, and that seam is where the knowledge stone lands: it composes a notes owner beside
+/// this journal, and this surface reads it exactly as the other four read theirs.
+/// </para>
+/// </remarks>
+/// <param name="Available">Whether the session holds a journal owner at all.</param>
+/// <param name="Books">The five books, in the order a journal keeps them.</param>
+public readonly record struct JournalSnapshot(bool Available, IReadOnlyList<JournalBookSnapshot> Books)
+{
+    /// <summary>No journal owner: the session's ruleset stated no journal, so there are no books.</summary>
+    public static JournalSnapshot None => new(false, []);
+
+    /// <summary>Reads the journal and the owners its books are read from into the panel's own value.</summary>
+    /// <param name="journal">The party's journal, or null when the session holds none.</param>
+    /// <param name="quests">The quest owner, or null when the session holds none.</param>
+    /// <param name="world">The world the party stands in, or null when the session holds none.</param>
+    /// <param name="clock">The session's one clock, or null when it has none.</param>
+    /// <returns>The journal's books as a panel shows them.</returns>
+    public static JournalSnapshot From(PartyJournal? journal, PartyQuests? quests, SessionWorld? world, GameClock? clock)
+    {
+        if (journal is null) return None;
+
+        List<JournalBookSnapshot> books = [];
+        foreach (JournalBookKind kind in JournalBook.All)
+        {
+            JournalBookWords words = journal.Rule.Book(kind);
+            books.Add(kind switch
+            {
+                JournalBookKind.Quests => Quests(words, quests),
+                JournalBookKind.Notes => Notes(words),
+                JournalBookKind.Maps => Maps(words, world),
+                JournalBookKind.Calendar => Calendar(words, clock),
+                _ => History(words, journal, world),
+            });
+        }
+
+        return new JournalSnapshot(true, books);
+    }
+
+    /// <summary>
+    /// The quests book.
+    /// </summary>
+    /// <remarks>
+    /// This book carries no rows on purpose. Its page is the journal the quests block publishes, read from
+    /// the same owner at the same moment, and printing the errands a second time here would be two readings of
+    /// one fact on one wire — which is exactly what the journal exists not to be.
+    /// </remarks>
+    private static JournalBookSnapshot Quests(JournalBookWords words, PartyQuests? quests)
+    {
+        if (quests is null) return new JournalBookSnapshot("quests", words.Title, false, words.Unavailable, []);
+
+        int errands = quests.Journal.Count;
+        string state = errands == 0
+            ? words.Empty
+            : string.Create(CultureInfo.InvariantCulture, $"{errands} errand{(errands == 1 ? string.Empty : "s")} in the journal");
+        return new JournalBookSnapshot("quests", words.Title, true, state, []);
+    }
+
+    /// <summary>The notes book, which no owner fills in this build.</summary>
+    private static JournalBookSnapshot Notes(JournalBookWords words) =>
+        new("notes", words.Title, false, words.Unavailable, []);
+
+    /// <summary>The maps book: every place the party knows of, as the world's own knowledge reports it.</summary>
+    private static JournalBookSnapshot Maps(JournalBookWords words, SessionWorld? world)
+    {
+        if (world is null) return new JournalBookSnapshot("maps", words.Title, false, words.Unavailable, []);
+
+        List<JournalRowSnapshot> rows = [];
+        foreach (PlaceDefinition place in world.Graph.Places)
+        {
+            PlaceState known = world.Places.StateOf(place.Id);
+            if (!known.Visited && !known.Discovered) continue;
+            rows.Add(new JournalRowSnapshot(
+                place.Id.Value,
+                place.Name,
+                SessionProjection.WireName(place.Kind),
+                known.Visited ? "visited" : "known",
+                "world",
+                known.Visited));
+        }
+
+        string state = rows.Count == 0
+            ? words.Empty
+            : string.Create(CultureInfo.InvariantCulture, $"{rows.Count} of {world.Graph.Places.Count} places known");
+        return new JournalBookSnapshot("maps", words.Title, true, state, rows);
+    }
+
+    /// <summary>The calendar book: what day it is, read from the one clock.</summary>
+    private static JournalBookSnapshot Calendar(JournalBookWords words, GameClock? clock)
+    {
+        if (clock is null) return new JournalBookSnapshot("calendar", words.Title, false, words.Unavailable, []);
+
+        GameDate now = clock.Now;
+        List<JournalRowSnapshot> rows =
+        [
+            new JournalRowSnapshot("date", "Today", Date(now), string.Empty, "clock", false),
+            new JournalRowSnapshot("time", "Time", Time(now), clock.IsDaylight ? "day" : "night", "clock", false),
+            new JournalRowSnapshot(
+                "elapsed",
+                "Days since the expedition began",
+                clock.ElapsedGameDays.ToString(CultureInfo.InvariantCulture),
+                string.Empty,
+                "clock",
+                false),
+        ];
+
+        return new JournalBookSnapshot("calendar", words.Title, true, Date(now), rows);
+    }
+
+    /// <summary>The history book: what the party wrote down, oldest first, with where each line happened.</summary>
+    private static JournalBookSnapshot History(JournalBookWords words, PartyJournal journal, SessionWorld? world)
+    {
+        List<JournalRowSnapshot> rows = [];
+        foreach (JournalEntry entry in journal.Entries)
+        {
+            rows.Add(new JournalRowSnapshot(
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{JournalEntrySave.Word(entry.Kind)}|{entry.Subject}|{entry.Place}"),
+                entry.Text,
+                string.Create(CultureInfo.InvariantCulture, $"{Date(entry.Date)} {Time(entry.Date)}"),
+                PlaceName(entry.Place, world),
+                entry.Source,
+                false));
+        }
+
+        string state = rows.Count == 0 ? words.Empty : string.Create(CultureInfo.InvariantCulture, $"{rows.Count} entries");
+        return new JournalBookSnapshot("history", words.Title, true, state, rows);
+    }
+
+    /// <summary>What a place is called, or the recorded identity when the world no longer carries it.</summary>
+    /// <remarks>
+    /// A journal line outlives the place it happened in, so a place the world has stopped carrying reads as
+    /// the identity the entry recorded rather than as an empty where.
+    /// </remarks>
+    private static string PlaceName(string place, SessionWorld? world)
+    {
+        if (place.Length == 0) return string.Empty;
+        return world?.Graph.Find(new PlaceId(place))?.Name ?? place;
+    }
+
+    /// <summary>The calendar's own numbers for a day, in the form every other block publishes dates in.</summary>
+    private static string Date(GameDate date) =>
+        string.Create(CultureInfo.InvariantCulture, $"{date.Year:0000}-{date.Month:00}-{date.Day:00}");
+
+    /// <summary>The time of day, to the minute, in the form every other block publishes times in.</summary>
+    private static string Time(GameDate date) =>
+        string.Create(CultureInfo.InvariantCulture, $"{date.Hour:00}:{date.Minute:00}");
+}

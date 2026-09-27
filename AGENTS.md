@@ -87,7 +87,8 @@ the proof items the shipped item table carries, and the light/dark alternative a
 recorded in the character's own class, which is what makes it irreversible and what a save already carries.
 A rank whose errand is a deed is stated as the record a finished quest leaves, so the seventeen ranks whose
 errands the shipped quest table states are judged by real quest state rather than refused — quests have
-landed as their own stone's first part, with the journal and knowledge still to come. Two defects stand
+landed as their own stone's first part, and the journal and its five books beside them, with knowledge
+still to come. Two defects stand
 beside the stone rather than inside it: a creature that cannot
 see its target still walks straight at it rather than around geometry, and a session's own fight is not yet
 in a save.**
@@ -461,6 +462,33 @@ in a save.**
   nobody authors: the beast is the place's own encounter row by the month the clock stands in, what it pays
   is the donor's hundred times its level, and the keeper who offers it is the one the counter's placement
   names.
+- **The party keeps a record: dated history and the five books it is read through.** `PartyJournal` is the
+  one owner of what a party has written down, and what it holds is dated lines and nothing else — the
+  errands it stands with are read from the quest owner, the places it knows from the world, the day from the
+  one clock — so a stage that moves, a population the world restores, or a day that passes changes a book
+  without the journal being told. A line is written by whoever owns the event: the session reports the place
+  the world puts the party in, the three moments of an errand from the quest owner's own answers, the rank a
+  promotion granted, and the person a use opened onto; this game's loot rule reports a find from the search
+  that yielded it. The journal is the one place that decides whether a report is news (`JournalHistory`
+  dedupes on the kind of thing, what it happened to, and where), how it reads (the ruleset's own phrase
+  around the reporting owner's own name for the thing), and when it happened (the one clock — never a wall
+  clock, which the kit's source scan forbids). Nothing is a second copy of state: a line says what happened
+  and when, and everything still true is read from its owner. `JournalHistory.MaxEntries` bounds the record
+  at 256 lines and the oldest fall off, because an unbounded journal is a leak carried whole into every save
+  and every projection. The save's `journal` section carries the lines as **elapsed game time** and never as
+  dates — the calendar and the starting date are this game's policy and are supplied again on the way back —
+  so a loaded line reads as the day it happened rather than the day it was loaded; a document that dates a
+  line in a future the party never lived, records one event twice, or exceeds the bound is refused with that
+  line named. The projection publishes one `journal` block of five books: Current Quests (the quest owner's
+  errands, whose page is the quests block's own journal), Auto Notes (**deliberately empty — the seam the
+  knowledge stone lands behind**, since what a party learns about the world has no owner yet), Maps (the
+  world's own knowledge of its places), Calendar (the one clock), and History (the journal's own lines, each
+  with when it happened and which owner reported it). The panel renders those titles, sentences, and rows
+  and computes none of them, keeping no state of its own, so a reload shows exactly what the save holds.
+  This game's own reading is `MightAndMagic7Journal`: the manual's own five book names
+  (`docs/research/mm7-manual-outline.md` p.165, from the manual p.22), this game's authored phrasing for a
+  line, and one threshold — a find earns a line when the shipped item table marks it an artifact or a relic,
+  the same reading a treasure draw already uses.
 - **Magic exists as a catalog, learning, one casting workflow, and an effect for every category; what the
   effects' own depths are is stated per spell, and deadlines in a save and a fight in a save are not
   here yet.** Do not describe, review, or accept behavior those stones will add as though it were here; for a

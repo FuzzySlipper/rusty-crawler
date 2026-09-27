@@ -1,6 +1,7 @@
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Interaction;
+using PartyRpg.Kit.Journal;
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
@@ -98,6 +99,12 @@ internal static class MightAndMagic7World
     /// Without one a container holding a random reference is refused by name rather than emptied of invented
     /// contents.
     /// </param>
+    /// <param name="journal">
+    /// The party's journal, read through a call the moment a search yields something, or null when this
+    /// session keeps no record. It is a provider rather than an owner here for the same reason the party is:
+    /// this world is composed before the session that keeps the journal exists, and a session that creates
+    /// its party has none until the player accepts one.
+    /// </param>
     internal static SessionWorld? Compose(
         ContentCatalog? catalog,
         RulesetSessionContext context,
@@ -109,7 +116,8 @@ internal static class MightAndMagic7World
         MightAndMagic7Conversation? conversation = null,
         MightAndMagic7Corpses? corpses = null,
         MightAndMagic7Loot? loot = null,
-        MightAndMagic7Quests? quests = null)
+        MightAndMagic7Quests? quests = null,
+        Func<PartyJournal?>? journal = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(clock);
@@ -182,7 +190,7 @@ internal static class MightAndMagic7World
             clock,
             resources,
             entity,
-            new InteractionPolicy(Interaction(conversation, schedules.Schedule, corpses, loot), MightAndMagic7Movement.Space, MightAndMagic7Interaction.Aim),
+            new InteractionPolicy(Interaction(conversation, schedules.Schedule, corpses, loot, journal), MightAndMagic7Movement.Space, MightAndMagic7Interaction.Aim),
             schedules.Schedule,
             Movers(party, context).Creatures);
     }
@@ -196,15 +204,17 @@ internal static class MightAndMagic7World
     /// household, or a person a map places in the open — and everything else is answered exactly as it was.
     /// The doors-and-fixtures answers carry this game's schedule, which is what locks a door outside the
     /// hours its place keeps, and this game's bodies and loot, which is what makes a kill searchable and a
-    /// chest that holds a random reference answerable.
+    /// chest that holds a random reference answerable; what a search yields is reported from the same object
+    /// to the party's journal, so a notable find is written down by the rule that produced it.
     /// </remarks>
     private static IInteractionRule Interaction(
         MightAndMagic7Conversation? conversation,
         PlaceSchedule schedule,
         MightAndMagic7Corpses? corpses,
-        MightAndMagic7Loot? loot)
+        MightAndMagic7Loot? loot,
+        Func<PartyJournal?>? journal)
     {
-        MightAndMagic7Interaction answers = new(schedule, corpses, loot);
+        MightAndMagic7Interaction answers = new(schedule, corpses, loot, journal);
         return conversation is null ? answers : new MightAndMagic7PeopleInteraction(conversation, answers);
     }
 
