@@ -3,16 +3,16 @@ namespace PartyRpg.Kit.Journal;
 /// <summary>One of the books a party's journal is kept in.</summary>
 /// <remarks>
 /// The five are the design's own set of books rather than a screen's tabs: quests, notes, maps, calendar, and
-/// history. What each holds is a different owner's reading — the quest owner's errands, the world's places,
-/// the clock's date, this journal's own dated lines — and one of them deliberately holds nothing yet, which
-/// is the seam a knowledge store lands behind rather than a hole in a screen.
+/// history. What each holds is a different owner's reading — the quest owner's errands, the knowledge owner's
+/// discoveries, the world's places, the clock's date, this journal's own dated lines — so no book is a copy of
+/// another and none of them is computed by a screen.
 /// </remarks>
 public enum JournalBookKind
 {
     /// <summary>The errands the party stands with, read from the quest owner.</summary>
     Quests,
 
-    /// <summary>What the party has learned about the world, which no owner records yet.</summary>
+    /// <summary>What the party has learned, read from the knowledge owner.</summary>
     Notes,
 
     /// <summary>Where the party has been, read from the world's own knowledge of its places.</summary>

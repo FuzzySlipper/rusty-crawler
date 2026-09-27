@@ -3,6 +3,7 @@ using System.Text.Json;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Loot;
+using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.World;
 
@@ -276,11 +277,13 @@ internal static class MightAndMagic7Containers
         }
 
         List<InteractionItemYield> yields = [];
+        List<KnowledgeReport> learned = [];
         List<string> words = [];
         foreach ((int id, int count) in named)
         {
             ItemDefinitionId definition = new(id.ToString(CultureInfo.InvariantCulture));
             yields.Add(new InteractionItemYield(definition, count));
+            learned.Add(Discovery(loot, definition, context));
             words.Add(Word(loot, definition, count));
         }
 
@@ -288,6 +291,7 @@ internal static class MightAndMagic7Containers
         {
             int count = group.Sum(item => item.Count);
             yields.Add(new InteractionItemYield(group.Key, count));
+            learned.Add(Discovery(loot, group.Key, context));
             words.Add(Word(loot, group.Key, count));
         }
 
@@ -297,8 +301,39 @@ internal static class MightAndMagic7Containers
             SearchedState,
             $"{target.Name} holds {string.Join(" and ", words)}.",
             items: yields,
-            gain: coins > 0 ? PartyCost.OfGold(coins) : PartyCost.Free);
+            gain: coins > 0 ? PartyCost.OfGold(coins) : PartyCost.Free,
+            learned: learned);
     }
+
+    /// <summary>
+    /// What finding one thing in a container teaches, in this game's own words for it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every yield is reported and none is judged here: whether a find is worth knowing is this game's own
+    /// threshold, stated once in <see cref="MightAndMagic7Knowledge"/>, and whether the same fact is already
+    /// known is the knowledge owner's. What this reports is what the search actually handed over — the items
+    /// the outcome is about to give the party — so a find the party could not take is not written into what it
+    /// knows.
+    /// </para>
+    /// <para>
+    /// The subject is the item's identity and the place is where it was found, which together are what makes
+    /// two finds the same one: two of a thing in one chest are one fact, and the same thing found in two
+    /// places is two facts.
+    /// </para>
+    /// </remarks>
+    /// <param name="loot">This game's loot, which names an item row, or null when this ruleset has none.</param>
+    /// <param name="definition">The item the search yielded.</param>
+    /// <param name="context">The container, its state, and the party.</param>
+    /// <returns>The discovery the yield is reported as.</returns>
+    private static KnowledgeReport Discovery(MightAndMagic7Loot? loot, ItemDefinitionId definition, InteractionContext context) =>
+        new(
+            KnowledgeKind.Find,
+            Source: "search",
+            Subject: definition.Value,
+            Name: loot is null ? definition.Value : loot.NameOf(definition),
+            Place: context.Place.Value);
+
 
     /// <summary>How one finding reads: the item's name, counted when there is more than one.</summary>
     private static string Word(MightAndMagic7Loot? loot, ItemDefinitionId definition, int count)

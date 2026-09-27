@@ -955,9 +955,12 @@ function journal(overrides = {}) {
       {
         kind: 'notes',
         title: 'Auto Notes',
-        available: false,
-        state: 'This build keeps no auto notes: what a party learns about the world belongs to the knowledge owner, which is not composed yet.',
-        rows: [],
+        available: true,
+        state: '2 notes',
+        rows: [
+          { id: 'recipe|200+220|', label: 'Learned the recipe for Cure Wounds (Widowsweep Berries + Potion Bottle)', detail: '1168-01-02 09:00', state: '', source: 'alchemy', marked: false },
+          { id: 'find|511|1', label: 'Found The Ruby of Ultimate Power', detail: '1168-01-03 09:00', state: 'Emerald Island', source: 'search', marked: false },
+        ],
       },
       {
         kind: 'maps',
@@ -3719,9 +3722,20 @@ test('the panel renders the five books from the projection and computes none of 
     assert.equal(books.hidden, false);
     assert.deepEqual(books.books.map((book) => book.kind), ['notes', 'maps', 'calendar', 'history']);
     assert.deepEqual(books.books.map((book) => book.title), ['Auto Notes', 'Maps', 'Calendar', 'History']);
-    assert.deepEqual(books.books.map((book) => book.available), ['false', 'true', 'true', 'true']);
-    assert.match(books.books[0].state, /knowledge owner/);
-    assert.equal(books.books[0].rows.length, 0);
+    assert.deepEqual(books.books.map((book) => book.available), ['true', 'true', 'true', 'true']);
+
+    // The notes book is the knowledge owner's own page: what the party has learned, with when it was learned
+    // and where, printed exactly as the product published it. The panel groups nothing, dates nothing, and
+    // decides no discovery — the row's own identity carries the kind for a reader that wants to group.
+    assert.equal(books.books[0].state, '2 notes');
+    assert.deepEqual(books.books[0].rows.map((row) => row.label), [
+      '· Learned the recipe for Cure Wounds (Widowsweep Berries + Potion Bottle)',
+      '· Found The Ruby of Ultimate Power',
+    ]);
+    assert.deepEqual(books.books[0].rows.map((row) => row.detail), ['1168-01-02 09:00', '1168-01-03 09:00']);
+    assert.deepEqual(books.books[0].rows.map((row) => row.state), ['', 'Emerald Island']);
+    assert.deepEqual(books.books[0].rows.map((row) => row.source), ['alchemy', 'search']);
+    assert.deepEqual(books.books[0].rows.map((row) => row.id), ['recipe|200+220|', 'find|511|1']);
 
     // The maps book is the world's own knowledge as the product read it, and the day is the date the product
     // gave: the panel prints both and derives neither.

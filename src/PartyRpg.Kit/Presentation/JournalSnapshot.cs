@@ -1,5 +1,6 @@
 using System.Globalization;
 using PartyRpg.Kit.Journal;
+using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Quests;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
@@ -46,10 +47,10 @@ public readonly record struct JournalBookSnapshot(
 /// <para>
 /// <b>The books are readings of the owners that hold their facts, not copies kept here.</b> The quests book's
 /// page is the errands the quest owner reports — the quests block the panel renders — and this block says
-/// that book's name, whether the session can fill it, and how much it holds; the maps book reads the world's
-/// own knowledge of its places; the calendar reads the one clock; and the history reads the journal's dated
-/// lines. A screen therefore renders what it is given, computes no date, counts no place, and decides no
-/// quest.
+/// that book's name, whether the session can fill it, and how much it holds; the notes book reads what the
+/// knowledge owner holds; the maps book reads the world's own knowledge of its places; the calendar reads the
+/// one clock; and the history reads the journal's dated lines. A screen therefore renders what it is given,
+/// computes no date, counts no place, and decides no quest.
 /// </para>
 /// <para>
 /// <b>A session with no journal owner has no books at all.</b> Its ruleset stated no journal, so the block
@@ -57,10 +58,9 @@ public readonly record struct JournalBookSnapshot(
 /// that has been nowhere and done nothing.
 /// </para>
 /// <para>
-/// <b>The notes book is deliberately unavailable in this build.</b> What a party learns about the world —
-/// a potion's recipe discovered, a fountain's effect, an obelisk's clue — belongs to a knowledge store that
-/// no owner holds yet, and that seam is where the knowledge stone lands: it composes a notes owner beside
-/// this journal, and this surface reads it exactly as the other four read theirs.
+/// <b>A book whose own owner is missing is not an empty book.</b> A session may keep a journal and no
+/// knowledge — its ruleset stated no discoveries — and that book then says so in the game's own words rather
+/// than showing an empty list a player would read as "there is nothing to learn here".
 /// </para>
 /// </remarks>
 /// <param name="Available">Whether the session holds a journal owner at all.</param>
@@ -75,8 +75,14 @@ public readonly record struct JournalSnapshot(bool Available, IReadOnlyList<Jour
     /// <param name="quests">The quest owner, or null when the session holds none.</param>
     /// <param name="world">The world the party stands in, or null when the session holds none.</param>
     /// <param name="clock">The session's one clock, or null when it has none.</param>
+    /// <param name="knowledge">The knowledge owner, or null when the session holds none.</param>
     /// <returns>The journal's books as a panel shows them.</returns>
-    public static JournalSnapshot From(PartyJournal? journal, PartyQuests? quests, SessionWorld? world, GameClock? clock)
+    public static JournalSnapshot From(
+        PartyJournal? journal,
+        PartyQuests? quests,
+        SessionWorld? world,
+        GameClock? clock,
+        PartyKnowledge? knowledge = null)
     {
         if (journal is null) return None;
 
@@ -87,7 +93,7 @@ public readonly record struct JournalSnapshot(bool Available, IReadOnlyList<Jour
             books.Add(kind switch
             {
                 JournalBookKind.Quests => Quests(words, quests),
-                JournalBookKind.Notes => Notes(words),
+                JournalBookKind.Notes => Notes(words, knowledge, world),
                 JournalBookKind.Maps => Maps(words, world),
                 JournalBookKind.Calendar => Calendar(words, clock),
                 _ => History(words, journal, world),
@@ -116,9 +122,44 @@ public readonly record struct JournalSnapshot(bool Available, IReadOnlyList<Jour
         return new JournalBookSnapshot("quests", words.Title, true, state, []);
     }
 
-    /// <summary>The notes book, which no owner fills in this build.</summary>
-    private static JournalBookSnapshot Notes(JournalBookWords words) =>
-        new("notes", words.Title, false, words.Unavailable, []);
+    /// <summary>The notes book: what the party has learned, as the knowledge owner reports it.</summary>
+    /// <remarks>
+    /// <para>
+    /// One row per fact, oldest first, with when it was learned and where. The words are the game's — the
+    /// note itself was composed by the knowledge owner when the fact was learned, in the game's phrase
+    /// around the reporting owner's own name for the thing — so a screen prints a row and decides nothing,
+    /// exactly as it does for the history beside it.
+    /// </para>
+    /// <para>
+    /// <b>The kind is part of the row's identity and not a thing this surface groups by.</b> A discovery's
+    /// kind is what makes it one fact rather than another — the same thing found and learned are different
+    /// notes — and a screen that wants the donor's own tabs (potions, fountains, obelisks) has the kind word
+    /// in the row's identity to read without this surface deciding what belongs together.
+    /// </para>
+    /// </remarks>
+    private static JournalBookSnapshot Notes(JournalBookWords words, PartyKnowledge? knowledge, SessionWorld? world)
+    {
+        if (knowledge is null) return new JournalBookSnapshot("notes", words.Title, false, words.Unavailable, []);
+
+        List<JournalRowSnapshot> rows = [];
+        foreach (KnowledgeNote note in knowledge.Notes)
+        {
+            rows.Add(new JournalRowSnapshot(
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{KnowledgeNoteSave.Word(note.Kind)}|{note.Subject}|{note.Place}"),
+                note.Text,
+                string.Create(CultureInfo.InvariantCulture, $"{Date(note.Date)} {Time(note.Date)}"),
+                PlaceName(note.Place, world),
+                note.Source,
+                false));
+        }
+
+        string state = rows.Count == 0
+            ? words.Empty
+            : string.Create(CultureInfo.InvariantCulture, $"{rows.Count} note{(rows.Count == 1 ? string.Empty : "s")}");
+        return new JournalBookSnapshot("notes", words.Title, true, state, rows);
+    }
 
     /// <summary>The maps book: every place the party knows of, as the world's own knowledge reports it.</summary>
     private static JournalBookSnapshot Maps(JournalBookWords words, SessionWorld? world)

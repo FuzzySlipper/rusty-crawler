@@ -51,7 +51,14 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// <b>What this game cannot deliver yet, stated rather than hidden.</b> Opening a door records its state and
 /// reports it, and leaves the door's polygons standing as collision, because door geometry does not move in
 /// this build; that is the residue the outcome carries. A fixture's use raises an event nothing executes, so
-/// it is a refusal with the event named rather than a success that did nothing.
+/// it is a refusal with the event named rather than a success that did nothing — and because a landmark's
+/// effect and its note are both instructions of that event, a fountain cannot be drunk from and an obelisk
+/// cannot be read until a map event interpreter exists. The operator's own data says how much is waiting
+/// there: the install's discovery table holds 207 rows, of which 39 are what a well or fountain gives, 14
+/// are the obelisks' own messages (one per outdoor region), and 61 are potion recipes, and the map event
+/// programs set them 122 times across 16 programs. Nothing here fakes that interpreter: what it will report
+/// is already stated — an outcome carries the discoveries a use made, and the session hands them to the
+/// knowledge owner — so the interpreter lands as the half that fills them.
 /// </para>
 /// </remarks>
 internal sealed class MightAndMagic7Interaction : IInteractionRule, ICorpseSource
@@ -309,10 +316,16 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule, ICorpseSourc
 
         if (string.Equals(target.Kind.Value, FixtureTargetKind, StringComparison.Ordinal))
         {
+            // What a landmark teaches is part of the event it raises, so a use nothing executes teaches
+            // nothing either: the refusal names the event and says that what it would have given and told the
+            // party is not learned. The recording path is already in place behind this — an interpreted event
+            // returns the discoveries it made on its outcome, and the session hands them to the knowledge
+            // owner — so the interpreter is the whole of what is missing rather than this half being absent
+            // too. Nothing here fabricates an event to fill the gap.
             int eventId = context.Placement.Source.GetInt32(EventField) ?? 0;
             return InteractionOutcome.Refused(
                 "interaction-event-not-executed",
-                $"{target.Name} raises map event {eventId} of place '{context.Place}', and nothing in this build executes map events: the event interpreter that will is not built.");
+                $"{target.Name} raises map event {eventId} of place '{context.Place}', and nothing in this build executes map events: the event interpreter that will is not built, so neither what the event gives nor what it teaches is learned.");
         }
 
         return Door(target, context);

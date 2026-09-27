@@ -32,11 +32,12 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// are each what a record of an expedition is for.
 /// </para>
 /// <para>
-/// <b>Auto Notes is deliberately unfilled here.</b> The discoveries that book holds — a potion recipe, a
-/// fountain's effect, an obelisk's clue — are knowledge the party has gained about the world rather than a
-/// record of what it did, and no owner keeps that knowledge in this build yet. The seam is the journal's
-/// notes surface: a knowledge owner composed beside this journal fills it, and this policy's words for the
-/// book are already the manual's.
+/// <b>Auto Notes is a reading of what the party has learned and not of this record.</b> The discoveries that
+/// book holds — a potion recipe, a fountain's effect, an obelisk's clue — are facts the party gained rather
+/// than a record of what it did, so they belong to the knowledge owner beside this journal and the book
+/// reads them from there. What is stated here is only what this book is called and what it says when the
+/// party has learned nothing worth noting: which discoveries are worth keeping is
+/// <see cref="MightAndMagic7Knowledge"/>'s answer, exactly as what is worth a line is this policy's.
 /// </para>
 /// </remarks>
 internal sealed class MightAndMagic7Journal : IJournalRule
@@ -62,7 +63,7 @@ internal sealed class MightAndMagic7Journal : IJournalRule
         JournalBookKind.Notes => new(
             "Auto Notes",
             "The party has learned nothing worth noting yet.",
-            "This build keeps no auto notes: what a party learns about the world — a potion's recipe, a fountain's effect, an obelisk's clue — belongs to the knowledge owner, which is not composed yet."),
+            "This session keeps no knowledge owner: what a party learns about the world — a potion's recipe, a fountain's effect, an obelisk's clue — is kept by the owner composed over the party and the clock."),
         JournalBookKind.Maps => new(
             "Maps",
             "The party knows of nowhere yet.",

@@ -628,10 +628,24 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
 
     /// <summary>Detection: a report read from the places and the population the world holds.</summary>
     /// <remarks>
+    /// <para>
     /// Nothing is revealed that the world does not already hold: the places the party's own state says it has
     /// been to, what stands in the place it is in, and how far off the nearest of it is. Each spell's row
     /// states what it looks over — the whole map's known places, everything alive here, or who is here by name
     /// — and one path reads all three from the same world.
+    /// </para>
+    /// <para>
+    /// <b>A detection teaches the party nothing durable, so it writes no auto note.</b> What it shows is a
+    /// reading of state the world already holds, taken at the moment of the casting: the places the party has
+    /// been to are the world's own per-place state and are published in the maps book, and who is standing
+    /// here now is a moment that a note would make false within the hour. The design's own list of what auto
+    /// notes hold — potion discoveries, fountain effects, obelisk clues, and odd events
+    /// (<c>docs/research/mm7-manual-outline.md</c> p.165 from the manual p.22) — is a list of facts the party
+    /// <em>gained</em>, and a detection grants none: the party knew where it had been before it cast, and it
+    /// is the automap that fills in as territory is seen, which is the world's record rather than a note.
+    /// Recording a note per casting would also make the record a log of how often the party looked rather
+    /// than of what it learned, which is the opposite of what a note is for.
+    /// </para>
     /// </remarks>
     private SpellApplicationOutcome Detect(SpellApplication application)
     {

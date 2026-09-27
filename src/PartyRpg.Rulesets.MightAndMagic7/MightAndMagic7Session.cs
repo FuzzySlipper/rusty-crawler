@@ -3,6 +3,7 @@ using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Journal;
+using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Progression;
@@ -191,6 +192,13 @@ internal sealed class MightAndMagic7Session : IGameSession
         // exists.
         MightAndMagic7Journal journal = new(loot);
 
+        // This game's knowledge is read beside it and over the same loot reading, for the same reason: which
+        // item rows are artifacts and relics is the one threshold this game states about a find, and a find
+        // is one of the discoveries a party keeps. The two policies are separate records of one moment — a
+        // dated line about what happened, and the fact the party can look up again — and both read the same
+        // mark in the shipped table rather than each keeping its own reading of the rows.
+        MightAndMagic7Knowledge knowledge = new(loot);
+
         // What the party brings down is kept in one place, and both halves hold it: the fight reports the
         // creatures it read as down, and the world's interaction answers describe what is lying there. It is
         // composed here because the ruleset is the one point both halves are composed over.
@@ -279,7 +287,9 @@ internal sealed class MightAndMagic7Session : IGameSession
                     quests: quests,
                     questState: save.Quests,
                     journal: journal,
-                    journalState: save.Journal);
+                    journalState: save.Journal,
+                    knowledge: knowledge,
+                    knowledgeState: save.Knowledge);
                 return;
             }
 
@@ -324,7 +334,8 @@ internal sealed class MightAndMagic7Session : IGameSession
                     alchemy: alchemy,
                     mixtures: alchemy?.Catalog,
                     mixInput: context.Mix,
-                    journal: journal);
+                    journal: journal,
+                    knowledge: knowledge);
                 return;
             }
 
@@ -367,7 +378,8 @@ internal sealed class MightAndMagic7Session : IGameSession
                 mixtures: alchemy?.Catalog,
                 mixInput: context.Mix,
                 quests: quests,
-                journal: journal);
+                journal: journal,
+                knowledge: knowledge);
         }
         catch
         {
@@ -544,6 +556,16 @@ internal sealed class MightAndMagic7Session : IGameSession
     /// lets this world be composed first and a party that is created later still have its finds written down.
     /// </remarks>
     internal PartyJournal? Journal => _session.Journal;
+
+    /// <summary>
+    /// What the party knows, or null until the session holds a clock and its ruleset stated discoveries.
+    /// </summary>
+    /// <remarks>
+    /// It is read one layer out exactly as the journal beside it is: the owners that report a discovery —
+    /// the mixing workflow this session composes, and any mechanism a use reaches — write through the owner
+    /// the session holds rather than through one composed here, so there is one record and not two.
+    /// </remarks>
+    internal PartyKnowledge? Knowledge => _session.Knowledge;
 
     /// <summary>
     /// The world this session stands in, or null when it holds none.

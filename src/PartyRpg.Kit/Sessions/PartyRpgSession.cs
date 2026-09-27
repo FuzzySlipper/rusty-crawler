@@ -5,6 +5,7 @@ using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Journal;
+using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Movement;
@@ -115,6 +116,7 @@ public sealed class PartyRpgSession : IGameSession
     private readonly IConversationRule? _conversationRule;
     private readonly IQuestRule? _questRule;
     private readonly IJournalRule? _journalRule;
+    private readonly IKnowledgeRule? _knowledgeRule;
 
     /// <summary>
     /// Whether the conversation mechanism was composed over a party.
@@ -169,6 +171,8 @@ public sealed class PartyRpgSession : IGameSession
     private readonly QuestSave? _questState;
     private PartyJournal? _journal;
     private readonly JournalSave? _journalState;
+    private PartyKnowledge? _knowledge;
+    private readonly KnowledgeSave? _knowledgeState;
     private PartyRest? _rest;
     private CombatState? _combat;
     private CombatDirector? _director;
@@ -345,6 +349,19 @@ public sealed class PartyRpgSession : IGameSession
     /// lines carry elapsed game time rather than dates, so they are read back against the clock this session
     /// was composed with and a loaded entry reads as the day it happened.
     /// </param>
+    /// <param name="knowledge">
+    /// This game's answers about what its party learns, when its ruleset has any: how a note about each kind
+    /// of discovery reads, and what it counts as worth keeping. The owner is composed over the session's one
+    /// clock for the same reason the journal is — every note is dated in game time — and is deliberately not
+    /// composed over the world: a place whose population the world restores is not a fact about what the
+    /// party knows, so nothing here is read from a place's own state. Without one the party learns nothing it
+    /// can look up again, and its projection says so rather than showing an empty book.
+    /// </param>
+    /// <param name="knowledgeState">
+    /// What a save recorded of what the party has learned, or null for a party that has learned nothing. Its
+    /// notes carry elapsed game time rather than dates, so they are read back against the clock this session
+    /// was composed with and a loaded note reads as the day it was learned.
+    /// </param>
     /// <exception cref="ArgumentException">
     /// The session is composed both to create a party and to hold one, or to create one without the controls
     /// its commands arrive on.
@@ -387,7 +404,9 @@ public sealed class PartyRpgSession : IGameSession
         IQuestRule? quests = null,
         QuestSave? questState = null,
         IJournalRule? journal = null,
-        JournalSave? journalState = null)
+        JournalSave? journalState = null,
+        IKnowledgeRule? knowledge = null,
+        KnowledgeSave? knowledgeState = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(composition.Title);
         if (creation is not null && (world is not null || party is not null))
@@ -421,6 +440,8 @@ public sealed class PartyRpgSession : IGameSession
         _questState = questState;
         _journalRule = journal;
         _journalState = journalState;
+        _knowledgeRule = knowledge;
+        _knowledgeState = knowledgeState;
         _restInput = restInput is null ? null : new RestInput(restInput);
         _restRule = rest;
         _combatInput = combatInput is null ? null : new CombatInput(combatInput);
@@ -468,6 +489,9 @@ public sealed class PartyRpgSession : IGameSession
         // The journal is composed beside the quest owner and not over it: it keeps the party's dated record,
         // and what its books show is read from the owners that hold those facts when the projection is built.
         ComposeJournal();
+        // What the party knows is composed beside the journal and over the same clock, because the two are the
+        // party's own two records: dated lines about what happened, and the facts it can look up again.
+        ComposeKnowledge();
         ComposeRest();
         ComposeCombat();
         // The casting workflow is composed over the party, this game's spell answers, the effect path, and the
@@ -534,6 +558,14 @@ public sealed class PartyRpgSession : IGameSession
     /// publishes about the books is read from it and from the owners each book's own facts belong to.
     /// </summary>
     public PartyJournal? Journal => _journal;
+
+    /// <summary>
+    /// What the party knows, or null when its ruleset stated no discoveries or the session holds no clock. It
+    /// is the one owner of what the party has learned and the notes book the projection publishes is read
+    /// from it — while the world's own per-place state is kept apart from it, so a place the clock restores
+    /// clears nothing here.
+    /// </summary>
+    public PartyKnowledge? Knowledge => _knowledge;
 
     /// <summary>
     /// The rest mechanism this session stops through, or null when its ruleset answered no rest policy or
@@ -989,9 +1021,14 @@ public sealed class PartyRpgSession : IGameSession
         // The journal is composed beside the quest owner and not over it: it keeps the party's dated record,
         // and what its books show is read from the owners that hold those facts when the projection is built.
         ComposeJournal();
+        ComposeKnowledge();
         ComposeRest();
         ComposeCombat();
         ComposeMagic();
+        // The mixing workflow is composed here for the same reason the casting one is: a party that has just
+        // come into being is the party that plays, so a screen whose mixing control nothing could carry out
+        // would be this session's own omission rather than its ruleset's answer.
+        ComposeAlchemy();
         // Leaving creation is a mode change like any other, so it resolves and publishes through the one
         // path that decides what a mode means: the next admitted update steps the world the party is in.
         ResolveMode();
@@ -1059,6 +1096,17 @@ public sealed class PartyRpgSession : IGameSession
     {
         if (LiveWorld is not { } world) return;
         InteractionResult? result = world.Interact(_useInput is not null && _useInput.Read(input));
+
+        // What the use taught is handed to the knowledge owner here, because this is the one place that holds
+        // both the mechanism that reported it and the owner that keeps it: a search that yielded something
+        // worth knowing, an inscription the party read, a landmark whose effect it felt. Every discovery the
+        // outcome states is handed over and none is judged here — whether it is news is the knowledge owner's
+        // answer, exactly as whether a find is worth a journal line is the game's.
+        if (result is { IsApplied: true, Learned.Count: > 0 } taught && _knowledge is { } knowledge)
+        {
+            foreach (KnowledgeReport report in taught.Learned) knowledge.Record(report);
+        }
+
         if (result is { IsApplied: true, Target: { } target } && _conversations is { } conversations)
         {
             conversations.OpenTarget(target.Id.Place, target.Placement);
@@ -1706,14 +1754,16 @@ public sealed class PartyRpgSession : IGameSession
     /// <remarks>
     /// It is composed beside the casting workflow and over the same party, because mixing is a transfer of the
     /// party's own things rather than an act in the world: the ingredients come out of the shared pack and the
-    /// potion goes back into it through the party's own two entries. A session whose ruleset answered no
-    /// mixtures holds no workflow at all, and publishes that rather than a pack screen whose mixing control
-    /// nothing could carry out.
+    /// potion goes back into it through the party's own two entries. The knowledge owner travels with it
+    /// because the mixture whose row records a discovery is what teaches it: a recipe the party has made is a
+    /// fact it keeps, and the workflow that made it is the owner of that moment. A session whose ruleset
+    /// answered no mixtures holds no workflow at all, and publishes that rather than a pack screen whose
+    /// mixing control nothing could carry out.
     /// </remarks>
     private void ComposeAlchemy()
     {
         if (_alchemyRule is not { } rule || _mixtures is not { } catalog || _party is not { } party) return;
-        _mixing = new PotionMixing(party, catalog, rule);
+        _mixing = new PotionMixing(party, catalog, rule, _knowledge);
     }
 
     /// <summary>
@@ -2082,6 +2132,30 @@ public sealed class PartyRpgSession : IGameSession
     }
 
     /// <summary>
+    /// Composes what the party knows over the session's one clock, when the ruleset answered for it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Knowledge needs the clock and nothing else, and deliberately not the world.</b> Every note is dated
+    /// in game time and a loaded note is read back against the clock's own calendar, so a session without one
+    /// composes no knowledge rather than keeping facts learned at no particular time. What it is kept apart
+    /// <em>from</em> is the world's own per-place state: a place the clock restores is a change to what the
+    /// world currently is, and what the party learned there is the party's own fact, so this owner reads no
+    /// place state and a reset has nothing to clear.
+    /// </para>
+    /// <para>
+    /// A session that creates its party composes it when creation is accepted, which is the moment that party
+    /// exists; a session resumed from a save hands the recorded notes in, and they are dated against the clock
+    /// the session was resumed on rather than the moment it was loaded.
+    /// </para>
+    /// </remarks>
+    private void ComposeKnowledge()
+    {
+        if (_knowledge is not null || _knowledgeRule is null || _clock is not { } clock) return;
+        _knowledge = new PartyKnowledge(_knowledgeRule, clock, _knowledgeState);
+    }
+
+    /// <summary>
     /// Composes the rest mechanism over the party the session plays, when the ruleset answered for one.
     /// </summary>
     /// <remarks>
@@ -2255,10 +2329,11 @@ public sealed class PartyRpgSession : IGameSession
         // and the objectives are the quest's own words rather than a screen's reading of them.
         QuestSnapshot.From(_quests),
         // The five books and what each holds, read from the owners that own their facts: the quest owner's
-        // errands, the world's knowledge of its places, the one clock's date, and the journal's own dated
-        // lines. "This session's ruleset stated no journal", "the party has been nowhere and written nothing
-        // down", and "a book no owner fills yet" are three different facts a screen must tell apart.
-        JournalSnapshot.From(_journal, _quests, _liveWorld, _clock));
+        // errands, what the party has learned, the world's knowledge of its places, the one clock's date, and
+        // the journal's own dated lines. "This session's ruleset stated no journal", "the party has been
+        // nowhere and written nothing down", and "a book whose own owner is not composed" are three different
+        // facts a screen must tell apart.
+        JournalSnapshot.From(_journal, _quests, _liveWorld, _clock, _knowledge));
 
     /// <summary>Publishes the world as it stands now, after a caller moved the party.</summary>
     public void PublishWorld()

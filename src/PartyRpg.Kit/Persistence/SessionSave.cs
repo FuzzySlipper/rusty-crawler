@@ -1,4 +1,5 @@
 using PartyRpg.Kit.Journal;
+using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Quests;
 using PartyRpg.Kit.Sessions;
@@ -23,15 +24,17 @@ namespace PartyRpg.Kit.Persistence;
 /// progression and portraits, the shared inventory with each instance's custody, damage and enchantments,
 /// the purse, the larder, reputation, followers, effects, and the identity cursors — the clock's elapsed
 /// game time, where the party stands, what each place remembers, every quest the party has a state about,
-/// and every line of the party's own history. The quest section carries the instances the party took — their
-/// stage, their recorded progress, and the place each offer was taken in — and deliberately not the quests
-/// themselves, which are read back from the game's own content when the document is loaded. The journal
-/// section carries the dated lines a party has written down, and it carries them as the game time they
-/// happened at rather than as dates, for the same reason the clock is saved that way: a date stored beside a
-/// ruleset that composes another calendar or starting date would silently move a party's whole history.
-/// Sections arrive with the owners that hold their state: knowledge, containers and loose world items, and
-/// scenario flags have no owner in the product yet, so a save has nothing of theirs to carry and this
-/// document does not pretend otherwise by holding a section nobody fills.
+/// every line of the party's own history, and every fact the party has learned. The quest section carries
+/// the instances the party took — their stage, their recorded progress, and the place each offer was taken
+/// in — and deliberately not the quests themselves, which are read back from the game's own content when the
+/// document is loaded. The journal and knowledge sections carry the party's own two records — dated lines
+/// about what happened, and the facts it can look up again — and both carry them as the game time they were
+/// written at rather than as dates, for the same reason the clock is saved that way: a date stored beside a
+/// ruleset that composes another calendar or starting date would silently move what a party did and when it
+/// learned things. Neither section is keyed by a place, which is what makes them survive a place reset.
+/// Sections arrive with the owners that hold their state: containers and loose world items, and scenario
+/// flags have no owner in the product yet, so a save has nothing of theirs to carry and this document does
+/// not pretend otherwise by holding a section nobody fills.
 /// </para>
 /// <para>
 /// <b>What is deliberately absent is as decided as what is here.</b> In-flight movement outcomes, cached
@@ -51,8 +54,15 @@ public sealed record SessionSave
     /// <param name="world">Where the party stands and what each place remembers.</param>
     /// <param name="quests">Every quest the party has a state about, or null when it has none.</param>
     /// <param name="journal">Every line of the party's own history, or null when it has written none.</param>
+    /// <param name="knowledge">Every fact the party has learned, or null when it has learned none.</param>
     /// <exception cref="ArgumentNullException">A section is null, which is not a session a load could rebuild.</exception>
-    public SessionSave(PartySave party, ClockSave clock, WorldSave world, QuestSave? quests = null, JournalSave? journal = null)
+    public SessionSave(
+        PartySave party,
+        ClockSave clock,
+        WorldSave world,
+        QuestSave? quests = null,
+        JournalSave? journal = null,
+        KnowledgeSave? knowledge = null)
     {
         ArgumentNullException.ThrowIfNull(party);
         ArgumentNullException.ThrowIfNull(clock);
@@ -62,6 +72,7 @@ public sealed record SessionSave
         World = world;
         Quests = quests ?? QuestSave.None;
         Journal = journal ?? JournalSave.None;
+        Knowledge = knowledge ?? KnowledgeSave.None;
     }
 
     /// <summary>The party, its items, its accounts, and its identity cursors.</summary>
@@ -78,6 +89,9 @@ public sealed record SessionSave
 
     /// <summary>Every line of the party's own history, which is empty for a party that has written none.</summary>
     public JournalSave Journal { get; }
+
+    /// <summary>Every fact the party has learned, which is empty for a party that has learned none.</summary>
+    public KnowledgeSave Knowledge { get; }
 
     /// <summary>
     /// Reads a live session into the current schema, without writing anything anywhere.
@@ -112,14 +126,16 @@ public sealed record SessionSave
 
         // The quest owner is absent from a session that holds one for no party and from one whose ruleset
         // stated no quests at all: both are a party with no quest state, which is what an empty section
-        // records rather than a section nobody filled. The journal is absent on the same terms — a session
-        // whose ruleset stated no journal, or that holds no clock to date a line by, has written nothing down.
+        // records rather than a section nobody filled. The journal and the knowledge beside it are absent on
+        // the same terms — a session whose ruleset stated neither, or that holds no clock to date a line or a
+        // note by, has written nothing down and learned nothing it keeps.
         return new SessionSave(
             held.Capture(),
             ClockSave.Capture(time),
             place.Capture(),
             session.Quests?.Capture() ?? QuestSave.None,
-            session.Journal?.Capture() ?? JournalSave.None);
+            session.Journal?.Capture() ?? JournalSave.None,
+            session.Knowledge?.Capture() ?? KnowledgeSave.None);
     }
 
     /// <summary>
@@ -196,6 +212,12 @@ public sealed record SessionSave
         // never lived. Its own bound is asked of the journal rather than spelled here, so the rule that keeps
         // a history from growing without limit is stated in one place and enforced on both paths.
         problems.AddRange(Journal.Problems(Clock.ElapsedMilliseconds, JournalHistory.MaxEntries));
+
+        // What the party knows is judged against the same recorded clock, for the same reason: a note dated
+        // after the game time the save had reached was learned in a future the party never lived. Its own
+        // bound is asked of the owner rather than spelled here, so the rule that keeps a party's knowledge
+        // from growing without limit is stated in one place and enforced on both paths.
+        problems.AddRange(Knowledge.Problems(Clock.ElapsedMilliseconds, PartyKnowledge.MaxNotes));
         return problems;
     }
 

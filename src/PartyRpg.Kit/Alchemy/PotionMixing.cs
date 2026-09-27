@@ -1,4 +1,5 @@
 using System.Globalization;
+using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Party;
 
 namespace PartyRpg.Kit.Alchemy;
@@ -26,9 +27,9 @@ public readonly record struct MixingRequest(int Member, ItemInstanceId First, It
 /// </para>
 /// <para>
 /// <b>What the party learned travels with the outcome.</b> A game's mixture table records a discovery per
-/// pair, and this carries that record's own number rather than a sentence: whether the party may know it, and
-/// where a discovery is written, belongs to whatever owner keeps what the party knows. A result with no note
-/// is a mixture the game states no discovery for.
+/// pair, and this carries that record's own number rather than a sentence: the number is the table's own
+/// statement that this pair teaches something, and the words a person reads are the knowledge owner's
+/// business. A result with no note is a mixture the game states no discovery for.
 /// </para>
 /// </remarks>
 public sealed record MixingResult
@@ -290,17 +291,24 @@ public sealed class PotionMixing
     private readonly PartyEntity _party;
     private readonly AlchemyCatalog _catalog;
     private readonly IAlchemyRule _rule;
+    private readonly PartyKnowledge? _knowledge;
 
     /// <summary>Creates the mixing workflow over one party and one game's own mixture table.</summary>
     /// <param name="party">The party whose pack holds the ingredients.</param>
     /// <param name="catalog">The mixtures the game's own tables state.</param>
     /// <param name="rule">This game's answers about mixing.</param>
+    /// <param name="knowledge">
+    /// What the party knows, which a mixture that records a discovery is reported to. Without one the
+    /// mixture is still made and nothing is written down, which is the honest state of a session whose
+    /// ruleset keeps no record of what its party learns.
+    /// </param>
     /// <exception cref="ArgumentNullException">No party, catalog, or rule was supplied.</exception>
-    public PotionMixing(PartyEntity party, AlchemyCatalog catalog, IAlchemyRule rule)
+    public PotionMixing(PartyEntity party, AlchemyCatalog catalog, IAlchemyRule rule, PartyKnowledge? knowledge = null)
     {
         _party = party ?? throw new ArgumentNullException(nameof(party));
         _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
         _rule = rule ?? throw new ArgumentNullException(nameof(rule));
+        _knowledge = knowledge;
     }
 
     /// <summary>The party whose pack holds the ingredients.</summary>
@@ -470,6 +478,7 @@ public sealed class PotionMixing
             return Record(MixingResult.Refused(request.Member, mixer.Profile.Name, firstName, secondName, acquisition.Refusal!));
         }
 
+        Learn(mixture, first, second, resultName);
         return Record(MixingResult.Mixed(
             mixer.Profile.Name,
             request.Member,
@@ -516,6 +525,50 @@ public sealed class PotionMixing
 
     private static MixingResult Refuse(MixingRequest request, PartyMember mixer, string code, string message) =>
         MixingResult.Refused(request.Member, mixer.Profile.Name, string.Empty, string.Empty, new PartyRefusal(code, message));
+
+    /// <summary>
+    /// Reports the discovery a mixture's own row records, which is what makes a learned recipe a fact the
+    /// party keeps.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The discovery is reported here because this is the owner of the moment.</b> The mixture's own row
+    /// states a discovery index — zero for a pair the game teaches nothing by — and the record belongs to
+    /// the party rather than to the character who mixed, which is why it reaches the knowledge owner and not
+    /// the mixer's own state. A mixture whose row states no discovery therefore teaches nothing, and one that
+    /// states a discovery is reported whether or not the party already knew it: whether the report is news is
+    /// the knowledge owner's answer, not this one's. What the number means is the game's own reading and is
+    /// stated in its ruleset.
+    /// </para>
+    /// <para>
+    /// <b>A recipe is knowledge of the pair and of what it makes.</b> The subject is the two definitions, in
+    /// one canonical order so that mixing the same two things the other way round is the same fact; the
+    /// name is what the mixture makes with the two things that make it beside it, which is the shape the
+    /// shipped discovery table's own rows state — the potion, then the two ingredients it is made of. The
+    /// words are this build's own composition of the names the game already gives those rows; the shipped
+    /// table's own sentence for each discovery is a row the importer does not read yet, and the task that
+    /// reads it would carry its text here instead.
+    /// </para>
+    /// </remarks>
+    /// <param name="mixture">The row the pair was found under, which carries the discovery it records.</param>
+    /// <param name="first">One ingredient the party spent.</param>
+    /// <param name="second">The other ingredient the party spent.</param>
+    /// <param name="resultName">What the mixture made is called.</param>
+    private void Learn(PotionMixture mixture, ItemInstance first, ItemInstance second, string resultName)
+    {
+        if (mixture.Note <= 0 || _knowledge is null) return;
+        ItemDefinitionId one = first.Definition;
+        ItemDefinitionId other = second.Definition;
+        string firstName = _rule.NameOf(one);
+        string secondName = _rule.NameOf(other);
+        _knowledge.Record(new KnowledgeReport(
+            KnowledgeKind.Recipe,
+            Source: "alchemy",
+            Subject: string.CompareOrdinal(one.Value, other.Value) <= 0
+                ? string.Create(CultureInfo.InvariantCulture, $"{one}+{other}")
+                : string.Create(CultureInfo.InvariantCulture, $"{other}+{one}"),
+            Name: string.Create(CultureInfo.InvariantCulture, $"{resultName} ({firstName} + {secondName})")));
+    }
 
     private MixingResult Record(MixingResult result)
     {

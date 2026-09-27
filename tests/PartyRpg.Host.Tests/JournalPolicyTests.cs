@@ -63,12 +63,13 @@ public sealed class JournalPolicyTests
         Assert.Equal(
             ["Current Quests", "Auto Notes", "Maps", "Calendar", "History"],
             Titles(books));
-        Assert.Equal([true, false, true, true, true], Availability(books));
+        Assert.Equal([true, true, true, true, true], Availability(books));
 
-        // The notes book is the seam the knowledge stone lands behind: this build composes no owner that
-        // records what the party has learned, and the book says so in this game's own words rather than
-        // showing an empty list a player would read as "there is nothing to know here".
-        Assert.Contains("knowledge owner", Book(books, "notes").Field("state").AsString(), StringComparison.Ordinal);
+        // The notes book is the knowledge owner's own page, and a party that has just arrived knows nothing
+        // worth noting yet: the book is fillable and says what it holds rather than pretending no owner keeps
+        // it, which is the difference between an empty book and a book nobody can fill.
+        Assert.Equal("The party has learned nothing worth noting yet.", Book(books, "notes").Field("state").AsString());
+        Assert.Equal(0, Book(books, "notes").Field("rows").Length());
 
         // What the world reports is one line, with the day it happened and the calendar's date beside it.
         Assert.Equal(["Entered Erathia"], History(books));

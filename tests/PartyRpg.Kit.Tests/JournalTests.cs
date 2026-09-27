@@ -296,8 +296,10 @@ public sealed class JournalTests
         Assert.True(books.Available);
         Assert.Equal(["quests", "notes", "maps", "calendar", "history"], books.Books.Select(book => book.Kind));
 
-        // Every book is fillable except the one whose owner this build does not compose, and that one names
-        // the owner it waits for rather than pretending the party has learned nothing.
+        // Every book is fillable except the one whose owner this call does not hold, and that one names the
+        // owner it waits for rather than pretending the party has learned nothing: "no owner keeps this" and
+        // "the party has learned nothing" are different facts. A session composed with a knowledge owner
+        // fills it, which the knowledge suite proves beside this one.
         Assert.Equal([true, false, true, true, true], books.Books.Select(book => book.Available));
         Assert.Contains("the knowledge owner", books.Books[1].State, StringComparison.Ordinal);
         Assert.Empty(books.Books[1].Rows);

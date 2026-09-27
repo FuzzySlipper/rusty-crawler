@@ -52,6 +52,11 @@ Owns:
 - Time, calendar, rest, fatigue, and travel policy, including service hours.
 - Quest, guild, reputation, and journal policy: the errands the shipped quest table states, what each asks
   and pays, who gives it, and the board a town hall posts.
+- Discovery policy (`MightAndMagic7Knowledge`): how a note about each kind of discovery reads, and which
+  discoveries this game keeps — a find when the shipped item table marks it an artifact or a relic, a recipe
+  when the potion table's own cell records one, and a landmark's effect or a line read when the event that
+  gave it runs. The shipped discovery table and the map events that set its rows are both read by nobody in
+  this build yet, which is why a fountain cannot be drunk from and an obelisk cannot be read.
 - Content interpretation and presentation meaning: what an imported region,
   map, sprite, or sound means to this ruleset.
 - Session composition: assembling the kit's named services with Might and Magic
@@ -205,7 +210,16 @@ errand. What each of the 17 errands is read as is stated row by row in `MightAnd
 with the shipped words it is written over, the place and creature names it resolves against content, and
 the residue that says what the original performs with an event program and this build does not judge; a
 test over the operator's own packs checks that every objective resolved and that a count taken from a
-place's placements is that place's own. Everything else
+place's placements is that place's own. What a party discovers is landed beside the journal: the knowledge
+owner keeps the facts it can look up again — a mixture the potion table states a discovery for, a find the
+shipped table marks an artifact or a relic, and, once a map event is executed, a fountain's effect or an
+obelisk's clue — and `MightAndMagic7Knowledge` states the words a note about each kind reads with and what
+this game counts as worth keeping. The operator's own data carries both halves of what is still missing: the
+install's discovery table holds 207 rows (39 what a well or fountain gives, 14 the obelisks' own messages,
+61 potion recipes, and the rest instructors, seers, and odd events), and the map event programs set those
+numbers 122 times across 16 programs. The importer reads no discovery table and nothing executes a map
+event, so a fixture's use is refused with the event named and nothing is claimed to have been learned from
+it. Everything else
 listed above — the remaining class, skill, spell, monster, item, and formula policy, and rest and
 fatigue and service hours — attaches to the session as its stone lands. Fidelity per system — what matches
 the original, what is approximate, and what is deliberately ours — is fixed in

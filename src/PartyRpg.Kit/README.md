@@ -70,7 +70,10 @@ Owns:
   between world regions and indoor maps.
 - Journal and history (`Journal/` — one owner of what a party has written down: dated lines reported by
   the owners of the events themselves, the same event written once, a bounded history that outlives the
-  places it happened in, and the five books a session reads its record and its world through).
+  places it happened in, and the five books a session reads its record and its world through), and what
+  the party has learned (`Knowledge/` — one owner of the facts it can look up again, keyed so learning the
+  same fact twice is one fact, dated by the one clock, bounded beside the history, and deliberately kept
+  apart from the world's per-place state so a place the clock restores clears nothing a party knows).
 - Session plumbing: compiled ruleset contracts, typed IDs, bundle and
   content-pack resolution, typed tuning handles, structured UI values, and
   bootstrap of an Engine-admitted session.
@@ -235,8 +238,8 @@ population's runtime entities, engine handles, and every store-local entity iden
 load — and a document wrong in several places is refused with every problem named at once, never only the
 first. A load also does not re-judge what it carries: the rules a party obeys are supplied when it is built,
 so a capacity rule that has changed gates new pickups and never loses an item the party already owned. The
-sections a session does not own yet — knowledge, containers and loose world items, and scenario flags — are
-absent because no owner holds their state; the schema grows a section when one does. The quests section is
+sections a session does not own yet — containers and loose world items, and scenario flags — are absent
+because no owner holds their state; the schema grows a section when one does. The quests section is
 the one that arrived with its owner: it carries every instance a party holds — the stage, the progress
 recorded against objectives that are moments rather than states, and the place each offer was taken in —
 and no definition at all, because what a quest is means is read from the game's own content when the
@@ -247,7 +250,12 @@ rather than as dates — the calendar and the starting date are the ruleset's po
 the way back — with the line's own words frozen as they were written, so a renamed quest or a place the world
 no longer carries cannot rewrite what the party did. Its bound is enforced on the way out and on the way in,
 and a document that dates a line after the game time it had reached, or records one event twice, is refused
-with that line named.
+with that line named. The knowledge section carries the party's other record — the facts it has learned —
+as the game time each was learned at rather than as dates, with every fact keyed by what it is about and
+where, so the same fact is one note; a document that names a kind this build has no word for, says nothing,
+dates a note after the game time it had reached, records one fact twice, or exceeds the owner's own bound is
+refused with that note named. Nothing in that section is keyed by a place, which is what makes what a party
+knows unaffected by a place reset.
 
 The day shape follows the donor's day boundary: a new day takes one ration, the food store is spent down to
 empty rather than the day being refused, and the ruleset's consequence for the larder the day left — weakness

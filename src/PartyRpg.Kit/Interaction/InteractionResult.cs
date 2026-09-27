@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Party;
 
 namespace PartyRpg.Kit.Interaction;
@@ -24,6 +25,7 @@ public sealed record InteractionResult
         string state,
         string message,
         string residue,
+        IReadOnlyList<KnowledgeReport> learned,
         PartyRefusal? refusal)
     {
         IsApplied = isApplied;
@@ -32,6 +34,7 @@ public sealed record InteractionResult
         State = state;
         Message = message;
         Residue = residue;
+        Learned = learned;
         Refusal = refusal;
     }
 
@@ -52,7 +55,7 @@ public sealed record InteractionResult
                 nameof(outcome));
         }
 
-        return new InteractionResult(true, target, target.Definition.Verb, outcome.State, message, outcome.Residue, null);
+        return new InteractionResult(true, target, target.Definition.Verb, outcome.State, message, outcome.Residue, outcome.Learned, null);
     }
 
     /// <summary>The use did nothing, and this is why.</summary>
@@ -61,7 +64,7 @@ public sealed record InteractionResult
     /// <param name="message">Why nothing happened, in terms a person can act on.</param>
     /// <exception cref="ArgumentException">The code or the message is blank.</exception>
     public static InteractionResult Refused(InteractionTarget? target, string code, string message) =>
-        new(false, target, target?.Definition.Verb, target?.State.State ?? string.Empty, message, string.Empty, new PartyRefusal(code, message));
+        new(false, target, target?.Definition.Verb, target?.State.State ?? string.Empty, message, string.Empty, [], new PartyRefusal(code, message));
 
     /// <summary>Whether the use happened. A refusal left the target and the party exactly as they were.</summary>
     public bool IsApplied { get; }
@@ -80,6 +83,17 @@ public sealed record InteractionResult
 
     /// <summary>What the use could not deliver, or empty when it delivered all of it.</summary>
     public string Residue { get; }
+
+    /// <summary>
+    /// What the use taught the party, or empty when it taught nothing. A refusal teaches nothing: what a
+    /// use the party was not allowed to make would have taught was never learned.
+    /// </summary>
+    /// <remarks>
+    /// The facts travel from the ruleset's own outcome so the caller that holds the knowledge owner can
+    /// hand them over without reading the outcome's other parts: whether a fact is news is the knowledge
+    /// owner's answer, and this result reports them all.
+    /// </remarks>
+    public IReadOnlyList<KnowledgeReport> Learned { get; }
 
     /// <summary>The refusal, or null when the use happened.</summary>
     public PartyRefusal? Refusal { get; }

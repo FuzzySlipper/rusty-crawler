@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Party;
 
 namespace PartyRpg.Kit.Interaction;
@@ -48,6 +49,13 @@ public readonly record struct InteractionItemYield
 /// its collision still stands is a fact about this build, and a report that hid it would be claiming a
 /// passage the party cannot walk.
 /// </para>
+/// <para>
+/// <b>What a use taught travels with it.</b> The rule that carried the use out is the owner of the moment
+/// the party learned something — a search that yielded a thing worth knowing, an inscription it read, a
+/// landmark whose effect it felt — so the discoveries are stated here and the mechanism hands them on. The
+/// knowledge owner is what decides whether each is news, which is why an outcome reports every discovery
+/// it made rather than filtering them itself.
+/// </para>
 /// </remarks>
 public sealed record InteractionOutcome
 {
@@ -58,6 +66,7 @@ public sealed record InteractionOutcome
         string residue,
         IReadOnlyList<InteractionItemYield> items,
         PartyCost gain,
+        IReadOnlyList<KnowledgeReport> learned,
         PartyRefusal? refusal)
     {
         IsApplied = isApplied;
@@ -66,6 +75,7 @@ public sealed record InteractionOutcome
         Residue = residue;
         Items = items;
         Gain = gain;
+        Learned = learned;
         Refusal = refusal;
     }
 
@@ -75,6 +85,7 @@ public sealed record InteractionOutcome
     /// <param name="residue">What the use could not deliver, or empty when it delivered all of it.</param>
     /// <param name="items">The items the use gives the party, or empty when it gives none.</param>
     /// <param name="gain">What the use puts into the party's accounts, or nothing when it puts nothing there.</param>
+    /// <param name="learned">What the use taught the party, or empty when it taught nothing.</param>
     /// <returns>The outcome.</returns>
     /// <exception cref="ArgumentException">The state or the message is blank.</exception>
     public static InteractionOutcome Applied(
@@ -82,11 +93,12 @@ public sealed record InteractionOutcome
         string message,
         string residue = "",
         IReadOnlyList<InteractionItemYield>? items = null,
-        PartyCost? gain = null)
+        PartyCost? gain = null,
+        IReadOnlyList<KnowledgeReport>? learned = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(state);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        return new InteractionOutcome(true, state, message, residue, items ?? [], gain ?? PartyCost.Free, null);
+        return new InteractionOutcome(true, state, message, residue, items ?? [], gain ?? PartyCost.Free, learned ?? [], null);
     }
 
     /// <summary>The use happened and changed nothing, and this is why — a refusal with a stated consequence.</summary>
@@ -95,7 +107,7 @@ public sealed record InteractionOutcome
     /// <returns>The outcome.</returns>
     /// <exception cref="ArgumentException">The code or the message is blank.</exception>
     public static InteractionOutcome Refused(string code, string message) =>
-        new(false, string.Empty, message, string.Empty, [], PartyCost.Free, new PartyRefusal(code, message));
+        new(false, string.Empty, message, string.Empty, [], PartyCost.Free, [], new PartyRefusal(code, message));
 
     /// <summary>Whether the use happened. A refused outcome changed nothing at all.</summary>
     public bool IsApplied { get; }
@@ -114,6 +126,9 @@ public sealed record InteractionOutcome
 
     /// <summary>What the use puts into the party's accounts.</summary>
     public PartyCost Gain { get; }
+
+    /// <summary>What the use taught the party, in the reporting owner's own words for each fact.</summary>
+    public IReadOnlyList<KnowledgeReport> Learned { get; }
 
     /// <summary>The refusal, or null when the use happened.</summary>
     public PartyRefusal? Refusal { get; }
