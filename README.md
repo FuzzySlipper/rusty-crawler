@@ -264,7 +264,10 @@ emits each place's collision geometry into the world pack, in the engine's own s
 refuses a place whose solid faces cannot be closed enough for a party to stand on — the shape and the
 rules are in [`docs/research/mm7-map-formats.md`](docs/research/mm7-map-formats.md) §8.
 
-Den serves the product through `.den-serve.json` on port 4176.
+Den serves the product through `.den-serve.json` on port 4176. A second target on another port, with its
+own content root, is how two lanes run live checks at once; the procedure — which content root may be
+staged into, how a pack directory and a bundle are named, how the panel is driven and read, and what a
+refused start looks like — is in [`docs/live-checks.md`](docs/live-checks.md).
 
 ## Guidance and proof
 

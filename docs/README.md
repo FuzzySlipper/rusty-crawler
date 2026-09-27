@@ -8,6 +8,7 @@ Durable repository documents for Rusty Crawler. Start here.
 | [`../README.md`](../README.md) | What the repository is, its current state, and how to develop and verify it. |
 | [`gameplay-design.md`](gameplay-design.md) | The shape of the game: the loop, every system with a fidelity verdict, the foundations-first building order, non-goals, and the decisions that are expensive to reverse. |
 | [`code-organization.md`](code-organization.md) | How the repository expresses that shape: layering, where new code goes, the Kit and ruleset owner maps, content and import shapes, the UI contract, session modes, and persistence. |
+| [`live-checks.md`](live-checks.md) | How a lane takes a live-check target, stages content without colliding with another lane, drives the running product through its own panel, and reads what it answers. |
 | [`research/`](research/) | Donor surveys, the manual-cited experience outline, the extracted data inventory, and the byte-verified format specs the importer's remaining work is written against. |
 | [`agent-review/`](agent-review/) | The review lane model and the packets handed to reviewers. |
 
