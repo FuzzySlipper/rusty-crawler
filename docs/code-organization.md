@@ -63,7 +63,9 @@ Working names; the responsibilities are the contract, the names are not.
 | Magic | Spell catalog shape, known spells, casting workflow (validate → cost → target → apply), buffs with game-time duration, item-borne casting | School lists, costs, tiers, and per-spell effect policy |
 | Combat | One combat state over the live world: pacing mode, per-actor recovery, turn queue, attack execution, effect and condition application, monster AI coordination, corpses and loot | Damage formulas, monster definitions, condition meanings |
 | World | The place graph, entry points, transitions with cost, entity population, spatial stepping, per-place runtime state, spawn and respawn | What a place contains (content), how it looks (Engine + media) |
-| Knowledge | Discovery state: automap coverage, notes, obelisk and fountain records, journal history, awards | Quest definitions; world state |
+| Knowledge | The facts a party can look up again: notes keyed by kind, subject, and place, dated by the one clock and bounded | Where a fact was learned (the place's own state)
+| Maps | What a party has walked: a per-place set of seen squares over the place's own map, bounded by that grid and by the game's sight rule, and the drawing projected from it (the window, the runs of seen squares, the marks, the party's pose) | The place's own map — content's raster — and the world's state; a detection's reveal, which is a live reading and never a square |
+| Journal | The party's dated record: lines reported by the owners of the events, five books their facts are read through, bounded | Quest definitions; the world's own place knowledge; what a book's owner holds |
 | Interaction | Interaction targets (doors, containers, chests, levers, triggers, people) and the use/search/unlock workflow | Trap and lock policy |
 | Dialogue | Conversation state, topic lists, topic availability, keyword responses, quest offers | Who says what (content) |
 | Services | One service mechanism with kinds (trade, heal, rest, deposit, train, teach, travel, govern) over content definitions | Prices, stock rules, membership policy, level caps |

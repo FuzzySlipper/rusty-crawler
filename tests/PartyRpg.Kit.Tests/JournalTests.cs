@@ -167,7 +167,8 @@ public sealed class JournalTests
         Assert.True(journal.Record(Find("511", "the Ruby of Ultimate Power", Keep)));
 
         // A reset restores the place's population, which is a fact about the place and nothing at all about
-        // the party's record: every line stands, and the maps book still knows where the party has been.
+        // the party's record: every line stands, and what the party has seen of the place is its own map
+        // rather than the place's state — which the automap suite proves beside this one.
         clock.Advance(GameDuration.FromHours(24 * 8));
         IReadOnlyList<PlaceState> restored = world.Places.AdvanceTo(clock.ElapsedGameDays);
         Assert.Contains(restored, state => state.Place == Keep);
@@ -179,9 +180,8 @@ public sealed class JournalTests
 
         JournalSnapshot books = JournalSnapshot.From(journal, quests: null, world, clock);
         JournalBookSnapshot maps = books.Books.Single(book => book.Kind == "maps");
-        Assert.True(maps.Available);
-        Assert.Equal("1 of 2 places known", maps.State);
-        Assert.Equal("visited", Assert.Single(maps.Rows).State);
+        Assert.False(maps.Available);
+        Assert.Contains("map owner", maps.State, StringComparison.Ordinal);
 
         // The save carries the lines across a reset as well: what a load restores is the party's own record,
         // and the place's population is the world's business rather than the journal's.
@@ -296,20 +296,15 @@ public sealed class JournalTests
         Assert.True(books.Available);
         Assert.Equal(["quests", "notes", "maps", "calendar", "history"], books.Books.Select(book => book.Kind));
 
-        // Every book is fillable except the one whose owner this call does not hold, and that one names the
-        // owner it waits for rather than pretending the party has learned nothing: "no owner keeps this" and
-        // "the party has learned nothing" are different facts. A session composed with a knowledge owner
-        // fills it, which the knowledge suite proves beside this one.
-        Assert.Equal([true, false, true, true, true], books.Books.Select(book => book.Available));
+        // Every book is fillable except the two whose owners this call does not hold, and each names the owner
+        // it waits for rather than pretending the party has learned or mapped nothing: "no owner keeps this" and
+        // "the party holds nothing" are different facts. A session composed with a knowledge owner or a map
+        // owner fills them, which the knowledge and automap suites prove beside this one.
+        Assert.Equal([true, false, false, true, true], books.Books.Select(book => book.Available));
         Assert.Contains("the knowledge owner", books.Books[1].State, StringComparison.Ordinal);
         Assert.Empty(books.Books[1].Rows);
-
-        // The maps book is the world's own knowledge, the calendar is the clock's own date, and the history is
-        // the journal's own lines — the panel is given each rather than deriving any of them.
-        JournalBookSnapshot maps = books.Books[2];
-        Assert.Equal("1 of 2 places known", maps.State);
-        Assert.Equal("the keep", Assert.Single(maps.Rows).Label);
-        Assert.Equal("region", maps.Rows[0].Detail);
+        Assert.Contains("map owner", books.Books[2].State, StringComparison.Ordinal);
+        Assert.Empty(books.Books[2].Rows);
 
         JournalBookSnapshot calendar = books.Books[3];
         Assert.Equal("1168-01-01", calendar.State);
@@ -514,7 +509,7 @@ public sealed class JournalTests
         {
             JournalBookKind.Quests => new("Current Quests", "no errands", "no quests stated"),
             JournalBookKind.Notes => new("Auto Notes", "nothing learned", "the knowledge owner keeps no notes in this build"),
-            JournalBookKind.Maps => new("Maps", "nowhere known", "no world"),
+            JournalBookKind.Maps => new("Maps", "nowhere mapped", "the map owner keeps no maps in this build"),
             JournalBookKind.Calendar => new("Calendar", "no day", "no clock"),
             _ => new("History", "nothing written", "no journal"),
         };

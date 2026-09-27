@@ -17,6 +17,13 @@ Boundary rules:
   back.
 - Generated output is build product and stays ignored; never edit it by hand.
 
+The automap is the one drawing the panel makes, and it makes none of it: the product publishes the window
+the game's zoom ladder shows, one rectangle per run of squares the party has seen, one point per mark with
+the kind the game gave it, the party's own position and facing in the drawing's own space, and the words for
+what is seen or why nothing is. The panel writes those numbers into SVG shapes, prints the state sentence and
+what a detection is revealing, and computes no scale, no offset, and no position of its own — a reload of the
+same projection draws the same map, which the companion suite checks.
+
 The panel also reports the last admitted movement step: whether the party is grounded or airborne, what
 blocked it when the engine refused the displacement, a step the engine accepted, and the cost of a fall
 the tuning priced. Those values come from the movement owner through the projection; the DOM computes

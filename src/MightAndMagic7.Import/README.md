@@ -26,6 +26,13 @@ Owns, once implemented:
   face gives the party to walk into — the face's own centroid and extent, with the model, face, event and
   attribute it came from — and, per link, the reason when there is none (an event no face raises, a later
   instruction of an event whose first move is another link, or a move the world itself issues).
+- The automap raster: one `place-map` entry per place — a region on its own terrain grid at its own
+  512-unit pitch with one height band per square, an interior on this importer's own 128-unit grid with a
+  square marked wherever one of the level's own minimap outlines passes through it — which is what the
+  product's automap is drawn from and what its map owner remembers a party walking. The layout, and the one
+  flip that puts a region's grid in the product's axes, are in
+  [`../../docs/research/mm7-map-formats.md`](../../docs/research/mm7-map-formats.md) §9. What the original
+  draws instead is coarser here and is marked ours.
 - Collision geometry: one artifact per place in the engine's own spatial document,
   built from the solid faces the map decoders already resolve — portals, ethereal
   faces and degenerate corners excluded, outdoor terrain tiled from its height

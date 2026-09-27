@@ -1,5 +1,6 @@
 using PartyRpg.Kit.Journal;
 using PartyRpg.Kit.Knowledge;
+using PartyRpg.Kit.Maps;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Quests;
 using PartyRpg.Kit.Sessions;
@@ -24,14 +25,18 @@ namespace PartyRpg.Kit.Persistence;
 /// progression and portraits, the shared inventory with each instance's custody, damage and enchantments,
 /// the purse, the larder, reputation, followers, effects, and the identity cursors — the clock's elapsed
 /// game time, where the party stands, what each place remembers, every quest the party has a state about,
-/// every line of the party's own history, and every fact the party has learned. The quest section carries
+/// every line of the party's own history, every fact the party has learned, and every place it holds a map
+/// of. The quest section carries
 /// the instances the party took — their stage, their recorded progress, and the place each offer was taken
 /// in — and deliberately not the quests themselves, which are read back from the game's own content when the
 /// document is loaded. The journal and knowledge sections carry the party's own two records — dated lines
 /// about what happened, and the facts it can look up again — and both carry them as the game time they were
 /// written at rather than as dates, for the same reason the clock is saved that way: a date stored beside a
 /// ruleset that composes another calendar or starting date would silently move what a party did and when it
-/// learned things. Neither section is keyed by a place, which is what makes them survive a place reset.
+/// learned things. Neither section is keyed by a place, which is what makes them survive a place reset. The
+/// map section is the one that is keyed by place, and deliberately so: what a party has seen of a place is
+/// ground rather than a fact about a thing, so it records the grid the cells were seen on and the cells, and
+/// a place the world restores touches none of it.
 /// Sections arrive with the owners that hold their state: containers and loose world items, and scenario
 /// flags have no owner in the product yet, so a save has nothing of theirs to carry and this document does
 /// not pretend otherwise by holding a section nobody fills.
@@ -55,6 +60,7 @@ public sealed record SessionSave
     /// <param name="quests">Every quest the party has a state about, or null when it has none.</param>
     /// <param name="journal">Every line of the party's own history, or null when it has written none.</param>
     /// <param name="knowledge">Every fact the party has learned, or null when it has learned none.</param>
+    /// <param name="maps">Every place the party holds a map of, or null when it has mapped none.</param>
     /// <exception cref="ArgumentNullException">A section is null, which is not a session a load could rebuild.</exception>
     public SessionSave(
         PartySave party,
@@ -62,7 +68,8 @@ public sealed record SessionSave
         WorldSave world,
         QuestSave? quests = null,
         JournalSave? journal = null,
-        KnowledgeSave? knowledge = null)
+        KnowledgeSave? knowledge = null,
+        MapSave? maps = null)
     {
         ArgumentNullException.ThrowIfNull(party);
         ArgumentNullException.ThrowIfNull(clock);
@@ -73,6 +80,7 @@ public sealed record SessionSave
         Quests = quests ?? QuestSave.None;
         Journal = journal ?? JournalSave.None;
         Knowledge = knowledge ?? KnowledgeSave.None;
+        Maps = maps ?? MapSave.None;
     }
 
     /// <summary>The party, its items, its accounts, and its identity cursors.</summary>
@@ -92,6 +100,9 @@ public sealed record SessionSave
 
     /// <summary>Every fact the party has learned, which is empty for a party that has learned none.</summary>
     public KnowledgeSave Knowledge { get; }
+
+    /// <summary>Every place the party holds a map of, which is empty for a party that has mapped none.</summary>
+    public MapSave Maps { get; }
 
     /// <summary>
     /// Reads a live session into the current schema, without writing anything anywhere.
@@ -135,7 +146,8 @@ public sealed record SessionSave
             place.Capture(),
             session.Quests?.Capture() ?? QuestSave.None,
             session.Journal?.Capture() ?? JournalSave.None,
-            session.Knowledge?.Capture() ?? KnowledgeSave.None);
+            session.Knowledge?.Capture() ?? KnowledgeSave.None,
+            session.Maps?.Capture() ?? MapSave.None);
     }
 
     /// <summary>
@@ -218,6 +230,12 @@ public sealed record SessionSave
         // bound is asked of the owner rather than spelled here, so the rule that keeps a party's knowledge
         // from growing without limit is stated in one place and enforced on both paths.
         problems.AddRange(Knowledge.Problems(Clock.ElapsedMilliseconds, PartyKnowledge.MaxNotes));
+
+        // The maps are judged against the world they would be resumed into, and against their own bound: a
+        // place the world does not have, a grid that is not a grid, and a cell beyond the grid it was written
+        // on are contradictions rather than rules the product might refuse, and the bound is asked of the
+        // owner so the rule that keeps a party's maps finite is stated in one place.
+        problems.AddRange(Maps.Problems(places, PartyMaps.MaxPlaces));
         return problems;
     }
 

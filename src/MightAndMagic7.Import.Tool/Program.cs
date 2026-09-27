@@ -299,6 +299,7 @@ internal static class Program
                 provenance = new { result.Provenance.Game, build = result.Provenance.BuildString },
                 packs = result.Packs.Select(pack => new { pack.PackId, pack.Documents, pack.Entries }),
                 geometry = Describe(result.Geometry),
+                maps = new { result.Maps.Places, result.Maps.Cells },
                 entrances = Describe(result.Entrances),
                 services = Describe(result.Services),
                 people = Describe(result.People),

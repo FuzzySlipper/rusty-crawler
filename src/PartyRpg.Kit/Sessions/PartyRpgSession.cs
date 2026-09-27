@@ -7,6 +7,7 @@ using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Journal;
 using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Magic;
+using PartyRpg.Kit.Maps;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Alchemy;
@@ -174,6 +175,10 @@ public sealed class PartyRpgSession : IGameSession
     private readonly JournalSave? _journalState;
     private PartyKnowledge? _knowledge;
     private readonly KnowledgeSave? _knowledgeState;
+    private readonly IMapRule? _mapRule;
+    private readonly IPlaceMapSource? _mapSource;
+    private readonly MapSave? _mapState;
+    private PartyMaps? _maps;
     private PartyRest? _rest;
     private CombatState? _combat;
     private CombatDirector? _director;
@@ -363,6 +368,24 @@ public sealed class PartyRpgSession : IGameSession
     /// notes carry elapsed game time rather than dates, so they are read back against the clock this session
     /// was composed with and a loaded note reads as the day it was learned.
     /// </param>
+    /// <param name="map">
+    /// This game's answers about its automap, when its ruleset has any: how far a walking party sees, what a
+    /// place's own map cells and features read as, how the map is zoomed, and what a detection reveals. The
+    /// owner is composed over the places' own maps, which content carries, and is deliberately not composed
+    /// over the world's per-place state: a place the clock restores is a change to what the world currently
+    /// is, and what the party has seen of it is the party's own memory. Without one the session maps nothing,
+    /// and its projection says so rather than showing an empty drawing.
+    /// </param>
+    /// <param name="mapSource">
+    /// Where each place's own map comes from, when the loaded content carries any. Without it the owner has no
+    /// map to fill and records nothing, which is what a product composed over content that states no maps
+    /// gets.
+    /// </param>
+    /// <param name="mapState">
+    /// What a save recorded of what the party has mapped, or null for a party that has mapped nothing. Its
+    /// cells carry the grid they were seen on rather than a date, so they are read back over the places' own
+    /// maps and show the ground the party actually saw.
+    /// </param>
     /// <param name="standing">
     /// This game's words for the standing a party holds and for what it has accomplished, when its ruleset
     /// gives any: the band the party's reputation falls in and what that band does, and the names of the
@@ -416,7 +439,10 @@ public sealed class PartyRpgSession : IGameSession
         IJournalRule? journal = null,
         JournalSave? journalState = null,
         IKnowledgeRule? knowledge = null,
-        KnowledgeSave? knowledgeState = null)
+        KnowledgeSave? knowledgeState = null,
+        IMapRule? map = null,
+        IPlaceMapSource? mapSource = null,
+        MapSave? mapState = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(composition.Title);
         if (creation is not null && (world is not null || party is not null))
@@ -453,6 +479,9 @@ public sealed class PartyRpgSession : IGameSession
         _journalState = journalState;
         _knowledgeRule = knowledge;
         _knowledgeState = knowledgeState;
+        _mapRule = map;
+        _mapSource = mapSource;
+        _mapState = mapState;
         _restInput = restInput is null ? null : new RestInput(restInput);
         _restRule = rest;
         _combatInput = combatInput is null ? null : new CombatInput(combatInput);
@@ -503,6 +532,10 @@ public sealed class PartyRpgSession : IGameSession
         // What the party knows is composed beside the journal and over the same clock, because the two are the
         // party's own two records: dated lines about what happened, and the facts it can look up again.
         ComposeKnowledge();
+        // The automap is composed beside them and over the places' own maps, which is the same split the notes
+        // make: what the party has seen is its own memory of the world's shape and not a reading of the place's
+        // current state.
+        ComposeMaps();
         ComposeRest();
         ComposeCombat();
         // The casting workflow is composed over the party, this game's spell answers, the effect path, and the
@@ -577,6 +610,15 @@ public sealed class PartyRpgSession : IGameSession
     /// clears nothing here.
     /// </summary>
     public PartyKnowledge? Knowledge => _knowledge;
+
+    /// <summary>
+    /// What the party has mapped, or null when its ruleset stated no automap or content carries no maps.
+    /// </summary>
+    /// <remarks>
+    /// It is the party's own memory of the world's shape, read by the automap block and by the maps book's page
+    /// per place, so the two cannot disagree about where the party has been.
+    /// </remarks>
+    public PartyMaps? Maps => _maps;
 
     /// <summary>
     /// The rest mechanism this session stops through, or null when its ruleset answered no rest policy or
@@ -836,6 +878,12 @@ public sealed class PartyRpgSession : IGameSession
         bool changed = false;
         if (_liveWorld is { } world)
         {
+            // What the party can see is added to its map here, once per update and before anything is read from
+            // the world: a step, a road taken, and a scripted arrival all put the party somewhere, and this is
+            // the one place they are all read from. The sweep inside runs when the party's own square changes,
+            // so a party standing still costs a lookup and adds nothing.
+            ObserveMap(world);
+
             // What the world stands on now is read once, before anything is published: a snapshot taken after
             // a publish would leave the world's own facts — the place, the pose, and the hours its doors keep
             // — one update behind the clock published beside them, which is exactly how a shop that shut at
@@ -1033,6 +1081,7 @@ public sealed class PartyRpgSession : IGameSession
         // and what its books show is read from the owners that hold those facts when the projection is built.
         ComposeJournal();
         ComposeKnowledge();
+        ComposeMaps();
         ComposeRest();
         ComposeCombat();
         ComposeMagic();
@@ -2167,6 +2216,38 @@ public sealed class PartyRpgSession : IGameSession
     }
 
     /// <summary>
+    /// Composes what the party has mapped, when the ruleset answered for an automap and content carries maps.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It is composed over the places' own maps and over nothing the world currently is.</b> A place's own
+    /// map is content, read once through the source the world's own geometry comes from, and what the party
+    /// has seen of it is the owner's own set of cells; the world's per-place state is deliberately not
+    /// consulted, so a population the clock restores, a container the party emptied, and a place it walked out
+    /// of all leave the map exactly as it was. That is the same boundary the notes make, and it is what "the
+    /// party has been here" and "the place has been restored" mean different things.
+    /// </para>
+    /// <para>
+    /// A session whose ruleset stated no automap, or whose content carries no maps, composes no owner and
+    /// records nothing while it walks; what its projection publishes says the mechanism is not there.
+    /// </para>
+    /// </remarks>
+    private void ComposeMaps()
+    {
+        if (_maps is not null || _mapRule is null || _mapSource is null) return;
+        _maps = new PartyMaps(_mapRule, _mapSource, _mapState);
+    }
+
+    /// <summary>Records what the party can see from where it now stands, once the world has moved it.</summary>
+    /// <remarks>
+    /// The sweep asks the game's own rule what stands between the party and the ground around it, and that
+    /// answer is the collision the party itself walks in: a wall, a closed door, and a floor between two
+    /// storeys stop the party's view for exactly the reason they stop its walk. A rule that states nothing —
+    /// a product with no spatial service — leaves the party a map of where it has been and nothing more.
+    /// </remarks>
+    private void ObserveMap(SessionWorld world) => _maps?.Observe(world.Place, world.Party.PlacePose);
+
+    /// <summary>
     /// Composes the rest mechanism over the party the session plays, when the ruleset answered for one.
     /// </summary>
     /// <remarks>
@@ -2344,7 +2425,11 @@ public sealed class PartyRpgSession : IGameSession
         // the journal's own dated lines. "This session's ruleset stated no journal", "the party has been
         // nowhere and written nothing down", and "a book whose own owner is not composed" are three different
         // facts a screen must tell apart.
-        JournalSnapshot.From(_journal, _quests, _liveWorld, _clock, _knowledge));
+        JournalSnapshot.From(_journal, _quests, _liveWorld, _clock, _knowledge, _maps),
+        // The automap, read from the party's own map of the place it stands in and from what a detection is
+        // revealing over it: what the party has seen is the owner's, what the ground is, is content's, and what
+        // a detection adds is read from the world at this moment rather than remembered.
+        MapSnapshot.From(_maps, _liveWorld, _spellEffects as IRunningSpellEffects));
 
     /// <summary>Publishes the world as it stands now, after a caller moved the party.</summary>
     public void PublishWorld()

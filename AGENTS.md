@@ -480,15 +480,35 @@ in a save.**
   so a loaded line reads as the day it happened rather than the day it was loaded; a document that dates a
   line in a future the party never lived, records one event twice, or exceeds the bound is refused with that
   line named. The projection publishes one `journal` block of five books: Current Quests (the quest owner's
-  errands, whose page is the quests block's own journal), Auto Notes (**deliberately empty — the seam the
-  knowledge stone lands behind**, since what a party learns about the world has no owner yet), Maps (the
-  world's own knowledge of its places), Calendar (the one clock), and History (the journal's own lines, each
-  with when it happened and which owner reported it). The panel renders those titles, sentences, and rows
+  errands, whose page is the quests block's own journal), Auto Notes (the knowledge owner's facts), Maps
+  (one page per place the party holds a map of, counted from the owner the automap is drawn from), Calendar
+  (the one clock), and History (the journal's own lines, each with when it happened and which owner reported
+  it). The panel renders those titles, sentences, and rows
   and computes none of them, keeping no state of its own, so a reload shows exactly what the save holds.
   This game's own reading is `MightAndMagic7Journal`: the manual's own five book names
   (`docs/research/mm7-manual-outline.md` p.165, from the manual p.22), this game's authored phrasing for a
   line, and one threshold — a find earns a line when the shipped item table marks it an artifact or a relic,
   the same reading a treasure draw already uses.
+- **The automap is a per-place set of squares a party has walked, and the maps book is the same owner's
+  page.** `PartyMaps` holds, for each place the party has walked, the squares it has seen over **that place's
+  own map** — a region's cells are its own terrain at its own 512-unit tile pitch, one band of its own height
+  map each; an interior's are its own minimap outlines rasterised at 128 units, both emitted by the importer
+  as a `place-map` document (`docs/research/mm7-map-formats.md` §9) — and it is bounded twice over: by the
+  place's own grid and by the game's stated sight radius and per-sweep cell limit. It is its own owner rather
+  than a kind of note because a map is keyed by a place and shaped by a grid, while the knowledge owner is
+  test-enforced to name no place state and its notes are dated one-line facts with no room for a thousand
+  squares; what the two share is that both are the party's, so a place whose population the world restores
+  clears neither. Walking fills it (the session asks once per update, and the sweep runs when the party's
+  square changes), the sweep's sight line is the engine's own collision through the game's `IMapRule.Sees`, and
+  the projection draws the window the game's zoom ladder picks for the place's own extent: one rectangle per
+  run of seen squares, one point per mark, the party's own position and facing in the drawing's own space, and
+  the game's words for what is seen or why nothing is — so the DOM companion writes shapes and computes
+  nothing (`src/ui/main.ts`, proven by the companion suite). **A detection is a live reading and never
+  knowledge**: this game's three detection spells leave a timed effect on the one clock and the automap marks
+  exactly what that spell's own row says it looks over while it runs — nothing else, no square, and no note.
+  The save carries a `maps` section (the grid each place was seen on and its cells as bits), so a load draws
+  the ground the party walked and never a full map; a timed effect still blocks a save by name, which the
+  automap suite states as the one gap detections share with the wards.
 - **Magic exists as a catalog, learning, one casting workflow, and an effect for every category; what the
   effects' own depths are is stated per spell, and deadlines in a save and a fight in a save are not
   here yet.** Do not describe, review, or accept behavior those stones will add as though it were here; for a

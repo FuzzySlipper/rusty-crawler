@@ -24,6 +24,7 @@ public sealed class IndoorMap : DecodedMap
         IReadOnlyList<MapDecoration> decorations,
         IReadOnlyList<MapEntryPoint> entryPoints,
         IReadOnlyList<MapSpawnPoint> spawnPoints,
+        IReadOnlyList<MapOutline> outlines,
         MapDelta? delta)
         : base(fileName)
     {
@@ -39,6 +40,7 @@ public sealed class IndoorMap : DecodedMap
         Decorations = decorations;
         EntryPoints = entryPoints;
         SpawnPoints = spawnPoints;
+        Outlines = outlines;
         Delta = delta;
 
         MapBounds? bounds = null;
@@ -92,6 +94,17 @@ public sealed class IndoorMap : DecodedMap
 
     /// <inheritdoc />
     public override IReadOnlyList<MapSpawnPoint> SpawnPoints { get; }
+
+    /// <summary>
+    /// The level's own minimap outlines, which its automap is drawn from.
+    /// </summary>
+    /// <remarks>
+    /// These are the lines the original draws for an interior, one per segment between two of the level's
+    /// vertices, and they are the only drawing an interior's own payload carries: there is no indoor terrain
+    /// grid and no prerendered indoor map picture. That is why an interior's automap is rasterised from them
+    /// and from nothing else.
+    /// </remarks>
+    public IReadOnlyList<MapOutline> Outlines { get; }
 
     /// <summary>The level's doors, or an empty list when it was decoded without its delta.</summary>
     public override IReadOnlyList<MapDoor> Doors => Delta?.Doors ?? [];

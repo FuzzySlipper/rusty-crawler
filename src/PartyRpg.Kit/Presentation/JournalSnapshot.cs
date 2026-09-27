@@ -1,6 +1,7 @@
 using System.Globalization;
 using PartyRpg.Kit.Journal;
 using PartyRpg.Kit.Knowledge;
+using PartyRpg.Kit.Maps;
 using PartyRpg.Kit.Quests;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
@@ -76,13 +77,15 @@ public readonly record struct JournalSnapshot(bool Available, IReadOnlyList<Jour
     /// <param name="world">The world the party stands in, or null when the session holds none.</param>
     /// <param name="clock">The session's one clock, or null when it has none.</param>
     /// <param name="knowledge">The knowledge owner, or null when the session holds none.</param>
+    /// <param name="maps">The map owner, or null when the session maps nothing.</param>
     /// <returns>The journal's books as a panel shows them.</returns>
     public static JournalSnapshot From(
         PartyJournal? journal,
         PartyQuests? quests,
         SessionWorld? world,
         GameClock? clock,
-        PartyKnowledge? knowledge = null)
+        PartyKnowledge? knowledge = null,
+        PartyMaps? maps = null)
     {
         if (journal is null) return None;
 
@@ -94,7 +97,7 @@ public readonly record struct JournalSnapshot(bool Available, IReadOnlyList<Jour
             {
                 JournalBookKind.Quests => Quests(words, quests),
                 JournalBookKind.Notes => Notes(words, knowledge, world),
-                JournalBookKind.Maps => Maps(words, world),
+                JournalBookKind.Maps => Maps(words, maps, world),
                 JournalBookKind.Calendar => Calendar(words, clock),
                 _ => History(words, journal, world),
             });
@@ -161,28 +164,44 @@ public readonly record struct JournalSnapshot(bool Available, IReadOnlyList<Jour
         return new JournalBookSnapshot("notes", words.Title, true, state, rows);
     }
 
-    /// <summary>The maps book: every place the party knows of, as the world's own knowledge reports it.</summary>
-    private static JournalBookSnapshot Maps(JournalBookWords words, SessionWorld? world)
+    /// <summary>
+    /// The maps book: one page per place, read from the map owner the automap is drawn from.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The book and the automap are one owner's answers.</b> Every row is a place the party holds a map of,
+    /// and what it says about it is the same owner's count of the cells it has seen of that place's own map —
+    /// so a book and a drawing cannot disagree about where the party has been, and there is no second list of
+    /// places for either of them to drift from.
+    /// </para>
+    /// <para>
+    /// <b>A place the party has been to but holds no map of is not a page.</b> The world's own record of where
+    /// the party has been is a different fact — it is what the world remembers of a place rather than what the
+    /// party drew — and a book of maps shows maps. A session whose content carries no maps for the places it
+    /// has places in says so in the game's own words rather than listing rooms it cannot draw.
+    /// </para>
+    /// </remarks>
+    private static JournalBookSnapshot Maps(JournalBookWords words, PartyMaps? maps, SessionWorld? world)
     {
-        if (world is null) return new JournalBookSnapshot("maps", words.Title, false, words.Unavailable, []);
+        if (maps is null) return new JournalBookSnapshot("maps", words.Title, false, words.Unavailable, []);
 
+        MapWords mapWords = maps.Rule.Words;
         List<JournalRowSnapshot> rows = [];
-        foreach (PlaceDefinition place in world.Graph.Places)
+        string here = world?.Place.Value ?? string.Empty;
+        foreach (MapTerritory territory in maps.Territories)
         {
-            PlaceState known = world.Places.StateOf(place.Id);
-            if (!known.Visited && !known.Discovered) continue;
+            PlaceDefinition? place = world?.Graph.Find(territory.Place);
+            bool current = string.Equals(territory.Place.Value, here, StringComparison.Ordinal);
             rows.Add(new JournalRowSnapshot(
-                place.Id.Value,
-                place.Name,
-                SessionProjection.WireName(place.Kind),
-                known.Visited ? "visited" : "known",
-                "world",
-                known.Visited));
+                territory.Place.Value,
+                place?.Name ?? territory.Place.Value,
+                place is null ? string.Empty : SessionProjection.WireName(place.Kind),
+                mapWords.Seen(territory.SeenCount, territory.Grid.Cells),
+                "map",
+                current));
         }
 
-        string state = rows.Count == 0
-            ? words.Empty
-            : string.Create(CultureInfo.InvariantCulture, $"{rows.Count} of {world.Graph.Places.Count} places known");
+        string state = rows.Count == 0 ? mapWords.Empty : mapWords.Mapped(rows.Count);
         return new JournalBookSnapshot("maps", words.Title, true, state, rows);
     }
 

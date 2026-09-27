@@ -609,7 +609,46 @@ function snapshot(mode, seconds = 0, steps = 0, updates = 0, facts = undefined, 
   // The journal block is published on the same terms: a case that asks for none covers a projection whose
   // session keeps no journal, which is a different fact from a party that has written nothing down.
   if (blocks?.journal !== undefined) value.journal = blocks.journal;
+  // The automap block is published in every mode too: a case that asks for none covers a projection whose
+  // ruleset stated no automap, which is a different fact from a place nothing has been walked of.
+  if (blocks?.map !== undefined) value.map = blocks.map;
   return value;
+}
+
+/** The automap block as the product publishes it: a drawing already placed in its own space. */
+function automap(overrides = {}) {
+  return {
+    available: true,
+    mapped: true,
+    title: 'Automap',
+    place: '1',
+    name: 'Erathia',
+    kind: 'region',
+    state: '16 of 64 squares walked (25%)',
+    seen: 16,
+    total: 64,
+    detection: '',
+    detectionMessage: '',
+    detectionEnds: '',
+    drawing: {
+      rung: 1,
+      rungs: 4,
+      cells: 16,
+      size: 1000,
+      cellsDrawn: [
+        { x: 0, y: 0, w: 62.5, h: 62.5, kind: 'low' },
+        { x: 62.5, y: 0, w: 62.5, h: 62.5, kind: 'upland' },
+      ],
+      marks: [
+        { id: 'door:a-shut-door', kind: 'door', label: 'a shut door', x: 31.25, y: 31.25, detected: false },
+        { id: 'container:a-far-chest', kind: 'container', label: 'a far chest', x: 93.75, y: 31.25, detected: true },
+      ],
+      partyX: 31.25,
+      partyY: 31.25,
+      facing: 90,
+    },
+    ...overrides,
+  };
 }
 
 function harness() {
@@ -4099,3 +4138,114 @@ test('the panel shows the ranks a class leads to and what the last rank did', ()
     h.restore();
   }
 });
+
+test('the panel draws the automap the product projected and computes nothing of its own', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // A session whose ruleset stated no automap says so by hiding the section rather than showing a blank
+    // drawing a player would read as an unmapped room.
+    h.emit(snapshot('running', 0, 0, 1, movement()));
+    assert.equal(h.panel().getAttribute('data-map'), 'none');
+    assert.equal(automapPanel(h).section.hidden, true);
+
+    // A place content carries no map for is a different fact again: the section is shown, and the game's own
+    // sentence says why there is nothing to draw.
+    h.emit(snapshot('running', 1, 60, 60, movement(), {
+      map: automap({ mapped: false, state: 'Content carries no map of this place, so there is nothing to draw of it.', drawing: null }),
+    }));
+    assert.equal(h.panel().getAttribute('data-map'), 'unmapped');
+    assert.match(automapPanel(h).state, /nothing to draw of it/);
+    assert.equal(automapPanel(h).drawing, null);
+
+    // The drawn map is the projection's own geometry: one rectangle per run of squares, one point per mark
+    // with the kind the game gave it, and the party's own marker where the projection put it and facing the
+    // way it published. The panel places numbers and derives none of them.
+    h.emit(snapshot('running', 2, 120, 121, movement(), { map: automap() }));
+    const drawn = automapPanel(h);
+    assert.equal(h.panel().getAttribute('data-map'), 'present');
+    assert.equal(drawn.head, 'Automap · Erathia');
+    assert.equal(drawn.state, '16 of 64 squares walked (25%)');
+    assert.equal(drawn.viewBox, '0 0 1000 1000');
+    assert.deepEqual(drawn.cells, [
+      { x: '0', y: '0', w: '62.5', h: '62.5', kind: 'low', detected: null },
+      { x: '62.5', y: '0', w: '62.5', h: '62.5', kind: 'upland', detected: null },
+    ]);
+    assert.deepEqual(drawn.marks, [
+      { id: 'door:a-shut-door', kind: 'door', detected: 'false', label: 'a shut door' },
+      { id: 'container:a-far-chest', kind: 'container', detected: 'true', label: 'a far chest (revealed)' },
+    ]);
+    assert.equal(drawn.party.points, '31.25,0 62.5,62.5 0,62.5');
+    assert.equal(drawn.party.transform, 'rotate(90 31.25 31.25)');
+    // A detection's own words are printed with the moment it lapses, and no detection is published as none.
+    assert.equal(drawn.detection, '');
+
+    // The same projection draws the same map twice: nothing here is remembered between snapshots, so a
+    // reload of one projection cannot show a map the previous one left behind.
+    const first = JSON.stringify(drawn.cells) + JSON.stringify(drawn.marks) + drawn.party.transform;
+    h.emit(snapshot('running', 3, 180, 181, movement(), { map: automap() }));
+    const second = JSON.stringify(automapPanel(h).cells) + JSON.stringify(automapPanel(h).marks) + automapPanel(h).party.transform;
+    assert.equal(first, second);
+
+    // What a detection is revealing is the game's sentence and the moment it lapses, printed as they arrived,
+    // and the marks it revealed are the ones the drawing carried flagged as revealed.
+    h.emit(snapshot('running', 4, 240, 241, movement(), {
+      map: automap({
+        detection: 'places',
+        detectionMessage: 'A detection is marking the places it knows and this place\u2019s own points of interest.',
+        detectionEnds: '1168-01-01 10:00',
+      }),
+    }));
+    const revealing = automapPanel(h);
+    assert.equal(h.panel().getAttribute('data-map-detection'), 'places');
+    assert.match(revealing.detection, /points of interest/);
+    assert.match(revealing.detection, /Until 1168-01-01 10:00\.$/);
+    assert.deepEqual(revealing.marks.filter((mark) => mark.detected === 'true').map((mark) => mark.id), ['container:a-far-chest']);
+
+    // A projection that carries no automap at all empties the drawing rather than leaving the last one's
+    // shapes behind, which is what a reload from a save without maps has to show.
+    h.emit(snapshot('running', 5, 300, 301, movement(), { map: automap({ available: false, drawing: null, state: '' }) }));
+    assert.equal(h.panel().getAttribute('data-map'), 'none');
+    assert.equal(automapPanel(h).section.hidden, true);
+    assert.deepEqual(automapPanel(h).cells, []);
+    assert.deepEqual(automapPanel(h).marks, []);
+  } finally {
+    h.restore();
+  }
+});
+
+/** The automap section as the panel drew it: every value read back off the DOM, none computed here. */
+function automapPanel(h) {
+  const section = h.panel().querySelector('.crawler-map');
+  const drawing = section.querySelector('.crawler-map-drawing');
+  const cells = [...section.querySelectorAll('.crawler-map-cell')].map((cell) => ({
+    x: cell.getAttribute('x'),
+    y: cell.getAttribute('y'),
+    w: cell.getAttribute('width'),
+    h: cell.getAttribute('height'),
+    kind: cell.dataset.kind,
+    detected: null,
+  }));
+  const marks = [...section.querySelectorAll('.crawler-map-mark')].map((mark) => ({
+    id: mark.dataset.id,
+    kind: mark.dataset.kind,
+    detected: mark.dataset.detected,
+    label: mark.querySelector('title').textContent,
+  }));
+  const party = section.querySelector('.crawler-map-party');
+  return {
+    section,
+    head: section.querySelector('.crawler-step-head').textContent,
+    state: section.querySelector('.crawler-map-state').textContent,
+    detection: section.querySelector('.crawler-map-detection').hidden
+      ? ''
+      : section.querySelector('.crawler-map-detection').textContent,
+    // An SVG drawing says whether it holds anything with the attribute, which is what the panel sets.
+    drawing: drawing.hasAttribute('hidden') ? null : drawing,
+    viewBox: drawing.getAttribute('viewBox'),
+    cells,
+    marks,
+    party: { points: party.getAttribute('points'), transform: party.getAttribute('transform') },
+  };
+}

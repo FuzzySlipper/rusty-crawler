@@ -51,10 +51,15 @@ Bundle assembles. Host launches.**
 > same event written once, dated in game time rather than wall time, bounded so it cannot grow without
 > limit, and carried through a save as the game time it happened at. Its five books (current quests, auto
 > notes, maps, calendar, and history) are one projection the panel renders without deciding anything: the
-> quests are read from the quest owner, the maps from the world's own knowledge, the calendar from the one
-> clock, and the history from the journal itself, while auto notes waits for the knowledge owner the next
-> part of the stone brings. Knowledge is still to come, and the shipped bundle carries no content — so a
-> running product without imported packs reports no world and no party.
+> quests are read from the quest owner, the notes from the knowledge owner, the maps from the map owner the
+> automap is drawn from, the calendar from the one clock, and the history from the journal itself. Knowledge
+> is landed beside them: the facts a party can look up again, dated by the one clock and kept apart from the
+> world's per-place state, and the automap with it — a per-place set of squares the party has walked, filled
+> as it sees ground, drawn from each place's own map (a region's terrain at its own tile pitch, an interior's
+> own outlines rasterised), projected as runs of squares with the party's position and facing and the marks on
+> ground already seen, kept when the world restores a place, carried by a save, and with a detection adding
+> exactly what its own spell states as a live reading that walks nothing. The shipped bundle carries no
+> content — so a running product without imported packs reports no world and no party.
 > See [`AGENTS.md`](AGENTS.md) for the exact current state.
 
 ## Ownership

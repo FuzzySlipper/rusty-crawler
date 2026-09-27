@@ -141,21 +141,11 @@ public sealed class KnowledgePolicyTests
         Assert.Equal(1, ((MightAndMagic7Session)session).Party!.Inventory.TotalOf(new ItemDefinitionId("1")));
         Assert.Equal(1, Book(Notes(ui), "notes").Field("rows").Length());
 
-        // A detection spell reports over the places and the population the world holds, and it teaches the
-        // party nothing durable: what it shows is state the world already keeps — the places it has been to
-        // are the maps book's, and who is standing here now is a moment — so no note is written for it.
-        session.Update(ProductTestContext.Update(
-            4,
-            1,
-            ProductTestContext.Payload("""{"action":"party.cast","member":0,"spell":"12","target":""}""")));
-        Assert.Equal("detection", ProjectedNode.Of(ui.Latest().Value).Field("magic").Field("effect").AsString());
-        Assert.Equal(1, Book(Notes(ui), "notes").Field("rows").Length());
-
         // A landmark whose effect and whose note are both instructions of a map event: nothing in this build
         // executes one, so the use is refused by name and the party learns nothing. This is the fountain and
         // the obelisk of the operator's own data, and the note is not written for an event that never ran.
         Arrive(session, ui, "3");
-        session.Update(ProductTestContext.Update(5, 1, ProductTestContext.Digital(ProductIdentity.UseIntent)));
+        session.Update(ProductTestContext.Update(4, 1, ProductTestContext.Digital(ProductIdentity.UseIntent)));
         ProjectedNode interaction = ProjectedNode.Of(ui.Latest().Value).Field("interaction");
         Assert.Equal("interaction-event-not-executed", interaction.Field("code").AsString());
         Assert.Contains("event 150", interaction.Field("message").AsString(), StringComparison.Ordinal);
@@ -173,6 +163,18 @@ public sealed class KnowledgePolicyTests
         Assert.Equal("1", recorded.Place);
         Assert.True(recorded.ElapsedMilliseconds >= 0 && recorded.ElapsedMilliseconds <= document.Clock.ElapsedMilliseconds);
         Assert.DoesNotContain("1168", recorded.Text, StringComparison.Ordinal);
+
+        // A detection spell reports over the places and the population the world holds, and it teaches the
+        // party nothing durable: what it shows is state the world already keeps — the places it has been to
+        // are its own, and who is standing here now is a moment — so no note is written for it. It is cast
+        // after the save because it is a timed effect like a ward, and the automap suite proves what it marks
+        // and why a save while one runs is refused by name.
+        session.Update(ProductTestContext.Update(
+            5,
+            1,
+            ProductTestContext.Payload("""{"action":"party.cast","member":0,"spell":"12","target":""}""")));
+        Assert.Equal("detection", ProjectedNode.Of(ui.Latest().Value).Field("magic").Field("effect").AsString());
+        Assert.Equal(1, Book(Notes(ui), "notes").Field("rows").Length());
     }
 
     [Fact]

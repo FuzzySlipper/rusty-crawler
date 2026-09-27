@@ -88,6 +88,7 @@ internal sealed class MightAndMagic7Session : IGameSession
 
         MightAndMagic7Spells? spells = MightAndMagic7Spells.Read(Declared(context.Content), skills, alchemy);
 
+
         // The party and the world the effects act on do not exist yet on the path that creates its party, so
         // the effect path is handed providers rather than the state itself: it reads them when a cast actually
         // arrives, which is always after the composition that created them. A product with no world gives it
@@ -95,6 +96,14 @@ internal sealed class MightAndMagic7Session : IGameSession
         PartyEntity? party = null;
         SessionWorld? world = null;
         MightAndMagic7SpellEffects? spellEffects = spells is null ? null : new MightAndMagic7SpellEffects(spells, clock, () => world);
+        // This game's automap is read beside them: how far a walking party sees, what each place's own map
+        // squares and features are drawn as, the zoom ladder, and what a detection reveals over it. Both halves
+        // are read from the content the product loaded — the maps themselves come from the placed-map document
+        // the importer writes — so a product composed over content that carries no maps keeps no automap, and
+        // its projection says so rather than drawing an empty rectangle.
+        ContentCatalog? mapped = Declared(context.Content);
+        MightAndMagic7Automap? automap = mapped is null ? null : new MightAndMagic7Automap(() => world);
+        MightAndMagic7MapSource? mapSource = mapped is null ? null : new MightAndMagic7MapSource(mapped);
 
         // This game's quests are read once, here, before its services: an errand is stated over the shipped
         // quest table, its giver is the ladder's own, and what its objectives name is the world's and the
@@ -298,7 +307,10 @@ internal sealed class MightAndMagic7Session : IGameSession
                     journal: journal,
                     journalState: save.Journal,
                     knowledge: knowledge,
-                    knowledgeState: save.Knowledge);
+                    knowledgeState: save.Knowledge,
+                    map: automap,
+                    mapSource: mapSource,
+                    mapState: save.Maps);
                 return;
             }
 
@@ -353,7 +365,9 @@ internal sealed class MightAndMagic7Session : IGameSession
                     quests: quests,
                     questState: null,
                     journal: journal,
-                    knowledge: knowledge);
+                    knowledge: knowledge,
+                    map: automap,
+                    mapSource: mapSource);
                 return;
             }
 
@@ -398,7 +412,9 @@ internal sealed class MightAndMagic7Session : IGameSession
                 mixInput: context.Mix,
                 quests: quests,
                 journal: journal,
-                knowledge: knowledge);
+                knowledge: knowledge,
+                map: automap,
+                mapSource: mapSource);
         }
         catch
         {

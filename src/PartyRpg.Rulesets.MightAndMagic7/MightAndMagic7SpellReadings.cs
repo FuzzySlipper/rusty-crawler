@@ -207,6 +207,10 @@ internal readonly record struct BuffReading(EffectId Effect, Func<int, int, int>
 /// <param name="Buff">The party-carried effect the spell leaves, when it leaves one.</param>
 /// <param name="Travel">What the spell does with the party's place.</param>
 /// <param name="Detection">What the spell reports over.</param>
+/// <param name="DetectionLasts">
+/// How long a detection lasts once cast, as a function of the caster's school level and mastery rung, or null
+/// for a spell that is not a detection.
+/// </param>
 /// <param name="OnMember">Whether the effect lands on the character the casting named rather than on the whole party.</param>
 /// <param name="Dispels">Whether the spell ends the effects other spells have left running.</param>
 /// <param name="Weakness">How weak a raising spell leaves the member it stands up, or null when it leaves none.</param>
@@ -230,6 +234,7 @@ internal readonly record struct SpellReading(
     BuffReading? Buff,
     TravelShape Travel,
     DetectionScope Detection,
+    Func<int, int, GameDuration>? DetectionLasts,
     bool OnMember,
     bool Dispels,
     int? Weakness,
@@ -255,6 +260,7 @@ internal readonly record struct SpellReading(
         Buff: null,
         Travel: TravelShape.None,
         Detection: DetectionScope.None,
+        DetectionLasts: null,
         OnMember: false,
         Dispels: false,
         Weakness: null,
@@ -350,8 +356,23 @@ internal static class Readings
     internal static SpellReading Movement(string missing) =>
         SpellReading.None with { Travel = TravelShape.Movement, Missing = missing, Receiver = "the party's mover, which walks and falls and does nothing else" };
 
-    /// <summary>A report over what the world holds.</summary>
-    internal static SpellReading Detect(DetectionScope scope) => SpellReading.None with { Detection = scope };
+    /// <summary>A report over what the world holds, which the party carries for a while as the original does.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The duration is ours.</b> The shipped spell table states what a detection looks over and nothing about
+    /// how long it runs, and the donor's own buff table is not read here, so this game gives its detections the
+    /// same length its protections have — the donor's one hour per level of the school
+    /// (<c>WardFormulas.HoursPerLevel</c>, whose citation stands beside the formula) — rather than leaving a
+    /// spell the manual draws an icon for running for no time at all.
+    /// </para>
+    /// <para>
+    /// What the duration is <em>for</em> is the automap: the reveal a detection puts on the map lasts exactly
+    /// as long as the effect does, so a spell that has lapsed marks nothing and a party that walks away from
+    /// what it saw keeps none of it.
+    /// </para>
+    /// </remarks>
+    internal static SpellReading Detect(DetectionScope scope, Func<int, int, GameDuration> lasts) =>
+        SpellReading.None with { Detection = scope, DetectionLasts = lasts };
 
     /// <summary>A dispelling of the effects other spells have left running.</summary>
     internal static SpellReading Dispel() => SpellReading.None with { Dispels = true };
@@ -441,6 +462,37 @@ internal static class SpellEffectIds
 
     /// <summary>Invisibility, which is carried as a fact rather than as a magnitude.</summary>
     internal static readonly EffectId Invisibility = new("spell.invisibility");
+
+    /// <summary>The identity a detection's own effect is carried under, one per scope it looks over.</summary>
+    /// <param name="scope">What the detection reports over.</param>
+    /// <returns>The effect identity.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The scope is none, which is not a detection.</exception>
+    internal static EffectId Detection(DetectionScope scope) => scope switch
+    {
+        DetectionScope.Places => Places,
+        DetectionScope.Life => Life,
+        DetectionScope.Minds => Minds,
+        _ => throw new ArgumentOutOfRangeException(nameof(scope), scope, "A spell that reports over nothing is not a detection."),
+    };
+
+    /// <summary>What a running effect of this game's looks over, or none when it is not a detection.</summary>
+    /// <param name="effect">The effect identity to read.</param>
+    /// <returns>The scope that effect is a detection over.</returns>
+    internal static DetectionScope ScopeOf(EffectId effect)
+    {
+        if (effect == Places) return DetectionScope.Places;
+        if (effect == Life) return DetectionScope.Life;
+        return effect == Minds ? DetectionScope.Minds : DetectionScope.None;
+    }
+
+    /// <summary>A detection over the places the party knows, which is what Wizard Eye leaves running.</summary>
+    internal static readonly EffectId Places = new("spell.detect.places");
+
+    /// <summary>A detection over everything alive where the party stands, which is what Detect Life leaves.</summary>
+    internal static readonly EffectId Life = new("spell.detect.life");
+
+    /// <summary>A detection over who answers where the party stands, which is what Telepathy leaves.</summary>
+    internal static readonly EffectId Minds = new("spell.detect.minds");
 
     /// <summary>The light a spell carries, which is what a party in the dark sees by.</summary>
     internal static readonly EffectId Light = new("spell.light");

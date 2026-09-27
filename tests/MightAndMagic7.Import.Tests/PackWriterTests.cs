@@ -138,6 +138,27 @@ public sealed class PackWriterTests
             Assert.Contains(region.EntryPoints, point => point.Id == "Party Start");
             Assert.Contains(region.EntryPoints, point => point.Id == "North Start");
 
+            // Every place carries the automap raster the product draws from, and the document is what the
+            // runtime reader expects: a grid, and two hexadecimal digits a square. The region's grid is the
+            // map's own terrain square at its own pitch, and an interior's is finer and covers the level.
+            Assert.Equal(76, bootstrap.Catalog.Entries("place-map").Count());
+            using JsonDocument maps = JsonDocument.Parse(File.ReadAllText(Path.Combine(imports, "mm7-world", "place-map.json")));
+            JsonElement regionMap = maps.RootElement.GetProperty("entries")
+                .EnumerateArray()
+                .First(entry => entry.GetProperty("id").GetString() == region.Id.Value);
+            Assert.Equal("region", regionMap.GetProperty("kind").GetString());
+            Assert.Equal(OutdoorMap.TerrainCellSize, regionMap.GetProperty("cellSize").GetInt32());
+            Assert.Equal(OutdoorMap.TerrainCells, regionMap.GetProperty("columns").GetInt32());
+            Assert.Equal(OutdoorMap.TerrainCells, regionMap.GetProperty("rows").GetInt32());
+            Assert.Equal(
+                OutdoorMap.TerrainCells * OutdoorMap.TerrainCells * 2,
+                regionMap.GetProperty("kinds").GetString()!.Length);
+            Assert.Contains(
+                maps.RootElement.GetProperty("entries").EnumerateArray(),
+                entry => entry.GetProperty("kind").GetString() == "interior"
+                    && entry.GetProperty("kinds").GetString()!.Length
+                        == entry.GetProperty("columns").GetInt32() * entry.GetProperty("rows").GetInt32() * 2);
+
             // The fixture's one inter-map move carries no position, so it names the destination's start
             // point, and resolving it gives the pose that point declares.
             PlaceTransition transition = Assert.Single(graph.Transitions.Where(edge => !edge.IsWorldIssued && edge.Arrival.IsEntryPoint));

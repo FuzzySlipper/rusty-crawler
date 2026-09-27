@@ -146,9 +146,11 @@ internal static class IndoorMapReader
         int spawnCount = reader.ArrayCount(MapRecord.SpawnPointSize, "spawnPointCount");
         ReadOnlySpan<byte> spawnData = reader.Span(spawnCount * MapRecord.SpawnPointSize, "spawnPoints");
 
-        // The minimap outlines are consumed for their length: they describe a map picture, not geometry.
+        // The minimap outlines are the level's own automap: a line between two of its vertices, which is what
+        // the donor draws (OpenEnroth src/GUI/UI/UIGame.cpp:1380-1400). They are read rather than skipped
+        // because the product draws its own automap from them; the fields the donor does not use are kept raw.
         int outlineCount = reader.ArrayCount(MapOutlineSize, "mapOutlineCount");
-        reader.Skip(outlineCount * MapOutlineSize, "mapOutlines");
+        ReadOnlySpan<byte> outlineData = reader.Span(outlineCount * MapOutlineSize, "mapOutlines");
 
         reader.ExpectEnd();
 
@@ -217,6 +219,20 @@ internal static class IndoorMapReader
                 MapRecord.Int16(record, 6));
         }
 
+        MapOutline[] outlines = new MapOutline[outlineCount];
+        for (int index = 0; index < outlineCount; index++)
+        {
+            ReadOnlySpan<byte> record = outlineData.Slice(index * MapOutlineSize, MapOutlineSize);
+            outlines[index] = new MapOutline(
+                index,
+                MapRecord.UInt16(record, 0),
+                MapRecord.UInt16(record, 2),
+                MapRecord.UInt16(record, 4),
+                MapRecord.UInt16(record, 6),
+                MapRecord.Int16(record, 8),
+                MapRecord.UInt16(record, 10));
+        }
+
         IndoorCounts counts = new(
             version,
             faceDataSizeBytes,
@@ -250,6 +266,7 @@ internal static class IndoorMapReader
             decorations,
             MapRecord.EntryPoints(decorations),
             MapRecord.SpawnPoints(spawnData, spawnCount),
+            outlines,
             delta);
     }
 

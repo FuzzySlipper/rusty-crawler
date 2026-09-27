@@ -594,7 +594,61 @@ North Start, z 1536 where the terrain is 0), and one interior's Party Start sits
 floor (mdt05, z 0 where the floor is 80) **[verified: data]** — the engine's controller resolves the
 drop, and the party lands on geometry either way.
 
-## 9. The potion table and the alchemy document
+## 9. The automap raster: the `place-map` document
+
+The product's automap is drawn from one document per place, written by the importer into the `mm7-world`
+pack. It is a **raster**, not a drawing: the product's map owner remembers what a party has walked as one
+bit per square, so the squares have to exist in content before anybody walks them, and what each square's
+number means is the ruleset's reading rather than this document's.
+
+### 9.1 What each family is drawn from, and what is ours
+
+| Place | Grid | What a square states | Source |
+| --- | --- | --- | --- |
+| Region | the map's own terrain square: 128 × 128 squares of 512 units, starting at (−32768, −32768) | the band of the square's own height, `(height · 4) / 256 + 1`, so 1–4 | the ODM's own height map (§2), at its own tile pitch |
+| Interior | this importer's own cell size, 128 units, over the level's own vertex bounds | `0` where none of the level's own minimap outlines passes through the square, `1` where one does | the BLV's map-outline array (§3), rasterised |
+
+**Ours, and marked as ours:** the interior cell size (128 units — the shipped indoor payload states
+outlines and no cell size, because the original draws lines rather than squares), the four-band reading of
+a region's height (the original draws a prerendered landscape picture for a region and the level's outline
+lines, shaded by their own height, for an interior — see §8's neighbour sections and
+`OpenEnroth src/GUI/UI/UIGame.cpp:1380-1400`). The raster is therefore coarser than the original's automap:
+the shape survives and the picture does not.
+
+### 9.2 The layout
+
+One `place-map.json` in the `mm7-world` pack, definition kind `place-map`, one entry per place keyed by the
+place's own id:
+
+```json
+{
+  "id": "1",
+  "mapFile": "Out01.Odm",
+  "kind": "region",
+  "cellSize": 512,
+  "origin": [ -32768, -32768 ],
+  "columns": 128,
+  "rows": 128,
+  "kinds": "0101…"
+}
+```
+
+* `cellSize` and `origin` are in the place's own units, and `origin` is the **first column's and first
+  row's own start**, so a square is `column = floor((x − originX) / cellSize)` and
+  `row = floor((y − originY) / cellSize)` in the product's own axes (X and Y on the ground, Z for height).
+* `kinds` is one byte per square in row-major order, written as two hexadecimal digits each, so the string
+  is exactly `columns · rows · 2` characters. **A region's grid is flipped against the payload's own grid**:
+  a payload cell `(gridX, gridY)` starts at `CellToWorld(gridX, gridY)` and covers the raster's square
+  `(column = gridX, row = 127 − gridY)`, which the importer's own suite walks back through `CellToWorld`
+  for every terrain cell.
+* An interior's outlines are the level's own records — two vertex ids, two face ids, a height, and flags,
+  12 bytes each (`OpenEnroth src/Engine/Graphics/Indoor.h:69-76`) — and the raster marks every square the
+  line between the two vertices passes through. The height and the flags are carried by the decoder and are
+  not read by the raster.
+
+The counts the writer reports: 76 places, 1,131,427 squares **[verified: data]**.
+
+## 10. The potion table and the alchemy document
 
 `Events.lod:POTION.TXT` is where this game keeps its mixtures, and `POTNOTES.TXT` is the same table again
 with a discovery index in place of each outcome. Both are read by the importer into one `potions.json`

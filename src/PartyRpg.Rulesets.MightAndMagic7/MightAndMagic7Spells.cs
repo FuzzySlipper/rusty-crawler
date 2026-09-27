@@ -224,7 +224,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
         Entry(9, [20, 20, 20, 20], [100, 100, 100, 90], 0, 8, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Meteor Shower
         Entry(10, [25, 25, 25, 25], [100, 100, 100, 90], 12, 1, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Inferno
         Entry(11, [30, 30, 30, 30], [90, 90, 90, 90], 15, 15, 4, SpellTargeting.Foe, SpellEffects.Damage),   // Incinerate
-        Entry(12, [1, 1, 1, 0], [60, 60, 60, 60], 0, 0, 1, SpellTargeting.Party, SpellEffects.Detection, Readings.Detect(DetectionScope.Places)),   // Wizard Eye
+        Entry(12, [1, 1, 1, 0], [60, 60, 60, 60], 0, 0, 1, SpellTargeting.Party, SpellEffects.Detection, Readings.Detect(DetectionScope.Places, WardFormulas.HoursPerLevel)),   // Wizard Eye
         Entry(13, [2, 2, 2, 2], [120, 120, 120, 100], 0, 0, 1, SpellTargeting.Party, SpellEffects.Travel, Readings.Movement("a fall slowed until it cannot hurt")),   // Feather Fall
         Entry(14, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Air], WardFormulas.MasteryTimesLevel, WardFormulas.HoursPerLevel).OnOne()),   // Air Resistance
         Entry(15, [4, 4, 4, 4], [110, 100, 90, 80], 2, 1, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Sparks
@@ -257,7 +257,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
         Entry(42, [20, 20, 20, 20], [150, 150, 150, 150], 0, 0, 3, SpellTargeting.None, SpellEffects.Utility, Readings.Unaimable("a door or a container across the room", "an item-aim owner: the interaction mechanism reaches what stands in front of the party")),   // Telekinesis
         Entry(43, [25, 25, 25, 25], [100, 100, 100, 90], 20, 1, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Death Blossom
         Entry(44, [30, 30, 30, 30], [90, 90, 90, 90], 25, 2, 4, SpellTargeting.Foe, SpellEffects.Damage),   // Mass Distortion
-        Entry(45, [1, 1, 1, 1], [100, 100, 100, 100], 0, 0, 1, SpellTargeting.Caster, SpellEffects.Detection, Readings.Detect(DetectionScope.Life)),   // Detect Life
+        Entry(45, [1, 1, 1, 1], [100, 100, 100, 100], 0, 0, 1, SpellTargeting.Caster, SpellEffects.Detection, Readings.Detect(DetectionScope.Life, WardFormulas.HoursPerLevel)),   // Detect Life
         Entry(46, [2, 2, 2, 2], [100, 100, 100, 100], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Utility, Readings.Buff(SpellEffectIds.Bless, WardFormulas.LevelPlus(1, 5), WardFormulas.HourAndMinutesByMastery).OnOne()),   // Bless
         Entry(47, [3, 3, 3, 3], [90, 90, 90, 90], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Utility, Readings.Buff(SpellEffectIds.Fate, WardFormulas.FatePower, WardFormulas.FiveMinutes).OnOne()),   // Fate
         Entry(48, [4, 4, 4, 4], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Foe, SpellEffects.Condition, Readings.NotYet("a creature turned away from the party", "the fight's allegiance state, which is a side rather than a fear")),   // Turn Undead
@@ -271,7 +271,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
         Entry(56, [1, 1, 1, 1], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Condition, Readings.Cure(MightAndMagic7Conditions.Fear)),   // Remove Fear
         Entry(57, [2, 2, 2, 2], [110, 110, 110, 110], 3, 3, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Mind Blast
         Entry(58, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Mind], WardFormulas.MasteryTimesLevel, WardFormulas.HoursPerLevel).OnOne()),   // Mind Resistance
-        Entry(59, [4, 4, 4, 4], [110, 100, 90, 80], 0, 0, 1, SpellTargeting.Caster, SpellEffects.Detection, Readings.Detect(DetectionScope.Minds)),   // Telepathy
+        Entry(59, [4, 4, 4, 4], [110, 100, 90, 80], 0, 0, 1, SpellTargeting.Caster, SpellEffects.Detection, Readings.Detect(DetectionScope.Minds, WardFormulas.HoursPerLevel)),   // Telepathy
         Entry(60, [5, 5, 5, 5], [100, 100, 100, 100], 0, 0, 2, SpellTargeting.Foe, SpellEffects.Condition, Readings.NotYet("a charmed creature that fights for the party", "the fight's allegiance state, which is a side rather than a loyalty")),   // Charm
         Entry(61, [8, 8, 8, 8], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Ally, SpellEffects.Condition, Readings.Cure(MightAndMagic7Conditions.Paralyzed)),   // Cure Paralysis
         Entry(62, [10, 10, 10, 10], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Foe, SpellEffects.Condition, Readings.NotYet("a creature driven against its own", "the fight's allegiance state, which is a side rather than a rage")),   // Berserk

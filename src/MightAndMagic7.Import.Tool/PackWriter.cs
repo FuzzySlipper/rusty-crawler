@@ -40,7 +40,8 @@ internal sealed record PackWriteResult(
     PlaceContainerSummary Containers,
     PlaceServiceSummary Services,
     PlacePeopleSummary People,
-    PlaceCreatureSummary Creatures)
+    PlaceCreatureSummary Creatures,
+    PlaceMapSummary Maps)
 {
     /// <summary>The pack ids, in the order they were written.</summary>
     internal IReadOnlyList<string> PackIds => [.. Packs.Select(pack => pack.PackId)];
@@ -136,13 +137,22 @@ internal static class PackWriter
         PlaceCreatureSummary creatures = PlaceCreatures.Emit(tables, maps);
 
         Directory.CreateDirectory(outputRoot);
+        ((string, int, int) world, PlaceMapSummary mapped) = WriteWorld(
+            tables,
+            graph,
+            provenance,
+            Path.Combine(outputRoot, "mm7-world"),
+            maps,
+            collisions,
+            entrances,
+            services);
         List<(string, int, int)> packs =
         [
             WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers, services, people, creatures),
-            WriteWorld(tables, graph, provenance, Path.Combine(outputRoot, "mm7-world"), maps, collisions, entrances, services),
+            world,
         ];
         WriteBundleFragment(outputRoot, provenance, packs);
-        return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions), entrances, containers, services, people, creatures);
+        return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions), entrances, containers, services, people, creatures, mapped);
     }
 
     /// <summary>
@@ -258,7 +268,7 @@ internal static class PackWriter
         return ("mm7-tables", documents.Count, documents.Sum(document => document.Entries));
     }
 
-    private static (string PackId, int Documents, int Entries) WriteWorld(
+    private static ((string PackId, int Documents, int Entries) Pack, PlaceMapSummary Maps) WriteWorld(
         Mm7Tables tables,
         PlaceGraph graph,
         InstallProvenance provenance,
@@ -271,6 +281,7 @@ internal static class PackWriter
         int links = WritePlaceGraph(packDirectory, graph, tables, maps, services);
         int places = WritePlaceGeometry(packDirectory, collisions);
         int reachCount = WritePlaceEntrances(packDirectory, entrances);
+        PlaceMapSummary mapped = WritePlaceMaps(packDirectory, maps);
         // Every place is referenced by the graph, and a fare's link leaves the place its counter stands in,
         // so the references state both.
         IReadOnlyList<string> graphReferences =
@@ -280,6 +291,11 @@ internal static class PackWriter
         ];
         IReadOnlyList<string> geometryReferences =
             [.. collisions.Where(place => place.Emitted).Select(place => $"place:{place.PlaceId.ToString(CultureInfo.InvariantCulture)}")];
+
+        // Every place the per-map table names is walked for its own map, so a place that produced no entry is a
+        // place the payload held nothing to draw rather than a place this writer forgot.
+        IReadOnlyList<string> mapReferences =
+            [.. maps.Keys.Order().Select(place => $"place:{place.ToString(CultureInfo.InvariantCulture)}")];
 
         // An entrance refers to the transition it takes and to both places that transition joins, so a
         // reader that resolves every reference is told the entrance belongs to a road the world holds
@@ -303,8 +319,68 @@ internal static class PackWriter
                 // geometry was refused would promise collision the pack does not carry.
                 ("place-geometry.json", "place-geometry", "place-geometry", geometryReferences),
                 ("place-entrances.json", "place-entrances", "place-entrance", entranceReferences),
+
+                // Every place with a map is referenced by it: the entry is what the automap is drawn from, so
+                // a reader that resolves references is told which places the pack can draw at all.
+                ("place-map.json", "place-map", "place-map", mapReferences),
             ]);
-        return ("mm7-world", 3, links + places + reachCount);
+        return (("mm7-world", 4, links + places + reachCount + mapped.Places), mapped);
+    }
+
+    /// <summary>
+    /// Writes each place's own automap raster, keyed by the place's own id.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// What is written is the map's own data read into the product's grid: a region's squares are its own
+    /// terrain cells at the payload's own 512-unit pitch, one height band each, and an interior's are
+    /// <see cref="PlaceMaps.InteriorCellSize"/> units each, saying whether one of the level's own minimap
+    /// outlines passes through. The one number that is ours is that cell size, and the format spec records it
+    /// beside the rest of the layout.
+    /// </para>
+    /// <para>
+    /// The cells are written as two hexadecimal digits each rather than as an array of numbers, because a
+    /// fully mapped region is 16,384 squares and a person reading the document wants its shape, not a page of
+    /// zeroes. Nothing else about the document is compacted: the grid, its origin, and the file the map came
+    /// from stay readable, because they are what makes the numbers below them mean something.
+    /// </para>
+    /// </remarks>
+    private static PlaceMapSummary WritePlaceMaps(string packDirectory, IReadOnlyDictionary<int, DecodedMap> maps)
+    {
+        List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];
+        int cells = 0;
+        foreach ((int placeId, DecodedMap map) in maps.OrderBy(pair => pair.Key))
+        {
+            PlaceMapRaster raster = PlaceMaps.Of(placeId, map);
+            cells += raster.Kinds.Length;
+            entries.Add((placeId.ToString(CultureInfo.InvariantCulture), writer =>
+            {
+                writer.WriteString("mapFile", raster.FileName);
+                writer.WriteString("kind", raster.Kind == MapKind.Outdoor ? "region" : "interior");
+                writer.WriteNumber("cellSize", raster.CellSize);
+                writer.WriteStartArray("origin");
+                writer.WriteNumberValue(raster.OriginX);
+                writer.WriteNumberValue(raster.OriginY);
+                writer.WriteEndArray();
+                writer.WriteNumber("columns", raster.Columns);
+                writer.WriteNumber("rows", raster.Rows);
+                writer.WritePropertyName("kinds");
+                writer.WriteRawValue(Hex(raster.Kinds), skipInputValidation: true);
+            }));
+        }
+
+        int places = WriteDocument(packDirectory, "place-map.json", "place-map", "place-map", entries);
+        return new PlaceMapSummary(places, cells);
+    }
+
+    /// <summary>One square per two hexadecimal digits, in the document's own row-major order.</summary>
+    private static string Hex(byte[] kinds)
+    {
+        StringBuilder text = new((kinds.Length * 2) + 2);
+        text.Append('"');
+        foreach (byte kind in kinds) text.Append(kind.ToString("x2", CultureInfo.InvariantCulture));
+        text.Append('"');
+        return text.ToString();
     }
 
     /// <summary>
@@ -1492,3 +1568,12 @@ internal static class PackWriter
         return document.RootElement.GetProperty("entries").GetArrayLength();
     }
 }
+
+/// <summary>What an import wrote of the places' own automaps.</summary>
+/// <remarks>
+/// A summary rather than the rasters themselves: a report needs to say how many places a product can draw and
+/// how many squares that is, and the squares live in the pack where the product reads them.
+/// </remarks>
+/// <param name="Places">How many places carry a map.</param>
+/// <param name="Cells">How many squares those maps hold together.</param>
+internal readonly record struct PlaceMapSummary(int Places, int Cells);

@@ -759,7 +759,11 @@ public sealed class MapDecoderTests
     }
 
     /// <summary>A byte buffer that appends little-endian fields and can patch them at documented offsets.</summary>
-    private sealed class MapWriter
+    /// <summary>
+    /// A little-endian writer for the payloads these tests build by hand, shared with the placed-map suite
+    /// because an indoor payload with spread vertices and outlines is the same layout with different numbers.
+    /// </summary>
+    internal sealed class MapWriter
     {
         private readonly List<byte> _bytes = [];
 

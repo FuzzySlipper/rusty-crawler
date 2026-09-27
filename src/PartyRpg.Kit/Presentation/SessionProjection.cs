@@ -122,7 +122,8 @@ public readonly record struct SessionSnapshot(
     MagicSnapshot Magic = default,
     AlchemySnapshot Alchemy = default,
     QuestSnapshot Quests = default,
-    JournalSnapshot Journal = default);
+    JournalSnapshot Journal = default,
+    MapSnapshot Map = default);
 
 /// <summary>Where the party is in the world, as the panel needs it: which place, where in it, and how much of the world is known.</summary>
 /// <param name="Place">The place the party is in, empty when the session has no world.</param>
@@ -226,6 +227,9 @@ public static class SessionProjection
 
     /// <summary>The name of the projection field the journal's books are published under.</summary>
     public const string JournalField = "journal";
+
+    /// <summary>The name of the projection field the automap is published under.</summary>
+    public const string MapField = "map";
 
     /// <summary>Builds the projection value for a snapshot.</summary>
     public static UiValue Build(SessionSnapshot snapshot)
@@ -384,7 +388,12 @@ public static class SessionProjection
             // session's ruleset stated no journal at all", "the party has been nowhere and written nothing
             // down", and "a book no owner fills yet" are three different facts, and a block that only
             // appeared once something had been written would leave a screen unable to tell them apart.
-            (JournalField, Journal(builder, snapshot.Journal)));
+            (JournalField, Journal(builder, snapshot.Journal)),
+            // The automap is published in every mode for the same reason the journal is: "this session's
+            // ruleset stated no automap", "the place content carries no map for", and "the party has seen none
+            // of a mapped place yet" are three different facts, and a block that only appeared once the party
+            // had walked somewhere would leave a screen unable to tell them apart.
+            (MapField, Map(builder, snapshot.Map)));
         return builder.Build(root);
     }
 
@@ -1109,6 +1118,87 @@ public static class SessionProjection
         return builder.Object(
             ("available", builder.Boolean(journal.Available)),
             ("books", builder.Array([.. books])));
+    }
+
+    /// <summary>Builds the automap block: what the party has mapped of the place it stands in.</summary>
+    /// <remarks>
+    /// <para>
+    /// The drawing is sent as numbers in the drawing's own space — where each run of seen cells starts, how
+    /// wide it is, what kind it is, where the party stands and which way it faces — so a screen places shapes
+    /// and computes no scale, no offset, and no position of its own. Unseen ground contributes no shape at
+    /// all, and what a detection revealed is sent as marks flagged as revealed, which is the whole of what a
+    /// detection puts on the map.
+    /// </para>
+    /// <para>
+    /// A snapshot built without a map carries the default value, whose list is null rather than empty, and it
+    /// is published as no drawing at all so a reader never sees a map nobody built.
+    /// </para>
+    /// </remarks>
+    private static uint Map(UiValueBuilder builder, MapSnapshot map)
+    {
+        List<uint> drawn = [];
+        List<uint> marks = [];
+        double size = 0;
+        int rung = 0;
+        int rungs = 0;
+        int cells = 0;
+        double partyX = 0;
+        double partyY = 0;
+        double facing = 0;
+        if (map.Drawing is { } drawing)
+        {
+            size = drawing.Size;
+            rung = drawing.Rung;
+            rungs = drawing.Rungs;
+            cells = drawing.Cells;
+            partyX = drawing.PartyX;
+            partyY = drawing.PartyY;
+            facing = drawing.Facing;
+            foreach (MapCellSnapshot run in drawing.Drawn ?? [])
+            {
+                drawn.Add(builder.Object(
+                    ("x", builder.Number(run.X)),
+                    ("y", builder.Number(run.Y)),
+                    ("w", builder.Number(run.Width)),
+                    ("h", builder.Number(run.Height)),
+                    ("kind", builder.String(run.Kind ?? string.Empty))));
+            }
+
+            foreach (MapMarkSnapshot mark in drawing.Marks ?? [])
+            {
+                marks.Add(builder.Object(
+                    ("id", builder.String(mark.Id ?? string.Empty)),
+                    ("kind", builder.String(mark.Kind ?? string.Empty)),
+                    ("label", builder.String(mark.Label ?? string.Empty)),
+                    ("x", builder.Number(mark.X)),
+                    ("y", builder.Number(mark.Y)),
+                    ("detected", builder.Boolean(mark.Detected))));
+            }
+        }
+
+        return builder.Object(
+            ("available", builder.Boolean(map.Available)),
+            ("mapped", builder.Boolean(map.Mapped)),
+            ("title", builder.String(map.Title ?? string.Empty)),
+            ("place", builder.String(map.Place ?? string.Empty)),
+            ("name", builder.String(map.Name ?? string.Empty)),
+            ("kind", builder.String(map.Kind ?? string.Empty)),
+            ("state", builder.String(map.State ?? string.Empty)),
+            ("seen", builder.Number(map.Seen)),
+            ("total", builder.Number(map.Total)),
+            ("detection", builder.String(map.Detection ?? string.Empty)),
+            ("detectionMessage", builder.String(map.DetectionMessage ?? string.Empty)),
+            ("detectionEnds", builder.String(map.DetectionEnds ?? string.Empty)),
+            ("drawing", builder.Object(
+                ("rung", builder.Number(rung)),
+                ("rungs", builder.Number(rungs)),
+                ("cells", builder.Number(cells)),
+                ("size", builder.Number(size)),
+                ("partyX", builder.Number(partyX)),
+                ("partyY", builder.Number(partyY)),
+                ("facing", builder.Number(facing)),
+                ("cellsDrawn", builder.Array([.. drawn])),
+                ("marks", builder.Array([.. marks])))));
     }
 
     private static uint Alchemy(UiValueBuilder builder, AlchemySnapshot alchemy)

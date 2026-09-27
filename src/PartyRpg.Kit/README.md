@@ -74,6 +74,13 @@ Owns:
   the party has learned (`Knowledge/` — one owner of the facts it can look up again, keyed so learning the
   same fact twice is one fact, dated by the one clock, bounded beside the history, and deliberately kept
   apart from the world's per-place state so a place the clock restores clears nothing a party knows).
+- The automap (`Maps/` — one owner of what a party has walked: a per-place set of squares over the place's
+  own map, filled as the party sees ground and never by a place the world restores, bounded by that place's
+  own grid, plus the drawing the projection builds from it — the window the game's zoom ladder shows, the
+  runs of seen squares, the marks on ground already on the map, and the party's own position and facing —
+  with the maps book's page per place reading the same owner. It is its own owner rather than a kind of note
+  because a map is keyed by place and shaped by a grid: the knowledge owner is deliberately blind to place
+  state and its notes have no room for a thousand squares, which the kit's own source scans hold to).
 - Session plumbing: compiled ruleset contracts, typed IDs, bundle and
   content-pack resolution, typed tuning handles, structured UI values, and
   bootstrap of an Engine-admitted session.

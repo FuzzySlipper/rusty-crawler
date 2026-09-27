@@ -637,14 +637,22 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     /// <para>
     /// <b>A detection teaches the party nothing durable, so it writes no auto note.</b> What it shows is a
     /// reading of state the world already holds, taken at the moment of the casting: the places the party has
-    /// been to are the world's own per-place state and are published in the maps book, and who is standing
-    /// here now is a moment that a note would make false within the hour. The design's own list of what auto
-    /// notes hold — potion discoveries, fountain effects, obelisk clues, and odd events
+    /// been to are the world's own per-place state and are published in the places the report names, and who is
+    /// standing here now is a moment that a note would make false within the hour. The design's own list of what
+    /// auto notes hold — potion discoveries, fountain effects, obelisk clues, and odd events
     /// (<c>docs/research/mm7-manual-outline.md</c> p.165 from the manual p.22) — is a list of facts the party
-    /// <em>gained</em>, and a detection grants none: the party knew where it had been before it cast, and it
-    /// is the automap that fills in as territory is seen, which is the world's record rather than a note.
-    /// Recording a note per casting would also make the record a log of how often the party looked rather
-    /// than of what it learned, which is the opposite of what a note is for.
+    /// <em>gained</em>, and a detection grants none: the party knew where it had been before it cast, and the
+    /// automap fills in as territory is <em>seen</em>, which is the party's own memory rather than a note.
+    /// Recording a note per casting would also make the record a log of how often the party looked rather than
+    /// of what it learned, which is the opposite of what a note is for.
+    /// </para>
+    /// <para>
+    /// <b>What a detection does leave is its own effect, and the map reads it while it runs.</b> The casting
+    /// carries the detection for as long as its row states, and the automap marks what that scope names for
+    /// exactly as long as the effect is held — so a lapsed detection reveals nothing, and no mark of it is
+    /// written into what the party has mapped. The manual draws an icon for these spells at the automap's own
+    /// corner for the same reason (<c>docs/research/mm7-manual-outline.md</c> p.162 from the manual pp.18–20),
+    /// and its own line for the reveal is what our reading of each scope follows (p.116 from the manual p.18).
     /// </para>
     /// </remarks>
     private SpellApplicationOutcome Detect(SpellApplication application)
@@ -653,6 +661,18 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         if (reading.Detection == DetectionScope.None || _world() is not { } world)
         {
             return Unexpressed(application, "no world to report over");
+        }
+
+        // The reveal lasts exactly as long as the effect does, which is a deadline on the one clock like every
+        // other duration a spell leaves: the automap asks what is running, not what was cast at some point.
+        string carries = string.Empty;
+        if (reading.DetectionLasts is { } rowLasts && Ledger is { } carried)
+        {
+            (_, GameDuration duration) = Worth(application, (_, _) => 0, rowLasts);
+            carried.Start(SpellEffectIds.Detection(reading.Detection), magnitude: 0, duration);
+            carries = string.Create(
+                CultureInfo.InvariantCulture,
+                $" The map reads it until {Moment(application, duration)}.");
         }
 
         List<SpellEffectFact> facts = [];
@@ -705,11 +725,23 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
                 : string.Create(CultureInfo.InvariantCulture, $"{names.Count} mind(s) in {here.Name}: {string.Join(", ", names)}"));
         }
 
+        facts.Add(new SpellEffectFact("detection", Scope(reading.Detection)));
         return SpellApplicationOutcome.Expressed(
             application.Spell.Effect,
-            $"{application.Spell.Name}: {string.Join("; ", lines)}.",
+            $"{application.Spell.Name}: {string.Join("; ", lines)}.{carries}",
             facts);
     }
+
+    /// <summary>What one detection scope looks over, in the words the panel and the automap both read.</summary>
+    /// <param name="scope">The scope.</param>
+    /// <returns>The word.</returns>
+    internal static string Scope(DetectionScope scope) => scope switch
+    {
+        DetectionScope.Places => "places",
+        DetectionScope.Life => "life",
+        DetectionScope.Minds => "minds",
+        _ => "none",
+    };
 
     /// <summary>Utility: a carried effect on the character the table aims it at or on the party, or the ending of the ones other spells left.</summary>
     /// <remarks>

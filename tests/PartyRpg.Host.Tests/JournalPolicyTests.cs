@@ -153,13 +153,14 @@ public sealed class JournalPolicyTests
         ProjectedNode ranked = Journal(ui);
         Assert.Contains("Was raised to Cavalier", History(ranked));
 
-        // The maps book is the world's own knowledge of where the party has been, read at the moment the
-        // projection is built rather than remembered by the journal.
+        // The maps book is the map owner's page rather than the journal's own memory: this test's content
+        // carries no place maps at all, so the book is fillable and says so, which is a different fact from a
+        // party that has walked nowhere. The automap suite proves the mapped case over content that has maps,
+        // and proves that what the book counts is the same owner the drawing is built from.
         ProjectedNode maps = Book(ranked, "maps");
-        Assert.Equal("4 of 4 places known", maps.Field("state").AsString());
-        Assert.All(
-            Enumerable.Range(0, maps.Field("rows").Length()),
-            position => Assert.Equal("visited", maps.Field("rows").Item(position).Field("state").AsString()));
+        Assert.True(maps.Field("available").AsBoolean());
+        Assert.Equal("The party holds no map of anywhere yet.", maps.Field("state").AsString());
+        Assert.Equal(0, maps.Field("rows").Length());
     }
 
     [Fact]

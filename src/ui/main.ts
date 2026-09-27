@@ -858,6 +858,63 @@ interface JournalView {
   readonly books: readonly JournalBookView[];
 }
 
+/** One rectangle of the drawing: a run of squares the automap fills with one colour. */
+interface MapCellView {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+  readonly kind: string;
+}
+
+/** One thing the automap marks: a place's own feature, or what a detection revealed. */
+interface MapMarkView {
+  readonly id: string;
+  readonly kind: string;
+  readonly label: string;
+  readonly x: number;
+  readonly y: number;
+  readonly detected: boolean;
+}
+
+/** The drawing itself, in the drawing's own space: every number here is ready to place. */
+interface MapDrawingView {
+  readonly rung: number;
+  readonly rungs: number;
+  readonly cells: number;
+  readonly size: number;
+  readonly cellsDrawn: readonly MapCellView[];
+  readonly marks: readonly MapMarkView[];
+  readonly partyX: number;
+  readonly partyY: number;
+  readonly facing: number;
+}
+
+/**
+ * The automap, as the product published it.
+ *
+ * Everything the panel draws is here and nothing is worked out: the runs of squares are rectangles in the
+ * drawing's own space, the marks are points in it, and the party's own position and facing are the place's
+ * own. A session whose ruleset stated no automap, a place content carries no map for, and a place nothing
+ * has been walked of are three different facts, and `available`, `mapped`, and the state sentence tell them
+ * apart rather than showing an empty drawing.
+ */
+interface MapView {
+  readonly available: boolean;
+  readonly mapped: boolean;
+  readonly title: string;
+  readonly place: string;
+  readonly name: string;
+  readonly kind: string;
+  readonly state: string;
+  readonly seen: number;
+  readonly total: number;
+  readonly detection: string;
+  readonly detectionMessage: string;
+  readonly detectionEnds: string;
+  readonly drawing: MapDrawingView | null;
+}
+
 interface SnapshotView {
   readonly composition: CompositionView;
   readonly session: SessionView;
@@ -878,6 +935,7 @@ interface SnapshotView {
   readonly magic: MagicView;
   readonly alchemy: AlchemyView;
   readonly quests: QuestsView;
+  readonly map: MapView;
   readonly journal: JournalView;
 }
 
@@ -1641,6 +1699,30 @@ const STYLES = `
 .crawler-awards-state { margin: 0 0 0.3rem; }
 .crawler-awards-list { display: flex; flex-direction: column; gap: 0.15rem; }
 .crawler-award { font-size: 0.85rem; }
+.crawler-map { margin: 0.4rem 0 0; border-top: 1px solid rgba(210, 196, 158, 0.35); padding-top: 0.5rem; }
+.crawler-map[hidden] { display: none; }
+.crawler-map > .crawler-step-head { margin: 0 0 0.3rem; color: #e0d3ae; font-size: 0.85rem; }
+.crawler-map-state { margin: 0 0 0.3rem; color: #cbbf9e; font-size: 0.8rem; }
+.crawler-map-detection { margin: 0 0 0.3rem; color: #9fd3e0; font-size: 0.8rem; }
+.crawler-map-detection[hidden] { display: none; }
+.crawler-map-drawing { display: block; width: 12rem; height: 12rem; background: #12100c; border: 1px solid rgba(210, 196, 158, 0.35); }
+.crawler-map-drawing[hidden] { display: none; }
+.crawler-map-cell { stroke: none; }
+.crawler-map-cell-low { fill: #3f4a2c; }
+.crawler-map-cell-upland { fill: #55603a; }
+.crawler-map-cell-highland { fill: #6d6b46; }
+.crawler-map-cell-peak { fill: #8a8460; }
+.crawler-map-cell-floor { fill: #4a4436; }
+.crawler-map-cell-wall { fill: #b9a878; }
+.crawler-map-mark { fill: #d8c98f; stroke: #12100c; stroke-width: 1; }
+.crawler-map-mark-container { fill: #d8a45f; }
+.crawler-map-mark-building { fill: #b58cd8; }
+.crawler-map-mark-person { fill: #7fc7d8; }
+.crawler-map-mark-creature { fill: #d87f7f; }
+.crawler-map-mark-mind { fill: #d8d07f; }
+.crawler-map-mark[data-detected='true'] { stroke: #f4ead0; stroke-width: 2; }
+.crawler-map-party { fill: #f4ead0; stroke: #12100c; stroke-width: 1; }
+
 .crawler-journal { margin: 0.4rem 0 0; border-top: 1px solid rgba(210, 196, 158, 0.35); padding-top: 0.5rem; }
 .crawler-journal[hidden] { display: none; }
 .crawler-journal > .crawler-step-head { margin: 0 0 0.3rem; color: #e0d3ae; font-size: 0.85rem; }
@@ -1693,6 +1775,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function words(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
 }
+
+/** The namespace every shape of the automap is created in, because a drawing is not HTML. */
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
 function readList<T>(value: unknown, read: (entry: Record<string, unknown>) => T | null): T[] {
   if (!Array.isArray(value)) return [];
@@ -2737,8 +2822,81 @@ function readSnapshot(value: unknown): SnapshotView | null {
     alchemy,
     quests: readQuests(value.quests),
     journal: readJournal(value.journal),
+    map: readMap(value.map),
   };
 }
+
+/**
+ * Reads the automap block, or the no-map state.
+ *
+ * A block this companion cannot read is read as a session that keeps no automap, which is the same thing a
+ * player sees: no drawing rather than a drawing invented from bytes that did not fit. Every number and every
+ * word is the product's own — where a run of squares is, what kind they are, where the party stands, and what
+ * a detection is revealing — so this reader copies and decides nothing.
+ */
+function readMap(value: unknown): MapView {
+  if (!isRecord(value)) return NO_MAP;
+  const text = (entry: unknown): string => (typeof entry === 'string' ? entry : '');
+  const number = (entry: unknown): number => (typeof entry === 'number' ? entry : 0);
+  const drawing = isRecord(value.drawing)
+    ? {
+        rung: number(value.drawing.rung),
+        rungs: number(value.drawing.rungs),
+        cells: number(value.drawing.cells),
+        size: number(value.drawing.size),
+        cellsDrawn: readList(value.drawing.cellsDrawn, (run) => ({
+          x: number(run.x),
+          y: number(run.y),
+          w: number(run.w),
+          h: number(run.h),
+          kind: text(run.kind),
+        })),
+        marks: readList(value.drawing.marks, (mark) => ({
+          id: text(mark.id),
+          kind: text(mark.kind),
+          label: text(mark.label),
+          x: number(mark.x),
+          y: number(mark.y),
+          detected: mark.detected === true,
+        })),
+        partyX: number(value.drawing.partyX),
+        partyY: number(value.drawing.partyY),
+        facing: number(value.drawing.facing),
+      }
+    : null;
+  return {
+    available: value.available === true,
+    mapped: value.mapped === true,
+    title: text(value.title),
+    place: text(value.place),
+    name: text(value.name),
+    kind: text(value.kind),
+    state: text(value.state),
+    seen: number(value.seen),
+    total: number(value.total),
+    detection: text(value.detection),
+    detectionMessage: text(value.detectionMessage),
+    detectionEnds: text(value.detectionEnds),
+    drawing,
+  };
+}
+
+/** The automap of a session whose ruleset stated none: there is no drawing to read. */
+const NO_MAP: MapView = {
+  available: false,
+  mapped: false,
+  title: '',
+  place: '',
+  name: '',
+  kind: '',
+  state: '',
+  seen: 0,
+  total: 0,
+  detection: '',
+  detectionMessage: '',
+  detectionEnds: '',
+  drawing: null,
+};
 
 /**
  * Reads the journal block, or the no-books state. A block this companion cannot read is read as a session
@@ -3228,6 +3386,32 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   awardsList.className = 'crawler-awards-list';
   awards.append(awardsHead, awardsState, awardsList);
 
+  // The automap: what the party has walked of the place it stands in, drawn from the projection and nothing
+  // else. The shapes are SVG in the drawing's own coordinate space — the product says where each run of
+  // squares is, where every mark stands, and where the party is facing — so this companion places what it was
+  // given and works out no scale, no offset, and no position of its own.
+  const map = document.createElement('section');
+  map.className = 'crawler-map';
+  map.hidden = true;
+  const mapHead = document.createElement('p');
+  mapHead.className = 'crawler-step-head';
+  const mapState = document.createElement('p');
+  mapState.className = 'crawler-map-state';
+  const mapDetection = document.createElement('p');
+  mapDetection.className = 'crawler-map-detection';
+  mapDetection.hidden = true;
+  const mapDrawing = document.createElementNS(SVG_NAMESPACE, 'svg');
+  mapDrawing.setAttribute('class', 'crawler-map-drawing');
+  mapDrawing.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  const mapCells = document.createElementNS(SVG_NAMESPACE, 'g');
+  mapCells.setAttribute('class', 'crawler-map-cells');
+  const mapMarks = document.createElementNS(SVG_NAMESPACE, 'g');
+  mapMarks.setAttribute('class', 'crawler-map-marks');
+  const mapParty = document.createElementNS(SVG_NAMESPACE, 'polygon');
+  mapParty.setAttribute('class', 'crawler-map-party');
+  mapDrawing.append(mapCells, mapMarks, mapParty);
+  map.append(mapHead, mapState, mapDetection, mapDrawing);
+
   // The journal: the five books, and what each of them holds. The panel decides nothing here — an errand is
   // taken and handed in by talking to somebody, so the quests book is a reading of the party's own state
   // rather than a screen with commands, and what a refusal named is printed as it was written. The four other
@@ -3401,6 +3585,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     magic,
     alchemy,
     awards,
+    map,
     journal,
     details,
     action,
@@ -4593,6 +4778,74 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     );
   };
 
+  /**
+   * Draws the automap the product published.
+   *
+   * Each run of squares becomes one rectangle of the kind the game named it, each mark becomes one point with
+   * its kind as a class, and the party becomes a triangle turned by the facing the projection published. What
+   * is not drawn is ground the party has not walked: a projection carries no rectangle for it, and a mark the
+   * map does not already show is a detection's own reading. Nothing here is remembered between snapshots, so
+   * the same projection draws the same map however many times it arrives.
+   */
+  const renderMap = (view: MapView): void => {
+    panel.dataset.map = !view.available ? 'none' : view.mapped ? 'present' : 'unmapped';
+    panel.dataset.mapDetection = view.detection;
+    map.hidden = !view.available;
+    mapHead.textContent = view.title === '' ? 'Automap' : `${view.title}${view.name === '' ? '' : ` · ${view.name}`}`;
+    mapState.textContent = view.state;
+    mapDetection.hidden = view.detectionMessage === '';
+    mapDetection.textContent =
+      view.detectionEnds === '' ? view.detectionMessage : `${view.detectionMessage} Until ${view.detectionEnds}.`;
+    const drawing = view.drawing;
+    // An SVG element has no `hidden` property in the DOM's own types, so the attribute is what says whether
+    // there is a drawing at all; the stylesheet is what hides it.
+    if (drawing === null) mapDrawing.setAttribute('hidden', '');
+    else mapDrawing.removeAttribute('hidden');
+    if (drawing === null) {
+      mapDrawing.removeAttribute('viewBox');
+      mapCells.replaceChildren();
+      mapMarks.replaceChildren();
+      return;
+    }
+
+    mapDrawing.setAttribute('viewBox', `0 0 ${drawing.size} ${drawing.size}`);
+    mapCells.replaceChildren(
+      ...drawing.cellsDrawn.map((run) => {
+        const cell = document.createElementNS(SVG_NAMESPACE, 'rect');
+        cell.setAttribute('x', String(run.x));
+        cell.setAttribute('y', String(run.y));
+        cell.setAttribute('width', String(run.w));
+        cell.setAttribute('height', String(run.h));
+        cell.setAttribute('class', `crawler-map-cell crawler-map-cell-${run.kind}`);
+        cell.dataset.kind = run.kind;
+        return cell;
+      }),
+    );
+    mapMarks.replaceChildren(
+      ...drawing.marks.map((mark) => {
+        const point = document.createElementNS(SVG_NAMESPACE, 'circle');
+        point.setAttribute('cx', String(mark.x));
+        point.setAttribute('cy', String(mark.y));
+        point.setAttribute('r', String(drawing.size / drawing.cells / 2));
+        point.setAttribute('class', `crawler-map-mark crawler-map-mark-${mark.kind}`);
+        point.dataset.id = mark.id;
+        point.dataset.kind = mark.kind;
+        point.dataset.detected = String(mark.detected);
+        const title = document.createElementNS(SVG_NAMESPACE, 'title');
+        title.textContent = mark.detected ? `${mark.label} (revealed)` : mark.label;
+        point.append(title);
+        return point;
+      }),
+    );
+    // The party's own marker: where the projection says it stands, turned by the facing it published.
+    const half = drawing.size / drawing.cells / 2;
+    mapParty.setAttribute(
+      'points',
+      `${drawing.partyX},${drawing.partyY - half} ${drawing.partyX + half},${drawing.partyY + half} ${drawing.partyX - half},${drawing.partyY + half}`,
+    );
+    mapParty.setAttribute('transform', `rotate(${drawing.facing} ${drawing.partyX} ${drawing.partyY})`);
+  };
+
   const renderJournal = (view: JournalView): void => {
     panel.dataset.journal = view.available ? 'present' : 'none';
     journal.hidden = !view.available;
@@ -4901,6 +5154,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     renderAlchemy(snapshot.alchemy);
     // The books first, so the quests book's own title and state sentence are the product's words, and then
     // the quests renderer draws that book's rows underneath them.
+    renderMap(snapshot.map);
     renderJournal(snapshot.journal);
     renderQuests(snapshot.quests, snapshot.journal.books.find((book) => book.kind === 'quests'));
     const world = snapshot.world;

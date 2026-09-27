@@ -66,8 +66,8 @@ internal sealed class MightAndMagic7Journal : IJournalRule
             "This session keeps no knowledge owner: what a party learns about the world — a potion's recipe, a fountain's effect, an obelisk's clue — is kept by the owner composed over the party and the clock."),
         JournalBookKind.Maps => new(
             "Maps",
-            "The party knows of nowhere yet.",
-            "This session holds no world, so there is nowhere to map."),
+            "The party has mapped nowhere yet.",
+            "This session keeps no map owner: what a party has walked of a place is kept by the owner composed over the places' own maps."),
         JournalBookKind.Calendar => new(
             "Calendar",
             "This session holds no clock, so no day can be named.",
