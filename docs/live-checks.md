@@ -17,7 +17,8 @@ both bound to the host's LAN address so a browser on this box can reach them:
 
 Each writes its build and runtime output to its own `.runtime/`, and its stdout to `/tmp/rc-live.log` and
 `/tmp/rc-live-b.log`. The playtest profiles `rusty-crawler` and `rusty-crawler-b` name those URLs; adding
-a third target means adding a unit, a port, and a profile entry, in that order.
+a third target means adding a unit, a port, and a profile entry, in that order — and restarting the
+playtest service, whose registry it reads once at startup, before `playtest start` knows the new id.
 
 **Stage on B, never on A.** A target's dev host watches its own `src/` and `content/` and replaces the
 running runtime on any write. On A those paths are the repository's, which is the collision that made two
@@ -31,7 +32,8 @@ when the place under test is defended or otherwise unsuitable, a **variant of an
 unwanted records dropped. Both are hand-written JSON under `content/partyrpg/imports/<pack>/`, named by
 `content/partyrpg/bundles/<bundle>/bundle.json`, and generated game data is never committed.
 
-Three rules decide whether the product starts:
+Two loader rules decide whether the product starts, and one staging rule keeps a write out of the other
+checkout:
 
 - **A pack's directory name must equal its `packId`.** The loader refuses a mismatch by name:
   `the manifest says 'x' but the pack directory is 'y'`.
