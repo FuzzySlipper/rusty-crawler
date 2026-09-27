@@ -39,7 +39,8 @@ Three rules decide whether the product starts:
   and validated whether or not the bundle names it, so a variant *replaces* the pack it varies in that
   root rather than sitting beside it: two packs declaring `places` stop the product with
   `document id 'places' is already declared by pack '...'`. Keep the untouched packs one directory
-  outside the root while a variant is staged.
+  outside the root while a variant is staged — the `rc-live-b` worktree keeps them in
+  `content/partyrpg/imports-base/` — and move them back when the variant is done with.
 - **Copy contents, never a link.** A worktree's content root can hold *symlinks* to the main checkout's
   packs; `cp -r <pack> <variant>` copies the symlink, and a write through it edits the main checkout's
   pack. Copy with `cp -rL <pack>/. <variant>/`, and check `[ -L <variant> ]` (or `readlink -f`) before
