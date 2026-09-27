@@ -72,26 +72,19 @@ documents decide, and the difference is recorded rather than silently rounded.
 
 ## Current state
 
-**Foundation stone 7 has landed: a character grows, and the game's rules decide how far. One owner holds
-experience, a level, the skill points a level grants, and the rank a promotion hands over; a level is bought
-at a training hall whose fee the party's one ledger settles, and what a level gives is this game's own class
-and rank tables. Skills are content's 37 rows read into the manual's four blocks, capped by the class and
-rank ceilings this game authors, and raised with points the owner spends. Magic is a catalog of nine schools
-and 99 spells, learned from the books a guild sells with its membership and the rung its counter stands at,
-cast through one workflow that judges the spell's tier against that character's mastery, pays the caster's
-own pool, and hands the casting to an effect seam where each of the design's eight categories reaches the
-owner that holds what it changes. Alchemy mixes the shipped potion table's own recipes. And every class
-advances through ranks by promotion: the shipped class table's 9 families and 36 rows, 27 ranks with the 18
-people the shipped NPC and topic tables name as their givers, the errands the shipped quest table states,
-the proof items the shipped item table carries, and the light/dark alternative a second promotion chooses —
-recorded in the character's own class, which is what makes it irreversible and what a save already carries.
-A rank whose errand is a deed is stated as the record a finished quest leaves, so the seventeen ranks whose
-errands the shipped quest table states are judged by real quest state rather than refused — quests have
-landed as their own stone's first part, and the journal and its five books beside them, with knowledge
-still to come. Two defects stand
-beside the stone rather than inside it: a creature that cannot
-see its target still walks straight at it rather than around geometry, and a session's own fight is not yet
-in a save.**
+**Foundation stone 8 has landed: a character grows and is remembered.** A party is created and grows —
+experience, levels, skill points and ranks through one owner; skills with four mastery tiers and class/rank
+ceilings this game authors over the donor's transcribed matrix; nine schools and 99 spells learned from guild
+books and cast through one workflow whose eight effect categories each reach the owner of what they change;
+alchemy from the shipped mixture table; promotions through both stages ending in an irreversible light/dark
+choice. The world is inhabited and usable: one interaction mechanism for doors, containers and people, one
+service mechanism serving every shipped building kind from imported data, towns clocked so a shut shop is a
+locked door, rest and camping on the one clock, and conversations whose topics follow the party's own state.
+Combat is one state in the same scene with both sides acting and either pacing. And the party now keeps a
+record — quests it has taken, a dated journal, what it has learned, standing that changes how people treat it,
+and a per-place memory of ground it has walked. Three defects stand beside the stones rather than inside them:
+a creature that cannot see its target still walks into the wall, a session's own fight is not yet in a save,
+and a deadline (a ward, a light, a haste) still blocks a save by name rather than being carried.
 
 - `src/PartyRpg.Kit`, `src/PartyRpg.Rulesets.MightAndMagic7`, and `src/PartyRpg.Host` build against
   the pinned Engine pair. The host declares the one product entry, one admitted update, the
@@ -296,21 +289,19 @@ in a save.**
   offers it as an ordinary topic whose answer hands off to the service mechanism, and a handoff nothing
   routes is reported by name. An answer records what it told the party as party-carried state.
 - Combat is one state over the live world, paced by recovery. Entering a fight changes nothing about where the
-  party is, what exists, or what place it is in: no battle scene, no encounter world, no second population.
-  Every combatant — each of the party's members and each creature standing in the place — carries one recovery
-  quantity advanced from the game time the session's one clock reports inside the admitted update and by
-  nothing else, so a held session releases nobody and no frame or timer moves it; a recovering actor cannot
-  act, and attack initiation of every kind is gated by that same quantity rather than by a per-kind cooldown.
-  That quantity is also the whole of the initiative, because the second pacing is a second reading of the same
-  state: actors act one at a time in ascending remaining recovery — ready being exactly zero — with the fight's
-  own order breaking ties, so a faster actor acts more than once in a round as arithmetic rather than as a
-  special case. Hostility is world state: a creature
-  is an enemy because of what it is — this game reads the monster table's own hostility band as the distance
-  at which it notices the party — or because of what the party has done, which is remembered for as long as
-  the creature stands there, and a place the world restores starts with nobody provoked. The act control (B,
-  held, as the donor's own key is) orders every member who may act to attack the nearest creature in reach,
-  and each pays its own recovery; an order while recovering is refused by name. The panel publishes who is
-  engaged, who is ready, and what the last order did, and runs no countdown of its own.
+  party is, what exists, or what place it is in. Every combatant carries one recovery quantity advanced only by
+  the session's clock inside the admitted update; it gates every attack of every kind, and it is also the whole
+  of turn-based initiative — actors act in ascending remaining recovery, so a faster actor acts more than once
+  in a round as arithmetic rather than a special case. Hostility is world state: what a thing is comes from the
+  monster table's own band, and what the party has done is remembered for as long as the creature stands.
+  Attacks resolve through one path (donor hit tests, a monster row's dice, four resistance checks over
+  resistance plus thirty, full immunity from the table's own cell), damage lands on whoever owns the target's
+  health, and what a hit leaves is the table's own special-attack column — twelve conditions, each applied and
+  reportable. Death is a condition like the others. **Monsters are placed from the levels' own spawn records**
+  (a spawn names an encounter slot, not a monster, and the slot's kind and grade resolve the row: 1,900
+  creatures in 72 places, refusals named) and driven by this game's AI policy through the same gate the
+  player's control uses. A cleared place stays cleared until the clock restores it, what a death leaves lies
+  there searchable, and the fight is played in either pacing with only the pacing changing.
 - Attacks resolve. One path serves melee, ranged, and spell attacks alike: the fight consumes the
   `AttackInitiation` it published, asks the ruleset for the chance and the dice, rolls them through the
   engine's keyed random service under a key that names the attack, lets the target's resistance take its
@@ -357,43 +348,14 @@ in a save.**
   own cell states (`MightAndMagic7Spells.Damage`, the donor's `CalcSpellDamage`). A spell that table describes
   no harm for — a shield, a cure, a dispel — is still one a creature keeps on its row and never chooses,
   because what those spells do to a creature is the effect categories' work rather than a blow.
-- Magic exists: a catalog, learning, and one casting workflow. The nine schools and their 99 spells come
-  from content as the shipped table declares them, and what each costs, requires, aims at, and does is this
-  game's own authored reading of the donor's per-spell table (`MightAndMagic7Spells`: the donor's mana,
-  recovery, base and per-skill damage, and required mastery per spell — the numbers the shipped table does
-  not carry, recorded as ours). Each spell carries one of the design's eight effect categories as its
-  identity, which is what keeps the mechanism free of a per-spell branch. Learning goes through the counters
-  that already exist: a guild sells its school's spell books as lessons, priced from the operator's own item
-  rows, gated by the rung the guild stands at in its school and judged against the character's mastery of
-  that school — a book is consumed into the character's spellbook rather than carried, and a refused
-  purchase names what is missing (no membership, no school skill, a tier the mastery does not allow, a spell
-  already known). Casting is one workflow for exploration and combat: resolve the caster and the spell, judge
-  the spell's tier against that character's school mastery, resolve the aim, ask the effect path whether the
-  casting may go ahead, pay the spell points through the member's own pool, and hand the casting to the
-  effect seam — refusing by name for no such spell, a spell not in the spellbook, mastery too low, points
-  short, no valid target, and a caster that cannot act. A character's spell points are the ruleset's own
-  formula over class, level, and the score that class casts from (the donor's `GetMaxMana`), applied where
-  the party comes into being, and each character keeps one quick spell. **A spell now does something, and
-  every category reaches the owner that holds the state it changes.** Behind the seam stand eight
-  application paths and no per-spell branch: harm is an attack of the spell kind through the fight's own
-  gated entry, so a creature's spell lands with the spell's own dice and a party's cast at an opponent is one
-  more order through the same entry; health is given through the member's own pool in the donor's four
-  shapes (an amount, a shared pool, every pool filled, a raising that stands a member up and leaves them
-  weak); conditions are lifted and left through the member's own condition state, with the donor's cures and
-  the weakness a raising leaves; wards and utilities are party-carried effects with a deadline on the one
-  clock, read where they apply — a resistance by the fight's own resistance sum, armour class by its own
-  armour class, a haste by the recovery it charges, a blessing by the chance to land, heroism and
-  hammerhands by what a blow is worth, a fate by the luck a saving throw reads, invisibility by whether a
-  creature notices the party, and a dispelling by the ledger of what spells left running; light is a
-  party-carried light ended by the deadline the clock's own daylight window sets, and the panel reads
-  daylight, light, or dark from it; travel is a portal taken through the world's own transition path, with
-  the places the party has been to offered as the aims and a beacon kept in its own carried state; and
-  detection reports over the places and the population the world holds. What is not applied is named rather
-  than faked: `docs/magic-coverage.md` is generated from the ruleset's own rows and checked by a test on
-  every run, listing every one of the 99 spells as implemented, approximated, or not yet, with what is
-  missing and which owner would close it — 58 implemented, 13 approximated, 28 not yet — and the spells
-  whose effect needs a target this build cannot aim at (an item, a thing across the room, a follower) are
-  refused by name before a spell point is spent.
+- Magic is a catalog, a learning rule, one casting workflow, and an effect for every category. The nine
+  schools and 99 spells come from the shipped table; what each costs, requires, aims at, recovers and rolls is
+  this game's reading of the donor's per-spell table, reported in a coverage file a test regenerates so the
+  statement cannot drift from the rows. Learning goes through the counters that exist (a guild's membership
+  and rung gate which books it sells, and a book is consumed into the spellbook), casting refuses by name for
+  every way it can fail, and each of the eight effect categories reaches the owner that holds what it changes
+  rather than growing a branch per spell. What is *not* applied is named per spell with the owner that would
+  close it, and a spell whose target cannot yet be aimed at is refused before a point is spent.
 - A place remembers being emptied, and the clock brings its population back. When everything in a place that
   fights the party is down — a creature's own nature decides that, so a person going about their day is not
   what a party cleared — the place is marked cleared through the world's own per-place state, and the mark is
@@ -433,35 +395,22 @@ in a save.**
   companion honest: the runtime check that rendering starts no timer, a source scan that fails on a clock
   or on any arithmetic between a combat quantity and anything else, and a test that feeds it
   contradictory projections and requires it to echo them.
-- **Quests exist: a definition a game states, an instance a party holds, objectives that read the owners
-  already reporting them, and one turn-in that pays.** `PartyQuests` is the one owner of what a party has
-  been offered, taken, and finished, and nothing else writes a stage or a recorded count. A definition
-  states its giver, its offer and completion conditions, its objectives, what it pays, and the record it
-  leaves; an objective is one of six kinds — kill, retrieve, reach, talk, deliver, a flag check — and each
-  reads the owner that already holds the fact: the fight's own report of its dead for a creature the place's
-  placements name, the one inventory for something carried, the world's report of the place the party stands
-  in, the records the conversation leaves of meeting somebody, and the party's own carried flags. What
-  another owner can be asked is read from it at the moment it is asked and never copied; what is a moment
-  rather than a state — a death, a place — is recorded on the instance, which is what a save carries.
-  Completion is a reading rather than a stage, so nothing has to write it down and a party that loses the
-  thing an objective named stops being ready in the same breath. Every errand is offered in the conversation
-  that already exists, as topics whose stage is the party's state (hearing it, agreeing to it, handing it
-  back), and a turn-in is judged whole before anything moves: the giver, every objective, every condition,
-  and every owner a reward would reach, so a refusal names the objective that is unmet and leaves the party
-  exactly where it stood. What it then pays reaches each owner by its own path — experience at the
-  progression owner's one award entry, coin through the party's one ledger, items through the acquisition
-  path, records onto the party's effects — and the record the definition states is written last, so the mark
-  of a finished errand is never true before everything it promised arrived. An item a taken errand's
-  unfinished objective names is refused for sale, with the errand named, because a thing carried is what a
-  retrieve or delivery objective is judged against. This game's own reading is `MightAndMagic7Quests`: the
-  operator's 512 shipped quest rows carry the journal's own words, and the 17 promotion errands are stated
-  over them — each errand's giver taken from the ladder rather than stated twice, each objective resolved
-  against the places and creatures the packs carry, and what the original performs with an event program
-  (a weight moved, a code cracked, an altar defaced) stated as the errand's residue rather than faked. A pack
-  may state an errand of its own with a reading beside its words, and a town hall's board is the one errand
-  nobody authors: the beast is the place's own encounter row by the month the clock stands in, what it pays
-  is the donor's hundred times its level, and the keeper who offers it is the one the counter's placement
-  names.
+- Quests, journal, knowledge, standing and the automap are the party's record of itself. A quest is a
+  definition a game states plus an instance a party holds: six objective kinds each read the owner that already
+  reports the fact, what is a moment rather than a state is recorded on the instance, completion is a reading
+  rather than a stage, and a turn-in is judged whole before anything moves with the record written last. Every
+  errand is offered in the conversation that already exists, and the seventeen promotion errands the shipped
+  quest table states are judged by real quest state. `PartyJournal` owns dated lines and nothing else — the
+  errands come from the quest owner, the places from the world, the day from the clock — so a book changes
+  without the journal being told; lines are stored as elapsed game time and never as dates, so a loaded line
+  reads as the day it happened. `PartyKnowledge` owns what the party has learned, test-enforced to name no
+  place state and proved to survive a place reset. Standing is a reading of records the game already writes,
+  not a new vocabulary, with the donor's five bands and treatment biting in dialogue, quests and prices
+  through the condition vocabulary that already existed. `PartyMaps` holds, per place, the squares the party
+  has walked over that place's own emitted grid, bounded by the place and by a stated sight radius; a
+  detection is a live reading that marks only what its own row claims and never knowledge. The save carries
+  each of these as its own section, and a document that contradicts any of them is refused with the offending
+  part named.
 - **The party keeps a record: dated history and the five books it is read through.** `PartyJournal` is the
   one owner of what a party has written down, and what it holds is dated lines and nothing else — the
   errands it stands with are read from the quest owner, the places it knows from the world, the day from the
