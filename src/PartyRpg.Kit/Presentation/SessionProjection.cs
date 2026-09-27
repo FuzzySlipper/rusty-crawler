@@ -1130,31 +1130,21 @@ public static class SessionProjection
     /// detection puts on the map.
     /// </para>
     /// <para>
-    /// A snapshot built without a map carries the default value, whose list is null rather than empty, and it
-    /// is published as no drawing at all so a reader never sees a map nobody built.
+    /// <b>A snapshot with no drawing is published as no drawing.</b> There is nothing to draw whenever the
+    /// session holds no map owner, holds no world yet, or stands in a place content states no map for, and the
+    /// block says so with an absent drawing rather than one of zero extent — a screen handed a window of no
+    /// cells and a size of nothing would be handed a shape it can only divide into holes. What a drawing it
+    /// does carry is numbers and only numbers, which is what the product's own wire requires of a number.
     /// </para>
     /// </remarks>
     private static uint Map(UiValueBuilder builder, MapSnapshot map)
     {
-        List<uint> drawn = [];
-        List<uint> marks = [];
-        double size = 0;
-        int rung = 0;
-        int rungs = 0;
-        int cells = 0;
-        double partyX = 0;
-        double partyY = 0;
-        double facing = 0;
-        if (map.Drawing is { } drawing)
+        uint drawing = builder.Null();
+        if (map.Drawing is { } shape)
         {
-            size = drawing.Size;
-            rung = drawing.Rung;
-            rungs = drawing.Rungs;
-            cells = drawing.Cells;
-            partyX = drawing.PartyX;
-            partyY = drawing.PartyY;
-            facing = drawing.Facing;
-            foreach (MapCellSnapshot run in drawing.Drawn ?? [])
+            List<uint> drawn = [];
+            List<uint> marks = [];
+            foreach (MapCellSnapshot run in shape.Drawn ?? [])
             {
                 drawn.Add(builder.Object(
                     ("x", builder.Number(run.X)),
@@ -1164,7 +1154,7 @@ public static class SessionProjection
                     ("kind", builder.String(run.Kind ?? string.Empty))));
             }
 
-            foreach (MapMarkSnapshot mark in drawing.Marks ?? [])
+            foreach (MapMarkSnapshot mark in shape.Marks ?? [])
             {
                 marks.Add(builder.Object(
                     ("id", builder.String(mark.Id ?? string.Empty)),
@@ -1174,6 +1164,17 @@ public static class SessionProjection
                     ("y", builder.Number(mark.Y)),
                     ("detected", builder.Boolean(mark.Detected))));
             }
+
+            drawing = builder.Object(
+                ("rung", builder.Number(shape.Rung)),
+                ("rungs", builder.Number(shape.Rungs)),
+                ("cells", builder.Number(shape.Cells)),
+                ("size", builder.Number(shape.Size)),
+                ("partyX", builder.Number(shape.PartyX)),
+                ("partyY", builder.Number(shape.PartyY)),
+                ("facing", builder.Number(shape.Facing)),
+                ("cellsDrawn", builder.Array([.. drawn])),
+                ("marks", builder.Array([.. marks])));
         }
 
         return builder.Object(
@@ -1189,16 +1190,7 @@ public static class SessionProjection
             ("detection", builder.String(map.Detection ?? string.Empty)),
             ("detectionMessage", builder.String(map.DetectionMessage ?? string.Empty)),
             ("detectionEnds", builder.String(map.DetectionEnds ?? string.Empty)),
-            ("drawing", builder.Object(
-                ("rung", builder.Number(rung)),
-                ("rungs", builder.Number(rungs)),
-                ("cells", builder.Number(cells)),
-                ("size", builder.Number(size)),
-                ("partyX", builder.Number(partyX)),
-                ("partyY", builder.Number(partyY)),
-                ("facing", builder.Number(facing)),
-                ("cellsDrawn", builder.Array([.. drawn])),
-                ("marks", builder.Array([.. marks])))));
+            ("drawing", drawing));
     }
 
     private static uint Alchemy(UiValueBuilder builder, AlchemySnapshot alchemy)

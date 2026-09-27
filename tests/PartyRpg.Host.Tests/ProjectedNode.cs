@@ -92,6 +92,16 @@ internal readonly struct ProjectedNode(UiValue value, uint index)
         return node.BoolValue != 0;
     }
 
+    /// <summary>
+    /// Whether this node was published as no value at all.
+    /// </summary>
+    /// <remarks>
+    /// A block that is absent and a block that is empty are different facts on this wire, and a projection
+    /// that published a value of nothing where the product meant "there is none" would be read by a screen as
+    /// a thing to draw. This is how a test tells them apart.
+    /// </remarks>
+    internal bool IsNull() => value.Nodes.Span[(int)index].Kind == StructuredValueKind.Null;
+
     /// <summary>Returns one element of an array node, in the order the projection wrote it.</summary>
     internal ProjectedNode Element(int position)
     {

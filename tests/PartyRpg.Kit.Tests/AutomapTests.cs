@@ -7,9 +7,11 @@ using PartyRpg.Kit.Maps;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Presentation;
+using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
+using Rusty.Engine;
 using Xunit;
 
 namespace PartyRpg.Kit.Tests;
@@ -230,6 +232,91 @@ public sealed class AutomapTests
     }
 
     [Fact]
+    public void An_empty_map_reaches_the_panel_as_no_drawing_rather_than_a_drawing_of_nothing()
+    {
+        GameClock clock = Clock();
+        SessionWorld world = World(clock);
+        PartyMaps maps = Maps(Region);
+
+        // A party with no place yet — the session still making its characters — has nothing to draw, and the
+        // projection says so in the snapshot itself.
+        MapSnapshot nowhere = MapSnapshot.From(maps, world: null);
+        Assert.False(nowhere.Mapped);
+        Assert.Null(nowhere.Drawing);
+
+        // So do the other two ways a drawing is absent: a place content carries no map for, and a session
+        // whose ruleset stated no automap at all.
+        Assert.Null(MapSnapshot.From(Maps(), world).Drawing);
+        Assert.Null(MapSnapshot.From(maps: null, world).Drawing);
+
+        // On the wire, nothing to draw is an absent drawing and not a drawing of zero extent: a panel that
+        // received a zero window would divide a size of nothing by a span of nothing, and the shape it wrote
+        // would be no shape at all.
+        ProjectedNode blank = MapBlock(nowhere);
+        Assert.Equal("the party is nowhere yet", blank.Field("state").AsString());
+        Assert.True(blank.Field("drawing").IsNull());
+
+        ProjectedNode unmapped = MapBlock(MapSnapshot.From(Maps(), world));
+        Assert.Equal("no map of this place", unmapped.Field("state").AsString());
+        Assert.True(unmapped.Field("drawing").IsNull());
+
+        ProjectedNode noOwner = MapBlock(MapSnapshot.From(maps: null, world));
+        Assert.False(noOwner.Field("available").AsBoolean());
+        Assert.True(noOwner.Field("drawing").IsNull());
+    }
+
+    [Fact]
+    public void A_degenerate_window_is_drawn_from_finite_numbers_and_a_party_nowhere_draws_nothing()
+    {
+        GameClock clock = Clock();
+        SessionWorld world = World(clock);
+
+        // A place whose own map is a single square is the smallest map there can be: the party's square is the
+        // whole of it, and every number on the drawing is one a screen can place.
+        PartyMaps one = new(new TestRule(), new OneSquare());
+        world.ArriveAt(Region, new PlacePose(1, 1, 0, 0, 0));
+        Assert.True(one.Observe(Region, world.Party.PlacePose));
+        MapDrawingSnapshot smallest = Assert.IsType<MapDrawingSnapshot>(MapSnapshot.From(one, world).Drawing);
+        Assert.Equal(1, smallest.Cells);
+        Assert.Single(smallest.Drawn);
+        AssertFinite(smallest);
+
+        // A game whose zoom ladder states a window of no cells across is refused the division rather than
+        // trusted: the drawing is one square wide, which is the narrowest window there is.
+        PartyMaps none = new(new TestRule { Window = 0 }, new TestMaps(Region));
+        Assert.True(none.Observe(Region, world.Party.PlacePose));
+        MapDrawingSnapshot narrowest = Assert.IsType<MapDrawingSnapshot>(MapSnapshot.From(none, world).Drawing);
+        Assert.Equal(1, narrowest.Cells);
+        AssertFinite(narrowest);
+
+        // A place that is mapped and walked by nobody yet is not the same fact as nothing to draw: the party
+        // knows where it stands even when it knows no ground, so the blank map carries its own marker — and
+        // still no number a screen cannot place.
+        PartyMaps fresh = Maps(Region);
+        MapDrawingSnapshot marker = Assert.IsType<MapDrawingSnapshot>(MapSnapshot.From(fresh, world).Drawing);
+        Assert.Empty(marker.Drawn);
+        AssertFinite(marker);
+
+        // And a game that answers a number which is not one — here the facing its own rule states — is given no
+        // drawing at all rather than a shape with a hole in it, because the product's own wire refuses a
+        // non-finite number and the panel would be told one thing while a browser drew another.
+        PartyMaps unplaceable = new(new TestRule { Facing = _ => double.NaN }, new TestMaps(Region));
+        Assert.True(unplaceable.Observe(Region, world.Party.PlacePose));
+        MapSnapshot broken = MapSnapshot.From(unplaceable, world);
+        Assert.Null(broken.Drawing);
+        Assert.True(MapBlock(broken).Field("drawing").IsNull());
+
+        // A detection's own mark at a point that is not a point is dropped the same way: what survives on the
+        // drawing is every number a screen can place.
+        MapSnapshot detected = MapSnapshot.From(
+            maps: fresh,
+            world,
+            new TestRunning("detect.unplaced"));
+        Assert.DoesNotContain(detected.Drawing!.Value.Marks, mark => mark.Id == "creature:nowhere");
+        AssertFinite(detected.Drawing!.Value);
+    }
+
+    [Fact]
     public void A_detection_marks_exactly_what_it_claims_and_fills_no_square()
     {
         GameClock clock = Clock();
@@ -306,6 +393,47 @@ public sealed class AutomapTests
     /// <summary>The party's map of one place, which the test asserts about.</summary>
     private static MapTerritory Territory(PartyMaps maps, PlaceId place) =>
         maps.Find(place) ?? throw new InvalidOperationException($"The party holds no map of place '{place}'.");
+
+    /// <summary>The automap block as the panel is handed it, over one reading of the party's map.</summary>
+    private static ProjectedNode MapBlock(MapSnapshot map)
+    {
+        SessionSnapshot snapshot = new(
+            new SessionComposition(new RulesetId("test.ruleset"), "Test Ruleset"),
+            SessionMode.Running,
+            1,
+            1,
+            1,
+            WorldSnapshot.Empty,
+            Map: map);
+        UiValue value = SessionProjection.Build(snapshot);
+        return new ProjectedNode(value, value.Root).Field(SessionProjection.MapField);
+    }
+
+    /// <summary>Asserts every number a drawing carries is one a screen can place.</summary>
+    /// <remarks>
+    /// A projection is the product's answer rather than a shape a screen works out, so a coordinate that is
+    /// not a number is not a coordinate: the product's own wire refuses one, which is why this suite demands
+    /// that nothing on a drawing is ever a hole.
+    /// </remarks>
+    private static void AssertFinite(MapDrawingSnapshot drawing)
+    {
+        Assert.True(double.IsFinite(drawing.Size));
+        Assert.True(double.IsFinite(drawing.PartyX));
+        Assert.True(double.IsFinite(drawing.PartyY));
+        Assert.True(double.IsFinite(drawing.Facing));
+        Assert.All(drawing.Drawn, run =>
+        {
+            Assert.True(double.IsFinite(run.X));
+            Assert.True(double.IsFinite(run.Y));
+            Assert.True(double.IsFinite(run.Width));
+            Assert.True(double.IsFinite(run.Height));
+        });
+        Assert.All(drawing.Marks, mark =>
+        {
+            Assert.True(double.IsFinite(mark.X));
+            Assert.True(double.IsFinite(mark.Y));
+        });
+    }
 
     /// <summary>The clock these tests run on: a session that began on the first day of 1168, at nine.</summary>
     private static GameClock Clock() => new(
@@ -402,6 +530,12 @@ public sealed class AutomapTests
         public PlaceMap? For(PlaceId place) => _maps.GetValueOrDefault(place);
     }
 
+    /// <summary>A place whose own map is the smallest one there can be: a single square.</summary>
+    private sealed class OneSquare : IPlaceMapSource
+    {
+        public PlaceMap? For(PlaceId place) => new PlaceMap(place, new MapGrid(0, 0, 4, 1, 1), [0]);
+    }
+
     /// <summary>This suite's reading of its own maps: two kinds, a radius, a sweep bound, and one rung.</summary>
     private sealed class TestRule : IMapRule
     {
@@ -410,6 +544,12 @@ public sealed class AutomapTests
         internal int Radius { get; init; } = 3;
 
         internal int Sweep { get; init; } = 64;
+
+        /// <summary>How many cells across this rule's window shows, or null for the place's own extent.</summary>
+        internal int? Window { get; init; }
+
+        /// <summary>How this rule turns a yaw into degrees, or null for this suite's own facing unit.</summary>
+        internal Func<double, double>? Facing { get; init; }
 
         public MapWords Words { get; } = new(
             "Maps",
@@ -434,9 +574,9 @@ public sealed class AutomapTests
             placement.Content.Kind == "door" ? "door" : string.Empty;
 
         /// <summary>This suite's facing unit: a whole turn in 2048 units, as this game's own rule states.</summary>
-        public double FacingDegrees(double yaw) => (yaw / 2048 * 360) % 360;
+        public double FacingDegrees(double yaw) => Facing?.Invoke(yaw) ?? (yaw / 2048 * 360) % 360;
 
-        public MapZoom Zoom(MapGrid grid) => new(1, 1, Math.Max(grid.Columns, grid.Rows));
+        public MapZoom Zoom(MapGrid grid) => new(1, 1, Window ?? Math.Max(grid.Columns, grid.Rows));
 
         /// <summary>
         /// This suite's detection: the marks it claims are named by the effect the party carries.
@@ -465,6 +605,10 @@ public sealed class AutomapTests
                         break;
                     case "detect.none":
                         scope = "nothing";
+                        break;
+                    case "detect.unplaced":
+                        scope = "a place that is not a place";
+                        marks.Add(new MapMark("creature:nowhere", "creature", "a crawler nowhere", double.NaN, double.NaN, Detected: true));
                         break;
                     default:
                         continue;

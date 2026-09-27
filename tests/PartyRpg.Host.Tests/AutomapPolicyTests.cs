@@ -95,6 +95,29 @@ public sealed class AutomapPolicyTests
     }
 
     [Fact]
+    public void A_session_with_nowhere_to_put_the_party_is_given_no_drawing_to_draw()
+    {
+        // The live shape that found this: the selected packs carry the places and their own maps while the
+        // scenario states no start, so the session has no world and is making its party. The automap is there,
+        // and the game's own sentence says the party is nowhere — what reaches the panel is that sentence and
+        // no drawing at all, rather than an automap of zero extent that a browser can only divide into holes
+        // while the panel says there is nothing to draw.
+        (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(Content(start: false, creation: true));
+        using CrawlerProduct product = new(context);
+        product.Start();
+        product.Update(ProductTestContext.Update(1, 1));
+
+        Assert.Equal(SessionMode.Creating, product.Mode);
+        ProjectedNode map = Map(ui);
+        Assert.True(map.Field("available").AsBoolean());
+        Assert.False(map.Field("mapped").AsBoolean());
+        Assert.Equal("The party is nowhere yet, so there is nothing to draw.", map.Field("state").AsString());
+        Assert.Equal(0d, map.Field("seen").AsNumber());
+        Assert.Equal(0d, map.Field("total").AsNumber());
+        Assert.True(map.Field("drawing").IsNull());
+    }
+
+    [Fact]
     public void A_detection_marks_exactly_what_this_game_says_it_looks_over_and_walks_nothing()
     {
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(Content());
@@ -257,98 +280,131 @@ public sealed class AutomapPolicyTests
     /// writes for them, a door the party walks past, a chest on ground it has not, and a party that knows the
     /// shipped detection spell.
     /// </summary>
-    private static (string Path, string Text)[] Content() =>
-    [
-        ProductTestContext.Bundle("partyrpg-default", "world"),
-        ($"{ProductTestContext.ContentDirectory}/content-packs/world/pack.json",
-            """
-            {
-              "schemaVersion": 1,
-              "packId": "world",
-              "kind": "definitions",
-              "provenance": { "description": "authored for a test" },
-              "documents": [
-                { "path": "places.json", "documentId": "places", "definitionKind": "place" },
-                { "path": "place-map.json", "documentId": "place-map", "definitionKind": "place-map" },
-                { "path": "spells.json", "documentId": "spells", "definitionKind": "spell" },
-                { "path": "skills.json", "documentId": "skills", "definitionKind": "skill" },
-                { "path": "start.json", "documentId": "start", "definitionKind": "scenario-start" },
-                { "path": "party.json", "documentId": "party", "definitionKind": "scenario-party" }
-              ]
-            }
-            """),
-        ($"{ProductTestContext.ContentDirectory}/content-packs/world/places.json",
-            """
-            {
-              "documentId": "places",
-              "definitionKind": "place",
-              "entries": [
-                { "id": "1", "kind": "region", "name": "Erathia", "respawnDays": 1,
-                  "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ],
-                  "placements": [
-                    { "id": "a-shut-door", "kind": "door", "name": "a shut door", "x": 100, "y": 0, "z": 0 },
-                    { "id": "a-far-chest", "kind": "container", "name": "a far chest", "x": 600, "y": 0, "z": 0 } ] },
-                { "id": "2", "kind": "interior", "name": "The cellar", "respawnDays": 1,
-                  "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ] }
-              ]
-            }
-            """),
-        ($"{ProductTestContext.ContentDirectory}/content-packs/world/place-map.json",
-            $$"""
-            {
-              "documentId": "place-map",
-              "definitionKind": "place-map",
-              "entries": [
-                { "id": "1", "kind": "region", "cellSize": 128, "origin": [ 0, 0 ], "columns": 8, "rows": 8,
-                  "kinds": "{{Cells(64, open: PlaceMapsCells.LowGround, wall: [])}}" },
-                { "id": "2", "kind": "interior", "cellSize": 128, "origin": [ 0, 0 ], "columns": 8, "rows": 8,
-                  "kinds": "{{Cells(64, open: PlaceMapsCells.Floor, wall: [0, 9])}}" }
-              ]
-            }
-            """),
-        ($"{ProductTestContext.ContentDirectory}/content-packs/world/spells.json",
-            """
-            {
-              "documentId": "spells",
-              "definitionKind": "spell",
-              "entries": [ { "id": "12", "school": "Air", "level": 1, "name": "Wizard Eye", "resist": "0" } ]
-            }
-            """),
-        ($"{ProductTestContext.ContentDirectory}/content-packs/world/skills.json",
-            """
-            {
-              "documentId": "skills",
-              "definitionKind": "skill",
-              "entries": [ { "id": "Air" } ]
-            }
-            """),
-        ($"{ProductTestContext.ContentDirectory}/content-packs/world/start.json",
-            """
-            { "documentId": "start", "definitionKind": "scenario-start", "entries": [ { "id": "start", "place": "1", "entryPoint": "Party Start" } ] }
-            """),
-        ($"{ProductTestContext.ContentDirectory}/content-packs/world/party.json",
-            """
-            {
-              "documentId": "party",
-              "definitionKind": "scenario-party",
-              "entries": [
+    /// <param name="start">
+    /// Whether the scenario states where the party begins. Without it the selection still carries the places
+    /// and their own maps while the session has no world, which is the shape a product that has been given no
+    /// scenario runs in: the automap is there and there is nowhere to draw.
+    /// </param>
+    /// <param name="creation">
+    /// Whether the bundle also selects the class and skill definitions creation is offered over, which is what
+    /// a session making its party reads them from.
+    /// </param>
+    private static (string Path, string Text)[] Content(bool start = true, bool creation = false)
+    {
+        List<string> documents =
+        [
+            """{ "path": "places.json", "documentId": "places", "definitionKind": "place" }""",
+            """{ "path": "place-map.json", "documentId": "place-map", "definitionKind": "place-map" }""",
+            """{ "path": "spells.json", "documentId": "spells", "definitionKind": "spell" }""",
+        ];
+        // The skills this fixture states are the one spell's school; a bundle that also selects the creation
+        // tables reads every skill from them, and one document identity cannot be declared twice.
+        if (!creation) documents.Add("""{ "path": "skills.json", "documentId": "skills", "definitionKind": "skill" }""");
+        if (start) documents.Add("""{ "path": "start.json", "documentId": "start", "definitionKind": "scenario-start" }""");
+        documents.Add("""{ "path": "party.json", "documentId": "party", "definitionKind": "scenario-party" }""");
+
+        List<(string Path, string Text)> files =
+        [
+            ProductTestContext.Bundle("partyrpg-default", creation ? ["creation-tables", "world"] : ["world"]),
+            ($"{ProductTestContext.ContentDirectory}/content-packs/world/pack.json",
+                $$"""
                 {
-                  "id": "party", "coins": 0, "food": 6, "reputation": 0, "fame": 0,
-                  "members": [
-                    { "name": "Aelina", "race": "Elf", "class": "Sorcerer", "level": 5, "hitPoints": 30,
-                      "spellPoints": 40,
-                      "attributes": [ { "id": "Might", "value": 9 }, { "id": "Intellect", "value": 40 },
-                                      { "id": "Personality", "value": 15 }, { "id": "Endurance", "value": 20 },
-                                      { "id": "Accuracy", "value": 20 }, { "id": "Speed", "value": 25 },
-                                      { "id": "Luck", "value": 13 } ],
-                      "skills": [ { "id": "Air", "level": 3, "tier": 1, "pointsSpent": 3 } ],
-                      "spells": [ "12" ], "conditions": [] }
+                  "schemaVersion": 1,
+                  "packId": "world",
+                  "kind": "definitions",
+                  "provenance": { "description": "authored for a test" },
+                  "documents": [
+                    {{string.Join(",\n                ", documents)}}
                   ]
                 }
-              ]
-            }
-            """),
-    ];
+                """),
+            ($"{ProductTestContext.ContentDirectory}/content-packs/world/places.json",
+                """
+                {
+                  "documentId": "places",
+                  "definitionKind": "place",
+                  "entries": [
+                    { "id": "1", "kind": "region", "name": "Erathia", "respawnDays": 1,
+                      "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ],
+                      "placements": [
+                        { "id": "a-shut-door", "kind": "door", "name": "a shut door", "x": 100, "y": 0, "z": 0 },
+                        { "id": "a-far-chest", "kind": "container", "name": "a far chest", "x": 600, "y": 0, "z": 0 } ] },
+                    { "id": "2", "kind": "interior", "name": "The cellar", "respawnDays": 1,
+                      "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ] }
+                  ]
+                }
+                """),
+            ($"{ProductTestContext.ContentDirectory}/content-packs/world/place-map.json",
+                $$"""
+                {
+                  "documentId": "place-map",
+                  "definitionKind": "place-map",
+                  "entries": [
+                    { "id": "1", "kind": "region", "cellSize": 128, "origin": [ 0, 0 ], "columns": 8, "rows": 8,
+                      "kinds": "{{Cells(64, open: PlaceMapsCells.LowGround, wall: [])}}" },
+                    { "id": "2", "kind": "interior", "cellSize": 128, "origin": [ 0, 0 ], "columns": 8, "rows": 8,
+                      "kinds": "{{Cells(64, open: PlaceMapsCells.Floor, wall: [0, 9])}}" }
+                  ]
+                }
+                """),
+            ($"{ProductTestContext.ContentDirectory}/content-packs/world/spells.json",
+                """
+                {
+                  "documentId": "spells",
+                  "definitionKind": "spell",
+                  "entries": [ { "id": "12", "school": "Air", "level": 1, "name": "Wizard Eye", "resist": "0" } ]
+                }
+                """),
+            ($"{ProductTestContext.ContentDirectory}/content-packs/world/party.json",
+                """
+                {
+                  "documentId": "party",
+                  "definitionKind": "scenario-party",
+                  "entries": [
+                    {
+                      "id": "party", "coins": 0, "food": 6, "reputation": 0, "fame": 0,
+                      "members": [
+                        { "name": "Aelina", "race": "Elf", "class": "Sorcerer", "level": 5, "hitPoints": 30,
+                          "spellPoints": 40,
+                          "attributes": [ { "id": "Might", "value": 9 }, { "id": "Intellect", "value": 40 },
+                                          { "id": "Personality", "value": 15 }, { "id": "Endurance", "value": 20 },
+                                          { "id": "Accuracy", "value": 20 }, { "id": "Speed", "value": 25 },
+                                          { "id": "Luck", "value": 13 } ],
+                          "skills": [ { "id": "Air", "level": 3, "tier": 1, "pointsSpent": 3 } ],
+                          "spells": [ "12" ], "conditions": [] }
+                      ]
+                    }
+                  ]
+                }
+                """),
+        ];
+
+        // The start document is the one a selection without a scenario does not carry: the places, their maps,
+        // and the party the scenario fixes are all still there, which is what makes "no start" a shape rather
+        // than a missing file.
+        if (start)
+        {
+            files.Add(($"{ProductTestContext.ContentDirectory}/content-packs/world/start.json",
+                """
+                { "documentId": "start", "definitionKind": "scenario-start", "entries": [ { "id": "start", "place": "1", "entryPoint": "Party Start" } ] }
+                """));
+        }
+
+        if (!creation)
+        {
+            files.Add(($"{ProductTestContext.ContentDirectory}/content-packs/world/skills.json",
+                """
+                {
+                  "documentId": "skills",
+                  "definitionKind": "skill",
+                  "entries": [ { "id": "Air" } ]
+                }
+                """));
+        }
+
+        if (creation) files.AddRange(ProductTestContext.CreationTables());
+        return [.. files];
+    }
 
     /// <summary>One place's own automap raster, as the importer writes it: two digits a square.</summary>
     private static string Cells(int cells, string open, int[] wall)

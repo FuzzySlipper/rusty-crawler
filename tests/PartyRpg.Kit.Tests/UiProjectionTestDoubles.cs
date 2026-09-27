@@ -106,4 +106,14 @@ internal readonly struct ProjectedNode(UiValue value, uint index)
             throw new InvalidOperationException($"Projection node is {node.Kind}, not a number.");
         return node.NumberValue;
     }
+
+    /// <summary>
+    /// Whether this node was published as no value at all.
+    /// </summary>
+    /// <remarks>
+    /// A block that is absent and a block that is empty are different facts on this wire, and a projection
+    /// that published a value of nothing where the product meant "there is none" would be read by a screen
+    /// as a thing to draw. This is how a test tells them apart.
+    /// </remarks>
+    public bool IsNull() => value.Nodes.Span[(int)index].Kind == StructuredValueKind.Null;
 }

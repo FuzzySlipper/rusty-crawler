@@ -160,7 +160,10 @@ public readonly record struct MapSnapshot(
         string state = seen == 0 ? words.Unseen : words.Seen(seen, map.Grid.Cells);
 
         // The party's own pose decides the window, and the window decides everything the drawing says: this is
-        // what makes the drawing a function of state rather than a thing a screen scrolled to.
+        // what makes the drawing a function of state rather than a thing a screen scrolled to. The party's own
+        // place and facing are read first, because a drawing without them is not a drawing: a shape whose
+        // numbers are not numbers is one no screen could place, and the panel's own sentence is the honest
+        // answer where the arithmetic cannot supply one.
         MapZoom zoom = rule.Zoom(map.Grid);
         PlacePose pose = world.Party.PlacePose;
         int cells = Math.Max(1, zoom.Cells);
@@ -168,6 +171,9 @@ public readonly record struct MapSnapshot(
         MapCell here = map.Grid.CellAt(pose.X, pose.Z);
         int left = here.Column - (cells / 2);
         int top = here.Row - (cells / 2);
+        double? partyX = Placeable(pose.X, map.Grid.OriginX, left, map.Grid.CellSize, cell);
+        double? partyY = Placeable(pose.Y, map.Grid.OriginY, top, map.Grid.CellSize, cell);
+        double facing = rule.FacingDegrees(pose.Yaw);
 
         // What a detection reveals is read here, from the same state the rest of the projection is built from,
         // and it is deliberately read before the drawing is filled so its marks can be marked as revealed.
@@ -178,30 +184,27 @@ public readonly record struct MapSnapshot(
             world.Population.Entities,
             running?.Running ?? []));
 
-        List<MapCellSnapshot> drawn = territory is null
-            ? []
-            : Runs(map, territory, rule, place.Kind, left, top, cells, cell);
-        List<MapMarkSnapshot> marks = Marks(
-            map,
-            territory,
-            rule,
-            world.Population.PlacementsOf(world.Place),
-            left,
-            top,
-            cells,
-            cell,
-            reveal);
-
-        MapDrawingSnapshot drawing = new(
-            zoom.Rung,
-            zoom.Rungs,
-            cells,
-            DrawingSize,
-            drawn,
-            marks,
-            (pose.X - map.Grid.OriginX - (left * map.Grid.CellSize)) / map.Grid.CellSize * cell,
-            (pose.Y - map.Grid.OriginY - (top * map.Grid.CellSize)) / map.Grid.CellSize * cell,
-            rule.FacingDegrees(pose.Yaw));
+        MapDrawingSnapshot? drawing = partyX is { } x && partyY is { } y && double.IsFinite(facing)
+            ? new MapDrawingSnapshot(
+                zoom.Rung,
+                zoom.Rungs,
+                cells,
+                DrawingSize,
+                territory is null ? [] : Runs(map, territory, rule, place.Kind, left, top, cells, cell),
+                Marks(
+                    map,
+                    territory,
+                    rule,
+                    world.Population.PlacementsOf(world.Place),
+                    left,
+                    top,
+                    cells,
+                    cell,
+                    reveal),
+                x,
+                y,
+                facing)
+            : null;
 
         return new MapSnapshot(
             true,
@@ -217,6 +220,21 @@ public readonly record struct MapSnapshot(
             reveal?.Message ?? string.Empty,
             reveal?.EndsAt is { } ends ? Date(ends) : string.Empty,
             drawing);
+    }
+
+    /// <summary>
+    /// Where one of the party's own coordinates falls across or down the drawing, or null when it has no place
+    /// there at all.
+    /// </summary>
+    /// <remarks>
+    /// The arithmetic is the party's own position read against the window, and it answers nothing — rather than
+    /// a hole a screen would be asked to draw — when the position is not a number, or when reading it against
+    /// the place's grid is not one either.
+    /// </remarks>
+    private static double? Placeable(double point, double origin, int start, double cellSize, double cell)
+    {
+        double place = ((point - origin - (start * cellSize)) / cellSize) * cell;
+        return double.IsFinite(place) ? place : null;
     }
 
     /// <summary>
@@ -324,6 +342,10 @@ public readonly record struct MapSnapshot(
     }
 
     /// <summary>Where a point of the place falls in the drawing, or null when the window does not show it.</summary>
+    /// <remarks>
+    /// A point that is not a point is not shown: every comparison against a hole is false, so a mark whose own
+    /// position is not a number would otherwise pass the window's own test and be drawn nowhere in particular.
+    /// </remarks>
     private static (double X, double Y)? Project(
         PlaceMap map,
         double x,
@@ -333,8 +355,10 @@ public readonly record struct MapSnapshot(
         int cells,
         double cell)
     {
+        if (!double.IsFinite(x) || !double.IsFinite(z)) return null;
         double column = ((x - map.Grid.OriginX) / map.Grid.CellSize) - left;
         double row = ((z - map.Grid.OriginY) / map.Grid.CellSize) - top;
+        if (!double.IsFinite(column) || !double.IsFinite(row)) return null;
         if (column < 0 || column > cells || row < 0 || row > cells) return null;
         return (column * cell, row * cell);
     }
