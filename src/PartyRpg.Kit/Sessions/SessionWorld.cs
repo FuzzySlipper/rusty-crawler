@@ -8,6 +8,7 @@ using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Presentation;
+using PartyRpg.Kit.Services;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
 using Rusty.Engine;
@@ -682,6 +683,103 @@ public sealed class SessionWorld : IDisposable, IInteractionWorld, IRestSite, IC
         Party.Enter(place, pose);
         EnterPlace(place);
         Places.MarkVisited(place);
+    }
+
+    /// <summary>
+    /// Boards the passage the party holds to a place, which is how a journey bought at a counter is taken.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A fare is taken through the one transition path and never by a reach.</b> The counter that sold the
+    /// passage hands the party here — the ticket is the party's own, and no place's ground has an entrance to
+    /// board at — so the journey goes through <see cref="Travel"/> with its own kind, is priced by the cost
+    /// rule from the ticket, and arrives at the destination's own arrival point. Nothing here charges
+    /// anything: the crossing is charged once, on arrival, by the path every other crossing takes, and a
+    /// refusal leaves the party standing at the counter with its coin and its ticket as they were.
+    /// </para>
+    /// <para>
+    /// <b>Which journey is taken is the ticket's own statement.</b> A passage names the place it reaches and
+    /// how many days the journey takes, and the graph's fares from the place the party stands in are matched
+    /// on both: a region may keep a coach and a boat that both reach the same town, and the days the counter
+    /// wrote on the ticket are what tell one journey from the other. Content that states two counters'
+    /// journeys alike in both is refused by name rather than guessed between, and a party that holds no
+    /// passage is handed to the cost rule, which owns that refusal and names the counter that sells one.
+    /// </para>
+    /// </remarks>
+    /// <param name="destination">The place the passage reaches, which is what the counter sold.</param>
+    /// <returns>The arrival, or the refusal, in the shape every other crossing answers with.</returns>
+    public TransitionResult Board(PlaceId destination)
+    {
+        List<PlaceTransition> journeys =
+        [
+            .. Graph.TransitionsFrom(Party.Place).Where(journey => journey.IsFare && journey.To == destination),
+        ];
+
+        if (journeys.Count == 0)
+        {
+            return TransitionResult.Refused(TransitionKind.PaidService, Party.Place, Party.PlacePose, new TravelRefusal(
+                "travel-fare-unrouted",
+                $"No counter in {Graph.Require(Party.Place).Name} sells a passage to {Graph.Require(destination).Name}, so the journey the ticket names cannot be taken from where the party stands."));
+        }
+
+        // The ticket is the party's own state, and a world with no party entity holds none: a journey is
+        // then handed to the cost rule, which refuses it by name rather than travelling on a ticket nobody
+        // could have bought.
+        int days = _entity is { } party ? ServicePassage.DaysTo(party, destination) : 0;
+        if (days > 0)
+        {
+            List<PlaceTransition> matching = [.. journeys.Where(journey => journey.FareDays == days)];
+            if (matching.Count == 0)
+            {
+                return TransitionResult.Refused(TransitionKind.PaidService, Party.Place, Party.PlacePose, new TravelRefusal(
+                    "travel-fare-unstated",
+                    $"The party's passage to {Graph.Require(destination).Name} takes {days} day(s) and none of the {journeys.Count} counters' journeys from {Graph.Require(Party.Place).Name} takes that long, so the journey the ticket names is not one content states."));
+            }
+
+            if (matching.Count > 1)
+            {
+                return TransitionResult.Refused(TransitionKind.PaidService, Party.Place, Party.PlacePose, new TravelRefusal(
+                    "travel-fare-ambiguous",
+                    $"{matching.Count} counters' journeys from {Graph.Require(Party.Place).Name} to {Graph.Require(destination).Name} take the {days} day(s) the party's passage names, so which of them was bought cannot be told from the ticket."));
+            }
+
+            journeys = matching;
+        }
+
+        // A party holding no passage is still handed to the cost rule rather than refused here: the rule is
+        // the one owner of what boarding costs and of why a party with no ticket cannot board.
+        TransitionResult boarded = Travel(journeys[0], TransitionKind.PaidService);
+        Report(boarded, destination);
+        return boarded;
+    }
+
+    /// <summary>Reports a boarding, because a journey bought at a counter leaves no other trace of itself.</summary>
+    /// <remarks>
+    /// A counter's journey changes the place the party stands in without a step being taken, so without this
+    /// the panel's account of where the party is would move with nothing saying why. The report names the
+    /// place the passage reached and, on a refusal, the rule's own reason.
+    /// </remarks>
+    private void Report(TransitionResult boarded, PlaceId destination)
+    {
+        if (boarded.Arrived)
+        {
+            _diagnostics?.Publish(new DiagnosticsPublishRequest(
+                DiagnosticsSeverity.Info,
+                DiagnosticsDisposition.Accepted,
+                Source: "travel",
+                Code: "fare-boarded",
+                Message: $"The party boarded its passage to {Graph.Require(destination).Name} and arrived in place '{boarded.Place}' at {boarded.Pose}, the journey taking {boarded.ChargedCost.Time.Amount} {boarded.ChargedCost.Time.Unit}.",
+                Correlation: string.Empty));
+            return;
+        }
+
+        _diagnostics?.Publish(new DiagnosticsPublishRequest(
+            DiagnosticsSeverity.Info,
+            DiagnosticsDisposition.Accepted,
+            Source: "travel",
+            Code: "fare-refused",
+            Message: $"The party's passage to {Graph.Require(destination).Name} was not boarded and cost nothing: {boarded.Refusal}",
+            Correlation: string.Empty));
     }
 
     /// <summary>

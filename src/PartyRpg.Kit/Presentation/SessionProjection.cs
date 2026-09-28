@@ -468,6 +468,20 @@ public static class SessionProjection
                 ("tier", builder.Number(offer.Tier))));
         }
 
+        List<uint> offers = [];
+        foreach (ServiceOfferSnapshot offer in service.Offers ?? [])
+        {
+            offers.Add(builder.Object(
+                ("kind", builder.String(offer.Kind)),
+                // The subject is what a command naming the offer names — the place a passage reaches, the
+                // condition a cure removes — so a row a player presses sends back the thing it was about
+                // rather than a position in a list that the next browse could reorder.
+                ("subject", builder.String(offer.Subject)),
+                ("name", builder.String(offer.Name)),
+                ("amount", builder.Number(offer.Amount)),
+                ("price", builder.Number(offer.Price))));
+        }
+
         List<uint> sales = [];
         foreach (ServiceSaleSnapshot offer in service.Sales ?? [])
         {
@@ -501,6 +515,7 @@ public static class SessionProjection
             ("memberships", builder.Array([.. memberships])),
             ("stock", builder.Array([.. stock])),
             ("lessons", builder.Array([.. lessons])),
+            ("offers", builder.Array([.. offers])),
             ("sales", builder.Array([.. sales])),
             ("members", builder.Array([.. members])),
             ("action", builder.String(service.Action ?? string.Empty)),

@@ -111,6 +111,25 @@ public sealed record ServiceSubject
     public string Label =>
         Lot?.Label ?? Lesson?.Label ?? Offer?.Name ?? Item?.Definition.Value ?? string.Empty;
 
+    /// <summary>
+    /// What the subject is named by, which is the identity a command naming it names.
+    /// </summary>
+    /// <remarks>
+    /// The same words a command carries, read back from the thing the command resolved to: the lot a purchase
+    /// takes, the instance the party carries, the skill a lesson teaches, or the subject content gave an offer
+    /// — the place a passage reaches, the state a holding is kept in, the condition a cure removes. A report
+    /// that says what it acted on lets a caller act on the same thing again without keeping its own copy of
+    /// what the screen pressed: the road, which honours a passage once the counter has sold it.
+    /// </remarks>
+    public string Target => this switch
+    {
+        { Lot: { } lot } => lot.Id.Value,
+        { Lesson: { } lesson } => lesson.Subject,
+        { Offer: { } offer } => offer.Subject,
+        { Item: { } item } => item.Id.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        _ => string.Empty,
+    };
+
     /// <inheritdoc />
     public override string ToString() =>
         Lot is { } lot ? $"lot {lot.Id} x{Count}"

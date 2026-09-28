@@ -189,6 +189,22 @@ public sealed class PartyServices : IGameTimeObserver
         return Record(ServiceResult.Applied("leave", $"The party leaves {name}.", coins: Coins));
     }
 
+    /// <summary>
+    /// Ends an open visit because the party it was serving is no longer standing there, reporting nothing.
+    /// </summary>
+    /// <remarks>
+    /// This is deliberately not <see cref="Close"/>: nothing was asked for, so no answer belongs to the
+    /// player and the last result stays whatever command carried the party away — a passage bought at a
+    /// counter and boarded in the same update is the fare, not a leave nobody pressed. A visit that was not
+    /// open ends as quietly as one that was, because the fact is where the party stands rather than what the
+    /// counter did.
+    /// </remarks>
+    public void Abandon()
+    {
+        _visit = null;
+        _current = null;
+    }
+
     /// <summary>Runs one command at the counter the party stands at, and reports what it did.</summary>
     /// <remarks>
     /// Every operation goes through this one path and in this one order: resolve what the command names,
@@ -266,7 +282,10 @@ public sealed class PartyServices : IGameTimeObserver
 
         if (!quote.Payment.IsFree) _accounts!.Credit(quote.Payment);
         string message = Message(visit, operation, subject, member, quote);
-        return Record(ServiceResult.Applied(Word(command.Kind), message, quote.Charge.Coins, quote.Payment.Coins, Coins));
+        // The result names what the command acted on, so a caller that owns what comes next — the world, which
+        // honours a passage the counter has just sold — reads it from the transaction rather than from the
+        // screen's own copy of the request.
+        return Record(ServiceResult.Applied(Word(command.Kind), message, subject.Target, quote.Charge.Coins, quote.Payment.Coins, Coins));
     }
 
     /// <summary>What the open service offers the party, or null when no visit is open.</summary>

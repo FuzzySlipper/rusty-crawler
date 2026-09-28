@@ -9,8 +9,9 @@ namespace PartyRpg.Kit.World;
 /// </summary>
 /// <remarks>
 /// The definition kinds are named here as strings because that is what content declares. The kit reads
-/// three fields it owns — identity, kind, and arrival — and leaves every other field to the ruleset,
-/// which is why a place entry's encounter settings or map reference never appear in this assembly.
+/// four fields it owns — identity, destination, arrival, and whether a counter sells the crossing as a
+/// passage — and leaves every other field to the ruleset, which is why a place entry's encounter settings
+/// or map reference never appear in this assembly.
 /// </remarks>
 public static class PlaceGraphLoader
 {
@@ -19,6 +20,12 @@ public static class PlaceGraphLoader
 
     /// <summary>The definition kind that carries transitions between places.</summary>
     public const string TransitionDefinitionKind = "travel-link";
+
+    /// <summary>The field stating that a counter sells this crossing as a passage.</summary>
+    public const string FareField = "fare";
+
+    /// <summary>The field stating how many game days the journey a counter sells takes.</summary>
+    public const string FareDaysField = "days";
 
     /// <summary>Loads the graph, failing with every problem found rather than the first.</summary>
     /// <param name="catalog">The validated content catalog to read.</param>
@@ -181,7 +188,27 @@ public static class PlaceGraphLoader
                 entry.GetDouble("y") ?? 0,
                 entry.GetDouble("z") ?? 0));
 
-        return new PlaceTransition(from, to, arrival, entry.Id);
+        // A transition a counter sells states how many days its journey takes, because the ticket the
+        // counter writes carries that number and the two together are what tell one counter's journey from
+        // another counter's journey to the same place. A crossing that states no fare is walked, and a fare
+        // that states no whole number of days is a defect rather than a journey nobody can name.
+        int? fareDays = null;
+        if (entry.GetBoolean(FareField) is true)
+        {
+            if (entry.GetInt32(FareDaysField) is not { } days || days < 1)
+            {
+                issues.Add(new ContentValidationIssue(
+                    "transition-fare-days-invalid",
+                    $"transition '{entry.Id}' is sold as a passage and states no positive whole number of days for the journey, so no ticket could name it.",
+                    pack.PackId,
+                    document.DocumentId));
+                return null;
+            }
+
+            fareDays = days;
+        }
+
+        return new PlaceTransition(from, to, arrival, entry.Id) { FareDays = fareDays };
     }
 
     private static void ValidateArrivals(PlaceGraph graph, List<ContentValidationIssue> issues)

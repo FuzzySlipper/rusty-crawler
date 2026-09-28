@@ -143,6 +143,7 @@ function service(overrides = {}) {
     memberships: [],
     stock: [],
     lessons: [],
+    offers: [],
     sales: [],
     members: [],
     action: '',
@@ -183,6 +184,26 @@ function openShop(overrides = {}) {
     members: [
       { index: 0, name: 'Roderick' },
       { index: 1, name: 'Nyx' },
+    ],
+    coins: 200,
+    ...overrides,
+  });
+}
+
+/** A stable the party has walked into, which sells one passage and keeps no shelves. */
+function openStable(overrides = {}) {
+  return service({
+    open: true,
+    id: 'royal-steeds',
+    kind: 'Stables',
+    name: 'Royal Steeds',
+    proprietor: 'Arthur',
+    state: 'open',
+    hours: '06:00–18:00',
+    operations: ['fare'],
+    offers: [
+      { kind: 'fare', subject: '4', name: 'A passage to The Tularean Forest', amount: 2, price: 25 },
+      { kind: 'notice', subject: '', name: 'Travellers speak of the roads east.', amount: 1, price: 0 },
     ],
     coins: 200,
     ...overrides,
@@ -2337,6 +2358,33 @@ test('the panel renders the counter the party stands at, with every price the pr
     // somewhere: the panel says the mechanism is not there.
     h.emit(snapshot('running', 4, 240, 244, movement(), { service: service({ available: false }) }));
     assert.equal(h.panel().getAttribute('data-service'), 'none');
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('a passage a counter sells is a row a person presses, and only the offers the panel has a command for', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    h.emit(snapshot('running', 1, 60, 60, movement(), { service: openStable() }));
+    const stable = servicePanel(h);
+    assert.equal(stable.head, 'Royal Steeds · Arthur');
+    // A passage is offered with the price the product quoted and the journey's own length; the notice the
+    // same counter posts is not a button, because this companion has no command that takes a notice and a
+    // control that cannot work must not look like one that can.
+    assert.deepEqual(stable.options.map((entry) => entry.text), [
+      'A passage to The Tularean Forest — 25',
+    ]);
+    assert.equal(stable.options[0].disabled, false);
+
+    // What the row reports back is the place the passage reaches, which is what the counter resolves a fare
+    // against — not the name a person reads, which no counter and no world would recognize.
+    clickService(h, 'fare-4');
+    assert.deepEqual(h.claims.slice(-1)[0].value.data, { action: 'service.fare', target: '4' });
 
     ui.dispose();
   } finally {

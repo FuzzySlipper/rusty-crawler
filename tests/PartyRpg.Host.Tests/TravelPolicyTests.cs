@@ -3,6 +3,7 @@ using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Services;
 using PartyRpg.Kit.Sessions;
+using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
 using PartyRpg.Rulesets.MightAndMagic7;
 using Rusty.Engine;
@@ -89,6 +90,62 @@ public sealed class TravelPolicyTests
         Assert.Equal(new TravelTime(2, TravelTimeUnit.Days), boarded.Cost.Time);
         Assert.True(boarded.Cost.Food.IsNone);
         Assert.Equal(0, ServicePassage.DaysTo(party, road.To));
+    }
+
+    [Fact]
+    public void A_passage_is_boarded_at_the_world_and_charges_the_days_the_ticket_names_exactly_once()
+    {
+        // The world's own roads, restated with a crossing a stable sells beside the one the party walks: a
+        // root holds one document per id, so the fare replaces the links the world declares rather than
+        // sitting beside them.
+        (string Path, string Text)[] staged = [.. World(PartyDocument(food: 6))];
+        ContentCatalog catalog = Catalog(
+            [.. staged.Where(file => !file.Path.EndsWith("links.json", StringComparison.Ordinal)), Fare()]);
+        PlaceGraph graph = PlaceGraphLoader.Load(catalog);
+        PlaceTransition coach = graph.Transitions.Single(transition => transition.Source == "coach");
+        Assert.True(coach.IsFare);
+
+        using PartyEntity party = MightAndMagic7Party.Compose(catalog)
+            ?? throw new InvalidOperationException("The scenario declares a party, so composing it must produce one.");
+        PartyResourceLedger accounts = new(party, provisioning: new MightAndMagic7Provisions(party));
+        GameClock clock = Clock();
+        PartyPoseOwner owner = new(
+            new PartyPose(Home, PlacePose.Origin),
+            new FacingRule(unitsPerTurn: 2048, minimumPitch: -512, maximumPitch: 512));
+        using SessionWorld world = new(
+            graph,
+            owner,
+            new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()),
+            new MightAndMagic7TravelCostRule(party),
+            time: clock,
+            clock: clock,
+            resources: accounts,
+            partyEntity: party);
+
+        // The counter sells a journey of two days; boarding it moves the party to the town the passage
+        // reaches, charges the ticket's own days on the one clock, and tears the ticket.
+        ServicePassage.Grant(party, new PlaceId("2"), 2);
+        TransitionResult boarded = world.Board(new PlaceId("2"));
+
+        Assert.True(boarded.Arrived);
+        Assert.Equal(new PlaceId("2"), world.Place);
+        Assert.Equal(new PlacePose(1, 2, 3, 0, 0), world.Party.PlacePose);
+        Assert.Equal(2, clock.ElapsedGameDays);
+        Assert.Equal(0, ServicePassage.DaysTo(party, new PlaceId("2")));
+
+        // The larder is untouched: a fare includes the journey's board, which is the donor's own reading of
+        // a coach journey.
+        Assert.Equal(6, party.Food.Portions);
+
+        // Back at the counter, boarding again has no ticket behind it: the journey is refused by name, the
+        // party stays where it stands, and the clock does not move a second time.
+        world.ArriveAt(Home, PlacePose.Origin);
+        TransitionResult again = world.Board(new PlaceId("2"));
+
+        Assert.False(again.Arrived);
+        Assert.Equal("travel-fare-unpaid", again.Refusal!.Code);
+        Assert.Equal(2, clock.ElapsedGameDays);
+        Assert.Equal(Home, world.Place);
     }
 
     [Fact]
@@ -300,6 +357,34 @@ public sealed class TravelPolicyTests
             """),
         .. extra,
     ];
+
+    /// <summary>The session's one clock, at this game's own rate and on its own calendar.</summary>
+    private static GameClock Clock() => new(
+        GameCalendar.TwelveMonthsOfFourWeeks,
+        new GameDate(1168, 1, 1, 9, 0),
+        new GameTimeScale(30),
+        new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
+
+    /// <summary>
+    /// The world's own roads, restated with a crossing a stable sells beside the one the party can walk.
+    /// </summary>
+    /// <remarks>
+    /// It replaces the world's links document rather than adding a second one, because a root has one
+    /// document per id: the two crossings from Home to Cave — one walked and one bought — are what the test
+    /// needs to tell a fare from a road between the same places.
+    /// </remarks>
+    private static (string Path, string Text) Fare() =>
+        ($"{ProductTestContext.ContentDirectory}/content-packs/world/links.json",
+            """
+            {
+              "documentId": "links",
+              "definitionKind": "travel-link",
+              "entries": [
+                { "id": "edge", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start" },
+                { "id": "coach", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start", "fare": true, "days": 2 }
+              ]
+            }
+            """);
 
     /// <summary>A scenario's party: as many members as a test asks for, and what the purse and larder start with.</summary>
     private static (string Path, string Text) PartyDocument(int food, int members = 2, string name = "Roderick") =>

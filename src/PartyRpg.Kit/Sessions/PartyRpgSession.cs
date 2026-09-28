@@ -1989,7 +1989,53 @@ public sealed class PartyRpgSession : IGameSession
     private void DriveServices(ReadOnlySpan<ProductInputEvent> input)
     {
         if (_services is not { IsOpen: true } services || _serviceInput is null) return;
-        foreach (ServiceCommand command in _serviceInput.Read(input)) services.Transact(command);
+        foreach (ServiceCommand command in _serviceInput.Read(input))
+        {
+            ServiceResult result = services.Transact(command);
+
+            // A passage is the one thing a counter sells that is not simply carried away: the counter settles
+            // the fare and writes the passage on the party, and the journey itself belongs to the world,
+            // which only this owner holds. So the two owners meet here, once, and the journey goes through
+            // the world's one transition path rather than through a second way between places grown for
+            // fares. Asking for a journey the party already holds a passage to boards that passage, which is
+            // how a boarding refused once — content that sells a fare the world cannot route, or an arrival
+            // a place declined — can be tried again instead of leaving a ticket nothing would honour.
+            if (command.Kind != ServiceCommandKind.Fare) continue;
+            string journey = result.Subject.Length > 0 ? result.Subject : command.Target;
+            if (journey.Length > 0 && HoldsPassage(journey)) Board(services, journey);
+        }
+    }
+
+    /// <summary>Whether the party holds a passage to a place, which is what the road honours.</summary>
+    private bool HoldsPassage(string place) =>
+        _party is { } party && ServicePassage.DaysTo(party, new PlaceId(place)) > 0;
+
+    /// <summary>
+    /// Boards the passage the party holds to a place, and ends the counter visit it was bought at.
+    /// </summary>
+    /// <remarks>
+    /// Boarding moves the party without a step being taken, so the counter the party was standing at is
+    /// behind it; leaving the visit open would have the panel showing a shop in a place the party has left.
+    /// A boarding the world refuses leaves the visit open, because the party is still standing at that
+    /// counter with the ticket the refusal named.
+    /// </remarks>
+    private void Board(PartyServices services, string destination)
+    {
+        if (_liveWorld is not { } world)
+        {
+            _diagnostics?.Publish(new DiagnosticsPublishRequest(
+                DiagnosticsSeverity.Warning,
+                DiagnosticsDisposition.RejectedRecoverable,
+                Source: "travel",
+                Code: "fare-no-world",
+                Message: $"A passage to {destination} was bought and this session holds no world to travel through, so nothing was boarded.",
+                Correlation: string.Empty));
+            return;
+        }
+
+        // The counter the passage was bought at is behind the party now, so the visit ends here — quietly,
+        // because a leave command would report a departure nobody asked for over the fare that was bought.
+        if (world.Board(new PlaceId(destination)).Arrived) services.Abandon();
     }
 
     /// <summary>

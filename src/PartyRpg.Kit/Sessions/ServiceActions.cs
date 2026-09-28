@@ -77,6 +77,17 @@ public static class ServiceActions
     /// </remarks>
     public const string Teach = "service.teach";
 
+    /// <summary>
+    /// Pays for a passage a counter sells, carrying the place the passage reaches.
+    /// </summary>
+    /// <remarks>
+    /// A passage is bought by naming where it goes rather than by naming the counter: a stable sells several
+    /// journeys and the destination is what tells them apart. What the counter does with the request is its
+    /// own — it settles the fare, writes the passage on the party, and hands the party to the road — and this
+    /// action only names the journey, so a screen decides nothing about either the price or the travel.
+    /// </remarks>
+    public const string Fare = "service.fare";
+
     /// <summary>Pays a counter to train one member a level, carrying the member it goes to.</summary>
     /// <remarks>
     /// A training step names a member rather than a target: what is bought is the member's next level at the
@@ -176,6 +187,7 @@ public sealed class ServiceInput
                 action.Member ?? 0,
                 Tier: action.Tier is { } tier && tier > 0 ? tier : 1),
             ServiceActions.Train => new ServiceCommand(ServiceCommandKind.Train, Member: action.Member ?? 0),
+            ServiceActions.Fare => new ServiceCommand(ServiceCommandKind.Fare, target),
             ServiceActions.Leave => ServiceCommand.Of(ServiceCommandKind.Leave),
             _ => null,
         };

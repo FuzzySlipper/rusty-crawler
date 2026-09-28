@@ -92,6 +92,19 @@ public readonly record struct ContentEntry(string Id, JsonElement Payload)
             ? number
             : null;
 
+    /// <summary>Reads a property of the entry as a flag, or null when it is absent or not one.</summary>
+    /// <remarks>
+    /// A flag is a fact content states about itself — whether a transition is one a counter sells — and it is
+    /// read as the boolean the document wrote rather than inferred from whether a field is present: a
+    /// transition that states neither is not one, and one that states <c>false</c> has said so.
+    /// </remarks>
+    public bool? GetBoolean(string property) =>
+        Payload.ValueKind == JsonValueKind.Object &&
+        Payload.TryGetProperty(property, out JsonElement value) &&
+        value.ValueKind is JsonValueKind.True or JsonValueKind.False
+            ? value.GetBoolean()
+            : null;
+
     /// <summary>Reads a property of the entry as an integer, or null when it is absent or not one.</summary>
     public int? GetInt32(string property) =>
         Payload.ValueKind == JsonValueKind.Object &&

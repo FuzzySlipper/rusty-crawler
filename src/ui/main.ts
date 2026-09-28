@@ -101,6 +101,7 @@ const ACTION_SERVICE_IDENTIFY = 'service.identify';
 const ACTION_SERVICE_REPAIR = 'service.repair';
 const ACTION_SERVICE_TEACH = 'service.teach';
 const ACTION_SERVICE_TRAIN = 'service.train';
+const ACTION_SERVICE_FARE = 'service.fare';
 const ACTION_SERVICE_LEAVE = 'service.leave';
 
 /**
@@ -379,6 +380,19 @@ interface ServiceSaleView {
   readonly identified: boolean;
 }
 
+/**
+ * One thing a counter offers besides goods and lessons: a passage it sells, a cure it works, a room it
+ * lets, a line it posts. `kind` is the wire's own word for which, and `subject` is what a command naming
+ * the offer names — the place a passage reaches, the condition a cure removes.
+ */
+interface ServiceOfferView {
+  readonly kind: string;
+  readonly subject: string;
+  readonly name: string;
+  readonly amount: number;
+  readonly price: number;
+}
+
 /** One member a lesson could be taught to. */
 interface ServiceMemberView {
   readonly index: number;
@@ -406,6 +420,7 @@ interface ServiceView {
   readonly memberships: readonly string[];
   readonly stock: readonly ServiceStockView[];
   readonly lessons: readonly ServiceLessonView[];
+  readonly offers: readonly ServiceOfferView[];
   readonly sales: readonly ServiceSaleView[];
   readonly members: readonly ServiceMemberView[];
   /** What the last command asked for, empty before any. */
@@ -1396,6 +1411,7 @@ const SERVICE_NONE: ServiceView = {
   memberships: [],
   stock: [],
   lessons: [],
+  offers: [],
   sales: [],
   members: [],
   action: '',
@@ -2367,6 +2383,20 @@ function readService(value: unknown): ServiceView {
             tier: typeof entry.tier === 'number' ? entry.tier : 1,
           }
         : null),
+    offers: readList(value.offers, (entry) =>
+      typeof entry.kind === 'string' &&
+      typeof entry.subject === 'string' &&
+      typeof entry.name === 'string' &&
+      typeof entry.amount === 'number' &&
+      typeof entry.price === 'number'
+        ? {
+            kind: entry.kind,
+            subject: entry.subject,
+            name: entry.name,
+            amount: entry.amount,
+            price: entry.price,
+          }
+        : null),
     sales: readList(value.sales, (entry) =>
       typeof entry.item === 'string' &&
       typeof entry.definition === 'string' &&
@@ -3244,6 +3274,8 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   saleRow.className = 'crawler-row';
   const lessonRow = document.createElement('div');
   lessonRow.className = 'crawler-row';
+  const offerRow = document.createElement('div');
+  offerRow.className = 'crawler-row';
   const serviceResult = document.createElement('p');
   serviceResult.className = 'crawler-service-result';
   serviceResult.hidden = true;
@@ -3253,7 +3285,18 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   serviceLeave.type = 'button';
   serviceLeave.textContent = 'Leave the counter';
   serviceActions.append(serviceLeave);
-  service.append(serviceHead, serviceState, serviceAccess, serviceMemberRow, stockRow, saleRow, lessonRow, serviceActions, serviceResult);
+  service.append(
+    serviceHead,
+    serviceState,
+    serviceAccess,
+    serviceMemberRow,
+    stockRow,
+    offerRow,
+    saleRow,
+    lessonRow,
+    serviceActions,
+    serviceResult,
+  );
 
   // What each member has earned and what a level would cost: the level, the experience banked against the
   // curve the ruleset states, the points held, and the fee the counter the party stands at would charge.
@@ -3977,6 +4020,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
 
     if (!view.open) {
       stockRow.replaceChildren();
+      offerRow.replaceChildren();
       saleRow.replaceChildren();
       lessonRow.replaceChildren();
       serviceMemberRow.hidden = true;
@@ -4088,6 +4132,19 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
         });
       }
     }
+
+    // What else the counter sells: a passage is a row a player presses to make the journey, and the rows
+    // this companion has no command for — a cure, a room, a provision, a line — are left to the screen that
+    // will carry them rather than shown as buttons that cannot work.
+    const fareOffers = view.offers
+      .filter((entry) => entry.kind === 'fare')
+      .map((entry) => ({
+        id: `fare-${entry.subject}`,
+        text: `${entry.name} — ${entry.price}`,
+        action: ACTION_SERVICE_FARE,
+        payload: () => ({ target: entry.subject }),
+      }));
+    offerRow.replaceChildren(fareOffers.length === 0 ? document.createElement('div') : offers('Passages', fareOffers));
 
     saleRow.replaceChildren(saleOffers.length === 0 ? document.createElement('div') : offers('Your items', saleOffers));
 

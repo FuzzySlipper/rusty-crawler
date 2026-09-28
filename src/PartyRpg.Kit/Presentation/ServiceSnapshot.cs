@@ -47,6 +47,25 @@ public readonly record struct ServiceSaleSnapshot(
     int Damage,
     bool Identified);
 
+/// <summary>One thing a counter offers besides goods and lessons, as the panel shows it.</summary>
+/// <remarks>
+/// A cure, a passage, a provision, a room, or a line the counter posts is one offer of one kind, and what a
+/// command naming it names is its subject: the place a passage reaches, the state a holding is kept in, the
+/// condition a cure removes. The kind travels as the wire's own word so a screen offers the command that
+/// belongs to it rather than guessing from the name a person reads.
+/// </remarks>
+/// <param name="Kind">What sort of offer it is, as the wire spells it.</param>
+/// <param name="Subject">What the offer acts on, which a command naming it names.</param>
+/// <param name="Name">What a person reads for it.</param>
+/// <param name="Amount">How much of the subject there is: the days a passage takes, the portions a provision fills, the hours a room lasts.</param>
+/// <param name="Price">What the counter charges the party for it.</param>
+public readonly record struct ServiceOfferSnapshot(
+    string Kind,
+    string Subject,
+    string Name,
+    int Amount,
+    int Price);
+
 /// <summary>One member a lesson could be taught to.</summary>
 /// <param name="Index">The member's place in the party, counted from zero, which a teach command names.</param>
 /// <param name="Name">What the member is called.</param>
@@ -80,6 +99,7 @@ public readonly record struct ServiceMemberSnapshot(int Index, string Name);
 /// <param name="Memberships">What the party carries of what the service requires, as words.</param>
 /// <param name="Stock">What is on the shelves.</param>
 /// <param name="Lessons">What the counter teaches.</param>
+/// <param name="Offers">What else the counter offers: its cures, its passages, its provisions, its rooms, and its lines.</param>
 /// <param name="Sales">What of the party's own the counter would buy.</param>
 /// <param name="Members">The members a lesson could be taught to.</param>
 /// <param name="Action">What the last command asked for: <c>open</c>, <c>buy</c>, <c>sell</c>, and the rest, or empty before any.</param>
@@ -102,6 +122,7 @@ public readonly record struct ServiceSnapshot(
     IReadOnlyList<string> Memberships,
     IReadOnlyList<ServiceStockSnapshot> Stock,
     IReadOnlyList<ServiceLessonSnapshot> Lessons,
+    IReadOnlyList<ServiceOfferSnapshot> Offers,
     IReadOnlyList<ServiceSaleSnapshot> Sales,
     IReadOnlyList<ServiceMemberSnapshot> Members,
     string Action,
@@ -126,6 +147,7 @@ public readonly record struct ServiceSnapshot(
         Memberships: [],
         Stock: [],
         Lessons: [],
+        Offers: [],
         Sales: [],
         Members: [],
         Action: string.Empty,
@@ -148,6 +170,7 @@ public readonly record struct ServiceSnapshot(
         ServiceResult? last = services.Last;
         IReadOnlyList<ServiceStockOffer> offers = browse?.Stock ?? [];
         IReadOnlyList<ServiceLessonOffer> teaching = browse?.Lessons ?? [];
+        IReadOnlyList<ServiceOfferLine> quoted = browse?.Offers ?? [];
         IReadOnlyList<ServiceSaleOffer> purchases = browse?.Sales ?? [];
         IReadOnlyList<ServiceMemberOffer> roster = browse?.Members ?? [];
 
@@ -161,6 +184,17 @@ public readonly record struct ServiceSnapshot(
         foreach (ServiceLessonOffer offer in teaching)
         {
             lessons.Add(new ServiceLessonSnapshot(WireName(offer.Kind), offer.Subject, offer.Name, offer.Amount, offer.Price, offer.Tier));
+        }
+
+        List<ServiceOfferSnapshot> lines = [];
+        foreach (ServiceOfferLine line in quoted)
+        {
+            lines.Add(new ServiceOfferSnapshot(
+                WireName(line.Offer.Kind),
+                line.Offer.Target,
+                line.Offer.Name,
+                line.Offer.Amount,
+                line.Price));
         }
 
         List<ServiceSaleSnapshot> sales = [];
@@ -194,6 +228,7 @@ public readonly record struct ServiceSnapshot(
             Memberships: browse?.Memberships ?? [],
             Stock: stock,
             Lessons: lessons,
+            Offers: lines,
             Sales: sales,
             Members: members,
             Action: last?.Action ?? string.Empty,
@@ -204,6 +239,24 @@ public readonly record struct ServiceSnapshot(
             Earned: last?.Earned ?? 0,
             Coins: services.Coins);
     }
+
+    /// <summary>The wire name for what a counter offers besides goods and lessons.</summary>
+    /// <remarks>
+    /// A kind with no word is refused rather than published as an empty string, for the same reason a lesson's
+    /// is: a screen that could not tell a passage from a room would offer the wrong command for the row.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The kind has no wire name.</exception>
+    public static string WireName(ServiceOfferKind kind) => kind switch
+    {
+        ServiceOfferKind.Cure => "cure",
+        ServiceOfferKind.Training => "training",
+        ServiceOfferKind.Provision => "provision",
+        ServiceOfferKind.Stay => "stay",
+        ServiceOfferKind.Holding => "holding",
+        ServiceOfferKind.Fare => "fare",
+        ServiceOfferKind.Notice => "notice",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown offer kind."),
+    };
 
     /// <summary>The wire name for what a lesson grants.</summary>
     /// <remarks>

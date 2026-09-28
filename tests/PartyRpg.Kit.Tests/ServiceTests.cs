@@ -298,6 +298,10 @@ public sealed class ServiceTests
         Assert.Equal(25, fare.Paid);
         Assert.Equal(3, ServicePassage.DaysTo(party, new PlaceId("9")));
 
+        // The result says what the fare was about, which is how the session that owns the road learns which
+        // journey the counter sold without keeping its own copy of the screen's request.
+        Assert.Equal("9", fare.Subject);
+
         // A command the counter cannot resolve is its own refusal, and a counter with one offer of a kind
         // takes a command that names nothing.
         ServiceResult unknown = services.Transact(new ServiceCommand(ServiceCommandKind.Fare, "77"));
@@ -576,6 +580,63 @@ public sealed class ServiceTests
     }
 
     [Fact]
+    public void A_passage_the_panel_buys_is_boarded_in_the_update_that_bought_it()
+    {
+        using PartyEntity party = Party(coins: 500);
+        using Counter counter = Counter.Build(new ShopRule(Shop() with { Operations = [ServiceOperationKind.Fare] }), party);
+        using RecordingUiProjectionChannel channel = new();
+        using PartyRpgSession session = new(
+            new SessionComposition(new RulesetId("test.ruleset"), "Test"),
+            channel,
+            counter.World,
+            clock: counter.Clock,
+            party: party,
+            accounts: counter.Accounts,
+            service: counter.Rule,
+            useInput: new InteractionUseInput(UseControls),
+            serviceInput: ServiceControls,
+            conversation: new CounterConversation(counter.Rule),
+            conversationInput: ConversationControls);
+        session.Start();
+
+        // The counter sells one passage, to the town the world's own fare reaches.
+        counter.Rule.Offerings = [new ServiceOffer(ServiceOfferKind.Fare, "A passage to Elsewhere", "2", Value: 25, Amount: 3)];
+
+        // Walk in through the person who keeps the counter, exactly as the product reaches one.
+        session.Update(Update(1, 1));
+        session.Update(Update(2, 1, Digital("test.use", InputEdge.Pressed)));
+        session.Update(Update(3, 1, Payload(ConversationControls.ActionContract, """{"action":"conversation.topic","target":"counter"}""")));
+        Assert.True(session.Services!.IsOpen);
+
+        // What the counter offers besides goods and lessons is published with what each would cost, and a
+        // passage carries the place it reaches, which is what the screen sends back when a player presses it.
+        ProjectedNode passages = channel.Latest().Field(SessionProjection.ServiceField).Field("offers");
+        Assert.Equal(1, passages.Length());
+        Assert.Equal("fare", passages.Item(0).Field("kind").AsString());
+        Assert.Equal("2", passages.Item(0).Field("subject").AsString());
+        Assert.Equal("A passage to Elsewhere", passages.Item(0).Field("name").AsString());
+        Assert.Equal(3, passages.Item(0).Field("amount").AsNumber());
+        Assert.Equal(25, passages.Item(0).Field("price").AsNumber());
+        Assert.Equal(CounterPlace, counter.World.Place);
+
+        session.Update(Update(4, 1, Payload(ServiceControls.ActionContract, """{"action":"service.fare","target":"2"}""")));
+
+        // The counter settled the fare and the road honoured it: the party is at the town the passage named
+        // through the world's own transition path, and the counter it was bought at is no longer open in
+        // front of it. What the journey then costs — the days on the ticket and the tearing of it — is the
+        // cost rule's answer, which this fixture's free rule answers with nothing and the ruleset's own
+        // suite proves against this game's fares.
+        Assert.Equal(Counter.Elsewhere, counter.World.Place);
+        Assert.Equal(new PlacePose(40, 50, 0, 0, 0), counter.World.Party.PlacePose);
+        Assert.False(session.Services.IsOpen);
+        Assert.Equal(475, party.Purse.Coins);
+
+        // The panel reads the same facts: what the counter did, and where the party now stands.
+        Assert.Equal("fare", channel.Latest().Field(SessionProjection.ServiceField).Field("action").AsString());
+        Assert.Equal("applied", channel.Latest().Field(SessionProjection.ServiceField).Field("outcome").AsString());
+    }
+
+    [Fact]
     public void A_visit_holds_the_party_still_while_the_world_keeps_its_clock()
     {
         using PartyEntity party = Party(coins: 500);
@@ -818,7 +879,8 @@ public sealed class ServiceTests
             ContentCatalog catalog = ContentCatalogLoader.Load(
                 new InMemoryContentSource()
                     .Add("packs/world/pack.json", Manifest())
-                    .Add("packs/world/places.json", Document()),
+                    .Add("packs/world/places.json", Document())
+                    .Add("packs/world/links.json", Links()),
                 Layout).RequireValid();
 
             PlaceGraph graph = PlaceGraphLoader.Load(catalog);
@@ -853,12 +915,23 @@ public sealed class ServiceTests
 
         public void Dispose() => World.Dispose();
 
+        /// <summary>The town a passage sold at this counter reaches, which is a fare the world honours.</summary>
+        internal static readonly PlaceId Elsewhere = new("2");
+
         private static string Document() =>
             """
             { "documentId": "places", "definitionKind": "place", "entries": [
               { "id": "1", "kind": "interior", "name": "The Sword and Shield", "respawnDays": 3,
                 "entryPoints": [ { "id": "Door", "x": 0, "y": 0, "z": 0, "yaw": 0 } ],
-                "placements": [ { "id": "sword-and-shield", "kind": "service", "x": 0, "y": 100, "z": 0 } ] } ] }
+                "placements": [ { "id": "sword-and-shield", "kind": "service", "x": 0, "y": 100, "z": 0 } ] },
+              { "id": "2", "kind": "interior", "name": "Elsewhere", "respawnDays": 3,
+                "entryPoints": [ { "id": "Door", "x": 40, "y": 50, "z": 0, "yaw": 0 } ] } ] }
+            """;
+
+        private static string Links() =>
+            """
+            { "documentId": "links", "definitionKind": "travel-link", "entries": [
+              { "id": "coach", "fromPlace": "1", "toPlace": "2", "entryPoint": "Door", "fare": true, "days": 3 } ] }
             """;
 
         private static string Manifest() =>
@@ -868,7 +941,10 @@ public sealed class ServiceTests
               "packId": "world",
               "kind": "definitions",
               "provenance": { "description": "authored for a test" },
-              "documents": [ { "path": "places.json", "documentId": "places", "definitionKind": "place" } ]
+              "documents": [
+                { "path": "places.json", "documentId": "places", "definitionKind": "place" },
+                { "path": "links.json", "documentId": "links", "definitionKind": "travel-link" }
+              ]
             }
             """;
     }
