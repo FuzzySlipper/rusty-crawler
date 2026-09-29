@@ -193,16 +193,6 @@ public sealed class CrawlerProduct : IEngineProduct
         _session.Start();
     }
 
-    /// <summary>
-    /// Republishes the current presentation. A fresh browser attachment reconstructs presentation from
-    /// committed engine state, so the current projection is published again rather than rebuilt here.
-    /// </summary>
-    public void Attach()
-    {
-        if (_shutdown) return;
-        _session.PublishInitial();
-    }
-
     /// <summary>Holds the session because the engine paused it.</summary>
     public void Pause()
     {

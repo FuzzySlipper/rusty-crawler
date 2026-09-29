@@ -164,7 +164,7 @@ public sealed class PlacePopulation : IDisposable
         {
             // References a caller already holds stay valid and report themselves dead; only the store's
             // rows go away, which is what makes a leak observable in the store's own count.
-            _entities.Destroy(entity.Id, null);
+            _entities.Destroy(entity.Id);
         }
 
         _live = [];

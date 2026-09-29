@@ -86,8 +86,6 @@ internal sealed class FakeEngineContext : IEngineContext
 
     public IPersistenceService Persistence => _persistence ?? Unsupported<IPersistenceService>();
 
-    public IContentStoreService ContentStore => Unsupported<IContentStoreService>();
-
     public IRenderOutputService RenderOutput => Unsupported<IRenderOutputService>();
 
     private static T Unsupported<T>() =>

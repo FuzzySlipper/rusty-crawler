@@ -198,7 +198,7 @@ public sealed class EngineCreatureMotion : ICreatureMover, IDisposable
     /// <param name="target">What it is walking at.</param>
     private Vector3 Steer(Vector3 position, Vector3 target)
     {
-        NavigationStepReceipt nav = _spatial.EvaluateNavigationStep(
+        NavigationStepResult nav = _spatial.EvaluateNavigationStep(
             new NavigationStepRequest(_session, position, target, NavigationStepUnits, NavigationBudget));
 
         // A waypoint the engine did not state is no waypoint: a creature in a place with no navigation, or

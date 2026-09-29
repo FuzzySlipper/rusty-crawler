@@ -26,7 +26,6 @@ public sealed class ProductCompositionTests
         Assert.Equal(2, product.Selection.PackCount);
 
         product.Start();
-        product.Attach();
 
         UiProjection projection = ui.Latest();
         Assert.Equal("crawler.hud", ui.LastRequest?.Stream);
@@ -88,7 +87,6 @@ public sealed class ProductCompositionTests
         Assert.Equal(0, product.Selection.PackCount);
 
         product.Start();
-        product.Attach();
 
         // Content that has not been generated yet leaves the product with no world and no scenario party,
         // and creation is what still works: this game's choices and default party are compiled.
@@ -189,7 +187,6 @@ public sealed class ProductCompositionTests
             simulationStep: 1,
             admittedSteps: 1,
             ProductTestContext.Digital(ProductIdentity.CreationAcceptIntent)));
-        product.Attach();
 
         ProjectedNode world = ProjectedNode.Of(ui.Latest().Value).Field("world");
         Assert.Equal("1", world.Field("place").AsString());

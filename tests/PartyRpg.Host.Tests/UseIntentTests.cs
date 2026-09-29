@@ -94,7 +94,6 @@ public sealed class UseIntentTests
         // The party is created first: the world this session plays is composed over the party when creation
         // is accepted, which is also when the interaction mechanism exists.
         product.Update(ProductTestContext.Update(1, 1, ProductTestContext.Digital(ProductIdentity.CreationAcceptIntent)));
-        product.Attach();
 
         ProjectedNode world = ProjectedNode.Of(ui.Latest().Value).Field("world");
         Assert.Equal("52", world.Field("place").AsString());

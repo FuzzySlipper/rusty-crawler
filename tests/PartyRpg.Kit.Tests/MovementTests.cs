@@ -304,9 +304,9 @@ public sealed class PartyMotionTests
         CharacterGround ground = default,
         float fallOriginHeight = 0) =>
         new(
+            Movement: default,
+            Tether: default,
             Generation: 1,
-            RevisionBefore: 1,
-            RevisionAfter: 2,
             Entity: 7,
             CommandSequence: 1,
             TransformBefore: new Transform(from, Quaternion.Identity, Vector3.One),
@@ -339,7 +339,6 @@ public sealed class PartyMotionTests
             Platform: default,
             BlockFlags: blocked,
             ContactCount: 0,
-            DynamicImpulseCount: 0,
             CastCount: 1,
             RecoveryPasses: 0,
             RecoveryDistance: 0);

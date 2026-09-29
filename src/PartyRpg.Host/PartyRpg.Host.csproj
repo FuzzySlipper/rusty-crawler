@@ -14,6 +14,9 @@
     <RustyEngineProductId>rusty-crawler-partyrpg</RustyEngineProductId>
     <RustyEngineProductTitle>Rusty Crawler</RustyEngineProductTitle>
     <RustyEngineProductUiRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../ui/generated'))</RustyEngineProductUiRoot>
+    <!-- The SDK runs this only when ../ui or a listed input changes. -->
+    <RustyEngineProductUiSourceRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../ui'))</RustyEngineProductUiSourceRoot>
+    <RustyEngineProductUiBuildCommand>npm --prefix &quot;$(MSBuildThisFileDirectory)../..&quot; exec -- tsc --target ES2022 --module ES2022 --moduleResolution bundler --strict --noEmitOnError --outDir &quot;$(RustyEngineProductUiRoot)&quot; &quot;$(MSBuildThisFileDirectory)../ui/main.ts&quot;</RustyEngineProductUiBuildCommand>
     <RustyEngineProductContentRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../content'))</RustyEngineProductContentRoot>
     <RustyEngineProductUiEntry>main.js</RustyEngineProductUiEntry>
     <RustyEngineProductUiProjectionStream>crawler.hud</RustyEngineProductUiProjectionStream>
@@ -133,10 +136,9 @@
 
   <!-- TypeScript builds only the product-owned DOM companion. The runtime pack provides the browser
        shell, the renderer, and the transport. -->
-  <Target Name="BuildCrawlerProductUi" BeforeTargets="GenerateRustyEngineProductComposition">
-    <MakeDir Directories="$(RustyEngineProductUiRoot)" />
-    <Exec Command="npm --prefix &quot;$(MSBuildThisFileDirectory)../..&quot; exec -- tsc --target ES2022 --module ES2022 --moduleResolution bundler --strict --noEmitOnError --outDir &quot;$(RustyEngineProductUiRoot)&quot; &quot;$(MSBuildThisFileDirectory)../ui/main.ts&quot;" />
-  </Target>
+  <ItemGroup>
+    <RustyEngineProductUiInput Include="$(MSBuildThisFileDirectory)../../package.json;$(MSBuildThisFileDirectory)../../package-lock.json" />
+  </ItemGroup>
 
   <ItemGroup>
     <!-- The host's suite exercises the composition seam the product keeps internal: the identity it
