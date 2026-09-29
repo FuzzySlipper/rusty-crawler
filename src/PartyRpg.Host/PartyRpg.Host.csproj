@@ -27,7 +27,7 @@
   <ItemGroup>
     <ProjectReference Include="../PartyRpg.Kit/PartyRpg.Kit.csproj" />
     <ProjectReference Include="../PartyRpg.Rulesets.MightAndMagic7/PartyRpg.Rulesets.MightAndMagic7.csproj" />
-    <PackageReference Include="Rusty.Engine" Version="$(RustyEnginePackageVersion)">
+    <PackageReference Include="Rusty.Engine" Version="[$(RustyEnginePackageVersion)]">
       <ExcludeAssets Condition="'$(RustyEngineUseSourceDevelopment)' == 'true'">compile;runtime</ExcludeAssets>
     </PackageReference>
     <!-- The one input intent that exists so far, plus the payload channel the DOM companion uses.

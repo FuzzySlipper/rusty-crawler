@@ -1,8 +1,9 @@
 <Project>
   <PropertyGroup>
-    <!-- The one Engine SDK/runtime pair pin. `rusty install` installs it;
+    <!-- This standalone example pins its own pair: it needs PortableAssetContent,
+         newer than the product pin. Run `rusty install` in this directory;
          only `rusty update` changes it. -->
-    <RustyEnginePackageVersion>0.1.0-dev.eedd406900d5</RustyEnginePackageVersion>
+    <RustyEnginePackageVersion>0.1.0-dev.feec788503fe</RustyEnginePackageVersion>
     <!-- Every restore, plain dotnet included, takes exactly the pinned SDK from
          the pair installed in the shared rusty cache. -->
     <RustyEngineCache Condition="'$(RustyEngineCache)' == ''">$(RUSTY_ENGINE_CACHE)</RustyEngineCache>

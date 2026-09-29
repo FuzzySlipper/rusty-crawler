@@ -34,10 +34,8 @@ done
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$repo_root"
 
-# Installs the pinned pair when it is missing (a no-op offline once installed)
-# and gives the plain dotnet commands below the pair's SDK package source.
+# Installs the pinned pair when it is missing (a no-op offline once installed).
 rusty install
-export $(rusty env)
 pair_version=$(sed -n 's|.*<RustyEnginePackageVersion>\([^<]*\)</RustyEnginePackageVersion>.*|\1|p' Directory.Build.props)
 
 # The product UI is a Node-built DOM companion: its dependencies, and the DOM
