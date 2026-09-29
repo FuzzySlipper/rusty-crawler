@@ -1,11 +1,7 @@
 <Project>
   <PropertyGroup>
-    <!-- This repository consumes one complete, verified Engine release pair.
-         scripts/install-engine-pair.sh verifies these identities before it
-         atomically installs .runtime/sdk-feed and .runtime/runtime-pack.
-         Move the pin with scripts/update-engine-pin.sh; never hand-edit a
-         version into prose. -->
+    <!-- The one Engine SDK/runtime pair pin. `rusty install` installs it;
+         only `rusty update` changes it. -->
     <RustyEnginePackageVersion>0.1.0-dev.eedd406900d5</RustyEnginePackageVersion>
-    <RustyEnginePairSourceRevision>eedd406900d5a51184b0a7d6f99ccaff2393aba8</RustyEnginePairSourceRevision>
   </PropertyGroup>
 </Project>

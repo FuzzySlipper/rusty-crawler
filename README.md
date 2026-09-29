@@ -174,29 +174,27 @@ For every task, identify:
 
 ## Develop and verify
 
-The product consumes the immutable `Rusty.Engine` package from the installed
-`.runtime/sdk-feed` and the matched `.runtime/runtime-pack`. That pair's identity
-belongs in `Directory.Build.props`, where the install and verify scripts check it;
-do not restate a version or revision here.
-
-Start a clean checkout with the pinned, noninteractive pair install. It validates
-the release checksum, payloads, ABI, package version, and Engine source revision
-before atomically replacing the whole ignored pair:
+The product consumes one immutable Engine SDK/runtime pair, pinned by
+`<RustyEnginePackageVersion>` in `Directory.Build.props`; do not restate a
+version or revision here. The Engine's `rusty` command installs, updates and
+runs it. Get `rusty` once with the Engine bootstrap
+(`curl -fsSL https://raw.githubusercontent.com/FuzzySlipper/rusty-engine/main/scripts/install-rusty.sh | bash`),
+then start a clean checkout with:
 
 ```bash
-./scripts/install-engine-pair.sh
+rusty status
+rusty install
 ```
 
 To take the newest published Engine pair, which is the ordinary way to pick up
 newer Engine state:
 
 ```bash
-./scripts/update-engine-pin.sh
+rusty update
 ```
 
-It resolves the newest `csharp-sdk` release, rewrites both identities in
-`Directory.Build.props`, and installs the pair. `--check` reports what is
-available without changing anything.
+It installs the pair, rewrites the pin, and lists the release notes to read.
+`rusty update --check` reports what is available without changing anything.
 
 Routine verification:
 
@@ -204,18 +202,16 @@ Routine verification:
 ./scripts/verify.sh
 ```
 
-That verifies the installed pair identity, installs the UI dependencies, runs the DOM companion
+That installs the pinned pair if needed, installs the UI dependencies, runs the DOM companion
 tests, builds every product project, runs every suite, and stages the CoreCLR product.
 NativeAOT is a separate fidelity target and stays opt-in with `--aot`. The project and suite lists
 in the script are explicit on purpose: a discovery-based loop silently stops covering a project that
 moved, so a new project is added there in the same change that adds it.
 
-Ordinary development runs the staged product through the runtime pack:
+Ordinary development runs the product on the pinned runtime:
 
 ```bash
-./.runtime/runtime-pack/bin/rusty dev \
-  --project ./src/PartyRpg.Host/PartyRpg.Host.csproj \
-  --runtime ./.runtime/runtime-pack
+rusty dev --project ./src/PartyRpg.Host/PartyRpg.Host.csproj
 ```
 
 The same command is what `.den-serve.json` uses. **This box's own headless browser cannot hold an
