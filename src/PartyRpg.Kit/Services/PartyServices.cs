@@ -48,12 +48,13 @@ namespace PartyRpg.Kit.Services;
 /// counters.
 /// </para>
 /// </remarks>
-public sealed class PartyServices : IGameTimeObserver
+public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
 {
     private readonly IServiceRule _rule;
     private readonly PartyEntity _party;
     private readonly PartyResourceLedger? _accounts;
     private readonly GameClock? _clock;
+    private readonly PartyRest? _rest;
     private readonly PartyProgression? _progression;
     private readonly Dictionary<ServiceId, ServiceShelf> _shelves = [];
     private ServiceDefinition? _current;
@@ -79,19 +80,25 @@ public sealed class PartyServices : IGameTimeObserver
     /// charges the fee and reports the step. Without one a hall's fee is still quoted and the step is
     /// refused by name rather than levelling a member nothing owns.
     /// </param>
+    /// <param name="rest">
+    /// The rest mechanism a rented room hands its night to, so a night at an inn is the same sleep a rest is.
+    /// Without one a room is refused by name rather than slept in some second way.
+    /// </param>
     /// <exception cref="ArgumentNullException">The rule or the party is missing.</exception>
     public PartyServices(
         IServiceRule rule,
         PartyEntity party,
         PartyResourceLedger? accounts = null,
         GameClock? clock = null,
-        PartyProgression? progression = null)
+        PartyProgression? progression = null,
+        PartyRest? rest = null)
     {
         _rule = rule ?? throw new ArgumentNullException(nameof(rule));
         _party = party ?? throw new ArgumentNullException(nameof(party));
         _accounts = accounts;
         _clock = clock;
         _progression = progression;
+        _rest = rest;
     }
 
     /// <summary>This game's answers about services.</summary>
@@ -779,26 +786,20 @@ public sealed class PartyServices : IGameTimeObserver
 
             case ServiceOperationKind.Stay:
             {
-                // A room buys a night. Game time passes on the session's one clock to the hour the room
-                // gives up at, and the party rests: what a rest clears is the offer's own list, which is how
-                // a night that ends a weakness differs from a cure that ends a disease. Without a clock the
-                // time cannot pass, and the charge is refused before this runs rather than the party paying
-                // for a night that never came.
-                if (_clock is not { } clock)
+                // A room buys a night, and the night is the rest mechanism's: the debt of sleep is paid, the
+                // one clock moves by the hours the room gives and tells every owner of game time, and the party
+                // recovers as a completed night recovers it, with the offer's own list of what the room ends
+                // beside it. Without that mechanism there is no night to give, and it is refused by name rather
+                // than slept some second way.
+                if (_rest is not { } rest)
                 {
-                    return Refuse(kind, "service-no-clock", $"{visit.Service.Describe()} rents rooms by the night and this session keeps no clock, so no night could pass.");
+                    return Refuse(kind, "service-no-rest", $"{visit.Service.Describe()} rents rooms by the night and this session composes no rest, so no night could be slept.");
                 }
 
                 ServiceOffer room = subject.Offer!;
                 int hours = room.Amount < 1 ? 1 : room.Amount;
-                clock.Advance(GameDuration.FromHours(hours));
-                foreach (PartyMember sleeper in _party.Members)
-                {
-                    foreach (ConditionId condition in room.Conditions) sleeper.Conditions.Clear(condition);
-                    sleeper.Resources.RestoreAll();
-                }
-
-                return null;
+                RestResult night = rest.Lodge(GameDuration.FromHours(hours), room.Conditions);
+                return night.IsApplied ? null : Refuse(kind, night.Code, night.Message);
             }
 
             case ServiceOperationKind.Deposit:

@@ -16,9 +16,12 @@ namespace PartyRpg.Kit.Time;
 /// the engine measures and converted at this clock's own <see cref="Scale"/>.
 /// </para>
 /// <para>
-/// <b>Effects are returned, never published.</b> An advance reports the boundaries it crossed and the
-/// deadlines it brought due; the caller hands each to its owner. Nothing else in the product may keep a
-/// schedule, count frames, or hold a deadline of its own.
+/// <b>Every advance reaches every owner of time.</b> An advance reports the boundaries it crossed and the
+/// deadlines it brought due, and the clock hands that report to every observer registered with it before it
+/// returns — whoever moved it: an admitted update, a paced turn, a journey, a rest, a wait, a night at an
+/// inn. No caller forwards an advance by hand, so no caller can forward it to the wrong audience, and a
+/// one-shot deadline the clock stops holding is always heard by the owner that set it. Nothing else in the
+/// product may keep a schedule, count frames, or hold a deadline of its own.
 /// </para>
 /// <para>
 /// <b>Time runs forward.</b> There is no way to move the clock back, no negative duration, and no
@@ -33,6 +36,8 @@ namespace PartyRpg.Kit.Time;
 public sealed class GameClock : IWorldTimeSource
 {
     private readonly List<Deadline> _deadlines = [];
+    private readonly List<IGameTimeObserver> _observers = [];
+    private bool _delivering;
     private readonly long _startMilliseconds;
     private long _elapsedMilliseconds;
     private long _nextDeadline;
@@ -106,6 +111,35 @@ public sealed class GameClock : IWorldTimeSource
     /// <summary>How many deadlines the clock is holding.</summary>
     public int PendingDeadlines => _deadlines.Count;
 
+    /// <summary>How many owners hear this clock's advances.</summary>
+    public int Observers => _observers.Count;
+
+    /// <summary>
+    /// Registers an owner that keeps something against game time, so it hears every advance of this clock.
+    /// </summary>
+    /// <remarks>
+    /// Owners hear an advance in the order they registered, which is the order the session composed them.
+    /// An owner that is released before the clock is — a world replaced by another — releases the returned
+    /// subscription, and hears nothing after.
+    /// </remarks>
+    /// <param name="observer">The owner to tell.</param>
+    /// <returns>The subscription, which stops the owner hearing advances when released.</returns>
+    /// <exception cref="ArgumentNullException">The observer is null.</exception>
+    /// <exception cref="ArgumentException">The observer already hears this clock, so it would hear every advance twice.</exception>
+    public IDisposable Observe(IGameTimeObserver observer)
+    {
+        ArgumentNullException.ThrowIfNull(observer);
+        if (_observers.Contains(observer))
+        {
+            throw new ArgumentException(
+                "That owner already hears this clock, so registering it again would land every deadline on it twice.",
+                nameof(observer));
+        }
+
+        _observers.Add(observer);
+        return new Subscription(this, observer);
+    }
+
     /// <summary>
     /// Moves the clock forward by an amount of game time, which is the one way time advances.
     /// </summary>
@@ -113,14 +147,23 @@ public sealed class GameClock : IWorldTimeSource
     /// An advance of no time does nothing at all: it crosses no boundary, brings no deadline due, and
     /// leaves the clock exactly where it was, so an update that admits no steps cannot fire a day or wake
     /// a sleeping effect. Every effect an advance did produce is in the report it returns, once per
-    /// crossing.
+    /// crossing, and every registered owner has heard that report before this returns.
     /// </remarks>
     /// <param name="elapsed">The game time to advance by.</param>
     /// <returns>Where the clock was, where it went, and what the advance crossed and brought due.</returns>
     /// <exception cref="OverflowException">The advance leaves the game time this kit can count.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// An owner hearing an advance tried to advance the clock again, which would tell the owners after it
+    /// about a later time before the earlier one.
+    /// </exception>
     public ClockAdvance Advance(GameDuration elapsed)
     {
         if (elapsed.IsNone) return ClockAdvance.Still(Now);
+        if (_delivering)
+        {
+            throw new InvalidOperationException(
+                "The clock was advanced by an owner hearing an advance of it; the owners after it would hear a later time before the earlier one.");
+        }
 
         long from = AbsoluteNow;
         long to = checked(from + elapsed.Milliseconds);
@@ -137,7 +180,9 @@ public sealed class GameClock : IWorldTimeSource
         PeriodCrossings crossings = Calendar.Crossed(fromDate, toDate);
         IReadOnlyList<DeadlineDue> due = Bring(to);
         _elapsedMilliseconds += elapsed.Milliseconds;
-        return new ClockAdvance(fromDate, toDate, elapsed, crossings, due);
+        ClockAdvance advance = new(fromDate, toDate, elapsed, crossings, due);
+        Deliver(advance);
+        return advance;
     }
 
     /// <summary>
@@ -310,5 +355,35 @@ public sealed class GameClock : IWorldTimeSource
 
         /// <summary>How often it repeats, or null when it happens once.</summary>
         internal GameDuration? Interval { get; }
+    }
+
+    /// <summary>Tells every registered owner about one advance, in the order they registered.</summary>
+    private void Deliver(ClockAdvance advance)
+    {
+        if (_observers.Count == 0) return;
+        _delivering = true;
+        try
+        {
+            // A copy, so an owner that registers or releases another while hearing this advance changes who
+            // hears the next one rather than this one.
+            foreach (IGameTimeObserver observer in _observers.ToArray()) observer.Observe(advance);
+        }
+        finally
+        {
+            _delivering = false;
+        }
+    }
+
+    /// <summary>One owner's registration, released when the owner is.</summary>
+    private sealed class Subscription(GameClock clock, IGameTimeObserver observer) : IDisposable
+    {
+        private bool _released;
+
+        public void Dispose()
+        {
+            if (_released) return;
+            _released = true;
+            clock._observers.Remove(observer);
+        }
     }
 }

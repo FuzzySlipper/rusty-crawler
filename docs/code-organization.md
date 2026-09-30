@@ -198,10 +198,17 @@ one mode:
 | Service or dialogue screen | The world keeps running unless the mode above says otherwise |
 | Rest, camp, travel, training | Discrete clock advancement through the Time owner — not a second loop |
 | Menu, save, load | Session is quiescent; no world stepping |
+| Held (the player's pause or the engine's) | Quiescent: no game time passes and no act is applied — no use, stop, counter, conversation, cast, mix, or fight order, and no creature acts. Held keys are still read, so a release is not lost, and a save request is still taken |
 
 Pause is a session concept, not a thread, timer, or scheduler. Recovery,
 durations, and respawns are game-time values, so changing mode never changes what
 time means.
+
+Every advance of the one clock — an admitted update, a paced turn, a journey, a
+rest, a wait, a night at an inn — is delivered by the clock itself to every owner
+registered with it (`GameClock.Observe`): the world, services, rest and its debt
+of sleep, combat recovery, and running spell effects. No mechanism forwards an
+advance by hand, so none can forward it to the wrong audience.
 
 ## 10. Persistence
 

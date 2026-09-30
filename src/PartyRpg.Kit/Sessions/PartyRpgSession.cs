@@ -185,7 +185,7 @@ public sealed class PartyRpgSession : IGameSession
     private Spellcasting? _casting;
     private PotionMixing? _mixing;
     private CombatantId? _lastCastActor;
-    private readonly TimeOwners _timeOwners = new();
+    private readonly List<IDeadlineOwner> _deadlineOwners = [];
     private WorldSnapshot _world = WorldSnapshot.Empty;
     private bool _started;
     private bool _enginePaused;
@@ -245,9 +245,8 @@ public sealed class PartyRpgSession : IGameSession
     /// party's accounts to charge a road.
     /// </param>
     /// <param name="diagnostics">
-    /// Where the session reports what the clock brought due and nobody acted on, when the engine's
-    /// diagnostics are reachable. Nothing schedules a deadline yet, so a report is the only honest thing
-    /// that can happen to one.
+    /// Where the session reports every deadline the clock brought due and which owner it belonged to, when the
+    /// engine's diagnostics are reachable, so a deadline nobody holds is visible rather than dropped.
     /// </param>
     /// <param name="saveStore">
     /// Where this session's saves are written and read, when the product has somewhere to keep them. The
@@ -512,6 +511,10 @@ public sealed class PartyRpgSession : IGameSession
         _saveActionContract = saveInput is null ? null : Encoding.UTF8.GetBytes(saveInput.ActionContract);
         _resumed = resumed;
         _save = SaveSnapshot.None(available: _saves is not null, resumed: resumed, slot: saveSlot);
+        // Every advance of the one clock is reported with the owner that held each deadline it brought due,
+        // before any mechanism the session composes below hears it; the world composed over the same clock
+        // already hears it, and lives through the days it crossed.
+        clock?.Observe(new DeadlineReport(this));
         _liveWorld = world;
         _world = world?.Snapshot ?? WorldSnapshot.Empty;
         world?.Populate();
@@ -523,6 +526,7 @@ public sealed class PartyRpgSession : IGameSession
         // The service mechanism is composed over the party the session plays and the ledger a journey already
         // charges, so a shop and a road settle one purse through one path. The rest mechanism is composed
         // beside it, over the same party, clock, and world, so a night is judged where it is taken.
+        ComposeRest();
         ComposeServices();
         ComposeConversations();
         ComposeQuests();
@@ -536,7 +540,6 @@ public sealed class PartyRpgSession : IGameSession
         // make: what the party has seen is its own memory of the world's shape and not a reading of the place's
         // current state.
         ComposeMaps();
-        ComposeRest();
         ComposeCombat();
         // The casting workflow is composed over the party, this game's spell answers, the effect path, and the
         // fight the session just composed: a spell's aim and the caster's ability to act are judged against
@@ -784,6 +787,12 @@ public sealed class PartyRpgSession : IGameSession
 
         double seconds = AdmittedSeconds(tick);
 
+        // A held session is quiescent: no game time passes and no act is applied — no use, no stop, no
+        // counter or conversation, no casting or mixing, and nobody in a fight acts. What it still does is
+        // read the keys the player holds, so a key released while it was held does not keep walking or
+        // attacking when it resumes, and take a save the player asked for, above.
+        bool quiescent = _mode == SessionMode.Paused;
+
         // A turn-based fight the party can still take turns in owns the player's controls while it waits for
         // one: the session steps no world and measures no interval, exactly as a screen that owns the
         // controls does, and every turn arrives as the committed action below. Its movement phase is the one
@@ -803,15 +812,18 @@ public sealed class PartyRpgSession : IGameSession
         if (!awaitingTurn && !screenOwnsControls)
         {
             StepParty(update.Input, seconds);
-            // Using something follows the step that carried the party to it, in the same update: the reticle
-            // is refreshed from where the party now stands, and a use the player asked for is applied to what
-            // that step put in front of it rather than to what the previous one did.
-            Interact(update.Input);
-            // A stop is an instant like a use, and the whole period is applied here: the clock the step above
-            // moved is moved on by the hours the party slept or waited for, inside this same admitted update.
-            DriveRest(update.Input);
+            if (!quiescent)
+            {
+                // Using something follows the step that carried the party to it, in the same update: the
+                // reticle is refreshed from where the party now stands, and a use the player asked for is
+                // applied to what that step put in front of it rather than to what the previous one did.
+                Interact(update.Input);
+                // A stop is an instant like a use, and the whole period is applied here: the clock the step
+                // above moved is moved on by the hours the party slept or waited for, inside this same update.
+                DriveRest(update.Input);
+            }
         }
-        else if (!screenOwnsControls)
+        else if (!screenOwnsControls && !quiescent)
         {
             // A use and a stop are instants rather than intervals, so they are still applied while a turn is
             // being taken: what the party faces is refreshed from where it actually stands, and a rest that
@@ -851,9 +863,12 @@ public sealed class PartyRpgSession : IGameSession
 
         _attackHeld = attackHeld;
 
-        DriveServices(update.Input);
-        DriveRaises(update.Input);
-        DriveConversations(update.Input);
+        if (!quiescent)
+        {
+            DriveServices(update.Input);
+            DriveRaises(update.Input);
+            DriveConversations(update.Input);
+        }
 
         // Who the party is speaking with is read here, once the update's own use and answers have been
         // applied: a conversation opens from a use and turns from an answer, so both arrive at this one read.
@@ -922,12 +937,15 @@ public sealed class PartyRpgSession : IGameSession
         // A casting is read where the act control is: a screen that owns the controls owns casting too, and
         // the spell is aimed at the fight this update's own world read left standing. The quick slot is read
         // whatever is open, because which spell a character keeps there is her own state and not an act.
-        bool cast = DriveCasts(update.Input, allowed: !screenOwnsControls);
+        if (!quiescent)
+        {
+            bool cast = DriveCasts(update.Input, allowed: !screenOwnsControls);
 
-        // Mixing is read in the same breath: it is the pack screen's own act, and a mixture that arrived while
-        // a screen owned the controls is refused by name rather than quietly dropped.
-        DriveMixes(update.Input, allowed: !screenOwnsControls);
-        DriveCombat(attacked, skipped, waited, cast, seconds);
+            // Mixing is read in the same breath: it is the pack screen's own act, and a mixture that arrived
+            // while a screen owned the controls is refused by name rather than quietly dropped.
+            DriveMixes(update.Input, allowed: !screenOwnsControls);
+            DriveCombat(attacked, skipped, waited, cast, seconds);
+        }
 
         // The mode is resolved after the fight has had its say, because the fight is what decides whether the
         // next update waits for a committed turn: a round that began in this update is published in the same
@@ -1071,6 +1089,7 @@ public sealed class PartyRpgSession : IGameSession
         // into being is served by the same path as one restored from a save.
         _accounts ??= _liveWorld?.Accounts;
         ComposeProgression();
+        ComposeRest();
         ComposeServices();
         // The conversation is composed over the party that now exists rather than over nobody: what a person
         // offers and what a line records are read against the party, so a mechanism that captured none would
@@ -1082,7 +1101,6 @@ public sealed class PartyRpgSession : IGameSession
         ComposeJournal();
         ComposeKnowledge();
         ComposeMaps();
-        ComposeRest();
         ComposeCombat();
         ComposeMagic();
         // The mixing workflow is composed here for the same reason the casting one is: a party that has just
@@ -1798,8 +1816,8 @@ public sealed class PartyRpgSession : IGameSession
 
         // An effect path that keeps a duration hears the session's one clock like every other owner of it: a
         // ward or a light ends in the very advance that reaches its deadline, whether that advance came from
-        // an admitted update or from a journey's charge. The list is added to once, because a second
-        // registration would land the same deadlines on the same owner twice.
+        // an admitted update, a journey, a rest, a wait, or a night at an inn. It is registered once, because
+        // the clock refuses a second registration that would land the same deadlines on it twice.
         if (!_magicObserved && _spellEffects is IGameTimeObserver observer)
         {
             _magicObserved = true;
@@ -2071,71 +2089,58 @@ public sealed class PartyRpgSession : IGameSession
     }
 
     /// <summary>
-    /// Advances the one clock by the interval this update admitted, and hands on what the advance crossed
-    /// and brought due.
+    /// Advances the one clock by the interval this update admitted.
     /// </summary>
     /// <remarks>
-    /// The clock returns its effects rather than publishing them, so this is where they reach their owners:
-    /// the boundaries it crossed are measured in whole game days, and the world's places are brought up to
-    /// the day the clock now stands on in this same update. The advance reaches the service mechanism before
-    /// anything is reported, so a shelf whose refresh deadline came due is filled in the update that reached
-    /// it. A deadline is still reported by name, because the report is how a deadline nothing owns is
-    /// visible: one a schedule acted on says so, and one no owner holds says that too rather than being
-    /// dropped.
+    /// The clock itself hands the advance to every owner registered with it — the deadline report, the world,
+    /// and each mechanism the session composed — so this only says how much time the update admitted.
     /// </remarks>
     private void StepClock(double admittedSeconds)
     {
         if (_clock is not { } clock || admittedSeconds <= 0) return;
-        // Every owner that keeps something against game time hears the same advance, in one place: a shelf
-        // whose refresh came due is filled by the service mechanism, and a debt of sleep that the interval
-        // ran past lands on the party, in the update that moved the clock.
-        ApplyClockAdvance(clock.AdvanceAdmittedSeconds(admittedSeconds));
+        clock.AdvanceAdmittedSeconds(admittedSeconds);
     }
 
     /// <summary>
     /// Advances the one clock by a length of game time, which is how a paced turn spends it.
     /// </summary>
     /// <remarks>
-    /// It is the same clock, the same owners, and the same onward work as an admitted interval: a paced fight
-    /// does not measure time differently, it spends it in the amounts its turns cost rather than in the
-    /// amounts the engine admitted. Recovery is released by this advance and by nothing else, so an actor's
-    /// turn is due exactly when its own debt has been paid — the same arithmetic that releases it in real
-    /// time, reached from the other direction.
+    /// It is the same clock and the same owners as an admitted interval: a paced fight does not measure time
+    /// differently, it spends it in the amounts its turns cost rather than in the amounts the engine admitted.
+    /// Recovery is released by an advance and by nothing else, so an actor's turn is due exactly when its own
+    /// debt has been paid — the same arithmetic that releases it in real time, reached from the other
+    /// direction.
     /// </remarks>
     private void AdvanceTurnTime(GameDuration interval)
     {
         if (_clock is not { } clock || interval.IsNone) return;
-        ApplyClockAdvance(clock.Advance(interval));
+        clock.Advance(interval);
     }
 
-    /// <summary>
-    /// Hands one clock advance to everything that keeps time, and reports what it brought due.
-    /// </summary>
+    /// <summary>Reports every deadline an advance brought due, and whose it was.</summary>
     /// <remarks>
-    /// The clock returns its effects rather than publishing them, so this is where they reach their owners:
-    /// the boundaries it crossed are measured in whole game days, and the world's places are brought up to
-    /// the day the clock now stands on in the next update's own advance. The advance reaches the mechanisms
-    /// before anything is reported, so a shelf whose refresh deadline came due is filled in the update that
-    /// reached it. A deadline is still reported by name, because the report is how a deadline nothing owns is
-    /// visible: one a schedule acted on says so, and one no owner holds says that too rather than being
-    /// dropped.
+    /// It is registered with the clock before any owner, so it asks who held a deadline before that owner acted
+    /// on it: a one-shot deadline its owner re-arms is still reported as that owner's. A deadline no composed
+    /// owner holds is reported as exactly that rather than dropped.
     /// </remarks>
-    private void ApplyClockAdvance(ClockAdvance advance)
+    private sealed class DeadlineReport(PartyRpgSession session) : IGameTimeObserver
     {
-        _timeOwners.Observe(advance);
-        foreach (DeadlineDue due in advance.Due)
+        public void Observe(ClockAdvance advance)
         {
-            bool owned = (_services?.Holds(due.Deadline) ?? false) || (_rest?.Holds(due.Deadline) ?? false);
-            string message = owned
-                ? $"Game time reached {due.Fired}, which a deadline of {due.Deadline} was set for; the owner that scheduled it acted on it."
-                : $"Game time reached {due.Fired}, which a deadline of {due.Deadline} was set for; no owner schedules deadlines yet, so nothing acted on it.";
-            _diagnostics?.Publish(new DiagnosticsPublishRequest(
-                DiagnosticsSeverity.Info,
-                DiagnosticsDisposition.Accepted,
-                Source: "clock",
-                Code: "deadline-due",
-                Message: message,
-                Correlation: string.Empty));
+            foreach (DeadlineDue due in advance.Due)
+            {
+                bool owned = session._deadlineOwners.Any(owner => owner.Holds(due.Deadline));
+                string message = owned
+                    ? $"Game time reached {due.Fired}, which a deadline of {due.Deadline} was set for; the owner that set it heard it."
+                    : $"Game time reached {due.Fired}, which a deadline of {due.Deadline} was set for; no owner the session composed holds it, so nothing acted on it.";
+                session._diagnostics?.Publish(new DiagnosticsPublishRequest(
+                    DiagnosticsSeverity.Info,
+                    DiagnosticsDisposition.Accepted,
+                    Source: "clock",
+                    Code: "deadline-due",
+                    Message: message,
+                    Correlation: string.Empty));
+            }
         }
     }
 
@@ -2167,11 +2172,11 @@ public sealed class PartyRpgSession : IGameSession
     private void ComposeServices()
     {
         if (_services is not null || _serviceRule is null || _party is not { } party) return;
-        _services = new PartyServices(_serviceRule, party, _accounts, _clock, _progression);
-        // The world hands its journey advances to the same owners the session's admitted intervals reach, so a
-        // shelf's deadline is driven by the one clock wherever the advance happened. The world is told here
-        // because this is the moment the mechanism exists, which for a session that creates its party is when
-        // creation is accepted.
+        // A room at an inn is a night's sleep, so the counter that rents one hands the night to the rest
+        // mechanism rather than keeping a second way to sleep; rest is composed first for that reason.
+        _services = new PartyServices(_serviceRule, party, _accounts, _clock, _progression, _rest);
+        // A shelf's deadline is driven by the one clock wherever the advance happened — an update, a journey,
+        // a rest — because the clock tells every owner registered with it.
         ObserveTimeWith(_services);
     }
 
@@ -2300,21 +2305,26 @@ public sealed class PartyRpgSession : IGameSession
     /// It is composed once, when the party exists, and over the world the party stands in — so whether a
     /// night may be taken here is read from the live place rather than from a place the session remembered.
     /// The mechanism joins the owners the one clock reports to, which is what makes a debt of sleep fall due
-    /// on a journey exactly as it does in an update; the service mechanism is its own onward owner, so a
-    /// rest's hours refresh a shelf without either mechanism hearing the advance twice.
+    /// on a journey exactly as it does in an update; a rest's own hours reach every other owner the same way,
+    /// because the clock tells them, not the rest.
     /// </remarks>
     private void ComposeRest()
     {
         if (_rest is not null || _restRule is null || _party is not { } party) return;
-        _rest = new PartyRest(_restRule, party, _clock, _liveWorld, _accounts, onward: _services);
+        _rest = new PartyRest(_restRule, party, _clock, _liveWorld, _accounts);
         ObserveTimeWith(_rest);
     }
 
-    /// <summary>Tells the world and this session about one more owner of the session's game time.</summary>
+    /// <summary>Registers one more owner of the session's game time with the one clock.</summary>
+    /// <remarks>
+    /// Registered owners live as long as the session and its clock do, so none is released here. An owner that
+    /// sets deadlines is also asked, when one comes due, whether it was its own.
+    /// </remarks>
     private void ObserveTimeWith(IGameTimeObserver owner)
     {
-        _timeOwners.Add(owner);
-        _liveWorld?.ObserveTimeWith(_timeOwners);
+        if (_clock is not { } clock) return;
+        clock.Observe(owner);
+        if (owner is IDeadlineOwner deadlines) _deadlineOwners.Add(deadlines);
     }
 
     /// <summary>

@@ -34,7 +34,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// named a place the party can actually reach.
 /// </para>
 /// </remarks>
-internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRule, IPartySightRule, IRunningSpellEffects, IMemberSpellEffects, IGameTimeObserver
+internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRule, IPartySightRule, IRunningSpellEffects, IMemberSpellEffects, IGameTimeObserver, IDeadlineOwner
 {
     private readonly MightAndMagic7Spells _spells;
     private readonly GameClock? _clock;
@@ -238,6 +238,9 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         ArgumentNullException.ThrowIfNull(advance);
         _running?.Observe(advance);
     }
+
+    /// <inheritdoc />
+    public bool Holds(DeadlineId deadline) => _running?.Holds(deadline) ?? false;
 
     /// <summary>Harm: the spell's own dice and kind, ordered through the fight's own gated entry.</summary>
     /// <remarks>

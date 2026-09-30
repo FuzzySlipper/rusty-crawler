@@ -201,7 +201,7 @@ public sealed class TravelCostWiringTests
     }
 
     [Fact]
-    public void A_deadline_the_clock_brings_due_is_reported_because_no_owner_schedules_one_yet()
+    public void A_deadline_no_owner_holds_is_reported_as_held_by_nobody()
     {
         using RecordingUiProjectionChannel channel = new();
         RecordingDiagnosticsService diagnostics = new();
@@ -216,13 +216,13 @@ public sealed class TravelCostWiringTests
         session.Start();
         clock.ScheduleAfter(GameDuration.FromHours(1));
 
-        // An hour of game time, admitted in one update: the clock brings the deadline due and hands it to
-        // the session, which is its owner until something that keeps a schedule exists.
+        // An hour of game time, admitted in one update: the clock brings the deadline due, and the session
+        // reports it as held by none of the owners it composed, because the test set it on the bare clock.
         session.Update(Update(0, admitted: 120, fixedDelta: 1.0));
 
         DiagnosticsPublishRequest published = Assert.Single(diagnostics.Published);
         Assert.Equal("deadline-due", published.Code);
-        Assert.Contains("no owner schedules deadlines", published.Message, StringComparison.Ordinal);
+        Assert.Contains("no owner the session composed holds it", published.Message, StringComparison.Ordinal);
     }
 
     [Fact]

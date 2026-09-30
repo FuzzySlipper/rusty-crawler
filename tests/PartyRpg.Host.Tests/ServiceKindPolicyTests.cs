@@ -394,6 +394,16 @@ public sealed class ServiceKindPolicyTests
         Assert.Equal("The party speaks with Mira.", outcome.Message);
     }
 
+    /// <summary>Where the party stands while it is served: in a place, alone.</summary>
+    private sealed class Standing(PlaceDefinition place) : IRestSite
+    {
+        public PlaceDefinition Place => place;
+
+        public PlacePose Pose => PlacePose.Origin;
+
+        public IReadOnlyList<PlacePopulationEntity> Population => [];
+    }
+
     /// <summary>A party, the content the counters are read from, and the one mechanism that serves them.</summary>
     private sealed class Fixture : IDisposable
     {
@@ -497,13 +507,22 @@ public sealed class ServiceKindPolicyTests
             // The owner a hall settles through is composed over the same party the services serve, so a
             // training step charges this party's purse and rises this party's member.
             PartyProgression progression = new(MightAndMagic7Progression.Instance, party);
+            // A room is a night of this game's own rest, taken in the place the counters stand in, and the rest
+            // hears the one clock as the session composes it to.
+            PartyRest rest = new(
+                MightAndMagic7Rest.Compose(catalog, random: null),
+                party,
+                clock,
+                new Standing(PlaceGraphLoader.Load(catalog).Places[0]),
+                accounts);
+            clock.Observe(rest);
             return new Fixture(
                 catalog,
                 rule,
                 conversation,
                 party,
                 clock,
-                new PartyServices(rule, party, accounts, clock, progression),
+                new PartyServices(rule, party, accounts, clock, progression, rest),
                 progression);
         }
 

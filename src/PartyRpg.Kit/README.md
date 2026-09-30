@@ -109,9 +109,10 @@ Implemented today: the session shell (`PartyRpgSession`, `SessionMode`, `IGameSe
 world it steps (`SessionWorld`), the one clock it advances by the admitted interval and the party it
 holds and publishes — with the clock's own schedule (`OpeningHours`, `PlaceSchedule`: which hours a place
 keeps and when that next changes, read against the clock's position rather than counted in a step) and the
-stops a party takes on it (`PartyRest`, `FatigueWatch`, `IRestRule`, `IRestSite`: rest, camp, and wait, each
-advancing the one clock by a game-time period, settling the day through the party's own ledger, and holding
-the debt of sleep as a deadline the clock brings due) — the compiled ruleset and session contracts, the pack envelope with its
+stops a party takes on it (`PartyRest`, `FatigueWatch`, `IRestRule`, `IRestSite`: rest, camp, wait, and the
+night a rented room gives (`PartyRest.Lodge`, which is the only other way to sleep and is the same sleep),
+each advancing the one clock by a game-time period, settling the day through the party's own ledger, and
+holding the debt of sleep as a deadline the clock brings due) — the compiled ruleset and session contracts, the pack envelope with its
 catalog loader, validator and bundle resolution (`ContentCatalog.Selected` is the one place a bundle's
 selection becomes the content a session reads: the packs it named contribute, and the packs it did not
 are not loaded at all; the loader refuses the whole root by name when two packs claim one id, or an entry
@@ -233,7 +234,9 @@ makes every draw under a key that names the death or the container, so the same 
 twice; what the numbers mean stays the ruleset's), and time (`GameClock` over a validated
 `GameCalendar` — one explicit `Advance`/`AdvanceAdmittedSeconds` path with a returned `ClockAdvance`
 report of the hour, day, week, month, and year boundaries it crossed and the `DeadlineDue` entries it
-brought due once each, `GameDuration` and `GameDate` values, the `DeadlineId` handles travel, rest,
+brought due once each, delivered by the clock itself to every `IGameTimeObserver` registered with it
+(`GameClock.Observe`) whoever moved it, so a journey, a rest, a wait and a night at an inn reach the same
+owners an admitted update does and no caller forwards an advance by hand, `GameDuration` and `GameDate` values, the `DeadlineId` handles travel, rest,
 training, and spell durations register against, day and night from a `DaylightWindow`, and the
 `IWorldTimeSource` day count the world's respawn reads).
 Everything else in the owner map is still to come.

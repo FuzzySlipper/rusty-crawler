@@ -36,14 +36,13 @@ namespace PartyRpg.Kit.Time;
 /// caused.
 /// </para>
 /// </remarks>
-public sealed class PartyRest : IGameTimeObserver
+public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
 {
     private readonly IRestRule _rule;
     private readonly PartyEntity _party;
     private readonly PartyResourceLedger? _accounts;
     private readonly GameClock? _clock;
     private readonly IRestSite? _site;
-    private readonly IGameTimeObserver? _onward;
     private readonly FatigueWatch? _fatigue;
     private RestResult? _last;
 
@@ -62,25 +61,19 @@ public sealed class PartyRest : IGameTimeObserver
     /// The party's own accounts as the one settlement path, which a night's provisions are spent through.
     /// Without one a period that costs provisions is refused rather than made free.
     /// </param>
-    /// <param name="onward">
-    /// Who else is told every advance this mechanism makes, so a schedule kept against the one clock hears a
-    /// rest's own hours rather than waiting for the next admitted update.
-    /// </param>
     /// <exception cref="ArgumentNullException">The rule or the party is missing.</exception>
     public PartyRest(
         IRestRule rule,
         PartyEntity party,
         GameClock? clock = null,
         IRestSite? site = null,
-        PartyResourceLedger? accounts = null,
-        IGameTimeObserver? onward = null)
+        PartyResourceLedger? accounts = null)
     {
         _rule = rule ?? throw new ArgumentNullException(nameof(rule));
         _party = party ?? throw new ArgumentNullException(nameof(party));
         _clock = clock;
         _site = site;
         _accounts = accounts;
-        _onward = onward;
         _fatigue = clock is null ? null : new FatigueWatch(clock, party, rule.Fatigue, rule.SleepInterval);
     }
 
@@ -115,7 +108,8 @@ public sealed class PartyRest : IGameTimeObserver
 
     /// <summary>
     /// Takes one advance of the session's one clock, which is how the fatigue debt lands whether the clock
-    /// was moved by a step, a journey, or a stop.
+    /// was moved by a step, a journey, a stop, or a night at an inn — the clock tells this mechanism about its
+    /// own stops exactly as it tells it about everything else.
     /// </summary>
     /// <param name="advance">Where the clock was, where it went, and what it brought due.</param>
     public void Observe(ClockAdvance advance) => _fatigue?.Observe(advance);
@@ -131,6 +125,91 @@ public sealed class PartyRest : IGameTimeObserver
     }
 
     /// <summary>Runs the one stop workflow over a kind, and answers with what came of it.</summary>
+    /// <summary>
+    /// Sleeps the party through a night somebody else provides — a room at an inn — and reports it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It is the same sleep a rest is: the debt of going without sleep is paid before the clock moves and
+    /// registered again when the party wakes, the clock moves by the night and tells every owner of game time,
+    /// and each member recovers through the one recovery a completed night gives — the pools and what this
+    /// game says a night ends — plus whatever the room itself states it ends. What differs is what the party
+    /// is spared: the night was paid for at the counter, so the ruleset is not asked whether the party may
+    /// sleep here, nothing wanders in, and the larder is not drawn on. The donor's own room is that shape: it
+    /// heals the party and resets its days without rest, and spends no food
+    /// (OpenEnroth <c>src/Application/Game.cpp:1054-1068</c>).
+    /// </para>
+    /// <para>
+    /// It does not become the last stop the rest mechanism reports: the counter that rented the room reports
+    /// the night as its own service.
+    /// </para>
+    /// </remarks>
+    /// <param name="period">How long the night lasts, which the room states.</param>
+    /// <param name="ends">The conditions the room says a night in it ends, beside those every night ends.</param>
+    /// <returns>The night, or why the party could not take it.</returns>
+    public RestResult Lodge(GameDuration period, IReadOnlyList<ConditionId> ends)
+    {
+        ArgumentNullException.ThrowIfNull(ends);
+        if (_clock is not { } clock)
+        {
+            return RestResult.Refused(
+                RestKind.Rest,
+                default,
+                "rest-no-clock",
+                "The party cannot sleep here: this session keeps no clock, so no night could pass.");
+        }
+
+        if (_site is not { } site)
+        {
+            return RestResult.Refused(
+                RestKind.Rest,
+                clock.Now,
+                "rest-nowhere",
+                "The party cannot sleep here: it stands in no place a room could be in.");
+        }
+
+        RestRequest request = new(RestKind.Rest, site, _party, clock);
+        _fatigue?.Pay();
+        ClockAdvance advance = clock.Advance(period);
+        List<ConditionId> cleared = [];
+        int restored = Recover(request, ends, cleared);
+        _fatigue?.Arm();
+        return RestResult.Applied(
+            RestKind.Rest,
+            string.Create(
+                CultureInfo.InvariantCulture,
+                $"The party sleeps in a room for {Describe(advance.Elapsed)}, to {Describe(advance.To)}. Every member's pools are full again and the room's price covered the night's board."),
+            advance,
+            Provisions.None,
+            covered: 0,
+            interrupted: null,
+            recovered: true,
+            restored,
+            cleared,
+            shortage: null);
+    }
+
+    /// <summary>
+    /// What a completed night gives each member: both pools filled, and every condition the ruleset says a
+    /// night ends cleared, with any the night's own source adds.
+    /// </summary>
+    /// <returns>How many members recovered.</returns>
+    private int Recover(RestRequest request, IReadOnlyList<ConditionId> alsoEnds, List<ConditionId> cleared)
+    {
+        IReadOnlyList<ConditionId> night = _rule.RecoveredBy(request);
+        List<ConditionId> ends = [.. night, .. alsoEnds.Where(condition => !night.Contains(condition))];
+        int restored = 0;
+        foreach (PartyMember member in _party.Members)
+        {
+            member.Resources.RestoreAll();
+            foreach (ConditionId condition in ends) member.Conditions.Clear(condition);
+            restored++;
+        }
+
+        cleared.AddRange(ends);
+        return restored;
+    }
+
     private RestResult Resolve(RestKind kind)
     {
         if (_clock is not { } clock)
@@ -197,28 +276,14 @@ public sealed class PartyRest : IGameTimeObserver
         // party slept through cannot be the hours that weakened it.
         if (completes) _fatigue?.Pay();
 
+        // Every owner of game time hears the stop's own hours from the clock itself, so a shop's shelves
+        // refresh, a ward lapses, and a debt that a wait ran past lands in the same update that moved it.
         ClockAdvance advance = clock.Advance(period);
-
-        // Whoever keeps a schedule against game time hears a stop's own hours, so a shop's shelves refresh
-        // and a debt that a wait ran past lands in the same update that moved the clock.
-        _onward?.Observe(advance);
-        _fatigue?.Observe(advance);
 
         // Recovery first: a completed sleep fills both pools and clears what the ruleset says a night ends.
         int restored = 0;
         List<ConditionId> cleared = [];
-        if (completes)
-        {
-            IReadOnlyList<ConditionId> ends = _rule.RecoveredBy(request);
-            foreach (PartyMember member in _party.Members)
-            {
-                member.Resources.RestoreAll();
-                foreach (ConditionId condition in ends) member.Conditions.Clear(condition);
-                restored++;
-            }
-
-            cleared.AddRange(ends);
-        }
+        if (completes) restored = Recover(request, [], cleared);
 
         // Then the day's provisions, through the party's one settlement path, so the larder's own consequence
         // has the last word over what the sleep restored. A broken night pays nothing: the day it would have

@@ -183,6 +183,32 @@ public sealed class RestAndSchedulePolicyTests
     }
 
     [Fact]
+    public void A_held_session_passes_no_time_and_applies_no_stop_until_it_is_released()
+    {
+        using IGameSession session = Shop(out RecordingUiService ui, ShopChest);
+        ulong step = 0;
+        session.Update(ProductTestContext.Update(step++, 1));
+        string before = ProjectedNode.Of(ui.Latest().Value).Field("clock").Field("time").AsString();
+
+        // A held session is quiescent: the wait asked for while it is held moves no clock, admitted steps move
+        // no clock either, and the chest at the party's feet is not searched.
+        session.Hold();
+        session.Update(ProductTestContext.Update(step++, 600, ProductTestContext.Digital(ProductIdentity.WaitAnHourIntent)));
+        session.Update(ProductTestContext.Update(step++, 1, ProductTestContext.Digital(ProductIdentity.UseIntent)));
+        ProjectedNode held = ProjectedNode.Of(ui.Latest().Value);
+        Assert.Equal(before, held.Field("clock").Field("time").AsString());
+        Assert.Equal(40, held.Field("party").Field("hitPoints").AsNumber());
+
+        // Released, the same wait is applied as it always is.
+        session.ReleaseHold();
+        session.Update(ProductTestContext.Update(step, 1, ProductTestContext.Digital(ProductIdentity.WaitAnHourIntent)));
+        ProjectedNode waited = ProjectedNode.Of(ui.Latest().Value);
+        Assert.Equal("wait-hour", waited.Field("rest").Field("kind").AsString());
+        Assert.Equal("applied", waited.Field("rest").Field("outcome").AsString());
+        Assert.NotEqual(before, waited.Field("clock").Field("time").AsString());
+    }
+
+    [Fact]
     public void A_camp_costs_the_grounds_rations_and_refuses_where_it_may_not_be_made()
     {
         using IGameSession sand = Region(out RecordingUiService ui, terrain: "desert", encounterPercent: 0);

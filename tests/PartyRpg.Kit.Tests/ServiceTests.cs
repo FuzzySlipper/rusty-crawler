@@ -4,6 +4,7 @@ using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Interaction;
+using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Progression;
@@ -185,6 +186,36 @@ public sealed class ServiceTests
     /// nothing at all.
     /// </remarks>
     [Fact]
+    public void A_ward_whose_end_falls_inside_a_night_at_an_inn_ends_that_night()
+    {
+        using PartyEntity party = Party(coins: 100);
+        PartyResourceLedger accounts = new(party);
+        GameClock clock = Clock();
+        ShopRule rule = new(Shop() with { Operations = [ServiceOperationKind.Stay] })
+        {
+            Offerings = [new ServiceOffer(ServiceOfferKind.Stay, "A room for the night", Value: 12, Amount: 8)],
+        };
+
+        // The owners of game time are composed as a session composes them: each hears the one clock.
+        RunningSpellEffects running = new(party, clock);
+        clock.Observe(running);
+        PartyRest rest = new(new TestNights(), party, clock, new TestRoom(), accounts);
+        clock.Observe(rest);
+        PartyServices services = new(rule, party, accounts, clock, rest: rest);
+        clock.Observe(services);
+        Assert.True(services.Open(rule.Service).IsApplied);
+
+        // Two hours of ward and an eight-hour night: the night is the clock's to tell, so the ward ends in it
+        // rather than outliving a deadline the clock stopped holding.
+        EffectId ward = new("ward:magic");
+        running.Start(ward, magnitude: 5, GameDuration.FromHours(2));
+        Assert.True(services.Transact(new ServiceCommand(ServiceCommandKind.Stay)).IsApplied);
+
+        Assert.False(running.IsRunning(ward));
+        Assert.False(party.Effects.Has(ward));
+    }
+
+    [Fact]
     public void A_counter_s_cures_training_provisions_rooms_deposits_and_passages_run_the_same_way()
     {
         using PartyEntity party = Party(coins: 1000);
@@ -225,7 +256,9 @@ public sealed class ServiceTests
 
         // The counter trains through the progression owner, which is what grants a level: the mechanism
         // charges the fee and the owner rises the member, so no counter can level anybody by itself.
-        PartyServices services = new(rule, party, accounts, clock, new PartyProgression(new TrainingRule(), party));
+        PartyRest rest = new(new TestNights(), party, clock, new TestRoom(), accounts);
+        clock.Observe(rest);
+        PartyServices services = new(rule, party, accounts, clock, new PartyProgression(new TrainingRule(), party), rest);
         Assert.True(services.Open(rule.Service).IsApplied);
 
         // What the counter offers is published with what each would cost, and a notice is published at no
@@ -261,16 +294,28 @@ public sealed class ServiceTests
         Assert.True(provisioned.IsApplied);
         Assert.Equal(larder + 6, party.Food.Portions);
 
-        // A room spends the session's one clock and rests the party: the hour it gives up at is what passes,
-        // and what a night clears is the room's own list rather than a rule the kit keeps.
+        // A room is a night of the rest mechanism's: the hours it gives pass on the session's one clock, the
+        // night ends what every night ends and the room's own list beside it, the larder is not drawn on, and
+        // the debt of going without sleep is paid.
         member.Conditions.Apply(new ActiveCondition(new ConditionId("Tired"), 2));
+        member.Conditions.Apply(new ActiveCondition(TestNights.Weakness, 1));
         member.Resources.TakeDamage(4);
         int hour = clock.Now.Hour;
+        int portions = party.Food.Portions;
         ServiceResult lodged = services.Transact(new ServiceCommand(ServiceCommandKind.Stay));
         Assert.True(lodged.IsApplied);
         Assert.Equal((hour + 8) % 24, clock.Now.Hour);
         Assert.False(member.Conditions.Has(new ConditionId("Tired")));
+        Assert.False(member.Conditions.Has(TestNights.Weakness));
         Assert.Equal(10, member.Resources.HitPoints.Current);
+        Assert.Equal(portions, party.Food.Portions);
+
+        // The night paid the debt and it runs again from waking: a day less an hour later the party is not
+        // weak, and once the day is out it is. A whole day brings the counter back to the hour it keeps.
+        clock.Advance(GameDuration.FromHours(23));
+        Assert.False(member.Conditions.Has(TestNights.Weakness));
+        clock.Advance(GameDuration.FromHours(1));
+        Assert.True(member.Conditions.Has(TestNights.Weakness));
 
         // A deposit and a withdrawal move coin between the purse and what the counter keeps, both ways, and
         // a withdrawal of more than is held is refused whole.

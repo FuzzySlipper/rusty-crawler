@@ -396,9 +396,10 @@ public sealed class EnginePartyMover : IPartyMover
 /// game. Arriving and travelling both mark the place visited, so knowledge accrues the same way
 /// wherever the party goes.
 /// </remarks>
-public sealed class SessionWorld : IDisposable, IInteractionWorld, IRestSite, ICombatWorld, ICombatPositions
+public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionWorld, IRestSite, ICombatWorld, ICombatPositions
 {
     private readonly TransitionExecutive _transitions;
+    private readonly IDisposable? _clockSubscription;
     private readonly IWorldTimeSource? _time;
     private readonly GameClock? _clock;
     private readonly PartyResourceLedger? _resources;
@@ -486,6 +487,9 @@ public sealed class SessionWorld : IDisposable, IInteractionWorld, IRestSite, IC
         // product they are one object, and a second source here would be a second answer to what day it is.
         _time = time ?? clock;
         _clock = clock;
+        // The world lives through the days its clock crosses, whoever moved it, and stops hearing that clock
+        // when it is released — a world replaced by another must not be told about a day it no longer holds.
+        _clockSubscription = clock?.Observe(this);
         _resources = resources;
         _entity = partyEntity;
         _diagnostics = diagnostics;
@@ -563,23 +567,20 @@ public sealed class SessionWorld : IDisposable, IInteractionWorld, IRestSite, IC
     public PartyResourceLedger? Accounts => _resources;
 
     /// <summary>
-    /// Who is told every time this world moves the session's one clock.
+    /// Lives through the days an advance of the one clock crossed, whoever moved it.
     /// </summary>
     /// <remarks>
-    /// A journey's charge is an advance of the one clock that no admitted update sees, so an owner that
-    /// keeps a game-time schedule — a service's shelves, and later rest and effects — has to be told about
-    /// it or its deadline would re-arm past a stretch of time nobody spent. It is assigned rather than
-    /// composed because the mechanism that observes the clock is composed over the party, and for a session
-    /// that creates its party that is the moment creation is accepted, after this world exists. A world
-    /// nobody tells still moves its clock; only the telling is absent.
+    /// A journey, a rest, a wait, and a night at an inn all move the clock inside an update, and a place's
+    /// population is restored against the day the clock now stands on in that same advance rather than at
+    /// whatever update happens to come next. The world registers itself with the clock it is composed over and
+    /// releases that registration when it is disposed.
     /// </remarks>
-    public IGameTimeObserver? TimeObserver { get; private set; }
-
-    /// <summary>Tells this world who to hand its clock advances to.</summary>
-    /// <param name="observer">The owner that keeps a schedule against the session's one clock.</param>
-    /// <exception cref="ArgumentNullException">The observer is null.</exception>
-    public void ObserveTimeWith(IGameTimeObserver observer) =>
-        TimeObserver = observer ?? throw new ArgumentNullException(nameof(observer));
+    /// <param name="advance">Where the clock was, where it went, and what it crossed.</param>
+    public void Observe(ClockAdvance advance)
+    {
+        ArgumentNullException.ThrowIfNull(advance);
+        if (advance.Crossings.Days > 0) AdvanceTime();
+    }
 
     /// <summary>
     /// Steps the interaction mechanism inside the admitted update: the reticle is refreshed from where the
@@ -829,6 +830,7 @@ public sealed class SessionWorld : IDisposable, IInteractionWorld, IRestSite, IC
     {
         if (_disposed) return;
         _disposed = true;
+        _clockSubscription?.Dispose();
         _population.Dispose();
 
         // The creature mover walks in the party mover's own spatial session, so it is released first and
@@ -1017,19 +1019,10 @@ public sealed class SessionWorld : IDisposable, IInteractionWorld, IRestSite, IC
         {
             if (_clock is { } clock)
             {
-                ClockAdvance advance = clock.Advance(TravelTimeConversion.Elapsed(clock.Calendar, cost.Time));
-
-                // A journey's days are the clock's own, so a day boundary crossed on the road is a day the
-                // world's places live through: the crossing the advance reported is what brings their
-                // schedules up to the day the clock now stands on, in this same arrival rather than at
-                // whatever update happens to come next.
-                if (advance.Crossings.Days > 0) AdvanceTime();
-
-                // The same advance reaches whoever keeps a schedule against game time, so a shop's shelves
-                // refresh on the road exactly as they do in town. The journey is where an advance happens
-                // without an update watching it, and a schedule that only saw the updates would wait a whole
-                // further interval for a restock whose time the road already spent.
-                TimeObserver?.Observe(advance);
+                // A journey's days are the clock's own: the clock tells every owner of game time about the
+                // advance, this world among them, so a day crossed on the road is a day the world's places and
+                // a shop's shelves live through in this same arrival.
+                clock.Advance(TravelTimeConversion.Elapsed(clock.Calendar, cost.Time));
             }
             else
             {

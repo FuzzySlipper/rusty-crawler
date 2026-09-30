@@ -86,7 +86,7 @@ public interface IMemberSpellEffects
 /// — and the effect is still carried, read, and dispelled.
 /// </para>
 /// </remarks>
-public sealed class RunningSpellEffects : IGameTimeObserver, IRunningSpellEffects, IMemberSpellEffects
+public sealed class RunningSpellEffects : IGameTimeObserver, IDeadlineOwner, IRunningSpellEffects, IMemberSpellEffects
 {
     private readonly PartyEntity _party;
     private readonly GameClock? _clock;
@@ -353,6 +353,9 @@ public sealed class RunningSpellEffects : IGameTimeObserver, IRunningSpellEffect
                 : held.Effect);
         }
     }
+
+    /// <inheritdoc />
+    public bool Holds(DeadlineId deadline) => _held.Any(held => held.Deadline == deadline);
 
     /// <summary>Whether one character still carries what a spell left on them.</summary>
     private bool Carries(PartyMember member) => _carries?.Invoke(member) ?? true;
