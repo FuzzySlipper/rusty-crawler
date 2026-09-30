@@ -14,10 +14,9 @@ namespace PartyRpg.Kit.Combat;
 /// clock advances inside the admitted update, and an actor acts whenever it is ready. Turn-based pacing is
 /// the same state read differently: the actors act one at a time in the order their own remaining recovery
 /// states, in rounds, and the session waits for the player's committed action rather than stepping the
-/// world. The donor keeps one flag for exactly this pair — <c>pParty-&gt;bTurnBasedModeOn</c>, set and cleared
-/// by the toggle in its own input handling (<c>src/Io/KeyboardInputHandler.cpp:225-236</c>) — and one recovery
-/// quantity behind both pacings (<c>src/Engine/TurnEngine/TurnEngine.cpp:157-197</c>, where a character's
-/// queue initiative is its recovery and a monster's is drawn from its own).
+/// world. One flag chooses between the pair, set and cleared by one toggle, and one recovery quantity stands
+/// behind both pacings, so an actor's place in a turn-based queue is the recovery it already owes rather than
+/// a second number kept beside it.
 /// </para>
 /// </remarks>
 public enum CombatPacing

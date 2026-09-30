@@ -5,10 +5,8 @@ namespace PartyRpg.Kit.Combat;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The donor's own turn engine has exactly these two stages beside the opposition's thinking
-/// (<c>src/Engine/TurnEngine/TurnEngineEnums.h:26-29</c>: <c>TE_ATTACK</c>, the party attacking,
-/// and <c>TE_MOVEMENT</c>, the party moving), and the game's manual describes the same round from the
-/// player's side: combatants act one at a time in order, and at the end of a round the party gets a
+/// A round has exactly these two stages beside the opposition's thinking — the combatants acting, and the
+/// party moving — and the game's manual describes the same round from the player's side: combatants act one at a time in order, and at the end of a round the party gets a
 /// movement phase (the manual's own account of the round, p.34).
 /// </para>
 /// <para>

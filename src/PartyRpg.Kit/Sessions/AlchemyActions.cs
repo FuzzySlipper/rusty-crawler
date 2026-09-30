@@ -12,8 +12,8 @@ namespace PartyRpg.Kit.Sessions;
 /// </para>
 /// <para>
 /// <b>Mixing has no key of its own, and that is deliberate.</b> A mixture names two things out of the party's
-/// own pack, and no single press can say which two of the things it carries the player meant — the donor's own
-/// mixing is two clicks on two items rather than a key. It is a payload action for the same reason casting is:
+/// own pack, and no single press can say which two of the things it carries the player meant — mixing is
+/// two clicks on two items rather than a key. It is a payload action for the same reason casting is:
 /// the screen's own rows name what was chosen.
 /// </para>
 /// </remarks>

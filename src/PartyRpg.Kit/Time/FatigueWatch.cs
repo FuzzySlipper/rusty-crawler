@@ -58,7 +58,7 @@ public sealed class FatigueWatch : IGameTimeObserver
         _fatigue = fatigue;
         _interval = interval;
         // A session begins with the debt unpaid: the party that has just set out is due to sleep one
-        // interval from now, which is the donor's own reading of a party that starts play without rest.
+        // interval from now, because a party that starts play has not rested.
         Arm();
     }
 

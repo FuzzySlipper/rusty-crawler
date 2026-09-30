@@ -81,9 +81,8 @@ public sealed record RestQuote
 /// <summary>What broke a night in the open, and how much of it the party got before it did.</summary>
 /// <remarks>
 /// <para>
-/// Camping carries a risk the donor states: a sleeping party may be attacked, and the attack ends the rest
-/// where it stands (<c>src/Application/Game.cpp:1147-1170</c>, the encounter roll taken when a rest begins
-/// and the one-hour nap it leaves the party with). What this value carries is the whole consequence the
+/// Camping carries a risk: a sleeping party may be attacked, and the attack ends the rest where it stands,
+/// with the encounter decided when the rest begins and the party left with only a short nap. What this value carries is the whole consequence the
 /// mechanism applies — the period that actually passed, and the words a player reads — so a broken night is
 /// a shorter night rather than a second kind of night.
 /// </para>
@@ -152,7 +151,7 @@ public sealed record RestInterruption
 /// </para>
 /// <para>
 /// Nothing here is asked about a wait. A wait is the mechanism's own shape: it passes time and restores
-/// nothing, and a rule that could refuse it would be inventing a reason the donor never states.
+/// nothing, and a rule that could refuse it would be inventing a reason the game never states.
 /// </para>
 /// </remarks>
 public interface IRestRule
@@ -168,8 +167,8 @@ public interface IRestRule
     /// </summary>
     /// <remarks>
     /// This is asked before anything moves, so a broken night is one the clock never advanced for: the party
-    /// gets the part that happened, restores nothing, and spends nothing, which is the donor's own
-    /// consequence for a rest an encounter breaks.
+    /// gets the part that happened, restores nothing, and spends nothing, which is the whole consequence of a
+    /// rest an encounter breaks.
     /// </remarks>
     /// <param name="request">What the party asked for, where it stands, and the one clock.</param>
     /// <returns>What broke the night, or null when nothing did.</returns>

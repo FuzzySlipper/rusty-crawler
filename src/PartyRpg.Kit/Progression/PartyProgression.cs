@@ -133,7 +133,8 @@ public sealed class PartyProgression
     /// </para>
     /// <para>
     /// An award of nothing and an award nobody can take are refused by name and move nothing: the second is
-    /// a party that is entirely down, which the donor's own division leaves with no share at all.
+    /// a party that is entirely down, which dividing an award among the members able to take it leaves with no
+    /// share at all.
     /// </para>
     /// </remarks>
     /// <param name="award">What earned the experience and how much it was.</param>
@@ -187,7 +188,7 @@ public sealed class PartyProgression
     /// </para>
     /// <para>
     /// What a level does then happens here and in one place: the level rises, the pools grow by the growth
-    /// table's own numbers for the class and rank, both pools are filled as the donor's own training does,
+    /// table's own numbers for the class and rank, both pools are filled as training fills them,
     /// and the skill points the new level grants are added to the pool. A rank moves through
     /// <see cref="Promote"/> on this same owner, so a class and the rank that goes with it are one act, and a
     /// level is raised only by a counter whose fee the party has paid.
@@ -236,8 +237,8 @@ public sealed class PartyProgression
         ArgumentOutOfRangeException.ThrowIfNegative(growth.SkillPoints);
 
         trainee.Progression.SetLevel(reached);
-        // The pools grow by the table's own numbers and are then filled, which is what the donor's training
-        // does at the moment of the rise: a level is a fuller character, not only a larger one.
+        // The pools grow by the table's own numbers and are then filled at the moment of the rise: a level is
+        // a fuller character, not only a larger one.
         trainee.Resources.SetMaximumHitPoints(checked(trainee.Resources.HitPoints.Maximum + growth.HitPoints));
         trainee.Resources.SetMaximumSpellPoints(checked(trainee.Resources.SpellPoints.Maximum + growth.SpellPoints));
         trainee.Resources.RestoreAll();

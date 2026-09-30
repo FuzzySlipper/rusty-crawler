@@ -9,7 +9,7 @@ namespace PartyRpg.Kit.Sessions;
 /// <para>
 /// Names are data rather than vocabulary, exactly as the movement, act, service, rest, and conversation
 /// controls are: the kit claims what a product declares and invents no key of its own. The toggle is its own
-/// control because switching the pacing is its own act — the donor keeps one flag for it and the game's
+/// control because switching the pacing is its own act — one flag decides the pacing and the game's
 /// manual gives it a key of its own (the manual's own account of the toggle, p.33: "Enter toggles real-time
 /// and turn-based at any moment").
 /// </para>

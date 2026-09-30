@@ -7,7 +7,7 @@ namespace PartyRpg.Kit.Magic;
 /// whose category is applied through the owner that holds the state it changes is
 /// <see cref="Implemented"/>; one that changes that state more coarsely than the game does — an area spell
 /// aimed at one actor, a party-wide ward standing in for a per-character one, numbers this build states
-/// rather than the donor's — is <see cref="Approximated"/> and says how; and one whose casting changes nothing
+/// rather than the original game's — is <see cref="Approximated"/> and says how; and one whose casting changes nothing
 /// this build reads is <see cref="NotYet"/>, naming what is missing and who owns it.
 /// </para>
 /// <para>

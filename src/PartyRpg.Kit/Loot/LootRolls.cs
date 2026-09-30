@@ -56,7 +56,7 @@ public sealed class LootRolls
     /// <summary>Whether a chance stated in percent comes in.</summary>
     /// <remarks>
     /// A chance of a hundred or more always comes in and one of nothing never does, both without a draw —
-    /// which is the same answer the donor's own hundred-sided roll gives, and one fewer draw to explain.
+    /// which is the same answer a hundred-sided roll gives, and one fewer draw to explain.
     /// </remarks>
     /// <param name="percent">The chance, in percent.</param>
     /// <returns>Whether the roll came in under it.</returns>

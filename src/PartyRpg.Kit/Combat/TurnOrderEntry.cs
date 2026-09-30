@@ -15,9 +15,8 @@ namespace PartyRpg.Kit.Combat;
 /// </para>
 /// <para>
 /// <see cref="CanAct"/> is the fight's own answer about whether anything is left for the actor to do with a
-/// turn: an actor it has laid out is passed over rather than stalling the round, exactly as the donor drops
-/// an actor that cannot act from its queue (<c>src/Engine/TurnEngine/TurnEngine.cpp:40-51</c>,
-/// where such an actor is given initiative 1001 and the queue is shortened past it).
+/// turn: an actor it has laid out is passed over rather than stalling the round, because an actor that
+/// cannot act has no turn to hand out and a round that waited on it would never end.
 /// </para>
 /// </remarks>
 /// <param name="Id">The actor's identity, as the fight names it.</param>

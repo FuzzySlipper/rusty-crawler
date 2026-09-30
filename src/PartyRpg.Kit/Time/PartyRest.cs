@@ -248,8 +248,8 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
                     $"A sleep here costs {Amounts(quote.Charge)}, and this session holds no party accounts to settle it from.");
             }
 
-            // A night the larder cannot provision is refused before it starts, which is the donor's own
-            // rule for a rest the party cannot feed.
+            // A night the larder cannot provision is refused before it starts: a rest the party cannot feed
+            // is a decision about the action, not a shortfall the day absorbs.
             if (!quote.Charge.IsNone && !_party.Food.CanCover(quote.Charge))
             {
                 return RestResult.Refused(
@@ -285,7 +285,7 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
 
         // Then the day's provisions, through the party's one settlement path, so the larder's own consequence
         // has the last word over what the sleep restored. A broken night pays nothing: the day it would have
-        // paid for never happened, which is the donor's own reading of a rest an encounter broke.
+        // paid for never happened, so a rest an encounter broke costs nothing.
         int covered = 0;
         ActiveCondition? shortage = null;
         if (completes && !quote.Charge.IsNone && _accounts is { } accounts)
@@ -318,8 +318,7 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
     /// <summary>How long a wait lasts, which is a clock read: until dawn, an hour, or a short interval.</summary>
     /// <remarks>
     /// Waiting until dawn is measured from the clock's own daylight window, so the party rises when this game
-    /// says morning is and not at an hour the mechanism chose. The donor states the same option as a wait to
-    /// its own dawn hour (<c>src/Engine/Engine.cpp:1447-1451</c>, five in the morning, always the next one).
+    /// says morning is and not at an hour the mechanism chose, and always the next such morning.
     /// </remarks>
     private static GameDuration WaitPeriod(RestKind kind, GameClock clock) => kind switch
     {

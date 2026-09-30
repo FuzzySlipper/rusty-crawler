@@ -136,7 +136,7 @@ public readonly record struct JournalSnapshot(bool Available, IReadOnlyList<Jour
     /// <para>
     /// <b>The kind is part of the row's identity and not a thing this surface groups by.</b> A discovery's
     /// kind is what makes it one fact rather than another — the same thing found and learned are different
-    /// notes — and a screen that wants the donor's own tabs (potions, fountains, obelisks) has the kind word
+    /// notes — and a screen that wants tabs by kind (potions, fountains, obelisks) has the kind word
     /// in the row's identity to read without this surface deciding what belongs together.
     /// </para>
     /// </remarks>

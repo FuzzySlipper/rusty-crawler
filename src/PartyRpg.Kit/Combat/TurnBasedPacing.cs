@@ -18,16 +18,14 @@ namespace PartyRpg.Kit.Combat;
 /// <para>
 /// <b>The order</b> is ascending remaining recovery, and "ready" is exactly zero, because recovery is a
 /// debt that was fully paid. Actors tied on recovery keep the fight's own combatant order — the party's
-/// members in roster order, then the place's creatures in the order content declared them — which is the
-/// donor's own tie-break read one layer out: its queue sorts ascending initiative and, on a tie, prefers a
-/// character to an actor and then the lower identity (<c>src/Engine/TurnEngine/TurnEngine.cpp:53-72</c> in the donor's own turn engine). Nothing here draws, so the same fight states the same
-/// order twice.
+/// members in roster order, then the place's creatures in the order content declared them — so a tie prefers a
+/// character to a creature and then the earlier-declared one. Nothing here draws, so the same fight states the
+/// same order twice.
 /// </para>
 /// <para>
-/// <b>A round</b> is a length of game time, exactly as the donor's action phase is a fixed budget it ticks
-/// down (<c>turn_initiative = 100</c> and <c>StepTurnQueue</c> decrementing every actor's initiative,
-/// the donor's own turn engine, <c>src/Engine/TurnEngine/TurnEngine.cpp:120-125</c> and <c>:443-470</c>; the manual calls the
-/// result "rounds of a few seconds", the manual's own account of the round, p.34). This build states
+/// <b>A round</b> is a length of game time, an action phase with a fixed budget that every actor's remaining
+/// recovery is counted down against (the manual calls the result "rounds of a few seconds", the manual's own
+/// account of the round, p.34). This build states
 /// that length in the only quantity the fight has: the longest recovery any actor in the fight owes for one
 /// action. So a round lasts long enough for the slowest actor to act once, and an actor whose action costs a
 /// quarter of that acts four times inside it — the fast-actor behaviour the manual describes, as a
@@ -38,8 +36,8 @@ namespace PartyRpg.Kit.Combat;
 /// in order, and time moves to whichever actor is due next. When nothing is due before the round's end the
 /// party gets its movement phase, in which the party may walk a short distance while nothing else acts and
 /// the round's own time is what pays for the walking; the phase ends when that allowance is spent or the
-/// player commits past it, and the next round begins. The donor's engine has the same two stages
-/// (<c>TE_ATTACK</c> then <c>TE_MOVEMENT</c>, <c>src/Engine/TurnEngine/TurnEngineEnums.h:26-29</c>).
+/// player commits past it, and the next round begins. The two stages are <see cref="TurnPhase"/>'s, in that
+/// order: the combatants act, then the party moves.
 /// </para>
 /// <para>
 /// <b>It owns no time.</b> Nothing here reads a clock or advances one: the pacing says how much game time
@@ -249,7 +247,7 @@ public sealed class TurnBasedPacing
 
     /// <summary>Passes the current turn: the actor forfeits the round and owes the action it did not take.</summary>
     /// <remarks>
-    /// What a passed turn costs is the donor's own answer (    /// <c>src/Engine/TurnEngine/TurnEngine.cpp:322-350</c>): the actor is charged its attack recovery and
+    /// A passed turn is not a free one: the actor is charged its attack recovery and
     /// then the queue moves on to whoever is due next, so skipping is a decision about this round rather than
     /// a way to act sooner. The actor takes no further turn this round.
     /// </remarks>

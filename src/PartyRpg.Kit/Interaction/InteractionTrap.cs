@@ -11,7 +11,7 @@ namespace PartyRpg.Kit.Interaction;
 /// </para>
 /// <para>
 /// The ruleset states the difficulty it wants compared, including any multiplier its game applies (a
-/// donor that doubles a map's disarm difficulty before testing a character's skill states the doubled
+/// game that doubles a map's disarm difficulty before testing a character's skill states the doubled
 /// number), so no scaling is hidden here.
 /// </para>
 /// </remarks>

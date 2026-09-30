@@ -11,11 +11,9 @@ namespace PartyRpg.Kit.Party;
 /// a larder running low.
 /// </para>
 /// <para>
-/// The shape follows the donor's day boundary, where a new day takes one ration and leaves every character
-/// weak once the party has gone a day past rest, and where a short larder is spent down to empty rather
-/// than refused (<c>src/Engine/Engine.cpp</c>, the timed-effects party update; <c>src/Engine/Party.cpp</c>,
-/// <c>SetFood</c>). Its rest command separately refuses to start a rest the larder cannot provision
-/// (<c>src/Application/Game.cpp</c>): that is a decision about an action, so a rest owner asks
+/// The shape is a day boundary: a new day takes its ration and leaves every character weak once the party
+/// has gone a day past rest, and a short larder is spent down to empty rather than refused. Refusing to start
+/// a rest the larder cannot provision is a separate matter: that is a decision about an action, so a rest owner asks
 /// <see cref="PartyFood.CanCover"/> for the charge before it begins, while the day's own accounting is
 /// what this rule prices.
 /// </para>

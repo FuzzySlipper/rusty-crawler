@@ -254,3 +254,43 @@ or directly observable:
   feature gap list.
 - Uncertainty note: because maturity claims are mostly external (milestones, Discord), anything beyond "MM7 plays
   end to end, MM6/MM8 do not" is **not verifiable from this checkout** and is not asserted here.
+
+## Kit mechanisms whose shape follows the donor
+
+The kit's own comments state these mechanisms in neutral terms; the donor citations that justified their
+shape are kept here.
+
+- `TurnPhase` — a turn-based round has two stages, the party attacking then the party moving:
+  `src/Engine/TurnEngine/TurnEngineEnums.h:26-29` (`TE_ATTACK`, `TE_MOVEMENT`).
+- `TurnOrderEntry` — an actor that cannot act is dropped from the turn queue rather than stalling the round
+  (given initiative 1001 and the queue shortened past it): `src/Engine/TurnEngine/TurnEngine.cpp:40-51`.
+- `CombatPacing` — one party flag selects real-time or turn-based pacing: `pParty->bTurnBasedModeOn`.
+- `CombatPacing` — that flag is set and cleared by one toggle in input handling:
+  `src/Io/KeyboardInputHandler.cpp:225-236`.
+- `CombatPacing` — one recovery quantity stands behind both pacings (a character's queue initiative is its
+  recovery, a monster's is drawn from its own): `src/Engine/TurnEngine/TurnEngine.cpp:157-197`.
+- `IProvisionDayRule` — a new day takes one ration and leaves every character weak a day past rest:
+  `src/Engine/Engine.cpp` (the timed-effects party update).
+- `IProvisionDayRule` — a short larder is spent down to empty rather than refused: `src/Engine/Party.cpp`,
+  `SetFood`.
+- `IProvisionDayRule` — the rest command refuses to start a rest the larder cannot provision:
+  `src/Application/Game.cpp`.
+- `IRestRule` (`RestInterruption`) — camping may be attacked; the encounter roll is taken when a rest begins and
+  leaves a one-hour nap: `src/Application/Game.cpp:1147-1170`.
+- `TurnAction` — skipping a turn is the pass handling `_406457`, which charges the character's attack recovery
+  (floored at thirty ticks) and advances the queue: `src/Engine/TurnEngine/TurnEngine.cpp:322-350`.
+- `TurnBasedPacing` — queue tie-break: ascending initiative, then a character before an actor, then the lower
+  identity: `src/Engine/TurnEngine/TurnEngine.cpp:53-72`.
+- `TurnBasedPacing` — a round's action phase is a fixed budget ticked down (`turn_initiative = 100`,
+  `StepTurnQueue` decrementing every actor's initiative): `src/Engine/TurnEngine/TurnEngine.cpp:120-125` and
+  `:443-470`.
+- `TurnBasedPacing` — a round is two stages, attack then movement: `TE_ATTACK` then `TE_MOVEMENT`,
+  `src/Engine/TurnEngine/TurnEngineEnums.h:26-29`.
+- `TurnBasedPacing.Skipped` — a passed turn charges attack recovery and moves the queue on:
+  `src/Engine/TurnEngine/TurnEngine.cpp:322-350`.
+- `CombatState.ChargeTurn` — a passed turn charges attack recovery and moves the queue on (the pass handling):
+  `src/Engine/TurnEngine/TurnEngine.cpp:322-350`.
+- `PartyRest` (`WaitPeriod`) — waiting until dawn waits to the next five o'clock in the morning:
+  `src/Engine/Engine.cpp:1447-1451`.
+- `ServicePricing.Percent` — a whole-percent merchant discount is applied with integer division:
+  `applyMerchantDiscount`.

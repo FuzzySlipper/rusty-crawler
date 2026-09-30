@@ -14,13 +14,12 @@ namespace PartyRpg.Kit.Combat;
 /// round — including the ones due at the very instant the round ends.
 /// </para>
 /// <para>
-/// <b>The donor's own skip is <c>_406457</c></b>, the pass handling in its turn engine
-/// (<c>src/Engine/TurnEngine/TurnEngine.cpp:322-350</c>): passing a character's turn charges its attack
-/// recovery — floored at thirty ticks — and then the queue advances to whoever is due next, which is why a
-/// passed turn is not a free one.
+/// <b>A skip is not free.</b> Passing a character's turn charges its attack recovery and then the queue
+/// advances to whoever is due next, which is why a passed turn is a decision about this round rather than a
+/// way to act sooner.
 /// This game's manual states the same control from the player's side (the manual's own account of the round,
-/// p.34: "B skips a turn"). The donor has no wait, so the wait is this build's own: it is the act the donor's
-/// overlay leaves to the order of the queue, made explicit and given a consequence a player can read.
+/// p.34: "B skips a turn"). The wait is this build's own: it is what the order of the queue would otherwise
+/// leave implicit, made explicit and given a consequence a player can read.
 /// </para>
 /// </remarks>
 public enum TurnAction

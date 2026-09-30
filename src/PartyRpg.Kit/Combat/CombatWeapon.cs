@@ -33,7 +33,7 @@ public readonly record struct CombatWeapon(AttackKind Kind, string Ability, Item
 /// <para>
 /// <b>This is the weapon answer, asked where a weapon matters.</b> The fight asks it when it re-reads its
 /// actors — so a member with a wand in hand is paced and offered as a spell-caster rather than as a pair of
-/// fists, which is the donor's own act order of quick spell, then bow or wand, then hand-to-hand — and again
+/// fists, following the act order of quick spell, then bow or wand, then hand-to-hand — and again
 /// at the one moment an attack is initiated, where the ability and the charge are spent. A game that answers
 /// nothing leaves every actor striking as its kind alone states, which is what a product with no items does.
 /// </para>

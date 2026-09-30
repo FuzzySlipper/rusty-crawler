@@ -6,7 +6,7 @@ namespace PartyRpg.Kit.Alchemy;
 /// <remarks>
 /// <para>
 /// A mixture that bursts takes something from whoever was mixing it, and the game's own table says what: a
-/// strength, and the harm that strength is worth. The number is stated rather than derived because the donor
+/// strength, and the harm that strength is worth. The number is stated rather than derived because the game
 /// states one per strength and rolls it — a burst of the first strength costs a handful of hit points while
 /// the deepest strength eradicates the character outright — so what this carries is the game's answer with
 /// whatever it rolled already in it.
@@ -43,8 +43,8 @@ public sealed record MixtureBackfire(int Harm, string Label, ConditionId? Condit
 /// </para>
 /// <para>
 /// <b>Strength is the game's arithmetic, not a field.</b> Rows state what a pair makes; what that thing is
-/// worth when it comes out of the mixture is this game's own reading — the donor adds the mixer's skill to the
-/// power a reagent's row states, averages the strengths of two things, and lets one ingredient's own strength
+/// worth when it comes out of the mixture is this game's own reading — a game may add the mixer's skill to the
+/// power a reagent's row states, average the strengths of two things, or let one ingredient's own strength
 /// replace the mixture's. All of those need the ingredients themselves and not only their definitions, which
 /// is why the two instances travel here rather than a number the workflow decided.
 /// </para>

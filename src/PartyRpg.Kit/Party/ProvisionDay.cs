@@ -6,8 +6,8 @@ namespace PartyRpg.Kit.Party;
 /// <remarks>
 /// <para>
 /// A day is never refused. The party sets out, the larder gives what it holds, and the day ends short when
-/// that was less than the day cost — the donor's shape, where the food store is spent down to empty and the
-/// party carries the shortfall rather than the road being cancelled. That is why this records what was
+/// that was less than the day cost — the food store is spent down to empty and the party carries the
+/// shortfall rather than the road being cancelled. That is why this records what was
 /// charged and what was covered instead of a success or a refusal.
 /// </para>
 /// <para>

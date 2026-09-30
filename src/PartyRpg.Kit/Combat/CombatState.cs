@@ -281,8 +281,8 @@ public sealed class CombatState : IGameTimeObserver
             // hand makes its attack a spell — and the kind alone otherwise.
             AttackKind kind = _weapons?.WeaponOf(subject)?.Kind ?? _rule.AttackKindFor(subject);
             // A member of the party begins ready: standing somewhere is not a reason for a character to be
-            // unable to act, and the donor's own party members enter turn-based mode with their recovery as
-            // it stands, which is how a party enters a turn-based fight with the recovery it already owed.
+            // unable to act, and a member enters turn-based pacing with its recovery as it stands, which is
+            // how a party enters a turn-based fight with the recovery it already owed.
             Combatant combatant = Existing(subject.Id) ??
                 new Combatant(subject, CombatSide.Party, name, kind, distance: 0, GameDuration.None);
             combatant.Observe(CombatSide.Party, name, kind, distance: 0);
@@ -445,8 +445,8 @@ public sealed class CombatState : IGameTimeObserver
     /// Charges an actor for the action it did not take, which is what passing a turn costs.
     /// </summary>
     /// <remarks>
-    /// A passed turn is not a free one: the donor charges the actor its attack recovery and then moves the
-    /// queue on (<c>src/Engine/TurnEngine/TurnEngine.cpp:322-350</c>, the donor's own pass handling), which is what keeps skipping
+    /// A passed turn is not a free one: the actor is charged its attack recovery and then the queue moves on,
+    /// which is what keeps skipping
     /// a decision about this round rather than a way to act again sooner.
     /// </remarks>
     /// <param name="combatant">The actor whose turn was passed.</param>
@@ -543,7 +543,7 @@ public sealed class CombatState : IGameTimeObserver
         // What the actor's own weapon makes of this attack, asked here — at the one moment an attack is
         // initiated — and only when the order names no ability of its own: an order that names what it strikes
         // with is a spell the casting workflow resolved, and a wand in the caster's hand must not pay for it.
-        // This is the donor's own order of answers: what a hand holds decides how the attack is made, and a
+        // The order of answers is deliberate: what a hand holds decides how the attack is made, and a
         // charged item spends a charge of itself when it is fired.
         CombatWeapon? weapon = order.Ability is { Length: > 0 } ? null : _weapons?.WeaponOf(actor.Subject);
         string ability = order.Ability ?? weapon?.Ability ?? string.Empty;

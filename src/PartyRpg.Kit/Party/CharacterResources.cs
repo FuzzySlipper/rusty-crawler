@@ -15,7 +15,7 @@ namespace PartyRpg.Kit.Party;
 /// </para>
 /// <para>
 /// <b>What a pool cannot hold is kept beside it.</b> A pool never falls below empty, and a game's own
-/// thresholds do not stop there: the donor's character dies once their health has gone deeper below zero
+/// thresholds do not stop there: a character may die once their health has gone deeper below zero
 /// than their endurance is worth, so how far past empty the harm went is part of what happened and is kept
 /// as <see cref="Deficit"/>. It is the difference between a character who was emptied and one who was run
 /// through, and a rule that could only see the pool could not tell them apart.

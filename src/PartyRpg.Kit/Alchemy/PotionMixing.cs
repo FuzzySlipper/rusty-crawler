@@ -495,7 +495,7 @@ public sealed class PotionMixing
         if (mixture.Outcome.Burst == 0)
         {
             // The table states that this pair does nothing: both ingredients stay exactly where they are,
-            // which is the donor's own answer for two things that do not combine.
+            // because two things that do not combine are not consumed by trying.
             return Record(MixingResult.Nothing(mixer.Profile.Name, request.Member, firstName, secondName));
         }
 

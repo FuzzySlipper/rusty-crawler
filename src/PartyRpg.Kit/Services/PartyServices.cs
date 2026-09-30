@@ -746,8 +746,8 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
             {
                 // What a cure ends is the offer's own list rather than a condition the mechanism was told:
                 // a temple that claims to remove death and eradication states both, and a stay that clears
-                // what a night clears states that instead. Restoring the body is the same act — the donor's
-                // temple healing resets the conditions and fills both pools together — so it happens here
+                // what a night clears states that instead. Restoring the body is the same act — a
+                // temple's healing resets the conditions and fills both pools together — so it happens here
                 // rather than being a second operation nothing would offer.
                 ServiceOffer cure = subject.Offer!;
                 PartyMember patient = _party.Member(member);

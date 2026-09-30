@@ -41,7 +41,7 @@ public readonly record struct CreatureActivity(
 /// gated entry the player's control uses, so a creature recovering and a character recovering are one
 /// mechanism: an order while recovering is refused by name whatever drove it. Movement is not gated that
 /// way, because it is not an action: a creature whose turn has not come still closes the distance, exactly
-/// as the donor's own AI pursues while its recovery runs down.
+/// as a creature pursues while its recovery runs down.
 /// </para>
 /// <para>
 /// <b>Spawn, despawn, and a cleared place are here, and they are place state.</b> A creature that goes down
@@ -294,8 +294,8 @@ public sealed class CombatDirector
 
     /// <summary>Applies one creature's decision: an order through the fight, or a step through the world.</summary>
     /// <remarks>
-    /// A decision to attack while the creature cannot act is applied as closing the distance, which is the
-    /// donor's own answer for an actor whose recovery has not elapsed: it pursues, and it swings when its
+    /// A decision to attack while the creature cannot act is applied as closing the distance, because an
+    /// actor whose recovery has not elapsed still pursues, and it swings when its
     /// turn comes. An attack the fight refuses for any other reason is reported and not retried here —
     /// retrying would hide the refusal, and the refusal is the fact.
     /// </remarks>

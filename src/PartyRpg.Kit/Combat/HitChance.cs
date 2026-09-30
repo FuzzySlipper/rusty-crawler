@@ -5,7 +5,7 @@ namespace PartyRpg.Kit.Combat;
 /// <summary>How likely one attack is to land, in the finest unit the kit rolls in.</summary>
 /// <remarks>
 /// <para>
-/// A chance stated in ten-thousandths, which is fine enough for every formula this game's donor states and
+/// A chance stated in ten-thousandths, which is fine enough for every formula a ruleset states and
 /// coarse enough to be an integer a deterministic roll can be compared against: the fight draws one value in
 /// <c>[0, 9999]</c> and the attack lands when the draw is below the chance. That is the whole mechanism —
 /// where the number comes from is the ruleset's.
@@ -13,7 +13,7 @@ namespace PartyRpg.Kit.Combat;
 /// <para>
 /// <b>Why not a floating-point probability.</b> A roll that compares exactly is what makes the same seed and
 /// the same state produce the same hit, and a chance expressed as a ratio of two integers — which is what
-/// the donor's hit test is — loses nothing an integer count of ten-thousandths cannot hold to the fourth
+/// a typical hit test is — loses nothing an integer count of ten-thousandths cannot hold to the fourth
 /// decimal. Where a ruleset rounds, it rounds once, here, and says so.
 /// </para>
 /// </remarks>

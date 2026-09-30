@@ -320,8 +320,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
     /// </para>
     /// <para>
     /// <b>A trapped target is not searched on the same use.</b> A trap that goes off spends itself, and the
-    /// party gets no further in that act — which is the donor's own behaviour, where an explosion leaves the
-    /// chest standing for a second attempt rather than handing over its contents in the same breath. The
+    /// party gets no further in that act — an explosion leaves the chest standing for a second attempt rather than handing over its contents in the same breath. The
     /// residue states it, so the contents are not silently lost: they are still in the container, and the
     /// next use finds what is left of it.
     /// </para>

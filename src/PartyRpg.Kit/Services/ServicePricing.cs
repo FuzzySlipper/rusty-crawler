@@ -18,7 +18,7 @@ namespace PartyRpg.Kit.Services;
 /// is a thing with no price rather than a thing with a price of one.
 /// </para>
 /// <para>
-/// <b>Percentages are the donor's own arithmetic.</b> A discount or a surcharge is stated in whole percent
+/// <b>Percentages are the original game's arithmetic.</b> A discount or a surcharge is stated in whole percent
 /// and applied as the original applies it, with integer division, so a rule that transcribes the game's own
 /// formula gets the game's own number rather than a rounded approximation of it.
 /// </para>
@@ -62,11 +62,11 @@ public static class ServicePricing
         return coins < 1 ? 1 : coins;
     }
 
-    /// <summary>What an amount becomes after a whole-percent adjustment, in the donor's own arithmetic.</summary>
+    /// <summary>What an amount becomes after a whole-percent adjustment, in integer arithmetic.</summary>
     /// <remarks>
     /// A positive percent takes that share off — a merchant's discount — and a negative one adds it, which
     /// is how a rule transcribes a formula whose adjustment can go either way. The division is integer
-    /// division, exactly as the donor's <c>applyMerchantDiscount</c> performs it, so the number a rule
+    /// division, exactly as a merchant's discount is applied in the original game, so the number a rule
     /// computes is the number the game computed.
     /// </remarks>
     /// <param name="amount">The amount before the adjustment, which cannot be negative.</param>
@@ -94,7 +94,7 @@ public static class ServicePricing
 
     /// <summary>The share of an amount a whole percent names, which is how a bonus is stated.</summary>
     /// <remarks>
-    /// This is the donor's own arithmetic for a merchant's cut of a sale — a share of the item's value, in
+    /// This is the arithmetic for a merchant's cut of a sale — a share of the item's value, in
     /// integer division — and it is the counterpart of <see cref="Percent"/>: there a percent is taken off,
     /// here a percent of the amount is added.
     /// </remarks>
