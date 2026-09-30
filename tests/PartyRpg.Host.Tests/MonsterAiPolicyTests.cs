@@ -74,16 +74,16 @@ public sealed class MonsterAiPolicyTests
         // Four rows, four classes, and the same wound read against each: the shipped column is what decides,
         // and the thresholds are the donor's own — always for a wimp, twenty percent for a normal creature,
         // ten for an aggressive one, never for a suicide.
-        Assert.Equal("backing away", Action(ai, fight, "wimp"));
-        Assert.Equal("attacking", Action(ai, fight, "normal"));
-        Assert.Equal("backing away", Action(ai, fight, "normal", leave: 1));
-        Assert.Equal("attacking", Action(ai, fight, "aggressive", leave: 5));
-        Assert.Equal("attacking", Action(ai, fight, "aggressive", leave: 1));
-        Assert.Equal("attacking", Action(ai, fight, "suicide", leave: 1));
+        Assert.Equal(CreatureAction.Retreat, Action(ai, fight, "wimp"));
+        Assert.Equal(CreatureAction.Attack, Action(ai, fight, "normal"));
+        Assert.Equal(CreatureAction.Retreat, Action(ai, fight, "normal", leave: 1));
+        Assert.Equal(CreatureAction.Attack, Action(ai, fight, "aggressive", leave: 5));
+        Assert.Equal(CreatureAction.Attack, Action(ai, fight, "aggressive", leave: 1));
+        Assert.Equal(CreatureAction.Attack, Action(ai, fight, "suicide", leave: 1));
 
         // A creature that holds its post does not run from it: the movement column is what says so, and a
         // wimp at a post stands rather than fleeing.
-        Assert.Equal("waiting", Action(ai, fight, "statue"));
+        Assert.Equal(CreatureAction.Wait, Action(ai, fight, "statue"));
     }
 
     [Fact]
@@ -201,17 +201,11 @@ public sealed class MonsterAiPolicyTests
     }
 
     /// <summary>One creature's decision, with its own health brought down to a stated value first.</summary>
-    private static string Action(MightAndMagic7MonsterAi ai, CombatState fight, string placement, int leave = 10)
+    private static CreatureAction Action(MightAndMagic7MonsterAi ai, CombatState fight, string placement, int leave = 10)
     {
         Combatant self = fight.Combatants.First(combatant => combatant.Subject.Placement?.Content.Id == placement);
         if (CreatureHealth.Find(self.Subject.Entity!.Actor) is { } health) health.Wound(health.Current - leave);
-        return ai.Decide(Situation(fight, self)).Action switch
-        {
-            CreatureAction.Attack => "attacking",
-            CreatureAction.Advance => "closing",
-            CreatureAction.Retreat => "backing away",
-            _ => "waiting",
-        };
+        return ai.Decide(Situation(fight, self)).Action;
     }
 
     /// <summary>One creature's decision, unwounded.</summary>

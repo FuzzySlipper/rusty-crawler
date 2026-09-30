@@ -14,15 +14,60 @@ namespace PartyRpg.Kit.Combat;
 /// </remarks>
 /// <param name="Creature">The creature the activity is about.</param>
 /// <param name="Name">What it is called, as the ruleset named it.</param>
-/// <param name="Action">What it decided, as the vocabulary spells it.</param>
+/// <param name="Action">What it decided.</param>
 /// <param name="Target">What the decision was about, empty when it was about nobody.</param>
 /// <param name="Applied">Whether the fight or the engine took it, false when the actor could not act.</param>
 public readonly record struct CreatureActivity(
     CombatantId Creature,
     string Name,
-    string Action,
+    CreatureActivityKind Action,
     string Target,
     bool Applied);
+
+/// <summary>What a creature is doing, as a closed set the driver chooses from.</summary>
+public enum CreatureActivityKind
+{
+    /// <summary>It has nobody to act on.</summary>
+    Waiting,
+
+    /// <summary>It stands its post facing a target.</summary>
+    Holding,
+
+    /// <summary>The fight took its attack.</summary>
+    Attacking,
+
+    /// <summary>The fight refused its attack.</summary>
+    Refused,
+
+    /// <summary>It moves toward its target.</summary>
+    Closing,
+
+    /// <summary>It moves away from its target.</summary>
+    BackingAway,
+
+    /// <summary>It is down, which is not acting.</summary>
+    Down,
+}
+
+/// <summary>The words a creature's activity is spelled with on the wire and in a report.</summary>
+public static class CreatureActivityKinds
+{
+    /// <summary>The wire name for what a creature is doing.</summary>
+    /// <param name="kind">What it is doing.</param>
+    /// <returns>The words the wire spells it as.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The kind has no wire name.</exception>
+    public static string WireName(CreatureActivityKind kind) => kind switch
+    {
+        CreatureActivityKind.Waiting => "waiting",
+        CreatureActivityKind.Holding => "holding",
+        CreatureActivityKind.Attacking => "attacking",
+        CreatureActivityKind.Refused => "refused",
+        CreatureActivityKind.Closing => "closing",
+        CreatureActivityKind.BackingAway => "backing away",
+        CreatureActivityKind.Down => "down",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown creature activity."),
+    };
+}
 
 /// <summary>
 /// The driver of a fight's other half: it decides for every creature the party is fighting, and gives the
@@ -197,7 +242,7 @@ public sealed class CombatDirector
         {
             // A body is not driven: it neither acts nor is forgotten, because it is still where it fell and
             // the fight still publishes it. It stops counting as an enemy by the fight's own reading.
-            CreatureActivity body = new(combatant.Id, combatant.Name, "down", string.Empty, Applied: false);
+            CreatureActivity body = new(combatant.Id, combatant.Name, CreatureActivityKind.Down, string.Empty, Applied: false);
             _activity[combatant.Id] = body;
             return body;
         }
@@ -304,7 +349,7 @@ public sealed class CombatDirector
         CreatureDecision decision = _policy.Decide(situation);
         if (decision.Target is not { } target)
         {
-            return new CreatureActivity(creature.Id, creature.Name, "waiting", string.Empty, Applied: false);
+            return new CreatureActivity(creature.Id, creature.Name, CreatureActivityKind.Waiting, string.Empty, Applied: false);
         }
 
         string targetName = _combat.Find(target)?.Name ?? string.Empty;
@@ -314,14 +359,14 @@ public sealed class CombatDirector
             return new CreatureActivity(
                 creature.Id,
                 creature.Name,
-                result.IsApplied ? "attacking" : "refused",
+                result.IsApplied ? CreatureActivityKind.Attacking : CreatureActivityKind.Refused,
                 targetName,
                 result.IsApplied);
         }
 
         if (decision.Action is CreatureAction.Wait)
         {
-            return new CreatureActivity(creature.Id, creature.Name, "holding", targetName, Applied: false);
+            return new CreatureActivity(creature.Id, creature.Name, CreatureActivityKind.Holding, targetName, Applied: false);
         }
 
         CreatureMovePurpose purpose = decision.Action == CreatureAction.Retreat
@@ -332,14 +377,14 @@ public sealed class CombatDirector
             return new CreatureActivity(
                 creature.Id,
                 creature.Name,
-                purpose == CreatureMovePurpose.Away ? "backing away" : "closing",
+                purpose == CreatureMovePurpose.Away ? CreatureActivityKind.BackingAway : CreatureActivityKind.Closing,
                 targetName,
                 Applied: false);
         }
 
         if (_combat.Find(target) is not { } about)
         {
-            return new CreatureActivity(creature.Id, creature.Name, "waiting", string.Empty, Applied: false);
+            return new CreatureActivity(creature.Id, creature.Name, CreatureActivityKind.Waiting, string.Empty, Applied: false);
         }
 
         PlacePose from = Where(creature);
@@ -360,7 +405,7 @@ public sealed class CombatDirector
         return new CreatureActivity(
             creature.Id,
             creature.Name,
-            purpose == CreatureMovePurpose.Away ? "backing away" : "closing",
+            purpose == CreatureMovePurpose.Away ? CreatureActivityKind.BackingAway : CreatureActivityKind.Closing,
             targetName,
             outcome.Moved);
     }
@@ -421,10 +466,10 @@ public sealed class CombatDirector
             Message: activity.Target.Length > 0
                 ? string.Create(
                     CultureInfo.InvariantCulture,
-                    $"In place '{place}', {activity.Name} is {activity.Action} {activity.Target}.")
+                    $"In place '{place}', {activity.Name} is {CreatureActivityKinds.WireName(activity.Action)} {activity.Target}.")
                 : string.Create(
                     CultureInfo.InvariantCulture,
-                    $"In place '{place}', {activity.Name} is {activity.Action}."),
+                    $"In place '{place}', {activity.Name} is {CreatureActivityKinds.WireName(activity.Action)}."),
             Correlation: string.Empty));
     }
 

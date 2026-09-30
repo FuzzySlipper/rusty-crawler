@@ -519,9 +519,10 @@ public sealed class Spellcasting
                     return false;
                 }
 
+                CombatantId.TryParse(named, out CombatantId ally);
                 foreach (PartyMember member in _party.Members)
                 {
-                    if (!string.Equals(CombatantId.Of(member.Id).ToString(), named, StringComparison.Ordinal)) continue;
+                    if (CombatantId.Of(member.Id) != ally) continue;
                     target = CombatantId.Of(member.Id);
                     targetName = member.Profile.Name;
                     return true;
@@ -542,12 +543,12 @@ public sealed class Spellcasting
                 // A spell aimed at an opponent is aimed at a creature the fight holds: a member of the
                 // party named for such a spell is not a target that can be turned on, and a place with no
                 // fight in it has nobody to aim at.
-                if (_fight is { } fight)
+                if (_fight is { } fight && CombatantId.TryParse(named, out CombatantId opponent))
                 {
                     foreach (Combatant combatant in fight.Combatants)
                     {
                         if (combatant.Subject.Member is not null) continue;
-                        if (!string.Equals(combatant.Id.ToString(), named, StringComparison.Ordinal)) continue;
+                        if (combatant.Id != opponent) continue;
                         target = combatant.Id;
                         targetName = combatant.Name;
                         return true;

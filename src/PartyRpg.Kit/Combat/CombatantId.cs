@@ -58,6 +58,32 @@ public readonly record struct CombatantId
     public static CombatantId Of(EntityId actor) =>
         new(CombatantKind.WorldActor, actor.Value.ToString(CultureInfo.InvariantCulture));
 
+    /// <summary>Reads the text form a projection published back into the identity it named.</summary>
+    /// <remarks>
+    /// A screen hands back what it drew, so this is the one reader of <see cref="ToString"/>'s form: a
+    /// mechanism compares identities rather than their words.
+    /// </remarks>
+    /// <param name="text">The published form: <c>member:</c> or <c>actor:</c> followed by a whole number.</param>
+    /// <param name="id">The identity it names, when it names one.</param>
+    /// <returns>Whether the text is an identity's published form.</returns>
+    public static bool TryParse(string? text, out CombatantId id)
+    {
+        id = default;
+        if (text is null) return false;
+        int colon = text.IndexOf(':', StringComparison.Ordinal);
+        if (colon < 0) return false;
+        CombatantKind? kind = text[..colon] switch
+        {
+            "member" => CombatantKind.PartyMember,
+            "actor" => CombatantKind.WorldActor,
+            _ => null,
+        };
+        string value = text[(colon + 1)..];
+        if (kind is not { } known || !ulong.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out ulong number)) return false;
+        id = new CombatantId(known, number.ToString(CultureInfo.InvariantCulture));
+        return true;
+    }
+
     /// <inheritdoc />
     public override string ToString() =>
         Kind == CombatantKind.PartyMember

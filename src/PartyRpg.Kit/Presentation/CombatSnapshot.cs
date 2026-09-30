@@ -158,7 +158,7 @@ public readonly record struct CombatSnapshot(
         Dictionary<CombatantId, string> activity = [];
         foreach (CreatureActivity doing in director?.Activity ?? [])
         {
-            activity[doing.Creature] = doing.Action;
+            activity[doing.Creature] = CreatureActivityKinds.WireName(doing.Action);
         }
 
         List<CombatActorSnapshot> members = [];

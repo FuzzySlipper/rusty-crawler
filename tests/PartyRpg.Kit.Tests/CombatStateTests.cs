@@ -36,6 +36,24 @@ public sealed class CombatStateTests
     private static readonly GameDuration FirstRecovery = GameDuration.FromSeconds(2);
 
     [Fact]
+    public void A_combatant_identity_reads_back_from_the_form_it_is_published_in()
+    {
+        CombatantId member = CombatantId.Of(new PartyMemberId(3));
+        CombatantId actor = CombatantId.Of(new EntityId(3));
+
+        Assert.True(CombatantId.TryParse(member.ToString(), out CombatantId readMember));
+        Assert.True(CombatantId.TryParse(actor.ToString(), out CombatantId readActor));
+        Assert.Equal(member, readMember);
+        Assert.Equal(actor, readActor);
+
+        // The two halves of a fight never name the same actor, even under the same number.
+        Assert.NotEqual(readMember, readActor);
+        Assert.False(CombatantId.TryParse("stranger:3", out _));
+        Assert.False(CombatantId.TryParse("member:three", out _));
+        Assert.False(CombatantId.TryParse(string.Empty, out _));
+    }
+
+    [Fact]
     public void Entering_and_leaving_a_fight_leaves_the_place_the_pose_and_the_population_exactly_as_they_were()
     {
         using PartyEntity party = Party();

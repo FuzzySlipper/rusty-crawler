@@ -77,7 +77,7 @@ public sealed class MonsterAiTests
 
         // It is driven like any actor: the driver decides for it and gives the order through the fight's gate.
         Assert.NotEmpty(director.Step(Hall, 0.5));
-        Assert.Equal("attacking", Assert.Single(director.Activity).Action);
+        Assert.Equal(CreatureActivityKind.Attacking, Assert.Single(director.Activity).Action);
 
         // The party brings it down, and the place the party has emptied is marked cleared: a place state, not
         // a counter in the update, and the creature's live position goes with it.
@@ -92,7 +92,7 @@ public sealed class MonsterAiTests
         Assert.True(fight.IsDown(beast));
         director.Step(Hall, 0.5);
         Assert.True(world.Places.StateOf(Hall).Cleared, $"state={world.Places.StateOf(Hall)} activity={string.Join(",", director.Activity.Select(a => a.Action))} vitals={fight.Vitals(beast)} down={fight.IsDown(beast)}");
-        Assert.Equal("down", Assert.Single(director.Activity).Action);
+        Assert.Equal(CreatureActivityKind.Down, Assert.Single(director.Activity).Action);
 
         // A cleared place stays cleared: walking out finds the cave's population, which is nobody, and the
         // hall is still marked as the party left it — the state belongs to the place and not to the visit.
@@ -144,7 +144,7 @@ public sealed class MonsterAiTests
         director.Step(Hall, 0.5);
         CreatureActivity activity = Assert.Single(director.Activity);
         Assert.Equal("A beast", activity.Name);
-        Assert.Equal("attacking", activity.Action);
+        Assert.Equal(CreatureActivityKind.Attacking, activity.Action);
 
         // It was inside its own reach, so nothing asked the world to move it: the drive is a decision, and a
         // decision to strike is not a step.
@@ -189,7 +189,7 @@ public sealed class MonsterAiTests
         CombatDirector director = new(fight, new Mind(), new Walking(), world.Places);
         director.Step(Hall, 0.5);
         Assert.True(fight.LastOrder!.IsApplied);
-        Assert.Equal("attacking", Assert.Single(director.Activity).Action);
+        Assert.Equal(CreatureActivityKind.Attacking, Assert.Single(director.Activity).Action);
         Assert.NotNull(fight.LastResolution);
     }
 
@@ -239,7 +239,7 @@ public sealed class MonsterAiTests
         string first = Play();
         string second = Play();
         Assert.Equal(first, second);
-        Assert.Contains("attacking", first, StringComparison.Ordinal);
+        Assert.Contains(nameof(CreatureActivityKind.Attacking), first, StringComparison.Ordinal);
 
         static string Play()
         {
@@ -290,7 +290,7 @@ public sealed class MonsterAiTests
         Assert.Equal(900, before);
 
         director.Step(Hall, 1.0);
-        Assert.Equal("closing", Assert.Single(director.Activity, entry => entry.Name == "A beast").Action);
+        Assert.Equal(CreatureActivityKind.Closing, Assert.Single(director.Activity, entry => entry.Name == "A beast").Action);
         Assert.True(walker.Moves > 0);
 
         // The fight re-reads the world through the same seam, so every distance, notice range, and target it
@@ -307,7 +307,7 @@ public sealed class MonsterAiTests
 
         Assert.True(fight.Opposition[0].Distance <= 100);
         director.Step(Hall, 1.0);
-        Assert.Equal("attacking", Assert.Single(director.Activity, entry => entry.Name == "A beast").Action);
+        Assert.Equal(CreatureActivityKind.Attacking, Assert.Single(director.Activity, entry => entry.Name == "A beast").Action);
     }
 
     [Fact]
@@ -335,7 +335,7 @@ public sealed class MonsterAiTests
         // The creature attacks a creature of its own side's kind: the fight refuses a blow at a member of the
         // party's own side, and a creature is not one, so this is where kinds turn on each other.
         CreatureActivity activity = Assert.Single(director.Step(Hall, 0.5), entry => entry.Creature == beast.Id);
-        Assert.Equal("attacking", activity.Action);
+        Assert.Equal(CreatureActivityKind.Attacking, activity.Action);
         Assert.Equal("A rival beast", activity.Target);
         Assert.True(fight.LastOrder!.IsApplied);
         Assert.Equal(rival.Id, fight.LastAttack!.Target);
@@ -345,7 +345,7 @@ public sealed class MonsterAiTests
         CombatDirector other = new(fight, alone, walker, world.Places);
         fight.Observe(Advance(Swing.Milliseconds * 2));
         CreatureActivity partyBlow = other.Step(Hall, 0.5).Single(entry => entry.Creature == beast.Id);
-        Assert.Equal("attacking", partyBlow.Action);
+        Assert.Equal(CreatureActivityKind.Attacking, partyBlow.Action);
         Assert.Equal("Member 1", partyBlow.Target);
     }
 
@@ -367,7 +367,7 @@ public sealed class MonsterAiTests
         CombatActorSnapshot enemy = Assert.Single(snapshot.Enemies);
         Assert.Equal("A beast", enemy.Name);
         Assert.Equal(CreatureHitPoints, enemy.HitPointsMax);
-        Assert.Equal("attacking", enemy.Activity);
+        Assert.Equal(CreatureActivityKinds.WireName(CreatureActivityKind.Attacking), enemy.Activity);
         Assert.False(enemy.Down);
         Assert.False(snapshot.ByParty);
         Assert.Equal("A beast", snapshot.Actor);
