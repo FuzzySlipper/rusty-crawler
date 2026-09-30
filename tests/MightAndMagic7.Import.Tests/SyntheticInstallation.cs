@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Globalization;
 using System.Text;
 using MightAndMagic7.Import.Events;
+using MightAndMagic7.Import.Tables;
 
 namespace MightAndMagic7.Import.Tests;
 
@@ -372,19 +373,53 @@ internal static class SyntheticInstallation
     /// each carrying a band per column.
     /// </summary>
     /// <remarks>
-    /// The fixture states four kinds — the first four graded groups the monster rows belong to — and gives
-    /// two of them a feud: the second and third hate each other with the two widest bands and are friendly
-    /// to the rest, which is what a test reads to prove the matrix came from content rather than from code.
+    /// The fixture is the shipped size: the party and the 88 kinds <see cref="HostilityTable.ExpectedKinds"/>
+    /// states, so a reader or a writer that stopped early, strode a row by the wrong width, or dropped the last
+    /// row or column is visible, and every cell is <see cref="HostilityBand"/> of its position, so a test can
+    /// check any cell without a copy of the table. The first three kinds keep one feud — the second and third
+    /// hate each other with the two widest bands and are friendly to the first — which is what a test reads to
+    /// prove the matrix came from content rather than from code. One row, <see cref="MisnamedHostilityRow"/>,
+    /// spells its kind with spacing the header does not repeat, which is the shipped file's own inconsistency
+    /// and the reason the matrix is read by position.
     /// </remarks>
     private static string Hostility()
     {
-        StringBuilder text = new("\tParty\tMonster 1\tMonster 2\tMonster 3\n");
-        text.Append("Party\t0\t0\t0\t0\n");
-        text.Append("Monster 1\t0\t0\t0\t0\n");
-        text.Append("Monster 2\t0\t0\t0\t4\n");
-        text.Append("Monster 3\t0\t0\t3\t0\n");
+        int kinds = HostilityTable.ExpectedKinds;
+        StringBuilder text = new("\tParty");
+        for (int kind = 1; kind <= kinds; kind++) text.Append($"\tMonster {kind}");
+        text.Append('\n');
+        for (int row = 0; row <= kinds; row++)
+        {
+            text.Append(row switch
+            {
+                0 => "Party",
+                MisnamedHostilityRow => $"Monster  {row}",
+                _ => $"Monster {row}",
+            });
+            for (int column = 0; column <= kinds; column++) text.Append('\t').Append(HostilityBand(row, column).ToString(CultureInfo.InvariantCulture));
+            text.Append('\n');
+        }
+
         return text.ToString();
     }
+
+    /// <summary>The fixture matrix row whose kind is spelled differently from its column's header.</summary>
+    internal const int MisnamedHostilityRow = 50;
+
+    /// <summary>
+    /// The band the fixture matrix states at a row and a column, both counted from the party's own at zero.
+    /// </summary>
+    /// <remarks>
+    /// The party's row and column, a kind's own cell, and the first three kinds among themselves are friendly
+    /// except for the one feud; everything else follows a pattern that reaches every band from zero to four.
+    /// </remarks>
+    internal static int HostilityBand(int row, int column) => (row, column) switch
+    {
+        (2, 3) => 4,
+        (3, 2) => 3,
+        _ when row == 0 || column == 0 || row == column || (row <= 3 && column <= 3) => 0,
+        _ => ((row * 7) + (column * 3)) % 5,
+    };
 
     private static string Spells()
     {

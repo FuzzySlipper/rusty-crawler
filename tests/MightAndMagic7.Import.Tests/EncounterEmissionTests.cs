@@ -197,15 +197,41 @@ public sealed class EncounterEmissionTests
             LodInstall install = LodInstall.Open(installRoot);
             HostilityTable matrix = HostilityTable.Read(install);
 
-            // The file's own shape: a header naming every kind and one row per kind, each carrying a band
-            // per column. A band of zero is friendly, which is the donor's own reading of the table's
-            // initial fill, and the fixture states one feud.
-            Assert.Equal(["Party", "Monster 1", "Monster 2", "Monster 3"], matrix.Columns);
-            Assert.Equal(4, matrix.Rows.Count);
+            // The file's own shape at the shipped size: a header naming the party and every kind, and one
+            // row per kind, each carrying a band per column. A band of zero is friendly, which is the donor's
+            // own reading of the table's initial fill, and the fixture states one feud among its first kinds.
+            int kinds = HostilityTable.ExpectedKinds;
+            Assert.Equal(kinds + 1, matrix.Columns.Count);
+            Assert.Equal("Party", matrix.Columns[0]);
+            Assert.Equal($"Monster {kinds}", matrix.Columns[kinds]);
+            Assert.Equal(kinds + 1, matrix.Rows.Count);
+            Assert.All(matrix.Rows, row => Assert.Equal(kinds + 1, row.Bands.Count));
             Assert.Equal(4, matrix.Band("Monster 2", "Monster 3"));
             Assert.Equal(3, matrix.Band("Monster 3", "Monster 2"));
             Assert.Equal(0, matrix.Band("Monster 1", "Monster 2"));
-            Assert.Null(matrix.Band("Monster 9", "Monster 2"));
+
+            // Every cell is the fixture's own function of its position, so any cell can be checked; these are
+            // the corners, the last row and column, and a spread between them.
+            (int Row, int Column)[] probes = [(0, 0), (0, kinds), (kinds, 0), (kinds, kinds), (kinds, 1), (1, kinds), (kinds - 1, kinds), (17, 42), (42, 17), (60, 61), (87, 4)];
+            foreach ((int row, int column) in probes)
+            {
+                Assert.Equal(SyntheticInstallation.HostilityBand(row, column), matrix.Rows[row].BandAt(column));
+            }
+
+            Assert.Equal(SyntheticInstallation.HostilityBand(kinds, 1), matrix.Band($"Monster {kinds}", "Monster 1"));
+            Assert.Null(matrix.Rows[kinds].BandAt(kinds + 1));
+
+            // The monster table carries more kinds than the matrix names, which the shipped data does too: a
+            // kind past the matrix is nothing rather than a band read from somewhere else.
+            Assert.Null(matrix.Band($"Monster {kinds + 1}", "Monster 2"));
+            Assert.Null(matrix.Band("Monster 2", $"Monster {kinds + 1}"));
+
+            // One row spells its kind with spacing the header does not repeat. Looked up by name it is not
+            // found, and it is still the row at its own position, which is how the donor reads the matrix.
+            int misnamed = SyntheticInstallation.MisnamedHostilityRow;
+            Assert.Equal(1, matrix.MismatchedNames);
+            Assert.Null(matrix.RowOf($"Monster {misnamed}"));
+            Assert.Equal($"Monster  {misnamed}", matrix.Rows[misnamed].Kind);
 
             // The reader maps a row to a column without assuming the file is square: a kind the matrix does
             // not name is nothing rather than column zero.
@@ -220,9 +246,11 @@ public sealed class EncounterEmissionTests
             PackWriter.Write(install, imports);
             using JsonDocument hostility = JsonDocument.Parse(File.ReadAllText(Path.Combine(imports, "mm7-tables", "hostility.json")));
             JsonElement entries = hostility.RootElement.GetProperty("entries");
-            JsonElement kinds = entries[0];
-            Assert.Equal("kinds", kinds.GetProperty("id").GetString());
-            Assert.Equal(4, kinds.GetProperty("columns").GetArrayLength());
+            JsonElement header = entries[0];
+            Assert.Equal("kinds", header.GetProperty("id").GetString());
+            Assert.Equal(kinds + 1, header.GetProperty("columns").GetArrayLength());
+            Assert.Equal($"Monster {kinds}", header.GetProperty("columns")[kinds].GetString());
+            Assert.Equal(kinds + 2, entries.GetArrayLength());
 
             JsonElement beast = Assert.Single(
                 entries.EnumerateArray(),
@@ -230,6 +258,23 @@ public sealed class EncounterEmissionTests
             Assert.Equal(2, beast.GetProperty("kind").GetInt32());
             Assert.Equal(4, beast.GetProperty("hostility").GetProperty("3").GetInt32());
             Assert.False(beast.GetProperty("hostility").TryGetProperty("0", out _));
+
+            // The last kind's row is written whole: every non-zero band of its own against the column it was
+            // read from, the last column included, and no zero band at all.
+            JsonElement last = entries[kinds + 1];
+            Assert.Equal($"Monster {kinds}", last.GetProperty("id").GetString());
+            Assert.Equal(kinds, last.GetProperty("kind").GetInt32());
+            Dictionary<string, int> written = last.GetProperty("hostility").EnumerateObject().ToDictionary(band => band.Name, band => band.Value.GetInt32());
+            Dictionary<string, int> stated = Enumerable.Range(0, kinds + 1)
+                .Where(column => SyntheticInstallation.HostilityBand(kinds, column) != 0)
+                .ToDictionary(column => column.ToString(System.Globalization.CultureInfo.InvariantCulture), column => SyntheticInstallation.HostilityBand(kinds, column));
+            Assert.Equal(stated, written);
+
+            // The misnamed row keeps its position as its kind in the pack, under the name the file spells.
+            JsonElement misnamedEntry = Assert.Single(
+                entries.EnumerateArray(),
+                entry => entry.GetProperty("id").GetString() == $"Monster  {misnamed}");
+            Assert.Equal(misnamed, misnamedEntry.GetProperty("kind").GetInt32());
         }
         finally
         {
