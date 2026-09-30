@@ -343,27 +343,103 @@ public sealed class MapDecoderTests
     [Fact]
     public void Every_map_the_per_map_table_names_is_decoded_and_totalled()
     {
-        string[] files = [.. Enumerable.Repeat("d01.blv", MapStatsTable.ExpectedMaps)];
+        // Thirteen regions and sixty-three interiors, each its own file built to its own shape, so the
+        // totals are sums over maps that differ rather than one map's counts multiplied.
+        const int regions = SyntheticInstallation.Regions;
+        const int interiors = MapStatsTable.ExpectedMaps - regions;
+        string[] files =
+        [
+            .. Enumerable.Range(1, regions).Select(region => $"out{region:D2}.odm"),
+            .. Enumerable.Range(1, interiors).Select(interior => $"d{interior:D2}.blv"),
+        ];
         string root = MapInstallation(files);
         try
         {
             MapDecodeReport report = MapDecoder.DecodeAll(LodInstall.Open(root));
+            SyntheticInstallation.RegionShape[] regionShapes = [.. Enumerable.Range(1, regions).Select(SyntheticInstallation.Region)];
+            SyntheticInstallation.InteriorShape[] interiorShapes = [.. Enumerable.Range(1, interiors).Select(SyntheticInstallation.Interior)];
 
             Assert.Equal(MapStatsTable.ExpectedMaps, report.MapCount);
             Assert.Equal(MapStatsTable.ExpectedMaps, report.DecodedCount);
             Assert.Empty(report.Failures);
             Assert.Equal(MapStatsTable.ExpectedMaps, report.Total.Maps);
-            Assert.Equal(MapStatsTable.ExpectedMaps, report.Indoor.Maps);
-            Assert.Equal(0, report.Outdoor.Maps);
+            Assert.Equal(interiors, report.Indoor.Maps);
+            Assert.Equal(regions, report.Outdoor.Maps);
+
+            // Every map of the fixture has one face; a region's model has three vertices and its extras, an
+            // interior as many vertices as its face has corners. Doors are counted by slot, used or not.
             Assert.Equal(MapStatsTable.ExpectedMaps, report.Total.Faces);
-            Assert.Equal(MapStatsTable.ExpectedMaps * 4, report.Total.Vertices);
-            Assert.Equal(MapStatsTable.ExpectedMaps * 2, report.Total.Doors);
-            Assert.Equal(MapStatsTable.ExpectedMaps * 2, report.Total.Lights);
-            Assert.Equal(MapStatsTable.ExpectedMaps, report.Total.EntryPoints);
-            Assert.Equal(MapStatsTable.ExpectedMaps, report.Total.Decorations);
+            Assert.Equal(regionShapes.Sum(shape => 3 + shape.ExtraVertices) + interiorShapes.Sum(shape => shape.Corners), report.Total.Vertices);
+            Assert.Equal(interiorShapes.Sum(shape => shape.DoorSlots), report.Total.Doors);
+            Assert.Equal(interiorShapes.Sum(shape => shape.Lights), report.Total.Lights);
+
+            // A region carries three decorations of which two are arrival points, and an interior one of each.
+            Assert.Equal((regions * 2) + interiors, report.Total.EntryPoints);
+            Assert.Equal((regions * 3) + interiors, report.Total.Decorations);
             Assert.Equal(MapStatsTable.ExpectedMaps, report.Total.SpawnPoints);
             Assert.Equal(1, report.Outcomes[0].Map.Id);
             Assert.Equal("Map 1", report.Outcomes[0].Map.Name);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Every_synthetic_map_decodes_to_its_own_shape_whether_its_wrapper_is_deflated_or_stored()
+    {
+        // The installation every pipeline suite imports: no two neighbouring maps share a shape, and a third
+        // of the levels and a different third of the deltas are deflated. Each decoded map is checked against
+        // the shape of its own number, so a decoder that carried one map's counts into another, assumed a
+        // fixed record size, or read a deflated payload as stored would disagree here.
+        string root = SyntheticInstallation.Create(withMaps: true);
+        try
+        {
+            LodInstall install = LodInstall.Open(root);
+            MapDecodeReport report = MapDecoder.DecodeAll(install);
+            Assert.Empty(report.Failures);
+            Assert.Equal(MapStatsTable.ExpectedMaps, report.DecodedCount);
+
+            // The variety is real: the fixture's maps do not all have one shape.
+            Assert.True(Enumerable.Range(1, SyntheticInstallation.Regions).Select(SyntheticInstallation.Region).Distinct().Count() > 1);
+            Assert.True(Enumerable.Range(1, MapStatsTable.ExpectedMaps - SyntheticInstallation.Regions).Select(SyntheticInstallation.Interior).Distinct().Count() > 1);
+
+            LodArchive maps = install.Archive(Mm7TableSources.AssetsArchive);
+            foreach (MapDecodeOutcome outcome in report.Outcomes)
+            {
+                int id = outcome.Map.Id;
+                DecodedMap decoded = Assert.IsAssignableFrom<DecodedMap>(outcome.Decoded);
+                string delta = Path.ChangeExtension(outcome.Map.FileName, id <= SyntheticInstallation.Regions ? ".ddm" : ".dlv");
+                Assert.Equal(
+                    SyntheticInstallation.PayloadDeflated(id) ? LodPayloadKind.Compressed : LodPayloadKind.CompressedStored,
+                    maps.Read(outcome.Map.FileName).Kind);
+                Assert.Equal(
+                    SyntheticInstallation.DeltaDeflated(id) ? LodPayloadKind.Compressed : LodPayloadKind.CompressedStored,
+                    maps.Read(delta).Kind);
+                Assert.NotNull(decoded.Delta);
+
+                if (id <= SyntheticInstallation.Regions)
+                {
+                    SyntheticInstallation.RegionShape shape = SyntheticInstallation.Region(id);
+                    OutdoorMap region = Assert.IsType<OutdoorMap>(decoded);
+                    Assert.Equal(3 + shape.ExtraVertices, Assert.Single(region.Models).Vertices.Count);
+                    Assert.Equal(3 + shape.ExtraVertices, region.Counts.VertexCount);
+                    Assert.Equal(shape.PeakHeight, region.HeightMap[(63 * 128) + 64]);
+                    Assert.Equal(3, Assert.Single(region.Faces).VertexIds.Count);
+                }
+                else
+                {
+                    SyntheticInstallation.InteriorShape shape = SyntheticInstallation.Interior(id - SyntheticInstallation.Regions);
+                    IndoorMap interior = Assert.IsType<IndoorMap>(decoded);
+                    Assert.Equal(shape.Corners, Assert.Single(interior.Faces).VertexIds.Count);
+                    Assert.Equal(shape.Corners, interior.Vertices.Count);
+                    Assert.Equal(shape.Lights, interior.Lights.Count);
+                    Assert.Equal(Enumerable.Range(0, shape.Lights), interior.Sectors[1].LightIds);
+                    Assert.Equal(shape.DoorSlots, interior.Doors.Count);
+                    Assert.Equal(1, interior.Doors.Count(door => door.InUse));
+                }
+            }
         }
         finally
         {
@@ -435,7 +511,12 @@ public sealed class MapDecoderTests
     /// An outdoor payload with one model of one three-cornered face, three decorations, and one spawn
     /// point, laid out in the order the format stores them.
     /// </summary>
-    internal static byte[] OutdoorPayload()
+    /// <param name="extraVertices">
+    /// Model vertices beyond the three the face uses, which lengthen the model's vertex array without
+    /// changing its face, so the walk past it is sized by the header's own count.
+    /// </param>
+    /// <param name="peakHeight">The height byte at the terrain's centre cell.</param>
+    internal static byte[] OutdoorPayload(int extraVertices = 0, byte peakHeight = 5)
     {
         const int terrainCells = 128 * 128;
         MapWriter writer = new();
@@ -443,7 +524,7 @@ public sealed class MapDecoderTests
         writer.U16(1).U16(90).U16(2).U16(126).U16(3).U16(162).U16(4).U16(198);
 
         byte[] heights = new byte[terrainCells];
-        heights[(63 * 128) + 64] = 5;
+        heights[(63 * 128) + 64] = peakHeight;
         writer.Raw(heights);
         writer.Zero(terrainCells);              // tile map
         writer.Zero(terrainCells);              // attribute map
@@ -456,7 +537,7 @@ public sealed class MapDecoderTests
         writer.Zero(188);
         writer.SetText(header, "Tavern_E", 32);
         writer.SetText(header + 0x20, "Tavern_E2", 32);
-        writer.SetI32(header + 0x44, 3);        // vertices
+        writer.SetI32(header + 0x44, 3 + extraVertices); // vertices
         writer.SetI32(header + 0x4C, 1);        // faces
         writer.SetI32(header + 0x5C, 0);        // nodes
         writer.SetI32(header + 0x70, 100).SetI32(header + 0x74, 200).SetI32(header + 0x78, 300);
@@ -468,6 +549,7 @@ public sealed class MapDecoderTests
         writer.I32(100).I32(200).I32(300);
         writer.I32(400).I32(500).I32(600);
         writer.I32(700).I32(800).I32(900);
+        for (int extra = 1; extra <= extraVertices; extra++) writer.I32(1000 * extra).I32(-1000 * extra).I32(10 * extra);
 
         int face = writer.Length;
         writer.Zero(308);
@@ -554,7 +636,12 @@ public sealed class MapDecoderTests
     /// <param name="faceCorners">How many corners the face has; the shared pool grows with it.</param>
     /// <param name="poolSlackValues">Extra values to declare in the face data pool, to break its walk.</param>
     /// <param name="version">The layout version the payload declares.</param>
-    internal static byte[] IndoorPayload(int faceCorners = 4, int poolSlackValues = 0, int version = 1)
+    /// <param name="lightCount">
+    /// How many lights the level holds, every one of them listed by the sector, so the light pool and the
+    /// sector's light list grow with it. The first light's values are fixed; later ones follow their index.
+    /// </param>
+    /// <param name="doorSlots">How many door slots the level declares; <see cref="IndoorDeltaPayload"/> must be given the same.</param>
+    internal static byte[] IndoorPayload(int faceCorners = 4, int poolSlackValues = 0, int version = 1, int lightCount = 2, int doorSlots = 2)
     {
         MapWriter writer = new();
         writer.U32((uint)version);
@@ -622,16 +709,16 @@ public sealed class MapDecoderTests
         writer.SetU16(sector + 0x2C, 1);        // faces
         writer.SetU16(sector + 0x2E, 1);        // non-BSP faces
         writer.SetU16(sector + 0x44, 1);        // decorations
-        writer.SetU16(sector + 0x54, 2);        // lights
+        writer.SetU16(sector + 0x54, lightCount); // lights
         writer.SetI16(sector + 0x5C, -30000);   // water level
         writer.SetI16(sector + 0x62, 5);        // minimum ambient light
         writer.SetShortBounds(sector + 0x68, -10, -20, -30, 10, 20, 30);
 
         // The sector data pool holds the sector's lists in sector order, then the light pool its lights.
         writer.I16(0).I16(0).I16(0).I16(0).I16(0);
-        writer.I16(0).I16(1);
+        for (int id = 0; id < lightCount; id++) writer.I16((short)id);
 
-        writer.U32(2);                          // door capacity; the records themselves are in the delta
+        writer.U32((uint)doorSlots);            // door capacity; the records themselves are in the delta
         writer.U32(1);                          // decoration count
         int decoration = writer.Length;
         writer.Zero(32);
@@ -639,14 +726,24 @@ public sealed class MapDecoderTests
         writer.SetI32(decoration + 0x04, 1536).SetI32(decoration + 0x08, -8448).SetI32(decoration + 0x0C, 128);
         writer.Text("Party Start", 32);
 
-        writer.U32(2);                          // light count
-        int light = writer.Length;
-        writer.Zero(16);
-        writer.SetI16(light + 0x00, 10).SetI16(light + 0x02, 20).SetI16(light + 0x04, 30);
-        writer.SetI16(light + 0x06, 40);
-        writer.SetU8(light + 0x08, 1).SetU8(light + 0x09, 2).SetU8(light + 0x0A, 3).SetU8(light + 0x0B, 4);
-        writer.SetI16(light + 0x0C, 5).SetI16(light + 0x0E, 6);
-        writer.Zero(16);
+        writer.U32((uint)lightCount);           // light count
+        for (int index = 0; index < lightCount; index++)
+        {
+            int light = writer.Length;
+            writer.Zero(16);
+            if (index == 0)
+            {
+                writer.SetI16(light + 0x00, 10).SetI16(light + 0x02, 20).SetI16(light + 0x04, 30);
+                writer.SetI16(light + 0x06, 40);
+                writer.SetU8(light + 0x08, 1).SetU8(light + 0x09, 2).SetU8(light + 0x0A, 3).SetU8(light + 0x0B, 4);
+                writer.SetI16(light + 0x0C, 5).SetI16(light + 0x0E, 6);
+            }
+            else
+            {
+                writer.SetI16(light + 0x00, (short)(100 * index)).SetI16(light + 0x02, (short)(-100 * index)).SetI16(light + 0x04, (short)(10 * index));
+                writer.SetI16(light + 0x06, (short)(40 + index));
+            }
+        }
 
         writer.U32(1);                          // BSP node count
         writer.I16(0).I16(-1).I16(0).I16(1);
@@ -656,13 +753,14 @@ public sealed class MapDecoderTests
 
         writer.SetU32(sizes, (uint)(((6 * (faceCorners + 1)) + poolSlackValues) * sizeof(short)));
         writer.SetU32(sizes + 4, 5 * sizeof(short));
-        writer.SetU32(sizes + 8, 2 * sizeof(short));
+        writer.SetU32(sizes + 8, (uint)(lightCount * sizeof(short)));
         writer.SetU32(sizes + 12, 8 * sizeof(short));
         return writer.ToArray();
     }
 
-    /// <summary>An indoor delta holding two door slots, the first of them in use.</summary>
-    internal static byte[] IndoorDeltaPayload()
+    /// <summary>An indoor delta holding the level's door slots, the first of them in use.</summary>
+    /// <param name="doorSlots">How many door slots the level declares, which is how many records the delta stores.</param>
+    internal static byte[] IndoorDeltaPayload(int doorSlots = 2)
     {
         MapWriter writer = new();
         writer.Zero(40);                        // header
@@ -684,7 +782,7 @@ public sealed class MapDecoderTests
         writer.SetU16(door + 0x46, 1);          // faces
         writer.SetU16(door + 0x4A, 1);          // offsets
         writer.SetU16(door + 0x4C, 2);          // state
-        writer.Zero(80);                        // the second slot is unused
+        writer.Zero(80 * (doorSlots - 1));      // every later slot is unused
 
         // The door pool: vertices, faces, sectors, texture deltas, then the three offset arrays.
         writer.I16(0).I16(1).I16(0).I16(7).I16(-7).I16(0).I16(0).I16(-64);
@@ -703,18 +801,35 @@ public sealed class MapDecoderTests
     /// <param name="truncateIndoor">Whether to end the indoor payload inside its face array.</param>
     internal static string MapInstallation(IReadOnlyList<string> mapFiles, bool truncateIndoor = false)
     {
-        byte[] indoor = IndoorPayload();
+        // Each distinct file is built to the shape its own number gives it in the synthetic installation
+        // (dNN.blv is interior NN, outNN.odm region NN), so maps that share a table but not a file differ,
+        // and every second one is deflated rather than stored so both of the wrapper's forms are decoded.
         List<(string Name, byte[] Payload)> maps = [];
-        if (mapFiles.Contains("d01.blv", StringComparer.OrdinalIgnoreCase))
+        int built = 0;
+        foreach (string file in mapFiles.Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            maps.Add(("d01.blv", LodFixture.CompressedStored(truncateIndoor ? indoor[..200] : indoor)));
-            maps.Add(("d01.dlv", LodFixture.CompressedStored(IndoorDeltaPayload())));
-        }
+            bool indoor = file.EndsWith(".blv", StringComparison.OrdinalIgnoreCase);
+            string stem = Path.GetFileNameWithoutExtension(file);
+            int number = int.Parse(stem[(indoor ? 1 : 3)..], CultureInfo.InvariantCulture);
+            byte[] level;
+            byte[] delta;
+            if (indoor)
+            {
+                SyntheticInstallation.InteriorShape shape = SyntheticInstallation.Interior(number);
+                level = IndoorPayload(shape.Corners, lightCount: shape.Lights, doorSlots: shape.DoorSlots);
+                if (truncateIndoor && number == 1) level = level[..200];
+                delta = IndoorDeltaPayload(shape.DoorSlots);
+            }
+            else
+            {
+                SyntheticInstallation.RegionShape shape = SyntheticInstallation.Region(number);
+                level = OutdoorPayload(shape.ExtraVertices, shape.PeakHeight);
+                delta = OutdoorDeltaPayload();
+            }
 
-        if (mapFiles.Contains("out01.odm", StringComparer.OrdinalIgnoreCase))
-        {
-            maps.Add(("out01.odm", LodFixture.CompressedStored(OutdoorPayload())));
-            maps.Add(("out01.ddm", LodFixture.CompressedStored(OutdoorDeltaPayload())));
+            bool deflate = built++ % 2 == 1;
+            maps.Add((file, deflate ? LodFixture.Compressed(level) : LodFixture.CompressedStored(level)));
+            maps.Add((Path.ChangeExtension(file, indoor ? ".dlv" : ".ddm"), deflate ? LodFixture.Compressed(delta) : LodFixture.CompressedStored(delta)));
         }
 
         string root = Path.Combine(Path.GetTempPath(), $"mm7-map-fixture-{Guid.NewGuid():N}");

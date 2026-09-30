@@ -131,11 +131,12 @@ internal static class SyntheticInstallation
         if (withMaps)
         {
             // One payload per map file the per-map table names, so every place decodes and each is
-            // identified by its own name.
-            byte[] outdoor = MapDecoderTests.OutdoorPayload();
-            byte[] outdoorDelta = MapDecoderTests.OutdoorDeltaPayload(withPeople);
+            // identified by its own name. No two neighbouring maps share a shape: each region's model and
+            // terrain and each plain interior's face, lights and door slots follow the map's own number
+            // (<see cref="Region"/>, <see cref="Interior"/>), so a decoder that carried one map's counts into
+            // the next, or assumed a fixed record size, would misread every other map rather than none.
             // The container map raises one event per chest on one face each, so both of the delta's records
-            // are placed, and its fixture positions are a hundred units apart, which is inside the spread a
+            // are placed, and its faces stand the map's own spacing apart, which is inside the spread a
             // container's faces may have.
             // The service fixture's interior faces raise the events the service rows are opened by, so the
             // emission has a door to stand each counter at; the container fixture's raise the two chest
@@ -143,21 +144,18 @@ internal static class SyntheticInstallation
             List<int> interiorEvents = withServices
                 ? [.. serviceRows.Select(row => (int)row.Event)]
                 : withContainers ? [176, 177] : [];
-            byte[] indoor = interiorEvents.Count > 0
-                ? ContainerDecoderTests.ContainerIndoorPayload(interiorEvents)
-                : MapDecoderTests.IndoorPayload();
-            byte[] indoorDelta = interiorEvents.Count > 0
-                ? ContainerDecoderTests.ContainerIndoorDeltaPayload(interiorEvents.Count)
-                : MapDecoderTests.IndoorDeltaPayload();
             List<(string Name, byte[] Payload)> maps = [];
             for (int map = 1; map <= MapRows; map++)
             {
-                maps.Add(map <= 13
-                    ? ($"out{map:D2}.odm", LodFixture.CompressedStored(outdoor))
-                    : ($"d{map - 13:D2}.blv", LodFixture.CompressedStored(indoor)));
-                maps.Add(map <= 13
-                    ? ($"out{map:D2}.ddm", LodFixture.CompressedStored(outdoorDelta))
-                    : ($"d{map - 13:D2}.dlv", LodFixture.CompressedStored(indoorDelta)));
+                (string level, string delta, byte[] payload, byte[] deltaPayload) = map <= Regions
+                    ? ($"out{map:D2}.odm", $"out{map:D2}.ddm", RegionPayload(map), MapDecoderTests.OutdoorDeltaPayload(withPeople))
+                    : ($"d{map - Regions:D2}.blv", $"d{map - Regions:D2}.dlv", InteriorPayload(map - Regions, interiorEvents), InteriorDeltaPayload(map - Regions, interiorEvents));
+
+                // Both of the compressed wrapper's forms carry maps: every third level is deflated, and every
+                // third delta beside a different third of the levels, so the pipeline inflates levels and
+                // deltas alike and reads the rest as stored.
+                maps.Add((level, PayloadDeflated(map) ? LodFixture.Compressed(payload) : LodFixture.CompressedStored(payload)));
+                maps.Add((delta, DeltaDeflated(map) ? LodFixture.Compressed(deltaPayload) : LodFixture.CompressedStored(deltaPayload)));
             }
 
             File.WriteAllBytes(Path.Combine(root, "DATA", "Games.lod"), LodFixture.Archive("GameMMVI", [.. maps]));
@@ -165,6 +163,57 @@ internal static class SyntheticInstallation
 
         return root;
     }
+
+    /// <summary>How many of the fixture's map rows are regions; the rest are interiors.</summary>
+    internal const int Regions = 13;
+
+    /// <summary>What one fixture region's outdoor payload holds besides what every region shares.</summary>
+    /// <param name="ExtraVertices">Model vertices beyond the three its one face uses.</param>
+    /// <param name="PeakHeight">
+    /// The height byte at the terrain's centre cell. It varies within a few steps only: a much taller peak
+    /// changes which regions the collision check admits, which is a different question from whether each
+    /// map is decoded as its own.
+    /// </param>
+    internal readonly record struct RegionShape(int ExtraVertices, byte PeakHeight);
+
+    /// <summary>What one plain fixture interior's indoor payload holds besides what every interior shares.</summary>
+    /// <param name="Corners">How many corners its one face has, which sizes its vertex list and face pool.</param>
+    /// <param name="Lights">How many lights it holds, which sizes its light pool and its sector's light list.</param>
+    /// <param name="DoorSlots">How many door slots it declares, the first of them in use.</param>
+    /// <param name="ChestSpacing">How far apart the container fixture's faces stand in it.</param>
+    internal readonly record struct InteriorShape(int Corners, int Lights, int DoorSlots, int ChestSpacing);
+
+    /// <summary>The shape of region <paramref name="region"/> (1 to 13); the first is the decoder suite's default.</summary>
+    internal static RegionShape Region(int region) => new((region - 1) % 4, (byte)(5 + ((region - 1) % 3)));
+
+    /// <summary>The shape of interior <paramref name="interior"/> (1 to 63); the first is the decoder suite's default.</summary>
+    internal static InteriorShape Interior(int interior) =>
+        new(3 + (interior % 5), 1 + (interior % 3), 1 + (interior % 4), 100 - (((interior - 1) % 5) * 10));
+
+    /// <summary>Whether map row <paramref name="map"/>'s level payload is deflated rather than stored.</summary>
+    internal static bool PayloadDeflated(int map) => map % 3 == 0;
+
+    /// <summary>Whether map row <paramref name="map"/>'s delta is deflated rather than stored.</summary>
+    internal static bool DeltaDeflated(int map) => map % 3 == 1;
+
+    private static byte[] RegionPayload(int region)
+    {
+        RegionShape shape = Region(region);
+        return MapDecoderTests.OutdoorPayload(shape.ExtraVertices, shape.PeakHeight);
+    }
+
+    private static byte[] InteriorPayload(int interior, IReadOnlyList<int> events)
+    {
+        InteriorShape shape = Interior(interior);
+        return events.Count > 0
+            ? ContainerDecoderTests.ContainerIndoorPayload(events, shape.ChestSpacing)
+            : MapDecoderTests.IndoorPayload(shape.Corners, lightCount: shape.Lights, doorSlots: shape.DoorSlots);
+    }
+
+    private static byte[] InteriorDeltaPayload(int interior, IReadOnlyList<int> events) =>
+        events.Count > 0
+            ? ContainerDecoderTests.ContainerIndoorDeltaPayload(events.Count)
+            : MapDecoderTests.IndoorDeltaPayload(Interior(interior).DoorSlots);
 
     /// <summary>The map a building row of the fixture stands on, as the row's own map column computes it.</summary>
     /// <param name="building">The building's id.</param>

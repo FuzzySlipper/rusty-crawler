@@ -278,13 +278,13 @@ public sealed class PackWriterTests
             int expectedLights = decoded.Sum(map => map.Lights.Count);
 
             // Thirteen regions of the fixture hold three decorations and one spawn each; its sixty-three
-            // interiors hold one decoration, one spawn, one in-use door of the two fixed slots, and two
-            // lights each. Stating the fixture's own numbers keeps a decoder change from silently
-            // redefining what this test proves.
+            // interiors hold one decoration, one spawn, one in-use door among the slots their own shape
+            // declares, and the lights their own shape gives them. Stating the fixture's own numbers keeps a
+            // decoder change from silently redefining what this test proves.
             Assert.Equal(76, expectedSpawns);
             Assert.Equal(102, expectedDecorations);
             Assert.Equal(63, expectedDoors);
-            Assert.Equal(126, expectedLights);
+            Assert.Equal(Enumerable.Range(1, 63).Sum(interior => SyntheticInstallation.Interior(interior).Lights), expectedLights);
 
             // Every one of the fixture's spawn records asks for an actor and names the graded slot A of its
             // map's second encounter, which puts exactly one creature on the field: the count a graded slot
@@ -346,7 +346,10 @@ public sealed class PackWriterTests
             PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog, RouteDays.Instance);
             PlacePopulationContent content = PlacePopulationContent.Read(graph);
             PlaceDefinition interior = graph.Places.First(place => place.Kind == PlaceKind.Interior);
-            Assert.Equal(6, content.PlacementsOf(interior.Id).Count);
+            // An interior's lights are its own shape's, so the place's total is its four single placements
+            // (a spawn, the encounter it asks for, a decoration, and the one door in use) and its lights.
+            int interiorLights = SyntheticInstallation.Interior(int.Parse(interior.Id.Value, CultureInfo.InvariantCulture) - SyntheticInstallation.Regions).Lights;
+            Assert.Equal(4 + interiorLights, content.PlacementsOf(interior.Id).Count);
             Assert.Equal(1, content.PlacementsOf(interior.Id).Count(placement => placement.Content.Kind == "spawn"));
             Assert.Equal(1, content.PlacementsOf(interior.Id).Count(placement => placement.Content.Kind == "encounter"));
             Assert.Equal(1, content.PlacementsOf(interior.Id).Count(placement => placement.Content.Kind == "door"));
@@ -357,12 +360,12 @@ public sealed class PackWriterTests
             {
                 IReadOnlyList<PlacePopulationEntity> entities = population.Step(interior.Id, []);
                 Assert.Equal(content.PlacementsOf(interior.Id).Select(placement => placement.Content), entities.Select(entity => entity.Content));
-                Assert.Equal(6, population.Diagnostics.EntityCount);
+                Assert.Equal(4 + interiorLights, population.Diagnostics.EntityCount);
                 Assert.Equal(1, population.Diagnostics.CountOf("spawn"));
                 Assert.Equal(1, population.Diagnostics.CountOf("encounter"));
                 Assert.Equal(1, population.Diagnostics.CountOf("decoration"));
                 Assert.Equal(1, population.Diagnostics.CountOf("door"));
-                Assert.Equal(2, population.Diagnostics.CountOf("light"));
+                Assert.Equal(interiorLights, population.Diagnostics.CountOf("light"));
             }
 
             string doorDocument = File.ReadAllText(Path.Combine(imports, "mm7-tables", "places.json"));
