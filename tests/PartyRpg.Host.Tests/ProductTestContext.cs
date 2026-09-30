@@ -68,7 +68,7 @@ internal static class ProductTestContext
     internal static ProductInputConfiguration DeclaredInput()
     {
         List<ProductInputMapping> mappings = [];
-        foreach (XElement mapping in XDocument.Load(ProjectFile()).Descendants("RustyEngineProductInputMapping"))
+        foreach (XElement mapping in ProductDeclarations.Project.Descendants("RustyEngineProductInputMapping"))
         {
             string[] trigger = ((string?)mapping.Attribute("Trigger") ?? string.Empty).Split(':');
             if (trigger.Length != 3 || trigger[0] != "key") continue;
@@ -97,27 +97,6 @@ internal static class ProductTestContext
             ReadOnlyMemory<ProductInputDescriptor>.Empty,
             mappings.ToArray(),
             InputCursorMode.PointerLock);
-    }
-
-    /// <summary>The host's project file, which declares its intents and the keys they are mapped to.</summary>
-    internal static string ProjectFile() => Path.Combine(RepositoryRoot(), "src", "PartyRpg.Host", "PartyRpg.Host.csproj");
-
-    /// <summary>The repository this suite runs from.</summary>
-    internal static string RepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "AGENTS.md")) &&
-                Directory.Exists(Path.Combine(directory.FullName, "src")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("The repository root could not be found above the test output.");
     }
 
     /// <summary>A staged bundle that selects the packs the test declares.</summary>
@@ -150,62 +129,19 @@ internal static class ProductTestContext
             $$"""{ "documentId": "{{packId}}-entries", "definitionKind": "thing", "entries": [ { "id": "{{entryId}}" } ] }"""),
     ];
 
-    /// <summary>An update admitting the given number of fixed steps.</summary>
-    internal static ProductUpdate Update(ulong simulationStep, uint admittedSteps, double stepSeconds = 1.0 / 60.0) =>
-        Update(simulationStep, admittedSteps, stepSeconds, ReadOnlySpan<ProductInputEvent>.Empty);
-
     /// <summary>An update admitting the given number of fixed steps, carrying the given admitted input.</summary>
-    internal static ProductUpdate Update(
-        ulong simulationStep,
-        uint admittedSteps,
-        params ProductInputEvent[] input) => Update(simulationStep, admittedSteps, 1.0 / 60.0, input);
+    internal static ProductUpdate Update(ulong simulationStep, uint admittedSteps, params ProductInputEvent[] input) =>
+        Admitted.Update(simulationStep, admittedSteps, input);
 
-    /// <summary>An update admitting the given number of fixed steps, carrying the given admitted input.</summary>
-    internal static ProductUpdate Update(
-        ulong simulationStep,
-        uint admittedSteps,
-        double stepSeconds,
-        ReadOnlySpan<ProductInputEvent> input)
-    {
-        ProductUpdateFacts facts = new(
-            ProductUpdateMode.Realtime,
-            ProductLifecycleState.Running,
-            Generation: 1,
-            ControlRevision: 1,
-            ObservedHostTimeNanoseconds: 0,
-            SimulationStep: simulationStep,
-            FixedStepHz: 60,
-            AdmittedStepCount: admittedSteps,
-            DroppedStepCount: 0,
-            FixedDeltaSeconds: stepSeconds);
-        return new ProductUpdate(facts, input);
-    }
+    /// <summary>An update admitting the given number of fixed steps of a stated length.</summary>
+    internal static ProductUpdate Update(ulong simulationStep, uint admittedSteps, double stepSeconds, params ProductInputEvent[] input) =>
+        Admitted.Update(simulationStep, admittedSteps, stepSeconds, input);
 
     /// <summary>One digital event on a product intent, in the shape the engine admits it.</summary>
-    internal static ProductInputEvent Digital(string intent, InputEdge edge = InputEdge.Pressed) => new(
-        InputEventKind.MappedDigital, edge, default, default, default, default, default, default, default, default,
-        InputValueKind.Digital, InputPhase.Pressed, InputProvenance.Physical, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, Encoding.UTF8.GetBytes(intent),
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
+    internal static ProductInputEvent Digital(string intent, InputEdge edge = InputEdge.Pressed) => Admitted.Digital(intent, edge);
 
     /// <summary>One semantic action on the product's declared payload contract, as the DOM companion sends it.</summary>
-    internal static ProductInputEvent Payload(string json) => new(
-        InputEventKind.DirectProductPayload, InputEdge.None, default, default, default, default, default, default, default, default,
-        InputValueKind.ProductPayload, InputPhase.DirectUi, InputProvenance.DirectUi, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty,
-        Encoding.UTF8.GetBytes(ProductIdentity.UiActionContract), Encoding.UTF8.GetBytes(json));
-
-    /// <summary>
-    /// One semantic action choosing a topic in a conversation, as the companion's own button sends it.
-    /// </summary>
-    /// <remarks>
-    /// A party reaches a counter through the conversation rather than through a second way in: the use opens
-    /// the conversation with whoever keeps it, and this is the choice that hands the party over to the
-    /// counter's own mechanism. That is why every walk-in a suite performs is two updates rather than one.
-    /// </remarks>
-    /// <param name="topic">The topic's identity.</param>
-    internal static ProductInputEvent ChooseTopic(string topic) =>
-        Payload($$"""{ "action": "conversation.topic", "target": "{{topic}}" }""");
+    internal static ProductInputEvent Payload(string json) => Admitted.Payload(ProductIdentity.UiActionContract, json);
 
     /// <summary>
     /// A pack declaring the class and skill definitions this game's creation is checked against, which any

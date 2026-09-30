@@ -23,49 +23,6 @@ namespace PartyRpg.Host.Tests;
 public sealed class SaveIntentTests
 {
     [Fact]
-    public void The_save_controls_are_declared_in_code_in_the_project_file_and_in_the_companion()
-    {
-        string source = File.ReadAllText(Path.Combine(SourceDirectory(), "ProductIdentity.cs"));
-        string project = File.ReadAllText(ProjectFile());
-
-        string intent = Constant(source, "SaveIntent");
-        string action = ProductIdentity.SaveAction;
-
-        // Declared in code and in the project file, and mapped there: the engine refuses a mapping whose
-        // intent was never declared, so both halves are what make the key a control.
-        Assert.Contains($"RustyEngineProductInputIntent Include=\"{intent}\" Value=\"digital\"", project, StringComparison.Ordinal);
-        Assert.Contains($"Intent=\"{intent}\"", project, StringComparison.Ordinal);
-
-        // The engine's keyboard controls carry no function keys — the enum ends at Escape, Shift, Control,
-        // and Alt — so the save control is a letter rather than the F5 a person might expect. This names the
-        // key the product actually declared so a change to it is a decision rather than a silent edit.
-        Assert.Contains("Trigger=\"key:key-f:pressed\"", project, StringComparison.Ordinal);
-
-        // The other direction: every session intent the project file declares is one this code names, so a
-        // mapping added there alone cannot be a key that presses nothing.
-        string[] declaredInProject =
-        [
-            .. XDocument.Load(ProjectFile()).Descendants("RustyEngineProductInputIntent")
-                .Select(element => (string?)element.Attribute("Include") ?? string.Empty)
-                .Where(name => name.StartsWith("session.", StringComparison.Ordinal))
-                .Order(StringComparer.Ordinal),
-        ];
-        Assert.Equal(
-            new[] { Constant(source, "PauseToggleIntent"), intent }.Order(StringComparer.Ordinal),
-            declaredInProject);
-
-        // The payload action the DOM companion sends is the kit's own save action on the product's own
-        // contract, and the session's reader is composed over exactly that contract.
-        string contract = Constant(source, "UiActionContract");
-        ProjectionContractTests.AssertPanelMayClaim(action);
-
-        Assert.Equal(SaveActions.Save, action);
-        SaveIntentNames names = new(intent, contract);
-        Assert.Equal(intent, names.Intent);
-        Assert.Equal(contract, names.ActionContract);
-    }
-
-    [Fact]
     public void A_run_told_to_resume_with_nothing_saved_fails_by_name()
     {
         InMemoryPersistenceService persistence = new();
@@ -109,27 +66,5 @@ public sealed class SaveIntentTests
         Assert.Equal(SessionStart.Resume, ProductStart.From(name => { asked.Add(name); return "resume"; }));
         Assert.Equal([ProductIdentity.StartVariable], asked);
         Assert.Equal(SessionStart.Fresh, ProductStart.From(ProductTestContext.NoVariables));
-    }
-
-    private static string SourceDirectory()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            string candidate = Path.Combine(directory.FullName, "src", "PartyRpg.Host");
-            if (Directory.Exists(candidate)) return candidate;
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Could not find the host project above the test assembly.");
-    }
-
-    private static string ProjectFile() => Path.Combine(SourceDirectory(), "PartyRpg.Host.csproj");
-
-    private static string Constant(string source, string name)
-    {
-        Match match = Regex.Match(source, $@"const string {name} = ""([^""]*)"";", RegexOptions.CultureInvariant);
-        Assert.True(match.Success, $"ProductIdentity.cs must declare {name}.");
-        return match.Groups[1].Value;
     }
 }

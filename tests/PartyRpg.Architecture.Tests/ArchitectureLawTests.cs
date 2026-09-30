@@ -84,71 +84,6 @@ public sealed class ArchitectureLawTests
     }
 
     [Fact]
-    public void Host_product_identity_matches_the_declared_msbuild_properties()
-    {
-        string project = ProjectFile("PartyRpg.Host");
-        string source = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "PartyRpg.Host", "ProductIdentity.cs"));
-
-        Assert.Equal(ConstantValue(source, "Id"), PropertyValue(project, "RustyEngineProductId"));
-        Assert.Equal(ConstantValue(source, "Title"), PropertyValue(project, "RustyEngineProductTitle"));
-        Assert.Equal(ConstantValue(source, "UiStream"), PropertyValue(project, "RustyEngineProductUiProjectionStream"));
-        Assert.Equal(ConstantValue(source, "UiContract"), PropertyValue(project, "RustyEngineProductUiProjectionContract"));
-
-        // The engine learns the admitted intent names from the project file and rejects an undeclared
-        // one, so a rename that misses either place silently disables the action it carries.
-        string projectText = File.ReadAllText(project);
-        Assert.Contains(
-            $"RustyEngineProductInputIntent Include=\"{ConstantValue(source, "UiActionIntent")}\"",
-            projectText,
-            StringComparison.Ordinal);
-        Assert.Contains(
-            $"RustyEngineProductInputIntent Include=\"{ConstantValue(source, "PauseToggleIntent")}\"",
-            projectText,
-            StringComparison.Ordinal);
-        Assert.Contains($"payload:{ConstantValue(source, "UiActionContract")}", projectText, StringComparison.Ordinal);
-
-        // Movement is a set of intents rather than one, and the engine rejects any mapping whose intent
-        // is undeclared, so each one is checked in both directions: declared in code, declared in the
-        // project, and mapped to a key there.
-        foreach (string constant in new[]
-        {
-            "MoveForwardIntent",
-            "MoveBackIntent",
-            "StrafeLeftIntent",
-            "StrafeRightIntent",
-            "TurnLeftIntent",
-            "TurnRightIntent",
-            "JumpIntent",
-        })
-        {
-            string intent = ConstantValue(source, constant);
-            Assert.Contains($"RustyEngineProductInputIntent Include=\"{intent}\"", projectText, StringComparison.Ordinal);
-            Assert.Contains($"Intent=\"{intent}\"", projectText, StringComparison.Ordinal);
-        }
-    }
-
-    /// <summary>
-    /// The contract the DOM companion is held to names the same projection and action contracts the host declares.
-    /// </summary>
-    /// <remarks>
-    /// The companion suite holds the panel's own names to <c>tests/PartyRpg.Ui.Tests/fixtures/contract.json</c>, and the
-    /// host suite writes that file from the product's code; this law checks the file against the host's declaration
-    /// as its source states it, so neither side can move the names without the other failing.
-    /// </remarks>
-    [Fact]
-    public void Ui_companion_declares_the_same_contract_as_the_host()
-    {
-        string source = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "PartyRpg.Host", "ProductIdentity.cs"));
-        using JsonDocument contract = JsonDocument.Parse(
-            File.ReadAllText(Path.Combine(RepositoryRoot, "tests", "PartyRpg.Ui.Tests", "fixtures", "contract.json")));
-
-        Assert.Equal(ConstantValue(source, "UiContract"), contract.RootElement.GetProperty("projectionContract").GetString());
-        Assert.Equal(ConstantValue(source, "UiStream"), contract.RootElement.GetProperty("projectionStream").GetString());
-        Assert.Equal(ConstantValue(source, "UiActionIntent"), contract.RootElement.GetProperty("actionIntent").GetString());
-        Assert.Equal(ConstantValue(source, "UiActionContract"), contract.RootElement.GetProperty("actionContract").GetString());
-    }
-
-    [Fact]
     public void Verify_script_covers_every_project_and_suite()
     {
         string script = File.ReadAllText(Path.Combine(RepositoryRoot, "scripts", "verify.sh"));
@@ -218,13 +153,6 @@ public sealed class ArchitectureLawTests
         "events.lod",
         "games.lod",
     ];
-
-    private static string ConstantValue(string source, string name)
-    {
-        Match match = Regex.Match(source, $@"const string {name} = ""([^""]*)"";", RegexOptions.CultureInvariant);
-        Assert.True(match.Success, $"ProductIdentity.cs must declare {name}.");
-        return match.Groups[1].Value;
-    }
 
     private static string PropertyValue(string projectFile, string property)
     {

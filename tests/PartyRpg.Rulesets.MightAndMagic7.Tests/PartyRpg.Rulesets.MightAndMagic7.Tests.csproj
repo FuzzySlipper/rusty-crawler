@@ -13,7 +13,11 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
+    <!-- This game's policies, proved against content a case stages and the kit's mechanisms they answer. The
+         ruleset is reached through its one public entry and, for its policies, through the friend declaration
+         it names this suite in; the host is not referenced, because what a host adds is the host suite's. -->
     <ProjectReference Include="../../src/PartyRpg.Kit/PartyRpg.Kit.csproj" />
+    <ProjectReference Include="../../src/PartyRpg.Rulesets.MightAndMagic7/PartyRpg.Rulesets.MightAndMagic7.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- The suites' shared support: one definition of each helper, referenced rather than copied. -->

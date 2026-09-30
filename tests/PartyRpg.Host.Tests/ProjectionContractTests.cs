@@ -47,7 +47,7 @@ public sealed class ProjectionContractTests
     [Fact]
     public void The_checked_in_fixtures_are_what_the_product_publishes()
     {
-        string directory = Path.Combine(ProductTestContext.RepositoryRoot(), "tests", "PartyRpg.Ui.Tests", "fixtures");
+        string directory = Repository.PathOf("tests", "PartyRpg.Ui.Tests", "fixtures");
         Dictionary<string, string> fixtures = new(StringComparer.Ordinal)
         {
             ["contract.json"] = Contract(),
@@ -78,39 +78,6 @@ public sealed class ProjectionContractTests
         Assert.Equal(
             fixtures.Keys.Order(StringComparer.Ordinal),
             Directory.EnumerateFiles(directory).Select(Path.GetFileName).Order(StringComparer.Ordinal));
-    }
-
-    [Fact]
-    public void Every_intent_the_host_names_in_code_is_declared_in_its_project_and_the_other_way_round()
-    {
-        // The movement, creation, save, use, service, conversation, stop, act, and pace intents — every one the
-        // product reads — are named once in code and declared once in the project file. A name that exists in
-        // only one of the two is a key that presses nothing or a control no key can press.
-        string[] inCode =
-        [
-            .. typeof(ProductIdentity)
-                .GetFields(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public)
-                .Where(field => field.IsLiteral && field.Name.EndsWith("Intent", StringComparison.Ordinal))
-                .Select(field => (string)field.GetRawConstantValue()!)
-                .Order(StringComparer.Ordinal),
-        ];
-        string[] declared =
-        [
-            .. XDocument.Load(ProductTestContext.ProjectFile()).Descendants("RustyEngineProductInputIntent")
-                .Select(element => (string?)element.Attribute("Include") ?? string.Empty)
-                .Order(StringComparer.Ordinal),
-        ];
-        Assert.Equal(inCode, declared);
-
-        // Every digital intent is mapped to a key, so the panel can name it; the payload channel is the one that
-        // is not, because a screen's own buttons claim it.
-        ControlKeys keys = ProductControlKeys.Read(ProductTestContext.DeclaredInput());
-        Assert.All(
-            typeof(ControlKeys).GetProperties().Where(property => property.PropertyType == typeof(string)),
-            property => Assert.False(string.IsNullOrEmpty((string?)property.GetValue(keys)), $"{property.Name} is bound to no key"));
-        Assert.Equal("F", keys.Save);
-        Assert.Equal("Enter", keys.TurnBased);
-        Assert.Equal("Escape", keys.ConversationLeave);
     }
 
     /// <summary>
@@ -182,7 +149,7 @@ public sealed class ProjectionContractTests
             // Every intent the project declares, with the key its mapping binds, in the order the project states them.
             ProductInputMapping[] mappings = ProductTestContext.DeclaredInput().PhysicalMappings.ToArray();
             writer.WriteStartArray("intents");
-            foreach (XElement intent in XDocument.Load(ProductTestContext.ProjectFile()).Descendants("RustyEngineProductInputIntent"))
+            foreach (XElement intent in ProductDeclarations.Project.Descendants("RustyEngineProductInputIntent"))
             {
                 string name = (string?)intent.Attribute("Include") ?? string.Empty;
                 writer.WriteStartObject();

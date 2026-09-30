@@ -85,6 +85,7 @@ test_projects=(
   tests/PartyRpg.Architecture.Tests/PartyRpg.Architecture.Tests.csproj
   tests/PartyRpg.Kit.Tests/PartyRpg.Kit.Tests.csproj
   tests/PartyRpg.Host.Tests/PartyRpg.Host.Tests.csproj
+  tests/PartyRpg.Rulesets.MightAndMagic7.Tests/PartyRpg.Rulesets.MightAndMagic7.Tests.csproj
   tests/MightAndMagic7.Import.Tests/MightAndMagic7.Import.Tests.csproj
 )
 host_project="src/PartyRpg.Host/PartyRpg.Host.csproj"

@@ -11,7 +11,6 @@ using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
-using PartyRpg.Rulesets.MightAndMagic7;
 using Rusty.Engine;
 using Rusty.Engine.Entities;
 using Rusty.Engine.Persistence;
@@ -43,6 +42,12 @@ public sealed class PersistenceTests
     private static readonly PlaceId Cave = new("2");
     private static readonly ConditionId Weakness = new("weak");
     private static readonly FacingRule Facing = new(unitsPerTurn: 2048, minimumPitch: -512, maximumPitch: 512);
+
+    /// <summary>What a played session spends at a counter, so the purse is not its starting value.</summary>
+    private const int Spent = 197;
+
+    /// <summary>What a played session's one journey eats: two portions over two days of road.</summary>
+    private const int Journey = 2;
     private static readonly SessionComposition Composition = new(new RulesetId("test.ruleset"), "Test");
 
     [Fact]
@@ -95,8 +100,8 @@ public sealed class PersistenceTests
         Assert.True(world.Places.StateOf(Cave).Visited);
         Assert.True(world.Places.StateOf(Cave).Cleared);
         Assert.Equal(GameDuration.FromHours(48), clock.Elapsed);
-        Assert.Equal(8, restored.Food.Portions);
-        Assert.Equal(3, restored.Purse.Coins);
+        Assert.Equal(TestParty.StartingFoodPortions - Journey, restored.Food.Portions);
+        Assert.Equal(TestParty.StartingCoins - Spent, restored.Purse.Coins);
 
         // The panel a resumed session publishes reads from the restored owners, not from the document.
         using RecordingUiProjectionChannel channel = new();
@@ -108,8 +113,8 @@ public sealed class PersistenceTests
         ProjectedNode published = channel.Latest();
         Assert.Equal("2", published.Field("world").Field("place").AsString());
         Assert.Equal("1168-01-03", published.Field("clock").Field("date").AsString());
-        Assert.Equal(8d, published.Field("party").Field("provisions").AsNumber());
-        Assert.Equal(3d, published.Field("party").Field("coins").AsNumber());
+        Assert.Equal(TestParty.StartingFoodPortions - Journey, published.Field("party").Field("provisions").AsNumber());
+        Assert.Equal(TestParty.StartingCoins - Spent, published.Field("party").Field("coins").AsNumber());
     }
 
     [Fact]
@@ -138,7 +143,7 @@ public sealed class PersistenceTests
     {
         // A created party starts with nothing worn and no spells: the manual itemises no starting kit and
         // this game teaches magic from books. A save must round-trip that emptiness rather than fill it in.
-        using PartyEntity party = CreatedParty();
+        using PartyEntity party = TestParty.OfFour();
         Assert.All(party.Members, member => Assert.Empty(member.Equipment.Items));
         Assert.All(party.Members, member => Assert.Empty(member.Spells.Known));
 
@@ -197,7 +202,7 @@ public sealed class PersistenceTests
     public void A_session_with_nowhere_to_write_refuses_to_save_by_name()
     {
         using RecordingUiProjectionChannel channel = new();
-        using PartyEntity party = CreatedParty();
+        using PartyEntity party = TestParty.OfFour();
         using SessionWorld world = World(TestClock.Create(), party);
         using PartyRpgSession session = new(
             Composition,
@@ -378,7 +383,7 @@ public sealed class PersistenceTests
     [Fact]
     public void A_record_held_by_nobody_is_refused_by_name_and_never_lands_in_the_pack()
     {
-        using PartyEntity party = CreatedParty();
+        using PartyEntity party = TestParty.OfFour();
         ItemInstance loose = party.CreateItem(new ItemDefinitionId("loose-loot"));
         PartySave save = party.Capture();
 
@@ -596,7 +601,7 @@ public sealed class PersistenceTests
         internal Played(IRestRule? rest = null)
         {
             Clock = TestClock.Create();
-            Party = CreatedParty();
+            Party = TestParty.OfFour();
             World = PersistenceTests.World(Clock, Party);
             Channel = new RecordingUiProjectionChannel();
             Store = new RecordingSaveStore();
@@ -639,7 +644,7 @@ public sealed class PersistenceTests
             signet.TakeDamage(4);
 
             // Coins spent the way a shop would spend them, so the purse is not its starting value.
-            Assert.True(Party.Purse.TryDebit(197));
+            Assert.True(Party.Purse.TryDebit(Spent));
 
             // A journey: two days of road and two portions, charged on arrival by the world.
             PlaceTransition outbound = Assert.Single(Graph().TransitionsFrom(Home));
@@ -652,13 +657,6 @@ public sealed class PersistenceTests
         }
 
         public void Dispose() => Session.Dispose();
-    }
-
-    private static PartyEntity CreatedParty()
-    {
-        PartyCreationFlow flow = MightAndMagic7Creation.Start();
-        Assert.True(flow.IsComplete);
-        return new PartyEntityFactory().Create(flow.ToCreation());
     }
 
     private static SessionWorld World(GameClock clock, PartyEntity party) =>

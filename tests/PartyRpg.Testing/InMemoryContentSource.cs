@@ -1,4 +1,5 @@
 using PartyRpg.Kit.Content;
+using Rusty.Engine;
 
 namespace PartyRpg.Testing;
 
@@ -6,6 +7,19 @@ namespace PartyRpg.Testing;
 public sealed class InMemoryContentSource : IContentSource
 {
     private readonly Dictionary<string, string> _files = new(StringComparer.Ordinal);
+
+    /// <summary>The files an engine staged for a product, as a content root the kit's loader reads.</summary>
+    public static InMemoryContentSource Of(ProductContent content)
+    {
+        InMemoryContentSource source = new();
+        foreach (ProductContentFile file in content.Files.ToArray())
+        {
+            string path = file.RelativePath.Replace('\\', '/');
+            source.Add(path, content.ReadText(path));
+        }
+
+        return source;
+    }
 
     public InMemoryContentSource Add(string path, string text)
     {

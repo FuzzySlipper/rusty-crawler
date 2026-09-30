@@ -10,7 +10,6 @@ using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
-using PartyRpg.Rulesets.MightAndMagic7;
 using Rusty.Engine;
 using Xunit;
 
@@ -463,37 +462,6 @@ public sealed class CreationModeTests
         Assert.Equal([FolkA, StoneA], restored.Members.Select(member => member.Profile.Portrait));
         Assert.Equal(25, restored.Purse.Coins);
         Assert.Equal(3, restored.Food.Portions);
-    }
-
-    [Fact]
-    public void This_games_own_creation_flow_runs_through_the_session()
-    {
-        // The compiled ruleset's flow, over its own choices and its own default party, driven through the
-        // session exactly as the product drives it: this is the path a player takes, and its four members
-        // are the ones the ruleset's default party names.
-        using Making making = new(MightAndMagic7Creation.Start());
-        PartyRpgSession session = making.Session;
-
-        Assert.Equal(SessionMode.Creating, session.Mode);
-        Assert.True(session.Creation!.HasDefault);
-        Assert.Equal(MightAndMagic7Creation.MemberCount, session.Creation.MemberCount);
-        Assert.Equal(0, session.Creation.PoolRemaining);
-
-        session.Update(Admitted.Update(10, 1, Admitted.Digital(Controls.Accept)));
-
-        Assert.Equal(SessionMode.Running, session.Mode);
-        PartyEntity party = Assert.Single(making.Built);
-        Assert.Equal(4, party.Members.Count);
-        Assert.Equal(["Roderick", "Aelina", "Borin", "Nyx"], party.Members.Select(member => member.Profile.Name));
-        Assert.Equal(["Human", "Elf", "Dwarf", "Goblin"], party.Members.Select(member => member.Profile.Race.Value));
-        Assert.Equal(
-            ["Knight", "Sorcerer", "Cleric", "Thief"],
-            party.Members.Select(member => member.Profile.Class.Value));
-        Assert.Equal(
-            ["human-man", "elf-woman", "dwarf-man", "goblin-woman"],
-            party.Members.Select(member => member.Profile.Portrait!.Value.Value));
-        Assert.Equal(MightAndMagic7Creation.StartingCoins, party.Purse.Coins);
-        Assert.Equal(MightAndMagic7Creation.StartingFoodPortions, party.Food.Portions);
     }
 
     /// <summary>Walks one member through every step with the choices given, as the session's commands.</summary>

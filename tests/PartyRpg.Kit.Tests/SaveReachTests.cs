@@ -8,7 +8,6 @@ using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
-using PartyRpg.Rulesets.MightAndMagic7;
 using Rusty.Engine;
 using Xunit;
 
@@ -261,8 +260,8 @@ public sealed class SaveReachTests
     {
         internal Fixture(bool store = true, bool controls = true, bool resumed = false, Exception? refusal = null)
         {
-            Clock = ClockFixture();
-            Party = CreatedParty();
+            Clock = TestClock.Create();
+            Party = TestParty.OfFour();
             World = WorldFixture(Clock, Party);
             Store = new RecordingSaveStore(refusal);
             Session = new PartyRpgSession(
@@ -297,19 +296,6 @@ public sealed class SaveReachTests
             Channel.Dispose();
         }
     }
-
-    private static PartyEntity CreatedParty()
-    {
-        PartyCreationFlow flow = MightAndMagic7Creation.Start();
-        Assert.True(flow.IsComplete);
-        return new PartyEntityFactory().Create(flow.ToCreation());
-    }
-
-    private static GameClock ClockFixture() => new(
-        GameCalendar.TwelveMonthsOfFourWeeks,
-        new GameDate(1168, 1, 1, 9, 0, 0),
-        new GameTimeScale(30),
-        new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
 
     private static SessionWorld WorldFixture(GameClock clock, PartyEntity party) =>
         new(

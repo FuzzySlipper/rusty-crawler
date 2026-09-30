@@ -19,46 +19,6 @@ namespace PartyRpg.Host.Tests;
 public sealed class CreationIntentTests
 {
     [Fact]
-    public void Every_creation_intent_the_code_declares_is_declared_and_mapped_in_the_project_file()
-    {
-        string project = ProjectFile();
-        string text = File.ReadAllText(project);
-        string source = File.ReadAllText(Path.Combine(SourceDirectory(), "ProductIdentity.cs"));
-
-        string[] declaredInCode =
-        [
-            Constant(source, "CreationAdvanceIntent"),
-            Constant(source, "CreationAcceptIntent"),
-        ];
-
-        foreach (string intent in declaredInCode)
-        {
-            Assert.Contains($"RustyEngineProductInputIntent Include=\"{intent}\" Value=\"digital\"", text, StringComparison.Ordinal);
-            Assert.Contains($"Intent=\"{intent}\"", text, StringComparison.Ordinal);
-        }
-
-        // And the other direction: every creation intent the project file declares is one this code names, so
-        // a mapping added there alone cannot be a key that presses nothing.
-        string[] declaredInProject =
-        [
-            .. XDocument.Load(project).Descendants("RustyEngineProductInputIntent")
-                .Select(element => (string?)element.Attribute("Include") ?? string.Empty)
-                .Where(intent => intent.StartsWith("creation.", StringComparison.Ordinal)),
-        ];
-        Assert.Equal([.. declaredInCode.Order(StringComparer.Ordinal)], [.. declaredInProject.Order(StringComparer.Ordinal)]);
-
-        // Each one is mapped to a keyboard control, and the engine's own names are used: the product refuses
-        // to start on an unsupported mapping, so a typo is a startup failure rather than a dead key.
-        Assert.Contains("key:enter:pressed", text, StringComparison.Ordinal);
-        Assert.Contains("key:space:pressed", text, StringComparison.Ordinal);
-
-        // The screen's choices arrive on the payload channel the product declares. Its name and contract are
-        // the ones the DOM companion claims and the ones the ruleset composes the creation reader over.
-        Assert.Contains($"payload:{Constant(source, "UiActionContract")}", text, StringComparison.Ordinal);
-        Assert.Equal(Constant(source, "UiActionContract"), new CreationIntentNames("a", "b", Constant(source, "UiActionContract")).ActionContract);
-    }
-
-    [Fact]
     public void A_creation_choice_travels_from_admitted_input_into_the_flow_and_a_refusal_comes_back()
     {
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create();
@@ -126,27 +86,5 @@ public sealed class CreationIntentTests
         // And the world steps once it is playing: the update after the accept is the first one measured.
         product.Update(ProductTestContext.Update(2, 60));
         Assert.Equal(60d, ProjectedNode.Of(ui.Latest().Value).Field("session").Field("admittedSteps").AsNumber());
-    }
-
-    private static string SourceDirectory()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            string candidate = Path.Combine(directory.FullName, "src", "PartyRpg.Host");
-            if (Directory.Exists(candidate)) return candidate;
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Could not find the host project above the test assembly.");
-    }
-
-    private static string ProjectFile() => Path.Combine(SourceDirectory(), "PartyRpg.Host.csproj");
-
-    private static string Constant(string source, string name)
-    {
-        Match match = Regex.Match(source, $@"const string {name} = ""([^""]*)"";", RegexOptions.CultureInvariant);
-        Assert.True(match.Success, $"ProductIdentity.cs must declare {name}.");
-        return match.Groups[1].Value;
     }
 }

@@ -18,32 +18,6 @@ namespace PartyRpg.Host.Tests;
 public sealed class UseIntentTests
 {
     [Fact]
-    public void The_use_controls_are_declared_in_code_in_the_project_file_and_in_the_companion()
-    {
-        string source = File.ReadAllText(Path.Combine(SourceDirectory(), "ProductIdentity.cs"));
-        string project = File.ReadAllText(ProjectFile());
-        string product = File.ReadAllText(Path.Combine(SourceDirectory(), "CrawlerProduct.cs"));
-
-        string intent = Constant(source, "UseIntent");
-        string action = ProductIdentity.UseAction;
-
-        // Declared in code and in the project file, and mapped there: both halves are what make the key a
-        // control, because the engine refuses a mapping whose intent was never declared.
-        Assert.Contains($"RustyEngineProductInputIntent Include=\"{intent}\" Value=\"digital\"", project, StringComparison.Ordinal);
-        Assert.Contains($"Intent=\"{intent}\"", project, StringComparison.Ordinal);
-
-        // The key the product actually declared, named so a change to it is a decision rather than a silent
-        // edit. The original's interaction key is Space and its jump key is X; Space already jumps here.
-        Assert.Contains("Trigger=\"key:key-g:pressed\"", project, StringComparison.Ordinal);
-
-        // The host hands the ruleset the declared names, and the companion sends the declared action on the
-        // product's own contract: the reader is composed over exactly these names.
-        Assert.Contains("new UseIntentNames(", product, StringComparison.Ordinal);
-        Assert.Contains("Use: _use", product, StringComparison.Ordinal);
-        ProjectionContractTests.AssertPanelMayClaim(action);
-    }
-
-    [Fact]
     public void The_use_key_opens_a_door_in_a_staged_world_and_the_panel_reports_it()
     {
         // A world with one interior whose door stands in front of the scenario's starting point, and the
@@ -118,18 +92,6 @@ public sealed class UseIntentTests
         ProjectedNode refused = ProjectedNode.Of(ui.Latest().Value).Field("interaction");
         Assert.Equal("refused", refused.Field("outcome").AsString());
         Assert.Equal("door-already-open", refused.Field("code").AsString());
-    }
-
-    private static string SourceDirectory() =>
-        Path.Combine(Repository.Root, "src", "PartyRpg.Host");
-
-    private static string ProjectFile() => Path.Combine(SourceDirectory(), "PartyRpg.Host.csproj");
-
-    private static string Constant(string source, string name)
-    {
-        Match match = Regex.Match(source, $@"const string {name} = ""([^""]*)"";", RegexOptions.CultureInvariant);
-        Assert.True(match.Success, $"ProductIdentity.cs must declare {name}.");
-        return match.Groups[1].Value;
     }
 
 }
