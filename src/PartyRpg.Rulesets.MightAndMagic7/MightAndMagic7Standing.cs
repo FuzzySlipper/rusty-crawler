@@ -93,15 +93,6 @@ internal sealed class MightAndMagic7Standing : IStandingRule
     /// <summary>The word this game uses for the family a guild membership belongs to.</summary>
     internal const string MembershipKind = "membership";
 
-    /// <summary>
-    /// The prefix a rank's own record carries, which is also the prefix of the counted deeds the ladder keeps.
-    /// </summary>
-    /// <remarks>
-    /// The two families are told apart by what the ladder states about them rather than by the prefix: a
-    /// record a rank leaves is named by the rank, and a counted deed is named by a requirement. Reading the
-    /// ladder's own rows is what keeps this naming in step with the ladder that wrote them.
-    /// </remarks>
-    internal const string DeedPrefix = "award:";
 
     /// <summary>
     /// The bands, highest first, each with the donor's word and the lowest reputation that stands in it.
@@ -265,7 +256,7 @@ internal sealed class MightAndMagic7Standing : IStandingRule
                         _givers[requirement.Name] = requirement.Label.Length > 0 ? requirement.Label : requirement.Name;
                     }
                     else if (requirement.Kind == PromotionRequirementKind.Award
-                        && requirement.Name.StartsWith(DeedPrefix, StringComparison.Ordinal))
+                        && requirement.Name.StartsWith(MightAndMagic7Identities.DeedPrefix, StringComparison.Ordinal))
                     {
                         _deeds[requirement.Name] = requirement;
                     }

@@ -124,7 +124,7 @@ public sealed class QuestPolicyTests
 
         Assert.NotEqual(string.Empty, hall);
         string posted = questsRead.BountyQuest(hall, new GameDate(1168, 3, 1));
-        Assert.StartsWith(MightAndMagic7Quests.BountyPrefix, posted, StringComparison.Ordinal);
+        Assert.StartsWith(MightAndMagic7Identities.BountyPrefix, posted, StringComparison.Ordinal);
         QuestDefinition bounty = questsRead.Definition(new QuestId(posted))!;
         Assert.Equal($"keeper:{hall}", bounty.Giver);
         Assert.Equal(1, bounty.Objectives[0].Count);
@@ -164,10 +164,10 @@ public sealed class QuestPolicyTests
         Assert.True(talking.Field("open").AsBoolean());
         Assert.Equal("Frederick Org", talking.Field("speaker").AsString());
         Assert.Contains(
-            "errand:35",
+            "quest:35",
             Enumerable.Range(0, talking.Field("topics").Length()).Select(position => talking.Field("topics").Item(position).Field("id").AsString()));
 
-        session.Update(ProductTestContext.Update(3, 1, ProductTestContext.ChooseTopic("errand:35")));
+        session.Update(ProductTestContext.Update(3, 1, ProductTestContext.ChooseTopic("quest:35")));
         ProjectedNode offered = ProjectedNode.Of(ui.Latest().Value).Field("quests");
         Assert.True(offered.Field("available").AsBoolean());
         Assert.Equal("offer", offered.Field("action").AsString());
@@ -257,10 +257,10 @@ public sealed class QuestPolicyTests
         ProjectedNode talking = ProjectedNode.Of(ui.Latest().Value).Field("conversation");
         Assert.True(talking.Field("open").AsBoolean());
         Assert.Contains(
-            "errand:seal-of-office",
+            "quest:seal-of-office",
             Enumerable.Range(0, talking.Field("topics").Length()).Select(position => talking.Field("topics").Item(position).Field("id").AsString()));
 
-        session.Update(ProductTestContext.Update(3, 1, ProductTestContext.ChooseTopic("errand:seal-of-office")));
+        session.Update(ProductTestContext.Update(3, 1, ProductTestContext.ChooseTopic("quest:seal-of-office")));
         Assert.Equal("offered", ProjectedNode.Of(ui.Latest().Value).Field("quests").Field("journal").Item(0).Field("state").AsString());
         session.Update(ProductTestContext.Update(4, 1, ProductTestContext.ChooseTopic("accept:seal-of-office")));
         Assert.Equal("accepted", ProjectedNode.Of(ui.Latest().Value).Field("quests").Field("journal").Item(0).Field("state").AsString());

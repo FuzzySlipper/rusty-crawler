@@ -57,7 +57,7 @@ public sealed class PromotionPolicyTests
         Assert.Equal(19, ladder.Ladder.Ranks.Count(rank => rank.Requirements.Any(requirement => requirement.Kind == PromotionRequirementKind.Award)));
         Assert.Equal(2, ladder.Ladder.Ranks.Count(rank => rank.Requirements.Any(requirement =>
             requirement.Kind == PromotionRequirementKind.Award &&
-            !requirement.Name.StartsWith(MightAndMagic7Conversation.ErrandFlagPrefix, StringComparison.Ordinal))));
+            !requirement.Name.StartsWith(MightAndMagic7Identities.ErrandFlagPrefix, StringComparison.Ordinal))));
         Assert.Equal(9, ladder.Ladder.Ranks.Count(rank => rank.Rank == 2));
         Assert.Equal(18, ladder.Ladder.Ranks.Count(rank => rank.Rank == 3));
         Assert.Equal(8, ladder.Paths.Count);

@@ -84,7 +84,7 @@ public sealed class JournalPolicyTests
 
         // The errand's own three moments are written by the quest owner's answers: hearing it, taking it, and
         // — later, once it is done — finishing it.
-        session.Update(ProductTestContext.Update(3, 1, ProductTestContext.ChooseTopic("errand:35")));
+        session.Update(ProductTestContext.Update(3, 1, ProductTestContext.ChooseTopic("quest:35")));
         session.Update(ProductTestContext.Update(4, 1, ProductTestContext.ChooseTopic("accept:35")));
 
         // The errand is named in the words the shipped table states for it, which is what makes a record read

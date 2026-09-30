@@ -301,7 +301,7 @@ public sealed class StandingPolicyTests
         Assert.Equal(17, quests.ErrandCount);
         foreach (QuestDefinition definition in quests.Definitions)
         {
-            if (definition.Id.Value.StartsWith(MightAndMagic7Quests.BountyPrefix, StringComparison.Ordinal)) continue;
+            if (definition.Id.Value.StartsWith(MightAndMagic7Identities.BountyPrefix, StringComparison.Ordinal)) continue;
             Assert.Empty(definition.OfferConditions);
         }
 
@@ -317,7 +317,7 @@ public sealed class StandingPolicyTests
 
         Assert.NotEqual(string.Empty, hall);
         string posted = quests.BountyQuest(hall, new GameDate(1168, 3, 1));
-        Assert.StartsWith(MightAndMagic7Quests.BountyPrefix, posted, StringComparison.Ordinal);
+        Assert.StartsWith(MightAndMagic7Identities.BountyPrefix, posted, StringComparison.Ordinal);
         QuestDefinition bounty = quests.Definition(new QuestId(posted))!;
         ConversationCondition gate = Assert.Single(bounty.OfferConditions);
         Assert.Equal(ConversationConditionKind.Reputation, gate.Kind);
@@ -378,7 +378,7 @@ public sealed class StandingPolicyTests
         PromotionRequirement deed = promotions.Ladder.Ranks
             .SelectMany(candidate => candidate.Requirements)
             .First(requirement => requirement.Kind == PromotionRequirementKind.Award
-                && requirement.Name.StartsWith(MightAndMagic7Standing.DeedPrefix, StringComparison.Ordinal));
+                && requirement.Name.StartsWith(MightAndMagic7Identities.DeedPrefix, StringComparison.Ordinal));
         party.Effects.Apply(new PartyEffect(new EffectId(deed.Name), deed.Amount));
         AwardReading counted = standing.Awards(party).Single(award => award.Id == deed.Name);
         Assert.Equal(MightAndMagic7Standing.DeedKind, counted.Kind);
@@ -425,7 +425,7 @@ public sealed class StandingPolicyTests
         Assert.True(ProjectedNode.Of(ui.Latest().Value).Field("quests").Field("available").AsBoolean());
 
         session.Update(ProductTestContext.Update(2, 1, ProductTestContext.Digital(ProductIdentity.UseIntent)));
-        session.Update(ProductTestContext.Update(3, 1, ProductTestContext.ChooseTopic("errand:relic")));
+        session.Update(ProductTestContext.Update(3, 1, ProductTestContext.ChooseTopic("quest:relic")));
         ProjectedNode offered = ProjectedNode.Of(ui.Latest().Value).Field("quests");
         Assert.Equal("offer", offered.Field("action").AsString());
         Assert.Equal("applied", offered.Field("outcome").AsString());
@@ -477,9 +477,9 @@ public sealed class StandingPolicyTests
         Assert.True(talking.Field("open").AsBoolean());
         Assert.Equal("Frederick Org", talking.Field("speaker").AsString());
         Assert.Contains(
-            "errand:relic",
+            "quest:relic",
             Enumerable.Range(0, talking.Field("topics").Length()).Select(position => talking.Field("topics").Item(position).Field("id").AsString()));
-        session.Update(ProductTestContext.Update(3, 1, ProductTestContext.ChooseTopic("errand:relic")));
+        session.Update(ProductTestContext.Update(3, 1, ProductTestContext.ChooseTopic("quest:relic")));
         ProjectedNode heard = ProjectedNode.Of(ui.Latest().Value).Field("quests");
         Assert.Equal("offered", heard.Field("journal").Item(0).Field("state").AsString());
         session.Update(ProductTestContext.Update(4, 1, ProductTestContext.ChooseTopic("accept:relic")));

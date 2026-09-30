@@ -55,14 +55,12 @@ internal static class MightAndMagic7Potions
     /// </remarks>
     internal const string School = "Potion";
 
-    /// <summary>The prefix an authored potion effect's identity carries, so it cannot collide with a spell's.</summary>
-    private const string EffectPrefix = "potion:";
 
     /// <summary>The identity of the effect one potion is drunk as.</summary>
     /// <param name="potion">The potion's own row id, which is its item id.</param>
     /// <returns>The identity, as the catalog and a casting name it.</returns>
     internal static SpellId EffectId(int potion) =>
-        new(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{EffectPrefix}{potion}"));
+        new(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{MightAndMagic7Identities.PotionEffectPrefix}{potion}"));
 
     /// <summary>One potion's authored effect: what category it is, what it is aimed at, and what it does.</summary>
     /// <param name="Id">The potion's own row id.</param>

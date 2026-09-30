@@ -501,15 +501,10 @@ internal static class SpellEffectIds
 
     /// <summary>The beacon the party has set, at the place it was set in.</summary>
     /// <param name="place">The place the beacon stands in.</param>
-    internal static EffectId Beacon(PlaceId place) => new(string.Concat("spell.beacon.", place.Value));
+    internal static EffectId Beacon(PlaceId place) => new BeaconIdentity(place).Effect;
 
-    /// <summary>The prefix every beacon identity starts with, which is how a set beacon is found again.</summary>
-    internal const string BeaconPrefix = "spell.beacon.";
 
     /// <summary>The place a beacon identity stands for, or null when the identity is not a beacon's.</summary>
     /// <param name="effect">The effect identity to read.</param>
-    internal static PlaceId? BeaconPlace(EffectId effect) =>
-        effect.Value.StartsWith(BeaconPrefix, StringComparison.Ordinal) && effect.Value.Length > BeaconPrefix.Length
-            ? new PlaceId(effect.Value[BeaconPrefix.Length..])
-            : null;
+    internal static PlaceId? BeaconPlace(EffectId effect) => BeaconIdentity.Read(effect)?.Place;
 }

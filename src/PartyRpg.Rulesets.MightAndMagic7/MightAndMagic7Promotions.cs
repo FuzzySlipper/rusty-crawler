@@ -109,8 +109,6 @@ internal sealed class MightAndMagic7Promotions : IPromotionRule
     /// <summary>The word this game's ladder uses for the dark alternative of a second promotion.</summary>
     internal const string DarkChoice = "dark";
 
-    /// <summary>The prefix a promotion's own record carries on the party.</summary>
-    internal const string AwardPrefix = "promotion:";
 
     /// <summary>The school the light alternatives of the four magic-splitting families take.</summary>
     internal static readonly SkillId LightSchool = new("Light");
@@ -152,7 +150,7 @@ internal sealed class MightAndMagic7Promotions : IPromotionRule
     internal int QuestRequirementCount => Ladder.Ranks.Sum(
         rank => rank.Requirements.Count(requirement =>
             requirement.Kind == PromotionRequirementKind.Award &&
-            requirement.Name.StartsWith(MightAndMagic7Conversation.ErrandFlagPrefix, StringComparison.Ordinal)));
+            requirement.Name.StartsWith(MightAndMagic7Identities.ErrandFlagPrefix, StringComparison.Ordinal)));
 
     /// <summary>How many ranks ask for something the party carries, and could be given today.</summary>
     internal int ItemRequirementCount =>
@@ -318,7 +316,7 @@ internal sealed class MightAndMagic7Promotions : IPromotionRule
             choice ?? string.Empty,
             // Every rank leaves the record the original keeps as an award bit, under this game's own name,
             // so a later rank, a person, or a quest's turn-in can ask what the party has become.
-            $"{AwardPrefix}{id}",
+            $"{MightAndMagic7Identities.PromotionAwardPrefix}{id}",
             words);
     }
 

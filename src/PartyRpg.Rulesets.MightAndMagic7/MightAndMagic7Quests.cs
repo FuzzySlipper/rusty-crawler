@@ -70,8 +70,6 @@ internal sealed class MightAndMagic7Quests : IQuestRule
     /// <summary>The definition kind a shipped quest row is declared under.</summary>
     internal const string QuestDefinitionKind = "quest";
 
-    /// <summary>The prefix a town hall's bounty errand is named under.</summary>
-    internal const string BountyPrefix = "bounty:";
 
     /// <summary>The field a placement names the monster row it stands for under.</summary>
     internal const string MonsterField = "monster";
@@ -506,9 +504,9 @@ internal sealed class MightAndMagic7Quests : IQuestRule
 
     /// <summary>The record the conversation leaves of meeting somebody, which a talk or delivery reads.</summary>
     private static string PersonMet(string person) =>
-        person.StartsWith(MightAndMagic7Conversation.MetFlagPrefix, StringComparison.Ordinal)
+        person.StartsWith(MightAndMagic7Identities.MetFlagPrefix, StringComparison.Ordinal)
             ? person
-            : $"{MightAndMagic7Conversation.MetFlagPrefix}{person}";
+            : $"{MightAndMagic7Identities.MetFlagPrefix}{person}";
 
     /// <summary>One string field of an entry's own reading, or empty when it states none.</summary>
     private static string ReadingString(ContentEntry entry, string field) =>
@@ -596,7 +594,7 @@ internal sealed class MightAndMagic7Quests : IQuestRule
     /// </remarks>
     /// <param name="bit">The shipped quest bit, as the table states it.</param>
     /// <returns>The record's identity.</returns>
-    internal static string ErrandRecord(string bit) => $"{MightAndMagic7Conversation.ErrandFlagPrefix}{bit}";
+    internal static string ErrandRecord(string bit) => $"{MightAndMagic7Identities.ErrandFlagPrefix}{bit}";
 
     /// <inheritdoc />
     public QuestDefinition? Definition(QuestId quest)
@@ -665,29 +663,16 @@ internal sealed class MightAndMagic7Quests : IQuestRule
         if (placement.Length == 0) return string.Empty;
         if (!_placeOfPlacement.TryGetValue(placement, out string? place)) return string.Empty;
         if (Bounty(new PlaceId(place), now) is null) return string.Empty;
-        return string.Create(
-            CultureInfo.InvariantCulture,
-            $"{BountyPrefix}{placement}:{now.Year:D4}-{now.Month:D2}");
+        return new BountyIdentity(placement, now.Year, now.Month).Value;
     }
 
     /// <summary>The errand a town hall's bounty identity names, or null when it names none.</summary>
     private BountyTerms? BountyDefinition(string quest)
     {
-        if (!quest.StartsWith(BountyPrefix, StringComparison.Ordinal)) return null;
-        string[] parts = quest[BountyPrefix.Length..].Split(':');
-        if (parts.Length != 2) return null;
-
-        string placement = parts[0];
-        string[] when = parts[1].Split('-');
-        if (when.Length != 2 ||
-            !int.TryParse(when[0], NumberStyles.None, CultureInfo.InvariantCulture, out int year) ||
-            !int.TryParse(when[1], NumberStyles.None, CultureInfo.InvariantCulture, out int month))
-        {
-            return null;
-        }
-
+        if (BountyIdentity.Read(quest) is not { } bounty) return null;
+        string placement = bounty.Placement;
         if (!_placeOfPlacement.TryGetValue(placement, out string? place)) return null;
-        if (Bounty(new PlaceId(place), new GameDate(year, month, 1)) is not { } terms) return null;
+        if (Bounty(new PlaceId(place), new GameDate(bounty.Year, bounty.Month, 1)) is not { } terms) return null;
 
         // A bounty whose beast the monster table does not carry cannot be counted, and an errand nobody could
         // ever finish is not stated at all — the hall posts a notice with nothing behind it, which is the
@@ -697,7 +682,7 @@ internal sealed class MightAndMagic7Quests : IQuestRule
         QuestDefinition definition = new(
             new QuestId(quest),
             $"{terms.Beast} bounty",
-            $"{MightAndMagic7Conversation.KeeperIdPrefix}{placement}",
+            $"{MightAndMagic7Identities.KeeperIdPrefix}{placement}",
             [
                 new QuestObjective(
                     "kill-0",
@@ -738,9 +723,9 @@ internal sealed class MightAndMagic7Quests : IQuestRule
         foreach (PromotionRequirement requirement in rank.Requirements)
         {
             if (requirement.Kind == PromotionRequirementKind.Award &&
-                requirement.Name.StartsWith(MightAndMagic7Conversation.ErrandFlagPrefix, StringComparison.Ordinal))
+                requirement.Name.StartsWith(MightAndMagic7Identities.ErrandFlagPrefix, StringComparison.Ordinal))
             {
-                bits.Add(requirement.Name[MightAndMagic7Conversation.ErrandFlagPrefix.Length..]);
+                bits.Add(requirement.Name[MightAndMagic7Identities.ErrandFlagPrefix.Length..]);
             }
         }
 

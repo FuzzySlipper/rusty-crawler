@@ -98,63 +98,13 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     /// <summary>What the standing line reads as in a list of things to bring up.</summary>
     internal const string StandingLabel = "What do people say about us?";
 
-    /// <summary>
-    /// The prefix a rank's own offer carries.
-    /// </summary>
-    /// <remarks>
-    /// A rank is offered by the person this game's ladder says gives it, and the offer is this game's rather
-    /// than the shipped topic table's: the rows that table carries for promotions name the rank and are
-    /// answered by the original's event programs, and where its text column is empty nothing at all is
-    /// carried. The offer is therefore composed from the ladder — one topic per rank this person gives —
-    /// and its identity is the rank's own, so taking it hands the party to the progression owner with the
-    /// rank to give.
-    /// </remarks>
-    internal const string PromotionTopicPrefix = "promote:";
 
-    /// <summary>
-    /// The identity prefix a building's keeper is carried under.
-    /// </summary>
-    /// <remarks>
-    /// A counter's keeper is not an NPC row: the building table names them and the original answers them
-    /// from strings inside its executable. This game gives them an identity built from the placement they
-    /// stand at, so a keeper can be spoken with, offered an errand, and named as its giver without being
-    /// mistaken for somebody the NPC table describes.
-    /// </remarks>
-    internal const string KeeperIdPrefix = "keeper:";
 
-    /// <summary>
-    /// The identity prefix an errand's own offer carries.
-    /// </summary>
-    /// <remarks>
-    /// An errand a person gives is composed from this game's own reading of the shipped quest table rather
-    /// than from a topic row: the shipped rows for promotions name the rank and are answered by event
-    /// programs this build does not run. Hearing an errand and agreeing to it are two topics rather than one,
-    /// because they are two facts — what the party was told, and what it took on — and the journal shows
-    /// both.
-    /// </remarks>
-    internal const string ErrandTopicPrefix = "errand:";
 
-    /// <summary>The identity prefix the agreement to an errand already heard carries.</summary>
-    internal const string AcceptTopicPrefix = "accept:";
 
-    /// <summary>The identity prefix handing a finished errand back to its giver carries.</summary>
-    internal const string TurnInTopicPrefix = "turn-in:";
 
-    /// <summary>The party-carried prefix a person the party has met is recorded under.</summary>
-    internal const string MetFlagPrefix = "met:";
 
-    /// <summary>The party-carried prefix a line the party has heard is recorded under.</summary>
-    internal const string HeardFlagPrefix = "heard:";
 
-    /// <summary>
-    /// The party-carried prefix an errand's completion is recorded under.
-    /// </summary>
-    /// <remarks>
-    /// Nothing in this build sets one: an errand's completion belongs to the quest owner, which does not
-    /// exist yet. The prefix is stated here because a topic's condition names it, so the owner that lands
-    /// has the requirement written down rather than having to guess what a gated topic was waiting for.
-    /// </remarks>
-    internal const string ErrandFlagPrefix = "errand:";
 
     /// <summary>The word a part of the day reads as when the clock says it is light.</summary>
     internal const string DayWord = "day";
@@ -313,7 +263,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
                 {
                     conditions.Add(new ConversationCondition(
                         ConversationConditionKind.Errand,
-                        $"{ErrandFlagPrefix}{requires.ToString(CultureInfo.InvariantCulture)}",
+                        $"{MightAndMagic7Identities.ErrandFlagPrefix}{requires.ToString(CultureInfo.InvariantCulture)}",
                         1,
                         $"the errand the table calls {requires.ToString(CultureInfo.InvariantCulture)}"));
                 }
@@ -405,7 +355,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
                 ? proprietor
                 : building;
             people.Add(new ConversationPerson(
-                $"{KeeperIdPrefix}{request.Placement.Content.Id}",
+                $"{MightAndMagic7Identities.KeeperIdPrefix}{request.Placement.Content.Id}",
                 named2.Length > 0 ? named2 : "the keeper"));
         }
 
@@ -428,7 +378,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
                 records: []);
         }
 
-        bool met = Carries(context, $"{MetFlagPrefix}{person.Id}");
+        bool met = Carries(context, $"{MightAndMagic7Identities.MetFlagPrefix}{person.Id}");
         string text = met && person.GreetingAgain.Length > 0
             ? person.GreetingAgain
             : person.Greeting.Length > 0
@@ -443,7 +393,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
             person.DialogueEvents > 0
                 ? "Everything this person says from here is a line the game's own table records: the event programs the original runs behind a reply are not executed in this build, so a line that would hand something over or set a task does not."
                 : string.Empty,
-            records: [$"{MetFlagPrefix}{person.Id}"]);
+            records: [$"{MightAndMagic7Identities.MetFlagPrefix}{person.Id}"]);
     }
 
     /// <inheritdoc />
@@ -491,7 +441,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         {
             foreach (PromotionRank rank in ladder.Ladder.GivenBy(context.Speaker))
             {
-                string id = $"{PromotionTopicPrefix}{rank.Id}";
+                string id = $"{MightAndMagic7Identities.PromotionTopicPrefix}{rank.Id}";
                 ConversationAvailability availability = RankOffer(rank, context);
                 if (availability.IsOnOffer && Said(context, id))
                 {
@@ -540,15 +490,15 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
             QuestInstance? instance = journal?.Instance(definition.Id);
             if (instance is null)
             {
-                offers.Add(Errand(definition, $"{ErrandTopicPrefix}{definition.Id}", definition.Name, context));
+                offers.Add(Errand(definition, $"{MightAndMagic7Identities.QuestTopicPrefix}{definition.Id}", definition.Name, context));
                 continue;
             }
 
             if (instance.Stage == QuestStage.Offered)
             {
                 offers.Add(new ConversationOffer(
-                    new ConversationTopic($"{AcceptTopicPrefix}{definition.Id}", definition.Name),
-                    Said(context, $"{AcceptTopicPrefix}{definition.Id}")
+                    new ConversationTopic($"{MightAndMagic7Identities.AcceptTopicPrefix}{definition.Id}", definition.Name),
+                    Said(context, $"{MightAndMagic7Identities.AcceptTopicPrefix}{definition.Id}")
                         ? ConversationAvailability.Withheld("they have already said this in this conversation")
                         : ConversationAvailability.OnOffer));
                 continue;
@@ -557,7 +507,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
             if (instance.Stage == QuestStage.Accepted)
             {
                 offers.Add(new ConversationOffer(
-                    new ConversationTopic($"{TurnInTopicPrefix}{definition.Id}", definition.Name),
+                    new ConversationTopic($"{MightAndMagic7Identities.TurnInTopicPrefix}{definition.Id}", definition.Name),
                     ConversationAvailability.OnOffer));
             }
         }
@@ -569,7 +519,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         if (bounty.Length == 0) return;
         if (journal?.Instance(new QuestId(bounty)) is not null) return;
         if (quests.Definition(new QuestId(bounty)) is not { } hunt) return;
-        offers.Add(Errand(hunt, $"{ErrandTopicPrefix}{hunt.Id}", hunt.Name, context));
+        offers.Add(Errand(hunt, $"{MightAndMagic7Identities.QuestTopicPrefix}{hunt.Id}", hunt.Name, context));
     }
 
     /// <summary>
@@ -636,9 +586,9 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     {
         (string Prefix, string Handoff)[] acts =
         [
-            (TurnInTopicPrefix, QuestHandoffs.TurnIn),
-            (AcceptTopicPrefix, QuestHandoffs.Accept),
-            (ErrandTopicPrefix, QuestHandoffs.Offer),
+            (MightAndMagic7Identities.TurnInTopicPrefix, QuestHandoffs.TurnIn),
+            (MightAndMagic7Identities.AcceptTopicPrefix, QuestHandoffs.Accept),
+            (MightAndMagic7Identities.QuestTopicPrefix, QuestHandoffs.Offer),
         ];
 
         foreach ((string prefix, string handoff) in acts)
@@ -717,7 +667,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         {
             return new ConversationAnswer(
                 MightAndMagic7Standing.Words(party),
-                records: [$"{HeardFlagPrefix}{StandingTopicId}"]);
+                records: [$"{MightAndMagic7Identities.HeardFlagPrefix}{StandingTopicId}"]);
         }
 
         if (string.Equals(topic.Id, CounterTopicId, StringComparison.Ordinal)
@@ -733,9 +683,9 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         // A rank this person gives is handed to the owner that owns ranks rather than answered here, exactly
         // as a counter is handed to the service mechanism: whether the party meets the rank's requirements is
         // judged there, once, and the answer is what both the refusal and the panel read.
-        if (_promotions is { } ladder && topic.Id.StartsWith(PromotionTopicPrefix, StringComparison.Ordinal))
+        if (_promotions is { } ladder && topic.Id.StartsWith(MightAndMagic7Identities.PromotionTopicPrefix, StringComparison.Ordinal))
         {
-            string id = topic.Id[PromotionTopicPrefix.Length..];
+            string id = topic.Id[MightAndMagic7Identities.PromotionTopicPrefix.Length..];
             foreach (PromotionRank rank in ladder.Ladder.GivenBy(context.Speaker))
             {
                 if (!string.Equals(rank.Id, id, StringComparison.Ordinal)) continue;
@@ -769,7 +719,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
                     candidate.TextCount > 1
                         ? $"The game's table records {candidate.TextCount} versions of this answer and the original chooses between them by the state of its event programs, which this build does not run; this is the first."
                         : string.Empty,
-                    records: [$"{HeardFlagPrefix}{candidate.Id}"]);
+                    records: [$"{MightAndMagic7Identities.HeardFlagPrefix}{candidate.Id}"]);
             }
         }
 
