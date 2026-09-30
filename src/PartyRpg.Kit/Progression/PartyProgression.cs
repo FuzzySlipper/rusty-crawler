@@ -148,7 +148,7 @@ public sealed class PartyProgression
             return Record(ProgressionAwardResult.Refused(
                 award.Source,
                 award.Amount,
-                new Refusal("progression-award-empty", $"An award of nothing from '{award.Source}' is not an award.")));
+                new Refusal(ProgressionCodes.ProgressionAwardEmpty, $"An award of nothing from '{award.Source}' is not an award.")));
         }
 
         IReadOnlyList<ProgressionShare> shares = _rule.Divide(new ProgressionDivision(_party, award.Source, award.Amount));
@@ -158,7 +158,7 @@ public sealed class PartyProgression
                 award.Source,
                 award.Amount,
                 new Refusal(
-                    "progression-award-unshared",
+                    ProgressionCodes.ProgressionAwardUnshared,
                     $"Nobody in the party could take the {award.Amount} experience '{award.Source}' was worth.")));
         }
 
@@ -250,7 +250,7 @@ public sealed class PartyProgression
         if (level >= terms.Cap)
         {
             return new Refusal(
-                "progression-training-capped",
+                ProgressionCodes.ProgressionTrainingCapped,
                 string.Create(
                     CultureInfo.InvariantCulture,
                     $"{trainee.Profile.Name} stands at level {level} and {terms.Counter} trains no further than level {terms.Cap}."));
@@ -259,7 +259,7 @@ public sealed class PartyProgression
         long wanted = _rule.ExperienceForLevel(level);
         return trainee.Progression.Experience < wanted
             ? new Refusal(
-                "progression-experience-short",
+                ProgressionCodes.ProgressionExperienceShort,
                 string.Create(
                     CultureInfo.InvariantCulture,
                     $"{trainee.Profile.Name} needs {wanted - trainee.Progression.Experience} more experience to train to level {level + 1}."))
@@ -324,7 +324,7 @@ public sealed class PartyProgression
                 SkillCeiling.None,
                 Points: 0,
                 new Refusal(
-                    "skill-policy-missing",
+                    ProgressionCodes.SkillPolicyMissing,
                     "This session's ruleset states no skill policy, so nothing says how far a skill may grow or what raising one costs."));
         }
 
@@ -338,7 +338,7 @@ public sealed class PartyProgression
                 _skills.Ceiling(character, skill),
                 Points: 0,
                 new Refusal(
-                    "skill-not-learned",
+                    ProgressionCodes.SkillNotLearned,
                     $"{character.Profile.Name} has not learned {Describe(skill)}, so there is nothing to raise; a lesson comes first."));
         }
 
@@ -361,7 +361,7 @@ public sealed class PartyProgression
                 // school, and a character whose own path closed it, are different facts, and the second is one
                 // only the ruleset can word.
                 ceiling.Reason ?? new Refusal(
-                    "skill-not-permitted",
+                    ProgressionCodes.SkillNotPermitted,
                     $"{character.Profile.Name} is a {character.Profile.Class} and this game's table lets that class hold no {Describe(skill)} at all."));
         }
 
@@ -375,7 +375,7 @@ public sealed class PartyProgression
                 ceiling,
                 Points: 0,
                 new Refusal(
-                    "skill-ceiling-reached",
+                    ProgressionCodes.SkillCeilingReached,
                     string.Create(
                         CultureInfo.InvariantCulture,
                         $"{Describe(skill)} stands at level {entry.Level} and {character.Profile.Name}, a {character.Profile.Class} of rank {character.Progression.ClassRank}, may raise it to {ceiling.MaximumLevel} and no further; a promotion raises the ceiling.")));
@@ -393,7 +393,7 @@ public sealed class PartyProgression
                 ceiling,
                 points,
                 new Refusal(
-                    "insufficient-skill-points",
+                    ProgressionCodes.InsufficientSkillPoints,
                     string.Create(
                         CultureInfo.InvariantCulture,
                         $"Raising {Describe(skill)} to level {reached} costs {points} skill point(s) and {character.Progression.SkillPoints} remain unspent.")));
@@ -513,7 +513,7 @@ public sealed class PartyProgression
                 rank: 0,
                 choice: string.Empty,
                 new Refusal(
-                    "promotion-policy-missing",
+                    ProgressionCodes.PromotionPolicyMissing,
                     "This session's ruleset states no ladder of ranks, so nothing says which class leads to which, or what a rank asks for.")));
         }
 
@@ -526,7 +526,7 @@ public sealed class PartyProgression
                 rank: 0,
                 choice: string.Empty,
                 new Refusal(
-                    "promotion-unknown",
+                    ProgressionCodes.PromotionUnknown,
                     $"This game's ladder of ranks carries no '{promotion}', so there is no rank to be given.")));
         }
 
@@ -567,7 +567,7 @@ public sealed class PartyProgression
                 rank.Rank,
                 rank.Choice,
                 new Refusal(
-                    "promotion-class-absent",
+                    ProgressionCodes.PromotionClassAbsent,
                     $"Nobody in the party is a {rank.From}, and the rank of {rank.To} is given to one: the ladder promotes {rank.From} to {rank.To} and no other class.")));
         }
 
@@ -631,7 +631,7 @@ public sealed class PartyProgression
                 [],
                 denied,
                 new Refusal(
-                    "promotion-requirements-unmet",
+                    ProgressionCodes.PromotionRequirementsUnmet,
                     string.Create(
                         CultureInfo.InvariantCulture,
                         $"{first.Name}, a {first.Class} of rank {first.Rank}, is missing {string.Join("; ", first.Missing)}, so the rank of {rank.To} was not given."))));

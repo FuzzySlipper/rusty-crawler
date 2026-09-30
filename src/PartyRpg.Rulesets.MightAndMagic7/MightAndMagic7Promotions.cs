@@ -222,7 +222,7 @@ internal sealed class MightAndMagic7Promotions : IPromotionRule
             if (taken.Closes is not { } left || !string.Equals(left.Value, closed, StringComparison.Ordinal)) return null;
             string opens = taken.Opens is { } opened ? opened.Value : "nothing";
             return new Refusal(
-                "skill-closed-by-path",
+                MightAndMagic7Codes.SkillClosedByPath,
                 string.Create(
                     CultureInfo.InvariantCulture,
                     $"{member.Profile.Name} took the {taken.Choice} path of the {member.Profile.Class}: it takes {opens} and leaves {closed} to the other alternative, so a {member.Profile.Class} may hold no {closed}."));
@@ -247,7 +247,7 @@ internal sealed class MightAndMagic7Promotions : IPromotionRule
 
         if (openings.Count == 0) return null;
         return new Refusal(
-            "skill-closed-by-unchosen-path",
+            MightAndMagic7Codes.SkillClosedByUnchosenPath,
             string.Create(
                 CultureInfo.InvariantCulture,
                 $"{member.Profile.Name} is a {member.Profile.Class} of rank {member.Progression.ClassRank} and has taken neither alternative of the rank above: {string.Join(" or ", openings)} would take {closed}, and until one of them is taken a {member.Profile.Class} may hold none of it."));

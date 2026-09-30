@@ -214,7 +214,7 @@ public sealed class PartyEntity : IDisposable
         if (!item.Custody.IsDetached)
         {
             return ItemAcquisition.Refused(new Refusal(
-                "item-already-held",
+                PartyCodes.ItemAlreadyHeld,
                 $"Item {item.Id} is already held ({item.Custody}), so it was not taken a second time."));
         }
 
@@ -282,7 +282,7 @@ public sealed class PartyEntity : IDisposable
         if (instance is null)
         {
             return EquipmentChange.Refused(new Refusal(
-                "item-not-held",
+                PartyCodes.ItemNotHeld,
                 $"The party holds no item {item}, so nothing was equipped."));
         }
 
@@ -320,7 +320,7 @@ public sealed class PartyEntity : IDisposable
         if (item is null)
         {
             return EquipmentChange.Refused(new Refusal(
-                "slot-empty",
+                PartyCodes.SlotEmpty,
                 $"Member {member} has nothing in '{slot}', so there was nothing to take off."));
         }
 
@@ -361,7 +361,7 @@ public sealed class PartyEntity : IDisposable
         if (item is null)
         {
             return ItemChargeSpend.Refused(new Refusal(
-                "item-not-held",
+                PartyCodes.ItemNotHeld,
                 $"The party holds no item {id}, so no charge was spent."));
         }
 
@@ -369,7 +369,7 @@ public sealed class PartyEntity : IDisposable
         if (left <= 0)
         {
             return ItemChargeSpend.Refused(new Refusal(
-                "item-no-charges",
+                PartyCodes.ItemNoCharges,
                 $"Item {id} holds none of the {capacity} charge(s) its kind states, so nothing was spent and it stays where it lies."));
         }
 

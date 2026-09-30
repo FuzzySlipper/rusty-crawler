@@ -101,12 +101,12 @@ internal sealed class MightAndMagic7Corpses : ICreatureDeathObserver, ICorpseSou
             // The mechanism re-validates what it faces before a use reaches here, so a body that is gone is a
             // creature standing up again between the two reads: a refusal, not a defect.
             return InteractionOutcome.Refused(
-                new Refusal("corpse-gone", $"{target.Name} is not lying there any more: what the party was searching has got up or gone."));
+                new Refusal(MightAndMagic7Codes.CorpseGone, $"{target.Name} is not lying there any more: what the party was searching has got up or gone."));
         }
 
         if (string.Equals(target.State, MightAndMagic7Containers.SearchedState, StringComparison.Ordinal))
         {
-            return InteractionOutcome.Refused(new Refusal("container-emptied", $"{target.Name} has already been emptied."));
+            return InteractionOutcome.Refused(new Refusal(MightAndMagic7Codes.ContainerEmptied, $"{target.Name} has already been emptied."));
         }
 
         LootYield? held = _ground.Held(body);

@@ -216,7 +216,7 @@ internal sealed class MightAndMagic7Rest : IRestRule
             if (roofed)
             {
                 return RestQuote.Refused(new Refusal(
-                    "camp-under-a-roof",
+                    MightAndMagic7Codes.CampUnderARoof,
                     $"The party stands under a roof in {place.Name}: it rests here, or makes camp in the open."));
             }
 
@@ -225,7 +225,7 @@ internal sealed class MightAndMagic7Rest : IRestRule
             if (hostiles > 0)
             {
                 return RestQuote.Refused(new Refusal(
-                    "camp-hostiles-near",
+                    MightAndMagic7Codes.CampHostilesNear,
                     string.Create(
                         CultureInfo.InvariantCulture,
                         $"There are {hostiles} hostile creature(s) within {range:0} of the party, and it will not make camp with them near.")));
@@ -234,7 +234,7 @@ internal sealed class MightAndMagic7Rest : IRestRule
             if (Chance(place) > 0 && _random is null)
             {
                 return RestQuote.Refused(new Refusal(
-                    "camp-risk-unavailable",
+                    MightAndMagic7Codes.CampRiskUnavailable,
                     "Something could find the party in the night here, and this product has no random service to judge the risk with, so the party will not camp."));
             }
 
@@ -248,14 +248,14 @@ internal sealed class MightAndMagic7Rest : IRestRule
         if (!roofed)
         {
             return RestQuote.Refused(new Refusal(
-                "rest-in-the-open",
+                MightAndMagic7Codes.RestInTheOpen,
                 $"The party stands in the open in {place.Name}: it makes camp here, or finds a roof."));
         }
 
         if (Chance(place) > 0 && _random is null)
         {
             return RestQuote.Refused(new Refusal(
-                "rest-risk-unavailable",
+                MightAndMagic7Codes.RestRiskUnavailable,
                 "Something could find the party in the night here, and this product has no random service to judge the risk with, so the party will not sleep."));
         }
 

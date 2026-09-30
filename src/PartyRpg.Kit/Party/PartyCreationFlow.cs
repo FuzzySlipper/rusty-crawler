@@ -139,7 +139,7 @@ public sealed class PartyCreationFlow
         if (index < 0 || index >= _members.Length)
         {
             return new Refusal(
-                "member-unknown",
+                CreationCodes.MemberUnknown,
                 $"Creation makes {_members.Length} member{(_members.Length == 1 ? string.Empty : "s")}, so there is no member {index} to create.");
         }
 
@@ -163,7 +163,7 @@ public sealed class PartyCreationFlow
         if (_options.FindPortrait(portrait) is not { } chosen)
         {
             return new Refusal(
-                "portrait-unknown",
+                CreationCodes.PortraitUnknown,
                 $"'{portrait}' is not a portrait creation offers, so no race is drawn as it; a portrait is chosen from the ones the ruleset lists.");
         }
 
@@ -173,7 +173,7 @@ public sealed class PartyCreationFlow
             // The options refuse this when they are assembled, so reaching it means they were changed behind
             // creation's back; refusing is still better than creating a character with no attribute table.
             return new Refusal(
-                "portrait-race-unknown",
+                CreationCodes.PortraitRaceUnknown,
                 $"Portrait '{chosen.Name}' is drawn as race '{chosen.Race}', which creation does not offer.");
         }
 
@@ -203,7 +203,7 @@ public sealed class PartyCreationFlow
         if (chosen is null)
         {
             return new Refusal(
-                "class-unknown",
+                CreationCodes.ClassUnknown,
                 $"'{characterClass}' is not a class creation offers; a class is chosen from the ones the ruleset lists.");
         }
 
@@ -223,14 +223,14 @@ public sealed class PartyCreationFlow
         if (trimmed.Length == 0)
         {
             return new Refusal(
-                "name-blank",
+                CreationCodes.NameBlank,
                 "A character's name cannot be blank; every member of the party is named before the game starts.");
         }
 
         if (trimmed.Length > _options.NameMaximumLength)
         {
             return new Refusal(
-                "name-too-long",
+                CreationCodes.NameTooLong,
                 $"A name holds at most {_options.NameMaximumLength} characters and '{trimmed}' holds {trimmed.Length}.");
         }
 
@@ -238,7 +238,7 @@ public sealed class PartyCreationFlow
         {
             if (!char.IsControl(letter)) continue;
             return new Refusal(
-                "name-invalid",
+                CreationCodes.NameInvalid,
                 $"'{trimmed}' carries a control character, which a name a player reads cannot carry.");
         }
 
@@ -258,7 +258,7 @@ public sealed class PartyCreationFlow
         if (!range.CanRaise(value))
         {
             return new Refusal(
-                "attribute-ceiling",
+                CreationCodes.AttributeCeiling,
                 $"{range.Name} is already {value} and creation raises it at most to {range.Maximum} for this race.");
         }
 
@@ -267,7 +267,7 @@ public sealed class PartyCreationFlow
         if (cost > remaining)
         {
             return new Refusal(
-                "attribute-pool-short",
+                CreationCodes.AttributePoolShort,
                 $"Raising {range.Name} by {range.RaiseSize(value)} costs {cost} of the {remaining} attribute "
                 + $"point{(remaining == 1 ? string.Empty : "s")} left; the pool of {_options.AttributePool} is spent exactly, never overdrawn.");
         }
@@ -288,7 +288,7 @@ public sealed class PartyCreationFlow
         if (!range.CanLower(value))
         {
             return new Refusal(
-                "attribute-floor",
+                CreationCodes.AttributeFloor,
                 $"{range.Name} is already {value} and creation lowers it at most to {range.Minimum} for this race.");
         }
 
@@ -307,35 +307,35 @@ public sealed class PartyCreationFlow
         if (characterClass is null)
         {
             return new Refusal(
-                "class-unchosen",
+                CreationCodes.ClassUnchosen,
                 "A skill is chosen for a class, and this character has no class yet.");
         }
 
         if (characterClass.FixedSkills.Contains(skill))
         {
             return new Refusal(
-                "skill-fixed",
+                CreationCodes.SkillFixed,
                 $"'{skill}' is one of the skills the {characterClass.Name} class starts with, so it is not a choice; the two chosen skills are picked from the rest.");
         }
 
         if (!characterClass.ChoosableSkills.Contains(skill))
         {
             return new Refusal(
-                "skill-not-legal",
+                CreationCodes.SkillNotLegal,
                 $"'{skill}' is not a skill the {characterClass.Name} class may learn at creation; the class decides which skills may be chosen.");
         }
 
         if (member.ChosenSkills.Contains(skill))
         {
             return new Refusal(
-                "skill-already-chosen",
+                CreationCodes.SkillAlreadyChosen,
                 $"'{skill}' is already one of this character's chosen skills, and a skill is not learned twice.");
         }
 
         if (member.ChosenSkills.Count >= _options.ChosenSkillCount)
         {
             return new Refusal(
-                "skills-complete",
+                CreationCodes.SkillsComplete,
                 $"This character already has its {_options.ChosenSkillCount} chosen skill{(_options.ChosenSkillCount == 1 ? string.Empty : "s")}; "
                 + "remove one before choosing another.");
         }
@@ -354,7 +354,7 @@ public sealed class PartyCreationFlow
         if (!member.ChosenSkills.Remove(skill))
         {
             return new Refusal(
-                "skill-not-chosen",
+                CreationCodes.SkillNotChosen,
                 $"'{skill}' is not one of this character's chosen skills, so there is nothing to take back.");
         }
 
@@ -377,7 +377,7 @@ public sealed class PartyCreationFlow
                 if (member.Portrait is null)
                 {
                     return new Refusal(
-                        "portrait-unchosen",
+                        CreationCodes.PortraitUnchosen,
                         "A character is created with a portrait; choosing one is what decides its race.");
                 }
 
@@ -388,7 +388,7 @@ public sealed class PartyCreationFlow
                 if (member.Class is null)
                 {
                     return new Refusal(
-                        "class-unchosen",
+                        CreationCodes.ClassUnchosen,
                         "A character is created in a class; choosing one is what decides which skills may be chosen.");
                 }
 
@@ -399,7 +399,7 @@ public sealed class PartyCreationFlow
                 if (member.Name.Length == 0)
                 {
                     return new Refusal(
-                        "name-blank",
+                        CreationCodes.NameBlank,
                         "A character's name cannot be blank; every member of the party is named before the game starts.");
                 }
 
@@ -411,7 +411,7 @@ public sealed class PartyCreationFlow
                 if (remaining != 0)
                 {
                     return new Refusal(
-                        "attribute-pool-unspent",
+                        CreationCodes.AttributePoolUnspent,
                         remaining > 0
                             ? $"The pool of {_options.AttributePool} attribute points must be spent exactly and {remaining} remain{(remaining == 1 ? "s" : string.Empty)} unspent."
                             : $"The pool of {_options.AttributePool} attribute points must be spent exactly and this character is {-remaining} past it.");
@@ -425,7 +425,7 @@ public sealed class PartyCreationFlow
                 {
                     int missing = _options.ChosenSkillCount - member.ChosenSkills.Count;
                     return new Refusal(
-                        "skills-unchosen",
+                        CreationCodes.SkillsUnchosen,
                         missing > 0
                             ? $"A character starts with {_options.ChosenSkillCount} chosen skill{(_options.ChosenSkillCount == 1 ? string.Empty : "s")} and {missing} remain{(missing == 1 ? "s" : string.Empty)} unchosen."
                             : $"A character starts with {_options.ChosenSkillCount} chosen skill{(_options.ChosenSkillCount == 1 ? string.Empty : "s")} and this one carries {member.ChosenSkills.Count}.");
@@ -454,7 +454,7 @@ public sealed class PartyCreationFlow
         if (_defaults is null)
         {
             return new Refusal(
-                "no-default",
+                CreationCodes.NoDefault,
                 "This ruleset offers no default party, so there is none to start from.");
         }
 
@@ -576,7 +576,7 @@ public sealed class PartyCreationFlow
             if (distance % size != 0)
             {
                 return new Refusal(
-                    "attribute-unreachable",
+                    CreationCodes.AttributeUnreachable,
                     $"{range.Name} moves {size} at a time from {value}, so a default that asks for {target.Value} asks for a value creation cannot reach.");
             }
 
@@ -616,7 +616,7 @@ public sealed class PartyCreationFlow
         MemberDraft member = _members[_memberIndex];
         string race = member.Race is { } raceId && _options.FindRace(raceId) is { } found ? found.Name : "no race";
         return new Refusal(
-            "attribute-unknown",
+            CreationCodes.AttributeUnknown,
             $"'{attribute}' is not an attribute a {race} has, so there are no points to spend on it.");
     }
 
@@ -662,7 +662,7 @@ public sealed class PartyCreationFlow
         _members[_memberIndex].Step == expected
             ? null
             : new Refusal(
-                "creation-step",
+                CreationCodes.CreationStep,
                 $"{action} happens at the {expected} step, and member {_memberIndex + 1} is at the {_members[_memberIndex].Step} step; creation's steps are taken in order.");
 
     /// <summary>Moves onto the next member that is not finished, leaving the current one when all are.</summary>

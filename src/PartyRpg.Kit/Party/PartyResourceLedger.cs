@@ -186,9 +186,9 @@ public sealed class PartyResourceLedger
     {
         string code = (missingCoins > 0, missingFood > 0) switch
         {
-            (true, true) => "purse-and-larder-short",
-            (true, false) => "purse-short",
-            _ => "larder-short",
+            (true, true) => PartyCodes.PurseAndLarderShort,
+            (true, false) => PartyCodes.PurseShort,
+            _ => PartyCodes.LarderShort,
         };
 
         List<string> missing = [];

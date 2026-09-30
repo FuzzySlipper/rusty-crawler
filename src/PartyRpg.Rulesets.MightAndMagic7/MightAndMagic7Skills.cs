@@ -589,14 +589,14 @@ internal sealed class MightAndMagic7Skills : ISkillRule
         if (!Catalog.Declares(skill))
         {
             return new Refusal(
-                "service-lesson-unknown-skill",
+                MightAndMagic7Codes.ServiceLessonUnknownSkill,
                 $"This game's skill table carries no '{skill}', so no counter can teach it.");
         }
 
         if (!Catalog.Read(skill).IsUsed)
         {
             return new Refusal(
-                "service-lesson-unused-skill",
+                MightAndMagic7Codes.ServiceLessonUnusedSkill,
                 $"{skill} is a row the shipped table carries and this game does not use, so nobody may learn it.");
         }
 
@@ -606,7 +606,7 @@ internal sealed class MightAndMagic7Skills : ISkillRule
             // A closed skill the game can account for carries its own refusal, so a lesson refused for a path
             // the character chose names that choice rather than the class it left them in.
             return ceiling.Reason ?? new Refusal(
-                "service-lesson-class-forbidden",
+                MightAndMagic7Codes.ServiceLessonClassForbidden,
                 string.Create(
                     CultureInfo.InvariantCulture,
                     $"{member.Profile.Name} is a {member.Profile.Class} of rank {member.Progression.ClassRank}, and this game's table lets that class hold no {skill}."));
@@ -615,7 +615,7 @@ internal sealed class MightAndMagic7Skills : ISkillRule
         if (tier > ceiling.MaximumTier.Value)
         {
             return new Refusal(
-                "service-lesson-needs-promotion",
+                MightAndMagic7Codes.ServiceLessonNeedsPromotion,
                 string.Create(
                     CultureInfo.InvariantCulture,
                     $"{ThisRung(tier)} {skill} is beyond what {member.Profile.Name} may reach as a {member.Profile.Class}: {Promotions(member, skill, tier)}"));
@@ -632,14 +632,14 @@ internal sealed class MightAndMagic7Skills : ISkillRule
             // The donor's own answer to a member who skipped the first lesson (src/GUI/UI/NPCTopics.cpp:476,
             // pNPCTopics[131]): you must know the skill before you can become an expert in it.
             return new Refusal(
-                "service-lesson-skill-unknown",
+                MightAndMagic7Codes.ServiceLessonSkillUnknown,
                 $"{member.Profile.Name} has not learned {skill} at all, so there is no rung of it to raise.");
         }
 
         if (standing.Value < tier - 1)
         {
             return new Refusal(
-                "service-lesson-rung-short",
+                MightAndMagic7Codes.ServiceLessonRungShort,
                 string.Create(
                     CultureInfo.InvariantCulture,
                     $"{ThisRung(tier)} {skill} is taught to somebody who already stands at the {TierName(new SkillTier(tier - 1))} rung, and {member.Profile.Name} stands at {TierName(standing)}."));
@@ -649,7 +649,7 @@ internal sealed class MightAndMagic7Skills : ISkillRule
         if (held < wanted)
         {
             return new Refusal(
-                "service-lesson-level-short",
+                MightAndMagic7Codes.ServiceLessonLevelShort,
                 string.Create(
                     CultureInfo.InvariantCulture,
                     $"A teacher takes a member to {ThisRung(tier)} {skill} at skill level {wanted}, and {member.Profile.Name} stands at level {held}."));
@@ -663,7 +663,7 @@ internal sealed class MightAndMagic7Skills : ISkillRule
             if (score < gate.Score)
             {
                 return new Refusal(
-                    "service-lesson-attribute-short",
+                    MightAndMagic7Codes.ServiceLessonAttributeShort,
                     string.Create(
                         CultureInfo.InvariantCulture,
                         $"The master rung of {skill} wants {gate.Attribute} {gate.Score} and {member.Profile.Name} has {score}."));
@@ -676,7 +676,7 @@ internal sealed class MightAndMagic7Skills : ISkillRule
             if (together < CompanionLevel)
             {
                 return new Refusal(
-                    "service-lesson-companion-short",
+                    MightAndMagic7Codes.ServiceLessonCompanionShort,
                     string.Create(
                         CultureInfo.InvariantCulture,
                         $"The grand-master rung of {skill} wants {companion} at level {CompanionLevel}, and {member.Profile.Name} stands at {together}."));

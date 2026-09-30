@@ -554,7 +554,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
             !request.Party.Memberships.Holds(service.Membership))
         {
             return ServiceEligibility.Refused(
-                new Refusal("service-membership-required", $"{service.Describe()} serves members only, and the party carries no membership of {MembershipName(service)}."));
+                new Refusal(MightAndMagic7Codes.ServiceMembershipRequired, $"{service.Describe()} serves members only, and the party carries no membership of {MembershipName(service)}."));
         }
 
         return request.Operation switch
@@ -764,7 +764,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
         if (request.Subject.Item is not { } item) return ServiceEligibility.Allowed;
         if (_journal?.Invoke()?.Needs(item.Definition) is not { } needed) return ServiceEligibility.Allowed;
         return ServiceEligibility.Refused(
-            new Refusal("service-item-needed-by-quest", $"{needed.Statement} is not done yet, so {item.Definition} stays with the party until that errand is finished."));
+            new Refusal(MightAndMagic7Codes.ServiceItemNeededByQuest, $"{needed.Statement} is not done yet, so {item.Definition} stays with the party until that errand is finished."));
     }
 
     /// <summary>Whether the party may be taught the lesson it named.</summary>
@@ -788,7 +788,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
         if (teaching.Kind == ServiceLessonKind.Membership)
         {
             return request.Party.Memberships.Holds(teaching.Subject)
-                ? ServiceEligibility.Refused(new Refusal("service-membership-held", $"The party already carries {teaching.Label}."))
+                ? ServiceEligibility.Refused(new Refusal(MightAndMagic7Codes.ServiceMembershipHeld, $"The party already carries {teaching.Label}."))
                 : ServiceEligibility.Allowed;
         }
 
@@ -803,7 +803,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
         if (level >= teaching.Amount && tier >= teaching.Tier)
         {
             return ServiceEligibility.Refused(
-                new Refusal("service-nothing-to-learn", $"{recipient.Profile.Name} already has {teaching.Label} at level {level} and rung {tier}, which is what the lesson teaches."));
+                new Refusal(MightAndMagic7Codes.ServiceNothingToLearn, $"{recipient.Profile.Name} already has {teaching.Label} at level {level} and rung {tier}, which is what the lesson teaches."));
         }
 
         // Whether this member's class and rank may hold the rung at all — and, when they may not, which
@@ -830,7 +830,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
         return suffers
             ? ServiceEligibility.Allowed
             : ServiceEligibility.Refused(
-                new Refusal("service-nothing-to-heal", $"{patient.Profile.Name} suffers nothing {cure.Name} treats, so there is nothing to heal."));
+                new Refusal(MightAndMagic7Codes.ServiceNothingToHeal, $"{patient.Profile.Name} suffers nothing {cure.Name} treats, so there is nothing to heal."));
     }
 
     /// <summary>
@@ -851,14 +851,14 @@ internal sealed class MightAndMagic7Services : IServiceRule
         if (level >= training.Limit)
         {
             return ServiceEligibility.Refused(
-                new Refusal("service-training-capped", $"{member.Profile.Name} stands at level {level} and {request.Service.Describe()} trains no further than level {training.Limit}."));
+                new Refusal(MightAndMagic7Codes.ServiceTrainingCapped, $"{member.Profile.Name} stands at level {level} and {request.Service.Describe()} trains no further than level {training.Limit}."));
         }
 
         long wanted = MightAndMagic7Progression.Instance.ExperienceForLevel(level);
         return member.Progression.Experience >= wanted
             ? ServiceEligibility.Allowed
             : ServiceEligibility.Refused(
-                new Refusal("service-experience-short", string.Create(
+                new Refusal(MightAndMagic7Codes.ServiceExperienceShort, string.Create(
                     CultureInfo.InvariantCulture,
                     $"{member.Profile.Name} needs {wanted - member.Progression.Experience} more experience to train to level {level + 1}.")));
     }
@@ -875,7 +875,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
         if (request.Subject.Offer is not { } provision) return ServiceEligibility.Allowed;
         return request.Party.Food.Portions >= provision.Amount
             ? ServiceEligibility.Refused(
-                new Refusal("service-packs-full", $"The party already carries {request.Party.Food.Portions} provisions and {request.Service.Describe()} fills packs to {provision.Amount}."))
+                new Refusal(MightAndMagic7Codes.ServicePacksFull, $"The party already carries {request.Party.Food.Portions} provisions and {request.Service.Describe()} fills packs to {provision.Amount}."))
             : ServiceEligibility.Allowed;
     }
 
@@ -891,13 +891,13 @@ internal sealed class MightAndMagic7Services : IServiceRule
         int coins = request.Subject.Count;
         if (coins < 1)
         {
-            return ServiceEligibility.Refused(new Refusal("service-deposit-empty", "A deposit of nothing is not a deposit."));
+            return ServiceEligibility.Refused(new Refusal(MightAndMagic7Codes.ServiceDepositEmpty, "A deposit of nothing is not a deposit."));
         }
 
         return request.Party.Purse.Coins >= coins
             ? ServiceEligibility.Allowed
             : ServiceEligibility.Refused(
-                new Refusal("purse-short", $"The party holds {request.Party.Purse.Coins} coin(s) and asked to leave {coins} with {request.Service.Describe()}."));
+                new Refusal(PartyCodes.PurseShort, $"The party holds {request.Party.Purse.Coins} coin(s) and asked to leave {coins} with {request.Service.Describe()}."));
     }
 
     /// <summary>Whether a bank holds as much as the party asks to take back.</summary>
@@ -908,7 +908,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
         return request.Subject.Count <= held
             ? ServiceEligibility.Allowed
             : ServiceEligibility.Refused(
-                new Refusal("service-holding-short", $"{request.Service.Describe()} holds {held} coin(s) for the party and the party asked for {request.Subject.Count}."));
+                new Refusal(ServiceCodes.ServiceHoldingShort, $"{request.Service.Describe()} holds {held} coin(s) for the party and the party asked for {request.Subject.Count}."));
     }
 
     /// <summary>
@@ -924,7 +924,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
         if (request.Subject.Offer is not { } fare) return ServiceEligibility.Allowed;
         return request.Party.Passages.DaysTo(new PlaceId(fare.Subject)) > 0
             ? ServiceEligibility.Refused(
-                new Refusal("service-passage-held", $"The party already holds a passage to {fare.Name}, so there is no second one to sell."))
+                new Refusal(MightAndMagic7Codes.ServicePassageHeld, $"The party already holds a passage to {fare.Name}, so there is no second one to sell."))
             : ServiceEligibility.Allowed;
     }
 

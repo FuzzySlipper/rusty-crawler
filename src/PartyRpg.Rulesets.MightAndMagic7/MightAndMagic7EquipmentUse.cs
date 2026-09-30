@@ -118,14 +118,14 @@ internal sealed class MightAndMagic7EquipmentUse : IEquipmentUseRule
         if (_skills.Resolve(named) is not { } skill)
         {
             return new Refusal(
-                "equipment-skill-unknown",
+                MightAndMagic7Codes.EquipmentSkillUnknown,
                 $"The item table gives {item.Definition} the skill '{named}', which this game's skill table does not carry, so nobody can be said to have it.");
         }
 
         if (member.Skills.LevelOf(skill) > 0) return null;
 
         return new Refusal(
-            "equipment-skill-missing",
+            MightAndMagic7Codes.EquipmentSkillMissing,
             string.Create(
                 System.Globalization.CultureInfo.InvariantCulture,
                 $"{member.Profile.Name} has not learned {skill}, which is what a {item.Definition} needs before it can be worn or wielded."));

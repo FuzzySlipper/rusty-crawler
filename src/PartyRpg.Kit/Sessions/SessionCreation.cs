@@ -108,7 +108,7 @@ internal sealed class CreationDriver(SessionCreation creation, CreationIntentNam
         if (!creation.Flow.IsComplete)
         {
             Refusal = new Refusal(
-                "creation-incomplete",
+                CreationCodes.CreationIncomplete,
                 $"The party cannot be accepted while creation is unfinished: {Unfinished(creation.Flow)}.");
             return null;
         }
@@ -125,8 +125,8 @@ internal sealed class CreationDriver(SessionCreation creation, CreationIntentNam
             // An accepted party that is not played would be a second party, so both are released here.
             world?.Dispose();
             party?.Dispose();
-            Refusal = new Refusal("creation-refused", $"The finished party was refused: {error.Message}");
-            diagnostics.Refused("creation", "creation-refused", Refusal.Message);
+            Refusal = new Refusal(CreationCodes.CreationRefused, $"The finished party was refused: {error.Message}");
+            diagnostics.Refused("creation", CreationCodes.CreationRefused, Refusal.Message);
             return null;
         }
 
@@ -156,7 +156,7 @@ internal sealed class CreationDriver(SessionCreation creation, CreationIntentNam
     private static Refusal? Missing(CreationCommand command, string choice) =>
         string.IsNullOrWhiteSpace(command.Value)
             ? new Refusal(
-                "creation-choice-missing",
+                CreationCodes.CreationChoiceMissing,
                 $"A {choice} choice arrived naming no {choice}, so there was nothing to choose; a {choice} is named by the id creation offers it under.")
             : null;
 

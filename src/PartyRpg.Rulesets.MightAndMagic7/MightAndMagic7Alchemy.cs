@@ -342,7 +342,7 @@ internal sealed class MightAndMagic7Alchemy : IAlchemyRule, IAlchemyKinds
         ArgumentNullException.ThrowIfNull(mixer);
         if (_mayAct is not { } mayAct || mayAct(mixer)) return null;
         return new Refusal(
-            "mixture-cannot-act",
+            MightAndMagic7Codes.MixtureCannotAct,
             string.Create(CultureInfo.InvariantCulture, $"{mixer.Profile.Name} is in no condition to mix anything."));
     }
 

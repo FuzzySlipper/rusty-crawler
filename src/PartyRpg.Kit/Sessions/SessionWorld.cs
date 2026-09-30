@@ -309,7 +309,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         catch (ArgumentException error)
         {
             return TransitionResult.Refused(kind, Party.Place, Party.PlacePose, new Refusal(
-                "place-refused-arrival",
+                TravelCodes.PlaceRefusedArrival,
                 $"The destination {result.Place} refused the arrival: {error.Message}"));
         }
 
@@ -325,7 +325,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
             Party.Enter(fromPlace, fromPose);
             EnterPlace(fromPlace);
             return TransitionResult.Refused(kind, fromPlace, fromPose, new Refusal(
-                "place-ground-refused",
+                TravelCodes.PlaceGroundRefused,
                 $"The engine would not admit the ground of {result.Place}, so the party stayed where it stood: {error.Message}"));
         }
 
@@ -383,7 +383,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         if (journeys.Count == 0)
         {
             return TransitionResult.Refused(TransitionKind.PaidService, Party.Place, Party.PlacePose, new Refusal(
-                "travel-fare-unrouted",
+                TravelCodes.TravelFareUnrouted,
                 $"No counter in {Graph.Require(Party.Place).Name} sells a passage to {Graph.Require(destination).Name}, so the journey the ticket names cannot be taken from where the party stands."));
         }
 
@@ -397,14 +397,14 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
             if (matching.Count == 0)
             {
                 return TransitionResult.Refused(TransitionKind.PaidService, Party.Place, Party.PlacePose, new Refusal(
-                    "travel-fare-unstated",
+                    TravelCodes.TravelFareUnstated,
                     $"The party's passage to {Graph.Require(destination).Name} takes {days} day(s) and none of the {journeys.Count} counters' journeys from {Graph.Require(Party.Place).Name} takes that long, so the journey the ticket names is not one content states."));
             }
 
             if (matching.Count > 1)
             {
                 return TransitionResult.Refused(TransitionKind.PaidService, Party.Place, Party.PlacePose, new Refusal(
-                    "travel-fare-ambiguous",
+                    TravelCodes.TravelFareAmbiguous,
                     $"{matching.Count} counters' journeys from {Graph.Require(Party.Place).Name} to {Graph.Require(destination).Name} take the {days} day(s) the party's passage names, so which of them was bought cannot be told from the ticket."));
             }
 
