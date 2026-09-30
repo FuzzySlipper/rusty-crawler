@@ -214,76 +214,73 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
 
     /// <summary>Runs one command at the counter the party stands at, and reports what it did.</summary>
     /// <remarks>
-    /// Every operation goes through this one path and in this one order: resolve what the command names,
-    /// judge whether the party may do it, quote what it costs, judge what the party must be able to hold,
-    /// settle the charge whole through the party's one ledger, apply the change, credit what the service
-    /// pays, and report the coins that moved. A refusal at any step leaves the party and the shelves exactly
-    /// as they were.
+    /// <para>
+    /// <b>Everything is judged before anything moves.</b> The command is resolved into what it acts on, the
+    /// counter's hours and eligibility are read, the price is quoted, and the owner the operation reaches —
+    /// progression for a level, rest for a room, the counter's own holding for a withdrawal — is asked whether
+    /// the change can happen. Only then is the charge settled, and the change applied cannot be refused, so a
+    /// party never pays for something it did not receive and nothing is handed back.
+    /// </para>
+    /// <para>
+    /// Which operation a command is, is one entry of <see cref="Operations"/>: its word, the subject it takes,
+    /// what it judges, what it changes, and how it reads.
+    /// </para>
     /// </remarks>
-    /// <param name="command">What the screen asked the service to do.</param>
-    /// <returns>What the command did, or why it did nothing.</returns>
-    /// <exception cref="ArgumentNullException">The command is null.</exception>
+    /// <param name="command">What the screen asked for.</param>
+    /// <returns>What happened, or why nothing did.</returns>
     public ServiceResult Transact(ServiceCommand command)
     {
         ArgumentNullException.ThrowIfNull(command);
-        if (command.Kind == ServiceCommandKind.Leave) return Close();
+        if (command.Kind == ServiceOperationKind.Leave) return Close();
         if (_visit is not { } visit)
         {
             return Refuse(command.Kind, "service-not-open", "The party is not standing at a service counter.");
         }
 
         ServiceDefinition service = visit.Service;
-        if (command.Operation is not { } operation)
+        ServiceOperationKind kind = command.Kind;
+        Operation operation = Operations[kind];
+        if (!service.Offers(kind))
         {
-            return Refuse(command.Kind, "service-operation-unknown", $"Nothing in this build knows what '{command.Kind}' asks a service for.");
-        }
-
-        if (!service.Offers(operation))
-        {
-            return Refuse(command.Kind, "service-operation-unavailable", $"{service.Describe()} does not offer to {Word(command.Kind)}.");
+            return Refuse(kind, "service-operation-unavailable", $"{service.Describe()} does not offer to {operation.Word}.");
         }
 
         // The hours are re-judged on every command, not only when the party walked in: a shop that closed
         // while the party browsed stops serving, and says so, rather than selling on because a screen is
         // open. Locking the door outside hours belongs to the schedule owner that closes doors.
-        if (Closed(service) is { } shut) return Refuse(command.Kind, shut.Code, shut.Message);
+        if (Closed(service) is { } shut) return Refuse(kind, shut.Code, shut.Message);
 
-        if (Resolve(visit, command, out ServiceSubject subject, out PartyMemberId member) is { } missing) return missing;
+        if (Resolve(visit, command, operation, out ServiceSubject subject, out PartyMemberId member) is { } missing) return missing;
+        if (operation.Admit?.Invoke(subject) is { } unfit) return Refuse(kind, unfit.Code, unfit.Message);
 
-        ServiceEligibility eligibility = _rule.Judge(new ServiceEligibilityRequest(service, operation, subject, member, _party, _clock));
-        if (eligibility.Refusal is { } refused) return Refuse(command.Kind, refused.Code, refused.Message);
+        ServiceEligibility eligibility = _rule.Judge(new ServiceEligibilityRequest(service, kind, subject, member, _party, _clock));
+        if (eligibility.Refusal is { } refused) return Refuse(kind, refused.Code, refused.Message);
 
-        ServiceQuote quote = _rule.Quote(new ServiceQuoteRequest(service, operation, subject, member, _party, _clock));
-
-        if ((!quote.Charge.IsFree || !quote.Payment.IsFree) && _accounts is null)
+        ServiceQuote quote = _rule.Quote(new ServiceQuoteRequest(service, kind, subject, member, _party, _clock));
+        if ((!quote.Charge.IsFree || !quote.Payment.IsFree || operation.NeedsAccounts) && _accounts is null)
         {
             return Refuse(
-                command.Kind,
+                kind,
                 "service-no-accounts",
                 $"{service.Describe()} settles in coin and this session holds no party accounts to settle against; the party's purse is the only purse a service may touch.");
         }
 
+        Transaction transaction = new(visit, kind, subject, member, quote);
+        if (operation.Judge?.Invoke(this, transaction) is { } blocked) return Refuse(kind, blocked.Code, blocked.Message);
+
         if (!quote.Charge.IsFree)
         {
             ResourceSettlement settlement = _accounts!.Settle(quote.Charge);
-            if (!settlement.Admitted) return Refuse(command.Kind, settlement.Refusal!.Code, settlement.Refusal.Message);
+            if (!settlement.Admitted) return Refuse(kind, settlement.Refusal!.Code, settlement.Refusal.Message);
         }
 
-        if (Apply(visit, command.Kind, operation, subject, member, quote) is { } failed)
-        {
-            // The change itself refused after the charge had settled, which the judgements above exist to
-            // prevent. The coin goes back rather than the party paying for nothing, and the refusal is
-            // reported with both facts.
-            if (!quote.Charge.IsFree) _accounts!.Credit(quote.Charge);
-            return failed;
-        }
-
+        operation.Apply(this, transaction);
         if (!quote.Payment.IsFree) _accounts!.Credit(quote.Payment);
-        string message = Message(visit, operation, subject, member, quote);
+
         // The result names what the command acted on, so a caller that owns what comes next — the world, which
         // honours a passage the counter has just sold — reads it from the transaction rather than from the
         // screen's own copy of the request.
-        return Record(ServiceResult.Applied(Word(command.Kind), message, subject.Target, quote.Charge.Coins, quote.Payment.Coins, Coins));
+        return Record(ServiceResult.Applied(operation.Word, operation.Describe(this, transaction), subject.Target, quote.Charge.Coins, quote.Payment.Coins, Coins));
     }
 
     /// <summary>What the open service offers the party, or null when no visit is open.</summary>
@@ -492,458 +489,377 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
     }
 
     /// <summary>
-    /// Resolves what a command names into the thing the operation acts on, or the refusal that says it is
-    /// not there.
+    /// Every operation this mechanism carries out, one entry per kind: adding a kind of operation is adding one
+    /// entry here.
     /// </summary>
     /// <remarks>
-    /// Resolving before policy is asked is what separates "the shelves are out of it" from "the party holds
-    /// no such item" and both from "the counter teaches no such lesson": three answers a player acts on
-    /// differently, and three the mechanism can only tell apart by resolving first.
+    /// An entry states the operation's word, which shape of subject it acts on (a shelf's lot, an item the party
+    /// holds, one of the counter's offers of a kind, or a lesson), what it asks of that subject before anything
+    /// else is judged, what it asks of the owner it reaches before the charge is settled, what it changes —
+    /// which cannot be refused, because everything that could refuse it was asked first — and how it reads.
     /// </remarks>
-    private ServiceResult? Resolve(ServiceVisit visit, ServiceCommand command, out ServiceSubject subject, out PartyMemberId member)
+    private static readonly IReadOnlyDictionary<ServiceOperationKind, Operation> Operations = new Dictionary<ServiceOperationKind, Operation>
+    {
+        [ServiceOperationKind.Buy] = new(
+            "buy",
+            SubjectShape.Lot,
+            Apply: static (services, t) => services.ApplyBuy(t),
+            Describe: static (_, t) => $"The party buys {t.Subject.Count} × {t.Subject.Lot!.Label} for {t.Quote.Charge.Coins} coin(s), and {t.Subject.Lot.Count} are left."),
+        [ServiceOperationKind.Sell] = new(
+            "sell",
+            SubjectShape.Item,
+            Admit: static subject => subject.Item!.Custody.IsInSharedInventory
+                ? null
+                // A member's figure is not the party's stock: selling it would take a worn item off a character.
+                : new PartyRefusal("service-item-worn", $"{subject.Item.Definition} is worn by a member, and a shop buys what lies in the party's pack."),
+            Apply: static (services, t) => services.ApplySell(t),
+            Describe: static (_, t) => $"The party sells {t.Subject.Item!.StackCount} × {t.Subject.Item.Definition} for {t.Quote.Payment.Coins} coin(s), and the counter will sell it back."),
+        [ServiceOperationKind.Identify] = new(
+            "identify",
+            SubjectShape.Item,
+            // Charging to identify what is identified would be taking coin for a change that never happened.
+            Admit: static subject => subject.Item!.State.IsIdentified
+                ? new PartyRefusal("service-already-identified", $"{subject.Item.Definition} is identified already, so there is nothing to learn about it.")
+                : null,
+            Apply: static (_, t) => t.Subject.Item!.Identify(),
+            Describe: static (_, t) => $"The party pays {t.Quote.Charge.Coins} coin(s) to identify {t.Subject.Item!.Definition}."),
+        [ServiceOperationKind.Repair] = new(
+            "repair",
+            SubjectShape.Item,
+            Admit: static subject => subject.Item!.State.Damage == 0
+                ? new PartyRefusal("service-not-damaged", $"{subject.Item.Definition} is sound, so there is nothing to repair.")
+                : null,
+            Apply: static (_, t) => t.Subject.Item!.Repair(t.Subject.Item.State.Damage),
+            Describe: static (_, t) => $"The party pays {t.Quote.Charge.Coins} coin(s) to repair {t.Subject.Item!.Definition}."),
+        [ServiceOperationKind.Teach] = new(
+            "teach",
+            SubjectShape.Lesson,
+            Judge: static (services, t) => t.Subject.Lesson!.Kind == ServiceLessonKind.Skill && services._progression is null
+                ? new PartyRefusal("service-no-progression", $"{t.Visit.Service.Describe()} teaches skills and this session holds no progression owner to raise one.")
+                : null,
+            Apply: static (services, t) => services.ApplyTeach(t),
+            Describe: static (services, t) => t.Subject.Lesson!.Kind switch
+            {
+                ServiceLessonKind.Skill => $"{services._party.Member(t.Member).Profile.Name} is taught {t.Subject.Lesson.Label} to level {t.Subject.Lesson.Amount} for {t.Quote.Charge.Coins} coin(s).",
+                ServiceLessonKind.Spell => $"{services._party.Member(t.Member).Profile.Name} learns {t.Subject.Lesson.Label} from the book for {t.Quote.Charge.Coins} coin(s), and the book is used up.",
+                _ => $"The party pays {t.Quote.Charge.Coins} coin(s) for {t.Subject.Lesson.Label}.",
+            }),
+        [ServiceOperationKind.Cure] = new(
+            "cure",
+            SubjectShape.Offer,
+            ServiceOfferKind.Cure,
+            ForMember: true,
+            Apply: static (services, t) => services.ApplyCure(t),
+            Describe: static (services, t) => $"The party pays {t.Quote.Charge.Coins} coin(s) and {services._party.Member(t.Member).Profile.Name} is healed of {string.Join(", ", t.Subject.Offer!.Conditions)}."),
+        [ServiceOperationKind.Train] = new(
+            "train",
+            SubjectShape.Offer,
+            ServiceOfferKind.Training,
+            ForMember: true,
+            // A training step is one level, and the level is the progression owner's to grant; it is asked before
+            // the fee is taken, so no party pays for a level it could not have.
+            Judge: static (services, t) => services._progression is not { } progression
+                ? new PartyRefusal("service-no-progression", $"{t.Visit.Service.Describe()} trains by the level and this session holds no progression owner to grant one.")
+                : progression.JudgeTraining(t.Member, services.Terms(t)),
+            Apply: static (services, t) => Require(services._progression!.Train(t.Member, services.Terms(t)).Refusal, "training"),
+            Describe: static (services, t) => services.TrainMessage(t.Member, t.Quote)),
+        [ServiceOperationKind.Provision] = new(
+            "provision",
+            SubjectShape.Offer,
+            ServiceOfferKind.Provision,
+            NeedsAccounts: true,
+            // Provisions are the party's own account: one purchase fills what the offer states, credited through
+            // the party's one ledger as every other food is.
+            Apply: static (services, t) => services._accounts!.Credit(PartyCost.OfFood(new Provisions(
+                checked(t.Subject.Offer!.Amount * t.Subject.Count),
+                services._party.Food.Unit))),
+            Describe: static (_, t) => $"The party pays {t.Quote.Charge.Coins} coin(s) for {t.Subject.Offer!.Amount * t.Subject.Count} provisions."),
+        [ServiceOperationKind.Stay] = new(
+            "stay",
+            SubjectShape.Offer,
+            ServiceOfferKind.Stay,
+            // A room buys a night, and the night is the rest mechanism's; whether one could be slept is asked of it
+            // before the price is taken.
+            Judge: static (services, t) => services._rest is not { } rest
+                ? new PartyRefusal("service-no-rest", $"{t.Visit.Service.Describe()} rents rooms by the night and this session composes no rest, so no night could be slept.")
+                : rest.JudgeRoom(),
+            Apply: static (services, t) => services.ApplyStay(t),
+            Describe: static (_, t) => $"The party pays {t.Quote.Charge.Coins} coin(s) for {t.Subject.Offer!.Name} and rests for {t.Subject.Offer.Amount} hour(s)."),
+        [ServiceOperationKind.Deposit] = new(
+            "deposit",
+            SubjectShape.Offer,
+            ServiceOfferKind.Holding,
+            Apply: static (services, t) => services._party.Holdings.Hold(Holding(t.Subject), services._party.Holdings.BalanceOf(Holding(t.Subject)) + t.Subject.Count),
+            Describe: static (services, t) => $"The party leaves {t.Subject.Count} coin(s) with {t.Visit.Service.Name} and it now holds {services._party.Holdings.BalanceOf(Holding(t.Subject))}."),
+        [ServiceOperationKind.Withdraw] = new(
+            "withdraw",
+            SubjectShape.Offer,
+            ServiceOfferKind.Holding,
+            Judge: static (services, t) => services._party.Holdings.BalanceOf(Holding(t.Subject)) is var held && held < t.Subject.Count
+                ? new PartyRefusal("service-holding-short", $"{t.Visit.Service.Describe()} holds {held} coin(s) for the party and the party asked for {t.Subject.Count}.")
+                : null,
+            Apply: static (services, t) => services._party.Holdings.Hold(Holding(t.Subject), services._party.Holdings.BalanceOf(Holding(t.Subject)) - t.Subject.Count),
+            Describe: static (services, t) => $"The party takes {t.Subject.Count} coin(s) back from {t.Visit.Service.Name} and it holds {services._party.Holdings.BalanceOf(Holding(t.Subject))}."),
+        [ServiceOperationKind.Fare] = new(
+            "fare",
+            SubjectShape.Offer,
+            ServiceOfferKind.Fare,
+            // The days the journey takes are the offer's own amount, which the travel policy reads to price the
+            // boarding, so the counter that sold the ticket and the road that takes it agree about the journey.
+            Apply: static (services, t) => services._party.Passages.Hold(new PlaceId(t.Subject.Offer!.Subject), t.Subject.Offer.Amount < 1 ? 1 : t.Subject.Offer.Amount),
+            Describe: static (_, t) => $"The party pays {t.Quote.Charge.Coins} coin(s) for a passage to {t.Subject.Offer!.Subject}, which takes {t.Subject.Offer.Amount} day(s)."),
+        [ServiceOperationKind.Leave] = new(
+            "leave",
+            SubjectShape.None,
+            Apply: static (_, _) => throw new InvalidOperationException("Leaving ends the visit; it is not carried out as a transaction."),
+            Describe: static (_, _) => string.Empty),
+    };
+
+    /// <summary>What an operation of a table entry acts on.</summary>
+    private enum SubjectShape
+    {
+        /// <summary>Nothing: leaving names no subject.</summary>
+        None,
+
+        /// <summary>A line on the counter's shelves.</summary>
+        Lot,
+
+        /// <summary>An item the party holds.</summary>
+        Item,
+
+        /// <summary>One of the counter's offers of the operation's own kind.</summary>
+        Offer,
+
+        /// <summary>One of the counter's lessons.</summary>
+        Lesson,
+    }
+
+    /// <summary>One operation of this mechanism, as its table entry states it.</summary>
+    /// <param name="Word">What the projection and the messages call it.</param>
+    /// <param name="Shape">What it acts on.</param>
+    /// <param name="Offer">The kind of offer it takes, when it takes one.</param>
+    /// <param name="ForMember">Whether it acts on one member, which the command names.</param>
+    /// <param name="NeedsAccounts">Whether it moves the party's accounts even when nothing is charged.</param>
+    /// <param name="Admit">What it asks of the subject before anything else is judged.</param>
+    /// <param name="Judge">What it asks of the owner it reaches before the charge is settled.</param>
+    /// <param name="Apply">What it changes, which nothing can refuse by then.</param>
+    /// <param name="Describe">How it reads once done.</param>
+    private sealed record Operation(
+        string Word,
+        SubjectShape Shape,
+        ServiceOfferKind? Offer = null,
+        bool ForMember = false,
+        bool NeedsAccounts = false,
+        Func<ServiceSubject, PartyRefusal?>? Admit = null,
+        Func<PartyServices, Transaction, PartyRefusal?>? Judge = null,
+        Action<PartyServices, Transaction> Apply = null!,
+        Func<PartyServices, Transaction, string> Describe = null!);
+
+    /// <summary>One command judged and priced, which is what an operation applies and describes.</summary>
+    private sealed record Transaction(ServiceVisit Visit, ServiceOperationKind Kind, ServiceSubject Subject, PartyMemberId Member, ServiceQuote Quote);
+
+    /// <summary>
+    /// Resolves what a command names into the thing the operation acts on, or the refusal that says it is not
+    /// there — which separates "the shelves are out of it" from "the party holds no such item" from "the counter
+    /// teaches no such lesson", three answers a player acts on differently.
+    /// </summary>
+    private ServiceResult? Resolve(ServiceVisit visit, ServiceCommand command, Operation operation, out ServiceSubject subject, out PartyMemberId member)
     {
         subject = null!;
         member = default;
         ServiceDefinition service = visit.Service;
+        ServiceOperationKind kind = command.Kind;
 
-        switch (command.Kind)
+        switch (operation.Shape)
         {
-            case ServiceCommandKind.Buy:
+            case SubjectShape.Lot:
             {
                 if (visit.Shelf.Lot(new ServiceLotId(command.Target)) is not { } lot)
                 {
-                    return Refuse(command.Kind, "service-no-such-lot", $"{service.Describe()} has no line '{command.Target}' on its shelves.");
+                    return Refuse(kind, "service-no-such-lot", $"{service.Describe()} has no line '{command.Target}' on its shelves.");
                 }
 
-                if (lot.IsEmpty)
-                {
-                    return Refuse(command.Kind, "service-out-of-stock", $"{service.Describe()} has sold out of {lot.Label}.");
-                }
+                if (lot.IsEmpty) return Refuse(kind, "service-out-of-stock", $"{service.Describe()} has sold out of {lot.Label}.");
 
                 int count = lot.IsSale ? lot.Count : command.Count;
                 if (count < 1)
                 {
-                    return Refuse(command.Kind, "service-count-invalid", $"The party asked for {command.Count} × {lot.Label}, and a purchase is of at least one.");
+                    return Refuse(kind, "service-count-invalid", $"The party asked for {command.Count} × {lot.Label}, and a purchase is of at least one.");
                 }
 
                 if (count > lot.Count)
                 {
-                    return Refuse(
-                        command.Kind,
-                        "service-not-enough-stock",
-                        $"{service.Describe()} holds {lot.Count} × {lot.Label} and the party asked for {count}.");
+                    return Refuse(kind, "service-not-enough-stock", $"{service.Describe()} holds {lot.Count} × {lot.Label} and the party asked for {count}.");
                 }
 
                 subject = ServiceSubject.OfLot(lot, count);
                 return null;
             }
 
-            case ServiceCommandKind.Sell:
-            case ServiceCommandKind.Identify:
-            case ServiceCommandKind.Repair:
+            case SubjectShape.Item:
             {
-                if (!ulong.TryParse(command.Target, NumberStyles.None, CultureInfo.InvariantCulture, out ulong value) || value == 0)
+                if (!ulong.TryParse(command.Target, NumberStyles.None, CultureInfo.InvariantCulture, out ulong value) || value == 0
+                    || _party.FindItem(new ItemInstanceId(value)) is not { } item)
                 {
-                    return Refuse(command.Kind, "service-no-such-item", $"The party holds no item '{command.Target}', so there is nothing to {Word(command.Kind)}.");
-                }
-
-                if (_party.FindItem(new ItemInstanceId(value)) is not { } item)
-                {
-                    return Refuse(command.Kind, "service-no-such-item", $"The party holds no item {value}, so there is nothing to {Word(command.Kind)}.");
-                }
-
-                // A member's figure is not the party's stock: selling it would take a worn item off a
-                // character from a shop screen, so a shop buys only what lies in the shared pack.
-                if (command.Kind == ServiceCommandKind.Sell && !item.Custody.IsInSharedInventory)
-                {
-                    return Refuse(command.Kind, "service-item-worn", $"{item.Definition} is worn by a member, and a shop buys what lies in the party's pack.");
-                }
-
-                // The state an operation changes is the instance's own, so the mechanism knows when there
-                // is nothing to do: charging a fee to identify what is identified would be taking coin for
-                // a change that never happened.
-                if (command.Kind == ServiceCommandKind.Identify && item.State.IsIdentified)
-                {
-                    return Refuse(command.Kind, "service-already-identified", $"{item.Definition} is identified already, so there is nothing to learn about it.");
-                }
-
-                if (command.Kind == ServiceCommandKind.Repair && item.State.Damage == 0)
-                {
-                    return Refuse(command.Kind, "service-not-damaged", $"{item.Definition} is sound, so there is nothing to repair.");
+                    return Refuse(kind, "service-no-such-item", $"The party holds no item '{command.Target}', so there is nothing to {operation.Word}.");
                 }
 
                 subject = ServiceSubject.OfItem(item);
                 return null;
             }
 
-            case ServiceCommandKind.Cure:
-            case ServiceCommandKind.Train:
-            case ServiceCommandKind.Provision:
-            case ServiceCommandKind.Stay:
-            case ServiceCommandKind.Deposit:
-            case ServiceCommandKind.Withdraw:
-            case ServiceCommandKind.Fare:
+            case SubjectShape.Offer:
             {
-                ServiceOfferKind want = OfferKindOf(command.Kind);
-                List<ServiceOffer> offers = [.. _rule.Offers(new ServiceOfferRequest(service, _party, _clock))
-                    .Where(offer => offer.Kind == want)];
-                if (offers.Count == 0)
-                {
-                    return Refuse(command.Kind, "service-no-such-offer", $"{service.Describe()} offers no {Word(command.Kind)}.");
-                }
+                ServiceOfferKind want = operation.Offer!.Value;
+                List<ServiceOffer> offers = [.. _rule.Offers(new ServiceOfferRequest(service, _party, _clock)).Where(offer => offer.Kind == want)];
+                if (offers.Count == 0) return Refuse(kind, "service-no-such-offer", $"{service.Describe()} offers no {operation.Word}.");
 
-                // A command that names nothing takes the counter's one offer of that kind — a hall has one
-                // training step, a bank one account, a tavern one room — and a command that names something
-                // takes the offer that subject identifies. A counter with several offers of a kind and
-                // nothing named is refused rather than guessed at, because taking the wrong room or the wrong
-                // passage would charge the party for a journey it did not ask for.
-                ServiceOffer? chosen = null;
+                // A command that names nothing takes the counter's one offer of that kind — a hall has one training
+                // step, a bank one account, a tavern one room — and one that names something takes the offer that
+                // subject identifies. Several offers and nothing named is refused rather than guessed at, because
+                // taking the wrong room or the wrong passage would charge the party for a journey it did not ask for.
+                ServiceOffer? chosen;
                 if (command.Target.Length == 0)
                 {
                     if (offers.Count > 1)
                     {
-                        return Refuse(
-                            command.Kind,
-                            "service-offer-ambiguous",
-                            $"{service.Describe()} offers {offers.Count} things to {Word(command.Kind)} and the command named none of them.");
+                        return Refuse(kind, "service-offer-ambiguous", $"{service.Describe()} offers {offers.Count} things to {operation.Word} and the command named none of them.");
                     }
 
                     chosen = offers[0];
                 }
                 else
                 {
-                    foreach (ServiceOffer candidate in offers)
-                    {
-                        if (string.Equals(candidate.Target, command.Target, StringComparison.Ordinal))
-                        {
-                            chosen = candidate;
-                            break;
-                        }
-                    }
+                    chosen = offers.FirstOrDefault(candidate => string.Equals(candidate.Target, command.Target, StringComparison.Ordinal));
                 }
 
                 if (chosen is null)
                 {
-                    return Refuse(command.Kind, "service-no-such-offer", $"{service.Describe()} offers nothing called '{command.Target}' to {Word(command.Kind)}.");
+                    return Refuse(kind, "service-no-such-offer", $"{service.Describe()} offers nothing called '{command.Target}' to {operation.Word}.");
                 }
 
-                // Which member an offer goes to is asked only of the offers that act on one: a room, a
-                // provision, and an account are the party's, and a member index for them would be a number
-                // nothing reads.
-                if (want is ServiceOfferKind.Cure or ServiceOfferKind.Training)
+                if (operation.ForMember)
                 {
                     if (command.Member < 0 || command.Member >= _party.Members.Count)
                     {
-                        return Refuse(command.Kind, "service-no-such-member", $"The party has no member {command.Member + 1}, so there is nobody for {chosen.Name} to act on.");
+                        return Refuse(kind, "service-no-such-member", $"The party has no member {command.Member + 1}, so there is nobody for {chosen.Name} to act on.");
                     }
 
                     member = _party.Members[command.Member].Id;
                 }
 
-                // What a deposit or a withdrawal moves is coin, which the command counts; every other offer
-                // acts on as many of itself as the offer states.
-                int count = command.Kind is ServiceCommandKind.Deposit or ServiceCommandKind.Withdraw
-                    ? command.Count
-                    : Math.Max(1, command.Count);
-
+                // What a deposit or a withdrawal moves is coin, which the command counts; every other offer acts on
+                // as many of itself as the command asks, at least one.
+                int count = want == ServiceOfferKind.Holding ? command.Count : Math.Max(1, command.Count);
                 if (count < 1)
                 {
-                    return Refuse(command.Kind, "service-count-invalid", $"The party asked for {count} of {chosen.Name}, and an operation acts on at least one.");
+                    return Refuse(kind, "service-count-invalid", $"The party asked for {count} of {chosen.Name}, and an operation acts on at least one.");
                 }
 
                 subject = ServiceSubject.OfOffer(chosen, count);
                 return null;
             }
 
-            case ServiceCommandKind.Teach:
+            default:
             {
-                // A counter can teach one skill at more than one rung — a guild sells its school's first
-                // lesson and the deeper ones its own house reaches — so a lesson is resolved by its subject
-                // and its rung together. A command that names no rung means the first, which is what every
-                // lesson that teaches a skill rather than a rung of one is.
-                ServiceLesson? lesson = null;
-                foreach (ServiceLesson candidate in _rule.Lessons(new ServiceLessonRequest(service, _party, _clock)))
-                {
-                    if (string.Equals(candidate.Subject, command.Target, StringComparison.Ordinal)
-                        && candidate.Tier == command.Tier)
-                    {
-                        lesson = candidate;
-                        break;
-                    }
-                }
-
-                if (lesson is null)
-                {
-                    return Refuse(command.Kind, "service-no-such-lesson", $"{service.Describe()} teaches no lesson called '{command.Target}'.");
-                }
-
+                // A counter can teach one skill at more than one rung, so a lesson is resolved by its subject and its
+                // rung together; a command that names no rung means the first.
+                ServiceLesson? lesson = _rule.Lessons(new ServiceLessonRequest(service, _party, _clock))
+                    .FirstOrDefault(candidate => string.Equals(candidate.Subject, command.Target, StringComparison.Ordinal) && candidate.Tier == command.Tier);
+                if (lesson is null) return Refuse(kind, "service-no-such-lesson", $"{service.Describe()} teaches no lesson called '{command.Target}'.");
                 if (command.Member < 0 || command.Member >= _party.Members.Count)
                 {
-                    return Refuse(command.Kind, "service-no-such-member", $"The party has no member {command.Member + 1}, so a lesson has nobody to go to.");
+                    return Refuse(kind, "service-no-such-member", $"The party has no member {command.Member + 1}, so a lesson has nobody to go to.");
                 }
 
                 member = _party.Members[command.Member].Id;
                 subject = ServiceSubject.OfLesson(lesson);
                 return null;
             }
-
-            default:
-                return Refuse(command.Kind, "service-operation-unknown", $"Nothing in this build knows what '{command.Kind}' asks a service for.");
         }
     }
 
-    /// <summary>Applies what an operation changes, or returns the refusal that says why it changed nothing.</summary>
-    /// <remarks>
-    /// By the time this runs the eligibility, the price, the pack's room, and the charge have all been
-    /// judged, so a refusal here is a rule that changed its mind between two calls. The caller gives the
-    /// coin back and reports it rather than leaving the party charged for nothing.
-    /// </remarks>
-    private ServiceResult? Apply(
-        ServiceVisit visit,
-        ServiceCommandKind kind,
-        ServiceOperationKind operation,
-        ServiceSubject subject,
-        PartyMemberId member,
-        ServiceQuote quote)
+    /// <summary>Puts a bought line in the party's pack and takes it off the shelf.</summary>
+    private void ApplyBuy(Transaction t)
     {
-        switch (operation)
+        ServiceStockLot lot = t.Subject.Lot!;
+        ItemInstance instance = lot.IsSale ? lot.Instance! : _party.CreateItem(lot.Definition, t.Subject.Count);
+        Require(_party.AcquireItem(instance).Refusal, "a purchase");
+        t.Visit.Shelf.Take(lot, t.Subject.Count);
+    }
+
+    /// <summary>Takes a sold item out of the party and onto the shelf, priced back from what the shop paid.</summary>
+    private void ApplySell(Transaction t)
+    {
+        ItemInstance released = _party.ReleaseItem(t.Subject.Item!.Id)
+            ?? throw new InvalidOperationException($"Item {t.Subject.Item.Id} was resolved and is no longer the party's.");
+        t.Visit.Shelf.Accept(released, t.Quote.Value > 0 ? t.Quote.Value : t.Subject.Value);
+    }
+
+    /// <summary>
+    /// Ends what a cure's own list names and, when the offer restores, fills the patient's pools: a temple's
+    /// healing is one act on the member it was bought for.
+    /// </summary>
+    private void ApplyCure(Transaction t)
+    {
+        ServiceOffer cure = t.Subject.Offer!;
+        PartyMember patient = _party.Member(t.Member);
+        foreach (ConditionId condition in cure.Conditions) patient.Conditions.Clear(condition);
+        if (cure.Amount > 0) patient.Resources.RestoreAll();
+    }
+
+    /// <summary>Sleeps the night a room gives, through the rest mechanism, which already judged it could.</summary>
+    private void ApplyStay(Transaction t)
+    {
+        ServiceOffer room = t.Subject.Offer!;
+        RestResult night = _rest!.SleepInRoom(GameDuration.FromHours(room.Amount < 1 ? 1 : room.Amount), room.Conditions);
+        if (!night.IsApplied) Require(new PartyRefusal(night.Code, night.Message), "a room");
+    }
+
+    /// <summary>
+    /// Teaches what a lesson states: a skill through the progression owner, a spell into the member's own
+    /// spellbook (the book is consumed by the learning), or a membership granted to the band.
+    /// </summary>
+    private void ApplyTeach(Transaction t)
+    {
+        ServiceLesson lesson = t.Subject.Lesson!;
+        switch (lesson.Kind)
         {
-            case ServiceOperationKind.Buy:
-            {
-                ServiceStockLot lot = subject.Lot!;
-                ItemInstance instance = lot.IsSale
-                    ? lot.Instance!
-                    : _party.CreateItem(lot.Definition, subject.Count);
-                ItemAcquisition acquisition = _party.AcquireItem(instance);
-                if (!acquisition.Admitted) return Refuse(kind, acquisition.Refusal!.Code, acquisition.Refusal.Message);
-                visit.Shelf.Take(lot, subject.Count);
-                return null;
-            }
-
-            case ServiceOperationKind.Sell:
-            {
-                ItemInstance? released = _party.ReleaseItem(subject.Item!.Id);
-                if (released is null)
-                {
-                    return Refuse(kind, "service-no-such-item", $"The party holds no item {subject.Item.Id}, so there is nothing to sell.");
-                }
-
-                // What the shop paid is the base it prices the item back from, so a buy-back is priced from
-                // the same number the shop's own margin was taken from rather than from a fresh guess.
-                visit.Shelf.Accept(released, quote.Value > 0 ? quote.Value : subject.Value);
-                return null;
-            }
-
-            case ServiceOperationKind.Identify:
-                subject.Item!.Identify();
-                return null;
-
-            case ServiceOperationKind.Repair:
-                subject.Item!.Repair(subject.Item.State.Damage);
-                return null;
-
-            case ServiceOperationKind.Cure:
-            {
-                // What a cure ends is the offer's own list rather than a condition the mechanism was told:
-                // a temple that claims to remove death and eradication states both, and a stay that clears
-                // what a night clears states that instead. Restoring the body is the same act — a
-                // temple's healing resets the conditions and fills both pools together — so it happens here
-                // rather than being a second operation nothing would offer.
-                ServiceOffer cure = subject.Offer!;
-                PartyMember patient = _party.Member(member);
-                foreach (ConditionId condition in cure.Conditions) patient.Conditions.Clear(condition);
-                if (cure.Amount > 0) patient.Resources.RestoreAll();
-                return null;
-            }
-
-            case ServiceOperationKind.Train:
-            {
-                // A training step is one level, and the level is the progression owner's to grant: the fee
-                // has been settled through the party's one ledger above, the hall's ceiling comes from the
-                // offer content states, and the rise, the growth of the pools, and the skill points the new
-                // level grants all happen in the owner. This mechanism therefore reports the step rather
-                // than performing it, which is what keeps one owner of a level and one owner of the curve.
-                //
-                // Without an owner nothing may rise, and the step is refused by name: charging a fee for a
-                // level no one could grant would be the worst of both.
-                if (_progression is not { } progression)
-                {
-                    return Refuse(
-                        kind,
-                        "service-no-progression",
-                        $"{visit.Service.Describe()} trains by the level and this session holds no progression owner to grant one.");
-                }
-
-                ServiceOffer training = subject.Offer!;
-                ProgressionTrainingResult step = progression.Train(
-                    member,
-                    new ProgressionTrainingTerms(visit.Service.Name, quote.Charge.Coins, training.Limit));
-                if (step.Refusal is { } refused)
-                {
-                    return Refuse(kind, refused.Code, refused.Message);
-                }
-
-                return null;
-            }
-
-            case ServiceOperationKind.Provision:
-            {
-                // Provisions are the party's own account rather than an instance in its pack, so they are
-                // credited where a purchase would mint items: one purchase fills the amount the offer
-                // states, and the count is how many purchases the command asked for.
-                _party.Food.Credit(checked(subject.Offer!.Amount * subject.Count));
-                return null;
-            }
-
-            case ServiceOperationKind.Stay:
-            {
-                // A room buys a night, and the night is the rest mechanism's: the debt of sleep is paid, the
-                // one clock moves by the hours the room gives and tells every owner of game time, and the party
-                // recovers as a completed night recovers it, with the offer's own list of what the room ends
-                // beside it. Without that mechanism there is no night to give, and it is refused by name rather
-                // than slept some second way.
-                if (_rest is not { } rest)
-                {
-                    return Refuse(kind, "service-no-rest", $"{visit.Service.Describe()} rents rooms by the night and this session composes no rest, so no night could be slept.");
-                }
-
-                ServiceOffer room = subject.Offer!;
-                int hours = room.Amount < 1 ? 1 : room.Amount;
-                RestResult night = rest.SleepInRoom(GameDuration.FromHours(hours), room.Conditions);
-                return night.IsApplied ? null : Refuse(kind, night.Code, night.Message);
-            }
-
-            case ServiceOperationKind.Deposit:
-            {
-                // The coins leave the purse through the party's one ledger and are recorded as what the
-                // counter keeps for the party, under the name the offer states. Nothing is minted and nothing
-                // is lost: the purse and the holding are two places the same coins can be, and both are
-                // party state a save carries.
-                string account = Holding(subject);
-                _party.Holdings.Hold(account, _party.Holdings.BalanceOf(account) + subject.Count);
-                return null;
-            }
-
-            case ServiceOperationKind.Withdraw:
-            {
-                int held = _party.Holdings.BalanceOf(Holding(subject));
-                if (held < subject.Count)
-                {
-                    return Refuse(kind, "service-holding-short", $"{visit.Service.Describe()} holds {held} coin(s) for the party and the party asked for {subject.Count}.");
-                }
-
-                _party.Holdings.Hold(Holding(subject), held - subject.Count);
-                return null;
-            }
-
-            case ServiceOperationKind.Fare:
-            {
-                // A fare is party-carried state: the party holds the ticket and the road honours it. The days
-                // the journey takes are the offer's own amount, which is what the travel policy reads to
-                // price the boarding, so the counter that sold the ticket and the road that takes it agree
-                // about the journey without either asking the other.
-                _party.Passages.Hold(new PlaceId(subject.Offer!.Subject), subject.Offer.Amount < 1 ? 1 : subject.Offer.Amount);
-                return null;
-            }
-
-            case ServiceOperationKind.Teach:
-            {
-                ServiceLesson lesson = subject.Lesson!;
-                PartyMember recipient = _party.Member(member);
-                if (lesson.Kind == ServiceLessonKind.Skill)
-                {
-                    // A lesson bought with coin teaches the skill or raises it to the rung and level the
-                    // lesson states, and spends no skill points: the fee is what it cost. How far a class
-                    // may take a skill is the eligibility rule's answer, which judged this already.
-                    SkillId skill = new(lesson.Subject);
-                    if (!recipient.Skills.Knows(skill))
-                    {
-                        recipient.Skills.Learn(skill, new SkillTier(lesson.Tier));
-                    }
-                    else if (recipient.Skills.TierOf(skill).Value < lesson.Tier)
-                    {
-                        recipient.Skills.SetTier(skill, new SkillTier(lesson.Tier));
-                    }
-
-                    int level = recipient.Skills.LevelOf(skill);
-                    if (level < lesson.Amount) recipient.Skills.RaiseLevel(skill, lesson.Amount - level, 0);
-                    return null;
-                }
-
-                if (lesson.Kind == ServiceLessonKind.Spell)
-                {
-                    // A spell book is consumed by the learning rather than carried: the counter sells the
-                    // book, the fee has been settled through the party's one ledger above, and what the
-                    // character takes away is the spell. Whether the member may learn it at all — the
-                    // school's skill, the rung the spell asks for, and a spellbook that does not already
-                    // hold it — is the spell policy's answer, which judged this already, so one writer of a
-                    // spellbook is enough.
-                    recipient.Spells.Learn(new SpellId(lesson.Subject));
-                    return null;
-                }
-
-                // A membership is party-carried state: it is granted to the band, where the access requirement
-                // reads it back and the party's own save records it.
-                _party.Memberships.Grant(lesson.Subject);
-                return null;
-            }
-
+            case ServiceLessonKind.Skill:
+                _progression!.Teach(t.Member, new SkillId(lesson.Subject), new SkillTier(lesson.Tier), lesson.Amount);
+                break;
+            case ServiceLessonKind.Spell:
+                _party.Member(t.Member).Spells.Learn(new SpellId(lesson.Subject));
+                break;
             default:
-                return Refuse(kind, "service-operation-unknown", $"Nothing in this build knows how to carry out {operation}.");
+                _party.Memberships.Grant(lesson.Subject);
+                break;
         }
     }
 
-    /// <summary>What a transaction did, in the words a person reads.</summary>
-    private string Message(
-        ServiceVisit visit,
-        ServiceOperationKind operation,
-        ServiceSubject subject,
-        PartyMemberId member,
-        ServiceQuote quote) => operation switch
+    /// <summary>The terms a counter trains under: its name, its fee, and the ceiling its offer states.</summary>
+    private ProgressionTrainingTerms Terms(Transaction t) => new(t.Visit.Service.Name, t.Quote.Charge.Coins, t.Subject.Offer!.Limit);
+
+    /// <summary>
+    /// Fails loudly when an owner refuses a change it was asked about before the charge: that is a broken
+    /// promise between the judgement and the change, not a refusal a player could meet.
+    /// </summary>
+    private static void Require(PartyRefusal? refusal, string what)
+    {
+        if (refusal is not null)
         {
-            ServiceOperationKind.Buy =>
-                $"The party buys {subject.Count} × {subject.Lot!.Label} for {quote.Charge.Coins} coin(s), and {subject.Lot.Count} are left.",
-            ServiceOperationKind.Sell =>
-                $"The party sells {subject.Item!.StackCount} × {subject.Item.Definition} for {quote.Payment.Coins} coin(s), and the counter will sell it back.",
-            ServiceOperationKind.Identify =>
-                $"The party pays {quote.Charge.Coins} coin(s) to identify {subject.Item!.Definition}.",
-            ServiceOperationKind.Repair =>
-                $"The party pays {quote.Charge.Coins} coin(s) to repair {subject.Item!.Definition}.",
-            ServiceOperationKind.Cure =>
-                $"The party pays {quote.Charge.Coins} coin(s) and {_party.Member(member).Profile.Name} is healed of {string.Join(", ", subject.Offer!.Conditions)}.",
-            ServiceOperationKind.Train => TrainMessage(member, quote),
-            ServiceOperationKind.Provision =>
-                $"The party pays {quote.Charge.Coins} coin(s) for {subject.Offer!.Amount * subject.Count} provisions.",
-            ServiceOperationKind.Stay =>
-                $"The party pays {quote.Charge.Coins} coin(s) for {subject.Offer!.Name} and rests for {subject.Offer.Amount} hour(s).",
-            ServiceOperationKind.Deposit =>
-                $"The party leaves {subject.Count} coin(s) with {visit.Service.Name} and it now holds {_party.Holdings.BalanceOf(Holding(subject))}.",
-            ServiceOperationKind.Withdraw =>
-                $"The party takes {subject.Count} coin(s) back from {visit.Service.Name} and it holds {_party.Holdings.BalanceOf(Holding(subject))}.",
-            ServiceOperationKind.Fare =>
-                $"The party pays {quote.Charge.Coins} coin(s) for a passage to {subject.Offer!.Subject}, which takes {subject.Offer.Amount} day(s).",
-            ServiceOperationKind.Teach when subject.Lesson!.Kind == ServiceLessonKind.Skill =>
-                $"{_party.Member(member).Profile.Name} is taught {subject.Lesson.Label} to level {subject.Lesson.Amount} for {quote.Charge.Coins} coin(s).",
-            ServiceOperationKind.Teach when subject.Lesson!.Kind == ServiceLessonKind.Spell =>
-                $"{_party.Member(member).Profile.Name} learns {subject.Lesson.Label} from the book for {quote.Charge.Coins} coin(s), and the book is used up.",
-            ServiceOperationKind.Teach =>
-                $"The party pays {quote.Charge.Coins} coin(s) for {subject.Lesson!.Label}.",
-            _ => $"The party's transaction at {visit.Service.Name} is done.",
-        };
+            throw new InvalidOperationException($"The owner refused {what} it had already judged possible: {refusal.Code}: {refusal.Message}");
+        }
+    }
 
     /// <summary>Prices one operation through the ruleset's price rule.</summary>
     private ServiceQuote Price(ServiceDefinition service, ServiceOperationKind operation, ServiceSubject subject, PartyMemberId member) =>
         _rule.Quote(new ServiceQuoteRequest(service, operation, subject, member, _party, _clock));
 
     /// <summary>
-    /// What a completed training step reports: the level the member now stands at, what it cost, and the
-    /// skill points the level granted.
+    /// What a completed training step reports: the level the member now stands at, what it cost, and the skill
+    /// points the level granted, read from the member and the owner rather than from the offer's ceiling.
     /// </summary>
-    /// <remarks>
-    /// The level is read from the member rather than from the offer: the offer states the hall's ceiling,
-    /// and a sentence that reported the ceiling as the level reached would tell a player they had risen to
-    /// a level they had not. The points come from the owner's own record of the step it granted.
-    /// </remarks>
     private string TrainMessage(PartyMemberId member, ServiceQuote quote)
     {
         PartyMember trainee = _party.Member(member);
@@ -963,17 +879,14 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
     }
 
     /// <summary>States a refusal, with the purse as the refusal left it.</summary>
-    private ServiceResult Refuse(ServiceCommandKind kind, string code, string message) =>
+    private ServiceResult Refuse(ServiceOperationKind kind, string code, string message) =>
         Record(ServiceResult.Refused(Word(kind), code, message, Coins));
 
     /// <summary>
-    /// Why the counter is not serving now, or null when it is: content's hours read against the one clock.
+    /// Why the counter is not serving now, or null when it is: content's hours read against the one clock. A
+    /// service that states hours and a session with no clock cannot be known to be open, so that is refused by
+    /// name rather than assumed open.
     /// </summary>
-    /// <remarks>
-    /// A service that states hours and a session with no clock cannot be known to be open, so that is
-    /// refused by name rather than assumed open — the same honesty with which a requirement that needs a
-    /// clock is unmet when a ruleset composed none.
-    /// </remarks>
     private PartyRefusal? Closed(ServiceDefinition service)
     {
         if (service.Hours is not { } hours) return null;
@@ -992,66 +905,15 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
                 $"{service.Describe()} is shut: it keeps {hours} and the clock stands at {clock.Now.Hour:00}:00."));
     }
 
-    /// <summary>The word for an operation or command, as the projection and the messages spell it.</summary>
-    private static string Word(ServiceCommandKind kind) => kind switch
-    {
-        ServiceCommandKind.Buy => "buy",
-        ServiceCommandKind.Sell => "sell",
-        ServiceCommandKind.Identify => "identify",
-        ServiceCommandKind.Repair => "repair",
-        ServiceCommandKind.Teach => "teach",
-        ServiceCommandKind.Cure => "cure",
-        ServiceCommandKind.Train => "train",
-        ServiceCommandKind.Provision => "provision",
-        ServiceCommandKind.Stay => "stay",
-        ServiceCommandKind.Deposit => "deposit",
-        ServiceCommandKind.Withdraw => "withdraw",
-        ServiceCommandKind.Fare => "fare",
-        _ => "leave",
-    };
-
     /// <summary>The word for an operation, as the projection and the messages spell it.</summary>
-    private static string Word(ServiceOperationKind operation) => operation switch
-    {
-        ServiceOperationKind.Buy => "buy",
-        ServiceOperationKind.Sell => "sell",
-        ServiceOperationKind.Identify => "identify",
-        ServiceOperationKind.Repair => "repair",
-        ServiceOperationKind.Teach => "teach",
-        ServiceOperationKind.Cure => "cure",
-        ServiceOperationKind.Train => "train",
-        ServiceOperationKind.Provision => "provision",
-        ServiceOperationKind.Stay => "stay",
-        ServiceOperationKind.Deposit => "deposit",
-        ServiceOperationKind.Withdraw => "withdraw",
-        _ => "fare",
-    };
+    private static string Word(ServiceOperationKind kind) => Operations[kind].Word;
 
-    /// <summary>The operation a command is taken as, which is the offer kind it names.</summary>
-    private static ServiceOperationKind OperationOf(ServiceOfferKind kind) => kind switch
-    {
-        ServiceOfferKind.Cure => ServiceOperationKind.Cure,
-        ServiceOfferKind.Training => ServiceOperationKind.Train,
-        ServiceOfferKind.Provision => ServiceOperationKind.Provision,
-        ServiceOfferKind.Stay => ServiceOperationKind.Stay,
-        ServiceOfferKind.Holding => ServiceOperationKind.Deposit,
-        ServiceOfferKind.Fare => ServiceOperationKind.Fare,
-        _ => throw new ArgumentOutOfRangeException(
-            nameof(kind),
-            kind,
-            "A notice is read rather than taken, so it is not the subject of an operation and has no price."),
-    };
-
-    /// <summary>The offer kind a command asks for.</summary>
-    private static ServiceOfferKind OfferKindOf(ServiceCommandKind kind) => kind switch
-    {
-        ServiceCommandKind.Cure => ServiceOfferKind.Cure,
-        ServiceCommandKind.Train => ServiceOfferKind.Training,
-        ServiceCommandKind.Provision => ServiceOfferKind.Provision,
-        ServiceCommandKind.Stay => ServiceOfferKind.Stay,
-        ServiceCommandKind.Deposit or ServiceCommandKind.Withdraw => ServiceOfferKind.Holding,
-        _ => ServiceOfferKind.Fare,
-    };
+    /// <summary>
+    /// The operation an offer is taken as: the first kind, in the enumeration's own order, whose entry takes it —
+    /// so a counter's holding is priced as a deposit.
+    /// </summary>
+    private static ServiceOperationKind OperationOf(ServiceOfferKind kind) =>
+        Operations.Where(entry => entry.Value.Offer == kind).Min(entry => entry.Key);
 
     /// <summary>The name a counter keeps the party's coins under, which is its offer's subject or its name.</summary>
     private static string Holding(ServiceSubject subject) =>

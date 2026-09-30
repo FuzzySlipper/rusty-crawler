@@ -201,33 +201,9 @@ public sealed class PartyProgression
     {
         PartyMember trainee = _party.Member(member);
         int level = trainee.Progression.Level;
-        if (level >= terms.Cap)
+        if (JudgeTraining(member, terms) is { } refused)
         {
-            return RecordTraining(ProgressionTrainingResult.Refused(
-                member,
-                trainee.Profile.Name,
-                level,
-                terms.Counter,
-                new PartyRefusal(
-                    "progression-training-capped",
-                    string.Create(
-                        CultureInfo.InvariantCulture,
-                        $"{trainee.Profile.Name} stands at level {level} and {terms.Counter} trains no further than level {terms.Cap}."))));
-        }
-
-        long wanted = _rule.ExperienceForLevel(level);
-        if (trainee.Progression.Experience < wanted)
-        {
-            return RecordTraining(ProgressionTrainingResult.Refused(
-                member,
-                trainee.Profile.Name,
-                level,
-                terms.Counter,
-                new PartyRefusal(
-                    "progression-experience-short",
-                    string.Create(
-                        CultureInfo.InvariantCulture,
-                        $"{trainee.Profile.Name} needs {wanted - trainee.Progression.Experience} more experience to train to level {level + 1}."))));
+            return RecordTraining(ProgressionTrainingResult.Refused(member, trainee.Profile.Name, level, terms.Counter, refused));
         }
 
         int reached = level + 1;
@@ -254,6 +230,63 @@ public sealed class PartyProgression
             terms.Counter,
             standing,
             Refusal: null));
+    }
+
+    /// <summary>
+    /// Whether a member may train one level under a counter's terms, and why not when they may not, without moving
+    /// anything.
+    /// </summary>
+    /// <remarks>
+    /// It is the judgement <see cref="Train"/> makes, so a counter can ask before it takes the fee and then train
+    /// knowing the step cannot be refused: nothing is charged for a level nobody could grant.
+    /// </remarks>
+    /// <param name="member">The member to train.</param>
+    /// <param name="terms">The counter, what the step costs, and the ceiling it trains to.</param>
+    /// <returns>Why the member may not train, or null when they may.</returns>
+    public PartyRefusal? JudgeTraining(PartyMemberId member, ProgressionTrainingTerms terms)
+    {
+        PartyMember trainee = _party.Member(member);
+        int level = trainee.Progression.Level;
+        if (level >= terms.Cap)
+        {
+            return new PartyRefusal(
+                "progression-training-capped",
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{trainee.Profile.Name} stands at level {level} and {terms.Counter} trains no further than level {terms.Cap}."));
+        }
+
+        long wanted = _rule.ExperienceForLevel(level);
+        return trainee.Progression.Experience < wanted
+            ? new PartyRefusal(
+                "progression-experience-short",
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{trainee.Profile.Name} needs {wanted - trainee.Progression.Experience} more experience to train to level {level + 1}."))
+            : null;
+    }
+
+    /// <summary>
+    /// Teaches a member a skill to a rung and a level, as a lesson bought with coin does: no skill point is spent,
+    /// because the fee was what it cost.
+    /// </summary>
+    /// <remarks>
+    /// This is the one owner of a character's skills, so a lesson a counter sells reaches the skill through here
+    /// rather than beside it. How far a class may take the skill is the counter's eligibility answer, which judged
+    /// the lesson before its fee was settled; a lesson never lowers a rung or a level the member already has.
+    /// </remarks>
+    /// <param name="member">The member taught.</param>
+    /// <param name="skill">The skill.</param>
+    /// <param name="tier">The rung the lesson teaches.</param>
+    /// <param name="level">The level the lesson teaches to.</param>
+    public void Teach(PartyMemberId member, SkillId skill, SkillTier tier, int level)
+    {
+        PartyMember recipient = _party.Member(member);
+        if (!recipient.Skills.Knows(skill)) recipient.Skills.Learn(skill, tier);
+        else if (recipient.Skills.TierOf(skill).Value < tier.Value) recipient.Skills.SetTier(skill, tier);
+
+        int held = recipient.Skills.LevelOf(skill);
+        if (held < level) recipient.Skills.RaiseLevel(skill, level - held, 0);
     }
 
     /// <summary>Reads what raising a member's skill would cost and how far it would reach, without spending.</summary>

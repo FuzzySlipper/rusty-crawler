@@ -125,6 +125,20 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
     }
 
     /// <summary>Runs the one stop workflow over a kind, and answers with what came of it.</summary>
+    /// <summary>Whether a night in a room could be slept here, and why not when it could not, without moving anything.</summary>
+    /// <returns>Why no night could pass, or null when one can.</returns>
+    public PartyRefusal? JudgeRoom()
+    {
+        if (_clock is null)
+        {
+            return new PartyRefusal("rest-no-clock", "The party cannot sleep here: this session keeps no clock, so no night could pass.");
+        }
+
+        return _site is null
+            ? new PartyRefusal("rest-nowhere", "The party cannot sleep here: it stands in no place a room could be in.")
+            : null;
+    }
+
     /// <summary>
     /// Sleeps the party through a night somebody else provides — a room at an inn — and reports it.
     /// </summary>
@@ -142,29 +156,15 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
     /// the night as its own service.
     /// </para>
     /// </remarks>
-    /// <param name="period">How long the night lasts, which the room states.</param>
+    /// <param name="period">How long the night lasts, which the room states; what could refuse it is <see cref="JudgeRoom"/>'s answer, which a counter asks before it takes the price.</param>
     /// <param name="ends">The conditions the room says a night in it ends, beside those every night ends.</param>
     /// <returns>The night, or why the party could not take it.</returns>
     public RestResult SleepInRoom(GameDuration period, IReadOnlyList<ConditionId> ends)
     {
         ArgumentNullException.ThrowIfNull(ends);
-        if (_clock is not { } clock)
-        {
-            return RestResult.Refused(
-                RestKind.Rest,
-                default,
-                "rest-no-clock",
-                "The party cannot sleep here: this session keeps no clock, so no night could pass.");
-        }
-
-        if (_site is not { } site)
-        {
-            return RestResult.Refused(
-                RestKind.Rest,
-                clock.Now,
-                "rest-nowhere",
-                "The party cannot sleep here: it stands in no place a room could be in.");
-        }
+        if (JudgeRoom() is { } refused) return RestResult.Refused(RestKind.Rest, _clock?.Now ?? default, refused.Code, refused.Message);
+        GameClock clock = _clock!;
+        IRestSite site = _site!;
 
         RestRequest request = new(RestKind.Rest, site, _party, clock);
         _fatigue?.Pay();

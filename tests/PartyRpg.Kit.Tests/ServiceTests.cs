@@ -90,11 +90,11 @@ public sealed class ServiceTests
         using PartyEntity party = Party(coins: 500);
         PartyResourceLedger accounts = new(party);
         ShopRule rule = new(Shop());
-        PartyServices services = new(rule, party, accounts, Clock());
+        PartyServices services = new(rule, party, accounts, Clock(), new PartyProgression(new TrainingRule(), party));
         Assert.True(services.Open(rule.Service).IsApplied);
 
         // A purchase takes coin out of the party's one purse and puts the goods in its one shared pack.
-        ServiceResult bought = services.Transact(new ServiceCommand(ServiceCommandKind.Buy, "stock:sword", Count: 2));
+        ServiceResult bought = services.Transact(new ServiceCommand(ServiceOperationKind.Buy, "stock:sword", Count: 2));
         Assert.True(bought.IsApplied);
         Assert.Equal(200, bought.Paid);
         Assert.Equal(0, bought.Earned);
@@ -106,8 +106,8 @@ public sealed class ServiceTests
         ItemInstance first = party.Inventory.Items[0];
         ItemInstance second = party.Inventory.Items[1];
         second.TakeDamage(4);
-        ServiceResult identified = services.Transact(new ServiceCommand(ServiceCommandKind.Identify, first.Id.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
-        ServiceResult repaired = services.Transact(new ServiceCommand(ServiceCommandKind.Repair, second.Id.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        ServiceResult identified = services.Transact(new ServiceCommand(ServiceOperationKind.Identify, first.Id.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        ServiceResult repaired = services.Transact(new ServiceCommand(ServiceOperationKind.Repair, second.Id.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
         Assert.True(first.State.IsIdentified);
         Assert.Equal(0, second.State.Damage);
         Assert.Equal(25, identified.Paid);
@@ -115,13 +115,13 @@ public sealed class ServiceTests
         Assert.Equal(235, party.Purse.Coins);
 
         // A lesson moves the same purse and changes a member's own skill state.
-        ServiceResult taught = services.Transact(new ServiceCommand(ServiceCommandKind.Teach, "Sword", Member: 0));
+        ServiceResult taught = services.Transact(new ServiceCommand(ServiceOperationKind.Teach, "Sword", Member: 0));
         Assert.True(party.Members[0].Skills.Knows(new SkillId("Sword")));
         Assert.Equal(1, party.Members[0].Skills.LevelOf(new SkillId("Sword")));
         Assert.Equal(25, taught.Paid);
 
         // A sale is the earning direction of the same path: the item leaves the shared pack and coin arrives.
-        ServiceResult sold = services.Transact(new ServiceCommand(ServiceCommandKind.Sell, first.Id.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        ServiceResult sold = services.Transact(new ServiceCommand(ServiceOperationKind.Sell, first.Id.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
         Assert.True(sold.IsApplied);
         Assert.Equal(100, sold.Earned);
         Assert.Equal(0, sold.Paid);
@@ -146,7 +146,7 @@ public sealed class ServiceTests
         Assert.True(services.Open(rule.Service).IsApplied);
 
         // Not enough coin: the party's own settlement path names the shortfall, and nothing moved.
-        ServiceResult poor = services.Transact(new ServiceCommand(ServiceCommandKind.Buy, "stock:sword"));
+        ServiceResult poor = services.Transact(new ServiceCommand(ServiceOperationKind.Buy, "stock:sword"));
         Assert.False(poor.IsApplied);
         Assert.Equal("purse-short", poor.Code);
         Assert.Contains("60 coin(s) short", poor.Message, StringComparison.Ordinal);
@@ -154,22 +154,22 @@ public sealed class ServiceTests
         Assert.Equal(2, rule.StockOf(services, "stock:sword"));
 
         // Not eligible: the ruleset's own refusal reaches the player unchanged.
-        ServiceResult ineligible = services.Transact(new ServiceCommand(ServiceCommandKind.Teach, "Sword"));
+        ServiceResult ineligible = services.Transact(new ServiceCommand(ServiceOperationKind.Teach, "Sword"));
         Assert.Equal("test-not-a-member", ineligible.Code);
         Assert.Contains("members only", ineligible.Message, StringComparison.Ordinal);
 
         // Out of stock and no such item are two different answers, which is why the mechanism resolves what
         // a command names before it asks policy anything.
-        ServiceResult missing = services.Transact(new ServiceCommand(ServiceCommandKind.Buy, "stock:potion"));
+        ServiceResult missing = services.Transact(new ServiceCommand(ServiceOperationKind.Buy, "stock:potion"));
         Assert.Equal("service-no-such-lot", missing.Code);
-        ServiceResult absent = services.Transact(new ServiceCommand(ServiceCommandKind.Sell, "99"));
+        ServiceResult absent = services.Transact(new ServiceCommand(ServiceOperationKind.Sell, "99"));
         Assert.Equal("service-no-such-item", absent.Code);
 
         // And an operation the counter does not offer is its own refusal rather than a silent nothing.
         ShopRule closed = new(Shop() with { Operations = [ServiceOperationKind.Buy] });
         PartyServices buying = new(closed, party, accounts, Clock());
         Assert.True(buying.Open(closed.Service).IsApplied);
-        ServiceResult notOffered = buying.Transact(new ServiceCommand(ServiceCommandKind.Sell, "1"));
+        ServiceResult notOffered = buying.Transact(new ServiceCommand(ServiceOperationKind.Sell, "1"));
         Assert.Equal("service-operation-unavailable", notOffered.Code);
     }
 
@@ -209,7 +209,7 @@ public sealed class ServiceTests
         // rather than outliving a deadline the clock stopped holding.
         EffectId ward = new("ward:magic");
         running.Start(ward, magnitude: 5, GameDuration.FromHours(2));
-        Assert.True(services.Transact(new ServiceCommand(ServiceCommandKind.Stay)).IsApplied);
+        Assert.True(services.Transact(new ServiceCommand(ServiceOperationKind.Stay)).IsApplied);
 
         Assert.False(running.IsRunning(ward));
         Assert.False(party.Effects.Has(ward));
@@ -269,7 +269,7 @@ public sealed class ServiceTests
         Assert.Equal(0, browse.Offers.Single(line => line.Offer.Kind == ServiceOfferKind.Notice).Price);
 
         // A cure ends exactly the conditions it claims, restores the body, and moves the one purse.
-        ServiceResult cured = services.Transact(new ServiceCommand(ServiceCommandKind.Cure, "affliction", Member: 0));
+        ServiceResult cured = services.Transact(new ServiceCommand(ServiceOperationKind.Cure, "affliction", Member: 0));
         Assert.True(cured.IsApplied);
         Assert.Equal(20, cured.Paid);
         Assert.False(member.Conditions.Has(new ConditionId("Cursed")));
@@ -280,17 +280,17 @@ public sealed class ServiceTests
         // where it stops: a step past it is refused rather than clamped. The refusal is the owner's, because
         // this counter's own eligibility rule allows everything — a ruleset that judges the hall's ceiling
         // refuses the step before the charge and names it there, which is what this game does.
-        ServiceResult trained = services.Transact(new ServiceCommand(ServiceCommandKind.Train, Member: 0));
+        ServiceResult trained = services.Transact(new ServiceCommand(ServiceOperationKind.Train, Member: 0));
         Assert.True(trained.IsApplied);
         Assert.Equal(2, member.Progression.Level);
-        ServiceResult capped = services.Transact(new ServiceCommand(ServiceCommandKind.Train, Member: 0));
+        ServiceResult capped = services.Transact(new ServiceCommand(ServiceOperationKind.Train, Member: 0));
         Assert.Equal("progression-training-capped", capped.Code);
         Assert.Equal(2, member.Progression.Level);
 
         // Provisions are the party's larder rather than its pack, and the larder is credited where a
         // purchase would mint an item.
         int larder = party.Food.Portions;
-        ServiceResult provisioned = services.Transact(new ServiceCommand(ServiceCommandKind.Provision));
+        ServiceResult provisioned = services.Transact(new ServiceCommand(ServiceOperationKind.Provision));
         Assert.True(provisioned.IsApplied);
         Assert.Equal(larder + 6, party.Food.Portions);
 
@@ -302,7 +302,7 @@ public sealed class ServiceTests
         member.Resources.TakeDamage(4);
         int hour = clock.Now.Hour;
         int portions = party.Food.Portions;
-        ServiceResult lodged = services.Transact(new ServiceCommand(ServiceCommandKind.Stay));
+        ServiceResult lodged = services.Transact(new ServiceCommand(ServiceOperationKind.Stay));
         Assert.True(lodged.IsApplied);
         Assert.Equal((hour + 8) % 24, clock.Now.Hour);
         Assert.False(member.Conditions.Has(new ConditionId("Tired")));
@@ -320,17 +320,17 @@ public sealed class ServiceTests
         // A deposit and a withdrawal move coin between the purse and what the counter keeps, both ways, and
         // a withdrawal of more than is held is refused whole.
         int purse = party.Purse.Coins;
-        ServiceResult deposited = services.Transact(new ServiceCommand(ServiceCommandKind.Deposit, "vault", Count: 300));
+        ServiceResult deposited = services.Transact(new ServiceCommand(ServiceOperationKind.Deposit, "vault", Count: 300));
         Assert.True(deposited.IsApplied);
         Assert.Equal(300, deposited.Paid);
         Assert.Equal(purse - 300, party.Purse.Coins);
         Assert.Equal(300, party.Holdings.BalanceOf("vault"));
 
-        ServiceResult over = services.Transact(new ServiceCommand(ServiceCommandKind.Withdraw, "vault", Count: 500));
+        ServiceResult over = services.Transact(new ServiceCommand(ServiceOperationKind.Withdraw, "vault", Count: 500));
         Assert.Equal("service-holding-short", over.Code);
         Assert.Equal(300, party.Holdings.BalanceOf("vault"));
 
-        ServiceResult withdrew = services.Transact(new ServiceCommand(ServiceCommandKind.Withdraw, "vault", Count: 120));
+        ServiceResult withdrew = services.Transact(new ServiceCommand(ServiceOperationKind.Withdraw, "vault", Count: 120));
         Assert.True(withdrew.IsApplied);
         Assert.Equal(120, withdrew.Earned);
         Assert.Equal(purse - 180, party.Purse.Coins);
@@ -338,7 +338,7 @@ public sealed class ServiceTests
 
         // A passage is what a fare buys: the party holds the ticket and the journey's length, and the
         // counter's own account of it is what the road reads.
-        ServiceResult fare = services.Transact(new ServiceCommand(ServiceCommandKind.Fare, "9"));
+        ServiceResult fare = services.Transact(new ServiceCommand(ServiceOperationKind.Fare, "9"));
         Assert.True(fare.IsApplied);
         Assert.Equal(25, fare.Paid);
         Assert.Equal(3, party.Passages.DaysTo(new PlaceId("9")));
@@ -349,11 +349,11 @@ public sealed class ServiceTests
 
         // A command the counter cannot resolve is its own refusal, and a counter with one offer of a kind
         // takes a command that names nothing.
-        ServiceResult unknown = services.Transact(new ServiceCommand(ServiceCommandKind.Fare, "77"));
+        ServiceResult unknown = services.Transact(new ServiceCommand(ServiceOperationKind.Fare, "77"));
         Assert.Equal("service-no-such-offer", unknown.Code);
-        ServiceResult absent = services.Transact(new ServiceCommand(ServiceCommandKind.Cure, "eradication", Member: 0));
+        ServiceResult absent = services.Transact(new ServiceCommand(ServiceOperationKind.Cure, "eradication", Member: 0));
         Assert.Equal("service-no-such-offer", absent.Code);
-        Assert.Equal("service-no-such-member", services.Transact(new ServiceCommand(ServiceCommandKind.Cure, "affliction", Member: 4)).Code);
+        Assert.Equal("service-no-such-member", services.Transact(new ServiceCommand(ServiceOperationKind.Cure, "affliction", Member: 4)).Code);
 
         // Every result reported the party's own purse, which is the same number the party holds.
         Assert.Equal(party.Purse.Coins, services.Browse() is not null ? party.Purse.Coins : 0);
@@ -377,10 +377,10 @@ public sealed class ServiceTests
 
         PartyServices services = new(rule, party, new PartyResourceLedger(party), Clock());
         Assert.True(services.Open(rule.Service).IsApplied);
-        Assert.Equal("service-offer-ambiguous", services.Transact(new ServiceCommand(ServiceCommandKind.Fare)).Code);
+        Assert.Equal("service-offer-ambiguous", services.Transact(new ServiceCommand(ServiceOperationKind.Fare)).Code);
 
         // Naming one takes that one, and the ticket says which journey it is.
-        Assert.True(services.Transact(new ServiceCommand(ServiceCommandKind.Fare, "9")).IsApplied);
+        Assert.True(services.Transact(new ServiceCommand(ServiceOperationKind.Fare, "9")).IsApplied);
         Assert.Equal(3, party.Passages.DaysTo(new PlaceId("9")));
         Assert.Equal(0, party.Passages.DaysTo(new PlaceId("8")));
         Assert.Equal(75, party.Purse.Coins);
@@ -397,14 +397,14 @@ public sealed class ServiceTests
         Assert.True(services.Open(rule.Service).IsApplied);
 
         Assert.Equal(2, rule.StockOf(services, "stock:sword"));
-        Assert.True(services.Transact(new ServiceCommand(ServiceCommandKind.Buy, "stock:sword")).IsApplied);
+        Assert.True(services.Transact(new ServiceCommand(ServiceOperationKind.Buy, "stock:sword")).IsApplied);
         Assert.Equal(1, rule.StockOf(services, "stock:sword"));
-        Assert.True(services.Transact(new ServiceCommand(ServiceCommandKind.Buy, "stock:sword")).IsApplied);
+        Assert.True(services.Transact(new ServiceCommand(ServiceOperationKind.Buy, "stock:sword")).IsApplied);
 
         // Sold out: the line stays on the shelves at zero so the shop can say so, and the next purchase is
         // refused by name rather than quietly finding nothing.
         Assert.Equal(0, rule.StockOf(services, "stock:sword"));
-        Assert.Equal("service-out-of-stock", services.Transact(new ServiceCommand(ServiceCommandKind.Buy, "stock:sword")).Code);
+        Assert.Equal("service-out-of-stock", services.Transact(new ServiceCommand(ServiceOperationKind.Buy, "stock:sword")).Code);
 
         // Six days on, the schedule has not come due and the shelves are still bare.
         services.Observe(clock.Advance(GameDuration.FromHours(24 * 6)));
@@ -416,7 +416,7 @@ public sealed class ServiceTests
         Assert.Equal(2, rule.StockOf(services, "stock:sword"));
 
         // A second interval is a second restock, so the schedule repeats rather than firing once.
-        Assert.True(services.Transact(new ServiceCommand(ServiceCommandKind.Buy, "stock:sword")).IsApplied);
+        Assert.True(services.Transact(new ServiceCommand(ServiceOperationKind.Buy, "stock:sword")).IsApplied);
         services.Observe(clock.Advance(GameDuration.FromHours(24 * 7)));
         Assert.Equal(2, rule.StockOf(services, "stock:sword"));
     }
@@ -434,7 +434,7 @@ public sealed class ServiceTests
         PartyServices services = new(rule, party, accounts, Clock());
         Assert.True(services.Open(rule.Service).IsApplied);
         Assert.Equal(120, rule.PriceOf(services, "stock:sword"));
-        Assert.Equal(120, services.Transact(new ServiceCommand(ServiceCommandKind.Buy, "stock:sword")).Paid);
+        Assert.Equal(120, services.Transact(new ServiceCommand(ServiceOperationKind.Buy, "stock:sword")).Paid);
 
         // The same service over a party the world thinks better of: nothing about the counter changed.
         using PartyEntity reputable = Party(coins: 1000, reputation: 20);
@@ -479,16 +479,16 @@ public sealed class ServiceTests
                 ? ServiceEligibility.Allowed
                 : ServiceEligibility.Refused("service-membership-required", "The Fire Guild serves members only.");
         };
-        PartyServices services = new(rule, party, accounts, Clock());
+        PartyServices services = new(rule, party, accounts, Clock(), new PartyProgression(new TrainingRule(), party));
         Assert.True(services.Open(rule.Service).IsApplied);
 
         // Not a member: the gated operation names what stopped it, and the membership lesson does not.
-        Assert.Equal("service-membership-required", services.Transact(new ServiceCommand(ServiceCommandKind.Teach, "Fire")).Code);
+        Assert.Equal("service-membership-required", services.Transact(new ServiceCommand(ServiceOperationKind.Teach, "Fire")).Code);
         Assert.Empty(services.Browse()!.Memberships);
 
         // Buying the membership is one lesson, and it grants the band the membership: the same state the
         // access check reads, so buying one and being one cannot disagree.
-        ServiceResult joined = services.Transact(new ServiceCommand(ServiceCommandKind.Teach, "guild.fire"));
+        ServiceResult joined = services.Transact(new ServiceCommand(ServiceOperationKind.Teach, "guild.fire"));
         Assert.True(joined.IsApplied);
         Assert.True(party.Memberships.Holds("guild.fire"));
         Assert.Equal(50, joined.Paid);
@@ -497,7 +497,7 @@ public sealed class ServiceTests
         Assert.Equal(["guild.fire"], services.Browse()!.Memberships);
 
         // Now the same operation the guild refused is served.
-        Assert.True(services.Transact(new ServiceCommand(ServiceCommandKind.Teach, "Fire")).IsApplied);
+        Assert.True(services.Transact(new ServiceCommand(ServiceOperationKind.Teach, "Fire")).IsApplied);
         Assert.Equal(1, party.Members[0].Skills.LevelOf(new SkillId("Fire")));
     }
 

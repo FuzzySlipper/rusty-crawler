@@ -125,7 +125,7 @@ public sealed class ProgressionTests
 
         // A member short of the experience a level takes is refused by name before anything is charged: the
         // curve the owner reads and the sentence it refuses with are one answer.
-        ServiceResult short_ = hall.Transact(new ServiceCommand(ServiceCommandKind.Train, Member: 0));
+        ServiceResult short_ = hall.Transact(new ServiceCommand(ServiceOperationKind.Train, Member: 0));
         Assert.Equal("service-experience-short", short_.Code);
         Assert.Equal(purse, party.Purse.Coins);
         Assert.Equal(1, trainee.Progression.Level);
@@ -134,7 +134,7 @@ public sealed class ProgressionTests
         // spent: a level is bought with what has been earned, not with the earning.
         progression.Award(new PartyExperienceAward("kill", 2000));
         long earned = trainee.Progression.Experience;
-        ServiceResult trained = hall.Transact(new ServiceCommand(ServiceCommandKind.Train, Member: 0));
+        ServiceResult trained = hall.Transact(new ServiceCommand(ServiceOperationKind.Train, Member: 0));
         Assert.True(trained.IsApplied);
         Assert.Equal(30, trained.Paid);
         Assert.Equal(purse - 30, party.Purse.Coins);
@@ -145,7 +145,7 @@ public sealed class ProgressionTests
         // for it is refused by the settlement path, which names the shortfall, and the level does not rise.
         Assert.True(party.Purse.TryDebit(party.Purse.Coins));
         progression.Award(new PartyExperienceAward("quest", 2000));
-        ServiceResult broke = hall.Transact(new ServiceCommand(ServiceCommandKind.Train, Member: 0));
+        ServiceResult broke = hall.Transact(new ServiceCommand(ServiceOperationKind.Train, Member: 0));
         Assert.Equal("purse-short", broke.Code);
         Assert.Equal(2, trainee.Progression.Level);
     }
@@ -163,10 +163,10 @@ public sealed class ProgressionTests
         // when the member already stands there, and the owner refuses it too when it is asked directly,
         // which is what keeps a level from being granted past the hall that sold it.
         progression.Award(new PartyExperienceAward("kill", 2000));
-        Assert.True(hall.Transact(new ServiceCommand(ServiceCommandKind.Train, Member: 0)).IsApplied);
+        Assert.True(hall.Transact(new ServiceCommand(ServiceOperationKind.Train, Member: 0)).IsApplied);
         Assert.Equal(2, trainee.Progression.Level);
 
-        ServiceResult capped = hall.Transact(new ServiceCommand(ServiceCommandKind.Train, Member: 0));
+        ServiceResult capped = hall.Transact(new ServiceCommand(ServiceOperationKind.Train, Member: 0));
         Assert.False(capped.IsApplied);
         Assert.Equal("progression-training-capped", capped.Code);
         Assert.Equal(2, trainee.Progression.Level);
@@ -193,7 +193,7 @@ public sealed class ProgressionTests
         Assert.Equal(20, trainee.Resources.SpellPoints.Maximum);
 
         progression.Award(new PartyExperienceAward("kill", 2000));
-        ServiceResult trained = hall.Transact(new ServiceCommand(ServiceCommandKind.Train, Member: 0));
+        ServiceResult trained = hall.Transact(new ServiceCommand(ServiceOperationKind.Train, Member: 0));
         Assert.True(trained.IsApplied);
 
         // The growth the rule answers is what the member's pools grow by, and the points it answers are what
@@ -266,10 +266,9 @@ public sealed class ProgressionTests
             "GrantSkillPoints(",
             "SpendSkillPoints(",
             "SetClassRank(",
-            // What a skill entry itself holds is moved by the same owner and by the counter's own lesson: a
-            // raise spends points through the owner, and a lesson bought with coin grants a skill, moves its
-            // rung, and sets the first level it is learned at. Those two are the only writers of an entry, so
-            // a third one anywhere in the product fails here rather than becoming a skill that grew unasked.
+            // What a skill entry itself holds is moved by the same owner: a raise spends points through it, and a
+            // lesson a counter sells for coin reaches the skill through its Teach. A second writer anywhere in
+            // the product fails here rather than becoming a skill that grew unasked.
             "RaiseLevel(",
             "SetTier(",
             // A rank and the class that goes with it are one fact, so the promotion that moves the rank moves
@@ -294,14 +293,12 @@ public sealed class ProgressionTests
         // promotion rewrites it through that owner's own operation, and the file that defines the operation
         // names it by definition rather than by use.
         string profile = Path.Combine(root, "src", "PartyRpg.Kit", "Party", "CharacterProfile.cs");
-        string lessons = Path.Combine(root, "src", "PartyRpg.Kit", "Services", "PartyServices.cs");
         string entries = Path.Combine(root, "src", "PartyRpg.Kit", "Party", "CharacterSkills.cs");
         foreach (string source in sources)
         {
             if (source.StartsWith(owner, StringComparison.Ordinal)
                 || string.Equals(source, fields, StringComparison.Ordinal)
                 || string.Equals(source, profile, StringComparison.Ordinal)
-                || string.Equals(source, lessons, StringComparison.Ordinal)
                 || string.Equals(source, entries, StringComparison.Ordinal))
             {
                 continue;

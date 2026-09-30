@@ -59,4 +59,7 @@ public enum ServiceOperationKind
 
     /// <summary>Pay for a passage to a place, which the party then holds as a ticket.</summary>
     Fare,
+
+    /// <summary>End the visit. No counter offers it; it is how a party walks away from any of them.</summary>
+    Leave,
 }

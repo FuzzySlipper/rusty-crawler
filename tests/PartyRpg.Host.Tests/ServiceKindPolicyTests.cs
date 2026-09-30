@@ -61,7 +61,7 @@ public sealed class ServiceKindPolicyTests
 
         // Buying one takes it off the shelf and out of the one purse.
         int before = fixture.Party.Purse.Coins;
-        ServiceResult bought = shop.Transact(new ServiceCommand(ServiceCommandKind.Buy, "stock:10"));
+        ServiceResult bought = shop.Transact(new ServiceCommand(ServiceOperationKind.Buy, "stock:10"));
         Assert.True(bought.IsApplied);
         Assert.Equal(75, bought.Paid);
         Assert.Equal(before - 75, fixture.Party.Purse.Coins);
@@ -103,21 +103,21 @@ public sealed class ServiceKindPolicyTests
 
         // The book is behind the membership, which is party-carried state the counter sells: a spell bought
         // before joining is refused by name and moves nothing.
-        ServiceResult refused = guild.Transact(new ServiceCommand(ServiceCommandKind.Teach, "2", Member: 0));
+        ServiceResult refused = guild.Transact(new ServiceCommand(ServiceOperationKind.Teach, "2", Member: 0));
         Assert.Equal("service-membership-required", refused.Code);
         Assert.Equal(fixture.Party.Purse.Coins, fixture.FixtureCoins);
 
-        ServiceResult joined = guild.Transact(new ServiceCommand(ServiceCommandKind.Teach, "guild.fire", Member: 0));
+        ServiceResult joined = guild.Transact(new ServiceCommand(ServiceOperationKind.Teach, "guild.fire", Member: 0));
         Assert.True(joined.IsApplied);
         Assert.True(fixture.Party.Memberships.Holds("guild.fire"));
         Assert.Equal(1000, joined.Paid);
 
         // A member is served, and the same membership is not sold twice.
-        Assert.Equal("service-membership-held", guild.Transact(new ServiceCommand(ServiceCommandKind.Teach, "guild.fire", Member: 0)).Code);
+        Assert.Equal("service-membership-held", guild.Transact(new ServiceCommand(ServiceOperationKind.Teach, "guild.fire", Member: 0)).Code);
 
         // No school skill, no spell: the learning rule is this game's magic's own answer, read by the
         // counter rather than restated here, and it names the school the member has never learned.
-        ServiceResult unskilled = guild.Transact(new ServiceCommand(ServiceCommandKind.Teach, "2", Member: 0));
+        ServiceResult unskilled = guild.Transact(new ServiceCommand(ServiceOperationKind.Teach, "2", Member: 0));
         Assert.Equal("spell-school-missing", unskilled.Code);
 
         // An adept guild of the same school reaches the expert tier, which is the rung gate rather than a
@@ -151,7 +151,7 @@ public sealed class ServiceKindPolicyTests
         Assert.Contains(MightAndMagic7Conditions.PoisonWeak, healing.Conditions);
         Assert.DoesNotContain(MightAndMagic7Conditions.Dead, healing.Conditions);
 
-        ServiceResult cured = temple.Transact(new ServiceCommand(ServiceCommandKind.Cure, "affliction", Member: 0));
+        ServiceResult cured = temple.Transact(new ServiceCommand(ServiceOperationKind.Cure, "affliction", Member: 0));
         Assert.True(cured.IsApplied);
         Assert.Equal(4, cured.Paid);
         Assert.False(member.Conditions.Has(MightAndMagic7Conditions.Cursed));
@@ -165,13 +165,13 @@ public sealed class ServiceKindPolicyTests
             fixture.Rule.Offers(new ServiceOfferRequest(temple.Current!, fixture.Party, fixture.Clock)),
             offer => offer.Subject == "death");
         Assert.Contains(MightAndMagic7Conditions.Dead, raise.Conditions);
-        ServiceResult raised = temple.Transact(new ServiceCommand(ServiceCommandKind.Cure, "death", Member: 0));
+        ServiceResult raised = temple.Transact(new ServiceCommand(ServiceOperationKind.Cure, "death", Member: 0));
         Assert.True(raised.IsApplied);
         Assert.Equal(10, raised.Paid);
         Assert.False(member.Conditions.Has(MightAndMagic7Conditions.Dead));
 
         member.Conditions.Apply(new ActiveCondition(MightAndMagic7Conditions.Eradicated));
-        ServiceResult restored = temple.Transact(new ServiceCommand(ServiceCommandKind.Cure, "eradication", Member: 0));
+        ServiceResult restored = temple.Transact(new ServiceCommand(ServiceOperationKind.Cure, "eradication", Member: 0));
         Assert.True(restored.IsApplied);
         Assert.Equal(20, restored.Paid);
         Assert.False(member.Conditions.Has(MightAndMagic7Conditions.Eradicated));
@@ -184,7 +184,7 @@ public sealed class ServiceKindPolicyTests
         Assert.Contains(lessons, lesson => lesson.Subject == "Merchant");
         // A party that suffers nothing is offered no cure at all, so the command names an offer the counter
         // does not have rather than being charged for a healing nobody needs.
-        Assert.Equal("service-no-such-offer", temple.Transact(new ServiceCommand(ServiceCommandKind.Cure, "affliction", Member: 0)).Code);
+        Assert.Equal("service-no-such-offer", temple.Transact(new ServiceCommand(ServiceOperationKind.Cure, "affliction", Member: 0)).Code);
     }
 
     [Fact]
@@ -199,7 +199,7 @@ public sealed class ServiceKindPolicyTests
             fixture.Rule.Offers(new ServiceOfferRequest(hall.Current!, fixture.Party, fixture.Clock)),
             offer => offer.Kind == ServiceOfferKind.Training);
         Assert.Equal(5, training.Limit);
-        Assert.Equal("service-experience-short", hall.Transact(new ServiceCommand(ServiceCommandKind.Train, Member: 0)).Code);
+        Assert.Equal("service-experience-short", hall.Transact(new ServiceCommand(ServiceOperationKind.Train, Member: 0)).Code);
         Assert.Equal(1, member.Progression.Level);
 
         // With the experience banked, one step is one level at the donor's own fee, and the purse pays it.
@@ -208,7 +208,7 @@ public sealed class ServiceKindPolicyTests
         Assert.True(earned.IsAwarded);
         Assert.Equal(100_000, member.Progression.Experience);
         int before = fixture.Party.Purse.Coins;
-        ServiceResult trained = hall.Transact(new ServiceCommand(ServiceCommandKind.Train, Member: 0));
+        ServiceResult trained = hall.Transact(new ServiceCommand(ServiceOperationKind.Train, Member: 0));
         Assert.True(trained.IsApplied);
         Assert.Equal(2, member.Progression.Level);
         Assert.Equal(10, trained.Paid);
@@ -225,11 +225,11 @@ public sealed class ServiceKindPolicyTests
         // further, and the refusal names the ceiling rather than clamping the member.
         for (int level = 2; level < 5; level++)
         {
-            Assert.True(hall.Transact(new ServiceCommand(ServiceCommandKind.Train, Member: 0)).IsApplied);
+            Assert.True(hall.Transact(new ServiceCommand(ServiceOperationKind.Train, Member: 0)).IsApplied);
         }
 
         Assert.Equal(5, member.Progression.Level);
-        ServiceResult capped = hall.Transact(new ServiceCommand(ServiceCommandKind.Train, Member: 0));
+        ServiceResult capped = hall.Transact(new ServiceCommand(ServiceOperationKind.Train, Member: 0));
         Assert.Equal("service-training-capped", capped.Code);
         Assert.Equal(5, member.Progression.Level);
 
@@ -240,7 +240,7 @@ public sealed class ServiceKindPolicyTests
             fixture.Rule.Offers(new ServiceOfferRequest(uncapped.Current!, fixture.Party, fixture.Clock)),
             offer => offer.Kind == ServiceOfferKind.Training);
         Assert.Equal(MightAndMagic7Services.UncappedTraining, open.Limit);
-        Assert.True(uncapped.Transact(new ServiceCommand(ServiceCommandKind.Train, Member: 0)).IsApplied);
+        Assert.True(uncapped.Transact(new ServiceCommand(ServiceOperationKind.Train, Member: 0)).IsApplied);
         Assert.Equal(6, member.Progression.Level);
     }
 
@@ -256,12 +256,12 @@ public sealed class ServiceKindPolicyTests
         ServiceOffer provisions = Assert.Single(offers, offer => offer.Kind == ServiceOfferKind.Provision);
         Assert.Equal(6, provisions.Amount);
         int larder = fixture.Party.Food.Portions;
-        ServiceResult filled = tavern.Transact(new ServiceCommand(ServiceCommandKind.Provision));
+        ServiceResult filled = tavern.Transact(new ServiceCommand(ServiceOperationKind.Provision));
         Assert.True(filled.IsApplied);
         Assert.Equal(larder + 6, fixture.Party.Food.Portions);
 
         // A party whose packs are as full as the tavern fills them is refused rather than sold more.
-        Assert.Equal("service-packs-full", tavern.Transact(new ServiceCommand(ServiceCommandKind.Provision)).Code);
+        Assert.Equal("service-packs-full", tavern.Transact(new ServiceCommand(ServiceOperationKind.Provision)).Code);
 
         // A room is a night: game time passes on the session's one clock, the party rests, and what a night
         // ends is the room's own list rather than everything a temple would cure.
@@ -270,7 +270,7 @@ public sealed class ServiceKindPolicyTests
         member.Conditions.Apply(new ActiveCondition(MightAndMagic7Conditions.DiseaseWeak));
         member.Resources.TakeDamage(4);
         long taken = fixture.Clock.Elapsed.Milliseconds;
-        ServiceResult lodged = tavern.Transact(new ServiceCommand(ServiceCommandKind.Stay));
+        ServiceResult lodged = tavern.Transact(new ServiceCommand(ServiceOperationKind.Stay));
         Assert.True(lodged.IsApplied);
         Assert.True(fixture.Clock.Elapsed.Milliseconds > taken);
         Assert.False(member.Conditions.Has(MightAndMagic7Conditions.Weak));
@@ -293,15 +293,15 @@ public sealed class ServiceKindPolicyTests
 
         // A deposit leaves the purse through the party's one settlement path and is kept as party-carried
         // state under the bank's own name.
-        ServiceResult deposited = bank.Transact(new ServiceCommand(ServiceCommandKind.Deposit, MightAndMagic7Services.BankHolding, Count: 200));
+        ServiceResult deposited = bank.Transact(new ServiceCommand(ServiceOperationKind.Deposit, MightAndMagic7Services.BankHolding, Count: 200));
         Assert.True(deposited.IsApplied);
         Assert.Equal(200, deposited.Paid);
         Assert.Equal(purse - 200, fixture.Party.Purse.Coins);
         Assert.Equal(200, fixture.Party.Holdings.BalanceOf(MightAndMagic7Services.BankHolding));
 
         // More than is held is refused whole, and what is held comes back.
-        Assert.Equal("service-holding-short", bank.Transact(new ServiceCommand(ServiceCommandKind.Withdraw, MightAndMagic7Services.BankHolding, Count: 500)).Code);
-        ServiceResult withdrew = bank.Transact(new ServiceCommand(ServiceCommandKind.Withdraw, MightAndMagic7Services.BankHolding, Count: 150));
+        Assert.Equal("service-holding-short", bank.Transact(new ServiceCommand(ServiceOperationKind.Withdraw, MightAndMagic7Services.BankHolding, Count: 500)).Code);
+        ServiceResult withdrew = bank.Transact(new ServiceCommand(ServiceOperationKind.Withdraw, MightAndMagic7Services.BankHolding, Count: 150));
         Assert.True(withdrew.IsApplied);
         Assert.Equal(150, withdrew.Earned);
         Assert.Equal(purse - 50, fixture.Party.Purse.Coins);
@@ -309,7 +309,7 @@ public sealed class ServiceKindPolicyTests
 
         // A deposit the party cannot afford is refused by name before anything moves, and the state is shown
         // on the counter's own surface so a player reads the balance before deciding.
-        Assert.Equal("purse-short", bank.Transact(new ServiceCommand(ServiceCommandKind.Deposit, MightAndMagic7Services.BankHolding, Count: 100_000)).Code);
+        Assert.Equal("purse-short", bank.Transact(new ServiceCommand(ServiceOperationKind.Deposit, MightAndMagic7Services.BankHolding, Count: 100_000)).Code);
         Assert.Contains(
             fixture.Rule.Access(new ServiceAccessRequest(bank.Current!, fixture.Party)),
             line => line.Contains("50 coin", StringComparison.Ordinal));
@@ -338,7 +338,7 @@ public sealed class ServiceKindPolicyTests
 
         // Buying the fare puts the passage on the party, and the road then quotes the journey the counter
         // sold: the days are the route's own and the fare already paid for the board.
-        ServiceResult bought = stable.Transact(new ServiceCommand(ServiceCommandKind.Fare, "2"));
+        ServiceResult bought = stable.Transact(new ServiceCommand(ServiceOperationKind.Fare, "2"));
         Assert.True(bought.IsApplied);
         Assert.Equal(50, bought.Paid);
         Assert.Equal(2, fixture.Party.Passages.DaysTo(new PlaceId("2")));

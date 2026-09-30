@@ -73,7 +73,7 @@ public sealed class MagicTests
         PartyServices counter = Serve(rule, party, accounts);
 
         int before = party.Purse.Coins;
-        ServiceResult learned = counter.Transact(new ServiceCommand(ServiceCommandKind.Teach, FireBolt.Value, Member: 0));
+        ServiceResult learned = counter.Transact(new ServiceCommand(ServiceOperationKind.Teach, FireBolt.Value, Member: 0));
 
         Assert.True(learned.IsApplied, learned.Message);
         Assert.Equal(50, learned.Paid);
@@ -87,7 +87,7 @@ public sealed class MagicTests
 
         // The same lesson is not sold twice, and the refusal is the rule's own answer rather than the
         // mechanism inventing one.
-        ServiceResult again = counter.Transact(new ServiceCommand(ServiceCommandKind.Teach, FireBolt.Value, Member: 0));
+        ServiceResult again = counter.Transact(new ServiceCommand(ServiceOperationKind.Teach, FireBolt.Value, Member: 0));
         Assert.False(again.IsApplied);
         Assert.Equal("spell-already-known", again.Code);
         Assert.Equal(before - 50, party.Purse.Coins);
@@ -102,7 +102,7 @@ public sealed class MagicTests
         PartyServices counter = Serve(rule, party, accounts);
 
         int before = party.Purse.Coins;
-        ServiceResult refused = counter.Transact(new ServiceCommand(ServiceCommandKind.Teach, FireBolt.Value, Member: 0));
+        ServiceResult refused = counter.Transact(new ServiceCommand(ServiceOperationKind.Teach, FireBolt.Value, Member: 0));
 
         Assert.False(refused.IsApplied);
         Assert.Equal("spell-school-missing", refused.Code);

@@ -127,7 +127,7 @@ public sealed class ServiceInput
     {
         ArgumentNullException.ThrowIfNull(inbox);
         List<ServiceCommand> commands = [];
-        if (inbox.Activated(_leave)) commands.Add(ServiceCommand.Of(ServiceCommandKind.Leave));
+        if (inbox.Activated(_leave)) commands.Add(ServiceCommand.Of(ServiceOperationKind.Leave));
         foreach (UiAction action in inbox.Take(_actionContract, Known.Contains))
         {
             if (Command(action) is { } command) commands.Add(command);
@@ -141,18 +141,18 @@ public sealed class ServiceInput
         string target = action.Text("target");
         return action.Name switch
         {
-            ServiceActions.Buy => new ServiceCommand(ServiceCommandKind.Buy, target, Count: action.Int("count") ?? 1),
-            ServiceActions.Sell => new ServiceCommand(ServiceCommandKind.Sell, target),
-            ServiceActions.Identify => new ServiceCommand(ServiceCommandKind.Identify, target),
-            ServiceActions.Repair => new ServiceCommand(ServiceCommandKind.Repair, target),
+            ServiceActions.Buy => new ServiceCommand(ServiceOperationKind.Buy, target, Count: action.Int("count") ?? 1),
+            ServiceActions.Sell => new ServiceCommand(ServiceOperationKind.Sell, target),
+            ServiceActions.Identify => new ServiceCommand(ServiceOperationKind.Identify, target),
+            ServiceActions.Repair => new ServiceCommand(ServiceOperationKind.Repair, target),
             ServiceActions.Teach => new ServiceCommand(
-                ServiceCommandKind.Teach,
+                ServiceOperationKind.Teach,
                 target,
                 action.Int("member") ?? 0,
                 Tier: action.Int("tier") is { } tier && tier > 0 ? tier : 1),
-            ServiceActions.Train => new ServiceCommand(ServiceCommandKind.Train, Member: action.Int("member") ?? 0),
-            ServiceActions.Fare => new ServiceCommand(ServiceCommandKind.Fare, target),
-            ServiceActions.Leave => ServiceCommand.Of(ServiceCommandKind.Leave),
+            ServiceActions.Train => new ServiceCommand(ServiceOperationKind.Train, Member: action.Int("member") ?? 0),
+            ServiceActions.Fare => new ServiceCommand(ServiceOperationKind.Fare, target),
+            ServiceActions.Leave => ServiceCommand.Of(ServiceOperationKind.Leave),
             _ => null,
         };
     }
