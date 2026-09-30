@@ -47,13 +47,22 @@ public sealed class PlacePopulation : IDisposable
     /// <param name="places">The world's places, which carry the placements.</param>
     /// <param name="states">The world's per-place state, which says whether a place has been emptied.</param>
     /// <param name="composer">What each placed entity is composed with beyond its placement, when a game states more.</param>
-    public PlacePopulation(PlaceGraph places, PlaceStateLedger states, IPlacementComposer? composer = null)
+    /// <param name="expansion">
+    /// What a placement that states a request — "some creatures of this encounter" — resolves to, as the game
+    /// decides. It is asked while the placements are read, and it answers the same on every read, so every
+    /// visit, every restore, and every load populates a place with the same entities.
+    /// </param>
+    public PlacePopulation(
+        PlaceGraph places,
+        PlaceStateLedger states,
+        IPlacementComposer? composer = null,
+        IPlacementExpansion? expansion = null)
     {
         _composer = composer;
         ArgumentNullException.ThrowIfNull(places);
         ArgumentNullException.ThrowIfNull(states);
         _places = states;
-        _content = PlacePopulationContent.Read(places);
+        _content = PlacePopulationContent.Read(places, expansion);
     }
 
     /// <summary>

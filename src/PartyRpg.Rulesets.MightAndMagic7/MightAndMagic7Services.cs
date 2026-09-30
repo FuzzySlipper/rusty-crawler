@@ -249,6 +249,10 @@ internal sealed class MightAndMagic7Services : IServiceRule
         HashSet<string> skills = [.. catalog.Entries(SkillDefinitionKind).Select(entry => entry.Entry.Id)];
         IReadOnlyList<ItemFacts> catalogue = [.. items.Values.OrderBy(item => item.Id)];
 
+        // How long a passage takes is this game's travel rule over the same tuning the world graph is built
+        // with, so the days a counter writes on a ticket are the days the world matches the boarding by.
+        MightAndMagic7FareDays fareDays = MightAndMagic7FareDays.Read(catalog);
+
         // A guild's rung is its position among the guilds of its own school in the order the table states
         // them, which is what the shipped names spell out (initiate, adept, master, paramount) and what this
         // reads without depending on the words.
@@ -280,7 +284,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
                 continue;
             }
 
-            if (Definition(entry, id, items, catalogue, skills, guildRungs, facts, Defect) is { } service) services[id] = service;
+            if (Definition(entry, id, items, catalogue, skills, guildRungs, facts, fareDays, Defect) is { } service) services[id] = service;
         }
 
         Dictionary<(string Place, string Placement), ServiceHousehold> households = ValidatePlacements(catalog, services, issues);
@@ -1167,6 +1171,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
         HashSet<string> skills,
         Dictionary<string, int> guildRungs,
         Dictionary<ServiceId, ServiceFacts> facts,
+        MightAndMagic7FareDays fareDays,
         Action<string, string> defect)
     {
         string kind = entry.GetString("kind");
@@ -1259,7 +1264,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
         List<ServiceLesson> lessons = Lessons(entry, id, defect);
         string membership = entry.GetString("membership");
         int mapId = entry.GetInt32("mapId") ?? 0;
-        List<ServiceFare> fares = Fares(entry, id, defect);
+        List<ServiceFare> fares = Fares(entry, id, fareDays, defect);
 
         // A guild's membership and its rung are this game's answers about the kind, so they are supplied
         // when content states neither: the effect the access check reads and the lessons sell, and the rung
@@ -1462,21 +1467,33 @@ internal sealed class MightAndMagic7Services : IServiceRule
     }
 
     /// <summary>Reads the passages a counter sells, which the import wrote from the routes it derived.</summary>
-    private static List<ServiceFare> Fares(ContentEntry entry, ServiceId id, Action<string, string> defect)
+    /// <remarks>
+    /// Content states where a passage goes and which network it runs on; how many days it takes is this game's
+    /// travel rule's answer for that network, so a retune changes the ticket without an import.
+    /// </remarks>
+    private static List<ServiceFare> Fares(ContentEntry entry, ServiceId id, MightAndMagic7FareDays fareDays, Action<string, string> defect)
     {
         List<ServiceFare> fares = [];
         foreach (JsonElement element in entry.GetArray("fares"))
         {
             string place = ContentEntry.ReadId(element, "place");
             string name = ContentEntry.ReadString(element, "name");
-            double? days = ContentEntry.ReadDouble(element, "days");
+            string route = ContentEntry.ReadString(element, PlaceGraphLoader.FareRouteField);
             if (place.Length == 0)
             {
                 defect("service-fare-destination-missing", $"a passage of service '{id}' names no destination place, so there is nowhere it could take the party.");
                 continue;
             }
 
-            fares.Add(new ServiceFare(place, name.Length == 0 ? place : name, days is { } length && length >= 1 ? (int)length : 1));
+            if (fareDays.DaysOf(route) is not { } days)
+            {
+                defect(
+                    "service-fare-route-unknown",
+                    $"a passage of service '{id}' to '{place}' runs on route '{route}', which is neither '{MightAndMagic7FareDays.CoachRoute}' nor '{MightAndMagic7FareDays.BoatRoute}', so nothing states how long the journey takes.");
+                continue;
+            }
+
+            fares.Add(new ServiceFare(place, name.Length == 0 ? place : name, days));
         }
 
         return fares;

@@ -186,7 +186,7 @@ internal static partial class PackWriter
         PlaceContainerSummary containers,
         PlaceServiceSummary services,
         PlacePeopleSummary people,
-        PlaceCreatureSummary creatures)
+        PlaceEncounterSummary encounters)
     {
         // A place's counters and households are emitted into its placements, which is where the interaction
         // mechanism reads them from: a service placement is a target the party talks to, and nothing about
@@ -211,11 +211,11 @@ internal static partial class PackWriter
             .GroupBy(placement => placement.PlaceId)
             .ToDictionary(group => group.Key, group => (IReadOnlyList<PlacePersonPlacement>)[.. group]);
 
-        // A creature stands where its spawn record put it, so the creatures are grouped by the place their
+        // An encounter stands where its spawn record is, so the encounters are grouped by the place their
         // map's records belong to and written into that place's own placements.
-        Dictionary<int, IReadOnlyList<PlaceCreaturePlacement>> creaturesByPlace = creatures.Placements
+        Dictionary<int, IReadOnlyList<PlaceEncounterPlacement>> encountersByPlace = encounters.Placements
             .GroupBy(placement => placement.PlaceId)
-            .ToDictionary(group => group.Key, group => (IReadOnlyList<PlaceCreaturePlacement>)[.. group]);
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<PlaceEncounterPlacement>)[.. group]);
         List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];
         foreach (MapStatsRecord map in tables.Maps.Maps)
         {
@@ -263,7 +263,7 @@ internal static partial class PackWriter
                     WritePlacements(
                         writer,
                         decoded,
-                        creaturesByPlace.GetValueOrDefault(map.Id, []),
+                        encountersByPlace.GetValueOrDefault(map.Id, []),
                         containersByPlace.GetValueOrDefault(map.Id, []),
                         objectsByPlace.GetValueOrDefault(map.Id, []),
                         countersByPlace.GetValueOrDefault(map.Id, []),
@@ -316,7 +316,7 @@ internal static partial class PackWriter
     private static void WritePlacements(
         Utf8JsonWriter writer,
         DecodedMap map,
-        IReadOnlyList<PlaceCreaturePlacement> creatures,
+        IReadOnlyList<PlaceEncounterPlacement> encounters,
         IReadOnlyList<PlaceChestPlacement> containers,
         IReadOnlyList<PlaceSpriteObjectPlacement> spriteObjects,
         IReadOnlyList<PlaceServicePlacement> counters,
@@ -336,29 +336,37 @@ internal static partial class PackWriter
             }));
         }
 
-        // Every creature stands on the spawn record that asked for it, and carries the row it is under the
-        // field name the ruleset reads a creature from. Everything else on the placement is the reading
-        // that produced it — the encounter slot, the grade, the count, and the record's own group and
-        // radius — so an operator can follow a creature back to the record and see why it is there.
-        foreach (PlaceCreaturePlacement creature in creatures)
+        // Every encounter stands on the spawn record that asked for it and states what the record asks for,
+        // not what answers it: the slot, the grade when the record fixes one, the slot's kind, difficulty and
+        // count range, and the monster rows the kind's graded variants are. Which grade and how many are the
+        // ruleset's to decide when it populates the place, so no creature is written here.
+        foreach (PlaceEncounterPlacement encounter in encounters)
         {
-            placements.Add(new Placement("monster", creature.SourceSpawnIndex, "spawnPoints", new PlacementPoint(creature.X, creature.Y, creature.Z), (int)creature.Yaw, "spawn-record", field =>
+            placements.Add(new Placement("encounter", encounter.SourceSpawnIndex, "spawnPoints", new PlacementPoint(encounter.X, encounter.Y, encounter.Z), null, null, field =>
             {
-                field.WriteNumber("monster", creature.MonsterId);
-                field.WriteString("monsterName", creature.MonsterName);
-                field.WriteNumber("spawn", creature.SourceSpawnIndex);
-                field.WriteNumber("encounter", creature.EncounterIndex);
-                field.WriteString("grade", creature.Grade);
-                field.WriteNumber("quantity", creature.Quantity);
-                field.WriteNumber("unit", creature.Unit);
-                field.WriteNumber("group", creature.Group);
-                field.WriteNumber("attributes", creature.Attributes);
-                field.WriteNumber("radius", creature.Radius);
-                field.WriteNumber("appearMin", creature.AppearMin);
-                field.WriteNumber("appearMax", creature.AppearMax);
-                field.WriteString("gradeSource", creature.GradeDrawn ? "difficulty-odds" : "spawn-slot");
-                field.WriteString("countSource", creature.CountDrawn ? "slot-range-floor" : "spawn-slot");
-            }, creature.PlacementId));
+                field.WriteNumber("spawn", encounter.SourceSpawnIndex);
+                field.WriteNumber("encounter", encounter.EncounterIndex);
+                field.WriteNumber("slot", encounter.Slot);
+                if (encounter.FixedGrade is { } grade) field.WriteString("grade", grade);
+                field.WriteString("monsterKind", encounter.MonsterKind);
+                field.WriteNumber("difficulty", encounter.Difficulty);
+                field.WriteNumber("appearMin", encounter.AppearMin);
+                field.WriteNumber("appearMax", encounter.AppearMax);
+                field.WriteNumber("group", encounter.Group);
+                field.WriteNumber("attributes", encounter.Attributes);
+                field.WriteNumber("radius", encounter.Radius);
+                field.WriteStartArray("variants");
+                foreach (PlaceEncounterVariant variant in encounter.Variants)
+                {
+                    field.WriteStartObject();
+                    field.WriteString("grade", variant.Grade);
+                    field.WriteNumber("monster", variant.MonsterId);
+                    field.WriteString("monsterName", variant.MonsterName);
+                    field.WriteEndObject();
+                }
+
+                field.WriteEndArray();
+            }, encounter.PlacementId));
         }
 
         foreach (MapDecoration decoration in map.Decorations)
@@ -731,7 +739,7 @@ internal static partial class PackWriter
                 writer.WriteNumber("step", 0);
                 writer.WriteString("program", "2DEvents.txt");
                 writer.WriteBoolean("fare", true);
-                writer.WriteNumber("days", fare.Days);
+                writer.WriteString("route", fare.Route);
             }));
         }
 

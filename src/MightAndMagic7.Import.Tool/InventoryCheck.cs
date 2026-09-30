@@ -15,7 +15,7 @@ namespace MightAndMagic7.Import.Tool;
 /// </summary>
 /// <remarks>
 /// The tables and the place graph are read directly. The figures the repository's documents state about
-/// what an import yields — maps, places, arrivals, doors, containers, people, creatures, reaches, geometry,
+/// what an import yields — maps, places, arrivals, doors, containers, people, encounters, reaches, geometry,
 /// media — are read from the same decoding and the same writers an operator runs, into a scratch directory
 /// this check deletes, so a figure stated in prose is a figure something asserts.
 /// </remarks>
@@ -131,9 +131,15 @@ internal static class InventoryCheck
             Check(failures, "people inside buildings", 247, written.People.ResidentCount);
             Check(failures, "buildings with people", 195, written.People.HouseholdCount);
             Check(failures, "unreachable residents", 2, written.People.UnreachableResidentCount);
-            Check(failures, "creatures", 1900, written.Creatures.CreatureCount);
-            Check(failures, "places with creatures", 72, written.Creatures.PopulatedPlaces);
-            Check(failures, "spawn records refused", 43, written.Creatures.Refusals.Count);
+            // The importer emits encounters, not creatures: which grade and how many are the ruleset's draw when
+            // a place is populated. The creature figures are therefore the range the slots' own counts allow —
+            // the floor, which is every random slot at its fewest, and the ceiling, every one at its most.
+            Check(failures, "encounters", 1800, written.Encounters.EncounterCount);
+            Check(failures, "places with encounters", 72, written.Encounters.PopulatedPlaces);
+            Check(failures, "spawn records refused", 43, written.Encounters.Refusals.Count);
+            Check(failures, "encounters with a drawn grade", 1775, written.Encounters.DrawnGrades);
+            Check(failures, "fewest creatures the encounters resolve to", 1900, written.Encounters.FewestCreatures);
+            Check(failures, "most creatures the encounters resolve to", 5458, written.Encounters.MostCreatures);
 
             MediaManifest media = MediaExtractor.Extract(install, Path.Combine(scratch, "media"));
             Check(failures, "media emitted", 17681, media.EmittedCount);

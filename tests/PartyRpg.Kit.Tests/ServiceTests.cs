@@ -989,7 +989,7 @@ public sealed class ServiceTests
                     .Add("packs/world/links.json", Links()),
                 Layout).RequireValid();
 
-            PlaceGraph graph = PlaceGraphLoader.Load(catalog);
+            PlaceGraph graph = PlaceGraphLoader.Load(catalog, ThreeDayCoach.Instance);
             GameClock clock = Clock();
             PartyPoseOwner owner = new(
                 // The party faces the counter, which stands along the place's second ground axis.
@@ -1037,7 +1037,7 @@ public sealed class ServiceTests
         private static string Links() =>
             """
             { "documentId": "links", "definitionKind": "travel-link", "entries": [
-              { "id": "coach", "fromPlace": "1", "toPlace": "2", "entryPoint": "Door", "fare": true, "days": 3 } ] }
+              { "id": "coach", "fromPlace": "1", "toPlace": "2", "entryPoint": "Door", "fare": true, "route": "coach" } ] }
             """;
 
         private static string Manifest() =>
@@ -1053,6 +1053,14 @@ public sealed class ServiceTests
               ]
             }
             """;
+    }
+
+    /// <summary>The test's own fare rule: the one coach route this suite's content names takes three days.</summary>
+    private sealed class ThreeDayCoach : IFareDurationRule
+    {
+        internal static readonly ThreeDayCoach Instance = new();
+
+        public int? DaysOf(PlaceId? from, PlaceId to, string route) => route == "coach" ? 3 : null;
     }
 
     /// <summary>The interaction answers a test's world uses: a counter is a person to talk to.</summary>

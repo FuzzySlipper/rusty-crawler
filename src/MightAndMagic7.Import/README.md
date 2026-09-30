@@ -50,6 +50,10 @@ Boundary rules:
 - Donor projects are behavior and format references, not an architecture
   template. Do not port their C++ topology, build system, or globals, and do not
   translate donor code (see the licensing posture in `AGENTS.md`).
+- No gameplay choice is made here. A spawn record is written as the `encounter` it asks for — its slot,
+  the grade only when the record fixes one, the slot's kind, difficulty and count range, and the variant
+  rows — and the ruleset draws the grade and the count when a place is populated; a fare is written with
+  the route it runs on (`coach` or `boat`) and no days, which are the ruleset's tuned travel rule.
 
 Implemented: every container decodes, the rule tables, event programs, place graph,
 the treasure rules the tables carry (a monster row's own cell read into a drop chance, coin dice, a

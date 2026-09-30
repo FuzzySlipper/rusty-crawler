@@ -218,6 +218,72 @@ public sealed class PlacePopulationTests
     }
 
     [Fact]
+    public void A_placement_the_game_expands_stands_as_what_it_resolves_to_for_every_reader_and_every_visit()
+    {
+        (PlaceGraph graph, PlaceStateLedger ledger) = World();
+        SpawnPairs expansion = new();
+        using PlacePopulation population = new(graph, ledger, composer: null, expansion);
+
+        // Each spawn mark resolves to two placements of its own; nothing else is touched, and the answer stands
+        // in the mark's stead for the population and for a reader of the place's placements alike.
+        IReadOnlyList<PlacePopulationEntity> entities = population.Step(Home, []);
+        Assert.Equal(
+            [
+                new PlacementContentId("pair", "spawn-0/0"),
+                new PlacementContentId("pair", "spawn-0/1"),
+                new PlacementContentId("decoration", "decoration-0"),
+                new PlacementContentId("light", "light-0"),
+                new PlacementContentId("door", "door-0"),
+            ],
+            entities.Select(entity => entity.Content));
+        Assert.Equal(new PlacePose(11, 20, 0, 0, 0), entities[1].Pose);
+        Assert.Equal(4, population.PlacementsOf(Cave).Count(placement => placement.Content.Kind == "pair"));
+
+        // The expansion is asked once per placement, when the world's placements are read, and a later visit
+        // rebuilds the same entities from the same answer rather than asking again.
+        int asked = expansion.Asked;
+        population.Step(Cave, []);
+        population.Step(Home, []);
+        Assert.Equal(asked, expansion.Asked);
+        Assert.Equal(entities.Select(entity => entity.Content), population.Entities.Select(entity => entity.Content));
+    }
+
+    [Fact]
+    public void An_expansion_that_resolves_to_an_identity_the_place_already_holds_is_refused_by_name()
+    {
+        (PlaceGraph graph, PlaceStateLedger ledger) = WorldOver(Places(
+            """
+            { "id": "1", "kind": "region", "name": "Home", "placements": [
+                { "id": "spawn-0", "kind": "spawn", "x": 1 },
+                { "id": "spawn-0/0", "kind": "pair", "x": 2 } ] }
+            """));
+
+        ContentValidationException reused = Assert.Throws<ContentValidationException>(
+            () => new PlacePopulation(graph, ledger, composer: null, new SpawnPairs()));
+        Assert.Contains("placement-identity-reused", string.Join(",", reused.Issues.Select(issue => issue.Code)));
+    }
+
+    /// <summary>A game's expansion: every spawn mark stands as two placements a unit apart, and nothing else changes.</summary>
+    private sealed class SpawnPairs : IPlacementExpansion
+    {
+        internal int Asked { get; private set; }
+
+        public IReadOnlyList<PlacementDefinition>? Expand(PlaceId place, PlacementDefinition placement)
+        {
+            Asked++;
+            if (placement.Content.Kind != "spawn") return null;
+            return
+            [
+                .. Enumerable.Range(0, 2).Select(unit => placement with
+                {
+                    Content = new PlacementContentId("pair", $"{placement.Content.Id}/{unit}"),
+                    Pose = placement.Pose with { X = placement.Pose.X + unit },
+                }),
+            ];
+        }
+    }
+
+    [Fact]
     public void Stepping_into_a_place_the_world_does_not_have_is_refused_without_emptying_the_visit()
     {
         (PlaceGraph graph, PlaceStateLedger ledger) = World();

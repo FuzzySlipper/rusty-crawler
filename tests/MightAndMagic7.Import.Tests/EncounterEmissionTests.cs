@@ -9,84 +9,121 @@ using Xunit;
 namespace MightAndMagic7.Import.Tests;
 
 /// <summary>
-/// The creatures a level's spawn records put on the field, and the hostility matrix the data carries.
+/// The encounters a level's spawn records ask for, and the hostility matrix the data carries.
 /// </summary>
 /// <remarks>
 /// The shipped spawn records name one of a map's encounter slots rather than a monster row, so what these
-/// tests are about is the reading that turns one into the other: which slot an index names, which graded
-/// variant the map's own difficulty odds favour, how many creatures the slot spawns, and what a record that
-/// cannot be read is refused with. The matrix is the other half: which kinds are each other's enemies is
-/// game data, and it is written into the pack rather than compiled into a ruleset.
+/// tests are about is the reading that turns one into an encounter: which slot an index names, whether the
+/// record fixes the grade, the slot's kind, difficulty and count range, the monster rows the kind's graded
+/// variants are, and what a record that cannot be read is refused with. Which grade a creature is and how
+/// many stand on the field are the ruleset's draw, so no creature is written here. The matrix is the other
+/// half: which kinds are each other's enemies is game data, and it is written into the pack rather than
+/// compiled into a ruleset.
 /// </remarks>
-public sealed class CreatureEmissionTests
+public sealed class EncounterEmissionTests
 {
     [Fact]
-    public void A_spawn_record_becomes_a_creature_naming_the_row_its_slot_and_grade_resolve_to()
+    public void A_spawn_record_becomes_an_encounter_naming_its_slot_its_grade_and_its_variants_and_no_creature()
     {
         string installRoot = SyntheticInstallation.Create(withMaps: true);
-        string root = Path.Combine(Path.GetTempPath(), $"mm7-creatures-{Guid.NewGuid():N}");
+        string root = Path.Combine(Path.GetTempPath(), $"mm7-encounters-{Guid.NewGuid():N}");
         try
         {
             string imports = Path.Combine(root, "imports");
             PackWriter.Write(LodInstall.Open(installRoot), imports);
 
-            // The fixture's one spawn record per map asks for an actor and names encounter five, which is
-            // the second slot graded A: the second slot names the kind "Monster 2", and the monster table's
-            // own third trio is "Monster 2 A/B/C", so the row is the fourth.
+            // The fixture's one spawn record per map asks for an actor and names encounter five, which is the
+            // second slot graded A: the second slot names the kind "Monster 2", and the monster fixture's own
+            // third trio carries the internal names "Monster 2 A/B/C", so its variants are rows four to six.
             using JsonDocument places = JsonDocument.Parse(File.ReadAllText(Path.Combine(imports, "mm7-tables", "places.json")));
-            int creatures = 0;
+            int encounters = 0;
             foreach (JsonElement entry in places.RootElement.GetProperty("entries").EnumerateArray())
             {
                 foreach (JsonElement placement in entry.GetProperty("placements").EnumerateArray())
                 {
-                    if (placement.GetProperty("kind").GetString() != "monster") continue;
-                    creatures++;
+                    // The importer chooses nothing: no creature is written, only the request it stands for.
+                    Assert.NotEqual("monster", placement.GetProperty("kind").GetString());
+                    if (placement.GetProperty("kind").GetString() != "encounter") continue;
+                    encounters++;
 
-                    // The row is named under the field a ruleset reads a creature from, and everything else
-                    // on the placement is the reading that produced it rather than a claim about the data.
-                    // The row is the fourth: the monster fixture's third trio carries the internal names
-                    // "Monster 2 A/B/C", so grade A of the kind named "Monster 2" is the fourth row.
-                    Assert.Equal(4, placement.GetProperty("monster").GetInt32());
-                    Assert.Equal("Monster 4", placement.GetProperty("monsterName").GetString());
+                    Assert.Equal("encounter-0", placement.GetProperty("id").GetString());
                     Assert.Equal(0, placement.GetProperty("spawn").GetInt32());
                     Assert.Equal(5, placement.GetProperty("encounter").GetInt32());
+                    Assert.Equal(2, placement.GetProperty("slot").GetInt32());
                     Assert.Equal("A", placement.GetProperty("grade").GetString());
-                    Assert.Equal("spawn-slot", placement.GetProperty("gradeSource").GetString());
-                    Assert.Equal(1, placement.GetProperty("quantity").GetInt32());
-                    Assert.Equal("spawn-slot", placement.GetProperty("countSource").GetString());
+                    Assert.Equal("Monster 2", placement.GetProperty("monsterKind").GetString());
+                    Assert.Equal(1, placement.GetProperty("difficulty").GetInt32());
                     Assert.Equal("spawnPoints", placement.GetProperty("sourceField").GetString());
                     Assert.Equal(0, placement.GetProperty("sourceIndex").GetInt32());
 
-                    // The grade is fixed by the record's own index rather than drawn, so the slot's range
-                    // travels as provenance and is not read for a count: a graded slot spawns exactly one
-                    // creature, which is what the donor's own fixed count is.
+                    // The slot's range travels as the record states it; whether it is read for a count is the
+                    // ruleset's reading of the record, not the importer's.
                     Assert.Equal(1, placement.GetProperty("appearMin").GetInt32());
                     Assert.Equal(3, placement.GetProperty("appearMax").GetInt32());
+
+                    JsonElement[] variants = [.. placement.GetProperty("variants").EnumerateArray()];
+                    Assert.Equal(["A", "B", "C"], variants.Select(variant => variant.GetProperty("grade").GetString()));
+                    Assert.Equal([4, 5, 6], variants.Select(variant => variant.GetProperty("monster").GetInt32()));
+                    Assert.Equal("Monster 4", variants[0].GetProperty("monsterName").GetString());
                 }
             }
 
             // One actor spawn per map, and seventy-six maps: the same number the decoder read.
-            Assert.Equal(MapStatsTable.ExpectedMaps, creatures);
+            Assert.Equal(MapStatsTable.ExpectedMaps, encounters);
 
-            // The creature is placed at the spawn record's own point when it is the only one there, and the
-            // spawn record the placed point came from is still a placement of its own: the mark and the
-            // creature are two facts about one record.
-            using JsonDocument again = JsonDocument.Parse(File.ReadAllText(Path.Combine(imports, "mm7-tables", "places.json")));
-            JsonElement first = again.RootElement.GetProperty("entries")[0];
+            // The encounter stands at the spawn record's own point, and the spawn record is still a placement of
+            // its own: the mark and the encounter are two facts about one record.
+            JsonElement first = places.RootElement.GetProperty("entries")[0];
             JsonElement spawn = Assert.Single(
                 first.GetProperty("placements").EnumerateArray(),
                 placement => placement.GetProperty("kind").GetString() == "spawn");
-            JsonElement beast = Assert.Single(
+            JsonElement asked = Assert.Single(
                 first.GetProperty("placements").EnumerateArray(),
-                placement => placement.GetProperty("kind").GetString() == "monster");
-            Assert.Equal(spawn.GetProperty("x").GetDouble(), beast.GetProperty("x").GetDouble());
-            Assert.Equal(spawn.GetProperty("y").GetDouble(), beast.GetProperty("y").GetDouble());
-            Assert.Equal(spawn.GetProperty("z").GetDouble(), beast.GetProperty("z").GetDouble());
+                placement => placement.GetProperty("kind").GetString() == "encounter");
+            Assert.Equal(spawn.GetProperty("x").GetDouble(), asked.GetProperty("x").GetDouble());
+            Assert.Equal(spawn.GetProperty("y").GetDouble(), asked.GetProperty("y").GetDouble());
+            Assert.Equal(spawn.GetProperty("z").GetDouble(), asked.GetProperty("z").GetDouble());
         }
         finally
         {
             Directory.Delete(installRoot, recursive: true);
             if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void An_encounter_states_the_range_of_creatures_it_can_resolve_to_and_not_a_choice()
+    {
+        string installRoot = SyntheticInstallation.Create(withMaps: true);
+        try
+        {
+            LodInstall install = LodInstall.Open(installRoot);
+            Mm7Tables tables = Mm7Tables.Read(install);
+            MapDecodeReport report = MapDecoder.DecodeAll(install);
+            Dictionary<int, DecodedMap> maps = report.Decoded
+                .Where(outcome => outcome.Decoded is not null)
+                .ToDictionary(outcome => outcome.Map.Id, outcome => outcome.Decoded!);
+
+            PlaceEncounterSummary summary = PlaceEncounters.Emit(tables, maps);
+
+            // Every fixture record fixes its grade, so every one puts exactly one creature on the field whatever
+            // its slot's range: the floor and the ceiling are both one per encounter, and nothing is drawn.
+            Assert.Equal(MapStatsTable.ExpectedMaps, summary.EncounterCount);
+            Assert.Equal(0, summary.DrawnGrades);
+            Assert.Equal(0, summary.DrawnCounts);
+            Assert.Equal(summary.EncounterCount, summary.FewestCreatures);
+            Assert.Equal(summary.EncounterCount, summary.MostCreatures);
+            Assert.All(summary.Placements, placement => Assert.Equal("A", placement.FixedGrade));
+
+            // A random slot, read by hand, states its range as the floor and the ceiling of what it can resolve to.
+            PlaceEncounterPlacement random = summary.Placements[0] with { FixedGrade = null };
+            Assert.True(random.CountDrawn);
+            Assert.Equal(1, random.FewestCreatures);
+            Assert.Equal(3, random.MostCreatures);
+        }
+        finally
+        {
+            Directory.Delete(installRoot, recursive: true);
         }
     }
 
@@ -103,7 +140,7 @@ public sealed class CreatureEmissionTests
                 .Where(outcome => outcome.Decoded is not null)
                 .ToDictionary(outcome => outcome.Map.Id, outcome => outcome.Decoded!);
 
-            PlaceCreatureSummary summary = PlaceCreatures.Emit(tables, maps);
+            PlaceEncounterSummary summary = PlaceEncounters.Emit(tables, maps);
 
             // Every record states an actor spawn and every one of them names the second slot, which these
             // maps leave empty: nothing is emitted and every record is named with the reason it was not.
@@ -111,7 +148,7 @@ public sealed class CreatureEmissionTests
             Assert.Empty(summary.Placements);
             Assert.Equal(MapStatsTable.ExpectedMaps, summary.Refusals.Count);
             Assert.Equal(MapStatsTable.ExpectedMaps, summary.RefusalCodes["spawn-encounter-empty"]);
-            PlaceCreatureRefusal refusal = summary.Refusals[0];
+            PlaceEncounterRefusal refusal = summary.Refusals[0];
             Assert.Contains("place 1", refusal.Subject, StringComparison.Ordinal);
             Assert.Contains("spawn 0", refusal.Subject, StringComparison.Ordinal);
             Assert.Contains("states no monster", refusal.Reason, StringComparison.Ordinal);
@@ -123,7 +160,7 @@ public sealed class CreatureEmissionTests
     }
 
     [Fact]
-    public void The_same_installation_emits_the_same_creatures_in_the_same_order()
+    public void The_same_installation_emits_the_same_encounters_in_the_same_order()
     {
         string installRoot = SyntheticInstallation.Create(withMaps: true);
         try
@@ -135,15 +172,14 @@ public sealed class CreatureEmissionTests
                 .Where(outcome => outcome.Decoded is not null)
                 .ToDictionary(outcome => outcome.Map.Id, outcome => outcome.Decoded!);
 
-            // Two readings of one installation, record for record: nothing about the emission depends on
-            // the order a dictionary happened to enumerate or on a number drawn from anywhere.
-            PlaceCreatureSummary first = PlaceCreatures.Emit(tables, maps);
-            PlaceCreatureSummary second = PlaceCreatures.Emit(tables, maps);
-            Assert.Equal(first.Placements, second.Placements);
+            // Two readings of one installation, record for record: nothing about the emission depends on the
+            // order a dictionary happened to enumerate or on a number drawn from anywhere.
+            PlaceEncounterSummary first = PlaceEncounters.Emit(tables, maps);
+            PlaceEncounterSummary second = PlaceEncounters.Emit(tables, maps);
             Assert.Equal(first.Refusals, second.Refusals);
             Assert.Equal(
-                first.Placements.Select(placement => $"{placement.PlaceId}|{placement.PlacementId}|{placement.MonsterId}|{placement.X}|{placement.Y}"),
-                second.Placements.Select(placement => $"{placement.PlaceId}|{placement.PlacementId}|{placement.MonsterId}|{placement.X}|{placement.Y}"));
+                first.Placements.Select(placement => $"{placement.PlaceId}|{placement.PlacementId}|{placement.FixedGrade}|{string.Join(',', placement.Variants)}|{placement.X}|{placement.Y}"),
+                second.Placements.Select(placement => $"{placement.PlaceId}|{placement.PlacementId}|{placement.FixedGrade}|{string.Join(',', placement.Variants)}|{placement.X}|{placement.Y}"));
         }
         finally
         {

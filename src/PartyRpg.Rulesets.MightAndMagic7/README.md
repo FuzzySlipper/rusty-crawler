@@ -80,7 +80,8 @@ Boundary rules:
   targets: no code path may quietly depend on their data.
 - Adjustable values are the handles `MightAndMagic7Tuning` declares — an errand's
   default pay, a bounty's rate, a lesson's base price, a shelf's lines, the two
-  fares, a night's length, and what a night under a roof eats — each with its
+  fares and how many days each network's journey takes (`fare.coach-days`, two, and
+  `fare.boat-days`, three), a night's length, and what a night under a roof eats — each with its
   default, range, and meaning. A rule reads them through the `TuningProfile` it
   composes from the selected catalog, so a bundle's tuning pack changes play
   without a rebuild and a value out of range stops composition by name.
@@ -97,7 +98,15 @@ when the selection states two, exactly as the scenario's starting place is), the
 policy (`MightAndMagic7Provisions` — one ration a day, and the weak condition a larder left short puts
 on every member), and what a crossing costs (`MightAndMagic7TravelCostRule` — a day on the road and the
 rations it eats; a fare is honoured by the passage the party bought, and a portal — a crossing the caster
-issues rather than a place — is free of road time because the spell already paid for it), and what using
+issues rather than a place — is free of road time because the spell already paid for it), how long a journey a
+counter sells takes (`MightAndMagic7FareDays` — content names a fare's route, `coach` or `boat`, and the days are
+the tuned length of that network, the one answer the counter writes on the ticket, the world matches a boarding
+by, and the road charges the clock), which creatures a level's spawn records put on the field
+(`MightAndMagic7Spawns` — the importer writes each actor record as an `encounter` placement and chooses nothing;
+this game draws a random slot's count from its range and each creature's grade from the donor's odds for the
+slot's difficulty, through the engine's keyed random service under the place and the spawn index, when the
+population reads the place's placements, so every visit and every load see the same creatures, and an errand
+that counts every one of a kind in a place counts that same resolution), and what using
 something means here (`MightAndMagic7Interaction` —
 a door from the delta's own stored state with the donor's interaction range, a decoration that raises an
 event as a fixture whose use names the event nothing executes yet, a `requires` array on a placement as

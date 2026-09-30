@@ -42,6 +42,20 @@ internal static class MightAndMagic7Tuning
     /// <summary>What a berth costs before the dock's multiplier.</summary>
     internal static readonly TuningHandle BoatFare = new("fare.boat", 50, 0, 100_000, "a berth's price before the dock's multiplier");
 
+    /// <summary>
+    /// How many game days a coach journey takes (ours: the donor's own routes run one to seven days,
+    /// OpenEnroth src/GUI/UI/Houses/Transport.cpp:38-78, and this game states one length per network).
+    /// </summary>
+    /// <remarks>
+    /// A town that keeps both a stable and a dock reaching one place is told apart by the days on the ticket, so
+    /// a tuning that sets this equal to <see cref="BoatDays"/> makes such a boarding ambiguous, and the world
+    /// refuses it by name rather than guessing.
+    /// </remarks>
+    internal static readonly TuningHandle CoachDays = new("fare.coach-days", 2, 1, 30, "how many game days a coach journey takes");
+
+    /// <summary>How many game days a sea passage takes (ours, for the same reason).</summary>
+    internal static readonly TuningHandle BoatDays = new("fare.boat-days", 3, 1, 30, "how many game days a sea passage takes");
+
     /// <summary>How long a night's sleep lasts, in hours (the manual's eight, docs/research/mm7-manual-outline.md p.24).</summary>
     internal static readonly TuningHandle SleepHours = new("rest.sleep-hours", 8, 1, 24, "how many hours a night's sleep lasts");
 
@@ -51,7 +65,7 @@ internal static class MightAndMagic7Tuning
     /// <summary>Every value this game lets a tuning pack adjust.</summary>
     internal static readonly IReadOnlyList<TuningHandle> Handles =
     [
-        ErrandExperience, ErrandCoins, BountyPerLevel, LessonBasePrice, ShopStockLines, CoachFare, BoatFare, SleepHours, RoofedRestRations,
+        ErrandExperience, ErrandCoins, BountyPerLevel, LessonBasePrice, ShopStockLines, CoachFare, BoatFare, CoachDays, BoatDays, SleepHours, RoofedRestRations,
     ];
 
     /// <summary>The values the selected content states, with every other handle at its default.</summary>

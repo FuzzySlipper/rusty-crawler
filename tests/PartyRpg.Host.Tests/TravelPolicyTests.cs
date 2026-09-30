@@ -69,7 +69,7 @@ public sealed class TravelPolicyTests
     public void Walking_a_road_costs_a_day_on_it_and_the_rations_that_day_eats()
     {
         ContentCatalog catalog = Catalog(World());
-        PlaceGraph graph = PlaceGraphLoader.Load(catalog);
+        PlaceGraph graph = PlaceGraphLoader.Load(catalog, MightAndMagic7FareDays.Read(catalog));
         PlaceTransition road = Assert.Single(graph.TransitionsFrom(Home));
         MightAndMagic7TravelCostRule rule = new();
 
@@ -97,7 +97,7 @@ public sealed class TravelPolicyTests
     public void A_fare_is_bought_at_a_counter_and_the_road_honours_exactly_what_it_reaches()
     {
         ContentCatalog catalog = Catalog(World(PartyDocument(food: 6)));
-        PlaceGraph graph = PlaceGraphLoader.Load(catalog);
+        PlaceGraph graph = PlaceGraphLoader.Load(catalog, MightAndMagic7FareDays.Read(catalog));
         PlaceTransition road = Assert.Single(graph.TransitionsFrom(Home));
         using PartyEntity party = MightAndMagic7Party.Compose(catalog)
             ?? throw new InvalidOperationException("The scenario declares a party, so composing it must produce one.");
@@ -135,7 +135,7 @@ public sealed class TravelPolicyTests
         (string Path, string Text)[] staged = [.. World(PartyDocument(food: 6))];
         ContentCatalog catalog = Catalog(
             [.. staged.Where(file => !file.Path.EndsWith("links.json", StringComparison.Ordinal)), Fare()]);
-        PlaceGraph graph = PlaceGraphLoader.Load(catalog);
+        PlaceGraph graph = PlaceGraphLoader.Load(catalog, MightAndMagic7FareDays.Read(catalog));
         PlaceTransition coach = graph.Transitions.Single(transition => transition.Source == "coach");
         Assert.True(coach.IsFare);
 
@@ -186,7 +186,7 @@ public sealed class TravelPolicyTests
     public void Magical_travel_costs_no_road_because_the_spell_already_paid_for_it()
     {
         ContentCatalog catalog = Catalog(World());
-        PlaceGraph graph = PlaceGraphLoader.Load(catalog);
+        PlaceGraph graph = PlaceGraphLoader.Load(catalog, MightAndMagic7FareDays.Read(catalog));
         PlaceTransition road = Assert.Single(graph.TransitionsFrom(Home));
         MightAndMagic7TravelCostRule rule = new();
 
@@ -415,7 +415,7 @@ public sealed class TravelPolicyTests
               "definitionKind": "travel-link",
               "entries": [
                 { "id": "edge", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start" },
-                { "id": "coach", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start", "fare": true, "days": 2 }
+                { "id": "coach", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start", "fare": true, "route": "coach" }
               ]
             }
             """);

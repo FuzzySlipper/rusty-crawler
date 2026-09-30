@@ -30,7 +30,7 @@ internal static class Program
                 "verify" => InventoryCheck.Run(RequireInstall(arguments)),
                 "write" => Write(RequireInstall(arguments), RequireOption(arguments, "--output"), arguments.Contains("--check-determinism")),
                 "maps" => Maps(RequireInstall(arguments)),
-                "creatures" => Creatures(RequireInstall(arguments)),
+                "encounters" => Encounters(RequireInstall(arguments)),
                 "people" => PeopleDetail(RequireInstall(arguments)),
                 "media" => Media(RequireInstall(arguments), RequireOption(arguments, "--output")),
                 _ => Unknown(arguments[0]),
@@ -183,17 +183,18 @@ internal static class Program
     }
 
     /// <summary>
-    /// Reports the creatures the operator's own spawn records put on the field, per place, with everything
-    /// nothing was emitted for and why.
+    /// Reports the encounters the operator's own spawn records ask for, per place, with everything nothing
+    /// was emitted for and why.
     /// </summary>
     /// <remarks>
-    /// This is the read-only half of the creature import and the same reading the writer makes: it decodes
-    /// the maps, resolves every actor spawn through its map's encounter slots and the monster table, and
-    /// prints what a write would emit without writing anything. It exists because "does the world hold
-    /// monsters, and where" is a question an operator asks before generating packs rather than after
-    /// playing them, and because a remainder has to be a named record rather than a smaller total.
+    /// This is the read-only half of the encounter import and the same reading the writer makes: it decodes
+    /// the maps, reads every actor spawn through its map's encounter slots and the monster table, and prints
+    /// what a write would emit without writing anything. The importer chooses no grade and no count — the
+    /// ruleset draws both when it populates a place — so what is counted is encounters, and the creatures they
+    /// can resolve to are stated as the range the slots allow (<c>fewestCreatures</c> to
+    /// <c>mostCreatures</c>), not as one number. A remainder is a named record rather than a smaller total.
     /// </remarks>
-    private static int Creatures(string installRoot)
+    private static int Encounters(string installRoot)
     {
         LodInstall install = LodInstall.Open(installRoot);
         Mm7Tables tables = Mm7Tables.Read(install);
@@ -201,14 +202,18 @@ internal static class Program
         Dictionary<int, DecodedMap> maps = report.Decoded
             .Where(outcome => outcome.Decoded is not null)
             .ToDictionary(outcome => outcome.Map.Id, outcome => outcome.Decoded!);
-        PlaceCreatureSummary summary = PlaceCreatures.Emit(tables, maps);
+        PlaceEncounterSummary summary = PlaceEncounters.Emit(tables, maps);
 
         Console.WriteLine(JsonSerializer.Serialize(
             new
             {
                 install = install.Root,
-                placesHoldingCreatures = summary.PopulatedPlaces,
-                creatures = summary.CreatureCount,
+                placesHoldingEncounters = summary.PopulatedPlaces,
+                encounters = summary.EncounterCount,
+                drawnGrades = summary.DrawnGrades,
+                drawnCounts = summary.DrawnCounts,
+                fewestCreatures = summary.FewestCreatures,
+                mostCreatures = summary.MostCreatures,
                 distinctMonsters = summary.DistinctMonsters,
                 spawnRecords = summary.SpawnRecords,
                 actorSpawns = summary.ActorSpawns,
@@ -217,7 +222,7 @@ internal static class Program
                 {
                     place = count.Key,
                     name = tables.Maps.Maps.First(map => map.Id == count.Key).Name,
-                    creatures = count.Value,
+                    encounters = count.Value,
                 }),
                 refusalsByReason = summary.RefusalCodes,
                 refusals = summary.Refusals.Select(refusal => new
@@ -306,7 +311,7 @@ internal static class Program
                 entrances = Describe(result.Entrances),
                 services = Describe(result.Services),
                 people = Describe(result.People),
-                creatures = Describe(result.Creatures),
+                encounters = Describe(result.Encounters),
                 loot = Describe(result.Containers, tables),
                 use = "add these pack ids to a bundle under content/partyrpg/bundles to load them",
             },
@@ -337,30 +342,36 @@ internal static class Program
     };
 
     /// <summary>
-    /// What the creature derivation produced: how many records asked for a creature, how many creatures were
-    /// emitted where, and every record nothing was emitted for with its reason.
+    /// What the encounter reading produced: how many records asked for an actor, how many encounters were
+    /// emitted where, the range of creatures they can resolve to, and every record nothing was emitted for with
+    /// its reason.
     /// </summary>
     /// <remarks>
     /// The counts are stated because "the world holds monsters" is a claim about the operator's own data:
     /// the actor spawns are the records a creature can come from, the treasure spawns are the ones that ask
     /// for loot instead, and a refusal is listed rather than only counted so an operator can see which
-    /// record asked for something the import could not read.
+    /// record asked for something the import could not read. How many creatures stand in the world is the
+    /// ruleset's draw, so it is stated as the floor and the ceiling of the slots' own ranges.
     /// </remarks>
-    private static object Describe(Packs.PlaceCreatureSummary creatures) => new
+    private static object Describe(Packs.PlaceEncounterSummary encounters) => new
     {
-        spawnRecords = creatures.SpawnRecords,
-        actorSpawns = creatures.ActorSpawns,
-        treasureSpawns = creatures.TreasureSpawns,
-        emitted = creatures.CreatureCount,
-        places = creatures.PopulatedPlaces,
-        distinctMonsters = creatures.DistinctMonsters,
-        refusals = creatures.Refusals.Select(refusal => new
+        spawnRecords = encounters.SpawnRecords,
+        actorSpawns = encounters.ActorSpawns,
+        treasureSpawns = encounters.TreasureSpawns,
+        emitted = encounters.EncounterCount,
+        places = encounters.PopulatedPlaces,
+        drawnGrades = encounters.DrawnGrades,
+        drawnCounts = encounters.DrawnCounts,
+        fewestCreatures = encounters.FewestCreatures,
+        mostCreatures = encounters.MostCreatures,
+        distinctMonsters = encounters.DistinctMonsters,
+        refusals = encounters.Refusals.Select(refusal => new
         {
             subject = refusal.Subject,
             reason = refusal.Code,
             detail = refusal.Reason,
         }),
-        notes = creatures.Notes,
+        notes = encounters.Notes,
     };
 
     /// <summary>
@@ -580,6 +591,9 @@ internal static class Program
           mm7import list <archive.lod>              every entry with its size
           mm7import report --install <directory>    full extraction report for a game installation
           mm7import maps --install <directory>      decodes every map and reports counts and failures
+          mm7import encounters --install <directory>
+                                                    the encounters the spawn records ask for; the ruleset
+                                                    draws each one's grade and count when a place is populated
           mm7import media --install <directory> --output <directory>
                                                     extracts images, palettes, sprites, and sound with a manifest
           mm7import verify --install <directory>    checks the readers against the recorded inventory

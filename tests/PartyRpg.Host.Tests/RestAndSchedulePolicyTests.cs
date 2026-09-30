@@ -337,7 +337,7 @@ public sealed class RestAndSchedulePolicyTests
                 { "id": "sword-and-shield", "kind": "service", "x": 100, "y": 0, "z": 0 },
                 { "id": "the-lamp", "kind": "service", "x": -100, "y": 0, "z": 0 } ] }
             """));
-        PlaceGraph graph = PlaceGraphLoader.Load(catalog);
+        PlaceGraph graph = PlaceGraphLoader.Load(catalog, MightAndMagic7FareDays.Read(catalog));
         MightAndMagic7Schedules schedules = MightAndMagic7Schedules.Read(catalog, graph, MightAndMagic7Services.Read(catalog));
 
         Assert.Null(schedules.HoursOf(new PlaceId("7")));
@@ -352,7 +352,7 @@ public sealed class RestAndSchedulePolicyTests
             { "id": "9", "kind": "region", "name": "Harmondale", "respawnDays": 7, "openHour": 8, "closedHour": 20,
               "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ] }
             """));
-        MightAndMagic7Schedules read = MightAndMagic7Schedules.Read(stated, PlaceGraphLoader.Load(stated), services: null);
+        MightAndMagic7Schedules read = MightAndMagic7Schedules.Read(stated, PlaceGraphLoader.Load(stated, MightAndMagic7FareDays.Read(stated)), services: null);
         Assert.Equal("08:00–20:00", read.DescribeHours(new PlaceId("9")));
         Assert.True(read.IsOpenAt(new PlaceId("9"), new GameDate(1168, 1, 1, 12, 0, 0)));
         Assert.False(read.IsOpenAt(new PlaceId("9"), new GameDate(1168, 1, 1, 21, 0, 0)));
@@ -362,7 +362,7 @@ public sealed class RestAndSchedulePolicyTests
         ContentCatalog incomplete = Hosted(Places(
             """{ "id": "9", "kind": "region", "name": "Harmondale", "respawnDays": 7, "openHour": 8 }"""));
         ContentValidationException error = Assert.Throws<ContentValidationException>(
-            () => MightAndMagic7Schedules.Read(incomplete, PlaceGraphLoader.Load(incomplete), services: null));
+            () => MightAndMagic7Schedules.Read(incomplete, PlaceGraphLoader.Load(incomplete, MightAndMagic7FareDays.Read(incomplete)), services: null));
         Assert.Contains(error.Issues, issue => issue.Code == "place-hours-incomplete");
     }
 

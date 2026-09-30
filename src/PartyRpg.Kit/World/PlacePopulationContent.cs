@@ -79,14 +79,18 @@ public sealed class PlacePopulationContent
 
     /// <summary>Reads every place's placements, failing with every problem found.</summary>
     /// <param name="places">The world whose places carry the placements.</param>
-    public static PlacePopulationContent Read(PlaceGraph places)
+    /// <param name="expansion">
+    /// What a placement that states a request rather than an answer resolves to, as the game decides. Without
+    /// one every placement stands as content states it.
+    /// </param>
+    public static PlacePopulationContent Read(PlaceGraph places, IPlacementExpansion? expansion = null)
     {
         ArgumentNullException.ThrowIfNull(places);
         List<ContentValidationIssue> issues = [];
         Dictionary<PlaceId, IReadOnlyList<PlacementDefinition>> byPlace = [];
         foreach (PlaceDefinition place in places.Places)
         {
-            byPlace[place.Id] = ReadPlace(place, issues);
+            byPlace[place.Id] = ReadPlace(place, expansion, issues);
         }
 
         if (issues.Count > 0)
@@ -111,7 +115,10 @@ public sealed class PlacePopulationContent
         return _placements.TryGetValue(place, out IReadOnlyList<PlacementDefinition>? placements) ? placements : [];
     }
 
-    private static IReadOnlyList<PlacementDefinition> ReadPlace(PlaceDefinition place, List<ContentValidationIssue> issues)
+    private static IReadOnlyList<PlacementDefinition> ReadPlace(
+        PlaceDefinition place,
+        IPlacementExpansion? expansion,
+        List<ContentValidationIssue> issues)
     {
         List<PlacementDefinition> placements = [];
         HashSet<PlacementContentId> seen = [];
@@ -128,31 +135,50 @@ public sealed class PlacePopulationContent
                 continue;
             }
 
-            PlacementContentId content = new(kind, id);
-            if (!seen.Add(content))
-            {
-                issues.Add(new ContentValidationIssue(
-                    "placement-identity-reused",
-                    $"place '{place.Id}' declares the placement '{content}' more than once.",
-                    place.Id.Value));
-                continue;
-            }
+            PlacementDefinition stated = Definition(new PlacementContentId(kind, id), element);
 
-            placements.Add(new PlacementDefinition(
-                content,
-                ContentEntry.ReadString(element, "sourceField"),
-                ReadSourceIndex(element),
-                new PlacePose(
-                    ContentEntry.ReadDouble(element, "x") ?? 0,
-                    ContentEntry.ReadDouble(element, "y") ?? 0,
-                    ContentEntry.ReadDouble(element, "z") ?? 0,
-                    ContentEntry.ReadDouble(element, "yaw") ?? 0,
-                    ContentEntry.ReadDouble(element, "pitch") ?? 0),
-                new ContentEntry(id, element)));
+            // A placement that states a request is replaced by what the game resolves it to, here, where every
+            // other placement is read: the identities it resolves to are judged against the rest of the place
+            // exactly as authored ones are, so a resolution can never shadow a door or a chest.
+            IReadOnlyList<PlacementDefinition> resolved = expansion?.Expand(place.Id, stated) ?? [stated];
+            foreach (PlacementDefinition placement in resolved)
+            {
+                if (!seen.Add(placement.Content))
+                {
+                    issues.Add(new ContentValidationIssue(
+                        "placement-identity-reused",
+                        $"place '{place.Id}' declares the placement '{placement.Content}' more than once.",
+                        place.Id.Value));
+                    continue;
+                }
+
+                placements.Add(placement);
+            }
         }
 
         return placements;
     }
+
+    /// <summary>Reads one placement entry as the definition it states: its identity, its provenance, and where it stands.</summary>
+    /// <remarks>
+    /// This is the one reading of a placement entry, used for what content authored and for what a game's
+    /// expansion writes in its stead, so a resolved placement is read by exactly the fields an authored one is.
+    /// </remarks>
+    /// <param name="content">The placement's identity.</param>
+    /// <param name="element">The entry it is read from.</param>
+    /// <returns>The placement.</returns>
+    public static PlacementDefinition Definition(PlacementContentId content, JsonElement element) =>
+        new(
+            content,
+            ContentEntry.ReadString(element, "sourceField"),
+            ReadSourceIndex(element),
+            new PlacePose(
+                ContentEntry.ReadDouble(element, "x") ?? 0,
+                ContentEntry.ReadDouble(element, "y") ?? 0,
+                ContentEntry.ReadDouble(element, "z") ?? 0,
+                ContentEntry.ReadDouble(element, "yaw") ?? 0,
+                ContentEntry.ReadDouble(element, "pitch") ?? 0),
+            new ContentEntry(content.Id, element));
 
     /// <summary>Reads where in its source field a placement came from, or null when content records no index.</summary>
     /// <remarks>

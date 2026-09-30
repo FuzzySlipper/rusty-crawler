@@ -109,6 +109,11 @@ internal static class MightAndMagic7World
     /// This game's fight, whose answer about a monster row's hit points gives each creature its health the
     /// moment the place's population places it. Without it no creature carries health.
     /// </param>
+    /// <param name="spawns">
+    /// This game's answer about the encounters a level's spawn records ask for, which the population resolves
+    /// into creatures while it reads the places. Without it an encounter stands as content states it, and no
+    /// creature comes from it.
+    /// </param>
     internal static SessionWorld? Compose(
         ContentCatalog? catalog,
         RulesetSessionContext context,
@@ -122,12 +127,13 @@ internal static class MightAndMagic7World
         MightAndMagic7Loot? loot = null,
         MightAndMagic7Quests? quests = null,
         Func<PartyJournal?>? journal = null,
-        MightAndMagic7Combat? vitals = null)
+        MightAndMagic7Combat? vitals = null,
+        MightAndMagic7Spawns? spawns = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(clock);
         if (catalog is null) return null;
-        PlaceGraph graph = PlaceGraphLoader.Load(catalog);
+        PlaceGraph graph = PlaceGraphLoader.Load(catalog, MightAndMagic7FareDays.Read(catalog));
         if (graph.Places.Count == 0) return null;
 
         // What content says about interaction is read once, here, with the world: a requirement that names a
@@ -182,7 +188,7 @@ internal static class MightAndMagic7World
         (IPartyMover? mover, ICreatureMover? creatures) = Movers(party, context);
         try
         {
-            return new SessionWorld(
+            SessionWorld world = new SessionWorld(
                 graph,
                 party,
                 places,
@@ -202,7 +208,24 @@ internal static class MightAndMagic7World
                 schedules.Schedule,
                 creatures,
                 MightAndMagic7Movement.Falls,
-                vitals);
+                vitals,
+                spawns);
+
+            // What the population could not resolve — an encounter that needs a draw in a product with no
+            // random service, a drawn grade the content carries no variant for — is reported where the other
+            // composition notes are, once per encounter, rather than filled from an invented source.
+            foreach (string note in spawns?.Unresolved ?? [])
+            {
+                context.Engine?.Diagnostics?.Publish(new DiagnosticsPublishRequest(
+                    DiagnosticsSeverity.Info,
+                    DiagnosticsDisposition.Accepted,
+                    Source: "population",
+                    Code: "encounter-unresolved",
+                    Message: note,
+                    Correlation: string.Empty));
+            }
+
+            return world;
         }
         catch
         {

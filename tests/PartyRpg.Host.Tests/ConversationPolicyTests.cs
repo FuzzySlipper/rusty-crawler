@@ -374,7 +374,7 @@ public sealed class ConversationPolicyTests
         /// <summary>One placement of the fixture's place, so a case speaks with exactly what it names.</summary>
         internal PlacementDefinition Placement(string id)
         {
-            PlacePopulationContent population = PlacePopulationContent.Read(PlaceGraphLoader.Load(Catalog));
+            PlacePopulationContent population = PlacePopulationContent.Read(PlaceGraphLoader.Load(Catalog, MightAndMagic7FareDays.Read(Catalog)));
             return population.PlacementsOf(SomewherePlace).First(placement => placement.Content.Id == id);
         }
 

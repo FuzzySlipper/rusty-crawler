@@ -15,10 +15,11 @@ namespace PartyRpg.Kit.World;
 /// as a passage.
 /// </para>
 /// <para>
-/// The days a fare takes are content's own statement of the journey, written where the passage is sold and
-/// again on the transition it is taken over. They are read here because they are what makes a bought
-/// passage name exactly one journey: a region can keep two counters that both reach the same place — a
-/// coach and a boat — and the ticket's own days are what tells the counter's journey from the other's.
+/// The days a fare takes are the game's rule's answer for the route content says the crossing runs on
+/// (<see cref="IFareDurationRule"/>), asked once when the world graph is built — the same answer the counter
+/// writes on the ticket. They are carried here because they are what makes a bought passage name exactly one
+/// journey: a region can keep two counters that both reach the same place — a coach and a boat — and the
+/// ticket's own days are what tells the counter's journey from the other's.
 /// </para>
 /// </remarks>
 public sealed record PlaceTransition(PlaceId? From, PlaceId To, PlaceArrival Arrival, string Source)

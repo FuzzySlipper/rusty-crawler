@@ -54,7 +54,8 @@ public sealed class QuestPolicyTests
     {
         ContentCatalog catalog = ImportedContent.Load();
         MightAndMagic7Promotions ladder = MightAndMagic7Promotions.Read(catalog);
-        MightAndMagic7Quests questsRead = MightAndMagic7Quests.Read(catalog, ladder)!;
+        MightAndMagic7Spawns spawns = MightAndMagic7Spawns.Compose(catalog, new KeyedTestRandom());
+        MightAndMagic7Quests questsRead = MightAndMagic7Quests.Read(catalog, ladder, spawns)!;
 
         // Seventeen errands, one per rank whose errand its own words state as a deed rather than as something
         // carried: the bits are the ones the ladder names, so what a rank asks for and what this reads as an
@@ -84,20 +85,19 @@ public sealed class QuestPolicyTests
         Assert.Equal(QuestObjectiveKind.Reach, reach.Kind);
         Assert.Equal("Reach Castle Navan", reach.Label);
 
-        // An errand whose words say "all" of something counts every one the place's own placements hold: the
-        // Haunted Mansion's undead, read from the same packs the creatures are placed from.
+        // An errand whose words say "all" of something counts every one the place holds: the Haunted Mansion's
+        // undead, as the population resolves the house's own encounters — the same keyed resolution the errand
+        // was counted from, so the errand and the house the party walks into agree.
         QuestDefinition house = questsRead.Definition(new QuestId("34"))!;
         Assert.All(house.Objectives, objective => Assert.Equal(QuestObjectiveKind.Kill, objective.Kind));
+        PlaceGraph graph = PlaceGraphLoader.Load(catalog, MightAndMagic7FareDays.Read(catalog));
+        PlaceDefinition mansion = graph.Places.Single(place => place.Name == "The Haunted Mansion");
         Dictionary<string, int> placed = [];
-        foreach ((_, _, ContentEntry place) in catalog.Entries(PlaceGraphLoader.PlaceDefinitionKind))
+        foreach (PlacementDefinition placement in PlacePopulationContent.Read(graph, spawns).PlacementsOf(mansion.Id))
         {
-            if (!string.Equals(place.GetString("name"), "The Haunted Mansion", StringComparison.Ordinal)) continue;
-            foreach (JsonElement placement in place.GetArray("placements"))
-            {
-                if (!string.Equals(ContentEntry.ReadString(placement, "kind"), "monster", StringComparison.Ordinal)) continue;
-                string row = ContentEntry.ReadId(placement, "monster");
-                placed[row] = placed.GetValueOrDefault(row) + 1;
-            }
+            if (!string.Equals(placement.Content.Kind, "monster", StringComparison.Ordinal)) continue;
+            string row = placement.Source.GetId("monster");
+            placed[row] = placed.GetValueOrDefault(row) + 1;
         }
 
         Assert.NotEmpty(placed);

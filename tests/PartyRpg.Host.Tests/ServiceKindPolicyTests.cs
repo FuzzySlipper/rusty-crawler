@@ -320,7 +320,7 @@ public sealed class ServiceKindPolicyTests
     {
         using Fixture fixture = Fixture.Build();
         PartyServices stable = fixture.Open("54");
-        PlaceGraph graph = PlaceGraphLoader.Load(fixture.Catalog);
+        PlaceGraph graph = PlaceGraphLoader.Load(fixture.Catalog, MightAndMagic7FareDays.Read(fixture.Catalog));
         PlaceTransition road = Assert.Single(graph.Transitions, transition => transition.Source == "fare-54-2");
 
         // The passages a stable sells are the routes its own entry names, each with the days the journey
@@ -354,6 +354,37 @@ public sealed class ServiceKindPolicyTests
     }
 
     [Fact]
+    public void A_retuned_coach_changes_the_ticket_the_road_and_the_journey_with_the_same_content()
+    {
+        // The same content — the stable's entry and the crossing, both naming the coach route and no days — under
+        // a tuning pack stating a five-day coach: nothing was imported again, and the counter's offer, the world's
+        // crossing, and the journey the road charges all read the one tuned value.
+        using Fixture fixture = Fixture.Build(coachDays: 5);
+        PartyServices stable = fixture.Open("54");
+        PlaceGraph graph = PlaceGraphLoader.Load(fixture.Catalog, MightAndMagic7FareDays.Read(fixture.Catalog));
+        PlaceTransition road = Assert.Single(graph.Transitions, transition => transition.Source == "fare-54-2");
+        Assert.Equal(5, road.FareDays);
+
+        ServiceOffer fare = Assert.Single(
+            fixture.Rule.Offers(new ServiceOfferRequest(stable.Current!, fixture.Party, fixture.Clock)),
+            offer => offer.Kind == ServiceOfferKind.Fare);
+        Assert.Equal(5, fare.Amount);
+
+        Assert.True(stable.Transact(new ServiceCommand(ServiceOperationKind.Fare, "2")).IsApplied);
+        Assert.Equal(5, fixture.Party.Passages.DaysTo(new PlaceId("2")));
+        TravelCostQuote boarded = new MightAndMagic7TravelCostRule(fixture.Party).Quote(
+            new TransitionRequest(graph, road, TransitionKind.PaidService, new PlaceId("1"), PlacePose.Origin));
+        Assert.Equal(new TravelTime(5, TravelTimeUnit.Days), boarded.Cost.Time);
+
+        // Without the tuning pack the same content is this game's default two-day coach.
+        using Fixture untuned = Fixture.Build();
+        Assert.Equal(
+            (int)MightAndMagic7Tuning.CoachDays.Default,
+            PlaceGraphLoader.Load(untuned.Catalog, MightAndMagic7FareDays.Read(untuned.Catalog))
+                .Transitions.Single(transition => transition.Source == "fare-54-2").FareDays);
+    }
+
+    [Fact]
     public void A_town_hall_posts_the_month_s_bounty_and_a_house_answers_its_door()
     {
         using Fixture fixture = Fixture.Build();
@@ -375,7 +406,7 @@ public sealed class ServiceKindPolicyTests
         // A house is somebody's home rather than a counter: the interaction mechanism reaches it as a person
         // to talk to, and the use names whoever the table says lives there. The name comes from the dialogue
         // policy the conversation itself asks, so what the reticle shows and who answers are one reading.
-        PlacePopulationContent population = PlacePopulationContent.Read(PlaceGraphLoader.Load(fixture.Catalog));
+        PlacePopulationContent population = PlacePopulationContent.Read(PlaceGraphLoader.Load(fixture.Catalog, MightAndMagic7FareDays.Read(fixture.Catalog)));
         PlacementDefinition residence = Assert.Single(
             population.PlacementsOf(new PlaceId("1")),
             placement => placement.Content.Kind == "residence");
@@ -448,26 +479,48 @@ public sealed class ServiceKindPolicyTests
         /// <summary>Opens one counter by the identity its placement names, as the interaction mechanism does.</summary>
         internal PartyServices Open(string service)
         {
-            PlacePopulationContent population = PlacePopulationContent.Read(PlaceGraphLoader.Load(Catalog));
+            PlacePopulationContent population = PlacePopulationContent.Read(PlaceGraphLoader.Load(Catalog, MightAndMagic7FareDays.Read(Catalog)));
             PlacementDefinition placement = population.PlacementsOf(new PlaceId("1"))
                 .First(item => item.Content.Kind == "service" && Rule.Describe(new ServiceTargetRequest(new PlaceId("1"), item))?.Id.Value == service);
             Assert.NotNull(Services.OpenTarget(new PlaceId("1"), placement));
             return Services;
         }
 
-        internal static Fixture Build()
+        /// <param name="coachDays">
+        /// How many days a coach journey takes, as a tuning pack beside the same content states it; null for
+        /// this game's default, with no tuning pack at all.
+        /// </param>
+        internal static Fixture Build(int? coachDays = null)
         {
-            ContentCatalog catalog = ContentCatalogLoader.Load(
-                new PolicyContentSource()
-                    .Add("packs/world/pack.json", Manifest())
-                    .Add("packs/world/places.json", Places())
-                    .Add("packs/world/services.json", Services_())
-                    .Add("packs/world/items.json", Items())
-                    .Add("packs/world/spells.json", Spells())
-                    .Add("packs/world/skills.json", Skills())
-                    .Add("packs/world/monsters.json", Monsters())
-                    .Add("packs/world/roads.json", Roads()),
-                Layout).RequireValid();
+            PolicyContentSource source = new PolicyContentSource()
+                .Add("packs/world/pack.json", Manifest())
+                .Add("packs/world/places.json", Places())
+                .Add("packs/world/services.json", Services_())
+                .Add("packs/world/items.json", Items())
+                .Add("packs/world/spells.json", Spells())
+                .Add("packs/world/skills.json", Skills())
+                .Add("packs/world/monsters.json", Monsters())
+                .Add("packs/world/roads.json", Roads());
+            if (coachDays is { } days)
+            {
+                source
+                    .Add(
+                        "packs/tuning/pack.json",
+                        """
+                        {
+                          "schemaVersion": 1,
+                          "packId": "tuning",
+                          "kind": "tuning",
+                          "provenance": { "description": "authored for a test" },
+                          "documents": [ { "path": "tuning.json", "documentId": "tuning", "definitionKind": "tuning" } ]
+                        }
+                        """)
+                    .Add(
+                        "packs/tuning/tuning.json",
+                        $$"""{ "documentId": "tuning", "definitionKind": "tuning", "entries": [ { "id": "{{MightAndMagic7Tuning.CoachDays.Id}}", "value": {{days}} } ] }""");
+            }
+
+            ContentCatalog catalog = ContentCatalogLoader.Load(source, Layout).RequireValid();
 
             // The quest reading travels with the services because a town hall's notice and the errand its
             // keeper offers are one reading of the place's own encounter row: the rule states no ladder here,
@@ -513,7 +566,7 @@ public sealed class ServiceKindPolicyTests
                 MightAndMagic7Rest.Compose(catalog, random: null),
                 party,
                 clock,
-                new Standing(PlaceGraphLoader.Load(catalog).Places[0]),
+                new Standing(PlaceGraphLoader.Load(catalog, MightAndMagic7FareDays.Read(catalog)).Places[0]),
                 accounts);
             clock.Observe(rest);
             return new Fixture(
@@ -595,7 +648,7 @@ public sealed class ServiceKindPolicyTests
                 { "id": "99", "kind": "Training", "name": "Applied Instruction", "proprietor": "Master Vohn", "mapId": 10, "openHour": 6, "closedHour": 18, "priceMultiplier": 50, "skillPriceMultiplier": 1, "trainingCapText": "No Max" },
                 { "id": "107", "kind": "Tavern", "name": "Two Palms Tavern", "proprietor": "Aaron", "mapId": 1, "openHour": 5, "closedHour": 2, "priceMultiplier": 6, "skillPriceMultiplier": 1 },
                 { "id": "128", "kind": "Bank", "name": "Halls of Gold", "proprietor": "Coinvale", "mapId": 1, "openHour": 6, "closedHour": 18, "priceMultiplier": 1, "skillPriceMultiplier": 1 },
-                { "id": "54", "kind": "Stables", "name": "The J.V.C Corral", "proprietor": "Christian", "mapId": 1, "openHour": 6, "closedHour": 18, "priceMultiplier": 2, "skillPriceMultiplier": 1, "fares": [ { "toPlace": 2, "place": "2", "name": "Harmondale", "days": 2, "link": "fare-54-2" } ] },
+                { "id": "54", "kind": "Stables", "name": "The J.V.C Corral", "proprietor": "Christian", "mapId": 1, "openHour": 6, "closedHour": 18, "priceMultiplier": 2, "skillPriceMultiplier": 1, "fares": [ { "toPlace": 2, "place": "2", "name": "Harmondale", "route": "coach", "link": "fare-54-2" } ] },
                 { "id": "131", "kind": "Town Hall", "name": "The Town Hall", "proprietor": "Clerk Alden", "mapId": 1, "openHour": 6, "closedHour": 18, "priceMultiplier": 1, "skillPriceMultiplier": 1 }
               ]
             }
@@ -669,7 +722,7 @@ public sealed class ServiceKindPolicyTests
               "documentId": "roads",
               "definitionKind": "travel-link",
               "entries": [
-                { "id": "fare-54-2", "fromPlace": 1, "fromName": "Erathia", "toPlace": 2, "toName": "Harmondale", "entryPoint": "Party Start", "houseId": 54, "fare": true, "days": 2 },
+                { "id": "fare-54-2", "fromPlace": 1, "fromName": "Erathia", "toPlace": 2, "toName": "Harmondale", "entryPoint": "Party Start", "houseId": 54, "fare": true, "route": "coach" },
                 { "id": "road-1-2", "fromPlace": 1, "fromName": "Erathia", "toPlace": 2, "toName": "Harmondale", "entryPoint": "Party Start", "houseId": 0, "fare": false }
               ]
             }

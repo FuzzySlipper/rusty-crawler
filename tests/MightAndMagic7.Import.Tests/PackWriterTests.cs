@@ -183,7 +183,7 @@ public sealed class PackWriterTests
             ContentBootstrapResult bootstrap = ContentBootstrap.Load(new FileContentSource(root), Layout, "imported");
             Assert.True(bootstrap.IsValid, string.Join("; ", bootstrap.Issues.Select(issue => issue.ToString())));
 
-            PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog);
+            PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog, RouteDays.Instance);
 
             // Thirteen rows named the outdoor payload and sixty-three the indoor one, so the graph has
             // both kinds and the arrival points the maps actually declare.
@@ -232,20 +232,20 @@ public sealed class PackWriterTests
             Assert.Equal(6, regionPlacements.Count);
             Assert.Equal(3, regionPlacements.Count(placement => placement.Content.Kind == "decoration"));
             Assert.Equal(1, regionPlacements.Count(placement => placement.Content.Kind == "spawn"));
-            Assert.Equal(1, regionPlacements.Count(placement => placement.Content.Kind == "monster"));
+            Assert.Equal(1, regionPlacements.Count(placement => placement.Content.Kind == "encounter"));
+            Assert.Equal(0, regionPlacements.Count(placement => placement.Content.Kind == "monster"));
             Assert.Equal(1, regionPlacements.Count(placement => placement.Content.Kind == "sprite"));
             Assert.Contains(regionPlacements, placement => placement.Content.Id == "decoration-0");
 
-            // The creature is content the ruleset can fight: it names the monster row it is under the field
-            // the ruleset reads, and it says which spawn record put it there and which reading of that record
-            // it came from, so a creature can always be followed back to the data.
-            PlacementDefinition creature = regionPlacements.First(placement => placement.Content.Kind == "monster");
-            Assert.Equal("monster-0-0", creature.Content.Id);
-            Assert.Equal(4, creature.Source.GetInt32("monster"));
-            Assert.Equal(0, creature.Source.GetInt32("spawn"));
-            Assert.Equal(5, creature.Source.GetInt32("encounter"));
-            Assert.Equal("A", creature.Source.GetString("grade"));
-            Assert.Equal("spawn-slot", creature.Source.GetString("countSource"));
+            // The encounter is what the spawn record asks for and nothing the importer chose: the slot, the
+            // grade the record fixes, and the variant rows, which the ruleset resolves when it populates the place.
+            PlacementDefinition encounter = regionPlacements.First(placement => placement.Content.Kind == "encounter");
+            Assert.Equal("encounter-0", encounter.Content.Id);
+            Assert.Equal(0, encounter.Source.GetInt32("spawn"));
+            Assert.Equal(5, encounter.Source.GetInt32("encounter"));
+            Assert.Equal("A", encounter.Source.GetString("grade"));
+            Assert.Equal("Monster 2", encounter.Source.GetString("monsterKind"));
+            Assert.Equal(3, encounter.Source.GetArray("variants").Count);
             PlacementDefinition firstDecoration = regionPlacements.First(placement => placement.Content.Kind == "decoration");
             Assert.Equal("decorations", firstDecoration.SourceField);
             Assert.Equal(0, firstDecoration.SourceIndex);
@@ -294,7 +294,7 @@ public sealed class PackWriterTests
             // The document itself: every place declares its placements and a count per kind, and the
             // counts are what a checker can verify without decoding a map.
             int spawns = 0;
-            int creatures = 0;
+            int encounters = 0;
             int decorations = 0;
             int doors = 0;
             int lights = 0;
@@ -325,7 +325,7 @@ public sealed class PackWriterTests
                     }
 
                     spawns += counts.GetProperty("spawn").GetInt32();
-                    creatures += counts.GetProperty("monster").GetInt32();
+                    encounters += counts.GetProperty("encounter").GetInt32();
                     decorations += counts.GetProperty("decoration").GetInt32();
                     doors += counts.GetProperty("door").GetInt32();
                     lights += counts.GetProperty("light").GetInt32();
@@ -333,7 +333,7 @@ public sealed class PackWriterTests
             }
 
             Assert.Equal(expectedSpawns, spawns);
-            Assert.Equal(expectedSpawns, creatures);
+            Assert.Equal(expectedSpawns, encounters);
             Assert.Equal(expectedDecorations, decorations);
             Assert.Equal(expectedDoors, doors);
             Assert.Equal(expectedLights, lights);
@@ -343,12 +343,12 @@ public sealed class PackWriterTests
             WriteBundle(root, ["mm7-tables", "mm7-world"]);
             ContentBootstrapResult bootstrap = ContentBootstrap.Load(new FileContentSource(root), Layout, "imported");
             Assert.True(bootstrap.IsValid, string.Join("; ", bootstrap.Issues.Select(issue => issue.ToString())));
-            PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog);
+            PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog, RouteDays.Instance);
             PlacePopulationContent content = PlacePopulationContent.Read(graph);
             PlaceDefinition interior = graph.Places.First(place => place.Kind == PlaceKind.Interior);
             Assert.Equal(6, content.PlacementsOf(interior.Id).Count);
             Assert.Equal(1, content.PlacementsOf(interior.Id).Count(placement => placement.Content.Kind == "spawn"));
-            Assert.Equal(1, content.PlacementsOf(interior.Id).Count(placement => placement.Content.Kind == "monster"));
+            Assert.Equal(1, content.PlacementsOf(interior.Id).Count(placement => placement.Content.Kind == "encounter"));
             Assert.Equal(1, content.PlacementsOf(interior.Id).Count(placement => placement.Content.Kind == "door"));
 
             // A door stores no position of its own, so the record says its position came from the
@@ -359,7 +359,7 @@ public sealed class PackWriterTests
                 Assert.Equal(content.PlacementsOf(interior.Id).Select(placement => placement.Content), entities.Select(entity => entity.Content));
                 Assert.Equal(6, population.Diagnostics.EntityCount);
                 Assert.Equal(1, population.Diagnostics.CountOf("spawn"));
-                Assert.Equal(1, population.Diagnostics.CountOf("monster"));
+                Assert.Equal(1, population.Diagnostics.CountOf("encounter"));
                 Assert.Equal(1, population.Diagnostics.CountOf("decoration"));
                 Assert.Equal(1, population.Diagnostics.CountOf("door"));
                 Assert.Equal(2, population.Diagnostics.CountOf("light"));
@@ -430,7 +430,7 @@ public sealed class PackWriterTests
             WriteBundle(root, ["mm7-tables", "mm7-world"]);
             ContentBootstrapResult bootstrap = ContentBootstrap.Load(new FileContentSource(root), Layout, "imported");
             Assert.True(bootstrap.IsValid, string.Join("; ", bootstrap.Issues.Select(issue => issue.ToString())));
-            PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog);
+            PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog, RouteDays.Instance);
             ContentPlaceGeometry source = new(bootstrap.Catalog, "place-geometry", "artifact");
 
             PlaceDefinition region = graph.Places.First(place => place.Kind == PlaceKind.Region);
@@ -542,7 +542,7 @@ public sealed class PackWriterTests
             WriteBundle(root, written.PackIds);
             ContentBootstrapResult bootstrap = ContentBootstrap.Load(new FileContentSource(root), Layout, "imported");
             Assert.True(bootstrap.IsValid, string.Join("; ", bootstrap.Issues.Select(issue => issue.ToString())));
-            PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog);
+            PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog, RouteDays.Instance);
             Assert.Empty(PlaceEntranceLoader.Load(bootstrap.Catalog, graph));
         }
         finally
@@ -685,7 +685,7 @@ public sealed class PackWriterTests
             WriteBundle(root, ["mm7-tables", "mm7-world"]);
             ContentBootstrapResult bootstrap = ContentBootstrap.Load(new FileContentSource(root), Layout, "imported");
             Assert.True(bootstrap.IsValid, string.Join("; ", bootstrap.Issues.Select(issue => issue.ToString())));
-            PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog);
+            PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog, RouteDays.Instance);
             PlacePopulationContent content = PlacePopulationContent.Read(graph);
             PlaceDefinition interior = graph.Places.First(place => place.Kind == PlaceKind.Interior);
             Assert.Equal(3, content.PlacementsOf(interior.Id).Count);
@@ -704,6 +704,24 @@ public sealed class PackWriterTests
             Directory.Delete(installRoot, recursive: true);
             if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
         }
+    }
+
+    /// <summary>
+    /// A length for each route the importer names a fare's network by, so the kit can build the graph the packs
+    /// describe.
+    /// </summary>
+    /// <remarks>
+    /// How long a journey takes is the ruleset's rule and not the importer's, so these suites, which read what
+    /// the importer wrote through the kit alone, state a length for each route the importer writes rather than
+    /// reaching into the game's tuning. A route the importer does not name has no length, which is what makes a
+    /// renamed route fail here.
+    /// </remarks>
+    private sealed class RouteDays : IFareDurationRule
+    {
+        internal static readonly RouteDays Instance = new();
+
+        public int? DaysOf(PlaceId? from, PlaceId to, string route) =>
+            route == PlaceServiceEmitter.CoachRoute || route == PlaceServiceEmitter.BoatRoute ? 1 : null;
     }
 
     /// <summary>Reads a payload as the decoder is handed one, without a container around it.</summary>

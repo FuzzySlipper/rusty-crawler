@@ -14,11 +14,12 @@ namespace PartyRpg.Kit.Tests;
 /// </summary>
 /// <remarks>
 /// <para>
-/// A fare is content's own fact about a crossing — that a counter sells it, and how many days the journey
-/// takes — and the party's own fact about a journey — a passage naming a place and a length. These tests
-/// write both in the shape the importer writes them, so the routing is exercised without the operator's
-/// data, and they hold no ruleset: what boarding costs is the cost rule's answer, and this suite's rule
-/// answers only whether it was asked, for what, and how often.
+/// A fare is content's own fact about a crossing — that a counter sells it, and which route it runs on — the
+/// game's rule's fact about the route — how many days its journey takes — and the party's own fact about a
+/// journey — a passage naming a place and a length. These tests write the content in the shape the importer
+/// writes it, so the routing is exercised without the operator's data, and they hold no ruleset: how long a
+/// route takes is this suite's own fare rule, what boarding costs is the cost rule's answer, and this suite's
+/// cost rule answers only whether it was asked, for what, and how often.
 /// </para>
 /// <para>
 /// Nothing here walks: a fare carries no reach, and the point of the suite is that the way onto a coach is
@@ -150,7 +151,7 @@ public sealed class FareBoardingTests
     public void A_crossing_a_counter_sells_states_the_journey_and_a_road_states_none()
     {
         ContentCatalog catalog = Catalog();
-        PlaceGraph graph = PlaceGraphLoader.Load(catalog);
+        PlaceGraph graph = PlaceGraphLoader.Load(catalog, Routes.Instance);
 
         PlaceTransition coach = graph.Transitions.Single(transition => transition.Source == "coach");
         Assert.True(coach.IsFare);
@@ -168,17 +169,59 @@ public sealed class FareBoardingTests
     }
 
     [Fact]
-    public void A_crossing_sold_as_a_passage_without_a_journey_length_is_a_content_defect()
+    public void A_crossing_sold_as_a_passage_on_no_route_is_a_content_defect()
     {
-        // A fare nobody could name is refused where it is read rather than sold as a ticket to nowhere: the
-        // days the counter writes on the passage and the days the crossing states are one fact.
+        // A fare nobody could name is refused where it is read rather than sold as a ticket to nowhere: content
+        // must say which route it runs on, because the route is what the game's rule times.
         ContentValidationException error = Assert.Throws<ContentValidationException>(() => PlaceGraphLoader.Load(
             Load(
                 """
                 { "id": "coach", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start", "fare": true }
-                """)));
+                """),
+            Routes.Instance));
 
-        Assert.Contains(error.Issues, issue => issue.Code == "transition-fare-days-invalid");
+        Assert.Contains(error.Issues, issue => issue.Code == "transition-fare-route-missing");
+    }
+
+    [Fact]
+    public void A_crossing_on_a_route_no_rule_times_is_a_content_defect()
+    {
+        // The route is named and the game's rule states no length for it — or the world was built with no rule
+        // at all — so no ticket could name the journey, and the world says so where it reads the crossing.
+        ContentCatalog unknown = Load(
+            """
+            { "id": "coach", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start", "fare": true, "route": "balloon" }
+            """);
+        ContentValidationException error = Assert.Throws<ContentValidationException>(() => PlaceGraphLoader.Load(unknown, Routes.Instance));
+        Assert.Contains(error.Issues, issue => issue.Code == "transition-fare-days-unstated");
+
+        ContentValidationException unruled = Assert.Throws<ContentValidationException>(() => PlaceGraphLoader.Load(Catalog()));
+        Assert.Contains(unruled.Issues, issue => issue.Code == "transition-fare-days-unstated");
+    }
+
+    [Fact]
+    public void How_long_a_sold_crossing_takes_is_the_rules_answer_not_the_contents()
+    {
+        // The same content, built under two rules: the journey's length follows the rule, and the content that
+        // names the route is not written again.
+        ContentCatalog catalog = Catalog();
+        PlaceGraph slow = PlaceGraphLoader.Load(catalog, new Routes(coach: 6));
+        Assert.Equal(6, slow.Transitions.Single(transition => transition.Source == "coach").FareDays);
+        Assert.Equal(2, PlaceGraphLoader.Load(catalog, Routes.Instance).Transitions.Single(transition => transition.Source == "coach").FareDays);
+    }
+
+    /// <summary>The test's own fare rule: a length for each route this suite's content names.</summary>
+    private sealed class Routes(int coach = 2) : IFareDurationRule
+    {
+        /// <summary>The coach at two days and the caravan and the boat at three.</summary>
+        internal static readonly Routes Instance = new();
+
+        public int? DaysOf(PlaceId? from, PlaceId to, string route) => route switch
+        {
+            "coach" => coach,
+            "caravan" or "boat" => 3,
+            _ => null,
+        };
     }
 
     /// <summary>The test's own cost rule: it refuses what a test tells it to and records every question.</summary>
@@ -234,7 +277,7 @@ public sealed class FareBoardingTests
         ITravelCostRule rule,
         IDiagnosticsService? diagnostics = null)
     {
-        PlaceGraph graph = PlaceGraphLoader.Load(Catalog());
+        PlaceGraph graph = PlaceGraphLoader.Load(Catalog(), Routes.Instance);
         PartyPoseOwner owner = new(
             new PartyPose(Home, PlacePose.Origin),
             new FacingRule(unitsPerTurn: 2048, minimumPitch: -512, maximumPitch: 512));
@@ -254,13 +297,13 @@ public sealed class FareBoardingTests
 
     private static ContentCatalog Catalog() => Load(
         """
-        { "id": "coach", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start", "fare": true, "days": 2 }
+        { "id": "coach", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start", "fare": true, "route": "coach" }
         """,
         """
-        { "id": "caravan", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start", "fare": true, "days": 3 }
+        { "id": "caravan", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start", "fare": true, "route": "caravan" }
         """,
         """
-        { "id": "boat", "fromPlace": "1", "toPlace": "3", "entryPoint": "Party Start", "fare": true, "days": 3 }
+        { "id": "boat", "fromPlace": "1", "toPlace": "3", "entryPoint": "Party Start", "fare": true, "route": "boat" }
         """,
         """
         { "id": "road", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start" }

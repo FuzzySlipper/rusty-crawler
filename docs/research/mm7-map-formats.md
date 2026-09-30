@@ -333,19 +333,32 @@ errand condition and refuses the rows without answers, 118 in all across the 572
   grade and the count drawn**, cases 4–6 are those slots graded A, 7–9 graded B, and 10–12 graded C, each of which
   puts **exactly one** creature on the field — and the map table states, per slot, the kind of monster (its internal
   name), the difficulty its grade odds are read at (`Dif`, column 18/22/26), and the range of creatures it spawns
-  (`Appear`, column 19/23/27) **[verified: OE:src/Engine/Tables/MapTable.cpp:80-89]**. The shipped actor records name
-  slots 1–8 and 11; 100 of them name one of the three random slots and the other 1,700 name a graded one.
-* **How this import emits creatures from those records**: a record naming a graded slot takes that grade and one
-  creature; a record naming a random slot takes the grade the map's own difficulty odds favour (the largest of the
-  donor's three weights per difficulty, `word_4E8152` **[verified: OE:src/Engine/Objects/Actor.cpp:63,4291-4311]**)
-  and **the fewest creatures the slot states**, which is the floor the data gives rather than an average it never
-  states. The monster row is the one whose own internal-name column equals the slot's name plus the grade. Over the
-  operator's install that is **1,900 creatures in 72 places** (74 distinct rows), with **43 records refused** because
-  the slot they name is one their map leaves empty — every refusal named per place and record rather than dropped.
+  (`Appear`, column 19/23/27) **[verified: OE:src/Engine/Tables/MapTable.cpp:80-89]**. Of the 1,800 actor records whose
+  slot the map states, the shipped data names slots 1–5, 7, 8 and 11: **1,775 name one of the three random slots**
+  (755, 707 and 313) and **25 name a graded one** **[verified: data]**.
+* **What this import emits from those records — an encounter, not a creature.** Which grade a random slot's creature
+  is and how many stand on the field are gameplay choices, so the importer makes neither: it writes one placement of
+  kind `encounter` per actor record (`encounter-<spawn index>`, at the record's own point) carrying the slot number
+  (`encounter`, 1–12, and `slot`, 1–3), the grade only when the record's own number fixes one (`grade`), the slot's
+  kind (`monsterKind`), difficulty (`difficulty`) and range (`appearMin`/`appearMax`), the record's `group`,
+  `attributes` and `radius`, and the monster rows the kind's graded variants are (`variants`: grade, row, name — the
+  row whose own internal-name column equals the slot's name plus the grade). Over the operator's install that is
+  **1,800 encounters in 72 places**, every one carrying all three variants, with **43 records refused** because the
+  slot they name is one their map leaves empty — every refusal named per place and record rather than dropped. The
+  slots' own ranges put **between 1,900 and 5,458 creatures** on the field; which of those is the ruleset's draw.
+* **How the ruleset resolves an encounter** (`PartyRpg.Rulesets.MightAndMagic7/MightAndMagic7Spawns.cs`), when the
+  population reads a place's placements: a graded record puts one creature of its grade on the field; a random one
+  draws its count uniformly from the slot's range **[verified: OE:src/Engine/Objects/Actor.cpp:4226-4238]** and each
+  creature's grade from the donor's odds for the slot's difficulty (`word_4E8152`
+  **[verified: OE:src/Engine/Objects/Actor.cpp:63,4291-4311]**, drawn per creature as the donor draws it). Every draw
+  is made through the engine's keyed random service under the place and the spawn index, so the same content
+  resolves to the same creatures on every visit and after every load; the creature placements it writes (kind
+  `monster`, id `monster-<spawn>-<unit>`) carry the row and the reading that produced them (`gradeSource`,
+  `countSource`, `quantity`, `unit`, and the encounter's own fields).
 * **The `.dlv` also carries the level's own actor array** — 703 monster records and 123 people over the operator's
   install, each with its own monster row, hit points, and position **[verified: data; OE:
   src/Engine/Snapshots/EntitySnapshots.h:764-809]**. That array is the *saved* runtime population of a played game,
-  so this import emits the creatures a first visit creates from the spawn records above and leaves the array as the
+  so this import emits the encounters a first visit resolves from the spawn records above and leaves the array as the
   other source it does not read; a person's own record still states the monster row that person fights as, which is
   what gives a guard, an adept, and a peasant their own hit points.
 * **`hostile.txt` is the monster-hostility matrix** (1,740 bytes in `Events.lod`) **[verified: data; OE:

@@ -27,8 +27,8 @@ namespace MightAndMagic7.Import.Tool;
 /// What the game's people tables and the maps' actor records produced: who exists, what they can be asked
 /// about, where they stand, and everything nothing was placed for.
 /// </param>
-/// <param name="Creatures">
-/// What the levels' spawn records produced: the creatures standing in each place, and every record nothing
+/// <param name="Encounters">
+/// What the levels' spawn records produced: the encounter each actor spawn asks for, and every record nothing
 /// was emitted for with its reason.
 /// </param>
 internal sealed record PackWriteResult(
@@ -40,7 +40,7 @@ internal sealed record PackWriteResult(
     PlaceContainerSummary Containers,
     PlaceServiceSummary Services,
     PlacePeopleSummary People,
-    PlaceCreatureSummary Creatures,
+    PlaceEncounterSummary Encounters,
     PlaceMapSummary Maps)
 {
     /// <summary>The pack ids, in the order they were written.</summary>
@@ -69,7 +69,7 @@ internal static partial class PackWriter
     /// leaving a checker to infer absence from a missing key.
     /// </remarks>
     private static readonly string[] PlacementKinds =
-        ["spawn", "monster", "decoration", "door", "light", "container", "sprite", "service", "residence", "person"];
+        ["spawn", "encounter", "decoration", "door", "light", "container", "sprite", "service", "residence", "person"];
 
     /// <summary>How much of a place's map data an import reads.</summary>
     internal enum MapDetail
@@ -132,9 +132,9 @@ internal static partial class PackWriter
         // so per person rather than emitting somebody nobody can walk up to.
         PlacePeopleSummary people = PlacePeopleEmitter.Emit(tables.People, maps, services);
 
-        // The creatures are emitted from the same decoded spawn records the places document carries, so a
-        // spawn point and the creatures standing on it are one reading of one record rather than two.
-        PlaceCreatureSummary creatures = PlaceCreatures.Emit(tables, maps);
+        // The encounters are read from the same decoded spawn records the places document carries, so a
+        // spawn point and the encounter it asks for are one reading of one record rather than two.
+        PlaceEncounterSummary encounters = PlaceEncounters.Emit(tables, maps);
 
         // Each pack this importer owns is written into an empty directory, so a document an earlier importer
         // wrote and this one does not is not left beside the new ones for the loader to find. Other packs under
@@ -157,11 +157,11 @@ internal static partial class PackWriter
             services);
         List<(string, int, int)> packs =
         [
-            WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers, services, people, creatures),
+            WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers, services, people, encounters),
             world,
         ];
         WriteBundleFragment(outputRoot, provenance, packs);
-        return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions), entrances, containers, services, people, creatures, mapped);
+        return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions), entrances, containers, services, people, encounters, mapped);
     }
 
     /// <summary>
@@ -235,11 +235,11 @@ internal static partial class PackWriter
         PlaceContainerSummary containers,
         PlaceServiceSummary services,
         PlacePeopleSummary people,
-        PlaceCreatureSummary creatures)
+        PlaceEncounterSummary encounters)
     {
         List<(string Path, string DocumentId, string Kind, int Entries)> documents =
         [
-            ("places.json", "places", "place", WritePlaces(packDirectory, tables, maps, containers, services, people, creatures)),
+            ("places.json", "places", "place", WritePlaces(packDirectory, tables, maps, containers, services, people, encounters)),
             ("people.json", "people", PlacePeopleEmitter.PersonDefinitionKind, WritePeople(packDirectory, people)),
             ("services.json", "services", "service", WriteServices(packDirectory, services)),
             ("classes.json", "classes", "class", WriteClasses(packDirectory, tables)),
@@ -260,10 +260,12 @@ internal static partial class PackWriter
             .. people.Households.SelectMany(household => household.PersonIds)
                 .Select(id => $"{PlacePeopleEmitter.PersonDefinitionKind}:{id}").Distinct().Order(StringComparer.Ordinal),
 
-            // Every creature names a monster row, so the place's own document refers to the row it stands
-            // for: a creature whose row the pack does not carry is then a load defect rather than a
-            // creature nothing can say the hit points of.
-            .. creatures.Placements.Select(placement => $"monster:{placement.MonsterId.ToString(CultureInfo.InvariantCulture)}").Distinct().Order(StringComparer.Ordinal),
+            // Every encounter names the monster rows its graded variants are, so the place's own document
+            // refers to each row an encounter could resolve to: a variant whose row the pack does not carry is
+            // then a load defect rather than a creature nothing can say the hit points of.
+            .. encounters.Placements
+                .SelectMany(placement => placement.Variants)
+                .Select(variant => $"monster:{variant.MonsterId.ToString(CultureInfo.InvariantCulture)}").Distinct().Order(StringComparer.Ordinal),
         ];
         WriteManifest(
             packDirectory,

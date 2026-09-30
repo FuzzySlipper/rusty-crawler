@@ -274,7 +274,11 @@ and a deadline (a ward, a light, a haste) still blocks a save by name rather tha
   take one path: resolve, judge eligibility, quote a price, settle through the party's one ledger, apply,
   credit. Shelves are lots on a repeating game-time deadline that travel time also feeds; a passage and a
   bank balance are party-carried state with homes of their own, so a seat bought in one town is honoured on
-  the road and cannot be spent in another's name. The kit gained capabilities, not kinds — adding a service kind means adding
+  the road and cannot be spent in another's name. A fare's content names only its route (`coach` or `boat`);
+  how many days it takes is the ruleset's tuned travel rule (`fare.coach-days`, two, and `fare.boat-days`,
+  three — ours, one length per network where the donor times each route), asked by the kit's
+  `IFareDurationRule` seam, so a retune changes the ticket, the boarding, and the journey without an import.
+  The kit gained capabilities, not kinds — adding a service kind means adding
   content and a ruleset answer.
 - Towns are clocked. A place's hours come from the counters standing in it or from the place's own entry,
   and a door in a clocked place carries those hours as an ordinary requirement judged against the one
@@ -305,8 +309,9 @@ and a deadline (a ward, a light, a haste) still blocks a save by name rather tha
   resistance plus thirty, full immunity from the table's own cell), damage lands on whoever owns the target's
   health, and what a hit leaves is the table's own special-attack column — twelve conditions, each applied and
   reportable. Death is a condition like the others. **Monsters are placed from the levels' own spawn records**
-  (a spawn names an encounter slot, not a monster, and the slot's kind and grade resolve the row: 1,900
-  creatures in 72 places, refusals named) and driven by this game's AI policy through the same gate the
+  (a spawn names an encounter slot, not a monster; the importer writes 1,800 encounters in 72 places, refusals
+  named, and the ruleset draws each one's grade and count when the place is populated — 1,900 to 5,458
+  creatures by the slots' own ranges) and driven by this game's AI policy through the same gate the
   player's control uses. A cleared place stays cleared until the clock restores it, what a death leaves lies
   there searchable, and the fight is played in either pacing with only the pacing changing.
 - Attacks resolve. One path serves melee, ranged, and spell attacks alike: the fight consumes the
@@ -327,12 +332,19 @@ and a deadline (a ward, a light, a haste) still blocks a save by name rather tha
   until the temple's cure — or the rest the ruleset names — ends it. Recovery is not the only gate now: what
   an actor's conditions leave it able to do is the ruleset's answer, and an actor it lays out is refused by
   name without spending anything.
-- Monsters exist, are placed, and act. The importer emits **1,900 creatures into 72 places** from the levels'
-  own spawn records: an actor spawn names one of its map's twelve encounter slots rather than a monster row, so
-  the slot's kind and the grade the map's difficulty odds favour resolve the row, a graded slot puts exactly one
-  creature on the field and a random one the fewest its own range states, and every creature carries the
-  reading that produced it (encounter, grade, quantity, group, radius, appear range, and whether the grade and
-  the count were drawn). 43 records are refused by name because the slot they name is one their map leaves
+- Monsters exist, are placed, and act. The importer emits **1,800 encounters into 72 places** from the levels'
+  own spawn records and chooses nothing: an actor spawn names one of its map's twelve encounter slots rather
+  than a monster row, so the encounter carries the slot, the grade only when the record fixes one, the slot's
+  kind, difficulty and count range, and the rows the kind's three graded variants are. The ruleset
+  (`MightAndMagic7Spawns`, a kit `IPlacementExpansion` the population asks while it reads a place's placements)
+  resolves it: a graded slot puts exactly one creature on the field, a random one — 1,775 of the 1,800 — draws
+  its count from its own range and each creature's grade from the donor's odds for the slot's difficulty,
+  through the engine's keyed random service under the place and the spawn index, so a visit, a restore, and a
+  load see the same creatures and a save carries none of them. By the slots' own ranges that is **1,900 to
+  5,458 creatures**; `mm7import verify` checks the encounter figures and that range, not a creature count. Every
+  creature carries the reading that produced it (encounter, grade, quantity, group, radius, appear range, and
+  whether the grade and the count were drawn), and an errand that counts every one of a kind in a place counts
+  the same resolution. 43 records are refused by name because the slot they name is one their map leaves
   empty. The `.dlv`'s own 703 monster actor records are the *saved* population of a played game and are not
   emitted. A creature is a placement of kind `monster` naming its row, its health is its own
   (`CreatureHealth`, a component on the entity's actor, attached by the population when the creature is placed,

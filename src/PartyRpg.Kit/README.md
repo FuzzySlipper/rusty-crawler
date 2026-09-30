@@ -134,7 +134,9 @@ party takes — `PlaceEntrance` with its loader, consulted inside the movement s
 carries the party into an entrance's reach travels through that one transition path; a crossing taken
 that way is charged on arrival, its quoted time to the session's one clock and its quoted provisions
 to the party's larder through the ledger's one path, exactly once, and a refused transition is charged
-nothing), the party's pose and derived view (`PartyPoseOwner`, `FacingRule`, `PartyView`), the party
+nothing; a crossing a counter sells names only the `route` it runs on, and how many days it takes is the
+game's `IFareDurationRule`, asked by `PlaceGraphLoader` once per sold crossing, so a retune reaches the ticket
+and the journey without content being written again), the party's pose and derived view (`PartyPoseOwner`, `FacingRule`, `PartyView`), the party
 entity and its attached components (`PartyEntity` over the engine's own entity store, with `PartyRoster` and `PartyMember`, the one shared
 `PartyInventory` of `ItemInstance`s beside each member's `CharacterEquipment` — every instance carrying a
 durable `ItemInstanceId` and an `ItemState` of identified, damaged, and enchanted, and reporting one
@@ -193,7 +195,10 @@ the world, movement, and the clock are untouched, and published to the screen as
 where the flow stands, every choice it offers, and the rule the last illegal choice broke), the
 structured UI value builder, the Engine-backed projection channel and the session projection, the admitted-input router that turns
 engine events into session commands, the population owner that fills a place from its placements and
-empties it on leaving, the Engine-backed movement owner with its vertical and surface policy, the reaches that let a party walk
+empties it on leaving (a placement that states a request rather than an answer — an encounter asking for some
+creatures of a kind — is resolved by the game's `IPlacementExpansion` while the placements are read, and what it
+answers stands in its stead for every reader; the game must answer the same on every read, which is why it
+draws under a key naming the place and the placement), the Engine-backed movement owner with its vertical and surface policy, the reaches that let a party walk
 into a transition, the movement facts the panel reports, the one combat state
 (`Combat/` — a `CombatState` over the live world and nothing else, with a `Combatant` per party member and
 per creature the ruleset recognizes in the party's place, one `Combatant.Recovery` quantity each advanced

@@ -398,7 +398,7 @@ internal static partial class PackWriter
                         writer.WriteNumber("toPlace", fare.ToPlace);
                         writer.WriteString("place", fare.ToPlace.ToString(CultureInfo.InvariantCulture));
                         writer.WriteString("name", fare.DestinationName);
-                        writer.WriteNumber("days", fare.Days);
+                        writer.WriteString("route", fare.Route);
                         writer.WriteString("link", fare.LinkId);
                         writer.WriteEndObject();
                     }

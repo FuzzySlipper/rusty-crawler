@@ -109,7 +109,12 @@ internal sealed class MightAndMagic7Session : IGameSession
         // quest table, its giver is the ladder's own, and what its objectives name is the world's and the
         // monster table's own — so a town hall's bounty and the errand its keeper offers are one reading of
         // one encounter row rather than two that could advertise different beasts.
-        MightAndMagic7Quests? quests = MightAndMagic7Quests.Read(Declared(context.Content), promotions);
+        // This game's answer about the encounters a level's spawn records ask for is composed once, here, before
+        // the quests: which grade each creature is and how many stand on the field are drawn from the engine's
+        // keyed random service under the place and the record, and remembered per placement, so the population a
+        // world builds and the count an errand takes of "every one in that place" are one resolution.
+        MightAndMagic7Spawns spawns = MightAndMagic7Spawns.Compose(Declared(context.Content), context.Engine?.Random);
+        MightAndMagic7Quests? quests = MightAndMagic7Quests.Read(Declared(context.Content), promotions, spawns);
         if (quests is not null)
         {
             foreach (string note in quests.Notes)
@@ -322,7 +327,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                 save.Clock.ApplyTo(clock);
                 party = Capacity(MightAndMagic7Party.Restore(save.Party, Declared(context.Content)), spells)!;
                 PartyResourceLedger ledger = Ledger(party);
-                world = MightAndMagic7World.Compose(context.Content, context, clock, ledger, party, save, services, conversation, corpseAnswers, loot, quests, () => owners.Journal, combat);
+                world = MightAndMagic7World.Compose(context.Content, context, clock, ledger, party, save, services, conversation, corpseAnswers, loot, quests, () => owners.Journal, combat, spawns);
                 start = new SessionParty.Playing(world, party, ledger, new SessionRecords(save.Quests, save.Journal, save.Knowledge, save.Maps));
             }
             else if (context.Creation is not null)
@@ -335,7 +340,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                 start = new SessionParty.Creating(new SessionCreation(
                     MightAndMagic7Creation.Start(declared),
                     description => Capacity(MightAndMagic7Party.Factory(declared).Create(description), spells, fill: true)!,
-                    created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created), created, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot, journal: () => owners.Journal, vitals: combat)));
+                    created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created), created, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot, journal: () => owners.Journal, vitals: combat, spawns: spawns)));
             }
             else
             {
@@ -357,7 +362,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                 }
 
                 PartyResourceLedger? accounts = party is null ? null : Ledger(party);
-                world = MightAndMagic7World.Compose(context.Content, context, clock, accounts, party, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot, journal: () => owners.Journal, vitals: combat);
+                world = MightAndMagic7World.Compose(context.Content, context, clock, accounts, party, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot, journal: () => owners.Journal, vitals: combat, spawns: spawns);
                 if (parties is not null) throw parties;
                 start = new SessionParty.Playing(world, party, accounts);
             }

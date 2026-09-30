@@ -132,22 +132,27 @@ public sealed record PlaceServiceRefusal(
     string Code,
     string Reason);
 
-/// <summary>One passage a counter sells: where it goes, how long it takes, and the link that takes it.</summary>
+/// <summary>One passage a counter sells: where it goes, which network it runs on, and the link that takes it.</summary>
 /// <remarks>
 /// The destinations are the places that keep a counter of the same kind, which is a rule this importer
 /// states rather than a table the operator's data carries: the original keeps its coach and boat routes in
 /// the executable, and the donor records them as tables keyed by house (OpenEnroth
 /// <c>src/GUI/UI/Houses/Transport.cpp:38-78</c>, thirty-five routes of one to seven days). This import
 /// states the simpler network the shipped world supports — every coach reaches every town that keeps a
-/// coach, every boat every port that keeps a boat — and takes the days and the arrival from this import's
-/// own data rather than copying the donor's route table. Where the fare arrives is the destination place's
-/// own arrival point, so an arrival is the map's data and not a number chosen here.
+/// coach, every boat every port that keeps a boat — and takes the arrival from this import's own data
+/// rather than copying the donor's route table. How long a journey takes is not stated here at all: it is the
+/// ruleset's travel rule, read from the route, so a retune changes it without an import. Where the fare
+/// arrives is the destination place's own arrival point, so an arrival is the map's data and not a number
+/// chosen here.
 /// </remarks>
 /// <param name="ServiceId">The counter that sells the passage.</param>
 /// <param name="FromPlace">The place the passage leaves.</param>
 /// <param name="ToPlace">The place the passage arrives at.</param>
 /// <param name="DestinationName">What the destination is called, for a report and a panel.</param>
-/// <param name="Days">How many game days the passage takes.</param>
+/// <param name="Route">
+/// The network the passage runs on — <see cref="PlaceServiceEmitter.CoachRoute"/> for a stable's,
+/// <see cref="PlaceServiceEmitter.BoatRoute"/> for a dock's — which the ruleset times.
+/// </param>
 /// <param name="ArrivalPoint">The destination's own arrival point the passage lands at, empty when it lands at a stored pose.</param>
 /// <param name="X">The stored arrival position along the destination's first axis, unused when an arrival point is named.</param>
 /// <param name="Y">The stored arrival position along the destination's second axis.</param>
@@ -160,7 +165,7 @@ public sealed record PlaceFare(
     int FromPlace,
     int ToPlace,
     string DestinationName,
-    int Days,
+    string Route,
     string ArrivalPoint,
     double X,
     double Y,
@@ -257,11 +262,11 @@ public static class PlaceServiceEmitter
     /// <summary>The height source of a counter in an interior, whose point takes the chosen face's bottom.</summary>
     public const string FaceHeightSource = "chosen-face-bottom";
 
-    /// <summary>How many game days a coach journey takes. Ours, not the donor's: the donor's own routes run one to seven days.</summary>
-    public const int CoachDays = 2;
+    /// <summary>The route a stable's passage runs on: the coach network, which the ruleset times.</summary>
+    public const string CoachRoute = "coach";
 
-    /// <summary>How many game days a sea passage takes.</summary>
-    public const int BoatDays = 3;
+    /// <summary>The route a dock's passage runs on: the sea network, which the ruleset times.</summary>
+    public const string BoatRoute = "boat";
 
     /// <summary>
     /// The donor's instruction that opens a house, whose operand is the house id
@@ -574,7 +579,7 @@ public static class PlaceServiceEmitter
         List<PlaceFare> fares = [];
         foreach (string kind in new[] { StableKind, BoatKind })
         {
-            int days = string.Equals(kind, StableKind, StringComparison.Ordinal) ? CoachDays : BoatDays;
+            string route = string.Equals(kind, StableKind, StringComparison.Ordinal) ? CoachRoute : BoatRoute;
             List<PlaceServiceDefinition> network = [.. services.Where(service => string.Equals(service.Kind, kind, StringComparison.OrdinalIgnoreCase) && placeOf.ContainsKey(service.BuildingId))];
             foreach (PlaceServiceDefinition service in network)
             {
@@ -591,7 +596,7 @@ public static class PlaceServiceEmitter
                         from,
                         to,
                         placeNames.TryGetValue(to, out string? name) ? name : to.ToString(CultureInfo.InvariantCulture),
-                        days,
+                        route,
                         point,
                         x,
                         y,

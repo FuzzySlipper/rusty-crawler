@@ -88,7 +88,7 @@ public sealed class ServiceEmissionTests
             PlaceFare fare = Assert.Single(services.Fares, item => item.ServiceId == stable.BuildingId);
             Assert.Equal(SyntheticInstallation.ServiceMap(stable.BuildingId), fare.FromPlace);
             Assert.Equal(SyntheticInstallation.ServiceMap(other.BuildingId), fare.ToPlace);
-            Assert.Equal(PlaceServiceEmitter.CoachDays, fare.Days);
+            Assert.Equal(PlaceServiceEmitter.CoachRoute, fare.Route);
             Assert.StartsWith("fare-", fare.LinkId, StringComparison.Ordinal);
 
             string places = File.ReadAllText(Path.Combine(root, "mm7-tables", "places.json"));

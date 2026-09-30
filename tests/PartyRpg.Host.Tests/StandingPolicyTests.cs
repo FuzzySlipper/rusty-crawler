@@ -258,7 +258,7 @@ public sealed class StandingPolicyTests
     {
         ContentCatalog catalog = ImportedContent.Load();
         MightAndMagic7Promotions promotions = MightAndMagic7Promotions.Read(catalog);
-        MightAndMagic7Quests quests = MightAndMagic7Quests.Read(catalog, promotions)!;
+        MightAndMagic7Quests quests = MightAndMagic7Quests.Read(catalog, promotions, MightAndMagic7Spawns.Compose(catalog, new KeyedTestRandom()))!;
         MightAndMagic7Services services = MightAndMagic7Services.Read(catalog, quests: quests)!;
         MightAndMagic7Conversation conversation = MightAndMagic7Conversation.Read(catalog, services, promotions, quests)!;
 
@@ -621,7 +621,7 @@ public sealed class StandingPolicyTests
         MightAndMagic7Conversation conversation,
         string who)
     {
-        PlacePopulationContent population = PlacePopulationContent.Read(PlaceGraphLoader.Load(catalog));
+        PlacePopulationContent population = PlacePopulationContent.Read(PlaceGraphLoader.Load(catalog, MightAndMagic7FareDays.Read(catalog)));
         foreach ((_, _, ContentEntry place) in catalog.Entries(PlaceGraphLoader.PlaceDefinitionKind))
         {
             PlaceId id = new(place.Id);
@@ -714,7 +714,7 @@ public sealed class StandingPolicyTests
         /// <summary>One placement of the fixture's place, so a case speaks with exactly what it names.</summary>
         internal PlacementDefinition Placement(string id)
         {
-            PlacePopulationContent population = PlacePopulationContent.Read(PlaceGraphLoader.Load(Catalog));
+            PlacePopulationContent population = PlacePopulationContent.Read(PlaceGraphLoader.Load(Catalog, MightAndMagic7FareDays.Read(Catalog)));
             return population.PlacementsOf(HallPlace).First(placement => placement.Content.Id == id);
         }
 

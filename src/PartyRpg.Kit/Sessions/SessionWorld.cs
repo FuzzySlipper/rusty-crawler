@@ -99,6 +99,11 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// moment the population places it. Without one no creature carries health, and harm aimed at one lands
     /// nowhere.
     /// </param>
+    /// <param name="expansion">
+    /// The game's answer about placements that state a request rather than an answer — an encounter that
+    /// asks for some creatures of a kind — which the population resolves while it reads the places. Without
+    /// one every placement stands as content states it.
+    /// </param>
     /// <exception cref="ArgumentNullException">A required collaborator is missing.</exception>
     public SessionWorld(
         PlaceGraph graph,
@@ -116,7 +121,8 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         PlaceSchedule? schedule = null,
         ICreatureMover? creatures = null,
         IFallRule? falls = null,
-        ICreatureVitals? vitals = null)
+        ICreatureVitals? vitals = null,
+        IPlacementExpansion? expansion = null)
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(party);
@@ -137,7 +143,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         Party = party;
         Places = places;
         Places.MarkVisited(party.Place);
-        _population = new PlacePopulation(graph, places, vitals is null ? null : new CreatureHealthComposer(vitals));
+        _population = new PlacePopulation(graph, places, vitals is null ? null : new CreatureHealthComposer(vitals), expansion);
         _entrances = Index(graph, entrances);
         Mover = mover;
         Creatures = creatures;

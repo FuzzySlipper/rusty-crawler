@@ -146,8 +146,17 @@ internal sealed class MightAndMagic7Quests : IQuestRule
     /// </remarks>
     /// <param name="catalog">The validated content, or null when no bundle supplied any.</param>
     /// <param name="promotions">This game's ranks, which name every errand's giver and its shipped bit.</param>
+    /// <param name="spawns">
+    /// This game's answer about the encounters content states, whose creatures an errand that asks for every one
+    /// of a kind in a place counts. It is the same resolution the population makes, so the errand and the world
+    /// agree about how many there are. A caller that composed none gets one composed here without a random
+    /// service, which resolves only the encounters that need no draw.
+    /// </param>
     /// <returns>This game's quests, or null when no content was loaded.</returns>
-    internal static MightAndMagic7Quests? Read(ContentCatalog? catalog, MightAndMagic7Promotions? promotions)
+    internal static MightAndMagic7Quests? Read(
+        ContentCatalog? catalog,
+        MightAndMagic7Promotions? promotions,
+        MightAndMagic7Spawns? spawns = null)
     {
         if (catalog is null) return null;
         List<string> notes = [];
@@ -194,6 +203,15 @@ internal sealed class MightAndMagic7Quests : IQuestRule
             }
 
             if (slots.Count > 0) encounters[entry.Id] = slots;
+        }
+
+        // The creatures a spawn record's encounter resolves to are counted as the population places them: the
+        // same keyed resolution, remembered per placement, so "every one in that place" is the number the party
+        // finds there.
+        foreach ((string placeId, Dictionary<string, int> resolved) in (spawns ?? MightAndMagic7Spawns.Compose(catalog, random: null)).Count(catalog))
+        {
+            if (!placed.TryGetValue(placeId, out Dictionary<string, int>? byRow)) placed[placeId] = byRow = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach ((string row, int count) in resolved) byRow[row] = byRow.GetValueOrDefault(row) + count;
         }
 
         Dictionary<string, string> itemsByName = new(StringComparer.Ordinal);

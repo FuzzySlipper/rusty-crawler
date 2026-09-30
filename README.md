@@ -22,8 +22,9 @@ Bundle assembles. Host launches.**
 > the people it meets, and fights, over the live world, in real time, paced by one recovery quantity per
 > actor, with hostility as world state rather than a mode flag, with every attack resolving into a hit or a
 > miss, damage its target's resistance may take a share of, the condition the blow leaves, and the death a
-> character's own health decides, and with an imported place holding real opposition: 1,900 creatures
-> emitted from the levels' own spawn records across 72 places, each driven by this game's own policy — the
+> character's own health decides, and with an imported place holding real opposition: 1,800 encounters
+> emitted from the levels' own spawn records across 72 places, resolved by this game's own draw into 1,900 to
+> 5,458 creatures when a place is populated, each driven by this game's own policy — the
 > monster table's AI class, movement, speed, second attack, and spells, and the shipped hostility matrix
 > between kinds — through the same gated entry the player's control uses. A creature the party brings down
 > leaves a corpse where it fell, searchable through the same container mechanism a chest is, holding what
@@ -248,16 +249,19 @@ check the figures the documents state about what an import yields; it fails when
 data. `scripts/verify.sh` runs `verify` when the installation is present, and reports it skipped when it
 is not.
 
-`creatures` prints the opposition the levels' own spawn records put on the field, which is the read-only
-half of the monster import:
+`encounters` prints the opposition the levels' own spawn records ask for, which is the read-only half of
+the monster import:
 
 ```bash
-dotnet src/MightAndMagic7.Import.Tool/bin/Release/net10.0/mm7import.dll creatures --install /path/to/mm7
+dotnet src/MightAndMagic7.Import.Tool/bin/Release/net10.0/mm7import.dll encounters --install /path/to/mm7
 ```
 
-Over the operator's own installation that is 3,175 spawn records of which 1,843 ask for an actor, 1,900
-creatures emitted into 72 places from 74 distinct monster rows, and 43 records refused by name because the
-encounter slot they name is one their map leaves empty. `write` states the same counts in its summary.
+Over the operator's own installation that is 3,175 spawn records of which 1,843 ask for an actor, 1,800
+encounters emitted into 72 places, and 43 records refused by name because the encounter slot they name is
+one their map leaves empty. The importer chooses no grade and no count: 1,775 encounters leave both to the
+ruleset, which draws them through the engine's keyed random service under the place and the spawn record
+when the place is populated, so the creatures are reported as the range the slots allow — 1,900 at the
+fewest and 5,458 at the most. `write` states the same counts in its summary.
 
 `write` produces the content packs the product loads, and proves its own reproducibility:
 

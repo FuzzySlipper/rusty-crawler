@@ -131,3 +131,54 @@ internal sealed class MightAndMagic7TravelCostRule : ITravelCostRule
             Provisions.None));
     }
 }
+
+/// <summary>How long a journey a counter sells takes in this game: one length per network, as tuned.</summary>
+/// <remarks>
+/// <para>
+/// A passage runs on one of two networks — a stable's coaches and a dock's boats — and content states only
+/// which. How many days a network's journey takes is this game's number (<see cref="MightAndMagic7Tuning.CoachDays"/>
+/// and <see cref="MightAndMagic7Tuning.BoatDays"/>), read from the tuning of the catalog the session loaded, so the
+/// days the counter writes on the ticket, the days the world matches a boarding by, and the days the road charges
+/// the clock are one answer, and a retune changes all three without importing anything.
+/// </para>
+/// <para>
+/// The donor times each of its thirty-five routes separately, one to seven days (OpenEnroth
+/// <c>src/GUI/UI/Houses/Transport.cpp:38-78</c>); this game states one length per network, which is an
+/// approximation recorded on the handles themselves.
+/// </para>
+/// </remarks>
+internal sealed class MightAndMagic7FareDays : IFareDurationRule
+{
+    /// <summary>The route a stable's passage runs on, as the importer names it.</summary>
+    internal const string CoachRoute = "coach";
+
+    /// <summary>The route a dock's passage runs on, as the importer names it.</summary>
+    internal const string BoatRoute = "boat";
+
+    private readonly TuningProfile _tuning;
+
+    /// <summary>Creates the rule over the tuning the session's content states.</summary>
+    /// <param name="tuning">The selected tuning, which the two networks' lengths are read from.</param>
+    internal MightAndMagic7FareDays(TuningProfile tuning) => _tuning = tuning ?? throw new ArgumentNullException(nameof(tuning));
+
+    /// <summary>The rule over a catalog's own tuning, every handle it does not state at its default.</summary>
+    /// <param name="catalog">The selected content, or null for every default.</param>
+    internal static MightAndMagic7FareDays Read(ContentCatalog? catalog) => new(MightAndMagic7Tuning.Read(catalog));
+
+    /// <summary>The route a counter of one service kind sells passages on, or null when the kind sells none.</summary>
+    /// <param name="serviceKind">The counter's service kind.</param>
+    internal static string? RouteOf(string serviceKind) =>
+        string.Equals(serviceKind, MightAndMagic7ServiceKinds.Stables, StringComparison.Ordinal) ? CoachRoute
+        : string.Equals(serviceKind, MightAndMagic7ServiceKinds.Boats, StringComparison.Ordinal) ? BoatRoute
+        : null;
+
+    /// <summary>How many days a journey on a route takes, or null when this game states no such route.</summary>
+    /// <param name="route">The route's name.</param>
+    internal int? DaysOf(string route) =>
+        string.Equals(route, CoachRoute, StringComparison.Ordinal) ? _tuning.Whole(MightAndMagic7Tuning.CoachDays)
+        : string.Equals(route, BoatRoute, StringComparison.Ordinal) ? _tuning.Whole(MightAndMagic7Tuning.BoatDays)
+        : null;
+
+    /// <inheritdoc />
+    int? IFareDurationRule.DaysOf(PlaceId? from, PlaceId to, string route) => DaysOf(route);
+}
