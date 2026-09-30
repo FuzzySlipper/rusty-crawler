@@ -8,13 +8,13 @@ namespace PartyRpg.Kit.Skills;
 /// </summary>
 /// <remarks>
 /// <para>
-/// This is the ruleset's whole contribution to skills as a catalog, and it is deliberately four answers
+/// This is the ruleset's whole contribution to skills as a catalog, and it is deliberately three answers
 /// rather than one. <see cref="Catalog"/> is content's rows as this game reads them, unused rows included.
 /// <see cref="Ceiling"/> is the class and rank table: the level a skill may reach and the rungs open to it,
 /// which is the fact the shipped data does not carry at all and every ruleset must therefore author.
 /// <see cref="RaiseCost"/> is the price of training a skill with the points a level granted, which is the
-/// one thing skill points are spent on. <see cref="TierName"/> is presentation meaning: what a person reads
-/// for a rung, because the rungs are this game's words and not the kit's.
+/// one thing skill points are spent on. What a person reads for a rung is not here: it is the game's
+/// <see cref="IGameNames"/>, the one seam every mechanism names a rung through.
 /// </para>
 /// <para>
 /// <b>The numbers are the ruleset's; the arithmetic of applying them is the kit's.</b> Nothing here is
@@ -59,14 +59,4 @@ public interface ISkillRule
     /// <param name="levels">How many levels the raise adds, which is at least one.</param>
     /// <returns>How many skill points the raise costs.</returns>
     int RaiseCost(SkillEntry skill, int levels);
-
-    /// <summary>What one rung of a skill's ladder is called, as a person reads it.</summary>
-    /// <remarks>
-    /// The kit's tier is a rung number and carries no word, because a ladder's names belong to the game that
-    /// has them. An untrained rung still has to answer, so a rule states what nothing-known reads as rather
-    /// than the panel inventing a word for it.
-    /// </remarks>
-    /// <param name="tier">The rung to name.</param>
-    /// <returns>The word a person reads for that rung.</returns>
-    string TierName(SkillTier tier);
 }

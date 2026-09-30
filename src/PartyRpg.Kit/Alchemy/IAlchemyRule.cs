@@ -54,11 +54,6 @@ public interface IAlchemyRule
     /// <summary>The skill whose mastery a mixture's tier is judged against.</summary>
     SkillId Skill { get; }
 
-    /// <summary>What one rung of that skill's ladder is called, in the game's own words.</summary>
-    /// <param name="tier">The rung to name.</param>
-    /// <returns>The rung's name.</returns>
-    string RungName(SkillTier tier);
-
     /// <summary>
     /// What raises a character's mastery of the mixing skill, said the way the game says it.
     /// </summary>
@@ -70,11 +65,6 @@ public interface IAlchemyRule
     /// <param name="skill">The skill whose mastery is short.</param>
     /// <returns>What raises it, as a clause a refusal appends.</returns>
     string MasteryRaisedBy(SkillId skill);
-
-    /// <summary>What a person reads for a definition, which a refusal and a report name it by.</summary>
-    /// <param name="definition">The definition to name.</param>
-    /// <returns>The name, or the definition's own identity when the game states none.</returns>
-    string NameOf(ItemDefinitionId definition);
 
     /// <summary>Whether this character may mix at all, or why they may not.</summary>
     /// <remarks>

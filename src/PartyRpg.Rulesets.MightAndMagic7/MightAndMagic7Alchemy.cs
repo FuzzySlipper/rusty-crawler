@@ -70,23 +70,17 @@ internal sealed class MightAndMagic7Alchemy : IAlchemyRule, IAlchemyKinds
 
     private readonly AlchemyCatalog _catalog;
     private readonly Dictionary<ItemDefinitionId, PotionRow> _potions;
-    private readonly Dictionary<ItemDefinitionId, string> _names;
-    private readonly MightAndMagic7Skills? _skills;
     private readonly IRandomService? _random;
     private readonly Func<PartyMember, bool>? _mayAct;
 
     private MightAndMagic7Alchemy(
         AlchemyCatalog catalog,
         Dictionary<ItemDefinitionId, PotionRow> potions,
-        Dictionary<ItemDefinitionId, string> names,
-        MightAndMagic7Skills? skills,
         IRandomService? random,
         Func<PartyMember, bool>? mayAct)
     {
         _catalog = catalog;
         _potions = potions;
-        _names = names;
-        _skills = skills;
         _random = random;
         _mayAct = mayAct;
     }
@@ -110,7 +104,6 @@ internal sealed class MightAndMagic7Alchemy : IAlchemyRule, IAlchemyKinds
     /// Reads this game's alchemy over the content the product loaded, or null when it loaded none.
     /// </summary>
     /// <param name="catalog">The validated content, or null when no bundle supplied any.</param>
-    /// <param name="skills">This game's skill policy, so a refusal names a rung in the game's own words.</param>
     /// <param name="random">
     /// The engine's keyed random service, which a burst's harm is rolled through, or null when the product has
     /// none — a burst then does the least its strength states rather than drawing.
@@ -123,7 +116,6 @@ internal sealed class MightAndMagic7Alchemy : IAlchemyRule, IAlchemyKinds
     /// <exception cref="ContentValidationException">Content states a potion or a mixture this game cannot read; every problem is named.</exception>
     internal static MightAndMagic7Alchemy? Read(
         ContentCatalog? catalog,
-        MightAndMagic7Skills? skills = null,
         IRandomService? random = null,
         Func<PartyMember, bool>? mayAct = null)
     {
@@ -131,7 +123,6 @@ internal sealed class MightAndMagic7Alchemy : IAlchemyRule, IAlchemyKinds
 
         List<ContentValidationIssue> issues = [];
         Dictionary<ItemDefinitionId, PotionRow> potions = [];
-        Dictionary<ItemDefinitionId, string> names = [];
         Dictionary<ItemDefinitionId, int> tiers = [];
 
         foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in catalog.Entries(PotionDefinitionKind))
@@ -172,16 +163,7 @@ internal sealed class MightAndMagic7Alchemy : IAlchemyRule, IAlchemyKinds
                 MixtureCells = Cells(entry, "mixtures"),
                 NoteCells = Notes(entry, "notes"),
             };
-            names[definition] = name;
             tiers[definition] = tier;
-        }
-
-        // Every item the pack declares is named here too, because a mixture's message names both of its
-        // ingredients and one of them may be an item this game states no potion row for.
-        foreach ((_, _, ContentEntry entry) in catalog.Entries("item"))
-        {
-            string name = entry.GetString("name").Trim();
-            if (name.Length > 0) names.TryAdd(new ItemDefinitionId(entry.Id), name);
         }
 
         List<PotionMixture> mixtures = [];
@@ -238,7 +220,7 @@ internal sealed class MightAndMagic7Alchemy : IAlchemyRule, IAlchemyKinds
                 issues);
         }
 
-        return new MightAndMagic7Alchemy(new AlchemyCatalog(mixtures), potions, names, skills, random, mayAct);
+        return new MightAndMagic7Alchemy(new AlchemyCatalog(mixtures), potions, random, mayAct);
     }
 
     /// <summary>Turns one stated outcome into the outcome itself and the rung of the thing it makes.</summary>
@@ -286,10 +268,6 @@ internal sealed class MightAndMagic7Alchemy : IAlchemyRule, IAlchemyKinds
     }
 
     /// <inheritdoc />
-    public string RungName(SkillTier tier) =>
-        _skills is { } skills ? skills.TierName(tier) : tier.Value.ToString(CultureInfo.InvariantCulture);
-
-    /// <inheritdoc />
     /// <remarks>
     /// The mastery lessons a counter offers raise a rung, which is the same thing this game's own skill ladders
     /// say everywhere else; the sentence names that rather than a number, because a player who reads a refusal
@@ -326,10 +304,6 @@ internal sealed class MightAndMagic7Alchemy : IAlchemyRule, IAlchemyKinds
         ArgumentNullException.ThrowIfNull(item);
         return _potions.ContainsKey(item.Definition) ? Math.Max(1, item.State.Potency) : null;
     }
-
-    /// <inheritdoc />
-    public string NameOf(ItemDefinitionId definition) =>
-        _names.TryGetValue(definition, out string? name) && name.Length > 0 ? name : definition.Value;
 
     /// <inheritdoc />
     /// <remarks>

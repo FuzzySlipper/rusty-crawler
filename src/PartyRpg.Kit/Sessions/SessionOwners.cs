@@ -217,7 +217,7 @@ public sealed class SessionOwners
         // The casting workflow is composed over the fight, so a cast and a swing are paced by one state.
         if (Casting is null && rules.Magic is { } magic && Party is { } casters)
         {
-            Casting = new Spellcasting(casters, magic, Combat, rules.Skills is { } skills ? skills.TierName : null);
+            Casting = new Spellcasting(casters, magic, Combat, rules.Names);
             if (!_magicObserved && magic.Time is { } lasting)
             {
                 _magicObserved = true;
@@ -227,7 +227,7 @@ public sealed class SessionOwners
 
         if (Mixing is null && rules.Alchemy is { } alchemy && Party is { } mixers)
         {
-            Mixing = new PotionMixing(mixers, alchemy.Mixtures, alchemy.Rule, Knowledge);
+            Mixing = new PotionMixing(mixers, alchemy.Mixtures, alchemy.Rule, Knowledge, rules.Names);
         }
     }
 

@@ -18,7 +18,6 @@ namespace PartyRpg.Kit.Magic;
 /// <param name="Members">The effects spells leave on single characters rather than on the party.</param>
 /// <param name="Sight">How far the party sees in the dark, which a light spell changes.</param>
 /// <param name="Items">Which items hold a spell, and how a scroll or a wand spends it.</param>
-/// <param name="ItemNames">What the game calls an item, which a casting from one is reported under.</param>
 public sealed record MagicRules(
     ISpellRule Spells,
     ISpellEffectRule? Effects = null,
@@ -27,5 +26,4 @@ public sealed record MagicRules(
     ISpellAimRule? Aim = null,
     IMemberSpellEffects? Members = null,
     IPartySightRule? Sight = null,
-    ISpellItemRule? Items = null,
-    ISpellItemNames? ItemNames = null);
+    ISpellItemRule? Items = null);

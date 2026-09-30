@@ -430,7 +430,5 @@ public sealed class PromotionTests
             : new SkillCeiling(60, new SkillTier(4));
 
         public int RaiseCost(SkillEntry skill, int levels) => levels;
-
-        public string TierName(SkillTier tier) => tier.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
 }

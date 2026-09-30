@@ -447,7 +447,11 @@ public sealed class ItemMagicTests
     }
 
     /// <summary>The one casting workflow, over this suite's spell rule and effect path.</summary>
-    private static Spellcasting Casting(PartyEntity party, Effects effects) => new(party, Capabilities.Magic(new Spells(), effects));
+    private static Spellcasting Casting(PartyEntity party, Effects effects)
+    {
+        Spells spells = new();
+        return new(party, Capabilities.Magic(spells, effects), names: spells);
+    }
 
     /// <summary>Whether a character the game has laid out carries nothing a spell left.</summary>
     private static bool LaidOut(PartyMember member) =>
@@ -566,7 +570,7 @@ public sealed class ItemMagicTests
     /// The spell table this suite casts from: two spells content declares, one item that carries each, and
     /// nothing else.
     /// </summary>
-    private sealed class Spells : ISpellRule, ISpellItemRule, ISpellItemNames
+    private sealed class Spells : ISpellRule, ISpellItemRule, IGameNames
     {
         private static readonly SpellCatalog Declared = new(
         [
@@ -594,7 +598,9 @@ public sealed class ItemMagicTests
             return null;
         }
 
-        public string NameOf(ItemDefinitionId definition) => definition switch
+        public string TierName(SkillTier tier) => tier.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        public string ItemName(ItemDefinitionId definition) => definition switch
         {
             _ when definition == ScrollOfBolt => "Scroll of a bolt",
             _ when definition == WandOfBolt => "wand of a bolt",

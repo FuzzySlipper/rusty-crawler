@@ -62,7 +62,7 @@ public sealed class KnowledgePolicyTests
         using PartyEntity party = Party();
         GameClock clock = Clock();
         PartyKnowledge knowledge = new(new MightAndMagic7Knowledge(Loot(catalog)), clock);
-        PotionMixing mixing = new(party, alchemy.Catalog, alchemy, knowledge);
+        PotionMixing mixing = new(party, alchemy.Catalog, alchemy, knowledge, MightAndMagic7Names.Read(catalog));
 
         // The shipped table records a discovery for this pair, and the mixture makes the potion its own row
         // states: mixing a red potion into a blue one makes a purple one, and the discovery index the cell

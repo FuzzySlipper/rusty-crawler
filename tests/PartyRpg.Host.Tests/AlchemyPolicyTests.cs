@@ -167,7 +167,7 @@ public sealed class AlchemyPolicyTests
         using PartyEntity party = Party();
         GameClock clock = Clock();
         MightAndMagic7SpellEffects effects = new(spells, clock, () => null);
-        Spellcasting casting = new(party, new MagicRules(spells, effects, Running: effects, Members: effects, Items: spells, ItemNames: spells), fight: null);
+        Spellcasting casting = new(party, new MagicRules(spells, effects, Running: effects, Members: effects, Items: spells), fight: null);
 
         // A potion the party itself mixed: the strength it came out at is what its effect is read at, which is
         // the donor's own reading of a potion (its duration is thirty minutes a point of strength,
@@ -236,7 +236,7 @@ public sealed class AlchemyPolicyTests
 
         MightAndMagic7Skills skills = MightAndMagic7Skills.Read(catalog)
             ?? throw new InvalidOperationException("The content declares skills, so reading them must produce a policy.");
-        MightAndMagic7Alchemy alchemy = MightAndMagic7Alchemy.Read(catalog, skills)
+        MightAndMagic7Alchemy alchemy = MightAndMagic7Alchemy.Read(catalog)
             ?? throw new InvalidOperationException("The content declares mixtures, so reading them must produce a table.");
         MightAndMagic7Spells spells = MightAndMagic7Spells.Read(catalog, skills, alchemy)
             ?? throw new InvalidOperationException("The content declares spells, so reading them must produce a table.");

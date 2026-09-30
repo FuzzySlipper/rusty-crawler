@@ -75,9 +75,6 @@ internal sealed class MightAndMagic7Loot
     /// <summary>The item entry field that tags which skill the item is used with.</summary>
     internal const string ItemSkillField = "skill";
 
-    /// <summary>The item entry field that carries the item's name.</summary>
-    internal const string ItemNameField = "name";
-
     /// <summary>The item entry field that carries the item's material, which is where its rarity is spelled out.</summary>
     internal const string ItemMaterialField = "material";
 
@@ -176,7 +173,7 @@ internal sealed class MightAndMagic7Loot
     };
 
     private readonly LootTable _table;
-    private readonly Dictionary<string, string> _names;
+    private readonly MightAndMagic7Names _names;
     private readonly LootCandidate[] _artifacts;
     private readonly Dictionary<int, TreasureRoll> _treasure;
     private readonly int? _personRow;
@@ -184,7 +181,7 @@ internal sealed class MightAndMagic7Loot
 
     private MightAndMagic7Loot(
         LootTable table,
-        Dictionary<string, string> names,
+        MightAndMagic7Names names,
         LootCandidate[] artifacts,
         Dictionary<int, TreasureRoll> treasure,
         int? personRow,
@@ -208,11 +205,10 @@ internal sealed class MightAndMagic7Loot
     /// <exception cref="ContentValidationException">Content states an item weight or a treasure cell this game cannot read.</exception>
     internal static MightAndMagic7Loot Compose(ContentCatalog? catalog, IRandomService? random)
     {
-        if (catalog is null) return new MightAndMagic7Loot(new LootTable([]), [], [], [], null, random);
+        if (catalog is null) return new MightAndMagic7Loot(new LootTable([]), MightAndMagic7Names.Unnamed, [], [], null, random);
 
         List<ContentValidationIssue> issues = [];
         List<LootCandidate> candidates = [];
-        Dictionary<string, string> names = [];
         List<LootCandidate> artifacts = [];
         foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in catalog.Entries(MightAndMagic7Containers.ItemDefinitionKind))
         {
@@ -223,7 +219,6 @@ internal sealed class MightAndMagic7Loot
                 entry.GetString(ItemKindField),
                 entry.GetString(ItemSkillField));
             candidates.Add(candidate);
-            names[entry.Id] = entry.GetString(ItemNameField);
             if (IsSpawnableArtifact(entry, id)) artifacts.Add(candidate);
         }
 
@@ -235,7 +230,7 @@ internal sealed class MightAndMagic7Loot
         (Dictionary<int, TreasureRoll> treasure, int? personRow) = ReadTreasure(catalog, issues);
         return new MightAndMagic7Loot(
             new LootTable(candidates),
-            names,
+            MightAndMagic7Names.Read(catalog),
             [.. artifacts],
             treasure,
             personRow,
@@ -260,8 +255,7 @@ internal sealed class MightAndMagic7Loot
     /// <summary>What an item is called, as content names it.</summary>
     /// <param name="definition">The item definition.</param>
     /// <returns>The name, or the definition itself when content names none.</returns>
-    internal string NameOf(ItemDefinitionId definition) =>
-        _names.TryGetValue(definition.Value, out string? name) && name.Length > 0 ? name : definition.Value;
+    internal string NameOf(ItemDefinitionId definition) => _names.Item(definition);
 
     /// <summary>
     /// Whether the shipped table marks an item as one this game hands out as an artifact or a relic.

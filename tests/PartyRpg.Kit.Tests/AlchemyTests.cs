@@ -47,7 +47,7 @@ public sealed class AlchemyTests
         AlchemyCatalog catalog = new([
             new PotionMixture(Berry, Bottle, MixtureOutcome.Produces(Draught), new SkillTier(1), Power: 5, Note: 58),
         ]);
-        PotionMixing mixing = new(party, catalog, new Rule());
+        PotionMixing mixing = Mixing(party, catalog, new Rule());
 
         ItemInstance berry = Take(party, Berry);
         ItemInstance bottle = Take(party, Bottle);
@@ -87,7 +87,7 @@ public sealed class AlchemyTests
             // character here stands at the first.
             new PotionMixture(Berry, Bottle, MixtureOutcome.Produces(Tonic), new SkillTier(3), Power: 5),
         ]);
-        PotionMixing mixing = new(party, catalog, new Rule());
+        PotionMixing mixing = Mixing(party, catalog, new Rule());
 
         ItemInstance berry = Take(party, Berry);
         ItemInstance bottle = Take(party, Bottle);
@@ -125,7 +125,7 @@ public sealed class AlchemyTests
             // the donor's own answer rather than a refusal that leaves everything where it was.
             new PotionMixture(Berry, Rock, MixtureOutcome.Bursts(2)),
         ]);
-        PotionMixing mixing = new(party, catalog, new Rule { BurstHarm = 42, BurstCondition = Weak });
+        PotionMixing mixing = Mixing(party, catalog, new Rule { BurstHarm = 42, BurstCondition = Weak });
 
         ItemInstance berry = Take(party, Berry);
         ItemInstance rock = Take(party, Rock);
@@ -159,7 +159,7 @@ public sealed class AlchemyTests
             new PotionMixture(Berry, Bottle, MixtureOutcome.Produces(Draught), new SkillTier(1), Power: 5),
             new PotionMixture(Rock, Token, MixtureOutcome.NoReaction()),
         ]);
-        PotionMixing mixing = new(party, catalog, new Rule());
+        PotionMixing mixing = Mixing(party, catalog, new Rule());
 
         ItemInstance berry = Take(party, Berry);
         ItemInstance rock = Take(party, Rock);
@@ -194,7 +194,7 @@ public sealed class AlchemyTests
         AlchemyCatalog catalog = new([
             new PotionMixture(Berry, Bottle, MixtureOutcome.Produces(Draught), new SkillTier(3), Power: 5),
         ]);
-        PotionMixing mixing = new(party, catalog, new Rule());
+        PotionMixing mixing = Mixing(party, catalog, new Rule());
 
         ItemInstance berry = Take(party, Berry);
         ItemInstance bottle = Take(party, Bottle);
@@ -346,8 +346,12 @@ public sealed class AlchemyTests
         throw new InvalidOperationException("The repository root could not be found from the test's own output directory.");
     }
 
+    /// <summary>The mixing workflow over this suite's rule, which also names its rungs and items.</summary>
+    private static PotionMixing Mixing(PartyEntity party, AlchemyCatalog catalog, Rule rule) =>
+        new(party, catalog, rule, names: rule);
+
     /// <summary>This suite's own answers about mixing: a skill, its rung names, and what a burst is worth.</summary>
-    internal sealed class Rule : IAlchemyRule
+    internal sealed class Rule : IAlchemyRule, IGameNames
     {
         internal int BurstHarm { get; init; } = 5;
 
@@ -355,7 +359,7 @@ public sealed class AlchemyTests
 
         public SkillId Skill => AlchemySkill;
 
-        public string RungName(SkillTier tier) => tier.Value switch
+        public string TierName(SkillTier tier) => tier.Value switch
         {
             0 => "untrained",
             1 => "novice",
@@ -367,7 +371,7 @@ public sealed class AlchemyTests
         public string MasteryRaisedBy(SkillId skill) =>
             $"a mastery lesson in {skill.Value} at a counter that teaches it raises the rung";
 
-        public string NameOf(ItemDefinitionId definition) => definition.Value;
+        public string ItemName(ItemDefinitionId definition) => definition.Value;
 
         public Refusal? MayMix(PartyMember mixer) =>
             mixer.Conditions.Has(Eradicated)

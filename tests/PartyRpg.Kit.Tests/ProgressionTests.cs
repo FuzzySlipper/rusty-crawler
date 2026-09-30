@@ -408,15 +408,6 @@ public sealed class ProgressionTests
         public SkillCeiling Ceiling(PartyMember member, SkillId skill) => new(60, new SkillTier(4));
 
         public int RaiseCost(SkillEntry skill, int levels) => 2 * levels;
-
-        public string TierName(SkillTier tier) => tier.Value switch
-        {
-            0 => "untrained",
-            1 => "basic",
-            2 => "expert",
-            3 => "master",
-            _ => "grand master",
-        };
     }
 
     /// <summary>One counter that offers nothing but training, priced and capped as the test states.</summary>

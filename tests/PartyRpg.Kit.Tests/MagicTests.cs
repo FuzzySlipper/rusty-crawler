@@ -156,7 +156,7 @@ public sealed class MagicTests
             party,
             Capabilities.Magic(new TestSpells(), effects),
             fight: null,
-            rungName: tier => tier.Value == 2 ? "expert" : "basic");
+            names: new Rungs());
         PartyMember caster = party.Members[0];
         caster.Spells.Learn(FireBolt);
 
@@ -264,7 +264,7 @@ public sealed class MagicTests
         party.Members[0].Spells.Learn(FireBolt);
         party.Members[0].Spells.Learn(Torch);
 
-        MagicSnapshot magic = MagicSnapshot.From(casting, skills: null);
+        MagicSnapshot magic = MagicSnapshot.From(casting);
 
         Assert.True(magic.Available);
         Assert.Equal(2, magic.Members.Count);
@@ -546,5 +546,13 @@ public sealed class MagicTests
 
         public SpellApplicationOutcome Apply(SpellApplication application) =>
             SpellApplicationOutcome.Unexpressed(application.Spell.Effect, "nothing changed.");
+    }
+
+    /// <summary>This suite's words for two rungs, and no item names.</summary>
+    private sealed class Rungs : IGameNames
+    {
+        public string TierName(SkillTier tier) => tier.Value == 2 ? "expert" : "basic";
+
+        public string ItemName(ItemDefinitionId definition) => string.Empty;
     }
 }

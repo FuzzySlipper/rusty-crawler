@@ -39,21 +39,6 @@ public readonly record struct SpellItemReading(SpellId Spell, bool ConsumedByUse
     }
 }
 
-/// <summary>What a person reads for an item, as the game that names its own rows answers.</summary>
-/// <remarks>
-/// A pack holds definitions rather than names, and a panel that showed an item's identity would be showing
-/// the operator's own row number to a player. Nothing in the kit knows what an item is called, so a game that
-/// names its items answers here and a game that does not falls back to the identity, which is at least a
-/// thing a person can match against the pack they are looking at.
-/// </remarks>
-public interface ISpellItemNames
-{
-    /// <summary>What a person reads for an item definition, empty when nothing names it.</summary>
-    /// <param name="definition">The item definition to name.</param>
-    /// <returns>The name, or empty when this game states none.</returns>
-    string NameOf(ItemDefinitionId definition);
-}
-
 /// <summary>Which items carry a spell, and what using one costs the item, as the game's rows state it.</summary>
 /// <remarks>
 /// The rule is asked about a definition rather than about an instance because what a kind of item carries is

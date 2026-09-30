@@ -595,18 +595,7 @@ public sealed class KnowledgeTests
     {
         public SkillId Skill => AlchemySkill;
 
-        public string RungName(SkillTier tier) => tier.Value switch
-        {
-            0 => "untrained",
-            1 => "novice",
-            2 => "expert",
-            3 => "master",
-            _ => "grand master",
-        };
-
         public string MasteryRaisedBy(SkillId skill) => $"a lesson in {skill.Value} raises the rung";
-
-        public string NameOf(ItemDefinitionId definition) => definition.Value;
 
         public Refusal? MayMix(PartyMember mixer) => null;
 

@@ -262,8 +262,6 @@ public sealed class SkillTests
             None ? SkillCeiling.None : new SkillCeiling(MaximumLevel, new SkillTier(4));
 
         public int RaiseCost(SkillEntry skill, int levels) => 2 * levels;
-
-        public string TierName(SkillTier tier) => tier.Value == 0 ? "untrained" : "trained";
     }
 
     /// <summary>A growth curve flat enough that a test can award its way to a level in one step.</summary>

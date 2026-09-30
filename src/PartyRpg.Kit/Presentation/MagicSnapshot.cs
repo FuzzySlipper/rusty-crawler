@@ -216,12 +216,8 @@ public readonly record struct MagicSnapshot(
 
     /// <summary>Reads every member's magic out of the casting owner, or none when it holds no policy.</summary>
     /// <param name="casting">The session's casting workflow, or null when it composes none.</param>
-    /// <param name="skills">
-    /// This game's skill policy, when the session holds one, so a spell's tier reads as the game's own word
-    /// for a rung rather than as a number.
-    /// </param>
     /// <returns>The magic the panel shows, or <see cref="None"/> when there is nothing to read.</returns>
-    public static MagicSnapshot From(Spellcasting? casting, ISkillRule? skills = null)
+    public static MagicSnapshot From(Spellcasting? casting)
     {
         if (casting is not { } owner) return None;
 
@@ -241,7 +237,7 @@ public readonly record struct MagicSnapshot(
                     spell.Value,
                     definition.Name,
                     definition.School,
-                    RungName(skills, definition.Tier),
+                    GameNames.Tier(owner.Names, definition.Tier),
                     definition.Tier.Value,
                     owner.CostFor(member, definition),
                     SpellTargetings.WireName(definition.Targeting),
@@ -318,7 +314,6 @@ public readonly record struct MagicSnapshot(
         List<SpellItemSnapshot> items = [];
         if (owner.Magic.Items is { } spellItems)
         {
-            ISpellItemNames? names = owner.Magic.ItemNames;
             foreach (ItemInstance item in owner.Party.Items)
             {
                 if (spellItems.Reading(item.Definition) is not { } reading) continue;
@@ -329,7 +324,7 @@ public readonly record struct MagicSnapshot(
                     : string.Empty;
                 items.Add(new SpellItemSnapshot(
                     item.Id.ToString(),
-                    names is { } naming && naming.NameOf(item.Definition).Length > 0 ? naming.NameOf(item.Definition) : item.Definition.Value,
+                    GameNames.Item(owner.Names, item.Definition),
                     reading.ConsumedByUse ? "consumed" : "charged",
                     reading.Spell.Value,
                     carried.Name,
@@ -399,8 +394,4 @@ public readonly record struct MagicSnapshot(
     private static string Moment(GameDate? at) => at is { } moment
         ? moment.MinuteText
         : string.Empty;
-
-    /// <summary>What one rung of a skill's ladder is called, or its number when no policy names one.</summary>
-    private static string RungName(ISkillRule? skills, SkillTier tier) =>
-        skills is { } policy ? policy.TierName(tier) : tier.Value.ToString(CultureInfo.InvariantCulture);
 }

@@ -84,7 +84,6 @@ internal sealed class MightAndMagic7Session : IGameSession
         // the two can never disagree about which condition that is.
         MightAndMagic7Alchemy? alchemy = MightAndMagic7Alchemy.Read(
             Declared(context.Content),
-            skills,
             context.Engine?.Random,
             MightAndMagic7Conditions.CanAct);
 
@@ -267,6 +266,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             Progression = new ProgressionRules(MightAndMagic7Progression.Instance, promotions),
             Standing = standing,
             Skills = skills,
+            Names = MightAndMagic7Names.Read(Declared(context.Content)),
             Magic = spells is null
                 ? null
                 : new MagicRules(
@@ -277,8 +277,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                     Aim: spellEffects,
                     Members: spellEffects,
                     Sight: spellEffects,
-                    Items: spells,
-                    ItemNames: spells),
+                    Items: spells),
             Alchemy = alchemy is null ? null : new AlchemyRules(alchemy, alchemy.Catalog, Kinds: alchemy),
             Quests = quests,
             Journal = journal,

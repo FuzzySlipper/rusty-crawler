@@ -289,6 +289,7 @@ public sealed class PotionMixing
     private readonly AlchemyCatalog _catalog;
     private readonly IAlchemyRule _rule;
     private readonly PartyKnowledge? _knowledge;
+    private readonly IGameNames? _names;
 
     /// <summary>Creates the mixing workflow over one party and one game's own mixture table.</summary>
     /// <param name="party">The party whose pack holds the ingredients.</param>
@@ -299,13 +300,15 @@ public sealed class PotionMixing
     /// mixture is still made and nothing is written down, which is the honest state of a session whose
     /// ruleset keeps no record of what its party learns.
     /// </param>
+    /// <param name="names">What this game calls a rung and an item, or null to read them as numbers and identities.</param>
     /// <exception cref="ArgumentNullException">No party, catalog, or rule was supplied.</exception>
-    public PotionMixing(PartyEntity party, AlchemyCatalog catalog, IAlchemyRule rule, PartyKnowledge? knowledge = null)
+    public PotionMixing(PartyEntity party, AlchemyCatalog catalog, IAlchemyRule rule, PartyKnowledge? knowledge = null, IGameNames? names = null)
     {
         _party = party ?? throw new ArgumentNullException(nameof(party));
         _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
         _rule = rule ?? throw new ArgumentNullException(nameof(rule));
         _knowledge = knowledge;
+        _names = names;
     }
 
     /// <summary>The party whose pack holds the ingredients.</summary>
@@ -316,6 +319,9 @@ public sealed class PotionMixing
 
     /// <summary>This game's answers about mixing, which a panel reads what it shows through.</summary>
     public IAlchemyRule Rule => _rule;
+
+    /// <summary>What this game calls a rung and an item, which a result and a panel name them by.</summary>
+    public IGameNames? Names => _names;
 
     /// <summary>What the last attempt did, or why it did nothing.</summary>
     public MixingResult? Last { get; private set; }
@@ -378,8 +384,8 @@ public sealed class PotionMixing
                 string.Create(CultureInfo.InvariantCulture, $"The pack holds no item {request.Second}, so there was nothing to mix.")));
         }
 
-        string firstName = _rule.NameOf(first.Definition);
-        string secondName = _rule.NameOf(second.Definition);
+        string firstName = GameNames.Item(_names, first.Definition);
+        string secondName = GameNames.Item(_names, second.Definition);
 
         // The pair's own row. A pair the table never stated is not a mixture at all — the ingredients are not
         // "an incompatible mixture" but two things nothing said to combine — so nothing is spent.
@@ -413,7 +419,7 @@ public sealed class PotionMixing
         PotionMixture mixture)
     {
         ItemDefinitionId result = mixture.Outcome.Result!.Value;
-        string resultName = _rule.NameOf(result);
+        string resultName = GameNames.Item(_names, result);
 
         // The rung a mixture asks for is a fact about what it makes, so it is judged against the character's
         // own mastery of the mixing skill — through the same skill entry a ceiling, a lesson, and a casting's
@@ -430,7 +436,7 @@ public sealed class PotionMixing
                     MixingCodes.MixtureMasteryTooLow,
                     string.Create(
                         CultureInfo.InvariantCulture,
-                        $"{mixer.Profile.Name} stands at {_rule.RungName(held)} in {_rule.Skill} and {resultName} is mixed at {_rule.RungName(mixture.Tier)}; {_rule.MasteryRaisedBy(_rule.Skill)}."))));
+                        $"{mixer.Profile.Name} stands at {GameNames.Tier(_names, held)} in {_rule.Skill} and {resultName} is mixed at {GameNames.Tier(_names, mixture.Tier)}; {_rule.MasteryRaisedBy(_rule.Skill)}."))));
         }
 
         int power = _rule.Strength(mixer, mixture, first, second);
@@ -548,8 +554,8 @@ public sealed class PotionMixing
         if (mixture.Note <= 0 || _knowledge is null) return;
         ItemDefinitionId one = first.Definition;
         ItemDefinitionId other = second.Definition;
-        string firstName = _rule.NameOf(one);
-        string secondName = _rule.NameOf(other);
+        string firstName = GameNames.Item(_names, one);
+        string secondName = GameNames.Item(_names, other);
         _knowledge.Record(new KnowledgeReport(
             KnowledgeKind.Recipe,
             Source: "alchemy",

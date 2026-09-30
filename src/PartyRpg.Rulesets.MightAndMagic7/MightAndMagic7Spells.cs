@@ -93,7 +93,7 @@ internal static class SpellEffects
 /// no target named until an item-aim owner exists.
 /// </para>
 /// </remarks>
-internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellItemNames
+internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule
 {
     /// <summary>The definition kind the shipped spell table is declared under.</summary>
     internal const string SpellDefinitionKind = "spell";
@@ -302,7 +302,6 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
     private readonly Dictionary<string, SpellDefinition> _byName;
     private readonly Dictionary<ItemDefinitionId, SpellId> _books;
     private readonly Dictionary<ItemDefinitionId, SpellItemReading> _carried;
-    private readonly Dictionary<ItemDefinitionId, string> _names;
     private readonly MightAndMagic7Skills? _skills;
     private readonly MightAndMagic7Alchemy? _alchemy;
 
@@ -312,7 +311,6 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
         Dictionary<string, SpellDefinition> byName,
         Dictionary<ItemDefinitionId, SpellId> books,
         Dictionary<ItemDefinitionId, SpellItemReading> carried,
-        Dictionary<ItemDefinitionId, string> names,
         MightAndMagic7Skills? skills,
         MightAndMagic7Alchemy? alchemy)
     {
@@ -321,7 +319,6 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
         _byName = byName;
         _books = books;
         _carried = carried;
-        _names = names;
         _skills = skills;
         _alchemy = alchemy;
     }
@@ -401,11 +398,8 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
         // nothing could teach, so it is a defect rather than a purchase that silently does nothing.
         Dictionary<ItemDefinitionId, SpellId> books = [];
         Dictionary<ItemDefinitionId, SpellItemReading> carried = [];
-        Dictionary<ItemDefinitionId, string> names = [];
         foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in catalog.Entries(ItemDefinitionKind))
         {
-            string name = entry.GetString(NameField);
-            if (name.Length > 0) names[new ItemDefinitionId(entry.Id)] = name;
             string kind = entry.GetString(TypeField).Trim();
             bool book = string.Equals(entry.GetString(EquipStatField), BookEquipStat, StringComparison.OrdinalIgnoreCase);
             bool scroll = string.Equals(kind, ScrollKind, StringComparison.OrdinalIgnoreCase);
@@ -476,7 +470,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
                 issues);
         }
 
-        return new MightAndMagic7Spells(new SpellCatalog(definitions), facts, byName, books, carried, names, skills, alchemy);
+        return new MightAndMagic7Spells(new SpellCatalog(definitions), facts, byName, books, carried, skills, alchemy);
     }
 
     /// <summary>How many rows this game states numbers for, which content's own table declares.</summary>
@@ -589,7 +583,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
 
         SkillTier held = member.Skills.TierOf(spell.SchoolSkill);
         if (held.Value >= spell.Tier.Value) return null;
-        return SpellRefusals.MasteryTooLow(member.Profile.Name, spell.Name, RungName(spell.Tier), RungName(held));
+        return SpellRefusals.MasteryTooLow(member.Profile.Name, spell.Name, MightAndMagic7Names.Tier(spell.Tier), MightAndMagic7Names.Tier(held));
     }
 
     /// <summary>
@@ -877,14 +871,6 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
     public SpellItemReading? Reading(ItemDefinitionId definition) =>
         _carried.TryGetValue(definition, out SpellItemReading reading) ? reading : null;
 
-    /// <inheritdoc />
-    /// <remarks>
-    /// The shipped table's own name column, which is what a person reads on a shelf and in a pack; a pack that
-    /// names nothing answers empty and the panel falls back to the identity the item is known by.
-    /// </remarks>
-    public string NameOf(ItemDefinitionId definition) =>
-        _names.TryGetValue(definition, out string? name) ? name : string.Empty;
-
     /// <summary>How many charges a wand's own row states, which is what one wand of that kind holds when full.</summary>
     /// <remarks>
     /// The donor draws a wand's charges from its damage modifier (OpenEnroth
@@ -919,10 +905,6 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
     /// <summary>The rung of a spell's school the member's mastery stands at, never below the first.</summary>
     internal static int Rung(PartyMember member, SpellDefinition spell) =>
         Math.Clamp(member.Skills.TierOf(spell.SchoolSkill).Value, 1, Rungs);
-
-    /// <summary>What one rung of a skill's ladder is called, in this game's own words.</summary>
-    private string RungName(SkillTier tier) =>
-        _skills is { } skills ? skills.TierName(tier) : tier.Value.ToString(CultureInfo.InvariantCulture);
 
     /// <summary>The donor's bonus for one attribute score.</summary>
     private static int ParameterBonus(int score) => MightAndMagic7AttributeBonus.Of(score);

@@ -37,8 +37,7 @@ internal static class Capabilities
             effects as ISpellAimRule,
             effects as IMemberSpellEffects,
             effects as IPartySightRule,
-            spells as ISpellItemRule,
-            spells as ISpellItemNames);
+            spells as ISpellItemRule);
 
     private sealed class HitPointsInPlacement : ICreatureVitals
     {

@@ -97,8 +97,9 @@ public readonly record struct SkillsSnapshot(
 
     /// <summary>Reads every member's skills out of the progression owner, or none when it holds no policy.</summary>
     /// <param name="progression">The session's progression owner, or null when it holds none.</param>
+    /// <param name="names">What this game calls a rung, or null to show a rung as its number.</param>
     /// <returns>The skills the panel shows, or <see cref="None"/> when there is nothing to read.</returns>
-    public static SkillsSnapshot From(PartyProgression? progression)
+    public static SkillsSnapshot From(PartyProgression? progression, IGameNames? names = null)
     {
         if (progression?.Skills is not { } policy) return None;
 
@@ -115,9 +116,9 @@ public readonly record struct SkillsSnapshot(
                     entry.Skill.Value,
                     WireName(policy.Catalog.Read(entry.Skill).Block),
                     entry.Level,
-                    policy.TierName(entry.Tier),
+                    GameNames.Tier(names, entry.Tier),
                     ceiling.MaximumLevel,
-                    policy.TierName(ceiling.MaximumTier),
+                    GameNames.Tier(names, ceiling.MaximumTier),
                     entry.PointsSpent,
                     plan.Reached,
                     plan.Points,

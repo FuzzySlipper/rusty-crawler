@@ -596,8 +596,6 @@ public sealed class PartyEntityTests
         public SkillCeiling Ceiling(PartyMember member, SkillId skill) => new(60, new SkillTier(4));
 
         public int RaiseCost(SkillEntry skill, int levels) => 2 * levels;
-
-        public string TierName(SkillTier tier) => tier.Value == 0 ? "untrained" : "trained";
     }
 
     private sealed class NoProgressionRule : IProgressionRule

@@ -62,6 +62,9 @@ public sealed record SessionRules
     /// <summary>The answers about the game's skills: the catalog, the ceilings, and what a raise costs.</summary>
     public ISkillRule? Skills { get; init; }
 
+    /// <summary>What the game calls a rung and an item, which every mechanism and panel names them by.</summary>
+    public IGameNames? Names { get; init; }
+
     /// <summary>The answers about spells: what they cost and require, and what their effects do.</summary>
     public MagicRules? Magic { get; init; }
 

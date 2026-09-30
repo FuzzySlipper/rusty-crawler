@@ -216,7 +216,7 @@ public sealed class Spellcasting
     private readonly ISpellRule _rule;
     private readonly ISpellEffectRule? _effects;
     private readonly CombatState? _fight;
-    private readonly Func<SkillTier, string> _rungName;
+    private readonly IGameNames? _names;
 
     /// <summary>Creates the casting workflow over one party.</summary>
     /// <param name="party">The party whose members cast.</param>
@@ -227,25 +227,28 @@ public sealed class Spellcasting
     /// spending a point on a spell nothing would apply.
     /// </param>
     /// <param name="fight">The fight the party is in, or null when it is in none.</param>
-    /// <param name="rungName">
-    /// What this game calls one rung of a skill's ladder, or null to read a rung as its number. A spell's
-    /// tier is a rung of its school's ladder, so a refusal that names it reads in the game's own words when
-    /// the skill owner supplies them.
+    /// <param name="names">
+    /// What this game calls a rung and an item, or null to read a rung as its number and an item as its
+    /// identity. A spell's tier is a rung of its school's ladder and a scroll is an item, so a refusal that
+    /// names either reads in the game's own words when the game supplies them.
     /// </param>
     /// <exception cref="ArgumentNullException">No party or no spell policy was supplied.</exception>
     public Spellcasting(
         PartyEntity party,
         MagicRules magic,
         CombatState? fight = null,
-        Func<SkillTier, string>? rungName = null)
+        IGameNames? names = null)
     {
         _party = party ?? throw new ArgumentNullException(nameof(party));
         _magic = magic ?? throw new ArgumentNullException(nameof(magic));
         _rule = magic.Spells ?? throw new ArgumentNullException(nameof(magic));
         _effects = magic.Effects;
         _fight = fight;
-        _rungName = rungName ?? (tier => tier.Value.ToString(CultureInfo.InvariantCulture));
+        _names = names;
     }
+
+    /// <summary>What this game calls a rung and an item, which a refusal and the panel name them by.</summary>
+    public IGameNames? Names => _names;
 
     /// <summary>This game's answers about its own magic, which the panel reads through this owner.</summary>
     public ISpellRule Rule => _rule;
@@ -338,7 +341,7 @@ public sealed class Spellcasting
                     caster.Profile.Name,
                     request.Spell,
                     spell.Name,
-                    SpellRefusals.MasteryTooLow(caster.Profile.Name, spell.Name, _rungName(spell.Tier), _rungName(held))));
+                    SpellRefusals.MasteryTooLow(caster.Profile.Name, spell.Name, GameNames.Tier(_names, spell.Tier), GameNames.Tier(_names, held))));
             }
 
             cost = _rule.CostFor(caster, spell);
@@ -406,7 +409,7 @@ public sealed class Spellcasting
             cost,
             targetName,
             outcome,
-            spentItem && source is { } used ? Name(_magic.ItemNames, used.Definition) : string.Empty));
+            spentItem && source is { } used ? GameNames.Item(_names, used.Definition) : string.Empty));
     }
 
     /// <summary>
@@ -424,9 +427,8 @@ public sealed class Spellcasting
         SpellCastResult Refuse(Refusal refusal) =>
             SpellCastResult.Refused(request.Member, caster.Profile.Name, request.Spell, spellName: string.Empty, refusal);
 
-        ISpellItemNames? names = _magic.ItemNames;
         if (_party.FindItem(id) is not { } instance) return (null, Refuse(SpellRefusals.ItemNotHeld(id.ToString())));
-        string called = Name(names, instance.Definition);
+        string called = GameNames.Item(_names, instance.Definition);
         if (_magic.Items is not { } items || items.Reading(instance.Definition) is not { } reading)
         {
             return (null, Refuse(SpellRefusals.ItemCarriesNoSpell(called)));
@@ -454,14 +456,6 @@ public sealed class Spellcasting
         }
 
         return (new SpellItem(reading, id, instance.Definition), null);
-    }
-
-    /// <summary>What a person reads for an item, or its identity when this game names none.</summary>
-    private static string Name(ISpellItemNames? names, ItemDefinitionId definition)
-    {
-        if (names is not { } naming) return definition.Value;
-        string called = naming.NameOf(definition);
-        return called.Length > 0 ? called : definition.Value;
     }
 
     /// <summary>Spends the item a casting took its spell from, through the party's own item entry.</summary>

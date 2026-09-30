@@ -490,25 +490,6 @@ internal sealed class MightAndMagic7Skills : ISkillRule
         return checked((int)points);
     }
 
-    /// <summary>What one rung of a skill's ladder is called, as a person reads it.</summary>
-    /// <remarks>
-    /// The design's own four names ([`docs/gameplay-design.md`](../../../docs/gameplay-design.md) §3.2:
-    /// "basic, expert, master, grand master"), which are the manual's B/E/M/GM and the shipped table's four
-    /// effect columns. A rung above the ladder reads as its number rather than as a word this game does not
-    /// have.
-    /// </remarks>
-    /// <param name="tier">The rung to name.</param>
-    /// <returns>The word a person reads for that rung.</returns>
-    public string TierName(SkillTier tier) => tier.Value switch
-    {
-        0 => "untrained",
-        1 => "basic",
-        2 => "expert",
-        3 => "master",
-        4 => "grand master",
-        _ => string.Create(CultureInfo.InvariantCulture, $"rung {tier.Value}"),
-    };
-
     /// <summary>Finds the declared skill an outside word names, or null when content declares no such skill.</summary>
     /// <remarks>
     /// The item table lower-cases the skill its goods belong to ("sword", "leather") while the skill table
@@ -556,7 +537,7 @@ internal sealed class MightAndMagic7Skills : ISkillRule
     /// <param name="skill">The skill being taught.</param>
     /// <param name="tier">The rung the lesson reaches.</param>
     /// <returns>The lesson's own name.</returns>
-    internal string LessonName(SkillId skill, int tier) => $"{skill.Value}, {TierName(new SkillTier(tier))}";
+    internal string LessonName(SkillId skill, int tier) => $"{skill.Value}, {MightAndMagic7Names.Tier(new SkillTier(tier))}";
 
     /// <summary>
     /// Whether a counter may teach one member a skill at a rung, or why it may not.
@@ -642,7 +623,7 @@ internal sealed class MightAndMagic7Skills : ISkillRule
                 MightAndMagic7Codes.ServiceLessonRungShort,
                 string.Create(
                     CultureInfo.InvariantCulture,
-                    $"{ThisRung(tier)} {skill} is taught to somebody who already stands at the {TierName(new SkillTier(tier - 1))} rung, and {member.Profile.Name} stands at {TierName(standing)}."));
+                    $"{ThisRung(tier)} {skill} is taught to somebody who already stands at the {MightAndMagic7Names.Tier(new SkillTier(tier - 1))} rung, and {member.Profile.Name} stands at {MightAndMagic7Names.Tier(standing)}."));
         }
 
         int wanted = tier < TeacherLevels.Length ? TeacherLevels[tier] : 0;
@@ -801,5 +782,5 @@ internal sealed class MightAndMagic7Skills : ISkillRule
     }
 
     /// <summary>How a rung reads inside a sentence: "the expert rung of", or "the first rung of".</summary>
-    private string ThisRung(int tier) => tier <= BasicRung ? "the first rung of" : $"the {TierName(new SkillTier(tier))} rung of";
+    private string ThisRung(int tier) => tier <= BasicRung ? "the first rung of" : $"the {MightAndMagic7Names.Tier(new SkillTier(tier))} rung of";
 }

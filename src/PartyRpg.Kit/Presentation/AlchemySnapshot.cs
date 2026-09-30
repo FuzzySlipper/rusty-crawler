@@ -153,7 +153,7 @@ public readonly record struct AlchemySnapshot(
             items.Add(new AlchemyItemSnapshot(
                 item.Id.ToString(),
                 item.Definition.Value,
-                owner.Rule.NameOf(item.Definition),
+                GameNames.Item(owner.Names, item.Definition),
                 kinds?.KindOf(item.Definition) ?? string.Empty,
                 item.State.Potency,
                 item.StackCount));
