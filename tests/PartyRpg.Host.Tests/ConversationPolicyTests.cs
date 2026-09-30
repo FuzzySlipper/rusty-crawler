@@ -330,7 +330,7 @@ public sealed class ConversationPolicyTests
         {
             ContentCatalog catalog = ContentCatalogLoader.Load(
                 new PolicyContentSource()
-                    .Add("packs/world/pack.json", Manifest())
+                    .Add("packs/world/pack.json", TestPacks.Manifest("world", ("places", "place"), ("people", "person"), ("services", "service")))
                     .Add("packs/world/places.json", Places())
                     .Add("packs/world/people.json", People())
                     .Add("packs/world/services.json", Services()),
@@ -404,21 +404,6 @@ public sealed class ConversationPolicyTests
         private ConversationContext Context(PlacementDefinition placement, ConversationSubject subject, string speaker) =>
             new(SomewherePlace, placement, subject, speaker, [], Party, Clock);
 
-        private static string Manifest() =>
-            """
-            {
-              "schemaVersion": 1,
-              "packId": "world",
-              "kind": "definitions",
-              "provenance": { "description": "authored for a test" },
-              "documents": [
-                { "path": "places.json", "documentId": "places", "definitionKind": "place" },
-                { "path": "people.json", "documentId": "people", "definitionKind": "person" },
-                { "path": "services.json", "documentId": "services", "definitionKind": "service" }
-              ]
-            }
-            """;
-
         private static string Places() =>
             """
             { "documentId": "places", "definitionKind": "place", "entries": [
@@ -464,16 +449,9 @@ public sealed class ConversationPolicyTests
     private static ConversationAnswer Greeting(Fixture fixture, ConversationSubject subject, string speaker) =>
         fixture.Conversation.Greeting(new ConversationContext(SomewherePlace, fixture.Placement("person-0"), subject, speaker, [], fixture.Party, fixture.Clock));
 
-    private static string SourceDirectory() => Path.Combine(RepositoryRoot(), "src", "PartyRpg.Host");
+    private static string SourceDirectory() => Path.Combine(Repository.Root, "src", "PartyRpg.Host");
 
     private static string ProjectFile() => Path.Combine(SourceDirectory(), "PartyRpg.Host.csproj");
-
-    private static string RepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "AGENTS.md"))) directory = directory.Parent;
-        return directory?.FullName ?? throw new InvalidOperationException("The repository root was not found above the test output.");
-    }
 
     private static string Constant(string source, string name)
     {

@@ -19,4 +19,9 @@
          suite that covers creation, and a second one for one test file would not be a suite. -->
     <ProjectReference Include="../../src/PartyRpg.Rulesets.MightAndMagic7/PartyRpg.Rulesets.MightAndMagic7.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- The suites' shared support: one definition of each helper, referenced rather than copied. -->
+    <ProjectReference Include="../PartyRpg.Testing/PartyRpg.Testing.csproj" />
+    <Using Include="PartyRpg.Testing" />
+  </ItemGroup>
 </Project>

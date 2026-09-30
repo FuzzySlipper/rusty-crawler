@@ -142,7 +142,7 @@ public sealed class TravelPolicyTests
         using PartyEntity party = MightAndMagic7Party.Compose(catalog)
             ?? throw new InvalidOperationException("The scenario declares a party, so composing it must produce one.");
         PartyResourceLedger accounts = new(party, provisioning: new MightAndMagic7Provisions(party));
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         PartyPoseOwner owner = new(
             new PartyPose(Home, PlacePose.Origin),
             new FacingRule(unitsPerTurn: 2048, minimumPitch: -512, maximumPitch: 512));
@@ -263,7 +263,7 @@ public sealed class TravelPolicyTests
             @"(private|internal|protected|public)\s+(int|long|Provisions)\s+_?\w*(Food|Portions|Provisions|Rations)\w*\s*(\{[^}]*\bset\b|=(?!=|>)|;)",
             RegexOptions.CultureInvariant);
 
-        string ruleset = Path.Combine(RepositoryRoot(), "src", "PartyRpg.Rulesets.MightAndMagic7");
+        string ruleset = Path.Combine(Repository.Root, "src", "PartyRpg.Rulesets.MightAndMagic7");
         string[] sources =
         [
             .. Directory.EnumerateFiles(ruleset, "*.cs", SearchOption.AllDirectories)
@@ -392,13 +392,6 @@ public sealed class TravelPolicyTests
         .. extra,
     ];
 
-    /// <summary>The session's one clock, at this game's own rate and on its own calendar.</summary>
-    private static GameClock Clock() => new(
-        GameCalendar.TwelveMonthsOfFourWeeks,
-        new GameDate(1168, 1, 1, 9, 0),
-        new GameTimeScale(30),
-        new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
-
     /// <summary>
     /// The world's own roads, restated with a crossing a stable sells beside the one the party can walk.
     /// </summary>
@@ -473,21 +466,4 @@ public sealed class TravelPolicyTests
           ]
         }
         """;
-
-    private static string RepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "AGENTS.md")) &&
-                Directory.Exists(Path.Combine(directory.FullName, "src")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Could not find the repository root above the test assembly.");
-    }
 }

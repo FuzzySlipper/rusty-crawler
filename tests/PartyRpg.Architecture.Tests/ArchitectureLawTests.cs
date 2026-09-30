@@ -11,7 +11,7 @@ namespace PartyRpg.Architecture.Tests;
 /// </summary>
 public sealed class ArchitectureLawTests
 {
-    private static readonly string RepositoryRoot = FindRepositoryRoot();
+    private static string RepositoryRoot => Repository.Root;
 
     [Fact]
     public void Kit_does_not_contain_ruleset_or_donor_vocabulary()
@@ -169,13 +169,19 @@ public sealed class ArchitectureLawTests
         string uiSuite = package.RootElement.GetProperty("scripts").GetProperty("test:ui").GetString() ?? string.Empty;
         Assert.Contains("node --test tests/PartyRpg.Ui.Tests/*.test.mjs", uiSuite, StringComparison.Ordinal);
 
-        string[] suites = [.. Directory.EnumerateFiles(Path.Combine(RepositoryRoot, "tests"), "*.csproj", SearchOption.AllDirectories)
-            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
-            .Select(Relative)
-            .Order(StringComparer.Ordinal)];
-        string[] declaredSuites = [.. DeclaredList(script, "test_projects").Order(StringComparer.Ordinal)];
-        Assert.Equal(suites, declaredSuites);
+        // A suite is a project that brings the test platform; a project under tests/ that does not is support the
+        // suites share, which the script builds on its own so a break in it is reported as its own.
+        string[] testProjects = [.. Repository.Files("tests", "*.csproj").Select(Relative).Order(StringComparer.Ordinal)];
+        string[] suites = [.. testProjects.Where(IsSuite)];
+        string[] support = [.. testProjects.Where(project => !IsSuite(project))];
+        Assert.NotEmpty(suites);
+        Assert.Equal(suites, DeclaredList(script, "test_projects").Order(StringComparer.Ordinal));
+        Assert.Equal(support, DeclaredList(script, "test_support_projects").Order(StringComparer.Ordinal));
     }
+
+    private static bool IsSuite(string relativeProject) =>
+        XDocument.Load(Path.Combine(RepositoryRoot, relativeProject)).Descendants("PackageReference")
+            .Any(reference => (string?)reference.Attribute("Include") == "Microsoft.NET.Test.Sdk");
 
     private static string Relative(string path) =>
         Path.GetRelativePath(RepositoryRoot, path).Replace(Path.DirectorySeparatorChar, '/');
@@ -281,33 +287,10 @@ public sealed class ArchitectureLawTests
         Assert.Equal([.. expected.Order(StringComparer.Ordinal)], actual);
     }
 
-    private static IEnumerable<string> RepositoryProjects() =>
-        Directory.EnumerateFiles(RepositoryRoot, "*.csproj", SearchOption.AllDirectories)
-            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
-            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}node_modules{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
-            .Where(file => !Relative(file).StartsWith("local/", StringComparison.Ordinal));
+    private static IEnumerable<string> RepositoryProjects() => Repository.Files(string.Empty, "*.csproj");
 
-    private static IEnumerable<string> SourceProjects() =>
-        Directory.EnumerateFiles(Path.Combine(RepositoryRoot, "src"), "*.csproj", SearchOption.AllDirectories)
-            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal));
+    private static IEnumerable<string> SourceProjects() => Repository.Files("src", "*.csproj");
 
     private static string ProjectFile(string projectName) =>
         Path.Combine(RepositoryRoot, "src", projectName, $"{projectName}.csproj");
-
-    private static string FindRepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "AGENTS.md")) &&
-                Directory.Exists(Path.Combine(directory.FullName, "src")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Could not find the repository root above the test assembly.");
-    }
 }

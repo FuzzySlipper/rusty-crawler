@@ -70,16 +70,16 @@ public sealed class CreationIntentTests
         // The default party creation opens on is finished, so changing one member begins by reopening it:
         // the screen's own member button, on the product's payload contract.
         product.Update(ProductTestContext.Update(1, 1, ProductTestContext.Payload("""{"action":"creation.select-member","member":0}""")));
-        Assert.Equal("portrait", ProjectedNode.Of(ui.Latest().Value).Field("creation").Field("roster").Element(0).Field("step").AsString());
+        Assert.Equal("portrait", ProjectedNode.Of(ui.Latest().Value).Field("creation").Field("roster").Item(0).Field("step").AsString());
 
         // A choice a player clicked: the portrait, which is what decides the character's race. The flow
         // draws its race, and the screen is told what the flow decided.
         product.Update(ProductTestContext.Update(2, 1, ProductTestContext.Payload("""{"action":"creation.select-portrait","portrait":"elf-woman"}""")));
 
         ProjectedNode creation = ProjectedNode.Of(ui.Latest().Value).Field("creation");
-        Assert.Equal("Elf", creation.Field("roster").Element(0).Field("race").AsString());
-        Assert.Equal("elf-woman", creation.Field("roster").Element(0).Field("portrait").AsString());
-        Assert.True(creation.Field("portraits").Element(2).Field("selected").AsBoolean());
+        Assert.Equal("Elf", creation.Field("roster").Item(0).Field("race").AsString());
+        Assert.Equal("elf-woman", creation.Field("roster").Item(0).Field("portrait").AsString());
+        Assert.True(creation.Field("portraits").Item(2).Field("selected").AsBoolean());
         Assert.Equal(string.Empty, creation.Field("refusalCode").AsString());
 
         // An illegal choice is refused by name and the session stays in creation: the rule the flow broke is
@@ -118,8 +118,8 @@ public sealed class CreationIntentTests
         Assert.False(value.Field("creation").Field("active").AsBoolean());
         Assert.True(value.Field("creation").Field("accepted").AsBoolean());
         Assert.Equal(4d, value.Field("creation").Field("party").Count());
-        Assert.Equal("Roderick", value.Field("creation").Field("party").Element(0).Field("name").AsString());
-        Assert.Equal("human-man", value.Field("creation").Field("party").Element(0).Field("portrait").AsString());
+        Assert.Equal("Roderick", value.Field("creation").Field("party").Item(0).Field("name").AsString());
+        Assert.Equal("human-man", value.Field("creation").Field("party").Item(0).Field("portrait").AsString());
         Assert.True(value.Field("party").Field("present").AsBoolean());
         Assert.Equal(4d, value.Field("party").Field("members").AsNumber());
 

@@ -278,7 +278,7 @@ public sealed class ProgressionTests
             "ChangeClass(",
         ];
 
-        string root = RepositoryRoot();
+        string root = Repository.Root;
         string[] sources =
         [
             .. Directory.EnumerateFiles(Path.Combine(root, "src"), "*.cs", SearchOption.AllDirectories)
@@ -459,23 +459,5 @@ public sealed class ProgressionTests
             request.Operation == ServiceOperationKind.Train
                 ? ServiceQuote.Charging(_fee, _fee)
                 : ServiceQuote.Free;
-    }
-
-    /// <summary>The repository root above the test assembly, which is where the product's sources are.</summary>
-    private static string RepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "AGENTS.md")) &&
-                Directory.Exists(Path.Combine(directory.FullName, "src")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException($"The repository root is not above {AppContext.BaseDirectory}.");
     }
 }

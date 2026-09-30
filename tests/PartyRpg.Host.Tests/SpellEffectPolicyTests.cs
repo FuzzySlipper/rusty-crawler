@@ -7,7 +7,6 @@ using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
-using PartyRpg.Kit.Tests;
 using PartyRpg.Rulesets.MightAndMagic7;
 using Rusty.Engine;
 using Xunit;

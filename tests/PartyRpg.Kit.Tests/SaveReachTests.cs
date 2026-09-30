@@ -47,7 +47,7 @@ public sealed class SaveReachTests
         // A played session: admitted updates with no save request in them write nothing at all, however
         // many of them pass and however much game time they carry. That is what "no implicit save" means
         // as a property of the code rather than as an intention about it.
-        for (ulong step = 1; step <= 120; step++) fixture.Session.Update(Update(step, 60, stepSeconds: 1.0));
+        for (ulong step = 1; step <= 120; step++) fixture.Session.Update(Admitted.Update(step, 60, stepSeconds: 1.0));
         Assert.Empty(fixture.Store.Writes);
         Assert.Equal("none", fixture.Published().Field("save").Field("state").AsString());
         // A session with somewhere to write is the premise of every case below; the panel's own report of
@@ -59,7 +59,7 @@ public sealed class SaveReachTests
         // projection they were reading.
         GameDate moment = fixture.Clock.Now;
         ClockSave momentRecorded = ClockSave.Capture(fixture.Clock);
-        fixture.Session.Update(Update(121, 60, Digital(Controls.Intent)));
+        fixture.Session.Update(Admitted.Update(121, 60, Admitted.Digital(Controls.Intent)));
 
         SessionSave written = Assert.Single(fixture.Store.Writes);
         Assert.Equal("session", fixture.Store.WrittenSlots[0]);
@@ -98,14 +98,14 @@ public sealed class SaveReachTests
 
         // Two requests in one update are one moment, so they are one save: a key repeat or a button and a
         // key together must not write the same state twice.
-        fixture.Session.Update(Update(1, 60, Digital(Controls.Intent), Digital(Controls.Intent)));
+        fixture.Session.Update(Admitted.Update(1, 60, Admitted.Digital(Controls.Intent), Admitted.Digital(Controls.Intent)));
         Assert.Single(fixture.Store.Writes);
 
-        fixture.Session.Update(Update(2, 60));
+        fixture.Session.Update(Admitted.Update(2, 60));
         Assert.Single(fixture.Store.Writes);
 
         // A request in a later update is a second save, and the slot holds the newer document.
-        fixture.Session.Update(Update(3, 60, Digital(Controls.Intent)));
+        fixture.Session.Update(Admitted.Update(3, 60, Admitted.Digital(Controls.Intent)));
         Assert.Equal(2, fixture.Store.Writes.Count);
         Assert.Equal("saved", fixture.Published().Field("save").Field("state").AsString());
     }
@@ -117,14 +117,14 @@ public sealed class SaveReachTests
         fixture.Session.Start();
 
         // A payload that names another action, and a payload on another contract, ask for nothing.
-        fixture.Session.Update(Update(1, 60, Payload("crawler.ui.action.v1", """{"action":"session.pause"}""")));
-        fixture.Session.Update(Update(2, 60, Payload("someone.else.v1", """{"action":"session.save"}""")));
-        fixture.Session.Update(Update(3, 60, Payload("crawler.ui.action.v1", """{"action":"creation.accept"}""")));
+        fixture.Session.Update(Admitted.Update(1, 60, Admitted.Payload("crawler.ui.action.v1", """{"action":"session.pause"}""")));
+        fixture.Session.Update(Admitted.Update(2, 60, Admitted.Payload("someone.else.v1", """{"action":"session.save"}""")));
+        fixture.Session.Update(Admitted.Update(3, 60, Admitted.Payload("crawler.ui.action.v1", """{"action":"creation.accept"}""")));
         Assert.Empty(fixture.Store.Writes);
         Assert.Equal("none", fixture.Published().Field("save").Field("state").AsString());
 
         // The action the DOM companion's save button sends is the same request as the key.
-        fixture.Session.Update(Update(4, 60, Payload("crawler.ui.action.v1", """{"action":"session.save"}""")));
+        fixture.Session.Update(Admitted.Update(4, 60, Admitted.Payload("crawler.ui.action.v1", """{"action":"session.save"}""")));
         Assert.Single(fixture.Store.Writes);
         Assert.Equal("saved", fixture.Published().Field("save").Field("state").AsString());
     }
@@ -137,8 +137,8 @@ public sealed class SaveReachTests
 
         // The key is pressed, but this product never declared it as a save control, so it is not one. A
         // session without the declaration has no save trigger at all rather than one it invented.
-        fixture.Session.Update(Update(1, 60, Digital(Controls.Intent)));
-        fixture.Session.Update(Update(2, 60, Payload("crawler.ui.action.v1", """{"action":"session.save"}""")));
+        fixture.Session.Update(Admitted.Update(1, 60, Admitted.Digital(Controls.Intent)));
+        fixture.Session.Update(Admitted.Update(2, 60, Admitted.Payload("crawler.ui.action.v1", """{"action":"session.save"}""")));
 
         Assert.Empty(fixture.Store.Writes);
         Assert.Equal("none", fixture.Published().Field("save").Field("state").AsString());
@@ -151,7 +151,7 @@ public sealed class SaveReachTests
         using Fixture fixture = new(refusal: refusal);
         fixture.Session.Start();
 
-        fixture.Session.Update(Update(1, 60, Digital(Controls.Intent)));
+        fixture.Session.Update(Admitted.Update(1, 60, Admitted.Digital(Controls.Intent)));
 
         ProjectedNode save = fixture.Published().Field("save");
         Assert.Equal("failed", save.Field("state").AsString());
@@ -174,7 +174,7 @@ public sealed class SaveReachTests
         using Fixture fixture = new(refusal: new EngineCallException("Persistence", "Save", 0));
         fixture.Session.Start();
 
-        fixture.Session.Update(Update(1, 60, Digital(Controls.Intent)));
+        fixture.Session.Update(Admitted.Update(1, 60, Admitted.Digital(Controls.Intent)));
 
         ProjectedNode save = fixture.Published().Field("save");
         Assert.Equal("failed", save.Field("state").AsString());
@@ -201,7 +201,7 @@ public sealed class SaveReachTests
             saving: new SessionSaving(store));
         empty.Start();
 
-        empty.Update(Update(1, 60, Digital(Controls.Intent)));
+        empty.Update(Admitted.Update(1, 60, Admitted.Digital(Controls.Intent)));
 
         Assert.Empty(store.Writes);
         ProjectedNode save = channel.Latest().Field("save");
@@ -222,7 +222,7 @@ public sealed class SaveReachTests
         fixture.Session.Start();
 
         // A player's request reports the loss instead of throwing, and publishes it.
-        fixture.Session.Update(Update(1, 60, Payload("crawler.ui.action.v1", """{"action":"session.save"}""")));
+        fixture.Session.Update(Admitted.Update(1, 60, Admitted.Payload("crawler.ui.action.v1", """{"action":"session.save"}""")));
 
         ProjectedNode outcome = fixture.Published().Field("save");
         Assert.False(outcome.Field("available").AsBoolean());
@@ -346,45 +346,6 @@ public sealed class SaveReachTests
                     }
                     """),
             Layout).RequireValid());
-
-    private static ProductUpdate Update(ulong step, uint admitted, params ProductInputEvent[] input) =>
-        Update(step, admitted, 1.0 / 60.0, input);
-
-    private static ProductUpdate Update(ulong step, uint admitted, double stepSeconds, params ProductInputEvent[] input)
-    {
-        ProductUpdateFacts facts = new(
-            ProductUpdateMode.Realtime,
-            ProductLifecycleState.Running,
-            1,
-            1,
-            0,
-            step,
-            60,
-            admitted,
-            0,
-            stepSeconds);
-        return new ProductUpdate(facts, input);
-    }
-
-    /// <summary>One digital event on a product intent, in the shape the engine admits it.</summary>
-    private static ProductInputEvent Digital(string intent) => new(
-        InputEventKind.MappedDigital, InputEdge.Pressed, default, default, default, default, default, default, default, default,
-        InputValueKind.Digital, InputPhase.Pressed, InputProvenance.Physical, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, Encoding.UTF8.GetBytes(intent),
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
-
-    /// <summary>One payload action, as the DOM companion sends it.</summary>
-    private static ProductInputEvent Payload(string contract, string json) => new(
-        InputEventKind.DirectProductPayload, InputEdge.None, default, default, default, default, default, default, default, default,
-        InputValueKind.ProductPayload, InputPhase.DirectUi, InputProvenance.DirectUi, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty,
-        Encoding.UTF8.GetBytes(contract), Encoding.UTF8.GetBytes(json));
-
-    /// <summary>A cost rule that charges nothing, so this suite tests the save and not a journey.</summary>
-    private sealed class FreeTravel : ITravelCostRule
-    {
-        public TravelCostQuote Quote(TransitionRequest request) => TravelCostQuote.Payable(TravelCost.Free);
-    }
 
     /// <summary>
     /// A store that records what was written, or refuses to write when a test hands it the refusal. The

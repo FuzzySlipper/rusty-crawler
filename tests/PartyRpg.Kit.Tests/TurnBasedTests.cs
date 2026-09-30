@@ -322,12 +322,12 @@ public sealed class TurnBasedTests
         using PartyRpgSession session = Session(channel, world, party);
 
         session.Start();
-        session.Update(Update(1, 1));
+        session.Update(Admitted.Update(1, 1));
         Assert.Equal(SessionMode.Running, session.Mode);
 
         // The toggle switches the pacing, and the update after it waits: the fight is at the party's first
         // turn, so the session steps no world and measures no interval of its own.
-        session.Update(Update(2, 1, Turn("combat.turn-based")));
+        session.Update(Admitted.Update(2, 1, Turn("combat.turn-based")));
         ProjectedNode combat = channel.Latest().Field("combat");
         Assert.Equal("turnbased", combat.Field("pacing").AsString());
         Assert.Equal("turnbased", channel.Latest().Field("session").Field("mode").AsString());
@@ -337,7 +337,7 @@ public sealed class TurnBasedTests
 
         double elapsed = session.Clock!.Elapsed.TotalSeconds;
         List<GameDuration> owed = [.. session.Combat!.Combatants.Select(actor => actor.Recovery)];
-        for (ulong step = 3; step <= 60; step++) session.Update(Update(step, 1, Move()));
+        for (ulong step = 3; step <= 60; step++) session.Update(Admitted.Update(step, 1, Move()));
         Assert.Equal(SessionMode.TurnBased, session.Mode);
 
         // Nothing moved: no game time passed, no recovery was released, and the turn is still the same
@@ -348,7 +348,7 @@ public sealed class TurnBasedTests
 
         // The turn is committed by a press of the act control, and the next of the party's turns waits: the
         // panel says whose. No game time passes for it, because the member it hands the turn to is ready.
-        session.Update(Update(61, 1, Attack()));
+        session.Update(Admitted.Update(61, 1, Attack()));
         Assert.Equal(SessionMode.TurnBased, session.Mode);
         Assert.Equal("Member 2", channel.Latest().Field("combat").Field("turn").Field("actorName").AsString());
         Assert.Equal(elapsed, session.Clock.Elapsed.TotalSeconds);
@@ -356,8 +356,8 @@ public sealed class TurnBasedTests
 
         // Every turn of the party's is followed by the creature's own turn, resolved inside the same admitted
         // update — and that turn costs real game time, which the one clock spends on it.
-        session.Update(Update(62, 1, Released()));
-        session.Update(Update(63, 1, Attack()));
+        session.Update(Admitted.Update(62, 1, Released()));
+        session.Update(Admitted.Update(63, 1, Attack()));
         Assert.True(session.Clock.Elapsed.TotalSeconds > elapsed);
         Assert.Equal(SessionMode.TurnBased, session.Mode);
         ProjectedNode turn = channel.Latest().Field("combat").Field("turn");
@@ -366,7 +366,7 @@ public sealed class TurnBasedTests
 
         // Switching the pacing back releases the session: the world steps again with the interval the update
         // admitted, which is what the panel publishes as the session's own mode.
-        session.Update(Update(64, 1, Turn("combat.turn-based")));
+        session.Update(Admitted.Update(64, 1, Turn("combat.turn-based")));
         Assert.Equal(SessionMode.Running, session.Mode);
         Assert.Equal("realtime", channel.Latest().Field("combat").Field("pacing").AsString());
     }
@@ -380,21 +380,21 @@ public sealed class TurnBasedTests
         using PartyRpgSession session = Session(channel, world, party);
 
         session.Start();
-        session.Update(Update(1, 1));
-        session.Update(Update(2, 1, Turn("combat.turn-based")));
+        session.Update(Admitted.Update(1, 1));
+        session.Update(Admitted.Update(2, 1, Turn("combat.turn-based")));
         Assert.Equal("Member 1", channel.Latest().Field("combat").Field("turn").Field("actorName").AsString());
 
         // The act control is held down: the first update commits the first member's turn, and the updates
         // after it commit nothing, because a held key is not a new decision.
-        for (ulong step = 3; step <= 12; step++) session.Update(Update(step, 1, Attack()));
+        for (ulong step = 3; step <= 12; step++) session.Update(Admitted.Update(step, 1, Attack()));
         ProjectedNode combat = channel.Latest().Field("combat");
         Assert.Equal("Member 2", combat.Field("turn").Field("actorName").AsString());
         Assert.Equal("applied", combat.Field("outcome").AsString());
 
         // Letting go and pressing again is a decision, and it spends the turn it is offered. The turn after
         // that belongs to the creature that owes a second of recovery, and then to the party again.
-        session.Update(Update(13, 1, Released()));
-        session.Update(Update(14, 1, Attack()));
+        session.Update(Admitted.Update(13, 1, Released()));
+        session.Update(Admitted.Update(14, 1, Attack()));
         Assert.Equal("Member 1", channel.Latest().Field("combat").Field("turn").Field("actorName").AsString());
         Assert.Equal(1, channel.Latest().Field("combat").Field("turn").Field("round").AsNumber());
     }
@@ -408,25 +408,25 @@ public sealed class TurnBasedTests
         using PartyRpgSession session = Session(channel, world, party);
 
         session.Start();
-        session.Update(Update(1, 1));
+        session.Update(Admitted.Update(1, 1));
 
         // The act control held in real time: the party acts as its members recover.
-        session.Update(Update(2, 1, Held("test.attack")));
+        session.Update(Admitted.Update(2, 1, Held("test.attack")));
         Assert.Equal("applied", channel.Latest().Field("combat").Field("outcome").AsString());
 
         // The pacing is switched while the key is still down. The hold belonged to real time, so nothing is
         // ordered in the pacing the player has just asked for: the fight waits, however long the key stays
         // down and however many updates report it.
-        session.Update(Update(3, 1, Turn("combat.turn-based")));
+        session.Update(Admitted.Update(3, 1, Turn("combat.turn-based")));
         Assert.Equal(SessionMode.TurnBased, session.Mode);
         string waiting = channel.Latest().Field("combat").Field("turn").Field("actorName").AsString();
-        for (ulong step = 4; step <= 20; step++) session.Update(Update(step, 1, Held("test.attack")));
+        for (ulong step = 4; step <= 20; step++) session.Update(Admitted.Update(step, 1, Held("test.attack")));
         Assert.Equal(waiting, channel.Latest().Field("combat").Field("turn").Field("actorName").AsString());
         Assert.True(channel.Latest().Field("combat").Field("turn").Field("playerTurn").AsBoolean());
 
         // Letting go lifts it, and the next press is the decision that spends the turn.
-        session.Update(Update(21, 1, Released()));
-        session.Update(Update(22, 1, Attack()));
+        session.Update(Admitted.Update(21, 1, Released()));
+        session.Update(Admitted.Update(22, 1, Attack()));
         Assert.NotEqual(waiting, channel.Latest().Field("combat").Field("turn").Field("actorName").AsString());
         Assert.Equal("applied", channel.Latest().Field("combat").Field("outcome").AsString());
     }
@@ -440,8 +440,8 @@ public sealed class TurnBasedTests
         using PartyRpgSession session = Session(channel, world, party);
 
         session.Start();
-        session.Update(Update(1, 1));
-        session.Update(Update(2, 1, Turn("combat.turn-based")));
+        session.Update(Admitted.Update(1, 1));
+        session.Update(Admitted.Update(2, 1, Turn("combat.turn-based")));
         Assert.Equal(SessionMode.TurnBased, session.Mode);
 
         // The hold control means what it means everywhere else: a paced fight waits for a turn rather than for
@@ -490,7 +490,7 @@ public sealed class TurnBasedTests
         using PartyRpgSession session = Session(channel, world, party);
 
         session.Start();
-        session.Update(Update(1, 1));
+        session.Update(Admitted.Update(1, 1));
 
         // Real time: there is a fight and no round, which is a different fact from a round nobody's turn is
         // in — and the difference is what a player needs to read before pressing the toggle.
@@ -501,7 +501,7 @@ public sealed class TurnBasedTests
         Assert.Equal(string.Empty, combat.Field("turn").Field("actorName").AsString());
         Assert.False(combat.Field("turn").Field("playerTurn").AsBoolean());
 
-        session.Update(Update(2, 1, Turn("combat.turn-based")));
+        session.Update(Admitted.Update(2, 1, Turn("combat.turn-based")));
         combat = channel.Latest().Field("combat");
         ProjectedNode turn = combat.Field("turn");
 
@@ -526,12 +526,12 @@ public sealed class TurnBasedTests
 
         // A committed turn says what it was, so a skip and a wait are as visible as an attack — and the turn
         // it leaves behind is the next actor's.
-        session.Update(Update(3, 1, Action("combat.turn-skip")));
+        session.Update(Admitted.Update(3, 1, Action("combat.turn-skip")));
         turn = channel.Latest().Field("combat").Field("turn");
         Assert.Equal("skip", turn.Field("last").AsString());
         Assert.Equal("Member 2", turn.Field("actorName").AsString());
 
-        session.Update(Update(4, 1, Action("combat.turn-wait")));
+        session.Update(Admitted.Update(4, 1, Action("combat.turn-wait")));
         turn = channel.Latest().Field("combat").Field("turn");
         Assert.Equal("wait", turn.Field("last").AsString());
         Assert.Contains(
@@ -549,7 +549,7 @@ public sealed class TurnBasedTests
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
-            new SessionOwners(Clock()),
+            new SessionOwners(TestClock.Create()),
             new SessionParty.Playing(World: world, Party: party),
             rules: new SessionRules
             {
@@ -564,13 +564,13 @@ public sealed class TurnBasedTests
             });
 
         session.Start();
-        session.Update(Update(1, 1));
+        session.Update(Admitted.Update(1, 1));
         Assert.Equal(SessionMode.Running, session.Mode);
 
         // This ruleset leaves every member unable to act. There is therefore no turn of the party's to wait
         // for, so the pacing holds nothing: the fight goes on being paced as it is outside the mode rather
         // than waiting forever for an action nobody can give.
-        session.Update(Update(2, 1, Turn("combat.turn-based")));
+        session.Update(Admitted.Update(2, 1, Turn("combat.turn-based")));
         ProjectedNode combat = channel.Latest().Field("combat");
         Assert.Equal("turnbased", combat.Field("pacing").AsString());
         Assert.Equal("none", combat.Field("turn").Field("phase").AsString());
@@ -579,7 +579,7 @@ public sealed class TurnBasedTests
 
         // And a turn the pacing has nowhere to put is reported rather than swallowed: passing a turn while
         // the fight is being played in real time names exactly that.
-        session.Update(Update(3, 1, Action("combat.turn-skip")));
+        session.Update(Admitted.Update(3, 1, Action("combat.turn-skip")));
         Assert.Equal(SessionMode.Running, session.Mode);
         Assert.Equal("none", channel.Latest().Field("combat").Field("turn").Field("phase").AsString());
     }
@@ -716,13 +716,13 @@ public sealed class TurnBasedTests
     }
 
     private static CombatState Fight(SessionWorld world, PartyEntity party, Bodies bodies, IRandomService? random = null) =>
-        new(Capabilities.Combat(new TestRule(bodies, random)), party, world, Clock());
+        new(Capabilities.Combat(new TestRule(bodies, random)), party, world, TestClock.Create());
 
     private static PartyRpgSession Session(RecordingUiProjectionChannel channel, SessionWorld world, PartyEntity party) =>
         new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
-            new SessionOwners(Clock()),
+            new SessionOwners(TestClock.Create()),
             new SessionParty.Playing(world, party),
             new SessionRules { Combat = Capabilities.Combat(new TestRule(new Bodies())) },
             new SessionControls
@@ -741,34 +741,12 @@ public sealed class TurnBasedTests
         world.Populate();
     }
 
-    private static GameClock Clock() => new(
-        GameCalendar.TwelveMonthsOfFourWeeks,
-        new GameDate(1168, 1, 1, 9, 0, 0),
-        new GameTimeScale(30),
-        new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
-
     private static ClockAdvance Advance(long milliseconds) => new(
         new GameDate(1168, 1, 1, 9, 0, 0),
         new GameDate(1168, 1, 1, 9, 0, 1),
         GameDuration.FromMilliseconds(milliseconds),
         PeriodCrossings.None,
         []);
-
-    private static ProductUpdate Update(ulong step, uint admitted, params ProductInputEvent[] input)
-    {
-        ProductUpdateFacts facts = new(
-            ProductUpdateMode.Realtime,
-            ProductLifecycleState.Running,
-            1,
-            1,
-            0,
-            step,
-            60,
-            admitted,
-            0,
-            1.0 / 60.0);
-        return new ProductUpdate(facts, input);
-    }
 
     /// <summary>One press of the act control, as the engine admits a held mapping's edge.</summary>
     private static ProductInputEvent Attack() => Pressed("test.attack");
@@ -810,11 +788,8 @@ public sealed class TurnBasedTests
         ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, System.Text.Encoding.UTF8.GetBytes(intent),
         ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
 
-    private static ProductInputEvent Payload(string json) => new(
-        InputEventKind.DirectProductPayload, InputEdge.None, default, default, default, default, default, default, default, default,
-        InputValueKind.ProductPayload, InputPhase.DirectUi, InputProvenance.DirectUi, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty,
-        System.Text.Encoding.UTF8.GetBytes("test.actions"), System.Text.Encoding.UTF8.GetBytes(json));
+    /// <summary>One payload action on this suite's contract, as the companion sends it.</summary>
+    private static ProductInputEvent Payload(string json) => Admitted.Payload("test.actions", json);
 
     /// <summary>
     /// A world of two places whose hall holds a creature placed where the test says, with the recovery and hit
@@ -873,22 +848,16 @@ public sealed class TurnBasedTests
             pose,
             new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()),
             new FreeTravel(),
-            Clock(),
+            TestClock.Create(),
             mover: null,
             diagnostics: null,
             entrances: null,
-            clock: Clock(),
+            clock: TestClock.Create(),
             resources: null,
             partyEntity: party,
             interaction: null,
             schedule: null,
             vitals: Capabilities.PlacementHitPoints);
-    }
-
-    /// <summary>Walking is free: nothing in these tests is about what a road costs.</summary>
-    private sealed class FreeTravel : ITravelCostRule
-    {
-        public TravelCostQuote Quote(TransitionRequest request) => TravelCostQuote.Payable(TravelCost.Free);
     }
 
     /// <summary>

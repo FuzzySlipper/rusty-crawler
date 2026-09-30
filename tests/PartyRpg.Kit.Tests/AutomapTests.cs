@@ -117,7 +117,7 @@ public sealed class AutomapTests
     [Fact]
     public void A_place_the_world_restores_clears_none_of_what_the_party_has_mapped()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         PartyMaps maps = Maps(Region);
         SessionWorld world = World(clock);
         world.ArriveAt(Region, new PlacePose(1, 1, 0, 0, 0));
@@ -198,7 +198,7 @@ public sealed class AutomapTests
         // the ground, so its marker is inside the drawing whatever its height.
         foreach (PlacePose pose in new[] { new PlacePose(1, 29, 0, 0, 0), new PlacePose(29, 1, 29, 0, 0) })
         {
-            GameClock clock = Clock();
+            GameClock clock = TestClock.Create();
             PartyMaps maps = Maps(Region);
             SessionWorld world = World(clock);
             world.ArriveAt(Region, pose);
@@ -213,7 +213,7 @@ public sealed class AutomapTests
     [Fact]
     public void The_automap_is_drawn_from_the_party_own_state_with_its_square_and_facing()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         PartyMaps maps = Maps(Region);
         SessionWorld world = World(clock);
         world.ArriveAt(Region, new PlacePose(1, 1, 0, 0, 0));
@@ -253,7 +253,7 @@ public sealed class AutomapTests
     [Fact]
     public void An_empty_map_reaches_the_panel_as_no_drawing_rather_than_a_drawing_of_nothing()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         SessionWorld world = World(clock);
         PartyMaps maps = Maps(Region);
 
@@ -287,7 +287,7 @@ public sealed class AutomapTests
     [Fact]
     public void A_degenerate_window_is_drawn_from_finite_numbers_and_a_party_nowhere_draws_nothing()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         SessionWorld world = World(clock);
 
         // A place whose own map is a single square is the smallest map there can be: the party's square is the
@@ -338,7 +338,7 @@ public sealed class AutomapTests
     [Fact]
     public void A_detection_marks_exactly_what_it_claims_and_fills_no_square()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         PartyMaps maps = Maps(Region);
         SessionWorld world = World(clock);
         world.ArriveAt(Region, new PlacePose(1, 1, 0, 0, 0));
@@ -378,7 +378,7 @@ public sealed class AutomapTests
     [Fact]
     public void The_maps_book_pages_are_the_same_owners_count_as_the_drawing()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         PartyMaps maps = Maps(Region, Interior);
         SessionWorld world = World(clock);
         world.ArriveAt(Region, new PlacePose(1, 1, 0, 0, 0));
@@ -453,13 +453,6 @@ public sealed class AutomapTests
         });
     }
 
-    /// <summary>The clock these tests run on: a session that began on the first day of 1168, at nine.</summary>
-    private static GameClock Clock() => new(
-        GameCalendar.TwelveMonthsOfFourWeeks,
-        new GameDate(1168, 1, 1, 9, 0, 0),
-        new GameTimeScale(30),
-        new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
-
     /// <summary>The map owner under this suite's rule, over the places' own maps this suite states.</summary>
     private static PartyMaps Maps(params PlaceId[] places) => Maps(places, sight: null);
 
@@ -472,13 +465,13 @@ public sealed class AutomapTests
     {
         ContentCatalog catalog = ContentCatalogLoader.Load(
             new InMemoryContentSource()
-                .Add("packs/world/pack.json", Manifest())
-                .Add("packs/world/places.json", Document(
+                .Add("packs/world/pack.json", TestPacks.World)
+                .Add("packs/world/places.json", TestPacks.Document(
                     "places",
                     "place",
                     """{ "id": "1", "kind": "region", "name": "the meadow", "respawnDays": 7, "entryPoints": [ { "id": "Party Start", "x": 1, "y": 1, "z": 0, "yaw": 0 } ], "placements": [ { "id": "a-door", "kind": "door", "name": "a shut door", "x": 1, "y": 2, "z": 0 }, { "id": "far-fount", "kind": "fountain", "name": "a far fountain", "x": 30, "y": 30, "z": 0 } ] }""",
                     """{ "id": "2", "kind": "interior", "name": "the cellar", "respawnDays": 7, "entryPoints": [ { "id": "Party Start", "x": 1, "y": 1, "z": 0, "yaw": 0 } ] }"""))
-                .Add("packs/world/links.json", Document(
+                .Add("packs/world/links.json", TestPacks.Document(
                     "links",
                     "travel-link",
                     """{ "id": "0", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start" }""")),
@@ -510,25 +503,6 @@ public sealed class AutomapTests
                 new ContentEntry("2", JsonDocument.Parse("""{ "id": "2", "kind": "interior" }""").RootElement)),
         ],
         []);
-
-    private static string Manifest() =>
-        """
-        {
-          "schemaVersion": 1,
-          "packId": "world",
-          "kind": "definitions",
-          "provenance": { "description": "authored for a test" },
-          "documents": [
-            { "path": "places.json", "documentId": "places", "definitionKind": "place" },
-            { "path": "links.json", "documentId": "links", "definitionKind": "travel-link" }
-          ]
-        }
-        """;
-
-    private static string Document(string documentId, string definitionKind, params string[] entries) =>
-        $$"""
-        { "documentId": "{{documentId}}", "definitionKind": "{{definitionKind}}", "entries": [ {{string.Join(",", entries)}} ] }
-        """;
 
     /// <summary>The places' own maps this suite states: eight by eight squares, one in seven of them water.</summary>
     private sealed class TestMaps : IPlaceMapSource
@@ -661,12 +635,6 @@ public sealed class AutomapTests
         public string Phrase(KnowledgeKind kind) => kind.ToString();
 
         public bool WorthLearning(KnowledgeReport report) => true;
-    }
-
-    /// <summary>A road that costs nothing, which is what a world built for a map test needs.</summary>
-    private sealed class FreeTravel : ITravelCostRule
-    {
-        public TravelCostQuote Quote(TransitionRequest request) => TravelCostQuote.Payable(TravelCost.Free);
     }
 
     /// <summary>The effects this suite says the party carries, as the map reads them.</summary>

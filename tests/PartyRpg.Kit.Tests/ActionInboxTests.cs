@@ -21,7 +21,7 @@ public sealed class ActionInboxTests
     {
         ActionInbox inbox = new(
         [
-            Digital("test.leave"),
+            Admitted.Digital("test.leave"),
             Payload("""{"action":"service.buy","target":"7","count":2}"""),
             // Nothing a reader could act on is kept: bytes that are not JSON, a payload that names no action, and
             // a payload that is not an object.
@@ -96,30 +96,9 @@ public sealed class ActionInboxTests
             report => Assert.Equal(DiagnosticsSeverity.Warning, report.Severity));
     }
 
-    private static ProductUpdate Update(params ProductInputEvent[] input) =>
-        new(
-            new ProductUpdateFacts(
-                ProductUpdateMode.Realtime,
-                ProductLifecycleState.Running,
-                Generation: 1,
-                ControlRevision: 1,
-                ObservedHostTimeNanoseconds: 0,
-                SimulationStep: 1,
-                FixedStepHz: 60,
-                AdmittedStepCount: 1,
-                DroppedStepCount: 0,
-                FixedDeltaSeconds: 1.0 / 60.0),
-            input);
+    /// <summary>One admitted step carrying the input given.</summary>
+    private static ProductUpdate Update(params ProductInputEvent[] input) => Admitted.Update(1, 1, input);
 
-    private static ProductInputEvent Digital(string intent) => new(
-        InputEventKind.MappedDigital, InputEdge.Pressed, default, default, default, default, default, default, default, default,
-        InputValueKind.Digital, InputPhase.Pressed, InputProvenance.Physical, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, Encoding.UTF8.GetBytes(intent),
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
-
-    private static ProductInputEvent Payload(string json, string contract = Contract) => new(
-        InputEventKind.DirectProductPayload, InputEdge.None, default, default, default, default, default, default, default, default,
-        InputValueKind.ProductPayload, InputPhase.DirectUi, InputProvenance.DirectUi, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty,
-        Encoding.UTF8.GetBytes(contract), Encoding.UTF8.GetBytes(json));
+    /// <summary>One payload action, on this suite's contract unless a case names another.</summary>
+    private static ProductInputEvent Payload(string json, string contract = Contract) => Admitted.Payload(contract, json);
 }

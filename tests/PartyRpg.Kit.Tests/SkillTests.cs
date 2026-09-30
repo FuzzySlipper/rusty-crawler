@@ -208,12 +208,8 @@ public sealed class SkillTests
         Assert.Equal(1, raises[1].Levels);
     }
 
-    /// <summary>One payload on a declared contract, as the companion sends it.</summary>
-    private static ProductInputEvent Payload(string json, string contract = "test.actions") => new(
-        InputEventKind.DirectProductPayload, InputEdge.None, default, default, default, default, default, default, default, default,
-        InputValueKind.ProductPayload, InputPhase.DirectUi, InputProvenance.DirectUi, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty,
-        Encoding.UTF8.GetBytes(contract), Encoding.UTF8.GetBytes(json));
+    /// <summary>One payload action, on this suite's contract unless a case names another.</summary>
+    private static ProductInputEvent Payload(string json, string contract = "test.actions") => Admitted.Payload(contract, json);
 
     /// <summary>One member holding one skill and a pool of points, so a raise has something to spend.</summary>
     private static PartyEntity Party(int skillPoints, int level = 1) =>

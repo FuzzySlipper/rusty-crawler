@@ -95,7 +95,7 @@ public sealed class SessionGlueTests
             controls: new SessionControls { Combat = new CombatIntentNames("test.attack", Contract, turns) }))
         {
             fightless.Start();
-            fightless.Update(Admitted.Update(1, 1, Digital("test.turn-based")));
+            fightless.Update(Admitted.Update(1, 1, Admitted.Digital("test.turn-based")));
             Assert.Equal("combat-pacing-unavailable", Assert.Single(diagnostics.Published).Code);
         }
 
@@ -105,13 +105,13 @@ public sealed class SessionGlueTests
         using PartyRpgSession session = new(
             Composition,
             channel,
-            new SessionOwners(Clock(), diagnostics),
+            new SessionOwners(TestClock.Create(), diagnostics),
             new SessionParty.Playing(Party: AlchemyTests.Party(alchemyLevel: 0, alchemyTier: 0)),
             new SessionRules { Combat = Capabilities.Combat(new CombatStateTests.TestCombatRule(null)) },
             new SessionControls { Combat = new CombatIntentNames("test.attack", Contract, turns) });
         session.Start();
-        session.Update(Admitted.Update(1, 1, Digital("test.turn-based")));
-        session.Update(Admitted.Update(2, 1, Digital("test.skip")));
+        session.Update(Admitted.Update(1, 1, Admitted.Digital("test.turn-based")));
+        session.Update(Admitted.Update(2, 1, Admitted.Digital("test.skip")));
 
         Assert.Equal(CombatPacing.TurnBased, session.Combat!.Pacing);
         Assert.Equal(
@@ -122,21 +122,6 @@ public sealed class SessionGlueTests
         Assert.Equal(DiagnosticsSeverity.Warning, diagnostics.Published.Single(report => report.Code == "no-turn").Severity);
     }
 
-    private static GameClock Clock() => new(
-        GameCalendar.TwelveMonthsOfFourWeeks,
-        new GameDate(1168, 1, 1, 9, 0, 0),
-        new GameTimeScale(30),
-        new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
-
-    private static ProductInputEvent Digital(string intent) => new(
-        InputEventKind.MappedDigital, InputEdge.Pressed, default, default, default, default, default, default, default, default,
-        InputValueKind.Digital, InputPhase.Pressed, InputProvenance.Physical, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, Encoding.UTF8.GetBytes(intent),
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
-
-    private static ProductInputEvent Payload(string json) => new(
-        InputEventKind.DirectProductPayload, InputEdge.None, default, default, default, default, default, default, default, default,
-        InputValueKind.ProductPayload, InputPhase.DirectUi, InputProvenance.DirectUi, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty,
-        Encoding.UTF8.GetBytes(Contract), Encoding.UTF8.GetBytes(json));
+    /// <summary>One payload action on this suite's contract, as the companion sends it.</summary>
+    private static ProductInputEvent Payload(string json) => Admitted.Payload(Contract, json);
 }

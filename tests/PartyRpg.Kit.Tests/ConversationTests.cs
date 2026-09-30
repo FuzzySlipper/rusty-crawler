@@ -277,10 +277,10 @@ public sealed class ConversationTests
         session.Start();
 
         // The update faces the person, and the declared use control is what speaks with them.
-        session.Update(Update(1, 1));
+        session.Update(Admitted.Update(1, 1));
         Assert.Equal("Mira", channel.Latest().Field(SessionProjection.InteractionField).Field("label").AsString());
         Assert.Equal("talk", channel.Latest().Field(SessionProjection.InteractionField).Field("verb").AsString());
-        session.Update(Update(2, 1, Digital("test.use", InputEdge.Pressed)));
+        session.Update(Admitted.Update(2, 1, Admitted.Digital("test.use", InputEdge.Pressed)));
 
         // What the panel shows is the conversation's own facts: who is here, who is speaking, what was said,
         // and which topics the state offers and withholds.
@@ -302,7 +302,7 @@ public sealed class ConversationTests
         // What a topic said arrives in the same projection as the choice, with the residue the ruleset
         // stated beside it.
         party.Records.Set("invited", 1);
-        session.Update(Update(3, 1, Payload("""{"action":"conversation.topic","target":"carried"}""")));
+        session.Update(Admitted.Update(3, 1, Payload("""{"action":"conversation.topic","target":"carried"}""")));
         ProjectedNode said = channel.Latest().Field(SessionProjection.ConversationField);
         Assert.Equal("say", said.Field("action").AsString());
         Assert.Equal("carried", said.Field("topic").AsString());
@@ -310,7 +310,7 @@ public sealed class ConversationTests
         Assert.Contains("the errand behind this line is not run", said.Field("residue").AsString(), StringComparison.Ordinal);
 
         // The declared leave control ends it, and the panel says the party walked away.
-        session.Update(Update(4, 1, Digital("test.conversation.leave", InputEdge.Pressed)));
+        session.Update(Admitted.Update(4, 1, Admitted.Digital("test.conversation.leave", InputEdge.Pressed)));
         ProjectedNode left = channel.Latest().Field(SessionProjection.ConversationField);
         Assert.False(left.Field("open").AsBoolean());
         Assert.Equal("leave", left.Field("action").AsString());
@@ -345,69 +345,41 @@ public sealed class ConversationTests
         session.Start();
 
         // A held forward control walks the party while nothing owns the controls.
-        session.Update(Update(1, 1, Digital("test.move-forward", InputEdge.Held)));
+        session.Update(Admitted.Update(1, 1, Admitted.Digital("test.move-forward", InputEdge.Held)));
         PlacePose walked = hall.World.Party.PlacePose;
         Assert.NotEqual(0, walked.Y);
 
         // Talking owns them: the same held control walks nowhere, and the world keeps its own time.
-        session.Update(Update(2, 0));
-        session.Update(Update(3, 1, Digital("test.use", InputEdge.Pressed)));
+        session.Update(Admitted.Update(2, 0));
+        session.Update(Admitted.Update(3, 1, Admitted.Digital("test.use", InputEdge.Pressed)));
         Assert.True(session.Conversations!.IsOpen);
         double before = session.SimulationSeconds;
-        session.Update(Update(4, 1, Digital("test.move-forward", InputEdge.Held)));
+        session.Update(Admitted.Update(4, 1, Admitted.Digital("test.move-forward", InputEdge.Held)));
         Assert.Equal(walked, hall.World.Party.PlacePose);
         Assert.True(session.SimulationSeconds > before);
 
         // The offer the person makes names the counter they keep, and the session hands the party to the
         // service mechanism: the counter opens through its own entry, and the conversation ends where the
         // counter begins because the counter now owns the controls.
-        session.Update(Update(5, 1, Payload("""{"action":"conversation.topic","target":"counter"}""")));
+        session.Update(Admitted.Update(5, 1, Payload("""{"action":"conversation.topic","target":"counter"}""")));
         Assert.True(session.Services!.IsOpen);
         Assert.False(session.Conversations.IsOpen);
-        session.Update(Update(6, 1, Digital("test.move-forward", InputEdge.Held)));
+        session.Update(Admitted.Update(6, 1, Admitted.Digital("test.move-forward", InputEdge.Held)));
         Assert.Equal(walked, hall.World.Party.PlacePose);
 
         // A handoff to an owner this session did not compose — a rank, with no progression answers — is reported
         // by name and changes nothing: the conversation stays open, because nothing took the party anywhere.
-        session.Update(Update(7, 1, Digital("test.service.leave", InputEdge.Pressed)));
-        session.Update(Update(8, 1, Digital("test.use", InputEdge.Pressed)));
-        session.Update(Update(9, 1, Payload("""{"action":"conversation.topic","target":"unrouted"}""")));
+        session.Update(Admitted.Update(7, 1, Admitted.Digital("test.service.leave", InputEdge.Pressed)));
+        session.Update(Admitted.Update(8, 1, Admitted.Digital("test.use", InputEdge.Pressed)));
+        session.Update(Admitted.Update(9, 1, Payload("""{"action":"conversation.topic","target":"unrouted"}""")));
         Assert.True(session.Conversations.IsOpen);
         Assert.Contains(
             hall.Diagnostics.Published,
             report => string.Equals(report.Code, "promotion-unavailable", StringComparison.Ordinal));
     }
 
-    /// <summary>One admitted update of the kit's own session, in the shape the engine admits one.</summary>
-    private static ProductUpdate Update(ulong step, uint admitted, params ProductInputEvent[] input)
-    {
-        ProductUpdateFacts facts = new(
-            ProductUpdateMode.Realtime,
-            ProductLifecycleState.Running,
-            Generation: 1,
-            ControlRevision: 1,
-            ObservedHostTimeNanoseconds: 0,
-            SimulationStep: step,
-            FixedStepHz: 60,
-            AdmittedStepCount: admitted,
-            DroppedStepCount: 0,
-            FixedDeltaSeconds: 1.0 / 60.0);
-        return new ProductUpdate(facts, input);
-    }
-
-    /// <summary>One digital event on a product intent, in the shape the engine admits it.</summary>
-    private static ProductInputEvent Digital(string intent, InputEdge edge) => new(
-        InputEventKind.MappedDigital, edge, default, default, default, default, default, default, default, default,
-        InputValueKind.Digital, InputPhase.Pressed, InputProvenance.Physical, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, Encoding.UTF8.GetBytes(intent),
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
-
-    /// <summary>One semantic action on a declared payload contract, as a screen sends it.</summary>
-    private static ProductInputEvent Payload(string json) => new(
-        InputEventKind.DirectProductPayload, InputEdge.None, default, default, default, default, default, default, default, default,
-        InputValueKind.ProductPayload, InputPhase.DirectUi, InputProvenance.DirectUi, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty,
-        Encoding.UTF8.GetBytes(ConversationControls.ActionContract), Encoding.UTF8.GetBytes(json));
+    /// <summary>One payload action on this suite's contract, as the companion sends it.</summary>
+    private static ProductInputEvent Payload(string json) => Admitted.Payload(ConversationControls.ActionContract, json);
 
     private static readonly MovementIntentNames MovementControls = new(
         "test.move-forward",
@@ -621,8 +593,8 @@ public sealed class ConversationTests
         {
             ContentCatalog catalog = ContentCatalogLoader.Load(
                 new InMemoryContentSource()
-                    .Add("packs/world/pack.json", Manifest())
-                    .Add("packs/world/places.json", Document("places", "place", Place())),
+                    .Add("packs/world/pack.json", TestPacks.PlacesOnly)
+                    .Add("packs/world/places.json", TestPacks.Document("places", "place", Place())),
                 Layout).RequireValid();
 
             PlaceGraph graph = PlaceGraphLoader.Load(catalog);
@@ -676,22 +648,6 @@ public sealed class ConversationTests
                 { "id": "person-0", "kind": "person", "x": 0, "y": 100, "z": 0 },
                 { "id": "household-0", "kind": "household", "x": 100, "y": 0, "z": 0, "name": "The hall's guild" },
                 { "id": "chest-0", "kind": "chest", "x": -100, "y": 0, "z": 0 } ] }
-            """;
-
-        private static string Manifest() =>
-            """
-            {
-              "schemaVersion": 1,
-              "packId": "world",
-              "kind": "definitions",
-              "provenance": { "description": "authored for a test" },
-              "documents": [ { "path": "places.json", "documentId": "places", "definitionKind": "place" } ]
-            }
-            """;
-
-        private static string Document(string documentId, string definitionKind, params string[] entries) =>
-            $$"""
-            { "documentId": "{{documentId}}", "definitionKind": "{{definitionKind}}", "entries": [ {{string.Join(",", entries)}} ] }
             """;
     }
 

@@ -404,9 +404,9 @@ public sealed class QuestTests
         // in the style the kit's other source scans use.
         string[] directories =
         [
-            Path.Combine(RepositoryRoot(), "src", "PartyRpg.Kit", "World"),
-            Path.Combine(RepositoryRoot(), "src", "PartyRpg.Kit", "Conversation"),
-            Path.Combine(RepositoryRoot(), "src", "PartyRpg.Kit", "Interaction"),
+            Path.Combine(Repository.Root, "src", "PartyRpg.Kit", "World"),
+            Path.Combine(Repository.Root, "src", "PartyRpg.Kit", "Conversation"),
+            Path.Combine(Repository.Root, "src", "PartyRpg.Kit", "Interaction"),
         ];
 
         string[] forbidden = ["QuestDefinition", "QuestObjective", "QuestInstance", "PartyQuests", "QuestReading"];
@@ -430,7 +430,7 @@ public sealed class QuestTests
         Assert.Empty(offenders);
 
         // The scan is not vacuous: the owner itself is exactly what it looks for.
-        string owner = File.ReadAllText(Path.Combine(RepositoryRoot(), "src", "PartyRpg.Kit", "Quests", "PartyQuests.cs"));
+        string owner = File.ReadAllText(Path.Combine(Repository.Root, "src", "PartyRpg.Kit", "Quests", "PartyQuests.cs"));
         Assert.Contains("QuestDefinition", owner, StringComparison.Ordinal);
     }
 
@@ -520,17 +520,6 @@ public sealed class QuestTests
         conditions: [],
         hitPoints: ResourcePool.Full(80),
         spellPoints: ResourcePool.Full(20)));
-
-    private static string RepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "AGENTS.md")))
-        {
-            directory = directory.Parent;
-        }
-
-        return directory?.FullName ?? throw new InvalidOperationException("The repository root could not be found from the test's own directory.");
-    }
 
     /// <summary>The quests a test states, with the one ruleset answer this mechanism cannot make itself.</summary>
     private sealed class TestQuests(params QuestDefinition[] definitions) : IQuestRule

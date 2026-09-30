@@ -471,7 +471,7 @@ public sealed class MightAndMagic7CreationTests
 
         List<object> skillEntries = [.. skills.Select(name => (object)new { id = name, description = $"the {name} skill" })];
         InMemoryContentSource source = new InMemoryContentSource()
-            .Add("packs/mm7-tables/pack.json", Manifest())
+            .Add("packs/mm7-tables/pack.json", TestPacks.Manifest("mm7-tables", ("classes", "class"), ("skills", "skill")))
             .Add("packs/mm7-tables/classes.json", Document("classes", "class", classes))
             .Add("packs/mm7-tables/skills.json", Document("skills", "skill", skillEntries));
         return ContentCatalogLoader.Load(source, new ContentLayout("packs", "imports", "bundles"));
@@ -480,18 +480,4 @@ public sealed class MightAndMagic7CreationTests
     /// <summary>Writes one definitions document the way the importer writes it.</summary>
     private static string Document(string documentId, string definitionKind, IReadOnlyList<object> entries) =>
         JsonSerializer.Serialize(new { schemaVersion = 1, documentId, definitionKind, entries });
-
-    /// <summary>Writes the pack manifest that declares the two table documents.</summary>
-    private static string Manifest() => """
-        {
-          "schemaVersion": 1,
-          "packId": "mm7-tables",
-          "kind": "definitions",
-          "provenance": { "description": "written in memory by the creation tests" },
-          "documents": [
-            { "path": "classes.json", "documentId": "classes", "definitionKind": "class" },
-            { "path": "skills.json", "documentId": "skills", "definitionKind": "skill" }
-          ]
-        }
-        """;
 }

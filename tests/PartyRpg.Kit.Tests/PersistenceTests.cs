@@ -68,7 +68,7 @@ public sealed class PersistenceTests
 
         // A load composes a fresh session: a new clock moved to the saved position, a party rebuilt by the
         // factory, and a world rebuilt over the save's place and per-place state.
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         loaded.Clock.ApplyTo(clock);
         using PartyEntity restored = new PartyEntityFactory().Restore(loaded.Party);
         using SessionWorld world = RestoredWorld(clock, restored, loaded);
@@ -174,11 +174,11 @@ public sealed class PersistenceTests
         // Everything a session does by itself writes nothing: admitted updates, a hold, a republish, and
         // releasing the session are all silent.
         played.Session.Start();
-        for (ulong step = 1; step <= 5; step++) played.Session.Update(Update(step, admitted: 6));
+        for (ulong step = 1; step <= 5; step++) played.Session.Update(Admitted.Update(step, admitted: 6));
         played.Session.Hold();
-        played.Session.Update(Update(6, admitted: 6));
+        played.Session.Update(Admitted.Update(6, admitted: 6));
         played.Session.ReleaseHold();
-        played.Session.Update(Update(7, admitted: 0));
+        played.Session.Update(Admitted.Update(7, admitted: 0));
         Assert.Empty(played.Store.Writes);
 
         played.Session.Save();
@@ -198,11 +198,11 @@ public sealed class PersistenceTests
     {
         using RecordingUiProjectionChannel channel = new();
         using PartyEntity party = CreatedParty();
-        using SessionWorld world = World(Clock(), party);
+        using SessionWorld world = World(TestClock.Create(), party);
         using PartyRpgSession session = new(
             Composition,
             channel,
-            new SessionOwners(Clock()),
+            new SessionOwners(TestClock.Create()),
             new SessionParty.Playing(World: world, Party: party));
 
         Assert.Null(session.Saves);
@@ -418,7 +418,7 @@ public sealed class PersistenceTests
         Assert.Throws<ObjectDisposedException>(() => played.Party.IsAlive);
         Assert.Throws<ObjectDisposedException>(() => population[0].IsAlive);
 
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         save.Clock.ApplyTo(clock);
         using PartyEntity restored = new PartyEntityFactory().Restore(save.Party);
         using SessionWorld world = RestoredWorld(clock, restored, save);
@@ -472,7 +472,7 @@ public sealed class PersistenceTests
     [Fact]
     public void The_save_path_holds_no_runtime_identity_and_no_native_handle()
     {
-        string directory = Path.Combine(RepositoryRoot(), "src", "PartyRpg.Kit", "Persistence");
+        string directory = Path.Combine(Repository.Root, "src", "PartyRpg.Kit", "Persistence");
         string[] sources = [.. Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories)];
         Assert.NotEmpty(sources);
 
@@ -595,7 +595,7 @@ public sealed class PersistenceTests
     {
         internal Played(IRestRule? rest = null)
         {
-            Clock = PersistenceTests.Clock();
+            Clock = TestClock.Create();
             Party = CreatedParty();
             World = PersistenceTests.World(Clock, Party);
             Channel = new RecordingUiProjectionChannel();
@@ -712,76 +712,17 @@ public sealed class PersistenceTests
         return pose.X >= 0;
     };
 
-    /// <summary>The clock these tests run on: a stated calendar, start, rate, and daylight window.</summary>
-    private static GameClock Clock() => new(
-        GameCalendar.TwelveMonthsOfFourWeeks,
-        new GameDate(1168, 1, 1, 9, 0, 0),
-        new GameTimeScale(30),
-        new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
-
-    private static ProductUpdate Update(ulong step, uint admitted, double fixedDelta = 1.0 / 60.0)
-    {
-        ProductUpdateFacts facts = new(
-            ProductUpdateMode.Realtime,
-            ProductLifecycleState.Running,
-            1,
-            1,
-            0,
-            step,
-            60,
-            admitted,
-            0,
-            fixedDelta);
-        return new ProductUpdate(facts, ReadOnlySpan<ProductInputEvent>.Empty);
-    }
-
     private static PlaceGraph Graph() => PlaceGraphLoader.Load(
         ContentCatalogLoader.Load(
             new InMemoryContentSource()
-                .Add("packs/world/pack.json", Manifest())
-                .Add("packs/world/places.json", Document("places", "place",
+                .Add("packs/world/pack.json", TestPacks.World)
+                .Add("packs/world/places.json", TestPacks.Document("places", "place",
                     """{ "id": "1", "kind": "region", "name": "Home", "respawnDays": 1, "entryPoints": [ { "id": "Party Start", "x": 1, "y": 2, "z": 3, "yaw": 512 } ], "placements": [ { "kind": "monster", "id": "wanderer", "x": 4, "y": 5, "z": 0 } ] }""",
                     """{ "id": "2", "kind": "interior", "name": "Cave", "respawnDays": 1, "entryPoints": [ { "id": "Party Start", "x": 5, "y": 6, "z": 7, "yaw": 0 } ], "placements": [ { "kind": "monster", "id": "lurker", "x": 8, "y": 9, "z": 0 } ] }"""))
-                .Add("packs/world/links.json", Document("links", "travel-link",
+                .Add("packs/world/links.json", TestPacks.Document("links", "travel-link",
                     """{ "id": "edge", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start" }""",
                     """{ "id": "back", "fromPlace": "2", "toPlace": "1", "x": 1, "y": 2, "z": 3, "yaw": 512 }""")),
             Layout).RequireValid());
-
-    private static string Manifest() =>
-        """
-        {
-          "schemaVersion": 1,
-          "packId": "world",
-          "kind": "definitions",
-          "provenance": { "description": "test content" },
-          "documents": [
-            { "path": "places.json", "documentId": "places", "definitionKind": "place" },
-            { "path": "links.json", "documentId": "links", "definitionKind": "travel-link" }
-          ]
-        }
-        """;
-
-    private static string Document(string documentId, string definitionKind, params string[] entries) =>
-        $$"""
-        { "documentId": "{{documentId}}", "definitionKind": "{{definitionKind}}", "entries": [ {{string.Join(",", entries)}} ] }
-        """;
-
-    private static string RepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "AGENTS.md")) &&
-                Directory.Exists(Path.Combine(directory.FullName, "src")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Could not find the repository root above the test assembly.");
-    }
 
     /// <summary>A store that records what was written, which is how "nothing else writes" is observable.</summary>
     private sealed class RecordingSaveStore : ISessionSaveStore

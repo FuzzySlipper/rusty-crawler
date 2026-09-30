@@ -1,6 +1,6 @@
 using Rusty.Engine;
 
-namespace PartyRpg.Host.Tests;
+namespace PartyRpg.Testing;
 
 /// <summary>
 /// The engine's persistence service in memory, so a product's saves can be exercised without a runtime.
@@ -18,7 +18,7 @@ namespace PartyRpg.Host.Tests;
 /// malformed one seeds payloads directly and the failure it sees comes from the product.
 /// </para>
 /// </remarks>
-internal sealed class InMemoryPersistenceService : IPersistenceService
+public sealed class InMemoryPersistenceService : IPersistenceService
 {
     private sealed record Saved(ulong Revision, byte[] Payload);
 
@@ -28,11 +28,11 @@ internal sealed class InMemoryPersistenceService : IPersistenceService
     private ulong _nextHandle = 1;
 
     /// <summary>The payload a scope and key hold, or null when nothing was written there.</summary>
-    internal byte[]? Payload(string scope, string key) =>
+    public byte[]? Payload(string scope, string key) =>
         _saved.TryGetValue((scope, key), out Saved? saved) ? saved.Payload : null;
 
     /// <summary>Puts bytes under a scope and key, which is how a test hands a product a save of its own.</summary>
-    internal void Seed(string scope, string key, byte[] payload) => _saved[(scope, key)] = new Saved(1, payload);
+    public void Seed(string scope, string key, byte[] payload) => _saved[(scope, key)] = new Saved(1, payload);
 
     /// <inheritdoc />
     public PersistenceStore OpenStore(PersistenceOpenRequest request)

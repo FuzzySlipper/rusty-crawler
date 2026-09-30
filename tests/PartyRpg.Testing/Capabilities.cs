@@ -2,7 +2,7 @@ using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Sessions;
 
-namespace PartyRpg.Kit.Tests;
+namespace PartyRpg.Testing;
 
 /// <summary>
 /// Composes a suite's fakes into the named capabilities the kit's mechanisms take.
@@ -12,10 +12,10 @@ namespace PartyRpg.Kit.Tests;
 /// in one small class, and states which by the interfaces it implements. This reads that statement once, here,
 /// so a suite composes a fight or a casting with exactly what its fake says it answers.
 /// </remarks>
-internal static class Capabilities
+public static class Capabilities
 {
     /// <summary>A fight over a fake's answers, with every capability the fake implements.</summary>
-    internal static CombatRules Combat(ICombatRule rule, IMonsterAiPolicy? ai = null) =>
+    public static CombatRules Combat(ICombatRule rule, IMonsterAiPolicy? ai = null) =>
         new(
             rule,
             ai,
@@ -25,10 +25,10 @@ internal static class Capabilities
             rule is ICreatureDeathObserver deaths ? [deaths] : null);
 
     /// <summary>What a suite's creature can take, as its own placement states it under <c>hitPoints</c>.</summary>
-    internal static ICreatureVitals PlacementHitPoints { get; } = new HitPointsInPlacement();
+    public static ICreatureVitals PlacementHitPoints { get; } = new HitPointsInPlacement();
 
     /// <summary>A casting over a fake's answers, with every capability the two fakes implement.</summary>
-    internal static MagicRules Magic(ISpellRule spells, ISpellEffectRule? effects = null) =>
+    public static MagicRules Magic(ISpellRule spells, ISpellEffectRule? effects = null) =>
         new(
             spells,
             effects,

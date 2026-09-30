@@ -164,7 +164,7 @@ public sealed class AlchemyPolicyTests
     {
         (MightAndMagic7Alchemy alchemy, MightAndMagic7Spells spells) = Read();
         using PartyEntity party = Party();
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         MightAndMagic7SpellEffects effects = new(spells, clock, () => null);
         Spellcasting casting = new(party, new MagicRules(spells, effects, Running: effects, Members: effects, Items: spells), fight: null);
 
@@ -264,13 +264,6 @@ public sealed class AlchemyPolicyTests
         Assert.True(party.AcquireItem(item).Admitted);
         return item;
     }
-
-    /// <summary>The session's one clock, at this game's own rate and on its own calendar.</summary>
-    private static GameClock Clock() => new(
-        GameCalendar.TwelveMonthsOfFourWeeks,
-        new GameDate(1168, 1, 1, 9, 0),
-        new GameTimeScale(30),
-        new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
 
     /// <summary>
     /// The content this suite reads: the shipped potion ids with the mixtures its own table states, and a

@@ -567,12 +567,12 @@ public sealed class ServiceTests
 
         // The first update puts the service placement in front of the party, and the press uses it: the
         // interaction mechanism reached the person, and the conversation with them is what opened.
-        session.Update(Update(1, 1));
+        session.Update(Admitted.Update(1, 1));
         // What the reticle shows is the interaction answers' own word for the target, which in this test is
         // the counter rather than a person: the kit holds no kind of thing, so a ruleset that names a person
         // there names one and a ruleset that names a counter names that.
         Assert.Equal("The Sword and Shield, kept by Bertram", channel.Latest().Field(SessionProjection.InteractionField).Field("label").AsString());
-        session.Update(Update(2, 1, Digital("test.use", InputEdge.Pressed)));
+        session.Update(Admitted.Update(2, 1, Admitted.Digital("test.use", InputEdge.Pressed)));
         ProjectedNode talking = channel.Latest().Field(SessionProjection.ConversationField);
         Assert.True(talking.Field("open").AsBoolean());
         Assert.Equal("Bertram", talking.Field("speaker").AsString());
@@ -581,7 +581,7 @@ public sealed class ServiceTests
         // the conversation names the owner and the session routes it, so the counter's own hours and prices
         // are read in one place rather than two.
         Assert.Equal("counter", talking.Field("topics").Item(0).Field("id").AsString());
-        session.Update(Update(3, 1, Payload(ConversationControls.ActionContract, """{"action":"conversation.topic","target":"counter"}""")));
+        session.Update(Admitted.Update(3, 1, Admitted.Payload(ConversationControls.ActionContract, """{"action":"conversation.topic","target":"counter"}""")));
         Assert.False(channel.Latest().Field(SessionProjection.ConversationField).Field("open").AsBoolean());
         ProjectedNode opened = channel.Latest().Field(SessionProjection.ServiceField);
         Assert.True(opened.Field("open").AsBoolean());
@@ -600,7 +600,7 @@ public sealed class ServiceTests
 
         // A purchase the screen asked for arrives on the declared contract, moves the purse, and is part of
         // the same projection the command arrived in.
-        session.Update(Update(4, 1, Payload(ServiceControls.ActionContract, """{"action":"service.buy","target":"stock:sword","count":1}""")));
+        session.Update(Admitted.Update(4, 1, Admitted.Payload(ServiceControls.ActionContract, """{"action":"service.buy","target":"stock:sword","count":1}""")));
         ProjectedNode bought = channel.Latest().Field(SessionProjection.ServiceField);
         Assert.Equal("buy", bought.Field("action").AsString());
         Assert.Equal("applied", bought.Field("outcome").AsString());
@@ -610,18 +610,18 @@ public sealed class ServiceTests
         Assert.Equal(1, bought.Field("stock").Item(0).Field("count").AsNumber());
 
         // A refusal the party cannot cover is reported with its own code and moves nothing.
-        session.Update(Update(5, 1, Payload(ServiceControls.ActionContract, """{"action":"service.buy","target":"stock:sword","count":2}""")));
+        session.Update(Admitted.Update(5, 1, Admitted.Payload(ServiceControls.ActionContract, """{"action":"service.buy","target":"stock:sword","count":2}""")));
         ProjectedNode refused = channel.Latest().Field(SessionProjection.ServiceField);
         Assert.Equal("refused", refused.Field("outcome").AsString());
         Assert.Equal("service-not-enough-stock", refused.Field("code").AsString());
         Assert.Equal(400, refused.Field("coins").AsNumber());
 
         // A command that names nothing this counter has is refused by name rather than doing nothing.
-        session.Update(Update(6, 1, Payload(ServiceControls.ActionContract, """{"action":"service.sell","target":"99"}""")));
+        session.Update(Admitted.Update(6, 1, Admitted.Payload(ServiceControls.ActionContract, """{"action":"service.sell","target":"99"}""")));
         Assert.Equal("service-no-such-item", channel.Latest().Field(SessionProjection.ServiceField).Field("code").AsString());
 
         // The leave control the host declared ends the visit, and the panel says the party walked away.
-        session.Update(Update(7, 1, Digital("test.service.leave", InputEdge.Pressed)));
+        session.Update(Admitted.Update(7, 1, Admitted.Digital("test.service.leave", InputEdge.Pressed)));
         ProjectedNode left = channel.Latest().Field(SessionProjection.ServiceField);
         Assert.False(left.Field("open").AsBoolean());
         Assert.Equal("leave", left.Field("action").AsString());
@@ -663,9 +663,9 @@ public sealed class ServiceTests
         counter.Rule.Offerings = [new ServiceOffer(ServiceOfferKind.Fare, "A passage to Elsewhere", "2", Value: 25, Amount: 3)];
 
         // Walk in through the person who keeps the counter, exactly as the product reaches one.
-        session.Update(Update(1, 1));
-        session.Update(Update(2, 1, Digital("test.use", InputEdge.Pressed)));
-        session.Update(Update(3, 1, Payload(ConversationControls.ActionContract, """{"action":"conversation.topic","target":"counter"}""")));
+        session.Update(Admitted.Update(1, 1));
+        session.Update(Admitted.Update(2, 1, Admitted.Digital("test.use", InputEdge.Pressed)));
+        session.Update(Admitted.Update(3, 1, Admitted.Payload(ConversationControls.ActionContract, """{"action":"conversation.topic","target":"counter"}""")));
         Assert.True(session.Services!.IsOpen);
 
         // What the counter offers besides goods and lessons is published with what each would cost, and a
@@ -679,7 +679,7 @@ public sealed class ServiceTests
         Assert.Equal(25, passages.Item(0).Field("price").AsNumber());
         Assert.Equal(CounterPlace, counter.World.Place);
 
-        session.Update(Update(4, 1, Payload(ServiceControls.ActionContract, """{"action":"service.fare","target":"2"}""")));
+        session.Update(Admitted.Update(4, 1, Admitted.Payload(ServiceControls.ActionContract, """{"action":"service.fare","target":"2"}""")));
 
         // The counter settled the fare and the road honoured it: the party is at the town the passage named
         // through the world's own transition path, and the counter it was bought at is no longer open in
@@ -722,19 +722,19 @@ public sealed class ServiceTests
         session.Start();
 
         // Forward goes down and the party walks; then it talks to the keeper with the key still down.
-        session.Update(Update(1, 1, Digital("test.move-forward", InputEdge.Pressed)));
-        session.Update(Update(2, 0));
-        session.Update(Update(3, 1, Digital("test.use", InputEdge.Pressed)));
+        session.Update(Admitted.Update(1, 1, Admitted.Digital("test.move-forward", InputEdge.Pressed)));
+        session.Update(Admitted.Update(2, 0));
+        session.Update(Admitted.Update(3, 1, Admitted.Digital("test.use", InputEdge.Pressed)));
         Assert.True(channel.Latest().Field(SessionProjection.ConversationField).Field("open").AsBoolean());
         PlacePose standing = counter.World.Party.PlacePose;
 
         // The key comes up while the conversation owns the controls, and the conversation is left: the release
         // was read even though nothing walked, so the party stands where it stood.
-        session.Update(Update(4, 1, Digital("test.move-forward", InputEdge.Released)));
-        session.Update(Update(5, 1, Digital("test.conversation.leave", InputEdge.Pressed)));
+        session.Update(Admitted.Update(4, 1, Admitted.Digital("test.move-forward", InputEdge.Released)));
+        session.Update(Admitted.Update(5, 1, Admitted.Digital("test.conversation.leave", InputEdge.Pressed)));
         Assert.False(channel.Latest().Field(SessionProjection.ConversationField).Field("open").AsBoolean());
-        session.Update(Update(6, 1));
-        session.Update(Update(7, 1));
+        session.Update(Admitted.Update(6, 1));
+        session.Update(Admitted.Update(7, 1));
         Assert.Equal(standing, counter.World.Party.PlacePose);
     }
 
@@ -767,57 +767,54 @@ public sealed class ServiceTests
 
         // Before any counter is open, a held forward control walks the party, which is what makes the next
         // assertion mean something.
-        session.Update(Update(1, 1, Digital("test.move-forward", InputEdge.Held)));
+        session.Update(Admitted.Update(1, 1, Admitted.Digital("test.move-forward", InputEdge.Held)));
         PlacePose walked = counter.World.Party.PlacePose;
         Assert.NotEqual(0, walked.Y);
 
-        session.Update(Update(2, 0));
-        session.Update(Update(3, 1, Digital("test.use", InputEdge.Pressed)));
+        session.Update(Admitted.Update(2, 0));
+        session.Update(Admitted.Update(3, 1, Admitted.Digital("test.use", InputEdge.Pressed)));
 
         // Talking stops the party where it stands, exactly as standing at a counter does: the conversation is
         // a screen that owns the player's controls, so a held forward control cannot walk away from it.
         Assert.True(channel.Latest().Field(SessionProjection.ConversationField).Field("open").AsBoolean());
-        session.Update(Update(4, 1, Digital("test.move-forward", InputEdge.Held)));
+        session.Update(Admitted.Update(4, 1, Admitted.Digital("test.move-forward", InputEdge.Held)));
         Assert.True(session.Services!.IsOpen == false);
         Assert.Equal(walked, counter.World.Party.PlacePose);
-        session.Update(Update(5, 1, Payload(ConversationControls.ActionContract, """{"action":"conversation.topic","target":"counter"}""")));
+        session.Update(Admitted.Update(5, 1, Admitted.Payload(ConversationControls.ActionContract, """{"action":"conversation.topic","target":"counter"}""")));
         Assert.True(session.Services!.IsOpen);
         Assert.Equal(2, session.Services.Browse()!.Stock[0].Count);
 
         // At the counter the party does not step: the shop owns the player's controls, so a held forward
         // control walks nowhere and the visit cannot be left by accident. The world keeps its own time.
         double before = session.SimulationSeconds;
-        session.Update(Update(6, 1, Digital("test.move-forward", InputEdge.Held)));
+        session.Update(Admitted.Update(6, 1, Admitted.Digital("test.move-forward", InputEdge.Held)));
         Assert.Equal(walked, counter.World.Party.PlacePose);
         Assert.True(session.SimulationSeconds > before);
 
         // Buying the shelf out leaves it empty, and it stays empty while the schedule has not come due.
-        session.Update(Update(7, 1, Payload(ServiceControls.ActionContract, """{"action":"service.buy","target":"stock:sword","count":2}""")));
+        session.Update(Admitted.Update(7, 1, Admitted.Payload(ServiceControls.ActionContract, """{"action":"service.buy","target":"stock:sword","count":2}""")));
         Assert.Equal(0, session.Services.Browse()!.Stock[0].Count);
-        for (ulong step = 8; step <= 11; step++) session.Update(Update(step, 1, Digital("test.move-forward", InputEdge.Held)));
+        for (ulong step = 8; step <= 11; step++) session.Update(Admitted.Update(step, 1, Admitted.Digital("test.move-forward", InputEdge.Held)));
         Assert.Equal(0, session.Services.Browse()!.Stock[0].Count);
         Assert.Equal(walked, counter.World.Party.PlacePose);
 
         // The hour the shelves refresh on passes in the same clock the street reads, so the schedule is game
         // time rather than a loop: the shelf is full again while the visit is still open.
-        session.Update(Update(12, 1, Digital("test.move-forward", InputEdge.Held)));
+        session.Update(Admitted.Update(12, 1, Admitted.Digital("test.move-forward", InputEdge.Held)));
         Assert.Equal(2, session.Services.Browse()!.Stock[0].Count);
 
         // Leaving gives the controls back: the same held control walks the party again.
-        session.Update(Update(13, 1, Digital("test.service.leave", InputEdge.Pressed)));
+        session.Update(Admitted.Update(13, 1, Admitted.Digital("test.service.leave", InputEdge.Pressed)));
         Assert.False(session.Services.IsOpen);
-        session.Update(Update(14, 1, Digital("test.move-forward", InputEdge.Held)));
+        session.Update(Admitted.Update(14, 1, Admitted.Digital("test.move-forward", InputEdge.Held)));
         Assert.NotEqual(walked, counter.World.Party.PlacePose);
     }
 
-    private static GameClock Clock(GameDate? start = null) =>
-        new(
-            Calendar,
-            start ?? new GameDate(1168, 1, 1, 9, 0, 0),
-            // One admitted second is one game day, so a test that steps a few seconds crosses the deadlines
-            // it states without measuring a real day of engine time.
-            new GameTimeScale(86_400),
-            new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
+    /// <remarks>
+    /// One admitted second is one game day, so a test that steps a few seconds crosses the deadlines it states
+    /// without measuring a real day of engine time.
+    /// </remarks>
+    private static GameClock Clock(GameDate? start = null) => TestClock.Create(86_400, start);
 
     /// <summary>A party that carries what a test gives it, with a real purse, pack, and members.</summary>
     private static PartyEntity Party(int coins = 0, int reputation = 0) =>
@@ -844,34 +841,6 @@ public sealed class ServiceTests
                 ProvisionUnit.Portions,
                 reputation,
                 fame: 0));
-
-    private static ProductUpdate Update(ulong step, uint admitted, params ProductInputEvent[] input)
-    {
-        ProductUpdateFacts facts = new(
-            ProductUpdateMode.Realtime,
-            ProductLifecycleState.Running,
-            1,
-            1,
-            0,
-            step,
-            60,
-            admitted,
-            0,
-            StepSeconds);
-        return new ProductUpdate(facts, input);
-    }
-
-    private static ProductInputEvent Digital(string intent, InputEdge edge) => new(
-        InputEventKind.MappedDigital, edge, default, default, default, default, default, default, default, default,
-        InputValueKind.Digital, InputPhase.Pressed, InputProvenance.Physical, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, Encoding.UTF8.GetBytes(intent),
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
-
-    private static ProductInputEvent Payload(string contract, string json) => new(
-        InputEventKind.DirectProductPayload, InputEdge.None, default, default, default, default, default, default, default, default,
-        InputValueKind.ProductPayload, InputPhase.DirectUi, InputProvenance.DirectUi, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty,
-        Encoding.UTF8.GetBytes(contract), Encoding.UTF8.GetBytes(json));
 
     /// <summary>
     /// The rules a test states: what a counter is, what its shelves hold, who it serves, and what it charges.
@@ -984,7 +953,7 @@ public sealed class ServiceTests
         {
             ContentCatalog catalog = ContentCatalogLoader.Load(
                 new InMemoryContentSource()
-                    .Add("packs/world/pack.json", Manifest())
+                    .Add("packs/world/pack.json", TestPacks.World)
                     .Add("packs/world/places.json", Document())
                     .Add("packs/world/links.json", Links()),
                 Layout).RequireValid();
@@ -1038,20 +1007,6 @@ public sealed class ServiceTests
             """
             { "documentId": "links", "definitionKind": "travel-link", "entries": [
               { "id": "coach", "fromPlace": "1", "toPlace": "2", "entryPoint": "Door", "fare": true, "route": "coach" } ] }
-            """;
-
-        private static string Manifest() =>
-            """
-            {
-              "schemaVersion": 1,
-              "packId": "world",
-              "kind": "definitions",
-              "provenance": { "description": "authored for a test" },
-              "documents": [
-                { "path": "places.json", "documentId": "places", "definitionKind": "place" },
-                { "path": "links.json", "documentId": "links", "definitionKind": "travel-link" }
-              ]
-            }
             """;
     }
 

@@ -1,7 +1,7 @@
 using System.Text;
 using Rusty.Engine;
 
-namespace PartyRpg.Host.Tests;
+namespace PartyRpg.Testing;
 
 /// <summary>The engine's keyed randomness, answered deterministically from the request alone.</summary>
 /// <remarks>
@@ -10,10 +10,10 @@ namespace PartyRpg.Host.Tests;
 /// its creatures' grades) spreads over its range the way the engine's own service does, and asking under the same
 /// key again answers the same value. Every other operation is refused rather than faked.
 /// </remarks>
-internal sealed class KeyedTestRandom : IRandomService
+public sealed class KeyedTestRandom : IRandomService
 {
     /// <summary>Every scope and key a draw was asked under, in order.</summary>
-    internal List<string> Keys { get; } = [];
+    public List<string> Keys { get; } = [];
 
     public KeyedRngReceipt DrawKeyed(KeyedRngRequest request)
     {

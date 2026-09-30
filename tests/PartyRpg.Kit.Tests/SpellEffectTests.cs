@@ -36,7 +36,7 @@ public sealed class SpellEffectTests
     public void An_effect_a_cast_leaves_runs_until_the_clocks_own_deadline_reaches_it()
     {
         using PartyEntity party = Party();
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         RunningSpellEffects running = new(party, clock);
         clock.ScheduleEvery(GameDuration.FromHours(1));
 
@@ -69,7 +69,7 @@ public sealed class SpellEffectTests
     public void Applying_an_effect_again_replaces_its_magnitude_and_its_deadline_rather_than_stacking()
     {
         using PartyEntity party = Party();
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         RunningSpellEffects running = new(party, clock);
 
         running.Start(Ward, magnitude: 4, GameDuration.FromHours(1));
@@ -110,7 +110,7 @@ public sealed class SpellEffectTests
     public void A_dispelling_ends_what_a_spell_left_running_and_leaves_what_a_counter_sold()
     {
         using PartyEntity party = Party();
-        RunningSpellEffects running = new(party, Clock());
+        RunningSpellEffects running = new(party, TestClock.Create());
         running.Start(Ward, magnitude: 5, GameDuration.FromHours(1));
         running.Start(Light, magnitude: 2, GameDuration.FromHours(1));
 
@@ -130,7 +130,7 @@ public sealed class SpellEffectTests
     public void The_panel_reads_what_a_cast_changed_and_what_the_effect_path_offers()
     {
         using PartyEntity party = Party();
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         RecordingEffects effects = new(party, clock);
         Spellcasting casting = new(party, Capabilities.Magic(new TestSpells(), effects));
         party.Members[0].Spells.Learn(Travel);
@@ -177,7 +177,7 @@ public sealed class SpellEffectTests
         // What a spell's effect is belongs to the ruleset, which applies it by category behind the seam. The
         // kit's own effect application therefore names no spell and compares no effect: it carries an identity
         // and hands it back, which is what keeps ninety-nine spells from becoming ninety-nine code paths.
-        string magic = Path.Combine(RepositoryRoot(), "src", "PartyRpg.Kit", "Magic");
+        string magic = Path.Combine(Repository.Root, "src", "PartyRpg.Kit", "Magic");
         string effects = Path.Combine(magic, "Effects");
         string[] applied =
         [
@@ -232,13 +232,6 @@ public sealed class SpellEffectTests
     /// <summary>Splits an advance into its parts, which a case that only needs one of them reads.</summary>
     private static (GameDate From, GameDate To, GameDuration Elapsed, PeriodCrossings Crossings, IReadOnlyList<DeadlineDue> Due) Split(
         ClockAdvance advance) => (advance.From, advance.To, advance.Elapsed, advance.Crossings, advance.Due);
-
-    /// <summary>A clock at nine in the morning of this kit's own calendar.</summary>
-    private static GameClock Clock() => new(
-        GameCalendar.TwelveMonthsOfFourWeeks,
-        new GameDate(1168, 1, 1, 9, 0),
-        new GameTimeScale(30),
-        new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
 
     /// <summary>A party of two, which is the state every effect here is carried by.</summary>
     private static PartyEntity Party() =>
@@ -336,7 +329,7 @@ public sealed class SpellEffectTests
         // The writers are internal to the kit, so nothing outside it can write one; inside it, the one owner of
         // running effects is the only source that does, which is what keeps a dispel from reaching a record,
         // a balance, or a passage.
-        string kit = Path.Combine(RepositoryRoot(), "src", "PartyRpg.Kit");
+        string kit = Path.Combine(Repository.Root, "src", "PartyRpg.Kit");
         string owner = Path.Combine(kit, "Magic", "Effects", "RunningSpellEffects.cs");
         List<string> offenders = [];
         foreach (string source in Directory.EnumerateFiles(kit, "*.cs", SearchOption.AllDirectories))
@@ -351,22 +344,5 @@ public sealed class SpellEffectTests
 
         Assert.Empty(offenders);
         Assert.Matches(@"Effects\s*\.\s*Apply\s*\(", File.ReadAllText(owner));
-    }
-
-    private static string RepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "AGENTS.md")) &&
-                Directory.Exists(Path.Combine(directory.FullName, "src")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Could not find the repository root above the test assembly.");
     }
 }

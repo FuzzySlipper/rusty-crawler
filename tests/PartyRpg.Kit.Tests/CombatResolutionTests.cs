@@ -297,7 +297,7 @@ public sealed class CombatResolutionTests
         using PartyEntity owned = party;
         Arrive(world);
         List<CreatureDeath> heard = [];
-        CombatState combat = new(Capabilities.Combat(rules) with { Deaths = [new Heard(heard)] }, party, world, Clock());
+        CombatState combat = new(Capabilities.Combat(rules) with { Deaths = [new Heard(heard)] }, party, world, TestClock.Create());
         combat.Step();
         Combatant member = combat.Combatants.First(combatant => combatant.Side == CombatSide.Party);
         Combatant beast = combat.Opposition[0];
@@ -401,7 +401,7 @@ public sealed class CombatResolutionTests
 
     /// <summary>The fight this suite exercises: the kit's state over the suite's own rule.</summary>
     private static CombatState Fight(SessionWorld world, PartyEntity party, Rules rules) =>
-        new(Capabilities.Combat(rules), party, world, Clock());
+        new(Capabilities.Combat(rules), party, world, TestClock.Create());
 
     private static PlacePose Pose() => new(0, 0, 0, 0, 0);
 
@@ -419,13 +419,6 @@ public sealed class CombatResolutionTests
         GameDuration.FromMilliseconds(milliseconds),
         PeriodCrossings.None,
         []);
-
-    /// <summary>The session's one clock, at this game's own rate and on its own calendar.</summary>
-    private static GameClock Clock() => new(
-        GameCalendar.TwelveMonthsOfFourWeeks,
-        new GameDate(1168, 1, 1, 9, 0, 0),
-        new GameTimeScale(30),
-        new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
 
     /// <summary>A hall holding one creature inside its notice range, and a party to fight it.</summary>
     private static SessionWorld World(Rules rules, out PartyEntity party, double creatureAt, int hitPoints = 40, int pool = 20)
@@ -472,22 +465,16 @@ public sealed class CombatResolutionTests
             pose,
             new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()),
             new FreeTravel(),
-            Clock(),
+            TestClock.Create(),
             mover: null,
             diagnostics: null,
             entrances: null,
-            clock: Clock(),
+            clock: TestClock.Create(),
             resources: null,
             partyEntity: party,
             interaction: null,
             schedule: null,
             vitals: Capabilities.PlacementHitPoints);
-    }
-
-    /// <summary>Walking is free: nothing in these tests is about what a road costs.</summary>
-    private sealed class FreeTravel : ITravelCostRule
-    {
-        public TravelCostQuote Quote(TransitionRequest request) => TravelCostQuote.Payable(TravelCost.Free);
     }
 
     /// <summary>

@@ -77,8 +77,8 @@ public sealed class CreationModeTests
         Assert.Null(session.LiveWorld);
         Assert.Null(session.CreationRefusal);
         Assert.False(session.Creation!.HasDefault);
-        Assert.Equal("creating", making.Projections.Latest.Field("session").Field("mode").Text());
-        Assert.True(making.Projections.Latest.Field("creation").Field("active").Flag());
+        Assert.Equal("creating", making.Projections.Latest().Field("session").Field("mode").AsString());
+        Assert.True(making.Projections.Latest().Field("creation").Field("active").AsBoolean());
 
         // The first member: a portrait, a class, a name, the whole pool, and the two chosen skills — every
         // one of them a command the session reads out of an admitted update.
@@ -91,7 +91,7 @@ public sealed class CreationModeTests
 
         // Accepting builds the party through the suite's factory, and the session leaves creation for the
         // world with that party in it.
-        session.Update(Update(900, 1, Command(CreationActions.Accept)));
+        session.Update(Admitted.Update(900, 1, Command(CreationActions.Accept)));
 
         Assert.Equal(SessionMode.Running, session.Mode);
         Assert.Null(session.Creation);
@@ -126,15 +126,15 @@ public sealed class CreationModeTests
         Assert.Equal(1, party.Reputation.Fame);
 
         // And the screen is told the party was accepted, with the members it is now playing.
-        Node creation = making.Projections.Latest.Field("creation");
-        Assert.False(creation.Field("active").Flag());
-        Assert.True(creation.Field("accepted").Flag());
+        ProjectedNode creation = making.Projections.Latest().Field("creation");
+        Assert.False(creation.Field("active").AsBoolean());
+        Assert.True(creation.Field("accepted").AsBoolean());
         Assert.Equal(2, creation.Field("party").Count());
-        Assert.Equal("Ann", creation.Field("party").Element(0).Field("name").Text());
-        Assert.Equal("testfolk", creation.Field("party").Element(0).Field("race").Text());
-        Assert.Equal("Bo", creation.Field("party").Element(1).Field("name").Text());
-        Assert.Equal("stone-a", creation.Field("party").Element(1).Field("portrait").Text());
-        Assert.True(making.Projections.Latest.Field("party").Field("present").Flag());
+        Assert.Equal("Ann", creation.Field("party").Item(0).Field("name").AsString());
+        Assert.Equal("testfolk", creation.Field("party").Item(0).Field("race").AsString());
+        Assert.Equal("Bo", creation.Field("party").Item(1).Field("name").AsString());
+        Assert.Equal("stone-a", creation.Field("party").Item(1).Field("portrait").AsString());
+        Assert.True(making.Projections.Latest().Field("party").Field("present").AsBoolean());
     }
 
     [Fact]
@@ -146,11 +146,11 @@ public sealed class CreationModeTests
         // This suite's default party is finished, so the flow is ready to accept from the start, and the
         // projection says a default was offered.
         Assert.True(session.Creation!.IsComplete);
-        Assert.True(making.Projections.Latest.Field("creation").Field("hasDefault").Flag());
+        Assert.True(making.Projections.Latest().Field("creation").Field("hasDefault").AsBoolean());
 
         // A digital event on the declared accept control accepts the finished party, exactly as the payload
         // action does: the keyboard and the screen are two ways to the same command.
-        session.Update(Update(10, 1, Digital(Controls.Accept)));
+        session.Update(Admitted.Update(10, 1, Admitted.Digital(Controls.Accept)));
         Assert.Equal(SessionMode.Running, session.Mode);
         PartyEntity party = Assert.Single(making.Built);
         Assert.Equal(2, party.Members.Count);
@@ -158,20 +158,20 @@ public sealed class CreationModeTests
         // A digital event on the declared confirm control confirms the step being worked on: after a
         // portrait is chosen the same control moves creation to the class.
         using Making again = new(new PartyCreationFlow(Options));
-        again.Session.Update(Update(10, 1, Choose(CreationActions.SelectPortrait, "portrait", FolkA.Value)));
-        again.Session.Update(Update(11, 1, Digital(Controls.Advance)));
+        again.Session.Update(Admitted.Update(10, 1, Choose(CreationActions.SelectPortrait, "portrait", FolkA.Value)));
+        again.Session.Update(Admitted.Update(11, 1, Admitted.Digital(Controls.Advance)));
         Assert.Equal(CreationStep.Class, again.Session.Creation!.Step);
 
         // An event on a control this reader does not claim drives nothing: a movement key and a foreign
         // payload action are somebody else's events while a party is being made.
-        again.Session.Update(Update(12, 1, Digital(MovementNames.Forward, InputEdge.Pressed)));
-        again.Session.Update(Update(13, 1, Payload("""{"action":"party.jump"}""")));
+        again.Session.Update(Admitted.Update(12, 1, Admitted.Digital(MovementNames.Forward, InputEdge.Pressed)));
+        again.Session.Update(Admitted.Update(13, 1, Payload("""{"action":"party.jump"}""")));
         Assert.Equal(CreationStep.Class, again.Session.Creation.Step);
         Assert.Null(again.Session.CreationRefusal);
 
         // Confirming a step nothing has been chosen for is the flow's refusal, not a crash: the class step
         // is confirmed with no class, and creation stays on it.
-        again.Session.Update(Update(14, 1, Digital(Controls.Advance)));
+        again.Session.Update(Admitted.Update(14, 1, Admitted.Digital(Controls.Advance)));
         Assert.Equal("class-unchosen", again.Session.CreationRefusal!.Code);
         Assert.Equal(CreationStep.Class, again.Session.Creation.Step);
         Assert.Empty(again.Built);
@@ -185,11 +185,11 @@ public sealed class CreationModeTests
 
         // Reopening a confirmed member puts creation back on it; its steps begin again so a change to the
         // portrait or the class re-derives what depends on it.
-        session.Update(Update(10, 1, Member(0)));
+        session.Update(Admitted.Update(10, 1, Member(0)));
         Assert.Equal(CreationStep.Portrait, session.Creation!.Step);
 
         // A class out of step is refused by name, and creation stays exactly where it was.
-        session.Update(Update(11, 1, Choose(CreationActions.SelectClass, "class", Fighter.Value)));
+        session.Update(Admitted.Update(11, 1, Choose(CreationActions.SelectClass, "class", Fighter.Value)));
         Refusal outOfStep = Refused(session);
         Assert.Equal("creation-step", outOfStep.Code);
         Assert.Equal(CreationStep.Portrait, session.Creation.Step);
@@ -198,23 +198,23 @@ public sealed class CreationModeTests
 
         // A portrait creation does not offer is refused with the rule it broke, and the projection carries
         // both the code a caller branches on and the message a person reads.
-        session.Update(Update(12, 1, Choose(CreationActions.SelectPortrait, "portrait", "nobody")));
+        session.Update(Admitted.Update(12, 1, Choose(CreationActions.SelectPortrait, "portrait", "nobody")));
         Refusal unknown = Refused(session);
         Assert.Equal("portrait-unknown", unknown.Code);
         Assert.Contains("'nobody'", unknown.Message, StringComparison.Ordinal);
-        Node creation = making.Projections.Latest.Field("creation");
-        Assert.Equal("portrait-unknown", creation.Field("refusalCode").Text());
-        Assert.Equal(unknown.Message, creation.Field("refusalMessage").Text());
-        Assert.True(creation.Field("active").Flag());
+        ProjectedNode creation = making.Projections.Latest().Field("creation");
+        Assert.Equal("portrait-unknown", creation.Field("refusalCode").AsString());
+        Assert.Equal(unknown.Message, creation.Field("refusalMessage").AsString());
+        Assert.True(creation.Field("active").AsBoolean());
 
         // A choice command that arrived naming no choice is refused rather than silently dropped.
-        session.Update(Update(13, 1, Payload("""{"action":"creation.select-portrait"}""")));
+        session.Update(Admitted.Update(13, 1, Payload("""{"action":"creation.select-portrait"}""")));
         Refusal missing = Refused(session);
         Assert.Equal("creation-choice-missing", missing.Code);
 
         // Accepting an unfinished party is refused with the members and the steps that are unfinished, and
         // nothing is built: creation is what the player goes back to.
-        session.Update(Update(14, 1, Command(CreationActions.Accept)));
+        session.Update(Admitted.Update(14, 1, Command(CreationActions.Accept)));
         Refusal incomplete = Refused(session);
         Assert.Equal("creation-incomplete", incomplete.Code);
         Assert.Contains("member 1", incomplete.Message, StringComparison.Ordinal);
@@ -226,10 +226,10 @@ public sealed class CreationModeTests
         Assert.Empty(making.Built);
 
         // The next legal choice clears the refusal, so the screen shows the answer to the last choice.
-        session.Update(Update(15, 1, Choose(CreationActions.SelectPortrait, "portrait", FolkA.Value)));
+        session.Update(Admitted.Update(15, 1, Choose(CreationActions.SelectPortrait, "portrait", FolkA.Value)));
         Assert.Null(session.CreationRefusal);
         Assert.Equal(FolkA, session.Creation.Member(0).Portrait);
-        Assert.Equal(string.Empty, making.Projections.Latest.Field("creation").Field("refusalCode").Text());
+        Assert.Equal(string.Empty, making.Projections.Latest().Field("creation").Field("refusalCode").AsString());
     }
 
     [Fact]
@@ -244,7 +244,7 @@ public sealed class CreationModeTests
         ulong step = 0;
         for (int update = 0; update < 120; update++)
         {
-            session.Update(Update(step, 4, Digital(MovementNames.Forward, InputEdge.Pressed)));
+            session.Update(Admitted.Update(step, 4, Admitted.Digital(MovementNames.Forward, InputEdge.Pressed)));
             step += 4;
         }
 
@@ -258,9 +258,9 @@ public sealed class CreationModeTests
         // and no world exists yet to step: it is composed when the party is accepted.
         Assert.Empty(making.Mover.Steps);
         Assert.Null(session.LiveWorld);
-        Assert.Equal(0d, making.Projections.Latest.Field("world").Field("places").AsNumber());
+        Assert.Equal(0d, making.Projections.Latest().Field("world").Field("places").AsNumber());
 
-        session.Update(Update(step, 1, Digital(Controls.Accept)));
+        session.Update(Admitted.Update(step, 1, Admitted.Digital(Controls.Accept)));
         step++;
         Assert.NotNull(session.LiveWorld);
 
@@ -273,7 +273,7 @@ public sealed class CreationModeTests
         // The first running update steps the party with the intent the reader holds — which is *still*,
         // because the press during creation was never read. A held key surviving creation would walk the
         // party the moment the game began, and this is what proves it does not.
-        session.Update(Update(step, 1, []));
+        session.Update(Admitted.Update(step, 1, []));
         (MovementIntent intent, double seconds) = Assert.Single(making.Mover.Steps);
         Assert.True(intent.IsStill);
         Assert.Equal(StepSeconds, seconds, 9);
@@ -282,7 +282,7 @@ public sealed class CreationModeTests
         Assert.Equal(began, session.Clock.Now);
 
         // And once playing, the same key does move the party: the reader is live and the world is stepped.
-        session.Update(Update(step + 1, 1, Digital(MovementNames.Forward, InputEdge.Pressed)));
+        session.Update(Admitted.Update(step + 1, 1, Admitted.Digital(MovementNames.Forward, InputEdge.Pressed)));
         Assert.Equal(2, making.Mover.Steps.Count);
         Assert.Equal(1, making.Mover.Steps[1].Intent.Forward);
         Assert.True(session.LiveWorld.Party.PlacePose.X > 4);
@@ -302,14 +302,14 @@ public sealed class CreationModeTests
 
         using Making making = new(new PartyCreationFlow(Options, Defaults), rules);
         Assert.Null(making.Session.Combat);
-        making.Session.Update(Update(10, 1, Digital(Controls.Accept)));
-        Node created = making.Projections.Latest;
+        making.Session.Update(Admitted.Update(10, 1, Admitted.Digital(Controls.Accept)));
+        ProjectedNode created = making.Projections.Latest();
 
-        using CapturedProjections handed = new();
+        using RecordingUiProjectionChannel handed = new();
         using PartyRpgSession played = new(
             Composition,
             handed,
-            new SessionOwners(Clock()),
+            new SessionOwners(TestClock.Create()),
             new SessionParty.Playing(Party: new PartyEntityFactory().Create(OneMemberParty())),
             rules,
             new SessionControls { Creation = Controls });
@@ -317,8 +317,8 @@ public sealed class CreationModeTests
         Assert.NotNull(making.Session.Combat);
         foreach (string block in new[] { "combat", "magic", "alchemy" })
         {
-            Assert.True(created.Field(block).Field("available").Flag(), $"The created session composed no {block}.");
-            Assert.True(handed.Latest.Field(block).Field("available").Flag(), $"The played session composed no {block}.");
+            Assert.True(created.Field(block).Field("available").AsBoolean(), $"The created session composed no {block}.");
+            Assert.True(handed.Latest().Field(block).Field("available").AsBoolean(), $"The played session composed no {block}.");
         }
     }
 
@@ -327,7 +327,7 @@ public sealed class CreationModeTests
     {
         using Making making = new(new PartyCreationFlow(Options, Defaults));
         PartyRpgSession session = making.Session;
-        session.Update(Update(10, 1, Digital(Controls.Accept)));
+        session.Update(Admitted.Update(10, 1, Admitted.Digital(Controls.Accept)));
 
         PartyEntity party = Assert.Single(making.Built);
         Assert.Same(party, session.Party);
@@ -342,16 +342,16 @@ public sealed class CreationModeTests
 
         // The panel's party block is the created party's own numbers, and its accepted list is the created
         // members — read from the party being played rather than from the flow that described it.
-        session.Update(Update(11, 0));
-        Node published = making.Projections.Latest;
-        Assert.True(published.Field("party").Field("present").Flag());
+        session.Update(Admitted.Update(11, 0));
+        ProjectedNode published = making.Projections.Latest();
+        Assert.True(published.Field("party").Field("present").AsBoolean());
         Assert.Equal(2d, published.Field("party").Field("members").AsNumber());
         Assert.Equal(25d, published.Field("party").Field("coins").AsNumber());
         Assert.Equal(before - 1d, published.Field("party").Field("provisions").AsNumber());
-        Assert.Equal("Ann", published.Field("creation").Field("party").Element(0).Field("name").Text());
-        Assert.Equal("folk-a", published.Field("creation").Field("party").Element(0).Field("portrait").Text());
-        Assert.Equal("fighter", published.Field("creation").Field("party").Element(0).Field("class").Text());
-        Assert.Equal("bo", published.Field("creation").Field("party").Element(1).Field("name").Text().ToLowerInvariant());
+        Assert.Equal("Ann", published.Field("creation").Field("party").Item(0).Field("name").AsString());
+        Assert.Equal("folk-a", published.Field("creation").Field("party").Item(0).Field("portrait").AsString());
+        Assert.Equal("fighter", published.Field("creation").Field("party").Item(0).Field("class").AsString());
+        Assert.Equal("bo", published.Field("creation").Field("party").Item(1).Field("name").AsString().ToLowerInvariant());
     }
 
     [Fact]
@@ -362,76 +362,76 @@ public sealed class CreationModeTests
 
         // A member answered down to its attributes: the screen is told the step, the pool, the member's own
         // answers, and every choice creation offers for the class and race it has.
-        session.Update(Update(10, 1, Choose(CreationActions.SelectPortrait, "portrait", FolkA.Value)));
-        session.Update(Update(11, 1, Command(CreationActions.Advance)));
-        session.Update(Update(12, 1, Choose(CreationActions.SelectClass, "class", Fighter.Value)));
-        session.Update(Update(13, 1, Command(CreationActions.Advance)));
-        session.Update(Update(14, 1, Choose(CreationActions.SetName, "name", "Ann")));
-        session.Update(Update(15, 1, Command(CreationActions.Advance)));
-        session.Update(Update(16, 1, Choose(CreationActions.RaiseAttribute, "attribute", Vigour.Value)));
+        session.Update(Admitted.Update(10, 1, Choose(CreationActions.SelectPortrait, "portrait", FolkA.Value)));
+        session.Update(Admitted.Update(11, 1, Command(CreationActions.Advance)));
+        session.Update(Admitted.Update(12, 1, Choose(CreationActions.SelectClass, "class", Fighter.Value)));
+        session.Update(Admitted.Update(13, 1, Command(CreationActions.Advance)));
+        session.Update(Admitted.Update(14, 1, Choose(CreationActions.SetName, "name", "Ann")));
+        session.Update(Admitted.Update(15, 1, Command(CreationActions.Advance)));
+        session.Update(Admitted.Update(16, 1, Choose(CreationActions.RaiseAttribute, "attribute", Vigour.Value)));
 
-        Node creation = making.Projections.Latest.Field("creation");
-        Assert.True(creation.Field("active").Flag());
-        Assert.False(creation.Field("accepted").Flag());
-        Assert.False(creation.Field("hasDefault").Flag());
+        ProjectedNode creation = making.Projections.Latest().Field("creation");
+        Assert.True(creation.Field("active").AsBoolean());
+        Assert.False(creation.Field("accepted").AsBoolean());
+        Assert.False(creation.Field("hasDefault").AsBoolean());
         Assert.Equal(0d, creation.Field("member").AsNumber());
         Assert.Equal(2d, creation.Field("members").AsNumber());
-        Assert.Equal("attributes", creation.Field("step").Text());
+        Assert.Equal("attributes", creation.Field("step").AsString());
         Assert.Equal(3d, creation.Field("pool").AsNumber());
 
         // The roster is the flow's own answer for every member, including the ones not reached yet.
         Assert.Equal(2, creation.Field("roster").Count());
-        Assert.Equal("Ann", creation.Field("roster").Element(0).Field("name").Text());
-        Assert.Equal("testfolk", creation.Field("roster").Element(0).Field("race").Text());
-        Assert.Equal("fighter", creation.Field("roster").Element(0).Field("class").Text());
-        Assert.Equal("folk-a", creation.Field("roster").Element(0).Field("portrait").Text());
-        Assert.Equal("attributes", creation.Field("roster").Element(0).Field("step").Text());
-        Assert.Equal("portrait", creation.Field("roster").Element(1).Field("step").Text());
-        Assert.Equal(string.Empty, creation.Field("roster").Element(1).Field("name").Text());
+        Assert.Equal("Ann", creation.Field("roster").Item(0).Field("name").AsString());
+        Assert.Equal("testfolk", creation.Field("roster").Item(0).Field("race").AsString());
+        Assert.Equal("fighter", creation.Field("roster").Item(0).Field("class").AsString());
+        Assert.Equal("folk-a", creation.Field("roster").Item(0).Field("portrait").AsString());
+        Assert.Equal("attributes", creation.Field("roster").Item(0).Field("step").AsString());
+        Assert.Equal("portrait", creation.Field("roster").Item(1).Field("step").AsString());
+        Assert.Equal(string.Empty, creation.Field("roster").Item(1).Field("name").AsString());
 
         // The portraits and classes are the options creation offers, with the chosen one marked.
         Assert.Equal(3, creation.Field("portraits").Count());
-        Assert.True(creation.Field("portraits").Element(0).Field("selected").Flag());
-        Assert.Equal("Folk A", creation.Field("portraits").Element(0).Field("name").Text());
-        Assert.Equal("testfolk", creation.Field("portraits").Element(0).Field("race").Text());
-        Assert.False(creation.Field("portraits").Element(1).Field("selected").Flag());
+        Assert.True(creation.Field("portraits").Item(0).Field("selected").AsBoolean());
+        Assert.Equal("Folk A", creation.Field("portraits").Item(0).Field("name").AsString());
+        Assert.Equal("testfolk", creation.Field("portraits").Item(0).Field("race").AsString());
+        Assert.False(creation.Field("portraits").Item(1).Field("selected").AsBoolean());
         Assert.Equal(2, creation.Field("classes").Count());
-        Assert.True(creation.Field("classes").Element(0).Field("selected").Flag());
-        Assert.Equal("Fighter", creation.Field("classes").Element(0).Field("name").Text());
+        Assert.True(creation.Field("classes").Item(0).Field("selected").AsBoolean());
+        Assert.Equal("Fighter", creation.Field("classes").Item(0).Field("name").AsString());
 
         // The skills are the class's own: the two it fixes, the three it offers, and nothing else — with the
         // state word the screen renders instead of working out which list an id belongs to.
         Assert.Equal(5, creation.Field("skills").Count());
         Assert.Equal(
             ["blades", "bulwark", "axes", "bows", "lore"],
-            Enumerable.Range(0, 5).Select(index => creation.Field("skills").Element(index).Field("id").Text()));
+            Enumerable.Range(0, 5).Select(index => creation.Field("skills").Item(index).Field("id").AsString()));
         Assert.Equal(
             ["fixed", "fixed", "available", "available", "available"],
-            Enumerable.Range(0, 5).Select(index => creation.Field("skills").Element(index).Field("state").Text()));
+            Enumerable.Range(0, 5).Select(index => creation.Field("skills").Item(index).Field("state").AsString()));
 
         // The attributes carry the race's own bounds and what the pool may do to each.
         Assert.Equal(2, creation.Field("attributes").Count());
-        Node vigour = creation.Field("attributes").Element(0);
-        Assert.Equal("vigour", vigour.Field("id").Text());
+        ProjectedNode vigour = creation.Field("attributes").Item(0);
+        Assert.Equal("vigour", vigour.Field("id").AsString());
         Assert.Equal(9d, vigour.Field("value").AsNumber());
         Assert.Equal(6d, vigour.Field("minimum").AsNumber());
         Assert.Equal(12d, vigour.Field("maximum").AsNumber());
-        Assert.True(vigour.Field("canRaise").Flag());
-        Assert.True(vigour.Field("canLower").Flag());
-        Assert.Equal(string.Empty, creation.Field("refusalCode").Text());
-        Assert.Equal(string.Empty, creation.Field("refusalMessage").Text());
+        Assert.True(vigour.Field("canRaise").AsBoolean());
+        Assert.True(vigour.Field("canLower").AsBoolean());
+        Assert.Equal(string.Empty, creation.Field("refusalCode").AsString());
+        Assert.Equal(string.Empty, creation.Field("refusalMessage").AsString());
 
         // A refusal is published beside the choices, so the screen can show the rule and keep the screen.
-        session.Update(Update(17, 1, Choose(CreationActions.SelectPortrait, "portrait", "nobody")));
-        creation = making.Projections.Latest.Field("creation");
-        Assert.Equal("creation-step", creation.Field("refusalCode").Text());
-        Assert.Contains(nameof(CreationStep.Portrait), creation.Field("refusalMessage").Text(), StringComparison.Ordinal);
+        session.Update(Admitted.Update(17, 1, Choose(CreationActions.SelectPortrait, "portrait", "nobody")));
+        creation = making.Projections.Latest().Field("creation");
+        Assert.Equal("creation-step", creation.Field("refusalCode").AsString());
+        Assert.Contains(nameof(CreationStep.Portrait), creation.Field("refusalMessage").AsString(), StringComparison.Ordinal);
     }
 
     [Fact]
     public void A_session_that_creates_needs_the_controls_its_commands_arrive_on()
     {
-        using CapturedProjections projections = new();
+        using RecordingUiProjectionChannel projections = new();
 
         // A session either creates its party or plays one, and the two are different shapes of what it is
         // handed, so a session holding both is not a thing that can be written.
@@ -450,7 +450,7 @@ public sealed class CreationModeTests
     {
         using Making making = new(new PartyCreationFlow(Options, Defaults));
         PartyRpgSession session = making.Session;
-        session.Update(Update(10, 1, Digital(Controls.Accept)));
+        session.Update(Admitted.Update(10, 1, Admitted.Digital(Controls.Accept)));
 
         // A created party is captured and rebuilt through the same factory a restored one is, which is what
         // makes the party the session plays the durable shape a save carries.
@@ -479,7 +479,7 @@ public sealed class CreationModeTests
         Assert.Equal(MightAndMagic7Creation.MemberCount, session.Creation.MemberCount);
         Assert.Equal(0, session.Creation.PoolRemaining);
 
-        session.Update(Update(10, 1, Digital(Controls.Accept)));
+        session.Update(Admitted.Update(10, 1, Admitted.Digital(Controls.Accept)));
 
         Assert.Equal(SessionMode.Running, session.Mode);
         PartyEntity party = Assert.Single(making.Built);
@@ -508,28 +508,28 @@ public sealed class CreationModeTests
         ulong from = 0)
     {
         ulong step = Math.Max(from, session.Updates) + 100;
-        session.Update(Update(step++, 1, Choose(CreationActions.SelectPortrait, "portrait", portrait.Value)));
-        session.Update(Update(step++, 1, Command(CreationActions.Advance)));
-        session.Update(Update(step++, 1, Choose(CreationActions.SelectClass, "class", characterClass.Value)));
-        session.Update(Update(step++, 1, Command(CreationActions.Advance)));
-        session.Update(Update(step++, 1, Choose(CreationActions.SetName, "name", name)));
-        session.Update(Update(step++, 1, Command(CreationActions.Advance)));
+        session.Update(Admitted.Update(step++, 1, Choose(CreationActions.SelectPortrait, "portrait", portrait.Value)));
+        session.Update(Admitted.Update(step++, 1, Command(CreationActions.Advance)));
+        session.Update(Admitted.Update(step++, 1, Choose(CreationActions.SelectClass, "class", characterClass.Value)));
+        session.Update(Admitted.Update(step++, 1, Command(CreationActions.Advance)));
+        session.Update(Admitted.Update(step++, 1, Choose(CreationActions.SetName, "name", name)));
+        session.Update(Admitted.Update(step++, 1, Command(CreationActions.Advance)));
         foreach ((AttributeId attribute, int clicks) in attributes)
         {
             for (int click = 0; click < clicks; click++)
             {
-                session.Update(Update(step++, 1, Choose(CreationActions.RaiseAttribute, "attribute", attribute.Value)));
+                session.Update(Admitted.Update(step++, 1, Choose(CreationActions.RaiseAttribute, "attribute", attribute.Value)));
             }
         }
 
         Assert.Equal(0, session.Creation!.PoolRemaining);
-        session.Update(Update(step++, 1, Command(CreationActions.Advance)));
+        session.Update(Admitted.Update(step++, 1, Command(CreationActions.Advance)));
         foreach (SkillId skill in chosenSkills)
         {
-            session.Update(Update(step++, 1, Choose(CreationActions.ChooseSkill, "skill", skill.Value)));
+            session.Update(Admitted.Update(step++, 1, Choose(CreationActions.ChooseSkill, "skill", skill.Value)));
         }
 
-        session.Update(Update(step++, 1, Command(CreationActions.Advance)));
+        session.Update(Admitted.Update(step++, 1, Command(CreationActions.Advance)));
         return step;
     }
 
@@ -550,8 +550,8 @@ public sealed class CreationModeTests
     {
         PlaceGraph graph = TestGraph();
         PartyPoseOwner pose = Pose();
-        RecordingMover mover = new(pose);
-        GameClock clock = Clock();
+        RecordingMover mover = RecordingMover.Walking(pose);
+        GameClock clock = TestClock.Create();
         return new SessionWorld(
             graph,
             pose,
@@ -586,13 +586,6 @@ public sealed class CreationModeTests
     private static PartyPoseOwner Pose() => new(
         new PartyPose(new PlaceId("1"), new PlacePose(4, 0, 0, Yaw: 0, Pitch: 0)),
         new FacingRule(unitsPerTurn: 2048, minimumPitch: -512, maximumPitch: 512));
-
-    /// <summary>The one clock this suite's session keeps, in the shape this game composes its own.</summary>
-    private static GameClock Clock() => new(
-        GameCalendar.TwelveMonthsOfFourWeeks,
-        new GameDate(1168, 1, 1, 9, 0, 0),
-        new GameTimeScale(30),
-        new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
 
     private static PartyCreationOptions Options { get; } = new(
         memberCount: 2,
@@ -663,36 +656,8 @@ public sealed class CreationModeTests
             [Lore, Bows]),
     ]);
 
-    /// <summary>One admitted update carrying the given input, in the shape the engine admits it.</summary>
-    private static ProductUpdate Update(ulong simulationStep, uint admittedSteps, params ProductInputEvent[] input)
-    {
-        ProductUpdateFacts facts = new(
-            ProductUpdateMode.Realtime,
-            ProductLifecycleState.Running,
-            1,
-            1,
-            0,
-            simulationStep,
-            60,
-            admittedSteps,
-            0,
-            StepSeconds);
-        return new ProductUpdate(facts, input);
-    }
-
-    /// <summary>One digital engine event on a declared intent.</summary>
-    private static ProductInputEvent Digital(string intent, InputEdge edge = InputEdge.Pressed) => new(
-        InputEventKind.MappedDigital, edge, default, default, default, default, default, default, default, default,
-        InputValueKind.Digital, InputPhase.Pressed, InputProvenance.Physical, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, Encoding.UTF8.GetBytes(intent),
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
-
-    /// <summary>One payload action, exactly as the DOM companion sends it.</summary>
-    private static ProductInputEvent Payload(string json) => new(
-        InputEventKind.DirectProductPayload, InputEdge.None, default, default, default, default, default, default, default, default,
-        InputValueKind.ProductPayload, InputPhase.DirectUi, InputProvenance.DirectUi, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty,
-        Encoding.UTF8.GetBytes(Controls.ActionContract), Encoding.UTF8.GetBytes(json));
+    /// <summary>One payload action on this suite's contract, as the companion sends it.</summary>
+    private static ProductInputEvent Payload(string json) => Admitted.Payload(Controls.ActionContract, json);
 
     /// <summary>A creation action that carries a choice.</summary>
     private static ProductInputEvent Choose(string action, string field, string value) =>
@@ -720,11 +685,11 @@ public sealed class CreationModeTests
 
         internal Making(PartyCreationFlow flow, SessionRules? rules = null)
         {
-            Clock = Clock();
+            Clock = TestClock.Create();
             _graph = TestGraph();
             _pose = Pose();
-            Mover = new RecordingMover(_pose);
-            Projections = new CapturedProjections();
+            Mover = RecordingMover.Walking(_pose);
+            Projections = new RecordingUiProjectionChannel();
             Session = new PartyRpgSession(
                 Composition,
                 Projections,
@@ -741,7 +706,7 @@ public sealed class CreationModeTests
 
         internal PartyRpgSession Session { get; }
 
-        internal CapturedProjections Projections { get; }
+        internal RecordingUiProjectionChannel Projections { get; }
 
         internal GameClock Clock { get; }
 
@@ -775,131 +740,6 @@ public sealed class CreationModeTests
             entrances: null,
             clock: Clock,
             resources: new PartyResourceLedger(party));
-    }
-
-    /// <summary>Records the projections one session published, as values a case can navigate.</summary>
-    private sealed class CapturedProjections : IUiProjectionChannel
-    {
-        private readonly List<UiValue> _published = [];
-
-        internal Node Latest => new(_published[^1], _published[^1].Root);
-
-        public void Publish(UiValue value) => _published.Add(value);
-
-        public void Dispose()
-        {
-        }
-    }
-
-    /// <summary>Navigates one published projection by field name and array position.</summary>
-    private readonly struct Node(UiValue value, uint index)
-    {
-        internal Node Field(string key)
-        {
-            StructuredValueNode node = value.Nodes.Span[(int)index];
-            for (uint edge = node.FirstEdge; edge < node.FirstEdge + node.ChildCount; edge++)
-            {
-                uint child = value.Edges.Span[(int)edge];
-                if (Key(child) == key) return new Node(value, child);
-            }
-
-            throw new KeyNotFoundException($"Projection has no field '{key}'.");
-        }
-
-        internal Node Element(int position)
-        {
-            StructuredValueNode node = value.Nodes.Span[(int)index];
-            if (position < 0 || position >= node.ChildCount)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(position),
-                    position,
-                    $"The projected array holds {node.ChildCount} elements.");
-            }
-
-            return new Node(value, value.Edges.Span[(int)node.FirstEdge + position]);
-        }
-
-        internal int Count() => (int)value.Nodes.Span[(int)index].ChildCount;
-
-        internal string Text()
-        {
-            StructuredValueNode node = value.Nodes.Span[(int)index];
-            if (node.Kind != StructuredValueKind.String)
-            {
-                throw new InvalidOperationException($"Projection node is {node.Kind}, not a string.");
-            }
-
-            return Encoding.UTF8.GetString(value.Utf8.Span.Slice((int)node.TextOffset, (int)node.TextLen));
-        }
-
-        internal double AsNumber()
-        {
-            StructuredValueNode node = value.Nodes.Span[(int)index];
-            if (node.Kind != StructuredValueKind.Number)
-            {
-                throw new InvalidOperationException($"Projection node is {node.Kind}, not a number.");
-            }
-
-            return node.NumberValue;
-        }
-
-        internal bool Flag()
-        {
-            StructuredValueNode node = value.Nodes.Span[(int)index];
-            if (node.Kind != StructuredValueKind.Bool)
-            {
-                throw new InvalidOperationException($"Projection node is {node.Kind}, not a boolean.");
-            }
-
-            return node.BoolValue != 0;
-        }
-
-        private string Key(uint child)
-        {
-            StructuredValueNode node = value.Nodes.Span[(int)child];
-            return Encoding.UTF8.GetString(value.Utf8.Span.Slice((int)node.KeyOffset, (int)node.KeyLen));
-        }
-    }
-
-    /// <summary>The movement as the test drives it: it records what it was asked and moves the party.</summary>
-    private sealed class RecordingMover(PartyPoseOwner party) : IPartyMover
-    {
-        internal List<(MovementIntent Intent, double Seconds)> Steps { get; } = [];
-
-        internal List<PlaceId> Entered { get; } = [];
-
-        /// <summary>These movers hold no collision, so nothing occludes anything in them.</summary>
-        public bool InSight(System.Numerics.Vector3 from, System.Numerics.Vector3 to) => true;
-
-        public PlaceGeometryAdmission Enter(PlaceId place)
-        {
-            Entered.Add(place);
-            return PlaceGeometryAdmission.Empty(place);
-        }
-
-        public MovementOutcome Step(MovementIntent intent, double elapsedSeconds)
-        {
-            Steps.Add((intent, elapsedSeconds));
-
-            // What the engine resolves, in miniature: the party is moved through its pose owner and nowhere
-            // else, so the test holds the same single-writer rule the product does.
-            double forward = intent.Forward * elapsedSeconds * 180;
-            party.Move(forward, 0, 0);
-            return new MovementOutcome(
-                party.Capture().Pose,
-                new System.Numerics.Vector3((float)forward, 0, 0),
-                Grounded: true,
-                default,
-                CharacterBlockFlags.None,
-                default,
-                SurfaceEffect.Ordinary,
-                FallOutcome.None);
-        }
-
-        public void Dispose()
-        {
-        }
     }
 
     /// <summary>A road that quotes a portion, so what the world charges lands in the party's own larder.</summary>

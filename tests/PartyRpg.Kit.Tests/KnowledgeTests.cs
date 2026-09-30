@@ -49,7 +49,7 @@ public sealed class KnowledgeTests
     [Fact]
     public void A_fact_learned_once_is_one_note_and_learning_it_again_is_still_one()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         PartyKnowledge knowledge = new(new TestKnowledge(), clock);
 
         // A recipe the party mixes is reported the moment it is made, and the owner that made it is what the
@@ -85,7 +85,7 @@ public sealed class KnowledgeTests
     [Fact]
     public void What_the_party_knows_outlives_a_place_reset()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         PartyKnowledge knowledge = new(new TestKnowledge(), clock);
         SessionWorld world = World(clock);
 
@@ -110,14 +110,14 @@ public sealed class KnowledgeTests
 
         // The save carries the facts across the reset as well: what a load restores is what the party knows,
         // and the place's population is the world's business rather than the knowledge owner's.
-        PartyKnowledge loaded = new(new TestKnowledge(), Clock(), knowledge.Capture());
+        PartyKnowledge loaded = new(new TestKnowledge(), TestClock.Create(), knowledge.Capture());
         Assert.Equal(2, loaded.Notes.Count);
     }
 
     [Fact]
     public void The_notes_book_reads_the_knowledge_owner_and_no_other_owner()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         PartyJournal journal = new(new TestJournal(), clock);
         PartyKnowledge knowledge = new(new TestKnowledge(), clock);
         SessionWorld world = World(clock);
@@ -158,7 +158,7 @@ public sealed class KnowledgeTests
     [Fact]
     public void A_note_survives_a_save_and_reads_as_the_day_it_was_learned()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         using PartyEntity party = PartyOf(Member("Roderick"));
         PartyKnowledge knowledge = new(new TestKnowledge(), clock);
         knowledge.Record(new KnowledgeReport(KnowledgeKind.Recipe, "alchemy", "berry+bottle", "draught (berry + bottle)"));
@@ -188,7 +188,7 @@ public sealed class KnowledgeTests
         // A resumed session composes its clock at the starting date again and moves it to the recorded game
         // time, which is what makes a loaded note read as the day it was learned rather than the day it was
         // read — and the resumed clock is three days on from it.
-        GameClock resumedClock = Clock();
+        GameClock resumedClock = TestClock.Create();
         read.Clock.ApplyTo(resumedClock);
         Assert.Equal(3, resumedClock.ElapsedGameDays);
         PartyKnowledge resumed = new(new TestKnowledge(), resumedClock, read.Knowledge);
@@ -201,7 +201,7 @@ public sealed class KnowledgeTests
     [Fact]
     public void A_save_that_contradicts_its_own_knowledge_is_refused_with_every_problem_named()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         clock.Advance(GameDuration.FromHours(1));
         long elapsed = clock.Elapsed.Milliseconds;
 
@@ -244,7 +244,7 @@ public sealed class KnowledgeTests
     [Fact]
     public void The_knowledge_is_bounded_and_forgets_its_oldest_notes()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         PartyKnowledge knowledge = new(new TestKnowledge(), clock);
 
         // A party that knows everything forever is a leak: it is carried whole in every save and rebuilt into
@@ -265,7 +265,7 @@ public sealed class KnowledgeTests
     [Fact]
     public void A_mixture_that_records_a_discovery_teaches_its_recipe_once()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         using PartyEntity party = PartyOf(Member("Nyx", alchemyLevel: 3, alchemyTier: 1));
         PartyKnowledge knowledge = new(new TestKnowledge(), clock);
         AlchemyCatalog catalog = new([
@@ -305,7 +305,7 @@ public sealed class KnowledgeTests
     [Fact]
     public void A_use_reports_what_it_taught_and_a_use_that_was_refused_teaches_nothing()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         PartyKnowledge knowledge = new(new TestKnowledge(), clock);
         InteractionTarget target = new(
             new InteractionTargetId(Keep, new PlacementContentId("chest", "chest-1")),
@@ -346,7 +346,7 @@ public sealed class KnowledgeTests
         // would be a second writer of what the party knows, so the scan fails the kit if one appears. What
         // the scan looks for is the construction of a report, so a source that reads the knowledge — a
         // projection, a screen's own value — is not an offender.
-        string kit = Path.Combine(RepositoryRoot(), "src", "PartyRpg.Kit");
+        string kit = Path.Combine(Repository.Root, "src", "PartyRpg.Kit");
         string knowledge = Path.Combine(kit, "Knowledge");
         string alchemy = Path.Combine(kit, "Alchemy", "PotionMixing.cs");
         // The session hands a use's discoveries over where it applies the use, among the player's other acts.
@@ -390,7 +390,7 @@ public sealed class KnowledgeTests
         // so a place the clock restores cannot reach what the party has learned even by accident. That is
         // the whole point of the split, and a field of the world's creeping into this owner would undo it
         // silently.
-        string knowledge = Path.Combine(RepositoryRoot(), "src", "PartyRpg.Kit", "Knowledge");
+        string knowledge = Path.Combine(Repository.Root, "src", "PartyRpg.Kit", "Knowledge");
         string[] forbidden = ["SessionWorld", "PlaceState", "PlaceId", "World"];
         List<string> offenders = [];
         foreach (string source in Directory.EnumerateFiles(knowledge, "*.cs", SearchOption.AllDirectories))
@@ -420,7 +420,7 @@ public sealed class KnowledgeTests
     [Fact]
     public void The_game_decides_what_is_worth_knowing_and_how_a_note_reads()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         PartyKnowledge knowledge = new(new TestKnowledge(), clock);
 
         // This game's threshold is its own: an ordinary thing found is not worth knowing and a notable one
@@ -437,25 +437,18 @@ public sealed class KnowledgeTests
         Assert.Equal(4, knowledge.Notes.Count);
     }
 
-    /// <summary>The clock these tests run on: a session that began on the first day of 1168, at nine.</summary>
-    private static GameClock Clock() => new(
-        GameCalendar.TwelveMonthsOfFourWeeks,
-        new GameDate(1168, 1, 1, 9, 0, 0),
-        new GameTimeScale(30),
-        new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
-
     /// <summary>A world the knowledge is read beside: a region and an interior, with the party at the region.</summary>
     private static SessionWorld World(GameClock clock)
     {
         ContentCatalog catalog = ContentCatalogLoader.Load(
             new InMemoryContentSource()
-                .Add("packs/world/pack.json", Manifest())
-                .Add("packs/world/places.json", Document(
+                .Add("packs/world/pack.json", TestPacks.World)
+                .Add("packs/world/places.json", TestPacks.Document(
                     "places",
                     "place",
                     """{ "id": "1", "kind": "region", "name": "the keep", "respawnDays": 7, "entryPoints": [ { "id": "Party Start", "x": 10, "y": 20, "z": 0, "yaw": 512 } ] }""",
                     """{ "id": "2", "kind": "interior", "name": "the cave", "respawnDays": 7, "entryPoints": [ { "id": "Party Start", "x": 1, "y": 2, "z": 3, "yaw": 0 } ] }"""))
-                .Add("packs/world/links.json", Document(
+                .Add("packs/world/links.json", TestPacks.Document(
                     "links",
                     "travel-link",
                     """{ "id": "0", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start" }""",
@@ -516,36 +509,6 @@ public sealed class KnowledgeTests
         hitPoints: ResourcePool.Full(80),
         spellPoints: ResourcePool.Full(20)));
 
-    private static string Manifest() =>
-        """
-        {
-          "schemaVersion": 1,
-          "packId": "world",
-          "kind": "definitions",
-          "provenance": { "description": "authored for a test" },
-          "documents": [
-            { "path": "places.json", "documentId": "places", "definitionKind": "place" },
-            { "path": "links.json", "documentId": "links", "definitionKind": "travel-link" }
-          ]
-        }
-        """;
-
-    private static string Document(string documentId, string definitionKind, params string[] entries) =>
-        $$"""
-        { "documentId": "{{documentId}}", "definitionKind": "{{definitionKind}}", "entries": [ {{string.Join(",", entries)}} ] }
-        """;
-
-    private static string RepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "AGENTS.md")))
-        {
-            directory = directory.Parent;
-        }
-
-        return directory?.FullName ?? throw new InvalidOperationException("The repository root could not be found from the test's own directory.");
-    }
-
     /// <summary>This suite's knowledge: four kinds with the test's own words and a threshold over finds.</summary>
     private sealed class TestKnowledge : IKnowledgeRule
     {
@@ -604,11 +567,5 @@ public sealed class KnowledgeTests
             Math.Max(1, mixer.Skills.LevelOf(AlchemySkill) + mixture.Power);
 
         public MixtureBackfire Backfire(int strength) => new(strength, "harm", null);
-    }
-
-    /// <summary>Walking is free, which is all this suite's world needs.</summary>
-    private sealed class FreeTravel : ITravelCostRule
-    {
-        public TravelCostQuote Quote(TransitionRequest request) => TravelCostQuote.Payable(TravelCost.Free);
     }
 }

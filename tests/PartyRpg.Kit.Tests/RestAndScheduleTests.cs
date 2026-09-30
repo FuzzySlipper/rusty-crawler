@@ -101,7 +101,7 @@ public sealed class RestAndScheduleTests
     {
         // Ten at night: the place keeps 6 to 18, so the same door the party faces is shut and says what it
         // keeps, what the clock reads, and when it opens again.
-        GameClock clock = Clock(hour: 22);
+        GameClock clock = TestClock.At(hour: 22);
         using PartyEntity party = Party();
         PlaceSchedule schedule = new([new PlaceHours(Hall, Business)]);
         using SessionWorld world = World(clock, party, new ScheduleRule(schedule));
@@ -137,7 +137,7 @@ public sealed class RestAndScheduleTests
     [Fact]
     public void A_rest_moves_the_clock_restores_the_party_and_spends_the_day()
     {
-        GameClock clock = Clock(hour: 22);
+        GameClock clock = TestClock.At(hour: 22);
         using PartyEntity party = Party(foodPortions: 4, wounded: 25, weak: true);
         PartyResourceLedger accounts = Ledger(party);
         TestRestRule rule = new(campCharge: 3);
@@ -183,7 +183,7 @@ public sealed class RestAndScheduleTests
         // Recovery happens before the day is settled, so the larder's own rule has the last word: a night that
         // spends the last portion feeds nobody, and the state the provisions rule applies is the one the party
         // wakes with — rather than a rest clearing a hunger it just caused.
-        GameClock clock = Clock(hour: 22);
+        GameClock clock = TestClock.At(hour: 22);
         using PartyEntity party = Party(foodPortions: 2, wounded: 10, weak: false);
         PartyResourceLedger accounts = Ledger(party);
         TestRestRule rule = new(campCharge: 3);
@@ -204,7 +204,7 @@ public sealed class RestAndScheduleTests
     [Fact]
     public void A_rest_the_larder_cannot_provision_is_refused_before_it_starts()
     {
-        GameClock clock = Clock(hour: 22);
+        GameClock clock = TestClock.At(hour: 22);
         using PartyEntity party = Party(foodPortions: 1, wounded: 25);
         PartyResourceLedger accounts = Ledger(party);
         TestRestRule rule = new(campCharge: 3);
@@ -224,7 +224,7 @@ public sealed class RestAndScheduleTests
     [Fact]
     public void A_wait_moves_the_clock_and_restores_nobody()
     {
-        GameClock clock = Clock(hour: 22);
+        GameClock clock = TestClock.At(hour: 22);
         using PartyEntity party = Party(wounded: 25, weak: true);
         PartyResourceLedger accounts = Ledger(party);
         TestRestRule rule = new(campCharge: 3);
@@ -260,7 +260,7 @@ public sealed class RestAndScheduleTests
     [Fact]
     public void A_camp_charges_the_ground_and_refuses_where_the_policy_will_not_take_it()
     {
-        GameClock clock = Clock(hour: 22);
+        GameClock clock = TestClock.At(hour: 22);
         using PartyEntity party = Party(foodPortions: 6, wounded: 25);
         PartyResourceLedger accounts = Ledger(party);
         TestRestRule rule = new(campCharge: 3);
@@ -293,7 +293,7 @@ public sealed class RestAndScheduleTests
     [Fact]
     public void A_broken_camp_passes_only_the_part_that_happened_and_costs_nothing()
     {
-        GameClock clock = Clock(hour: 22);
+        GameClock clock = TestClock.At(hour: 22);
         using PartyEntity party = Party(foodPortions: 6, wounded: 25, weak: true);
         PartyResourceLedger accounts = Ledger(party);
         using SessionWorld world = Site(clock, party, accounts);
@@ -322,7 +322,7 @@ public sealed class RestAndScheduleTests
     [Fact]
     public void Going_without_sleep_weakens_on_the_clocks_deadline_and_a_sleep_clears_it()
     {
-        GameClock clock = Clock(hour: 22);
+        GameClock clock = TestClock.At(hour: 22);
         using PartyEntity party = Party(memberCount: 2, foodPortions: 6);
         PartyResourceLedger accounts = Ledger(party);
         TestRestRule rule = new(campCharge: 3);
@@ -358,13 +358,6 @@ public sealed class RestAndScheduleTests
         Assert.Equal(2, rest.Fatigue.Landed);
         Assert.True(rest.Fatigue.IsWeak);
     }
-
-    /// <summary>The clock these tests run on: the authored calendar, a stated hour, and the product's rate.</summary>
-    private static GameClock Clock(int hour) => new(
-        Calendar,
-        new GameDate(1168, 1, 1, hour, 0, 0),
-        new GameTimeScale(30),
-        new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
 
     /// <summary>A party a night is spent on: wounded, and by default unweakened.</summary>
     private static PartyEntity Party(
@@ -437,7 +430,7 @@ public sealed class RestAndScheduleTests
             graph,
             pose,
             new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()),
-            new TestCostRule(),
+            new FreeTravel(),
             clock,
             mover: null,
             diagnostics: null,
@@ -482,12 +475,6 @@ public sealed class RestAndScheduleTests
                     }
                     """),
             Layout).RequireValid());
-
-    /// <summary>Walking is free: nothing in these tests is about what a road costs.</summary>
-    private sealed class TestCostRule : ITravelCostRule
-    {
-        public TravelCostQuote Quote(TransitionRequest request) => TravelCostQuote.Payable(TravelCost.Free);
-    }
 
     /// <summary>What a day costs this suite's party, and what a larder left short does to it.</summary>
     private sealed class Rations : IProvisionDayRule
@@ -604,50 +591,5 @@ public sealed class RestAndScheduleTests
 
             return hostiles;
         }
-    }
-
-    /// <summary>Content staged in memory, so a place's placements are read without touching the file system.</summary>
-    private sealed class InMemoryContentSource : IContentSource
-    {
-        private readonly Dictionary<string, string> _files = new(StringComparer.Ordinal);
-
-        internal InMemoryContentSource Add(string path, string text)
-        {
-            _files[path] = text;
-            return this;
-        }
-
-        public IReadOnlyList<string> ListDirectories(string relativePath)
-        {
-            string prefix = Normalize(relativePath);
-            HashSet<string> names = new(StringComparer.Ordinal);
-            foreach (string path in _files.Keys)
-            {
-                if (!path.StartsWith(prefix, StringComparison.Ordinal)) continue;
-                string remainder = path[prefix.Length..];
-                int separator = remainder.IndexOf('/', StringComparison.Ordinal);
-                if (separator > 0) names.Add(remainder[..separator]);
-            }
-
-            return [.. names.Order(StringComparer.Ordinal)];
-        }
-
-        public IReadOnlyList<string> ListFiles(string relativePath)
-        {
-            string prefix = Normalize(relativePath);
-            return [.. _files.Keys
-                .Where(path => path.StartsWith(prefix, StringComparison.Ordinal))
-                .Select(path => path[prefix.Length..])
-                .Where(remainder => remainder.Length > 0 && !remainder.Contains('/', StringComparison.Ordinal))
-                .Order(StringComparer.Ordinal)];
-        }
-
-        public bool FileExists(string relativePath) => _files.ContainsKey(relativePath);
-
-        public string ReadText(string relativePath) =>
-            _files.TryGetValue(relativePath, out string? text) ? text : throw new FileNotFoundException(relativePath);
-
-        private static string Normalize(string relativePath) =>
-            relativePath.Length == 0 ? string.Empty : $"{relativePath.TrimEnd('/')}/";
     }
 }

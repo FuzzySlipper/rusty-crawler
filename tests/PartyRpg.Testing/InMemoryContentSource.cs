@@ -1,13 +1,13 @@
 using PartyRpg.Kit.Content;
 
-namespace PartyRpg.Kit.Tests;
+namespace PartyRpg.Testing;
 
 /// <summary>An in-memory content root, so the loader is exercised without touching the file system.</summary>
-internal sealed class InMemoryContentSource : IContentSource
+public sealed class InMemoryContentSource : IContentSource
 {
     private readonly Dictionary<string, string> _files = new(StringComparer.Ordinal);
 
-    internal InMemoryContentSource Add(string path, string text)
+    public InMemoryContentSource Add(string path, string text)
     {
         _files[path] = text;
         return this;

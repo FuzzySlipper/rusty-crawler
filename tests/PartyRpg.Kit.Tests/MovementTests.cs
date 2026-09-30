@@ -604,7 +604,7 @@ public sealed class MovementSourceLawTests
         // The engine is reached through its safe, named services. A pointer, a reflection lookup, or a
         // handwritten native call would put ABI and lifetime concerns inside ordinary gameplay code,
         // where the next reader cannot see them.
-        string directory = Path.Combine(RepositoryRoot(), "src", "PartyRpg.Kit", "Movement");
+        string directory = Path.Combine(Repository.Root, "src", "PartyRpg.Kit", "Movement");
         string[] forbidden =
         [
             "unsafe",
@@ -627,22 +627,5 @@ public sealed class MovementSourceLawTests
                     $"Movement must reach the engine through its safe services, but {Path.GetFileName(file)} contains '{needle}'.");
             }
         }
-    }
-
-    private static string RepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "AGENTS.md")) &&
-                Directory.Exists(Path.Combine(directory.FullName, "src")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Could not find the repository root above the test assembly.");
     }
 }

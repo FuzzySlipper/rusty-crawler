@@ -18,7 +18,7 @@ public sealed class GameTimeDeliveryTests
     [Fact]
     public void Every_advance_reaches_every_registered_owner_whoever_moves_the_clock()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         Recorder first = new();
         Recorder second = new();
         clock.Observe(first);
@@ -38,7 +38,7 @@ public sealed class GameTimeDeliveryTests
     [Fact]
     public void A_released_owner_hears_nothing_more_and_one_registered_twice_is_refused()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         Recorder owner = new();
         IDisposable registration = clock.Observe(owner);
         Assert.Throws<ArgumentException>(() => clock.Observe(owner));
@@ -53,7 +53,7 @@ public sealed class GameTimeDeliveryTests
     [Fact]
     public void An_owner_that_moves_the_clock_while_hearing_it_is_refused()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         clock.Observe(new Recorder(onHeard: () => clock.Advance(GameDuration.FromMinutes(1))));
 
         Assert.Throws<InvalidOperationException>(() => clock.Advance(GameDuration.FromHours(1)));
@@ -63,7 +63,7 @@ public sealed class GameTimeDeliveryTests
     public void A_ward_whose_end_falls_inside_a_wait_ends_in_that_wait()
     {
         using PartyEntity party = Party();
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         RunningSpellEffects running = new(party, clock);
         clock.Observe(running);
         PartyRest rest = new(new TestNights(), party, clock, new TestRoom());
@@ -82,7 +82,7 @@ public sealed class GameTimeDeliveryTests
     public void A_wait_past_the_debt_of_sleep_leaves_the_party_weak()
     {
         using PartyEntity party = Party();
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         PartyRest rest = new(new TestNights(), party, clock, new TestRoom());
         clock.Observe(rest);
 
@@ -99,7 +99,7 @@ public sealed class GameTimeDeliveryTests
     {
         // A second list of owners is a second delivery path, and a second path is how an advance reached
         // some owners and not others: every owner is registered with the clock and nothing else.
-        string root = RepositoryRoot();
+        string root = Repository.Root;
         List<string> offenders = [];
         foreach (string directory in new[] { "src/PartyRpg.Kit", "src/PartyRpg.Rulesets.MightAndMagic7", "src/PartyRpg.Host" })
         {
@@ -117,12 +117,6 @@ public sealed class GameTimeDeliveryTests
             "The clock is where the owners of game time are kept; this law checks nothing if it keeps them some other way.");
         Assert.Empty(offenders);
     }
-
-    private static GameClock Clock() => new(
-        GameCalendar.TwelveMonthsOfFourWeeks,
-        new GameDate(1168, 1, 1, 9, 0),
-        new GameTimeScale(30),
-        new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
 
     private static PartyEntity Party() =>
         new PartyEntityFactory().Create(new PartyCreation(
@@ -147,13 +141,6 @@ public sealed class GameTimeDeliveryTests
             ProvisionUnit.Portions,
             reputation: 0,
             fame: 0));
-
-    private static string RepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null && !Directory.Exists(Path.Combine(directory.FullName, "src", "PartyRpg.Kit"))) directory = directory.Parent;
-        return directory?.FullName ?? throw new InvalidOperationException("The repository root was not found above the test output.");
-    }
 
     /// <summary>An owner of game time that remembers what it heard.</summary>
     private sealed class Recorder(Action? onHeard = null) : IGameTimeObserver

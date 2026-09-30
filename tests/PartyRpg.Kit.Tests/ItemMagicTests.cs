@@ -55,7 +55,7 @@ public sealed class ItemMagicTests
     public void A_ward_cast_on_one_character_lands_on_them_and_on_nobody_else()
     {
         using PartyEntity party = Party();
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         RunningSpellEffects effects = new(party, clock, member => !LaidOut(member));
 
         // The donor's own buff, cast on one character: it is that character's entry, with its own deadline.
@@ -87,7 +87,7 @@ public sealed class ItemMagicTests
     public void A_duration_ends_when_the_clock_passes_its_deadline_and_not_before()
     {
         using PartyEntity party = Party();
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         RunningSpellEffects effects = new(party, clock, member => !LaidOut(member));
         effects.StartOn(party.Members[0], Ward, magnitude: 5, GameDuration.FromHours(3));
 
@@ -116,7 +116,7 @@ public sealed class ItemMagicTests
         // next reads, which is the only place anything is told that a wound laid somebody out.
         using (PartyEntity party = Party())
         {
-            GameClock clock = Clock();
+            GameClock clock = TestClock.Create();
             RunningSpellEffects effects = new(party, clock, member => !LaidOut(member));
             effects.StartOn(party.Members[0], Ward, magnitude: 7, GameDuration.FromHours(4));
             effects.Start(Haste, magnitude: 25, GameDuration.FromHours(4));
@@ -133,7 +133,7 @@ public sealed class ItemMagicTests
         // The deadline, which is what the clock brings due.
         using (PartyEntity party = Party())
         {
-            GameClock clock = Clock();
+            GameClock clock = TestClock.Create();
             RunningSpellEffects effects = new(party, clock, member => !LaidOut(member));
             effects.StartOn(party.Members[1], Ward, magnitude: 3, GameDuration.FromHours(1));
             effects.Observe(clock.Advance(GameDuration.FromHours(1)));
@@ -145,7 +145,7 @@ public sealed class ItemMagicTests
         // those are other owners' state, and nothing that ends a spell can reach them.
         using (PartyEntity party = Party())
         {
-            RunningSpellEffects effects = new(party, Clock(), member => !LaidOut(member));
+            RunningSpellEffects effects = new(party, TestClock.Create(), member => !LaidOut(member));
             effects.StartOn(party.Members[0], Ward, magnitude: 9, GameDuration.FromHours(2));
             effects.Start(Haste, magnitude: 25, GameDuration.FromHours(2));
             party.Passages.Hold(new PlaceId("2"), 3);
@@ -169,7 +169,7 @@ public sealed class ItemMagicTests
     public void A_scroll_is_cast_once_from_the_item_which_is_used_up()
     {
         using PartyEntity party = Party();
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         Effects effects = new(party, clock, member => !LaidOut(member));
         Spellcasting casting = Casting(party, effects);
         ItemInstance scroll = Take(party, ScrollOfBolt);
@@ -203,7 +203,7 @@ public sealed class ItemMagicTests
     public void A_scroll_is_refused_when_the_item_carries_nothing_this_game_reads_or_its_caster_cannot_cast()
     {
         using PartyEntity party = Party();
-        Effects effects = new(party, Clock(), member => !LaidOut(member));
+        Effects effects = new(party, TestClock.Create(), member => !LaidOut(member));
         Spellcasting casting = Casting(party, effects);
 
         // An item nothing reads a spell for is refused by name, and stays in the pack.
@@ -236,7 +236,7 @@ public sealed class ItemMagicTests
     public void A_charged_item_spends_one_charge_a_use_is_refused_at_zero_and_the_item_vanishes_through_the_inventory()
     {
         using PartyEntity party = Party();
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         Effects effects = new(party, clock, member => !LaidOut(member));
         Spellcasting casting = Casting(party, effects);
 
@@ -298,7 +298,7 @@ public sealed class ItemMagicTests
         using PartyEntity party = Party();
         using SessionWorld world = World(party, creatureAt: 100);
         Arrive(world);
-        CombatState fight = new(Capabilities.Combat(rules), party, world, Clock());
+        CombatState fight = new(Capabilities.Combat(rules), party, world, TestClock.Create());
 
         // What the actor's own hand holds decides how it attacks: the weapon answer names a spell-kind attack
         // with the item's own ability, and the fight reads that where it re-reads its actors.
@@ -347,7 +347,7 @@ public sealed class ItemMagicTests
     public void Charges_survive_a_save_round_trip_and_a_running_duration_is_refused_by_name_rather_than_dropped()
     {
         using PartyEntity party = Party();
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         RunningSpellEffects effects = new(party, clock, member => !LaidOut(member));
 
         // A party with a half-spent wand and a read scroll: both are item state, so both travel in the save.
@@ -373,7 +373,7 @@ public sealed class ItemMagicTests
         Assert.Empty(warded.Effects);
         Assert.Contains(warded.Members[0].Effects, effect => effect.Magnitude == 8 && effect.Effect == Ward);
         using PartyEntity resumed = new PartyEntityFactory().Restore(warded);
-        RunningSpellEffects reloaded = new(resumed, Clock(), member => !LaidOut(member));
+        RunningSpellEffects reloaded = new(resumed, TestClock.Create(), member => !LaidOut(member));
         Assert.Equal(8, reloaded.MagnitudeOn(resumed.Members[0], Ward));
 
         // What the save does not carry is the deadline, and today that is a refusal rather than a silent
@@ -388,7 +388,7 @@ public sealed class ItemMagicTests
     public void The_panel_publishes_what_each_character_carries_and_the_magic_the_pack_holds()
     {
         using PartyEntity party = Party();
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         Effects effects = new(party, clock, member => !LaidOut(member));
         Spellcasting casting = Casting(party, effects);
         effects.StartOn(party.Members[1], Ward, magnitude: 12, GameDuration.FromHours(1));
@@ -486,13 +486,6 @@ public sealed class ItemMagicTests
             hitPoints: ResourcePool.Full(30),
             spellPoints: ResourcePool.Full(20)));
 
-    /// <summary>The session's one clock, at this game's own rate and on its own calendar.</summary>
-    private static GameClock Clock() => new(
-        GameCalendar.TwelveMonthsOfFourWeeks,
-        new GameDate(1168, 1, 1, 9, 0),
-        new GameTimeScale(30),
-        new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
-
     /// <summary>Lets an actor's recovery elapse, as the session's own clock advances it.</summary>
     private static void Advance(CombatState fight, GameDuration elapsed) => fight.Observe(new ClockAdvance(
         new GameDate(1168, 1, 1, 9, 0),
@@ -549,21 +542,15 @@ public sealed class ItemMagicTests
             pose,
             new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()),
             new FreeTravel(),
-            Clock(),
+            TestClock.Create(),
             mover: null,
             diagnostics: null,
             entrances: null,
-            clock: Clock(),
+            clock: TestClock.Create(),
             resources: null,
             partyEntity: party,
             interaction: null,
             schedule: null);
-    }
-
-    /// <summary>Walking is free: nothing in these tests is about what a road costs.</summary>
-    private sealed class FreeTravel : ITravelCostRule
-    {
-        public TravelCostQuote Quote(TransitionRequest request) => TravelCostQuote.Payable(TravelCost.Free);
     }
 
     /// <summary>

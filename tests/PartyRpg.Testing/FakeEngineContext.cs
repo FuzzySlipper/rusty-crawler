@@ -1,6 +1,6 @@
 using Rusty.Engine;
 
-namespace PartyRpg.Host.Tests;
+namespace PartyRpg.Testing;
 
 /// <summary>
 /// An engine context for exercising the product without an engine runtime.
@@ -14,14 +14,14 @@ namespace PartyRpg.Host.Tests;
 /// Movement has too: a test that asks for a scripted spatial service (and the content service a place's
 /// collision artifact is admitted through) gets a product that composes its movers over them.
 /// </remarks>
-internal sealed class FakeEngineContext : IEngineContext
+public sealed class FakeEngineContext : IEngineContext
 {
     private readonly IPersistenceService? _persistence;
     private readonly ISpatialService? _spatial;
     private readonly IContentService? _content;
     private readonly TestRandomService _random = new();
 
-    internal FakeEngineContext(
+    public FakeEngineContext(
         RecordingUiService ui,
         IPersistenceService? persistence = null,
         ISpatialService? spatial = null,
@@ -34,7 +34,7 @@ internal sealed class FakeEngineContext : IEngineContext
     }
 
     /// <summary>The random service this context answers with, which a test states the roll of.</summary>
-    internal TestRandomService RandomService => _random;
+    public TestRandomService RandomService => _random;
 
     public IUiService Ui { get; }
 
@@ -112,10 +112,10 @@ internal sealed class FakeEngineContext : IEngineContext
 /// opens is a capability nobody proved, and a double that answered it would let the product start depending
 /// on one.
 /// </remarks>
-internal sealed class TestRandomService : IRandomService
+public sealed class TestRandomService : IRandomService
 {
     /// <summary>What every keyed draw answers with, clamped into the range the caller asked for.</summary>
-    internal long Roll { get; set; } = 100;
+    public long Roll { get; set; } = 100;
 
     /// <summary>
     /// What a draw answers for the request it was asked, or null to answer <see cref="Roll"/>.
@@ -130,10 +130,10 @@ internal sealed class TestRandomService : IRandomService
     /// check that fails ends the halving — and a single fixed answer can only ever show all four or none.
     /// A test that scripts the draws per request can show the middle the arithmetic is actually about.
     /// </remarks>
-    internal Func<KeyedRngRequest, long?>? Answer { get; set; }
+    public Func<KeyedRngRequest, long?>? Answer { get; set; }
 
     /// <summary>How many keyed draws were taken, so a test can tell a roll from a guess.</summary>
-    internal int Draws { get; private set; }
+    public int Draws { get; private set; }
 
     /// <inheritdoc />
     public KeyedRngReceipt DrawKeyed(KeyedRngRequest request)
@@ -166,15 +166,15 @@ internal sealed class TestRandomService : IRandomService
 }
 
 /// <summary>An engine UI service that records what the product publishes.</summary>
-internal sealed class RecordingUiService : IUiService
+public sealed class RecordingUiService : IUiService
 {
     private readonly List<UiProjection> _projections = [];
 
-    internal IReadOnlyList<UiProjection> Projections => _projections;
+    public IReadOnlyList<UiProjection> Projections => _projections;
 
-    internal UiStreamRequest? LastRequest { get; private set; }
+    public UiStreamRequest? LastRequest { get; private set; }
 
-    internal UiProjection Latest() =>
+    public UiProjection Latest() =>
         _projections.Count > 0 ? _projections[^1] : throw new InvalidOperationException("Nothing was published.");
 
     public UiStream OpenStream(UiStreamRequest request)

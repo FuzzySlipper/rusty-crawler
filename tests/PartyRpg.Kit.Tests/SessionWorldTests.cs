@@ -87,12 +87,12 @@ public sealed class SessionWorldTests
         world.Places.MarkCleared(new PlaceId("1"));
 
         // Ten updates inside the same day change nothing.
-        for (ulong step = 1; step <= 10; step++) session.Update(Update(step, 1));
+        for (ulong step = 1; step <= 10; step++) session.Update(Admitted.Update(step, 1));
         Assert.Equal(0, world.Places.ElapsedGameDays);
 
         // The next day is what the source reports, and the place's population comes back.
         time.ElapsedGameDays = 7;
-        session.Update(Update(20, 1));
+        session.Update(Admitted.Update(20, 1));
 
         PlaceState state = world.Places.StateOf(new PlaceId("1"));
         Assert.Equal(7, world.Places.ElapsedGameDays);
@@ -108,11 +108,11 @@ public sealed class SessionWorldTests
     {
         ContentCatalog catalog = ContentCatalogLoader.Load(
             new InMemoryContentSource()
-                .Add("packs/world/pack.json", Manifest())
-                .Add("packs/world/places.json", Document("places", "place",
+                .Add("packs/world/pack.json", TestPacks.World)
+                .Add("packs/world/places.json", TestPacks.Document("places", "place",
                     """{ "id": "1", "kind": "region", "name": "Home", "respawnDays": 7, "entryPoints": [ { "id": "Party Start", "x": 10, "y": 20, "z": 0, "yaw": 512 } ] }""",
                     """{ "id": "2", "kind": "interior", "name": "Cave", "respawnDays": 7, "entryPoints": [ { "id": "Party Start", "x": 1, "y": 2, "z": 3, "yaw": 0 } ] }"""))
-                .Add("packs/world/links.json", Document("links", "travel-link",
+                .Add("packs/world/links.json", TestPacks.Document("links", "travel-link",
                     """{ "id": "0", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start" }""",
                     """{ "id": "1", "fromPlace": "2", "toPlace": "1", "x": 10, "y": 20, "z": 0, "yaw": 512 }""")),
             Layout).RequireValid();
@@ -125,41 +125,6 @@ public sealed class SessionWorldTests
             new TestCostRule(),
             time);
     }
-
-    private static ProductUpdate Update(ulong step, uint admitted)
-    {
-        ProductUpdateFacts facts = new(
-            ProductUpdateMode.Realtime,
-            ProductLifecycleState.Running,
-            1,
-            1,
-            0,
-            step,
-            60,
-            admitted,
-            0,
-            StepSeconds);
-        return new ProductUpdate(facts, ReadOnlySpan<ProductInputEvent>.Empty);
-    }
-
-    private static string Manifest() =>
-        """
-        {
-          "schemaVersion": 1,
-          "packId": "world",
-          "kind": "definitions",
-          "provenance": { "description": "test content" },
-          "documents": [
-            { "path": "places.json", "documentId": "places", "definitionKind": "place" },
-            { "path": "links.json", "documentId": "links", "definitionKind": "travel-link" }
-          ]
-        }
-        """;
-
-    private static string Document(string documentId, string definitionKind, params string[] entries) =>
-        $$"""
-        { "documentId": "{{documentId}}", "definitionKind": "{{definitionKind}}", "entries": [ {{string.Join(",", entries)}} ] }
-        """;
 
     /// <summary>A day source the test moves by hand, standing in for the clock a later stone wires.</summary>
     private sealed class FakeTimeSource : IWorldTimeSource

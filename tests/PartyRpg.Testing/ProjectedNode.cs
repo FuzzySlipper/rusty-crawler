@@ -1,22 +1,40 @@
 using System.Text;
+using PartyRpg.Kit.Presentation;
 using Rusty.Engine;
 
-namespace PartyRpg.Host.Tests;
+namespace PartyRpg.Testing;
 
-/// <summary>
-/// Navigates a published structured value by field name, so a host test asserts what the panel would
-/// show rather than node offsets.
-/// </summary>
-/// <remarks>
-/// The kit suite carries the same small reader for the channel it records directly. Sharing it would
-/// mean a third project for forty lines, and the two suites read different things: the kit suite reads
-/// a session's channel, this one reads what the product published to the engine's UI service.
-/// </remarks>
-internal readonly struct ProjectedNode(UiValue value, uint index)
+/// <summary>Records the projections a session published, so a test can assert what the product shows.</summary>
+public sealed class RecordingUiProjectionChannel : IUiProjectionChannel
 {
-    internal static ProjectedNode Of(UiValue value) => new(value, value.Root);
+    private readonly List<UiValue> _published = [];
 
-    internal ProjectedNode Field(string key)
+    /// <summary>How many projections were published.</summary>
+    public int Count => _published.Count;
+
+    /// <summary>The most recently published projection, as a navigable node.</summary>
+    public ProjectedNode Latest() => new(_published[^1], _published[^1].Root);
+
+    /// <inheritdoc />
+    public void Publish(UiValue value) => _published.Add(value);
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+    }
+}
+
+/// <summary>Navigates one published structured value by field name, so tests assert content, not offsets.</summary>
+public readonly struct ProjectedNode(UiValue value, uint index)
+{
+    /// <summary>The root of a published value.</summary>
+    public static ProjectedNode Of(UiValue value) => new(value, value.Root);
+
+    /// <summary>How many elements an array node holds, or how many fields an object node carries.</summary>
+    public int Count() => (int)value.Nodes.Span[(int)index].ChildCount;
+
+    /// <summary>Returns the named field of an object node.</summary>
+    public ProjectedNode Field(string key)
     {
         StructuredValueNode node = value.Nodes.Span[(int)index];
         if (node.Kind != StructuredValueKind.Object)
@@ -35,13 +53,13 @@ internal readonly struct ProjectedNode(UiValue value, uint index)
 
     /// <summary>Returns the element at one position of an array node.</summary>
     /// <remarks>
-    /// The projection publishes lists — what a place holds, what a counter's shelves carry — and a test
-    /// that asserts a list must be able to reach its elements without counting offsets by hand.
+    /// The projection publishes lists — what a place holds, what a counter's shelves carry — and a test that
+    /// asserts a list must be able to reach its elements without counting offsets by hand.
     /// </remarks>
     /// <param name="position">The element's position, counted from zero.</param>
     /// <exception cref="InvalidOperationException">This node is not an array.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The position is outside the array.</exception>
-    internal ProjectedNode Item(int position)
+    public ProjectedNode Item(int position)
     {
         StructuredValueNode node = value.Nodes.Span[(int)index];
         if (node.Kind != StructuredValueKind.Array)
@@ -60,7 +78,7 @@ internal readonly struct ProjectedNode(UiValue value, uint index)
 
     /// <summary>How many elements an array node holds.</summary>
     /// <exception cref="InvalidOperationException">This node is not an array.</exception>
-    internal int Length()
+    public int Length()
     {
         StructuredValueNode node = value.Nodes.Span[(int)index];
         if (node.Kind != StructuredValueKind.Array)
@@ -68,7 +86,8 @@ internal readonly struct ProjectedNode(UiValue value, uint index)
         return (int)node.ChildCount;
     }
 
-    internal string AsString()
+    /// <summary>Reads a string node.</summary>
+    public string AsString()
     {
         StructuredValueNode node = value.Nodes.Span[(int)index];
         if (node.Kind != StructuredValueKind.String)
@@ -76,15 +95,8 @@ internal readonly struct ProjectedNode(UiValue value, uint index)
         return Encoding.UTF8.GetString(value.Utf8.Span.Slice((int)node.TextOffset, (int)node.TextLen));
     }
 
-    internal double AsNumber()
-    {
-        StructuredValueNode node = value.Nodes.Span[(int)index];
-        if (node.Kind != StructuredValueKind.Number)
-            throw new InvalidOperationException($"Projection node is {node.Kind}, not a number.");
-        return node.NumberValue;
-    }
-
-    internal bool AsBoolean()
+    /// <summary>Reads a boolean node.</summary>
+    public bool AsBoolean()
     {
         StructuredValueNode node = value.Nodes.Span[(int)index];
         if (node.Kind != StructuredValueKind.Bool)
@@ -92,27 +104,22 @@ internal readonly struct ProjectedNode(UiValue value, uint index)
         return node.BoolValue != 0;
     }
 
+    /// <summary>Reads a numeric node.</summary>
+    public double AsNumber()
+    {
+        StructuredValueNode node = value.Nodes.Span[(int)index];
+        if (node.Kind != StructuredValueKind.Number)
+            throw new InvalidOperationException($"Projection node is {node.Kind}, not a number.");
+        return node.NumberValue;
+    }
+
     /// <summary>
     /// Whether this node was published as no value at all.
     /// </summary>
     /// <remarks>
     /// A block that is absent and a block that is empty are different facts on this wire, and a projection
-    /// that published a value of nothing where the product meant "there is none" would be read by a screen as
-    /// a thing to draw. This is how a test tells them apart.
+    /// that published a value of nothing where the product meant "there is none" would be read by a screen
+    /// as a thing to draw. This is how a test tells them apart.
     /// </remarks>
-    internal bool IsNull() => value.Nodes.Span[(int)index].Kind == StructuredValueKind.Null;
-
-    /// <summary>Returns one element of an array node, in the order the projection wrote it.</summary>
-    internal ProjectedNode Element(int position)
-    {
-        StructuredValueNode node = value.Nodes.Span[(int)index];
-        if (node.Kind != StructuredValueKind.Array)
-            throw new InvalidOperationException($"Projection node is {node.Kind}, not an array.");
-        if (position < 0 || position >= node.ChildCount)
-            throw new ArgumentOutOfRangeException(nameof(position), position, $"The projected array holds {node.ChildCount} elements.");
-        return new ProjectedNode(value, value.Edges.Span[(int)node.FirstEdge + position]);
-    }
-
-    /// <summary>How many elements an array node holds, or how many fields an object node carries.</summary>
-    internal int Count() => (int)value.Nodes.Span[(int)index].ChildCount;
+    public bool IsNull() => value.Nodes.Span[(int)index].Kind == StructuredValueKind.Null;
 }

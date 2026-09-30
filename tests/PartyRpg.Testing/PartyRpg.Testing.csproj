@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The suites' shared support: the repository and its sources, the engine's values and services in the shape the
+       engine admits them, and the kit's small doubles. It is a library, not a suite: it holds no test, and every
+       suite that uses it references it rather than copying a helper. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.assert" Version="2.9.3" />
+    <PackageReference Include="xunit.extensibility.core" Version="2.9.3" />
+    <!-- The source laws read the product's code as syntax and symbols, so a law survives a rename and a target-typed
+         `new`, and a comment is never read as code. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/PartyRpg.Kit/PartyRpg.Kit.csproj" />
+  </ItemGroup>
+</Project>

@@ -496,7 +496,7 @@ public sealed class ClockTests
         // The clock is the only owner of time in the product, so no source in the kit may reach for an
         // ambient one. The scan reads the kit's own sources rather than what the compiler produced, because
         // a timer that arrived from a package would be exactly as much a second clock as one written here.
-        string kit = Path.Combine(RepositoryRoot(), "src", "PartyRpg.Kit");
+        string kit = Path.Combine(Repository.Root, "src", "PartyRpg.Kit");
         string[] sources =
         [
             .. Directory.EnumerateFiles(kit, "*.cs", SearchOption.AllDirectories)
@@ -528,56 +528,10 @@ public sealed class ClockTests
     private static PlaceGraph World() => PlaceGraphLoader.Load(
         ContentCatalogLoader.Load(
             new InMemoryContentSource()
-                .Add("packs/world/pack.json", Manifest())
-                .Add("packs/world/places.json", Document(
+                .Add("packs/world/pack.json", TestPacks.PlacesOnly)
+                .Add("packs/world/places.json", TestPacks.Document(
                     "places",
                     "place",
                     """{ "id": "1", "kind": "region", "name": "Home", "respawnDays": 3 }""")),
             Layout).RequireValid());
-
-    /// <summary>The repository root above the test assembly, which is where the kit's sources are.</summary>
-    private static string RepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "AGENTS.md")) &&
-                Directory.Exists(Path.Combine(directory.FullName, "src")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Could not find the repository root above the test assembly.");
-    }
-
-    private static string Manifest() =>
-        """
-        {
-          "schemaVersion": 1,
-          "packId": "world",
-          "kind": "definitions",
-          "provenance": { "description": "test content" },
-          "documents": [
-            { "path": "places.json", "documentId": "places", "definitionKind": "place" }
-          ]
-        }
-        """;
-
-    private static string Document(string documentId, string definitionKind, string entries) =>
-        $$"""
-        {
-          "documentId": "{{documentId}}",
-          "definitionKind": "{{definitionKind}}",
-          "entries": [ {{entries}} ]
-        }
-        """;
-
-    /// <summary>Walking costs nothing here, so the clock is the only thing this world's journey charges.</summary>
-    private sealed class FreeTravel : ITravelCostRule
-    {
-        public TravelCostQuote Quote(TransitionRequest request) => TravelCostQuote.Payable(TravelCost.Free);
-    }
 }

@@ -21,28 +21,12 @@ public sealed class SessionInputRouterTests
 
     // The engine copies five byte blocks per event in constructor order: label, mapping id, intent,
     // payload contract, payload data. Only the last three matter to this router.
-    private static ProductInputEvent Digital(
-        string intent,
-        InputEdge edge,
-        InputPhase phase = InputPhase.Pressed,
-        InputProvenance provenance = InputProvenance.Physical) => new(
-        InputEventKind.MappedDigital, edge, default, default, default, default, default, default, default, default,
-        InputValueKind.Digital, phase, provenance, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, Encoding.UTF8.GetBytes(intent),
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
-
-    private static ProductInputEvent Payload(string contract, string json) => new(
-        InputEventKind.DirectProductPayload, InputEdge.None, default, default, default, default, default, default, default, default,
-        InputValueKind.ProductPayload, InputPhase.DirectUi, InputProvenance.DirectUi, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty,
-        Encoding.UTF8.GetBytes(contract), Encoding.UTF8.GetBytes(json));
-
     [Fact]
     public void The_declared_key_intent_toggles_and_a_release_does_not()
     {
-        Assert.Equal(SessionCommand.ToggleHold, Router.CommandFor(Digital(ToggleIntent, InputEdge.Pressed)));
-        Assert.Equal(SessionCommand.None, Router.CommandFor(Digital(ToggleIntent, InputEdge.Released, InputPhase.Released)));
-        Assert.Equal(SessionCommand.None, Router.CommandFor(Digital("some.other.intent", InputEdge.Pressed)));
+        Assert.Equal(SessionCommand.ToggleHold, Router.CommandFor(Admitted.Digital(ToggleIntent, InputEdge.Pressed)));
+        Assert.Equal(SessionCommand.None, Router.CommandFor(Admitted.Digital(ToggleIntent, InputEdge.Released, InputPhase.Released)));
+        Assert.Equal(SessionCommand.None, Router.CommandFor(Admitted.Digital("some.other.intent", InputEdge.Pressed)));
     }
 
     [Fact]
@@ -51,24 +35,24 @@ public sealed class SessionInputRouterTests
         // A direct claim is admitted with no edge at all; its phase and provenance are what identify it.
         Assert.Equal(
             SessionCommand.ToggleHold,
-            Router.CommandFor(Digital(ToggleIntent, InputEdge.None, InputPhase.DirectUi, InputProvenance.DirectUi)));
+            Router.CommandFor(Admitted.Digital(ToggleIntent, InputEdge.None, InputPhase.DirectUi, InputProvenance.DirectUi)));
     }
 
     [Fact]
     public void The_declared_action_contract_names_the_session_action()
     {
-        Assert.Equal(SessionCommand.Hold, Router.CommandFor(Payload(ActionContract, """{"action":"session.pause"}""")));
-        Assert.Equal(SessionCommand.Release, Router.CommandFor(Payload(ActionContract, """{"action":"session.resume"}""")));
-        Assert.Equal(SessionCommand.None, Router.CommandFor(Payload(ActionContract, """{"action":"inventory"}""")));
+        Assert.Equal(SessionCommand.Hold, Router.CommandFor(Admitted.Payload(ActionContract, """{"action":"session.pause"}""")));
+        Assert.Equal(SessionCommand.Release, Router.CommandFor(Admitted.Payload(ActionContract, """{"action":"session.resume"}""")));
+        Assert.Equal(SessionCommand.None, Router.CommandFor(Admitted.Payload(ActionContract, """{"action":"inventory"}""")));
     }
 
     [Fact]
     public void A_foreign_contract_or_malformed_payload_carries_no_command()
     {
-        Assert.Equal(SessionCommand.None, Router.CommandFor(Payload("other.contract.v1", """{"action":"session.pause"}""")));
-        Assert.Equal(SessionCommand.None, Router.CommandFor(Payload(ActionContract, "not json")));
-        Assert.Equal(SessionCommand.None, Router.CommandFor(Payload(ActionContract, "{}")));
-        Assert.Equal(SessionCommand.None, Router.CommandFor(Payload(ActionContract, "")));
+        Assert.Equal(SessionCommand.None, Router.CommandFor(Admitted.Payload("other.contract.v1", """{"action":"session.pause"}""")));
+        Assert.Equal(SessionCommand.None, Router.CommandFor(Admitted.Payload(ActionContract, "not json")));
+        Assert.Equal(SessionCommand.None, Router.CommandFor(Admitted.Payload(ActionContract, "{}")));
+        Assert.Equal(SessionCommand.None, Router.CommandFor(Admitted.Payload(ActionContract, "")));
     }
 
     [Fact]
@@ -78,13 +62,13 @@ public sealed class SessionInputRouterTests
         using PartyRpgSession session = new(Composition, channel, new SessionOwners(), SessionParty.Nobody);
         session.Start();
 
-        ProductInputEvent[] input = [Payload(ActionContract, """{"action":"session.pause"}""")];
+        ProductInputEvent[] input = [Admitted.Payload(ActionContract, """{"action":"session.pause"}""")];
         Router.Apply(session, input);
 
         Assert.Equal(SessionMode.Paused, session.Mode);
         Assert.Equal("paused", channel.Latest().Field("session").Field("mode").AsString());
 
-        ProductInputEvent[] resume = [Payload(ActionContract, """{"action":"session.resume"}""")];
+        ProductInputEvent[] resume = [Admitted.Payload(ActionContract, """{"action":"session.resume"}""")];
         Router.Apply(session, resume);
 
         Assert.Equal(SessionMode.Running, session.Mode);
@@ -98,7 +82,7 @@ public sealed class SessionInputRouterTests
         using PartyRpgSession session = new(Composition, channel, new SessionOwners(), SessionParty.Nobody);
         session.Start();
 
-        ProductInputEvent[] press = [Digital(ToggleIntent, InputEdge.Pressed)];
+        ProductInputEvent[] press = [Admitted.Digital(ToggleIntent, InputEdge.Pressed)];
         Router.Apply(session, press);
         Assert.Equal(SessionMode.Paused, session.Mode);
 
@@ -113,7 +97,7 @@ public sealed class SessionInputRouterTests
         using PartyRpgSession session = new(Composition, channel, new SessionOwners(), SessionParty.Nobody);
         session.Start();
 
-        Router.Apply(session, [Payload(ActionContract, """{"action":"session.pause"}""")]);
+        Router.Apply(session, [Admitted.Payload(ActionContract, """{"action":"session.pause"}""")]);
         session.Pause();
         session.Resume();
 

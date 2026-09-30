@@ -201,13 +201,13 @@ public sealed class WalkTransitionTests
         ContentCatalog catalog = ContentCatalogLoader.Load(
             new InMemoryContentSource()
                 .Add("packs/world/pack.json", Manifest(entrances))
-                .Add("packs/world/places.json", Document("places", "place",
+                .Add("packs/world/places.json", TestPacks.Document("places", "place",
                     """{ "id": "1", "kind": "region", "name": "Home", "respawnDays": 7, "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 512 } ] }""",
                     """{ "id": "2", "kind": "interior", "name": "Cave", "respawnDays": 7, "entryPoints": [ { "id": "Party Start", "x": 5, "y": 6, "z": 7, "yaw": 0 } ] }"""))
-                .Add("packs/world/links.json", Document("links", "travel-link",
+                .Add("packs/world/links.json", TestPacks.Document("links", "travel-link",
                     """{ "id": "edge", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start" }""",
                     """{ "id": "back", "fromPlace": "2", "toPlace": "1", "x": 10, "y": 20, "z": 0, "yaw": 512 }"""))
-                .Add("packs/world/entrances.json", Document("entrances", "place-entrance",
+                .Add("packs/world/entrances.json", TestPacks.Document("entrances", "place-entrance",
                     $$"""{ "id": "in-cave", "link": "{{entranceLink}}", "fromPlace": "{{entrancePlace}}", "kind": "{{entranceKind}}", "x": {{ReachX}}, "y": 0, "z": 0, "radius": {{ReachRadius}} }""",
                     """{ "id": "out-cave", "link": "back", "fromPlace": "2", "kind": "entrance", "x": 5, "y": 6, "z": 7, "radius": 40 }""")),
             Layout).RequireValid();
@@ -222,7 +222,7 @@ public sealed class WalkTransitionTests
             time: null,
             // The mover moves the world's own pose owner, so there is still exactly one party position and
             // the step the test queues is the step the world sees.
-            walk is null ? null : new RecordingMover(party, walk),
+            walk is null ? null : RecordingMover.Scripted(party, walk),
             diagnostics,
             entrances ? PlaceEntranceLoader.Load(catalog, graph) : null);
     }
@@ -244,51 +244,6 @@ public sealed class WalkTransitionTests
           ]
         }
         """;
-
-    private static string Document(string documentId, string definitionKind, params string[] entries) =>
-        $$"""
-        { "documentId": "{{documentId}}", "definitionKind": "{{definitionKind}}", "entries": [ {{string.Join(",", entries)}} ] }
-        """;
-
-    /// <summary>
-    /// The party's movement as the test drives it: each step applies the next delta the test queued, which
-    /// is what a resolved engine step would have done to the pose.
-    /// </summary>
-    private sealed class RecordingMover(PartyPoseOwner party, IReadOnlyList<(double X, double Y, double Z)> deltas) : IPartyMover
-    {
-        private int _steps;
-
-        internal List<PlaceId> Entered { get; } = [];
-
-        /// <summary>These movers hold no collision, so nothing occludes anything in them.</summary>
-        public bool InSight(Vector3 from, Vector3 to) => true;
-
-        public PlaceGeometryAdmission Enter(PlaceId place)
-        {
-            Entered.Add(place);
-            return PlaceGeometryAdmission.Empty(place);
-        }
-
-        public MovementOutcome Step(MovementIntent intent, double elapsedSeconds)
-        {
-            (double x, double y, double z) = deltas[Math.Min(_steps, deltas.Count - 1)];
-            _steps++;
-            party.Move(x, y, z);
-            return new MovementOutcome(
-                party.Capture().Pose,
-                new Vector3((float)x, (float)y, (float)z),
-                Grounded: true,
-                default,
-                CharacterBlockFlags.None,
-                default,
-                SurfaceEffect.Ordinary,
-                FallOutcome.None);
-        }
-
-        public void Dispose()
-        {
-        }
-    }
 
     /// <summary>The cost contract as the test configures it: it records every question and can refuse one.</summary>
     private sealed class RecordingRule : ITravelCostRule

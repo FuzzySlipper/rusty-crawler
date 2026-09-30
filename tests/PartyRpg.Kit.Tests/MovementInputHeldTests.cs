@@ -30,7 +30,7 @@ public sealed class MovementInputHeldTests
     public void A_held_intent_walks_while_it_is_reported_and_stops_when_it_is_not()
     {
         MovementInput input = new(Names, turnRatePerSecond: 512);
-        ProductInputEvent forward = Digital("test.move-forward", InputEdge.Held);
+        ProductInputEvent forward = Admitted.Digital("test.move-forward", InputEdge.Held);
 
         Assert.Equal(1, input.Read([forward]).Forward);
         Assert.Equal(1, input.Read([forward]).Forward);
@@ -48,22 +48,16 @@ public sealed class MovementInputHeldTests
     {
         MovementInput input = new(Names, turnRatePerSecond: 512);
 
-        Assert.Equal(1, input.Read([Digital("test.move-forward", InputEdge.Pressed)]).Forward);
+        Assert.Equal(1, input.Read([Admitted.Digital("test.move-forward", InputEdge.Pressed)]).Forward);
         Assert.Equal(1, input.Read([]).Forward);
-        Assert.Equal(0, input.Read([Digital("test.move-forward", InputEdge.Released)]).Forward);
+        Assert.Equal(0, input.Read([Admitted.Digital("test.move-forward", InputEdge.Released)]).Forward);
     }
 
     [Fact]
     public void Turning_arrives_as_a_held_state_too()
     {
         MovementInput input = new(Names, turnRatePerSecond: 512);
-        Assert.NotEqual(0, input.Read([Digital("test.turn-left", InputEdge.Held)]).TurnRate);
+        Assert.NotEqual(0, input.Read([Admitted.Digital("test.turn-left", InputEdge.Held)]).TurnRate);
         Assert.Equal(0, input.Read([]).TurnRate);
     }
-
-    private static ProductInputEvent Digital(string intent, InputEdge edge) => new(
-        InputEventKind.MappedDigital, edge, default, default, default, default, default, default, default, default,
-        InputValueKind.Digital, InputPhase.Pressed, InputProvenance.Physical, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, Encoding.UTF8.GetBytes(intent),
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
 }

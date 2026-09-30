@@ -34,7 +34,7 @@ public sealed class MagicCoverageTests
     [Fact]
     public void Every_spell_is_listed_once_with_the_state_the_ruleset_answers()
     {
-        string path = Path.Combine(RepositoryRoot(), "docs", "magic-coverage.md");
+        string path = Path.Combine(Repository.Root, "docs", "magic-coverage.md");
         string expected = Report();
         if (string.Equals(Environment.GetEnvironmentVariable(WriteVariable), "1", StringComparison.Ordinal))
         {
@@ -239,22 +239,4 @@ public sealed class MagicCoverageTests
 
     /// <summary>Writes a cell so a sentence containing a table's own delimiter cannot break the row.</summary>
     private static string Cell(string text) => text.Replace("|", "\\|", StringComparison.Ordinal);
-
-    /// <summary>The repository root, found the way the suites that read checked-in files find it.</summary>
-    private static string RepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "AGENTS.md")) &&
-                Directory.Exists(Path.Combine(directory.FullName, "src")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Could not find the repository root above the test assembly.");
-    }
 }

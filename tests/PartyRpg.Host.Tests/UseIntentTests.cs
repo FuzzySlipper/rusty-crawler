@@ -121,26 +121,9 @@ public sealed class UseIntentTests
     }
 
     private static string SourceDirectory() =>
-        Path.Combine(RepositoryRoot(), "src", "PartyRpg.Host");
+        Path.Combine(Repository.Root, "src", "PartyRpg.Host");
 
     private static string ProjectFile() => Path.Combine(SourceDirectory(), "PartyRpg.Host.csproj");
-
-    private static string RepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "AGENTS.md")) &&
-                Directory.Exists(Path.Combine(directory.FullName, "src")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Could not find the repository root above the test assembly.");
-    }
 
     private static string Constant(string source, string name)
     {

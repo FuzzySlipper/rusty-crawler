@@ -313,7 +313,7 @@ public sealed class FareBoardingTests
         new InMemoryContentSource()
             .Add("packs/world/pack.json", Manifest)
             .Add("packs/world/places.json", Places)
-            .Add("packs/world/links.json", Document("links", "travel-link", links)),
+            .Add("packs/world/links.json", TestPacks.Document("links", "travel-link", links)),
         Layout).RequireValid();
 
     private const string Places =
@@ -342,10 +342,5 @@ public sealed class FareBoardingTests
             { "path": "links.json", "documentId": "links", "definitionKind": "travel-link" }
           ]
         }
-        """;
-
-    private static string Document(string documentId, string definitionKind, params string[] entries) =>
-        $$"""
-        { "documentId": "{{documentId}}", "definitionKind": "{{definitionKind}}", "entries": [ {{string.Join(",", entries)}} ] }
         """;
 }

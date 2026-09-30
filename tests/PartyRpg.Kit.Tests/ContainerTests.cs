@@ -428,8 +428,8 @@ public sealed class ContainerTests
         {
             ContentCatalog catalog = ContentCatalogLoader.Load(
                 new InMemoryContentSource()
-                    .Add("packs/world/pack.json", Manifest())
-                    .Add("packs/world/places.json", Document("places", "place", Place())),
+                    .Add("packs/world/pack.json", TestPacks.PlacesOnly)
+                    .Add("packs/world/places.json", TestPacks.Document("places", "place", Place())),
                 Layout).RequireValid();
 
             PlaceGraph graph = PlaceGraphLoader.Load(catalog);
@@ -445,7 +445,7 @@ public sealed class ContainerTests
                 graph,
                 owner,
                 new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()),
-                new TestCostRule(),
+                new FreeTravel(),
                 time: new FixedTime(),
                 mover: null,
                 resources: party is null ? null : new PartyResourceLedger(party),
@@ -469,35 +469,11 @@ public sealed class ContainerTests
                 { "id": "container-0", "kind": "container", "x": 100, "y": 0, "z": 0, "flags": 1 },
                 { "id": "container-1", "kind": "container", "x": 0, "y": 4000, "z": 0, "flags": 0 } ] }
             """;
-
-        private static string Manifest() =>
-            """
-            {
-              "schemaVersion": 1,
-              "packId": "world",
-              "kind": "definitions",
-              "provenance": { "description": "test content" },
-              "documents": [
-                { "path": "places.json", "documentId": "places", "definitionKind": "place" }
-              ]
-            }
-            """;
-
-        private static string Document(string documentId, string definitionKind, params string[] entries) =>
-            $$"""
-            { "documentId": "{{documentId}}", "definitionKind": "{{definitionKind}}", "entries": [ {{string.Join(",", entries)}} ] }
-            """;
     }
 
     /// <summary>A time source the world reads its days from, which never moves here.</summary>
     private sealed class FixedTime : IWorldTimeSource
     {
         public int ElapsedGameDays => 0;
-    }
-
-    /// <summary>Nothing in a cellar costs anything to reach.</summary>
-    private sealed class TestCostRule : ITravelCostRule
-    {
-        public TravelCostQuote Quote(TransitionRequest request) => TravelCostQuote.Payable(TravelCost.Free);
     }
 }

@@ -260,7 +260,7 @@ public sealed class AlchemyTests
 
         // And the kit's own sources name no reagent, no potion, and no mixture: a recipe's words are a game's
         // content, and the mechanism states a pair of definitions and what a table says about them.
-        string alchemy = Path.Combine(RepositoryRoot(), "src", "PartyRpg.Kit", "Alchemy");
+        string alchemy = Path.Combine(Repository.Root, "src", "PartyRpg.Kit", "Alchemy");
         string[] sources =
         [
             .. Directory.EnumerateFiles(alchemy, "*.cs", SearchOption.AllDirectories)
@@ -328,23 +328,6 @@ public sealed class AlchemyTests
         ItemInstance item = party.CreateItem(definition);
         Assert.True(party.AcquireItem(item).Admitted);
         return item;
-    }
-
-    private static string RepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "AGENTS.md")) &&
-                Directory.Exists(Path.Combine(directory.FullName, "src")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("The repository root could not be found from the test's own output directory.");
     }
 
     /// <summary>The mixing workflow over this suite's rule, which also names its rungs and items.</summary>

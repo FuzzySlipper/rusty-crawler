@@ -222,7 +222,7 @@ public sealed class CombatStateTests
         using RecordingUiProjectionChannel channel = new();
         using PartyEntity party = Party();
         using SessionWorld world = World(party, monsterAt: 100);
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
@@ -239,7 +239,7 @@ public sealed class CombatStateTests
 
         Arrive(world);
         session.Start();
-        session.Update(Update(1, 1, Attack()));
+        session.Update(Admitted.Update(1, 1, Attack()));
 
         // The order acted and charged the acting member its recovery, inside the admitted update.
         CombatantId actor = session.Combat!.LastAttack!.Actor;
@@ -251,32 +251,32 @@ public sealed class CombatStateTests
 
         // The act control is held rather than latched, so letting go is the event that stops the party
         // attacking; the update that carries the release advances the clock without ordering another attack.
-        session.Update(Update(2, 1, Release()));
+        session.Update(Admitted.Update(2, 1, Release()));
         Assert.Equal(0.5, session.Combat.Find(actor)!.Recovery.TotalSeconds, 3);
         Assert.False(session.Combat.Find(actor)!.IsReady);
 
         // The clock advances by the admitted interval at the shipped scale: one sixtieth of a second of
         // engine time is half a second of game time, so a second update pays the rest of the attack.
-        session.Update(Update(3, 1));
+        session.Update(Admitted.Update(3, 1));
         Assert.True(session.Combat.Find(actor)!.IsReady);
 
         // An update that admits no steps advances no game time, so it releases nobody: there is no timer here
         // and no frame counter, only the clock the session already had. An attack in such an update is still
         // an act — an order is an instant — and the recovery it charges simply waits for time to pass.
-        session.Update(Update(4, 0, Attack()));
+        session.Update(Admitted.Update(4, 0, Attack()));
         Assert.Equal(1.0, session.Combat.Find(actor)!.Recovery.TotalSeconds, 3);
-        session.Update(Update(5, 0, Release()));
-        for (ulong step = 6; step <= 40; step++) session.Update(Update(step, 0));
+        session.Update(Admitted.Update(5, 0, Release()));
+        for (ulong step = 6; step <= 40; step++) session.Update(Admitted.Update(step, 0));
         Assert.Equal(1.0, session.Combat.Find(actor)!.Recovery.TotalSeconds, 3);
 
         // A held session admits no interval at all, so a player who holds the world holds the fight with it.
         session.Hold();
-        for (ulong step = 41; step <= 80; step++) session.Update(Update(step, 1));
+        for (ulong step = 41; step <= 80; step++) session.Update(Admitted.Update(step, 1));
         Assert.Equal(1.0, session.Combat.Find(actor)!.Recovery.TotalSeconds, 3);
 
         // Releasing the hold lets game time move again, and the recovery it was waiting for is paid.
         session.ReleaseHold();
-        session.Update(Update(81, 1));
+        session.Update(Admitted.Update(81, 1));
         Assert.Equal(0.5, session.Combat.Find(actor)!.Recovery.TotalSeconds, 3);
     }
 
@@ -289,7 +289,7 @@ public sealed class CombatStateTests
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
-            new SessionOwners(Clock()),
+            new SessionOwners(TestClock.Create()),
             new SessionParty.Playing(World: world, Party: party),
             rules: new SessionRules
             {
@@ -308,7 +308,7 @@ public sealed class CombatStateTests
         Assert.True(combat.Field("available").AsBoolean());
         Assert.False(combat.Field("engaged").AsBoolean());
 
-        session.Update(Update(1, 1));
+        session.Update(Admitted.Update(1, 1));
         combat = channel.Latest().Field("combat");
         Assert.True(combat.Field("engaged").AsBoolean());
         Assert.Equal(1.0, combat.Field("opposition").AsNumber());
@@ -322,7 +322,7 @@ public sealed class CombatStateTests
         Assert.Equal(100.0, combat.Field("enemies").Item(0).Field("distance").AsNumber());
 
         // The party acts: every member's own recovery is what decides, and the panel shows it.
-        session.Update(Update(2, 1, Attack()));
+        session.Update(Admitted.Update(2, 1, Attack()));
         combat = channel.Latest().Field("combat");
         Assert.Equal("applied", combat.Field("outcome").AsString());
         Assert.Equal(0.0, combat.Field("ready").AsNumber());
@@ -334,7 +334,7 @@ public sealed class CombatStateTests
 
         // An order while everybody is recovering is refused by name, and the refusal is what the panel shows
         // rather than a fight in which nothing was asked.
-        session.Update(Update(3, 1, Attack()));
+        session.Update(Admitted.Update(3, 1, Attack()));
         combat = channel.Latest().Field("combat");
         Assert.Equal("refused", combat.Field("outcome").AsString());
         Assert.Equal("recovering", combat.Field("code").AsString());
@@ -381,12 +381,8 @@ public sealed class CombatStateTests
         ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, "test.attack"u8.ToArray(),
         ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
 
-    /// <summary>One payload on the declared contract, as the companion sends it.</summary>
-    private static ProductInputEvent Payload(string json) => new(
-        InputEventKind.DirectProductPayload, InputEdge.None, default, default, default, default, default, default, default, default,
-        InputValueKind.ProductPayload, InputPhase.DirectUi, InputProvenance.DirectUi, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty,
-        System.Text.Encoding.UTF8.GetBytes("test.actions"), System.Text.Encoding.UTF8.GetBytes(json));
+    /// <summary>One payload action on this suite's contract, as the companion sends it.</summary>
+    private static ProductInputEvent Payload(string json) => Admitted.Payload("test.actions", json);
 
     /// <summary>A party of four, which is what a fight's own side has to be able to pace.</summary>
     private static PartyEntity Party()
@@ -415,7 +411,7 @@ public sealed class CombatStateTests
 
     /// <summary>The fight this suite exercises: the kit's state over the test's own rule.</summary>
     private static CombatState Fight(SessionWorld world, PartyEntity party, IRandomService? random = null) =>
-        new(Capabilities.Combat(new TestCombatRule(random)), party, world, Clock());
+        new(Capabilities.Combat(new TestCombatRule(random)), party, world, TestClock.Create());
 
     private static PlacePose Pose() => new(0, 0, 0, 0, 0);
 
@@ -425,13 +421,6 @@ public sealed class CombatStateTests
         world.ArriveAt(Hall, Pose());
         world.Populate();
     }
-
-    /// <summary>The session's one clock, at this game's own rate and on its own calendar.</summary>
-    private static GameClock Clock() => new(
-        GameCalendar.TwelveMonthsOfFourWeeks,
-        new GameDate(1168, 1, 1, 9, 0, 0),
-        new GameTimeScale(30),
-        new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
 
     /// <summary>One advance of the clock, as the session hands it to the mechanisms that keep time.</summary>
     private static ClockAdvance Advance(long milliseconds) => new(
@@ -454,22 +443,6 @@ public sealed class CombatStateTests
         InputValueKind.Digital, InputPhase.Released, InputProvenance.Physical, default, default, default, 0f, 0f,
         ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, "test.attack"u8.ToArray(),
         ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
-
-    private static ProductUpdate Update(ulong step, uint admitted, params ProductInputEvent[] input)
-    {
-        ProductUpdateFacts facts = new(
-            ProductUpdateMode.Realtime,
-            ProductLifecycleState.Running,
-            1,
-            1,
-            0,
-            step,
-            60,
-            admitted,
-            0,
-            1.0 / 60.0);
-        return new ProductUpdate(facts, input);
-    }
 
     /// <summary>
     /// A world of two places: one hall holding a creature inside its notice range, a creature far outside it,
@@ -527,21 +500,15 @@ public sealed class CombatStateTests
             pose,
             new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()),
             new FreeTravel(),
-            Clock(),
+            TestClock.Create(),
             mover: null,
             diagnostics: null,
             entrances: null,
-            clock: Clock(),
+            clock: TestClock.Create(),
             resources: null,
             partyEntity: party,
             interaction: null,
             schedule: null);
-    }
-
-    /// <summary>Walking is free: nothing in these tests is about what a road costs.</summary>
-    private sealed class FreeTravel : ITravelCostRule
-    {
-        public TravelCostQuote Quote(TransitionRequest request) => TravelCostQuote.Payable(TravelCost.Free);
     }
 
     /// <summary>

@@ -12,4 +12,9 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
   </ItemGroup>
+  <ItemGroup>
+    <!-- The suites' shared support: one definition of each helper, referenced rather than copied. -->
+    <ProjectReference Include="../PartyRpg.Testing/PartyRpg.Testing.csproj" />
+    <Using Include="PartyRpg.Testing" />
+  </ItemGroup>
 </Project>

@@ -179,8 +179,8 @@ public sealed class SessionPersistenceTests
             foreach (string field in new[] { "name", "race", "class", "portrait" })
             {
                 Assert.Equal(
-                    before.Field("creation").Field("party").Element(index).Field(field).AsString(),
-                    after.Field("creation").Field("party").Element(index).Field(field).AsString());
+                    before.Field("creation").Field("party").Item(index).Field(field).AsString(),
+                    after.Field("creation").Field("party").Item(index).Field(field).AsString());
             }
         }
 

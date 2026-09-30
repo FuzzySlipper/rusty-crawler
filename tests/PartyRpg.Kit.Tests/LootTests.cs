@@ -484,8 +484,8 @@ public sealed class LootTests
         {
             ContentCatalog catalog = ContentCatalogLoader.Load(
                 new InMemoryContentSource()
-                    .Add("packs/world/pack.json", Manifest())
-                    .Add("packs/world/places.json", Document("places", "place", Place(), Place("10"))),
+                    .Add("packs/world/pack.json", TestPacks.PlacesOnly)
+                    .Add("packs/world/places.json", TestPacks.Document("places", "place", Place(), Place("10"))),
                 Layout).RequireValid();
 
             PlaceGraph graph = PlaceGraphLoader.Load(catalog);
@@ -502,7 +502,7 @@ public sealed class LootTests
                 graph,
                 owner,
                 places,
-                new TestCostRule(),
+                new FreeTravel(),
                 time: time,
                 mover: null,
                 resources: new PartyResourceLedger(party),
@@ -572,24 +572,6 @@ public sealed class LootTests
               "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ],
               "placements": [] }
             """;
-
-        private static string Manifest() =>
-            """
-            {
-              "schemaVersion": 1,
-              "packId": "world",
-              "kind": "definitions",
-              "provenance": { "description": "test content" },
-              "documents": [
-                { "path": "places.json", "documentId": "places", "definitionKind": "place" }
-              ]
-            }
-            """;
-
-        private static string Document(string documentId, string definitionKind, params string[] entries) =>
-            $$"""
-            { "documentId": "{{documentId}}", "definitionKind": "{{definitionKind}}", "entries": [ {{string.Join(",", entries)}} ] }
-            """;
     }
 
     /// <summary>A time source the world reads its days from, which a test moves to let an interval elapse.</summary>
@@ -598,11 +580,5 @@ public sealed class LootTests
         internal int Days { get; set; }
 
         public int ElapsedGameDays => Days;
-    }
-
-    /// <summary>Nothing in this den costs anything to reach.</summary>
-    private sealed class TestCostRule : ITravelCostRule
-    {
-        public TravelCostQuote Quote(TransitionRequest request) => TravelCostQuote.Payable(TravelCost.Free);
     }
 }

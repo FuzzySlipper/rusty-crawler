@@ -176,7 +176,7 @@ public sealed class AwardTests
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
-            new SessionOwners(Clock()),
+            new SessionOwners(TestClock.Create(scale: 1)),
             new SessionParty.Playing(Party: party),
             rules: new SessionRules
             {
@@ -201,7 +201,7 @@ public sealed class AwardTests
         using PartyRpgSession plain = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             bare,
-            new SessionOwners(Clock()),
+            new SessionOwners(TestClock.Create(scale: 1)),
             new SessionParty.Playing(Party: other),
             rules: new SessionRules
             {
@@ -222,7 +222,7 @@ public sealed class AwardTests
         // the progression suite's own scan uses, and it is the second half of the proof: a source that named
         // one of the two mutators outside the owner would be a second writer even if it compiled.
         string[] mutators = ["ChangeReputation(", "ChangeFame("];
-        string root = RepositoryRoot();
+        string root = Repository.Root;
         string[] sources =
         [
             .. Directory.EnumerateFiles(Path.Combine(root, "src"), "*.cs", SearchOption.AllDirectories)
@@ -279,7 +279,7 @@ public sealed class AwardTests
         Assert.Equal(6, reputation);
         Assert.Equal(6, fame);
 
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create(scale: 1);
         PlaceStateLedger places = new(PlaceGraph.From([], []), PlaceRespawnRule.FromContent());
         SessionSave document = new(
             party.Capture(),
@@ -327,16 +327,10 @@ public sealed class AwardTests
 
     /// <summary>One question asked of a quest's stated condition, so the shared reading can be called directly.</summary>
     private static QuestConditionRequest Condition(PartyEntity party, ConversationCondition condition) =>
-        new(Errand(), condition, party, Clock());
+        new(Errand(), condition, party, TestClock.Create(scale: 1));
 
     private static PartyConversations Conversation(PartyEntity party, IConversationRule rule) =>
-        new(rule, party, Clock());
-
-    private static GameClock Clock() => new(
-        GameCalendar.TwelveMonthsOfFourWeeks,
-        new GameDate(1168, 1, 1, 9, 0, 0),
-        new GameTimeScale(1),
-        new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
+        new(rule, party, TestClock.Create(scale: 1));
 
     private static PartyEntity PartyOf(params MemberCreation[] members) =>
         new PartyEntityFactory().Create(new PartyCreation(members, coins: 0, foodPortions: 0, reputation: 0, fame: 0));
@@ -524,15 +518,4 @@ public sealed class AwardTests
     /// <summary>The one person these cases speak with.</summary>
     private static ConversationSubject TheSubject() =>
         new("person-0", [new ConversationPerson(Giver, "The Marshal", "709")]);
-
-    private static string RepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "AGENTS.md")))
-        {
-            directory = directory.Parent;
-        }
-
-        return directory?.FullName ?? throw new InvalidOperationException("The repository root could not be found from the test's own directory.");
-    }
 }

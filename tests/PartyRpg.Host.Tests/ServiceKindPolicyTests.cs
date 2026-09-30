@@ -493,7 +493,7 @@ public sealed class ServiceKindPolicyTests
         internal static Fixture Build(int? coachDays = null)
         {
             PolicyContentSource source = new PolicyContentSource()
-                .Add("packs/world/pack.json", Manifest())
+                .Add("packs/world/pack.json", TestPacks.Manifest("world", ("places", "place"), ("services", "service"), ("items", "item"), ("spells", "spell"), ("skills", "skill"), ("monsters", "monster"), ("roads", "travel-link")))
                 .Add("packs/world/places.json", Places())
                 .Add("packs/world/services.json", Services_())
                 .Add("packs/world/items.json", Items())
@@ -580,25 +580,6 @@ public sealed class ServiceKindPolicyTests
         }
 
         public void Dispose() => Party.Dispose();
-
-        private static string Manifest() =>
-            """
-            {
-              "schemaVersion": 1,
-              "packId": "world",
-              "kind": "definitions",
-              "provenance": { "description": "authored for a test" },
-              "documents": [
-                { "path": "places.json", "documentId": "places", "definitionKind": "place" },
-                { "path": "services.json", "documentId": "services", "definitionKind": "service" },
-                { "path": "items.json", "documentId": "items", "definitionKind": "item" },
-                { "path": "spells.json", "documentId": "spells", "definitionKind": "spell" },
-                { "path": "skills.json", "documentId": "skills", "definitionKind": "skill" },
-                { "path": "monsters.json", "documentId": "monsters", "definitionKind": "monster" },
-                { "path": "roads.json", "documentId": "roads", "definitionKind": "travel-link" }
-              ]
-            }
-            """;
 
         private static string Places() =>
             """

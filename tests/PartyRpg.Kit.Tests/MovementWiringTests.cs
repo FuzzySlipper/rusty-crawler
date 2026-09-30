@@ -39,7 +39,7 @@ public sealed class MovementInputTests
     {
         MovementInput input = Input();
 
-        MovementIntent walking = input.Read([Digital(Names.Forward, InputEdge.Pressed)]);
+        MovementIntent walking = input.Read([Admitted.Digital(Names.Forward, InputEdge.Pressed)]);
         Assert.Equal(1, walking.Forward);
         Assert.Equal(0, walking.Strafe);
         Assert.False(walking.IsStill);
@@ -49,7 +49,7 @@ public sealed class MovementInputTests
         MovementIntent stillHeld = input.Read([]);
         Assert.Equal(1, stillHeld.Forward);
 
-        MovementIntent stopped = input.Read([Digital(Names.Forward, InputEdge.Released)]);
+        MovementIntent stopped = input.Read([Admitted.Digital(Names.Forward, InputEdge.Released)]);
         Assert.True(stopped.IsStill);
     }
 
@@ -59,17 +59,17 @@ public sealed class MovementInputTests
         MovementInput input = Input();
 
         MovementIntent both = input.Read([
-            Digital(Names.Forward, InputEdge.Pressed),
-            Digital(Names.Back, InputEdge.Pressed),
-            Digital(Names.StrafeLeft, InputEdge.Pressed),
+            Admitted.Digital(Names.Forward, InputEdge.Pressed),
+            Admitted.Digital(Names.Back, InputEdge.Pressed),
+            Admitted.Digital(Names.StrafeLeft, InputEdge.Pressed),
         ]);
 
         Assert.Equal(0, both.Forward);
         Assert.Equal(-1, both.Strafe);
 
         MovementIntent right = input.Read([
-            Digital(Names.StrafeLeft, InputEdge.Released),
-            Digital(Names.StrafeRight, InputEdge.Pressed),
+            Admitted.Digital(Names.StrafeLeft, InputEdge.Released),
+            Admitted.Digital(Names.StrafeRight, InputEdge.Pressed),
         ]);
         Assert.Equal(1, right.Strafe);
     }
@@ -80,12 +80,12 @@ public sealed class MovementInputTests
         MovementInput input = Input();
 
         // Turning left is the positive side: the world's facing grows when the party turns to its left.
-        MovementIntent left = input.Read([Digital(Names.TurnLeft, InputEdge.Pressed)]);
+        MovementIntent left = input.Read([Admitted.Digital(Names.TurnLeft, InputEdge.Pressed)]);
         Assert.Equal(TurnRate, left.TurnRate, 6);
 
         MovementIntent right = input.Read([
-            Digital(Names.TurnLeft, InputEdge.Released),
-            Digital(Names.TurnRight, InputEdge.Pressed),
+            Admitted.Digital(Names.TurnLeft, InputEdge.Released),
+            Admitted.Digital(Names.TurnRight, InputEdge.Pressed),
         ]);
         Assert.Equal(-TurnRate, right.TurnRate, 6);
     }
@@ -95,7 +95,7 @@ public sealed class MovementInputTests
     {
         MovementInput input = Input();
 
-        MovementIntent started = input.Read([Digital(Names.Jump, InputEdge.Pressed)]);
+        MovementIntent started = input.Read([Admitted.Digital(Names.Jump, InputEdge.Pressed)]);
         Assert.True(started.JumpPressed);
         Assert.True(started.JumpHeld);
 
@@ -105,7 +105,7 @@ public sealed class MovementInputTests
         Assert.False(held.JumpPressed);
         Assert.True(held.JumpHeld);
 
-        MovementIntent released = input.Read([Digital(Names.Jump, InputEdge.Released)]);
+        MovementIntent released = input.Read([Admitted.Digital(Names.Jump, InputEdge.Released)]);
         Assert.False(released.JumpPressed);
         Assert.False(released.JumpHeld);
     }
@@ -116,8 +116,8 @@ public sealed class MovementInputTests
         MovementInput input = Input();
 
         MovementIntent intent = input.Read([
-            Digital("test.fly", InputEdge.Pressed),
-            Digital("crawler.ui", InputEdge.Pressed),
+            Admitted.Digital("test.fly", InputEdge.Pressed),
+            Admitted.Digital("crawler.ui", InputEdge.Pressed),
         ]);
 
         // A foreign intent is somebody else's event: it is not a movement control, so it moves nobody.
@@ -132,8 +132,8 @@ public sealed class MovementInputTests
         // An axis or payload event on a declared name is still not a digital press: the reader believes
         // edges, and a value it does not read cannot set one.
         MovementIntent intent = input.Read([
-            Digital(Names.Forward, InputEdge.None, InputPhase.DirectUi, InputProvenance.DirectUi, InputValueKind.Axis),
-            Digital(Names.Back, InputEdge.None, InputPhase.DirectUi, InputProvenance.DirectUi, InputValueKind.ProductPayload),
+            Admitted.Digital(Names.Forward, InputEdge.None, InputPhase.DirectUi, InputProvenance.DirectUi, InputValueKind.Axis),
+            Admitted.Digital(Names.Back, InputEdge.None, InputPhase.DirectUi, InputProvenance.DirectUi, InputValueKind.ProductPayload),
         ]);
 
         Assert.True(intent.IsStill);
@@ -147,8 +147,8 @@ public sealed class MovementInputTests
         // A direct interface claim carries no edge, so there is no release behind it to end the hold; it
         // is taken as asking for the control for the update it arrived in and no longer.
         MovementIntent claimed = input.Read([
-            Digital(Names.Forward, InputEdge.None, InputPhase.DirectUi, InputProvenance.DirectUi),
-            Digital(Names.Jump, InputEdge.None, InputPhase.DirectUi, InputProvenance.DirectUi),
+            Admitted.Digital(Names.Forward, InputEdge.None, InputPhase.DirectUi, InputProvenance.DirectUi),
+            Admitted.Digital(Names.Jump, InputEdge.None, InputPhase.DirectUi, InputProvenance.DirectUi),
         ]);
 
         Assert.Equal(1, claimed.Forward);
@@ -166,18 +166,6 @@ public sealed class MovementInputTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new MovementInput(Names, 0));
         Assert.Throws<ArgumentOutOfRangeException>(() => new MovementInput(Names, double.NaN));
     }
-
-    /// <summary>One digital engine event, in the shape the input service admits it.</summary>
-    private static ProductInputEvent Digital(
-        string intent,
-        InputEdge edge,
-        InputPhase phase = InputPhase.Pressed,
-        InputProvenance provenance = InputProvenance.Physical,
-        InputValueKind valueKind = InputValueKind.Digital) => new(
-        InputEventKind.MappedDigital, edge, default, default, default, default, default, default, default, default,
-        valueKind, phase, provenance, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, Encoding.UTF8.GetBytes(intent),
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
 }
 
 /// <summary>
@@ -208,7 +196,7 @@ public sealed class MovementSteppingTests
     public void The_admitted_update_steps_the_party_once_with_the_intent_the_input_asked_for()
     {
         PartyPoseOwner party = Party();
-        RecordingMover mover = new(party);
+        RecordingMover mover = RecordingMover.Walking(party);
         using SessionWorld world = World(party, mover);
         using RecordingUiProjectionChannel channel = new();
         using PartyRpgSession session = new(
@@ -222,7 +210,7 @@ public sealed class MovementSteppingTests
             });
         session.Start();
 
-        session.Update(Update(simulationStep: 60, admittedSteps: 2, [Digital(Names.Forward, InputEdge.Pressed)]));
+        session.Update(Admitted.Update(step: 60, admitted: 2, [Admitted.Digital(Names.Forward, InputEdge.Pressed)]));
 
         (MovementIntent intent, double seconds) = Assert.Single(mover.Steps);
         Assert.Equal(1, intent.Forward);
@@ -238,7 +226,7 @@ public sealed class MovementSteppingTests
     public void A_session_that_admitted_no_steps_moves_nobody()
     {
         PartyPoseOwner party = Party();
-        RecordingMover mover = new(party);
+        RecordingMover mover = RecordingMover.Walking(party);
         using SessionWorld world = World(party, mover);
         using RecordingUiProjectionChannel channel = new();
         using PartyRpgSession session = new(
@@ -252,7 +240,7 @@ public sealed class MovementSteppingTests
             });
         session.Start();
 
-        session.Update(Update(simulationStep: 1, admittedSteps: 0, [Digital(Names.Forward, InputEdge.Pressed)]));
+        session.Update(Admitted.Update(step: 1, admitted: 0, [Admitted.Digital(Names.Forward, InputEdge.Pressed)]));
 
         // No admitted time means no step: an intent still has to be solved for, but there is no interval
         // for the engine to solve it over.
@@ -264,7 +252,7 @@ public sealed class MovementSteppingTests
     public void A_held_session_reads_what_the_player_holds_but_takes_no_step()
     {
         PartyPoseOwner party = Party();
-        RecordingMover mover = new(party);
+        RecordingMover mover = RecordingMover.Walking(party);
         using SessionWorld world = World(party, mover);
         using RecordingUiProjectionChannel channel = new();
         using PartyRpgSession session = new(
@@ -279,13 +267,13 @@ public sealed class MovementSteppingTests
         session.Start();
         session.Hold();
 
-        session.Update(Update(simulationStep: 1, admittedSteps: 1, [Digital(Names.Forward, InputEdge.Pressed)]));
+        session.Update(Admitted.Update(step: 1, admitted: 1, [Admitted.Digital(Names.Forward, InputEdge.Pressed)]));
         Assert.Empty(mover.Steps);
 
         // The key that went down while the session was held is still held when it resumes, so the party
         // walks on the next running update without the player pressing anything again.
         session.ReleaseHold();
-        session.Update(Update(simulationStep: 2, admittedSteps: 1, []));
+        session.Update(Admitted.Update(step: 2, admitted: 1, []));
 
         (MovementIntent intent, _) = Assert.Single(mover.Steps);
         Assert.Equal(1, intent.Forward);
@@ -295,7 +283,7 @@ public sealed class MovementSteppingTests
     public void A_party_that_asked_for_nothing_is_still_solved_for()
     {
         PartyPoseOwner party = Party();
-        RecordingMover mover = new(party);
+        RecordingMover mover = RecordingMover.Walking(party);
         using SessionWorld world = World(party, mover);
         using RecordingUiProjectionChannel channel = new();
         using PartyRpgSession session = new(
@@ -309,7 +297,7 @@ public sealed class MovementSteppingTests
             });
         session.Start();
 
-        session.Update(Update(simulationStep: 1, admittedSteps: 1, [Digital("test.unclaimed", InputEdge.Pressed)]));
+        session.Update(Admitted.Update(step: 1, admitted: 1, [Admitted.Digital("test.unclaimed", InputEdge.Pressed)]));
 
         // Gravity, a ledge walked off, and a moving platform all act on a party that asked for nothing,
         // so a still intent is not a reason to skip the engine's step.
@@ -343,7 +331,7 @@ public sealed class MovementSteppingTests
             controls: new SessionControls { Movement = new MovementInput(Names, 512) });
         session.Start();
 
-        session.Update(Update(simulationStep: 1, admittedSteps: 1, [Digital(Names.Forward, InputEdge.Pressed)]));
+        session.Update(Admitted.Update(step: 1, admitted: 1, [Admitted.Digital(Names.Forward, InputEdge.Pressed)]));
 
         Assert.Equal(MovementDiagnostics.None, session.Movement);
     }
@@ -352,7 +340,7 @@ public sealed class MovementSteppingTests
     public void The_world_admits_the_place_it_starts_in_and_every_place_the_party_travels_to()
     {
         PartyPoseOwner party = Party();
-        RecordingMover mover = new(party);
+        RecordingMover mover = RecordingMover.Walking(party);
         using SessionWorld world = World(party, mover);
 
         // The place the party starts in is entered like any other, so the scene it walks in is filled
@@ -370,7 +358,8 @@ public sealed class MovementSteppingTests
     public void A_destination_whose_ground_the_engine_refuses_leaves_the_party_where_it_stood()
     {
         PartyPoseOwner party = Party();
-        RecordingMover mover = new(party) { Refuses = new PlaceId("2") };
+        RecordingMover mover = RecordingMover.Walking(party);
+        mover.Refuses = new PlaceId("2");
         using SessionWorld world = World(party, mover);
         PlacePose before = world.Party.PlacePose;
 
@@ -398,7 +387,7 @@ public sealed class MovementSteppingTests
             graph,
             party,
             new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()),
-            new TestCostRule(),
+            new FreeTravel(),
             time: null,
             mover);
     }
@@ -441,88 +430,6 @@ public sealed class MovementSteppingTests
                     }
                     """),
             new ContentLayout("packs", "imports", "bundles")).RequireValid());
-
-    private static ProductUpdate Update(ulong simulationStep, uint admittedSteps, ProductInputEvent[] input)
-    {
-        ProductUpdateFacts facts = new(
-            ProductUpdateMode.Realtime,
-            ProductLifecycleState.Running,
-            1,
-            1,
-            0,
-            simulationStep,
-            60,
-            admittedSteps,
-            0,
-            StepSeconds);
-        return new ProductUpdate(facts, input);
-    }
-
-    private static ProductInputEvent Digital(string intent, InputEdge edge) => new(
-        InputEventKind.MappedDigital, edge, default, default, default, default, default, default, default, default,
-        InputValueKind.Digital, InputPhase.Pressed, InputProvenance.Physical, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, Encoding.UTF8.GetBytes(intent),
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
-
-    /// <summary>
-    /// The party's movement as the test drives it: it records what it was asked, moves the party through
-    /// the world's own pose owner the way a resolved engine step would, and reports the falls it is told
-    /// to report.
-    /// </summary>
-    private sealed class RecordingMover(PartyPoseOwner party) : IPartyMover
-    {
-        internal List<(MovementIntent Intent, double Seconds)> Steps { get; } = [];
-
-        internal List<PlaceId> Entered { get; } = [];
-
-        /// <summary>A place whose ground the engine refuses, or null when it takes every place's.</summary>
-        internal PlaceId? Refuses { get; set; }
-
-        internal FallOutcome Fall { get; set; }
-
-        internal bool Grounded { get; set; } = true;
-
-        /// <summary>These movers hold no collision, so nothing occludes anything in them.</summary>
-        public bool InSight(Vector3 from, Vector3 to) => true;
-
-        public PlaceGeometryAdmission Enter(PlaceId place)
-        {
-            Entered.Add(place);
-            if (place == Refuses) throw new EngineCallException("Spatial", "ReplaceContentArtifact", 0);
-            return PlaceGeometryAdmission.Empty(place);
-        }
-
-        public MovementOutcome Step(MovementIntent intent, double elapsedSeconds)
-        {
-            Steps.Add((intent, elapsedSeconds));
-
-            // What the engine resolves, in miniature: the party is moved through its pose owner and
-            // nowhere else, so the test holds the same single-writer rule the product does.
-            double forward = intent.Forward * elapsedSeconds * 180;
-            party.Turn(intent.TurnRate * elapsedSeconds, 0);
-            party.Move(forward, 0, 0);
-
-            return new MovementOutcome(
-                party.Capture().Pose,
-                new Vector3((float)forward, 0, 0),
-                Grounded,
-                default,
-                CharacterBlockFlags.None,
-                default,
-                SurfaceEffect.Ordinary,
-                Fall);
-        }
-
-        public void Dispose()
-        {
-        }
-    }
-
-    /// <summary>Walking is free in these tests, and nothing is ever paid for.</summary>
-    private sealed class TestCostRule : ITravelCostRule
-    {
-        public TravelCostQuote Quote(TransitionRequest request) => TravelCostQuote.Payable(TravelCost.Free);
-    }
 }
 
 /// <summary>
@@ -623,7 +530,8 @@ public sealed class MovementObservationTests
         PartyPoseOwner party = new(
             new PartyPose(new PlaceId("home"), new PlacePose(0, 0, 0, 0, 0)),
             new FacingRule(unitsPerTurn: 2048, minimumPitch: -512, maximumPitch: 512));
-        RecordingMover mover = new(party) { Fall = new FallOutcome(Distance: 600, Excess: 88, Damage: 0) };
+        RecordingMover mover = RecordingMover.Standing(party);
+        mover.Fall = new FallOutcome(Distance: 600, Excess: 88, Damage: 0);
         RecordingDiagnosticsService diagnostics = new();
         using SessionWorld world = World(party, mover, diagnostics);
 
@@ -648,7 +556,8 @@ public sealed class MovementObservationTests
         PartyPoseOwner party = new(
             new PartyPose(new PlaceId("home"), new PlacePose(0, 0, 0, 0, 0)),
             new FacingRule(unitsPerTurn: 2048, minimumPitch: -512, maximumPitch: 512));
-        RecordingMover mover = new(party) { Fall = new FallOutcome(Distance: 12, Excess: 0, Damage: 0) };
+        RecordingMover mover = RecordingMover.Standing(party);
+        mover.Fall = new FallOutcome(Distance: 12, Excess: 0, Damage: 0);
         RecordingDiagnosticsService diagnostics = new();
         using SessionWorld world = World(party, mover, diagnostics);
 
@@ -694,30 +603,6 @@ public sealed class MovementObservationTests
             time: null,
             mover,
             diagnostics);
-    }
-
-    private sealed class RecordingMover(PartyPoseOwner party) : IPartyMover
-    {
-        internal FallOutcome Fall { get; init; }
-
-        /// <summary>These movers hold no collision, so nothing occludes anything in them.</summary>
-        public bool InSight(Vector3 from, Vector3 to) => true;
-
-        public PlaceGeometryAdmission Enter(PlaceId place) => PlaceGeometryAdmission.Empty(place);
-
-        public MovementOutcome Step(MovementIntent intent, double elapsedSeconds) => new(
-            party.Capture().Pose,
-            Vector3.Zero,
-            Grounded: true,
-            default,
-            CharacterBlockFlags.None,
-            default,
-            SurfaceEffect.Ordinary,
-            Fall);
-
-        public void Dispose()
-        {
-        }
     }
 
     private sealed class FreeCostRule : ITravelCostRule

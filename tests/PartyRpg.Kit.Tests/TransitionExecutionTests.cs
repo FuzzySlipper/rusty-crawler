@@ -251,12 +251,12 @@ public sealed class TransitionExecutionTests
     private static PlaceGraph Graph() =>
         PlaceGraphLoader.Load(ContentCatalogLoader.Load(
             new InMemoryContentSource()
-                .Add("packs/world/pack.json", Manifest())
-                .Add("packs/world/places.json", Document("places", "place", Places(
+                .Add("packs/world/pack.json", TestPacks.World)
+                .Add("packs/world/places.json", TestPacks.Document("places", "place", Places(
                     """{ "id": "1", "kind": "region", "name": "Home", "entryPoints": [ { "id": "Party Start", "x": 10, "y": 20, "z": 30, "yaw": 512 } ] }""",
                     """{ "id": "2", "kind": "region", "name": "Field", "entryPoints": [ { "id": "West Gate", "x": 1, "y": 2, "z": 0 } ] }""",
                     """{ "id": "3", "kind": "interior", "name": "Cave", "entryPoints": [ { "id": "Mouth", "x": 5, "y": 6, "z": 7, "yaw": 64 } ] }""")))
-                .Add("packs/world/links.json", Document("links", "travel-link", Links(
+                .Add("packs/world/links.json", TestPacks.Document("links", "travel-link", Links(
                     """{ "id": "edge", "fromPlace": "1", "toPlace": "2", "entryPoint": "West Gate" }""",
                     """{ "id": "field-home", "fromPlace": "2", "toPlace": "1", "x": 100, "y": 200, "z": 0, "yaw": 1024, "pitch": 0 }""",
                     """{ "id": "door-in", "fromPlace": "1", "toPlace": "3", "entryPoint": "Mouth" }""",
@@ -268,29 +268,6 @@ public sealed class TransitionExecutionTests
     private static string Places(params string[] entries) => string.Join(",", entries);
 
     private static string Links(params string[] entries) => string.Join(",", entries);
-
-    private static string Manifest() =>
-        """
-        {
-          "schemaVersion": 1,
-          "packId": "world",
-          "kind": "definitions",
-          "provenance": { "description": "test content" },
-          "documents": [
-            { "path": "places.json", "documentId": "places", "definitionKind": "place" },
-            { "path": "links.json", "documentId": "links", "definitionKind": "travel-link" }
-          ]
-        }
-        """;
-
-    private static string Document(string documentId, string definitionKind, string entries) =>
-        $$"""
-        {
-          "documentId": "{{documentId}}",
-          "definitionKind": "{{definitionKind}}",
-          "entries": [ {{entries}} ]
-        }
-        """;
 
     /// <summary>A cost rule that answers a fixed quote and records every request it was asked about.</summary>
     private sealed class RecordingRule : ITravelCostRule

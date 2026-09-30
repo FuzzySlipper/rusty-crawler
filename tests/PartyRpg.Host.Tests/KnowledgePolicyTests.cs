@@ -60,7 +60,7 @@ public sealed class KnowledgePolicyTests
     {
         (MightAndMagic7Alchemy alchemy, ContentCatalog catalog) = ReadAlchemy();
         using PartyEntity party = Party();
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         PartyKnowledge knowledge = new(new MightAndMagic7Knowledge(Loot(catalog)), clock);
         PotionMixing mixing = new(party, alchemy.Catalog, alchemy, knowledge, MightAndMagic7Names.Read(catalog));
 
@@ -331,13 +331,6 @@ public sealed class KnowledgePolicyTests
     /// <summary>The pack's own first instance of a definition, which the scenario put there.</summary>
     private static ItemInstance First(PartyEntity party, ItemDefinitionId definition) =>
         party.Items.First(item => item.Definition == definition);
-
-    /// <summary>The session's one clock, at this game's own rate and on its own calendar.</summary>
-    private static GameClock Clock() => new(
-        GameCalendar.TwelveMonthsOfFourWeeks,
-        new GameDate(1168, 1, 1, 9, 0),
-        new GameTimeScale(30),
-        new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
 
     /// <summary>The journal block of the newest projection.</summary>
     private static ProjectedNode Notes(RecordingUiService ui) =>

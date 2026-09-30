@@ -124,35 +124,12 @@ public sealed class PlaceGraphTests
     private static PlaceGraph Load(string places, string links) =>
         PlaceGraphLoader.Load(ContentCatalogLoader.Load(
             new InMemoryContentSource()
-                .Add("packs/world/pack.json", Manifest())
-                .Add("packs/world/places.json", Document("places", "place", places))
-                .Add("packs/world/links.json", Document("links", "travel-link", links)),
+                .Add("packs/world/pack.json", TestPacks.World)
+                .Add("packs/world/places.json", TestPacks.Document("places", "place", places))
+                .Add("packs/world/links.json", TestPacks.Document("links", "travel-link", links)),
             Layout).RequireValid());
 
     private static string Places(params string[] entries) => string.Join(",", entries);
 
     private static string Links(params string[] entries) => string.Join(",", entries);
-
-    private static string Manifest() =>
-        """
-        {
-          "schemaVersion": 1,
-          "packId": "world",
-          "kind": "definitions",
-          "provenance": { "description": "test content" },
-          "documents": [
-            { "path": "places.json", "documentId": "places", "definitionKind": "place" },
-            { "path": "links.json", "documentId": "links", "definitionKind": "travel-link" }
-          ]
-        }
-        """;
-
-    private static string Document(string documentId, string definitionKind, string entries) =>
-        $$"""
-        {
-          "documentId": "{{documentId}}",
-          "definitionKind": "{{definitionKind}}",
-          "entries": [ {{entries}} ]
-        }
-        """;
 }

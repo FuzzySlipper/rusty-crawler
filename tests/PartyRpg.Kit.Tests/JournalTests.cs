@@ -42,7 +42,7 @@ public sealed class JournalTests
     [Fact]
     public void A_quest_taken_progressed_and_finished_writes_dated_lines_and_the_book_reads_the_owner()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         using PartyEntity party = PartyOf(Member("Roderick"));
         PartyQuests quests = new(new TestQuests(Errand()), party, new PartyResourceLedger(party));
         PartyJournal journal = new(new TestJournal(), clock);
@@ -96,7 +96,7 @@ public sealed class JournalTests
     [Fact]
     public void A_line_is_dated_when_it_happened_and_not_when_the_save_was_loaded()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         using PartyEntity party = PartyOf(Member("Roderick"));
         PartyJournal journal = new(new TestJournal(), clock);
         journal.Record(Place(Keep));
@@ -116,7 +116,7 @@ public sealed class JournalTests
 
         // A resumed session composes its clock at the starting date again and moves it to the recorded game
         // time, which is what makes a loaded line read as the day it happened rather than the day it was read.
-        GameClock resumedClock = Clock();
+        GameClock resumedClock = TestClock.Create();
         read.Clock.ApplyTo(resumedClock);
         Assert.Equal(3, resumedClock.ElapsedGameDays);
         PartyJournal resumed = new(new TestJournal(), resumedClock, read.Journal);
@@ -128,7 +128,7 @@ public sealed class JournalTests
     [Fact]
     public void The_same_event_reported_twice_is_one_entry()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         PartyJournal journal = new(new TestJournal(), clock);
 
         // A place the party stands in, a person it keeps speaking with, and an errand it was told about are
@@ -155,7 +155,7 @@ public sealed class JournalTests
     [Fact]
     public void The_history_outlives_a_place_reset()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         PartyJournal journal = new(new TestJournal(), clock);
         SessionWorld world = World(clock);
 
@@ -186,14 +186,14 @@ public sealed class JournalTests
         // The save carries the lines across a reset as well: what a load restores is the party's own record,
         // and the place's population is the world's business rather than the journal's.
         JournalSave captured = journal.Capture();
-        PartyJournal loaded = new(new TestJournal(), Clock(), captured);
+        PartyJournal loaded = new(new TestJournal(), TestClock.Create(), captured);
         Assert.Equal(2, loaded.Entries.Count);
     }
 
     [Fact]
     public void The_history_is_bounded_and_forgets_its_oldest_lines()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         PartyJournal journal = new(new TestJournal(), clock);
 
         // A journal that grows without limit is a leak: it is carried whole in every save and rebuilt into
@@ -225,7 +225,7 @@ public sealed class JournalTests
     [Fact]
     public void A_save_that_contradicts_its_own_journal_is_refused_with_every_problem_named()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         clock.Advance(GameDuration.FromHours(1));
         long elapsed = clock.Elapsed.Milliseconds;
 
@@ -258,7 +258,7 @@ public sealed class JournalTests
     [Fact]
     public void The_game_decides_which_finds_are_worth_a_line_and_how_a_line_reads()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         PartyJournal journal = new(new TestJournal(), clock);
 
         // This game's threshold is its own: an ordinary thing found is not worth a line and a notable one is,
@@ -284,7 +284,7 @@ public sealed class JournalTests
     [Fact]
     public void The_five_books_are_readings_of_their_owners_and_notes_names_its_receiver()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         using PartyEntity party = PartyOf(Member("Roderick"));
         PartyQuests quests = new(new TestQuests(Errand()), party, new PartyResourceLedger(party));
         PartyJournal journal = new(new TestJournal(), clock);
@@ -337,7 +337,7 @@ public sealed class JournalTests
         // ruleset's own owners report through the same entry point and are outside the kit, which is where
         // the game's finds are reported from. The scan reads the kit's own sources rather than what the
         // compiler produced, in the style the kit's other source scans use.
-        string kit = Path.Combine(RepositoryRoot(), "src", "PartyRpg.Kit");
+        string kit = Path.Combine(Repository.Root, "src", "PartyRpg.Kit");
         string journal = Path.Combine(kit, "Journal");
         // The session's reports are written in two files: the update itself, and the router that hands a
         // conversation's offer to the owner whose answer the journal records.
@@ -366,25 +366,18 @@ public sealed class JournalTests
         Assert.Contains("new JournalEvent(", File.ReadAllText(router), StringComparison.Ordinal);
     }
 
-    /// <summary>The clock these tests run on: a session that began on the first day of 1168, at nine.</summary>
-    private static GameClock Clock() => new(
-        GameCalendar.TwelveMonthsOfFourWeeks,
-        new GameDate(1168, 1, 1, 9, 0, 0),
-        new GameTimeScale(30),
-        new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
-
     /// <summary>A world the journal is read beside: a region and an interior, with the party at the region.</summary>
     private static SessionWorld World(GameClock clock)
     {
         ContentCatalog catalog = ContentCatalogLoader.Load(
             new InMemoryContentSource()
-                .Add("packs/world/pack.json", Manifest())
-                .Add("packs/world/places.json", Document(
+                .Add("packs/world/pack.json", TestPacks.World)
+                .Add("packs/world/places.json", TestPacks.Document(
                     "places",
                     "place",
                     """{ "id": "1", "kind": "region", "name": "the keep", "respawnDays": 7, "entryPoints": [ { "id": "Party Start", "x": 10, "y": 20, "z": 0, "yaw": 512 } ] }""",
                     """{ "id": "2", "kind": "interior", "name": "the cave", "respawnDays": 7, "entryPoints": [ { "id": "Party Start", "x": 1, "y": 2, "z": 3, "yaw": 0 } ] }"""))
-                .Add("packs/world/links.json", Document(
+                .Add("packs/world/links.json", TestPacks.Document(
                     "links",
                     "travel-link",
                     """{ "id": "0", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start" }""",
@@ -448,36 +441,6 @@ public sealed class JournalTests
         hitPoints: ResourcePool.Full(80),
         spellPoints: ResourcePool.Full(20)));
 
-    private static string Manifest() =>
-        """
-        {
-          "schemaVersion": 1,
-          "packId": "world",
-          "kind": "definitions",
-          "provenance": { "description": "authored for a test" },
-          "documents": [
-            { "path": "places.json", "documentId": "places", "definitionKind": "place" },
-            { "path": "links.json", "documentId": "links", "definitionKind": "travel-link" }
-          ]
-        }
-        """;
-
-    private static string Document(string documentId, string definitionKind, params string[] entries) =>
-        $$"""
-        { "documentId": "{{documentId}}", "definitionKind": "{{definitionKind}}", "entries": [ {{string.Join(",", entries)}} ] }
-        """;
-
-    private static string RepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "AGENTS.md")))
-        {
-            directory = directory.Parent;
-        }
-
-        return directory?.FullName ?? throw new InvalidOperationException("The repository root could not be found from the test's own directory.");
-    }
-
     /// <summary>The errand the quests in this suite are, stated by the test rather than by a game.</summary>
     private static QuestDefinition Errand() => new(
         new QuestId("seal-of-office"),
@@ -538,11 +501,5 @@ public sealed class JournalTests
         /// <summary>This test's threshold: a find is worth a line unless the test calls it plain.</summary>
         public bool WorthRecording(JournalEvent journalEvent) =>
             journalEvent.Kind != JournalEntryKind.Find || !journalEvent.Subject.StartsWith("plain", StringComparison.Ordinal);
-    }
-
-    /// <summary>Walking is free, which is all this suite's world needs.</summary>
-    private sealed class FreeTravel : ITravelCostRule
-    {
-        public TravelCostQuote Quote(TransitionRequest request) => TravelCostQuote.Payable(TravelCost.Free);
     }
 }

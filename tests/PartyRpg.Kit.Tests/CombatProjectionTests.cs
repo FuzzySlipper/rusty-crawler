@@ -368,7 +368,7 @@ public sealed class CombatProjectionTests
             _session = new PartyRpgSession(
                 new SessionComposition(new RulesetId("test.ruleset"), "Test"),
                 _channel,
-                new SessionOwners(Clock()),
+                new SessionOwners(TestClock.Create()),
                 new SessionParty.Playing(World: _world, Party: _party),
                 rules: new SessionRules
                 {
@@ -456,12 +456,8 @@ public sealed class CombatProjectionTests
         return new ProductUpdate(facts, input);
     }
 
-    /// <summary>One action on the declared contract, in the bytes the DOM companion sends.</summary>
-    private static ProductInputEvent Payload(string json) => new(
-        InputEventKind.DirectProductPayload, InputEdge.None, default, default, default, default, default, default, default, default,
-        InputValueKind.ProductPayload, InputPhase.DirectUi, InputProvenance.DirectUi, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty,
-        "test.actions"u8.ToArray(), System.Text.Encoding.UTF8.GetBytes(json));
+    /// <summary>One payload action on this suite's contract, as the companion sends it.</summary>
+    private static ProductInputEvent Payload(string json) => Admitted.Payload("test.actions", json);
 
     /// <summary>A party of four, each with the same pools, so a wound is visible in the totals.</summary>
     private static PartyEntity Party()
@@ -490,13 +486,6 @@ public sealed class CombatProjectionTests
 
     /// <summary>The unit the party's larder is stated in; nothing here is about provisions.</summary>
     private static ProvisionUnit ProvisionUnits => ProvisionUnit.Portions;
-
-    /// <summary>The session's one clock, at this game's own rate, so an admitted update is a stated amount of game time.</summary>
-    private static GameClock Clock() => new(
-        GameCalendar.TwelveMonthsOfFourWeeks,
-        new GameDate(1168, 1, 1, 9, 0, 0),
-        new GameTimeScale(30),
-        new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
 
     /// <summary>
     /// A world of two places whose hall holds one creature, and which composes the interaction mechanism
@@ -552,11 +541,11 @@ public sealed class CombatProjectionTests
             pose,
             new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()),
             new FreeTravel(),
-            Clock(),
+            TestClock.Create(),
             mover: null,
             diagnostics: null,
             entrances: null,
-            clock: Clock(),
+            clock: TestClock.Create(),
             resources: null,
             partyEntity: party,
             interaction: new InteractionPolicy(
@@ -566,12 +555,6 @@ public sealed class CombatProjectionTests
                 Corpses: rules),
             schedule: null,
             vitals: rules);
-    }
-
-    /// <summary>Walking is free: nothing in these tests is about what a road costs.</summary>
-    private sealed class FreeTravel : ITravelCostRule
-    {
-        public TravelCostQuote Quote(TransitionRequest request) => TravelCostQuote.Payable(TravelCost.Free);
     }
 
     /// <summary>

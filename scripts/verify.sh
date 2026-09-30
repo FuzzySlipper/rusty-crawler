@@ -11,11 +11,12 @@
 # any step failed. A step that cannot run for want of operator data says it was
 # skipped rather than passing.
 #
-# Add each project to `product_projects` and each suite to `test_projects`; the
-# explicit lists are deliberate, because a discovery-based loop silently stops
-# covering a project whose csproj moved or was renamed, and
+# Add each project to `product_projects`, each suite to `test_projects`, and each
+# library the suites share to `test_support_projects`; the explicit lists are
+# deliberate, because a discovery-based loop silently stops covering a project
+# whose csproj moved or was renamed, and
 # tests/PartyRpg.Architecture.Tests fails when a checked-in project is missing
-# from either list.
+# from its list.
 #
 # NativeAOT is a separate fidelity/release target and stays opt-in through
 # --aot; the ordinary development loop does not need it.
@@ -75,6 +76,11 @@ product_projects=(
   src/MightAndMagic7.Import.Tool/MightAndMagic7.Import.Tool.csproj
   tools/portable-assets-example/PortableExample.csproj
 )
+# The suites' shared support is a library, not a suite: it is built so a break in it
+# is reported as its own, and every suite that uses it references it.
+test_support_projects=(
+  tests/PartyRpg.Testing/PartyRpg.Testing.csproj
+)
 test_projects=(
   tests/PartyRpg.Architecture.Tests/PartyRpg.Architecture.Tests.csproj
   tests/PartyRpg.Kit.Tests/PartyRpg.Kit.Tests.csproj
@@ -93,7 +99,7 @@ pair_version=$(sed -n 's|.*<RustyEnginePackageVersion>\([^<]*\)</RustyEnginePack
 step "UI dependencies" npm ci
 step "UI suite" npm run test:ui
 
-for project in "${product_projects[@]}"; do
+for project in "${product_projects[@]}" "${test_support_projects[@]}"; do
   step "build $project" dotnet build "$project" --configuration Release
 done
 

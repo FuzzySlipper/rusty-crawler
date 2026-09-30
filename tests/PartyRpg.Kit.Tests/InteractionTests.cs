@@ -300,18 +300,18 @@ public sealed class InteractionTests
 
         // The first update faces the door the party stands in front of, and an update that carries no
         // request uses nothing.
-        session.Update(Update(1, 1));
+        session.Update(Admitted.Update(1, 1));
         ProjectedNode faced = channel.Latest().Field(SessionProjection.InteractionField);
         Assert.Equal("A door", faced.Field("label").AsString());
         Assert.Equal("open", faced.Field("verb").AsString());
         Assert.Equal("closed", faced.Field("state").AsString());
         Assert.Equal("ready", faced.Field("reason").AsString());
-        session.Update(Update(2, 1));
+        session.Update(Admitted.Update(2, 1));
         Assert.Equal(InteractionTargetState.None, hall.Interaction.FocusedTarget!.State);
 
         // The update that carries the press uses what the step before it put in front of the party, and the
         // outcome is part of the same projection the input arrived in.
-        session.Update(Update(3, 1, Digital("test.use", InputEdge.Pressed)));
+        session.Update(Admitted.Update(3, 1, Admitted.Digital("test.use", InputEdge.Pressed)));
         Assert.Equal("open", hall.Interaction.FocusedTarget!.State.State);
         ProjectedNode after = channel.Latest().Field(SessionProjection.InteractionField);
         Assert.Equal("applied", after.Field("outcome").AsString());
@@ -321,22 +321,22 @@ public sealed class InteractionTests
 
         // A use is an instant, not a state: a key reported as held — which the engine sends every update it
         // stays down — uses nothing, and neither does a payload that names some other action.
-        session.Update(Update(4, 1, Digital("test.use", InputEdge.Held)));
+        session.Update(Admitted.Update(4, 1, Admitted.Digital("test.use", InputEdge.Held)));
         Assert.Equal(1, hall.Interaction.FocusedTarget!.State.Revision);
-        session.Update(Update(5, 1, Payload(UseControls.ActionContract, """{"action":"something.else"}""")));
-        session.Update(Update(6, 1, Payload(UseControls.ActionContract, "not json at all")));
+        session.Update(Admitted.Update(5, 1, Admitted.Payload(UseControls.ActionContract, """{"action":"something.else"}""")));
+        session.Update(Admitted.Update(6, 1, Admitted.Payload(UseControls.ActionContract, "not json at all")));
         Assert.Equal(1, hall.Interaction.FocusedTarget!.State.Revision);
 
         // The panel's own control asks on the payload contract, and it uses exactly what the key uses.
         hall.Move(Hall.Facing("lever-0"));
-        session.Update(Update(7, 1, Payload(UseControls.ActionContract, """{"action":"party.use"}""")));
+        session.Update(Admitted.Update(7, 1, Admitted.Payload(UseControls.ActionContract, """{"action":"party.use"}""")));
         Assert.Equal("pulled", hall.Interaction.FocusedTarget!.State.State);
 
         // A held session still uses: a use is an instant rather than an interval, so a lever pulled while
         // the world is held is an act rather than a passage of time.
         hall.Move(Hall.Facing("door-0"));
         session.Hold();
-        session.Update(Update(8, 1, Digital("test.use", InputEdge.Pressed)));
+        session.Update(Admitted.Update(8, 1, Admitted.Digital("test.use", InputEdge.Pressed)));
         Assert.Equal("door-already-open", session.LiveWorld!.LastInteraction!.Code);
         Assert.Equal("refused", channel.Latest().Field(SessionProjection.InteractionField).Field("outcome").AsString());
     }
@@ -398,22 +398,6 @@ public sealed class InteractionTests
         Assert.Equal(["iron-key", "perception"], rule.Judged);
     }
 
-    private static ProductUpdate Update(ulong step, uint admitted, params ProductInputEvent[] input)
-    {
-        ProductUpdateFacts facts = new(
-            ProductUpdateMode.Realtime,
-            ProductLifecycleState.Running,
-            1,
-            1,
-            0,
-            step,
-            60,
-            admitted,
-            0,
-            StepSeconds);
-        return new ProductUpdate(facts, input);
-    }
-
     /// <summary>A party that carries whatever a test gives it, with the rules a test states.</summary>
     private static PartyEntity Party(int coins = 0) =>
         new PartyEntityFactory().Create(
@@ -437,18 +421,6 @@ public sealed class InteractionTests
                 ProvisionUnit.Portions,
                 reputation: 0,
                 fame: 0));
-
-    private static ProductInputEvent Digital(string intent, InputEdge edge) => new(
-        InputEventKind.MappedDigital, edge, default, default, default, default, default, default, default, default,
-        InputValueKind.Digital, InputPhase.Pressed, InputProvenance.Physical, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, Encoding.UTF8.GetBytes(intent),
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
-
-    private static ProductInputEvent Payload(string contract, string json) => new(
-        InputEventKind.DirectProductPayload, InputEdge.None, default, default, default, default, default, default, default, default,
-        InputValueKind.ProductPayload, InputPhase.DirectUi, InputProvenance.DirectUi, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty,
-        Encoding.UTF8.GetBytes(contract), Encoding.UTF8.GetBytes(json));
 
     /// <summary>A mover that holds no collision but reports everything it is asked about as unseen.</summary>
     private sealed class BlindMover : IPartyMover
@@ -608,8 +580,8 @@ public sealed class InteractionTests
         {
             ContentCatalog catalog = ContentCatalogLoader.Load(
                 new InMemoryContentSource()
-                    .Add("packs/world/pack.json", Manifest())
-                    .Add("packs/world/places.json", Document("places", "place", Place())),
+                    .Add("packs/world/pack.json", TestPacks.PlacesOnly)
+                    .Add("packs/world/places.json", TestPacks.Document("places", "place", Place())),
                 Layout).RequireValid();
 
             PlaceGraph graph = PlaceGraphLoader.Load(catalog);
@@ -658,24 +630,6 @@ public sealed class InteractionTests
                 { "id": "obelisk-0", "kind": "obelisk", "x": -200, "y": 200, "z": 0 },
                 { "id": "spawn-0", "kind": "spawn", "x": -50, "y": 0, "z": 0 },
                 { "id": "light-0", "kind": "light", "x": -60, "y": 0, "z": 64 } ] }
-            """;
-
-        private static string Manifest() =>
-            """
-            {
-              "schemaVersion": 1,
-              "packId": "world",
-              "kind": "definitions",
-              "provenance": { "description": "test content" },
-              "documents": [
-                { "path": "places.json", "documentId": "places", "definitionKind": "place" }
-              ]
-            }
-            """;
-
-        private static string Document(string documentId, string definitionKind, params string[] entries) =>
-            $$"""
-            { "documentId": "{{documentId}}", "definitionKind": "{{definitionKind}}", "entries": [ {{string.Join(",", entries)}} ] }
             """;
     }
 

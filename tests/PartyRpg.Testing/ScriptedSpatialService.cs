@@ -1,7 +1,7 @@
 using System.Numerics;
 using Rusty.Engine;
 
-namespace PartyRpg.Kit.Tests;
+namespace PartyRpg.Testing;
 
 /// <summary>
 /// An engine spatial service that records what the product asks of it and answers from a script.
@@ -13,37 +13,37 @@ namespace PartyRpg.Kit.Tests;
 /// would be a second opinion about geometry. Every operation the product does not use throws, so a product
 /// that starts depending on one fails a test instead of reading an answer nobody wrote.
 /// </remarks>
-internal sealed class ScriptedSpatialService : ISpatialService
+public sealed class ScriptedSpatialService : ISpatialService
 {
     private ulong _nextSession;
 
     /// <summary>Every scene created, in order, with whether it has been released.</summary>
-    internal List<(SpatialSession Session, SpatialSessionConfig Config)> Sessions { get; } = [];
+    public List<(SpatialSession Session, SpatialSessionConfig Config)> Sessions { get; } = [];
 
     /// <summary>The handles of the scenes that were released, in the order they were.</summary>
-    internal List<ulong> Released { get; } = [];
+    public List<ulong> Released { get; } = [];
 
     /// <summary>Every content artifact admitted, in order.</summary>
-    internal List<SpatialContentArtifactReplaceRequest> Admissions { get; } = [];
+    public List<SpatialContentArtifactReplaceRequest> Admissions { get; } = [];
 
     /// <summary>Every collision replacement, in order; the product sends one to empty a scene.</summary>
-    internal List<CollisionReplaceRequest> Replacements { get; } = [];
+    public List<CollisionReplaceRequest> Replacements { get; } = [];
 
     /// <summary>Every character step proposed, in order.</summary>
-    internal List<CharacterStepRequest> Steps { get; } = [];
+    public List<CharacterStepRequest> Steps { get; } = [];
 
     /// <summary>Every navigation step evaluated, in order.</summary>
-    internal List<NavigationStepRequest> NavigationSteps { get; } = [];
+    public List<NavigationStepRequest> NavigationSteps { get; } = [];
 
     /// <summary>How many navigation cells an admission reports.</summary>
-    internal ulong NavigationCells { get; set; }
+    public ulong NavigationCells { get; set; }
 
     /// <summary>What a navigation step answers; by default, that the scene has no projection.</summary>
-    internal Func<NavigationStepRequest, NavigationStepResult> Navigation { get; set; } =
+    public Func<NavigationStepRequest, NavigationStepResult> Navigation { get; set; } =
         _ => new NavigationStepResult(default, NavigationPathOutcome.ProjectionUnavailable, default, default, 0, 0, 0, 0, 0);
 
     /// <summary>Where a character step ends; by default where it started, since this double collides with nothing.</summary>
-    internal Func<CharacterStepRequest, Vector3> StepEnds { get; set; } = request => request.Position;
+    public Func<CharacterStepRequest, Vector3> StepEnds { get; set; } = request => request.Position;
 
     /// <inheritdoc />
     public SpatialSession CreateSession(SpatialSessionConfig config)

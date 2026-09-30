@@ -42,7 +42,7 @@ public sealed class TravelCostWiringTests
     [Fact]
     public void A_transition_charges_the_clock_and_the_larder_exactly_once()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         using PartyEntity party = Party(foodPortions: 6);
         using SessionWorld world = World(clock, Ledger(party), new TestCostRule());
 
@@ -68,7 +68,7 @@ public sealed class TravelCostWiringTests
     [Fact]
     public void A_refused_transition_charges_neither_the_clock_nor_the_larder()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         using PartyEntity party = Party(foodPortions: 6);
         TestCostRule rule = new() { Refuse = true };
         using SessionWorld world = World(clock, Ledger(party), rule);
@@ -90,7 +90,7 @@ public sealed class TravelCostWiringTests
     [Fact]
     public void A_party_that_arrives_short_is_weakened_and_a_day_it_covers_ends_it()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         using PartyEntity party = Party(foodPortions: 1, memberCount: 2);
         using SessionWorld world = World(clock, Ledger(party), new TestCostRule());
 
@@ -112,7 +112,7 @@ public sealed class TravelCostWiringTests
     public void The_clocks_day_boundary_reaches_place_respawn_through_the_session()
     {
         using RecordingUiProjectionChannel channel = new();
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         using SessionWorld world = World(clock, null, new TestCostRule());
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
@@ -124,7 +124,7 @@ public sealed class TravelCostWiringTests
 
         // Eight and a third game hours of admitted time: the same day, so the place's population is not
         // due and its state stands.
-        session.Update(Update(1, admitted: 1000, fixedDelta: 1.0));
+        session.Update(Admitted.Update(1, admitted: 1000, stepSeconds: 1.0));
 
         Assert.Equal(GameDuration.FromSeconds(30000), clock.Elapsed);
         Assert.Equal(0, clock.ElapsedGameDays);
@@ -132,7 +132,7 @@ public sealed class TravelCostWiringTests
 
         // Twenty-five game hours: the clock crossed a day boundary, and the same update that moved it
         // brings the world's places to the day it now stands on.
-        session.Update(Update(1001, admitted: 2000, fixedDelta: 1.0));
+        session.Update(Admitted.Update(1001, admitted: 2000, stepSeconds: 1.0));
 
         Assert.Equal(1, clock.ElapsedGameDays);
         PlaceState home = world.Places.StateOf(Home);
@@ -146,7 +146,7 @@ public sealed class TravelCostWiringTests
     [Fact]
     public void A_journey_that_crosses_a_day_brings_a_cleared_place_back_on_arrival()
     {
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         using PartyEntity party = Party(foodPortions: 6);
         TestCostRule rule = new()
         {
@@ -217,9 +217,9 @@ public sealed class TravelCostWiringTests
     public void The_session_advances_the_clock_by_the_interval_the_movement_step_covers()
     {
         using RecordingUiProjectionChannel channel = new();
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         PartyPoseOwner pose = Pose();
-        RecordingMover mover = new(pose);
+        RecordingMover mover = RecordingMover.Stepping(pose);
         using SessionWorld world = World(clock, null, new TestCostRule(), mover: mover, pose: pose);
         MovementInput input = new(Names, turnRatePerSecond: 512);
         using PartyRpgSession session = new(
@@ -237,17 +237,17 @@ public sealed class TravelCostWiringTests
         // clock is moved by exactly those two seconds converted at its own scale — one interval, one owner. The
         // update publishes its projection once, after the walk and the clock have both moved.
         int published = channel.Count;
-        session.Update(Update(0, admitted: 120, fixedDelta: StepSeconds, input: [Forward()]));
+        session.Update(Admitted.Update(0, admitted: 120, stepSeconds: StepSeconds, input: [Forward()]));
 
         Assert.Equal(published + 1, channel.Count);
-        Assert.Equal([2.0], mover.Steps);
+        Assert.Equal([2.0], mover.Steps.Select(step => step.Seconds));
         Assert.Equal(GameDuration.FromSeconds(60), clock.Elapsed);
 
         // A held session admits no interval, so neither the walk nor the clock moves while it is held; the
         // input is still read, so a key released during the hold is not still held when it resumes.
         session.Hold();
-        session.Update(Update(120, admitted: 120, fixedDelta: StepSeconds, input: []));
-        Assert.Equal([2.0], mover.Steps);
+        session.Update(Admitted.Update(120, admitted: 120, stepSeconds: StepSeconds, input: []));
+        Assert.Equal([2.0], mover.Steps.Select(step => step.Seconds));
         Assert.Equal(GameDuration.FromSeconds(60), clock.Elapsed);
     }
 
@@ -256,7 +256,7 @@ public sealed class TravelCostWiringTests
     {
         using RecordingUiProjectionChannel channel = new();
         RecordingDiagnosticsService diagnostics = new();
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         using SessionWorld world = World(clock, null, new TestCostRule());
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
@@ -268,7 +268,7 @@ public sealed class TravelCostWiringTests
 
         // An hour of game time, admitted in one update: the clock brings the deadline due, and the session
         // reports it as held by none of the owners it composed, because the test set it on the bare clock.
-        session.Update(Update(0, admitted: 120, fixedDelta: 1.0));
+        session.Update(Admitted.Update(0, admitted: 120, stepSeconds: 1.0));
 
         DiagnosticsPublishRequest published = Assert.Single(diagnostics.Published);
         Assert.Equal("deadline-unowned", published.Code);
@@ -293,7 +293,7 @@ public sealed class TravelCostWiringTests
     public void The_projection_publishes_the_clocks_date_and_the_partys_own_accounts()
     {
         using RecordingUiProjectionChannel channel = new();
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create();
         using PartyEntity party = Party(foodPortions: 3, coins: 42, reputation: 5, fame: 2);
         using SessionWorld world = World(clock, Ledger(party), new TestCostRule());
         using PartyRpgSession session = new(
@@ -339,10 +339,10 @@ public sealed class TravelCostWiringTests
         // The larder's own file is the one place food is counted, so no other source may declare a store
         // for it: a second counter beside the party's would be a number that can disagree with the one the
         // larder reports, which is exactly what a party-scoped resource exists to prevent.
-        string larder = Path.Combine(RepositoryRoot(), "src", "PartyRpg.Kit", "Party", "PartyFood.cs");
+        string larder = Path.Combine(Repository.Root, "src", "PartyRpg.Kit", "Party", "PartyFood.cs");
         string[] sources =
         [
-            .. Directory.EnumerateFiles(Path.Combine(RepositoryRoot(), "src", "PartyRpg.Kit"), "*.cs", SearchOption.AllDirectories)
+            .. Directory.EnumerateFiles(Path.Combine(Repository.Root, "src", "PartyRpg.Kit"), "*.cs", SearchOption.AllDirectories)
                 .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                     && !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                     && file != larder),
@@ -379,13 +379,6 @@ public sealed class TravelCostWiringTests
 
     /// <summary>The calendar these tests run on, which is the product's authored one.</summary>
     private static GameCalendar Calendar => GameCalendar.TwelveMonthsOfFourWeeks;
-
-    /// <summary>The clock these tests run on: the authored calendar, a stated start, thirty times real time.</summary>
-    private static GameClock Clock() => new(
-        Calendar,
-        new GameDate(1168, 1, 1, 9, 0, 0),
-        new GameTimeScale(30),
-        new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
 
     /// <summary>The party a transition's provisions are charged to.</summary>
     private static PartyEntity Party(
@@ -468,34 +461,14 @@ public sealed class TravelCostWiringTests
     private static PlaceGraph Graph() => PlaceGraphLoader.Load(
         ContentCatalogLoader.Load(
             new InMemoryContentSource()
-                .Add("packs/world/pack.json", Manifest())
-                .Add("packs/world/places.json", Document("places", "place",
+                .Add("packs/world/pack.json", TestPacks.World)
+                .Add("packs/world/places.json", TestPacks.Document("places", "place",
                     """{ "id": "1", "kind": "region", "name": "Home", "respawnDays": 1, "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 512 } ] }""",
                     """{ "id": "2", "kind": "interior", "name": "Cave", "respawnDays": 1, "entryPoints": [ { "id": "Party Start", "x": 5, "y": 6, "z": 7, "yaw": 0 } ] }"""))
-                .Add("packs/world/links.json", Document("links", "travel-link",
+                .Add("packs/world/links.json", TestPacks.Document("links", "travel-link",
                     """{ "id": "edge", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start" }""",
                     """{ "id": "back", "fromPlace": "2", "toPlace": "1", "x": 10, "y": 20, "z": 0, "yaw": 512 }""")),
             Layout).RequireValid());
-
-    private static ProductUpdate Update(
-        ulong step,
-        uint admitted,
-        double fixedDelta = StepSeconds,
-        ReadOnlySpan<ProductInputEvent> input = default)
-    {
-        ProductUpdateFacts facts = new(
-            ProductUpdateMode.Realtime,
-            ProductLifecycleState.Running,
-            1,
-            1,
-            0,
-            step,
-            60,
-            admitted,
-            0,
-            fixedDelta);
-        return new ProductUpdate(facts, input);
-    }
 
     /// <summary>A held forward control, which is what a player pressing the walk key sends.</summary>
     private static ProductInputEvent Forward() => new(
@@ -503,42 +476,6 @@ public sealed class TravelCostWiringTests
         InputValueKind.Digital, InputPhase.Pressed, InputProvenance.Physical, default, default, default, 0f, 0f,
         ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, System.Text.Encoding.UTF8.GetBytes(Names.Forward),
         ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
-
-    private static string Manifest() =>
-        """
-        {
-          "schemaVersion": 1,
-          "packId": "world",
-          "kind": "definitions",
-          "provenance": { "description": "test content" },
-          "documents": [
-            { "path": "places.json", "documentId": "places", "definitionKind": "place" },
-            { "path": "links.json", "documentId": "links", "definitionKind": "travel-link" }
-          ]
-        }
-        """;
-
-    private static string Document(string documentId, string definitionKind, params string[] entries) =>
-        $$"""
-        { "documentId": "{{documentId}}", "definitionKind": "{{definitionKind}}", "entries": [ {{string.Join(",", entries)}} ] }
-        """;
-
-    private static string RepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "AGENTS.md")) &&
-                Directory.Exists(Path.Combine(directory.FullName, "src")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Could not find the repository root above the test assembly.");
-    }
 
     /// <summary>The cost contract as this suite states it: walking is free, anything else is a journey.</summary>
     private sealed class TestCostRule : ITravelCostRule
@@ -575,37 +512,6 @@ public sealed class TravelCostWiringTests
             }
 
             return new ActiveCondition(weakness, 1);
-        }
-    }
-
-    /// <summary>Movement as this suite drives it: it records the interval each step covered.</summary>
-    private sealed class RecordingMover(PartyPoseOwner party) : IPartyMover
-    {
-        /// <summary>The admitted interval of every step the session asked for, in order.</summary>
-        internal List<double> Steps { get; } = [];
-
-        /// <summary>These movers hold no collision, so nothing occludes anything in them.</summary>
-        public bool InSight(Vector3 from, Vector3 to) => true;
-
-        public PlaceGeometryAdmission Enter(PlaceId place) => PlaceGeometryAdmission.Empty(place);
-
-        public MovementOutcome Step(MovementIntent intent, double elapsedSeconds)
-        {
-            Steps.Add(elapsedSeconds);
-            party.Move(1, 0, 0);
-            return new MovementOutcome(
-                party.Capture().Pose,
-                new Vector3(1, 0, 0),
-                Grounded: true,
-                default,
-                CharacterBlockFlags.None,
-                default,
-                SurfaceEffect.Ordinary,
-                FallOutcome.None);
-        }
-
-        public void Dispose()
-        {
         }
     }
 }

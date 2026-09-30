@@ -329,7 +329,7 @@ public sealed class StandingPolicyTests
         (PlaceId where, PlacementDefinition person) = ShippedPerson(catalog, conversation, "npc-1");
         ConversationSubject subject = conversation.Describe(new ConversationTargetRequest(where, person))!;
         using PartyEntity party = PartyOf(reputation: 0);
-        GameClock clock = Clock();
+        GameClock clock = TestClock.Create(scale: 1);
         ConversationOffer At(int reputation)
         {
             party.Reputation.ChangeReputation(reputation - party.Reputation.Reputation);
@@ -635,12 +635,6 @@ public sealed class StandingPolicyTests
         throw new InvalidOperationException($"The packs place nobody the person '{who}' is at, so the shipped line cannot be read against them.");
     }
 
-    private static GameClock Clock() => new(
-        GameCalendar.TwelveMonthsOfFourWeeks,
-        new GameDate(1168, 1, 1, 9, 0, 0),
-        new GameTimeScale(1),
-        new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
-
     /// <summary>A party of one whose standing a case moves through the owner that owns it.</summary>
     private static PartyEntity PartyOf(int reputation)
     {
@@ -682,7 +676,7 @@ public sealed class StandingPolicyTests
             Conversation = conversation;
             Services = services;
             Party = party;
-            Clock = StandingPolicyTests.Clock();
+            Clock = TestClock.Create(scale: 1);
         }
 
         internal ContentCatalog Catalog { get; }
@@ -699,7 +693,7 @@ public sealed class StandingPolicyTests
         {
             ContentCatalog catalog = ContentCatalogLoader.Load(
                 new PolicyContentSource()
-                    .Add("packs/world/pack.json", Manifest())
+                    .Add("packs/world/pack.json", TestPacks.Manifest("world", ("places", "place"), ("people", "person"), ("services", "service")))
                     .Add("packs/world/places.json", Places())
                     .Add("packs/world/people.json", People())
                     .Add("packs/world/services.json", ServicesJson()),
@@ -755,21 +749,6 @@ public sealed class StandingPolicyTests
         }
 
         public void Dispose() => Party.Dispose();
-
-        private static string Manifest() =>
-            """
-            {
-              "schemaVersion": 1,
-              "packId": "world",
-              "kind": "definitions",
-              "provenance": { "description": "authored for a test" },
-              "documents": [
-                { "path": "places.json", "documentId": "places", "definitionKind": "place" },
-                { "path": "people.json", "documentId": "people", "definitionKind": "person" },
-                { "path": "services.json", "documentId": "services", "definitionKind": "service" }
-              ]
-            }
-            """;
 
         private static string Places() =>
             """

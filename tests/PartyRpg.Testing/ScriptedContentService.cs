@@ -1,6 +1,6 @@
 using Rusty.Engine;
 
-namespace PartyRpg.Kit.Tests;
+namespace PartyRpg.Testing;
 
 /// <summary>
 /// An engine content service that admits whatever it is handed and records it.
@@ -10,15 +10,15 @@ namespace PartyRpg.Kit.Tests;
 /// admission needs the reference and nothing else. Every other operation throws: the product does not use
 /// it, and a double that answered it would let the product start depending on it unproven.
 /// </remarks>
-internal sealed class ScriptedContentService : IContentService
+public sealed class ScriptedContentService : IContentService
 {
     private ulong _next;
 
     /// <summary>Every document admitted, in order.</summary>
-    internal List<ContentAdmissionRequest> Admitted { get; } = [];
+    public List<ContentAdmissionRequest> Admitted { get; } = [];
 
     /// <summary>How many admitted references were released.</summary>
-    internal int ReleasedReferences { get; private set; }
+    public int ReleasedReferences { get; private set; }
 
     /// <inheritdoc />
     public ContentReference AdmitReference(ContentAdmissionRequest request)

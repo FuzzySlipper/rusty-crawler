@@ -393,13 +393,6 @@ public sealed class MonsterAiTests
 
     private static PlacePose Pose() => new(0, 0, 0, 0, 0);
 
-    /// <summary>The session's one clock, at this game's own rate and on its own calendar.</summary>
-    private static GameClock Clock() => new(
-        GameCalendar.TwelveMonthsOfFourWeeks,
-        new GameDate(1168, 1, 1, 9, 0, 0),
-        new GameTimeScale(30),
-        new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
-
     /// <summary>A party of four, one of which a blow of ten can take past empty.</summary>
     private static PartyEntity Party(ICharacterHealthRule? health = null)
     {
@@ -427,7 +420,7 @@ public sealed class MonsterAiTests
 
     /// <summary>The fight this suite exercises: the kit's state over the test's own rule.</summary>
     private static CombatState Fight(SessionWorld world, PartyEntity party, bool resolving = false, double noticeRange = NoticeRange) =>
-        new(Capabilities.Combat(resolving ? new Biting(noticeRange) : new TestRule(noticeRange)), party, world, Clock());
+        new(Capabilities.Combat(resolving ? new Biting(noticeRange) : new TestRule(noticeRange)), party, world, TestClock.Create());
 
     /// <summary>
     /// A world of two places: one hall holding a creature inside its notice range, a creature far outside it,
@@ -504,7 +497,7 @@ public sealed class MonsterAiTests
             mover: null,
             diagnostics: null,
             entrances: null,
-            clock: Clock(),
+            clock: TestClock.Create(),
             resources: null,
             partyEntity: party,
             interaction: null,
@@ -517,12 +510,6 @@ public sealed class MonsterAiTests
     private sealed class Days : IWorldTimeSource
     {
         public int ElapsedGameDays { get; set; }
-    }
-
-    /// <summary>Walking is free: nothing in these tests is about what a road costs.</summary>
-    private sealed class FreeTravel : ITravelCostRule
-    {
-        public TravelCostQuote Quote(TransitionRequest request) => TravelCostQuote.Payable(TravelCost.Free);
     }
 
     /// <summary>

@@ -320,8 +320,8 @@ public sealed class PlacePopulationTests
     {
         PlaceGraph graph = PlaceGraphLoader.Load(ContentCatalogLoader.Load(
             new InMemoryContentSource()
-                .Add("packs/world/pack.json", Manifest())
-                .Add("packs/world/places.json", Document("places", "place", places)),
+                .Add("packs/world/pack.json", TestPacks.PlacesOnly)
+                .Add("packs/world/places.json", TestPacks.Document("places", "place", places)),
             Layout).RequireValid());
         return (graph, new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()));
     }
@@ -334,26 +334,4 @@ public sealed class PlacePopulationTests
     }
 
     private static string Places(params string[] entries) => string.Join(",", entries);
-
-    private static string Manifest() =>
-        """
-        {
-          "schemaVersion": 1,
-          "packId": "world",
-          "kind": "definitions",
-          "provenance": { "description": "test content" },
-          "documents": [
-            { "path": "places.json", "documentId": "places", "definitionKind": "place" }
-          ]
-        }
-        """;
-
-    private static string Document(string documentId, string definitionKind, string entries) =>
-        $$"""
-        {
-          "documentId": "{{documentId}}",
-          "definitionKind": "{{definitionKind}}",
-          "entries": [ {{entries}} ]
-        }
-        """;
 }
