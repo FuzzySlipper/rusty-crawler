@@ -7,7 +7,6 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <AnalysisLevel>latest</AnalysisLevel>
     <Deterministic>true</Deterministic>
-    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
     <!-- The immutable SDK owns generated CoreCLR and NativeAOT composition below obj. This ordinary
          product project remains the one entry root, and the only project that declares a product. -->
     <RustyEngineProductEntryType>PartyRpg.Host.CrawlerProduct</RustyEngineProductEntryType>
