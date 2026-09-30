@@ -527,18 +527,18 @@ public sealed class RestAndScheduleTests
 
         public InteractionTrap? Trap(InteractionTargetDefinition target, InteractionContext context) => null;
 
-        public InteractionRequirementVerdict Judge(InteractionRequirement requirement, InteractionContext context)
+        public Verdict Judge(InteractionRequirement requirement, InteractionContext context)
         {
-            if (requirement.Kind != InteractionRequirementKind.TimeOfDay) return InteractionRequirementVerdict.Satisfied;
+            if (requirement.Kind != InteractionRequirementKind.TimeOfDay) return Verdict.Met;
             if (schedule.HoursOf(context.Place) is not { } hours || context.Clock is not { } clock)
             {
-                return InteractionRequirementVerdict.Satisfied;
+                return Verdict.Met;
             }
 
             GameDate now = clock.Now;
             return hours.IsOpenAt(now)
-                ? InteractionRequirementVerdict.Satisfied
-                : InteractionRequirementVerdict.Unsatisfied($"It keeps {hours} and the clock stands at {now.Hour:00}:{now.Minute:00}.");
+                ? Verdict.Met
+                : Verdict.Unmet($"It keeps {hours} and the clock stands at {now.Hour:00}:{now.Minute:00}.");
         }
 
         public InteractionOutcome Apply(InteractionTargetDefinition target, InteractionContext context) =>

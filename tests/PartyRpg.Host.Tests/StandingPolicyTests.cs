@@ -149,8 +149,8 @@ public sealed class StandingPolicyTests
         Assert.False(withheld.IsOnOffer);
         Assert.Equal(ConversationConditionKind.Reputation, Assert.Single(withheld.Topic.Conditions).Kind);
         Assert.Equal(MightAndMagic7Standing.WellRegarded, withheld.Topic.Conditions[0].Amount);
-        Assert.Contains("standing is 0", withheld.Availability.Reason, StringComparison.Ordinal);
-        Assert.Contains("needs 6", withheld.Availability.Reason, StringComparison.Ordinal);
+        Assert.Contains("standing is 0", withheld.Availability.Explanation, StringComparison.Ordinal);
+        Assert.Contains("needs 6", withheld.Availability.Explanation, StringComparison.Ordinal);
 
         // The threshold is crossed the only way it may be — a deed through the progression owner — and the
         // line appears in the same conversation without anything having been invalidated: availability is
@@ -337,7 +337,7 @@ public sealed class StandingPolicyTests
         }
 
         Assert.False(At(0).IsOnOffer);
-        Assert.Contains("needs 6", At(0).Availability.Reason, StringComparison.Ordinal);
+        Assert.Contains("needs 6", At(0).Availability.Explanation, StringComparison.Ordinal);
         Assert.False(At(5).IsOnOffer);
         Assert.True(At(6).IsOnOffer);
         Assert.True(At(25).IsOnOffer);

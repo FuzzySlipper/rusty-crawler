@@ -284,12 +284,12 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
         MightAndMagic7Containers.Trap(target, context);
 
     /// <inheritdoc />
-    public InteractionRequirementVerdict Judge(InteractionRequirement requirement, InteractionContext context) => requirement.Kind switch
+    public Verdict Judge(InteractionRequirement requirement, InteractionContext context) => requirement.Kind switch
     {
         InteractionRequirementKind.Item => JudgeItem(requirement, context),
         InteractionRequirementKind.Skill => JudgeSkill(requirement, context),
         InteractionRequirementKind.TimeOfDay => JudgeTime(requirement, context),
-        _ => InteractionRequirementVerdict.Unsatisfied(
+        _ => Verdict.Unmet(
             $"What '{requirement.Name}' asks for is something this game does not record yet, so it cannot be met."),
     };
 
@@ -437,19 +437,19 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     /// has one kind for both rather than two names for one check. It is read from the party's one shared pack
     /// and what its members wear, which is every item the party holds.
     /// </remarks>
-    private static InteractionRequirementVerdict JudgeItem(InteractionRequirement requirement, InteractionContext context)
+    private static Verdict JudgeItem(InteractionRequirement requirement, InteractionContext context)
     {
         if (context.Party is not { } party)
         {
-            return InteractionRequirementVerdict.Unsatisfied(
+            return Verdict.Unmet(
                 $"It requires {requirement.Describe()}, and the party that would carry it does not exist in this session.");
         }
 
         ItemDefinitionId definition = new(requirement.Name);
         int carried = party.Inventory.TotalOf(definition);
         return carried >= requirement.Amount
-            ? InteractionRequirementVerdict.Satisfied
-            : InteractionRequirementVerdict.Unsatisfied(
+            ? Verdict.Met
+            : Verdict.Unmet(
                 $"It requires {requirement.Describe()} and the party carries {carried} of it.");
     }
 
@@ -459,11 +459,11 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     /// skill is the party's, which is the same reading a locked door in the original takes when it asks the
     /// party whether anybody can pick it.
     /// </remarks>
-    private static InteractionRequirementVerdict JudgeSkill(InteractionRequirement requirement, InteractionContext context)
+    private static Verdict JudgeSkill(InteractionRequirement requirement, InteractionContext context)
     {
         if (context.Party is not { } party)
         {
-            return InteractionRequirementVerdict.Unsatisfied(
+            return Verdict.Unmet(
                 $"It requires {requirement.Describe()}, and the party that would know it does not exist in this session.");
         }
 
@@ -471,8 +471,8 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
         int best = 0;
         foreach (PartyMember member in party.Members) best = Math.Max(best, member.Skills.LevelOf(skill));
         return best >= requirement.Amount
-            ? InteractionRequirementVerdict.Satisfied
-            : InteractionRequirementVerdict.Unsatisfied(
+            ? Verdict.Met
+            : Verdict.Unmet(
                 $"It requires {requirement.Describe()} and the party's best is {best}.");
     }
 
@@ -483,11 +483,11 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     /// answers. Both are read from the live clock at the moment of the use, so a door that was shut at
     /// midnight is open at six without anything having changed but the hour.
     /// </remarks>
-    private InteractionRequirementVerdict JudgeTime(InteractionRequirement requirement, InteractionContext context)
+    private Verdict JudgeTime(InteractionRequirement requirement, InteractionContext context)
     {
         if (context.Clock is not { } clock)
         {
-            return InteractionRequirementVerdict.Unsatisfied(
+            return Verdict.Unmet(
                 $"It can only be used at {requirement.Name} and this session keeps no clock, so no time of day is known.");
         }
 
@@ -499,8 +499,8 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
         bool wantsDay = string.Equals(requirement.Name, "day", StringComparison.OrdinalIgnoreCase);
         bool isDay = clock.IsDaylight;
         return wantsDay == isDay
-            ? InteractionRequirementVerdict.Satisfied
-            : InteractionRequirementVerdict.Unsatisfied(
+            ? Verdict.Met
+            : Verdict.Unmet(
                 $"It can only be used at {requirement.Name} and it is {(isDay ? "day" : "night")}.");
     }
 
@@ -513,18 +513,18 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     /// midnight knows how long the wait is instead of being told only that it is closed. A place whose hours
     /// this ruleset did not read is open, because nothing has shut it.
     /// </remarks>
-    private InteractionRequirementVerdict JudgeOpenHours(InteractionContext context, GameClock clock)
+    private Verdict JudgeOpenHours(InteractionContext context, GameClock clock)
     {
-        if (_schedule?.HoursOf(context.Place) is not { } hours) return InteractionRequirementVerdict.Satisfied;
+        if (_schedule?.HoursOf(context.Place) is not { } hours) return Verdict.Met;
         GameDate now = clock.Now;
-        if (hours.IsOpenAt(now)) return InteractionRequirementVerdict.Satisfied;
+        if (hours.IsOpenAt(now)) return Verdict.Met;
 
         string opens = hours.NextChangeAfter(clock.Calendar, now) is { } next
             ? string.Create(
                 System.Globalization.CultureInfo.InvariantCulture,
                 $" and it opens again at {next.MinuteText}")
             : string.Empty;
-        return InteractionRequirementVerdict.Unsatisfied(
+        return Verdict.Unmet(
             string.Create(
                 System.Globalization.CultureInfo.InvariantCulture,
                 $"It keeps {hours} and the clock stands at {now.Hour:00}:{now.Minute:00}{opens}."));

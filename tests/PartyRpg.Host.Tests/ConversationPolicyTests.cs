@@ -96,7 +96,7 @@ public sealed class ConversationPolicyTests
         ConversationOffer gated = Assert.Single(offers, offer => offer.Id == "topic-2");
         Assert.False(gated.IsOnOffer);
         Assert.Equal(ConversationConditionKind.Errand, Assert.Single(gated.Topic.Conditions).Kind);
-        Assert.Contains("the errand the table calls 7 is not finished", gated.Availability.Reason, StringComparison.Ordinal);
+        Assert.Contains("the errand the table calls 7 is not finished", gated.Availability.Explanation, StringComparison.Ordinal);
 
         // Taking the line says what content says, records that it was heard on the party, and states the
         // residue: the original runs an event program behind a reply and nothing here does.
@@ -130,14 +130,14 @@ public sealed class ConversationPolicyTests
         Assert.Contains("topic-5", fixture.OnOffer(person));
         fixture.Party.Reputation.ChangeReputation(-9);
         Assert.DoesNotContain("topic-6", fixture.OnOffer(person));
-        Assert.Contains("standing is 1", fixture.Offer(person, "topic-6").Availability.Reason, StringComparison.Ordinal);
+        Assert.Contains("standing is 1", fixture.Offer(person, "topic-6").Availability.Explanation, StringComparison.Ordinal);
 
         // A topic that waits for the hour reads the session's one clock, and a place whose clock says night
         // offers a different set: the same content, read against the state it names.
         Assert.Contains("topic-7", fixture.OnOffer(person));
         fixture.Clock.Advance(GameDuration.FromHours(14));
         Assert.DoesNotContain("topic-7", fixture.OnOffer(person));
-        Assert.Contains("clock stands at", fixture.Offer(person, "topic-7").Availability.Reason, StringComparison.Ordinal);
+        Assert.Contains("clock stands at", fixture.Offer(person, "topic-7").Availability.Explanation, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -164,8 +164,8 @@ public sealed class ConversationPolicyTests
         fixture.Clock.Advance(GameDuration.FromHours(12));
         ConversationOffer shut = fixture.Offer(counter, MightAndMagic7Conversation.CounterTopicId);
         Assert.False(shut.IsOnOffer);
-        Assert.Contains("it is shut", shut.Availability.Reason, StringComparison.Ordinal);
-        Assert.Contains("06:00–18:00", shut.Availability.Reason, StringComparison.Ordinal);
+        Assert.Contains("it is shut", shut.Availability.Explanation, StringComparison.Ordinal);
+        Assert.Contains("06:00–18:00", shut.Availability.Explanation, StringComparison.Ordinal);
 
         // A building the tables name nobody for still has somebody behind the door: the proprietor the
         // counter's own definition states, because a shop nobody could speak with is a shop nobody can enter.

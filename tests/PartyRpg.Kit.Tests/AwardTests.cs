@@ -116,8 +116,8 @@ public sealed class AwardTests
         // party's own numbers rather than in words a screen would have to work out.
         ConversationOffer withheld = conversation.Offers.Single(offer => offer.Id == "regard");
         Assert.False(withheld.IsOnOffer);
-        Assert.Contains("standing is 0", withheld.Availability.Reason, StringComparison.Ordinal);
-        Assert.Contains("needs 6", withheld.Availability.Reason, StringComparison.Ordinal);
+        Assert.Contains("standing is 0", withheld.Availability.Explanation, StringComparison.Ordinal);
+        Assert.Contains("needs 6", withheld.Availability.Explanation, StringComparison.Ordinal);
 
         // The threshold is crossed the only way it may be: through the progression owner, at the one entry
         // every award arrives at, with the source the quest owner names. Nothing else in this product writes
@@ -497,14 +497,14 @@ public sealed class AwardTests
                 WellRegarded,
                 "the party's standing");
             ConversationTopic topic = new("regard", "What do people say about us?", [condition]);
-            ConversationAvailability availability = context.Party is { } party && party.Reputation.Reputation >= WellRegarded
-                ? ConversationAvailability.OnOffer
-                : ConversationAvailability.Withheld(
+            Verdict availability = context.Party is { } party && party.Reputation.Reputation >= WellRegarded
+                ? Verdict.Met
+                : Verdict.Unmet(
                     $"the party's standing is {context.Party?.Reputation.Reputation ?? 0} and this needs {WellRegarded}");
             List<ConversationOffer> offers = [new(topic, availability)];
             if (context.Party is { } carrier && carrier.Records.Has(ErrandRecord))
             {
-                offers.Add(new ConversationOffer(new ConversationTopic("deed", "About the seal"), ConversationAvailability.OnOffer));
+                offers.Add(new ConversationOffer(new ConversationTopic("deed", "About the seal"), Verdict.Met));
             }
 
             return offers;

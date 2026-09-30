@@ -381,17 +381,17 @@ public sealed class ContainerTests
             };
         }
 
-        public InteractionRequirementVerdict Judge(InteractionRequirement requirement, InteractionContext context)
+        public Verdict Judge(InteractionRequirement requirement, InteractionContext context)
         {
             if (requirement.Kind != InteractionRequirementKind.Item || context.Party is not { } party)
             {
-                return InteractionRequirementVerdict.Unsatisfied($"nothing here answers {requirement.Describe()}");
+                return Verdict.Unmet($"nothing here answers {requirement.Describe()}");
             }
 
             int carried = party.Inventory.TotalOf(new ItemDefinitionId(requirement.Name));
             return carried >= requirement.Amount
-                ? InteractionRequirementVerdict.Satisfied
-                : InteractionRequirementVerdict.Unsatisfied($"the party carries none of it ({carried} of {requirement.Describe()})");
+                ? Verdict.Met
+                : Verdict.Unmet($"the party carries none of it ({carried} of {requirement.Describe()})");
         }
 
         public InteractionOutcome Apply(InteractionTargetDefinition target, InteractionContext context)

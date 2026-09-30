@@ -103,7 +103,7 @@ public sealed class ConversationTests
         Assert.Equal(
             ["carried", "secondclass", "secondrace", "errand", "flag"],
             conversations.Withheld.Select(offer => offer.Id));
-        Assert.Contains("does not carry", conversations.Availability("flag")!.Reason, StringComparison.Ordinal);
+        Assert.Contains("does not carry", conversations.Availability("flag")!.Value.Explanation, StringComparison.Ordinal);
 
         // The party-carried flag: applying the effect the topic waits for puts it on offer, and removing it
         // hides the topic again — nothing was invalidated, because nothing is remembered between reads.
@@ -121,7 +121,7 @@ public sealed class ConversationTests
         // for takes it off the list, and the reason states the standing the party actually has.
         party.Reputation.ChangeReputation(-1);
         Assert.DoesNotContain("standing", conversations.OnOffer.Select(offer => offer.Id));
-        Assert.Contains("standing is 9", conversations.Availability("standing")!.Reason, StringComparison.Ordinal);
+        Assert.Contains("standing is 9", conversations.Availability("standing")!.Value.Explanation, StringComparison.Ordinal);
         party.Reputation.ChangeReputation(1);
         Assert.Contains("standing", conversations.OnOffer.Select(offer => offer.Id));
 
@@ -136,10 +136,10 @@ public sealed class ConversationTests
         Assert.Contains("secondrace", conversations.Withheld.Select(offer => offer.Id));
 
         // The hour: the session's one clock, whose daylight window decides which of the two holds.
-        Assert.Equal("day", conversations.Availability("hour")!.IsOnOffer ? "day" : "night");
+        Assert.Equal("day", conversations.Availability("hour")!.Value.IsMet ? "day" : "night");
         hall.Clock.Advance(GameDuration.FromHours(14));
-        Assert.False(conversations.Availability("hour")!.IsOnOffer);
-        Assert.Contains("clock stands at", conversations.Availability("hour")!.Reason, StringComparison.Ordinal);
+        Assert.False(conversations.Availability("hour")!.Value.IsMet);
+        Assert.Contains("clock stands at", conversations.Availability("hour")!.Value.Explanation, StringComparison.Ordinal);
 
         // An errand: a flag the quest owner will set, which nothing in this build sets yet.
         Assert.Contains("errand", conversations.Withheld.Select(offer => offer.Id));
@@ -151,7 +151,7 @@ public sealed class ConversationTests
         PartyConversations timeless = new(hall.Rule, party, clock: null);
         timeless.OpenTarget(HallPlace, hall.PlacementOf("person-0"));
         Assert.Contains("hour", timeless.Withheld.Select(offer => offer.Id));
-        Assert.Contains("nothing in this world keeps the hour", timeless.Availability("hour")!.Reason, StringComparison.Ordinal);
+        Assert.Contains("nothing in this world keeps the hour", timeless.Availability("hour")!.Value.Explanation, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -465,17 +465,17 @@ public sealed class ConversationTests
             List<ConversationOffer> offers = [];
             foreach (ConversationTopic topic in TopicList(context))
             {
-                ConversationAvailability availability = ConversationAvailability.OnOffer;
+                Verdict availability = Verdict.Met;
                 foreach (ConversationCondition condition in topic.Conditions)
                 {
                     availability = Judge(condition, context);
-                    if (!availability.IsOnOffer) break;
+                    if (!availability.IsMet) break;
                 }
 
-                if (availability.IsOnOffer &&
+                if (availability.IsMet &&
                     context.Said.Any(line => string.Equals(line.Topic, topic.Id, StringComparison.Ordinal)))
                 {
-                    availability = ConversationAvailability.Withheld("they have already said this in this conversation");
+                    availability = Verdict.Unmet("they have already said this in this conversation");
                 }
 
                 offers.Add(new ConversationOffer(topic, availability));
@@ -521,28 +521,28 @@ public sealed class ConversationTests
             new(id, label, conditions);
 
         /// <summary>What one condition makes of the state, read from the owner that holds it.</summary>
-        private static ConversationAvailability Judge(ConversationCondition condition, ConversationContext context) =>
+        private static Verdict Judge(ConversationCondition condition, ConversationContext context) =>
             condition.Kind switch
             {
                 ConversationConditionKind.Flag => context.Party is { } party && party.Records.Has(condition.Name)
-                    ? ConversationAvailability.OnOffer
-                    : ConversationAvailability.Withheld($"the party does not carry {condition.Label}"),
+                    ? Verdict.Met
+                    : Verdict.Unmet($"the party does not carry {condition.Label}"),
                 ConversationConditionKind.Reputation => (context.Party?.Reputation.Reputation ?? 0) >= condition.Amount
-                    ? ConversationAvailability.OnOffer
-                    : ConversationAvailability.Withheld($"the party's standing is {context.Party?.Reputation.Reputation ?? 0}"),
+                    ? Verdict.Met
+                    : Verdict.Unmet($"the party's standing is {context.Party?.Reputation.Reputation ?? 0}"),
                 ConversationConditionKind.Class => context.Party is { } members && members.Members.Any(member => member.Profile.Class.Value == condition.Name)
-                    ? ConversationAvailability.OnOffer
-                    : ConversationAvailability.Withheld("nobody here is that"),
+                    ? Verdict.Met
+                    : Verdict.Unmet("nobody here is that"),
                 ConversationConditionKind.Race => context.Party is { } band && band.Members.Any(member => member.Profile.Race.Value == condition.Name)
-                    ? ConversationAvailability.OnOffer
-                    : ConversationAvailability.Withheld("nobody here is that"),
+                    ? Verdict.Met
+                    : Verdict.Unmet("nobody here is that"),
                 ConversationConditionKind.Hour => context.Clock is { } clock && clock.IsDaylight
-                    ? ConversationAvailability.OnOffer
-                    : ConversationAvailability.Withheld(context.Clock is null ? "nothing in this world keeps the hour" : $"the clock stands at {context.Clock.Now.Hour:00}:00"),
+                    ? Verdict.Met
+                    : Verdict.Unmet(context.Clock is null ? "nothing in this world keeps the hour" : $"the clock stands at {context.Clock.Now.Hour:00}:00"),
                 ConversationConditionKind.Errand => context.Party is { } carrier && carrier.Records.Has(condition.Name)
-                    ? ConversationAvailability.OnOffer
-                    : ConversationAvailability.Withheld($"{condition.Label} is not finished"),
-                _ => ConversationAvailability.Withheld("nothing knows what that asks for"),
+                    ? Verdict.Met
+                    : Verdict.Unmet($"{condition.Label} is not finished"),
+                _ => Verdict.Unmet("nothing knows what that asks for"),
             };
     }
 
@@ -693,8 +693,8 @@ public sealed class ConversationTests
                 ? new InteractionTargetDefinition(new InteractionTargetKind("person"), subject.First.Name, InteractionVerb.Talk, 512)
                 : null;
 
-        public InteractionRequirementVerdict Judge(InteractionRequirement requirement, InteractionContext context) =>
-            InteractionRequirementVerdict.Satisfied;
+        public Verdict Judge(InteractionRequirement requirement, InteractionContext context) =>
+            Verdict.Met;
 
         public InteractionTrap? Trap(InteractionTargetDefinition target, InteractionContext context) => null;
 

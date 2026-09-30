@@ -268,7 +268,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
         // the answer, and nothing at all is applied.
         foreach (InteractionRequirement requirement in target.Definition.Requires)
         {
-            InteractionRequirementVerdict verdict = _rule.Judge(requirement, context);
+            Verdict verdict = _rule.Judge(requirement, context);
             if (verdict.IsMet) continue;
             return InteractionResult.Refused(
                 target,

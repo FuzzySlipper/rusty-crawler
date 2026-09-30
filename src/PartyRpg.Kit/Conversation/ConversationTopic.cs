@@ -49,7 +49,7 @@ public sealed record ConversationTopic
 /// <summary>One topic of a speaker's list, with what its conditions make of it right now.</summary>
 /// <param name="Topic">The topic.</param>
 /// <param name="Availability">Whether every condition holds, and why not when one does not.</param>
-public readonly record struct ConversationOffer(ConversationTopic Topic, ConversationAvailability Availability)
+public readonly record struct ConversationOffer(ConversationTopic Topic, Verdict Availability)
 {
     /// <summary>The topic's identity.</summary>
     public string Id => Topic.Id;
@@ -58,8 +58,8 @@ public readonly record struct ConversationOffer(ConversationTopic Topic, Convers
     public string Label => Topic.Label;
 
     /// <summary>Whether the topic may be chosen.</summary>
-    public bool IsOnOffer => Availability.IsOnOffer;
+    public bool IsOnOffer => Availability.IsMet;
 
     /// <inheritdoc />
-    public override string ToString() => IsOnOffer ? Label : $"{Label} ({Availability.Reason})";
+    public override string ToString() => IsOnOffer ? Label : $"{Label} ({Availability.Explanation})";
 }

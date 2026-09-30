@@ -49,7 +49,7 @@ public interface IInteractionRule
     /// <param name="requirement">The requirement to judge.</param>
     /// <param name="context">The target, its state, the party, and the clock the requirement is judged against.</param>
     /// <returns>The verdict.</returns>
-    InteractionRequirementVerdict Judge(InteractionRequirement requirement, InteractionContext context);
+    Verdict Judge(InteractionRequirement requirement, InteractionContext context);
 
     /// <summary>
     /// What a use the party is allowed to make produces: what the target becomes, what the use gives, or why

@@ -1,3 +1,4 @@
+using PartyRpg.Kit;
 using System.Globalization;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Conversation;
@@ -404,16 +405,16 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         {
             foreach (TopicFacts topic in person.Topics)
             {
-                ConversationAvailability availability = ConversationAvailability.OnOffer;
+                Verdict availability = Verdict.Met;
                 foreach (ConversationCondition condition in topic.Conditions)
                 {
                     availability = Judge(condition, context);
-                    if (!availability.IsOnOffer) break;
+                    if (!availability.IsMet) break;
                 }
 
-                if (availability.IsOnOffer && Said(context, topic.Id))
+                if (availability.IsMet && Said(context, topic.Id))
                 {
-                    availability = ConversationAvailability.Withheld("they have already said this in this conversation");
+                    availability = Verdict.Unmet("they have already said this in this conversation");
                 }
 
                 offers.Add(new ConversationOffer(topic.Topic, availability));
@@ -442,10 +443,10 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
             foreach (PromotionRank rank in ladder.Ladder.GivenBy(context.Speaker))
             {
                 string id = $"{MightAndMagic7Identities.PromotionTopicPrefix}{rank.Id}";
-                ConversationAvailability availability = RankOffer(rank, context);
-                if (availability.IsOnOffer && Said(context, id))
+                Verdict availability = RankOffer(rank, context);
+                if (availability.IsMet && Said(context, id))
                 {
-                    availability = ConversationAvailability.Withheld("they have already said this in this conversation");
+                    availability = Verdict.Unmet("they have already said this in this conversation");
                 }
 
                 offers.Add(new ConversationOffer(new ConversationTopic(id, rank.To.Value), availability));
@@ -499,8 +500,8 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
                 offers.Add(new ConversationOffer(
                     new ConversationTopic($"{MightAndMagic7Identities.AcceptTopicPrefix}{definition.Id}", definition.Name),
                     Said(context, $"{MightAndMagic7Identities.AcceptTopicPrefix}{definition.Id}")
-                        ? ConversationAvailability.Withheld("they have already said this in this conversation")
-                        : ConversationAvailability.OnOffer));
+                        ? Verdict.Unmet("they have already said this in this conversation")
+                        : Verdict.Met));
                 continue;
             }
 
@@ -508,7 +509,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
             {
                 offers.Add(new ConversationOffer(
                     new ConversationTopic($"{MightAndMagic7Identities.TurnInTopicPrefix}{definition.Id}", definition.Name),
-                    ConversationAvailability.OnOffer));
+                    Verdict.Met));
             }
         }
 
@@ -548,14 +549,14 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         foreach (ConversationCondition stated in topic.Conditions)
         {
             if (Holds(stated, context.Party, context.Clock)) continue;
-            return new ConversationOffer(topic, ConversationAvailability.Withheld(Reason(stated, context)));
+            return new ConversationOffer(topic, Verdict.Unmet(Reason(stated, context)));
         }
 
         return new ConversationOffer(
             topic,
             Said(context, StandingTopicId)
-                ? ConversationAvailability.Withheld("they have already said this in this conversation")
-                : ConversationAvailability.OnOffer);
+                ? Verdict.Unmet("they have already said this in this conversation")
+                : Verdict.Met);
     }
 
     /// <summary>One errand's own offer, as its stated conditions leave it.</summary>
@@ -570,10 +571,10 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
             if (Holds(condition, context.Party, context.Clock)) continue;
             return new ConversationOffer(
                 new ConversationTopic(id, label),
-                ConversationAvailability.Withheld(Reason(condition, context)));
+                Verdict.Unmet(Reason(condition, context)));
         }
 
-        return new ConversationOffer(new ConversationTopic(id, label), ConversationAvailability.OnOffer);
+        return new ConversationOffer(new ConversationTopic(id, label), Verdict.Met);
     }
 
     /// <summary>The errand a topic names and which act it asks for, or null when the topic names neither.</summary>
@@ -635,26 +636,26 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     /// continues from. Everything else the rank asks for is listed by the refusal, which is where a player
     /// reads it.
     /// </remarks>
-    private static ConversationAvailability RankOffer(PromotionRank rank, ConversationContext context)
+    private static Verdict RankOffer(PromotionRank rank, ConversationContext context)
     {
         if (context.Party is not { } party)
         {
-            return ConversationAvailability.Withheld($"the rank of {rank.To} is given to a {rank.From}, and this world holds nobody to give it to");
+            return Verdict.Unmet($"the rank of {rank.To} is given to a {rank.From}, and this world holds nobody to give it to");
         }
 
         List<string> held = [];
         foreach (PartyMember member in party.Members)
         {
             if (!string.Equals(member.Profile.Class.Value, rank.From.Value, StringComparison.Ordinal)) continue;
-            if (member.Progression.ClassRank == rank.Rank - 1) return ConversationAvailability.OnOffer;
+            if (member.Progression.ClassRank == rank.Rank - 1) return Verdict.Met;
             held.Add(string.Create(
                 CultureInfo.InvariantCulture,
                 $"{member.Profile.Name} stands at rank {member.Progression.ClassRank}"));
         }
 
         return held.Count == 0
-            ? ConversationAvailability.Withheld($"nobody in the party is a {rank.From}, and the rank of {rank.To} is given to one")
-            : ConversationAvailability.Withheld($"{string.Join(" and ", held)} of the {rank.From} ladder, and the rank of {rank.To} continues from rank {rank.Rank - 1}");
+            ? Verdict.Unmet($"nobody in the party is a {rank.From}, and the rank of {rank.To} is given to one")
+            : Verdict.Unmet($"{string.Join(" and ", held)} of the {rank.From} ladder, and the rank of {rank.To} continues from rank {rank.Rank - 1}");
     }
 
     /// <inheritdoc />
@@ -735,10 +736,10 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     /// profile, the hour is the session's one clock, and an errand is a flag the quest owner will set.
     /// Nothing is satisfied by an invented fact, and a kind whose owner is absent says so.
     /// </remarks>
-    private static ConversationAvailability Judge(ConversationCondition condition, ConversationContext context) =>
+    private static Verdict Judge(ConversationCondition condition, ConversationContext context) =>
         Holds(condition, context.Party, context.Clock)
-            ? ConversationAvailability.OnOffer
-            : ConversationAvailability.Withheld(Reason(condition, context));
+            ? Verdict.Met
+            : Verdict.Unmet(Reason(condition, context));
 
     /// <summary>
     /// Whether one stated condition holds, which is the whole meaning of this game's condition vocabulary.
@@ -798,17 +799,17 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     /// shut for the night does not offer to step inside, and says which hours it keeps rather than leaving
     /// the party to guess. The offer is withheld rather than removed, so the reason is what a player sees.
     /// </remarks>
-    private static ConversationAvailability CounterOffer(ServiceDefinition counter, ConversationContext context)
+    private static Verdict CounterOffer(ServiceDefinition counter, ConversationContext context)
     {
-        if (counter.Hours is not { } hours) return ConversationAvailability.OnOffer;
+        if (counter.Hours is not { } hours) return Verdict.Met;
         if (context.Clock is not { } clock)
         {
-            return ConversationAvailability.Withheld($"it keeps {hours} and this world keeps no clock");
+            return Verdict.Unmet($"it keeps {hours} and this world keeps no clock");
         }
 
         return hours.IsOpenAt(clock.Now)
-            ? ConversationAvailability.OnOffer
-            : ConversationAvailability.Withheld($"it is shut: it keeps {hours} and the clock stands at {clock.Now.Hour:00}:00");
+            ? Verdict.Met
+            : Verdict.Unmet($"it is shut: it keeps {hours} and the clock stands at {clock.Now.Hour:00}:00");
     }
 
     /// <summary>Whether one of the party's members satisfies something.</summary>

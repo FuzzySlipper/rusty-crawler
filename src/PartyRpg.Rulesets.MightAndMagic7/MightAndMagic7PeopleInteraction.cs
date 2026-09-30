@@ -1,3 +1,4 @@
+using PartyRpg.Kit;
 using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.World;
@@ -80,7 +81,7 @@ internal sealed class MightAndMagic7PeopleInteraction : IInteractionRule
     }
 
     /// <inheritdoc />
-    public InteractionRequirementVerdict Judge(InteractionRequirement requirement, InteractionContext context) =>
+    public Verdict Judge(InteractionRequirement requirement, InteractionContext context) =>
         _inner.Judge(requirement, context);
 
     /// <inheritdoc />

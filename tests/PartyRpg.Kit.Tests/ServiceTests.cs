@@ -1062,8 +1062,8 @@ public sealed class ServiceTests
                 ? new InteractionTargetDefinition(new InteractionTargetKind("service"), service.Describe(), InteractionVerb.Talk, 512)
                 : null;
 
-        public InteractionRequirementVerdict Judge(InteractionRequirement requirement, InteractionContext context) =>
-            InteractionRequirementVerdict.Satisfied;
+        public Verdict Judge(InteractionRequirement requirement, InteractionContext context) =>
+            Verdict.Met;
 
         public InteractionTrap? Trap(InteractionTargetDefinition target, InteractionContext context) => null;
 
@@ -1120,7 +1120,7 @@ public sealed class ServiceTests
             new($"'Welcome to {context.Subject.Id}.'");
 
         public IReadOnlyList<ConversationOffer> Offers(ConversationContext context) =>
-            [new ConversationOffer(new ConversationTopic("counter", "Step up to the counter"), ConversationAvailability.OnOffer)];
+            [new ConversationOffer(new ConversationTopic("counter", "Step up to the counter"), Verdict.Met)];
 
         public ConversationAnswer Take(ConversationTopic topic, ConversationContext context) =>
             new("The party steps up to the counter.", handoff: new ConversationHandoff(HandoffOwner.Counter));

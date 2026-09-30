@@ -133,7 +133,7 @@ public sealed class InteractionTests
     {
         TestRule rule = new();
         rule.Requires["door"] = [new InteractionRequirement(InteractionRequirementKind.Item, "iron-key", label: "the Iron Key")];
-        rule.Judgements["iron-key"] = InteractionRequirementVerdict.Unsatisfied("the party carries none of it");
+        rule.Judgements["iron-key"] = Verdict.Unmet("the party carries none of it");
 
         using PartyEntity party = Party();
         using Hall hall = Hall.Build(rule, Hall.Facing("door-0"), party);
@@ -158,7 +158,7 @@ public sealed class InteractionTests
         // With the key in the party's own pack the same use turns the lock, and the use after that opens the
         // door: the requirement was the whole difference, and it was judged by the ruleset rather than by the
         // mechanism.
-        rule.Judgements["iron-key"] = InteractionRequirementVerdict.Satisfied;
+        rule.Judgements["iron-key"] = Verdict.Met;
         party.AcquireItem(new ItemDefinitionId("iron-key"), 1);
         InteractionResult unlocked = hall.Interaction.Use();
         Assert.True(unlocked.IsApplied);
@@ -375,7 +375,7 @@ public sealed class InteractionTests
             new InteractionRequirement(InteractionRequirementKind.TimeOfDay, "day", label: "daylight"),
             new InteractionRequirement(InteractionRequirementKind.Flag, "cellar-opened", label: "the cellar opened"),
         ];
-        rule.Judgements["perception"] = InteractionRequirementVerdict.Unsatisfied("no member has trained it");
+        rule.Judgements["perception"] = Verdict.Unmet("no member has trained it");
 
         using PartyEntity party = Party();
         using Hall hall = Hall.Build(rule, Hall.Facing("door-0"), party);
@@ -494,7 +494,7 @@ public sealed class InteractionTests
         internal Dictionary<string, Func<InteractionTargetDefinition, InteractionContext, InteractionOutcome>> Outcomes { get; } = new(StringComparer.Ordinal);
 
         /// <summary>What each requirement is answered with, met when a test says nothing.</summary>
-        internal Dictionary<string, InteractionRequirementVerdict> Judgements { get; } = new(StringComparer.Ordinal);
+        internal Dictionary<string, Verdict> Judgements { get; } = new(StringComparer.Ordinal);
 
         /// <summary>Every requirement the rule was asked about, in order, so the workflow's order is visible.</summary>
         internal List<string> Judged { get; } = [];
@@ -536,10 +536,10 @@ public sealed class InteractionTests
             return null;
         }
 
-        public InteractionRequirementVerdict Judge(InteractionRequirement requirement, InteractionContext context)
+        public Verdict Judge(InteractionRequirement requirement, InteractionContext context)
         {
             Judged.Add(requirement.Name);
-            return Judgements.GetValueOrDefault(requirement.Name, InteractionRequirementVerdict.Satisfied);
+            return Judgements.GetValueOrDefault(requirement.Name, Verdict.Met);
         }
 
         public InteractionOutcome Apply(InteractionTargetDefinition target, InteractionContext context) =>

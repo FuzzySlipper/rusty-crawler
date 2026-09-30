@@ -1,3 +1,4 @@
+using PartyRpg.Kit;
 using System.Text.Json;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Interaction;
@@ -105,7 +106,7 @@ public sealed class InteractionPolicyTests
         Assert.Single(locked.Requires);
 
         InteractionContext context = new(Hall, DoorWithKey(), locked, party, clock);
-        InteractionRequirementVerdict missing = rule.Judge(locked.Requires[0], context);
+        Verdict missing = rule.Judge(locked.Requires[0], context);
         Assert.False(missing.IsMet);
         Assert.Contains("the Barrow Key", missing.Explanation, StringComparison.Ordinal);
         Assert.Contains("carries 0", missing.Explanation, StringComparison.Ordinal);
@@ -129,12 +130,12 @@ public sealed class InteractionPolicyTests
         Assert.True(rule.Judge(new InteractionRequirement(InteractionRequirementKind.TimeOfDay, "day"), context).IsMet);
         Assert.False(rule.Judge(new InteractionRequirement(InteractionRequirementKind.TimeOfDay, "night"), context).IsMet);
 
-        InteractionRequirementVerdict flag = rule.Judge(new InteractionRequirement(InteractionRequirementKind.Flag, "cellar-opened"), context);
+        Verdict flag = rule.Judge(new InteractionRequirement(InteractionRequirementKind.Flag, "cellar-opened"), context);
         Assert.False(flag.IsMet);
         Assert.Contains("cellar-opened", flag.Explanation, StringComparison.Ordinal);
 
         // A session with no clock cannot answer a time of day either, and says so rather than assuming one.
-        InteractionRequirementVerdict noClock = rule.Judge(
+        Verdict noClock = rule.Judge(
             new InteractionRequirement(InteractionRequirementKind.TimeOfDay, "day"),
             context with { Clock = null });
         Assert.False(noClock.IsMet);

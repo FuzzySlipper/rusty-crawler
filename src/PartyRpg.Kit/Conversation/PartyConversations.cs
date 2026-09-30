@@ -269,7 +269,7 @@ public sealed class PartyConversations
         {
             return Record(ConversationResult.Refused(
                 "say",
-                new Refusal(ConversationCodes.ConversationTopicWithheld, $"{_speaker?.Name ?? "Whoever is here"} does not bring up {found.Label} yet: {found.Availability.Reason}."),
+                new Refusal(ConversationCodes.ConversationTopicWithheld, $"{_speaker?.Name ?? "Whoever is here"} does not bring up {found.Label} yet: {found.Availability.Explanation}."),
                 _speaker?.Name ?? string.Empty,
                 topic));
         }
@@ -325,7 +325,7 @@ public sealed class PartyConversations
     /// <param name="topic">The identity of the topic to ask about.</param>
     /// <returns>The verdict, or null when the speaker has no topic with that identity.</returns>
     /// <exception cref="ArgumentException">The topic's identity is blank.</exception>
-    public ConversationAvailability? Availability(string topic)
+    public Verdict? Availability(string topic)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(topic);
         foreach (ConversationOffer offer in Offers)

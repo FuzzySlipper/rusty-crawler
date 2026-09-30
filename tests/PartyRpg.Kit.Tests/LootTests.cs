@@ -400,8 +400,8 @@ public sealed class LootTests
 
         public InteractionTrap? Trap(InteractionTargetDefinition target, InteractionContext context) => null;
 
-        public InteractionRequirementVerdict Judge(InteractionRequirement requirement, InteractionContext context) =>
-            InteractionRequirementVerdict.Satisfied;
+        public Verdict Judge(InteractionRequirement requirement, InteractionContext context) =>
+            Verdict.Met;
 
         public InteractionOutcome Apply(InteractionTargetDefinition target, InteractionContext context)
         {

@@ -120,7 +120,7 @@ public readonly record struct ConversationSnapshot(
         List<ConversationTopicSnapshot> withheld = [];
         foreach (ConversationOffer offer in conversations.Withheld)
         {
-            withheld.Add(new ConversationTopicSnapshot(offer.Id, offer.Label, false, offer.Availability.Reason));
+            withheld.Add(new ConversationTopicSnapshot(offer.Id, offer.Label, false, offer.Availability.Explanation));
         }
 
         List<ConversationLineSnapshot> said = [];

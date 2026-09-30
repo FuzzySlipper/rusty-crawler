@@ -644,8 +644,8 @@ public sealed class CombatProjectionTests
         public InteractionTrap? Trap(InteractionTargetDefinition target, InteractionContext context) => null;
 
         /// <summary>Nothing here requires anything.</summary>
-        public InteractionRequirementVerdict Judge(InteractionRequirement requirement, InteractionContext context) =>
-            InteractionRequirementVerdict.Satisfied;
+        public Verdict Judge(InteractionRequirement requirement, InteractionContext context) =>
+            Verdict.Met;
 
         /// <summary>Nothing usable is ever reached, so no use can apply.</summary>
         public InteractionOutcome Apply(InteractionTargetDefinition target, InteractionContext context) =>
