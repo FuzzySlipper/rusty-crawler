@@ -33,7 +33,7 @@ Owns:
   (`ISpellAimRule`); what the party sees by is read against the clock's daylight window through the game's
   answer (`PartySight`, `IPartySightRule`); and how far each spell is expressed is the game's own report
   (`SpellEffectCoverage`). The kit still names no spell and no effect: it carries an identity and hands it
-  back, which a source scan in `tests/PartyRpg.Kit.Tests` holds it to.
+  back, which a source law in `tests/PartyRpg.Kit.Tests` (read as syntax bound to symbols) holds it to.
 - Magic in the pack (`Magic/SpellItems.cs`): the one casting workflow also takes an item as the spell's
   source — a scroll read once and used up, a charged item that is wielded and spends a use — through the
   game's own reading of its item rows (`ISpellItemRule`) and the party's own item state, so there is no
@@ -51,7 +51,7 @@ Owns:
   carried out as its own row states it: both ingredients are destroyed and what the burst costs the mixing
   character is the game's answer (`IAlchemyRule.Backfire`), applied through the member's one damage entry and
   their own conditions. The kit knows no reagent, no potion, and no recipe: a mixture is two definitions and
-  what the table says about them, and a source scan in `tests/PartyRpg.Kit.Tests` holds it to that. A
+  what the table says about them, and the vocabulary law in `tests/PartyRpg.Architecture.Tests` holds it to that. A
   potion's effect is not a mechanism of its own — it is an item that carries one, drunk through the one
   casting workflow with the item as the spell's source, and read at the strength the instance itself states
   (`ItemState.Potency`), which is what makes a potion the way a character with no school gets a spell's
@@ -80,7 +80,7 @@ Owns:
   runs of seen squares, the marks on ground already on the map, and the party's own position and facing —
   with the maps book's page per place reading the same owner. It is its own owner rather than a kind of note
   because a map is keyed by place and shaped by a grid: the knowledge owner is deliberately blind to place
-  state and its notes have no room for a thousand squares, which the kit's own source scans hold to).
+  state and its notes have no room for a thousand squares, which the kit's own source laws hold to).
 - Session plumbing: compiled ruleset contracts, typed IDs, bundle and
   content-pack resolution, typed tuning handles, structured UI values, and
   bootstrap of an Engine-admitted session.

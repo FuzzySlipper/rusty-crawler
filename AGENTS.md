@@ -95,12 +95,17 @@ and a deadline (a ward, a light, a haste) still blocks a save by name rather tha
   composes the live world, the one game clock, the party its content describes, and the ledger that
   settles the party's accounts into it; the projection publishes the clock's date and the party's
   standing beside the world and movement facts, and later stones attach the remaining mechanisms.
-- The ownership laws are enforced by `tests/PartyRpg.Architecture.Tests`; the kit's content, session,
-  world, party, resources, time, creation, and movement mechanisms by `tests/PartyRpg.Kit.Tests`; the
-  host's composition and travel policy by `tests/PartyRpg.Host.Tests`; the importer's readers and
-  writer by `tests/MightAndMagic7.Import.Tests`; and the DOM companion by `tests/PartyRpg.Ui.Tests`.
-  All five run in `scripts/verify.sh` (also the `verify` GitHub workflow), which runs every step, reports
-  a summary, and also stages the CoreCLR product.
+- The ownership laws over the project graph and the whole runtime (peers, packages and friends per
+  project, one product entry, the kit's vocabulary, one clock, safe code, one larder) are enforced by
+  `tests/PartyRpg.Architecture.Tests`; the kit's mechanisms, the diagnostics they report, and each owner's
+  allowed writers by `tests/PartyRpg.Kit.Tests`, over the kit's own fakes and without the ruleset; this
+  game's policy by `tests/PartyRpg.Rulesets.MightAndMagic7.Tests`, without the host; the host's
+  composition, lifecycle, control declarations, and projection fixtures by `tests/PartyRpg.Host.Tests`;
+  the importer's readers and writer by `tests/MightAndMagic7.Import.Tests`; and the DOM companion by
+  `tests/PartyRpg.Ui.Tests`. The C# suites share one library, `tests/PartyRpg.Testing`, and every source
+  law reads code as syntax bound to symbols, so a rename, a target-typed `new`, or a comment cannot decide
+  it (`tests/README.md`). All six suites run in `scripts/verify.sh` (also the `verify` GitHub workflow),
+  which runs every step, reports a summary, and also stages the CoreCLR product.
 - `MightAndMagic7.Import` reads the operator's own data: all five containers decode every entry, the
   rule tables and the place graph reproduce the recorded inventory, all 76 maps decode, and the media
   extractor emits 17,681 images, palettes, PCX files, and sounds with a provenance manifest. No game
@@ -159,9 +164,10 @@ and a deadline (a ward, a light, a haste) still blocks a save by name rather tha
   the deadlines it brought due, each once, and the world reads its day count from that same clock, so
   respawn and travel time are one time rather than two. The shipped rule tables carry no calendar, so
   the year's shape is authored — twelve months of four seven-day weeks, agreeing with the imported
-  reset intervals — with the reasoning beside it, and a source scan in `tests/PartyRpg.Kit.Tests` fails
-  the kit if one of its sources names an ambient time source (`DateTime`, `Stopwatch`, a timer, a
-  thread, or the rest of that list).
+  reset intervals — with the reasoning beside it, and a source law in `tests/PartyRpg.Architecture.Tests`
+  fails the kit, the ruleset, or the host if any of their sources reaches an ambient time source or a
+  second loop (`DateTime`, `Stopwatch`, a timer, a thread, `Task.Run`, `Parallel`, `CancelAfter`, or the
+  rest of that list).
 - What a crossing costs is applied, once. Walking into an entrance or over a region edge takes the
   transition, and on arrival the world advances the clock by exactly the time the cost quoted and
   spends exactly the provisions it quoted through the party's one settlement path; a refused
@@ -216,9 +222,9 @@ and a deadline (a ward, a light, a haste) still blocks a save by name rather tha
   price before the pool is charged and the skill rises together — so a refused raise leaves the character
   exactly where they stood. A rank moves through the same owner, and it moves the class and the rank
   together: the ceiling a class and rank impose, the growth a level gives, and every class condition read one
-  fact, which is why a promotion is one act rather than three that could drift. The source scan beside the
-  owner's tests fails the kit if any other source names a transition, and it now covers the class reference a
-  promotion rewrites as well as the rank.
+  fact, which is why a promotion is one act rather than three that could drift. The source law beside the
+  owner's tests fails the product if any other source in the kit, the ruleset, or the host calls a
+  transition, and it covers the class reference a promotion rewrites as well as the rank.
 - **Skills and their ceilings are this game's own table over the shipped rows.** The 37 shipped rows are read
   into the manual's four blocks — 34 in use, with Blaster, Diplomacy, and Thievery reported as the rows this
   game does not use — and the ceiling a class and rank impose comes from the donor's transcribed per-class
@@ -445,7 +451,7 @@ and a deadline (a ward, a light, a haste) still blocks a save by name rather tha
   that yielded it. The journal is the one place that decides whether a report is news (`JournalHistory`
   dedupes on the kind of thing, what it happened to, and where), how it reads (the ruleset's own phrase
   around the reporting owner's own name for the thing), and when it happened (the one clock — never a wall
-  clock, which the kit's source scan forbids). Nothing is a second copy of state: a line says what happened
+  clock, which the architecture suite's source law forbids). Nothing is a second copy of state: a line says what happened
   and when, and everything still true is read from its owner. `JournalHistory.MaxEntries` bounds the record
   at 256 lines and the oldest fall off, because an unbounded journal is a leak carried whole into every save
   and every projection. The save's `journal` section carries the lines as **elapsed game time** and never as
@@ -553,8 +559,10 @@ includes the game and ruleset names (`MightAndMagic`, `MightAndMagic7`, MM6, MM7
 MM8), world and place names from those games, their class/skill/spell/item/monster
 names, donor project names (`OpenEnroth`, `MMExtension`, `OpenMM8`), and source
 file names (`.lod`, `.odm`, `.ddm`, `.blv`, `.dlv`, `events.lod`, `games.lod`).
-`tests/PartyRpg.Architecture.Tests` enforces that list, the dependency graph, the single product
-entry, and the identity the host declares in both code and MSBuild; a violation fails the suite
+`tests/PartyRpg.Architecture.Tests` enforces that list — with a representative sample of the game's own
+class, skill, spell, item, creature, place, and people names, each proved to be the game's word — the
+dependency graph (peers, packages, and friend declarations), and the single product entry; the host suite
+holds the identity and controls the host declares in code to its project file. A violation fails the suite
 rather than surviving review.
 
 Might and Magic assumptions are legal only in the ruleset, Might and Magic

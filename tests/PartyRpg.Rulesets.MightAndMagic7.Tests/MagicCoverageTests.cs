@@ -116,7 +116,7 @@ public sealed class MagicCoverageTests
             generated from the ruleset's own table by `MagicCoverageTests` and checked by that test on every
             run, so it cannot drift from the code: change a row's category, its rung, what it is aimed at, or
             how far it is expressed, and this document has to be regenerated with
-            `CRAWLER_WRITE_MAGIC_COVERAGE=1 dotnet test tests/PartyRpg.Host.Tests`.
+            `CRAWLER_WRITE_MAGIC_COVERAGE=1 dotnet test tests/PartyRpg.Rulesets.MightAndMagic7.Tests`.
 
             A row is identified by content's own spell id, which is also the id the ruleset's table is keyed by and
             the id this document's rows carry. The shipped name for each row stands beside the same id, as a

@@ -218,7 +218,7 @@ one CI uses).
 
 With the operator's install present (`CRAWLER_MM7_INSTALL`, by default `/home/research/old-games/game-mm7`),
 the script also runs `mm7import verify` and `maps`, and writes the packs twice into a scratch root and
-compares them. The Host suite's cases that check this game's policy against the shipped tables read that
+compares them. The ruleset suite's cases that check this game's policy against the shipped tables read that
 root through `CRAWLER_IMPORTED_CONTENT` and nothing else; without it they report themselves skipped
 rather than passing.
 

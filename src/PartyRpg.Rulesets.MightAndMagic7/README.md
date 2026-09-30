@@ -235,7 +235,7 @@ table describes, gated on a standing condition at the "Friendly" band's own floo
 shipped topic's conditions are judged in, so the line appears with the standing and is withheld with the
 number it wants — and the words it says are the band's own reading. A town hall's notice is gated the same
 way, as an ordinary offer condition on the errand nobody authors, so the board a hall posts and the line a
-person speaks open together. The shipped data gates nothing on a standing and the host suite counts it: the
+person speaks open together. The shipped data gates nothing on a standing and the ruleset suite counts it: the
 operator's topic table carries 54 topics over 15 people and states no standing condition on any of them (the
 requirement column it does carry is a quest bit, and the six rows that name one are rows the original never
 gives text or an owner to), and none of the 17 shipped errands states an offer condition at all — so the
@@ -264,7 +264,7 @@ place, whether somebody will join the party, gated on the party's fame exceeding
 donor with a note that it is an MM8 behaviour (`UIDialogue.cpp:70-95`). Nothing can join a party in this build
 — there is no follower owner — so that gate has nothing to guard yet and is routed to the followers stone
 rather than faked. Standing and accomplishments ride the party's own save section: reputation, fame, and the
-party's effects are all durable state, and the host suite turns an errand in, saves through the engine's
+party's effects are all durable state, and the ruleset suite turns an errand in, saves through the engine's
 store, resumes, and reads the same band and the same record back.
 
 This game's quests are landed beside them: `MightAndMagic7Quests` reads the operator's shipped quest

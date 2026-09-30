@@ -14,8 +14,8 @@ Implemented today:
   the project file bound each stand-alone control to, and hands those labels to the session through the
   ruleset context; the panel names those keys and no others, so a hint cannot drift from the declaration.
 - `ProductIdentity` declares the product id, title, projection stream and contract, and the two
-  input names once; the project file declares the same values, and the architecture suite fails when
-  the two drift.
+  input names once; the project file declares the same values, and the host suite (`ControlDeclarationTests`,
+  which reads the constants by reference and the project file as XML) fails when the two drift.
 - The project file declares the product metadata, the `session.pause-toggle` intent and its key
   mapping, the movement intents and their keys, the save control (`session.save` on F), the use control
   (`party.use` on G, using whatever the party faces), the service and conversation ways out, the stop
