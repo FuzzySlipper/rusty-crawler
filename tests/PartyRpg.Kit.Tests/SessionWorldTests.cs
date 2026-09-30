@@ -20,7 +20,11 @@ public sealed class SessionWorldTests
         using RecordingUiProjectionChannel channel = new();
         FakeTimeSource time = new();
         SessionWorld world = World(time);
-        using PartyRpgSession session = new(new SessionComposition(new RulesetId("test.ruleset"), "Test"), channel, world);
+        using PartyRpgSession session = new(
+            new SessionComposition(new RulesetId("test.ruleset"), "Test"),
+            channel,
+            new SessionOwners(),
+            new SessionParty.Playing(World: world));
 
         // Before anything moves, the session still publishes the world it holds.
         Assert.Equal("1", channel.Latest().Field("world").Field("place").AsString());
@@ -74,7 +78,11 @@ public sealed class SessionWorldTests
         FakeTimeSource time = new();
         SessionWorld world = World(time);
         world.ArriveAt(new PlaceId("1"), Pose().Pose);
-        using PartyRpgSession session = new(new SessionComposition(new RulesetId("test.ruleset"), "Test"), channel, world);
+        using PartyRpgSession session = new(
+            new SessionComposition(new RulesetId("test.ruleset"), "Test"),
+            channel,
+            new SessionOwners(),
+            new SessionParty.Playing(World: world));
 
         world.Places.MarkCleared(new PlaceId("1"));
 

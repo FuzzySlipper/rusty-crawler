@@ -582,16 +582,16 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     /// and handing a finished one back. A topic whose identity names no errand this game states answers
     /// nothing, which is the same shape a rank's offer takes when its identity names no rank.
     /// </remarks>
-    private static (QuestDefinition Definition, string Handoff)? ErrandTopic(string topic, MightAndMagic7Quests quests)
+    private static (QuestDefinition Definition, HandoffOwner Handoff)? ErrandTopic(string topic, MightAndMagic7Quests quests)
     {
-        (string Prefix, string Handoff)[] acts =
+        (string Prefix, HandoffOwner Handoff)[] acts =
         [
-            (MightAndMagic7Identities.TurnInTopicPrefix, QuestHandoffs.TurnIn),
-            (MightAndMagic7Identities.AcceptTopicPrefix, QuestHandoffs.Accept),
-            (MightAndMagic7Identities.QuestTopicPrefix, QuestHandoffs.Offer),
+            (MightAndMagic7Identities.TurnInTopicPrefix, HandoffOwner.ErrandTurnIn),
+            (MightAndMagic7Identities.AcceptTopicPrefix, HandoffOwner.ErrandAccept),
+            (MightAndMagic7Identities.QuestTopicPrefix, HandoffOwner.ErrandOffer),
         ];
 
-        foreach ((string prefix, string handoff) in acts)
+        foreach ((string prefix, HandoffOwner handoff) in acts)
         {
             if (!topic.StartsWith(prefix, StringComparison.Ordinal)) continue;
             string id = topic[prefix.Length..];
@@ -608,16 +608,16 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     /// does not run. Where the shipped words say something this game does not judge, the asking line says so
     /// rather than leaving the party to wonder what else it owes.
     /// </remarks>
-    private static string ErrandWords(QuestDefinition definition, string handoff)
+    private static string ErrandWords(QuestDefinition definition, HandoffOwner handoff)
     {
-        if (string.Equals(handoff, QuestHandoffs.TurnIn, StringComparison.Ordinal))
+        if (handoff == HandoffOwner.ErrandTurnIn)
         {
             return definition.Residue.Length > 0
                 ? $"'{definition.Name}? {definition.Residue}'"
                 : $"'Well? Is {definition.Name} done?'";
         }
 
-        if (string.Equals(handoff, QuestHandoffs.Accept, StringComparison.Ordinal))
+        if (handoff == HandoffOwner.ErrandAccept)
         {
             return $"'Then it is agreed: {definition.Name} is yours to do.'";
         }
@@ -677,7 +677,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
             // mechanism, which asks its own questions and refuses in its own vocabulary when it is shut.
             return new ConversationAnswer(
                 $"'{counter.Name}' — the party steps up to the counter.",
-                handoff: new ConversationHandoff(ConversationHandoffs.Service, counter.Id.Value));
+                handoff: new ConversationHandoff(HandoffOwner.Counter, counter.Id.Value));
         }
 
         // A rank this person gives is handed to the owner that owns ranks rather than answered here, exactly
@@ -691,7 +691,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
                 if (!string.Equals(rank.Id, id, StringComparison.Ordinal)) continue;
                 return new ConversationAnswer(
                     rank.Words.Length > 0 ? rank.Words : $"'{rank.To}? Then let us see whether you have what it asks for.'",
-                    handoff: new ConversationHandoff(PromotionHandoffs.Offer, rank.Id));
+                    handoff: new ConversationHandoff(HandoffOwner.Rank, rank.Id));
             }
 
             return new ConversationAnswer(

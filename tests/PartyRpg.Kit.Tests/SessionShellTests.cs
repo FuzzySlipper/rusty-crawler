@@ -15,7 +15,7 @@ public sealed class SessionShellTests
     private static PartyRpgSession Started(out RecordingUiProjectionChannel channel)
     {
         channel = new RecordingUiProjectionChannel();
-        PartyRpgSession session = new(Composition, channel);
+        PartyRpgSession session = new(Composition, channel, new SessionOwners(), SessionParty.Nobody);
         session.Start();
         return session;
     }
@@ -24,7 +24,7 @@ public sealed class SessionShellTests
     public void Session_starts_in_starting_and_runs_after_start()
     {
         using RecordingUiProjectionChannel channel = new();
-        using PartyRpgSession session = new(Composition, channel);
+        using PartyRpgSession session = new(Composition, channel, new SessionOwners(), SessionParty.Nobody);
 
         Assert.Equal(SessionMode.Starting, session.Mode);
         Assert.Equal("starting", channel.Latest().Field("session").Field("mode").AsString());
@@ -149,7 +149,7 @@ public sealed class SessionShellTests
     public void A_stopped_session_publishes_the_stop_and_then_nothing()
     {
         RecordingUiProjectionChannel channel = new();
-        PartyRpgSession session = new(Composition, channel);
+        PartyRpgSession session = new(Composition, channel, new SessionOwners(), SessionParty.Nobody);
         session.Start();
         int published = channel.Count;
 

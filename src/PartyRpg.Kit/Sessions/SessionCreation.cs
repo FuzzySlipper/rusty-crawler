@@ -1,4 +1,6 @@
+using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Party;
+using Rusty.Engine;
 
 namespace PartyRpg.Kit.Sessions;
 
@@ -52,4 +54,121 @@ public sealed class SessionCreation
 
     /// <summary>Composes the world the accepted party walks into.</summary>
     public Func<PartyEntity, SessionWorld?> ComposeWorld { get; }
+}
+
+/// <summary>
+/// Drives a creation from the commands each admitted update carries, until the party is accepted.
+/// </summary>
+/// <remarks>
+/// Every command goes through the flow's own operation and its refusal is kept rather than thrown, so an illegal
+/// choice is an answer the screen shows and creation stays exactly where it was. An acceptance is the last
+/// command an update acts on: once the party exists there is no flow left to drive, and the commands behind it
+/// belonged to a screen that has just gone away.
+/// </remarks>
+internal sealed class CreationDriver(SessionCreation creation, CreationIntentNames names, SessionDiagnostics diagnostics)
+{
+    private readonly CreationInput _input = new(names);
+
+    /// <summary>The flow being driven.</summary>
+    public PartyCreationFlow Flow => creation.Flow;
+
+    /// <summary>The last choice the flow refused, or null when the last choice was accepted.</summary>
+    public PartyRefusal? Refusal { get; private set; }
+
+    /// <summary>Applies this update's commands, and returns the party and its world once one is accepted.</summary>
+    public (PartyEntity Party, SessionWorld? World)? Drive(ReadOnlySpan<ProductInputEvent> input)
+    {
+        foreach (CreationCommand command in _input.Read(input))
+        {
+            if (command.Kind != CreationCommandKind.Accept)
+            {
+                Refusal = Apply(creation.Flow, command);
+                continue;
+            }
+
+            if (Accept() is { } accepted) return accepted;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Builds the finished party through the ruleset's one factory and composes the world it walks into.
+    /// </summary>
+    /// <remarks>
+    /// A refusal leaves creation exactly as it was: an unfinished member is named, and a factory or a world that
+    /// refuses what the flow produced is reported as what it is — a party the rules will not build, or content
+    /// the world refuses to be composed over — rather than leaving a half-created party behind or an exception
+    /// inside an admitted update.
+    /// </remarks>
+    private (PartyEntity Party, SessionWorld? World)? Accept()
+    {
+        if (!creation.Flow.IsComplete)
+        {
+            Refusal = new PartyRefusal(
+                "creation-incomplete",
+                $"The party cannot be accepted while creation is unfinished: {Unfinished(creation.Flow)}.");
+            return null;
+        }
+
+        PartyEntity? party = null;
+        SessionWorld? world = null;
+        try
+        {
+            party = creation.BuildParty(creation.Flow.ToCreation());
+            world = creation.ComposeWorld(party);
+        }
+        catch (Exception error) when (error is ArgumentException or ContentValidationException)
+        {
+            // An accepted party that is not played would be a second party, so both are released here.
+            world?.Dispose();
+            party?.Dispose();
+            Refusal = new PartyRefusal("creation-refused", $"The finished party was refused: {error.Message}");
+            diagnostics.Refused("creation", "creation-refused", Refusal.Message);
+            return null;
+        }
+
+        Refusal = null;
+        return (party, world);
+    }
+
+    /// <summary>Makes one creation command on the flow and returns the rule it broke, when it broke one.</summary>
+    private static PartyRefusal? Apply(PartyCreationFlow flow, CreationCommand command) => command.Kind switch
+    {
+        CreationCommandKind.SelectMember => flow.SelectMember(command.Member),
+        CreationCommandKind.SelectPortrait => Missing(command, "portrait") ?? flow.SelectPortrait(new PortraitId(command.Value)),
+        CreationCommandKind.SelectClass => Missing(command, "class") ?? flow.SelectClass(new ClassId(command.Value)),
+        CreationCommandKind.SetName => flow.SetName(command.Value),
+        CreationCommandKind.RaiseAttribute => Missing(command, "attribute") ?? flow.RaiseAttribute(new AttributeId(command.Value)),
+        CreationCommandKind.LowerAttribute => Missing(command, "attribute") ?? flow.LowerAttribute(new AttributeId(command.Value)),
+        CreationCommandKind.ChooseSkill => Missing(command, "skill") ?? flow.ChooseSkill(new SkillId(command.Value)),
+        CreationCommandKind.RemoveSkill => Missing(command, "skill") ?? flow.RemoveSkill(new SkillId(command.Value)),
+        CreationCommandKind.Advance => flow.Advance(),
+        _ => null,
+    };
+
+    /// <summary>
+    /// Refuses a choice command that arrived without the choice it names: a control that silently does nothing
+    /// looks exactly like a control that worked and changed nothing.
+    /// </summary>
+    private static PartyRefusal? Missing(CreationCommand command, string choice) =>
+        string.IsNullOrWhiteSpace(command.Value)
+            ? new PartyRefusal(
+                "creation-choice-missing",
+                $"A {choice} choice arrived naming no {choice}, so there was nothing to choose; a {choice} is named by the id creation offers it under.")
+            : null;
+
+    /// <summary>Names every member still unfinished, which is why a party cannot be accepted yet.</summary>
+    private static string Unfinished(PartyCreationFlow flow)
+    {
+        List<string> pending = [];
+        for (int index = 0; index < flow.MemberCount; index++)
+        {
+            CreationMember member = flow.Member(index);
+            if (member.IsComplete) continue;
+            pending.Add($"member {index + 1} is at the {member.Step} step");
+        }
+
+        return pending.Count > 0 ? string.Join("; ", pending) : "no member is finished";
+    }
 }

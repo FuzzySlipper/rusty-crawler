@@ -105,7 +105,15 @@ The owner-by-owner contract — what each Kit owner holds, what the ruleset
 supplies, and where new code goes — is in
 [`../../docs/code-organization.md`](../../docs/code-organization.md).
 
-Implemented today: the session shell (`PartyRpgSession`, `SessionMode`, `IGameSession`) with the live
+Implemented today: the session shell (`PartyRpgSession`, `SessionMode`, `IGameSession`), composed one way
+from `SessionOwners` (the mechanisms it composes, created empty before the session so a game's answers can
+read them when an act arrives, and composed by one sequence per party), `SessionRules` (a game's answers
+grouped by mechanism: `CombatRules`, `ProgressionRules`, `MagicRules`, `AlchemyRules`, `MapRules`),
+`SessionControls`, `SessionSaving`, and a `SessionParty` that is either `Playing` a party or `Creating` one;
+the update applies a player's acts through `SessionActs`, drives the fight in either pacing through
+`CombatDriver` and `ActControl`, hands a conversation's offer to its owner through the exhaustive
+`ConversationHandoffRouter` over the closed `HandoffOwner` list, and settles save requests through
+`SaveRequests`; the live
 world it steps (`SessionWorld`), the one clock it advances by the admitted interval and the party it
 holds and publishes — with the clock's own schedule (`OpeningHours`, `PlaceSchedule`: which hours a place
 keeps and when that next changes, read against the clock's position rather than counted in a step) and the

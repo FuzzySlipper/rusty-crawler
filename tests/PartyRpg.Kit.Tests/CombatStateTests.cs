@@ -208,11 +208,16 @@ public sealed class CombatStateTests
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
-            world,
-            clock: clock,
-            party: party,
-            combat: new TestCombatRule(new SeededRandom()),
-            combatInput: new CombatIntentNames("test.attack", "test.attack", "test.actions"));
+            new SessionOwners(clock),
+            new SessionParty.Playing(World: world, Party: party),
+            rules: new SessionRules
+            {
+                Combat = new CombatRules(new TestCombatRule(new SeededRandom())),
+            },
+            controls: new SessionControls
+            {
+                Combat = new CombatIntentNames("test.attack", "test.attack", "test.actions"),
+            });
 
         Arrive(world);
         session.Start();
@@ -266,11 +271,16 @@ public sealed class CombatStateTests
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
-            world,
-            clock: Clock(),
-            party: party,
-            combat: new TestCombatRule(new SeededRandom()),
-            combatInput: new CombatIntentNames("test.attack", "test.attack", "test.actions"));
+            new SessionOwners(Clock()),
+            new SessionParty.Playing(World: world, Party: party),
+            rules: new SessionRules
+            {
+                Combat = new CombatRules(new TestCombatRule(new SeededRandom())),
+            },
+            controls: new SessionControls
+            {
+                Combat = new CombatIntentNames("test.attack", "test.attack", "test.actions"),
+            });
 
         Arrive(world);
         session.Start();

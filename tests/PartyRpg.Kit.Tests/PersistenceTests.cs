@@ -99,7 +99,11 @@ public sealed class PersistenceTests
 
         // The panel a resumed session publishes reads from the restored owners, not from the document.
         using RecordingUiProjectionChannel channel = new();
-        using PartyRpgSession resumed = new(Composition, channel, world, clock: clock, party: restored);
+        using PartyRpgSession resumed = new(
+            Composition,
+            channel,
+            new SessionOwners(clock),
+            new SessionParty.Playing(World: world, Party: restored));
         ProjectedNode published = channel.Latest();
         Assert.Equal("2", published.Field("world").Field("place").AsString());
         Assert.Equal("1168-01-03", published.Field("clock").Field("date").AsString());
@@ -213,7 +217,11 @@ public sealed class PersistenceTests
         using RecordingUiProjectionChannel channel = new();
         using PartyEntity party = CreatedParty();
         using SessionWorld world = World(Clock(), party);
-        using PartyRpgSession session = new(Composition, channel, world, clock: Clock(), party: party);
+        using PartyRpgSession session = new(
+            Composition,
+            channel,
+            new SessionOwners(Clock()),
+            new SessionParty.Playing(World: world, Party: party));
 
         Assert.Null(session.Saves);
         InvalidOperationException refused = Assert.Throws<InvalidOperationException>(() => session.Save());
@@ -227,7 +235,7 @@ public sealed class PersistenceTests
     public void A_session_holding_nothing_to_save_is_refused_by_name()
     {
         using RecordingUiProjectionChannel channel = new();
-        using PartyRpgSession empty = new(Composition, channel);
+        using PartyRpgSession empty = new(Composition, channel, new SessionOwners(), SessionParty.Nobody);
 
         SessionSaveException refused = Assert.Throws<SessionSaveException>(() => empty.Capture());
 
@@ -607,11 +615,13 @@ public sealed class PersistenceTests
             Session = new PartyRpgSession(
                 Composition,
                 Channel,
-                World,
-                clock: Clock,
-                party: Party,
-                saveStore: Store,
-                rest: rest);
+                new SessionOwners(Clock),
+                new SessionParty.Playing(World: World, Party: Party),
+                rules: new SessionRules
+                {
+                    Rest = rest,
+                },
+                saving: new SessionSaving(Store));
         }
 
         internal GameClock Clock { get; }

@@ -117,8 +117,8 @@ public sealed class TravelCostWiringTests
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
-            world,
-            clock: clock);
+            new SessionOwners(clock),
+            new SessionParty.Playing(World: world));
         session.Start();
         world.Places.MarkCleared(Home);
 
@@ -225,9 +225,12 @@ public sealed class TravelCostWiringTests
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
-            world,
-            input,
-            clock);
+            new SessionOwners(clock),
+            new SessionParty.Playing(World: world),
+            controls: new SessionControls
+            {
+                Movement = input,
+            });
         session.Start();
 
         // One update of 120 admitted steps of a sixtieth of a second: the walk covers two seconds, and the
@@ -258,9 +261,8 @@ public sealed class TravelCostWiringTests
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
-            world,
-            clock: clock,
-            diagnostics: diagnostics);
+            new SessionOwners(clock, diagnostics),
+            new SessionParty.Playing(World: world));
         session.Start();
         clock.ScheduleAfter(GameDuration.FromHours(1));
 
@@ -298,9 +300,8 @@ public sealed class TravelCostWiringTests
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
-            world,
-            clock: clock,
-            party: party);
+            new SessionOwners(clock),
+            new SessionParty.Playing(World: world, Party: party));
 
         ProjectedNode published = channel.Latest();
         Assert.Equal("1168-01-01", published.Field("clock").Field("date").AsString());

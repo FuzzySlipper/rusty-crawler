@@ -549,15 +549,20 @@ public sealed class TurnBasedTests
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
-            world,
-            clock: Clock(),
-            party: party,
-            combatInput: new CombatIntentNames(
+            new SessionOwners(Clock()),
+            new SessionParty.Playing(World: world, Party: party),
+            rules: new SessionRules
+            {
+                Combat = new CombatRules(new Refusing()),
+            },
+            controls: new SessionControls
+            {
+                Combat = new CombatIntentNames(
                 "test.attack",
                 "test.attack",
                 "test.actions",
                 new TurnIntentNames("combat.turn-based", "combat.turn-skip", "combat.turn-wait", "test.actions")),
-            combat: new Refusing());
+            });
 
         session.Start();
         session.Update(Update(1, 1));
@@ -745,15 +750,17 @@ public sealed class TurnBasedTests
         new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
-            world,
-            clock: Clock(),
-            party: party,
-            combat: new TestRule(new Bodies()),
-            combatInput: new CombatIntentNames(
-                "test.attack",
-                "test.attack",
-                "test.actions",
-                new TurnIntentNames("combat.turn-based", "combat.turn-skip", "combat.turn-wait", "test.actions")));
+            new SessionOwners(Clock()),
+            new SessionParty.Playing(world, party),
+            new SessionRules { Combat = new CombatRules(new TestRule(new Bodies())) },
+            new SessionControls
+            {
+                Combat = new CombatIntentNames(
+                    "test.attack",
+                    "test.attack",
+                    "test.actions",
+                    new TurnIntentNames("combat.turn-based", "combat.turn-skip", "combat.turn-wait", "test.actions")),
+            });
 
     private static PlacePose Pose() => new(0, 0, 0, 0, 0);
 

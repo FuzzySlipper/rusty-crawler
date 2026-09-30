@@ -253,12 +253,17 @@ public sealed class ConversationTests
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
-            hall.World,
-            clock: hall.Clock,
-            party: party,
-            useInput: new InteractionUseInput(UseControls),
-            conversation: hall.Rule,
-            conversationInput: ConversationControls);
+            new SessionOwners(hall.Clock),
+            new SessionParty.Playing(World: hall.World, Party: party),
+            rules: new SessionRules
+            {
+                Conversation = hall.Rule,
+            },
+            controls: new SessionControls
+            {
+                Use = UseControls,
+                Conversation = ConversationControls,
+            });
         session.Start();
 
         // The update faces the person, and the declared use control is what speaks with them.
@@ -313,16 +318,20 @@ public sealed class ConversationTests
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
-            hall.World,
-            movementInput: new MovementInput(MovementControls, turnRatePerSecond: 2048),
-            clock: hall.Clock,
-            party: party,
-            diagnostics: hall.Diagnostics,
-            service: services,
-            useInput: new InteractionUseInput(UseControls),
-            serviceInput: ServiceControls,
-            conversation: hall.Rule,
-            conversationInput: ConversationControls);
+            new SessionOwners(hall.Clock, hall.Diagnostics),
+            new SessionParty.Playing(World: hall.World, Party: party),
+            rules: new SessionRules
+            {
+                Service = services,
+                Conversation = hall.Rule,
+            },
+            controls: new SessionControls
+            {
+                Movement = new MovementInput(MovementControls, turnRatePerSecond: 2048),
+                Use = UseControls,
+                Service = ServiceControls,
+                Conversation = ConversationControls,
+            });
         session.Start();
 
         // A held forward control walks the party while nothing owns the controls.
@@ -348,15 +357,15 @@ public sealed class ConversationTests
         session.Update(Update(6, 1, Digital("test.move-forward", InputEdge.Held)));
         Assert.Equal(walked, hall.World.Party.PlacePose);
 
-        // A handoff naming an owner nothing routes is reported by name and changes nothing: the conversation
-        // stays open, because nothing took the party anywhere.
+        // A handoff to an owner this session did not compose — a rank, with no progression answers — is reported
+        // by name and changes nothing: the conversation stays open, because nothing took the party anywhere.
         session.Update(Update(7, 1, Digital("test.service.leave", InputEdge.Pressed)));
         session.Update(Update(8, 1, Digital("test.use", InputEdge.Pressed)));
         session.Update(Update(9, 1, Payload("""{"action":"conversation.topic","target":"unrouted"}""")));
         Assert.True(session.Conversations.IsOpen);
         Assert.Contains(
             hall.Diagnostics.Published,
-            report => string.Equals(report.Code, "conversation-handoff-unowned", StringComparison.Ordinal));
+            report => string.Equals(report.Code, "promotion-unavailable", StringComparison.Ordinal));
     }
 
     /// <summary>One admitted update of the kit's own session, in the shape the engine admits one.</summary>
@@ -477,8 +486,8 @@ public sealed class ConversationTests
 
         public ConversationAnswer Take(ConversationTopic topic, ConversationContext context) => topic.Id switch
         {
-            "counter" => new ConversationAnswer("The party steps up to the counter.", handoff: new ConversationHandoff(ConversationHandoffs.Service)),
-            "unrouted" => new ConversationAnswer("Something else entirely.", handoff: new ConversationHandoff("errand", "some-errand")),
+            "counter" => new ConversationAnswer("The party steps up to the counter.", handoff: new ConversationHandoff(HandoffOwner.Counter)),
+            "unrouted" => new ConversationAnswer("Something else entirely.", handoff: new ConversationHandoff(HandoffOwner.Rank, "some-rank")),
             "hands-to-nobody" => new ConversationAnswer("You should hear this from somebody else.", speaker: "absent"),
             "carried" => new ConversationAnswer(
                 "You carry what I asked for.",

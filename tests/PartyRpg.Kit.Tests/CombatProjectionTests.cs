@@ -369,17 +369,22 @@ public sealed class CombatProjectionTests
             _session = new PartyRpgSession(
                 new SessionComposition(new RulesetId("test.ruleset"), "Test"),
                 _channel,
-                _world,
-                clock: Clock(),
-                party: _party,
-                combat: rules,
-                combatInput: new CombatIntentNames(
+                new SessionOwners(Clock()),
+                new SessionParty.Playing(World: _world, Party: _party),
+                rules: new SessionRules
+                {
+                    Combat = new CombatRules(rules),
+                },
+                controls: new SessionControls
+                {
+                    Combat = new CombatIntentNames(
                     "test.attack",
                     // The companion's own action name, so the test drives the control the product declares
                     // rather than one invented for it.
                     "party.attack",
                     "test.actions",
-                    new TurnIntentNames("combat.turn-based", "combat.turn-skip", "combat.turn-wait", "test.actions")));
+                    new TurnIntentNames("combat.turn-based", "combat.turn-skip", "combat.turn-wait", "test.actions")),
+                });
         }
 
         /// <summary>The fight the session holds, for the assertions that are about the fight itself.</summary>

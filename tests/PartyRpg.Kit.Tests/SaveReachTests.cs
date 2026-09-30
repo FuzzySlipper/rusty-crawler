@@ -189,7 +189,16 @@ public sealed class SaveReachTests
     {
         RecordingSaveStore store = new(null);
         using RecordingUiProjectionChannel channel = new();
-        using PartyRpgSession empty = new(Composition, channel, saveStore: store, saveInput: Controls);
+        using PartyRpgSession empty = new(
+            Composition,
+            channel,
+            new SessionOwners(),
+            SessionParty.Nobody,
+            controls: new SessionControls
+            {
+                Save = Controls,
+            },
+            saving: new SessionSaving(store));
         empty.Start();
 
         empty.Update(Update(1, 60, Digital(Controls.Intent)));
@@ -260,12 +269,13 @@ public sealed class SaveReachTests
             Session = new PartyRpgSession(
                 Composition,
                 Channel,
-                World,
-                clock: Clock,
-                party: Party,
-                saveStore: store ? Store : null,
-                saveInput: controls ? Controls : null,
-                resumed: resumed);
+                new SessionOwners(Clock),
+                new SessionParty.Playing(World: World, Party: Party, Resumed: resumed ? new SessionRecords() : null),
+                controls: new SessionControls
+                {
+                    Save = controls ? Controls : null,
+                },
+                saving: store ? new SessionSaving(Store) : null);
         }
 
         internal GameClock Clock { get; }

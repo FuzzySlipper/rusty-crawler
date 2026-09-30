@@ -214,8 +214,12 @@ public sealed class MovementSteppingTests
         using PartyRpgSession session = new(
             Composition,
             channel,
-            world,
-            new MovementInput(Names, turnRatePerSecond: 512));
+            new SessionOwners(),
+            new SessionParty.Playing(World: world),
+            controls: new SessionControls
+            {
+                Movement = new MovementInput(Names, turnRatePerSecond: 512),
+            });
         session.Start();
 
         session.Update(Update(simulationStep: 60, admittedSteps: 2, [Digital(Names.Forward, InputEdge.Pressed)]));
@@ -237,7 +241,15 @@ public sealed class MovementSteppingTests
         RecordingMover mover = new(party);
         using SessionWorld world = World(party, mover);
         using RecordingUiProjectionChannel channel = new();
-        using PartyRpgSession session = new(Composition, channel, world, new MovementInput(Names, 512));
+        using PartyRpgSession session = new(
+            Composition,
+            channel,
+            new SessionOwners(),
+            new SessionParty.Playing(World: world),
+            controls: new SessionControls
+            {
+                Movement = new MovementInput(Names, 512),
+            });
         session.Start();
 
         session.Update(Update(simulationStep: 1, admittedSteps: 0, [Digital(Names.Forward, InputEdge.Pressed)]));
@@ -255,7 +267,15 @@ public sealed class MovementSteppingTests
         RecordingMover mover = new(party);
         using SessionWorld world = World(party, mover);
         using RecordingUiProjectionChannel channel = new();
-        using PartyRpgSession session = new(Composition, channel, world, new MovementInput(Names, 512));
+        using PartyRpgSession session = new(
+            Composition,
+            channel,
+            new SessionOwners(),
+            new SessionParty.Playing(World: world),
+            controls: new SessionControls
+            {
+                Movement = new MovementInput(Names, 512),
+            });
         session.Start();
         session.Hold();
 
@@ -278,7 +298,15 @@ public sealed class MovementSteppingTests
         RecordingMover mover = new(party);
         using SessionWorld world = World(party, mover);
         using RecordingUiProjectionChannel channel = new();
-        using PartyRpgSession session = new(Composition, channel, world, new MovementInput(Names, 512));
+        using PartyRpgSession session = new(
+            Composition,
+            channel,
+            new SessionOwners(),
+            new SessionParty.Playing(World: world),
+            controls: new SessionControls
+            {
+                Movement = new MovementInput(Names, 512),
+            });
         session.Start();
 
         session.Update(Update(simulationStep: 1, admittedSteps: 1, [Digital("test.unclaimed", InputEdge.Pressed)]));
@@ -307,7 +335,12 @@ public sealed class MovementSteppingTests
     public void A_session_with_no_world_never_asks_for_a_step()
     {
         using RecordingUiProjectionChannel channel = new();
-        using PartyRpgSession session = new(Composition, channel, world: null, new MovementInput(Names, 512));
+        using PartyRpgSession session = new(
+            Composition,
+            channel,
+            new SessionOwners(),
+            SessionParty.Nobody,
+            controls: new SessionControls { Movement = new MovementInput(Names, 512) });
         session.Start();
 
         session.Update(Update(simulationStep: 1, admittedSteps: 1, [Digital(Names.Forward, InputEdge.Pressed)]));

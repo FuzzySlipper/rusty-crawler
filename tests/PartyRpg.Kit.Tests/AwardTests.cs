@@ -176,10 +176,13 @@ public sealed class AwardTests
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
-            clock: Clock(),
-            party: party,
-            progression: new TestProgression(),
-            standing: standing);
+            new SessionOwners(Clock()),
+            new SessionParty.Playing(Party: party),
+            rules: new SessionRules
+            {
+                Standing = standing,
+                Progression = new ProgressionRules(new TestProgression()),
+            });
         session.Start();
 
         ProjectedNode shown = channel.Latest().Field(SessionProjection.PartyField);
@@ -198,9 +201,12 @@ public sealed class AwardTests
         using PartyRpgSession plain = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             bare,
-            clock: Clock(),
-            party: other,
-            progression: new TestProgression());
+            new SessionOwners(Clock()),
+            new SessionParty.Playing(Party: other),
+            rules: new SessionRules
+            {
+                Progression = new ProgressionRules(new TestProgression()),
+            });
         plain.Start();
         ProjectedNode noReading = bare.Latest().Field(SessionProjection.PartyField);
         Assert.False(noReading.Field("standingRead").AsBoolean());

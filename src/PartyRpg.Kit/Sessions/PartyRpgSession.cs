@@ -1,24 +1,17 @@
-using System.Globalization;
-using System.Text;
 using PartyRpg.Kit.Combat;
-using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Journal;
 using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Maps;
-using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Movement;
-using PartyRpg.Kit.Alchemy;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
+using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Quests;
-using PartyRpg.Kit.Promotion;
-using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Services;
-using PartyRpg.Kit.Skills;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
 using Rusty.Engine;
@@ -26,528 +19,111 @@ using Rusty.Engine;
 namespace PartyRpg.Kit.Sessions;
 
 /// <summary>
-/// The save controls a host declares, by the names a player's request to save arrives on.
+/// The ordinary session shell: it owns the session's mode, measures the admitted simulation it has consumed,
+/// steps the one game clock with that same admitted interval, and publishes one presentation through its
+/// projection channel.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The names are data rather than vocabulary, exactly as the movement and creation controls are: the kit
-/// claims what a product declares and invents no key of its own, so a product that maps its save control
-/// to another key, or names the action differently on its own payload contract, is served by the same
-/// reader. A save request is a request and nothing more: what a save contains, where it goes, and what
-/// makes it loadable are the persistence owner's rules, and this record only says how the player asks.
+/// The shell owns no gameplay. The mechanisms are composed by <see cref="SessionOwners"/> over the party the
+/// session plays, the fight is driven by <see cref="CombatDriver"/>, a player's acts are applied by
+/// <see cref="SessionActs"/>, and saves go through <see cref="SaveRequests"/>; what exists here is the lifecycle
+/// they step inside, the one place that decides what a mode means for stepping, and the order one admitted
+/// update applies them in.
 /// </para>
 /// <para>
-/// Two names are needed because a product offers two ways to ask: a digital intent for a key, and one
-/// action name on the payload contract the interface already claims its semantic actions on. Both are
-/// read inside the one admitted update, so a key and a button ask for exactly the same save.
-/// </para>
-/// </remarks>
-public sealed record SaveIntentNames
-{
-    /// <summary>Names the controls a save request arrives on.</summary>
-    /// <param name="intent">The digital intent that asks the session to save.</param>
-    /// <param name="action">The payload action name that asks the session to save.</param>
-    /// <param name="actionContract">The payload contract that action arrives on.</param>
-    /// <exception cref="ArgumentException">A name is missing, so no event could ever be claimed for it.</exception>
-    public SaveIntentNames(string intent, string action, string actionContract)
-    {
-        Intent = Require(intent, nameof(intent));
-        Action = Require(action, nameof(action));
-        ActionContract = Require(actionContract, nameof(actionContract));
-    }
-
-    /// <summary>The digital intent that asks the session to save.</summary>
-    public string Intent { get; }
-
-    /// <summary>The payload action name that asks the session to save.</summary>
-    public string Action { get; }
-
-    /// <summary>The payload contract that action arrives on.</summary>
-    public string ActionContract { get; }
-
-    private static string Require(string name, string parameterName) =>
-        !string.IsNullOrWhiteSpace(name)
-            ? name
-            : throw new ArgumentException(
-                $"The save control '{parameterName}' declares no name, so no event could ever be claimed for it.",
-                parameterName);
-}
-
-/// <summary>
-/// The ordinary session shell: it owns the session's mode, measures the admitted simulation it has
-/// consumed, steps the one game clock with that same admitted interval, and publishes one presentation
-/// through its projection channel.
-/// </summary>
-/// <remarks>
-/// <para>
-/// The shell deliberately owns no gameplay. The world, the party, and the clock are composed elsewhere and
-/// handed here; what exists here is the lifecycle those mechanisms step inside, and the one place that
-/// decides what a mode means for stepping. It holds the party and the clock for as long as it lives, and
-/// releases both with itself.
+/// <b>A session either creates its party or plays one</b> (<see cref="SessionParty"/>). A session composed to
+/// create steps nothing while it does and takes the party the factory built — and the world composed for it —
+/// the moment creation is accepted; the owners are then composed by the same sequence a session handed its
+/// party runs, so the two end with the same mechanisms.
 /// </para>
 /// <para>
-/// <b>A session either creates its party or holds one.</b> A session composed to create holds the flow and
-/// the two factories that end it, steps nothing while it does, and takes the party the factory built — and
-/// the world composed for that party — the moment creation is accepted. A session composed with a party
-/// plays it, which is what a resumed session and a session whose content fixes the party are. Neither shape
-/// is a second party: the session holds at most one, and the one it holds is the one it plays.
-/// </para>
-/// <para>
-/// <b>A save happens when a player asks for one and at no other time.</b> The request arrives on the save
-/// controls the host declared, is read from the admitted input the update already carries, and reaches the
-/// explicit save boundary before that update steps anything, so the document a save holds describes the
-/// session the player was looking at when they asked. Nothing else in this shell writes: not the update,
-/// not a mode change, and not the release of the session.
+/// <b>A save happens when a player asks for one and at no other time.</b> The request is read from the admitted
+/// input and reaches the save boundary before that update steps anything; nothing else here writes.
 /// </para>
 /// </remarks>
 public sealed class PartyRpgSession : IGameSession
 {
     private readonly SessionComposition _composition;
     private readonly IUiProjectionChannel _projection;
-    private readonly MovementInput? _movementInput;
-    private readonly InteractionUseInput? _useInput;
-    private readonly CreationInput? _creationInput;
-    private readonly ServiceInput? _serviceInput;
-    private readonly IServiceRule? _serviceRule;
-    private readonly IProgressionRule? _progressionRule;
-    private readonly IStandingRule? _standingRule;
-    private readonly IPromotionRule? _promotionRule;
-    private readonly ISkillRule? _skillRule;
-    private readonly SkillRaiseInput? _skillInput;
-    private readonly ConversationInput? _conversationInput;
-    private readonly IConversationRule? _conversationRule;
-    private readonly IQuestRule? _questRule;
-    private readonly IJournalRule? _journalRule;
-    private readonly IKnowledgeRule? _knowledgeRule;
-
-    /// <summary>
-    /// Whether the conversation mechanism was composed over a party.
-    /// </summary>
-    /// <remarks>
-    /// A session that creates its party has none when the session is built, and the conversation is composed
-    /// then anyway — who stands in a place is a question content answers, and a session with nobody to lead
-    /// still publishes who is here. What such a conversation cannot do is read the party: it greets from the
-    /// content and keeps no record of the meeting, because there is nobody to carry one. When creation is
-    /// accepted the mechanism is composed again over the party that now exists, which is what makes a topic
-    /// that waits for the party's own state — an offer only somebody of a class may take, a line that
-    /// records having met somebody — answered for a party the player built rather than for nobody.
-    /// </remarks>
-    private bool _conversationsSeeTheParty;
-    private readonly RestInput? _restInput;
-    private readonly IRestRule? _restRule;
-    private readonly CombatInput? _combatInput;
-    private readonly TurnInput? _turnInput;
-    private readonly ICombatRule? _combatRule;
-    private readonly IMonsterAiPolicy? _monsterAi;
-    private readonly ISpellRule? _spellRule;
-    private readonly ISpellEffectRule? _spellEffects;
-    private readonly IAlchemyRule? _alchemyRule;
-    private readonly AlchemyCatalog? _mixtures;
-    private bool _magicObserved;
-    private readonly CastInput? _castInput;
-    private readonly MixInput? _mixInput;
-    private readonly GameClock? _clock;
-    private readonly IDiagnosticsService? _diagnostics;
-    private readonly ISessionSaveStore? _saveStore;
-    private readonly SessionSaveBoundary? _saves;
-    private readonly byte[]? _saveIntent;
-    private readonly string? _saveAction;
-    private readonly byte[]? _saveActionContract;
-    private SessionCreation? _creation;
-    private PartyRefusal? _creationRefusal;
-    private SaveSnapshot _save;
-    private bool _accepted;
+    private readonly SessionOwners _owners;
+    private readonly MovementInput? _movement;
+    private readonly SessionActs _acts;
+    private readonly CombatDriver _fight;
+    private readonly SaveRequests _saves;
     private readonly bool _resumed;
+    private CreationDriver? _creation;
+    private bool _accepted;
     private SessionMode _mode = SessionMode.Starting;
     private double _simulationSeconds;
     private ulong _admittedSteps;
     private ulong _updates;
     private ulong? _accountedThroughStep;
-    private SessionWorld? _liveWorld;
-    private PartyEntity? _party;
-    private PartyResourceLedger? _accounts;
-    private PartyProgression? _progression;
-    private PartyServices? _services;
-    private PartyConversations? _conversations;
-    private PartyQuests? _quests;
-    private readonly QuestSave? _questState;
-    private PartyJournal? _journal;
-    private readonly JournalSave? _journalState;
-    private PartyKnowledge? _knowledge;
-    private readonly KnowledgeSave? _knowledgeState;
-    private readonly IMapRule? _mapRule;
-    private readonly IPlaceMapSource? _mapSource;
-    private readonly MapSave? _mapState;
-    private PartyMaps? _maps;
-    private PartyRest? _rest;
-    private CombatState? _combat;
-    private CombatDirector? _director;
-    private Spellcasting? _casting;
-    private PotionMixing? _mixing;
-    private CombatantId? _lastCastActor;
-    private readonly List<IDeadlineOwner> _deadlineOwners = [];
     private WorldSnapshot _world = WorldSnapshot.Empty;
     private bool _started;
     private bool _enginePaused;
     private bool _held;
     private bool _disposed;
 
-    /// <summary>
-    /// Whether the act control was already down at the end of the last update.
-    /// </summary>
-    /// <remarks>
-    /// In real time a held act control means "keep attacking as each member recovers", so what matters is
-    /// that it is down. In a paced fight it means a committed turn, and turns are decisions rather than a
-    /// state: this is what tells a press from a key that happens to still be down, so holding the act control
-    /// cannot spend turn after turn.
-    /// </remarks>
-    private bool _attackHeld;
-
-    /// <summary>
-    /// Whether the act control must be let go before it orders anything again, because the pacing changed.
-    /// </summary>
-    /// <remarks>
-    /// A key held across a mode change belonged to the pacing the player was in — in real time it means "keep
-    /// attacking as members recover", and in a paced fight it would mean "keep committing turns" — so the
-    /// hold is dropped and the control has to come up before it counts again. What comes up is the engine's
-    /// own report, which is why the control also has to be seen <em>down</em> after the switch before its
-    /// absence means anything: the update the toggle arrived in carries no attack event either, and reading
-    /// that as a release would let the very next update order again. Without both halves, a key that was down
-    /// when the toggle arrived would order one more attack, or spend one more turn, in a mode the player has
-    /// not asked it for.
-    /// </remarks>
-    private bool _attackSuppressed;
-
-    /// <summary>Whether the act control has been reported down since the pacing last changed.</summary>
-    private bool _attackSeenDown;
-
     /// <summary>Creates a session for a compiled ruleset over the mechanisms the kit supplies.</summary>
     /// <param name="composition">The identity the session presents.</param>
     /// <param name="projection">Where it publishes its presentation.</param>
-    /// <param name="world">
-    /// The live world it steps, when content supplied one and the session holds the party that walks in it.
-    /// A session that creates its party is composed without one: its world is composed when the party is
-    /// accepted, so the accounts a journey charges are the created party's own.
+    /// <param name="owners">
+    /// The owners the session composes, over its one clock. They are created before the session so a game's
+    /// answers can read them when an act arrives, and they belong to this session alone.
     /// </param>
-    /// <param name="movementInput">
-    /// What reads the player's movement controls out of each admitted update, when the ruleset composed
-    /// movement and declared where its intents arrive. Without one the session never asks the world to
-    /// move the party, which is what a session whose ruleset has no movement does.
-    /// </param>
-    /// <param name="clock">
-    /// The session's one game clock, when its ruleset composed one. It is advanced by the same admitted
-    /// interval the movement step covers, and it is the clock the world charges a journey's time to, so
-    /// there is one clock in the session and not a second one for travel.
-    /// </param>
-    /// <param name="party">
-    /// The party the session holds, when content supplied what creation needed. The session owns its
-    /// lifetime: it publishes the party's facts and disposes it with itself, while the world borrows the
-    /// party's accounts to charge a road.
-    /// </param>
-    /// <param name="diagnostics">
-    /// Where the session reports every deadline the clock brought due and which owner it belonged to, when the
-    /// engine's diagnostics are reachable, so a deadline nobody holds is visible rather than dropped.
-    /// </param>
-    /// <param name="saveStore">
-    /// Where this session's saves are written and read, when the product has somewhere to keep them. The
-    /// session owns the store and releases it with itself, and a session composed without one still plays:
-    /// it simply cannot save, and asking it to says so rather than writing nowhere.
-    /// </param>
-    /// <param name="saveSlot">The slot this session saves under, when the product names one.</param>
-    /// <param name="creationInput">
-    /// What reads the creation commands out of each admitted update, when the session is creating a party.
-    /// A session that creates without one has no way for a player to choose anything, which is refused
-    /// below rather than composed as a screen nobody can drive.
-    /// </param>
-    /// <param name="creation">
-    /// The creation this session holds while a party is being made, when its ruleset offers one. It owns
-    /// the flow, the factory that builds the accepted party, and the world that party walks into.
-    /// </param>
-    /// <param name="saveInput">
-    /// The save controls the host declared, when it declared any: the intent and the payload action a
-    /// player's request to save arrives on. Without them the session never saves by itself — which is what
-    /// a product that offers no save control gets — and the boundary stays reachable only through
-    /// <see cref="Save"/>.
-    /// </param>
-    /// <param name="resumed">
-    /// Whether this session was composed from the save already in its slot, which is the host's composition
-    /// decision reported to the player rather than a fact this shell could work out for itself: an empty
-    /// slot is indistinguishable from a session playing on from one, and a resumed expedition that looked
-    /// like a new one would leave the operator unable to tell whether the switch took effect.
-    /// </param>
-    /// <param name="useInput">
-    /// The use controls the host declared, when it declared any: the intent and the payload action a
-    /// player's request to use what the party faces arrives on. Without them the session never uses anything
-    /// by itself, which is what a product that offers no use control gets; the mechanism is still stepped,
-    /// so what the party faces is still published.
-    /// </param>
-    /// <param name="service">
-    /// This game's answers about services, when its ruleset has any. A service target the party talks to
-    /// hands off into the mechanism this composes, which browses, transacts, and leaves over the party's own
-    /// accounts. Without one the session holds no service mechanism at all, and a use that lands on somebody
-    /// keeping a counter quietly opens nothing — which is what a ruleset that has not answered yet gets.
-    /// </param>
-    /// <param name="accounts">
-    /// The party's own accounts as the one settlement path, when the caller composed them. A service charges
-    /// and pays through this same ledger, so a shop and a road move one purse; a session that holds a world
-    /// borrows the world's own ledger when none is handed here, so the two can never be two ledgers. Without
-    /// either, a transaction that moves coin is refused by name rather than settling nowhere.
-    /// </param>
-    /// <param name="serviceInput">
-    /// The service controls the host declared, when it declared any: the intent a request to leave a counter
-    /// arrives on, and the payload contract a service screen's commands arrive on. Without them the
-    /// mechanism is still composed and a counter can still be entered and browsed, and no command ever
-    /// reaches it — which is what a product that declares no service controls gets.
-    /// </param>
-    /// <param name="rest">
-    /// This game's answers about sleeping, camping, waiting, and going without sleep, when its ruleset has
-    /// any. The mechanism is composed over the party the session plays, the ledger a journey charges, the
-    /// session's one clock, and the world the party stands in, so a night is judged against the place it is
-    /// taken in. Without one the session holds no rest mechanism at all, and a stop control quietly does
-    /// nothing — which is what a ruleset that has not answered yet gets.
-    /// </param>
-    /// <param name="restInput">
-    /// The stop controls the host declared, when it declared any: the intents a rest, a camp, and each wait
-    /// arrive on, and the payload contract a screen's own stop buttons arrive on. Without them the mechanism
-    /// is still composed and its schedule still runs, and no stop ever reaches it.
-    /// </param>
-    /// <param name="combat">
-    /// This game's answers about fighting, when its ruleset has any: what each actor is worth in recovery,
-    /// what hostility means, what an attack reaches, and what an actor is called. The fight itself is the
-    /// kit's mechanism, composed over the party the session plays and the world it stands in, so what the
-    /// party faces is the world's own population rather than a battle scene. Without one the session holds no
-    /// fight at all, and the act control quietly does nothing — which is what a ruleset that has not answered
-    /// yet gets.
-    /// </param>
-    /// <param name="monsterAi">
-    /// This game's answer about how a creature behaves, when its ruleset gives one. With it, every creature
-    /// the party is fighting decides and acts through the same gated entry the player's control uses; the
-    /// party's own members are never driven from here. Without it the fight is one-sided: the state still
-    /// paces the opposition and still refuses what it refuses, and nothing on the other side acts.
-    /// </param>
-    /// <param name="combatInput">
-    /// The act control the host declared, when it declared one: the intent and the payload action a player's
-    /// order to attack arrives on. Without it the fight is still composed and still reads the world — what is
-    /// hostile, who is ready — and no order ever reaches it.
-    /// </param>
-    /// <param name="skills">
-    /// This game's answers about its own skills, when its ruleset has any: the catalog content declares, the
-    /// ceiling a class and rank impose, and what a raise costs. Without one the progression owner still
-    /// holds the points a level grants and cannot spend them, which is what a ruleset that has not said how
-    /// far a skill may grow gets.
-    /// </param>
-    /// <param name="skillInput">
-    /// The skill-spend control the host declared, when it declared one: the payload action a screen's raise
-    /// control arrives on. Without it the owner is still composed and the panel still publishes what a raise
-    /// would cost, and no raise ever reaches it — which is what a product that declares no such control
-    /// gets.
-    /// </param>
-    /// <param name="journal">
-    /// This game's answers about its journal, when its ruleset has any: what its five books are called, how a
-    /// line reads, and what is worth writing down at all. The owner is composed over the session's one clock,
-    /// because every line is dated in game time and a journal without a clock would be a list of things that
-    /// happened at no particular time. Without one the session keeps no record at all, and its projection says
-    /// so rather than showing five empty books.
-    /// </param>
-    /// <param name="journalState">
-    /// What a save recorded of the party's history, or null for a party that has written nothing down. Its
-    /// lines carry elapsed game time rather than dates, so they are read back against the clock this session
-    /// was composed with and a loaded entry reads as the day it happened.
-    /// </param>
-    /// <param name="knowledge">
-    /// This game's answers about what its party learns, when its ruleset has any: how a note about each kind
-    /// of discovery reads, and what it counts as worth keeping. The owner is composed over the session's one
-    /// clock for the same reason the journal is — every note is dated in game time — and is deliberately not
-    /// composed over the world: a place whose population the world restores is not a fact about what the
-    /// party knows, so nothing here is read from a place's own state. Without one the party learns nothing it
-    /// can look up again, and its projection says so rather than showing an empty book.
-    /// </param>
-    /// <param name="knowledgeState">
-    /// What a save recorded of what the party has learned, or null for a party that has learned nothing. Its
-    /// notes carry elapsed game time rather than dates, so they are read back against the clock this session
-    /// was composed with and a loaded note reads as the day it was learned.
-    /// </param>
-    /// <param name="map">
-    /// This game's answers about its automap, when its ruleset has any: how far a walking party sees, what a
-    /// place's own map cells and features read as, how the map is zoomed, and what a detection reveals. The
-    /// owner is composed over the places' own maps, which content carries, and is deliberately not composed
-    /// over the world's per-place state: a place the clock restores is a change to what the world currently
-    /// is, and what the party has seen of it is the party's own memory. Without one the session maps nothing,
-    /// and its projection says so rather than showing an empty drawing.
-    /// </param>
-    /// <param name="mapSource">
-    /// Where each place's own map comes from, when the loaded content carries any. Without it the owner has no
-    /// map to fill and records nothing, which is what a product composed over content that states no maps
-    /// gets.
-    /// </param>
-    /// <param name="mapState">
-    /// What a save recorded of what the party has mapped, or null for a party that has mapped nothing. Its
-    /// cells carry the grid they were seen on rather than a date, so they are read back over the places' own
-    /// maps and show the ground the party actually saw.
-    /// </param>
-    /// <param name="standing">
-    /// This game's words for the standing a party holds and for what it has accomplished, when its ruleset
-    /// gives any: the band the party's reputation falls in and what that band does, and the names of the
-    /// records the party carries. Both are read through <see cref="PartySnapshot"/> and printed by the panel
-    /// unchanged, because a screen that derived a band from a number or a title from a record identity would
-    /// be a second reading of a threshold and a table this kit does not own. Without one the two numbers are
-    /// still published and neither a band nor a list of accomplishments is claimed.
-    /// </param>
-    /// <exception cref="ArgumentException">
-    /// The session is composed both to create a party and to hold one, or to create one without the controls
-    /// its commands arrive on.
-    /// </exception>
+    /// <param name="party">Whether the session plays a party it was handed or creates one.</param>
+    /// <param name="rules">The game's answers, grouped by the mechanism each is composed into.</param>
+    /// <param name="controls">The controls the host declared.</param>
+    /// <param name="saving">Where saves go, when the product has somewhere to keep them.</param>
+    /// <exception cref="ArgumentException">The session creates its party and the host declared no creation controls.</exception>
+    /// <exception cref="InvalidOperationException">The owners already belong to another session.</exception>
     public PartyRpgSession(
         SessionComposition composition,
         IUiProjectionChannel projection,
-        SessionWorld? world = null,
-        MovementInput? movementInput = null,
-        GameClock? clock = null,
-        PartyEntity? party = null,
-        IDiagnosticsService? diagnostics = null,
-        ISessionSaveStore? saveStore = null,
-        string saveSlot = SessionSaveBoundary.DefaultSlot,
-        CreationInput? creationInput = null,
-        SessionCreation? creation = null,
-        SaveIntentNames? saveInput = null,
-        bool resumed = false,
-        InteractionUseInput? useInput = null,
-        IServiceRule? service = null,
-        PartyResourceLedger? accounts = null,
-        ServiceIntentNames? serviceInput = null,
-        IRestRule? rest = null,
-        RestIntentNames? restInput = null,
-        IConversationRule? conversation = null,
-        ConversationIntentNames? conversationInput = null,
-        ICombatRule? combat = null,
-        CombatIntentNames? combatInput = null,
-        IMonsterAiPolicy? monsterAi = null,
-        IProgressionRule? progression = null,
-        IStandingRule? standing = null,
-        IPromotionRule? promotions = null,
-        ISkillRule? skills = null,
-        SkillRaiseIntentNames? skillInput = null,
-        ISpellRule? spells = null,
-        ISpellEffectRule? spellEffects = null,
-        CastIntentNames? castInput = null,
-        IAlchemyRule? alchemy = null,
-        AlchemyCatalog? mixtures = null,
-        MixIntentNames? mixInput = null,
-        IQuestRule? quests = null,
-        QuestSave? questState = null,
-        IJournalRule? journal = null,
-        JournalSave? journalState = null,
-        IKnowledgeRule? knowledge = null,
-        KnowledgeSave? knowledgeState = null,
-        IMapRule? map = null,
-        IPlaceMapSource? mapSource = null,
-        MapSave? mapState = null)
+        SessionOwners owners,
+        SessionParty party,
+        SessionRules? rules = null,
+        SessionControls? controls = null,
+        SessionSaving? saving = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(composition.Title);
-        if (creation is not null && (world is not null || party is not null))
-        {
-            throw new ArgumentException(
-                "A session that creates its party owns no other one: the party and the world it walks in are composed when creation is accepted, so handing this session either as well would leave two of them.",
-                nameof(creation));
-        }
-
-        if (creation is not null && creationInput is null)
+        ArgumentNullException.ThrowIfNull(owners);
+        ArgumentNullException.ThrowIfNull(party);
+        controls ??= SessionControls.None;
+        if (party is SessionParty.Creating && controls.Creation is null)
         {
             throw new ArgumentException(
                 "A session that creates its party needs the controls its commands arrive on; without them nothing could ever choose a portrait, a class, a skill, or a name.",
-                nameof(creationInput));
+                nameof(controls));
         }
 
         _composition = composition;
         _projection = projection ?? throw new ArgumentNullException(nameof(projection));
-        _movementInput = movementInput;
-        _useInput = useInput;
-        _creationInput = creationInput;
-        _serviceInput = serviceInput is null ? null : new ServiceInput(serviceInput);
-        _serviceRule = service;
-        _progressionRule = progression;
-        _standingRule = standing;
-        _promotionRule = promotions;
-        _skillRule = skills;
-        _skillInput = skillInput is null ? null : new SkillRaiseInput(skillInput);
-        _conversationInput = conversationInput is null ? null : new ConversationInput(conversationInput);
-        _conversationRule = conversation;
-        _questRule = quests;
-        _questState = questState;
-        _journalRule = journal;
-        _journalState = journalState;
-        _knowledgeRule = knowledge;
-        _knowledgeState = knowledgeState;
-        _mapRule = map;
-        _mapSource = mapSource;
-        _mapState = mapState;
-        _restInput = restInput is null ? null : new RestInput(restInput);
-        _restRule = rest;
-        _combatInput = combatInput is null ? null : new CombatInput(combatInput);
-        _turnInput = combatInput?.Turn is { } turn ? new TurnInput(turn) : null;
-        _combatRule = combat;
-        _monsterAi = monsterAi;
-        _spellRule = spells;
-        _spellEffects = spellEffects;
-        _castInput = castInput is null ? null : new CastInput(castInput);
+        _owners = owners;
+        _movement = controls.Movement;
+        SessionRecords? records = (party as SessionParty.Playing)?.Resumed;
+        _resumed = records is not null;
+        _saves = new SaveRequests(composition.Title, saving, controls.Save, _resumed);
+        owners.Bind(rules ?? SessionRules.None, records);
+        _acts = new SessionActs(owners, controls);
+        _fight = new CombatDriver(owners, controls.Movement, controls.Combat);
 
-        // The mixing control is one payload action beside casting's: the pack's own rows name the two things
-        // a player put together, and a mixture is not a cast — it changes what the pack holds rather than what
-        // a spell does — so it is read through its own declared action and no key claims it.
-        _alchemyRule = alchemy;
-        _mixtures = mixtures;
-        _mixInput = mixInput is null ? null : new MixInput(mixInput);
-        _creation = creation;
-        _clock = clock;
-        _party = party;
-        _accounts = accounts ?? world?.Accounts;
-        _diagnostics = diagnostics;
-        _saveStore = saveStore;
-        _saves = saveStore is null ? null : new SessionSaveBoundary(saveStore, saveSlot);
-        // The declared save controls are read once, into the exact bytes an admitted event carries, so the
-        // reader compares bytes rather than decoding a name on every event of every update.
-        _saveIntent = saveInput is null ? null : Encoding.UTF8.GetBytes(saveInput.Intent);
-        _saveAction = saveInput?.Action;
-        _saveActionContract = saveInput is null ? null : Encoding.UTF8.GetBytes(saveInput.ActionContract);
-        _resumed = resumed;
-        _save = SaveSnapshot.None(available: _saves is not null, resumed: resumed, slot: saveSlot);
-        // Every advance of the one clock is reported with the owner that held each deadline it brought due,
-        // before any mechanism the session composes below hears it; the world composed over the same clock
-        // already hears it, and lives through the days it crossed.
-        clock?.Observe(new DeadlineReport(this));
-        _liveWorld = world;
-        _world = world?.Snapshot ?? WorldSnapshot.Empty;
-        world?.Populate();
-        // The progression owner is composed first, over the party the session plays: it is what a training
-        // hall's step settles through and what the skill points a level grants belong to, so a service
-        // mechanism composed before it would be a counter that could not train anybody. A session that
-        // creates its party composes it when creation is accepted, which is the moment that party exists.
-        ComposeProgression();
-        // The service mechanism is composed over the party the session plays and the ledger a journey already
-        // charges, so a shop and a road settle one purse through one path. The rest mechanism is composed
-        // beside it, over the same party, clock, and world, so a night is judged where it is taken.
-        ComposeRest();
-        ComposeServices();
-        ComposeConversations();
-        ComposeQuests();
-        // The journal is composed beside the quest owner and not over it: it keeps the party's dated record,
-        // and what its books show is read from the owners that hold those facts when the projection is built.
-        ComposeJournal();
-        // What the party knows is composed beside the journal and over the same clock, because the two are the
-        // party's own two records: dated lines about what happened, and the facts it can look up again.
-        ComposeKnowledge();
-        // The automap is composed beside them and over the places' own maps, which is the same split the notes
-        // make: what the party has seen is its own memory of the world's shape and not a reading of the place's
-        // current state.
-        ComposeMaps();
-        ComposeCombat();
-        // The casting workflow is composed over the party, this game's spell answers, the effect path, and the
-        // fight the session just composed: a spell's aim and the caster's ability to act are judged against
-        // the same fight the act control orders through, so a cast and a swing are paced by one state.
-        ComposeMagic();
-        ComposeAlchemy();
-        // A session publishes as soon as it exists: the engine expects a create-time projection, and a
-        // client that attaches before the first update should see the session it has attached to.
+        switch (party)
+        {
+            case SessionParty.Playing playing:
+                owners.Take(playing.Party, playing.World, playing.Accounts);
+                break;
+            case SessionParty.Creating creating:
+                _creation = new CreationDriver(creating.Creation, controls.Creation!, owners.Diagnostics);
+                owners.Compose();
+                break;
+        }
+
+        _world = owners.World?.Snapshot ?? WorldSnapshot.Empty;
+
+        // A session publishes as soon as it exists: the engine expects a create-time projection, and a client
+        // that attaches before the first update should see the session it has attached to.
         Publish();
     }
 
@@ -560,132 +136,62 @@ public sealed class PartyRpgSession : IGameSession
     /// <summary>Admitted fixed steps accumulated while the session was running.</summary>
     public ulong AdmittedSteps => _admittedSteps;
 
-    /// <summary>
-    /// The live world this session steps, or null while it is creating its party or when content supplied
-    /// no places.
-    /// </summary>
-    public SessionWorld? LiveWorld => _liveWorld;
+    /// <summary>Admitted updates this session has consumed, whether or not it was running.</summary>
+    public ulong Updates => _updates;
+
+    /// <summary>The live world this session steps, or null while it creates its party or content supplied no places.</summary>
+    public SessionWorld? LiveWorld => _owners.World;
 
     /// <summary>The session's one game clock, or null when its ruleset composed none.</summary>
-    public GameClock? Clock => _clock;
+    public GameClock? Clock => _owners.Clock;
 
-    /// <summary>
-    /// The service mechanism this session serves counters through, or null when its ruleset answered no
-    /// service policy or the session holds no party yet. It is the one mechanism every kind of service is
-    /// served by, and what the projection publishes about a counter is read from it.
-    /// </summary>
-    public PartyServices? Services => _services;
+    /// <summary>The party the session plays, or null while it creates one or when content supplied none.</summary>
+    public PartyEntity? Party => _owners.Party;
 
-    /// <summary>
-    /// The progression owner this session's party grows through, or null when its ruleset answered no
-    /// progression policy or the session holds no party yet. It is the one place experience, a level, and a
-    /// skill point move, and what the projection publishes about them is read from it.
-    /// </summary>
-    public PartyProgression? Progression => _progression;
+    /// <summary>The service mechanism, or null when the ruleset answered none or no party is held yet.</summary>
+    public PartyServices? Services => _owners.Services;
 
-    /// <summary>
-    /// The conversation mechanism this session speaks through, or null when its ruleset answered no dialogue
-    /// policy. It is the one mechanism every person is spoken with by, and what the projection publishes
-    /// about a conversation is read from it. It is composed whether or not the session holds a party: a
-    /// conversation with nobody to record anything on is still a conversation, and a condition that needs
-    /// the party is then unmet rather than invented.
-    /// </summary>
-    public PartyConversations? Conversations => _conversations;
+    /// <summary>The progression owner, or null when the ruleset answered none or no party is held yet.</summary>
+    public PartyProgression? Progression => _owners.Progression;
 
-    /// <summary>
-    /// The quest owner this session keeps its journal through, or null when its ruleset stated no quests or
-    /// the session holds no party yet. It is the one owner of what a party has been offered, taken, and
-    /// finished, and what the projection publishes about quests is read from it.
-    /// </summary>
-    public PartyQuests? Quests => _quests;
+    /// <summary>The conversation mechanism, composed with or without a party, or null when the ruleset answered none.</summary>
+    public PartyConversations? Conversations => _owners.Conversations;
 
-    /// <summary>
-    /// The journal this session keeps the party's record in, or null when its ruleset stated none or the
-    /// session holds no clock. It is the one owner of what a party has written down, and what the projection
-    /// publishes about the books is read from it and from the owners each book's own facts belong to.
-    /// </summary>
-    public PartyJournal? Journal => _journal;
+    /// <summary>The quest owner, or null when the ruleset stated no quests or no party is held yet.</summary>
+    public PartyQuests? Quests => _owners.Quests;
 
-    /// <summary>
-    /// What the party knows, or null when its ruleset stated no discoveries or the session holds no clock. It
-    /// is the one owner of what the party has learned and the notes book the projection publishes is read
-    /// from it — while the world's own per-place state is kept apart from it, so a place the clock restores
-    /// clears nothing here.
-    /// </summary>
-    public PartyKnowledge? Knowledge => _knowledge;
+    /// <summary>The journal, or null when the ruleset stated none or the session holds no clock.</summary>
+    public PartyJournal? Journal => _owners.Journal;
 
-    /// <summary>
-    /// What the party has mapped, or null when its ruleset stated no automap or content carries no maps.
-    /// </summary>
-    /// <remarks>
-    /// It is the party's own memory of the world's shape, read by the automap block and by the maps book's page
-    /// per place, so the two cannot disagree about where the party has been.
-    /// </remarks>
-    public PartyMaps? Maps => _maps;
+    /// <summary>What the party knows, or null when the ruleset stated no discoveries or there is no clock.</summary>
+    public PartyKnowledge? Knowledge => _owners.Knowledge;
 
-    /// <summary>
-    /// The rest mechanism this session stops through, or null when its ruleset answered no rest policy or
-    /// the session holds no party yet. It is the one mechanism every stop is applied by, and what the
-    /// projection publishes about a night is read from it.
-    /// </summary>
-    public PartyRest? Rest => _rest;
+    /// <summary>What the party has mapped, or null when the ruleset stated no automap or content carries no maps.</summary>
+    public PartyMaps? Maps => _owners.Maps;
 
-    /// <summary>
-    /// The fight this session stands in, or null when its ruleset answered no combat policy or the session
-    /// holds no party yet. It is the one state every attack is paced by, whether the actor is a character or
-    /// a creature, and what the projection publishes about a fight is read from it.
-    /// </summary>
-    public CombatState? Combat => _combat;
+    /// <summary>The rest mechanism, or null when the ruleset answered none or no party is held yet.</summary>
+    public PartyRest? Rest => _owners.Rest;
+
+    /// <summary>The fight, or null when the ruleset answered no combat policy or no party is held yet.</summary>
+    public CombatState? Combat => _owners.Combat;
 
     /// <summary>The owners the session composed that set deadlines on its clock, which a save asks about each.</summary>
-    internal IReadOnlyList<IDeadlineOwner> DeadlineOwners => _deadlineOwners;
-
-    /// <summary>
-    /// The party the session holds, or null while it is creating one and when no content or creation
-    /// supplied one. The party a session accepted is the party it plays: nothing else is ever assigned here.
-    /// </summary>
-    public PartyEntity? Party => _party;
+    internal IReadOnlyList<IDeadlineOwner> DeadlineOwners => _owners.DeadlineOwners;
 
     /// <summary>The creation this session holds while a party is being made, or null once it is playing.</summary>
     public PartyCreationFlow? Creation => _creation?.Flow;
 
-    /// <summary>
-    /// The last creation choice the flow refused, or null when creation has refused nothing or the last
-    /// choice was accepted.
-    /// </summary>
-    /// <remarks>
-    /// The refusal is kept here rather than thrown: a player who picks a portrait the game does not offer, a
-    /// skill their class may not learn, or an attribute past its ceiling gets an answer the screen can show,
-    /// and creation stays exactly where it was.
-    /// </remarks>
-    public PartyRefusal? CreationRefusal => _creationRefusal;
+    /// <summary>The last creation choice the flow refused, or null when the last choice was accepted.</summary>
+    public PartyRefusal? CreationRefusal => _creation?.Refusal;
 
-    /// <summary>
-    /// The explicit save boundary this session writes and reads through, or null when it was composed
-    /// without a save store.
-    /// </summary>
-    /// <remarks>
-    /// Nothing else saves the session: the admitted update, the mode changes, and the release of the session
-    /// all write nothing, and a save happens only when a caller asks this boundary for one. A session
-    /// composed without a store reports null here, which is what a product with nowhere to persist says
-    /// about itself rather than pretending a save landed.
-    /// </remarks>
-    public SessionSaveBoundary? Saves => _saves;
+    /// <summary>The explicit save boundary, or null when the session was composed without a save store.</summary>
+    public SessionSaveBoundary? Saves => _saves.Boundary;
 
     /// <summary>Where the party is, or an empty world while the session has no places.</summary>
     public WorldSnapshot World => _world;
 
-    /// <summary>
-    /// What the party's movement has done so far, or none while the session has no world to move in.
-    /// </summary>
-    /// <remarks>
-    /// This is where a fall is observable today. It goes to the party's health owner when that owner
-    /// exists, which is why it is reported here and applied nowhere.
-    /// </remarks>
+    /// <summary>What the party's movement has done so far, or none while the session has no world to move in.</summary>
     public MovementDiagnostics Movement => LiveWorld?.Movement ?? MovementDiagnostics.None;
-
-    /// <summary>Admitted updates this session has consumed, whether or not it was running.</summary>
-    public ulong Updates => _updates;
 
     /// <summary>Whether the player has held the session, which is not the engine's lifecycle pause.</summary>
     public bool IsHeld => _held;
@@ -699,8 +205,8 @@ public sealed class PartyRpgSession : IGameSession
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_started) return;
         _started = true;
-        // A session that has not run yet has no baseline; the first admitted tick establishes one so
-        // the engine's runtime-wide step counter never reads as this session's own elapsed time.
+        // A session that has not run yet has no baseline; the first admitted tick establishes one so the
+        // engine's runtime-wide step counter never reads as this session's own elapsed time.
         _accountedThroughStep = null;
         ResolveMode();
     }
@@ -755,175 +261,107 @@ public sealed class PartyRpgSession : IGameSession
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         SessionTick tick = SessionTick.From(update.Facts);
+        ReadOnlySpan<ProductInputEvent> input = update.Input;
 
-        // A save request is settled before the step it accompanies, exactly as the movement controls are:
-        // the player asked at the moment whose projection they were reading, so the document the slot holds
-        // describes that moment rather than one tick later. This is the only place an admitted update
-        // writes anything, and it writes because a request arrived — never because time passed.
-        if (ReadsSaveRequest(update.Input)) _save = AttemptSave();
+        // A save request is settled before the step it accompanies: the player asked at the moment whose
+        // projection they were reading, so the document describes that moment rather than one tick later.
+        if (_saves.Asked(input)) _saves.Attempt(this, Clock);
 
-        // Creation owns no world stepping. While a party is being made, this one admitted update drives the
-        // flow and nothing else: the movement reader is not consulted, the world is not stepped, the clock
-        // is not advanced, and no admitted interval is measured. Creation is turn-taking, not a second loop
-        // — every command it applies arrived in the input of this same update. The update that accepts the
-        // party measures nothing either, because it stepped no world: the first interval the world is
-        // credited with is the one the update after it steps.
-        if (_creation is not null)
+        // Creation owns no world stepping: while a party is being made this update drives the flow and nothing
+        // else, and measures no interval. The update that accepts the party measures nothing either, because it
+        // stepped no world: the first interval credited is the one the update after it steps.
+        if (_creation is { } creation)
         {
-            DriveCreation(update.Input);
+            if (creation.Drive(input) is { } accepted)
+            {
+                _creation = null;
+                _accepted = true;
+                _owners.Take(accepted.Party, accepted.World, accounts: null);
+                _world = _owners.World?.Snapshot ?? WorldSnapshot.Empty;
+                ResolveMode();
+            }
+
             _updates++;
             Publish();
             return ProductUpdateResult.None;
         }
 
-        // Input settles before the step it governs, and both happen inside this one admitted update: the
-        // intent is read from the events this update carries, the step it produces covers exactly the
-        // admitted interval the same update measures, and the clock is advanced by that same interval. The
-        // party's motion and the passage of game time are therefore one interval, not two loops, and a
-        // session that is not running admits no interval for either of them.
-        //
-        // The pacing control is settled first of all, for the same reason and one step earlier: a press that
-        // switches the mode changes what this very update does with the world, so it cannot wait for the
-        // update after the one it arrived in.
-        TurnControls turn = _turnInput?.Read(update.Input) ?? TurnControls.None;
-        if (turn.Toggle) TogglePacing();
+        // The pacing control is settled first of all: a press that switches the mode changes what this very
+        // update does with the world, so it cannot wait for the update after the one it arrived in.
+        TurnControls turn = _fight.ReadTurns(input);
+        if (turn.Toggle) _fight.TogglePacing();
 
+        // Input settles before the step it governs: the step covers exactly the admitted interval this update
+        // measures, and the clock is advanced by that same interval, so motion and game time are one interval.
         double seconds = AdmittedSeconds(tick);
 
-        // A held session is quiescent: no game time passes and no act is applied — no use, no stop, no
-        // counter or conversation, no casting or mixing, and nobody in a fight acts. What it still does is
-        // read the keys the player holds, so a key released while it was held does not keep walking or
-        // attacking when it resumes, and take a save the player asked for, above.
+        // A held session is quiescent: no game time passes and no act is applied. It still reads the keys the
+        // player holds, so a key released while it was held does not keep walking when it resumes.
         bool quiescent = _mode == SessionMode.Paused;
 
-        // A turn-based fight the party can still take turns in owns the player's controls while it waits for
-        // one: the session steps no world and measures no interval, exactly as a screen that owns the
-        // controls does, and every turn arrives as the committed action below. Its movement phase is the one
-        // part that does step the world, and it is the party's own step: the fight holds while it lasts but
-        // the party walks.
-        bool awaitingTurn = _combat is { Turns.WaitsForPlayer: true };
-        bool screenOwnsControls = _services is { IsOpen: true } || _conversations is { IsOpen: true };
+        // A paced fight waiting for a turn, and a screen — a counter or a conversation — own the player's
+        // controls: the party does not step while either lasts. The world keeps advancing behind a screen, one
+        // clock and one update; a fight waiting for a committed turn pauses it, because time is what a turn
+        // spends rather than what updates carry.
+        bool awaitingTurn = Combat is { Turns.WaitsForPlayer: true };
+        bool screenOwnsControls = Services is { IsOpen: true } || Conversations is { IsOpen: true };
 
-        // A service visit or a conversation owns the player's controls: the screen is what they act on, so
-        // the party does not step and nothing is faced while one is open, and a party cannot walk away from
-        // a shop or a person by holding a key at a menu. The world itself keeps advancing behind a screen —
-        // one clock, one update, and a screen does not pause a real-time world — but a fight waiting for a
-        // committed turn does pause it, because time is what a turn spends rather than what updates carry.
-        bool attacked = false;
-        bool skipped = false;
-        bool waited = false;
-
-        // What the player holds is read on every update, whatever owns the controls: a key released while a
-        // screen was open or a turn was awaited is a release the reader must see, or the party would walk on
-        // when the screen closed. What is read is only applied when the party may act.
-        MovementIntent intent = _movementInput?.Read(update.Input) ?? default;
-        if (!awaitingTurn && !screenOwnsControls)
+        // What the player holds is read on every update, whatever owns the controls, so a release is never
+        // missed; it is applied only when the party may act.
+        MovementIntent intent = _movement?.Read(input) ?? default;
+        if (!screenOwnsControls)
         {
-            StepParty(intent, seconds);
+            if (!awaitingTurn && _movement is not null && seconds > 0) LiveWorld?.Step(intent, seconds);
+
+            // A use and a stop are instants rather than intervals, so they follow the step that carried the
+            // party to what it faces, in the same update, and still apply while a turn is being taken.
             if (!quiescent)
             {
-                // Using something follows the step that carried the party to it, in the same update: the
-                // reticle is refreshed from where the party now stands, and a use the player asked for is
-                // applied to what that step put in front of it rather than to what the previous one did.
-                Interact(update.Input);
-                // A stop is an instant like a use, and the whole period is applied here: the clock the step
-                // above moved is moved on by the hours the party slept or waited for, inside this same update.
-                DriveRest(update.Input);
+                _acts.Interact(input);
+                _acts.Stop(input);
             }
         }
-        else if (!screenOwnsControls && !quiescent)
-        {
-            // A use and a stop are instants rather than intervals, so they are still applied while a turn is
-            // being taken: what the party faces is refreshed from where it actually stands, and a rest that
-            // the fight's own rules refuse is refused by name rather than by a mode.
-            Interact(update.Input);
-            DriveRest(update.Input);
-        }
 
-        // The act control is read once per update whatever the mode, because what it holds is a fact about the
-        // key: in real time a hold keeps attacking as members recover, and in a paced fight only a press
-        // commits a turn, so a held key cannot spend turn after turn.
-        bool attackHeld = ReadsAttack(update.Input) && !screenOwnsControls;
-        bool pressed = attackHeld && !_attackHeld && !_attackSuppressed;
-        if (_attackSuppressed)
-        {
-            if (attackHeld) _attackSeenDown = true;
-            else if (_attackSeenDown)
-            {
-                // It came up: the next press is a decision about the pacing the player is in now.
-                _attackSuppressed = false;
-                _attackSeenDown = false;
-            }
-        }
-        if (!screenOwnsControls && _combat is { Pacing: CombatPacing.TurnBased })
-        {
-            // A paced fight takes one turn per decision, so what orders here is a press rather than a hold.
-            attacked = pressed;
-            skipped = turn.Skip;
-            waited = turn.Wait;
-        }
-        else
-        {
-            // Real time keeps the hold's own meaning, and a hold the mode change dropped still has to come up
-            // before it orders again.
-            attacked = attackHeld && !_attackSuppressed;
-        }
-
-        _attackHeld = attackHeld;
-
+        FightOrders orders = _fight.Read(input, turn, screenOwnsControls);
         if (!quiescent)
         {
-            DriveServices(update.Input);
-            DriveRaises(update.Input);
-            DriveConversations(update.Input);
+            _acts.Serve(input);
+            _acts.Raise(input);
+            _acts.Converse(input);
         }
 
-        // Who the party is speaking with is read here, once the update's own use and answers have been
-        // applied: a conversation opens from a use and turns from an answer, so both arrive at this one read.
-        // Being in somebody's company is a state rather than an edge — a party that stands talking for a
-        // hundred updates met them once — so the journal is what decides that the first report was news.
-        if (_conversations is { IsOpen: true, Speaker: { } speaker })
+        // Being in somebody's company is a state rather than an edge, so the journal decides that the first
+        // report was news.
+        if (Conversations is { IsOpen: true, Speaker: { } speaker } conversations)
         {
-            _journal?.Record(new JournalEvent(
+            Journal?.Record(new JournalEvent(
                 JournalEntryKind.Meeting,
                 Source: "conversation",
                 Subject: speaker.Id,
                 Name: speaker.Name.Length > 0 ? speaker.Name : speaker.Id,
-                Place: _conversations.Place.Value));
+                Place: conversations.Place.Value));
         }
 
-        StepClock(seconds);
+        if (Clock is { } clock && seconds > 0) clock.AdvanceAdmittedSeconds(seconds);
 
-        // The world advances with the same admitted time the session measures: one clock, one update. The
-        // day boundary the clock just crossed is what its places are restored against, so a crossing
-        // reaches respawn here rather than through a schedule of the world's own.
-        if (_liveWorld is { } world)
+        if (LiveWorld is { } world)
         {
-            // What the party can see is added to its map here, once per update and before anything is read from
-            // the world: a step, a road taken, and a scripted arrival all put the party somewhere, and this is
-            // the one place they are all read from. The sweep inside runs when the party's own square changes,
-            // so a party standing still costs a lookup and adds nothing.
-            ObserveMap(world);
+            // What the party can see is added to its map once per update, before anything is read from the
+            // world: a step, a road taken, and a scripted arrival all put the party somewhere.
+            Maps?.Observe(world.Place, world.Party.PlacePose);
 
-            // What the world stands on now is read once, before anything is published: a snapshot taken after
-            // a publish would leave the world's own facts — the place, the pose, and the hours its doors keep
-            // — one update behind the clock published beside them, which is exactly how a shop that shut at
-            // six would still read open in the projection that shows the clock striking six.
+            // What the world stands on now is read before anything is published, so the place, the pose, and
+            // the hours its doors keep stand beside the clock this update moved.
             world.AdvanceTime();
             WorldSnapshot live = world.Snapshot;
             _world = live;
 
-            // The place the party now stands in is read here, where the world's own report of it arrives, and
-            // handed to the quest owner: standing somewhere is a state rather than an event, so an errand that
-            // asks for a place is judged from the world's reading instead of from a step of the party's own.
-            if (live.Place.Length > 0) _quests?.Observe(new PlaceId(live.Place));
-
-            // The same reading is what the journal is told about, and it is told about it every update the
-            // party stands there: entering a place is a state the world reports rather than an edge it
-            // announces, so the journal is what decides that the first report was news and the rest were not.
+            // Standing somewhere is a state the world reports, so the quest owner judges an errand that asks for
+            // a place, and the journal decides whether arriving there is news.
             if (live.Place.Length > 0)
             {
-                _journal?.Record(new JournalEvent(
+                Quests?.Observe(new PlaceId(live.Place));
+                Journal?.Record(new JournalEvent(
                     JournalEntryKind.Place,
                     Source: "world",
                     Subject: live.Place,
@@ -932,207 +370,27 @@ public sealed class PartyRpgSession : IGameSession
             }
         }
 
-        // The fight is stepped last of all the world's readers, once the update has moved everything it
-        // reads: the party has taken its step, the clock has passed, and a place the advance restored holds
-        // its population again. Re-reading the world here is what makes hostility a fact about where the
-        // party is now — a creature that notices it as it walks, or a place that was rebuilt under it —
-        // rather than something remembered from an earlier update. The order the player gave is applied in
-        // the same breath, and only then is the update consumed and its projection published, so what the
-        // panel reads is the fight this update left behind rather than the one before it.
-        // A casting is read where the act control is: a screen that owns the controls owns casting too, and
-        // the spell is aimed at the fight this update's own world read left standing. The quick slot is read
-        // whatever is open, because which spell a character keeps there is her own state and not an act.
+        // The fight is stepped last of all the world's readers, once everything it reads has moved, so
+        // hostility is a fact about where the party is now. Casting and mixing are read in the same breath: a
+        // screen that owns the controls owns them too, and what arrived anyway is refused by name.
         if (!quiescent)
         {
-            bool cast = DriveCasts(update.Input, allowed: !screenOwnsControls);
-
-            // Mixing is read in the same breath: it is the pack screen's own act, and a mixture that arrived
-            // while a screen owned the controls is refused by name rather than quietly dropped.
-            DriveMixes(update.Input, allowed: !screenOwnsControls);
-            DriveCombat(attacked, skipped, waited, cast, seconds);
+            CombatantId? caster = _acts.Cast(input, allowed: !screenOwnsControls);
+            _acts.Mix(input, allowed: !screenOwnsControls);
+            _fight.Step(orders, caster, seconds);
         }
 
-        // The mode is resolved after the fight has had its say, because the fight is what decides whether the
-        // next update waits for a committed turn: a round that began in this update is published in the same
-        // update, so the panel never shows a fight whose turn it is not yet waiting for.
+        // The mode is resolved after the fight has had its say, because the fight decides whether the next
+        // update waits for a committed turn; the update is then consumed and its one projection published.
         ResolveMode();
-
-        // The update is consumed and its one projection published last, once the world, the clock, and the
-        // fight have all moved, so the place and the fight stand beside the clock this update moved.
         Advance(tick);
         return ProductUpdateResult.None;
-    }
-
-    /// <summary>
-    /// Applies the creation commands this update carried to the flow, in the order they arrived.
-    /// </summary>
-    /// <remarks>
-    /// Every command goes through the flow's own operation and its refusal is recorded rather than thrown,
-    /// so an illegal choice is an answer the screen shows and creation stays where it was. An acceptance is
-    /// the last command this update acts on: once the party exists there is no flow left to drive, and the
-    /// commands behind it in the same update belonged to a screen that has just gone away.
-    /// </remarks>
-    private void DriveCreation(ReadOnlySpan<ProductInputEvent> input)
-    {
-        if (_creation is not { } creation || _creationInput is null) return;
-        foreach (CreationCommand command in _creationInput.Read(input))
-        {
-            if (command.Kind == CreationCommandKind.Accept)
-            {
-                Accept(creation);
-                if (_creation is null) return;
-                continue;
-            }
-
-            _creationRefusal = Apply(creation.Flow, command);
-        }
-    }
-
-    /// <summary>Makes one creation command on the flow and returns the rule it broke, when it broke one.</summary>
-    private static PartyRefusal? Apply(PartyCreationFlow flow, CreationCommand command) => command.Kind switch
-    {
-        CreationCommandKind.SelectMember => flow.SelectMember(command.Member),
-        CreationCommandKind.SelectPortrait => Missing(command, "portrait") ?? flow.SelectPortrait(new PortraitId(command.Value)),
-        CreationCommandKind.SelectClass => Missing(command, "class") ?? flow.SelectClass(new ClassId(command.Value)),
-        CreationCommandKind.SetName => flow.SetName(command.Value),
-        CreationCommandKind.RaiseAttribute => Missing(command, "attribute") ?? flow.RaiseAttribute(new AttributeId(command.Value)),
-        CreationCommandKind.LowerAttribute => Missing(command, "attribute") ?? flow.LowerAttribute(new AttributeId(command.Value)),
-        CreationCommandKind.ChooseSkill => Missing(command, "skill") ?? flow.ChooseSkill(new SkillId(command.Value)),
-        CreationCommandKind.RemoveSkill => Missing(command, "skill") ?? flow.RemoveSkill(new SkillId(command.Value)),
-        CreationCommandKind.Advance => flow.Advance(),
-        CreationCommandKind.Accept => null,
-        _ => null,
-    };
-
-    /// <summary>
-    /// Refuses a choice command that arrived without the choice it names.
-    /// </summary>
-    /// <remarks>
-    /// The alternative is dropping the command, which is the failure this kit refuses everywhere else: a
-    /// control that silently does nothing looks exactly like a control that worked and changed nothing.
-    /// </remarks>
-    private static PartyRefusal? Missing(CreationCommand command, string choice) =>
-        string.IsNullOrWhiteSpace(command.Value)
-            ? new PartyRefusal(
-                "creation-choice-missing",
-                $"A {choice} choice arrived naming no {choice}, so there was nothing to choose; a {choice} is named by the id creation offers it under.")
-            : null;
-
-    /// <summary>
-    /// Accepts the finished creation: builds the party, composes the world it walks into, and plays it.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// This is the one moment a session takes a party. The party comes from the factory the ruleset
-    /// supplied, over exactly what the flow finished, so a party created here is the same durable shape as
-    /// one restored from a save; the world comes from the ruleset too, composed over that same party,
-    /// because a road's provisions come out of the party's larder and a world built before its party would
-    /// have none to charge.
-    /// </para>
-    /// <para>
-    /// A refusal here leaves creation exactly as it was: an unfinished member is named, and a factory that
-    /// refuses what the flow produced is reported as what it is — a defect in the choices the ruleset
-    /// offered — rather than leaving a half-created party or an exception inside an admitted update.
-    /// </para>
-    /// </remarks>
-    private void Accept(SessionCreation creation)
-    {
-        if (!creation.Flow.IsComplete)
-        {
-            _creationRefusal = new PartyRefusal(
-                "creation-incomplete",
-                $"The party cannot be accepted while creation is unfinished: {Unfinished(creation.Flow)}.");
-            return;
-        }
-
-        PartyEntity? party = null;
-        SessionWorld? world = null;
-        try
-        {
-            party = creation.BuildParty(creation.Flow.ToCreation());
-            world = creation.ComposeWorld(party);
-        }
-        catch (Exception error) when (error is ArgumentException or ContentValidationException)
-        {
-            // The factory or the world refused what the flow produced — a party the rules will not build, or
-            // content the world, an interaction, or a fight refuses to be composed over. Both are released
-            // here: an accepted party that is not played would be a second party, and the session stays in
-            // creation so the player can change the choice that produced it. A content refusal is caught
-            // with the party refusals because this is where the world is composed, and a defect that reached
-            // the engine's update boundary would stop the product instead of telling the player what is
-            // wrong with the content they loaded.
-            world?.Dispose();
-            party?.Dispose();
-            _creationRefusal = new PartyRefusal(
-                "creation-refused",
-                $"The finished party was refused: {error.Message}");
-            _diagnostics?.Publish(new DiagnosticsPublishRequest(
-                DiagnosticsSeverity.Error,
-                DiagnosticsDisposition.RejectedRecoverable,
-                Source: "creation",
-                Code: "creation-refused",
-                Message: _creationRefusal.Message,
-                Correlation: string.Empty));
-            return;
-        }
-
-        _creation = null;
-        _creationRefusal = null;
-        _accepted = true;
-        _party = party;
-        _liveWorld = world;
-        _world = world?.Snapshot ?? WorldSnapshot.Empty;
-        // The place the accepted party starts in is populated here for the same reason the world's own
-        // composition does it: the party plays in a place that is already furnished, in the first update
-        // that follows rather than one late.
-        _liveWorld?.Populate();
-        // The ledger the world charges a journey to is the one a shop charges the created party's purse
-        // through, and the service mechanism is composed over exactly that pair, so a party that just came
-        // into being is served by the same path as one restored from a save.
-        _accounts ??= _liveWorld?.Accounts;
-        ComposeProgression();
-        ComposeRest();
-        ComposeServices();
-        // The conversation is composed over the party that now exists rather than over nobody: what a person
-        // offers and what a line records are read against the party, so a mechanism that captured none would
-        // withhold an offer only somebody of a class may take and keep no record of having met anybody.
-        ComposeConversations();
-        ComposeQuests();
-        // The journal is composed beside the quest owner and not over it: it keeps the party's dated record,
-        // and what its books show is read from the owners that hold those facts when the projection is built.
-        ComposeJournal();
-        ComposeKnowledge();
-        ComposeMaps();
-        ComposeCombat();
-        ComposeMagic();
-        // The mixing workflow is composed here for the same reason the casting one is: a party that has just
-        // come into being is the party that plays, so a screen whose mixing control nothing could carry out
-        // would be this session's own omission rather than its ruleset's answer.
-        ComposeAlchemy();
-        // Leaving creation is a mode change like any other, so it resolves and publishes through the one
-        // path that decides what a mode means: the next admitted update steps the world the party is in.
-        ResolveMode();
-    }
-
-    /// <summary>Names every member still unfinished, which is why a party cannot be accepted yet.</summary>
-    private static string Unfinished(PartyCreationFlow flow)
-    {
-        List<string> pending = [];
-        for (int index = 0; index < flow.MemberCount; index++)
-        {
-            CreationMember member = flow.Member(index);
-            if (member.IsComplete) continue;
-            pending.Add($"member {index + 1} is at the {member.Step} step");
-        }
-
-        return pending.Count > 0 ? string.Join("; ", pending) : "no member is finished";
     }
 
     /// <summary>The interval this admitted update covers, which is zero for a session that is not running.</summary>
     /// <remarks>
     /// One derivation of the interval, so the movement step and the clock cannot be advanced by different
-    /// amounts: the engine reports how many fixed steps it admitted and how long one is, and a batch this
-    /// session cannot measure advances nothing at all.
+    /// amounts, and a batch this session cannot measure advances nothing at all.
     /// </remarks>
     private double AdmittedSeconds(SessionTick tick)
     {
@@ -1142,1194 +400,9 @@ public sealed class PartyRpgSession : IGameSession
     }
 
     /// <summary>
-    /// Asks the world to move the party by the admitted interval, as the controls read this update ask.
-    /// </summary>
-    /// <remarks>
-    /// The controls are read by the caller on every update, held or not, so a release is never missed; this
-    /// never steps a session that is not running, because no admitted time passes for it.
-    /// </remarks>
-    private void StepParty(MovementIntent intent, double seconds)
-    {
-        if (_movementInput is null || seconds <= 0 || LiveWorld is not { } world) return;
-        world.Step(intent, seconds);
-    }
-
-    /// <summary>
-    /// Steps the world's interaction mechanism and applies a use the player asked for, in this same update.
-    /// </summary>
-    /// <remarks>
-    /// The reticle is refreshed whenever the session holds a world, so what the panel shows as faced is what
-    /// the last step actually put in front of the party; the use itself happens only when the player asked
-    /// for one, on the controls the host declared. A held session steps this too — a use is an instant rather
-    /// than an interval, and a lever pulled while the world is held is an act — which is deliberately not how
-    /// movement works. The mechanism is the world's, and this is where the one admitted update reaches it.
-    /// A use that lands on somebody opens the conversation with them, which is the one way a person is
-    /// reached: the interaction mechanism found who the party is facing, the conversation is the general
-    /// case of talking to them, and what stands behind them — a counter, a household, an errand — is offered
-    /// from inside that conversation rather than through a second way in. A use that lands on a door or a
-    /// chest opens no conversation, because the ruleset answers that there is nobody there.
-    /// </remarks>
-    private void Interact(ReadOnlySpan<ProductInputEvent> input)
-    {
-        if (LiveWorld is not { } world) return;
-        InteractionResult? result = world.Interact(_useInput is not null && _useInput.Read(input));
-
-        // What the use taught is handed to the knowledge owner here, because this is the one place that holds
-        // both the mechanism that reported it and the owner that keeps it: a search that yielded something
-        // worth knowing, an inscription the party read, a landmark whose effect it felt. Every discovery the
-        // outcome states is handed over and none is judged here — whether it is news is the knowledge owner's
-        // answer, exactly as whether a find is worth a journal line is the game's.
-        if (result is { IsApplied: true, Learned.Count: > 0 } taught && _knowledge is { } knowledge)
-        {
-            foreach (KnowledgeReport report in taught.Learned) knowledge.Record(report);
-        }
-
-        if (result is { IsApplied: true, Target: { } target } && _conversations is { } conversations)
-        {
-            conversations.OpenTarget(target.Id.Place, target.Placement);
-        }
-    }
-
-    /// <summary>
-    /// Applies the conversation commands this update carried, in the order they arrived, and routes what an
-    /// answer hands the party to.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The reader is consulted only while a conversation is open, exactly as the service reader is consulted
-    /// only while a counter is open: the commands belong to a screen, and one that arrives with nobody being
-    /// spoken with names nothing this session is doing. Each command goes through the mechanism's own
-    /// operation and its refusal is recorded rather than thrown, so a topic the state withholds is an answer
-    /// the screen shows and the conversation stays exactly where it was.
-    /// </para>
-    /// <para>
-    /// <b>A handoff is routed here, once.</b> A conversation names the owner an offer belongs to and never
-    /// carries it out itself; this session holds both mechanisms, so this is the one place that can hand the
-    /// party over. A service handoff opens the counter the person keeps through the service mechanism's own
-    /// entry — so a shop that is shut refuses by name, in the shop's own vocabulary, rather than through a
-    /// second copy of its hours — and a counter that opened takes the controls from the conversation, which
-    /// is closed because the party is now at the counter rather than at the door. A handoff nothing routes is
-    /// reported by name instead of being swallowed.
-    /// </para>
-    /// </remarks>
-    private void DriveConversations(ReadOnlySpan<ProductInputEvent> input)
-    {
-        if (_conversations is not { } conversations || _conversationInput is null) return;
-        foreach (ConversationCommand command in _conversationInput.Read(input))
-        {
-            ConversationResult result = command.Kind switch
-            {
-                ConversationCommandKind.Topic => conversations.Choose(command.Target),
-                ConversationCommandKind.Person => conversations.Turn(command.Target),
-                _ => conversations.Close(),
-            };
-
-            if (result is { IsApplied: true, Handoff: { } handoff }) Route(handoff, conversations);
-        }
-    }
-
-    /// <summary>Hands the party from a conversation to the owner an offer belongs to.</summary>
-    /// <remarks>
-    /// Three owners are routed: the counter whoever the party spoke with keeps, the quest owner a person's
-    /// errand belongs to, and the progression owner a person empowered to grant a rank hands the party to. A
-    /// handoff naming any other owner is reported with the owner's name rather than being treated as done,
-    /// which is what keeps a later stone's offers honest until that stone lands.
-    /// </remarks>
-    private void Route(ConversationHandoff handoff, PartyConversations conversations)
-    {
-        if (string.Equals(handoff.Kind, PromotionHandoffs.Offer, StringComparison.Ordinal))
-        {
-            Give(handoff, conversations);
-            return;
-        }
-
-        if (IsQuest(handoff.Kind))
-        {
-            Take(handoff, conversations);
-            return;
-        }
-
-        if (!string.Equals(handoff.Kind, ConversationHandoffs.Service, StringComparison.Ordinal))
-        {
-            _diagnostics?.Publish(new DiagnosticsPublishRequest(
-                DiagnosticsSeverity.Warning,
-                DiagnosticsDisposition.RejectedRecoverable,
-                Source: "conversation",
-                Code: "conversation-handoff-unowned",
-                Message: $"What was said offers '{handoff}', and no owner in this build takes that handoff: the mechanism that will is not built.",
-                Correlation: string.Empty));
-            return;
-        }
-
-        if (_services is not { } services || conversations.Placement is not { } placement)
-        {
-            _diagnostics?.Publish(new DiagnosticsPublishRequest(
-                DiagnosticsSeverity.Warning,
-                DiagnosticsDisposition.RejectedRecoverable,
-                Source: "conversation",
-                Code: "conversation-handoff-unavailable",
-                Message: "What was said offers a counter and this session holds no service mechanism to hand the party to.",
-                Correlation: string.Empty));
-            return;
-        }
-
-        ServiceResult? opened = services.OpenTarget(conversations.Place, placement);
-
-        // The counter that took the party owns the controls from here, so the conversation ends where the
-        // counter begins: a party at a counter is not still standing at the door talking. A counter that
-        // refused leaves the party where it stands, so the conversation stays open and the service's own
-        // refusal is what the panel shows beside it.
-        if (opened is { IsApplied: true }) conversations.Close();
-    }
-
-    /// <summary>Whether a handoff names one of the three operations the quest owner takes.</summary>
-    /// <remarks>
-    /// The words are the quest owner's own, exactly as a promotion's are, so a session that composes no rule
-    /// for quests still routes the handoff and reports that no owner takes it rather than swallowing it.
-    /// </remarks>
-    private static bool IsQuest(string kind) =>
-        string.Equals(kind, QuestHandoffs.Offer, StringComparison.Ordinal)
-        || string.Equals(kind, QuestHandoffs.Accept, StringComparison.Ordinal)
-        || string.Equals(kind, QuestHandoffs.TurnIn, StringComparison.Ordinal);
-
-    /// <summary>
-    /// Takes the errand a person stated, the agreement to one already heard, or a finished one back to its
-    /// giver — through the quest owner, and reports what became of it.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>An errand is offered where it is stated and finished where it is handed in.</b> The conversation
-    /// hands over the quest's identity and which of the three acts the line was, and this applies it through
-    /// the one owner that holds a party's quest state, exactly as a rank is applied through the progression
-    /// owner and a purchase through the counter — so the party that walks away from a giver holds the errand
-    /// the offer named, or a refusal that says what was missing.
-    /// </para>
-    /// <para>
-    /// Who the errand belongs to is the person being spoken with, read here rather than carried by the
-    /// handoff: the owner judges the giver again when the errand is offered or handed in, so a conversation
-    /// that offered somebody else's errand is refused by name rather than quietly recorded.
-    /// </para>
-    /// <para>
-    /// A refusal leaves the conversation open, so it stands beside the person who gave it and the party can
-    /// hear what was missing; an errand finished needs nobody's answer, so the conversation closes where the
-    /// business does — the same rule a lane change and a rank already follow.
-    /// </para>
-    /// </remarks>
-    private void Take(ConversationHandoff handoff, PartyConversations conversations)
-    {
-        if (_quests is not { } quests)
-        {
-            _diagnostics?.Publish(new DiagnosticsPublishRequest(
-                DiagnosticsSeverity.Warning,
-                DiagnosticsDisposition.RejectedRecoverable,
-                Source: "quest",
-                Code: "quest-unavailable",
-                Message: "What was said offers an errand and this session holds no owner of quest state: the ruleset that states one is not composed.",
-                Correlation: string.Empty));
-            return;
-        }
-
-        string person = conversations.Speaker?.Id ?? string.Empty;
-        QuestId quest = new(handoff.Target);
-        QuestResult result = handoff.Kind switch
-        {
-            QuestHandoffs.Offer => quests.Offer(quest, person, conversations.Place),
-            QuestHandoffs.Accept => quests.Accept(quest),
-            _ => quests.TurnIn(quest, person),
-        };
-
-        _diagnostics?.Publish(new DiagnosticsPublishRequest(
-            result.IsApplied ? DiagnosticsSeverity.Info : DiagnosticsSeverity.Warning,
-            result.IsApplied ? DiagnosticsDisposition.Accepted : DiagnosticsDisposition.RejectedRecoverable,
-            Source: "quest",
-            Code: result.IsApplied ? $"quest-{result.Action.ToString().ToLowerInvariant()}" : result.Refusal!.Code,
-            Message: result.Describe(),
-            Correlation: string.Empty));
-
-        // What the errand owner did is reported to the journal here, where its own answer arrives: the stage
-        // is the owner's fact and this only says which of the three happened, naming the errand in the words
-        // the owner reads for it. A refusal is not reported, because nothing happened to write down.
-        if (result.IsApplied && result.Stage is { } stage && quests.Read(quest) is { } reading)
-        {
-            _journal?.Record(new JournalEvent(
-                QuestKind(stage),
-                Source: "quest",
-                Subject: quest.Value,
-                Name: reading.Name,
-                Place: conversations.Place.Value));
-        }
-
-        if (result is { IsApplied: true, Action: QuestAction.TurnIn }) conversations.Close();
-    }
-
-    /// <summary>The journal's own word for the stage the quest owner moved an errand to.</summary>
-    /// <remarks>
-    /// A turn-in is a finished errand and not a stage a party can keep working at, which is why the three
-    /// stages the owner has become the three kinds of line a journal writes about an errand.
-    /// </remarks>
-    /// <param name="stage">The stage the errand now stands at.</param>
-    /// <returns>What kind of line records it.</returns>
-    private static JournalEntryKind QuestKind(QuestStage stage) => stage switch
-    {
-        QuestStage.Offered => JournalEntryKind.QuestOffered,
-        QuestStage.Accepted => JournalEntryKind.QuestTaken,
-        _ => JournalEntryKind.QuestFinished,
-    };
-
-    /// <summary>
-    /// Gives the rank a person offered, through the progression owner, and reports what became of it.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>A rank is given where it is offered.</b> The conversation hands over the rank's identity and this
-    /// applies it through the one owner that moves a rank, exactly as a counter's own mechanism is what
-    /// applies a purchase — so the party that walks away from a promoter holds the rank that person's offer
-    /// named, or a refusal that says what was missing.
-    /// </para>
-    /// <para>
-    /// Who the rank is taken from is the person being spoken with, read here rather than carried by the
-    /// handoff: the ladder's giver requirement is judged against them, so a conversation that offered a rank
-    /// its speaker does not give is refused by name rather than quietly granted.
-    /// </para>
-    /// <para>
-    /// A rank that landed closes the conversation, because the party and the person have finished the
-    /// business they were about; one that was refused leaves the conversation open, so the refusal stands
-    /// beside the person who gave it and the party can hear what was missing.
-    /// </para>
-    /// </remarks>
-    private void Give(ConversationHandoff handoff, PartyConversations conversations)
-    {
-        if (_progression is not { Promotions: not null } progression)
-        {
-            _diagnostics?.Publish(new DiagnosticsPublishRequest(
-                DiagnosticsSeverity.Warning,
-                DiagnosticsDisposition.RejectedRecoverable,
-                Source: "promotion",
-                Code: "promotion-unavailable",
-                Message: "What was said offers a rank and this session holds no ladder of them to give: the ruleset that states one is not composed.",
-                Correlation: string.Empty));
-            return;
-        }
-
-        PromotionResult result = progression.Promote(handoff.Target, conversations.Speaker?.Id ?? string.Empty);
-        _diagnostics?.Publish(new DiagnosticsPublishRequest(
-            result.IsGranted ? DiagnosticsSeverity.Info : DiagnosticsSeverity.Warning,
-            result.IsGranted ? DiagnosticsDisposition.Accepted : DiagnosticsDisposition.RejectedRecoverable,
-            Source: "promotion",
-            Code: result.IsGranted ? "promotion-granted" : result.Refusal!.Code,
-            Message: result.IsGranted
-                ? string.Join(" ", result.Granted.Select(grant =>
-                    string.Create(
-                        CultureInfo.InvariantCulture,
-                        $"{grant.Name} rose from {grant.FromClass} (rank {grant.FromRank}) to {grant.ToClass} (rank {grant.Rank}) by the rank '{result.Promotion}'.")))
-                : result.Refusal!.Message,
-            Correlation: string.Empty));
-
-        // A rank that landed is one moment in the party's record, named by the class it reached rather than by
-        // the members who rose: the rank is what the party took, and which of its members met the requirements
-        // is the promotion report's own fact. A rank nobody rose to wrote nothing down.
-        if (result.IsGranted)
-        {
-            _journal?.Record(new JournalEvent(
-                JournalEntryKind.Rank,
-                Source: "progression",
-                Subject: result.Promotion,
-                Name: result.ToClass,
-                Place: conversations.Place.Value));
-        }
-
-        if (result.IsGranted) conversations.Close();
-    }
-
-    /// <summary>
-    /// Applies the stops this update carried, in the order they arrived, while no counter owns the controls.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The reader is consulted only while the party is walking, exactly as the movement controls are: a visit's
-    /// screen owns the player's controls while it is open, and a stop asked for behind a counter is the
-    /// service's business rather than a second way into the same night's sleep.
-    /// </para>
-    /// <para>
-    /// Every stop is applied whole inside this update — a rest is not a state the session holds between
-    /// updates — so there is nothing to resume, nothing to interrupt from a later update, and no screen that
-    /// could be drawn while the clock is halfway through the night. The report is published with the rest of
-    /// the projection and reported to the engine's diagnostics, so what a night cost is visible both on the
-    /// panel and in the product's own account of itself.
-    /// </para>
-    /// </remarks>
-    private void DriveRest(ReadOnlySpan<ProductInputEvent> input)
-    {
-        if (_rest is not { Available: true } rest || _restInput is null) return;
-        foreach (RestKind kind in _restInput.Read(input))
-        {
-            RestResult result = rest.Perform(kind);
-            Report(result);
-        }
-    }
-
-    /// <summary>Reports what one stop did, whether it applied or was refused.</summary>
-    private void Report(RestResult result)
-    {
-        _diagnostics?.Publish(new DiagnosticsPublishRequest(
-            DiagnosticsSeverity.Info,
-            DiagnosticsDisposition.Accepted,
-            Source: "rest",
-            Code: result.IsApplied ? "rest-applied" : "rest-refused",
-            Message: result.IsApplied
-                ? $"The party stopped ({result.Kind}) from {result.From} to {result.To} in place '{_liveWorld?.Place}': {result.Message}"
-                : $"The party's stop ({result.Kind}) in place '{_liveWorld?.Place}' was refused ({result.Code}): {result.Message}",
-            Correlation: string.Empty));
-    }
-
-    /// <summary>
-    /// Steps the fight inside the one admitted update: it re-reads the world, and an order the player gave is
-    /// applied to it.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The fight is stepped in every update, whether or not its control was pressed, because what it reads is
-    /// the world: which creatures stand in the place, which of them have noticed the party, and how much
-    /// recovery each actor has left. A held session's world does not move, so the re-read finds the same
-    /// fight; a session that walked closer to something finds a different one.
-    /// </para>
-    /// <para>
-    /// An order is an instant rather than an interval, so a held session still takes one — a lever pulled
-    /// while the world is held is an act, and so is a swing — and the recovery it charges waits for game
-    /// time, which while the session is held does not pass. That is deliberately not how movement works: a
-    /// held session admits no interval for motion.
-    /// </para>
-    /// <para>
-    /// The fight reports every order and every refusal to the engine's diagnostics itself, so nothing here
-    /// reports one twice. What the panel shows is read from the fight's own last answer.
-    /// </para>
-    /// </remarks>
-    /// <para>
-    /// The opposition is driven between the two: the fight re-reads the world, every creature that is
-    /// fighting decides and acts through the same gate, and the player's own order is applied last so that
-    /// what a player did this update is the newest fact on the panel rather than one buried under the
-    /// creatures that answered it. The interval the update admitted is what a creature's movement covers;
-    /// an update that admits none still lets it act, because an attack is an instant, and moves nobody,
-    /// because movement is an interval.
-    /// </para>
-    /// <param name="attacked">Whether this update carried an order to attack.</param>
-    /// <param name="skipped">Whether this update carried a committed turn that forfeits the round's turn.</param>
-    /// <param name="waited">Whether this update carried a committed turn that defers to the round's end.</param>
-    /// <param name="seconds">The world time this update admitted, which may be zero.</param>
-    private void DriveCombat(bool attacked, bool skipped, bool waited, bool cast, double seconds)
-    {
-        if (_combat is not { } combat) return;
-        combat.Step();
-
-        // A fight that is being paced turn-based, and has a round to pace, is driven by its own turns: the
-        // opposition acts when its turns come rather than every update, and the party's action is the turn it
-        // committed. A pacing that holds nothing — nothing hostile, or a party that can no longer act — is the
-        // real-time path below, because then the world proceeds exactly as it does outside the mode.
-        if (combat.Pacing == CombatPacing.TurnBased && combat.Turns.IsHolding)
-        {
-            DrivePacedCombat(combat, attacked, skipped, waited, cast, seconds);
-            return;
-        }
-
-        if (skipped || waited)
-        {
-            ReportRefusedTurn(
-                "no-turn",
-                "A turn was passed or deferred while this fight had no turn to give: the pacing is not turn-based, nothing is being fought, or the party has nobody left who can act.");
-        }
-
-        if (_director is { } director && _liveWorld is { } world)
-        {
-            director.Step(world.Place, seconds);
-
-            // The party's own order is applied after the creatures have had their turn, so the field is read
-            // once more afterwards: a party that brings the last creature down in this update has emptied the
-            // place in this update, and a place left unmarked until the next one would be populated again if
-            // the party walked straight out through the door it came in by.
-            if (attacked) combat.Engage();
-            director.Observe(world.Place);
-        }
-        else if (attacked)
-        {
-            combat.Engage();
-        }
-    }
-
-    /// <summary>
-    /// Drives a paced fight: the party's committed turn, then every turn that comes before the next one of
-    /// the party's.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// This is the second pacing's whole effect on the admitted update, and it is not a second update: it runs
-    /// inside the one the engine admitted, it is triggered by the committed action that update carried, and
-    /// the only thing it does with the world is advance the session's own clock by the game time each turn
-    /// costs — the same clock, the same owners, and therefore the same recovery arithmetic real time runs on.
-    /// </para>
-    /// <para>
-    /// The action phase hands out turns until one of them belongs to the party, which is where the session
-    /// starts waiting for the player instead of stepping anything, or until the round's own time is spent,
-    /// which is where the party's movement phase begins.
-    /// </para>
-    /// <para>
-    /// The movement phase is the party's own step: the update's admitted step already moved it, and what is
-    /// spent here is the game time that step covered. Any committed turn ends the phase — the donor's own
-    /// controls do exactly that, since pressing the act or pass key while the party is moving ends the
-    /// movement phase rather than reaching the actor — and so does spending the allowance.
-    /// </para>
-    /// </remarks>
-    private void DrivePacedCombat(CombatState combat, bool attacked, bool skipped, bool waited, bool cast, double seconds)
-    {
-        TurnBasedPacing turns = combat.Turns;
-
-        if (turns.Phase == TurnPhase.Movement)
-        {
-            // What the party's step covered is game time, priced by the party's own recovery. A session that
-            // admits no interval — a held one — spends nothing and stays in the phase; a session with no clock
-            // at all has no scale to convert its step by and so no allowance anything could ever spend, and
-            // its phase therefore ends with the update that entered it rather than holding a world forever.
-            turns.SpendMovement(GameTime(seconds));
-            bool committed = attacked || skipped || waited;
-            if (!committed && _clock is not null && !turns.MovementLeft.IsNone) return;
-            turns.EndMovement();
-            ResolveTurns(combat, seconds);
-            return;
-        }
-
-        if (turns.WaitsForPlayer)
-        {
-            if (attacked)
-            {
-                // The turn is only spent if the actor actually acted: a refusal — an actor the fight's own
-                // rules leave unable to act, or one whose recovery has not elapsed because this session has no
-                // clock to elapse it — leaves the turn where it was, so the player can see the answer and act
-                // again rather than losing a turn to a refusal.
-                if (combat.Engage(turns.Current!.Id).IsApplied) turns.Took();
-                ResolveTurns(combat, seconds);
-                return;
-            }
-
-            if (cast)
-            {
-                // A casting this update is this actor's action: the spell has already gone through the
-                // fight's own gated entry, so the turn it was taken on is spent here rather than offered
-                // again to an actor who has just acted.
-                if (turns.Current is { } caster && _lastCastActor == caster.Id) turns.Took();
-                ResolveTurns(combat, seconds);
-                return;
-            }
-
-            if (skipped)
-            {
-                turns.Skipped();
-                ResolveTurns(combat, seconds);
-                return;
-            }
-
-            if (waited)
-            {
-                if (!turns.Waited())
-                {
-                    ReportRefusedTurn(
-                        "already-waited",
-                        $"{turns.Current?.Name ?? "That actor"} has already deferred its turn this round, so waiting again would hold the round open for a decision nothing has changed.");
-                }
-
-                ResolveTurns(combat, seconds);
-                return;
-            }
-
-            // Nothing was committed: the session keeps waiting rather than stepping anything, which is what
-            // makes a turn-based fight wait for the player.
-            return;
-        }
-
-        ResolveTurns(combat, seconds);
-    }
-
-    /// <summary>
-    /// Hands out the turns that come before the party's next one, letting the opposition take them.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The loop is the pacing's own protocol: ask whose turn is next and how much game time passes first,
-    /// advance the one clock by it, and let a creature act through the same driver the real-time pacing uses.
-    /// It stops when a party member holds the turn — the session waits for the player there — and when no
-    /// turn is due at all, which is the round's action phase ending.
-    /// </para>
-    /// <para>
-    /// It always terminates: every turn either advances the clock by a length of game time the round still
-    /// has, or is taken by an actor that has not acted at this moment, and the moment only holds as many turns
-    /// as the fight has actors.
-    /// </para>
-    /// </remarks>
-    private void ResolveTurns(CombatState combat, double seconds)
-    {
-        while (true)
-        {
-            GameDuration interval = combat.Turns.Next();
-            if (!interval.IsNone) AdvanceTurnTime(interval);
-            if (combat.Turns.Current is not { } actor) return;
-            if (actor.Side == CombatSide.Party) return;
-            if (_director is { } director && _liveWorld is { } world)
-            {
-                director.TakeTurn(world.Place, actor.Id, AdmittedSecondsFor(interval));
-            }
-
-            combat.Turns.Took();
-        }
-    }
-
-    /// <summary>The engine's own seconds for a length of game time, which is what a creature's step covers.</summary>
-    /// <remarks>
-    /// A turn is game time and the world's mover measures in the admitted seconds the engine reports, so the
-    /// two are related by the scale the one clock already carries — the same relation the session uses in the
-    /// other direction when an admitted interval becomes game time. A session with no clock has no scale and
-    /// moves nothing, which is the same answer its recovery already gives.
-    /// </remarks>
-    private double AdmittedSecondsFor(GameDuration interval) =>
-        _clock is { } clock ? interval.TotalSeconds / clock.Scale.GameSecondsPerRealSecond : 0;
-
-    /// <summary>The game time an admitted interval covers, at the one clock's own scale.</summary>
-    private GameDuration GameTime(double admittedSeconds) =>
-        _clock is { } clock
-            ? GameDuration.FromMilliseconds((long)Math.Round(
-                admittedSeconds * clock.Scale.GameSecondsPerRealSecond * GameDuration.MillisecondsPerSecond,
-                MidpointRounding.AwayFromZero))
-            : GameDuration.None;
-
-    /// <summary>
-    /// Switches the pacing of the fight this session plays, and changes nothing else about it.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// This is what the toggle control reaches. It touches the fight and nothing else: no party state, no
-    /// world state, and no position moves, which is why a fight can be switched in the middle of a round and
-    /// continued in the other mode from exactly the state it was in.
-    /// </para>
-    /// <para>
-    /// <b>What the player was holding is released.</b> A key held across the switch belonged to the pacing
-    /// they were in — walking is an interval only real time admits, and the act control's hold means "keep
-    /// attacking as members recover" — so both readers drop what they held and the act control's own hold
-    /// flag is cleared. A key the engine still reports as down arrives again in the next update, so what is
-    /// dropped is the intent the session was carrying over, not the player's key.
-    /// </para>
-    /// </remarks>
-    private void TogglePacing()
-    {
-        if (_combat is not { } combat)
-        {
-            _diagnostics?.Publish(new DiagnosticsPublishRequest(
-                DiagnosticsSeverity.Warning,
-                DiagnosticsDisposition.RejectedRecoverable,
-                Source: "combat",
-                Code: "combat-pacing-unavailable",
-                Message: "The pacing was asked to switch and this session holds no fight to pace: its ruleset answered no combat policy, so there is nothing to play in rounds.",
-                Correlation: string.Empty));
-            return;
-        }
-
-        CombatPacing pacing = combat.TogglePacing();
-        // What the player was holding at the moment of the switch is what must be let go; a control that was
-        // up then is a control the next press orders with, in the pacing the player has just chosen.
-        _attackSuppressed = _attackHeld;
-        _attackSeenDown = false;
-        _movementInput?.Release();
-        _combatInput?.Release();
-        _attackHeld = false;
-
-        _diagnostics?.Publish(new DiagnosticsPublishRequest(
-            DiagnosticsSeverity.Info,
-            DiagnosticsDisposition.Accepted,
-            Source: "combat",
-            Code: "combat-pacing-toggle",
-            Message: pacing == CombatPacing.TurnBased
-                ? "The fight is paced turn-based: every turn of the party's now arrives as a committed action and the world waits for it."
-                : "The fight is paced in real time again: recovery elapses with the world it always did.",
-            Correlation: string.Empty));
-    }
-
-    /// <summary>Reports a committed turn the fight had nowhere to put.</summary>
-    private void ReportRefusedTurn(string code, string message) =>
-        _diagnostics?.Publish(new DiagnosticsPublishRequest(
-            DiagnosticsSeverity.Warning,
-            DiagnosticsDisposition.RejectedRecoverable,
-            Source: "combat",
-            Code: code,
-            Message: message,
-            Correlation: string.Empty));
-
-    /// <summary>Whether this update's admitted input orders the party to attack.</summary>
-    /// <remarks>
-    /// The reader is consulted only where the other controls are, so a screen that owns the player's controls
-    /// owns this one: a party shopping or talking is not also swinging. A session whose ruleset answered no
-    /// combat policy reads nothing at all rather than reading an order nothing could take.
-    /// </remarks>
-    private bool ReadsAttack(ReadOnlySpan<ProductInputEvent> input) =>
-        _combatInput is not null && _combat is not null && _combatInput.Read(input);
-
-    /// <summary>
-    /// Composes the fight over the party the session plays and the world it stands in, when the ruleset
-    /// answered for one.
-    /// </summary>
-    /// <remarks>
-    /// It is composed once, when the party exists, and over the world rather than over a copy of it: the
-    /// place's live entities are what a fight reads, so entering a fight changes nothing about where the
-    /// party is or what exists. The fight joins the owners the one clock reports to, which is what makes
-    /// recovery advance with the same game time a shelf restocks on and a debt of sleep falls due on —
-    /// including the time a journey or a night spends, which no admitted update measures.
-    /// </remarks>
-    private void ComposeCombat()
-    {
-        if (_combat is not null || _combatRule is null || _party is not { } party) return;
-        _combat = new CombatState(_combatRule, party, _liveWorld, _clock, _diagnostics);
-        ObserveTimeWith(_combat);
-
-        // The driver is composed over the fight and the world's own collision, which is what makes a
-        // creature's step and the party's step one scene. A session whose ruleset answered no AI has no
-        // driver at all, and its fight is one-sided rather than driven by an invented policy.
-        if (_monsterAi is { } policy)
-        {
-            _director = new CombatDirector(_combat, policy, _liveWorld?.Creatures, _liveWorld?.Places, _diagnostics);
-        }
-    }
-
-    /// <summary>
-    /// Composes the casting workflow over the party, this game's spell answers, the effect path, and the fight.
-    /// </summary>
-    /// <remarks>
-    /// It is composed where the fight is, and over the same fight, so a casting's two gates — what acts on the
-    /// caster and how much of its recovery is left — are the fight's own answers rather than a second reading
-    /// of the same state. A session whose ruleset answered no magic holds no workflow at all, and publishes
-    /// that rather than a spellbook nothing could cast from.
-    /// </remarks>
-    private void ComposeMagic()
-    {
-        if (_spellRule is null || _party is not { } party) return;
-        _casting = new Spellcasting(
-            party,
-            _spellRule,
-            _spellEffects,
-            _combat,
-            _skillRule is { } skills ? skills.TierName : null);
-
-        // An effect path that keeps a duration hears the session's one clock like every other owner of it: a
-        // ward or a light ends in the very advance that reaches its deadline, whether that advance came from
-        // an admitted update, a journey, a rest, a wait, or a night at an inn. It is registered once, because
-        // the clock refuses a second registration that would land the same deadlines on it twice.
-        if (!_magicObserved && _spellEffects is IGameTimeObserver observer)
-        {
-            _magicObserved = true;
-            ObserveTimeWith(observer);
-        }
-    }
-
-    /// <summary>
-    /// Composes the mixing workflow over the party, this game's own mixture table, and its answers about
-    /// mixing.
-    /// </summary>
-    /// <remarks>
-    /// It is composed beside the casting workflow and over the same party, because mixing is a transfer of the
-    /// party's own things rather than an act in the world: the ingredients come out of the shared pack and the
-    /// potion goes back into it through the party's own two entries. The knowledge owner travels with it
-    /// because the mixture whose row records a discovery is what teaches it: a recipe the party has made is a
-    /// fact it keeps, and the workflow that made it is the owner of that moment. A session whose ruleset
-    /// answered no mixtures holds no workflow at all, and publishes that rather than a pack screen whose
-    /// mixing control nothing could carry out.
-    /// </remarks>
-    private void ComposeAlchemy()
-    {
-        if (_alchemyRule is not { } rule || _mixtures is not { } catalog || _party is not { } party) return;
-        _mixing = new PotionMixing(party, catalog, rule, _knowledge);
-    }
-
-    /// <summary>
-    /// Applies the mixtures this update carried, in the order they arrived.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// A mixture is an instant, like a cast and a raise: it is read inside this one admitted update and it
-    /// changes what the party's own pack holds rather than what the world is. Every attempt goes through the
-    /// one workflow, so a pair the game states no mixture for, a character whose mastery does not reach the
-    /// result's rung, a character who cannot act, and a pack that cannot take the potion are each refused by
-    /// name and leave both ingredients exactly where they lay.
-    /// </para>
-    /// <para>
-    /// A refusal is published rather than thrown, because a screen's own control must be able to report it: a
-    /// button the panel offers and the product ignores would be a control that looks like it did nothing.
-    /// </para>
-    /// </remarks>
-    /// <param name="input">The admitted input slice of one update.</param>
-    /// <param name="allowed">Whether a mixture may be applied this update, which a screen owning the controls forbids.</param>
-    /// <returns>Whether a mixture this update was applied.</returns>
-    private bool DriveMixes(ReadOnlySpan<ProductInputEvent> input, bool allowed)
-    {
-        if (_mixInput is null || _mixing is not { } mixing) return false;
-
-        bool mixed = false;
-        foreach (MixRequest request in _mixInput.Read(input))
-        {
-            if (!allowed)
-            {
-                _diagnostics?.Publish(new DiagnosticsPublishRequest(
-                    DiagnosticsSeverity.Info,
-                    DiagnosticsDisposition.RejectedRecoverable,
-                    Source: "alchemy",
-                    Code: "mixture-screen-open",
-                    Message: "A mixture arrived while a screen owned the player's controls, so nothing was mixed and both ingredients are still where they were.",
-                    Correlation: string.Empty));
-                continue;
-            }
-
-            MixingResult result = mixing.Mix(new MixingRequest(request.Member, request.First, request.Second));
-            mixed |= result.IsMixed;
-            _diagnostics?.Publish(new DiagnosticsPublishRequest(
-                result.IsMixed ? DiagnosticsSeverity.Info : DiagnosticsSeverity.Warning,
-                result.IsMixed ? DiagnosticsDisposition.Accepted : DiagnosticsDisposition.RejectedRecoverable,
-                Source: "alchemy",
-                Code: result.Code,
-                Message: result.Message,
-                Correlation: string.Empty));
-        }
-
-        return mixed;
-    }
-
-    /// <summary>
-    /// Applies the castings and quick-slot choices this update carried, in the order they arrived.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// A casting is an instant, like a use and a raise: it is read inside this one admitted update and it
-    /// changes what the party's own state holds rather than what the world is. Every casting goes through the
-    /// one workflow, so a spell the caster never learned, one their school mastery does not reach, one their
-    /// pool cannot pay for, one aimed at nothing the fight holds, and one whose caster is still recovering or
-    /// laid out are each refused by name and leave the pool exactly as it stood.
-    /// </para>
-    /// <para>
-    /// The actor that cast is remembered so a paced fight can spend its turn: the cast has already been
-    /// ordered through the fight's own gated entry, and the turn it belongs to is consumed by the pacing that
-    /// asked for it rather than by a second order.
-    /// </para>
-    /// </remarks>
-    /// <param name="allowed">
-    /// Whether a casting may be applied this update. A screen that owns the player's controls owns casting
-    /// too — the party stands at a counter or speaks with somebody, and nothing is faced or acted on until
-    /// it leaves — but the quick slot is the character's own state rather than an act in the world, so
-    /// choosing it is read whatever is open.
-    /// </param>
-    /// <returns>Whether a casting this update was applied.</returns>
-    private bool DriveCasts(ReadOnlySpan<ProductInputEvent> input, bool allowed)
-    {
-        _lastCastActor = null;
-        if (_castInput is null || _casting is not { } casting) return false;
-
-        foreach (QuickSpellRequest choice in _castInput.ReadQuick(input))
-        {
-            if (choice.Member < 0 || choice.Member >= casting.Party.Members.Count)
-            {
-                _diagnostics?.Publish(new DiagnosticsPublishRequest(
-                    DiagnosticsSeverity.Warning,
-                    DiagnosticsDisposition.RejectedRecoverable,
-                    Source: "magic",
-                    Code: "spell-member-unknown",
-                    Message: $"A quick spell named member {choice.Member + 1}, and the party has {casting.Party.Members.Count}.",
-                    Correlation: string.Empty));
-                continue;
-            }
-
-            PartyMember member = casting.Party.Members[choice.Member];
-            try
-            {
-                member.Spells.SetQuickSpell(choice.Spell);
-            }
-            catch (ArgumentException refused)
-            {
-                // The slot holds a spell its owner can cast, so choosing one the character never learned is
-                // refused where it is asked for rather than kept as a key that would fail every press.
-                _diagnostics?.Publish(new DiagnosticsPublishRequest(
-                    DiagnosticsSeverity.Warning,
-                    DiagnosticsDisposition.RejectedRecoverable,
-                    Source: "magic",
-                    Code: "spell-quick-refused",
-                    Message: refused.Message,
-                    Correlation: string.Empty));
-            }
-        }
-
-        bool cast = false;
-        foreach (CastRequest request in _castInput.Read(input))
-        {
-            if (!allowed)
-            {
-                // A casting that arrives while a screen owns the controls is refused by name rather than
-                // quietly dropped: a button the panel offers and the product ignores would be a control that
-                // looks like it did nothing, which is the failure this refusal exists to prevent.
-                _diagnostics?.Publish(new DiagnosticsPublishRequest(
-                    DiagnosticsSeverity.Info,
-                    DiagnosticsDisposition.RejectedRecoverable,
-                    Source: "magic",
-                    Code: "spell-screen-open",
-                    Message: "A casting arrived while a screen owned the player's controls, so nothing was cast and no spell point was spent.",
-                    Correlation: string.Empty));
-                continue;
-            }
-
-            SpellCastResult result = casting.Cast(new SpellCastRequest(request.Member, request.Spell, request.Target, request.Item));
-            cast |= result.IsCast;
-            if (result.IsCast) _lastCastActor = CombatantId.Of(casting.Party.Members[result.Member].Id);
-            if (!result.IsCast)
-            {
-                _diagnostics?.Publish(new DiagnosticsPublishRequest(
-                    DiagnosticsSeverity.Info,
-                    DiagnosticsDisposition.RejectedRecoverable,
-                    Source: "magic",
-                    Code: result.Code,
-                    Message: result.Message,
-                    Correlation: string.Empty));
-            }
-        }
-
-        return cast;
-    }
-
-    /// <summary>
-    /// Applies the service commands this update carried, in the order they arrived, while a visit is open.
-    /// </summary>
-    /// <remarks>
-    /// The reader is consulted only while a counter is open, exactly as the creation reader is consulted only
-    /// while a party is being made: the commands belong to a screen, and one that arrives with no counter
-    /// open names nothing this session is doing. Each command goes through the mechanism's own operation and
-    /// its refusal is recorded rather than thrown, so a purchase the purse cannot cover is an answer the
-    /// screen shows and the visit stays exactly where it was.
-    /// </remarks>
-    private void DriveServices(ReadOnlySpan<ProductInputEvent> input)
-    {
-        if (_services is not { IsOpen: true } services || _serviceInput is null) return;
-        foreach (ServiceCommand command in _serviceInput.Read(input))
-        {
-            ServiceResult result = services.Transact(command);
-
-            // A passage is the one thing a counter sells that is not simply carried away: the counter settles
-            // the fare and writes the passage on the party, and the journey itself belongs to the world,
-            // which only this owner holds. So the two owners meet here, once, and the journey goes through
-            // the world's one transition path rather than through a second way between places grown for
-            // fares. Asking for a journey the party already holds a passage to boards that passage, which is
-            // how a boarding refused once — content that sells a fare the world cannot route, or an arrival
-            // a place declined — can be tried again instead of leaving a ticket nothing would honour.
-            if (command.Kind != ServiceCommandKind.Fare) continue;
-            string journey = result.Subject.Length > 0 ? result.Subject : command.Target;
-            if (journey.Length > 0 && HoldsPassage(journey)) Board(services, journey);
-        }
-    }
-
-    /// <summary>Whether the party holds a passage to a place, which is what the road honours.</summary>
-    private bool HoldsPassage(string place) =>
-        _party is { } party && ServicePassage.DaysTo(party, new PlaceId(place)) > 0;
-
-    /// <summary>
-    /// Boards the passage the party holds to a place, and ends the counter visit it was bought at.
-    /// </summary>
-    /// <remarks>
-    /// Boarding moves the party without a step being taken, so the counter the party was standing at is
-    /// behind it; leaving the visit open would have the panel showing a shop in a place the party has left.
-    /// A boarding the world refuses leaves the visit open, because the party is still standing at that
-    /// counter with the ticket the refusal named.
-    /// </remarks>
-    private void Board(PartyServices services, string destination)
-    {
-        if (_liveWorld is not { } world)
-        {
-            _diagnostics?.Publish(new DiagnosticsPublishRequest(
-                DiagnosticsSeverity.Warning,
-                DiagnosticsDisposition.RejectedRecoverable,
-                Source: "travel",
-                Code: "fare-no-world",
-                Message: $"A passage to {destination} was bought and this session holds no world to travel through, so nothing was boarded.",
-                Correlation: string.Empty));
-            return;
-        }
-
-        // The counter the passage was bought at is behind the party now, so the visit ends here — quietly,
-        // because a leave command would report a departure nobody asked for over the fare that was bought.
-        if (world.Board(new PlaceId(destination)).Arrived) services.Abandon();
-    }
-
-    /// <summary>
-    /// Applies the skill raises this update carried, in the order they arrived.
-    /// </summary>
-    /// <remarks>
-    /// A raise is an instant like a use and is read whatever the mode, because it touches nothing the world
-    /// or the clock holds: it spends points the progression owner keeps and raises a skill on the member the
-    /// screen named. Every raise goes through the owner's one spend path, so a raise past the ceiling or one
-    /// the pool cannot cover is refused with the limit or the shortfall named and nothing moves; a raise the
-    /// screen named for a row the party no longer has is refused the same way rather than applied to whoever
-    /// stands there now.
-    /// </remarks>
-    private void DriveRaises(ReadOnlySpan<ProductInputEvent> input)
-    {
-        if (_skillInput is null || _progression is not { } progression) return;
-        foreach (SkillRaiseRequest raise in _skillInput.Read(input))
-        {
-            if (raise.Member < 0 || raise.Member >= progression.Party.Members.Count)
-            {
-                _diagnostics?.Publish(new DiagnosticsPublishRequest(
-                    DiagnosticsSeverity.Warning,
-                    DiagnosticsDisposition.RejectedRecoverable,
-                    Source: "progression",
-                    Code: "skill-member-unknown",
-                    Message: $"A raise named member {raise.Member + 1}, and the party has {progression.Party.Members.Count}.",
-                    Correlation: string.Empty));
-                continue;
-            }
-
-            progression.RaiseSkill(progression.Party.Members[raise.Member].Id, raise.Skill, raise.Levels);
-        }
-    }
-
-    /// <summary>
-    /// Advances the one clock by the interval this update admitted.
-    /// </summary>
-    /// <remarks>
-    /// The clock itself hands the advance to every owner registered with it — the deadline report, the world,
-    /// and each mechanism the session composed — so this only says how much time the update admitted.
-    /// </remarks>
-    private void StepClock(double admittedSeconds)
-    {
-        if (_clock is not { } clock || admittedSeconds <= 0) return;
-        clock.AdvanceAdmittedSeconds(admittedSeconds);
-    }
-
-    /// <summary>
-    /// Advances the one clock by a length of game time, which is how a paced turn spends it.
-    /// </summary>
-    /// <remarks>
-    /// It is the same clock and the same owners as an admitted interval: a paced fight does not measure time
-    /// differently, it spends it in the amounts its turns cost rather than in the amounts the engine admitted.
-    /// Recovery is released by an advance and by nothing else, so an actor's turn is due exactly when its own
-    /// debt has been paid — the same arithmetic that releases it in real time, reached from the other
-    /// direction.
-    /// </remarks>
-    private void AdvanceTurnTime(GameDuration interval)
-    {
-        if (_clock is not { } clock || interval.IsNone) return;
-        clock.Advance(interval);
-    }
-
-    /// <summary>Reports every deadline an advance brought due, and whose it was.</summary>
-    /// <remarks>
-    /// It is registered with the clock before any owner, so it asks who held a deadline before that owner acted
-    /// on it: a one-shot deadline its owner re-arms is still reported as that owner's. A deadline no composed
-    /// owner holds is reported as exactly that rather than dropped.
-    /// </remarks>
-    private sealed class DeadlineReport(PartyRpgSession session) : IGameTimeObserver
-    {
-        public void Observe(ClockAdvance advance)
-        {
-            foreach (DeadlineDue due in advance.Due)
-            {
-                bool owned = session._deadlineOwners.Any(owner => owner.Holds(due.Deadline));
-                string message = owned
-                    ? $"Game time reached {due.Fired}, which a deadline of {due.Deadline} was set for; the owner that set it heard it."
-                    : $"Game time reached {due.Fired}, which a deadline of {due.Deadline} was set for; no owner the session composed holds it, so nothing acted on it.";
-                session._diagnostics?.Publish(new DiagnosticsPublishRequest(
-                    DiagnosticsSeverity.Info,
-                    DiagnosticsDisposition.Accepted,
-                    Source: "clock",
-                    Code: "deadline-due",
-                    Message: message,
-                    Correlation: string.Empty));
-            }
-        }
-    }
-
-    /// <summary>
-    /// Composes the progression owner over the party the session plays, when the ruleset answered for one.
-    /// </summary>
-    /// <remarks>
-    /// It is composed once, when the party exists and before anything that spends what it owns: a training
-    /// hall's step is settled through it and a session that creates its party has no party until creation is
-    /// accepted. Everything else about progression — the fight's award, a quest's reward, a panel's read of
-    /// the curve — reaches this same owner, which is what makes it the one place experience, a level, and a
-    /// skill point can move.
-    /// </remarks>
-    private void ComposeProgression()
-    {
-        if (_progression is not null || _progressionRule is null || _party is not { } party) return;
-        _progression = new PartyProgression(_progressionRule, party, _skillRule, _promotionRule);
-    }
-
-    /// <summary>
-    /// Composes the service mechanism over the party the session plays, when the ruleset answered for one.
-    /// </summary>
-    /// <remarks>
-    /// It is composed once, when the party exists: a session that creates its party has none until creation
-    /// is accepted, and the ledger a journey charges is the one a shop charges because both are composed over
-    /// that same party. A session with no ledger still gets the mechanism — it can browse and be refused by
-    /// name — which is better than a counter that is not there because nobody handed over the accounts.
-    /// </remarks>
-    private void ComposeServices()
-    {
-        if (_services is not null || _serviceRule is null || _party is not { } party) return;
-        // A room at an inn is a night's sleep, so the counter that rents one hands the night to the rest
-        // mechanism rather than keeping a second way to sleep; rest is composed first for that reason.
-        _services = new PartyServices(_serviceRule, party, _accounts, _clock, _progression, _rest);
-        // A shelf's deadline is driven by the one clock wherever the advance happened — an update, a journey,
-        // a rest — because the clock tells every owner registered with it.
-        ObserveTimeWith(_services);
-    }
-
-    /// <summary>
-    /// Composes the conversation mechanism when the ruleset answered for one.
-    /// </summary>
-    /// <remarks>
-    /// It is composed over the party and the clock rather than over the world, because what a conversation
-    /// reads is the party's own history and the hour — the place and the placement it is happening in arrive
-    /// with the use that opened it. It is composed with no party when the session holds none, so a ruleset
-    /// that answers about people still publishes who is here; a condition a party would satisfy is then
-    /// unmet and says so.
-    /// </remarks>
-    private void ComposeConversations()
-    {
-        if (_conversationRule is null) return;
-        // Composed over the party when there is one, and recomposed when one arrives: the mechanism holds
-        // the party it was built with, so a session that created its party would otherwise talk to it with a
-        // conversation that can read none of it. Nothing is lost by recomposing — a conversation cannot be
-        // open while a party is being made, because no use is read in creation and no person is faced.
-        if (_conversations is not null && (_conversationsSeeTheParty || _party is null)) return;
-        _conversations = new PartyConversations(_conversationRule, _party, _clock);
-        _conversationsSeeTheParty = _party is not null;
-    }
-
-    /// <summary>
-    /// Composes the quest owner over the party the session plays, when the ruleset answered for one.
-    /// </summary>
-    /// <remarks>
-    /// It is composed once, when the party exists, and over the owners a turn-in pays through: the ledger a
-    /// fare already settles, the progression owner a level already rises through, and the party whose
-    /// inventory and records every other mechanism reads. A session that creates its party composes it when
-    /// creation is accepted, which is the moment that party exists; a session resumed from a save hands the
-    /// recorded state in, so a party that had taken an errand keeps it rather than being offered it again.
-    /// </remarks>
-    private void ComposeQuests()
-    {
-        if (_quests is not null || _questRule is null || _party is not { } party) return;
-        _quests = new PartyQuests(_questRule, party, _accounts, _progression, _clock, _questState);
-    }
-
-    /// <summary>
-    /// Composes the journal over the session's one clock, when the ruleset answered for one.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>A journal needs the clock and nothing else.</b> Every line it keeps is dated in game time and a line
-    /// it loaded is read back against the clock's own calendar, so a session without one composes no journal
-    /// rather than keeping a list of things that happened at no particular time. It is deliberately not
-    /// composed over the quest owner, the world, or the party: what the journal's books show is read from
-    /// those owners when the projection is built, so this owner holds the party's dated record and no copy of
-    /// anything else.
-    /// </para>
-    /// <para>
-    /// A session that creates its party composes it when creation is accepted, which is the moment that party
-    /// exists; a session resumed from a save hands the recorded lines in, and they are dated against the clock
-    /// the session was resumed on rather than the moment it was loaded.
-    /// </para>
-    /// </remarks>
-    private void ComposeJournal()
-    {
-        if (_journal is not null || _journalRule is null || _clock is not { } clock) return;
-        _journal = new PartyJournal(_journalRule, clock, _journalState);
-    }
-
-    /// <summary>
-    /// Composes what the party knows over the session's one clock, when the ruleset answered for it.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Knowledge needs the clock and nothing else, and deliberately not the world.</b> Every note is dated
-    /// in game time and a loaded note is read back against the clock's own calendar, so a session without one
-    /// composes no knowledge rather than keeping facts learned at no particular time. What it is kept apart
-    /// <em>from</em> is the world's own per-place state: a place the clock restores is a change to what the
-    /// world currently is, and what the party learned there is the party's own fact, so this owner reads no
-    /// place state and a reset has nothing to clear.
-    /// </para>
-    /// <para>
-    /// A session that creates its party composes it when creation is accepted, which is the moment that party
-    /// exists; a session resumed from a save hands the recorded notes in, and they are dated against the clock
-    /// the session was resumed on rather than the moment it was loaded.
-    /// </para>
-    /// </remarks>
-    private void ComposeKnowledge()
-    {
-        if (_knowledge is not null || _knowledgeRule is null || _clock is not { } clock) return;
-        _knowledge = new PartyKnowledge(_knowledgeRule, clock, _knowledgeState);
-    }
-
-    /// <summary>
-    /// Composes what the party has mapped, when the ruleset answered for an automap and content carries maps.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>It is composed over the places' own maps and over nothing the world currently is.</b> A place's own
-    /// map is content, read once through the source the world's own geometry comes from, and what the party
-    /// has seen of it is the owner's own set of cells; the world's per-place state is deliberately not
-    /// consulted, so a population the clock restores, a container the party emptied, and a place it walked out
-    /// of all leave the map exactly as it was. That is the same boundary the notes make, and it is what "the
-    /// party has been here" and "the place has been restored" mean different things.
-    /// </para>
-    /// <para>
-    /// A session whose ruleset stated no automap, or whose content carries no maps, composes no owner and
-    /// records nothing while it walks; what its projection publishes says the mechanism is not there.
-    /// </para>
-    /// </remarks>
-    private void ComposeMaps()
-    {
-        if (_maps is not null || _mapRule is null || _mapSource is null) return;
-        _maps = new PartyMaps(_mapRule, _mapSource, _mapState);
-    }
-
-    /// <summary>Records what the party can see from where it now stands, once the world has moved it.</summary>
-    /// <remarks>
-    /// The sweep asks the game's own rule what stands between the party and the ground around it, and that
-    /// answer is the collision the party itself walks in: a wall, a closed door, and a floor between two
-    /// storeys stop the party's view for exactly the reason they stop its walk. A rule that states nothing —
-    /// a product with no spatial service — leaves the party a map of where it has been and nothing more.
-    /// </remarks>
-    private void ObserveMap(SessionWorld world) => _maps?.Observe(world.Place, world.Party.PlacePose);
-
-    /// <summary>
-    /// Composes the rest mechanism over the party the session plays, when the ruleset answered for one.
-    /// </summary>
-    /// <remarks>
-    /// It is composed once, when the party exists, and over the world the party stands in — so whether a
-    /// night may be taken here is read from the live place rather than from a place the session remembered.
-    /// The mechanism joins the owners the one clock reports to, which is what makes a debt of sleep fall due
-    /// on a journey exactly as it does in an update; a rest's own hours reach every other owner the same way,
-    /// because the clock tells them, not the rest.
-    /// </remarks>
-    private void ComposeRest()
-    {
-        if (_rest is not null || _restRule is null || _party is not { } party) return;
-        _rest = new PartyRest(_restRule, party, _clock, _liveWorld, _accounts);
-        ObserveTimeWith(_rest);
-    }
-
-    /// <summary>Registers one more owner of the session's game time with the one clock.</summary>
-    /// <remarks>
-    /// Registered owners live as long as the session and its clock do, so none is released here. An owner that
-    /// sets deadlines is also asked, when one comes due, whether it was its own.
-    /// </remarks>
-    private void ObserveTimeWith(IGameTimeObserver owner)
-    {
-        if (_clock is not { } clock) return;
-        clock.Observe(owner);
-        if (owner is IDeadlineOwner deadlines) _deadlineOwners.Add(deadlines);
-    }
-
-    /// <summary>
-    /// Consumes one admitted tick. Only a running session advances: a held or engine-paused session
-    /// keeps receiving admitted updates, and must publish the frozen state it holds rather than the
-    /// engine's advancing step counter.
+    /// Consumes one admitted tick. Only a running session advances: a held or engine-paused session keeps
+    /// receiving admitted updates, and must publish the frozen state it holds rather than the engine's
+    /// advancing step counter.
     /// </summary>
     public void Advance(SessionTick tick)
     {
@@ -2337,15 +410,12 @@ public sealed class PartyRpgSession : IGameSession
         _updates++;
         if (_mode == SessionMode.Running)
         {
-            // The engine reports a batch as its first step plus the number of steps it admitted, so a
-            // batch covers [SimulationStep, SimulationStep + AdmittedStepCount). Accounting by batch
-            // end is what makes the published seconds and the published step count describe the same
-            // simulation; accounting by batch starts credits the previous batch and never the one in
-            // flight.
+            // A batch covers [SimulationStep, SimulationStep + AdmittedStepCount), so accounting by batch end is
+            // what makes the published seconds and the published step count describe the same simulation.
             ulong batchStart = tick.SimulationStep;
             ulong batchEnd = batchStart + tick.AdmittedStepCount;
-            // After a hold, the first running tick re-establishes the baseline, so the interval the
-            // session was held is never credited to it.
+            // After a hold, the first running tick re-establishes the baseline, so the held interval is never
+            // credited to the session.
             _accountedThroughStep ??= batchStart;
             _simulationSeconds += (batchEnd - _accountedThroughStep.Value) * tick.FixedDeltaSeconds;
             _accountedThroughStep = batchEnd;
@@ -2357,23 +427,19 @@ public sealed class PartyRpgSession : IGameSession
 
     /// <summary>Stops the session, publishes the stop, and releases the projection channel.</summary>
     /// <remarks>
-    /// The party and the world are released here because the session is what holds them: a party that
-    /// outlived its session would be a second live party, and the world owns the engine scene it walks in.
-    /// The stop is published before either is released, because the projection reads the party's accounts
-    /// and the party's store is what disposing it takes away. Nothing is saved at this point: releasing a
-    /// session is not a save, and a caller that wanted one asked for it while the session was live.
+    /// The party and the world are released here because the session holds them: a party that outlived its
+    /// session would be a second live party. The stop is published before either is released, because the
+    /// projection reads the party's accounts. Releasing a session is not a save.
     /// </remarks>
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
         _mode = SessionMode.Stopped;
-        // Publish before releasing the channel: a client attached at shutdown should learn that the
-        // session stopped instead of keeping the last running projection forever.
         Publish();
         LiveWorld?.Dispose();
-        _party?.Dispose();
-        _saveStore?.Dispose();
+        Party?.Dispose();
+        _saves.Store?.Dispose();
         _projection.Dispose();
     }
 
@@ -2383,29 +449,31 @@ public sealed class PartyRpgSession : IGameSession
             ? SessionMode.Stopped
             : !_started
                 ? SessionMode.Starting
-                // A session with a party to make is creating it: neither an engine pause nor a player's hold
-                // takes it out of creation, because creation steps nothing that either of them would stop,
-                // and the flow must keep taking the player's choices while the world is held.
+                // Neither an engine pause nor a player's hold takes a session out of creation, because creation
+                // steps nothing either would stop and must keep taking choices while the world is held.
                 : _creation is not null
                     ? SessionMode.Creating
                     : _enginePaused || _held
                         ? SessionMode.Paused
-                        // A paced fight waiting for one of the party's turns owns the update exactly as a
-                        // screen does: no world is stepped and no clock is advanced, and the turn arrives as
-                        // the committed action of the update that carries it. A hold still outranks it,
-                        // because a player who asked the session to stop has asked for nothing to move.
-                        : _combat is { Turns.WaitsForPlayer: true } ? SessionMode.TurnBased : SessionMode.Running;
+                        // A paced fight waiting for one of the party's turns owns the update as a screen does; a
+                        // hold still outranks it, because a player who asked the session to stop asked for
+                        // nothing to move.
+                        : Combat is { Turns.WaitsForPlayer: true } ? SessionMode.TurnBased : SessionMode.Running;
 
         if (next == _mode) return;
         _mode = next;
-        // Stepping stops and resumes with the mode, so the held interval is never measured. A paced fight
-        // waits the same way: the interval it waits through is nobody's game time.
+        // Stepping stops and resumes with the mode, so the held interval is never measured.
         if (_mode is SessionMode.Paused or SessionMode.TurnBased) _accountedThroughStep = null;
         Publish();
     }
 
     private void Publish() => _projection.Publish(SessionProjection.Build(Snapshot()));
 
+    /// <summary>
+    /// Reads every block the projection publishes from the owner that holds its facts: a session with no
+    /// mechanism, one that has not used it yet, and one whose last act was refused are different facts each
+    /// block can tell apart, and nothing here works a number out.
+    /// </summary>
     private SessionSnapshot Snapshot() => new(
         _composition,
         _mode,
@@ -2414,77 +482,27 @@ public sealed class PartyRpgSession : IGameSession
         _updates,
         _world,
         MovementSnapshot.From(LiveWorld?.Movement.Last),
-        ClockSnapshot.From(_clock),
-        PartySnapshot.From(_party, _standingRule),
-        // While a party is being made the flow is the screen's whole subject; once one has been accepted the
-        // members shown are the party's own, read from the party rather than from the flow that described
-        // it, so the accepted state is a fact about what is being played. A resumed session plays a party it
-        // did not create in this run and publishes the same list: the roster a player reads after resuming
-        // is the party they led, read from the party rather than recalled from a flow that no longer exists.
-        // A session that holds no party at all publishes that it is doing neither.
+        ClockSnapshot.From(Clock),
+        PartySnapshot.From(Party, _owners.Rules.Standing),
+        // While a party is being made the flow is the screen's subject; once one is played, the members shown
+        // are the party's own, whether it was created in this run or resumed.
         _creation is { } creation
-            ? CreationSnapshot.From(creation.Flow, _creationRefusal)
-            : _accepted || _resumed ? CreationSnapshot.OfParty(_party) : CreationSnapshot.None,
-        _save,
-        // What the party faces and what using it did, read from the world's own mechanism: a session with no
-        // world, or one whose ruleset answered no interaction policy, publishes that it holds none rather
-        // than an empty reticle that looks like an empty room.
+            ? CreationSnapshot.From(creation.Flow, creation.Refusal)
+            : _accepted || _resumed ? CreationSnapshot.OfParty(Party) : CreationSnapshot.None,
+        _saves.State,
         InteractionSnapshot.From(LiveWorld?.Interaction),
-        // What the party is doing at a service, read from the service mechanism the ruleset's answers
-        // composed: a session with no mechanism, one that stands at no counter, and one whose counter is
-        // shut are three different facts the panel must be able to tell apart.
-        ServiceSnapshot.From(_services),
-        // What the party's last stop did and what it cost, read from the rest mechanism beside it: a session
-        // with no mechanism, one that has not stopped yet, and one whose night was refused are three
-        // different facts, and the fatigue debt the clock is holding is published with them.
-        RestSnapshot.Read(_rest, _clock),
-        // What the party is saying and to whom, read from the conversation mechanism the ruleset's answers
-        // composed: a session with no mechanism, one that is speaking with nobody, and one whose topic the
-        // state withholds are three different facts the panel must be able to tell apart.
-        ConversationSnapshot.From(_conversations),
-        // Who is fighting, who may act, and what the party's last order did, read from the fight the
-        // ruleset's answers composed: a session with no mechanism, a quiet place, and a party in a fight
-        // with three members recovering are different facts the panel must be able to tell apart.
-        CombatSnapshot.From(_combat, _director),
-        // What the party has earned and what a level costs, read from the progression owner beside the
-        // counter: a session with no owner, a party that has earned nothing, and a member who has banked
-        // the experience a level takes are three different facts, and the fee is the counter's own quote
-        // rather than a number this projection worked out.
-        ProgressionSnapshot.From(_progression, _services),
-        // Which ranks the party's classes lead to and what the last rank did, read from the same owner: "this
-        // session's ruleset stated no ladder", "no class of the party's leads anywhere", and "a member rose a
-        // rank" are three different facts, and the requirements are the ladder's own words rather than a
-        // screen's reading of them.
-        PromotionSnapshot.From(_progression),
-        // What each member can hold and what the next point would buy, read from the same owner: the rows
-        // are content's, the ceilings are the ruleset's, and what a raise would cost or why it is refused is
-        // the owner's own answer, so a screen renders a price rather than working one out.
-        SkillsSnapshot.From(_progression),
-        // What each member can cast, what a casting costs, and what the last one did, read from the casting
-        // workflow the ruleset's answers composed: a session whose ruleset stated no magic, a party that has
-        // learned nothing, and one whose spell was refused for its mastery or its pool are three different
-        // facts, and the price on every row is the workflow's own answer for that caster.
-        MagicSnapshot.From(_casting, _skillRule),
-        // What in the pack mixes and what the last mixture did, read from the mixing workflow the ruleset's
-        // answers composed: a session whose ruleset stated no mixtures, a pack holding nothing that mixes,
-        // and a mixture refused for a mastery or for want of room are three different facts, and the rows
-        // are the pack's own instances rather than a list of recipes the screen keeps.
-        AlchemySnapshot.From(_mixing),
-        // What the party's journal holds and what its last errand did, read from the quest owner the
-        // ruleset's answers composed: "this session's ruleset stated no quests", "the party has taken
-        // nothing", and "a turn-in was refused because an objective is unmet" are three different facts,
-        // and the objectives are the quest's own words rather than a screen's reading of them.
-        QuestSnapshot.From(_quests),
-        // The five books and what each holds, read from the owners that own their facts: the quest owner's
-        // errands, what the party has learned, the world's knowledge of its places, the one clock's date, and
-        // the journal's own dated lines. "This session's ruleset stated no journal", "the party has been
-        // nowhere and written nothing down", and "a book whose own owner is not composed" are three different
-        // facts a screen must tell apart.
-        JournalSnapshot.From(_journal, _quests, _liveWorld, _clock, _knowledge, _maps),
-        // The automap, read from the party's own map of the place it stands in and from what a detection is
-        // revealing over it: what the party has seen is the owner's, what the ground is, is content's, and what
-        // a detection adds is read from the world at this moment rather than remembered.
-        MapSnapshot.From(_maps, _liveWorld, _spellEffects as IRunningSpellEffects));
+        ServiceSnapshot.From(Services),
+        RestSnapshot.Read(Rest, Clock),
+        ConversationSnapshot.From(Conversations),
+        CombatSnapshot.From(Combat, _owners.Director),
+        ProgressionSnapshot.From(Progression, Services),
+        PromotionSnapshot.From(Progression),
+        SkillsSnapshot.From(Progression),
+        MagicSnapshot.From(_owners.Casting, _owners.Rules.Skills),
+        AlchemySnapshot.From(_owners.Mixing),
+        QuestSnapshot.From(Quests),
+        JournalSnapshot.From(Journal, Quests, LiveWorld, Clock, Knowledge, Maps),
+        MapSnapshot.From(Maps, LiveWorld, _owners.Rules.Magic?.Running));
 
     /// <summary>Publishes the world as it stands now, after a caller moved the party.</summary>
     public void PublishWorld()
@@ -2495,185 +513,38 @@ public sealed class PartyRpgSession : IGameSession
         Publish();
     }
 
-    /// <summary>
-    /// Reads this session into the product's one current save schema, without writing anything.
-    /// </summary>
-    /// <remarks>
-    /// This is a read of the party, the clock, and the world, and it changes none of them: a capture taken at
-    /// any point describes the session as it stood then, and playing on cannot alter the document it
-    /// produced. A session with nothing to save — no party, no clock, or no world — is refused by name here
-    /// rather than captured as an empty shell.
-    /// </remarks>
+    /// <summary>Reads this session into the product's one current save schema, without writing anything.</summary>
     /// <returns>The session as a save records it.</returns>
-    /// <exception cref="SessionSaveException">The session holds nothing a load could rebuild, or the clock is holding scheduled work.</exception>
+    /// <exception cref="SessionSaveException">The session holds nothing a load could rebuild, or something a save cannot carry.</exception>
     public SessionSave Capture()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         return SessionSave.Capture(this);
     }
 
-    /// <summary>
-    /// Writes this session at its explicit save boundary, and returns the document written.
-    /// </summary>
-    /// <remarks>
-    /// A save happens here and only here: this is the call a product makes at the point it decides is worth
-    /// remembering, and no update, mode change, or shutdown writes one by itself.
-    /// </remarks>
+    /// <summary>Writes this session at its explicit save boundary, and returns the document written.</summary>
     /// <returns>The document that was written.</returns>
     /// <exception cref="InvalidOperationException">The session was composed without a save store.</exception>
-    /// <exception cref="SessionSaveException">The session holds nothing a load could rebuild, the clock is holding scheduled work, or the write failed.</exception>
+    /// <exception cref="SessionSaveException">The session holds nothing a load could rebuild, or the write failed.</exception>
     public SessionSave Save()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        if (_saves is null)
+        if (Saves is not { } boundary)
         {
             throw new InvalidOperationException(
                 $"The session in '{_composition.Title}' was composed without a save store, so there is nowhere to write a save; a session is composed with one when the product has a place to keep them.");
         }
 
-        return _saves.Save(this);
+        return boundary.Save(this);
     }
 
-    /// <summary>
-    /// Saves this session because the player asked for one, and reports what happened.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// This is the entry point a save request reaches, whether it arrived on the declared save controls
-    /// inside an admitted update or from a caller that decided this moment is worth remembering. Unlike
-    /// <see cref="Save"/>, which fails loudly because a caller that asked for a write must not mistake a
-    /// refusal for one, this records the outcome in the session's own save state and publishes it: a
-    /// refusal is an answer the panel shows, and a save request that could not land must not look like one
-    /// that did.
-    /// </para>
-    /// <para>
-    /// Every failure keeps its own name. A session composed without a store says so; a session holding
-    /// nothing a load could rebuild reports the boundary's own list of what is missing; and a write the
-    /// store refused reports the store's reason. None of them is thrown out of an admitted update.
-    /// </para>
-    /// </remarks>
+    /// <summary>Saves this session because the player asked for one, and reports what happened.</summary>
     /// <returns>The save state after the request, which is what the projection now publishes.</returns>
     public SaveSnapshot RequestSave()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        _save = AttemptSave();
+        _saves.Attempt(this, Clock);
         Publish();
-        return _save;
+        return _saves.State;
     }
-
-    /// <summary>
-    /// Saves this session if it can, and states what happened without publishing it.
-    /// </summary>
-    /// <remarks>
-    /// A save request read from an admitted update comes through here rather than through
-    /// <see cref="RequestSave"/>, because that update publishes its own projection once at the end and the
-    /// outcome is part of it. The failure of a save is not an exception: the request arrived from a player
-    /// rather than from a caller that demanded a write, so every way it can fail is an outcome to report.
-    /// </remarks>
-    private SaveSnapshot AttemptSave()
-    {
-        if (_saves is null)
-        {
-            // The host selects the persistence root before the product is created, so a session composed
-            // without a store is a product that plays but cannot write. That is named here rather than
-            // written nowhere, and it is a failure like any other so the panel can show it.
-            return _save with
-            {
-                State = SaveState.Failed,
-                At = string.Empty,
-                Code = "save-unavailable",
-                Message = $"The session in '{_composition.Title}' cannot be saved: it was composed without a save store, so there is nowhere to write one. The host selects the persistence root before the product is created.",
-            };
-        }
-
-        try
-        {
-            _saves.Save(this);
-        }
-        catch (EngineCallException error)
-        {
-            // The engine's own service refused the write after its store was open — a root that went away,
-            // bytes the storage would not take. That is the same loss as any other failed write, and it is
-            // reported here rather than thrown out of the admitted update that carried the request, which
-            // would stop the session over a save the player could simply try again.
-            return _save with
-            {
-                State = SaveState.Failed,
-                At = string.Empty,
-                Code = "save-failed",
-                Message = $"The session could not be written to slot '{_save.Slot}': {error.Message}",
-            };
-        }
-        catch (SessionSaveException error)
-        {
-            // Three different losses behind one exception type, which names which it is: the session held
-            // something the save cannot carry, the product has nowhere to write, or the store could not hold
-            // what it was handed. A player acts on them differently, so they are named differently.
-            return _save with
-            {
-                State = SaveState.Failed,
-                At = string.Empty,
-                Code = error.Kind switch
-                {
-                    SessionSaveFailure.Refused => "save-refused",
-                    SessionSaveFailure.Unavailable => "save-unavailable",
-                    _ => "save-failed",
-                },
-                Message = error.Message,
-            };
-        }
-
-        ClockSnapshot clock = ClockSnapshot.From(_clock);
-        string at = clock.Present ? $"{clock.Date} {clock.Time}" : string.Empty;
-        return _save with
-        {
-            State = SaveState.Saved,
-            At = at,
-            Code = string.Empty,
-            Message = at.Length > 0
-                ? $"Saved the session to slot '{_save.Slot}' at {at}."
-                : $"Saved the session to slot '{_save.Slot}'.",
-        };
-    }
-
-    /// <summary>
-    /// Whether this update's admitted input carries a request to save, on either declared control.
-    /// </summary>
-    /// <remarks>
-    /// A digital event on the declared intent asks, whether it arrived as a physical press or as a direct
-    /// interface claim, which carries no edge; a payload on the declared contract asks when it names the
-    /// declared action. Anything else, including a malformed payload, carries no request: an input channel
-    /// must not throw on hostile bytes, and a caller that receives nothing simply has nothing to apply.
-    /// Several requests in one update are one save, because they are one moment.
-    /// </remarks>
-    private bool ReadsSaveRequest(ReadOnlySpan<ProductInputEvent> input)
-    {
-        if (_saveIntent is null || _saveActionContract is null || _saveAction is null) return false;
-        foreach (ProductInputEvent inputEvent in input)
-        {
-            if (inputEvent.ValueKind == InputValueKind.Digital)
-            {
-                if (inputEvent.Intent.Span.SequenceEqual(_saveIntent) && IsActivation(inputEvent)) return true;
-                continue;
-            }
-
-            if (inputEvent.ValueKind != InputValueKind.ProductPayload) continue;
-            if (!inputEvent.PayloadContract.Span.SequenceEqual(_saveActionContract)) continue;
-            if (string.Equals(UiActionPayload.Parse(inputEvent.PayloadData.Span)?.Name, _saveAction, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Whether a digital event is an activation. A physical press carries an edge; a direct interface
-    /// claim is admitted with no edge at all, so its own phase and provenance are what identify it.
-    /// </summary>
-    private static bool IsActivation(in ProductInputEvent inputEvent) =>
-        inputEvent.Edge == InputEdge.Pressed
-        || inputEvent.Phase == InputPhase.DirectUi
-        || inputEvent.Provenance == InputProvenance.DirectUi;
 }

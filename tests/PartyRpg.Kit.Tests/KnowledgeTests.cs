@@ -348,7 +348,8 @@ public sealed class KnowledgeTests
         string kit = Path.Combine(RepositoryRoot(), "src", "PartyRpg.Kit");
         string knowledge = Path.Combine(kit, "Knowledge");
         string alchemy = Path.Combine(kit, "Alchemy", "PotionMixing.cs");
-        string session = Path.Combine(kit, "Sessions", "PartyRpgSession.cs");
+        // The session hands a use's discoveries over where it applies the use, among the player's other acts.
+        string session = Path.Combine(kit, "Sessions", "SessionActs.cs");
         List<string> offenders = [];
         foreach (string source in Directory.EnumerateFiles(kit, "*.cs", SearchOption.AllDirectories))
         {

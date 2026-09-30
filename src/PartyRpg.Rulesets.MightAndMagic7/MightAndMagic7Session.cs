@@ -52,6 +52,12 @@ internal sealed class MightAndMagic7Session : IGameSession
         ArgumentNullException.ThrowIfNull(context);
         GameClock clock = MightAndMagic7Time.Compose();
 
+        // The owners the session will compose exist before anything else, empty: this game's answers that need
+        // one of them — a death counted toward an errand, a find written in the journal, a spell that reads the
+        // world — are handed these owners and read them when an act arrives, which is always after the session
+        // composed them. Nothing here reaches into a session that is still being built.
+        SessionOwners owners = new(clock, context.Engine?.Diagnostics);
+
         // This game's skills are read once, here, and the same reading is handed to the service mechanism,
         // which needs the ceilings and the fees to offer a mastery lesson, to the progression owner, which
         // judges a raise against them, and to the equipment gate, which resolves what an item's row names.
@@ -85,19 +91,18 @@ internal sealed class MightAndMagic7Session : IGameSession
 
 
         // The party and the world the effects act on do not exist yet on the path that creates its party, so
-        // the effect path is handed providers rather than the state itself: it reads them when a cast actually
-        // arrives, which is always after the composition that created them. A product with no world gives it
+        // the effect path reads the owners' own when a cast actually arrives. A product with no world gives it
         // nothing to travel through, and a spell that travels says so rather than moving anybody.
         PartyEntity? party = null;
         SessionWorld? world = null;
-        MightAndMagic7SpellEffects? spellEffects = spells is null ? null : new MightAndMagic7SpellEffects(spells, clock, () => world);
+        MightAndMagic7SpellEffects? spellEffects = spells is null ? null : new MightAndMagic7SpellEffects(spells, clock, () => owners.World);
         // This game's automap is read beside them: how far a walking party sees, what each place's own map
         // squares and features are drawn as, the zoom ladder, and what a detection reveals over it. Both halves
         // are read from the content the product loaded — the maps themselves come from the placed-map document
         // the importer writes — so a product composed over content that carries no maps keeps no automap, and
         // its projection says so rather than drawing an empty rectangle.
         ContentCatalog? mapped = Declared(context.Content);
-        MightAndMagic7Automap? automap = mapped is null ? null : new MightAndMagic7Automap(() => world);
+        MightAndMagic7Automap? automap = mapped is null ? null : new MightAndMagic7Automap(() => owners.World);
         MightAndMagic7MapSource? mapSource = mapped is null ? null : new MightAndMagic7MapSource(mapped);
 
         // This game's quests are read once, here, before its services: an errand is stated over the shipped
@@ -129,7 +134,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             skills,
             spells,
             quests,
-            () => Quests);
+            () => owners.Quests);
 
         // This game's answers about people are read once here, for the same reason: the world needs them to
         // say who stands at a placement the party faces, and the session needs the one instance to speak
@@ -139,7 +144,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             services,
             promotions,
             quests,
-            () => Quests);
+            () => owners.Quests);
         if (conversation is not null)
         {
             // What reading the people tables noticed is reported where the other composition notes are: a
@@ -231,9 +236,9 @@ internal sealed class MightAndMagic7Session : IGameSession
         // the fight read as down, and what a death pays is awarded on the same report, so a kill objective and
         // the experience for the kill are one reading of one death rather than two.
         MightAndMagic7Combat? composed = null;
-        QuestDeaths deaths = new(() => Quests, corpseAnswers);
-        ProgressionAwards awards = new(Worth, () => Progression, deaths);
-        composed = MightAndMagic7Combat.Compose(Declared(context.Content), context.Engine?.Random, awards, spells, () => party, () => spellEffects);
+        QuestDeaths deaths = new(() => owners.Quests, corpseAnswers);
+        ProgressionAwards awards = new(Worth, () => owners.Progression, deaths);
+        composed = MightAndMagic7Combat.Compose(Declared(context.Content), context.Engine?.Random, awards, spells, () => owners.Party, () => spellEffects);
         MightAndMagic7Combat combat = composed;
 
         long Worth(PlacementDefinition placement) =>
@@ -248,6 +253,23 @@ internal sealed class MightAndMagic7Session : IGameSession
         // other side of every fight is decided by this game's data rather than by a class per monster.
         MightAndMagic7MonsterAi monsterAi = MightAndMagic7MonsterAi.Compose(Declared(context.Content), combat, context.Engine?.Random);
 
+        SessionRules rules = new()
+        {
+            Service = services,
+            Rest = rest,
+            Conversation = conversation,
+            Combat = new CombatRules(combat, monsterAi),
+            Progression = new ProgressionRules(MightAndMagic7Progression.Instance, promotions),
+            Standing = standing,
+            Skills = skills,
+            Magic = spells is null ? null : new MagicRules(spells, spellEffects, Running: spellEffects, Time: spellEffects),
+            Alchemy = alchemy is null ? null : new AlchemyRules(alchemy, alchemy.Catalog),
+            Quests = quests,
+            Journal = journal,
+            Knowledge = knowledge,
+            Map = automap is null || mapSource is null ? null : new MapRules(automap, mapSource),
+        };
+
         EngineSessionSaveStore? store = MightAndMagic7Persistence.Store(context.Engine);
         try
         {
@@ -256,8 +278,22 @@ internal sealed class MightAndMagic7Session : IGameSession
                 Bundle = context.Selection.BundleId,
                 ContentPacks = context.Selection.PackCount,
             };
-            MovementInput? movement = Movement(context);
-            InteractionUseInput? use = Use(context);
+            SessionControls controls = new()
+            {
+                Movement = Movement(context),
+                Creation = context.Creation,
+                Save = context.Save,
+                Use = context.Use,
+                Service = context.Service,
+                Rest = context.Rest,
+                Conversation = context.Conversation,
+                Combat = context.Combat,
+                Skills = context.Skills,
+                Cast = context.Cast,
+                Mix = context.Mix,
+            };
+
+            SessionParty start;
             if (resume is { } save)
             {
                 // The whole document is judged before anything moves, so every problem is named at once and a
@@ -271,172 +307,56 @@ internal sealed class MightAndMagic7Session : IGameSession
                 save.Clock.ApplyTo(clock);
                 party = Capacity(MightAndMagic7Party.Restore(save.Party, Declared(context.Content)), spells)!;
                 PartyResourceLedger ledger = Ledger(party);
-                world = MightAndMagic7World.Compose(context.Content, context, clock, ledger, party, save, services, conversation, corpseAnswers, loot, quests, () => Journal);
-                _session = new PartyRpgSession(
-                    composition,
-                    context.Projection,
-                    world,
-                    movement,
-                    clock,
-                    party,
-                    context.Engine?.Diagnostics,
-                    store,
-                    MightAndMagic7Persistence.SaveSlot,
-                    saveInput: context.Save,
-                    resumed: true,
-                    useInput: use,
-                    service: services,
-                    accounts: ledger,
-                    serviceInput: context.Service,
-                    rest: rest,
-                    restInput: context.Rest,
-                    conversation: conversation,
-                    conversationInput: context.Conversation,
-                    combat: combat,
-                    combatInput: context.Combat,
-                    monsterAi: monsterAi,
-                    progression: MightAndMagic7Progression.Instance,
-                    standing: standing,
-                    promotions: promotions,
-                    skills: skills,
-                    skillInput: context.Skills,
-                    spells: spells,
-                    spellEffects: spellEffects,
-                    castInput: context.Cast,
-                    alchemy: alchemy,
-                    mixtures: alchemy?.Catalog,
-                    mixInput: context.Mix,
-                    quests: quests,
-                    questState: save.Quests,
-                    journal: journal,
-                    journalState: save.Journal,
-                    knowledge: knowledge,
-                    knowledgeState: save.Knowledge,
-                    map: automap,
-                    mapSource: mapSource,
-                    mapState: save.Maps);
-                return;
+                world = MightAndMagic7World.Compose(context.Content, context, clock, ledger, party, save, services, conversation, corpseAnswers, loot, quests, () => owners.Journal);
+                start = new SessionParty.Playing(world, party, ledger, new SessionRecords(save.Quests, save.Journal, save.Knowledge, save.Maps));
             }
-
-            if (Creation(context) is { } creation)
+            else if (context.Creation is not null)
             {
                 // The host declared a creation screen, so a new session creates its party. The flow is this
                 // game's, the factory is the one every party comes from, and the world is composed with the
                 // created party so the provisions a road costs come out of the larder the player's own
                 // characters filled.
                 ContentCatalog? declared = Declared(context.Content);
-                _session = new PartyRpgSession(
-                    composition,
-                    context.Projection,
-                    movementInput: movement,
-                    clock: clock,
-                    diagnostics: context.Engine?.Diagnostics,
-                    saveStore: store,
-                    saveSlot: MightAndMagic7Persistence.SaveSlot,
-                    creationInput: creation,
-                    creation: new SessionCreation(
-                        MightAndMagic7Creation.Start(declared),
-                        description => Capacity(MightAndMagic7Party.Factory(declared).Create(description), spells, fill: true)!,
-                        created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created), created, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot, journal: () => Journal)),
-                    saveInput: context.Save,
-                    useInput: use,
-                    service: services,
-                    serviceInput: context.Service,
-                    rest: rest,
-                    restInput: context.Rest,
-                    conversation: conversation,
-                    conversationInput: context.Conversation,
-                    combat: combat,
-                    combatInput: context.Combat,
-                    monsterAi: monsterAi,
-                    progression: MightAndMagic7Progression.Instance,
-                    standing: standing,
-                    promotions: promotions,
-                    skills: skills,
-                    skillInput: context.Skills,
-                    spells: spells,
-                    spellEffects: spellEffects,
-                    castInput: context.Cast,
-                    alchemy: alchemy,
-                    mixtures: alchemy?.Catalog,
-                    mixInput: context.Mix,
-                    // The errand owner travels on this path exactly as it does on the scenario one. Without it
-                    // a party that creates its characters hears an errand and has nowhere to take it: the
-                    // conversation composes the offer from this game's quests and the session would then hold
-                    // no owner to route the offer, the agreement, or the turn-in to — so the errands a created
-                    // party is given would be lines nothing could act on. A created session has no saved quest
-                    // state, which is what the null asks for: a new game holds no instance yet.
-                    quests: quests,
-                    questState: null,
-                    journal: journal,
-                    knowledge: knowledge,
-                    map: automap,
-                    mapSource: mapSource);
-                return;
+                start = new SessionParty.Creating(new SessionCreation(
+                    MightAndMagic7Creation.Start(declared),
+                    description => Capacity(MightAndMagic7Party.Factory(declared).Create(description), spells, fill: true)!,
+                    created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created), created, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot, journal: () => owners.Journal)));
+            }
+            else
+            {
+                // No creation screen was declared, so this session plays the party its scenario fixes: the
+                // scripted path — a live check, a test, or a product that offers no creation.
+                //
+                // The scenario is read in the order it plays: which place the party begins in is the world's
+                // own start rule, and who the party is is the party rule, so a selection wrong about both hears
+                // about the start. A party refusal is therefore held where the party is read, and the world is
+                // composed over no party so the start rule can speak first.
+                ContentValidationException? parties = null;
+                try
+                {
+                    party = Capacity(MightAndMagic7Party.Compose(context.Content), spells, fill: true);
+                }
+                catch (ContentValidationException refusal)
+                {
+                    parties = refusal;
+                }
+
+                PartyResourceLedger? accounts = party is null ? null : Ledger(party);
+                world = MightAndMagic7World.Compose(context.Content, context, clock, accounts, party, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot, journal: () => owners.Journal);
+                if (parties is not null) throw parties;
+                start = new SessionParty.Playing(world, party, accounts);
             }
 
-            // No creation screen was declared, so this session plays the party its scenario fixes: the
-            // scripted path — a live check, a test, or a product that offers no creation. Handing that party
-            // to the world here is the same composition order the created path takes, one accept earlier.
-            //
-            // The scenario is read in the order it plays: which place the party begins in is the world's own
-            // start rule, and who the party is is the party rule, so a selection wrong about both hears about
-            // the start. A party refusal is therefore held where the party is read, and the world is composed
-            // over no party so the start rule can speak first; a party this selection cannot state leaves a
-            // world that is discarded with the refusal, because there is no band to lead into it.
-            ContentValidationException? parties = null;
-            PartyEntity? stated = null;
-            try
-            {
-                stated = Capacity(MightAndMagic7Party.Compose(context.Content), spells, fill: true);
-            }
-            catch (ContentValidationException refusal)
-            {
-                parties = refusal;
-            }
-
-            party = stated;
-            PartyResourceLedger? accounts = party is null ? null : Ledger(party);
-            world = MightAndMagic7World.Compose(context.Content, context, clock, accounts, party, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot, journal: () => Journal);
-            if (parties is not null) throw parties;
+            // One session, composed one way: the resumed, created, and scenario paths differ only in how the
+            // session starts, so every mechanism is composed over each of them by the same sequence.
             _session = new PartyRpgSession(
                 composition,
                 context.Projection,
-                world,
-                movement,
-                clock,
-                party,
-                context.Engine?.Diagnostics,
-                store,
-                MightAndMagic7Persistence.SaveSlot,
-                saveInput: context.Save,
-                useInput: use,
-                service: services,
-                accounts: accounts,
-                serviceInput: context.Service,
-                rest: rest,
-                restInput: context.Rest,
-                conversation: conversation,
-                conversationInput: context.Conversation,
-                combat: combat,
-                combatInput: context.Combat,
-                monsterAi: monsterAi,
-                progression: MightAndMagic7Progression.Instance,
-                standing: standing,
-                promotions: promotions,
-                skills: skills,
-                skillInput: context.Skills,
-                spells: spells,
-                spellEffects: spellEffects,
-                castInput: context.Cast,
-                alchemy: alchemy,
-                mixtures: alchemy?.Catalog,
-                mixInput: context.Mix,
-                quests: quests,
-                journal: journal,
-                knowledge: knowledge,
-                map: automap,
-                mapSource: mapSource);
+                owners,
+                start,
+                rules,
+                controls,
+                store is null ? null : new SessionSaving(store, MightAndMagic7Persistence.SaveSlot));
         }
         catch
         {
@@ -510,29 +430,6 @@ internal sealed class MightAndMagic7Session : IGameSession
         context.Movement is { } controls
             ? new MovementInput(controls, MightAndMagic7Movement.TurnRatePerSecond)
             : null;
-
-    /// <summary>
-    /// The reader for the use controls the host declared, when it declared any.
-    /// </summary>
-    /// <remarks>
-    /// A host that declares no use control gets a session that never uses anything by itself, exactly as it
-    /// gets no creation screen and no save key: the mechanism is still composed and still publishes what the
-    /// party faces, and only the player's way of asking for a use is missing.
-    /// </remarks>
-    private static InteractionUseInput? Use(RulesetSessionContext context) =>
-        context.Use is { } controls ? new InteractionUseInput(controls) : null;
-
-    /// <summary>
-    /// The reader for the creation controls the host declared, when it declared any.
-    /// </summary>
-    /// <remarks>
-    /// A host that declares no creation controls offers no creation screen, and a session without one plays
-    /// the party its scenario fixes instead — so the reader is also the declaration that this product creates
-    /// its parties. The flow and the reader arrive together: a session creating a party with no way to choose
-    /// anything is refused where it is composed rather than composed as a screen nobody can drive.
-    /// </remarks>
-    private static CreationInput? Creation(RulesetSessionContext context) =>
-        context.Creation is { } controls ? new CreationInput(controls) : null;
 
     /// <summary>
     /// The content creation is offered over: the packs that loaded, or nothing when none did.

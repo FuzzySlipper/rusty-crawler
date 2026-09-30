@@ -345,10 +345,12 @@ public sealed class InteractionTests
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
-            hall.World,
-            clock: null,
-            party: party,
-            useInput: new InteractionUseInput(UseControls));
+            new SessionOwners(null),
+            new SessionParty.Playing(World: hall.World, Party: party),
+            controls: new SessionControls
+            {
+                Use = UseControls,
+            });
 
         // The projection that exists before any update says the session can interact and that nothing is
         // faced yet: what the party faces is read from where its last admitted step put it, which is a fact
@@ -406,7 +408,11 @@ public sealed class InteractionTests
     {
         using Hall hall = Hall.Build(new TestRule(), Hall.Facing("door-0"), interactive: false);
         using RecordingUiProjectionChannel channel = new();
-        using PartyRpgSession session = new(new SessionComposition(new RulesetId("test.ruleset"), "Test"), channel, hall.World);
+        using PartyRpgSession session = new(
+            new SessionComposition(new RulesetId("test.ruleset"), "Test"),
+            channel,
+            new SessionOwners(),
+            new SessionParty.Playing(World: hall.World));
 
         Assert.Null(hall.World.Interaction);
         Assert.Null(hall.World.Interact(use: true));

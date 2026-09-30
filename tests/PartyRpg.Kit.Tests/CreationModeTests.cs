@@ -398,36 +398,19 @@ public sealed class CreationModeTests
     }
 
     [Fact]
-    public void A_session_that_creates_holds_no_other_party_or_world()
+    public void A_session_that_creates_needs_the_controls_its_commands_arrive_on()
     {
         using CapturedProjections projections = new();
-        using PartyEntity party = new PartyEntityFactory().Create(OneMemberParty());
 
-        // A session either creates its party or holds one. Handing it both is refused by name rather than
-        // leaving two parties for one expedition.
-        ArgumentException both = Assert.Throws<ArgumentException>(() => new PartyRpgSession(
-            Composition,
-            projections,
-            party: party,
-            creationInput: new CreationInput(Controls),
-            creation: Creation()));
-        Assert.Contains("leave two of them", both.Message, StringComparison.Ordinal);
-
-        using SessionWorld world = World(party);
-        ArgumentException withWorld = Assert.Throws<ArgumentException>(() => new PartyRpgSession(
-            Composition,
-            projections,
-            world: world,
-            creationInput: new CreationInput(Controls),
-            creation: Creation()));
-        Assert.Contains("leave two of them", withWorld.Message, StringComparison.Ordinal);
-
+        // A session either creates its party or plays one, and the two are different shapes of what it is
+        // handed, so a session holding both is not a thing that can be written.
         // Creating without the controls its commands arrive on would be a screen nobody could choose
         // anything on, which is refused where it is composed.
         ArgumentException noControls = Assert.Throws<ArgumentException>(() => new PartyRpgSession(
             Composition,
             projections,
-            creation: Creation()));
+            new SessionOwners(),
+            new SessionParty.Creating(Creation())));
         Assert.Contains("needs the controls its commands arrive on", noControls.Message, StringComparison.Ordinal);
     }
 
@@ -714,10 +697,13 @@ public sealed class CreationModeTests
             Session = new PartyRpgSession(
                 Composition,
                 Projections,
-                movementInput: new MovementInput(MovementNames, turnRatePerSecond: 512),
-                clock: Clock,
-                creationInput: new CreationInput(Controls),
-                creation: new SessionCreation(flow, Build, Compose));
+                new SessionOwners(Clock),
+                new SessionParty.Creating(new SessionCreation(flow, Build, Compose)),
+                controls: new SessionControls
+                {
+                    Movement = new MovementInput(MovementNames, turnRatePerSecond: 512),
+                    Creation = Controls,
+                });
             Session.Start();
         }
 

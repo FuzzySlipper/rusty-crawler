@@ -75,7 +75,7 @@ public sealed class SessionInputRouterTests
     public void Applying_a_payload_holds_the_session_and_the_projection_says_so()
     {
         using RecordingUiProjectionChannel channel = new();
-        using PartyRpgSession session = new(Composition, channel);
+        using PartyRpgSession session = new(Composition, channel, new SessionOwners(), SessionParty.Nobody);
         session.Start();
 
         ProductInputEvent[] input = [Payload(ActionContract, """{"action":"session.pause"}""")];
@@ -95,7 +95,7 @@ public sealed class SessionInputRouterTests
     public void Applying_the_key_twice_returns_the_session_to_running()
     {
         using RecordingUiProjectionChannel channel = new();
-        using PartyRpgSession session = new(Composition, channel);
+        using PartyRpgSession session = new(Composition, channel, new SessionOwners(), SessionParty.Nobody);
         session.Start();
 
         ProductInputEvent[] press = [Digital(ToggleIntent, InputEdge.Pressed)];
@@ -110,7 +110,7 @@ public sealed class SessionInputRouterTests
     public void A_player_hold_outlives_an_engine_pause_and_resume()
     {
         using RecordingUiProjectionChannel channel = new();
-        using PartyRpgSession session = new(Composition, channel);
+        using PartyRpgSession session = new(Composition, channel, new SessionOwners(), SessionParty.Nobody);
         session.Start();
 
         Router.Apply(session, [Payload(ActionContract, """{"action":"session.pause"}""")]);

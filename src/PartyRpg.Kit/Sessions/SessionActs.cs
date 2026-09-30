@@ -1,0 +1,242 @@
+using PartyRpg.Kit.Alchemy;
+using PartyRpg.Kit.Combat;
+using PartyRpg.Kit.Conversation;
+using PartyRpg.Kit.Interaction;
+using PartyRpg.Kit.Knowledge;
+using PartyRpg.Kit.Magic;
+using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Progression;
+using PartyRpg.Kit.Services;
+using PartyRpg.Kit.Time;
+using PartyRpg.Kit.World;
+using Rusty.Engine;
+
+namespace PartyRpg.Kit.Sessions;
+
+/// <summary>
+/// The acts a player asks for inside one admitted update, each applied through the one owner it belongs to.
+/// </summary>
+/// <remarks>
+/// <para>
+/// An act is an instant rather than an interval: a use, a stop, a purchase, a raise, a casting, and a mixture
+/// are each read from the update that carries them and applied whole in it. Every one goes through its owner's
+/// own entry and its refusal is reported rather than thrown, so a control the panel offers and the product
+/// refuses says why instead of looking like a control that did nothing.
+/// </para>
+/// <para>
+/// Which of them may be applied in an update is the session's decision — a screen that owns the controls, a
+/// held session, a fight waiting for a turn — and none is made here: each method applies what it is handed.
+/// </para>
+/// </remarks>
+internal sealed class SessionActs(SessionOwners owners, SessionControls controls)
+{
+    private readonly InteractionUseInput? _use = controls.Use is { } use ? new InteractionUseInput(use) : null;
+    private readonly RestInput? _rest = controls.Rest is { } rest ? new RestInput(rest) : null;
+    private readonly ServiceInput? _service = controls.Service is { } service ? new ServiceInput(service) : null;
+    private readonly ConversationInput? _conversation = controls.Conversation is { } talk ? new ConversationInput(talk) : null;
+    private readonly SkillRaiseInput? _raise = controls.Skills is { } skills ? new SkillRaiseInput(skills) : null;
+    private readonly CastInput? _cast = controls.Cast is { } cast ? new CastInput(cast) : null;
+    private readonly MixInput? _mix = controls.Mix is { } mix ? new MixInput(mix) : null;
+    private readonly ConversationHandoffRouter _router = new(owners);
+
+    private SessionDiagnostics Report => owners.Diagnostics;
+
+    /// <summary>
+    /// Refreshes what the party faces and applies a use the player asked for, to what the step just put in
+    /// front of it.
+    /// </summary>
+    /// <remarks>
+    /// A use that lands on somebody opens the conversation with them, which is the one way a person is reached:
+    /// what stands behind them — a counter, a household, an errand — is offered from inside that conversation.
+    /// What a use taught is handed to the knowledge owner, which decides whether it is news.
+    /// </remarks>
+    public void Interact(ReadOnlySpan<ProductInputEvent> input)
+    {
+        if (owners.World is not { } world) return;
+        InteractionResult? result = world.Interact(_use is not null && _use.Read(input));
+
+        if (result is { IsApplied: true, Learned.Count: > 0 } taught && owners.Knowledge is { } knowledge)
+        {
+            foreach (KnowledgeReport report in taught.Learned) knowledge.Record(report);
+        }
+
+        if (result is { IsApplied: true, Target: { } target } && owners.Conversations is { } conversations)
+        {
+            conversations.OpenTarget(target.Id.Place, target.Placement);
+        }
+    }
+
+    /// <summary>Applies the conversation commands this update carried while somebody is being spoken with.</summary>
+    public void Converse(ReadOnlySpan<ProductInputEvent> input)
+    {
+        if (owners.Conversations is not { } conversations || _conversation is null) return;
+        foreach (ConversationCommand command in _conversation.Read(input))
+        {
+            ConversationResult result = command.Kind switch
+            {
+                ConversationCommandKind.Topic => conversations.Choose(command.Target),
+                ConversationCommandKind.Person => conversations.Turn(command.Target),
+                _ => conversations.Close(),
+            };
+
+            if (result is { IsApplied: true, Handoff: { } handoff }) _router.Route(handoff, conversations);
+        }
+    }
+
+    /// <summary>
+    /// Applies the stops this update carried: each is applied whole, so there is nothing to resume and no screen
+    /// that could be drawn while the clock is halfway through the night.
+    /// </summary>
+    public void Stop(ReadOnlySpan<ProductInputEvent> input)
+    {
+        if (owners.Rest is not { Available: true } rest || _rest is null) return;
+        foreach (RestKind kind in _rest.Read(input))
+        {
+            RestResult result = rest.Perform(kind);
+            string place = owners.World?.Place.ToString() ?? string.Empty;
+            Report.Report(
+                result.IsApplied,
+                "rest",
+                result.IsApplied ? "rest-applied" : "rest-refused",
+                result.IsApplied
+                    ? $"The party stopped ({result.Kind}) from {result.From} to {result.To} in place '{place}': {result.Message}"
+                    : $"The party's stop ({result.Kind}) in place '{place}' was refused ({result.Code}): {result.Message}");
+        }
+    }
+
+    /// <summary>Applies the service commands this update carried while a counter is open.</summary>
+    /// <remarks>
+    /// A passage is the one thing a counter sells that is not simply carried away: the counter settles the fare
+    /// and writes the passage on the party, and the journey belongs to the world. Asking for a journey the party
+    /// already holds a passage to boards it, which is how a boarding refused once can be tried again.
+    /// </remarks>
+    public void Serve(ReadOnlySpan<ProductInputEvent> input)
+    {
+        if (owners.Services is not { IsOpen: true } services || _service is null) return;
+        foreach (ServiceCommand command in _service.Read(input))
+        {
+            ServiceResult result = services.Transact(command);
+            if (command.Kind != ServiceCommandKind.Fare) continue;
+            string journey = result.Subject.Length > 0 ? result.Subject : command.Target;
+            if (journey.Length > 0 && owners.Party is { } party && ServicePassage.DaysTo(party, new PlaceId(journey)) > 0)
+            {
+                Board(services, journey);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Boards the passage the party holds, and ends the visit it was bought at — quietly, because the counter is
+    /// behind the party now. A boarding the world refuses leaves the visit open.
+    /// </summary>
+    private void Board(PartyServices services, string destination)
+    {
+        if (owners.World is not { } world)
+        {
+            Report.Refused(
+                "travel",
+                "fare-no-world",
+                $"A passage to {destination} was bought and this session holds no world to travel through, so nothing was boarded.");
+            return;
+        }
+
+        if (world.Board(new PlaceId(destination)).Arrived) services.Abandon();
+    }
+
+    /// <summary>
+    /// Applies the skill raises this update carried through the progression owner's one spend path, so a raise
+    /// past the ceiling or the pool is refused with the limit or the shortfall named and nothing moves.
+    /// </summary>
+    public void Raise(ReadOnlySpan<ProductInputEvent> input)
+    {
+        if (_raise is null || owners.Progression is not { } progression) return;
+        foreach (SkillRaiseRequest raise in _raise.Read(input))
+        {
+            if (raise.Member < 0 || raise.Member >= progression.Party.Members.Count)
+            {
+                Report.Refused(
+                    "progression",
+                    "skill-member-unknown",
+                    $"A raise named member {raise.Member + 1}, and the party has {progression.Party.Members.Count}.");
+                continue;
+            }
+
+            progression.RaiseSkill(progression.Party.Members[raise.Member].Id, raise.Skill, raise.Levels);
+        }
+    }
+
+    /// <summary>Applies the quick-slot choices and castings this update carried.</summary>
+    /// <param name="input">The update's admitted input.</param>
+    /// <param name="allowed">
+    /// Whether a casting may be applied: a screen that owns the controls owns casting too, while the quick slot
+    /// is a character's own state and is read whatever is open.
+    /// </param>
+    /// <returns>The member whose casting was applied last this update, which a paced fight spends a turn for.</returns>
+    public CombatantId? Cast(ReadOnlySpan<ProductInputEvent> input, bool allowed)
+    {
+        if (_cast is null || owners.Casting is not { } casting) return null;
+
+        foreach (QuickSpellRequest choice in _cast.ReadQuick(input))
+        {
+            if (choice.Member < 0 || choice.Member >= casting.Party.Members.Count)
+            {
+                Report.Refused(
+                    "magic",
+                    "spell-member-unknown",
+                    $"A quick spell named member {choice.Member + 1}, and the party has {casting.Party.Members.Count}.");
+                continue;
+            }
+
+            try
+            {
+                casting.Party.Members[choice.Member].Spells.SetQuickSpell(choice.Spell);
+            }
+            catch (ArgumentException refused)
+            {
+                // The slot holds a spell its owner can cast, so one the character never learned is refused here.
+                Report.Refused("magic", "spell-quick-refused", refused.Message);
+            }
+        }
+
+        CombatantId? caster = null;
+        foreach (CastRequest request in _cast.Read(input))
+        {
+            if (!allowed)
+            {
+                Report.Refused(
+                    "magic",
+                    "spell-screen-open",
+                    "A casting arrived while a screen owned the player's controls, so nothing was cast and no spell point was spent.");
+                continue;
+            }
+
+            SpellCastResult result = casting.Cast(new SpellCastRequest(request.Member, request.Spell, request.Target, request.Item));
+            if (result.IsCast) caster = CombatantId.Of(casting.Party.Members[result.Member].Id);
+            else Report.Refused("magic", result.Code, result.Message);
+        }
+
+        return caster;
+    }
+
+    /// <summary>Applies the mixtures this update carried through the one mixing workflow.</summary>
+    /// <param name="input">The update's admitted input.</param>
+    /// <param name="allowed">Whether a mixture may be applied, which a screen owning the controls forbids.</param>
+    public void Mix(ReadOnlySpan<ProductInputEvent> input, bool allowed)
+    {
+        if (_mix is null || owners.Mixing is not { } mixing) return;
+        foreach (MixRequest request in _mix.Read(input))
+        {
+            if (!allowed)
+            {
+                Report.Refused(
+                    "alchemy",
+                    "mixture-screen-open",
+                    "A mixture arrived while a screen owned the player's controls, so nothing was mixed and both ingredients are still where they were.");
+                continue;
+            }
+
+            MixingResult result = mixing.Mix(new MixingRequest(request.Member, request.First, request.Second));
+            Report.Report(result.IsMixed, "alchemy", result.Code, result.Message);
+        }
+    }
+}

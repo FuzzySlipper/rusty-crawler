@@ -2,26 +2,6 @@ using PartyRpg.Kit.Party;
 
 namespace PartyRpg.Kit.Promotion;
 
-/// <summary>The owner a promotion offer is handed to, as the word a conversation and a session share.</summary>
-/// <remarks>
-/// <para>
-/// A person who is empowered to grant a rank does not raise anybody themselves: they offer the rank, and the
-/// mechanism that owns progression takes it from there. That is what a handoff is — a topic naming the owner
-/// it belongs to and the rank it means — so a conversation never grows a second copy of what the progression
-/// owner already does.
-/// </para>
-/// <para>
-/// The word is named here rather than in the conversation's own list of kinds because it is this owner's
-/// word: the conversation names the owners it knows about, and an owner added later brings its own, exactly
-/// as the conversation's list says a later mechanism would.
-/// </para>
-/// </remarks>
-public static class PromotionHandoffs
-{
-    /// <summary>The progression owner, taking the rank a conversation offered.</summary>
-    public const string Offer = "promotion";
-}
-
 /// <summary>One requirement as it stands against the party: what was asked, whether it holds, and how it reads.</summary>
 /// <remarks>
 /// A verdict is a reading and not a change: the same judgement is what a refusal lists and what a panel

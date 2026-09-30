@@ -540,15 +540,19 @@ public sealed class ServiceTests
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
-            counter.World,
-            clock: counter.Clock,
-            party: party,
-            accounts: counter.Accounts,
-            service: counter.Rule,
-            useInput: new InteractionUseInput(UseControls),
-            serviceInput: ServiceControls,
-            conversation: new CounterConversation(counter.Rule),
-            conversationInput: ConversationControls);
+            new SessionOwners(counter.Clock),
+            new SessionParty.Playing(World: counter.World, Party: party, Accounts: counter.Accounts),
+            rules: new SessionRules
+            {
+                Service = counter.Rule,
+                Conversation = new CounterConversation(counter.Rule),
+            },
+            controls: new SessionControls
+            {
+                Use = UseControls,
+                Service = ServiceControls,
+                Conversation = ConversationControls,
+            });
         // A session that was never started admits no interval, so the world would never be stepped at all;
         // starting it is what makes the next updates the session's own admitted time.
         session.Start();
@@ -639,15 +643,19 @@ public sealed class ServiceTests
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
-            counter.World,
-            clock: counter.Clock,
-            party: party,
-            accounts: counter.Accounts,
-            service: counter.Rule,
-            useInput: new InteractionUseInput(UseControls),
-            serviceInput: ServiceControls,
-            conversation: new CounterConversation(counter.Rule),
-            conversationInput: ConversationControls);
+            new SessionOwners(counter.Clock),
+            new SessionParty.Playing(World: counter.World, Party: party, Accounts: counter.Accounts),
+            rules: new SessionRules
+            {
+                Service = counter.Rule,
+                Conversation = new CounterConversation(counter.Rule),
+            },
+            controls: new SessionControls
+            {
+                Use = UseControls,
+                Service = ServiceControls,
+                Conversation = ConversationControls,
+            });
         session.Start();
 
         // The counter sells one passage, to the town the world's own fare reaches.
@@ -696,16 +704,20 @@ public sealed class ServiceTests
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
-            counter.World,
-            movementInput: new MovementInput(MovementControls, turnRatePerSecond: 2048),
-            clock: counter.Clock,
-            party: party,
-            accounts: counter.Accounts,
-            service: counter.Rule,
-            useInput: new InteractionUseInput(UseControls),
-            serviceInput: ServiceControls,
-            conversation: new CounterConversation(counter.Rule),
-            conversationInput: ConversationControls);
+            new SessionOwners(counter.Clock),
+            new SessionParty.Playing(World: counter.World, Party: party, Accounts: counter.Accounts),
+            rules: new SessionRules
+            {
+                Service = counter.Rule,
+                Conversation = new CounterConversation(counter.Rule),
+            },
+            controls: new SessionControls
+            {
+                Movement = new MovementInput(MovementControls, turnRatePerSecond: 2048),
+                Use = UseControls,
+                Service = ServiceControls,
+                Conversation = ConversationControls,
+            });
         session.Start();
 
         // Forward goes down and the party walks; then it talks to the keeper with the key still down.
@@ -736,16 +748,20 @@ public sealed class ServiceTests
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
-            counter.World,
-            movementInput: new MovementInput(MovementControls, turnRatePerSecond: 2048),
-            clock: counter.Clock,
-            party: party,
-            accounts: counter.Accounts,
-            service: counter.Rule,
-            useInput: new InteractionUseInput(UseControls),
-            serviceInput: ServiceControls,
-            conversation: new CounterConversation(counter.Rule),
-            conversationInput: ConversationControls);
+            new SessionOwners(counter.Clock),
+            new SessionParty.Playing(World: counter.World, Party: party, Accounts: counter.Accounts),
+            rules: new SessionRules
+            {
+                Service = counter.Rule,
+                Conversation = new CounterConversation(counter.Rule),
+            },
+            controls: new SessionControls
+            {
+                Movement = new MovementInput(MovementControls, turnRatePerSecond: 2048),
+                Use = UseControls,
+                Service = ServiceControls,
+                Conversation = ConversationControls,
+            });
         session.Start();
 
         // Before any counter is open, a held forward control walks the party, which is what makes the next
@@ -1107,7 +1123,7 @@ public sealed class ServiceTests
             [new ConversationOffer(new ConversationTopic("counter", "Step up to the counter"), ConversationAvailability.OnOffer)];
 
         public ConversationAnswer Take(ConversationTopic topic, ConversationContext context) =>
-            new("The party steps up to the counter.", handoff: new ConversationHandoff(ConversationHandoffs.Service));
+            new("The party steps up to the counter.", handoff: new ConversationHandoff(HandoffOwner.Counter));
     }
 
     /// <summary>A world where nothing is charged for walking, so a test's coins are spent at the counter.</summary>

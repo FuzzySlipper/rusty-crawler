@@ -1,5 +1,29 @@
 namespace PartyRpg.Kit.Conversation;
 
+/// <summary>The owners a conversation hands the party to: the only ones a session routes.</summary>
+/// <remarks>
+/// A closed list rather than content's word, because every handoff is carried out by an owner the session
+/// composes, and a word no owner takes would be an offer a player hears and nothing could honour. A game adds
+/// a kind of offer by adding an owner and its entry here, which is what makes the router exhaustive.
+/// </remarks>
+public enum HandoffOwner
+{
+    /// <summary>The counter whoever the party spoke with keeps, which the service mechanism serves.</summary>
+    Counter,
+
+    /// <summary>A rank the person is empowered to grant, which the progression owner moves.</summary>
+    Rank,
+
+    /// <summary>Hearing an errand the person states, which the quest owner records as offered.</summary>
+    ErrandOffer,
+
+    /// <summary>Agreeing to an errand already heard, which the quest owner records as taken.</summary>
+    ErrandAccept,
+
+    /// <summary>Handing a finished errand back to its giver, which the quest owner pays.</summary>
+    ErrandTurnIn,
+}
+
 /// <summary>What taking a topic hands the party over to, and which one of that owner's things it is.</summary>
 /// <remarks>
 /// <para>
@@ -9,50 +33,28 @@ namespace PartyRpg.Kit.Conversation;
 /// what another mechanism already does.
 /// </para>
 /// <para>
-/// The kind is content's word rather than a closed list, exactly as a target's kind is: this build routes
-/// the one owner it has, and a handoff naming an owner nothing routes is refused by name at the moment it
-/// is taken rather than pretending to have happened. When the quest owner lands, an offer that belongs to
-/// it routes there by the same seam and nothing here changes.
+/// Hearing an errand and agreeing to it are two owners' words rather than one, because they are different
+/// facts: a journal that could not show an errand the party was offered and walked away from would lose half
+/// of what a player was told.
 /// </para>
 /// </remarks>
-/// <param name="Kind">The owner the handoff belongs to, which must not be blank.</param>
+/// <param name="Owner">The owner the handoff belongs to.</param>
 /// <param name="Target">
 /// Which of that owner's things it is, or empty when the owner needs nothing more than the person the
 /// conversation is with.
 /// </param>
-/// <exception cref="ArgumentException">The kind is blank, which names no owner.</exception>
-public sealed record ConversationHandoff
+public sealed record ConversationHandoff(HandoffOwner Owner, string Target = "")
 {
-    /// <summary>Creates a handoff.</summary>
-    /// <param name="kind">The owner the handoff belongs to.</param>
-    /// <param name="target">Which of that owner's things it is, or empty when the person is enough.</param>
-    /// <exception cref="ArgumentException">The kind is blank, which names no owner.</exception>
-    public ConversationHandoff(string kind, string target = "")
+    /// <summary>The word a projection publishes for the owner.</summary>
+    public string Word => Owner switch
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(kind);
-        Kind = kind;
-        Target = target;
-    }
-
-    /// <summary>The owner the handoff belongs to.</summary>
-    public string Kind { get; }
-
-    /// <summary>Which of that owner's things it is, or empty when the person is enough.</summary>
-    public string Target { get; }
+        HandoffOwner.Counter => "service",
+        HandoffOwner.Rank => "promotion",
+        HandoffOwner.ErrandOffer => "quest-offer",
+        HandoffOwner.ErrandAccept => "quest-accept",
+        _ => "quest-turn-in",
+    };
 
     /// <inheritdoc />
-    public override string ToString() => Target.Length == 0 ? Kind : $"{Kind}:{Target}";
-}
-
-/// <summary>The handoff kinds this kit routes, named as the words content and the session share.</summary>
-/// <remarks>
-/// The service mechanism is named here because it is the conversation's own neighbour: the counter a person
-/// keeps. An owner that owns more than one act brings its own words beside itself — a rank's offer travels
-/// under <c>PromotionHandoffs</c> and an errand's three acts under <c>QuestHandoffs</c> — so this list holds
-/// only what has no other home, and a kind no owner routes is refused by name where it is taken.
-/// </remarks>
-public static class ConversationHandoffs
-{
-    /// <summary>The service mechanism: the counter whoever the party spoke with keeps.</summary>
-    public const string Service = "service";
+    public override string ToString() => Target.Length == 0 ? Word : $"{Word}:{Target}";
 }

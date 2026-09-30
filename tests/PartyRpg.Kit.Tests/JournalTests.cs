@@ -338,11 +338,16 @@ public sealed class JournalTests
         // compiler produced, in the style the kit's other source scans use.
         string kit = Path.Combine(RepositoryRoot(), "src", "PartyRpg.Kit");
         string journal = Path.Combine(kit, "Journal");
+        // The session's reports are written in two files: the update itself, and the router that hands a
+        // conversation's offer to the owner whose answer the journal records.
         string session = Path.Combine(kit, "Sessions", "PartyRpgSession.cs");
+        string router = Path.Combine(kit, "Sessions", "ConversationHandoffRouter.cs");
         List<string> offenders = [];
         foreach (string source in Directory.EnumerateFiles(kit, "*.cs", SearchOption.AllDirectories))
         {
-            if (source.StartsWith(journal, StringComparison.Ordinal) || string.Equals(source, session, StringComparison.Ordinal)) continue;
+            if (source.StartsWith(journal, StringComparison.Ordinal)
+                || string.Equals(source, session, StringComparison.Ordinal)
+                || string.Equals(source, router, StringComparison.Ordinal)) continue;
             if (source.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                 || source.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)) continue;
             string text = File.ReadAllText(source);
@@ -357,6 +362,7 @@ public sealed class JournalTests
         // The scan is not vacuous: the one subscriber is exactly what it looks for, and the owner names
         // itself.
         Assert.Contains("new JournalEvent(", File.ReadAllText(session), StringComparison.Ordinal);
+        Assert.Contains("new JournalEvent(", File.ReadAllText(router), StringComparison.Ordinal);
     }
 
     /// <summary>The clock these tests run on: a session that began on the first day of 1168, at nine.</summary>

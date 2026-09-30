@@ -157,7 +157,7 @@ public sealed class ConversationPolicyTests
         ConversationOffer offer = fixture.Offer(counter, MightAndMagic7Conversation.CounterTopicId);
         Assert.True(offer.IsOnOffer);
         ConversationAnswer answer = fixture.Take(offer.Topic, counter, keeper.Id);
-        Assert.Equal("service", answer.Handoff!.Kind);
+        Assert.Equal(HandoffOwner.Counter, answer.Handoff!.Owner);
 
         // Shut for the night, the same offer is withheld with the hours as the reason: the topic appears and
         // disappears with the state it names rather than with an invalidation.
