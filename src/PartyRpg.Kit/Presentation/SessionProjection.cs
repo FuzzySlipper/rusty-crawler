@@ -20,7 +20,6 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="Mode">The session's mode.</param>
 /// <param name="SimulationSeconds">Admitted simulation time accumulated while running.</param>
 /// <param name="AdmittedSteps">Admitted fixed steps accumulated while running.</param>
-/// <param name="Updates">Admitted updates this session has consumed.</param>
 /// <param name="World">Where the party is, or an empty world when the session has no places loaded.</param>
 /// <param name="Movement">
 /// What the party's last admitted step did, or no facts at all when the session has no movement to
@@ -104,7 +103,6 @@ public readonly record struct SessionSnapshot(
     SessionMode Mode,
     double SimulationSeconds,
     ulong AdmittedSteps,
-    ulong Updates,
     WorldSnapshot World,
     MovementSnapshot Movement = default,
     ClockSnapshot Clock = default,
@@ -244,8 +242,7 @@ public static class SessionProjection
             (SessionField, builder.Object(
                 ("mode", builder.String(WireName(snapshot.Mode))),
                 ("simulationSeconds", builder.Number(snapshot.SimulationSeconds)),
-                ("admittedSteps", builder.Number(snapshot.AdmittedSteps)),
-                ("updates", builder.Number(snapshot.Updates)))),
+                ("admittedSteps", builder.Number(snapshot.AdmittedSteps)))),
             (WorldField, builder.Object(
                 ("place", builder.String(snapshot.World.Place)),
                 ("name", builder.String(snapshot.World.Name)),

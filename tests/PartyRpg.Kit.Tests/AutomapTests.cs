@@ -421,7 +421,6 @@ public sealed class AutomapTests
             SessionMode.Running,
             1,
             1,
-            1,
             WorldSnapshot.Empty,
             Map: map);
         UiValue value = SessionProjection.Build(snapshot);

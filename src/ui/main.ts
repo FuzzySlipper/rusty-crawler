@@ -157,7 +157,6 @@ interface SessionView {
   readonly mode: string;
   readonly simulationSeconds: number;
   readonly admittedSteps: number;
-  readonly updates: number;
 }
 
 /**
@@ -2785,7 +2784,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
   const magic = readMagic(value.magic);
   const alchemy = readAlchemy(value.alchemy);
   const { ruleset, title, bundle, contentPacks } = composition;
-  const { mode, simulationSeconds, admittedSteps, updates } = session;
+  const { mode, simulationSeconds, admittedSteps } = session;
   if (
     typeof ruleset !== 'string' ||
     typeof title !== 'string' ||
@@ -2793,8 +2792,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
     typeof contentPacks !== 'number' ||
     typeof mode !== 'string' ||
     typeof simulationSeconds !== 'number' ||
-    typeof admittedSteps !== 'number' ||
-    typeof updates !== 'number'
+    typeof admittedSteps !== 'number'
   ) {
     return null;
   }
@@ -2840,7 +2838,7 @@ function readSnapshot(value: unknown): SnapshotView | null {
 
   return {
     composition: { ruleset, title, bundle, contentPacks },
-    session: { mode, simulationSeconds, admittedSteps, updates },
+    session: { mode, simulationSeconds, admittedSteps },
     world: { place, name: placeName, kind, x, y, z, yaw, visited, places, open, hours, nextChange },
     movement: { motion, blocked, stepRise, fallDistance, fallDamage },
     clock,
@@ -3078,7 +3076,6 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     ['mode', 'Session'],
     ['simulation', 'Simulation'],
     ['steps', 'Admitted steps'],
-    ['updates', 'Updates'],
     ['content', 'Content'],
     ['date', 'Date'],
     ['time', 'Time'],
@@ -5139,7 +5136,6 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     rows.mode.textContent = current;
     rows.simulation.textContent = `${snapshot.session.simulationSeconds.toFixed(1)} s`;
     rows.steps.textContent = String(snapshot.session.admittedSteps);
-    rows.updates.textContent = String(snapshot.session.updates);
     rows.content.textContent = String(snapshot.composition.contentPacks);
     // The clock's own facts, printed as they arrived: the date and the time are what the calendar and the
     // clock published, and the panel derives none of them. `present` is what tells a session whose ruleset

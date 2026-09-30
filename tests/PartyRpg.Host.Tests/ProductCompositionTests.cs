@@ -123,7 +123,6 @@ public sealed class ProductCompositionTests
         Assert.Equal("creating", session.Field("mode").AsString());
         Assert.Equal(0d, session.Field("admittedSteps").AsNumber());
         Assert.Equal(0d, session.Field("simulationSeconds").AsNumber());
-        Assert.Equal(1d, session.Field("updates").AsNumber());
 
         // Accepting the default party leaves creation for the world, and the next update is the one the
         // world's interval belongs to.

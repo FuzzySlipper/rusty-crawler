@@ -572,7 +572,7 @@ function progression(overrides = {}) {
   };
 }
 
-function snapshot(mode, seconds = 0, steps = 0, updates = 0, facts = undefined, blocks = undefined) {
+function snapshot(mode, seconds = 0, steps = 0, _updates = 0, facts = undefined, blocks = undefined) {
   const value = {
     composition: {
       ruleset: 'mightandmagic7',
@@ -580,7 +580,7 @@ function snapshot(mode, seconds = 0, steps = 0, updates = 0, facts = undefined, 
       bundle: 'partyrpg-default',
       contentPacks: 2,
     },
-    session: { mode, simulationSeconds: seconds, admittedSteps: steps, updates },
+    session: { mode, simulationSeconds: seconds, admittedSteps: steps },
     world: world(),
   };
   // A projection is free to carry no movement block at all — that is what a session without movement
@@ -1528,7 +1528,7 @@ test('renders nothing until the product publishes, then renders what it publishe
       title: '',
       button: 'Starting…',
       disabled: true,
-      values: Array(34).fill('—'),
+      values: Array(33).fill('—'),
       place: '',
     });
 
@@ -1541,7 +1541,7 @@ test('renders nothing until the product publishes, then renders what it publishe
       button: 'Pause session',
       disabled: false,
       values: [
-        'running', '12.3 s', '740', '741', '2',
+        'running', '12.3 s', '740', '2',
         // The date, the time, the days, the party, what it carries, the purse, the food, the standing, what
         // the standing means, and the conditions, then what the party has left to lose and to cast with: a
         // projection that carries no party block shows all twelve as not known.
@@ -1575,7 +1575,7 @@ test('reports an unselected bundle and counts a single pack in the singular', ()
         bundle: '',
         contentPacks: 0,
       },
-      session: { mode: 'running', simulationSeconds: 0, admittedSteps: 0, updates: 1 },
+      session: { mode: 'running', simulationSeconds: 0, admittedSteps: 0 },
       world: world(),
     });
     assert.equal(readPanel(h).bundle, 'No game bundle selected');
@@ -1587,7 +1587,7 @@ test('reports an unselected bundle and counts a single pack in the singular', ()
         bundle: 'partyrpg-default',
         contentPacks: 1,
       },
-      session: { mode: 'running', simulationSeconds: 0, admittedSteps: 0, updates: 2 },
+      session: { mode: 'running', simulationSeconds: 0, admittedSteps: 0 },
       world: world(),
     });
     assert.equal(readPanel(h).bundle, 'partyrpg-default · 1 pack');
@@ -1653,7 +1653,7 @@ test('the companion holds no state and starts no timer', () => {
     assert.deepEqual(h.timers, { setTimeout: 0, setInterval: 0, requestAnimationFrame: 0 });
     // Rendering the newest projection replaces the previous values rather than accumulating them.
     assert.deepEqual(readPanel(h).values, [
-      'running', '3.0 s', '180', '182', '2',
+      'running', '3.0 s', '180', '2',
       '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—',
       '1', '—', '1234, 5678, 0 @ 512', '1 / 76', '—', '—', '—', '—',
       '—', '—', '—',

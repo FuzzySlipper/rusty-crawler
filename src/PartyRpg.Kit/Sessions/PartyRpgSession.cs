@@ -66,6 +66,11 @@ public sealed class PartyRpgSession : IGameSession
     private bool _held;
     private bool _disposed;
 
+    // What the panel was last sent, and whether an update is under way: an update publishes once, at its end,
+    // and only a value that differs from the last one sent.
+    private UiValue? _published;
+    private bool _updating;
+
     /// <summary>Creates a session for a compiled ruleset over the mechanisms the kit supplies.</summary>
     /// <param name="composition">The identity the session presents.</param>
     /// <param name="projection">Where it publishes its presentation.</param>
@@ -255,6 +260,28 @@ public sealed class PartyRpgSession : IGameSession
     public ProductUpdateResult Update(ProductUpdate update)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        SessionMode before = _mode;
+        bool heard;
+        _updating = true;
+        try
+        {
+            heard = Consume(update);
+        }
+        finally
+        {
+            _updating = false;
+        }
+
+        // A session that was held throughout and heard nothing moved nothing any block reads, so it is not even
+        // read: the panel already shows what it holds.
+        if (heard || before != SessionMode.Paused || _mode != SessionMode.Paused) Publish();
+        return ProductUpdateResult.None;
+    }
+
+    /// <summary>Applies one admitted update to the session, without publishing anything.</summary>
+    /// <returns>Whether the update carried any input at all.</returns>
+    private bool Consume(ProductUpdate update)
+    {
         SessionTick tick = SessionTick.From(update.Facts);
 
         // Every payload the update carried is parsed once, here, and each reader takes the actions it acts on;
@@ -281,8 +308,7 @@ public sealed class PartyRpgSession : IGameSession
 
             _updates++;
             ReportUnclaimed(input);
-            Publish();
-            return ProductUpdateResult.None;
+            return true;
         }
 
         // The pacing control is settled first of all: a press that switches the mode changes what this very
@@ -380,7 +406,7 @@ public sealed class PartyRpgSession : IGameSession
         ResolveMode();
         ReportUnclaimed(input);
         Advance(tick);
-        return ProductUpdateResult.None;
+        return input.Actions.Count > 0 || !input.Digital.IsEmpty;
     }
 
     /// <summary>
@@ -474,8 +500,6 @@ public sealed class PartyRpgSession : IGameSession
             _accountedThroughStep = batchEnd;
             _admittedSteps += tick.AdmittedStepCount;
         }
-
-        Publish();
     }
 
     /// <summary>Stops the session, publishes the stop, and releases the projection channel.</summary>
@@ -520,7 +544,30 @@ public sealed class PartyRpgSession : IGameSession
         Publish();
     }
 
-    private void Publish() => _projection.Publish(SessionProjection.Build(Snapshot()));
+    /// <summary>
+    /// Sends the panel the session as it stands, unless an update is under way — that update sends it once, when
+    /// it is done — or nothing has changed since the last value sent.
+    /// </summary>
+    /// <remarks>
+    /// A session that is held and hears nothing changes nothing, so it sends nothing: the panel already shows
+    /// what it holds. The comparison is of the whole value, so no block can be left stale by a rule about which
+    /// owner might have moved.
+    /// </remarks>
+    private void Publish()
+    {
+        if (_updating) return;
+        UiValue value = SessionProjection.Build(Snapshot());
+        if (_published is { } last && Same(last, value)) return;
+        _projection.Publish(value);
+        _published = value;
+    }
+
+    /// <summary>Whether two projection values say exactly the same thing.</summary>
+    private static bool Same(UiValue one, UiValue other) =>
+        one.Root == other.Root &&
+        one.Nodes.Span.SequenceEqual(other.Nodes.Span) &&
+        one.Edges.Span.SequenceEqual(other.Edges.Span) &&
+        one.Utf8.Span.SequenceEqual(other.Utf8.Span);
 
     /// <summary>
     /// Reads every block the projection publishes from the owner that holds its facts: a session with no
@@ -532,7 +579,6 @@ public sealed class PartyRpgSession : IGameSession
         _mode,
         _simulationSeconds,
         _admittedSteps,
-        _updates,
         _world,
         MovementSnapshot.From(LiveWorld?.Movement.Last),
         ClockSnapshot.From(Clock),

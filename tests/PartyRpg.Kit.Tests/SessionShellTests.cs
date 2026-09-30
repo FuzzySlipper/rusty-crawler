@@ -49,7 +49,32 @@ public sealed class SessionShellTests
         Assert.Equal("running", root.Field("session").Field("mode").AsString());
         Assert.Equal(10.0, root.Field("session").Field("simulationSeconds").AsNumber(), 3);
         Assert.Equal(600d, root.Field("session").Field("admittedSteps").AsNumber());
-        Assert.Equal(600d, root.Field("session").Field("updates").AsNumber());
+        Assert.Equal(600ul, session.Updates);
+    }
+
+    [Fact]
+    public void An_update_publishes_once_and_a_held_session_that_hears_nothing_publishes_nothing()
+    {
+        using PartyRpgSession session = Started(out RecordingUiProjectionChannel channel);
+
+        // A running update moves the admitted simulation, so it publishes, and it publishes once however many
+        // owners it moved.
+        int before = channel.Count;
+        session.Update(Tick(0));
+        Assert.Equal(before + 1, channel.Count);
+
+        // A hold is a change the panel must show; after it, a held session that hears nothing has nothing new
+        // to say, so it says nothing at all for as long as it is held.
+        session.Hold();
+        int held = channel.Count;
+        for (ulong step = 1; step < 120; step++) session.Update(Tick(step));
+        Assert.Equal(held, channel.Count);
+        Assert.Equal(120ul, session.Updates);
+
+        // Released, it runs again and publishes the moving simulation.
+        session.ReleaseHold();
+        session.Update(Tick(120));
+        Assert.True(channel.Count > held);
     }
 
     [Fact]
@@ -77,14 +102,19 @@ public sealed class SessionShellTests
         Assert.Equal(10.0, session.SimulationSeconds, 3);
         Assert.Equal(600ul, session.AdmittedSteps);
 
-        session.Hold();
         int publishedBeforeHold = channel.Count;
+        session.Hold();
         session.Update(Tick(600));
 
         Assert.Equal(SessionMode.Paused, session.Mode);
         Assert.Equal(10.0, session.SimulationSeconds, 3);
         Assert.Equal(600ul, session.AdmittedSteps);
-        Assert.True(channel.Count > publishedBeforeHold, "A held session still publishes the state it holds.");
+
+        // The hold is published once, as the state it holds; the update that arrives while held changes nothing,
+        // so it adds nothing.
+        Assert.Equal(publishedBeforeHold + 1, channel.Count);
+        Assert.Equal("paused", channel.Latest().Field("session").Field("mode").AsString());
+        Assert.Equal(600d, channel.Latest().Field("session").Field("admittedSteps").AsNumber());
 
         // Releasing resumes at the next admitted tick, and the held interval is never credited: the
         // published seconds stay equal to the published steps, which is what proves the gap between
