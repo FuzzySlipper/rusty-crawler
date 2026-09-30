@@ -423,16 +423,14 @@ public sealed class RestAndSchedulePolicyTests
             """),
         ($"{ProductTestContext.ContentDirectory}/content-packs/world/places.json", Places(places)),
         ($"{ProductTestContext.ContentDirectory}/content-packs/world/monsters.json",
-            """
+            $$"""
             {
               "documentId": "monsters",
               "definitionKind": "monster",
               "entries": [
                 { "id": "7", "name": "A beast", "level": 2, "hitPoints": 40, "armorClass": 5,
-                  "hostility": 2, "recovery": 100, "speed": 140,
-                  "columns": [ "7", "A beast", "A beast A", "2", "40", "5", "0", "0", "0", "N", "Long", "Normal",
-                               "2", "140", "100", "0", "0", "Phys", "2D8+10", "0", "0", "0", "0", "0", "0", "0",
-                               "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0" ] }
+                  "hostility": 2, "recovery": 100, "speed": 140, "movement": "Long", "aiType": "Normal",
+                  {{MonsterRows.Combat(7, "Phys", "2D8+10")}} }
               ]
             }
             """),

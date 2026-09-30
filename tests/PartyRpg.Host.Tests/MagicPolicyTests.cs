@@ -323,29 +323,16 @@ public sealed class MagicPolicyTests
     }
 
     /// <summary>
-    /// A creature that attacks on sight, with the shipped table's own columns for the cells a fight reads.
+    /// A creature that attacks on sight, with the typed combat fields the importer writes from its row.
     /// </summary>
     /// <remarks>
-    /// The spell columns are the table's own (OpenEnroth <c>src/Engine/Objects/Monsters.cpp:269-291</c>: the
-    /// cell is <c>&lt;name&gt;,&lt;mastery&gt;,&lt;skill&gt;</c> at column 25 and its use chance at 24), and
-    /// the attack's cells stand where the shipped header puts them. A row with no columns at all is a
-    /// hand-authored one with no blow and no spell, which is why this one carries them.
+    /// The first spell is a name, a rung and a skill, as the importer reads the table's own spell cell
+    /// (OpenEnroth <c>src/Engine/Objects/Monsters.cpp:269-291</c>). A row that states no attack at all is a
+    /// hand-authored one with no blow and no spell, which is why this one states them.
     /// </remarks>
     private static (string Path, string Text) Monster(bool casters)
     {
-        string[] cells = new string[39];
-        for (int index = 0; index < cells.Length; index++) cells[index] = "0";
-        cells[0] = "7";
-        cells[1] = "A beast";
-        cells[3] = "4";
-        cells[4] = "200";
-        cells[5] = "0";
-        cells[6] = "0";
-        cells[16] = "0";
-        cells[17] = "Phys";
-        cells[18] = "1d1+0";
-        cells[24] = casters ? "100" : "0";
-        cells[25] = casters ? "Fire Bolt,1,4" : "0";
+        string combat = MonsterRows.Combat(7, "Phys", "1d1+0", spell1Chance: casters ? 100 : 0, spell1: casters ? "Fire Bolt" : "0", spell1Mastery: "1", spell1Skill: 4);
         return ($"{ProductTestContext.ContentDirectory}/content-packs/world/monsters.json",
             $$"""
             {
@@ -353,7 +340,7 @@ public sealed class MagicPolicyTests
               "definitionKind": "monster",
               "entries": [
                 { "id": "7", "name": "A beast", "hostility": 2, "recovery": 100, "level": 4,
-                  "hitPoints": 200, "armorClass": 0, "columns": [ {{string.Join(", ", cells.Select(cell => $"\"{cell}\""))}} ] }
+                  "hitPoints": 200, "armorClass": 0, {{combat}} }
               ]
             }
             """);

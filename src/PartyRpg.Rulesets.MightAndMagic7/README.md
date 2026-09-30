@@ -126,8 +126,11 @@ way of attacking, and a spell's own kind with the row's dice until the magic sto
 table's own attack-type column) and a monster's blow may leave the condition its special-attack column names
 through the donor's chance and saving throw (`Character.cpp:1333-1600`), and resistance is the donor's four
 checks over the resistance plus thirty (`Actor.cpp:3743-3758`, `Character.cpp:1097-1108`) with the table's
-own `Imm` cell read as full immunity (`Monsters.cpp:327-330`) — `MightAndMagic7Damage` names the kinds and
-reads the resistance columns, `MightAndMagic7SpecialAttacks` reads the special-attack cell, and
+own `Imm` cell read as full immunity (`Monsters.cpp:327-330`) — the importer types every combat cell of a
+monster row into named fields (`attack`, `secondAttack`, `firstSpell`, `secondSpell`, `resistances`,
+`immunities`, `specialAttack`, `hostilityKind`) and the pack carries no raw row, so `MightAndMagic7Damage`
+names the kinds, `MightAndMagic7SpecialAttacks` is the vocabulary of the table's own special-attack words
+(matched whole, with the strength and count the importer read), and
 `MightAndMagic7Health` is what a wound leaves on a character: unconscious while their health plus base
 endurance is at least one, dead below that (`Character.cpp:1310-1316`)), what a kill leaves
 (`MightAndMagic7Corpses` — the fight reports what it read as down and this game generates each death's

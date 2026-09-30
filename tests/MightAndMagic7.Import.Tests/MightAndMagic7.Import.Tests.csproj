@@ -19,5 +19,8 @@
          suite is where the two shapes are proved to agree. -->
     <ProjectReference Include="../../src/MightAndMagic7.Import.Tool/MightAndMagic7.Import.Tool.csproj" />
     <ProjectReference Include="../../src/PartyRpg.Kit/PartyRpg.Kit.csproj" />
+    <!-- And this game's ruleset, so a pack the writer produced is proved to be one the ruleset composes a
+         session over: a field the writer renames and the ruleset still reads fails here. -->
+    <ProjectReference Include="../../src/PartyRpg.Rulesets.MightAndMagic7/PartyRpg.Rulesets.MightAndMagic7.csproj" />
   </ItemGroup>
 </Project>

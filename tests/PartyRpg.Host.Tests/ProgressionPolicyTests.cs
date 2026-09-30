@@ -462,8 +462,8 @@ public sealed class ProgressionPolicyTests
     ];
 
     /// <summary>
-    /// A monster row shaped the way the importer emits one: typed columns, the whole raw row, and the
-    /// experience the shipped table states for it.
+    /// A monster row shaped the way the importer emits one: every field typed, with the experience the shipped
+    /// table states for it.
     /// </summary>
     private static (string Path, string Text) MonsterRow(int experience, int hitPoints = 5) =>
         ($"{ProductTestContext.ContentDirectory}/content-packs/world/monsters.json",
@@ -474,25 +474,8 @@ public sealed class ProgressionPolicyTests
               "entries": [
                 { "id": "7", "name": "A beast", "level": 2, "hitPoints": {{hitPoints}}, "armorClass": 1,
                   "experience": {{experience}}, "hostility": 2, "recovery": 100,
-                  "columns": [ {{Columns(hitPoints)}} ] }
+                  {{MonsterRows.Combat(7, "Phys", "1D4+4")}} }
               ]
             }
             """);
-
-    /// <summary>The raw columns a row's fight is read from, with the hit points this row states.</summary>
-    private static string Columns(int hitPoints)
-    {
-        string[] cells = new string[39];
-        for (int index = 0; index < cells.Length; index++) cells[index] = "0";
-        cells[0] = "7";
-        cells[1] = "A beast";
-        cells[3] = "2";
-        cells[4] = hitPoints.ToString(CultureInfo.InvariantCulture);
-        cells[5] = "1";
-        cells[12] = "2";
-        cells[14] = "100";
-        cells[17] = "Phys";
-        cells[18] = "1D4+4";
-        return string.Join(", ", cells.Select(cell => $"\"{cell}\""));
-    }
 }

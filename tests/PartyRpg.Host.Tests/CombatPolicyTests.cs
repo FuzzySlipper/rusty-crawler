@@ -159,6 +159,39 @@ public sealed class CombatPolicyTests
     }
 
     [Fact]
+    public void A_row_whose_combat_fields_this_game_cannot_read_is_named_rather_than_defaulted()
+    {
+        // An unknown special-attack word, and a row that states an attack and none of the rest: each is a defect
+        // named where the session is composed, never a creature quietly given nothing.
+        foreach ((string row, string code) in new[]
+        {
+            (MonsterRows.Combat(7, "Phys", "2D8", special: "Hex2"), "monster-special-attack-unknown"),
+            ("\"attack\": { \"kind\": \"Phys\", \"dice\": { \"count\": 2, \"sides\": 8, \"bonus\": 0 } }", "monster-combat-incomplete"),
+        })
+        {
+            (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(
+                [.. World(monsterAt: 100), MonsterRowWith(row), PartyDocument()]);
+            ContentValidationException error = Assert.Throws<ContentValidationException>(
+                () => MightAndMagic7Ruleset.Instance.CreateSession(ProductTestContext.RulesetContext(context, ui, combat: true)));
+            Assert.Contains(error.Issues, issue => issue.Code == code);
+        }
+    }
+
+    /// <summary>A monster row with the given combat fields.</summary>
+    private static (string Path, string Text) MonsterRowWith(string combat) =>
+        ($"{ProductTestContext.ContentDirectory}/content-packs/world/monsters.json",
+            $$"""
+            {
+              "documentId": "monsters",
+              "definitionKind": "monster",
+              "entries": [
+                { "id": "7", "name": "A beast", "level": 2, "hitPoints": 40, "armorClass": 5, "hostility": 2, "recovery": 100,
+                  {{combat}} }
+              ]
+            }
+            """);
+
+    [Fact]
     public void A_creatures_first_recovery_is_a_keyed_roll_so_the_same_world_fights_the_same_fight()
     {
         // The engine's random service takes an explicit seed and reads no clock, so the same content and the
@@ -498,7 +531,7 @@ public sealed class CombatPolicyTests
         public void Dispose() => _session.Dispose();
     }
 
-    /// <summary>A monster row shaped the way the importer emits one: typed columns and the whole raw row.</summary>
+    /// <summary>A monster row shaped the way the importer emits one: every field typed.</summary>
     private static (string Path, string Text) MonsterRow(
         string physicalResistance = "0",
         string special = "0",
@@ -510,20 +543,7 @@ public sealed class CombatPolicyTests
         int recovery = 100,
         int hostility = 2)
     {
-        string[] cells = new string[39];
-        for (int index = 0; index < cells.Length; index++) cells[index] = "0";
-        cells[0] = "7";
-        cells[1] = "A beast";
-        cells[3] = level.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        cells[4] = hitPoints.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        cells[5] = armorClass.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        cells[12] = hostility.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        cells[14] = recovery.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        cells[16] = special;
-        cells[17] = attackType;
-        cells[18] = damage;
-        cells[37] = physicalResistance;
-        string columns = string.Join(", ", cells.Select(cell => $"\"{cell}\""));
+        string combat = MonsterRows.Combat(7, attackType, damage, special, physicalResistance);
         return ($"{ProductTestContext.ContentDirectory}/content-packs/world/monsters.json",
             $$"""
             {
@@ -532,7 +552,7 @@ public sealed class CombatPolicyTests
               "entries": [
                 { "id": "7", "name": "A beast", "level": {{level}}, "hitPoints": {{hitPoints}},
                   "armorClass": {{armorClass}}, "hostility": {{hostility}}, "recovery": {{recovery}},
-                  "columns": [ {{columns}} ] }
+                  {{combat}} }
               ]
             }
             """);

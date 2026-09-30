@@ -22,9 +22,9 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// </para>
 /// <para>
 /// <b>A monster row belongs to a kind, not to itself.</b> The shipped monsters come in groups of three
-/// graded variants of one kind, and the matrix names the kind once: the donor's own mapping is
-/// <c>(id - 1) / 3 + 1</c> (<c>src/Engine/Objects/MonsterEnumFunctions.h:38-40</c>), and the party's own
-/// row and column are index zero (<c>src/Engine/Tables/HostilityTable.h:12-15</c>).
+/// graded variants of one kind, and the matrix names the kind once. Which kind a row belongs to is stated on
+/// the row itself (<c>hostilityKind</c>), which the importer derives from the table's own grouping; the party's
+/// own row and column are index zero (<c>src/Engine/Tables/HostilityTable.h:12-15</c>).
 /// </para>
 /// <para>
 /// <b>A cell the data does not state is friendly.</b> The donor fills every relation with friendly before
@@ -136,13 +136,6 @@ internal sealed class MightAndMagic7Hostility
     /// <param name="other">The kind it is looking at.</param>
     internal bool IsEnemy(int self, int other) => Band(self, other) != 0;
 
-    /// <summary>The kind a monster row belongs to, by the donor's own grouping of graded variants.</summary>
-    /// <param name="monsterId">The monster table row.</param>
-    /// <remarks>
-    /// OpenEnroth <c>src/Engine/Objects/MonsterEnumFunctions.h:38-40</c>: three graded variants share one
-    /// kind, numbered from one, and the party's own row is zero.
-    /// </remarks>
-    internal static int KindOf(int monsterId) => monsterId <= 0 ? 0 : ((monsterId - 1) / 3) + 1;
 
     /// <summary>Reads one row's bands, refusing a band this game has no meaning for.</summary>
     private static IReadOnlyDictionary<int, int> ReadBands(

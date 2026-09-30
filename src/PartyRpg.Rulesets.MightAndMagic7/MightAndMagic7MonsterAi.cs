@@ -148,7 +148,7 @@ internal sealed class MightAndMagic7MonsterAi : IMonsterAiPolicy
         if (SameGroup(self, other)) return false;
         if (_combat.FactsOf(self) is not { } mine || _combat.FactsOf(other) is not { } theirs) return false;
 
-        return _hostility.IsEnemy(MightAndMagic7Hostility.KindOf(mine.Id), MightAndMagic7Hostility.KindOf(theirs.Id));
+        return _hostility.IsEnemy(mine.HostilityKind, theirs.HostilityKind);
     }
 
     /// <inheritdoc />
@@ -301,7 +301,7 @@ internal sealed class MightAndMagic7MonsterAi : IMonsterAiPolicy
     private int Band(CombatSubject self, CombatSubject other)
     {
         if (_combat.FactsOf(self) is not { } mine || _combat.FactsOf(other) is not { } theirs) return 0;
-        return _hostility.Band(MightAndMagic7Hostility.KindOf(mine.Id), MightAndMagic7Hostility.KindOf(theirs.Id));
+        return _hostility.Band(mine.HostilityKind, theirs.HostilityKind);
     }
 
     /// <summary>Whether two actors are placements of the same non-zero group, which makes them allies.</summary>

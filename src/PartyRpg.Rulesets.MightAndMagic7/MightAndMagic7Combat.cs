@@ -132,48 +132,47 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// <summary>The name this game gives the second spell a creature casts.</summary>
     internal const string AbilitySpell2 = "spell2";
 
-    /// <summary>The monster row column that states what its first attack does, and of what kind.</summary>
+    /// <summary>The field that states a monster's first attack: its kind of harm, its dice, and what it throws.</summary>
     /// <remarks>
-    /// The table's own columns, named in its header row and read by the donor at the same positions
-    /// (OpenEnroth <c>src/Engine/Objects/Monsters.cpp:534-555</c>): 16 the special attack, 17 the first
-    /// attack's damage type, 18 its dice, 19 its missile, 28 to 37 the ten resistances.
+    /// Every combat field a monster row carries is typed by the importer from the table's own cells, so this
+    /// reads names, kinds, dice, chances and counts and knows nothing of where the table keeps them.
     /// </remarks>
-    internal const int SpecialAttackColumn = 16;
+    internal const string AttackField = "attack";
 
-    /// <summary>The column that states the damage type of a monster's first attack.</summary>
-    internal const int AttackTypeColumn = 17;
+    /// <summary>The field that states a monster's second attack, with how often it uses it.</summary>
+    internal const string SecondAttackField = "secondAttack";
 
-    /// <summary>The column that states the dice of a monster's first attack.</summary>
-    internal const int AttackDamageColumn = 18;
+    /// <summary>The field that states the first spell a monster casts, when it casts one.</summary>
+    internal const string FirstSpellField = "firstSpell";
 
-    /// <summary>The column that states what a monster's first attack throws, empty when it is a blow.</summary>
-    internal const int AttackMissileColumn = 19;
+    /// <summary>The field that states the second spell a monster casts, when it casts one.</summary>
+    internal const string SecondSpellField = "secondSpell";
 
-    /// <summary>The column that states how often a monster uses its second attack, in percent.</summary>
-    /// <remarks>The table's own <c>Att%</c> header, read by the donor at <c>src/Engine/Objects/Monsters.cpp:540</c>.</remarks>
-    internal const int SecondAttackChanceColumn = 20;
+    /// <summary>The field that states a monster's resistance to each kind of harm it is not immune to.</summary>
+    internal const string ResistancesField = "resistances";
 
-    /// <summary>The column that states the damage type of a monster's second attack.</summary>
-    internal const int SecondAttackTypeColumn = 21;
+    /// <summary>The field that lists the kinds of harm a monster is immune to.</summary>
+    internal const string ImmunitiesField = "immunities";
 
-    /// <summary>The column that states the dice of a monster's second attack.</summary>
-    internal const int SecondAttackDamageColumn = 22;
+    /// <summary>The field that states what a monster's blow leaves besides harm, when it leaves anything.</summary>
+    internal const string SpecialAttackField = "specialAttack";
 
-    /// <summary>The column that states what a monster's second attack throws, empty when it is a blow.</summary>
-    internal const int SecondAttackMissileColumn = 23;
+    /// <summary>The field that states which column of the hostility matrix a monster's feelings are read from.</summary>
+    internal const string HostilityKindField = "hostilityKind";
 
-    /// <summary>The column that states how often a monster casts its first spell, in percent.</summary>
-    /// <remarks>The table's own first <c>Use%</c> header, read by the donor at <c>src/Engine/Objects/Monsters.cpp:542</c>.</remarks>
-    internal const int FirstSpellChanceColumn = 24;
+    /// <summary>What a hand-authored row that names no hostility kind is, which is nobody's enemy.</summary>
+    internal const int NoHostilityKind = -1;
 
-    /// <summary>The column that states which spell a monster casts first, with its mastery and skill.</summary>
-    internal const int FirstSpellColumn = 25;
-
-    /// <summary>The column that states how often a monster casts its second spell, in percent.</summary>
-    internal const int SecondSpellChanceColumn = 26;
-
-    /// <summary>The column that states which spell a monster casts second.</summary>
-    internal const int SecondSpellColumn = 27;
+    private const string KindField = "kind";
+    private const string DiceField = "dice";
+    private const string CountField = "count";
+    private const string SidesField = "sides";
+    private const string BonusField = "bonus";
+    private const string MissileField = "missile";
+    private const string ChanceField = "chance";
+    private const string StrengthField = "strength";
+    private const string TimesField = "times";
+    private const string SkillField = "skill";
 
     /// <summary>The name the shipped table gives the people it places in the world.</summary>
     /// <remarks>
@@ -1372,21 +1371,18 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         MightAndMagic7Spells? spells,
         Action<string, string> defect)
     {
-        IReadOnlyList<JsonElement> columns = entry.GetArray("columns");
-        List<string> cells = [];
-        foreach (JsonElement cell in columns) cells.Add(cell.ValueKind == JsonValueKind.String ? cell.GetString() ?? string.Empty : cell.ToString());
         string name = entry.GetString(NameField);
         int level = entry.GetInt32(LevelField) ?? 0;
         int hitPoints = entry.GetInt32(HitPointsField) ?? 0;
         int armorClass = entry.GetInt32(ArmorClassField) ?? 0;
         long experience = Math.Max(0, entry.GetInt32(ExperienceField) ?? 0);
+        int hostilityKind = entry.GetInt32(HostilityKindField) ?? NoHostilityKind;
 
-        // A row that carries no raw columns at all is a hand-authored one: it states the columns a fight is
-        // paced by and nothing else, so it has no blow of its own, no special attack, and no resistance. The
-        // imported table's rows carry the whole row and are read below; a row that carries some of it but not
-        // the columns the table's header names is a defect rather than a creature with a resistance nobody
-        // read.
-        if (cells.Count == 0)
+        // A row that states no attack is a hand-authored one: it states the fields a fight is paced by and
+        // nothing else, so it has no blow of its own, no special attack, and no resistance. The imported table's
+        // rows state every combat field typed, and one that states an attack but not the rest is a defect rather
+        // than a creature with a resistance nobody read.
+        if (!entry.Payload.TryGetProperty(AttackField, out JsonElement attackField))
         {
             return new MonsterFacts(
                 id,
@@ -1408,69 +1404,71 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
                 new Dictionary<DamageKindId, Resistance>(),
                 AiType: string.Empty,
                 Movement: string.Empty,
-                Speed: 0);
+                Speed: 0,
+                hostilityKind);
         }
 
-        if (cells.Count < MightAndMagic7Damage.MonsterColumns)
+        string row = $"monster '{name}' ({id})";
+        if (!entry.Payload.TryGetProperty(SecondAttackField, out JsonElement secondField) ||
+            !entry.Payload.TryGetProperty(ResistancesField, out JsonElement resistanceField) ||
+            !entry.Payload.TryGetProperty(ImmunitiesField, out JsonElement immunityField) ||
+            hostilityKind == NoHostilityKind)
         {
             defect(
-                "monster-row-short",
-                $"monster '{name}' ({id}) carries {cells.Count} columns where the shipped table states {MightAndMagic7Damage.MonsterColumns}, so its attack and its resistances cannot be read.");
+                "monster-combat-incomplete",
+                $"{row} states an attack and not every other combat field ({SecondAttackField}, {ResistancesField}, {ImmunitiesField}, {HostilityKindField}), so what it can do in a fight cannot be read whole.");
             return null;
         }
 
-        MonsterSpecialAttack? special = MightAndMagic7SpecialAttacks.Parse(cells[SpecialAttackColumn]);
-        if (special is null)
+        MonsterSpecialAttack special = new(MightAndMagic7SpecialAttackKind.None, 1);
+        if (entry.Payload.TryGetProperty(SpecialAttackField, out JsonElement specialField))
         {
-            defect(
-                "monster-special-attack-unknown",
-                $"monster '{name}' ({id}) states '{cells[SpecialAttackColumn]}' as its special attack, and this game knows no such attack.");
-            return null;
+            string word = specialField.TryGetProperty(KindField, out JsonElement kindCell) ? kindCell.GetString() ?? string.Empty : string.Empty;
+            int strength = specialField.TryGetProperty(StrengthField, out JsonElement strengthCell) && strengthCell.TryGetInt32(out int stated) ? stated : 0;
+            int times = specialField.TryGetProperty(TimesField, out JsonElement timesCell) && timesCell.TryGetInt32(out int count) ? count : 1;
+            if (MightAndMagic7SpecialAttacks.From(word, strength, times) is not { } known)
+            {
+                defect(
+                    "monster-special-attack-unknown",
+                    $"{row} states '{word}' at strength {strength} as its special attack, and this game knows no such attack.");
+                return null;
+            }
+
+            special = known;
         }
 
-        DamageKindId attackKind = MightAndMagic7Damage.Known(cells[AttackTypeColumn].Trim()) ?? MightAndMagic7Damage.Physical;
-        if (!TryReadDice(cells[AttackDamageColumn], out DamageRoll attack))
-        {
-            defect(
-                "monster-attack-unreadable",
-                $"monster '{name}' ({id}) states '{cells[AttackDamageColumn]}' as its damage, which is not dice this game can roll.");
-            return null;
-        }
-
-        DamageKindId secondKind = MightAndMagic7Damage.Known(cells[SecondAttackTypeColumn].Trim()) ?? MightAndMagic7Damage.Physical;
-        if (!TryReadDice(cells[SecondAttackDamageColumn], out DamageRoll second))
-        {
-            defect(
-                "monster-attack-unreadable",
-                $"monster '{name}' ({id}) states '{cells[SecondAttackDamageColumn]}' as its second attack's damage, which is not dice this game can roll.");
-            return null;
-        }
+        (DamageRoll attack, DamageKindId attackKind, bool throws) = Attack(attackField);
+        (DamageRoll second, DamageKindId secondKind, bool secondThrows) = Attack(secondField);
+        int secondChance = secondField.TryGetProperty(ChanceField, out JsonElement chanceCell) && chanceCell.TryGetInt32(out int chance) ? chance : 0;
 
         // A monster's spells are named the way the table names them and their harm is read from the spell
         // table the same content carries. A spell that table describes no harm for — a shield, a cure, a
         // dispel — is a spell this build cannot cast, so the creature keeps it on its row and never chooses
         // it; it is content the data carries rather than a defect in it.
-        MonsterSpell first = MonsterSpell.Read(cells[FirstSpellColumn], cells[FirstSpellChanceColumn], spells);
-        MonsterSpell secondSpell = MonsterSpell.Read(cells[SecondSpellColumn], cells[SecondSpellChanceColumn], spells);
+        MonsterSpell first = MonsterSpell.Read(entry.Payload, FirstSpellField, spells);
+        MonsterSpell secondSpell = MonsterSpell.Read(entry.Payload, SecondSpellField, spells);
 
         Dictionary<DamageKindId, Resistance> resistances = [];
-        foreach (DamageKindId kind in new[]
+        foreach (JsonProperty stated in resistanceField.EnumerateObject())
         {
-            MightAndMagic7Damage.Physical, MightAndMagic7Damage.Fire, MightAndMagic7Damage.Air,
-            MightAndMagic7Damage.Water, MightAndMagic7Damage.Earth, MightAndMagic7Damage.Mind,
-            MightAndMagic7Damage.Spirit, MightAndMagic7Damage.Body, MightAndMagic7Damage.Light,
-            MightAndMagic7Damage.Dark,
-        })
-        {
-            try
+            if (MightAndMagic7Damage.Known(stated.Name) is not { } kind || !stated.Value.TryGetInt32(out int points))
             {
-                resistances[kind] = MightAndMagic7Damage.ReadOrNone(cells, kind);
-            }
-            catch (ArgumentException unreadable)
-            {
-                defect("monster-resistance-unreadable", $"monster '{name}' ({id}): {unreadable.Message}");
+                defect("monster-resistance-unreadable", $"{row} states '{stated.Name}': {stated.Value} as a resistance, which is not a kind of harm and a number this game reads.");
                 return null;
             }
+
+            resistances[kind] = Resistance.Of(points);
+        }
+
+        foreach (JsonElement immune in immunityField.EnumerateArray())
+        {
+            if (MightAndMagic7Damage.Known(immune.GetString() ?? string.Empty) is not { } kind)
+            {
+                defect("monster-resistance-unreadable", $"{row} states an immunity to '{immune}', which is not a kind of harm this game knows.");
+                return null;
+            }
+
+            resistances[kind] = Resistance.Immune;
         }
 
         return new MonsterFacts(
@@ -1484,24 +1482,34 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             experience,
             attack,
             attackKind,
-            cells[AttackMissileColumn].Trim().Length > 0 && cells[AttackMissileColumn].Trim() != "0",
-            new MonsterAttack(second, secondKind, HasMissile(cells[SecondAttackMissileColumn])),
-            ChanceFrom(cells[SecondAttackChanceColumn]),
+            throws,
+            new MonsterAttack(second, secondKind, secondThrows),
+            secondChance,
             first,
             secondSpell,
             special,
             resistances,
             entry.GetString(AiTypeField),
             entry.GetString(MovementField),
-            entry.GetInt32(SpeedField) ?? 0);
+            entry.GetInt32(SpeedField) ?? 0,
+            hostilityKind);
     }
 
-    /// <summary>Whether a missile column states a projectile rather than a blow.</summary>
-    private static bool HasMissile(string cell) => cell.Trim().Length > 0 && cell.Trim() != "0";
+    /// <summary>An attack as the row states it: its dice, its kind of harm, and whether it throws something.</summary>
+    /// <remarks>An attack that states no dice does no harm, and one that states no kind is a physical blow.</remarks>
+    private static (DamageRoll Dice, DamageKindId Kind, bool Throws) Attack(JsonElement attack)
+    {
+        DamageRoll dice = attack.TryGetProperty(DiceField, out JsonElement roll)
+            && roll.TryGetProperty(CountField, out JsonElement count) && count.TryGetInt32(out int rolled)
+            && roll.TryGetProperty(SidesField, out JsonElement sides) && sides.TryGetInt32(out int faces) && faces >= 1
+            ? new DamageRoll(rolled, faces, roll.TryGetProperty(BonusField, out JsonElement bonus) && bonus.TryGetInt32(out int added) ? added : 0)
+            : DamageRoll.Flat(0);
+        DamageKindId kind = attack.TryGetProperty(KindField, out JsonElement word)
+            ? MightAndMagic7Damage.Known(word.GetString() ?? string.Empty) ?? MightAndMagic7Damage.Physical
+            : MightAndMagic7Damage.Physical;
+        return (dice, kind, attack.TryGetProperty(MissileField, out _));
+    }
 
-    /// <summary>Reads a percentage column, which the shipped table writes as a number and may pad.</summary>
-    private static int ChanceFrom(string cell) =>
-        int.TryParse(cell.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int chance) ? chance : 0;
 
     /// <summary>
     /// What kind of harm each spell in this content does, by the spell's own name.
@@ -1526,39 +1534,6 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         return spells;
     }
 
-    /// <summary>
-    /// Reads a monster table's damage dice, which are written as <c>&lt;dice&gt;D&lt;sides&gt;[+bonus]</c>.
-    /// </summary>
-    /// <remarks>
-    /// OpenEnroth <c>src/Engine/Objects/Monsters.cpp</c>, <c>ParseDamage</c>: the shipped table writes
-    /// everything from <c>2D2</c> to <c>2D8+10</c>, and a cell of zero or one character states no attack at
-    /// all. The importer's item table writes the same shape for a weapon's dice, so this reads the one shape
-    /// both tables use rather than a monster-only spelling.
-    /// </remarks>
-    private static bool TryReadDice(string cell, out DamageRoll roll)
-    {
-        roll = DamageRoll.Flat(0);
-        string text = cell.Trim();
-        if (text.Length <= 1) return true;
-
-        int mark = text.IndexOf('D', StringComparison.OrdinalIgnoreCase);
-        if (mark <= 0) return false;
-        string dice = text[..mark];
-        string rest = text[(mark + 1)..];
-        int bonusMark = rest.IndexOf('+', StringComparison.Ordinal);
-        string sides = bonusMark >= 0 ? rest[..bonusMark] : rest;
-        string bonus = bonusMark >= 0 ? rest[(bonusMark + 1)..] : "0";
-        if (!int.TryParse(dice, NumberStyles.None, CultureInfo.InvariantCulture, out int count) ||
-            !int.TryParse(sides, NumberStyles.None, CultureInfo.InvariantCulture, out int faces) ||
-            !int.TryParse(bonus, NumberStyles.None, CultureInfo.InvariantCulture, out int added))
-        {
-            return false;
-        }
-
-        if (count < 0 || faces < 1 || added < 0) return false;
-        roll = new DamageRoll(count, faces, added);
-        return true;
-    }
 
     /// <summary>Reads the people the packs carry, by the identity a placement names them under.</summary>
     private static Dictionary<string, string> ReadPeople(ContentCatalog catalog)
@@ -1715,7 +1690,8 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         IReadOnlyDictionary<DamageKindId, Resistance> Resistances,
         string AiType,
         string Movement,
-        int Speed)
+        int Speed,
+        int HostilityKind)
     {
         /// <summary>The row's recovery as the game time a fight advances by.</summary>
         public GameDuration Recovery { get; } = Ticks(RecoveryTicks);
@@ -1797,30 +1773,25 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         /// </remarks>
         public bool IsUsable => Name.Length > 0 && UseChance > 0 && Kind is not null && Roll is not null;
 
-        /// <summary>Reads one spell cell and its chance, and what the spell's own content says it does.</summary>
-        /// <param name="cell">The table's own spell cell.</param>
-        /// <param name="chanceCell">The table's own use-chance cell.</param>
+        /// <summary>Reads one spell a row states, and what the spell's own content says it does.</summary>
+        /// <param name="row">The monster row.</param>
+        /// <param name="field">Which of its two spells to read.</param>
         /// <param name="spells">
         /// What each spell in this content does, by name; a spell this content does not describe harms nobody
         /// this build can state, which is a spell the creature keeps and never chooses.
         /// </param>
-        internal static MonsterSpell Read(string cell, string chanceCell, MightAndMagic7Spells? spells)
+        internal static MonsterSpell Read(JsonElement row, string field, MightAndMagic7Spells? spells)
         {
-            string text = cell.Trim();
-            int chance = ChanceFrom(chanceCell);
-            if (text.Length == 0 || text == "0") return None;
-
-            string[] parts = text.Split(',');
-            string spell = parts[0].Trim();
+            if (!row.TryGetProperty(field, out JsonElement cast)) return None;
+            string spell = cast.TryGetProperty(NameField, out JsonElement named) ? named.GetString()?.Trim() ?? string.Empty : string.Empty;
             if (spell.Length == 0) return None;
+            int chance = cast.TryGetProperty(ChanceField, out JsonElement percent) && percent.TryGetInt32(out int stated) ? stated : 0;
             if (spells?.SpellByName(spell) is not { } known || spells.Harm(known) is not { } kind) return new MonsterSpell(spell, chance, null);
 
-            // The cell's own two numbers are the mastery and the skill the creature casts at
-            // (OpenEnroth src/Engine/Objects/Monsters.cpp:269-291, parseSpellEntry), and the damage is the
-            // spell's own row read at that skill — the same expression a character's cast rolls.
-            int skill = parts.Length > 2 && int.TryParse(parts[2].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int levels)
-                ? levels
-                : 0;
+            // The row states the rung and the skill the creature casts at (OpenEnroth
+            // src/Engine/Objects/Monsters.cpp:269-291, parseSpellEntry), and the damage is the spell's own row
+            // read at that skill — the same expression a character's cast rolls.
+            int skill = cast.TryGetProperty(SkillField, out JsonElement levels) && levels.TryGetInt32(out int stated2) ? stated2 : 0;
             return new MonsterSpell(spell, chance, kind, spells.Damage(known, skill));
         }
     }

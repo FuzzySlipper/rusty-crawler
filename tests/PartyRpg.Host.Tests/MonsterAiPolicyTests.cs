@@ -511,35 +511,22 @@ public sealed class MonsterAiPolicyTests
         string attackKind = "Phys",
         int hitPoints = 10)
     {
-        string[] cells = new string[39];
-        for (int index = 0; index < cells.Length; index++) cells[index] = "0";
-        cells[0] = id.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        cells[1] = name;
-
         // A row's kind is the group of three graded variants it stands in, which is how the matrix names it:
         // rows 7, 10, and 13 are the third of their trios and so the kinds the matrix's third, fourth, and
-        // fifth columns are about.
-        cells[2] = name + " A";
-        cells[3] = "2";
-        cells[4] = hitPoints.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        cells[5] = "5";
-        cells[10] = movement;
-        cells[11] = ai;
-        cells[12] = hostility.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        cells[13] = speed.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        cells[14] = "100";
-        cells[17] = attackKind;
-        cells[18] = damage;
-        cells[20] = secondChance.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        cells[21] = secondKind;
-        cells[22] = second;
-        cells[24] = spell1Chance.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        cells[25] = spell1 == "0" ? "0" : $"{spell1},N,4";
-        string columns = string.Join(", ", cells.Select(cell => $"\"{cell}\""));
+        // fifth columns are about, which is the hostility kind the importer writes on each.
+        string combat = MonsterRows.Combat(
+            id,
+            attackKind,
+            damage,
+            secondChance: secondChance,
+            secondKind: secondKind,
+            second: second,
+            spell1Chance: spell1Chance,
+            spell1: spell1);
         return $$"""
         { "id": "{{id}}", "name": "{{name}}", "level": 2, "hitPoints": {{hitPoints}}, "armorClass": 5,
           "hostility": {{hostility}}, "recovery": 100, "speed": {{speed}}, "aiType": "{{ai}}", "movement": "{{movement}}",
-          "columns": [ {{columns}} ] }
+          {{combat}} }
         """;
     }
 

@@ -54,6 +54,7 @@ public readonly record struct MonsterTreasure(int Chance, int GoldRolls, int Gol
 /// <param name="Hostility">The monster's hostility value.</param>
 /// <param name="Speed">The monster's speed.</param>
 /// <param name="Recovery">The monster's recovery time.</param>
+/// <param name="Combat">How the monster fights, typed from its own combat cells.</param>
 /// <param name="Fields">Every field of the row, for the columns this importer does not type yet.</param>
 public readonly record struct MonsterRecord(
     int Id,
@@ -70,6 +71,7 @@ public readonly record struct MonsterRecord(
     int Hostility,
     int Speed,
     int Recovery,
+    MonsterCombatRecord Combat,
     IReadOnlyList<string> Fields);
 
 /// <summary>The monster table.</summary>
@@ -117,6 +119,7 @@ public sealed class MonsterTable
             TableValue.Integer(table, row, 12, "Hst"),
             TableValue.Integer(table, row, 13, "Spd"),
             TableValue.Integer(table, row, 14, "Rec"),
+            MonsterCombat.Read(table.Source.ToString(), TableValue.Integer(table, row, 0, "#"), TableValue.Text(row, 1), row.Fields),
             row.Fields))];
 
         if (monsters.Length != ExpectedRows)

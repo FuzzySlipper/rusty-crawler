@@ -376,7 +376,7 @@ public sealed class TurnBasedPolicyTests
             """),
     ];
 
-    /// <summary>A monster row shaped the way the importer emits one: typed columns and the whole raw row.</summary>
+    /// <summary>A monster row shaped the way the importer emits one: every field typed.</summary>
     private static (string Path, string Text) MonsterRow(
         int recovery = 100,
         int hitPoints = 40,
@@ -386,19 +386,7 @@ public sealed class TurnBasedPolicyTests
         int level = 2,
         int armorClass = 5)
     {
-        string[] cells = new string[39];
-        for (int index = 0; index < cells.Length; index++) cells[index] = "0";
-        cells[0] = "7";
-        cells[1] = "A beast";
-        cells[3] = level.ToString(CultureInfo.InvariantCulture);
-        cells[4] = hitPoints.ToString(CultureInfo.InvariantCulture);
-        cells[5] = armorClass.ToString(CultureInfo.InvariantCulture);
-        cells[12] = hostility.ToString(CultureInfo.InvariantCulture);
-        cells[14] = recovery.ToString(CultureInfo.InvariantCulture);
-        cells[16] = special;
-        cells[17] = "Phys";
-        cells[18] = damage;
-        string columns = string.Join(", ", cells.Select(cell => $"\"{cell}\""));
+        string combat = MonsterRows.Combat(7, "Phys", damage, special);
         return ($"{ProductTestContext.ContentDirectory}/content-packs/world/monsters.json",
             $$"""
             {
@@ -407,7 +395,7 @@ public sealed class TurnBasedPolicyTests
               "entries": [
                 { "id": "7", "name": "A beast", "level": {{level}}, "hitPoints": {{hitPoints}},
                   "armorClass": {{armorClass}}, "hostility": {{hostility}}, "recovery": {{recovery}},
-                  "columns": [ {{columns}} ] }
+                  {{combat}} }
               ]
             }
             """);

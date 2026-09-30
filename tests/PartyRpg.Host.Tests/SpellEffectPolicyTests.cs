@@ -622,21 +622,14 @@ public sealed class SpellEffectPolicyTests
     /// A creature that harms with fire and does not notice the party from across the place.
     /// </summary>
     /// <remarks>
-    /// Its attack kind is the table's own fire column, which is what lets a case read the party's fire
+    /// Its attack kind is fire, which is what lets a case read the party's fire
     /// resistance out of a blow rather than out of a number the effect path kept: the monster table's damage
     /// type is what the fight prices a target's resistance against
     /// (OpenEnroth <c>src/Engine/Objects/Monsters.cpp:545-554</c>).
     /// </remarks>
     private static (string Path, string Text) Monster()
     {
-        string[] cells = new string[39];
-        for (int index = 0; index < cells.Length; index++) cells[index] = "0";
-        cells[0] = "7";
-        cells[1] = "A beast";
-        cells[3] = "1";
-        cells[5] = "200";
-        cells[17] = "Fire";
-        cells[18] = "1d1+0";
+        string combat = MonsterRows.Combat(7, "Fire", "1d1+0");
         return ($"{ProductTestContext.ContentDirectory}/content-packs/world/monsters.json",
             $$"""
             {
@@ -644,7 +637,7 @@ public sealed class SpellEffectPolicyTests
               "definitionKind": "monster",
               "entries": [
                 { "id": "7", "name": "A beast", "hostility": 1, "recovery": 100, "level": 4,
-                  "hitPoints": 200, "armorClass": 0, "columns": [ {{string.Join(", ", cells.Select(cell => $"\"{cell}\""))}} ] }
+                  "hitPoints": 200, "armorClass": 0, {{combat}} }
               ]
             }
             """);

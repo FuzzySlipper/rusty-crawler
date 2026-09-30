@@ -282,8 +282,8 @@ internal static class SyntheticInstallation
     private static string Monsters()
     {
         StringBuilder text = new("Default Monster Data\t\t\t\t\t\t\t\t\t\t\t\t\t\n");
-        text.Append("#\tName\tPicture\tLVL\t HP \tAC\t EXP \tTreasure\tQuest\tFly\tMove\tAI Type\tHst\tSpd\tRec\tPref\tBonus\tType\tDamage\tMiss\tAtt%\n");
-        text.Append(new string('\t', 20)).Append('\n');
+        text.Append("#\tName\tPicture\tLVL\t HP \tAC\t EXP \tTreasure\tQuest\tFly\tMove\tAI Type\tHst\tSpd\tRec\tPref\tBonus\tType\tDamage\tMiss\tAtt%\tType\tDamage\tMiss\tUse%\tSpell\tUse%\tSpell\tFire\tAir\tWater\tEarth\tMind\tSpirit\tBody\tLight\tDark\tPhys\tSpecial\n");
+        text.Append(new string('\t', 38)).Append('\n');
         text.Append("\tA\t\t0\n");
         for (int monster = 1; monster <= MonsterRows; monster++)
         {
@@ -305,7 +305,14 @@ internal static class SyntheticInstallation
                 2 => "10%10D20+L3Sword",
                 _ => "5D10+L1Cape",
             };
-            text.Append($"{monster}\tMonster {monster}\tMonster {((monster - 1) / 3) + 1} {variant}\t{monster}\t{hp}\t{monster % 40}\t{experience}\t{treasure}\t0\tN\tLong\tAggress\t3\t140\t100\t0\t0\tPhys\t2D8\t0\t0\n");
+            // The combat cells cover the shapes the shipped file states: a special attack that is a word, one
+            // with a strength, one with a count, and one with both; a spell cell with its three parts and the
+            // one row that joins the rung and the skill; and a resistance written as an immunity.
+            string special = (monster % 5) switch { 0 => "0", 1 => "Poison2", 2 => "Stealx2", 3 => "Poison3x2", _ => "Afraid" };
+            string spell = (monster % 7) switch { 0 => "Fire Bolt,M,6", 1 => "Lightning Bolt,M10", _ => "0" };
+            string fire = monster % 9 == 0 ? "Imm" : "10";
+            string second = monster % 6 == 0 ? "20\tFire\t3D4+2\tFireAr" : "0\t0\t0\t0";
+            text.Append($"{monster}\tMonster {monster}\tMonster {((monster - 1) / 3) + 1} {variant}\t{monster}\t{hp}\t{monster % 40}\t{experience}\t{treasure}\t0\tN\tLong\tAggress\t3\t140\t100\t0\t{special}\tPhys\t2D8\t0\t{second}\t{(spell == "0" ? 0 : 25)}\t{spell}\t0\t0\t{fire}\t5\t5\t5\t0\t0\t0\t0\t0\t15\t0\n");
         }
 
         return text.ToString();

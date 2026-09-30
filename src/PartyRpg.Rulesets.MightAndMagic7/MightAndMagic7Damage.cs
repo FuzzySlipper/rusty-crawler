@@ -73,21 +73,9 @@ internal static class MightAndMagic7Damage
     /// </remarks>
     internal static readonly DamageKindId Energy = new("Ener");
 
-    /// <summary>Where each kind's resistance stands in a monster row, as the table's own header names it.</summary>
-    /// <remarks>
-    /// The pack carries a monster row's columns verbatim, because the importer types the combat columns it
-    /// reads and keeps the rest of the table's row. These are the positions the donor reads resistances from
-    /// (OpenEnroth <c>src/Engine/Objects/Monsters.cpp:545-554</c>, <c>tokens[28]</c> through
-    /// <c>tokens[37]</c>), which are the same positions the table's own header row names.
-    /// </remarks>
-    private static readonly (DamageKindId Kind, int Column)[] Columns =
-    [
-        (Fire, 28), (Air, 29), (Water, 30), (Earth, 31), (Mind, 32),
-        (Spirit, 33), (Body, 34), (Light, 35), (Dark, 36), (Physical, 37),
-    ];
-
-    /// <summary>How many columns a shipped monster row has, which a resistance reading needs whole.</summary>
-    internal const int MonsterColumns = 39;
+    /// <summary>The ten kinds of harm a monster row states a resistance to.</summary>
+    private static readonly DamageKindId[] Resisted =
+        [Fire, Air, Water, Earth, Mind, Spirit, Body, Light, Dark, Physical];
 
     /// <summary>The cell text the shipped table writes for full immunity.</summary>
     internal const string ImmunityText = "Imm";
@@ -100,7 +88,7 @@ internal static class MightAndMagic7Damage
     /// <param name="kind">The kind to look for.</param>
     internal static DamageKindId? Known(string kind)
     {
-        foreach ((DamageKindId known, _) in Columns)
+        foreach (DamageKindId known in Resisted)
         {
             if (string.Equals(known.Value, kind, StringComparison.Ordinal)) return known;
         }
@@ -108,47 +96,4 @@ internal static class MightAndMagic7Damage
         if (string.Equals(Magic.Value, kind, StringComparison.Ordinal)) return Magic;
         return string.Equals(Energy.Value, kind, StringComparison.Ordinal) ? Energy : null;
     }
-
-    /// <summary>
-    /// Reads what a monster row resists of one kind of harm, from the row's own resistance column.
-    /// </summary>
-    /// <param name="columns">The row's columns, as the pack carries them.</param>
-    /// <param name="kind">The kind of harm.</param>
-    /// <returns>The reading, or null when this game states no resistance for that kind.</returns>
-    /// <exception cref="ArgumentException">The row is too short to hold the table's resistance columns.</exception>
-    internal static Resistance? Read(IReadOnlyList<string> columns, DamageKindId kind)
-    {
-        ArgumentNullException.ThrowIfNull(columns);
-        foreach ((DamageKindId known, int column) in Columns)
-        {
-            if (known != kind) continue;
-            if (columns.Count < MonsterColumns)
-            {
-                throw new ArgumentException(
-                    string.Create(
-                        CultureInfo.InvariantCulture,
-                        $"A monster row carries {columns.Count} columns where the table states {MonsterColumns}, so its {kind} resistance at column {column} cannot be read."),
-                    nameof(columns));
-            }
-
-            string cell = columns[column].Trim();
-            if (cell.Equals(ImmunityText, StringComparison.OrdinalIgnoreCase)) return Resistance.Immune;
-            return int.TryParse(cell, NumberStyles.Integer, CultureInfo.InvariantCulture, out int points)
-                ? Resistance.Of(points)
-                : throw new ArgumentException(
-                    string.Create(
-                        CultureInfo.InvariantCulture,
-                        $"A monster row states '{cell}' for its {kind} resistance, which is neither a number nor '{ImmunityText}'."),
-                    nameof(columns));
-        }
-
-        // Magic: the donor's unresistable type, which no column carries.
-        return null;
-    }
-
-    /// <summary>What a monster row resists of one kind, with nothing stated read as no resistance.</summary>
-    /// <param name="columns">The row's columns, as the pack carries them.</param>
-    /// <param name="kind">The kind of harm.</param>
-    internal static Resistance ReadOrNone(IReadOnlyList<string> columns, DamageKindId kind) =>
-        Read(columns, kind) ?? Resistance.Of(0);
 }

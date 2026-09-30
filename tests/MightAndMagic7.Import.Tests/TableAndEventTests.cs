@@ -179,6 +179,59 @@ public sealed class TableAndEventTests
     }
 
     [Fact]
+    public void A_monster_rows_combat_cells_are_read_into_typed_fields()
+    {
+        static List<string> Row(string special = "0", string dice = "2D8+10", string spell = "0", string fire = "10")
+        {
+            List<string> cells = [.. Enumerable.Repeat("0", 39)];
+            cells[16] = special;
+            cells[17] = "Phys";
+            cells[18] = dice;
+            cells[20] = "20";
+            cells[21] = "Fire";
+            cells[22] = "3D4";
+            cells[23] = "FireAr";
+            cells[24] = "25";
+            cells[25] = spell;
+            cells[28] = fire;
+            cells[37] = "15";
+            return cells;
+        }
+
+        MonsterCombatRecord plain = MonsterCombat.Read("monsters.txt", 7, "A beast", Row());
+        Assert.Equal(new MonsterDice(2, 8, 10), plain.Attack.Dice);
+        Assert.Equal("Phys", plain.Attack.Kind);
+        Assert.Equal(20, plain.SecondAttackChance);
+        Assert.Equal(new MonsterAttackCell("Fire", new MonsterDice(3, 4, 0), "FireAr"), plain.SecondAttack);
+        Assert.Equal(10, plain.Resistances["Fire"]);
+        Assert.Equal(15, plain.Resistances["Phys"]);
+        Assert.Empty(plain.Immunities);
+        Assert.Null(plain.SpecialAttack);
+        Assert.Null(plain.FirstSpell);
+        Assert.Equal(3, plain.HostilityKind);
+
+        // Every special-attack shape the release carries: a word, a strength, a count, and both.
+        Assert.Equal(new MonsterSpecialAttackCell("Afraid", 0, 1), MonsterCombat.Read("m", 7, "b", Row(special: "Afraid")).SpecialAttack);
+        Assert.Equal(new MonsterSpecialAttackCell("Poison", 2, 1), MonsterCombat.Read("m", 7, "b", Row(special: "Poison2")).SpecialAttack);
+        Assert.Equal(new MonsterSpecialAttackCell("Steal", 0, 2), MonsterCombat.Read("m", 7, "b", Row(special: "Stealx2")).SpecialAttack);
+        Assert.Equal(new MonsterSpecialAttackCell("Poison", 3, 2), MonsterCombat.Read("m", 7, "b", Row(special: "Poison3x2")).SpecialAttack);
+
+        // A spell cell in three parts, and the one the release writes with the rung and skill joined.
+        Assert.Equal(new MonsterSpellCell(25, "Fire Bolt", "M", 6), MonsterCombat.Read("m", 7, "b", Row(spell: "Fire Bolt,M,6")).FirstSpell);
+        Assert.Equal(new MonsterSpellCell(25, "Lightning Bolt", "M", 10), MonsterCombat.Read("m", 7, "b", Row(spell: "Lightning Bolt,M10")).FirstSpell);
+
+        // An immunity is a kind listed, not a number.
+        MonsterCombatRecord immune = MonsterCombat.Read("m", 7, "b", Row(fire: "Imm"));
+        Assert.Equal(["Fire"], immune.Immunities);
+        Assert.False(immune.Resistances.ContainsKey("Fire"));
+
+        // A cell of another shape is refused with the row named.
+        LodFormatException refused = Assert.Throws<LodFormatException>(() => MonsterCombat.Read("monsters.txt", 7, "A beast", Row(dice: "two dice")));
+        Assert.Contains("monster 7 'A beast'", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("'two dice'", refused.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void A_map_move_decodes_its_position_house_and_destination()
     {
         byte[] program = MoveRecord(153, destination: "Out03.odm", x: 2727, y: 400, z: 164, exitPicture: 8);

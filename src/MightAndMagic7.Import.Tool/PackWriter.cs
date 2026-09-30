@@ -1057,7 +1057,7 @@ internal static class PackWriter
                 if (monster.TreasureRoll.Kind.Length > 0) writer.WriteString("kind", monster.TreasureRoll.Kind);
                 if (monster.TreasureRoll.Skill.Length > 0) writer.WriteString("skill", monster.TreasureRoll.Skill);
                 writer.WriteEndObject();
-                WriteColumns(writer, monster.Fields);
+                WriteCombat(writer, monster.Combat);
             }));
         }
 
@@ -1171,7 +1171,6 @@ internal static class PackWriter
                 writer.WriteString("material", item.Material);
                 writer.WriteString("picture", item.Picture);
                 WriteOptionalNumber(writer, "spriteIndex", item.SpriteIndex == 0 ? null : item.SpriteIndex);
-                WriteColumns(writer, item.Fields);
             }));
         }
 
@@ -1527,14 +1526,66 @@ internal static class PackWriter
     }
 
     /// <summary>
-    /// Writes the row's remaining columns under a namespaced key, so a later stone can read a column
-    /// this importer does not type yet without re-importing the game.
+    /// Writes how a monster fights as named, typed fields: its two attacks, its spells, its resistances, what
+    /// its blow leaves, and the hostility kind it belongs to.
     /// </summary>
-    private static void WriteColumns(Utf8JsonWriter writer, IReadOnlyList<string> fields)
+    /// <remarks>
+    /// Where each of these sits in the table's row and how each cell is spelled is this importer's knowledge,
+    /// so the pack carries none of it: a reader gets a kind, dice, a chance, and a count, and a renamed field
+    /// fails a test rather than a position shifting under a reader nobody told.
+    /// </remarks>
+    private static void WriteCombat(Utf8JsonWriter writer, MonsterCombatRecord combat)
     {
-        writer.WriteStartArray("columns");
-        foreach (string field in fields) writer.WriteStringValue(field);
+        writer.WriteNumber("hostilityKind", combat.HostilityKind);
+        WriteAttack(writer, "attack", combat.Attack, chance: null);
+        WriteAttack(writer, "secondAttack", combat.SecondAttack, combat.SecondAttackChance);
+        WriteSpell(writer, "firstSpell", combat.FirstSpell);
+        WriteSpell(writer, "secondSpell", combat.SecondSpell);
+
+        writer.WriteStartObject("resistances");
+        foreach ((string kind, int value) in combat.Resistances) writer.WriteNumber(kind, value);
+        writer.WriteEndObject();
+        writer.WriteStartArray("immunities");
+        foreach (string kind in combat.Immunities) writer.WriteStringValue(kind);
         writer.WriteEndArray();
+
+        if (combat.SpecialAttack is { } special)
+        {
+            writer.WriteStartObject("specialAttack");
+            writer.WriteString("kind", special.Kind);
+            if (special.Strength > 0) writer.WriteNumber("strength", special.Strength);
+            writer.WriteNumber("times", special.Times);
+            writer.WriteEndObject();
+        }
+    }
+
+    private static void WriteAttack(Utf8JsonWriter writer, string name, MonsterAttackCell attack, int? chance)
+    {
+        writer.WriteStartObject(name);
+        if (chance is { } percent) writer.WriteNumber("chance", percent);
+        if (attack.Kind.Length > 0) writer.WriteString("kind", attack.Kind);
+        if (attack.Dice is { } dice)
+        {
+            writer.WriteStartObject("dice");
+            writer.WriteNumber("count", dice.Count);
+            writer.WriteNumber("sides", dice.Sides);
+            writer.WriteNumber("bonus", dice.Bonus);
+            writer.WriteEndObject();
+        }
+
+        if (attack.Missile.Length > 0) writer.WriteString("missile", attack.Missile);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteSpell(Utf8JsonWriter writer, string name, MonsterSpellCell? spell)
+    {
+        if (spell is not { } cast) return;
+        writer.WriteStartObject(name);
+        writer.WriteNumber("chance", cast.Chance);
+        writer.WriteString("name", cast.Name);
+        writer.WriteString("mastery", cast.Mastery);
+        writer.WriteNumber("skill", cast.Skill);
+        writer.WriteEndObject();
     }
 
     private static void WriteOptionalString(Utf8JsonWriter writer, string name, string? value)
