@@ -32,6 +32,50 @@ namespace PartyRpg.Host.Tests;
 /// </remarks>
 public sealed class MagicPolicyTests
 {
+    [Fact]
+    public void The_donors_special_damage_cases_roll_by_the_casters_rung()
+    {
+        (ProductCreateContext context, _) = ProductTestContext.Create(
+            ProductTestContext.Bundle("partyrpg-default", "spells"),
+            ($"{ProductTestContext.ContentDirectory}/content-packs/spells/pack.json",
+                """
+                {
+                  "schemaVersion": 1, "packId": "spells", "kind": "definitions",
+                  "provenance": { "description": "authored for a test" },
+                  "documents": [ { "path": "spells.json", "documentId": "spells", "definitionKind": "spell" } ]
+                }
+                """),
+            ($"{ProductTestContext.ContentDirectory}/content-packs/spells/spells.json",
+                """
+                {
+                  "documentId": "spells", "definitionKind": "spell",
+                  "entries": [
+                    { "id": "7", "school": "Fire", "level": 7, "name": "Fire Spike", "resist": "Fire" },
+                    { "id": "43", "school": "Earth", "level": 10, "name": "Death Blossom", "resist": "Earth" },
+                    { "id": "52", "school": "Spirit", "level": 8, "name": "Spirit Lash", "resist": "Spirit" }
+                  ]
+                }
+                """));
+        ContentCatalog catalog = ContentCatalogLoader.Load(
+            new ProductContentSource(context.Content),
+            ContentLayout.Under(ProductTestContext.ContentDirectory)).RequireValid();
+        MightAndMagic7Spells spells = MightAndMagic7Spells.Read(catalog)!;
+
+        // Fire Spike: a d6 a level at novice and expert, a d8 at master, a d10 at grand master, no base
+        // (OpenEnroth src/Engine/Spells/Spells.cpp:818-831).
+        Assert.Equal(new PartyRpg.Kit.Combat.DamageRoll(5, 6, 0), spells.Damage(spells.Spell("7")!.Value, 5, rung: 2));
+        Assert.Equal(new PartyRpg.Kit.Combat.DamageRoll(5, 8, 0), spells.Damage(spells.Spell("7")!.Value, 5, rung: 3));
+        Assert.Equal(new PartyRpg.Kit.Combat.DamageRoll(5, 10, 0), spells.Damage(spells.Spell("7")!.Value, 5, rung: 4));
+
+        // Death Blossom at grand master: its base and two a level, rolled flat (Spells.cpp:832-833); below grand
+        // master the ordinary expression.
+        Assert.Equal(PartyRpg.Kit.Combat.DamageRoll.Flat(20 + 10), spells.Damage(spells.Spell("43")!.Value, 5, rung: 4));
+        Assert.Equal(new PartyRpg.Kit.Combat.DamageRoll(5, 1, 20), spells.Damage(spells.Spell("43")!.Value, 5, rung: 3));
+
+        // Spirit Lash: its base, one a level, and a die of one fewer side a level (Spells.cpp:836-837).
+        Assert.Equal(new PartyRpg.Kit.Combat.DamageRoll(4, 7, 14), spells.Damage(spells.Spell("52")!.Value, 4, rung: 1));
+    }
+
     /// <summary>What the shipped spell table says Fire Bolt costs at novice, which is the donor's own number.</summary>
     private const int FireBoltCost = 2;
 

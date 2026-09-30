@@ -185,20 +185,6 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
         ["Sorcerer"] = [new AttributeId("Intellect")],
     };
 
-    /// <summary>The donor's own score-to-bonus steps, from the highest score down to zero.</summary>
-    /// <remarks>
-    /// OpenEnroth <c>src/Engine/Objects/Character.cpp:231-235</c>, <c>param_to_bonus_table</c> and
-    /// <c>parameter_to_bonus_value</c>: a score of at least 500 is worth thirty, 400 twenty-five, and so down
-    /// to zero, which is worth minus six. The first floor a score reaches is its bonus.
-    /// </remarks>
-    private static readonly (int Floor, int Bonus)[] ParameterBonusSteps =
-    [
-        (500, 30), (400, 25), (350, 20), (300, 19), (275, 18), (250, 17), (225, 16), (200, 15),
-        (175, 14), (150, 13), (125, 12), (100, 11), (75, 10), (50, 9), (40, 8), (35, 7), (30, 6),
-        (25, 5), (21, 4), (19, 3), (17, 2), (15, 1), (13, 0), (11, -1), (9, -2), (7, -3), (5, -4),
-        (3, -5), (0, -6),
-    ];
-
     /// <summary>
     /// The donor's per-spell ladder, indexed by the spell's global id, in the order <c>SPELLS.TXT</c> states
     /// the rows.
@@ -253,7 +239,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
         Entry(41, [15, 15, 15, 15], [90, 90, 90, 80], 0, 8, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Rock Blast
         Entry(42, [20, 20, 20, 20], [150, 150, 150, 150], 0, 0, 3, SpellTargeting.None, SpellEffects.Utility, Readings.Unaimable("a door or a container across the room", "an item-aim owner: the interaction mechanism reaches what stands in front of the party")),   // Telekinesis
         Entry(43, [25, 25, 25, 25], [100, 100, 100, 90], 20, 1, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Death Blossom
-        Entry(44, [30, 30, 30, 30], [90, 90, 90, 90], 25, 2, 4, SpellTargeting.Foe, SpellEffects.Damage),   // Mass Distortion
+        Entry(44, [30, 30, 30, 30], [90, 90, 90, 90], 25, 2, 4, SpellTargeting.Foe, SpellEffects.Damage, SpellReading.None.Coarser("the donor takes a share of the target's current health; this rolls the row's base and dice")),   // Mass Distortion
         Entry(45, [1, 1, 1, 1], [100, 100, 100, 100], 0, 0, 1, SpellTargeting.Caster, SpellEffects.Detection, Readings.Detect(DetectionScope.Life, WardFormulas.HoursPerLevel)),   // Detect Life
         Entry(46, [2, 2, 2, 2], [100, 100, 100, 100], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Utility, Readings.Buff(SpellEffectIds.Bless, WardFormulas.LevelPlus(1, 5), WardFormulas.HourAndMinutesByMastery).OnOne()),   // Bless
         Entry(47, [3, 3, 3, 3], [90, 90, 90, 90], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Utility, Readings.Buff(SpellEffectIds.Fate, WardFormulas.FatePower, WardFormulas.FiveMinutes).OnOne()),   // Fate
@@ -657,25 +643,51 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
     internal DamageKindId? Harm(SpellDefinition spell) =>
         _facts.TryGetValue(spell.Id, out Facts facts) ? facts.Harm : null;
 
-    /// <summary>What one casting of a spell rolls, at the caster's own skill level in its school.</summary>
+    /// <summary>What one casting of a spell rolls, at the caster's own skill level and rung in its school.</summary>
     /// <remarks>
+    /// <para>
     /// The donor's own damage expression (<c>CalcSpellDamage</c>,
-    /// <c>OpenEnroth/src/Engine/Spells/Spells.cpp:813-838</c>): the row's base damage plus that many dice of
-    /// the row's per-skill die as the caster's skill in the school. A spell whose row states no per-skill die
-    /// rolls its base alone, which is what the donor's ordinary case reduces to.
+    /// <c>OpenEnroth/src/Engine/Spells/Spells.cpp:813-838</c>): the row's base damage plus as many of the
+    /// row's per-skill die as the caster's skill in the school. A spell whose row states no per-skill die rolls
+    /// its base alone, which is what the donor's ordinary case reduces to.
+    /// </para>
+    /// <para>
+    /// The donor's special cases are kept where a roll can state them: Fire Spike rolls a d6 per level (a d8 at
+    /// Master, a d10 at Grand Master) and no base; Death Blossom at Grand Master does its base plus two a level
+    /// and rolls nothing; Spirit Lash does its base plus one a level plus a die of one fewer side per level.
+    /// One is not: the donor's Mass Distortion takes a share of the target's current health, which a roll
+    /// stated before the target is known cannot express, so here it rolls the ordinary way — a recorded
+    /// divergence.
+    /// </para>
     /// </remarks>
     /// <param name="spell">The spell being cast.</param>
     /// <param name="skillLevel">How many levels of the spell's school the caster holds.</param>
+    /// <param name="rung">The rung of the school the caster casts at, 1 (novice) to 4 (grand master).</param>
     /// <returns>The roll.</returns>
-    internal DamageRoll Damage(SpellDefinition spell, int skillLevel)
+    internal DamageRoll Damage(SpellDefinition spell, int skillLevel, int rung = 1)
     {
         if (!_facts.TryGetValue(spell.Id, out Facts facts)) return DamageRoll.Flat(0);
         Numbers numbers = facts.Numbers;
         int dice = Math.Max(0, skillLevel);
+        switch (numbers.Id)
+        {
+            case FireSpike when dice > 0:
+                return new DamageRoll(dice, rung switch { >= 4 => 10, 3 => 8, _ => 6 }, 0);
+            case DeathBlossom when rung >= 4:
+                return DamageRoll.Flat(numbers.Base + (2 * dice));
+            case SpiritLash when dice > 0 && numbers.Skill > 1:
+                return new DamageRoll(dice, numbers.Skill - 1, numbers.Base + dice);
+        }
+
         return numbers.Skill > 0 && dice > 0
             ? new DamageRoll(dice, numbers.Skill, numbers.Base)
             : DamageRoll.Flat(numbers.Base);
     }
+
+    /// <summary>The spells the donor's damage expression treats as special cases, by global id.</summary>
+    private const int FireSpike = 7;
+    private const int DeathBlossom = 43;
+    private const int SpiritLash = 52;
 
     /// <summary>What one spell does inside its category, as its own row states it.</summary>
     /// <remarks>
@@ -904,23 +916,15 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
     private static string Taught(ContentEntry entry) => ContentEntry.ReadId(entry.Payload, TeachesField);
 
     /// <summary>The rung of a spell's school the member's mastery stands at, never below the first.</summary>
-    private static int Rung(PartyMember member, SpellDefinition spell) =>
+    internal static int Rung(PartyMember member, SpellDefinition spell) =>
         Math.Clamp(member.Skills.TierOf(spell.SchoolSkill).Value, 1, Rungs);
 
     /// <summary>What one rung of a skill's ladder is called, in this game's own words.</summary>
     private string RungName(SkillTier tier) =>
         _skills is { } skills ? skills.TierName(tier) : tier.Value.ToString(CultureInfo.InvariantCulture);
 
-    /// <summary>The donor's bonus for one attribute score, from the step table.</summary>
-    private static int ParameterBonus(int score)
-    {
-        foreach ((int floor, int bonus) in ParameterBonusSteps)
-        {
-            if (score >= floor) return bonus;
-        }
-
-        return ParameterBonusSteps[^1].Bonus;
-    }
+    /// <summary>The donor's bonus for one attribute score.</summary>
+    private static int ParameterBonus(int score) => MightAndMagic7AttributeBonus.Of(score);
 
     /// <summary>One row of this game's table, as the coverage report reads it.</summary>
     /// <param name="Id">The spell's global id, which is content's own identity for it.</param>

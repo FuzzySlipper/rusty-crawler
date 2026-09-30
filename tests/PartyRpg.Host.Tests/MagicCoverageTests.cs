@@ -119,10 +119,9 @@ public sealed class MagicCoverageTests
             how far it is expressed, and this document has to be regenerated with
             `CRAWLER_WRITE_MAGIC_COVERAGE=1 dotnet test tests/PartyRpg.Host.Tests`.
 
-            Names live in the operator's own content — this repository commits none — so a row is identified by
-            content's own spell id, which is also the id the ruleset's table is keyed by and the id this
-            document's rows carry. A reader who wants the shipped name for a row will find it beside the same
-            id in `src/PartyRpg.Rulesets.MightAndMagic7/MightAndMagic7Spells.cs`.
+            A row is identified by content's own spell id, which is also the id the ruleset's table is keyed by and
+            the id this document's rows carry. The shipped name for each row stands beside the same id, as a
+            comment, in `src/PartyRpg.Rulesets.MightAndMagic7/MightAndMagic7Spells.cs`.
 
             ## How a state is read
 

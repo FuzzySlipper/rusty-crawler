@@ -173,6 +173,16 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     private const string StrengthField = "strength";
     private const string TimesField = "times";
     private const string SkillField = "skill";
+    private const string MasteryField = "mastery";
+
+    /// <summary>The rung a monster row's spell letter names: N, E, M or G, novice to grand master.</summary>
+    private static int RungOf(string letter) => letter.Trim().ToUpperInvariant() switch
+    {
+        "G" => 4,
+        "M" => 3,
+        "E" => 2,
+        _ => 1,
+    };
 
     /// <summary>The name the shipped table gives the people it places in the world.</summary>
     /// <remarks>
@@ -325,22 +335,6 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// <summary>The rung the donor doubles the armsmaster reduction at.</summary>
     /// <remarks>OpenEnroth <c>src/Engine/Objects/Character.cpp:1710-1716</c> — grand master doubles it.</remarks>
     private const int GrandMasterRung = 4;
-
-    /// <summary>
-    /// The donor's attribute-bonus table: the attribute's own thresholds, and the ticks each is worth.
-    /// </summary>
-    /// <remarks>
-    /// OpenEnroth <c>src/Engine/Objects/Character.cpp:234-243</c> — <c>param_to_bonus_table</c> and
-    /// <c>parameter_to_bonus_value</c> read by <c>GetParameterBonus</c>: the first threshold an attribute
-    /// reaches decides the bonus, and the same table prices might, endurance, and speed. They are stated
-    /// together here because the pairing is the table.
-    /// </remarks>
-    internal static readonly int[] ParameterThresholds =
-        [500, 400, 350, 300, 275, 250, 225, 200, 175, 150, 125, 100, 75, 50, 40, 35, 30, 25, 21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 0];
-
-    /// <summary>What each threshold above is worth, in ticks of recovery the character gets back.</summary>
-    internal static readonly int[] ParameterBonuses =
-        [30, 25, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6];
 
     /// <summary>
     /// How many levels of a spell's school a charged item fires at, which is the donor's own fixed value.
@@ -851,10 +845,10 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         // fighter's wand is worth what a mage's is. The one case this cannot tell apart is a spell cast from
         // the caster's own spellbook while they hold a wand of that very spell: telling those apart needs the
         // order to carry the casting's own skill reading to this answer.
-        int level = Wielded(caster) is { } wand && string.Equals(wand.Reading.Spell.Value, spell.Id.Value, StringComparison.Ordinal)
-            ? WandSkillLevel
-            : MightAndMagic7Spells.SkillLevelOf(caster, spell);
-        DamageRoll damage = _spells?.Damage(spell, level) ?? DamageRoll.Flat(0);
+        bool fromWand = Wielded(caster) is { } wand && string.Equals(wand.Reading.Spell.Value, spell.Id.Value, StringComparison.Ordinal);
+        int level = fromWand ? WandSkillLevel : MightAndMagic7Spells.SkillLevelOf(caster, spell);
+        int rung = fromWand ? 1 : MightAndMagic7Spells.Rung(caster, spell);
+        DamageRoll damage = _spells?.Damage(spell, level, rung) ?? DamageRoll.Flat(0);
         return new AttackPlan(
             CharacterHitChance(caster, ArmorClassOf(target), AttackKind.Spell, Distance(attacker, target)),
             kind,
@@ -1274,20 +1268,12 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// </summary>
     /// <remarks>
     /// One table prices might, endurance, speed, accuracy, luck, and the rest
-    /// (OpenEnroth <c>src/Engine/Objects/Character.cpp:234-243</c>, <c>GetParameterBonus</c>): the first
+    /// (<see cref="MightAndMagic7AttributeBonus"/>, the donor's <c>GetParameterBonus</c>): the first
     /// threshold the attribute reaches decides what it is worth, and everything this game derives from an
     /// attribute — a recovery, a hit chance, a damage bonus, a saving throw, a death threshold — reads it
     /// here rather than restating it.
     /// </remarks>
-    internal static int AttributeBonus(int attribute)
-    {
-        for (int index = 0; index < ParameterThresholds.Length; index++)
-        {
-            if (attribute >= ParameterThresholds[index]) return ParameterBonuses[index];
-        }
-
-        return 0;
-    }
+    internal static int AttributeBonus(int attribute) => MightAndMagic7AttributeBonus.Of(attribute);
 
     /// <summary>
     /// Reads the monster table the packs carry, refusing a row a fight could not be paced by.
@@ -1792,7 +1778,8 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             // src/Engine/Objects/Monsters.cpp:269-291, parseSpellEntry), and the damage is the spell's own row
             // read at that skill — the same expression a character's cast rolls.
             int skill = cast.TryGetProperty(SkillField, out JsonElement levels) && levels.TryGetInt32(out int stated2) ? stated2 : 0;
-            return new MonsterSpell(spell, chance, kind, spells.Damage(known, skill));
+            string mastery = cast.TryGetProperty(MasteryField, out JsonElement rungCell) ? rungCell.GetString() ?? string.Empty : string.Empty;
+            return new MonsterSpell(spell, chance, kind, spells.Damage(known, skill, RungOf(mastery)));
         }
     }
 }

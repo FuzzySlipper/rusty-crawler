@@ -6,10 +6,9 @@ run, so it cannot drift from the code: change a row's category, its rung, what i
 how far it is expressed, and this document has to be regenerated with
 `CRAWLER_WRITE_MAGIC_COVERAGE=1 dotnet test tests/PartyRpg.Host.Tests`.
 
-Names live in the operator's own content — this repository commits none — so a row is identified by
-content's own spell id, which is also the id the ruleset's table is keyed by and the id this
-document's rows carry. A reader who wants the shipped name for a row will find it beside the same
-id in `src/PartyRpg.Rulesets.MightAndMagic7/MightAndMagic7Spells.cs`.
+A row is identified by content's own spell id, which is also the id the ruleset's table is keyed by and
+the id this document's rows carry. The shipped name for each row stands beside the same id, as a
+comment, in `src/PartyRpg.Rulesets.MightAndMagic7/MightAndMagic7Spells.cs`.
 
 ## How a state is read
 
@@ -126,7 +125,7 @@ the shipped `POTION.TXT` states what each potion is for in words and no numbers 
 
 | category | implemented | approximated | not yet | spells |
 | --- | --- | --- | --- | --- |
-| damage | 34 | 0 | 0 | 34 |
+| damage | 33 | 1 | 0 | 34 |
 | healing | 5 | 1 | 1 | 7 |
 | resistance | 8 | 1 | 1 | 10 |
 | condition | 9 | 0 | 10 | 19 |
@@ -134,7 +133,7 @@ the shipped `POTION.TXT` states what each potion is for in words and no numbers 
 | travel | 2 | 0 | 4 | 6 |
 | detection | 3 | 0 | 0 | 3 |
 | utility | 6 | 1 | 12 | 19 |
-| **all** | **68** | **3** | **28** | **99** |
+| **all** | **67** | **4** | **28** | **99** |
 
 ## Every spell
 
@@ -186,7 +185,7 @@ master, and four grand master.
 | 41 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 42 | utility | 3 | none | not yet | a door or a container across the room | an item-aim owner: the interaction mechanism reaches what stands in front of the party |
 | 43 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
-| 44 | damage | 4 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
+| 44 | damage | 4 | foe | approximated | the donor takes a share of the target's current health; this rolls the row's base and dice |  |
 | 45 | detection | 1 | caster | implemented | a report read from the places and the population the world holds |  |
 | 46 | utility | 1 | ally | implemented | an effect on the character the casting named, read by the fight's own resolution for that character and ended by its own deadline; the donor rewards a blessing, a fate, and hammerhands to one character below the rungs where it widens them to the party (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:846-880, :1631-1656, :2364-2384), and this game's own table aims each one at a single character |  |
 | 47 | utility | 1 | ally | implemented | an effect on the character the casting named, read by the fight's own resolution for that character and ended by its own deadline; the donor rewards a blessing, a fate, and hammerhands to one character below the rungs where it widens them to the party (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:846-880, :1631-1656, :2364-2384), and this game's own table aims each one at a single character |  |

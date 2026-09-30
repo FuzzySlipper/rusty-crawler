@@ -190,7 +190,9 @@ the eight classes whose pair of alternatives splits on the two schools. A rank a
 judge — its giver, what the party carries, what deeds it holds on record — and states an errand whose words
 name a deed as the record a finished quest leaves (`errand:<bit>`, the same identity a shipped topic's own
 requirement column already gates a person's line on), so seventeen ranks' errands are judged by real quest
-state rather than refused. `PartyProgression.Promote` is the one writer: it judges every
+state rather than refused. What each errand asks is approximated: the deeds are the original's event programs,
+which this build does not run, so all but one are judged by standing in the place the shipped words name and
+one by a kill (`MightAndMagic7Quests`, each row stating why). `PartyProgression.Promote` is the one writer: it judges every
 requirement before anything moves, refuses with what is missing named, and moves the class and the rank
 together, so the ceiling, the growth table, and every class condition read one fact. A person the ladder names
 as a giver offers the ranks they give through the conversation that already exists, and taking one hands the

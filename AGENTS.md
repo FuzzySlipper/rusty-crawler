@@ -245,7 +245,9 @@ and a deadline (a ward, a light, a haste) still blocks a save by name rather tha
   party carries, what deeds it holds on record — and states an errand whose words name a deed as the record a
   finished quest leaves (`errand:<bit>`), which is the identity a shipped topic's own requirement column
   already gates a person's line on, so seventeen ranks' errands are judged by real quest state rather than
-  refused. A promotion is
+  refused (what each errand asks is this game's approximation: the deeds are the original's event
+  programs, which this build does not run, so all but one are judged by standing in the place the shipped
+  words name, and one by a kill). A promotion is
   taken from a person: the giver offers the ranks they give in the conversation that already exists, taking
   one hands the party to the progression owner through the promotion handoff, and the choice of alternative is
   recorded in the character's own class — which is what makes it irreversible, what a save already carries,
@@ -403,7 +405,7 @@ and a deadline (a ward, a light, a haste) still blocks a save by name rather tha
   reports the fact, what is a moment rather than a state is recorded on the instance, completion is a reading
   rather than a stage, and a turn-in is judged whole before anything moves with the record written last. Every
   errand is offered in the conversation that already exists, and the seventeen promotion errands the shipped
-  quest table states are judged by real quest state. `PartyJournal` owns dated lines and nothing else — the
+  quest table states are judged by real quest state, their objectives approximated as above. `PartyJournal` owns dated lines and nothing else — the
   errands come from the quest owner, the places from the world, the day from the clock — so a book changes
   without the journal being told; lines are stored as elapsed game time and never as dates, so a loaded line
   reads as the day it happened. `PartyKnowledge` owns what the party has learned, test-enforced to name no
