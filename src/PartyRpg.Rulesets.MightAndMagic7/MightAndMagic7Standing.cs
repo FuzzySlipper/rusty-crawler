@@ -288,18 +288,18 @@ internal sealed class MightAndMagic7Standing : IStandingRule
 
     /// <inheritdoc />
     /// <remarks>
-    /// The order is the party's own order of records, so two readings of one party read the same way. A
-    /// record that is none of the four families — a spell still running, a passage bought, the record a
-    /// conversation left — is not an accomplishment and is not listed here: the donor's awards are a named
+    /// The order is the party's own order of records and then of memberships, so two readings of one party read
+    /// the same way. A record that is none of the families — the flag a conversation left — is not an
+    /// accomplishment and is not listed here: the donor's awards are a named
     /// set of things a character did, not everything that happened to it.
     /// </remarks>
     public IReadOnlyList<AwardReading> Awards(PartyEntity party)
     {
         ArgumentNullException.ThrowIfNull(party);
         List<AwardReading> awards = [];
-        foreach (PartyEffect effect in party.Effects.Active)
+        foreach (PartyRecord held in party.Records.All)
         {
-            string record = effect.Effect.Value;
+            string record = held.Name;
             if (_ranks.TryGetValue(record, out PromotionRankReading rank))
             {
                 string detail = rank.Choice.Length > 0
@@ -325,13 +325,16 @@ internal sealed class MightAndMagic7Standing : IStandingRule
                     record,
                     DeedKind,
                     deed.Label.Length > 0 ? deed.Label : record,
-                    string.Create(CultureInfo.InvariantCulture, $"{effect.Magnitude} to its name")));
-                continue;
+                    string.Create(CultureInfo.InvariantCulture, $"{held.Count} to its name")));
             }
+        }
 
-            if (_memberships.TryGetValue(record, out string? membership))
+        // The memberships the party was granted are listed after its records, in the order they were granted.
+        foreach (string held in party.Memberships.All)
+        {
+            if (_memberships.TryGetValue(held, out string? membership))
             {
-                awards.Add(AwardReading.Of(record, MembershipKind, membership, string.Empty));
+                awards.Add(AwardReading.Of(held, MembershipKind, membership, string.Empty));
             }
         }
 

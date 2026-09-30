@@ -109,7 +109,7 @@ public sealed class TravelPolicyTests
         Assert.Contains("passage", unpaid.Message, StringComparison.Ordinal);
 
         // A passage to somewhere else does not pay for this journey: a ticket names the place it reaches.
-        ServicePassage.Grant(party, new PlaceId("99"), 2);
+        party.Passages.Hold(new PlaceId("99"), 2);
         Assert.Equal(
             "travel-fare-unpaid",
             rule.Quote(new TransitionRequest(graph, road, TransitionKind.PaidService, Home, PlacePose.Origin)).Refusal!.Code);
@@ -117,12 +117,12 @@ public sealed class TravelPolicyTests
         // The passage to the place the road reaches is what pays, and boarding spends it: the journey quotes
         // the days the counter sold, eats no provisions because the fare included them, and leaves the party
         // holding no ticket for the journey back.
-        ServicePassage.Grant(party, road.To, 2);
+        party.Passages.Hold(road.To, 2);
         TravelCostQuote boarded = rule.Quote(new TransitionRequest(graph, road, TransitionKind.PaidService, Home, PlacePose.Origin));
         Assert.Null(boarded.Refusal);
         Assert.Equal(new TravelTime(2, TravelTimeUnit.Days), boarded.Cost.Time);
         Assert.True(boarded.Cost.Food.IsNone);
-        Assert.Equal(0, ServicePassage.DaysTo(party, road.To));
+        Assert.Equal(0, party.Passages.DaysTo(road.To));
     }
 
     [Fact]
@@ -157,14 +157,14 @@ public sealed class TravelPolicyTests
 
         // The counter sells a journey of two days; boarding it moves the party to the town the passage
         // reaches, charges the ticket's own days on the one clock, and tears the ticket.
-        ServicePassage.Grant(party, new PlaceId("2"), 2);
+        party.Passages.Hold(new PlaceId("2"), 2);
         TransitionResult boarded = world.Board(new PlaceId("2"));
 
         Assert.True(boarded.Arrived);
         Assert.Equal(new PlaceId("2"), world.Place);
         Assert.Equal(new PlacePose(1, 2, 3, 0, 0), world.Party.PlacePose);
         Assert.Equal(2, clock.ElapsedGameDays);
-        Assert.Equal(0, ServicePassage.DaysTo(party, new PlaceId("2")));
+        Assert.Equal(0, party.Passages.DaysTo(new PlaceId("2")));
 
         // The larder is untouched: a fare includes the journey's board, which is the donor's own reading of
         // a coach journey.

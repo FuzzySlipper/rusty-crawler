@@ -829,19 +829,19 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
                 // is lost: the purse and the holding are two places the same coins can be, and both are
                 // party state a save carries.
                 string account = Holding(subject);
-                ServiceHolding.Set(_party, account, ServiceHolding.Coins(_party, account) + subject.Count);
+                _party.Holdings.Hold(account, _party.Holdings.BalanceOf(account) + subject.Count);
                 return null;
             }
 
             case ServiceOperationKind.Withdraw:
             {
-                int held = ServiceHolding.Coins(_party, Holding(subject));
+                int held = _party.Holdings.BalanceOf(Holding(subject));
                 if (held < subject.Count)
                 {
                     return Refuse(kind, "service-holding-short", $"{visit.Service.Describe()} holds {held} coin(s) for the party and the party asked for {subject.Count}.");
                 }
 
-                ServiceHolding.Set(_party, Holding(subject), held - subject.Count);
+                _party.Holdings.Hold(Holding(subject), held - subject.Count);
                 return null;
             }
 
@@ -851,7 +851,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
                 // the journey takes are the offer's own amount, which is what the travel policy reads to
                 // price the boarding, so the counter that sold the ticket and the road that takes it agree
                 // about the journey without either asking the other.
-                ServicePassage.Grant(_party, new PlaceId(subject.Offer!.Subject), subject.Offer.Amount < 1 ? 1 : subject.Offer.Amount);
+                _party.Passages.Hold(new PlaceId(subject.Offer!.Subject), subject.Offer.Amount < 1 ? 1 : subject.Offer.Amount);
                 return null;
             }
 
@@ -891,9 +891,9 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
                     return null;
                 }
 
-                // A membership is party-carried state: the effect is applied to the band, where the access
-                // requirement reads it back and the party's own save already records it.
-                _party.Effects.Apply(new PartyEffect(new EffectId(lesson.Subject), lesson.Amount));
+                // A membership is party-carried state: it is granted to the band, where the access requirement
+                // reads it back and the party's own save records it.
+                _party.Memberships.Grant(lesson.Subject);
                 return null;
             }
 
@@ -926,9 +926,9 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
             ServiceOperationKind.Stay =>
                 $"The party pays {quote.Charge.Coins} coin(s) for {subject.Offer!.Name} and rests for {subject.Offer.Amount} hour(s).",
             ServiceOperationKind.Deposit =>
-                $"The party leaves {subject.Count} coin(s) with {visit.Service.Name} and it now holds {ServiceHolding.Coins(_party, Holding(subject))}.",
+                $"The party leaves {subject.Count} coin(s) with {visit.Service.Name} and it now holds {_party.Holdings.BalanceOf(Holding(subject))}.",
             ServiceOperationKind.Withdraw =>
-                $"The party takes {subject.Count} coin(s) back from {visit.Service.Name} and it holds {ServiceHolding.Coins(_party, Holding(subject))}.",
+                $"The party takes {subject.Count} coin(s) back from {visit.Service.Name} and it holds {_party.Holdings.BalanceOf(Holding(subject))}.",
             ServiceOperationKind.Fare =>
                 $"The party pays {quote.Charge.Coins} coin(s) for a passage to {subject.Offer!.Subject}, which takes {subject.Offer.Amount} day(s).",
             ServiceOperationKind.Teach when subject.Lesson!.Kind == ServiceLessonKind.Skill =>

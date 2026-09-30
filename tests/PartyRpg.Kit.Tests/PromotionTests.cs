@@ -61,7 +61,7 @@ public sealed class PromotionTests
 
         // The record the rank leaves is the party's own carried state, under the rank's own name, which is
         // what a later rank, a person, or a quest's turn-in reads.
-        Assert.True(party.Effects.Has(new EffectId("promotion:recruit-sergeant")));
+        Assert.True(party.Records.Has("promotion:recruit-sergeant"));
         Assert.Same(given, progression.LastPromotion);
 
         // A rank the ladder does not carry is refused by name and moves nothing.
@@ -104,7 +104,7 @@ public sealed class PromotionTests
         // Three of the four are state the party really holds, so they can be met; the errand cannot be, and
         // the rank stays refused with that one requirement named. Nothing invents a flag to stand in for it.
         party.AcquireItem(new ItemDefinitionId("token"), 2);
-        party.Effects.Apply(new PartyEffect(new EffectId("victories"), 3));
+        party.Records.Set("victories", 3);
         PromotionResult stillRefused = progression.Promote("recruit-sergeant", "quartermaster");
         Assert.False(stillRefused.IsGranted);
         PromotionDenial remaining = Assert.Single(stillRefused.Denied);
@@ -194,7 +194,7 @@ public sealed class PromotionTests
         PartyMember back = restored.Members[0];
         Assert.Equal("deserter", back.Profile.Class.Value);
         Assert.Equal(3, back.Progression.ClassRank);
-        Assert.True(restored.Effects.Has(new EffectId("promotion:sergeant-deserter")));
+        Assert.True(restored.Records.Has("promotion:sergeant-deserter"));
 
         // And the rank it did not take is still out of reach after the round trip, for the same reason.
         PartyProgression again = new(new TestRule(), restored, promotions: Ladder());

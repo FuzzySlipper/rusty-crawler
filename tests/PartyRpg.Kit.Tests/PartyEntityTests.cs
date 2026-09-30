@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Skills;
@@ -52,7 +53,7 @@ public sealed class PartyEntityTests
         Assert.True(party.Actor.Has<PartyFood>());
         Assert.True(party.Actor.Has<PartyReputation>());
         Assert.True(party.Actor.Has<PartyFollowers>());
-        Assert.True(party.Actor.Has<PartyEffects>());
+        Assert.True(party.Actor.Has<ActiveEffects>());
         Assert.True(party.Actor.Has<PartyIdentitySource>());
         Assert.Equal(new[] { "Ann", "Bo" }, party.Members.Select(member => member.Profile.Name));
 
@@ -274,14 +275,16 @@ public sealed class PartyEntityTests
             Member("Bo", Adept));
         party.AcquireItem(Arrow, 3);
 
-        // The party's store enumerates every component family it holds, and the party composes exactly eight
-        // party-scoped families and eight per-member ones. A per-character pack would be a ninth per-member
-        // family and would fail here, which is what makes "only what it has equipped" structural rather than
-        // a promise: there is no family for a loose list to live in.
+        // The party's store enumerates every component family it holds, and the party composes exactly eleven
+        // party-scoped families, eight per-member ones, and the running effects, one family whose values sit on
+        // the party and on each member alike. A per-character pack would be another per-member family and
+        // would fail here, which is what makes "only what it has equipped" structural rather than a promise:
+        // there is no family for a loose list to live in.
         EntityStoreDiagnostics diagnostics = party.Store.Diagnostics();
-        Assert.Equal(16, diagnostics.Components.Count);
-        Assert.Equal(8, diagnostics.Components.Count(family => family.ValueCount == 1));
+        Assert.Equal(20, diagnostics.Components.Count);
+        Assert.Equal(11, diagnostics.Components.Count(family => family.ValueCount == 1));
         Assert.Equal(8, diagnostics.Components.Count(family => family.ValueCount == party.Members.Count));
+        Assert.Equal(1, diagnostics.Components.Count(family => family.ValueCount == party.Members.Count + 1));
     }
 
     [Fact]
@@ -465,13 +468,56 @@ public sealed class PartyEntityTests
         Assert.True(ann.Conditions.Clear(Weakened));
         Assert.Empty(ann.Conditions.Active);
 
-        party.Effects.Apply(new PartyEffect(Warded, 1));
-        party.Effects.Apply(new PartyEffect(Swift, 2));
-        party.Effects.Apply(new PartyEffect(Warded, 4));
+        // The party's running effects are written by the one owner of running effects and nothing else, and an
+        // effect applied again replaces its magnitude rather than stacking.
+        RunningSpellEffects running = new(party);
+        running.Start(Warded, 1, lasts: null);
+        running.Start(Swift, 2, lasts: null);
+        running.Start(Warded, 4, lasts: null);
         Assert.Equal(2, party.Effects.Count);
         Assert.Equal(4, party.Effects.MagnitudeOf(Warded));
-        Assert.True(party.Effects.Remove(Swift));
+        Assert.True(running.End(Swift));
         Assert.False(party.Effects.Has(Swift));
+    }
+
+    [Fact]
+    public void What_the_party_carries_beside_its_effects_has_a_home_of_its_own_and_rides_the_save()
+    {
+        using PartyEntity original = Build(new PartyEntityFactory(), Member("Ann", Fighter), Member("Bo", Adept));
+        original.Records.Set("errand:seal", 1);
+        original.Records.Set("deeds:won", 3);
+        original.Holdings.Hold("vault", 300);
+        original.Passages.Hold(new PlaceId("town"), 2);
+        original.Memberships.Grant("guild.fire");
+        RunningSpellEffects running = new(original);
+        running.StartOn(original.Members[1], Warded, 4, lasts: null);
+
+        PartySave save = original.Capture();
+        using PartyEntity restored = new PartyEntityFactory().Restore(save);
+
+        // Each family comes back in its own home, and an effect on one character stays that character's.
+        Assert.Equal([new PartyRecord("errand:seal", 1), new PartyRecord("deeds:won", 3)], restored.Records.All);
+        Assert.Equal(300, restored.Holdings.BalanceOf("vault"));
+        Assert.Equal(2, restored.Passages.DaysTo(new PlaceId("town")));
+        Assert.True(restored.Memberships.Holds("guild.fire"));
+        Assert.Empty(restored.Effects.Active);
+        Assert.Equal(4, restored.Members[1].Effects.MagnitudeOf(Warded));
+        Assert.Empty(restored.Members[0].Effects.Active);
+
+        // A document that names one entry twice, or holds one at less than its owner holds it, is refused with
+        // every such entry named rather than restored as whichever came last.
+        PartySave broken = new(
+            save.NextMemberValue,
+            save.NextItemValue,
+            save.Members,
+            save.Items,
+            records: [new PartyRecord("errand:seal", 1), new PartyRecord("errand:seal", 2)],
+            holdings: [new PartyHolding("vault", 0)],
+            memberships: ["guild.fire", "guild.fire"]);
+        IReadOnlyList<string> problems = new PartyEntityFactory().Problems(broken);
+        Assert.Contains("the record 'errand:seal' is recorded more than once", problems);
+        Assert.Contains("the account 'vault' is recorded at 0, below the 1 it is held at", problems);
+        Assert.Contains("the membership 'guild.fire' is recorded more than once", problems);
     }
 
     [Fact]
@@ -504,7 +550,7 @@ public sealed class PartyEntityTests
         original.Equip(original.Members[0].Id, Hand, blade.Id);
         original.AcquireItem(Torch);
         original.Followers.Add(new PartyFollower(original.Identity.MintMemberId(), Porter, "Tam", FollowerKind.Story));
-        original.Effects.Apply(new PartyEffect(Warded, 3));
+        new RunningSpellEffects(original).Start(Warded, 3, lasts: null);
         original.Purse.Credit(25);
 
         PartySave save = original.Capture();

@@ -82,7 +82,7 @@ public sealed class PartyEntityFactory
         entity.Add(identity);
 
         List<PartyMember> members = [];
-        foreach (MemberCreation member in creation.Members) members.Add(AttachMember(store, identity.MintMemberId(), member.Seed, _health));
+        foreach (MemberCreation member in creation.Members) members.Add(AttachMember(store, identity.MintMemberId(), member.Seed, [], _health));
 
         entity.Add(new PartyRoster(members));
         entity.Add(new PartyInventory(_inventoryCapacity, _stacking));
@@ -90,7 +90,11 @@ public sealed class PartyEntityFactory
         entity.Add(new PartyFood(creation.FoodPortions, creation.FoodUnit));
         entity.Add(new PartyReputation(creation.Reputation, creation.Fame));
         entity.Add(new PartyFollowers(_hiredFollowerLimit));
-        entity.Add(new PartyEffects());
+        entity.Add(new ActiveEffects());
+        entity.Add(new PartyRecords());
+        entity.Add(new PartyHoldings());
+        entity.Add(new PartyPassages());
+        entity.Add(new PartyMemberships());
 
         PartyEntity party = new(store, entity, ownsStore: true, _equipmentUse);
         for (int index = 0; index < members.Count; index++)
@@ -122,18 +126,21 @@ public sealed class PartyEntityFactory
         entity.Add(new PartyIdentitySource(save.NextMemberValue, save.NextItemValue));
 
         List<PartyMember> members = [];
-        foreach (PartyMemberSave member in save.Members) members.Add(AttachMember(store, member.Id, member.Seed, _health));
+        foreach (PartyMemberSave member in save.Members) members.Add(AttachMember(store, member.Id, member.Seed, member.Effects, _health));
 
         PartyInventory inventory = new(_inventoryCapacity, _stacking);
         PartyFollowers followers = new(_hiredFollowerLimit);
-        PartyEffects effects = new();
         entity.Add(new PartyRoster(members));
         entity.Add(inventory);
         entity.Add(new PartyPurse(save.Coins));
         entity.Add(new PartyFood(save.FoodPortions, save.FoodUnit));
         entity.Add(new PartyReputation(save.Reputation, save.Fame));
         entity.Add(followers);
-        entity.Add(effects);
+        entity.Add(new ActiveEffects(save.Effects));
+        entity.Add(new PartyRecords(save.Records));
+        entity.Add(new PartyHoldings(save.Holdings));
+        entity.Add(new PartyPassages(save.Passages));
+        entity.Add(new PartyMemberships(save.Memberships));
 
         PartyEntity party = new(store, entity, ownsStore: true, _equipmentUse);
 
@@ -156,7 +163,6 @@ public sealed class PartyEntityFactory
         }
 
         foreach (PartyFollower follower in save.Followers) followers.Add(follower);
-        foreach (PartyEffect effect in save.Effects) effects.Apply(effect);
         return party;
     }
 
@@ -262,7 +268,31 @@ public sealed class PartyEntityFactory
         if (save.Coins < 0) problems.Add($"the purse is recorded holding {save.Coins}");
         if (save.FoodPortions < 0) problems.Add($"the larder is recorded holding {save.FoodPortions}");
 
+        // What the party carries beside its purse and larder: each family's entries must be named once and hold
+        // what its owner can hold, or the restored party would not know which of two entries is meant.
+        Named(problems, "running effect", save.Effects.Select(effect => (effect.Effect.Value, 0)), minimum: 0);
+        foreach (PartyMemberSave member in save.Members)
+        {
+            Named(problems, $"running effect on member {member.Id}", member.Effects.Select(effect => (effect.Effect.Value, 0)), minimum: 0);
+        }
+
+        Named(problems, "record", save.Records.Select(record => (record.Name, record.Count)), minimum: 1);
+        Named(problems, "account", save.Holdings.Select(holding => (holding.Account, holding.Coins)), minimum: 1);
+        Named(problems, "passage", save.Passages.Select(passage => (passage.Destination.Value, passage.Days)), minimum: 1);
+        Named(problems, "membership", save.Memberships.Select(membership => (membership, 1)), minimum: 1);
         return problems;
+    }
+
+    /// <summary>Names every entry of one family that is unnamed, repeated, or below what its owner holds.</summary>
+    private static void Named(List<string> problems, string what, IEnumerable<(string Name, int Value)> entries, int minimum)
+    {
+        HashSet<string> seen = new(StringComparer.Ordinal);
+        foreach ((string name, int value) in entries)
+        {
+            if (string.IsNullOrWhiteSpace(name)) problems.Add($"a {what} is recorded without a name");
+            else if (!seen.Add(name)) problems.Add($"the {what} '{name}' is recorded more than once");
+            else if (value < minimum) problems.Add($"the {what} '{name}' is recorded at {value}, below the {minimum} it is held at");
+        }
     }
 
     /// <summary>Creates an entity of a kind this kit owns, in the store the party lives in.</summary>
@@ -270,7 +300,7 @@ public sealed class PartyEntityFactory
         new(store, store.Create(new EntityTypeId(kind), EntityLifecycle.Active));
 
     /// <summary>Attaches every character component a member is made of, and returns the facade over them.</summary>
-    private static PartyMember AttachMember(EntityStore store, PartyMemberId id, PartyMemberSeed seed, ICharacterHealthRule? health)
+    private static PartyMember AttachMember(EntityStore store, PartyMemberId id, PartyMemberSeed seed, IReadOnlyList<PartyEffect> effects, ICharacterHealthRule? health)
     {
         Actor entity = NewEntity(store, PartyMember.EntityKind);
         entity.Add(new CharacterProfile(id, seed.Name, seed.Race, seed.Class, seed.Portrait));
@@ -281,6 +311,7 @@ public sealed class PartyEntityFactory
         entity.Add(new CharacterConditions(seed.Conditions));
         entity.Add(new CharacterResources(seed.HitPoints, seed.SpellPoints));
         entity.Add(new CharacterEquipment());
+        entity.Add(new ActiveEffects(effects));
         return new PartyMember(entity, health);
     }
 

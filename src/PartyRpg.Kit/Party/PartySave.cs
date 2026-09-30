@@ -33,7 +33,11 @@ public sealed record PartySave
     /// <param name="reputation">What the world thought of the party.</param>
     /// <param name="fame">How widely the party was known.</param>
     /// <param name="followers">The followers travelling with the party.</param>
-    /// <param name="effects">The effects acting on the party.</param>
+    /// <param name="effects">The effects running on the whole party.</param>
+    /// <param name="records">What the party had on record.</param>
+    /// <param name="holdings">What the party had deposited, account by account.</param>
+    /// <param name="passages">The passages the party held and had not yet taken.</param>
+    /// <param name="memberships">The memberships the party had been granted.</param>
     /// <exception cref="ArgumentException">The save records no members.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A recorded amount is negative.</exception>
     public PartySave(
@@ -47,7 +51,11 @@ public sealed record PartySave
         int reputation = 0,
         int fame = 0,
         IReadOnlyList<PartyFollower>? followers = null,
-        IReadOnlyList<PartyEffect>? effects = null)
+        IReadOnlyList<PartyEffect>? effects = null,
+        IReadOnlyList<PartyRecord>? records = null,
+        IReadOnlyList<PartyHolding>? holdings = null,
+        IReadOnlyList<PartyPassage>? passages = null,
+        IReadOnlyList<string>? memberships = null)
     {
         ArgumentNullException.ThrowIfNull(members);
         ArgumentNullException.ThrowIfNull(items);
@@ -71,6 +79,10 @@ public sealed record PartySave
         Fame = fame;
         Followers = followers ?? [];
         Effects = effects ?? [];
+        Records = records ?? [];
+        Holdings = holdings ?? [];
+        Passages = passages ?? [];
+        Memberships = memberships ?? [];
     }
 
     /// <summary>The member identity cursor a restored party mints from.</summary>
@@ -103,6 +115,18 @@ public sealed record PartySave
     /// <summary>The followers travelling with the party.</summary>
     public IReadOnlyList<PartyFollower> Followers { get; }
 
-    /// <summary>The effects acting on the party.</summary>
+    /// <summary>The effects running on the whole party.</summary>
     public IReadOnlyList<PartyEffect> Effects { get; }
+
+    /// <summary>What the party had on record.</summary>
+    public IReadOnlyList<PartyRecord> Records { get; }
+
+    /// <summary>What the party had deposited, account by account.</summary>
+    public IReadOnlyList<PartyHolding> Holdings { get; }
+
+    /// <summary>The passages the party held and had not yet taken.</summary>
+    public IReadOnlyList<PartyPassage> Passages { get; }
+
+    /// <summary>The memberships the party had been granted.</summary>
+    public IReadOnlyList<string> Memberships { get; }
 }

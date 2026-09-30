@@ -79,8 +79,8 @@ public enum ServiceLessonKind
     /// <summary>A member learns a spell, which is what a spell book bought at a counter is.</summary>
     Spell,
 
-    /// <summary>The whole party gains an effect, which is what a membership is.</summary>
-    Effect,
+    /// <summary>The whole party is granted a membership, which it keeps.</summary>
+    Membership,
 }
 
 /// <summary>One thing a service teaches: what it grants, how much of it, and what it charges.</summary>

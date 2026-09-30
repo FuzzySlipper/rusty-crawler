@@ -5,6 +5,7 @@ using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Skills;
 using PartyRpg.Kit.Time;
+using PartyRpg.Kit.World;
 using Xunit;
 
 namespace PartyRpg.Kit.Tests;
@@ -113,18 +114,16 @@ public sealed class SpellEffectTests
         running.Start(Ward, magnitude: 5, GameDuration.FromHours(1));
         running.Start(Light, magnitude: 2, GameDuration.FromHours(1));
 
-        // Something a counter sold is carried on the party too — a passage to a place is the same shape of
-        // state — and burning it would be a dispelling that took a player's ticket rather than their magic.
-        EffectId passage = new("passage:2");
-        party.Effects.Apply(new PartyEffect(passage, 3));
+        // Something a counter sold is carried on the party too, in a home of its own: a dispelling that took a
+        // player's ticket rather than their magic would be ending state the running-effect owner does not hold.
+        party.Passages.Hold(new PlaceId("2"), 3);
 
         IReadOnlyList<RunningSpellEffect> ended = running.EndAll();
 
         Assert.Equal(2, ended.Count);
         Assert.False(party.Effects.Has(Ward));
         Assert.False(party.Effects.Has(Light));
-        Assert.True(party.Effects.Has(passage));
-        Assert.Equal(3, party.Effects.MagnitudeOf(passage));
+        Assert.Equal(3, party.Passages.DaysTo(new PlaceId("2")));
     }
 
     [Fact]
@@ -331,6 +330,29 @@ public sealed class SpellEffectTests
     }
 
     /// <summary>The repository root, found the way the kit's other source scans find it.</summary>
+    [Fact]
+    public void Only_the_running_effect_owner_writes_a_running_effect()
+    {
+        // The writers are internal to the kit, so nothing outside it can write one; inside it, the one owner of
+        // running effects is the only source that does, which is what keeps a dispel from reaching a record,
+        // a balance, or a passage.
+        string kit = Path.Combine(RepositoryRoot(), "src", "PartyRpg.Kit");
+        string owner = Path.Combine(kit, "Magic", "Effects", "RunningSpellEffects.cs");
+        List<string> offenders = [];
+        foreach (string source in Directory.EnumerateFiles(kit, "*.cs", SearchOption.AllDirectories))
+        {
+            if (string.Equals(source, owner, StringComparison.Ordinal)) continue;
+            if (source.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)) continue;
+            if (Regex.IsMatch(File.ReadAllText(source), @"Effects\s*\.\s*(Apply|Remove)\s*\("))
+            {
+                offenders.Add(Path.GetFileName(source));
+            }
+        }
+
+        Assert.Empty(offenders);
+        Assert.Matches(@"Effects\s*\.\s*Apply\s*\(", File.ReadAllText(owner));
+    }
+
     private static string RepositoryRoot()
     {
         DirectoryInfo? directory = new(AppContext.BaseDirectory);

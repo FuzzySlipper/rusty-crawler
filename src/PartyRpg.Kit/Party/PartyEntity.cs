@@ -113,8 +113,20 @@ public sealed class PartyEntity : IDisposable
     /// <summary>The followers travelling with the party.</summary>
     public PartyFollowers Followers => _party.Get<PartyFollowers>();
 
-    /// <summary>The effects acting on the whole party.</summary>
-    public PartyEffects Effects => _party.Get<PartyEffects>();
+    /// <summary>The effects running on the whole party: what a spell or a potion left, until its time ends.</summary>
+    public ActiveEffects Effects => _party.Get<ActiveEffects>();
+
+    /// <summary>What the party has on record: the marks errands, conversations, and ranks leave.</summary>
+    public PartyRecords Records => _party.Get<PartyRecords>();
+
+    /// <summary>What the party has deposited, account by account.</summary>
+    public PartyHoldings Holdings => _party.Get<PartyHoldings>();
+
+    /// <summary>The passages the party holds and has not yet taken.</summary>
+    public PartyPassages Passages => _party.Get<PartyPassages>();
+
+    /// <summary>The memberships the party has been granted.</summary>
+    public PartyMemberships Memberships => _party.Get<PartyMemberships>();
 
     /// <summary>The origin of the party's durable identities, which a save records as a cursor.</summary>
     public PartyIdentitySource Identity => _party.Get<PartyIdentitySource>();
@@ -472,7 +484,8 @@ public sealed class PartyEntity : IDisposable
                 member.Resources.HitPoints,
                 member.Resources.SpellPoints,
                 member.Profile.Portrait,
-                member.Spells.QuickSpell)));
+                member.Spells.QuickSpell),
+                [.. member.Effects.Active]));
         }
 
         List<ItemSave> items = [];
@@ -492,7 +505,11 @@ public sealed class PartyEntity : IDisposable
             Reputation.Reputation,
             Reputation.Fame,
             [.. Followers.Followers],
-            [.. Effects.Active]);
+            [.. Effects.Active],
+            [.. Records.All],
+            [.. Holdings.All],
+            [.. Passages.All],
+            [.. Memberships.All]);
     }
 
     /// <summary>Disposes the store the party was created in, when this party created it.</summary>

@@ -211,7 +211,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
     {
         foreach (ServiceLesson lesson in service.Lessons)
         {
-            if (lesson.Kind == ServiceLessonKind.Effect && string.Equals(lesson.Subject, service.Membership, StringComparison.Ordinal))
+            if (lesson.Kind == ServiceLessonKind.Membership && string.Equals(lesson.Subject, service.Membership, StringComparison.Ordinal))
             {
                 return lesson.Label;
             }
@@ -434,7 +434,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
 
         if (facts.Membership.Length > 0)
         {
-            lessons.Insert(0, new ServiceLesson(ServiceLessonKind.Effect, facts.Membership, 1, LessonValue(service), facts.MembershipName));
+            lessons.Insert(0, new ServiceLesson(ServiceLessonKind.Membership, facts.Membership, 1, LessonValue(service), facts.MembershipName));
         }
 
         return [.. lessons, .. SpellBooks(service, facts)];
@@ -506,7 +506,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
     {
         ArgumentNullException.ThrowIfNull(request);
         List<string> carried = [];
-        if (request.Service.Membership.Length > 0 && request.Party.Effects.Has(new EffectId(request.Service.Membership)))
+        if (request.Service.Membership.Length > 0 && request.Party.Memberships.Holds(request.Service.Membership))
         {
             carried.Add(MembershipName(request.Service));
         }
@@ -515,7 +515,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
         {
             carried.Add(string.Create(
                 CultureInfo.InvariantCulture,
-                $"the counter holds {ServiceHolding.Coins(request.Party, BankHolding)} coin(s)"));
+                $"the counter holds {request.Party.Holdings.BalanceOf(BankHolding)} coin(s)"));
         }
 
         return carried;
@@ -545,12 +545,12 @@ internal sealed class MightAndMagic7Services : IServiceRule
         ArgumentNullException.ThrowIfNull(request);
         ServiceDefinition service = request.Service;
         bool sellsTheMembership = request.Operation == ServiceOperationKind.Teach &&
-            request.Subject.Lesson is { Kind: ServiceLessonKind.Effect } lesson &&
+            request.Subject.Lesson is { Kind: ServiceLessonKind.Membership } lesson &&
             string.Equals(lesson.Subject, service.Membership, StringComparison.Ordinal);
 
         if (service.Membership.Length > 0 &&
             !sellsTheMembership &&
-            !request.Party.Effects.Has(new EffectId(service.Membership)))
+            !request.Party.Memberships.Holds(service.Membership))
         {
             return ServiceEligibility.Refused(
                 "service-membership-required",
@@ -634,7 +634,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
                 "The counter's keeping",
                 Subject: BankHolding,
                 Value: 0,
-                Amount: ServiceHolding.Coins(request.Party, BankHolding)));
+                Amount: request.Party.Holdings.BalanceOf(BankHolding)));
         }
         else if (string.Equals(service.Kind.Value, MightAndMagic7ServiceKinds.Stables, StringComparison.Ordinal)
             || string.Equals(service.Kind.Value, MightAndMagic7ServiceKinds.Boats, StringComparison.Ordinal))
@@ -786,9 +786,9 @@ internal sealed class MightAndMagic7Services : IServiceRule
                 : ServiceEligibility.Allowed;
         }
 
-        if (teaching.Kind == ServiceLessonKind.Effect)
+        if (teaching.Kind == ServiceLessonKind.Membership)
         {
-            return request.Party.Effects.Has(new EffectId(teaching.Subject))
+            return request.Party.Memberships.Holds(teaching.Subject)
                 ? ServiceEligibility.Refused("service-membership-held", $"The party already carries {teaching.Label}.")
                 : ServiceEligibility.Allowed;
         }
@@ -911,7 +911,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
     private static ServiceEligibility JudgeWithdrawal(ServiceEligibilityRequest request)
     {
         if (request.Subject.Offer is not { } holding) return ServiceEligibility.Allowed;
-        int held = ServiceHolding.Coins(request.Party, holding.Subject.Length > 0 ? holding.Subject : holding.Name);
+        int held = request.Party.Holdings.BalanceOf(holding.Subject.Length > 0 ? holding.Subject : holding.Name);
         return request.Subject.Count <= held
             ? ServiceEligibility.Allowed
             : ServiceEligibility.Refused(
@@ -930,7 +930,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
     private static ServiceEligibility JudgeFare(ServiceEligibilityRequest request)
     {
         if (request.Subject.Offer is not { } fare) return ServiceEligibility.Allowed;
-        return ServicePassage.DaysTo(request.Party, new PlaceId(fare.Subject)) > 0
+        return request.Party.Passages.DaysTo(new PlaceId(fare.Subject)) > 0
             ? ServiceEligibility.Refused(
                 "service-passage-held",
                 $"The party already holds a passage to {fare.Name}, so there is no second one to sell.")
@@ -1436,7 +1436,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
             ServiceLessonKind? lessonKind = word switch
             {
                 "skill" => ServiceLessonKind.Skill,
-                "effect" => ServiceLessonKind.Effect,
+                "effect" => ServiceLessonKind.Membership,
                 _ => null,
             };
 

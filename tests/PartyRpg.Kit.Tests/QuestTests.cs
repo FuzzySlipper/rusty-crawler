@@ -81,8 +81,8 @@ public sealed class QuestTests
         // the flag with its magnitude, and the record the conversation leaves of having met somebody.
         party.AcquireItem(Seal);
         party.AcquireItem(Parcel);
-        party.Effects.Apply(new PartyEffect(Signal, 2));
-        party.Effects.Apply(new PartyEffect(ClerkMet, 1));
+        party.Records.Set(Signal.Value, 2);
+        party.Records.Set(ClerkMet.Value, 1);
 
         // The completion condition is the party's own standing, which is a threshold rather than a count.
         party.Reputation.ChangeReputation(4);
@@ -109,8 +109,8 @@ public sealed class QuestTests
 
         // Records landed on the party's own effects: the quest's own record says it is finished, and the
         // reward's record is the deed a later rank or topic reads.
-        Assert.True(party.Effects.Has(new EffectId("errand:seal-of-office")));
-        Assert.Equal(3, party.Effects.MagnitudeOf(new EffectId("standing:marshal")));
+        Assert.True(party.Records.Has("errand:seal-of-office"));
+        Assert.Equal(3, party.Records.CountOf("standing:marshal"));
 
         // What a delivery asked for left the party: the parcel was handed over, and the seal was not.
         Assert.Equal(0, party.Inventory.TotalOf(Parcel));
@@ -157,24 +157,24 @@ public sealed class QuestTests
         // A talk objective reads the record the conversation leaves of having met somebody, which is the
         // party's own carried state rather than a second list of people this mechanism keeps.
         Assert.Equal(0, Progress(quests, "talk"));
-        party.Effects.Apply(new PartyEffect(ClerkMet, 1));
+        party.Records.Set(ClerkMet.Value, 1);
         Assert.Equal(1, Progress(quests, "talk"));
 
         // A delivery needs both halves: the thing carried and the person it goes to.
         Assert.Equal(0, Progress(quests, "deliver"));
         party.AcquireItem(Parcel);
         Assert.Equal(1, Progress(quests, "deliver"));
-        party.Effects.Remove(ClerkMet);
+        party.Records.Remove(ClerkMet.Value);
         Assert.Equal(0, Progress(quests, "deliver"));
-        party.Effects.Apply(new PartyEffect(ClerkMet, 1));
+        party.Records.Set(ClerkMet.Value, 1);
 
         // A flag objective reads the party's own record with its magnitude: one is one step and two is the
         // objective met, which is what makes a record a count rather than a yes or no.
         Assert.Equal(0, Progress(quests, "flag"));
-        party.Effects.Apply(new PartyEffect(Signal, 1));
+        party.Records.Set(Signal.Value, 1);
         Assert.Equal(1, Progress(quests, "flag"));
         Assert.False(quests.Read(everything.Id)!.Objectives.Single(reading => reading.Objective.Id == "flag").IsMet);
-        party.Effects.Apply(new PartyEffect(Signal, 2));
+        party.Records.Set(Signal.Value, 2);
         Assert.Equal(2, Progress(quests, "flag"));
 
         QuestReading reading = quests.Read(everything.Id)!;
@@ -205,7 +205,7 @@ public sealed class QuestTests
         Assert.Contains("Carry the seal", refused.Refusal.Message, StringComparison.Ordinal);
         Assert.Equal(0, party.Purse.Coins);
         Assert.Equal(0, party.Members[0].Progression.Experience);
-        Assert.False(party.Effects.Has(new EffectId("errand:seal-of-office")));
+        Assert.False(party.Records.Has("errand:seal-of-office"));
         Assert.Equal(QuestStage.Accepted, quests.Instance(everything.Id)!.Stage);
 
         // The completion conditions are judged too, and a quest that states one says which is unmet: every
@@ -213,8 +213,8 @@ public sealed class QuestTests
         // the standing the quest asks for is what is left.
         party.AcquireItem(Seal);
         party.AcquireItem(Parcel);
-        party.Effects.Apply(new PartyEffect(Signal, 2));
-        party.Effects.Apply(new PartyEffect(ClerkMet, 1));
+        party.Records.Set(Signal.Value, 2);
+        party.Records.Set(ClerkMet.Value, 1);
         quests.Observe(Vault);
         quests.ObserveDeaths(Keep, [Body(Keep, Monster)]);
         Assert.True(quests.TurnIn(everything.Id, "marshal").IsApplied);
@@ -225,7 +225,7 @@ public sealed class QuestTests
         quests.Accept(Errand().Id);
         party.AcquireItem(Seal);
         party.AcquireItem(Parcel);
-        party.Effects.Apply(new PartyEffect(ClerkMet, 1));
+        party.Records.Set(ClerkMet.Value, 1);
         quests.Observe(Vault);
         quests.ObserveDeaths(Keep, [Body(Keep, Monster), Body(Keep, Monster)]);
         QuestResult gated = quests.TurnIn(Errand().Id, "marshal");
@@ -378,8 +378,8 @@ public sealed class QuestTests
         // An errand that is finished needs nothing more, so the refusal a sale reads stops applying.
         party.AcquireItem(Seal);
         party.AcquireItem(Parcel);
-        party.Effects.Apply(new PartyEffect(Signal, 2));
-        party.Effects.Apply(new PartyEffect(ClerkMet, 1));
+        party.Records.Set(Signal.Value, 2);
+        party.Records.Set(ClerkMet.Value, 1);
         quests.Observe(Vault);
         quests.ObserveDeaths(Keep, [Body(Keep, Monster), Body(Keep, Monster)]);
         party.Reputation.ChangeReputation(4);
@@ -586,7 +586,7 @@ public sealed class QuestTests
             return request.Condition.Kind switch
             {
                 ConversationConditionKind.Flag or ConversationConditionKind.Errand =>
-                    request.Party.Effects.Has(new EffectId(request.Condition.Name)),
+                    request.Party.Records.Has(request.Condition.Name),
                 ConversationConditionKind.Reputation =>
                     request.Party.Reputation.Reputation >= request.Condition.Amount,
                 _ => false,

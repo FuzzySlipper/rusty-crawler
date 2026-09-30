@@ -293,7 +293,7 @@ public sealed class PartyQuests
 
         foreach (QuestRewardRecord record in rewards.Records)
         {
-            _party.Effects.Apply(new PartyEffect(new EffectId(record.Record), record.Amount));
+            if (record.Amount > 0) _party.Records.Set(record.Record, record.Amount);
         }
 
         if (rewards.Coins > 0) _ledger!.Credit(PartyCost.OfGold(rewards.Coins));
@@ -317,7 +317,7 @@ public sealed class PartyQuests
         // never true before everything the errand promised has arrived.
         if (definition.Record.Length > 0)
         {
-            _party.Effects.Apply(new PartyEffect(new EffectId(definition.Record), 1));
+            _party.Records.Set(definition.Record, 1);
         }
 
         _instances[_instances.IndexOf(instance)] = instance with { Stage = QuestStage.TurnedIn };
@@ -484,15 +484,15 @@ public sealed class PartyQuests
     {
         QuestObjectiveKind.Kill or QuestObjectiveKind.Reach => instance.Recorded(objective.Id),
         QuestObjectiveKind.Retrieve => _party.Inventory.TotalOf(new ItemDefinitionId(objective.Target)),
-        QuestObjectiveKind.Talk => _party.Effects.Has(new EffectId(objective.Target)) ? 1 : 0,
+        QuestObjectiveKind.Talk => _party.Records.Has(objective.Target) ? 1 : 0,
         QuestObjectiveKind.Deliver => Delivered(objective),
-        QuestObjectiveKind.Flag => _party.Effects.MagnitudeOf(new EffectId(objective.Target)),
+        QuestObjectiveKind.Flag => _party.Records.CountOf(objective.Target),
         _ => 0,
     };
 
     /// <summary>Whether a delivery has both halves: the thing carried and the person it goes to.</summary>
     private int Delivered(QuestObjective objective) =>
-        _party.Effects.Has(new EffectId(objective.Person))
+        _party.Records.Has(objective.Person)
             ? _party.Inventory.TotalOf(new ItemDefinitionId(objective.Target))
             : 0;
 

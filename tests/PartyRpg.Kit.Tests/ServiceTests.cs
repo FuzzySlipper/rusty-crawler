@@ -324,24 +324,24 @@ public sealed class ServiceTests
         Assert.True(deposited.IsApplied);
         Assert.Equal(300, deposited.Paid);
         Assert.Equal(purse - 300, party.Purse.Coins);
-        Assert.Equal(300, ServiceHolding.Coins(party, "vault"));
+        Assert.Equal(300, party.Holdings.BalanceOf("vault"));
 
         ServiceResult over = services.Transact(new ServiceCommand(ServiceCommandKind.Withdraw, "vault", Count: 500));
         Assert.Equal("service-holding-short", over.Code);
-        Assert.Equal(300, ServiceHolding.Coins(party, "vault"));
+        Assert.Equal(300, party.Holdings.BalanceOf("vault"));
 
         ServiceResult withdrew = services.Transact(new ServiceCommand(ServiceCommandKind.Withdraw, "vault", Count: 120));
         Assert.True(withdrew.IsApplied);
         Assert.Equal(120, withdrew.Earned);
         Assert.Equal(purse - 180, party.Purse.Coins);
-        Assert.Equal(180, ServiceHolding.Coins(party, "vault"));
+        Assert.Equal(180, party.Holdings.BalanceOf("vault"));
 
         // A passage is what a fare buys: the party holds the ticket and the journey's length, and the
         // counter's own account of it is what the road reads.
         ServiceResult fare = services.Transact(new ServiceCommand(ServiceCommandKind.Fare, "9"));
         Assert.True(fare.IsApplied);
         Assert.Equal(25, fare.Paid);
-        Assert.Equal(3, ServicePassage.DaysTo(party, new PlaceId("9")));
+        Assert.Equal(3, party.Passages.DaysTo(new PlaceId("9")));
 
         // The result says what the fare was about, which is how the session that owns the road learns which
         // journey the counter sold without keeping its own copy of the screen's request.
@@ -381,8 +381,8 @@ public sealed class ServiceTests
 
         // Naming one takes that one, and the ticket says which journey it is.
         Assert.True(services.Transact(new ServiceCommand(ServiceCommandKind.Fare, "9")).IsApplied);
-        Assert.Equal(3, ServicePassage.DaysTo(party, new PlaceId("9")));
-        Assert.Equal(0, ServicePassage.DaysTo(party, new PlaceId("8")));
+        Assert.Equal(3, party.Passages.DaysTo(new PlaceId("9")));
+        Assert.Equal(0, party.Passages.DaysTo(new PlaceId("8")));
         Assert.Equal(75, party.Purse.Coins);
     }
 
@@ -465,7 +465,7 @@ public sealed class ServiceTests
     [Fact]
     public void Membership_is_party_carried_state_the_service_checks()
     {
-        ServiceLesson membership = new(ServiceLessonKind.Effect, "guild.fire", 1, 50, "Fire Guild membership");
+        ServiceLesson membership = new(ServiceLessonKind.Membership, "guild.fire", 1, 50, "Fire Guild membership");
         ServiceLesson lesson = new(ServiceLessonKind.Skill, "Fire", 1, 25, "Basic Fire");
         using PartyEntity party = Party(coins: 1000);
         PartyResourceLedger accounts = new(party);
@@ -474,8 +474,8 @@ public sealed class ServiceTests
         rule.Eligibility = request =>
         {
             bool joins = request.Operation == ServiceOperationKind.Teach &&
-                request.Subject.Lesson is { Kind: ServiceLessonKind.Effect };
-            return joins || request.Party.Effects.Has(new EffectId("guild.fire"))
+                request.Subject.Lesson is { Kind: ServiceLessonKind.Membership };
+            return joins || request.Party.Memberships.Holds("guild.fire")
                 ? ServiceEligibility.Allowed
                 : ServiceEligibility.Refused("service-membership-required", "The Fire Guild serves members only.");
         };
@@ -486,11 +486,11 @@ public sealed class ServiceTests
         Assert.Equal("service-membership-required", services.Transact(new ServiceCommand(ServiceCommandKind.Teach, "Fire")).Code);
         Assert.Empty(services.Browse()!.Memberships);
 
-        // Buying the membership is one lesson, and it puts a party-wide effect on the band: the same state
-        // the access check reads, so buying one and being one cannot disagree.
+        // Buying the membership is one lesson, and it grants the band the membership: the same state the
+        // access check reads, so buying one and being one cannot disagree.
         ServiceResult joined = services.Transact(new ServiceCommand(ServiceCommandKind.Teach, "guild.fire"));
         Assert.True(joined.IsApplied);
-        Assert.True(party.Effects.Has(new EffectId("guild.fire")));
+        Assert.True(party.Memberships.Holds("guild.fire"));
         Assert.Equal(50, joined.Paid);
         // What the membership reads as is the ruleset's word for it; the mechanism carries whatever the
         // access answer states.
@@ -926,7 +926,7 @@ public sealed class ServiceTests
         public IReadOnlyList<ServiceOffer> Offers(ServiceOfferRequest request) => Offerings;
 
         public IReadOnlyList<string> Access(ServiceAccessRequest request) =>
-            Service.Membership.Length > 0 && request.Party.Effects.Has(new EffectId(Service.Membership))
+            Service.Membership.Length > 0 && request.Party.Memberships.Holds(Service.Membership)
                 ? [Service.Membership]
                 : [];
 

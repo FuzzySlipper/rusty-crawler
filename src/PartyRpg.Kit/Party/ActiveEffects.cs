@@ -1,20 +1,29 @@
 namespace PartyRpg.Kit.Party;
 
-/// <summary>The effects acting on the whole party.</summary>
+/// <summary>The effects acting on the whole party, or on one character: what a spell or a potion left running.</summary>
 /// <remarks>
+/// <para>
 /// One entry per effect definition, in the order effects were first applied, so applying one that is
 /// already acting replaces its magnitude rather than stacking an unbounded pile of the same effect. What
 /// each magnitude does to a roll, a resistance, or a recovery time is read by the ruleset from this state;
 /// the kit only holds it and hands it back.
+/// </para>
+/// <para>
+/// <b>It holds effects and nothing else.</b> The party carries one for what acts on the whole band and each
+/// character carries its own, and the one owner that writes either is the running-effect owner, which ends them
+/// when their time does. What the party has on record, what it has deposited, the passages it holds, and the
+/// memberships it was granted are other state with owners of their own, so ending every running effect — a
+/// dispel — cannot touch a bank balance, an errand, or a membership.
+/// </para>
 /// </remarks>
-public sealed class PartyEffects
+public sealed class ActiveEffects
 {
     private readonly List<PartyEffect> _active = [];
 
-    /// <summary>Creates the party's effects.</summary>
+    /// <summary>Creates a set of running effects.</summary>
     /// <param name="active">The effects already acting, in the order they were applied.</param>
     /// <exception cref="ArgumentException">An effect is listed twice, which would give it two magnitudes.</exception>
-    public PartyEffects(IEnumerable<PartyEffect>? active = null)
+    public ActiveEffects(IEnumerable<PartyEffect>? active = null)
     {
         if (active is null) return;
 
@@ -52,7 +61,7 @@ public sealed class PartyEffects
 
     /// <summary>Applies an effect, replacing the magnitude of one already acting.</summary>
     /// <param name="effect">The effect to apply.</param>
-    public void Apply(PartyEffect effect)
+    internal void Apply(PartyEffect effect)
     {
         int index = IndexOf(effect.Effect);
         if (index < 0)
@@ -67,16 +76,13 @@ public sealed class PartyEffects
     /// <summary>Ends one effect, which is what a deadline passing or a dispelling does.</summary>
     /// <param name="effect">The effect to end.</param>
     /// <returns>Whether the effect was acting.</returns>
-    public bool Remove(EffectId effect)
+    internal bool Remove(EffectId effect)
     {
         int index = IndexOf(effect);
         if (index < 0) return false;
         _active.RemoveAt(index);
         return true;
     }
-
-    /// <summary>Ends every effect.</summary>
-    public void Clear() => _active.Clear();
 
     private int IndexOf(EffectId effect)
     {

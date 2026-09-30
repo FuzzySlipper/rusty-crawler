@@ -116,7 +116,7 @@ internal sealed class MightAndMagic7TravelCostRule : ITravelCostRule
                 "A fare is bought by a party and this session holds none, so there is nobody to board."));
         }
 
-        int days = ServicePassage.DaysTo(_party, destination);
+        int days = _party.Passages.DaysTo(destination);
         if (days <= 0)
         {
             return TravelCostQuote.Refused(new TravelRefusal(
@@ -124,7 +124,7 @@ internal sealed class MightAndMagic7TravelCostRule : ITravelCostRule
                 $"A seat to {destination} is bought at a stable or a dock and the party holds no passage to it; buying one at the counter is what pays for the journey."));
         }
 
-        ServicePassage.Spend(_party, destination);
+        _party.Passages.Spend(destination);
         return TravelCostQuote.Payable(new TravelCost(
             new TravelTime(days, TravelTimeUnit.Days),
             Provisions.None));

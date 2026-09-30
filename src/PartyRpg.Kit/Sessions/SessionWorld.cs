@@ -382,7 +382,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         // The ticket is the party's own state, and a world with no party entity holds none: a journey is
         // then handed to the cost rule, which refuses it by name rather than travelling on a ticket nobody
         // could have bought.
-        int days = _entity is { } party ? ServicePassage.DaysTo(party, destination) : 0;
+        int days = _entity is { } party ? party.Passages.DaysTo(destination) : 0;
         if (days > 0)
         {
             List<PlaceTransition> matching = [.. journeys.Where(journey => journey.FareDays == days)];

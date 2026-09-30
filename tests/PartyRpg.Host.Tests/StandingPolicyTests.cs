@@ -239,16 +239,16 @@ public sealed class StandingPolicyTests
         Assert.Equal("guild.fire", fixture.Guild().Membership);
         Assert.Empty(standing.Awards(fixture.Party));
 
-        fixture.Party.Effects.Apply(new PartyEffect(new EffectId("guild.fire"), 1));
+        fixture.Party.Memberships.Grant("guild.fire");
         AwardReading award = Assert.Single(standing.Awards(fixture.Party));
         Assert.Equal("guild.fire", award.Id);
         Assert.Equal(MightAndMagic7Standing.MembershipKind, award.Kind);
         Assert.Equal("Fire Guild membership", award.Label);
 
-        // A record that is none of this game's award families is not an accomplishment: a ward still running
-        // and a passage bought are state, not something the party did.
-        fixture.Party.Effects.Apply(new PartyEffect(new EffectId("ward:magic"), 1));
-        fixture.Party.Effects.Apply(new PartyEffect(new EffectId("passage:somewhere"), 1));
+        // A record that is none of this game's award families is not an accomplishment: the flag a line left is
+        // state, not something the party did, and a passage bought is not a record at all.
+        fixture.Party.Records.Set("heard:rumour", 1);
+        fixture.Party.Passages.Hold(new PlaceId("somewhere"), 1);
         Assert.Single(standing.Awards(fixture.Party));
     }
 
@@ -356,7 +356,7 @@ public sealed class StandingPolicyTests
         // A rank the party holds reads as the class the rank names, with the rung it was taken from beside
         // it: the ladder wrote both, so the name cannot drift from the promotion that gave it.
         PromotionRank rank = promotions.Ladder.Ranks.First(candidate => candidate.Rank == 2);
-        party.Effects.Apply(new PartyEffect(new EffectId(rank.Award), 1));
+        party.Records.Set(rank.Award, 1);
         AwardReading promoted = Assert.Single(standing.Awards(party));
         Assert.Equal(rank.Award, promoted.Id);
         Assert.Equal(MightAndMagic7Standing.PromotionKind, promoted.Kind);
@@ -366,7 +366,7 @@ public sealed class StandingPolicyTests
         // An errand the shipped table states reads as the words this game gives it, and its giver's own name
         // comes from the ladder's requirement rather than from a second table.
         QuestDefinition errand = read.Definitions.First(definition => definition.Record.StartsWith("errand:", StringComparison.Ordinal));
-        party.Effects.Apply(new PartyEffect(new EffectId(errand.Record), 1));
+        party.Records.Set(errand.Record, 1);
         AwardReading finished = standing.Awards(party).Single(award => award.Id == errand.Record);
         Assert.Equal(MightAndMagic7Standing.ErrandKind, finished.Kind);
         Assert.Equal(errand.Name, finished.Label);
@@ -378,7 +378,7 @@ public sealed class StandingPolicyTests
             .SelectMany(candidate => candidate.Requirements)
             .First(requirement => requirement.Kind == PromotionRequirementKind.Award
                 && requirement.Name.StartsWith(MightAndMagic7Identities.DeedPrefix, StringComparison.Ordinal));
-        party.Effects.Apply(new PartyEffect(new EffectId(deed.Name), deed.Amount));
+        party.Records.Set(deed.Name, deed.Amount);
         AwardReading counted = standing.Awards(party).Single(award => award.Id == deed.Name);
         Assert.Equal(MightAndMagic7Standing.DeedKind, counted.Kind);
         Assert.Equal(deed.Label, counted.Label);
@@ -513,7 +513,7 @@ public sealed class StandingPolicyTests
         Assert.Contains("errand:relic", Encoding.UTF8.GetString(payload), StringComparison.Ordinal);
         Assert.Equal(6, written.Party.Reputation);
         Assert.Equal(6, written.Party.Fame);
-        Assert.Contains(written.Party.Effects, effect => effect.Effect.Value == "errand:relic");
+        Assert.Contains(written.Party.Records, record => record.Name == "errand:relic");
 
         // A resumed product reads the same band, the same numbers, and the same accomplishment: a load is
         // not a demotion and the deed is not forgotten.

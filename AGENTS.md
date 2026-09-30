@@ -126,7 +126,9 @@ and a deadline (a ward, a light, a haste) still blocks a save by name rather tha
   spatial service — a product without one has no movement rather than movement through walls.
 - The party exists. `PartyEntity` is one façade over one engine entity: the roster and its members, the
   one shared inventory of item instances, each member's equipment, the purse and the larder, reputation
-  and fame, followers, and party-wide effects are components attached to it and read live where the
+  and fame, followers, the running effects, and what the party has on record, deposited, holds passage
+  for, and is a member of (each its own component, so a dispel reaches only running effects) are components
+  attached to it and read live where the
   entity carries them, so a wrapped party that lacks one fails on the read rather than growing an empty
   one. Custody is a closed set of detached, the shared pack, or one member's slot, which is what makes
   "carried but not worn" inexpressible and a per-character pack a shape the state does not have.
@@ -271,8 +273,8 @@ and a deadline (a ward, a light, a haste) still blocks a save by name rather tha
   away. Buy, sell, identify, repair, teach, cure, train, provision, stay, deposit, withdraw and fare all
   take one path: resolve, judge eligibility, quote a price, settle through the party's one ledger, apply,
   credit. Shelves are lots on a repeating game-time deadline that travel time also feeds; a passage and a
-  bank balance are party-carried effects, so a seat bought in one town is honoured on the road and cannot
-  be spent in another's name. The kit gained capabilities, not kinds — adding a service kind means adding
+  bank balance are party-carried state with homes of their own, so a seat bought in one town is honoured on
+  the road and cannot be spent in another's name. The kit gained capabilities, not kinds — adding a service kind means adding
   content and a ruleset answer.
 - Towns are clocked. A place's hours come from the counters standing in it or from the place's own entry,
   and a door in a clocked place carries those hours as an ordinary requirement judged against the one

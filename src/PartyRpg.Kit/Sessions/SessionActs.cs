@@ -120,7 +120,7 @@ internal sealed class SessionActs(SessionOwners owners, SessionControls controls
             ServiceResult result = services.Transact(command);
             if (command.Kind != ServiceCommandKind.Fare) continue;
             string journey = result.Subject.Length > 0 ? result.Subject : command.Target;
-            if (journey.Length > 0 && owners.Party is { } party && ServicePassage.DaysTo(party, new PlaceId(journey)) > 0)
+            if (journey.Length > 0 && owners.Party is { } party && party.Passages.DaysTo(new PlaceId(journey)) > 0)
             {
                 Board(services, journey);
             }

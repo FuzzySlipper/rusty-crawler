@@ -499,12 +499,11 @@ internal static class SpellEffectIds
     /// <summary>The light a spell carries, which is what a party in the dark sees by.</summary>
     internal static readonly EffectId Light = new("spell.light");
 
-    /// <summary>The beacon the party has set, at the place it was set in.</summary>
+    /// <summary>The record the party keeps for the beacon it set, at the place it was set in.</summary>
     /// <param name="place">The place the beacon stands in.</param>
-    internal static EffectId Beacon(PlaceId place) => new BeaconIdentity(place).Effect;
+    internal static string Beacon(PlaceId place) => new BeaconIdentity(place).Record;
 
-
-    /// <summary>The place a beacon identity stands for, or null when the identity is not a beacon's.</summary>
-    /// <param name="effect">The effect identity to read.</param>
-    internal static PlaceId? BeaconPlace(EffectId effect) => BeaconIdentity.Read(effect)?.Place;
+    /// <summary>The place a beacon record stands for, or null when the record is not a beacon's.</summary>
+    /// <param name="record">The record's name.</param>
+    internal static PlaceId? BeaconPlace(string record) => BeaconIdentity.Read(record)?.Place;
 }

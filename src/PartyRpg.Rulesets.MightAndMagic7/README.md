@@ -246,10 +246,10 @@ an accomplishment, and the panel shows only what this game can name. **Two count
 are written by nobody**: `award:arena-wins` (five victories, the Champion's light errand) and
 `award:bounties` (ten thousand gold of town-hall bounties, the Hunter's dark one) are stated as records a
 rank requires, and neither the arena nor a bounty turn-in credits them — a bounty pays coin and leaves no
-record, and a party-carried effect holds one magnitude rather than accumulating, so a count is not something
+record, and a party record is set rather than added to, so a count is not something
 the record path can express yet. The reading above names either record if a later stone writes one; the
 receiver is whichever lands first of the arena and a counting record path (a quest reward that adds to a
-record rather than replacing it, which belongs to the party-effects owner). Fame carries no bands, because the donor
+record rather than replacing it, which belongs to `PartyRecords`). Fame carries no bands, because the donor
 gives it none: it prints fame as a bare number (`UIQuickReference.cpp:134-143`) and reads it in exactly one
 place, whether somebody will join the party, gated on the party's fame exceeding their own and disabled in the
 donor with a note that it is an MM8 behaviour (`UIDialogue.cpp:70-95`). Nothing can join a party in this build

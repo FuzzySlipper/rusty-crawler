@@ -83,9 +83,9 @@ public sealed class ConversationPolicyTests
 
         // A person the party has met is greeted the other way, which is party-carried state rather than
         // anything the conversation remembers: the flag is the same one the greeting records.
-        fixture.Party.Effects.Apply(new PartyEffect(new EffectId("met:np-2"), 1));
+        fixture.Party.Records.Set("met:np-2", 1);
         Assert.Equal("'Still at it, then?'", Greeting(fixture, subject, speaker.Id).Text);
-        fixture.Party.Effects.Remove(new EffectId("met:np-2"));
+        fixture.Party.Records.Remove("met:np-2");
 
         // What they can be asked about is the topic table's own rows, with a line from the text table and
         // the errand the row states read as a condition.
@@ -120,9 +120,9 @@ public sealed class ConversationPolicyTests
         // A topic whose condition is an errand appears when the party has finished it, which is the flag the
         // quest owner will set: the mechanism reads the party's own effects, so nothing here is remembered.
         Assert.DoesNotContain("topic-2", fixture.OnOffer(person));
-        fixture.Party.Effects.Apply(new PartyEffect(new EffectId("errand:7"), 1));
+        fixture.Party.Records.Set("errand:7", 1);
         Assert.Contains("topic-2", fixture.OnOffer(person));
-        fixture.Party.Effects.Remove(new EffectId("errand:7"));
+        fixture.Party.Records.Remove("errand:7");
 
         // A topic that waits for a class or a race reads the party's own members, and one that waits for a
         // standing reads the party's own reputation: neither is a fact about the conversation.

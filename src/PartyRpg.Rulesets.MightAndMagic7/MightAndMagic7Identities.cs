@@ -129,14 +129,14 @@ internal readonly record struct BountyIdentity(string Placement, int Year, int M
 /// <param name="Place">The place the beacon stands in.</param>
 internal readonly record struct BeaconIdentity(PlaceId Place)
 {
-    /// <summary>The party-carried effect a set beacon is held under.</summary>
-    internal EffectId Effect => new(string.Concat(MightAndMagic7Identities.BeaconPrefix, Place.Value));
+    /// <summary>The party record a set beacon is kept under.</summary>
+    internal string Record => string.Concat(MightAndMagic7Identities.BeaconPrefix, Place.Value);
 
-    /// <summary>The beacon an effect identity names, or null when it is not a beacon's.</summary>
-    /// <param name="effect">The effect identity to read.</param>
-    internal static BeaconIdentity? Read(EffectId effect) =>
-        effect.Value.StartsWith(MightAndMagic7Identities.BeaconPrefix, StringComparison.Ordinal) &&
-        effect.Value.Length > MightAndMagic7Identities.BeaconPrefix.Length
-            ? new BeaconIdentity(new PlaceId(effect.Value[MightAndMagic7Identities.BeaconPrefix.Length..]))
+    /// <summary>The beacon a record names, or null when it is not a beacon's.</summary>
+    /// <param name="record">The record's name.</param>
+    internal static BeaconIdentity? Read(string record) =>
+        record.StartsWith(MightAndMagic7Identities.BeaconPrefix, StringComparison.Ordinal) &&
+        record.Length > MightAndMagic7Identities.BeaconPrefix.Length
+            ? new BeaconIdentity(new PlaceId(record[MightAndMagic7Identities.BeaconPrefix.Length..]))
             : null;
 }

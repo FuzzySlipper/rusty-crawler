@@ -397,7 +397,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// exists on the path that creates one, and because a product playing no party has none to read — and a
     /// fight with no party reads no spells, which is the honest answer rather than an invented ward.
     /// </remarks>
-    private PartyEffects? SpellEffects => _party()?.Effects;
+    private ActiveEffects? SpellEffects => _party()?.Effects;
 
     /// <summary>What a spell has left acting under one identity, or zero when nothing is.</summary>
     private int SpellWard(EffectId effect) => SpellEffects?.MagnitudeOf(effect) ?? 0;

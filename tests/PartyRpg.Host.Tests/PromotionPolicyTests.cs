@@ -224,7 +224,7 @@ public sealed class PromotionPolicyTests
         Assert.Equal(2, member.Progression.ClassRank);
         Assert.Equal(new SkillCeiling(18, new SkillTier(3)), skills.Ceiling(member, fixture.Fire));
         Assert.Equal(new ProgressionGrowth(3, 4, 5), progression.Rule.Growth(new ProgressionGrowthRequest(member, 3)));
-        Assert.True(fixture.Party.Effects.Has(new EffectId("promotion:sorcerer-wizard")));
+        Assert.True(fixture.Party.Records.Has("promotion:sorcerer-wizard"));
 
         // The second rank's terms are the dark path's, given by the person the shipped tables name for it,
         // and they ask for the lich jars: the light alternative is not this giver's to hand out.

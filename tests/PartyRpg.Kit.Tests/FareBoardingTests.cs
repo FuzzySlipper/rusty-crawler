@@ -48,7 +48,7 @@ public sealed class FareBoardingTests
         RecordingDiagnosticsService diagnostics = new();
         using PartyEntity party = Party();
         using SessionWorld world = World(party, rule, diagnostics);
-        ServicePassage.Grant(party, Town, days: 2);
+        party.Passages.Hold(Town, 2);
 
         TransitionResult boarded = world.Board(Town);
 
@@ -81,13 +81,13 @@ public sealed class FareBoardingTests
 
         // Both counters reach Town from Home and the road does too, so the place alone does not name the
         // journey: the ticket's own length does, and the road the party could have walked is never it.
-        ServicePassage.Grant(party, Town, days: 2);
+        party.Passages.Hold(Town, 2);
         Assert.True(world.Board(Town).Arrived);
         Assert.Equal("coach", rule.Asked[^1].Transition.Source);
 
         // Back to Home, and the other counter's passage is the other journey.
         world.ArriveAt(Home, PlacePose.Origin);
-        ServicePassage.Grant(party, Town, days: 3);
+        party.Passages.Hold(Town, 3);
         Assert.True(world.Board(Town).Arrived);
         Assert.Equal("caravan", rule.Asked[^1].Transition.Source);
     }
@@ -98,7 +98,7 @@ public sealed class FareBoardingTests
         RecordingCostRule rule = new();
         using PartyEntity party = Party();
         using SessionWorld world = World(party, rule);
-        ServicePassage.Grant(party, Town, days: 5);
+        party.Passages.Hold(Town, 5);
 
         TransitionResult refused = world.Board(Town);
 
@@ -116,7 +116,7 @@ public sealed class FareBoardingTests
         RecordingCostRule rule = new();
         using PartyEntity party = Party();
         using SessionWorld world = World(party, rule);
-        ServicePassage.Grant(party, Nowhere, days: 2);
+        party.Passages.Hold(Nowhere, 2);
 
         TransitionResult refused = world.Board(Nowhere);
 

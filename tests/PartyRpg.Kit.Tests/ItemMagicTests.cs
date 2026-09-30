@@ -95,7 +95,9 @@ public sealed class ItemMagicTests
         // the moment it was given.
         effects.Observe(clock.Advance(GameDuration.FromHours(2)));
         Assert.Equal(5, effects.MagnitudeOn(party.Members[0], Ward));
-        EffectId entry = Assert.Single(party.Effects.Active).Effect;
+        // The ward is the character's own state, not the party's.
+        Assert.Equal(Ward, Assert.Single(party.Members[0].Effects.Active).Effect);
+        Assert.Empty(party.Effects.Active);
 
         // The advance that reaches the deadline exactly ends it — and the last minute before it does not.
         effects.Observe(clock.Advance(GameDuration.FromMinutes(59)));
@@ -104,7 +106,7 @@ public sealed class ItemMagicTests
         effects.Observe(clock.Advance(GameDuration.FromMinutes(1)));
         Assert.Equal(0, effects.MagnitudeOn(party.Members[0], Ward));
         Assert.Empty(effects.RunningOnMembers);
-        Assert.False(party.Effects.Has(entry));
+        Assert.False(party.Members[0].Effects.Has(Ward));
     }
 
     [Fact]
@@ -139,21 +141,27 @@ public sealed class ItemMagicTests
         }
 
         // A dispelling ends what spells left running, on the characters and on the party alike, and leaves
-        // what a counter sold exactly where it was.
+        // what a counter sold, what the party deposited, and what it has on record exactly where they were:
+        // those are other owners' state, and nothing that ends a spell can reach them.
         using (PartyEntity party = Party())
         {
             RunningSpellEffects effects = new(party, Clock(), member => !LaidOut(member));
             effects.StartOn(party.Members[0], Ward, magnitude: 9, GameDuration.FromHours(2));
             effects.Start(Haste, magnitude: 25, GameDuration.FromHours(2));
-            EffectId passage = new("passage:2");
-            party.Effects.Apply(new PartyEffect(passage, 3));
+            party.Passages.Hold(new PlaceId("2"), 3);
+            party.Holdings.Hold("vault", 300);
+            party.Records.Set("errand:seal", 1);
 
             IReadOnlyList<RunningSpellEffect> ended = effects.EndAll();
 
             Assert.Equal(2, ended.Count);
             Assert.Empty(effects.RunningOnMembers);
             Assert.Empty(effects.Running);
-            Assert.True(party.Effects.Has(passage));
+            Assert.Empty(party.Effects.Active);
+            Assert.Empty(party.Members[0].Effects.Active);
+            Assert.Equal(3, party.Passages.DaysTo(new PlaceId("2")));
+            Assert.Equal(300, party.Holdings.BalanceOf("vault"));
+            Assert.True(party.Records.Has("errand:seal"));
         }
     }
 
@@ -358,13 +366,12 @@ public sealed class ItemMagicTests
         Assert.True(carried.Custody.IsEquipped);
         Assert.Null(restored.FindItem(scroll.Id));
 
-        // A ward is carried by the party's own effect state, under the character it was cast on, so what a
-        // save would carry is the effect's existence and magnitude.
+        // A ward is carried by the character it was cast on, so what a save would carry is that character's
+        // effect and its magnitude, and nothing on the party as a whole.
         effects.StartOn(party.Members[0], Ward, magnitude: 8, GameDuration.FromHours(1));
         PartySave warded = party.Capture();
-        Assert.Contains(
-            warded.Effects,
-            effect => effect.Magnitude == 8 && effect.Effect.Value.StartsWith(Ward.Value, StringComparison.Ordinal));
+        Assert.Empty(warded.Effects);
+        Assert.Contains(warded.Members[0].Effects, effect => effect.Magnitude == 8 && effect.Effect == Ward);
         using PartyEntity resumed = new PartyEntityFactory().Restore(warded);
         RunningSpellEffects reloaded = new(resumed, Clock(), member => !LaidOut(member));
         Assert.Equal(8, reloaded.MagnitudeOn(resumed.Members[0], Ward));

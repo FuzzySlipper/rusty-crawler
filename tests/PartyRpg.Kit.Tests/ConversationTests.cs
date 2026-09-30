@@ -107,13 +107,13 @@ public sealed class ConversationTests
 
         // The party-carried flag: applying the effect the topic waits for puts it on offer, and removing it
         // hides the topic again — nothing was invalidated, because nothing is remembered between reads.
-        party.Effects.Apply(new PartyEffect(new EffectId("invited"), 1));
-        party.Effects.Apply(new PartyEffect(new EffectId("invitation"), 1));
+        party.Records.Set("invited", 1);
+        party.Records.Set("invitation", 1);
         Assert.Equal(
             ["carried", "standing", "class", "race", "hour", "taken", "flag", "counter", "unrouted"],
             conversations.OnOffer.Select(offer => offer.Id));
-        party.Effects.Remove(new EffectId("invited"));
-        party.Effects.Remove(new EffectId("invitation"));
+        party.Records.Remove("invited");
+        party.Records.Remove("invitation");
         Assert.Contains("flag", conversations.Withheld.Select(offer => offer.Id));
         Assert.Contains("carried", conversations.Withheld.Select(offer => offer.Id));
 
@@ -143,7 +143,7 @@ public sealed class ConversationTests
 
         // An errand: a flag the quest owner will set, which nothing in this build sets yet.
         Assert.Contains("errand", conversations.Withheld.Select(offer => offer.Id));
-        party.Effects.Apply(new PartyEffect(new EffectId("errand:7"), 1));
+        party.Records.Set("errand:7", 1);
         Assert.Contains("errand", conversations.OnOffer.Select(offer => offer.Id));
 
         // A condition about state the world does not hold is unmet rather than invented: a session whose
@@ -164,7 +164,7 @@ public sealed class ConversationTests
 
         // The topic waits for a flag the party does not carry yet, which is what makes taking it a fact
         // about the state rather than about the list.
-        party.Effects.Apply(new PartyEffect(new EffectId("invited"), 1));
+        party.Records.Set("invited", 1);
         ConversationResult said = conversations.Choose("carried");
         Assert.True(said.IsApplied);
         Assert.Equal("say", said.Action);
@@ -175,7 +175,7 @@ public sealed class ConversationTests
 
         // What the answer records is party-carried state through the party's own owner, which is what a save
         // keeps and what a later topic can be gated on.
-        Assert.True(party.Effects.Has(new EffectId("heard:carried")));
+        Assert.True(party.Records.Has("heard:carried"));
 
         // The line is in the transcript, so a screen can still show it after it leaves the list of things to
         // bring up.
@@ -291,7 +291,7 @@ public sealed class ConversationTests
 
         // What a topic said arrives in the same projection as the choice, with the residue the ruleset
         // stated beside it.
-        party.Effects.Apply(new PartyEffect(new EffectId("invited"), 1));
+        party.Records.Set("invited", 1);
         session.Update(Update(3, 1, Payload("""{"action":"conversation.topic","target":"carried"}""")));
         ProjectedNode said = channel.Latest().Field(SessionProjection.ConversationField);
         Assert.Equal("say", said.Field("action").AsString());
@@ -524,7 +524,7 @@ public sealed class ConversationTests
         private static ConversationAvailability Judge(ConversationCondition condition, ConversationContext context) =>
             condition.Kind switch
             {
-                ConversationConditionKind.Flag => context.Party is { } party && party.Effects.Has(new EffectId(condition.Name))
+                ConversationConditionKind.Flag => context.Party is { } party && party.Records.Has(condition.Name)
                     ? ConversationAvailability.OnOffer
                     : ConversationAvailability.Withheld($"the party does not carry {condition.Label}"),
                 ConversationConditionKind.Reputation => (context.Party?.Reputation.Reputation ?? 0) >= condition.Amount
@@ -539,7 +539,7 @@ public sealed class ConversationTests
                 ConversationConditionKind.Hour => context.Clock is { } clock && clock.IsDaylight
                     ? ConversationAvailability.OnOffer
                     : ConversationAvailability.Withheld(context.Clock is null ? "nothing in this world keeps the hour" : $"the clock stands at {context.Clock.Now.Hour:00}:00"),
-                ConversationConditionKind.Errand => context.Party is { } carrier && carrier.Effects.Has(new EffectId(condition.Name))
+                ConversationConditionKind.Errand => context.Party is { } carrier && carrier.Records.Has(condition.Name)
                     ? ConversationAvailability.OnOffer
                     : ConversationAvailability.Withheld($"{condition.Label} is not finished"),
                 _ => ConversationAvailability.Withheld("nothing knows what that asks for"),

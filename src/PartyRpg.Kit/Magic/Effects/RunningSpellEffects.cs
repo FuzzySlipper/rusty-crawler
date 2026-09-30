@@ -155,19 +155,20 @@ public sealed class RunningSpellEffects : IGameTimeObserver, IDeadlineOwner, IRu
         get
         {
             List<RunningSpellEffect> running = [];
-            foreach (PartyEffect effect in _party.Effects.Active)
+            foreach (PartyMember member in _party.Members)
             {
-                if (MemberSpellEffectIds.Split(effect.Effect) is not { } on) continue;
-
                 // What a character no longer carries ends here, where their own state is in hand.
-                if (_party.TryMember(on.Member, out PartyMember? member) && member is not null && !Carries(member)) continue;
-                GameDate? endsAt = null;
-                foreach (Held held in _held)
+                if (!Carries(member)) continue;
+                foreach (PartyEffect effect in member.Effects.Active)
                 {
-                    if (held.Member == on.Member && held.Effect == on.Effect) endsAt = held.EndsAt;
-                }
+                    GameDate? endsAt = null;
+                    foreach (Held held in _held)
+                    {
+                        if (held.Member == member.Id && held.Effect == effect.Effect) endsAt = held.EndsAt;
+                    }
 
-                running.Add(new RunningSpellEffect(on.Effect, effect.Magnitude, endsAt, on.Member));
+                    running.Add(new RunningSpellEffect(effect.Effect, effect.Magnitude, endsAt, member.Id));
+                }
             }
 
             return running;
@@ -182,7 +183,7 @@ public sealed class RunningSpellEffects : IGameTimeObserver, IDeadlineOwner, IRu
     /// <param name="member">The character to look at.</param>
     /// <param name="effect">The effect to look for.</param>
     public bool IsRunningOn(PartyMemberId member, EffectId effect) =>
-        _party.Effects.Has(MemberSpellEffectIds.For(member, effect));
+        _party.TryMember(member, out PartyMember? on) && on is not null && on.Effects.Has(effect);
 
     /// <summary>What is running under one identity, or null when nothing is.</summary>
     /// <param name="effect">The effect to read.</param>
@@ -211,7 +212,7 @@ public sealed class RunningSpellEffects : IGameTimeObserver, IDeadlineOwner, IRu
             return 0;
         }
 
-        return _party.Effects.MagnitudeOf(MemberSpellEffectIds.For(member.Id, effect));
+        return member.Effects.MagnitudeOf(effect);
     }
 
     /// <summary>
@@ -275,7 +276,7 @@ public sealed class RunningSpellEffects : IGameTimeObserver, IDeadlineOwner, IRu
     public bool EndOn(PartyMemberId member, EffectId effect)
     {
         bool wasHeld = Drop(effect, member);
-        return _party.Effects.Remove(MemberSpellEffectIds.For(member, effect)) || wasHeld;
+        return RemoveOn(member, effect) || wasHeld;
     }
 
     /// <summary>Ends every effect a spell left running on one character, and says which ones those were.</summary>
@@ -289,7 +290,7 @@ public sealed class RunningSpellEffects : IGameTimeObserver, IDeadlineOwner, IRu
             if (effect.Member == member) running.Add(effect);
         }
 
-        foreach (RunningSpellEffect effect in running) _party.Effects.Remove(MemberSpellEffectIds.For(member, effect.Effect));
+        foreach (RunningSpellEffect effect in running) RemoveOn(member, effect.Effect);
         for (int index = _held.Count - 1; index >= 0; index--)
         {
             if (_held[index].Member != member) continue;
@@ -313,9 +314,8 @@ public sealed class RunningSpellEffects : IGameTimeObserver, IDeadlineOwner, IRu
         List<RunningSpellEffect> running = [.. Running, .. RunningOnMembers];
         foreach (RunningSpellEffect effect in running)
         {
-            _party.Effects.Remove(effect.Member is { } member
-                ? MemberSpellEffectIds.For(member, effect.Effect)
-                : effect.Effect);
+            if (effect.Member is { } member) RemoveOn(member, effect.Effect);
+            else _party.Effects.Remove(effect.Effect);
         }
 
         foreach (Held held in _held)
@@ -349,9 +349,8 @@ public sealed class RunningSpellEffects : IGameTimeObserver, IDeadlineOwner, IRu
         {
             if (held.Deadline is not { } deadline || !due.Contains(deadline.Value)) continue;
             _held.Remove(held);
-            _party.Effects.Remove(held.Member is { } member
-                ? MemberSpellEffectIds.For(member, held.Effect)
-                : held.Effect);
+            if (held.Member is { } member) RemoveOn(member, held.Effect);
+            else _party.Effects.Remove(held.Effect);
         }
     }
 
@@ -405,7 +404,6 @@ public sealed class RunningSpellEffects : IGameTimeObserver, IDeadlineOwner, IRu
                 "A spell effect that lasts no time at all would end in the advance that applied it; a duration is a length of game time.");
         }
 
-        EffectId held = member is { } on ? MemberSpellEffectIds.For(on, effect) : effect;
         Drop(effect, member);
         GameDate? endsAt = null;
         DeadlineId? deadline = null;
@@ -415,12 +413,17 @@ public sealed class RunningSpellEffects : IGameTimeObserver, IDeadlineOwner, IRu
             endsAt = clock.Calendar.Add(clock.Now, duration);
         }
 
-        _party.Effects.Apply(new PartyEffect(held, magnitude));
+        if (member is { } on) _party.Member(on).Effects.Apply(new PartyEffect(effect, magnitude));
+        else _party.Effects.Apply(new PartyEffect(effect, magnitude));
         _held.Add(new Held(effect, member, magnitude, deadline, endsAt));
         return new RunningSpellEffect(effect, magnitude, endsAt, member);
     }
 
     /// <summary>Forgets one held effect and cancels the deadline it was registered under.</summary>
+    /// <summary>Ends an effect on one character, which is state that character carries.</summary>
+    private bool RemoveOn(PartyMemberId member, EffectId effect) =>
+        _party.TryMember(member, out PartyMember? on) && on is not null && on.Effects.Remove(effect);
+
     private bool Drop(EffectId effect, PartyMemberId? member)
     {
         int index = _held.FindIndex(held => held.Effect == effect && held.Member == member);
@@ -453,51 +456,4 @@ public interface IRunningSpellEffects
     /// <summary>Whether an effect a spell applied is still running.</summary>
     /// <param name="effect">The effect to look for.</param>
     bool IsRunning(EffectId effect);
-}
-
-/// <summary>
-/// The identities a per-character effect is held under in the party's own effect state.
-/// </summary>
-/// <remarks>
-/// <para>
-/// One spelling, used by the ledger that writes the entry and by nothing else, so a character's effects are
-/// the party's effects filed under that character and there is no second store of magnitudes beside the
-/// party's. The name is derived rather than written twice: what a casting applies, what a fight reads, and
-/// what a panel lists are the same entry.
-/// </para>
-/// <para>
-/// <b>The marker is deliberately not a content name.</b> An effect identity belongs to the game's own
-/// content, so a character's entry is that identity with the character appended after a marker no content
-/// identity would carry — the same shape a spell's own carried state uses for the place a beacon stands in.
-/// </para>
-/// </remarks>
-internal static class MemberSpellEffectIds
-{
-    /// <summary>The marker that separates an effect's own identity from the character it runs on.</summary>
-    private const char Marker = '@';
-
-    /// <summary>The identity one character's effect is held under.</summary>
-    /// <param name="member">The character the effect runs on.</param>
-    /// <param name="effect">The effect's own identity.</param>
-    internal static EffectId For(PartyMemberId member, EffectId effect) =>
-        new(string.Concat(effect.Value, Marker.ToString(), member.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
-
-    /// <summary>The character and effect an identity stands for, or null when it names no character's effect.</summary>
-    /// <param name="effect">The identity to read.</param>
-    internal static (PartyMemberId Member, EffectId Effect)? Split(EffectId effect)
-    {
-        int at = effect.Value.LastIndexOf(Marker);
-        if (at <= 0 || at == effect.Value.Length - 1) return null;
-        if (!ulong.TryParse(
-                effect.Value.AsSpan(at + 1),
-                System.Globalization.NumberStyles.None,
-                System.Globalization.CultureInfo.InvariantCulture,
-                out ulong value) ||
-            value == 0)
-        {
-            return null;
-        }
-
-        return (new PartyMemberId(value), new EffectId(effect.Value[..at]));
-    }
 }

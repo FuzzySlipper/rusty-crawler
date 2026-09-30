@@ -268,7 +268,7 @@ public readonly record struct ServiceSnapshot(
     {
         ServiceLessonKind.Skill => "skill",
         ServiceLessonKind.Spell => "spell",
-        ServiceLessonKind.Effect => "effect",
+        ServiceLessonKind.Membership => "membership",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown lesson kind."),
     };
 }

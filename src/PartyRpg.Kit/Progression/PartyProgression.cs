@@ -576,7 +576,7 @@ public sealed class PartyProgression
             if (rank.Award.Length > 0)
             {
                 EffectId award = new(rank.Award);
-                if (!_party.Effects.Has(award)) _party.Effects.Apply(new PartyEffect(award, 1));
+                _party.Records.Mark(award.Value);
             }
 
             granted.Add(new PromotionGrant(member.Id, member.Profile.Name, fromClass, fromRank, rank.To.Value, reached, rank.Choice, met));

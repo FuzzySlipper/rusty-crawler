@@ -74,7 +74,7 @@ internal static class PromotionEligibility
 
             case PromotionRequirementKind.Award:
             {
-                int held = party.Effects.MagnitudeOf(new EffectId(requirement.Name));
+                int held = party.Records.CountOf(requirement.Name);
                 bool met = held >= requirement.Amount;
                 return new PromotionRequirementVerdict(
                     requirement,

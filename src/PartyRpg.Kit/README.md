@@ -141,7 +141,9 @@ durable `ItemInstanceId` and an `ItemState` of identified, damaged, and enchante
 `ItemCustody` that is detached, the shared pack, or a single member's slot and nothing else, so a
 per-character pack is a state these types cannot express; `Capture` writes each instance's identity, state,
 and custody and `Restore` rebuilds them), `PartyPurse`, `PartyFood`,
-`PartyReputation`, `PartyFollowers`, `PartyEffects`, the minting of durable identities in
+`PartyReputation`, `PartyFollowers`, the running effects on the party and on each member (`ActiveEffects`,
+written only by `RunningSpellEffects`), `PartyRecords`, `PartyHoldings`, `PartyPassages`, `PartyMemberships`,
+the minting of durable identities in
 `PartyIdentitySource`, and `PartyEntityFactory`, which builds a party from creation or from a `PartySave`
 and never lets a wrapped party grow a component, with the item rules it composes arriving as
 `IEquipmentUseRule`, `IInventoryCapacityRule`, and `IItemStackingRule` — what may be worn, what the shared

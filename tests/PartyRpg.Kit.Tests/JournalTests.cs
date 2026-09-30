@@ -505,7 +505,7 @@ public sealed class JournalTests
         /// <summary>A stated condition holds exactly when the party carries what it names.</summary>
         public bool Holds(QuestConditionRequest request) =>
             request.Condition.Kind is ConversationConditionKind.Flag
-            && request.Party.Effects.Has(new EffectId(request.Condition.Name));
+            && request.Party.Records.Has(request.Condition.Name);
     }
 
     /// <summary>This suite's journal: five books with the test's own words and a threshold over finds.</summary>

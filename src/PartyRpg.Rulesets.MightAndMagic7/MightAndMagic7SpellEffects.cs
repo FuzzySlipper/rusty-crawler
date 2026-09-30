@@ -607,8 +607,8 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
             // Setting a beacon is the one travel act that moves nobody: the place the party stands in is
             // written into its own carried state, and every earlier beacon is dropped because the donor's
             // beacon is one place rather than a list.
-            foreach (EffectId held in Beacons(application.Party)) application.Party.Effects.Remove(held);
-            application.Party.Effects.Apply(new PartyEffect(SpellEffectIds.Beacon(world.Place), 1));
+            foreach (string held in Beacons(application.Party)) application.Party.Records.Remove(held);
+            application.Party.Records.Mark(SpellEffectIds.Beacon(world.Place));
             return Expressed(
                 application,
                 $"a beacon is set in {world.Graph.Require(world.Place).Name}",
@@ -918,7 +918,7 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     private PlaceId? BeaconPlace()
     {
         if (_running is not { } ledger) return null;
-        foreach (EffectId held in Beacons(ledger.Party))
+        foreach (string held in Beacons(ledger.Party))
         {
             if (SpellEffectIds.BeaconPlace(held) is { } place) return place;
         }
@@ -926,17 +926,9 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         return null;
     }
 
-    /// <summary>Every beacon the party carries, in the order they were applied.</summary>
-    private static IReadOnlyList<EffectId> Beacons(PartyEntity party)
-    {
-        List<EffectId> beacons = [];
-        foreach (PartyEffect effect in party.Effects.Active)
-        {
-            if (SpellEffectIds.BeaconPlace(effect.Effect) is not null) beacons.Add(effect.Effect);
-        }
-
-        return beacons;
-    }
+    /// <summary>Every beacon the party has on record, in the order they were set.</summary>
+    private static IReadOnlyList<string> Beacons(PartyEntity party) =>
+        [.. party.Records.All.Select(record => record.Name).Where(name => SpellEffectIds.BeaconPlace(name) is not null)];
 
     /// <summary>Everything alive in the party's place, with how far off the nearest of it stands.</summary>
     private static (string Name, double Distance)? Nearest(SessionWorld world, IReadOnlyList<PlacePopulationEntity> alive)

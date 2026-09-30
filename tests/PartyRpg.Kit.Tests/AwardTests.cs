@@ -50,7 +50,7 @@ public sealed class AwardTests
 
         // Nothing is on record before anything is done: the record a later errand waits for is not carried,
         // and the completion condition that names it does not hold either.
-        Assert.False(party.Effects.Has(new EffectId(ErrandRecord)));
+        Assert.False(party.Records.Has(ErrandRecord));
         TestQuests rule = new(Errand(), Aftermath());
         Assert.False(rule.Holds(Condition(party, new ConversationCondition(ConversationConditionKind.Flag, ErrandRecord))));
 
@@ -62,8 +62,8 @@ public sealed class AwardTests
         QuestResult paid = quests.TurnIn(Errand().Id, Giver);
         Assert.True(paid.IsApplied, paid.Refusal?.Message);
 
-        Assert.True(party.Effects.Has(new EffectId(ErrandRecord)));
-        Assert.True(party.Effects.Has(new EffectId(FirstDeed)));
+        Assert.True(party.Records.Has(ErrandRecord));
+        Assert.True(party.Records.Has(FirstDeed));
 
         // A later errand's own offer condition is that record, judged through the vocabulary the conversation
         // and the quests share: the same flag now holds, where it did not before anything was done.
@@ -79,7 +79,7 @@ public sealed class AwardTests
         // And an award a conversation leaves is the same state again: what an answer records is a record the
         // party carries like any other.
         conversation.Choose("regard");
-        Assert.True(party.Effects.Has(new EffectId("heard:regard")));
+        Assert.True(party.Records.Has("heard:regard"));
     }
 
     [Fact]
@@ -153,8 +153,8 @@ public sealed class AwardTests
         // What the reading is asked for is the party's own state: the band its reputation falls in, and the
         // records it carries that this game counts.
         progression.Award(new PartyExperienceAward(PartyQuests.QuestSource, 6000));
-        party.Effects.Apply(new PartyEffect(new EffectId(ErrandRecord), 1));
-        party.Effects.Apply(new PartyEffect(new EffectId("passage:somewhere"), 1));
+        party.Records.Set(ErrandRecord, 1);
+        party.Passages.Hold(new PlaceId("somewhere"), 1);
 
         PartySnapshot snapshot = PartySnapshot.From(party, standing);
         Assert.True(snapshot.Present);
@@ -295,8 +295,8 @@ public sealed class AwardTests
         using PartyEntity restored = new PartyEntityFactory().Restore(read.Party);
         Assert.Equal(reputation, restored.Reputation.Reputation);
         Assert.Equal(fame, restored.Reputation.Fame);
-        Assert.True(restored.Effects.Has(new EffectId(ErrandRecord)));
-        Assert.True(restored.Effects.Has(new EffectId(FirstDeed)));
+        Assert.True(restored.Records.Has(ErrandRecord));
+        Assert.True(restored.Records.Has(FirstDeed));
 
         // And what the game reads of the restored party is the same band and the same accomplishments: a
         // load is not a promotion or a demotion, and nothing about the deed is lost on the way through.
@@ -398,7 +398,7 @@ public sealed class AwardTests
             return request.Condition.Kind switch
             {
                 ConversationConditionKind.Flag or ConversationConditionKind.Errand =>
-                    request.Party.Effects.Has(new EffectId(request.Condition.Name)),
+                    request.Party.Records.Has(request.Condition.Name),
                 ConversationConditionKind.Reputation =>
                     request.Party.Reputation.Reputation >= request.Condition.Amount,
                 _ => false,
@@ -463,9 +463,9 @@ public sealed class AwardTests
         {
             ArgumentNullException.ThrowIfNull(party);
             List<AwardReading> awards = [];
-            foreach (PartyEffect effect in party.Effects.Active)
+            foreach (PartyRecord held in party.Records.All)
             {
-                string record = effect.Effect.Value;
+                string record = held.Name;
                 int separator = record.IndexOf(':', StringComparison.Ordinal);
                 if (separator <= 0) continue;
                 string family = record[..separator];
@@ -502,7 +502,7 @@ public sealed class AwardTests
                 : ConversationAvailability.Withheld(
                     $"the party's standing is {context.Party?.Reputation.Reputation ?? 0} and this needs {WellRegarded}");
             List<ConversationOffer> offers = [new(topic, availability)];
-            if (context.Party is { } carrier && carrier.Effects.Has(new EffectId(ErrandRecord)))
+            if (context.Party is { } carrier && carrier.Records.Has(ErrandRecord))
             {
                 offers.Add(new ConversationOffer(new ConversationTopic("deed", "About the seal"), ConversationAvailability.OnOffer));
             }

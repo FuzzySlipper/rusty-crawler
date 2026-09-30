@@ -93,7 +93,7 @@ public sealed class ServiceKindPolicyTests
         Assert.Empty(shelves);
 
         IReadOnlyList<ServiceLesson> lessons = fixture.Rule.Lessons(new ServiceLessonRequest(guild.Current!, fixture.Party, fixture.Clock));
-        Assert.Contains(lessons, lesson => lesson.Kind == ServiceLessonKind.Effect && lesson.Subject == "guild.fire");
+        Assert.Contains(lessons, lesson => lesson.Kind == ServiceLessonKind.Membership && lesson.Subject == "guild.fire");
         Assert.Contains(lessons, lesson => lesson.Kind == ServiceLessonKind.Skill && lesson.Subject == "Fire");
         Assert.Contains(lessons, lesson => lesson.Kind == ServiceLessonKind.Skill && lesson.Subject == "Learning");
         Assert.Contains(lessons, lesson => lesson.Kind == ServiceLessonKind.Spell && lesson.Subject == "1");
@@ -109,7 +109,7 @@ public sealed class ServiceKindPolicyTests
 
         ServiceResult joined = guild.Transact(new ServiceCommand(ServiceCommandKind.Teach, "guild.fire", Member: 0));
         Assert.True(joined.IsApplied);
-        Assert.True(fixture.Party.Effects.Has(new EffectId("guild.fire")));
+        Assert.True(fixture.Party.Memberships.Holds("guild.fire"));
         Assert.Equal(1000, joined.Paid);
 
         // A member is served, and the same membership is not sold twice.
@@ -297,7 +297,7 @@ public sealed class ServiceKindPolicyTests
         Assert.True(deposited.IsApplied);
         Assert.Equal(200, deposited.Paid);
         Assert.Equal(purse - 200, fixture.Party.Purse.Coins);
-        Assert.Equal(200, ServiceHolding.Coins(fixture.Party, MightAndMagic7Services.BankHolding));
+        Assert.Equal(200, fixture.Party.Holdings.BalanceOf(MightAndMagic7Services.BankHolding));
 
         // More than is held is refused whole, and what is held comes back.
         Assert.Equal("service-holding-short", bank.Transact(new ServiceCommand(ServiceCommandKind.Withdraw, MightAndMagic7Services.BankHolding, Count: 500)).Code);
@@ -305,7 +305,7 @@ public sealed class ServiceKindPolicyTests
         Assert.True(withdrew.IsApplied);
         Assert.Equal(150, withdrew.Earned);
         Assert.Equal(purse - 50, fixture.Party.Purse.Coins);
-        Assert.Equal(50, ServiceHolding.Coins(fixture.Party, MightAndMagic7Services.BankHolding));
+        Assert.Equal(50, fixture.Party.Holdings.BalanceOf(MightAndMagic7Services.BankHolding));
 
         // A deposit the party cannot afford is refused by name before anything moves, and the state is shown
         // on the counter's own surface so a player reads the balance before deciding.
@@ -341,7 +341,7 @@ public sealed class ServiceKindPolicyTests
         ServiceResult bought = stable.Transact(new ServiceCommand(ServiceCommandKind.Fare, "2"));
         Assert.True(bought.IsApplied);
         Assert.Equal(50, bought.Paid);
-        Assert.Equal(2, ServicePassage.DaysTo(fixture.Party, new PlaceId("2")));
+        Assert.Equal(2, fixture.Party.Passages.DaysTo(new PlaceId("2")));
 
         TravelCostQuote boarded = rule.Quote(request);
         Assert.Null(boarded.Refusal);
@@ -349,7 +349,7 @@ public sealed class ServiceKindPolicyTests
         Assert.True(boarded.Cost.Food.IsNone);
 
         // The ticket is torn by the boarding, so the same fare does not pay for a second journey.
-        Assert.Equal(0, ServicePassage.DaysTo(fixture.Party, new PlaceId("2")));
+        Assert.Equal(0, fixture.Party.Passages.DaysTo(new PlaceId("2")));
         Assert.Equal("travel-fare-unpaid", rule.Quote(request).Refusal!.Code);
     }
 

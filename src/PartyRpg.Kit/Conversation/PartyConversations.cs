@@ -373,7 +373,7 @@ public sealed class PartyConversations
         {
             if (_party is { } party)
             {
-                party.Effects.Apply(new PartyEffect(new EffectId(flag), 1));
+                party.Records.Set(flag, 1);
                 continue;
             }
 

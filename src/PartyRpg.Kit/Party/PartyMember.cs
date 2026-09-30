@@ -93,6 +93,9 @@ public sealed class PartyMember
     /// <summary>The member's equipped figure: the only item state the member owns.</summary>
     public CharacterEquipment Equipment => _actor.Get<CharacterEquipment>();
 
+    /// <summary>What a spell or a potion left running on this character alone, until its time ends.</summary>
+    public ActiveEffects Effects => _actor.Get<ActiveEffects>();
+
     /// <summary>
     /// Takes harm, and whatever this game's own answer makes of the wound.
     /// </summary>

@@ -765,7 +765,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         condition.Kind switch
         {
             ConversationConditionKind.Flag or ConversationConditionKind.Errand =>
-                party is { } carrier && carrier.Effects.Has(new EffectId(condition.Name)),
+                party is { } carrier && carrier.Records.Has(condition.Name),
             ConversationConditionKind.Reputation => (party?.Reputation.Reputation ?? 0) >= condition.Amount,
             ConversationConditionKind.Class => Anyone(party, member => string.Equals(member.Profile.Class.Value, condition.Name, StringComparison.Ordinal)),
             ConversationConditionKind.Race => Anyone(party, member => string.Equals(member.Profile.Race.Value, condition.Name, StringComparison.Ordinal)),
@@ -828,7 +828,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
 
     /// <summary>Whether the party carries a named flag as one of its own party-wide effects.</summary>
     private static bool Carries(ConversationContext context, string flag) =>
-        context.Party is { } party && party.Effects.Has(new EffectId(flag));
+        context.Party is { } party && party.Records.Has(flag);
 
     /// <summary>Which part of the day the session's one clock stands in, or empty when it keeps none.</summary>
     private static string PartOfDay(ConversationContext context) =>
