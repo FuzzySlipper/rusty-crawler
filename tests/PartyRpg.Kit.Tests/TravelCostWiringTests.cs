@@ -436,11 +436,7 @@ public sealed class TravelCostWiringTests
             Layout).RequireValid());
 
     /// <summary>A held forward control, which is what a player pressing the walk key sends.</summary>
-    private static ProductInputEvent Forward() => new(
-        InputEventKind.MappedDigital, InputEdge.Held, default, default, default, default, default, default, default, default,
-        InputValueKind.Digital, InputPhase.Pressed, InputProvenance.Physical, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, System.Text.Encoding.UTF8.GetBytes(Names.Forward),
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
+    private static ProductInputEvent Forward() => Admitted.Digital(Names.Forward, InputEdge.Held, InputPhase.Pressed);
 
     /// <summary>The cost contract as this suite states it: walking is free, anything else is a journey.</summary>
     private sealed class PricedTravel : ITravelCostRule

@@ -210,7 +210,7 @@ public sealed class CollisionTests
     [Fact]
     public void The_same_place_emits_the_same_bytes()
     {
-        LodPayload payload = Payload("out01.odm", MapDecoderTests.OutdoorPayload());
+        LodPayload payload = LodFixture.Stored("out01.odm", MapDecoderTests.OutdoorPayload());
         OutdoorMap first = MapDecoder.DecodeOutdoor(payload);
         OutdoorMap second = MapDecoder.DecodeOutdoor(payload);
 
@@ -226,7 +226,7 @@ public sealed class CollisionTests
     [Fact]
     public void A_region_gets_its_terrain_and_its_models_and_an_interior_gets_its_faces()
     {
-        OutdoorMap region = MapDecoder.DecodeOutdoor(Payload("out01.odm", MapDecoderTests.OutdoorPayload()));
+        OutdoorMap region = MapDecoder.DecodeOutdoor(LodFixture.Stored("out01.odm", MapDecoderTests.OutdoorPayload()));
         PlaceCollision emitted = PlaceCollisionEmitter.Emit(1, "Out01.odm", region);
 
         Assert.True(emitted.Emitted, emitted.Refusal?.Detail);
@@ -243,7 +243,7 @@ public sealed class CollisionTests
 
         // The fixture's interior holds one face, and that face's corners lie on one line, so the level has
         // no surface at all and the place is refused rather than emitted with a hole in it.
-        IndoorMap interior = MapDecoder.DecodeIndoor(Payload("d01.blv", MapDecoderTests.IndoorPayload()));
+        IndoorMap interior = MapDecoder.DecodeIndoor(LodFixture.Stored("d01.blv", MapDecoderTests.IndoorPayload()));
         PlaceCollision refused = PlaceCollisionEmitter.Emit(14, "D01.blv", interior);
         Assert.False(refused.Emitted);
         Assert.Equal("no-solid-geometry", refused.Refusal?.Code);
@@ -279,8 +279,6 @@ public sealed class CollisionTests
     }
 
     /// <summary>One payload as the decoder reads it, without a container around it.</summary>
-    private static LodPayload Payload(string entryName, byte[] bytes) =>
-        new(new LodEntry(entryName, 0, bytes.Length), bytes, LodPayloadKind.Verbatim);
 
     /// <summary>An object's property names, in the order the document writes them.</summary>
     private static string[] Names(JsonElement element) => [.. element.EnumerateObject().Select(property => property.Name)];

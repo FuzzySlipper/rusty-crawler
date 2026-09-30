@@ -23,7 +23,7 @@ public sealed class MapDecoderTests
     [Fact]
     public void An_outdoor_payload_decodes_its_model_faces_and_start_points()
     {
-        OutdoorMap map = MapDecoder.DecodeOutdoor(Payload("out01.odm", OutdoorPayload()));
+        OutdoorMap map = MapDecoder.DecodeOutdoor(LodFixture.Stored("out01.odm", OutdoorPayload()));
 
         Assert.Equal(MapKind.Outdoor, map.Kind);
         Assert.Equal("blank", map.Name);
@@ -106,7 +106,7 @@ public sealed class MapDecoderTests
     [Fact]
     public void Every_structure_a_report_totals_is_reachable_through_the_base_map()
     {
-        DecodedMap map = MapDecoder.DecodeIndoor(Payload("d01.blv", IndoorPayload()), Payload("d01.dlv", IndoorDeltaPayload()));
+        DecodedMap map = MapDecoder.DecodeIndoor(LodFixture.Stored("d01.blv", IndoorPayload()), LodFixture.Stored("d01.dlv", IndoorDeltaPayload()));
 
         Assert.Equal(MapKind.Indoor, map.Kind);
         Assert.Equal(4, map.Vertices.Count);
@@ -122,7 +122,7 @@ public sealed class MapDecoderTests
     [Fact]
     public void An_outdoor_delta_is_decoded_with_its_map()
     {
-        OutdoorMap map = MapDecoder.DecodeOutdoor(Payload("out01.odm", OutdoorPayload()), Payload("out01.ddm", OutdoorDeltaPayload()));
+        OutdoorMap map = MapDecoder.DecodeOutdoor(LodFixture.Stored("out01.odm", OutdoorPayload()), LodFixture.Stored("out01.ddm", OutdoorDeltaPayload()));
 
         MapDelta delta = Assert.IsType<MapDelta>(map.Delta);
         Assert.Equal(1, delta.FaceAttributeCount);
@@ -312,7 +312,7 @@ public sealed class MapDecoderTests
         // The outdoor face stores its corners in a fixed 20-slot array; the indoor pool has no such
         // limit, and shipped interiors contain faces of up to 42 corners.
         const int corners = 24;
-        IndoorMap map = MapDecoder.DecodeIndoor(Payload("d24.blv", IndoorPayload(corners)));
+        IndoorMap map = MapDecoder.DecodeIndoor(LodFixture.Stored("d24.blv", IndoorPayload(corners)));
 
         MapFace face = Assert.Single(map.Faces);
         Assert.Equal(corners, face.Vertices.Count);
@@ -327,7 +327,7 @@ public sealed class MapDecoderTests
     public void A_payload_whose_walk_does_not_end_exactly_is_a_failure_naming_the_bytes_left()
     {
         byte[] withTrailer = [.. OutdoorPayload(), 0x00];
-        LodFormatException error = Assert.Throws<LodFormatException>(() => MapDecoder.DecodeOutdoor(Payload("out01.odm", withTrailer)));
+        LodFormatException error = Assert.Throws<LodFormatException>(() => MapDecoder.DecodeOutdoor(LodFixture.Stored("out01.odm", withTrailer)));
 
         Assert.Equal(LodFault.Count, error.Fault);
         Assert.Contains("out01.odm", error.Message);
@@ -337,7 +337,7 @@ public sealed class MapDecoderTests
     public void A_payload_that_ends_before_a_field_is_a_failure_naming_the_field_and_offset()
     {
         byte[] truncated = IndoorPayload()[..40];
-        LodFormatException error = Assert.Throws<LodFormatException>(() => MapDecoder.DecodeIndoor(Payload("d01.blv", truncated)));
+        LodFormatException error = Assert.Throws<LodFormatException>(() => MapDecoder.DecodeIndoor(LodFixture.Stored("d01.blv", truncated)));
 
         Assert.Equal(LodFault.Truncated, error.Fault);
         Assert.Contains("d01.blv", error.Message);
@@ -351,7 +351,7 @@ public sealed class MapDecoderTests
         // Declaring one extra value makes the face data pool longer than the faces consume, which is
         // what a file whose arrays were reordered without their sizes being updated would look like.
         byte[] payload = IndoorPayload(poolSlackValues: 1);
-        LodFormatException error = Assert.Throws<LodFormatException>(() => MapDecoder.DecodeIndoor(Payload("d01.blv", payload)));
+        LodFormatException error = Assert.Throws<LodFormatException>(() => MapDecoder.DecodeIndoor(LodFixture.Stored("d01.blv", payload)));
 
         Assert.Equal(LodFault.Count, error.Fault);
         Assert.Contains("faceData", error.Message);
@@ -363,7 +363,7 @@ public sealed class MapDecoderTests
         // Another game in the family stores different record widths in these same fields, so the
         // version has to be checked rather than walked past.
         LodFormatException error = Assert.Throws<LodFormatException>(() =>
-            MapDecoder.DecodeIndoor(Payload("d01.blv", IndoorPayload(version: 2))));
+            MapDecoder.DecodeIndoor(LodFixture.Stored("d01.blv", IndoorPayload(version: 2))));
 
         Assert.Equal(LodFault.Value, error.Fault);
         Assert.Contains("'version'", error.Message);
@@ -374,8 +374,8 @@ public sealed class MapDecoderTests
     public void A_delta_that_belongs_to_another_map_is_refused()
     {
         LodFormatException error = Assert.Throws<LodFormatException>(() => MapDecoder.DecodeIndoor(
-            Payload("d01.blv", IndoorPayload()),
-            Payload("d02.dlv", IndoorDeltaPayload())));
+            LodFixture.Stored("d01.blv", IndoorPayload()),
+            LodFixture.Stored("d02.dlv", IndoorDeltaPayload())));
 
         Assert.Equal(LodFault.Reference, error.Fault);
         Assert.Contains("d02.dlv", error.Message);
@@ -547,11 +547,9 @@ public sealed class MapDecoderTests
 
     /// <summary>The default indoor fixture decoded with its delta, which the indoor field tests each read a part of.</summary>
     private static IndoorMap DecodedIndoorFixture() =>
-        MapDecoder.DecodeIndoor(Payload("d01.blv", IndoorPayload()), Payload("d01.dlv", IndoorDeltaPayload()));
+        MapDecoder.DecodeIndoor(LodFixture.Stored("d01.blv", IndoorPayload()), LodFixture.Stored("d01.dlv", IndoorDeltaPayload()));
 
     /// <summary>A payload that came from an entry of the given name.</summary>
-    private static LodPayload Payload(string entryName, byte[] bytes) =>
-        new(new LodEntry(entryName, 0, bytes.Length), bytes, LodPayloadKind.Verbatim);
 
     /// <summary>
     /// An outdoor payload with one model of one three-cornered face, three decorations, and one spawn

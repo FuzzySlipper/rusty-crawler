@@ -745,41 +745,21 @@ public sealed class TurnBasedTests
     private static ProductInputEvent Attack() => Pressed("test.attack");
 
     /// <summary>The act control coming back up, which is what ends a hold.</summary>
-    private static ProductInputEvent Released() => new(
-        InputEventKind.MappedDigital, InputEdge.Released, default, default, default, default, default, default, default, default,
-        InputValueKind.Digital, InputPhase.Released, InputProvenance.Physical, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, "test.attack"u8.ToArray(),
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
+    private static ProductInputEvent Released() => Admitted.Released("test.attack");
 
     /// <summary>A key walking the party forward, held, which a paced fight must not act on.</summary>
-    private static ProductInputEvent Move() => new(
-        InputEventKind.MappedDigital, InputEdge.Held, default, default, default, default, default, default, default, default,
-        InputValueKind.Digital, InputPhase.Held, InputProvenance.Physical, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, "test.forward"u8.ToArray(),
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
+    private static ProductInputEvent Move() => Admitted.Digital("test.forward", InputEdge.Held, InputPhase.Held);
 
     private static ProductInputEvent Turn(string intent) => Pressed(intent);
 
     /// <summary>A panel control's action on the declared contract.</summary>
     private static ProductInputEvent Action(string action) => Payload($$"""{ "action": "{{action}}" }""");
 
-    private static ProductInputEvent Pressed(string intent) => new(
-        InputEventKind.MappedDigital, InputEdge.Pressed, default, default, default, default, default, default, default, default,
-        InputValueKind.Digital, InputPhase.Pressed, InputProvenance.Physical, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, System.Text.Encoding.UTF8.GetBytes(intent),
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
+    private static ProductInputEvent Pressed(string intent) => Admitted.Digital(intent);
 
-    private static ProductInputEvent Held(string intent) => new(
-        InputEventKind.MappedDigital, InputEdge.Held, default, default, default, default, default, default, default, default,
-        InputValueKind.Digital, InputPhase.Held, InputProvenance.Physical, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, System.Text.Encoding.UTF8.GetBytes(intent),
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
+    private static ProductInputEvent Held(string intent) => Admitted.Digital(intent, InputEdge.Held, InputPhase.Held);
 
-    private static ProductInputEvent Claimed(string intent) => new(
-        InputEventKind.DirectProductPayload, InputEdge.None, default, default, default, default, default, default, default, default,
-        InputValueKind.Digital, InputPhase.DirectUi, InputProvenance.DirectUi, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, System.Text.Encoding.UTF8.GetBytes(intent),
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
+    private static ProductInputEvent Claimed(string intent) => Admitted.Claimed(intent);
 
     /// <summary>One payload action on this suite's contract, as the companion sends it.</summary>
     private static ProductInputEvent Payload(string json) => Admitted.Payload("test.actions", json);

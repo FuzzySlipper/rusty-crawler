@@ -26,7 +26,7 @@ public sealed class PlaceMapTests
     [Fact]
     public void A_region_is_mapped_on_its_own_terrain_grid_in_the_products_axes()
     {
-        OutdoorMap map = MapDecoder.DecodeOutdoor(Payload("out01.odm", MapDecoderTests.OutdoorPayload()));
+        OutdoorMap map = MapDecoder.DecodeOutdoor(LodFixture.Stored("out01.odm", MapDecoderTests.OutdoorPayload()));
         PlaceMapRaster raster = PlaceMaps.Of(placeId: 1, map);
 
         // The grid is the region's own terrain square: 128 cells of 512 units each, starting half a map below
@@ -70,7 +70,7 @@ public sealed class PlaceMapTests
     [Fact]
     public void An_interior_is_mapped_from_its_own_outlines_at_this_importers_own_cell_size()
     {
-        IndoorMap map = MapDecoder.DecodeIndoor(Payload("d01.blv", OutlinePayload()));
+        IndoorMap map = MapDecoder.DecodeIndoor(LodFixture.Stored("d01.blv", OutlinePayload()));
         PlaceMapRaster raster = PlaceMaps.Of(placeId: 2, map);
 
         // The level's own minimap outlines are read rather than skipped, and they are what its automap is drawn
@@ -99,7 +99,7 @@ public sealed class PlaceMapTests
 
         // And a level whose payload carries no outlines has a raster with no outlines in it rather than a
         // guessed shape: the shipped level with no automap data is drawn as empty ground.
-        IndoorMap bare = MapDecoder.DecodeIndoor(Payload("d02.blv", MapDecoderTests.IndoorPayload()));
+        IndoorMap bare = MapDecoder.DecodeIndoor(LodFixture.Stored("d02.blv", MapDecoderTests.IndoorPayload()));
         PlaceMapRaster none = PlaceMaps.Of(placeId: 3, bare);
         Assert.Empty(bare.Outlines);
         Assert.All(none.Kinds, kind => Assert.Equal(PlaceMaps.InteriorOpen, kind));
@@ -111,8 +111,6 @@ public sealed class PlaceMapTests
     /// <summary>One square of a raster, by column and row.</summary>
     private static int Cell(PlaceMapRaster raster, int column, int row) => (row * raster.Columns) + column;
 
-    private static LodPayload Payload(string name, byte[] bytes) =>
-        new(new LodEntry(name, 0, bytes.Length), bytes, LodPayloadKind.Verbatim);
 
     /// <summary>
     /// An indoor payload whose four vertices are a square of the level's own units apart, with two outlines

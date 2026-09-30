@@ -57,6 +57,13 @@ public static class Admitted
     /// <summary>A key coming back up, which is what ends a held control.</summary>
     public static ProductInputEvent Released(string intent) => Digital(intent, InputEdge.Released, InputPhase.Released);
 
+    /// <summary>A digital intent claimed by a screen's own button rather than pressed on a key.</summary>
+    public static ProductInputEvent Claimed(string intent) => new(
+        InputEventKind.DirectProductPayload, InputEdge.None, default, default, default, default, default, default, default, default,
+        InputValueKind.Digital, InputPhase.DirectUi, InputProvenance.DirectUi, default, default, default, 0f, 0f,
+        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, Encoding.UTF8.GetBytes(intent),
+        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
+
     /// <summary>One semantic action on a payload contract, as the DOM companion sends it.</summary>
     public static ProductInputEvent Payload(string contract, string json) => new(
         InputEventKind.DirectProductPayload, InputEdge.None, default, default, default, default, default, default, default, default,

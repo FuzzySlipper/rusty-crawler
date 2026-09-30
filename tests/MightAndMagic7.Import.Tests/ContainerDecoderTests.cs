@@ -188,8 +188,8 @@ public sealed class ContainerDecoderTests
         // A region's delta carries the same arrays, and its chests are placed from its own model faces: the
         // fixture's face raises no event, so its four records are slots and only the loose object stands.
         OutdoorMap map = MapDecoder.DecodeOutdoor(
-            Payload("out01.odm", MapDecoderTests.OutdoorPayload()),
-            Payload("out01.ddm", MapDecoderTests.OutdoorDeltaPayload()));
+            LodFixture.Stored("out01.odm", MapDecoderTests.OutdoorPayload()),
+            LodFixture.Stored("out01.ddm", MapDecoderTests.OutdoorDeltaPayload()));
         MapDelta delta = Assert.IsType<MapDelta>(map.Delta);
         Assert.Equal(4, delta.ChestCount);
         Assert.Single(delta.SpriteObjects);
@@ -356,8 +356,8 @@ public sealed class ContainerDecoderTests
     /// <summary>A decoded interior holding one face per event, spaced the way a test needs.</summary>
     private static DecodedMap MapWithSpacing(int spacing, params int[] events) =>
         MapDecoder.DecodeIndoor(
-            Payload("d01.blv", ContainerIndoorPayload(events, spacing)),
-            Payload("d01.dlv", ContainerIndoorDeltaPayload(events.Length)));
+            LodFixture.Stored("d01.blv", ContainerIndoorPayload(events, spacing)),
+            LodFixture.Stored("d01.dlv", ContainerIndoorDeltaPayload(events.Length)));
 
     private static DecodedMap Map(params int[] events) => MapWithSpacing(100, events);
 
@@ -369,8 +369,6 @@ public sealed class ContainerDecoderTests
         return EvtProgram.Read("d01.evt", ChestProgram(destination, [.. chests.Select(chest => (chest.EventId, chest.ChestId))]));
     }
 
-    private static LodPayload Payload(string entryName, byte[] bytes) =>
-        new(new LodEntry(entryName, 0, bytes.Length), bytes, LodPayloadKind.Verbatim);
 
     /// <summary>A byte writer for the payloads this suite builds, with fixed offsets set after the fact.</summary>
     private sealed class DeltaWriter

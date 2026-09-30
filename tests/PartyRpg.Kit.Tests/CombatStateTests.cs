@@ -368,18 +368,10 @@ public sealed class CombatStateTests
     }
 
     /// <summary>One held-edge event on the act control, as the engine emits a held mapping.</summary>
-    private static ProductInputEvent Held() => new(
-        InputEventKind.MappedDigital, InputEdge.Held, default, default, default, default, default, default, default, default,
-        InputValueKind.Digital, InputPhase.Held, InputProvenance.Physical, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, "test.attack"u8.ToArray(),
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
+    private static ProductInputEvent Held() => Admitted.Digital("test.attack", InputEdge.Held, InputPhase.Held);
 
     /// <summary>One direct interface claim on the act control, as the companion's own button sends it.</summary>
-    private static ProductInputEvent Claimed() => new(
-        InputEventKind.DirectProductPayload, InputEdge.None, default, default, default, default, default, default, default, default,
-        InputValueKind.Digital, InputPhase.DirectUi, InputProvenance.DirectUi, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, "test.attack"u8.ToArray(),
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
+    private static ProductInputEvent Claimed() => Admitted.Claimed("test.attack");
 
     /// <summary>One payload action on this suite's contract, as the companion sends it.</summary>
     private static ProductInputEvent Payload(string json) => Admitted.Payload("test.actions", json);
@@ -431,18 +423,10 @@ public sealed class CombatStateTests
         []);
 
     /// <summary>One digital event on the act control, in the shape the engine admits it.</summary>
-    private static ProductInputEvent Attack() => new(
-        InputEventKind.MappedDigital, InputEdge.Pressed, default, default, default, default, default, default, default, default,
-        InputValueKind.Digital, InputPhase.Pressed, InputProvenance.Physical, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, "test.attack"u8.ToArray(),
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
+    private static ProductInputEvent Attack() => Admitted.Digital("test.attack");
 
     /// <summary>The moment the player lets the act control go, which is what ends a held attack.</summary>
-    private static ProductInputEvent Release() => new(
-        InputEventKind.MappedDigital, InputEdge.Released, default, default, default, default, default, default, default, default,
-        InputValueKind.Digital, InputPhase.Released, InputProvenance.Physical, default, default, default, 0f, 0f,
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, "test.attack"u8.ToArray(),
-        ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
+    private static ProductInputEvent Release() => Admitted.Released("test.attack");
 
     /// <summary>
     /// A world of two places: one hall holding a creature inside its notice range, a creature far outside it,

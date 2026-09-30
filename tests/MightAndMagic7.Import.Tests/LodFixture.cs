@@ -94,6 +94,10 @@ internal static class LodFixture
     /// <summary>A payload stored verbatim.</summary>
     internal static byte[] Verbatim(byte[] bytes) => bytes;
 
+    /// <summary>A named entry's payload as the archive hands it over when it was stored verbatim.</summary>
+    internal static MightAndMagic7.Import.Lod.LodPayload Stored(string name, byte[] bytes) =>
+        new(new MightAndMagic7.Import.Lod.LodEntry(name, 0, bytes.Length), bytes, MightAndMagic7.Import.Lod.LodPayloadKind.Verbatim);
+
     /// <summary>A payload in the compressed-data wrapper, deflated.</summary>
     internal static byte[] Compressed(byte[] bytes, bool setWriterBug = false)
     {

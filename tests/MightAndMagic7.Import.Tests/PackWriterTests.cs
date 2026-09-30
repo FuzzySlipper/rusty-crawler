@@ -469,9 +469,9 @@ public sealed class PackWriterTests
         // road that face is the trigger for. The reach the emitter derives is the face's own geometry,
         // which is what the assertions recompute independently rather than take on trust.
         IndoorMap indoor = Assert.IsType<IndoorMap>(MapDecoder.DecodeIndoor(
-            Payload("d01.blv", MapDecoderTests.IndoorPayload()),
-            Payload("d01.dlv", MapDecoderTests.IndoorDeltaPayload())));
-        OutdoorMap outdoor = Assert.IsType<OutdoorMap>(MapDecoder.DecodeOutdoor(Payload("out01.odm", MapDecoderTests.OutdoorPayload())));
+            LodFixture.Stored("d01.blv", MapDecoderTests.IndoorPayload()),
+            LodFixture.Stored("d01.dlv", MapDecoderTests.IndoorDeltaPayload())));
+        OutdoorMap outdoor = Assert.IsType<OutdoorMap>(MapDecoder.DecodeOutdoor(LodFixture.Stored("out01.odm", MapDecoderTests.OutdoorPayload())));
         ImportedPlaceGraph graph = ImportedPlaceGraph.Build(
             [EvtProgram.Read("D01.EVT", SyntheticInstallation.EvtProgram(11, "Out01.odm"))],
             new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["d01"] = 14, ["out01"] = 1 });
@@ -815,8 +815,6 @@ public sealed class PackWriterTests
     }
 
     /// <summary>Reads a payload as the decoder is handed one, without a container around it.</summary>
-    private static LodPayload Payload(string entryName, byte[] bytes) =>
-        new(new LodEntry(entryName, 0, bytes.Length), bytes, LodPayloadKind.Verbatim);
 
     private static void WriteBundle(string root, IReadOnlyList<string> packIds)    {
         string directory = Path.Combine(root, "bundles", "imported");
