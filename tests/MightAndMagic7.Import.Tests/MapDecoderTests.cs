@@ -141,9 +141,9 @@ public sealed class MapDecoderTests
     }
 
     [Fact]
-    public void An_indoor_payload_decodes_its_faces_from_the_shared_pool_and_its_doors_from_the_delta()
+    public void An_indoor_payload_declares_its_kind_name_version_pool_sizes_and_extent()
     {
-        IndoorMap map = MapDecoder.DecodeIndoor(Payload("d01.blv", IndoorPayload()), Payload("d01.dlv", IndoorDeltaPayload()));
+        IndoorMap map = DecodedIndoorFixture();
 
         Assert.Equal(MapKind.Indoor, map.Kind);
         Assert.Equal("No Name Level", map.Name);
@@ -153,6 +153,13 @@ public sealed class MapDecoderTests
         Assert.Equal(
             new IndoorCounts(1, 60, 10, 4, 16, 4, 1, 1, 2, 2, 1, 2, 1, 1, 0),
             map.Counts);
+        Assert.Equal(new MapBounds(0, 0, 0, 3, 6, 9), map.Bounds);
+    }
+
+    [Fact]
+    public void An_indoor_face_reads_its_corners_and_texture_coordinates_from_the_shared_face_pool()
+    {
+        IndoorMap map = DecodedIndoorFixture();
 
         MapFace face = Assert.Single(map.Faces);
         Assert.Equal("Cfb1", face.TextureName);
@@ -180,12 +187,24 @@ public sealed class MapDecoderTests
         Assert.Equal(1, face.SectorId);
         Assert.Equal(-1, face.BackSectorId);
         Assert.Equal(0, face.FaceExtraId);
+    }
+
+    [Fact]
+    public void An_indoor_face_extra_carries_the_cog_and_the_event_the_face_raises()
+    {
+        IndoorMap map = DecodedIndoorFixture();
 
         MapFaceExtra extra = Assert.Single(map.FaceExtras);
         Assert.Equal(7, extra.FaceId);
         Assert.Equal(0xFFFF, extra.AdditionalBitmapId);
         Assert.Equal(9, extra.CogNumber);
         Assert.Equal(11, extra.EventId);
+    }
+
+    [Fact]
+    public void An_indoor_sector_reads_its_lists_from_the_sector_pool_and_its_lights_from_the_light_pool()
+    {
+        IndoorMap map = DecodedIndoorFixture();
 
         Assert.Equal(2, map.Sectors.Count);
         MapSector empty = map.Sectors[0];
@@ -210,6 +229,12 @@ public sealed class MapDecoderTests
         Assert.Empty(sector.CogIds);
         Assert.Empty(sector.MarkerIds);
         Assert.Equal(new MapBounds(-10, -20, -30, 10, 20, 30), sector.Bounds);
+    }
+
+    [Fact]
+    public void An_indoor_light_is_read_field_by_field()
+    {
+        IndoorMap map = DecodedIndoorFixture();
 
         Assert.Equal(2, map.Lights.Count);
         MapLight light = map.Lights[0];
@@ -221,6 +246,12 @@ public sealed class MapDecoderTests
         Assert.Equal(4, light.Type);
         Assert.Equal(5, light.Attributes);
         Assert.Equal(6, light.Brightness);
+    }
+
+    [Fact]
+    public void An_indoor_payload_decodes_its_bsp_node_spawn_point_and_arrival_point()
+    {
+        IndoorMap map = DecodedIndoorFixture();
 
         MapBspNode node = Assert.Single(map.BspNodes);
         Assert.Equal((short)0, node.Front);
@@ -233,13 +264,24 @@ public sealed class MapDecoderTests
         Assert.Equal(7u, spawn.Group);
 
         Assert.Equal(new MapPoint(1536, -8448, 128), Assert.Single(map.EntryPoints).Position);
-        Assert.Equal(new MapBounds(0, 0, 0, 3, 6, 9), map.Bounds);
+    }
+
+    [Fact]
+    public void An_indoor_delta_is_decoded_with_its_level_and_sized_by_it()
+    {
+        IndoorMap map = DecodedIndoorFixture();
 
         MapDelta delta = Assert.IsType<MapDelta>(map.Delta);
         Assert.Equal(1, delta.FaceAttributeCount);
         Assert.Equal(1, delta.DecorationFlagCount);
         Assert.Equal(0, delta.ActorCount);
         Assert.Equal("sky", delta.Weather.SkyTexture);
+    }
+
+    [Fact]
+    public void An_indoor_delta_carries_the_levels_door_slots_with_their_lists_from_the_door_pool()
+    {
+        IndoorMap map = DecodedIndoorFixture();
 
         Assert.Equal(2, map.Doors.Count);
         MapDoor door = map.Doors[0];
@@ -502,6 +544,10 @@ public sealed class MapDecoderTests
             Directory.Delete(root, recursive: true);
         }
     }
+
+    /// <summary>The default indoor fixture decoded with its delta, which the indoor field tests each read a part of.</summary>
+    private static IndoorMap DecodedIndoorFixture() =>
+        MapDecoder.DecodeIndoor(Payload("d01.blv", IndoorPayload()), Payload("d01.dlv", IndoorDeltaPayload()));
 
     /// <summary>A payload that came from an entry of the given name.</summary>
     private static LodPayload Payload(string entryName, byte[] bytes) =>

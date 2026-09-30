@@ -556,156 +556,243 @@ public sealed class PackWriterTests
     }
 
     [Fact]
-    public void Places_carry_the_containers_and_loose_objects_the_maps_hold_with_counts_that_match_them()
+    public void The_decoded_maps_hold_the_chest_records_and_loose_objects_the_container_fixture_states()
     {
-        string installRoot = SyntheticInstallation.Create(withMaps: true, withContainers: true);
-        string root = Path.Combine(Path.GetTempPath(), $"mm7-containers-{Guid.NewGuid():N}");
-        try
+        using ContainerImport import = new();
+
+        // What the decoder and the emitter found is the authority the pack is checked against: every
+        // chest a face opens becomes one container, and every object the deltas carry becomes one
+        // placement, so a change in either side shows up as a disagreement rather than as a count
+        // nobody can check.
+        IReadOnlyList<DecodedMap> decoded = [.. import.Report.Decoded.Select(outcome => outcome.Decoded).OfType<DecodedMap>()];
+        Assert.Equal(76, decoded.Count);
+        // Thirteen regions hold the outdoor delta's four records each, and sixty-three interiors hold
+        // the container delta's two: the records are the runtime array, and only the ones a face opens
+        // become containers.
+        Assert.Equal((13 * 4) + (63 * 2), import.Report.Total.Chests);
+        Assert.Equal(76, import.Report.Total.SpriteObjects);
+    }
+
+    [Fact]
+    public void The_containers_a_write_reports_are_the_ones_the_emitter_places_over_the_same_maps()
+    {
+        using ContainerImport import = new();
+        PlaceContainerSummary expected = import.Emitted();
+        PackWriteResult written = import.Written;
+
+        // The pack's own counts are what the writer emitted, and the container/object totals the write
+        // reports are the ones the document carries.
+        Assert.Equal(expected.ContainerCount, written.Containers.ContainerCount);
+        Assert.Equal(expected.UnplacedRecords, written.Containers.UnplacedRecords);
+        Assert.Equal(63 * 2, written.Containers.ContainerCount);
+
+        // The emission the writer reports and the pack it wrote are one answer: the emitter run over the
+        // same decoded maps produces the same containers, at the same positions, with the same contents.
+        Assert.Equal(
+            expected.Chests.Select(chest => (chest.PlaceId, chest.ChestIndex, chest.X, chest.Y, chest.Z)),
+            written.Containers.Chests.Select(chest => (chest.PlaceId, chest.ChestIndex, chest.X, chest.Y, chest.Z)));
+    }
+
+    [Fact]
+    public void A_place_whose_program_is_missing_is_refused_by_name_and_its_records_stay_unplaced()
+    {
+        using ContainerImport import = new();
+        PackWriteResult written = import.Written;
+
+        // The fixture wires a program for every interior and for two of its thirteen regions, so the
+        // eleven regions whose program is not in the installation are refused by name rather than
+        // placed from nothing, and every region's four records stay unplaced because no region's
+        // program opens one.
+        Assert.Equal(11, written.Containers.Refusals.Count);
+        Assert.All(written.Containers.Refusals, refusal => Assert.Equal("program-not-found", refusal.Code));
+        Assert.Equal(13 * 4, written.Containers.UnplacedRecords);
+        // Every interior's delta holds one loose object and every region's holds one too, so the pack
+        // carries an object placement for each of the seventy-six places.
+        Assert.Equal(76, written.Containers.SpriteObjectCount);
+    }
+
+    [Fact]
+    public void A_written_container_counts_the_references_and_traps_its_record_holds()
+    {
+        using ContainerImport import = new();
+        PackWriteResult written = import.Written;
+
+        // Two containers are placed in each interior and only the first holds anything: one named item
+        // and one random reference, which is what the record stores. The second is a slot whose record
+        // is all zeroes, and it is trapped like the first only where the map says so.
+        Assert.Equal(63 * 2, written.Containers.ItemReferenceCount);
+        Assert.Equal(63, written.Containers.RandomItemReferenceCount);
+        Assert.Equal(63, written.Containers.TrappedCount);
+    }
+
+    [Fact]
+    public void Every_place_counts_its_container_and_object_placements_as_the_write_reports_them()
+    {
+        using ContainerImport import = new();
+        PackWriteResult written = import.Written;
+
+        int containers = 0;
+        int sprites = 0;
+        foreach (JsonElement entry in import.PlaceEntries())
         {
-            string imports = Path.Combine(root, "imports");
-            PackWriteResult written = PackWriter.Write(LodInstall.Open(installRoot), imports);
+            JsonElement counts = entry.GetProperty("placementCounts");
+            JsonElement placements = entry.GetProperty("placements");
+            Assert.Equal(placements.GetArrayLength(), counts.GetProperty("total").GetInt32());
+            Assert.Equal(
+                placements.GetArrayLength(),
+                counts.EnumerateObject().Where(property => property.Name != "total").Sum(property => property.Value.GetInt32()));
+            containers += counts.GetProperty("container").GetInt32();
+            sprites += counts.GetProperty("sprite").GetInt32();
+        }
 
-            // What the decoder and the emitter found is the authority the pack is checked against: every
-            // chest a face opens becomes one container, and every object the deltas carry becomes one
-            // placement, so a change in either side shows up as a disagreement rather than as a count
-            // nobody can check.
-            MapDecodeReport report = MapDecoder.DecodeAll(LodInstall.Open(installRoot));
-            IReadOnlyList<DecodedMap> decoded = [.. report.Decoded.Select(outcome => outcome.Decoded).OfType<DecodedMap>()];
-            Assert.Equal(76, decoded.Count);
-            // Thirteen regions hold the outdoor delta's four records each, and sixty-three interiors hold
-            // the container delta's two: the records are the runtime array, and only the ones a face opens
-            // become containers.
-            Assert.Equal((13 * 4) + (63 * 2), report.Total.Chests);
-            Assert.Equal(76, report.Total.SpriteObjects);
+        Assert.Equal(written.Containers.ContainerCount, containers);
+        Assert.Equal(written.Containers.SpriteObjectCount, sprites);
+    }
 
-            LodInstall install = LodInstall.Open(installRoot);
+    [Fact]
+    public void A_container_placement_states_its_sources_its_traps_and_what_its_record_holds()
+    {
+        using ContainerImport import = new();
+        IReadOnlyList<JsonElement> containers = import.PlacementsOfKind("container");
+        Assert.Equal(import.Written.Containers.ContainerCount, containers.Count);
+
+        foreach (JsonElement placement in containers)
+        {
+            // A container says where its position came from, what its own record's flags are,
+            // what the place's traps are, and what it holds — references included, exactly as
+            // the map recorded them.
+            Assert.Equal("event-face-centroid", placement.GetProperty("positionSource").GetString());
+            Assert.Equal("chest-record", placement.GetProperty("contentsSource").GetString());
+            Assert.Equal("chests", placement.GetProperty("sourceField").GetString());
+            Assert.True(placement.GetProperty("trapDifficulty").GetInt32() > 0);
+            Assert.True(placement.GetProperty("trapDamageDice").GetInt32() > 0);
+
+            JsonElement[] contents = [.. placement.GetProperty("contents").EnumerateArray()];
+            if (placement.GetProperty("sourceIndex").GetInt32() == 0)
+            {
+                Assert.Equal(1, placement.GetProperty("flags").GetInt32());
+                Assert.Equal(2, contents.Length);
+                Assert.Equal(0, contents[0].GetProperty("slot").GetInt32());
+                Assert.Equal(220, contents[0].GetProperty("item").GetInt32());
+                Assert.Equal(3, contents[1].GetProperty("slot").GetInt32());
+                Assert.Equal(-3, contents[1].GetProperty("item").GetInt32());
+            }
+            else
+            {
+                // The delta's spare record, which the map's second face opens: a real
+                // container with nothing in it and no trap of its own.
+                Assert.Equal(0, placement.GetProperty("flags").GetInt32());
+                Assert.Empty(contents);
+            }
+        }
+    }
+
+    [Fact]
+    public void An_object_placement_states_what_it_holds_and_only_the_interiors_objects_hold_anything()
+    {
+        using ContainerImport import = new();
+
+        IReadOnlyList<JsonElement> sprites = import.PlacementsOfKind("sprite");
+        Assert.Equal(import.Written.Containers.SpriteObjectCount, sprites.Count);
+
+        int stockedSprites = 0;
+        foreach (JsonElement placement in sprites)
+        {
+            // An object says what it is and what it holds, which for a region's fixture
+            // object is nothing at all: the placement is emitted whether or not the object
+            // is something a party can reach for.
+            Assert.Equal("spriteObjects", placement.GetProperty("sourceField").GetString());
+            Assert.Equal("containing-item", placement.GetProperty("contentsSource").GetString());
+            if (placement.GetProperty("containingItem").GetInt32() != 0) stockedSprites++;
+        }
+
+        // Sixty-three interiors hold the item their delta's object carries, and the regions' objects
+        // hold nothing, which is the same distinction the summary states.
+        Assert.Equal(63, stockedSprites);
+        Assert.Equal(import.Written.Containers.StockedSpriteObjectCount, stockedSprites);
+    }
+
+    [Fact]
+    public void The_products_reader_finds_an_interiors_containers_among_its_placements()
+    {
+        using ContainerImport import = new();
+
+        // The product's own reader agrees with the document, and the containers are targets it
+        // discovers: a place that holds containers declares them among its placements like anything else.
+        WriteBundle(import.Root, ["mm7-tables", "mm7-world"]);
+        ContentBootstrapResult bootstrap = ContentBootstrap.Load(new FileContentSource(import.Root), Layout, "imported");
+        Assert.True(bootstrap.IsValid, string.Join("; ", bootstrap.Issues.Select(issue => issue.ToString())));
+        PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog, RouteDays.Instance);
+        PlacePopulationContent content = PlacePopulationContent.Read(graph);
+        PlaceDefinition interior = graph.Places.First(place => place.Kind == PlaceKind.Interior);
+        Assert.Equal(3, content.PlacementsOf(interior.Id).Count);
+        Assert.Equal(2, content.PlacementsOf(interior.Id).Count(placement => placement.Content.Kind == "container"));
+        Assert.Equal(1, content.PlacementsOf(interior.Id).Count(placement => placement.Content.Kind == "sprite"));
+        Assert.Equal(0, content.PlacementsOf(interior.Id).Count(placement => placement.Content.Kind == "door"));
+    }
+
+    /// <summary>
+    /// The container fixture imported once: the installation, the packs written from it, and the decoder's
+    /// own report over the same maps, which the container tests each check a part of.
+    /// </summary>
+    private sealed class ContainerImport : IDisposable
+    {
+        private readonly string _installRoot;
+
+        internal ContainerImport()
+        {
+            _installRoot = SyntheticInstallation.Create(withMaps: true, withContainers: true);
+            Root = Path.Combine(Path.GetTempPath(), $"mm7-containers-{Guid.NewGuid():N}");
+            Imports = Path.Combine(Root, "imports");
+            Written = PackWriter.Write(LodInstall.Open(_installRoot), Imports);
+            Report = MapDecoder.DecodeAll(LodInstall.Open(_installRoot));
+        }
+
+        /// <summary>The content root a bundle over the written packs is placed under.</summary>
+        internal string Root { get; }
+
+        /// <summary>Where the packs were written.</summary>
+        internal string Imports { get; }
+
+        /// <summary>What the write reported.</summary>
+        internal PackWriteResult Written { get; }
+
+        /// <summary>The decoder's own reading of the same installation.</summary>
+        internal MapDecodeReport Report { get; }
+
+        /// <summary>The container emitter run directly over the decoded maps, independently of the writer.</summary>
+        internal PlaceContainerSummary Emitted()
+        {
+            LodInstall install = LodInstall.Open(_installRoot);
             Dictionary<int, DecodedMap> byPlace = [];
-            foreach (MapDecodeOutcome outcome in report.Decoded)
+            foreach (MapDecodeOutcome outcome in Report.Decoded)
             {
                 if (outcome.Decoded is not null) byPlace[outcome.Map.Id] = outcome.Decoded;
             }
 
-            PlaceContainerSummary expected = PlaceContainerEmitter.Emit(
+            return PlaceContainerEmitter.Emit(
                 byPlace,
                 EvtProgram.ReadAll(install),
                 PlaceMapNumbersTable.Read(Mm7Tables.Read(install)));
-
-            // The pack's own counts are what the writer emitted, and the container/object totals the write
-            // reports are the ones the document carries.
-            Assert.Equal(expected.ContainerCount, written.Containers.ContainerCount);
-            Assert.Equal(expected.UnplacedRecords, written.Containers.UnplacedRecords);
-            Assert.Equal(63 * 2, written.Containers.ContainerCount);
-
-            // The fixture wires a program for every interior and for two of its thirteen regions, so the
-            // eleven regions whose program is not in the installation are refused by name rather than
-            // placed from nothing, and every region's four records stay unplaced because no region's
-            // program opens one.
-            Assert.Equal(11, written.Containers.Refusals.Count);
-            Assert.All(written.Containers.Refusals, refusal => Assert.Equal("program-not-found", refusal.Code));
-            Assert.Equal(13 * 4, written.Containers.UnplacedRecords);
-            // Every interior's delta holds one loose object and every region's holds one too, so the pack
-            // carries an object placement for each of the seventy-six places.
-            Assert.Equal(76, written.Containers.SpriteObjectCount);
-
-            // Two containers are placed in each interior and only the first holds anything: one named item
-            // and one random reference, which is what the record stores. The second is a slot whose record
-            // is all zeroes, and it is trapped like the first only where the map says so.
-            Assert.Equal(63 * 2, written.Containers.ItemReferenceCount);
-            Assert.Equal(63, written.Containers.RandomItemReferenceCount);
-            Assert.Equal(63, written.Containers.TrappedCount);
-
-            int containers = 0;
-            int sprites = 0;
-            int stockedSprites = 0;
-            using (JsonDocument places = JsonDocument.Parse(File.ReadAllText(Path.Combine(imports, "mm7-tables", "places.json"))))
-            {
-                foreach (JsonElement entry in places.RootElement.GetProperty("entries").EnumerateArray())
-                {
-                    JsonElement counts = entry.GetProperty("placementCounts");
-                    JsonElement placements = entry.GetProperty("placements");
-                    Assert.Equal(placements.GetArrayLength(), counts.GetProperty("total").GetInt32());
-                    Assert.Equal(
-                        placements.GetArrayLength(),
-                        counts.EnumerateObject().Where(property => property.Name != "total").Sum(property => property.Value.GetInt32()));
-                    containers += counts.GetProperty("container").GetInt32();
-                    sprites += counts.GetProperty("sprite").GetInt32();
-
-                    foreach (JsonElement placement in placements.EnumerateArray())
-                    {
-                        string kind = placement.GetProperty("kind").GetString()!;
-                        if (string.Equals(kind, "container", StringComparison.Ordinal))
-                        {
-                            // A container says where its position came from, what its own record's flags are,
-                            // what the place's traps are, and what it holds — references included, exactly as
-                            // the map recorded them.
-                            Assert.Equal("event-face-centroid", placement.GetProperty("positionSource").GetString());
-                            Assert.Equal("chest-record", placement.GetProperty("contentsSource").GetString());
-                            Assert.Equal("chests", placement.GetProperty("sourceField").GetString());
-                            Assert.True(placement.GetProperty("trapDifficulty").GetInt32() > 0);
-                            Assert.True(placement.GetProperty("trapDamageDice").GetInt32() > 0);
-
-                            JsonElement[] contents = [.. placement.GetProperty("contents").EnumerateArray()];
-                            if (placement.GetProperty("sourceIndex").GetInt32() == 0)
-                            {
-                                Assert.Equal(1, placement.GetProperty("flags").GetInt32());
-                                Assert.Equal(2, contents.Length);
-                                Assert.Equal(0, contents[0].GetProperty("slot").GetInt32());
-                                Assert.Equal(220, contents[0].GetProperty("item").GetInt32());
-                                Assert.Equal(3, contents[1].GetProperty("slot").GetInt32());
-                                Assert.Equal(-3, contents[1].GetProperty("item").GetInt32());
-                            }
-                            else
-                            {
-                                // The delta's spare record, which the map's second face opens: a real
-                                // container with nothing in it and no trap of its own.
-                                Assert.Equal(0, placement.GetProperty("flags").GetInt32());
-                                Assert.Empty(contents);
-                            }
-                        }
-                        else if (string.Equals(kind, "sprite", StringComparison.Ordinal))
-                        {
-                            // An object says what it is and what it holds, which for a region's fixture
-                            // object is nothing at all: the placement is emitted whether or not the object
-                            // is something a party can reach for.
-                            Assert.Equal("spriteObjects", placement.GetProperty("sourceField").GetString());
-                            Assert.Equal("containing-item", placement.GetProperty("contentsSource").GetString());
-                            if (placement.GetProperty("containingItem").GetInt32() != 0) stockedSprites++;
-                        }
-                    }
-                }
-            }
-
-            Assert.Equal(written.Containers.ContainerCount, containers);
-            Assert.Equal(written.Containers.SpriteObjectCount, sprites);
-
-            // Sixty-three interiors hold the item their delta's object carries, and the regions' objects
-            // hold nothing, which is the same distinction the summary states.
-            Assert.Equal(63, stockedSprites);
-            Assert.Equal(written.Containers.StockedSpriteObjectCount, stockedSprites);
-
-            // The product's own reader agrees with the document, and the containers are targets it
-            // discovers: a place that holds containers declares them among its placements like anything else.
-            WriteBundle(root, ["mm7-tables", "mm7-world"]);
-            ContentBootstrapResult bootstrap = ContentBootstrap.Load(new FileContentSource(root), Layout, "imported");
-            Assert.True(bootstrap.IsValid, string.Join("; ", bootstrap.Issues.Select(issue => issue.ToString())));
-            PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog, RouteDays.Instance);
-            PlacePopulationContent content = PlacePopulationContent.Read(graph);
-            PlaceDefinition interior = graph.Places.First(place => place.Kind == PlaceKind.Interior);
-            Assert.Equal(3, content.PlacementsOf(interior.Id).Count);
-            Assert.Equal(2, content.PlacementsOf(interior.Id).Count(placement => placement.Content.Kind == "container"));
-            Assert.Equal(1, content.PlacementsOf(interior.Id).Count(placement => placement.Content.Kind == "sprite"));
-            Assert.Equal(0, content.PlacementsOf(interior.Id).Count(placement => placement.Content.Kind == "door"));
-
-            // The emission the writer reports and the pack it wrote are one answer: the emitter run over the
-            // same decoded maps produces the same containers, at the same positions, with the same contents.
-            Assert.Equal(
-                expected.Chests.Select(chest => (chest.PlaceId, chest.ChestIndex, chest.X, chest.Y, chest.Z)),
-                written.Containers.Chests.Select(chest => (chest.PlaceId, chest.ChestIndex, chest.X, chest.Y, chest.Z)));
         }
-        finally
+
+        /// <summary>Every place entry of the written places document.</summary>
+        internal IReadOnlyList<JsonElement> PlaceEntries()
         {
-            Directory.Delete(installRoot, recursive: true);
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+            using JsonDocument places = JsonDocument.Parse(File.ReadAllText(Path.Combine(Imports, "mm7-tables", "places.json")));
+            return [.. places.RootElement.GetProperty("entries").EnumerateArray().Select(entry => entry.Clone())];
+        }
+
+        /// <summary>Every placement of one kind across the written places document.</summary>
+        internal IReadOnlyList<JsonElement> PlacementsOfKind(string kind) =>
+            [.. PlaceEntries()
+                .SelectMany(entry => entry.GetProperty("placements").EnumerateArray())
+                .Where(placement => string.Equals(placement.GetProperty("kind").GetString(), kind, StringComparison.Ordinal))];
+
+        public void Dispose()
+        {
+            Directory.Delete(_installRoot, recursive: true);
+            if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
         }
     }
 
