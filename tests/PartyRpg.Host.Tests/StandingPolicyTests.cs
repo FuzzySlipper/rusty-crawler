@@ -253,16 +253,10 @@ public sealed class StandingPolicyTests
         Assert.Single(standing.Awards(fixture.Party));
     }
 
-    [Fact]
+    [ImportedFact("people.json")]
     public void The_shipped_data_gates_nothing_on_a_standing_and_the_standing_lines_are_this_game_s_own()
     {
-        string content = Path.Combine(RepositoryRoot(), "content");
-        string people = Path.Combine(content, "partyrpg", "imports", "mm7-tables", "people.json");
-        if (!File.Exists(people)) return;
-
-        ContentCatalog catalog = ContentCatalogLoader.Load(
-            new FileContentSource(content),
-            new ContentLayout("partyrpg/content-packs", "partyrpg/imports", "partyrpg/bundles"));
+        ContentCatalog catalog = ImportedContent.Load();
         MightAndMagic7Promotions promotions = MightAndMagic7Promotions.Read(catalog);
         MightAndMagic7Quests quests = MightAndMagic7Quests.Read(catalog, promotions)!;
         MightAndMagic7Services services = MightAndMagic7Services.Read(catalog, quests: quests)!;
@@ -350,16 +344,10 @@ public sealed class StandingPolicyTests
         Assert.True(At(25).IsOnOffer);
     }
 
-    [Fact]
+    [ImportedFact("quests.json")]
     public void The_awards_of_the_shipped_game_read_in_the_ladder_s_and_the_errands_own_words()
     {
-        string content = Path.Combine(RepositoryRoot(), "content");
-        string quests = Path.Combine(content, "partyrpg", "imports", "mm7-tables", "quests.json");
-        if (!File.Exists(quests)) return;
-
-        ContentCatalog catalog = ContentCatalogLoader.Load(
-            new FileContentSource(content),
-            new ContentLayout("partyrpg/content-packs", "partyrpg/imports", "partyrpg/bundles"));
+        ContentCatalog catalog = ImportedContent.Load();
         MightAndMagic7Promotions promotions = MightAndMagic7Promotions.Read(catalog);
         MightAndMagic7Quests read = MightAndMagic7Quests.Read(catalog, promotions)!;
         MightAndMagic7Services services = MightAndMagic7Services.Read(catalog, quests: read)!;
@@ -818,12 +806,5 @@ public sealed class StandingPolicyTests
                 "lessons": [
                   { "kind": "effect", "subject": "guild.fire", "amount": 1, "value": 50, "name": "Fire Guild membership" } ] } ] }
             """;
-    }
-
-    private static string RepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "AGENTS.md"))) directory = directory.Parent;
-        return directory?.FullName ?? throw new InvalidOperationException("The repository root was not found above the test output.");
     }
 }

@@ -15,6 +15,12 @@ internal static class ProductTestContext
 {
     internal const string ContentDirectory = "partyrpg";
 
+    /// <summary>
+    /// A process environment that sets nothing, so a product a test creates starts the way the test says rather
+    /// than the way the developer's shell happens to.
+    /// </summary>
+    internal static string? NoVariables(string name) => null;
+
     /// <summary>A product context whose staged content holds exactly the given files.</summary>
     internal static (ProductCreateContext Context, RecordingUiService Ui) Create(params (string Path, string Text)[] files) =>
         Create(persistence: null, files);

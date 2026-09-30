@@ -8,7 +8,8 @@ import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 import { JSDOM } from 'jsdom';
 
-import { mountProductUi } from '../../src/ui/main.ts';
+// The compiled companion the product ships, built by `npm run build:ui` from src/ui/tsconfig.json.
+import { mountProductUi } from '../../src/ui/generated/main.js';
 
 const CONTRACT = 'crawler.ui.snapshot.v1';
 const ACTION_INTENT = 'crawler.ui';

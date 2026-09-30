@@ -1,6 +1,8 @@
 using System.Text.Json;
 using MightAndMagic7.Import.Events;
 using MightAndMagic7.Import.Lod;
+using MightAndMagic7.Import.Maps;
+using MightAndMagic7.Import.Media;
 using MightAndMagic7.Import.Tables;
 using MightAndMagic7.Import.World;
 
@@ -11,6 +13,12 @@ namespace MightAndMagic7.Import.Tool;
 /// readers. Every number here is written down in <c>docs/research/mm7-data-inventory.md</c>; a reader
 /// that drifts from the data fails this check instead of failing quietly.
 /// </summary>
+/// <remarks>
+/// The tables and the place graph are read directly. The figures the repository's documents state about
+/// what an import yields — maps, places, arrivals, doors, containers, people, creatures, reaches, geometry,
+/// media — are read from the same decoding and the same writers an operator runs, into a scratch directory
+/// this check deletes, so a figure stated in prose is a figure something asserts.
+/// </remarks>
 internal static class InventoryCheck
 {
     internal static int Run(string installRoot)
@@ -43,6 +51,8 @@ internal static class InventoryCheck
         Check(failures, "exit instructions", 1552, graph.ExitInstructionCount);
         Check(failures, "programs without a map", 1, graph.ProgramsWithoutAMap.Count);
 
+        CheckImport(failures, install);
+
         // The older table set from the previous game in the family shares these names with the rules
         // archive; the check exists so the trap cannot disappear unnoticed.
         string[] sharedNames = ["CLASS.TXT", "MAPSTATS.TXT", "SPELLS.TXT"];
@@ -61,15 +71,65 @@ internal static class InventoryCheck
             {
                 install = install.Root,
                 result = failures.Count == 0 ? "pass" : "fail",
-                checks = 20 + sharedNames.Length,
+                checks = _checks + sharedNames.Length,
                 failures,
             },
             new JsonSerializerOptions { WriteIndented = true }));
         return failures.Count == 0 ? 0 : 1;
     }
 
+    private static int _checks;
+
+    /// <summary>What decoding every map and writing every pack yields, against the figures the documents state.</summary>
+    private static void CheckImport(List<string> failures, LodInstall install)
+    {
+        MapDecodeReport maps = MapDecoder.DecodeAll(install);
+        List<DecodedMap> decoded = [.. maps.Decoded.Select(outcome => outcome.Decoded).OfType<DecodedMap>()];
+        Check(failures, "maps decoded", 76, maps.DecodedCount);
+        Check(failures, "maps not decoded", 0, maps.FailureCount);
+        Check(failures, "arrival points", 83, maps.Total.EntryPoints);
+        Check(failures, "chest records", 1520, maps.Total.Chests);
+        Check(failures, "sprite objects", 722, maps.Total.SpriteObjects);
+        Check(failures, "doors in use", 786, decoded.Sum(map => map.Doors.Count(door => door.InUse)));
+        Check(failures, "interiors with a door in use", 54, decoded.Count(map => map.Doors.Any(door => door.InUse)));
+        Check(failures, "decorations raising an event", 60, decoded.Sum(map => map.Decorations.Count(decoration => decoration.EventId != 0)));
+        Check(failures, "actors", 826, decoded.Sum(map => map.Delta?.Actors.Count ?? 0));
+        Check(failures, "actors naming a person", 123, decoded.Sum(map => map.Delta?.Actors.Count(actor => actor.IsPerson) ?? 0));
+
+        string scratch = Directory.CreateTempSubdirectory("mm7import-verify-").FullName;
+        try
+        {
+            PackWriteResult written = PackWriter.Write(install, Path.Combine(scratch, "packs"));
+            Check(failures, "places with geometry", 76, written.Geometry.EmittedCount);
+            Check(failures, "regions", 13, written.Geometry.EmittedOf(MapKind.Outdoor));
+            Check(failures, "interiors", 63, written.Geometry.EmittedOf(MapKind.Indoor));
+            Check(failures, "collision triangles", 824320, written.Geometry.Triangles);
+            Check(failures, "transition reaches", 532, written.Entrances.ReachCount);
+            Check(failures, "links with a reach", 155, written.Entrances.LinkCount);
+            Check(failures, "containers", 357, written.Containers.ContainerCount);
+            Check(failures, "places with a container", 57, written.Containers.PlaceCount);
+            Check(failures, "enterable services", 136, written.Services.CounterCount);
+            Check(failures, "service placements", 358, written.Services.PlacementCount);
+            Check(failures, "fares", 84, written.Services.FareCount);
+            Check(failures, "people inside buildings", 247, written.People.ResidentCount);
+            Check(failures, "buildings with people", 195, written.People.HouseholdCount);
+            Check(failures, "unreachable residents", 2, written.People.UnreachableResidentCount);
+            Check(failures, "creatures", 1900, written.Creatures.CreatureCount);
+            Check(failures, "places with creatures", 72, written.Creatures.PopulatedPlaces);
+            Check(failures, "spawn records refused", 43, written.Creatures.Refusals.Count);
+
+            MediaManifest media = MediaExtractor.Extract(install, Path.Combine(scratch, "media"));
+            Check(failures, "media emitted", 17681, media.EmittedCount);
+        }
+        finally
+        {
+            Directory.Delete(scratch, recursive: true);
+        }
+    }
+
     private static void Check(List<string> failures, string what, int expected, int actual)
     {
+        _checks++;
         if (expected != actual) failures.Add($"{what}: expected {expected}, read {actual}");
     }
 

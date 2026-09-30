@@ -34,7 +34,7 @@ namespace PartyRpg.Host.Tests;
 /// the ranks this game's compiled table states, exactly as it gets the mastery rows. Where the operator's
 /// own import is present the ladder is checked against the class table it is written in — the shipped rows
 /// are what names every class a rank promotes from and to — and a machine without that data says so by
-/// returning rather than skipping silently.
+/// reporting that case skipped.
 /// </para>
 /// </remarks>
 public sealed class PromotionPolicyTests
@@ -61,13 +61,13 @@ public sealed class PromotionPolicyTests
         Assert.Equal(9, ladder.Ladder.Ranks.Count(rank => rank.Rank == 2));
         Assert.Equal(18, ladder.Ladder.Ranks.Count(rank => rank.Rank == 3));
         Assert.Equal(8, ladder.Paths.Count);
+    }
 
-        string content = Path.Combine(RepositoryRoot(), "content");
-        string classes = Path.Combine(content, "partyrpg", "imports", "mm7-tables", "classes.json");
-        if (!File.Exists(classes)) return;
-        ContentCatalog catalog = ContentCatalogLoader.Load(
-            new FileContentSource(content),
-            new ContentLayout("partyrpg/content-packs", "partyrpg/imports", "partyrpg/bundles"));
+    [ImportedFact("classes.json")]
+    public void The_ladder_over_the_shipped_class_table_is_that_table_s_own_rows_in_its_own_order()
+    {
+        string classes = ImportedContent.Table("classes.json");
+        ContentCatalog catalog = ImportedContent.Load();
         MightAndMagic7Promotions overContent = MightAndMagic7Promotions.Read(catalog);
 
         // The shipped class table's own rows, in its own order: four per family, the base class, its first
@@ -686,15 +686,4 @@ public sealed class PromotionPolicyTests
     ];
 
     /// <summary>The repository root, found by walking up from the test binary.</summary>
-    private static string RepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (Directory.Exists(Path.Combine(directory.FullName, "src", "PartyRpg.Kit"))) return directory.FullName;
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException($"No 'src/PartyRpg.Kit' directory above '{AppContext.BaseDirectory}'.");
-    }
 }

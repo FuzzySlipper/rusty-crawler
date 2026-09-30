@@ -280,7 +280,7 @@ in Castle Harmondale, The Pit, and the like with their own names. So a person st
 `npcId` is non-zero, and the person's name, portrait, greetings, and topics come from `Npcdata.txt`, `npcgreet.txt`,
 and `npctopic.txt`, whose columns the data inventory records (`docs/research/mm7-data-inventory.md`, *Characters*).
 
-The same tables place **246 further people inside buildings**: `Npcdata.txt`'s `2D Location` column is the
+The same tables place **247 further people inside buildings**: `Npcdata.txt`'s `2D Location` column is the
 `2DEvents.txt` row the person lives in (195 distinct buildings), which is how a shopkeeper or a household's
 residents are reached without standing in the open. Of those 195 buildings, the import places a door for 193; the
 other two (rows 453 and 521) raise no event on any face of their map, so their two people are unreachable and are

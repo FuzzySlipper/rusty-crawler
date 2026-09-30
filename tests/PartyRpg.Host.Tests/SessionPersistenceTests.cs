@@ -109,7 +109,7 @@ public sealed class SessionPersistenceTests
 
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(persistence, content);
         ProjectedNode before;
-        using (CrawlerProduct product = new(context))
+        using (CrawlerProduct product = new(context, ProductTestContext.NoVariables))
         {
             product.Start();
             Assert.Equal(SessionMode.Creating, product.Mode);

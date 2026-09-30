@@ -1,7 +1,9 @@
 # ui
 
 The product DOM companion, authored in TypeScript and compiled into generated output by the host
-project's build.
+project's build. The compiler options are in `tsconfig.json`, which both the host build and
+`npm run build:ui` read, so the companion suite (`npm run test:ui`) exercises the same `generated/main.js`
+the product ships.
 
 Implemented today: `main.ts` exports `mountProductUi(root, context)`, renders the session projection
 (composition title, session mode, admitted simulation), and claims the pause/resume action when the

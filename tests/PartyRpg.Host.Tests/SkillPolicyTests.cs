@@ -44,19 +44,14 @@ public sealed class SkillPolicyTests
         ProductIdentity.SkillRaiseAction,
         ProductIdentity.UiActionContract);
 
-    [Fact]
+    [ImportedFact("skills.json")]
     public void The_shipped_rows_are_read_into_four_blocks_and_the_three_row_the_game_does_not_use_are_reported()
     {
         // The shipped skill table is the operator's own data: it is generated from their installation and no
-        // checkout commits it, so a machine without it has nothing to check here and says so by returning.
+        // checkout commits it, so a machine without it has nothing to check here and reports the case skipped.
         // The counts this asserts are the inventory's own — 37 rows, four blocks of 34, three leftovers
         // (docs/research/mm7-data-inventory.md, Skills; docs/gameplay-design.md §3.2).
-        string content = Path.Combine(RepositoryRoot(), "content");
-        if (!File.Exists(Path.Combine(content, "partyrpg", "imports", "mm7-tables", "skills.json"))) return;
-
-        ContentCatalog catalog = ContentCatalogLoader.Load(
-            new FileContentSource(content),
-            new ContentLayout("partyrpg/content-packs", "partyrpg/imports", "partyrpg/bundles"));
+        ContentCatalog catalog = ImportedContent.Load();
         MightAndMagic7Skills skills = MightAndMagic7Skills.Read(catalog)
             ?? throw new InvalidOperationException("The operator's pack declares skills, so the policy must be read.");
 
@@ -632,20 +627,4 @@ internal sealed class MemoryContent : IContentSource
     ];
 
 /// <summary>The repository root, found by walking up from the test's own output directory.</summary>
-    private static string RepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (Directory.Exists(Path.Combine(directory.FullName, "src"))
-                && File.Exists(Path.Combine(directory.FullName, "AGENTS.md")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException($"The repository root is not above {AppContext.BaseDirectory}.");
-    }
 }

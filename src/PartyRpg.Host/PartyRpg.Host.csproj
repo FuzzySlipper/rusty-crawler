@@ -14,9 +14,11 @@
     <RustyEngineProductId>rusty-crawler-partyrpg</RustyEngineProductId>
     <RustyEngineProductTitle>Rusty Crawler</RustyEngineProductTitle>
     <RustyEngineProductUiRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../ui/generated'))</RustyEngineProductUiRoot>
-    <!-- The SDK runs this only when ../ui or a listed input changes. -->
+    <!-- The SDK runs this only when ../ui or a listed input changes. The compiler options live in
+         ../ui/tsconfig.json, which the companion suite's own build reads too, so the tested and the shipped
+         main.js are compiled the same way. -->
     <RustyEngineProductUiSourceRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../ui'))</RustyEngineProductUiSourceRoot>
-    <RustyEngineProductUiBuildCommand>npm --prefix &quot;$(MSBuildThisFileDirectory)../..&quot; exec -- tsc --target ES2022 --module ES2022 --moduleResolution bundler --strict --noEmitOnError --outDir &quot;$(RustyEngineProductUiRoot)&quot; &quot;$(MSBuildThisFileDirectory)../ui/main.ts&quot;</RustyEngineProductUiBuildCommand>
+    <RustyEngineProductUiBuildCommand>npm --prefix &quot;$(MSBuildThisFileDirectory)../..&quot; exec -- tsc -p &quot;$(MSBuildThisFileDirectory)../ui/tsconfig.json&quot; --outDir &quot;$(RustyEngineProductUiRoot)&quot;</RustyEngineProductUiBuildCommand>
     <RustyEngineProductContentRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../content'))</RustyEngineProductContentRoot>
     <RustyEngineProductUiEntry>main.js</RustyEngineProductUiEntry>
     <RustyEngineProductUiProjectionStream>crawler.hud</RustyEngineProductUiProjectionStream>

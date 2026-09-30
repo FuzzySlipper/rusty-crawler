@@ -32,7 +32,7 @@ namespace PartyRpg.Host.Tests;
 /// The composed case is written the way the importer writes a world — a place, the person standing in it,
 /// the tables around them — so the same suite proves the shipped policy rather than a fixture invented for
 /// it. The readings are checked against the operator's own imported packs where they are staged, and a
-/// machine without that data says so by returning rather than skipping silently.
+/// machine without that data reports those cases skipped.
 /// </para>
 /// </remarks>
 public sealed class QuestPolicyTests
@@ -50,16 +50,10 @@ public sealed class QuestPolicyTests
         ProductIdentity.ServiceLeaveIntent,
         ProductIdentity.UiActionContract);
 
-    [Fact]
+    [ImportedFact("quests.json")]
     public void The_shipped_quest_table_states_the_words_and_this_game_states_the_errand()
     {
-        string content = Path.Combine(RepositoryRoot(), "content");
-        string quests = Path.Combine(content, "partyrpg", "imports", "mm7-tables", "quests.json");
-        if (!File.Exists(quests)) return;
-
-        ContentCatalog catalog = ContentCatalogLoader.Load(
-            new FileContentSource(content),
-            new ContentLayout("partyrpg/content-packs", "partyrpg/imports", "partyrpg/bundles"));
+        ContentCatalog catalog = ImportedContent.Load();
         MightAndMagic7Promotions ladder = MightAndMagic7Promotions.Read(catalog);
         MightAndMagic7Quests questsRead = MightAndMagic7Quests.Read(catalog, ladder)!;
 
@@ -482,21 +476,4 @@ public sealed class QuestPolicyTests
             }
             """),
     ];
-
-    private static string RepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "AGENTS.md")) &&
-                Directory.Exists(Path.Combine(directory.FullName, "src")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException($"Could not find the repository root above '{AppContext.BaseDirectory}'.");
-    }
 }

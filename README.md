@@ -202,11 +202,24 @@ Routine verification:
 ./scripts/verify.sh
 ```
 
-That installs the pinned pair if needed, installs the UI dependencies, runs the DOM companion
-tests, builds every product project, runs every suite, and stages the CoreCLR product.
-NativeAOT is a separate fidelity target and stays opt-in with `--aot`. The project and suite lists
+That installs the pinned pair if needed, installs the UI dependencies, compiles the DOM companion
+from `src/ui/tsconfig.json` and runs its suite over the compiled `main.js` (`npm run test:ui`), builds
+every project in Release, checks the operator's data when the install is present, runs every suite,
+and stages the CoreCLR product. Every step runs even when an earlier one fails, and the script ends
+with a summary of what passed, what was skipped and why, and what failed, exiting non-zero if anything
+did. NativeAOT is a separate fidelity target and stays opt-in with `--aot`. The project and suite lists
 in the script are explicit on purpose: a discovery-based loop silently stops covering a project that
-moved, so a new project is added there in the same change that adds it.
+moved, so a new project is added there in the same change that adds it. The same script is the
+`verify` GitHub workflow, where the operator's data is absent and those checks report skipped.
+
+The companion suite needs a Node that `jsdom` supports (`package.json` `engines`; `.nvmrc` names the
+one CI uses).
+
+With the operator's install present (`CRAWLER_MM7_INSTALL`, by default `/home/research/old-games/game-mm7`),
+the script also runs `mm7import verify` and `maps`, and writes the packs twice into a scratch root and
+compares them. The Host suite's cases that check this game's policy against the shipped tables read that
+root through `CRAWLER_IMPORTED_CONTENT` and nothing else; without it they report themselves skipped
+rather than passing.
 
 Ordinary development runs the product on the pinned runtime:
 
@@ -229,9 +242,11 @@ dotnet src/MightAndMagic7.Import.Tool/bin/Release/net10.0/mm7import.dll verify -
 ```
 
 `report` prints what the containers, tables, event programs, and map graph actually contain;
-`verify` checks the readers against the recorded inventory in `docs/research/mm7-data-inventory.md`
-and fails when a reader drifts from the data. `scripts/verify.sh` runs `verify` when the installation
-is present, and says so plainly when it is not.
+`verify` checks the readers against the recorded inventory in `docs/research/mm7-data-inventory.md`,
+and decodes every map, writes every pack and extracts the media into a scratch directory it deletes, to
+check the figures the documents state about what an import yields; it fails when either drifts from the
+data. `scripts/verify.sh` runs `verify` when the installation is present, and reports it skipped when it
+is not.
 
 `creatures` prints the opposition the levels' own spawn records put on the field, which is the read-only
 half of the monster import:

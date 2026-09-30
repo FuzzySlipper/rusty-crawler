@@ -88,7 +88,7 @@ public sealed class UseIntentTests
                 """),
         ]);
 
-        using CrawlerProduct product = new(context);
+        using CrawlerProduct product = new(context, ProductTestContext.NoVariables);
         product.Start();
 
         // The party is created first: the world this session plays is composed over the party when creation

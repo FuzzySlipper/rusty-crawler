@@ -63,7 +63,7 @@ public sealed class CreationIntentTests
     {
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create();
 
-        using CrawlerProduct product = new(context);
+        using CrawlerProduct product = new(context, ProductTestContext.NoVariables);
         product.Start();
         Assert.Equal(SessionMode.Creating, product.Mode);
 
@@ -106,7 +106,7 @@ public sealed class CreationIntentTests
     {
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create();
 
-        using CrawlerProduct product = new(context);
+        using CrawlerProduct product = new(context, ProductTestContext.NoVariables);
         product.Start();
 
         // The declared accept control finishes a new game: the running product is playing the party it

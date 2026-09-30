@@ -76,10 +76,11 @@ public sealed class SaveIntentTests
             ProductTestContext.CreationTables());
 
         // The switch is the operator's, so a slot that holds nothing stops the run with the loss named
-        // rather than starting a new expedition in place of the one that was asked for.
+        // rather than starting a new expedition in place of the one that was asked for. The switch arrives the
+        // way the product's own entry reads it, through the declared variable.
         SessionSaveException refused = Assert.Throws<SessionSaveException>(() =>
         {
-            using CrawlerProduct product = new(context, BuiltInRulesets.Default, bundleId: null, start: SessionStart.Resume);
+            using CrawlerProduct product = new(context, name => name == ProductIdentity.StartVariable ? "resume" : null);
         });
 
         Assert.Contains($"No session is saved in slot '{MightAndMagic7Persistence.SaveSlot}'", refused.Message, StringComparison.Ordinal);
@@ -102,10 +103,12 @@ public sealed class SaveIntentTests
         Assert.Contains("'continue'", refused.Message, StringComparison.Ordinal);
         Assert.Contains(ProductIdentity.StartVariable, refused.Message, StringComparison.Ordinal);
 
-        // And the switch the product reads is the declared environment variable rather than an implicit one.
-        Assert.Equal(
-            ProductStart.Parse(Environment.GetEnvironmentVariable(ProductIdentity.StartVariable)),
-            ProductStart.FromEnvironment());
+        // And the switch the product reads is the declared variable rather than an implicit one: it asks for
+        // that one name and nothing else, and an unset switch is a new game.
+        List<string> asked = [];
+        Assert.Equal(SessionStart.Resume, ProductStart.From(name => { asked.Add(name); return "resume"; }));
+        Assert.Equal([ProductIdentity.StartVariable], asked);
+        Assert.Equal(SessionStart.Fresh, ProductStart.From(ProductTestContext.NoVariables));
     }
 
     private static string SourceDirectory()

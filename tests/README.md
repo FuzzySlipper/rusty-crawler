@@ -19,6 +19,8 @@ An architecture suite is not ceremony: it is the automated half of the boundary
 rules in `AGENTS.md`, and it is the check that fails when a kit file quietly
 gains ruleset vocabulary.
 
-Every checked-in suite is executed by `scripts/verify.sh`. Temporary probe files
+Every checked-in suite is executed by `scripts/verify.sh`, locally and in the `verify` workflow. A case
+that needs the operator's imported tables is an `ImportedFact` and reports itself skipped without them;
+none returns early and counts as a pass. Temporary probe files
 a review lane creates inside a suite are covered by `.gitignore` and are not a
 pattern to imitate in committed code.

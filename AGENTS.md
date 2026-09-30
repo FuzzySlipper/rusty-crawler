@@ -98,7 +98,8 @@ and a deadline (a ward, a light, a haste) still blocks a save by name rather tha
   world, party, resources, time, creation, and movement mechanisms by `tests/PartyRpg.Kit.Tests`; the
   host's composition and travel policy by `tests/PartyRpg.Host.Tests`; the importer's readers and
   writer by `tests/MightAndMagic7.Import.Tests`; and the DOM companion by `tests/PartyRpg.Ui.Tests`.
-  All five run in `scripts/verify.sh`, which also stages the CoreCLR product.
+  All five run in `scripts/verify.sh` (also the `verify` GitHub workflow), which runs every step, reports
+  a summary, and also stages the CoreCLR product.
 - `MightAndMagic7.Import` reads the operator's own data: all five containers decode every entry, the
   rule tables and the place graph reproduce the recorded inventory, all 76 maps decode, and the media
   extractor emits 17,681 images, palettes, PCX files, and sounds with a provenance manifest. No game
@@ -280,7 +281,7 @@ and a deadline (a ward, a light, a haste) still blocks a save by name rather tha
   time and restore nobody. Fatigue is a deadline on that clock, not a counter in the world step.
 - People stand in the world and can be talked to. The delta's actor records are 0x344 each with an NPC row
   at +0x20 and a 16-bit position, and the NPC table names the rest: over the operator's install that is
-  826 actors of which 123 name an NPC row, plus 246 people inside 195 buildings, with 2 residents named
+  826 actors of which 123 name an NPC row, plus 247 people inside 195 buildings, with 2 residents named
   unreachable because their rows raise no event on any face. They are emitted as content and as
   placements, and a `Talk` use opens one conversation owner whose topics are content and whose
   availability is recomputed per read against real party state — a flag, standing, a class, a race, the

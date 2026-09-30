@@ -103,7 +103,7 @@ public sealed class AutomapPolicyTests
         // no drawing at all, rather than an automap of zero extent that a browser can only divide into holes
         // while the panel says there is nothing to draw.
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(Content(start: false, creation: true));
-        using CrawlerProduct product = new(context);
+        using CrawlerProduct product = new(context, ProductTestContext.NoVariables);
         product.Start();
         product.Update(ProductTestContext.Update(1, 1));
 

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Xunit;
@@ -142,9 +143,21 @@ public sealed class ArchitectureLawTests
     {
         string script = File.ReadAllText(Path.Combine(RepositoryRoot, "scripts", "verify.sh"));
 
-        string[] productProjects = [.. SourceProjects().Select(Relative).Order(StringComparer.Ordinal)];
+        // Every project outside the suites is built, including the tools beside the product, so a project
+        // nobody builds cannot sit in the tree looking verified.
+        string[] productProjects = [.. RepositoryProjects()
+            .Where(file => !Relative(file).StartsWith("tests/", StringComparison.Ordinal))
+            .Select(Relative)
+            .Order(StringComparer.Ordinal)];
         string[] declaredProducts = [.. DeclaredList(script, "product_projects").Order(StringComparer.Ordinal)];
         Assert.Equal(productProjects, declaredProducts);
+
+        // The companion suite has no project file, so the script is held to running the package's own suite
+        // command, and that command to running every companion test file.
+        Assert.Contains("npm run test:ui", script, StringComparison.Ordinal);
+        using JsonDocument package = JsonDocument.Parse(File.ReadAllText(Path.Combine(RepositoryRoot, "package.json")));
+        string uiSuite = package.RootElement.GetProperty("scripts").GetProperty("test:ui").GetString() ?? string.Empty;
+        Assert.Contains("node --test tests/PartyRpg.Ui.Tests/*.test.mjs", uiSuite, StringComparison.Ordinal);
 
         string[] suites = [.. Directory.EnumerateFiles(Path.Combine(RepositoryRoot, "tests"), "*.csproj", SearchOption.AllDirectories)
             .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
@@ -264,6 +277,12 @@ public sealed class ArchitectureLawTests
 
         Assert.Equal([.. expected.Order(StringComparer.Ordinal)], actual);
     }
+
+    private static IEnumerable<string> RepositoryProjects() =>
+        Directory.EnumerateFiles(RepositoryRoot, "*.csproj", SearchOption.AllDirectories)
+            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}node_modules{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .Where(file => !Relative(file).StartsWith("local/", StringComparison.Ordinal));
 
     private static IEnumerable<string> SourceProjects() =>
         Directory.EnumerateFiles(Path.Combine(RepositoryRoot, "src"), "*.csproj", SearchOption.AllDirectories)

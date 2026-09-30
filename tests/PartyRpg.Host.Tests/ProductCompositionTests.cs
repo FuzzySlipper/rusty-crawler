@@ -20,7 +20,7 @@ public sealed class ProductCompositionTests
             .. ProductTestContext.CreationTables(),
         ]);
 
-        using CrawlerProduct product = new(context);
+        using CrawlerProduct product = new(context, ProductTestContext.NoVariables);
 
         Assert.Equal(BuiltInBundles.Default, product.Selection.BundleId);
         Assert.Equal(2, product.Selection.PackCount);
@@ -54,7 +54,7 @@ public sealed class ProductCompositionTests
             .. ProductTestContext.CreationTables(),
         ]);
 
-        using CrawlerProduct product = new(context);
+        using CrawlerProduct product = new(context, ProductTestContext.NoVariables);
         product.Start();
 
         ProjectedNode value = ProjectedNode.Of(ui.Latest().Value);
@@ -70,7 +70,7 @@ public sealed class ProductCompositionTests
         (ProductCreateContext context, _) = ProductTestContext.Create(
             ProductTestContext.Bundle("partyrpg-default", "absent-pack"));
 
-        ContentValidationException error = Assert.Throws<ContentValidationException>(() => new CrawlerProduct(context));
+        ContentValidationException error = Assert.Throws<ContentValidationException>(() => new CrawlerProduct(context, ProductTestContext.NoVariables));
 
         Assert.Contains("absent-pack", error.Message);
         Assert.Contains(error.Issues, issue => issue.Code == "bundle-pack-missing");
@@ -81,7 +81,7 @@ public sealed class ProductCompositionTests
     {
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create();
 
-        using CrawlerProduct product = new(context);
+        using CrawlerProduct product = new(context, ProductTestContext.NoVariables);
 
         Assert.Null(product.Selection.BundleId);
         Assert.Equal(0, product.Selection.PackCount);
@@ -100,7 +100,7 @@ public sealed class ProductCompositionTests
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(
             [ProductTestContext.Bundle("partyrpg-default")]);
 
-        using CrawlerProduct product = new(context);
+        using CrawlerProduct product = new(context, ProductTestContext.NoVariables);
         product.Start();
 
         // The admitted update drives the flow and nothing else: it is counted, and no interval is measured
@@ -175,7 +175,7 @@ public sealed class ProductCompositionTests
                 """),
         ]);
 
-        using CrawlerProduct product = new(context);
+        using CrawlerProduct product = new(context, ProductTestContext.NoVariables);
         product.Start();
 
         // Nothing is placed until a party exists: the world is composed with the party that walks in it.
@@ -206,7 +206,7 @@ public sealed class ProductCompositionTests
             .. ProductTestContext.CreationTables(),
         ]);
 
-        using CrawlerProduct product = new(context);
+        using CrawlerProduct product = new(context, ProductTestContext.NoVariables);
         product.Start();
         product.Restart();
 

@@ -53,9 +53,17 @@ public sealed class CrawlerProduct : IEngineProduct
     private bool _started;
     private bool _shutdown;
 
-    /// <summary>Creates the product with the host's default compiled ruleset.</summary>
+    /// <summary>Creates the product with the host's default compiled ruleset, started as the process environment says.</summary>
     public CrawlerProduct(ProductCreateContext context)
-        : this(context, BuiltInRulesets.Default, bundleId: null, start: ProductStart.FromEnvironment())
+        : this(context, Environment.GetEnvironmentVariable)
+    {
+    }
+
+    /// <summary>Creates the product with the host's default compiled ruleset, started as the given variables say.</summary>
+    /// <param name="context">The Engine's creation context.</param>
+    /// <param name="variables">Reads one named variable, or null when it is unset.</param>
+    internal CrawlerProduct(ProductCreateContext context, Func<string, string?> variables)
+        : this(context, BuiltInRulesets.Default, bundleId: null, start: ProductStart.From(variables))
     {
     }
 
@@ -139,12 +147,6 @@ public sealed class CrawlerProduct : IEngineProduct
                 ProductIdentity.UiActionContract));
         (_selection, _content) = SelectBundle(context, bundleId ?? BuiltInBundles.Default);
         _session = CreateSession();
-    }
-
-    /// <summary>Creates the product over an explicitly selected compiled ruleset.</summary>
-    public CrawlerProduct(ProductCreateContext context, IGameRuleset ruleset)
-        : this(context, ruleset, bundleId: null, start: ProductStart.FromEnvironment())
-    {
     }
 
     /// <summary>The bundle and content the product is running with.</summary>
@@ -316,7 +318,11 @@ internal static class ProductStart
                 $"{ProductIdentity.StartVariable} is '{value}', which names neither a fresh session nor a resume. Set it to 'fresh' to start a new expedition or 'resume' to continue the one the save slot holds, or leave it unset for a fresh session."),
         };
 
-    /// <summary>The start mode the environment selects.</summary>
-    internal static SessionStart FromEnvironment() =>
-        Parse(Environment.GetEnvironmentVariable(ProductIdentity.StartVariable));
+    /// <summary>The start mode the declared switch selects.</summary>
+    /// <param name="variables">Reads one named variable, or null when it is unset.</param>
+    internal static SessionStart From(Func<string, string?> variables)
+    {
+        ArgumentNullException.ThrowIfNull(variables);
+        return Parse(variables(ProductIdentity.StartVariable));
+    }
 }

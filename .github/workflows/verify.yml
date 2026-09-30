@@ -1,0 +1,37 @@
+name: verify
+
+# Runs the repository gate, scripts/verify.sh, on every push to main and every
+# pull request: the companion suite, every project's Release build, every .NET
+# suite, and CoreCLR staging. The operator's own game data is never here, so the
+# importer's inventory checks and the cases that read the imported tables report
+# themselves skipped; they run on a machine that has the install.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install rusty
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/FuzzySlipper/rusty-engine/main/scripts/install-rusty.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Verify
+        run: scripts/verify.sh
