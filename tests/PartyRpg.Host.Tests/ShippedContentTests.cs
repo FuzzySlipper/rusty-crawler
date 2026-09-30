@@ -9,19 +9,57 @@ namespace PartyRpg.Host.Tests;
 /// </summary>
 public sealed class ShippedContentTests
 {
+    /// <remarks>
+    /// The default bundle this repository ships names no packs — the packs a product plays are the operator's
+    /// imports, and none of them is committed — so resolving it alone proves only that one small file parses. What
+    /// this case proves instead is everything the checkout's own tree carries: every bundle file it ships loads and
+    /// validates, the bundles are exactly the ones the host will select, each resolves to exactly the packs its own
+    /// file names, every pack directory under the shipped content root loads (none today, so that part binds the
+    /// first pack anyone commits rather than passing on one now), and the product itself starts from that tree as the
+    /// engine stages it, selecting the default bundle.
+    /// </remarks>
     [Fact]
-    public void The_bundles_this_repository_ships_validate_and_the_default_resolves()
+    public void Every_shipped_bundle_and_pack_validates_each_bundle_resolves_to_the_packs_it_names_and_the_product_starts_from_the_default()
     {
         string root = RepositoryContentRoot();
         ContentLayout layout = ContentLayout.Under(ContentDirectory());
+        FileContentSource source = new(root);
 
-        ContentBootstrapResult result = ContentBootstrap.Load(new FileContentSource(root), layout, BuiltInBundles.Default);
+        ContentCatalog packs = ContentCatalogLoader.Load(source, layout);
+        Assert.True(packs.IsValid, string.Join("; ", packs.Issues.Select(issue => issue.ToString())));
+        string[] packDirectories = [.. Directory.GetDirectories(Path.Combine(root, layout.ContentPacks))
+            .Where(directory => File.Exists(Path.Combine(directory, "pack.json")))
+            .Select(directory => Path.GetFileName(directory)!)
+            .Order(StringComparer.Ordinal)];
+        Assert.Equal(packDirectories, packs.Packs.Select(pack => pack.PackId).Order(StringComparer.Ordinal));
 
-        Assert.True(result.IsValid, result.IsValid ? string.Empty : string.Join("; ", result.Issues.Select(issue => issue.ToString())));
-        GameBundle bundle = Assert.Single(result.Bundles.Bundles);
-        Assert.Equal(BuiltInBundles.Default, bundle.BundleId);
-        Assert.Equal("mightandmagic7", bundle.Ruleset);
-        Assert.NotNull(result.Selection);
+        string[] bundleFiles = [.. Directory.GetDirectories(Path.Combine(root, layout.Bundles))
+            .Where(directory => File.Exists(Path.Combine(directory, GameBundle.FileName)))
+            .Select(directory => Path.GetFileName(directory)!)
+            .Order(StringComparer.Ordinal)];
+        Assert.Equal(BuiltInBundles.All.Order(StringComparer.Ordinal), bundleFiles);
+
+        int? defaultPacks = null;
+        foreach (string bundleId in BuiltInBundles.All)
+        {
+            ContentBootstrapResult result = ContentBootstrap.Load(source, layout, bundleId, BuiltInRulesets.Default.Id);
+
+            Assert.True(result.IsValid, string.Join("; ", result.Issues.Select(issue => issue.ToString())));
+            Assert.NotNull(result.Selection);
+            Assert.Equal(bundleId, result.Selection.Bundle.BundleId);
+            Assert.Equal(result.Selection.Bundle.ContentPacks, result.Selection.Packs.Select(pack => pack.PackId));
+            if (bundleId == BuiltInBundles.Default) defaultPacks = result.Selection.Packs.Count;
+        }
+
+        // The product over the shipped tree, staged the way the engine stages the content root.
+        (string Path, string Text)[] staged = [.. Directory.GetFiles(root, "*", SearchOption.AllDirectories)
+            .Select(file => (Path.GetRelativePath(root, file).Replace(Path.DirectorySeparatorChar, '/'), File.ReadAllText(file)))];
+        (Rusty.Engine.ProductCreateContext context, _) = ProductTestContext.Create(staged);
+        using CrawlerProduct product = new(context, ProductTestContext.NoVariables);
+
+        Assert.Equal(BuiltInBundles.Default, product.Selection.BundleId);
+        Assert.NotNull(defaultPacks);
+        Assert.Equal(defaultPacks.Value, product.Selection.PackCount);
     }
 
     [Fact]
