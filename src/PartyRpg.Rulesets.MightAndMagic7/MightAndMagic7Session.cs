@@ -323,7 +323,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                 save.Clock.ApplyTo(clock);
                 party = Capacity(MightAndMagic7Party.Restore(save.Party, Declared(context.Content)), spells)!;
                 PartyResourceLedger ledger = Ledger(party);
-                world = MightAndMagic7World.Compose(context.Content, context, clock, ledger, party, save, services, conversation, corpseAnswers, loot, quests, () => owners.Journal);
+                world = MightAndMagic7World.Compose(context.Content, context, clock, ledger, party, save, services, conversation, corpseAnswers, loot, quests, () => owners.Journal, combat);
                 start = new SessionParty.Playing(world, party, ledger, new SessionRecords(save.Quests, save.Journal, save.Knowledge, save.Maps));
             }
             else if (context.Creation is not null)
@@ -336,7 +336,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                 start = new SessionParty.Creating(new SessionCreation(
                     MightAndMagic7Creation.Start(declared),
                     description => Capacity(MightAndMagic7Party.Factory(declared).Create(description), spells, fill: true)!,
-                    created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created), created, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot, journal: () => owners.Journal)));
+                    created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created), created, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot, journal: () => owners.Journal, vitals: combat)));
             }
             else
             {
@@ -358,7 +358,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                 }
 
                 PartyResourceLedger? accounts = party is null ? null : Ledger(party);
-                world = MightAndMagic7World.Compose(context.Content, context, clock, accounts, party, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot, journal: () => owners.Journal);
+                world = MightAndMagic7World.Compose(context.Content, context, clock, accounts, party, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot, journal: () => owners.Journal, vitals: combat);
                 if (parties is not null) throw parties;
                 start = new SessionParty.Playing(world, party, accounts);
             }

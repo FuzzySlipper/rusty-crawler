@@ -89,14 +89,6 @@ public sealed class EngineCreatureMotion : ICreatureMover
 
     /// <inheritdoc />
     /// <exception cref="ObjectDisposedException">The mover has been disposed.</exception>
-    public PlacePose? PoseOf(CombatantId creature)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        return _walkers.TryGetValue(creature, out Walker walker) ? walker.Pose : null;
-    }
-
-    /// <inheritdoc />
-    /// <exception cref="ObjectDisposedException">The mover has been disposed.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The step covers no time, so nothing could move.</exception>
     public CreatureMoveOutcome Move(CreatureMoveRequest request)
     {
@@ -109,20 +101,20 @@ public sealed class EngineCreatureMotion : ICreatureMover
                 "A creature's step must cover a finite, positive interval; the engine rejects a step that covers no time.");
         }
 
-        // Where the creature stands is what this mover last resolved, not what the caller believes: a
-        // driver that missed a step would otherwise teleport the creature back to where it last looked.
+        // Where the creature stands is its own live position, which the caller read from the creature; what
+        // this mover keeps between steps is only the engine's motion state and the heading it last faced.
         Walker walker = _walkers.TryGetValue(request.Creature, out Walker found)
             ? found
             : Walker.At(request.From, _space);
 
-        Vector3 position = _space.Position(walker.Pose);
+        Vector3 position = _space.Position(request.From);
         Vector3 target = _space.Position(request.TargetPose);
         float speed = (float)SpeedScale(request.Speed);
         if (speed <= 0)
         {
             // A creature whose own answer is that it does not move stays where it stands, and the engine is
             // not asked to resolve a step that nothing asked for.
-            return CreatureMoveOutcome.Still(walker.Pose);
+            return CreatureMoveOutcome.Still(request.From);
         }
 
         // Where to walk is the engine's own answer when it has one: a creature steers at the next walkable
@@ -159,9 +151,9 @@ public sealed class EngineCreatureMotion : ICreatureMover
             _controller,
             command));
 
-        PlacePose pose = _space.Position(receipt.Transform.Translation, walker.Pose);
+        PlacePose pose = _space.Position(receipt.Transform.Translation, request.From);
         double moved = (receipt.Transform.Translation - position).Length();
-        _walkers[request.Creature] = new Walker(pose, receipt.Motion, heading);
+        _walkers[request.Creature] = new Walker(receipt.Motion, heading);
         return new CreatureMoveOutcome(moved > 0, pose, moved, receipt.Motion.Grounded);
     }
 
@@ -232,12 +224,11 @@ public sealed class EngineCreatureMotion : ICreatureMover
         return Math.Clamp(speed / reference, 0.05, 4);
     }
 
-    /// <summary>One creature's place in the stream of steps: where it stands and what the engine gave back.</summary>
-    /// <param name="Pose">Where it stands, in the place's own units.</param>
+    /// <summary>One creature's place in the stream of steps: what the engine gave back for its next one.</summary>
     /// <param name="Motion">The engine's continuation for its next step.</param>
     /// <param name="Heading">The engine heading it last walked along.</param>
-    private readonly record struct Walker(PlacePose Pose, CharacterMotion Motion, float Heading)
+    private readonly record struct Walker(CharacterMotion Motion, float Heading)
     {
-        internal static Walker At(PlacePose pose, PlaceSpace space) => new(pose, default, (float)space.FacingRadians(pose.Yaw));
+        internal static Walker At(PlacePose pose, PlaceSpace space) => new(default, (float)space.FacingRadians(pose.Yaw));
     }
 }

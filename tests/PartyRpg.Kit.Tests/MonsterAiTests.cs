@@ -509,7 +509,8 @@ public sealed class MonsterAiTests
             partyEntity: party,
             interaction: null,
             schedule: null,
-            creatures: creatures);
+            creatures: creatures,
+            vitals: Capabilities.PlacementHitPoints);
     }
 
     /// <summary>The days the world has reached, which is what a respawn interval is measured against.</summary>
@@ -535,25 +536,16 @@ public sealed class MonsterAiTests
         {
         }
 
-        private readonly Dictionary<CombatantId, PlacePose> _poses = [];
-
         /// <summary>How many steps were asked for, so a test can tell a decision from a movement.</summary>
         internal int Moves { get; private set; }
 
         /// <summary>How far a creature walks per second of admitted time.</summary>
         internal double Speed { get; set; } = 400;
 
-        /// <summary>
-        /// Where a creature stands, or null when nothing has moved it: a missing entry is not a position at
-        /// the origin, and a mover that answered one would have every creature standing on top of the party.
-        /// </summary>
-        public PlacePose? PoseOf(CombatantId creature) =>
-            _poses.TryGetValue(creature, out PlacePose pose) ? pose : null;
-
         public CreatureMoveOutcome Move(CreatureMoveRequest request)
         {
             Moves++;
-            PlacePose from = _poses.GetValueOrDefault(request.Creature, request.From);
+            PlacePose from = request.From;
             double x = request.TargetPose.X - from.X;
             double y = request.TargetPose.Y - from.Y;
             double z = request.TargetPose.Z - from.Z;
@@ -568,13 +560,16 @@ public sealed class MonsterAiTests
                     from.Z + (sign * z / distance * step),
                     from.Yaw,
                     from.Pitch);
-            _poses[request.Creature] = to;
             return new CreatureMoveOutcome(step > 0, to, step, Grounded: true);
         }
 
-        public void Forget(CombatantId creature) => _poses.Remove(creature);
+        public void Forget(CombatantId creature)
+        {
+        }
 
-        public void ForgetAll() => _poses.Clear();
+        public void ForgetAll()
+        {
+        }
     }
 
     /// <summary>

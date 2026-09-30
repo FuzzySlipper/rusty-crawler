@@ -68,22 +68,18 @@ public sealed class CreatureHealth
         return standing && IsDown;
     }
 
-    /// <summary>
-    /// The creature's own health, attached to its actor the first time anything asks for it.
-    /// </summary>
-    /// <remarks>
-    /// The maximum is only used when the component is attached: a creature that already has health keeps
-    /// the health it has, so re-reading a fight cannot heal a wounded creature back to full and a ruleset
-    /// that changed its answer mid-fight could not move the goalposts under a fight in progress.
-    /// </remarks>
-    /// <param name="actor">The creature's engine actor, which is the entity itself.</param>
-    /// <param name="maximum">What the creature can take, as whoever owns the creature's numbers answered.</param>
-    /// <returns>The creature's health, attached or already there.</returns>
-    /// <exception cref="ArgumentNullException">No actor was supplied.</exception>
-    public static CreatureHealth Of(Actor actor, int maximum)
+    /// <summary>Attaches a creature's health, which happens once, when the creature is placed.</summary>
+    /// <param name="actor">The creature's entity.</param>
+    /// <param name="maximum">What it can take, which is the game's own answer about its row.</param>
+    /// <returns>The health attached.</returns>
+    /// <exception cref="InvalidOperationException">The creature already has health, so a second would be a second answer about it.</exception>
+    internal static CreatureHealth Attach(Actor actor, int maximum)
     {
         ArgumentNullException.ThrowIfNull(actor);
-        if (actor.TryGet(out CreatureHealth? existing) && existing is not null) return existing;
+        if (actor.Has<CreatureHealth>())
+        {
+            throw new InvalidOperationException("The creature already has health: it is attached once, when the creature is placed.");
+        }
 
         CreatureHealth health = new(maximum);
         actor.Add(health);

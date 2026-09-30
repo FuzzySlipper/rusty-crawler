@@ -319,6 +319,27 @@ public sealed class CombatResolutionTests
         Assert.Equal(beast.Name, death.Name);
     }
 
+    [Fact]
+    public void A_creature_has_its_health_and_its_own_position_from_the_moment_it_is_placed()
+    {
+        // No fight has been composed, let alone read the place: the population is what gives a creature what
+        // its row states it can take, so a trap or a spell that reaches it first finds a creature, not nothing.
+        using SessionWorld world = World(new Rules(), out PartyEntity party, creatureAt: 100, hitPoints: 40);
+        using PartyEntity owned = party;
+        Arrive(world);
+        PlacePopulationEntity creature = Assert.Single(world.Population.Entities, entity => entity.Content.Kind == "creature");
+
+        CreatureHealth health = Assert.IsType<CreatureHealth>(CreatureHealth.Find(creature.Actor));
+        Assert.Equal(40, health.Maximum);
+        Assert.Equal(40, health.Current);
+
+        // Where it stands is its own, starting where the placement put it and moving only when it is moved.
+        Assert.Equal(creature.Placement.Pose, creature.Pose);
+        creature.MoveTo(new PlacePose(250, 0, 0, 0, 0));
+        Assert.Equal(250, creature.Pose.X, 3);
+        Assert.Equal(100, creature.Placement.Pose.X, 3);
+    }
+
     /// <summary>Records every death a fight reports, in the order it reports them.</summary>
     private sealed class Heard(List<CreatureDeath> heard) : ICreatureDeathObserver
     {
@@ -459,7 +480,8 @@ public sealed class CombatResolutionTests
             resources: null,
             partyEntity: party,
             interaction: null,
-            schedule: null);
+            schedule: null,
+            vitals: Capabilities.PlacementHitPoints);
     }
 
     /// <summary>Walking is free: nothing in these tests is about what a road costs.</summary>

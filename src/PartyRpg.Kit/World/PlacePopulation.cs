@@ -34,6 +34,7 @@ public sealed class PlacePopulation : IDisposable
     private readonly EntityStore _entities = new();
     private readonly PlacePopulationContent _content;
     private readonly PlaceStateLedger _places;
+    private readonly IPlacementComposer? _composer;
     private PlacePopulationEntity[] _live = [];
     private bool _disposed;
 
@@ -45,8 +46,10 @@ public sealed class PlacePopulation : IDisposable
     /// </remarks>
     /// <param name="places">The world's places, which carry the placements.</param>
     /// <param name="states">The world's per-place state, which says whether a place has been emptied.</param>
-    public PlacePopulation(PlaceGraph places, PlaceStateLedger states)
+    /// <param name="composer">What each placed entity is composed with beyond its placement, when a game states more.</param>
+    public PlacePopulation(PlaceGraph places, PlaceStateLedger states, IPlacementComposer? composer = null)
     {
+        _composer = composer;
         ArgumentNullException.ThrowIfNull(places);
         ArgumentNullException.ThrowIfNull(states);
         _places = states;
@@ -159,7 +162,10 @@ public sealed class PlacePopulation : IDisposable
             // The placement is attached, not copied: what the entity is in content and what a ruleset
             // reads about it are one record, so the two can never drift apart.
             actor.Add(placement);
-            live.Add(new PlacePopulationEntity(actor, placement));
+            actor.Add(new StandingPose(placement.Pose));
+            PlacePopulationEntity entity = new(actor, placement);
+            _composer?.Compose(entity, place);
+            live.Add(entity);
         }
 
         _live = [.. live];

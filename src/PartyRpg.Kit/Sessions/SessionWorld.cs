@@ -94,6 +94,11 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// What a landing past the tuning's threshold does to each member. Without one a fall is measured and
     /// reported and harms nobody, which is what a game that states no fall damage asks for.
     /// </param>
+    /// <param name="vitals">
+    /// The game's answer about what each placed creature can take, which gives a creature its health the
+    /// moment the population places it. Without one no creature carries health, and harm aimed at one lands
+    /// nowhere.
+    /// </param>
     /// <exception cref="ArgumentNullException">A required collaborator is missing.</exception>
     public SessionWorld(
         PlaceGraph graph,
@@ -110,7 +115,8 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         InteractionPolicy? interaction = null,
         PlaceSchedule? schedule = null,
         ICreatureMover? creatures = null,
-        IFallRule? falls = null)
+        IFallRule? falls = null,
+        ICreatureVitals? vitals = null)
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(party);
@@ -131,7 +137,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         Party = party;
         Places = places;
         Places.MarkVisited(party.Place);
-        _population = new PlacePopulation(graph, places);
+        _population = new PlacePopulation(graph, places, vitals is null ? null : new CreatureHealthComposer(vitals));
         _entrances = Index(graph, entrances);
         Mover = mover;
         Creatures = creatures;
@@ -614,17 +620,6 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
 
     /// <summary>Where the party stands, which is what every actor's distance from the party is measured from.</summary>
     PlacePose ICombatWorld.Pose => Party.PlacePose;
-
-    /// <summary>
-    /// Where an actor stands now, which for a creature that has moved is not where content placed it.
-    /// </summary>
-    /// <remarks>
-    /// Only the creatures this world has actually moved have a live position; everything else stands where
-    /// its placement put it, and the fight reads the placement itself. Answering null rather than the
-    /// placement keeps the two apart: a world that has no position of its own for an actor must not claim
-    /// content's, because a fight that read one would measure a creature that moved against where it began.
-    /// </remarks>
-    PlacePose? ICombatWorld.PoseOf(CombatantId actor) => Creatures?.PoseOf(actor);
 
     /// <summary>
     /// What is alive in the place right now, which is what a fight decides who is hostile from.

@@ -105,6 +105,10 @@ internal static class MightAndMagic7World
     /// this world is composed before the session that keeps the journal exists, and a session that creates
     /// its party has none until the player accepts one.
     /// </param>
+    /// <param name="vitals">
+    /// This game's fight, whose answer about a monster row's hit points gives each creature its health the
+    /// moment the place's population places it. Without it no creature carries health.
+    /// </param>
     internal static SessionWorld? Compose(
         ContentCatalog? catalog,
         RulesetSessionContext context,
@@ -117,7 +121,8 @@ internal static class MightAndMagic7World
         MightAndMagic7Corpses? corpses = null,
         MightAndMagic7Loot? loot = null,
         MightAndMagic7Quests? quests = null,
-        Func<PartyJournal?>? journal = null)
+        Func<PartyJournal?>? journal = null,
+        MightAndMagic7Combat? vitals = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(clock);
@@ -196,7 +201,8 @@ internal static class MightAndMagic7World
                 new InteractionPolicy(Interaction(conversation, schedules.Schedule, corpses, loot, journal), MightAndMagic7Movement.Space, MightAndMagic7Interaction.Aim, corpses),
                 schedules.Schedule,
                 creatures,
-                MightAndMagic7Movement.Falls);
+                MightAndMagic7Movement.Falls,
+                vitals);
         }
         catch
         {

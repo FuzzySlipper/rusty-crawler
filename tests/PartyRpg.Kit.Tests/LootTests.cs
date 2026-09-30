@@ -316,26 +316,23 @@ public sealed class LootTests
         public RngValue NextBool(Rng stream) => throw new NotSupportedException("Keyed draws only.");
     }
 
-    /// <summary>A mover that reports one live position, which is how a creature that closed on the party lies
-    /// somewhere other than where content placed it.</summary>
-    private sealed class MovedCreature(PlacePose? pose) : ICreatureMover
+    /// <summary>A mover whose creatures stand still, so where one stands is only what the den itself moves.</summary>
+    private sealed class MovedCreature : ICreatureMover
     {
         /// <summary>This mover holds nothing of the engine's to release.</summary>
         public void Dispose()
         {
         }
 
-        private PlacePose? _pose = pose;
-
-        internal void Move(PlacePose? to) => _pose = to;
-
-        public PlacePose? PoseOf(CombatantId creature) => _pose;
-
         public CreatureMoveOutcome Move(CreatureMoveRequest request) => CreatureMoveOutcome.Still(request.From);
 
-        public void Forget(CombatantId creature) => _pose = null;
+        public void Forget(CombatantId creature)
+        {
+        }
 
-        public void ForgetAll() => _pose = null;
+        public void ForgetAll()
+        {
+        }
     }
 
     /// <summary>
@@ -506,7 +503,9 @@ public sealed class LootTests
             World.Populate();
         }
 
-        internal void CreatureMovedTo(PlacePose pose) => _mover.Move(pose);
+        /// <summary>Stands the den's creature somewhere else, as a step its mover resolved would.</summary>
+        internal void CreatureMovedTo(PlacePose pose) =>
+            World.Population.Entities.Single(entity => entity.Content.Id == "beast").MoveTo(pose);
 
         /// <summary>Lets the place's own interval elapse, which is what rebuilds its population from content.</summary>
         internal void RebuildPopulation()
@@ -534,7 +533,7 @@ public sealed class LootTests
                 new FacingRule(unitsPerTurn: 2048, minimumPitch: -512, maximumPitch: 512));
             KeyedRandom random = new(41UL);
             Rules rules = new(random);
-            MovedCreature mover = new(pose: null);
+            MovedCreature mover = new();
             PlaceStateLedger places = new(graph, PlaceRespawnRule.FromContent());
             MovingTime time = new();
             SessionWorld world = new(
@@ -551,7 +550,8 @@ public sealed class LootTests
                     PlaceSpace.HeightIsThird(new FacingRule(unitsPerTurn: 2048, minimumPitch: -512, maximumPitch: 512), radiansAtZeroFacing: 0),
                     new InteractionTuning(acquisitionAngleRadians: 0.20, releaseAngleRadians: 0.31),
                     Corpses: rules),
-                creatures: mover);
+                creatures: mover,
+                vitals: rules);
 
             // The party's place is populated exactly as the session populates it on the first update after
             // arriving, so the fight reads the creatures that are actually standing there.

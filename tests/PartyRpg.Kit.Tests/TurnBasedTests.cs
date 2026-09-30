@@ -881,7 +881,8 @@ public sealed class TurnBasedTests
             resources: null,
             partyEntity: party,
             interaction: null,
-            schedule: null);
+            schedule: null,
+            vitals: Capabilities.PlacementHitPoints);
     }
 
     /// <summary>Walking is free: nothing in these tests is about what a road costs.</summary>

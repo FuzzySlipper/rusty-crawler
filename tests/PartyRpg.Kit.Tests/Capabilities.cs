@@ -24,6 +24,9 @@ internal static class Capabilities
             rule as ICombatWeaponRule,
             rule is ICreatureDeathObserver deaths ? [deaths] : null);
 
+    /// <summary>What a suite's creature can take, as its own placement states it under <c>hitPoints</c>.</summary>
+    internal static ICreatureVitals PlacementHitPoints { get; } = new HitPointsInPlacement();
+
     /// <summary>A casting over a fake's answers, with every capability the two fakes implement.</summary>
     internal static MagicRules Magic(ISpellRule spells, ISpellEffectRule? effects = null) =>
         new(
@@ -36,4 +39,11 @@ internal static class Capabilities
             effects as IPartySightRule,
             spells as ISpellItemRule,
             spells as ISpellItemNames);
+
+    private sealed class HitPointsInPlacement : ICreatureVitals
+    {
+        public int HitPointsOf(CombatSubject subject) => subject.Member is { } member
+            ? member.Resources.HitPoints.Maximum
+            : subject.Placement?.Source.GetInt32("hitPoints") ?? 0;
+    }
 }

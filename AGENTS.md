@@ -335,8 +335,8 @@ and a deadline (a ward, a light, a haste) still blocks a save by name rather tha
   the count were drawn). 43 records are refused by name because the slot they name is one their map leaves
   empty. The `.dlv`'s own 703 monster actor records are the *saved* population of a played game and are not
   emitted. A creature is a placement of kind `monster` naming its row, its health is its own
-  (`CreatureHealth`, a component on the entity's actor, attached the first time a fight reads it, so a sprung
-  trap and a creature's bite are one path into a person), and a person a map's own actor record places reads
+  (`CreatureHealth`, a component on the entity's actor, attached by the population when the creature is placed,
+  beside its own live position, so a spell or a trap that reaches it first finds a creature), and a person a map's own actor record places reads
   the monster row that record names instead of one peasant row for everybody.
 - The opposition is driven, by this game's data. `CombatDirector` gives every creature the party is fighting a
   decision each update and orders it through `CombatState.Order` — the same gated entry the player's control

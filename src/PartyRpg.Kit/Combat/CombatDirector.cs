@@ -342,8 +342,8 @@ public sealed class CombatDirector
             return new CreatureActivity(creature.Id, creature.Name, "waiting", string.Empty, Applied: false);
         }
 
-        PlacePose from = mover.PoseOf(creature.Id) ?? creature.Subject.Pose;
-        PlacePose to = mover.PoseOf(target) ?? about.Subject.Pose;
+        PlacePose from = Where(creature);
+        PlacePose to = Where(about);
         CreatureMoveOutcome outcome = mover.Move(new CreatureMoveRequest(
             creature.Id,
             from,
@@ -352,6 +352,10 @@ public sealed class CombatDirector
             purpose,
             _policy.SpeedOf(creature.Subject),
             elapsedSeconds));
+
+        // What the mover resolved is where the creature now stands, written on the creature itself, so every
+        // reader of it — the fight's distances, a body laid where it falls — reads one position.
+        if (creature.Subject.Entity is { IsAlive: true } walked) walked.MoveTo(outcome.Pose);
 
         return new CreatureActivity(
             creature.Id,
@@ -398,13 +402,12 @@ public sealed class CombatDirector
     /// placed it.
     /// </summary>
     /// <remarks>
-    /// The party's own pose is the party's; a creature's is the live position whoever moved it owns, and the
-    /// placement only when nothing has. A world with no mover leaves every creature where content put it,
-    /// which is the honest reading of a world nothing moves in.
+    /// The party's own pose is the party's; a creature's is its own live position, which starts where content
+    /// placed it and moves only with the steps a mover resolves.
     /// </remarks>
     private PlacePose Where(Combatant combatant) => combatant.Side == CombatSide.Party
         ? _combat.PartyPose
-        : _mover?.PoseOf(combatant.Id) ?? combatant.Subject.Pose;
+        : combatant.Subject.Entity?.Pose ?? combatant.Subject.Pose;
 
     /// <summary>How far apart two positions are, in the place's own units.</summary>
     private static double Distance(PlacePose from, PlacePose to)

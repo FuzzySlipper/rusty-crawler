@@ -207,8 +207,10 @@ through keyed `AttackRolls` under a key that names the attack, applies what is l
 target's health, applies the `CombatCondition` a landed hit leaves, records a `CombatResolution`, and
 reports it, with `DamageKindId`, `DamageRoll` (dice, a bonus, and a floor), `Resistance` (a weight or full
 immunity), `HitChance` in ten-thousandths, and `AttackPlan` as the vocabulary; `CreatureHealth` is a
-creature's own health, a component on the entity's actor attached the first time a fight reads it, so a
-fight keeps no tally of its own beside it, and `CombatState.Vitals`, `IsDown`, and `LastResolution` are
+creature's own health, a component attached by the population's `IPlacementComposer` when the creature is
+placed (`CreatureHealthComposer` over the game's `ICreatureVitals`), so a fight keeps no tally of its own beside
+it; where a placed entity stands is its own too (`PlacePopulationEntity.Pose`, moved only by `MoveTo`); a death
+is reported once, from the wound that caused it, to the `ICreatureDeathObserver`s `CombatRules` names; and `CombatState.Vitals`, `IsDown`, and `LastResolution` are
 what the panel reads; no scene, no second population, no per-kind cooldown, no per-kind damage class, and
 no timer); the second pacing of that same state is a reading of it rather than a second fight
 (`Combat/` — `CombatPacing` on the state, and a `TurnBasedPacing` that orders the fight's actors by ascending

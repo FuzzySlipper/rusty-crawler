@@ -565,7 +565,8 @@ public sealed class CombatProjectionTests
                 PlaceSpace.HeightIsThird(facing, radiansAtZeroFacing: 0),
                 new InteractionTuning(acquisitionAngleRadians: 0.20, releaseAngleRadians: 0.31),
                 Corpses: rules),
-            schedule: null);
+            schedule: null,
+            vitals: rules);
     }
 
     /// <summary>Walking is free: nothing in these tests is about what a road costs.</summary>

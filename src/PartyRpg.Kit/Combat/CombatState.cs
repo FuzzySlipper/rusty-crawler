@@ -295,18 +295,12 @@ public sealed class CombatState : IGameTimeObserver
             {
                 if (!entity.IsAlive) continue;
 
-                // Where a creature stands is what its placement said — until something moves it, and then it
-                // is the live position whoever moved it owns. Reading the placement of a creature that has
-                // closed on the party would measure every distance, notice range, and target against where
-                // the creature used to be.
+                // Where a creature stands is its own live position, which starts where its placement put it
+                // and moves with every step a mover resolves, so every distance is measured from where it is.
                 CombatantId id = CombatantId.Of(entity.Id);
-                PlacePose pose = world.PoseOf(id) ?? entity.Pose;
+                PlacePose pose = entity.Pose;
                 CombatSubject subject = new(id, world.Place, pose, member: null, entity);
                 if (_rule.NatureOf(subject) is not { IsCreature: true } nature) continue;
-
-                // A creature's health is the creature's own from the moment a fight reads it: the maximum is
-                // the ruleset's answer about what it can take, and nothing that happens later re-states it.
-                CreatureHealth.Of(entity.Actor, _resolution?.HitPointsOf(subject) ?? 0);
 
                 double distance = Distance(world.Pose, pose);
                 CombatSide side = _provoked.Contains(subject.Id) || nature.Notices(distance)
@@ -771,7 +765,7 @@ public sealed class CombatState : IGameTimeObserver
         // named hears it now, once, and nothing reads the death back out of the place later.
         if (target.Subject.Entity is { } entity)
         {
-            PlacePose fell = _world?.PoseOf(target.Id) ?? target.Subject.Pose;
+            PlacePose fell = entity.Pose;
             CreatureDeath death = new(target.Subject.Place, entity.Placement with { Pose = fell }, target.Name);
             foreach (ICreatureDeathObserver observer in _deaths) observer.Died(death);
         }

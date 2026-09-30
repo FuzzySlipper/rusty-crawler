@@ -25,7 +25,7 @@ namespace PartyRpg.Kit.Combat;
 /// conditions without learning a single one of their names.
 /// </para>
 /// </remarks>
-public interface ICombatResolutionRule
+public interface ICombatResolutionRule : ICreatureVitals
 {
     /// <summary>
     /// Where one attack's rolls come from, or null when this product cannot draw.
@@ -86,15 +86,4 @@ public interface ICombatResolutionRule
     /// <returns>Whether it may act.</returns>
     bool CanAct(CombatSubject subject);
 
-    /// <summary>How much harm an actor can take before it is down.</summary>
-    /// <remarks>
-    /// The party owns its members' pools, so for a member this is the pool's capacity and the fight reads the
-    /// pool itself. A world actor's health has no owner until the monsters-and-AI stone gives creatures their
-    /// own, so the fight holds what it has done to one and this states what that is measured against — a
-    /// monster row's own hit points for a creature, and this game's reading for anything else that can be
-    /// attacked. It is the handoff that stone fills in, not a second health store beside its own.
-    /// </remarks>
-    /// <param name="subject">The actor being measured.</param>
-    /// <returns>The total harm it can take, zero when nothing here can say.</returns>
-    int HitPointsOf(CombatSubject subject);
 }

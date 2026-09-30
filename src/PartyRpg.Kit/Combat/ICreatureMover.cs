@@ -62,7 +62,7 @@ public readonly record struct CreatureMoveOutcome(bool Moved, PlacePose Pose, do
 }
 
 /// <summary>
-/// Moves a creature through the engine's own collision, and says where every creature it has moved stands.
+/// Moves a creature through the engine's own collision, one step at a time.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -74,34 +74,29 @@ public readonly record struct CreatureMoveOutcome(bool Moved, PlacePose Pose, do
 /// walk through walls.
 /// </para>
 /// <para>
-/// <b>It is also the owner of live positions.</b> A creature that moved is no longer where content placed
-/// it, so whoever holds the continuation of its steps holds the only honest answer to where it is; a fight
-/// reads that through this same seam. A creature nothing has moved has no position here at all, and the
-/// placement is what stands.
+/// <b>It owns no position.</b> Where a creature stands is the creature's own, attached when it was placed; a
+/// step starts from that position and the driver writes back where the step ended. What a mover keeps between
+/// steps is only the engine's continuation of a creature's motion.
 /// </para>
 /// <para>
-/// <b>Positions are per visit.</b> The entities a population creates do not outlive the visit that made
+/// <b>What it keeps is per visit.</b> The entities a population creates do not outlive the visit that made
 /// them, so a mover forgets a creature when it leaves the field and forgets every creature when the place
-/// changes: a position from one place must never be read as a position in another.
+/// changes.
 /// </para>
 /// </remarks>
 public interface ICreatureMover : IDisposable
 {
-    /// <summary>Where a creature stands now, or null when nothing has moved it from its placement.</summary>
-    /// <param name="creature">The creature, by the identity the fight knows it under.</param>
-    PlacePose? PoseOf(CombatantId creature);
-
     /// <summary>Moves one creature by one step of admitted time.</summary>
     /// <param name="request">Which creature moves, about whom, and with how much time.</param>
     /// <returns>Where it ended up and whether it moved at all.</returns>
     CreatureMoveOutcome Move(CreatureMoveRequest request);
 
-    /// <summary>Forgets a creature's live position, which is what leaving the field does to one.</summary>
+    /// <summary>Forgets what a mover kept of a creature's motion, which is what leaving the field does to one.</summary>
     /// <param name="creature">The creature to forget.</param>
     void Forget(CombatantId creature);
 
     /// <summary>
-    /// Forgets every creature's live position, which is what entering a place does: the positions belonged
+    /// Forgets what a mover kept of every creature's motion, which is what entering a place does: it belonged
     /// to the place the party has left.
     /// </summary>
     void ForgetAll();
