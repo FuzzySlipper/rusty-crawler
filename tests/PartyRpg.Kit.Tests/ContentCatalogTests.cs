@@ -161,7 +161,8 @@ public sealed class ContentCatalogTests
 
         ContentValidationException error = Assert.Throws<ContentValidationException>(() => catalog.RequireValid());
         Assert.True(error.Issues.Count >= 2);
-        Assert.Contains("problem", error.Message);
+        Assert.Equal(catalog.Issues, error.Issues);
+        Assert.Contains(error.Issues, issue => issue.Code == "pack-id-mismatch");
     }
 
     [Fact]

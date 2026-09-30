@@ -126,6 +126,18 @@ internal sealed class MightAndMagic7Quests : IQuestRule
     /// <summary>The bits this game states an errand for, in the shipped table's own order.</summary>
     internal IReadOnlyList<string> ErrandBits { get; private set; } = [];
 
+    /// <summary>
+    /// How many objectives this game reads for a ranked errand and could not state over the loaded world —
+    /// a place or a creature the content does not carry — each also named in <see cref="Notes"/>.
+    /// </summary>
+    internal int UnstatedObjectiveCount { get; private set; }
+
+    /// <summary>
+    /// How many ranked errands could not be stated at all because none of their objectives could, each also
+    /// named in <see cref="Notes"/>.
+    /// </summary>
+    internal int UnstatedErrandCount { get; private set; }
+
     /// <summary>Reads this game's quests over the content the product loaded.</summary>
     /// <remarks>
     /// The shipped words are read from the quest document the importer writes, and a bit the pack does not
@@ -230,6 +242,7 @@ internal sealed class MightAndMagic7Quests : IQuestRule
                     if (!placesByName.TryGetValue(stated.Target, out string? place))
                     {
                         notes.Add($"the errand {bit} asks for '{stated.Target}', which no place this world carries is called, so that objective is not stated.");
+                        quests.UnstatedObjectiveCount++;
                         continue;
                     }
 
@@ -244,12 +257,14 @@ internal sealed class MightAndMagic7Quests : IQuestRule
                 if (!placesByName.TryGetValue(stated.Place, out string? where))
                 {
                     notes.Add($"the errand {bit} counts '{stated.Target}' in '{stated.Place}', which no place this world carries is called, so that objective is not stated.");
+                    quests.UnstatedObjectiveCount++;
                     continue;
                 }
 
                 if (!monstersByName.TryGetValue(stated.Target, out string? row))
                 {
                     notes.Add($"the errand {bit} counts '{stated.Target}', which the monster table does not carry, so that objective is not stated.");
+                    quests.UnstatedObjectiveCount++;
                     continue;
                 }
 
@@ -262,6 +277,7 @@ internal sealed class MightAndMagic7Quests : IQuestRule
                 if (count < 1)
                 {
                     notes.Add($"the errand {bit} asks for every '{stated.Target}' in '{stated.Place}' and that place holds none, so that objective is not stated.");
+                    quests.UnstatedObjectiveCount++;
                     continue;
                 }
 
@@ -279,6 +295,7 @@ internal sealed class MightAndMagic7Quests : IQuestRule
             if (objectives.Count == 0)
             {
                 notes.Add($"the errand {bit} cannot be stated: nothing it asks for is something this build can read.");
+                quests.UnstatedErrandCount++;
                 continue;
             }
 

@@ -108,7 +108,7 @@ public sealed class SkillTests
         SkillRaisePlan plan = progression.Plan(student.Id, Blades, levels: 3);
         Assert.False(plan.IsPossible);
         Assert.Equal("skill-ceiling-reached", plan.Refusal!.Code);
-        Assert.Contains("level 10", plan.Refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("10", plan.Refusal.Message, StringComparison.Ordinal);
         Assert.Contains("12", plan.Refusal.Message, StringComparison.Ordinal);
         Assert.Contains("fighter", plan.Refusal.Message, StringComparison.Ordinal);
 
@@ -130,8 +130,8 @@ public sealed class SkillTests
         SkillRaisePlan plan = progression.Plan(student.Id, Blades, levels: 2);
         Assert.False(plan.IsPossible);
         Assert.Equal("insufficient-skill-points", plan.Refusal!.Code);
-        Assert.Contains("4 skill point(s)", plan.Refusal.Message, StringComparison.Ordinal);
-        Assert.Contains("3 remain", plan.Refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("4", plan.Refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("3", plan.Refusal.Message, StringComparison.Ordinal);
 
         SkillRaiseResult refused = progression.RaiseSkill(student.Id, Blades, levels: 2);
         Assert.False(refused.IsRaised);

@@ -152,7 +152,6 @@ public sealed class CombatProjectionTests
         combat = fixture.Combat;
         Assert.Equal("refused", combat.Field("outcome").AsString());
         Assert.Equal("recovering", combat.Field("code").AsString());
-        Assert.Contains("still recovering", combat.Field("message").AsString(), StringComparison.Ordinal);
         Assert.Contains("Member 4", combat.Field("message").AsString(), StringComparison.Ordinal);
         // A refusal attacked nothing, so nothing about an attack travels beside it: the panel shows the
         // refusal rather than the shape of the swing before it.

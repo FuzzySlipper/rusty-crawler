@@ -181,7 +181,7 @@ public sealed class JournalTests
         JournalSnapshot books = JournalSnapshot.From(journal, quests: null, world, clock);
         JournalBookSnapshot maps = books.Books.Single(book => book.Kind == "maps");
         Assert.False(maps.Available);
-        Assert.Contains("map owner", maps.State, StringComparison.Ordinal);
+        Assert.Equal(journal.Rule.Book(JournalBookKind.Maps).Unavailable, maps.State);
 
         // The save carries the lines across a reset as well: what a load restores is the party's own record,
         // and the place's population is the world's business rather than the journal's.
@@ -277,7 +277,7 @@ public sealed class JournalTests
         // rather than showing an empty list.
         JournalBookWords notes = journal.Rule.Book(JournalBookKind.Notes);
         Assert.Equal("Auto Notes", notes.Title);
-        Assert.Contains("the knowledge owner", notes.Unavailable, StringComparison.Ordinal);
+        Assert.NotEqual(string.Empty, notes.Unavailable);
         Assert.Equal("History", journal.Rule.Book(JournalBookKind.History).Title);
     }
 
@@ -302,9 +302,9 @@ public sealed class JournalTests
         // "the party holds nothing" are different facts. A session composed with a knowledge owner or a map
         // owner fills them, which the knowledge and automap suites prove beside this one.
         Assert.Equal([true, false, false, true, true], books.Books.Select(book => book.Available));
-        Assert.Contains("the knowledge owner", books.Books[1].State, StringComparison.Ordinal);
+        Assert.Equal(journal.Rule.Book(JournalBookKind.Notes).Unavailable, books.Books[1].State);
         Assert.Empty(books.Books[1].Rows);
-        Assert.Contains("map owner", books.Books[2].State, StringComparison.Ordinal);
+        Assert.Equal(journal.Rule.Book(JournalBookKind.Maps).Unavailable, books.Books[2].State);
         Assert.Empty(books.Books[2].Rows);
 
         JournalBookSnapshot calendar = books.Books[3];

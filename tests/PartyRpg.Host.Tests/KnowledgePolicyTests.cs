@@ -145,8 +145,7 @@ public sealed class KnowledgePolicyTests
         session.Update(ProductTestContext.Update(4, 1, ProductTestContext.Digital(ProductIdentity.UseIntent)));
         ProjectedNode interaction = ProjectedNode.Of(ui.Latest().Value).Field("interaction");
         Assert.Equal("interaction-event-not-executed", interaction.Field("code").AsString());
-        Assert.Contains("event 150", interaction.Field("message").AsString(), StringComparison.Ordinal);
-        Assert.Contains("neither what the event gives nor what it teaches is learned", interaction.Field("message").AsString(), StringComparison.Ordinal);
+        Assert.Contains("150", interaction.Field("message").AsString(), StringComparison.Ordinal);
         Assert.Equal(1, Book(Notes(ui), "notes").Field("rows").Length());
 
         // What the party knows is the save's own section, carried as the game time it was learned and never as

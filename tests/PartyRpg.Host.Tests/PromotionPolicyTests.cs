@@ -209,11 +209,14 @@ public sealed class PromotionPolicyTests
         // shipped item table carries. Without them the rank is refused by name, and nothing moves.
         PromotionResult refused = progression.Promote("sorcerer-wizard", "npc-48");
         Assert.False(refused.IsGranted);
-        Assert.Equal("promotion-requirements-unmet", refused.Refusal!.Code);
-        Assert.Contains(
-            "First, a Sorcerer of rank 1, is missing needs Golem chest, and the party carries 0",
-            refused.Refusal.Message,
-            StringComparison.Ordinal);
+        Assert.Equal(ProgressionCodes.PromotionRequirementsUnmet, refused.Refusal!.Code);
+        PromotionDenial first = Assert.Single(refused.Denied);
+        Assert.Equal("First", first.Name);
+        Assert.Equal("Sorcerer", first.Class);
+        Assert.Equal(1, first.Rank);
+        string golem = Assert.Single(first.Missing, line => line.Contains("Golem chest", StringComparison.Ordinal));
+        Assert.EndsWith(" 0", golem, StringComparison.Ordinal);
+        Assert.Contains(golem, refused.Refusal.Message, StringComparison.Ordinal);
         Assert.Equal("Sorcerer", member.Profile.Class.Value);
 
         // With the proof on the party the rank lands, and the class and the rank move together: the ceilings
@@ -231,10 +234,12 @@ public sealed class PromotionPolicyTests
         // and they ask for the lich jars: the light alternative is not this giver's to hand out.
         PromotionResult wrongGiver = progression.Promote("wizard-lich", "npc-48");
         Assert.False(wrongGiver.IsGranted);
-        Assert.Contains(
-            "granted by Halfgild Wynac, and the party is speaking with npc-48",
-            wrongGiver.Refusal!.Message,
-            StringComparison.Ordinal);
+        Assert.Equal(ProgressionCodes.PromotionRequirementsUnmet, wrongGiver.Refusal!.Code);
+        string giver = Assert.Single(
+            Assert.Single(wrongGiver.Denied).Missing,
+            line => line.Contains("Halfgild Wynac", StringComparison.Ordinal));
+        Assert.Contains("npc-48", giver, StringComparison.Ordinal);
+        Assert.Contains(giver, wrongGiver.Refusal.Message, StringComparison.Ordinal);
 
         fixture.Carry("601", "602");
         PromotionResult dark = progression.Promote("wizard-lich", "npc-49");
@@ -270,22 +275,22 @@ public sealed class PromotionPolicyTests
         Assert.Equal(new SkillCeiling(18, new SkillTier(1)), fixture.Skills.Ceiling(archer, fixture.Light));
         SkillCeiling dark = fixture.Skills.Ceiling(archer, fixture.Dark);
         Assert.True(dark.IsNone);
-        Assert.Equal("skill-closed-by-path", dark.Reason!.Code);
-        Assert.Contains("took the light path of the Master Archer", dark.Reason.Message, StringComparison.Ordinal);
-        Assert.Contains("leaves Dark to the other alternative", dark.Reason.Message, StringComparison.Ordinal);
+        Assert.Equal(MightAndMagic7Codes.SkillClosedByPath, dark.Reason!.Code);
+        Assert.Contains("Master Archer", dark.Reason.Message, StringComparison.Ordinal);
+        Assert.Contains("Dark", dark.Reason.Message, StringComparison.Ordinal);
 
         // A lesson at a counter that teaches the shut school is refused in the same words, which is where a
         // player meets it: the refusal is the game's own, not the kit's sentence about a class.
         Refusal lesson = fixture.Skills.Lesson(archer, fixture.Dark, tier: 1, level: 1)!;
-        Assert.Equal("skill-closed-by-path", lesson.Code);
-        Assert.Contains("took the light path", lesson.Message, StringComparison.Ordinal);
+        Assert.Equal(MightAndMagic7Codes.SkillClosedByPath, lesson.Code);
+        Assert.Contains("Master Archer", lesson.Message, StringComparison.Ordinal);
 
         // The alternative it did not take is refused because the character is no longer of the class that
         // rank promotes from: the choice is recorded in the class, which is what a save already carries.
         PromotionResult switch2 = progression.Promote("warrior-mage-sniper", "npc-41");
         Assert.False(switch2.IsGranted);
-        Assert.Equal("promotion-class-absent", switch2.Refusal!.Code);
-        Assert.Contains("Nobody in the party is a Warrior Mage", switch2.Refusal.Message, StringComparison.Ordinal);
+        Assert.Equal(ProgressionCodes.PromotionClassAbsent, switch2.Refusal!.Code);
+        Assert.Contains("Warrior Mage", switch2.Refusal.Message, StringComparison.Ordinal);
         Assert.Equal("Master Archer", archer.Profile.Class.Value);
     }
 
@@ -302,12 +307,12 @@ public sealed class PromotionPolicyTests
 
         SkillCeiling light = top.Skills.Ceiling(member, top.Light);
         Assert.True(light.IsNone);
-        Assert.Equal("skill-closed-by-unchosen-path", light.Reason!.Code);
-        Assert.Contains("has taken neither alternative", light.Reason.Message, StringComparison.Ordinal);
-        Assert.Contains("Master Archer (light) would take Light", light.Reason.Message, StringComparison.Ordinal);
+        Assert.Equal(MightAndMagic7Codes.SkillClosedByUnchosenPath, light.Reason!.Code);
+        Assert.Contains("Master Archer", light.Reason.Message, StringComparison.Ordinal);
         SkillCeiling dark = top.Skills.Ceiling(member, top.Dark);
         Assert.True(dark.IsNone);
-        Assert.Contains("Sniper (dark) would take Dark", dark.Reason!.Message, StringComparison.Ordinal);
+        Assert.Equal(MightAndMagic7Codes.SkillClosedByUnchosenPath, dark.Reason!.Code);
+        Assert.Contains("Sniper", dark.Reason.Message, StringComparison.Ordinal);
 
         // Taking one alternative resolves it: the chosen school is the character's at the rung its class
         // states — grand master for a priest of this game — and the opposed one is closed with the choice
@@ -320,8 +325,8 @@ public sealed class PromotionPolicyTests
         Assert.Equal(new SkillCeiling(18, new SkillTier(1)), top.Skills.Ceiling(member, top.Light));
         SkillCeiling opposed = top.Skills.Ceiling(member, top.Dark);
         Assert.True(opposed.IsNone);
-        Assert.Equal("skill-closed-by-path", opposed.Reason!.Code);
-        Assert.Contains("took the light path of the Master Archer", opposed.Reason.Message, StringComparison.Ordinal);
+        Assert.Equal(MightAndMagic7Codes.SkillClosedByPath, opposed.Reason!.Code);
+        Assert.Contains("Master Archer", opposed.Reason.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -416,9 +421,9 @@ public sealed class PromotionPolicyTests
         Assert.Equal("refused", refused.Field("outcome").AsString());
         Assert.Equal("promotion-requirements-unmet", refused.Field("code").AsString());
         ProjectedNode missing = refused.Field("denied").Item(0).Field("missing");
-        Assert.Equal(
-            "needs Divine Intervention, and the party carries 0",
-            Assert.Single(Enumerable.Range(0, missing.Length()).Select(missing.Item)).AsString());
+        string book = Assert.Single(Enumerable.Range(0, missing.Length()).Select(missing.Item)).AsString();
+        Assert.Contains("Divine Intervention", book, StringComparison.Ordinal);
+        Assert.EndsWith(" 0", book, StringComparison.Ordinal);
         Assert.Equal(0, refused.Field("granted").Length());
     }
 

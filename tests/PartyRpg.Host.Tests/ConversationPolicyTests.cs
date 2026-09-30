@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using PartyRpg.Kit;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Conversation;
@@ -96,7 +97,9 @@ public sealed class ConversationPolicyTests
         ConversationOffer gated = Assert.Single(offers, offer => offer.Id == "topic-2");
         Assert.False(gated.IsOnOffer);
         Assert.Equal(ConversationConditionKind.Errand, Assert.Single(gated.Topic.Conditions).Kind);
-        Assert.Contains("the errand the table calls 7 is not finished", gated.Availability.Explanation, StringComparison.Ordinal);
+        Assert.False(gated.Availability.IsMet);
+        Assert.Equal("errand:7", gated.Topic.Conditions[0].Name);
+        Assert.Contains("7", gated.Availability.Explanation, StringComparison.Ordinal);
 
         // Taking the line says what content says, records that it was heard on the party, and states the
         // residue: the original runs an event program behind a reply and nothing here does.
@@ -130,14 +133,18 @@ public sealed class ConversationPolicyTests
         Assert.Contains("topic-5", fixture.OnOffer(person));
         fixture.Party.Reputation.ChangeReputation(-9);
         Assert.DoesNotContain("topic-6", fixture.OnOffer(person));
-        Assert.Contains("standing is 1", fixture.Offer(person, "topic-6").Availability.Explanation, StringComparison.Ordinal);
+        Verdict standing = fixture.Offer(person, "topic-6").Availability;
+        Assert.False(standing.IsMet);
+        Assert.Contains($"{fixture.Party.Reputation.Reputation}", standing.Explanation, StringComparison.Ordinal);
 
         // A topic that waits for the hour reads the session's one clock, and a place whose clock says night
         // offers a different set: the same content, read against the state it names.
         Assert.Contains("topic-7", fixture.OnOffer(person));
         fixture.Clock.Advance(GameDuration.FromHours(14));
         Assert.DoesNotContain("topic-7", fixture.OnOffer(person));
-        Assert.Contains("clock stands at", fixture.Offer(person, "topic-7").Availability.Explanation, StringComparison.Ordinal);
+        Verdict night = fixture.Offer(person, "topic-7").Availability;
+        Assert.False(night.IsMet);
+        Assert.Contains($"{fixture.Clock.Now.Hour:00}:00", night.Explanation, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -164,8 +171,9 @@ public sealed class ConversationPolicyTests
         fixture.Clock.Advance(GameDuration.FromHours(12));
         ConversationOffer shut = fixture.Offer(counter, MightAndMagic7Conversation.CounterTopicId);
         Assert.False(shut.IsOnOffer);
-        Assert.Contains("it is shut", shut.Availability.Explanation, StringComparison.Ordinal);
+        Assert.False(shut.Availability.IsMet);
         Assert.Contains("06:00–18:00", shut.Availability.Explanation, StringComparison.Ordinal);
+        Assert.Contains($"{fixture.Clock.Now.Hour:00}:00", shut.Availability.Explanation, StringComparison.Ordinal);
 
         // A building the tables name nobody for still has somebody behind the door: the proprietor the
         // counter's own definition states, because a shop nobody could speak with is a shop nobody can enter.
@@ -198,7 +206,8 @@ public sealed class ConversationPolicyTests
         Assert.Equal("'A fine day for it.'", talking.Field("greeting").AsString());
         Assert.Equal("topic-1", talking.Field("topics").Item(0).Field("id").AsString());
         Assert.Equal("topic-2", talking.Field("withheld").Item(0).Field("id").AsString());
-        Assert.Contains("is not finished", talking.Field("withheld").Item(0).Field("reason").AsString(), StringComparison.Ordinal);
+        Assert.False(talking.Field("withheld").Item(0).Field("available").AsBoolean());
+        Assert.Contains("7", talking.Field("withheld").Item(0).Field("reason").AsString(), StringComparison.Ordinal);
 
         // A topic the state withholds is refused by name when it is asked for anyway, and the conversation
         // stays exactly where it was rather than applying an answer from a list that no longer holds.
@@ -228,7 +237,9 @@ public sealed class ConversationPolicyTests
         ProjectedNode line = Assert.Single(
             Enumerable.Range(0, withheld.Length()).Select(withheld.Item),
             offer => offer.Field("id").AsString() == "topic-1");
-        Assert.Contains("already said this", line.Field("reason").AsString(), StringComparison.Ordinal);
+        // The line states no condition of its own, so having been said is the only thing that withholds it.
+        Assert.False(line.Field("available").AsBoolean());
+        Assert.NotEqual(string.Empty, line.Field("reason").AsString());
 
         // Leaving and speaking again greets the party the other way, because meeting somebody is state the
         // party carries rather than something the conversation kept.

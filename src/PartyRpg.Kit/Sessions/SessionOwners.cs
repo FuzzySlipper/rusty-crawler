@@ -240,6 +240,11 @@ public sealed class SessionOwners
     }
 
     /// <summary>Reports every deadline an advance brought due, and whose it was.</summary>
+    /// <remarks>
+    /// A deadline an owner heard and one nobody holds are different reports with different codes
+    /// (<c>deadline-due</c> and <c>deadline-unowned</c>), because the second is a deadline set where no
+    /// composed owner can act on it, and a reader should not have to read the sentence to tell them apart.
+    /// </remarks>
     private sealed class DeadlineReport(SessionOwners owners) : IGameTimeObserver
     {
         public void Observe(ClockAdvance advance)
@@ -249,7 +254,7 @@ public sealed class SessionOwners
                 bool owned = owners._deadlineOwners.Any(owner => owner.Holds(due.Deadline));
                 owners.Diagnostics.Applied(
                     "clock",
-                    "deadline-due",
+                    owned ? "deadline-due" : "deadline-unowned",
                     owned
                         ? $"Game time reached {due.Fired}, which a deadline of {due.Deadline} was set for; the owner that set it heard it."
                         : $"Game time reached {due.Fired}, which a deadline of {due.Deadline} was set for; no owner the session composed holds it, so nothing acted on it.");

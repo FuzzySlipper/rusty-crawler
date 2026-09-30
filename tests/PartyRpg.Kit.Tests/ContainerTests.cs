@@ -201,9 +201,8 @@ public sealed class ContainerTests
 
         InteractionResult locked = cellar.Interaction.Use();
         Assert.False(locked.IsApplied);
-        Assert.Equal("interaction-requirement-unmet", locked.Code);
-        Assert.Contains("requires the Brass Key", locked.Message, StringComparison.Ordinal);
-        Assert.Contains("carries none of it", locked.Message, StringComparison.Ordinal);
+        Assert.Equal(InteractionCodes.InteractionRequirementUnmet, locked.Code);
+        Assert.Contains("the Brass Key", locked.Message, StringComparison.Ordinal);
         Assert.Empty(party.Inventory.Items);
         Assert.Equal(0, cellar.Interaction.FocusedTarget?.State.Revision);
 
@@ -235,8 +234,7 @@ public sealed class ContainerTests
 
         InteractionResult result = cellar.Interaction.Use();
         Assert.False(result.IsApplied);
-        Assert.Equal("interaction-no-party", result.Code);
-        Assert.Contains("no party for it to catch", result.Message, StringComparison.Ordinal);
+        Assert.Equal(InteractionCodes.InteractionNoParty, result.Code);
         Assert.Equal(string.Empty, cellar.Interaction.FocusedTarget?.State.State);
     }
 

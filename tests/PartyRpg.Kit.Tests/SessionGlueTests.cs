@@ -75,7 +75,7 @@ public sealed class SessionGlueTests
         Assert.Equal(
             ["spell-member-unknown", "spell-quick-refused"],
             diagnostics.Published.Where(report => report.Source == "magic").Select(report => report.Code));
-        Assert.Contains("the party has 2", diagnostics.Published[0].Message, StringComparison.Ordinal);
+        Assert.Contains("member 6", diagnostics.Published[0].Message, StringComparison.Ordinal);
         Assert.Null(party.Members[0].Spells.QuickSpell);
     }
 

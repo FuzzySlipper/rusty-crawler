@@ -865,7 +865,8 @@ public static class SessionProjection
                     // that showed "raise to level 5" would otherwise be doing the ruleset's arithmetic.
                     ("reached", builder.Number(row.Reached)),
                     ("cost", builder.Number(row.Cost)),
-                    ("refusal", builder.String(row.Refusal))));
+                    ("refusal", builder.String(row.Refusal)),
+                    ("refusalCode", builder.String(row.RefusalCode))));
             }
 
             members.Add(builder.Object(

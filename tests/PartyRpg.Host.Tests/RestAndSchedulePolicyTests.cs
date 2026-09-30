@@ -121,9 +121,9 @@ public sealed class RestAndSchedulePolicyTests
         ProjectedNode refused = ProjectedNode.Of(ui.Latest().Value).Field("interaction");
         Assert.Equal("refused", refused.Field("outcome").AsString());
         Assert.Equal("interaction-requirement-unmet", refused.Field("code").AsString());
-        Assert.Contains("It keeps 06:00–18:00", refused.Field("message").AsString(), StringComparison.Ordinal);
-        Assert.Contains("the clock stands at 18:00", refused.Field("message").AsString(), StringComparison.Ordinal);
-        Assert.Contains("opens again at 1168-01-02 06:00", refused.Field("message").AsString(), StringComparison.Ordinal);
+        Assert.Contains("06:00–18:00", refused.Field("message").AsString(), StringComparison.Ordinal);
+        Assert.Contains("18:00", refused.Field("message").AsString(), StringComparison.Ordinal);
+        Assert.Contains("1168-01-02 06:00", refused.Field("message").AsString(), StringComparison.Ordinal);
 
         // Twelve hours on: the clock comes round to six in the morning, and the same door — nothing about it
         // was ever remembered — is open again and swings open in the same use a player made at midnight.
@@ -343,7 +343,7 @@ public sealed class RestAndSchedulePolicyTests
         Assert.Null(schedules.HoursOf(new PlaceId("7")));
         Assert.Empty(schedules.Schedule.StateOf(new PlaceId("7"), new GameDate(1168, 1, 1, 12, 0, 0)));
         string note = Assert.Single(schedules.Notes);
-        Assert.Contains("keeps no door schedule", note, StringComparison.Ordinal);
+        Assert.Contains("'7'", note, StringComparison.Ordinal);
 
         // A place that states its own hours is clocked by them, which is how a town — a region holding no
         // counter at all — can keep hours of its own.

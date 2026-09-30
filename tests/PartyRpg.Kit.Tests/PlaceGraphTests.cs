@@ -53,6 +53,7 @@ public sealed class PlaceGraphTests
             Places("""{ "id": "1", "kind": "region", "name": "Home" }"""),
             Links("""{ "id": "0", "fromPlace": "1", "toPlace": "99", "x": 1 }""")));
 
+        Assert.Contains(error.Issues, issue => issue.Code == "transition-destination-unknown");
         Assert.Contains("99", error.Message);
     }
 
@@ -114,7 +115,9 @@ public sealed class PlaceGraphTests
         PlaceGraph graph = Load(Places("""{ "id": "1", "kind": "region", "name": "Home" }"""), Links());
 
         ContentValidationException error = Assert.Throws<ContentValidationException>(() => graph.Require(new PlaceId("42")));
-        Assert.Contains("42", error.Message);
+        ContentValidationIssue unknown = Assert.Single(error.Issues);
+        Assert.Equal("place-unknown", unknown.Code);
+        Assert.Equal("42", unknown.PackId);
         Assert.Null(graph.Find(new PlaceId("42")));
     }
 

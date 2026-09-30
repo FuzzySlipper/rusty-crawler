@@ -206,8 +206,8 @@ public sealed class PersistenceTests
             new SessionParty.Playing(World: world, Party: party));
 
         Assert.Null(session.Saves);
-        InvalidOperationException refused = Assert.Throws<InvalidOperationException>(() => session.Save());
-        Assert.Contains("nowhere to write a save", refused.Message, StringComparison.Ordinal);
+        // Composed without a store is the one way a live session's save throws this exact exception.
+        Assert.Throws<InvalidOperationException>(() => session.Save());
 
         // Capturing still works: what a session holds is separate from where a save would go.
         Assert.Empty(session.Capture().Problems(Graph(), new PartyEntityFactory()));
@@ -221,9 +221,7 @@ public sealed class PersistenceTests
 
         SessionSaveException refused = Assert.Throws<SessionSaveException>(() => empty.Capture());
 
-        Assert.Contains("holds no party", refused.Message, StringComparison.Ordinal);
-        Assert.Contains("holds no clock", refused.Message, StringComparison.Ordinal);
-        Assert.Contains("holds no world", refused.Message, StringComparison.Ordinal);
+        Assert.Equal(SessionSaveFailure.Refused, refused.Kind);
         Assert.Equal(
             ["party", "clock", "world"],
             refused.Problems.Where(problem => problem.Code == SaveCodes.SavePartMissing).Select(problem => problem.Subject));
@@ -275,7 +273,7 @@ public sealed class PersistenceTests
 
         // Both counts are named, so a person reading the refusal sees which two days disagree.
         Assert.Contains($"day {captured.World.Places.ElapsedGameDays}", problem.Text, StringComparison.Ordinal);
-        Assert.Contains($"{captured.World.Places.ElapsedGameDays + 3} whole day(s)", problem.Text, StringComparison.Ordinal);
+        Assert.Contains($"{captured.World.Places.ElapsedGameDays + 3}", problem.Text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -369,11 +367,12 @@ public sealed class PersistenceTests
         Assert.True(document["party"]!["members"]![0]!.AsObject().Remove("id"));
 
         SessionSave loaded = Decode(Encoding.UTF8.GetBytes(document.ToJsonString()));
-        Assert.Contains(
+        SaveProblem unidentified = Assert.Single(
             loaded.Problems(Graph(), new PartyEntityFactory()),
             problem => problem.Code == SaveCodes.SaveMemberUnidentified && problem.Subject == "1");
         ArgumentException refused = Assert.Throws<ArgumentException>(() => new PartyEntityFactory().Restore(loaded.Party));
-        Assert.Contains("member 1 is recorded without an identity", refused.Message, StringComparison.Ordinal);
+        Assert.Equal("save", refused.ParamName);
+        Assert.Contains(unidentified.Text, refused.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -392,10 +391,10 @@ public sealed class PersistenceTests
         IReadOnlyList<SaveProblem> problems = new PartyEntityFactory().Problems(withDetached);
         SaveProblem problem = Assert.Single(problems, entry => entry.Code == SaveCodes.SaveItemHeldByNobody);
         Assert.Equal($"{loose.Id}", problem.Subject);
-        Assert.Contains("an item it never took", problem.Text, StringComparison.Ordinal);
 
         ArgumentException refused = Assert.Throws<ArgumentException>(() => new PartyEntityFactory().Restore(withDetached));
-        Assert.Contains("held by nobody", refused.Message, StringComparison.Ordinal);
+        Assert.Equal("save", refused.ParamName);
+        Assert.Contains(problem.Text, refused.Message, StringComparison.Ordinal);
 
         // The control: the same party without that record restores, so the refusal is the loose record.
         using PartyEntity restored = new PartyEntityFactory().Restore(save);

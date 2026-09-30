@@ -94,8 +94,7 @@ public sealed class AwardTests
 
         ConversationResult nothing = conversation.Choose(string.Empty);
         Assert.False(nothing.IsApplied);
-        Assert.Equal("conversation-topic-unnamed", nothing.Code);
-        Assert.Contains("Nothing was named", nothing.Message, StringComparison.Ordinal);
+        Assert.Equal(ConversationCodes.ConversationTopicUnnamed, nothing.Code);
 
         // The conversation is exactly where it stood: the speaker is still speaking and the topics are
         // still what the state makes of them.
@@ -116,8 +115,9 @@ public sealed class AwardTests
         // party's own numbers rather than in words a screen would have to work out.
         ConversationOffer withheld = conversation.Offers.Single(offer => offer.Id == "regard");
         Assert.False(withheld.IsOnOffer);
-        Assert.Contains("standing is 0", withheld.Availability.Explanation, StringComparison.Ordinal);
-        Assert.Contains("needs 6", withheld.Availability.Explanation, StringComparison.Ordinal);
+        Assert.False(withheld.Availability.IsMet);
+        Assert.Contains("0", withheld.Availability.Explanation, StringComparison.Ordinal);
+        Assert.Contains("6", withheld.Availability.Explanation, StringComparison.Ordinal);
 
         // The threshold is crossed the only way it may be: through the progression owner, at the one entry
         // every award arrives at, with the source the quest owner names. Nothing else in this product writes

@@ -95,10 +95,13 @@ public sealed class PromotionTests
 
         // Each requirement is named by its own words, with the party's own standing in them: a player reads
         // which of the three blocked the rank rather than that something did.
-        Assert.Contains(denial.Missing, line => line.Contains("granted by quartermaster", StringComparison.Ordinal));
-        Assert.Contains(denial.Missing, line => line.Contains("needs 2 × token, and the party carries 0", StringComparison.Ordinal));
-        Assert.Contains(denial.Missing, line => line.Contains("needs the record of three victories (3), and the party's record stands at 0", StringComparison.Ordinal));
-        Assert.Contains("granted by quartermaster", refused.Refusal.Message, StringComparison.Ordinal);
+        string giver = PromotionRequirement.FromGiver("quartermaster", "quartermaster").ToString();
+        string tokens = PromotionRequirement.ForItem("token", 2, "token").ToString();
+        string victories = PromotionRequirement.ForAward("victories", 3, "three victories").ToString();
+        Assert.Contains(denial.Missing, line => line.Contains(giver, StringComparison.Ordinal) && line.Contains("somebody-else", StringComparison.Ordinal));
+        Assert.Contains(denial.Missing, line => line.Contains(tokens, StringComparison.Ordinal) && line.EndsWith(" 0", StringComparison.Ordinal));
+        Assert.Contains(denial.Missing, line => line.Contains(victories, StringComparison.Ordinal) && line.EndsWith(" 0", StringComparison.Ordinal));
+        Assert.Contains(giver, refused.Refusal.Message, StringComparison.Ordinal);
 
         // Each is state the party really holds, so meeting all three — at the giver — grants the rank.
         party.AcquireItem(new ItemDefinitionId("token"), 2);
@@ -126,7 +129,8 @@ public sealed class PromotionTests
         Assert.Equal("Borin", Assert.Single(given.Granted).Name);
         PromotionDenial denied = Assert.Single(given.Denied);
         Assert.Equal("Ann", denied.Name);
-        Assert.Contains("continues from rank 2", Assert.Single(denied.Missing), StringComparison.Ordinal);
+        Assert.Equal(1, denied.Rank);
+        Assert.Contains("2", Assert.Single(denied.Missing), StringComparison.Ordinal);
         Assert.Equal(3, party.Members[1].Progression.ClassRank);
         Assert.Equal(1, party.Members[0].Progression.ClassRank);
         Assert.Equal(1, party.Members[2].Progression.ClassRank);
@@ -160,8 +164,8 @@ public sealed class PromotionTests
 
         PromotionResult dark = progression.Promote("sergeant-deserter", "quartermaster");
         Assert.False(dark.IsGranted);
-        Assert.Equal("promotion-class-absent", dark.Refusal!.Code);
-        Assert.Contains("Nobody in the party is a sergeant", dark.Refusal.Message, StringComparison.Ordinal);
+        Assert.Equal(ProgressionCodes.PromotionClassAbsent, dark.Refusal!.Code);
+        Assert.Contains("sergeant", dark.Refusal.Message, StringComparison.Ordinal);
         Assert.Equal("captain", member.Profile.Class.Value);
 
         // The class the member now belongs to leads nowhere, which is what an earned third rank looks like
@@ -208,8 +212,9 @@ public sealed class PromotionTests
         // skill, which would say nothing about the choice that closed it.
         SkillRaisePlan plan = progression.Plan(member.Id, Blades);
         Assert.True(plan.Ceiling.IsNone);
+        Refusal closed = new ClosedSkills().Ceiling(member, Blades).Reason!;
         Assert.Equal("skill-closed-by-path", plan.Refusal!.Code);
-        Assert.Contains("took the dark path", plan.Refusal.Message, StringComparison.Ordinal);
+        Assert.Equal(closed, plan.Refusal);
 
         SkillRaiseResult refused = progression.RaiseSkill(member.Id, Blades);
         Assert.False(refused.IsRaised);
@@ -221,7 +226,7 @@ public sealed class PromotionTests
         SkillsSnapshot skills = SkillsSnapshot.From(progression);
         SkillRowSnapshot row = Assert.Single(Assert.Single(skills.Members).Skills);
         Assert.Equal(0, row.CeilingLevel);
-        Assert.Contains("took the dark path", row.Refusal, StringComparison.Ordinal);
+        Assert.Contains(closed.Message, row.Refusal, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -305,8 +310,10 @@ public sealed class PromotionTests
         Assert.Equal("promotion-requirements-unmet", refused.Code);
         PromotionDenialSnapshot denial = Assert.Single(refused.Denied);
         Assert.Equal("Borin", denial.Name);
-        Assert.Contains("needs token, and the party carries 0", Assert.Single(denial.Missing), StringComparison.Ordinal);
-        Assert.Contains("needs token, and the party carries 0", refused.Message, StringComparison.Ordinal);
+        string missing = Assert.Single(denial.Missing);
+        Assert.Contains(PromotionRequirement.ForItem("token", 1, "token").ToString(), missing, StringComparison.Ordinal);
+        Assert.EndsWith(" 0", missing, StringComparison.Ordinal);
+        Assert.Contains(missing, refused.Message, StringComparison.Ordinal);
     }
 
     /// <summary>A ladder of the test's own: two classes deep, with a second promotion that splits in two.</summary>

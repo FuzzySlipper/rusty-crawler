@@ -110,9 +110,9 @@ public sealed class RestAndScheduleTests
         Assert.Equal("A door", world.Interaction!.FocusedTarget!.Definition.Name);
         InteractionResult shut = world.Interact(use: true)!;
         Assert.False(shut.IsApplied);
-        Assert.Equal("interaction-requirement-unmet", shut.Code);
-        Assert.Contains("the hours 06:00–18:00", shut.Message, StringComparison.Ordinal);
-        Assert.Contains("the clock stands at 22:00", shut.Message, StringComparison.Ordinal);
+        Assert.Equal(InteractionCodes.InteractionRequirementUnmet, shut.Code);
+        Assert.Contains("06:00–18:00", shut.Message, StringComparison.Ordinal);
+        Assert.Contains("22:00", shut.Message, StringComparison.Ordinal);
 
         // Two minutes before six the door is still shut, and at six — the hour the window opens at — the very
         // same door opens in the very same use, because nothing about it was remembered.
@@ -130,8 +130,8 @@ public sealed class RestAndScheduleTests
         clock.Advance(GameDuration.FromHours(12));
         InteractionResult again = world.Interact(use: true)!;
         Assert.False(again.IsApplied);
-        Assert.Equal("interaction-requirement-unmet", again.Code);
-        Assert.Contains("the clock stands at 18:00", again.Message, StringComparison.Ordinal);
+        Assert.Equal(InteractionCodes.InteractionRequirementUnmet, again.Code);
+        Assert.Contains("18:00", again.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -315,7 +315,7 @@ public sealed class RestAndScheduleTests
         Assert.Equal(6, party.Food.Portions);
         Assert.Equal(25, party.Members[0].Resources.HitPoints.Current);
         Assert.True(party.Members[0].Conditions.Has(Weakness));
-        Assert.Contains("something finds the camp", result.Message, StringComparison.Ordinal);
+        Assert.Contains(broke.Message, result.Message, StringComparison.Ordinal);
         Assert.Contains("no provisions were spent", result.Message, StringComparison.Ordinal);
     }
 

@@ -21,6 +21,7 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="Reached">The level one more point would leave the skill at, or the level it stands at when refused.</param>
 /// <param name="Cost">What one more level would cost, zero when it would be refused.</param>
 /// <param name="Refusal">Why one more level would be refused, empty when it would land.</param>
+/// <param name="RefusalCode">The code of that refusal, which a caller branches on; empty when it would land.</param>
 public readonly record struct SkillRowSnapshot(
     string Skill,
     string Block,
@@ -31,7 +32,8 @@ public readonly record struct SkillRowSnapshot(
     int PointsSpent,
     int Reached,
     int Cost,
-    string Refusal);
+    string Refusal,
+    string RefusalCode);
 
 /// <summary>One member's skills, in the order the member learned them.</summary>
 /// <param name="Index">The member's place in the party, counted from zero, which a raise control names.</param>
@@ -122,7 +124,8 @@ public readonly record struct SkillsSnapshot(
                     entry.PointsSpent,
                     plan.Reached,
                     plan.Points,
-                    plan.Refusal?.Message ?? string.Empty));
+                    plan.Refusal?.Message ?? string.Empty,
+                    plan.Refusal?.Code ?? string.Empty));
             }
 
             members.Add(new SkillMemberSnapshot(

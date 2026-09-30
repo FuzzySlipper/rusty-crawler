@@ -7,15 +7,16 @@ namespace PartyRpg.Kit.Persistence;
 /// <remarks>
 /// The problems are a list rather than one message because a save that cannot be loaded is usually wrong in
 /// more than one place: reporting all of them lets a defective save be fixed in one pass, and lets a player
-/// be told what is actually wrong instead of the first thing a reader happened to check. A failure with no
-/// problems is a failure of the surrounding store rather than of the document — bytes that could not be
-/// read at all, or a slot that holds nothing.
+/// be told what is actually wrong instead of the first thing a reader happened to check. A failure of the
+/// surrounding store rather than of the document — no store to read, a store that would not open, bytes that
+/// could not be read at all, or a slot that holds nothing — is named by a problem too, so a caller branches on
+/// a code in every case, and <see cref="Kind"/> says which loss it was.
 /// </remarks>
 public sealed class SessionSaveException : Exception
 {
     /// <summary>Creates the failure.</summary>
     /// <param name="message">What happened, in the terms of the save that could not be used.</param>
-    /// <param name="problems">Every part of the save that is missing or contradictory; empty when the document itself is not the problem.</param>
+    /// <param name="problems">Every part of the save that is missing or contradictory, or the store failure that kept it from being used.</param>
     /// <param name="kind">
     /// Which loss this is. Left out, a failure that names problems is a refusal and one that names none is a
     /// store that failed.

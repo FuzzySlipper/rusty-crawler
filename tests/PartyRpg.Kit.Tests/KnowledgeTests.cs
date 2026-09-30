@@ -151,7 +151,7 @@ public sealed class KnowledgeTests
         // own words rather than showing an empty list a player would read as "there is nothing to learn here".
         JournalBookSnapshot unavailable = JournalSnapshot.From(journal, quests: null, world, clock, knowledge: null).Books[1];
         Assert.False(unavailable.Available);
-        Assert.Contains("no knowledge owner", unavailable.State, StringComparison.Ordinal);
+        Assert.Equal(journal.Rule.Book(JournalBookKind.Notes).Unavailable, unavailable.State);
         Assert.Empty(unavailable.Rows);
     }
 

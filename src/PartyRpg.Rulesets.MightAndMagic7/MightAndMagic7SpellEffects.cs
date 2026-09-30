@@ -905,13 +905,19 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
 
         PlaceDefinition? place = world.Graph.Find(new PlaceId(named));
         if (place is null) return SpellRefusals.NoValidTarget(application.Spell.Name, named);
+        // A place the world holds and cannot be reached is a different refusal from a name nothing answers to,
+        // so each carries its own code rather than sharing the invalid-target one with a sentence to tell them apart.
         if (!world.Places.StateOf(place.Id).Visited)
         {
-            return SpellRefusals.NoValidTarget(application.Spell.Name, $"{place.Name}, which the party has never been to");
+            return new Refusal(
+                MightAndMagic7Codes.SpellPlaceUnvisited,
+                $"{application.Spell.Name} cannot reach {place.Name}, which the party has never been to.");
         }
 
         return place.EntryPoints.Count == 0
-            ? SpellRefusals.NoValidTarget(application.Spell.Name, $"{place.Name}, which states nowhere to arrive")
+            ? new Refusal(
+                MightAndMagic7Codes.SpellPlaceNoArrival,
+                $"{application.Spell.Name} cannot reach {place.Name}, which states nowhere to arrive.")
             : null;
     }
 

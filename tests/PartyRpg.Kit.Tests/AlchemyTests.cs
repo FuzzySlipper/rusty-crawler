@@ -87,7 +87,8 @@ public sealed class AlchemyTests
             // character here stands at the first.
             new PotionMixture(Berry, Bottle, MixtureOutcome.Produces(Tonic), new SkillTier(3), Power: 5),
         ]);
-        PotionMixing mixing = Mixing(party, catalog, new Rule());
+        Rule rule = new();
+        PotionMixing mixing = Mixing(party, catalog, rule);
 
         ItemInstance berry = Take(party, Berry);
         ItemInstance bottle = Take(party, Bottle);
@@ -95,13 +96,13 @@ public sealed class AlchemyTests
         MixingResult refused = mixing.Mix(new MixingRequest(0, berry.Id, bottle.Id));
 
         Assert.False(refused.IsMixed);
-        Assert.Equal("mixture-mastery-too-low", refused.Code);
+        Assert.Equal(MixingCodes.MixtureMasteryTooLow, refused.Code);
 
         // The refusal names the rung the result asks for, the rung the character stands at, and what would
         // raise it — the same tone the skill ceilings use, where a player is told what to go and do.
-        Assert.Contains("stands at novice", refused.Message, StringComparison.Ordinal);
-        Assert.Contains("mixed at master", refused.Message, StringComparison.Ordinal);
-        Assert.Contains("a mastery lesson in Alchemy at a counter that teaches it raises the rung", refused.Message, StringComparison.Ordinal);
+        Assert.Contains(rule.TierName(new SkillTier(1)), refused.Message, StringComparison.Ordinal);
+        Assert.Contains(rule.TierName(new SkillTier(3)), refused.Message, StringComparison.Ordinal);
+        Assert.Contains(rule.MasteryRaisedBy(rule.Skill), refused.Message, StringComparison.Ordinal);
 
         // Nothing was spent: both ingredients are exactly where they lay.
         Assert.NotNull(party.FindItem(berry.Id));

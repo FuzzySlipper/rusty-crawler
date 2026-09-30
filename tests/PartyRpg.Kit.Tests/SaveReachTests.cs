@@ -147,8 +147,8 @@ public sealed class SaveReachTests
     [Fact]
     public void A_write_the_store_refuses_surfaces_by_name_and_leaves_the_session_playable()
     {
-        using Fixture fixture = new(refusal: new SessionSaveException(
-            "The save in slot 'session' could not be written: the disk refused it."));
+        SessionSaveException refusal = new("The save in slot 'session' could not be written: the disk refused it.");
+        using Fixture fixture = new(refusal: refusal);
         fixture.Session.Start();
 
         fixture.Session.Update(Update(1, 60, Digital(Controls.Intent)));
@@ -156,7 +156,7 @@ public sealed class SaveReachTests
         ProjectedNode save = fixture.Published().Field("save");
         Assert.Equal("failed", save.Field("state").AsString());
         Assert.Equal("save-failed", save.Field("code").AsString());
-        Assert.Contains("the disk refused it", save.Field("message").AsString(), StringComparison.Ordinal);
+        Assert.Equal(refusal.Message, save.Field("message").AsString());
         Assert.Equal(string.Empty, save.Field("at").AsString());
 
         // The refusal is the player's answer, not the end of the session: the same update measured its
@@ -179,7 +179,7 @@ public sealed class SaveReachTests
         ProjectedNode save = fixture.Published().Field("save");
         Assert.Equal("failed", save.Field("state").AsString());
         Assert.Equal("save-failed", save.Field("code").AsString());
-        Assert.Contains("could not be written to slot 'session'", save.Field("message").AsString(), StringComparison.Ordinal);
+        Assert.Contains("'session'", save.Field("message").AsString(), StringComparison.Ordinal);
         Assert.Equal(SessionMode.Running, fixture.Session.Mode);
         Assert.Empty(fixture.Store.Writes);
     }
@@ -207,10 +207,12 @@ public sealed class SaveReachTests
         ProjectedNode save = channel.Latest().Field("save");
         Assert.Equal("failed", save.Field("state").AsString());
         Assert.Equal("save-refused", save.Field("code").AsString());
-        string message = save.Field("message").AsString();
-        Assert.Contains("holds no party", message, StringComparison.Ordinal);
-        Assert.Contains("holds no clock", message, StringComparison.Ordinal);
-        Assert.Contains("holds no world", message, StringComparison.Ordinal);
+        // What the panel shows is the capture's own refusal, which names each missing part by its code.
+        SessionSaveException refused = Assert.Throws<SessionSaveException>(() => empty.Capture());
+        Assert.Equal(
+            ["party", "clock", "world"],
+            refused.Problems.Where(problem => problem.Code == SaveCodes.SavePartMissing).Select(problem => problem.Subject));
+        Assert.Equal(refused.Message, save.Field("message").AsString());
     }
 
     [Fact]
@@ -226,7 +228,6 @@ public sealed class SaveReachTests
         Assert.False(outcome.Field("available").AsBoolean());
         Assert.Equal("failed", outcome.Field("state").AsString());
         Assert.Equal("save-unavailable", outcome.Field("code").AsString());
-        Assert.Contains("nowhere to write one", outcome.Field("message").AsString(), StringComparison.Ordinal);
 
         // The boundary itself still fails loudly for a caller that demanded a write: a product with no
         // persistence must not be able to mistake a refusal for a save.

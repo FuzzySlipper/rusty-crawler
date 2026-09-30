@@ -103,6 +103,7 @@ public sealed class PartyEntityTests
             Seed("Bo", Fighter, new SkillEntry(Lore, 1, SkillTier.None, 1)),
             [new StartingEquipment(Hand, Blade)]);
         ArgumentException refused = Assert.Throws<ArgumentException>(() => Build(new PartyEntityFactory(gate), bo));
+        Assert.Equal("equipment", refused.ParamName);
         Assert.Contains("skill-missing", refused.Message, StringComparison.Ordinal);
     }
 
@@ -518,9 +519,12 @@ public sealed class PartyEntityTests
 
         ArgumentException refused = Assert.Throws<ArgumentException>(() => new PartyEntityFactory().Restore(broken));
 
-        Assert.Contains("recorded more than once", refused.Message, StringComparison.Ordinal);
-        Assert.Contains("not below the item cursor", refused.Message, StringComparison.Ordinal);
-        Assert.Contains("whom the save does not record", refused.Message, StringComparison.Ordinal);
+        Assert.Equal("save", refused.ParamName);
+        IReadOnlyList<SaveProblem> problems = new PartyEntityFactory().Problems(broken);
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveMemberTwice);
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveItemBeyondCursor);
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveItemWornByStranger);
+        Assert.All(problems, problem => Assert.Contains(problem.Text, refused.Message, StringComparison.Ordinal));
     }
 
     [Fact]

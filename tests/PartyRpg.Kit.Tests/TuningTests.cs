@@ -36,7 +36,8 @@ public sealed class TuningTests
         Assert.Equal(
             ["tuning-unknown", "tuning-out-of-range", "tuning-unreadable"],
             refused.Issues.Select(issue => issue.Code));
-        Assert.Contains("from 1 to 24", refused.Issues[1].Message, StringComparison.Ordinal);
+        Assert.Contains("24", refused.Issues[1].Message, StringComparison.Ordinal);
+        Assert.Contains("30", refused.Issues[1].Message, StringComparison.Ordinal);
     }
 
     [Fact]

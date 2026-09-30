@@ -71,8 +71,8 @@ public sealed class QuestPolicyTests
 
         // Nothing this game reads is left unstaged: every objective resolved against the places and the
         // monster table the packs carry, so no errand is stated with an objective nothing could satisfy.
-        Assert.DoesNotContain(questsRead.Notes, note => note.Contains("cannot be stated", StringComparison.Ordinal));
-        Assert.DoesNotContain(questsRead.Notes, note => note.Contains("is not stated", StringComparison.Ordinal));
+        Assert.Equal(0, questsRead.UnstatedErrandCount);
+        Assert.Equal(0, questsRead.UnstatedObjectiveCount);
 
         // The words are the shipped table's own, and the giver is the ladder's: bit 35 is Frederick Org's,
         // named in the shipped row's own text ("return to Frederick Org in Erathia").

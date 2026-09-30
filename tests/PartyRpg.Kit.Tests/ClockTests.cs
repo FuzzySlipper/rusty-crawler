@@ -70,9 +70,11 @@ public sealed class ClockTests
         // this calendar states no such rule, so the definition is refused rather than guessed at.
         ArgumentException fractional = Assert.Throws<ArgumentException>(
             () => new GameCalendar([30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30], daysPerWeek: 7, hoursPerDay: 24));
-        Assert.Contains("whole number of 7-day weeks", fractional.Message);
+        Assert.Equal("daysPerMonth", fractional.ParamName);
+        Assert.Contains("Month 1", fractional.Message);
 
         ArgumentException empty = Assert.Throws<ArgumentException>(() => new GameCalendar([28, 0], daysPerWeek: 7, hoursPerDay: 24));
+        Assert.Equal("daysPerMonth", empty.ParamName);
         Assert.Contains("Month 2", empty.Message);
 
         Assert.Throws<ArgumentException>(() => new GameCalendar([], daysPerWeek: 7, hoursPerDay: 24));
@@ -105,14 +107,17 @@ public sealed class ClockTests
     {
         ArgumentOutOfRangeException noMonth = Assert.Throws<ArgumentOutOfRangeException>(
             () => Calendar.RequireValid(new GameDate(100, 13, 1), "date"));
+        Assert.Equal("date", noMonth.ParamName);
         Assert.Contains("12 months", noMonth.Message);
 
         ArgumentOutOfRangeException noDay = Assert.Throws<ArgumentOutOfRangeException>(
             () => Calendar.RequireValid(new GameDate(100, 2, 29), "date"));
+        Assert.Equal("date", noDay.ParamName);
         Assert.Contains("28 days", noDay.Message);
 
         ArgumentOutOfRangeException noHour = Assert.Throws<ArgumentOutOfRangeException>(
             () => Calendar.RequireValid(new GameDate(100, 1, 1, 24), "date"));
+        Assert.Equal("date", noHour.ParamName);
         Assert.Contains("24 hours", noHour.Message);
 
         Assert.False(Calendar.IsValid(new GameDate(100, 2, 29)));

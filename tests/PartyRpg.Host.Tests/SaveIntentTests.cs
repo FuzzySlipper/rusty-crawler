@@ -83,7 +83,9 @@ public sealed class SaveIntentTests
             using CrawlerProduct product = new(context, name => name == ProductIdentity.StartVariable ? "resume" : null);
         });
 
-        Assert.Contains($"No session is saved in slot '{MightAndMagic7Persistence.SaveSlot}'", refused.Message, StringComparison.Ordinal);
+        SaveProblem empty = Assert.Single(refused.Problems);
+        Assert.Equal(SaveCodes.SaveSlotEmpty, empty.Code);
+        Assert.Equal(MightAndMagic7Persistence.SaveSlot, empty.Subject);
         Assert.Null(persistence.Payload(MightAndMagic7Persistence.StoreScope, MightAndMagic7Persistence.SaveSlot));
     }
 

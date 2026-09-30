@@ -209,8 +209,10 @@ public sealed class SessionPersistenceTests
         SessionSaveException refused = Assert.Throws<SessionSaveException>(
             () => MightAndMagic7Ruleset.Instance.ResumeSession(Context(context, ui)));
 
-        Assert.Contains($"No session is saved in slot '{Slot}'", refused.Message, StringComparison.Ordinal);
-        Assert.Empty(refused.Problems);
+        SaveProblem empty = Assert.Single(refused.Problems);
+        Assert.Equal(SaveCodes.SaveSlotEmpty, empty.Code);
+        Assert.Equal(Slot, empty.Subject);
+        Assert.Equal(SessionSaveFailure.Failed, refused.Kind);
     }
 
     [Fact]
@@ -225,7 +227,7 @@ public sealed class SessionPersistenceTests
         SessionSaveException refused = Assert.Throws<SessionSaveException>(
             () => MightAndMagic7Ruleset.Instance.ResumeSession(Context(context, ui)));
 
-        Assert.Contains($"The save in slot '{Slot}' cannot be read", refused.Message, StringComparison.Ordinal);
+        Assert.Contains($"'{Slot}'", refused.Message, StringComparison.Ordinal);
         SaveProblem unreadable = Assert.Single(refused.Problems);
         Assert.Equal(SaveCodes.SaveUnreadable, unreadable.Code);
         Assert.Equal(Slot, unreadable.Subject);
@@ -259,7 +261,7 @@ public sealed class SessionPersistenceTests
         SessionSaveException refused = Assert.Throws<SessionSaveException>(
             () => MightAndMagic7Ruleset.Instance.ResumeSession(Context(context, ui)));
 
-        Assert.Contains("The save cannot be loaded:", refused.Message, StringComparison.Ordinal);
+        Assert.Equal(SessionSaveFailure.Refused, refused.Kind);
         Assert.Contains(refused.Problems, problem => problem.Code == SaveCodes.SavePosePlaceUnknown && problem.Subject == "somewhere-else");
     }
 
@@ -272,7 +274,8 @@ public sealed class SessionPersistenceTests
         SessionSaveException refused = Assert.Throws<SessionSaveException>(
             () => MightAndMagic7Ruleset.Instance.ResumeSession(Context(context, ui, engine: false)));
 
-        Assert.Contains("not running inside an engine", refused.Message, StringComparison.Ordinal);
+        Assert.Equal(SaveCodes.SaveStoreAbsent, Assert.Single(refused.Problems).Code);
+        Assert.Equal(SessionSaveFailure.Unavailable, refused.Kind);
     }
 
     [Fact]
@@ -288,8 +291,8 @@ public sealed class SessionPersistenceTests
         session.Start();
 
         SessionSaveException refused = Assert.Throws<SessionSaveException>(() => MightAndMagic7Ruleset.Instance.Save(session));
-        Assert.Contains("could not open the persistence store", refused.Message, StringComparison.Ordinal);
         Assert.Equal(SaveCodes.SaveStoreUnopened, Assert.Single(refused.Problems).Code);
+        Assert.Equal(SessionSaveFailure.Unavailable, refused.Kind);
     }
 
     /// <summary>The ruleset session context a product composes, over the context this test staged.</summary>

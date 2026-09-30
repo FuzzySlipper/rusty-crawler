@@ -106,8 +106,8 @@ public sealed class TravelPolicyTests
         // No passage: a paid transition is refused by name rather than taken free, and nothing about the
         // party changes.
         Refusal unpaid = rule.Quote(new TransitionRequest(graph, road, TransitionKind.PaidService, Home, PlacePose.Origin)).Refusal!;
-        Assert.Equal("travel-fare-unpaid", unpaid.Code);
-        Assert.Contains("passage", unpaid.Message, StringComparison.Ordinal);
+        Assert.Equal(MightAndMagic7Codes.TravelFareUnpaid, unpaid.Code);
+        Assert.Contains($"{road.To}", unpaid.Message, StringComparison.Ordinal);
 
         // A passage to somewhere else does not pay for this journey: a ticket names the place it reaches.
         party.Passages.Hold(new PlaceId("99"), 2);

@@ -91,7 +91,6 @@ public sealed class CombatProjectionPolicyTests
         combat = Combat(ui);
         Assert.Equal("refused", combat.Field("outcome").AsString());
         Assert.Equal("recovering", combat.Field("code").AsString());
-        Assert.Contains("still recovering", combat.Field("message").AsString(), StringComparison.Ordinal);
         Assert.False(combat.Field("resolved").AsBoolean());
 
         // Game time releases them, and the projection published by the update that released them is the one

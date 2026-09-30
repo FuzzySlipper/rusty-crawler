@@ -109,6 +109,12 @@ public static class MightAndMagic7Codes
     /// <summary>The refusal code <c>skill-closed-by-unchosen-path</c>.</summary>
     public const string SkillClosedByUnchosenPath = "skill-closed-by-unchosen-path";
 
+    /// <summary>The refusal code <c>spell-place-no-arrival</c>: a travel spell names a place that states nowhere to arrive.</summary>
+    public const string SpellPlaceNoArrival = "spell-place-no-arrival";
+
+    /// <summary>The refusal code <c>spell-place-unvisited</c>: a travel spell names a place the party has never been to.</summary>
+    public const string SpellPlaceUnvisited = "spell-place-unvisited";
+
     /// <summary>The refusal code <c>travel-fare-unpaid</c>.</summary>
     public const string TravelFareUnpaid = "travel-fare-unpaid";
 

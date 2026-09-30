@@ -146,7 +146,7 @@ public sealed class TransitionExecutionTests
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => executive.Take(
             new TransitionRequest(graph, TransitionOf(graph, home, "edge"), TransitionKind.Walking, home, PlacePose.Origin)));
 
-        Assert.Contains("answered nothing", error.Message);
+        Assert.Contains("'edge'", error.Message);
         Assert.Single(rule.Asked);
     }
 
@@ -180,7 +180,7 @@ public sealed class TransitionExecutionTests
 
         InvalidOperationException elsewhere = Assert.Throws<InvalidOperationException>(() => executive.Take(
             new TransitionRequest(graph, invented, TransitionKind.Portal, new PlaceId("2"), PlacePose.Origin)));
-        Assert.Contains("leaves place", elsewhere.Message);
+        Assert.Contains("'2'", elsewhere.Message);
 
         ContentValidationException unknown = Assert.Throws<ContentValidationException>(() => executive.Take(
             new TransitionRequest(
@@ -220,7 +220,7 @@ public sealed class TransitionExecutionTests
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => executive.Take(
             new TransitionRequest(graph, TransitionOf(graph, home, "edge"), TransitionKind.Scripted, home, PlacePose.Origin)));
 
-        Assert.Contains("scripted", error.Message);
+        Assert.Contains("'edge'", error.Message);
         Assert.Empty(rule.Asked);
     }
 

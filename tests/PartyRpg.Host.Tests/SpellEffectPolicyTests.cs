@@ -337,8 +337,8 @@ public sealed class SpellEffectPolicyTests
         Cast(session, ui, 1, "17", string.Empty);
         ProjectedNode refused = Magic(ui);
         Assert.Equal("refused", refused.Field("outcome").AsString());
-        Assert.Equal("spell-not-applied", refused.Field("code").AsString());
-        Assert.Contains("the fight's own ranged resolution", refused.Field("message").AsString(), StringComparison.Ordinal);
+        Assert.Equal(SpellCodes.SpellNotApplied, refused.Field("code").AsString());
+        Assert.Contains(ReceiverOf(17), refused.Field("message").AsString(), StringComparison.Ordinal);
         Assert.Equal(before, live.Party.Members[0].Resources.SpellPoints.Current);
     }
 
@@ -356,16 +356,15 @@ public sealed class SpellEffectPolicyTests
         Cast(session, ui, 1, "42", string.Empty);
         ProjectedNode refused = Magic(ui);
         Assert.Equal("refused", refused.Field("outcome").AsString());
-        Assert.Equal("spell-target-unavailable", refused.Field("code").AsString());
-        Assert.Contains("an item-aim owner", refused.Field("message").AsString(), StringComparison.Ordinal);
+        Assert.Equal(SpellCodes.SpellTargetUnavailable, refused.Field("code").AsString());
+        Assert.Contains(ReceiverOf(42), refused.Field("message").AsString(), StringComparison.Ordinal);
         Assert.Equal(before, live.Party.Members[0].Resources.SpellPoints.Current);
 
         // A travel spell whose destination the party has never been to is refused by name for the same reason
         // a bad aim is: the casting is judged where it is aimed rather than moving anybody.
         Cast(session, ui, 3, "31", Cave.Value);
         ProjectedNode nowhere = Magic(ui);
-        Assert.Equal("spell-target-invalid", nowhere.Field("code").AsString());
-        Assert.Contains("never been to", nowhere.Field("message").AsString(), StringComparison.Ordinal);
+        Assert.Equal(MightAndMagic7Codes.SpellPlaceUnvisited, nowhere.Field("code").AsString());
         Assert.Equal(Home, live.World!.Place);
         Assert.Equal(before, live.Party.Members[0].Resources.SpellPoints.Current);
     }
@@ -424,6 +423,10 @@ public sealed class SpellEffectPolicyTests
         CombatState fight = FightOf(live, rule);
         return fight.Combatants.First(combatant => !combatant.Subject.IsMember).Subject;
     }
+
+    /// <summary>Who this game's own spell table says owns what a spell's effect is missing.</summary>
+    private static string ReceiverOf(int spell) =>
+        MightAndMagic7Spells.Rows.Single(row => row.Id == spell).Coverage.Receiver;
 
     /// <summary>Casts one spell, as the panel's own control does, and lets the session apply it.</summary>
     private static void Cast(IGameSession session, RecordingUiService ui, ulong step, string spell, string target)

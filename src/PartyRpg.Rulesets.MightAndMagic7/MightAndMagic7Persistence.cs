@@ -61,13 +61,20 @@ internal static class MightAndMagic7Persistence
     {
         if (engine is null)
         {
+            const string absent = "the host is not running inside an engine, so there is no persistence to read a save from";
             throw new SessionSaveException(
-                "No session can be resumed: the host is not running inside an engine, so there is no persistence to read a save from.");
+                $"No session can be resumed: {absent}.",
+                [new SaveProblem(SaveCodes.SaveStoreAbsent, StoreScope, absent)],
+                SessionSaveFailure.Unavailable);
         }
 
         using EngineSessionSaveStore store = new(engine, StoreScope);
+        string empty = $"no session is saved in slot '{slot}', so there is nothing to resume";
         return new SessionSaveBoundary(store, slot).Load()
-            ?? throw new SessionSaveException($"No session is saved in slot '{slot}', so there is nothing to resume.");
+            ?? throw new SessionSaveException(
+                $"No session is saved in slot '{slot}', so there is nothing to resume.",
+                [new SaveProblem(SaveCodes.SaveSlotEmpty, slot, empty)],
+                SessionSaveFailure.Failed);
     }
 
     /// <summary>

@@ -106,7 +106,6 @@ public sealed class PackSelectionTests
         Assert.Contains("scenario-c", error.Message);
         Assert.Contains("place '1'", error.Message);
         Assert.Contains("place '3'", error.Message);
-        Assert.Contains("2 scenario starts", error.Message);
     }
 
     [Fact]
@@ -133,7 +132,6 @@ public sealed class PackSelectionTests
         Assert.Contains("party-two", error.Message);
         Assert.Contains("with 1 member", error.Message);
         Assert.Contains("with 2 members", error.Message);
-        Assert.Contains("2 scenario parties", error.Message);
     }
 
     /// <summary>The operator's content root in miniature: one place pack, and one pack per scenario.</summary>

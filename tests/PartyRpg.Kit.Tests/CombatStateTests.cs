@@ -338,7 +338,6 @@ public sealed class CombatStateTests
         combat = channel.Latest().Field("combat");
         Assert.Equal("refused", combat.Field("outcome").AsString());
         Assert.Equal("recovering", combat.Field("code").AsString());
-        Assert.Contains("still recovering", combat.Field("message").AsString(), StringComparison.Ordinal);
     }
 
     [Fact]

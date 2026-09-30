@@ -380,7 +380,7 @@ public sealed class ItemMagicTests
         // loss: the clock holding a registered deadline cannot be captured at all, so a session with a ward
         // running says so by name (Den task #8617 owns carrying deadlines in the save).
         SessionSaveException refused = Assert.Throws<SessionSaveException>(() => ClockSave.Capture(clock));
-        Assert.Contains("deadline", refused.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(SessionSaveFailure.Refused, refused.Kind);
         Assert.Contains(refused.Problems, problem => problem.Code == SaveCodes.SaveDeadlineUnowned);
     }
 

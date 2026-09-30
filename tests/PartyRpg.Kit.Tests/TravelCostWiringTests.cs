@@ -271,8 +271,7 @@ public sealed class TravelCostWiringTests
         session.Update(Update(0, admitted: 120, fixedDelta: 1.0));
 
         DiagnosticsPublishRequest published = Assert.Single(diagnostics.Published);
-        Assert.Equal("deadline-due", published.Code);
-        Assert.Contains("no owner the session composed holds it", published.Message, StringComparison.Ordinal);
+        Assert.Equal("deadline-unowned", published.Code);
     }
 
     [Fact]

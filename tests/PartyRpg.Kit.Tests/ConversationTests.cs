@@ -38,6 +38,12 @@ namespace PartyRpg.Kit.Tests;
 /// </remarks>
 public sealed class ConversationTests
 {
+    /// <summary>What the tests' rule says of a topic its person has already answered, so a test can find it again.</summary>
+    private const string AlreadySaid = "they have already said this in this conversation";
+
+    /// <summary>What the tests' rule says of the hour when nothing keeps it, so a test can find it again.</summary>
+    private const string NoClock = "nothing in this world keeps the hour";
+
     private static readonly ContentLayout Layout = new("packs", "imports", "bundles");
     private static readonly PlaceId HallPlace = new("1");
     private static readonly UseIntentNames UseControls = new("test.use", "test.ui.action.v1");
@@ -103,7 +109,8 @@ public sealed class ConversationTests
         Assert.Equal(
             ["carried", "secondclass", "secondrace", "errand", "flag"],
             conversations.Withheld.Select(offer => offer.Id));
-        Assert.Contains("does not carry", conversations.Availability("flag")!.Value.Explanation, StringComparison.Ordinal);
+        Assert.False(conversations.Availability("flag")!.Value.IsMet);
+        Assert.Contains("invitation", conversations.Availability("flag")!.Value.Explanation, StringComparison.Ordinal);
 
         // The party-carried flag: applying the effect the topic waits for puts it on offer, and removing it
         // hides the topic again — nothing was invalidated, because nothing is remembered between reads.
@@ -121,7 +128,8 @@ public sealed class ConversationTests
         // for takes it off the list, and the reason states the standing the party actually has.
         party.Reputation.ChangeReputation(-1);
         Assert.DoesNotContain("standing", conversations.OnOffer.Select(offer => offer.Id));
-        Assert.Contains("standing is 9", conversations.Availability("standing")!.Value.Explanation, StringComparison.Ordinal);
+        Assert.False(conversations.Availability("standing")!.Value.IsMet);
+        Assert.Contains("9", conversations.Availability("standing")!.Value.Explanation, StringComparison.Ordinal);
         party.Reputation.ChangeReputation(1);
         Assert.Contains("standing", conversations.OnOffer.Select(offer => offer.Id));
 
@@ -139,7 +147,7 @@ public sealed class ConversationTests
         Assert.Equal("day", conversations.Availability("hour")!.Value.IsMet ? "day" : "night");
         hall.Clock.Advance(GameDuration.FromHours(14));
         Assert.False(conversations.Availability("hour")!.Value.IsMet);
-        Assert.Contains("clock stands at", conversations.Availability("hour")!.Value.Explanation, StringComparison.Ordinal);
+        Assert.Contains($"{hall.Clock.Now.Hour:00}:00", conversations.Availability("hour")!.Value.Explanation, StringComparison.Ordinal);
 
         // An errand: a flag the quest owner will set, which nothing in this build sets yet.
         Assert.Contains("errand", conversations.Withheld.Select(offer => offer.Id));
@@ -151,7 +159,8 @@ public sealed class ConversationTests
         PartyConversations timeless = new(hall.Rule, party, clock: null);
         timeless.OpenTarget(HallPlace, hall.PlacementOf("person-0"));
         Assert.Contains("hour", timeless.Withheld.Select(offer => offer.Id));
-        Assert.Contains("nothing in this world keeps the hour", timeless.Availability("hour")!.Value.Explanation, StringComparison.Ordinal);
+        Assert.False(timeless.Availability("hour")!.Value.IsMet);
+        Assert.Equal(NoClock, timeless.Availability("hour")!.Value.Explanation);
     }
 
     [Fact]
@@ -186,7 +195,7 @@ public sealed class ConversationTests
         ConversationResult again = conversations.Choose("carried");
         Assert.False(again.IsApplied);
         Assert.Equal("conversation-topic-withheld", again.Code);
-        Assert.Contains("already said this", again.Message, StringComparison.Ordinal);
+        Assert.Contains(AlreadySaid, again.Message, StringComparison.Ordinal);
 
         // A topic nobody has is refused by name rather than silently doing nothing.
         ConversationResult unknown = conversations.Choose("nothing-like-this");
@@ -209,7 +218,7 @@ public sealed class ConversationTests
         ConversationResult refused = conversations.Choose("standing");
         Assert.False(refused.IsApplied);
         Assert.Equal("conversation-topic-withheld", refused.Code);
-        Assert.Contains("standing is 8", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("8", refused.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -235,7 +244,8 @@ public sealed class ConversationTests
         // Turning to whoever is already speaking changes nothing, and says so.
         ConversationResult same = conversations.Turn("simon");
         Assert.True(same.IsApplied);
-        Assert.Contains("already the one speaking", same.Message, StringComparison.Ordinal);
+        Assert.Equal("Simon", conversations.Speaker?.Name);
+        Assert.Equal(["mira", "simon"], conversations.Said.Select(line => line.Speaker));
 
         // Nobody else is here, and a rule that hands the conversation to somebody absent is refused by name
         // rather than leaving it pointed at nobody.
@@ -287,7 +297,7 @@ public sealed class ConversationTests
         Assert.True(shown.Field("topics").Item(0).Field("available").AsBoolean());
         Assert.Equal("carried", shown.Field("withheld").Item(0).Field("id").AsString());
         Assert.False(shown.Field("withheld").Item(0).Field("available").AsBoolean());
-        Assert.Contains("does not carry", shown.Field("withheld").Item(0).Field("reason").AsString(), StringComparison.Ordinal);
+        Assert.Contains("invited", shown.Field("withheld").Item(0).Field("reason").AsString(), StringComparison.Ordinal);
 
         // What a topic said arrives in the same projection as the choice, with the residue the ruleset
         // stated beside it.
@@ -475,7 +485,7 @@ public sealed class ConversationTests
                 if (availability.IsMet &&
                     context.Said.Any(line => string.Equals(line.Topic, topic.Id, StringComparison.Ordinal)))
                 {
-                    availability = Verdict.Unmet("they have already said this in this conversation");
+                    availability = Verdict.Unmet(AlreadySaid);
                 }
 
                 offers.Add(new ConversationOffer(topic, availability));
@@ -538,7 +548,7 @@ public sealed class ConversationTests
                     : Verdict.Unmet("nobody here is that"),
                 ConversationConditionKind.Hour => context.Clock is { } clock && clock.IsDaylight
                     ? Verdict.Met
-                    : Verdict.Unmet(context.Clock is null ? "nothing in this world keeps the hour" : $"the clock stands at {context.Clock.Now.Hour:00}:00"),
+                    : Verdict.Unmet(context.Clock is null ? NoClock : $"the clock stands at {context.Clock.Now.Hour:00}:00"),
                 ConversationConditionKind.Errand => context.Party is { } carrier && carrier.Records.Has(condition.Name)
                     ? Verdict.Met
                     : Verdict.Unmet($"{condition.Label} is not finished"),

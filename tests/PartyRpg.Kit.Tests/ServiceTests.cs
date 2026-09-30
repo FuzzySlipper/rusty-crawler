@@ -139,8 +139,9 @@ public sealed class ServiceTests
         using PartyEntity party = Party(coins: 40);
         PartyResourceLedger accounts = new(party);
         ShopRule rule = new(Shop());
+        Refusal notAMember = new("test-not-a-member", "This counter teaches members only.");
         rule.Eligibility = request => request.Operation == ServiceOperationKind.Teach
-            ? ServiceEligibility.Refused(new Refusal("test-not-a-member", "This counter teaches members only."))
+            ? ServiceEligibility.Refused(notAMember)
             : ServiceEligibility.Allowed;
         PartyServices services = new(rule, party, accounts, Clock());
         Assert.True(services.Open(rule.Service).IsApplied);
@@ -148,15 +149,15 @@ public sealed class ServiceTests
         // Not enough coin: the party's own settlement path names the shortfall, and nothing moved.
         ServiceResult poor = services.Transact(new ServiceCommand(ServiceOperationKind.Buy, "stock:sword"));
         Assert.False(poor.IsApplied);
-        Assert.Equal("purse-short", poor.Code);
-        Assert.Contains("60 coin(s) short", poor.Message, StringComparison.Ordinal);
+        Assert.Equal(PartyCodes.PurseShort, poor.Code);
+        Assert.Contains("60 coin(s)", poor.Message, StringComparison.Ordinal);
         Assert.Equal(40, party.Purse.Coins);
         Assert.Equal(2, rule.StockOf(services, "stock:sword"));
 
         // Not eligible: the ruleset's own refusal reaches the player unchanged.
         ServiceResult ineligible = services.Transact(new ServiceCommand(ServiceOperationKind.Teach, "Sword"));
-        Assert.Equal("test-not-a-member", ineligible.Code);
-        Assert.Contains("members only", ineligible.Message, StringComparison.Ordinal);
+        Assert.Equal(notAMember.Code, ineligible.Code);
+        Assert.Contains(notAMember.Message, ineligible.Message, StringComparison.Ordinal);
 
         // Out of stock and no such item are two different answers, which is why the mechanism resolves what
         // a command names before it asks policy anything.

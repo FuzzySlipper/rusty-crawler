@@ -405,7 +405,7 @@ public sealed class AutomapTests
         // nowhere, and the notes book beside it is a different owner's answer.
         JournalBookSnapshot without = JournalSnapshot.From(journal, quests: null, world, clock).Books.Single(book => book.Kind == "maps");
         Assert.False(without.Available);
-        Assert.Contains("no map owner", without.State, StringComparison.Ordinal);
+        Assert.Equal(journal.Rule.Book(JournalBookKind.Maps).Unavailable, without.State);
         Assert.Equal("maps", page.Kind);
     }
 

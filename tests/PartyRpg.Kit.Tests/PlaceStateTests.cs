@@ -238,7 +238,7 @@ public sealed class PlaceStateTests
 
         ContentValidationException error = Assert.Throws<ContentValidationException>(() => ledger.StateOf(new PlaceId("99")));
 
-        Assert.Contains("99", error.Message);
+        Assert.Contains(error.Issues, issue => issue.Code == "place-unknown" && issue.PackId == "99");
     }
 
     [Fact]
@@ -272,7 +272,7 @@ public sealed class PlaceStateTests
         ContentValidationException error = Assert.Throws<ContentValidationException>(
             () => PlaceStateLedger.Restore(World(), PlaceRespawnRule.FromContent(), snapshot));
 
-        Assert.Contains("99", error.Message);
+        Assert.Contains(error.Issues, issue => issue.Code == "place-unknown" && issue.PackId == "99");
     }
 
     [Fact]
@@ -286,6 +286,7 @@ public sealed class PlaceStateTests
         ContentValidationException negative = Assert.Throws<ContentValidationException>(
             () => LedgerOver("""{ "id": "1", "kind": "region", "name": "Home", "respawnDays": -1 }"""));
         Assert.Contains("'1'", negative.Message);
+        Assert.Contains(negative.Issues, issue => issue.Code == "place-respawn-interval-invalid");
     }
 
     /// <summary>A ledger over the four places the tests in this file use.</summary>

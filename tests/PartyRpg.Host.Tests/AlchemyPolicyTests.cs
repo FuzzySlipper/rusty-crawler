@@ -127,9 +127,8 @@ public sealed class AlchemyPolicyTests
         MixingResult refused = mixing.Mix(new MixingRequest(1, woundPotion.Id, haste.Id));
 
         Assert.False(refused.IsMixed);
-        Assert.Equal("mixture-mastery-too-low", refused.Code);
-        Assert.Contains("Alchemy", refused.Message, StringComparison.Ordinal);
-        Assert.Contains("raises the rung", refused.Message, StringComparison.Ordinal);
+        Assert.Equal(MixingCodes.MixtureMasteryTooLow, refused.Code);
+        Assert.Contains(alchemy.MasteryRaisedBy(alchemy.Skill), refused.Message, StringComparison.Ordinal);
         Assert.NotNull(party.FindItem(woundPotion.Id));
         Assert.NotNull(party.FindItem(haste.Id));
 

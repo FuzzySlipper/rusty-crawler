@@ -88,7 +88,7 @@ public sealed class CreationIntentTests
 
         creation = ProjectedNode.Of(ui.Latest().Value).Field("creation");
         Assert.Equal("portrait-unknown", creation.Field("refusalCode").AsString());
-        Assert.Contains("is not a portrait creation offers", creation.Field("refusalMessage").AsString(), StringComparison.Ordinal);
+        Assert.Contains("'nobody'", creation.Field("refusalMessage").AsString(), StringComparison.Ordinal);
         Assert.Equal(SessionMode.Creating, product.Mode);
 
         // Accepting a party whose member was reopened and left unfinished is refused with the member and the
@@ -97,7 +97,7 @@ public sealed class CreationIntentTests
 
         creation = ProjectedNode.Of(ui.Latest().Value).Field("creation");
         Assert.Equal("creation-incomplete", creation.Field("refusalCode").AsString());
-        Assert.Contains("member 1 is at the Portrait step", creation.Field("refusalMessage").AsString(), StringComparison.Ordinal);
+        Assert.Contains("member 1", creation.Field("refusalMessage").AsString(), StringComparison.Ordinal);
         Assert.Equal("creating", ProjectedNode.Of(ui.Latest().Value).Field("session").Field("mode").AsString());
     }
 

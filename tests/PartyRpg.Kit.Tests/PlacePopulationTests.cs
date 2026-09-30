@@ -227,7 +227,7 @@ public sealed class PlacePopulationTests
         ContentValidationException error = Assert.Throws<ContentValidationException>(
             () => population.Step(new PlaceId("99"), []));
 
-        Assert.Contains("99", error.Message);
+        Assert.Contains(error.Issues, issue => issue.Code == "place-unknown" && issue.PackId == "99");
         Assert.Equal(Home, population.Place);
         Assert.Equal(standing.Select(entity => entity.Id), population.Entities.Select(entity => entity.Id));
     }

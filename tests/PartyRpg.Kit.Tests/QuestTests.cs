@@ -202,9 +202,12 @@ public sealed class QuestTests
 
         // Every unmet objective is named, in the quest's own words, and the party is exactly where it stood:
         // nothing was paid, no record was left, and the errand is still the party's to finish.
-        Assert.Contains("Bring down the thing", refused.Refusal.Message, StringComparison.Ordinal);
-        Assert.Contains("Reach the vault", refused.Refusal.Message, StringComparison.Ordinal);
-        Assert.Contains("Carry the seal", refused.Refusal.Message, StringComparison.Ordinal);
+        foreach (string unmet in new[] { "kill", "reach", "retrieve" })
+        {
+            string label = everything.Objectives.Single(objective => objective.Id == unmet).Label;
+            Assert.Contains(label, refused.Refusal.Message, StringComparison.Ordinal);
+        }
+
         Assert.Equal(0, party.Purse.Coins);
         Assert.Equal(0, party.Members[0].Progression.Experience);
         Assert.False(party.Records.Has("errand:seal-of-office"));
@@ -232,8 +235,8 @@ public sealed class QuestTests
         quests.ObserveDeath(Death(Keep, Monster));
         quests.ObserveDeath(Death(Keep, Monster));
         QuestResult gated = quests.TurnIn(Errand().Id, "marshal");
-        Assert.Equal("quest-objectives-unmet", gated.Refusal!.Code);
-        Assert.Contains("the party's standing", gated.Refusal.Message, StringComparison.Ordinal);
+        Assert.Equal(QuestCodes.QuestObjectivesUnmet, gated.Refusal!.Code);
+        Assert.Contains(Errand().CompletionConditions[0].Label, gated.Refusal.Message, StringComparison.Ordinal);
 
         party.Reputation.ChangeReputation(4);
         Assert.True(quests.TurnIn(Errand().Id, "marshal").IsApplied);

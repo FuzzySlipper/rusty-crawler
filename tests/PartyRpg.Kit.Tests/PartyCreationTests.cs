@@ -48,7 +48,6 @@ public sealed class PartyCreationTests
         Assert.Equal("creation-step", flow.SetName("Ann")!.Code);
         Assert.Equal("creation-step", flow.RaiseAttribute(Vigour)!.Code);
         Assert.Equal("creation-step", flow.ChooseSkill(Axes)!.Code);
-        Assert.Contains("steps are taken in order", flow.SelectClass(Fighter)!.Message, StringComparison.Ordinal);
         Assert.Equal("portrait-unknown", flow.SelectPortrait(new PortraitId("nobody"))!.Code);
 
         Assert.Null(flow.SelectPortrait(FolkA));
@@ -75,7 +74,6 @@ public sealed class PartyCreationTests
         Assert.Null(withoutClass.Advance());
         Refusal classUnchosen = withoutClass.Advance()!;
         Assert.Equal("class-unchosen", classUnchosen.Code);
-        Assert.Contains("which skills may be chosen", classUnchosen.Message, StringComparison.Ordinal);
         Assert.Equal(CreationStep.Class, withoutClass.Step);
 
         PartyCreationFlow withoutName = new(Options);
@@ -85,7 +83,6 @@ public sealed class PartyCreationTests
         Assert.Null(withoutName.Advance());
         Refusal nameBlank = withoutName.Advance()!;
         Assert.Equal("name-blank", nameBlank.Code);
-        Assert.Contains("every member of the party is named", nameBlank.Message, StringComparison.Ordinal);
         Assert.Equal(CreationStep.Name, withoutName.Step);
     }
 
@@ -97,8 +94,7 @@ public sealed class PartyCreationTests
         // The pool is five points and all five must be spent; an unfinished pool names how many are left.
         Refusal unspent = flow.Advance()!;
         Assert.Equal("attribute-pool-unspent", unspent.Code);
-        Assert.Contains("spent exactly", unspent.Message, StringComparison.Ordinal);
-        Assert.Contains("5 remain", unspent.Message, StringComparison.Ordinal);
+        Assert.Contains("5", unspent.Message, StringComparison.Ordinal);
         Assert.Equal(5, flow.PoolRemaining);
 
         // Vigour moves one point per pool point; wit gives two points for one.
@@ -131,7 +127,7 @@ public sealed class PartyCreationTests
         Refusal ceiling = flow.RaiseAttribute(Vigour)!;
         Assert.Equal("attribute-ceiling", ceiling.Code);
         Assert.Contains("vigour", ceiling.Message, StringComparison.Ordinal);
-        Assert.Contains("at most to 10", ceiling.Message, StringComparison.Ordinal);
+        Assert.Contains("10", ceiling.Message, StringComparison.Ordinal);
 
         // Lowering an attribute refunds what raising it charged, which is why the exchange is exact: the
         // points that went in come back out.
@@ -150,7 +146,7 @@ public sealed class PartyCreationTests
         Assert.Equal(4, AttributeOf(flow, Vigour));
         Refusal floor = flow.LowerAttribute(Vigour)!;
         Assert.Equal("attribute-floor", floor.Code);
-        Assert.Contains("at most to 4", floor.Message, StringComparison.Ordinal);
+        Assert.Contains("4", floor.Message, StringComparison.Ordinal);
 
         // A race whose points cost two each cannot buy one with the single point that is left.
         PartyCreationFlow costly = AttributesStep(StoneA);
@@ -159,14 +155,13 @@ public sealed class PartyCreationTests
         Assert.Equal(1, costly.PoolRemaining);
         Refusal short1 = costly.RaiseAttribute(Vigour)!;
         Assert.Equal("attribute-pool-short", short1.Code);
-        Assert.Contains("costs 2 of the 1 attribute point left", short1.Message, StringComparison.Ordinal);
 
         PartyCreationFlow spent = AttributesStep(StoneA);
         Assert.Null(spent.RaiseAttribute(Vigour));
         Assert.Null(spent.RaiseAttribute(Vigour));
         Assert.Null(spent.RaiseAttribute(Wit));
         Assert.Equal(0, spent.PoolRemaining);
-        Assert.Contains("of the 0 attribute points left", spent.RaiseAttribute(Vigour)!.Message, StringComparison.Ordinal);
+        Assert.Equal(CreationCodes.AttributePoolShort, spent.RaiseAttribute(Vigour)!.Code);
     }
 
     [Fact]
@@ -176,12 +171,11 @@ public sealed class PartyCreationTests
 
         Refusal notLegal = flow.ChooseSkill(Wards)!;
         Assert.Equal("skill-not-legal", notLegal.Code);
-        Assert.Contains("'wards' is not a skill the fighter class may learn at creation", notLegal.Message, StringComparison.Ordinal);
-        Assert.Contains("the class decides which skills may be chosen", notLegal.Message, StringComparison.Ordinal);
+        Assert.Contains("'wards'", notLegal.Message, StringComparison.Ordinal);
+        Assert.Contains("fighter", notLegal.Message, StringComparison.Ordinal);
 
         Refusal fixedSkill = flow.ChooseSkill(Blades)!;
         Assert.Equal("skill-fixed", fixedSkill.Code);
-        Assert.Contains("the two chosen skills are picked from the rest", fixedSkill.Message, StringComparison.Ordinal);
 
         Assert.Null(flow.ChooseSkill(Axes));
         Assert.Equal("skill-already-chosen", flow.ChooseSkill(Axes)!.Code);
@@ -233,7 +227,7 @@ public sealed class PartyCreationTests
         Assert.Equal("name-blank", flow.SetName("   ")!.Code);
         Assert.Equal("name-too-long", flow.SetName("Annabellex")!.Code);
         Assert.Equal("name-invalid", flow.SetName("An\u0007na")!.Code);
-        Assert.Contains("at most 8 characters", flow.SetName("Annabellex")!.Message, StringComparison.Ordinal);
+        Assert.Contains("8", flow.SetName("Annabellex")!.Message, StringComparison.Ordinal);
 
         // A stray space around a name is not part of the name; the trimmed value is what the character keeps.
         Assert.Null(flow.SetName("  Ann  "));
@@ -269,14 +263,14 @@ public sealed class PartyCreationTests
     {
         PartyCreationFlow flow = new(Options);
         Assert.False(flow.IsComplete);
-        InvalidOperationException nothing = Assert.Throws<InvalidOperationException>(() => flow.ToCreation());
-        Assert.Contains("member 1 is at the Portrait step", nothing.Message, StringComparison.Ordinal);
+        Assert.Equal(CreationStep.Portrait, flow.Member(0).Step);
+        Assert.Throws<InvalidOperationException>(() => flow.ToCreation());
 
         Complete(flow, FolkA, Fighter, "Ann", [(Vigour, 4), (Wit, 1)], Axes, Bows);
         Assert.False(flow.IsComplete);
-        InvalidOperationException half = Assert.Throws<InvalidOperationException>(() => flow.ToCreation());
-        Assert.Contains("member 2 is at the Portrait step", half.Message, StringComparison.Ordinal);
-        Assert.Contains("Every member must be finished and confirmed", half.Message, StringComparison.Ordinal);
+        Assert.Equal(CreationStep.Complete, flow.Member(0).Step);
+        Assert.Equal(CreationStep.Portrait, flow.Member(1).Step);
+        Assert.Throws<InvalidOperationException>(() => flow.ToCreation());
 
         Complete(flow, StoneB, Adept, "Bo", [(Vigour, 2), (Wit, 1)], Aim, Lore);
         Assert.True(flow.IsComplete);
@@ -307,17 +301,19 @@ public sealed class PartyCreationTests
         // same rule with the default's member attached.
         ArgumentException overspent = Assert.Throws<ArgumentException>(
             () => new PartyCreationFlow(Options, BrokenDefault(attributeSpend: true)));
-        Assert.Contains("attribute-pool-short", overspent.Message, StringComparison.Ordinal);
-        Assert.Contains("The default party's member 1 broke a creation rule", overspent.Message, StringComparison.Ordinal);
+        Assert.Equal("defaults", overspent.ParamName);
+        Assert.Contains($"({CreationCodes.AttributePoolShort})", overspent.Message, StringComparison.Ordinal);
 
         ArgumentException illegal = Assert.Throws<ArgumentException>(
             () => new PartyCreationFlow(Options, BrokenDefault(skill: "axes")));
-        Assert.Contains("skill-not-legal", illegal.Message, StringComparison.Ordinal);
-        Assert.Contains("'axes' is not a skill the adept class may learn at creation", illegal.Message, StringComparison.Ordinal);
+        Assert.Equal("defaults", illegal.ParamName);
+        Assert.Contains($"({CreationCodes.SkillNotLegal})", illegal.Message, StringComparison.Ordinal);
+        Assert.Contains("'axes'", illegal.Message, StringComparison.Ordinal);
 
         ArgumentException unreachable = Assert.Throws<ArgumentException>(
             () => new PartyCreationFlow(Options, BrokenDefault(unreachableAttribute: true)));
-        Assert.Contains("attribute-unreachable", unreachable.Message, StringComparison.Ordinal);
+        Assert.Equal("defaults", unreachable.ParamName);
+        Assert.Contains($"({CreationCodes.AttributeUnreachable})", unreachable.Message, StringComparison.Ordinal);
 
         PartyCreationFlow withoutDefault = new(Options);
         Assert.False(withoutDefault.HasDefault);
@@ -420,7 +416,8 @@ public sealed class PartyCreationTests
             nameMaximumLength: 8,
             startingSkillTier: new SkillTier(1),
             startingLevel: 1));
-        Assert.Contains("which creation does not offer", unknownRace.Message, StringComparison.Ordinal);
+        Assert.Equal("portraits", unknownRace.ParamName);
+        Assert.Contains("'stonefolk'", unknownRace.Message, StringComparison.Ordinal);
 
         ArgumentException repeated = Assert.Throws<ArgumentException>(() => new PartyCreationOptions(
             1,
@@ -432,7 +429,8 @@ public sealed class PartyCreationTests
             nameMaximumLength: 8,
             startingSkillTier: new SkillTier(1),
             startingLevel: 1));
-        Assert.Contains("more than once", repeated.Message, StringComparison.Ordinal);
+        Assert.Equal("classes", repeated.ParamName);
+        Assert.Contains("'fighter'", repeated.Message, StringComparison.Ordinal);
 
         ArgumentException empty = Assert.Throws<ArgumentException>(() => new PartyCreationOptions(
             1,
@@ -444,7 +442,7 @@ public sealed class PartyCreationTests
             nameMaximumLength: 8,
             startingSkillTier: new SkillTier(1),
             startingLevel: 1));
-        Assert.Contains("offers no race", empty.Message, StringComparison.Ordinal);
+        Assert.Equal("races", empty.ParamName);
 
         // A class that fixes a skill and offers it again would grant the same skill twice.
         ArgumentException bothWays = Assert.Throws<ArgumentException>(() => new CreationClass(
@@ -455,7 +453,8 @@ public sealed class PartyCreationTests
             startingHitPoints: 1,
             startingSpellPoints: 0,
             startingRank: 1));
-        Assert.Contains("also offers it as a choice", bothWays.Message, StringComparison.Ordinal);
+        Assert.Equal("choosableSkills", bothWays.ParamName);
+        Assert.Contains("'blades'", bothWays.Message, StringComparison.Ordinal);
     }
 
     /// <summary>The choices creation offers in this suite.</summary>

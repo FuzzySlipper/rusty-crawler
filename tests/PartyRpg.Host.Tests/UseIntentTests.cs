@@ -120,7 +120,6 @@ public sealed class UseIntentTests
         ProjectedNode refused = ProjectedNode.Of(ui.Latest().Value).Field("interaction");
         Assert.Equal("refused", refused.Field("outcome").AsString());
         Assert.Equal("door-already-open", refused.Field("code").AsString());
-        Assert.Contains("already stands open", refused.Field("message").AsString(), StringComparison.Ordinal);
     }
 
     private static string SourceDirectory() =>

@@ -295,12 +295,14 @@ public sealed class SkillPolicyTests
         Assert.Equal(5, fire.Field("reached").AsNumber());
         Assert.Equal(5, fire.Field("cost").AsNumber());
         Assert.Equal(string.Empty, fire.Field("refusal").AsString());
+        Assert.Equal(string.Empty, fire.Field("refusalCode").AsString());
 
         // The member with no points has a refusal instead of a price: the panel shows the reason a raise would
         // not land rather than a control the product would refuse.
         ProjectedNode sword = Skill(ui, member: 1, "Sword");
-        Assert.Contains("costs 2 skill point(s)", sword.Field("refusal").AsString(), StringComparison.Ordinal);
-        Assert.Contains("0 remain unspent", sword.Field("refusal").AsString(), StringComparison.Ordinal);
+        Assert.Equal(ProgressionCodes.InsufficientSkillPoints, sword.Field("refusalCode").AsString());
+        Assert.Contains("2", sword.Field("refusal").AsString(), StringComparison.Ordinal);
+        Assert.Contains("0", sword.Field("refusal").AsString(), StringComparison.Ordinal);
 
         // The screen's own control spends the point: the member's skill rises a level, the pool drops by the
         // price the rule quoted, and the panel reports what the raise did.
@@ -324,8 +326,8 @@ public sealed class SkillPolicyTests
             ProductTestContext.Payload("{\"action\":\"party.raise-skill\",\"member\":0,\"skill\":\"Fire\",\"levels\":10}")));
         ProjectedNode capped = ProjectedNode.Of(ui.Latest().Value).Field("skills");
         Assert.Equal("refused", capped.Field("outcome").AsString());
-        Assert.Equal("skill-ceiling-reached", capped.Field("code").AsString());
-        Assert.Contains("may raise it to 9 and no further", capped.Field("message").AsString(), StringComparison.Ordinal);
+        Assert.Equal(ProgressionCodes.SkillCeilingReached, capped.Field("code").AsString());
+        Assert.Contains("9", capped.Field("message").AsString(), StringComparison.Ordinal);
         Assert.Contains("rank 1", capped.Field("message").AsString(), StringComparison.Ordinal);
         Assert.Equal(5, Skill(ui, member: 0, "Fire").Field("level").AsNumber());
         Assert.Equal(195, Points(ui, member: 0));

@@ -27,6 +27,12 @@ public static class SaveCodes
     /// <summary>The problem code <c>save-store-unopened</c>.</summary>
     public const string SaveStoreUnopened = "save-store-unopened";
 
+    /// <summary>The problem code <c>save-store-absent</c>: there is no persistence to read a save from at all.</summary>
+    public const string SaveStoreAbsent = "save-store-absent";
+
+    /// <summary>The problem code <c>save-slot-empty</c>: the slot a resume reads holds no session.</summary>
+    public const string SaveSlotEmpty = "save-slot-empty";
+
     /// <summary>The problem code <c>save-day-before-start</c>.</summary>
     public const string SaveDayBeforeStart = "save-day-before-start";
 

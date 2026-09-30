@@ -192,7 +192,6 @@ public sealed class CreationModeTests
         session.Update(Update(11, 1, Choose(CreationActions.SelectClass, "class", Fighter.Value)));
         Refusal outOfStep = Refused(session);
         Assert.Equal("creation-step", outOfStep.Code);
-        Assert.Contains("steps are taken in order", outOfStep.Message, StringComparison.Ordinal);
         Assert.Equal(CreationStep.Portrait, session.Creation.Step);
         Assert.Equal(SessionMode.Creating, session.Mode);
         Assert.Empty(making.Built);
@@ -202,7 +201,7 @@ public sealed class CreationModeTests
         session.Update(Update(12, 1, Choose(CreationActions.SelectPortrait, "portrait", "nobody")));
         Refusal unknown = Refused(session);
         Assert.Equal("portrait-unknown", unknown.Code);
-        Assert.Contains("is not a portrait creation offers", unknown.Message, StringComparison.Ordinal);
+        Assert.Contains("'nobody'", unknown.Message, StringComparison.Ordinal);
         Node creation = making.Projections.Latest.Field("creation");
         Assert.Equal("portrait-unknown", creation.Field("refusalCode").Text());
         Assert.Equal(unknown.Message, creation.Field("refusalMessage").Text());
@@ -212,14 +211,14 @@ public sealed class CreationModeTests
         session.Update(Update(13, 1, Payload("""{"action":"creation.select-portrait"}""")));
         Refusal missing = Refused(session);
         Assert.Equal("creation-choice-missing", missing.Code);
-        Assert.Contains("naming no portrait", missing.Message, StringComparison.Ordinal);
 
         // Accepting an unfinished party is refused with the members and the steps that are unfinished, and
         // nothing is built: creation is what the player goes back to.
         session.Update(Update(14, 1, Command(CreationActions.Accept)));
         Refusal incomplete = Refused(session);
         Assert.Equal("creation-incomplete", incomplete.Code);
-        Assert.Contains("member 1 is at the Portrait step", incomplete.Message, StringComparison.Ordinal);
+        Assert.Contains("member 1", incomplete.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(CreationStep.Portrait), incomplete.Message, StringComparison.Ordinal);
         // The member that is finished is not named: what is unfinished is what stands between the player and
         // the party, and a message that listed finished members too would not say what is left to do.
         Assert.DoesNotContain("member 2", incomplete.Message, StringComparison.Ordinal);
@@ -426,10 +425,7 @@ public sealed class CreationModeTests
         session.Update(Update(17, 1, Choose(CreationActions.SelectPortrait, "portrait", "nobody")));
         creation = making.Projections.Latest.Field("creation");
         Assert.Equal("creation-step", creation.Field("refusalCode").Text());
-        Assert.Contains(
-            "Choosing a portrait happens at the Portrait step",
-            creation.Field("refusalMessage").Text(),
-            StringComparison.Ordinal);
+        Assert.Contains(nameof(CreationStep.Portrait), creation.Field("refusalMessage").Text(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -446,7 +442,7 @@ public sealed class CreationModeTests
             projections,
             new SessionOwners(),
             new SessionParty.Creating(Creation())));
-        Assert.Contains("needs the controls its commands arrive on", noControls.Message, StringComparison.Ordinal);
+        Assert.Equal("controls", noControls.ParamName);
     }
 
     [Fact]

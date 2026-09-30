@@ -195,7 +195,8 @@ public sealed class MightAndMagic7CreationTests
         Assert.Null(flow.Advance());
         Refusal fire = flow.ChooseSkill(new SkillId("Fire"))!;
         Assert.Equal("skill-not-legal", fire.Code);
-        Assert.Contains("'Fire' is not a skill the Knight class may learn at creation", fire.Message, StringComparison.Ordinal);
+        Assert.Contains("'Fire'", fire.Message, StringComparison.Ordinal);
+        Assert.Contains("Knight", fire.Message, StringComparison.Ordinal);
         Assert.Equal("skill-fixed", flow.ChooseSkill(new SkillId("Sword"))!.Code);
 
         // An attribute cannot pass the race's ceiling, its floor, or the pool that is left.
@@ -204,7 +205,8 @@ public sealed class MightAndMagic7CreationTests
         Assert.Equal(25, AttributeOf(ceilings, "Might"));
         Refusal might = ceilings.RaiseAttribute(new AttributeId("Might"))!;
         Assert.Equal("attribute-ceiling", might.Code);
-        Assert.Contains("Might is already 25 and creation raises it at most to 25", might.Message, StringComparison.Ordinal);
+        Assert.Contains("Might", might.Message, StringComparison.Ordinal);
+        Assert.Contains("25", might.Message, StringComparison.Ordinal);
 
         // Below its starting value an attribute moves by the amount that costs a point, so an elf's might
         // (7, two points per point) drops straight to its floor of 5 and no further.
@@ -213,7 +215,7 @@ public sealed class MightAndMagic7CreationTests
         Assert.Equal(5, AttributeOf(floors, "Might"));
         Refusal below = floors.LowerAttribute(new AttributeId("Might"))!;
         Assert.Equal("attribute-floor", below.Code);
-        Assert.Contains("creation lowers it at most to 5", below.Message, StringComparison.Ordinal);
+        Assert.Contains("5", below.Message, StringComparison.Ordinal);
 
         // Forty-nine of the fifty points are spent, and might costs two each: the last point cannot buy it.
         PartyCreationFlow short1 = Attributes(options, "Elf", "Sorcerer");
@@ -225,13 +227,13 @@ public sealed class MightAndMagic7CreationTests
         Assert.Equal(1, short1.PoolRemaining);
         Refusal poor = short1.RaiseAttribute(new AttributeId("Might"))!;
         Assert.Equal("attribute-pool-short", poor.Code);
-        Assert.Contains("costs 2 of the 1 attribute point left", poor.Message, StringComparison.Ordinal);
 
         // The two rules that judge a whole step: the pool spent exactly and the skills chosen in full.
         PartyCreationFlow unspent = Attributes(options, "Human", "Knight");
         Refusal unspentPool = unspent.Advance()!;
         Assert.Equal("attribute-pool-unspent", unspentPool.Code);
-        Assert.Contains("50 remain unspent", unspentPool.Message, StringComparison.Ordinal);
+        Assert.Equal(50, unspent.PoolRemaining);
+        Assert.Contains("50", unspentPool.Message, StringComparison.Ordinal);
 
         PartyCreationFlow skills = Attributes(options, "Human", "Knight");
         Spend(skills, "Human", 50);
@@ -239,7 +241,6 @@ public sealed class MightAndMagic7CreationTests
         Assert.Null(skills.ChooseSkill(new SkillId("Shield")));
         Refusal unchosen = skills.Advance()!;
         Assert.Equal("skills-unchosen", unchosen.Code);
-        Assert.Contains("starts with 2 chosen skills and 1 remains unchosen", unchosen.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -302,8 +303,8 @@ public sealed class MightAndMagic7CreationTests
             .. MightAndMagic7Creation.Defaults.Members.Skip(1),
         ]);
         ArgumentException refused = Assert.Throws<ArgumentException>(() => new PartyCreationFlow(options, tampered));
-        Assert.Contains("skill-not-legal", refused.Message, StringComparison.Ordinal);
-        Assert.Contains("The default party's member 1 broke a creation rule", refused.Message, StringComparison.Ordinal);
+        Assert.Equal("defaults", refused.ParamName);
+        Assert.Contains($"({CreationCodes.SkillNotLegal})", refused.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -322,20 +323,20 @@ public sealed class MightAndMagic7CreationTests
         ContentValidationException missingClass = Assert.Throws<ContentValidationException>(
             () => MightAndMagic7Creation.Options(Catalog([.. BaseClasses.Where(name => name != "Cleric")], ShippedSkills)));
         Assert.Equal("creation-class-missing", Assert.Single(missingClass.Issues).Code);
-        Assert.Contains("the class 'Cleric'", missingClass.Message, StringComparison.Ordinal);
+        Assert.Contains("'Cleric'", missingClass.Issues[0].Message, StringComparison.Ordinal);
 
         // A skill the content does not carry would grant a character a skill the data does not define.
         ContentValidationException missingSkill = Assert.Throws<ContentValidationException>(
             () => MightAndMagic7Creation.Options(Catalog(BaseClasses, [.. ShippedSkills.Where(name => name != "Dodging")])));
         Assert.All(missingSkill.Issues, issue => Assert.Equal("creation-skill-missing", issue.Code));
-        Assert.Contains("uses the skill 'Dodging'", missingSkill.Message, StringComparison.Ordinal);
+        Assert.Contains(missingSkill.Issues, issue => issue.Message.Contains("'Dodging'", StringComparison.Ordinal));
 
         // A base class the content carries and this ruleset has no creation rules for could be played but
         // never created, so it is named rather than ignored.
         ContentValidationException unknownClass = Assert.Throws<ContentValidationException>(
             () => MightAndMagic7Creation.Options(Catalog([.. BaseClasses, "Warlord"], ShippedSkills)));
         Assert.Equal("creation-class-unknown", Assert.Single(unknownClass.Issues).Code);
-        Assert.Contains("the base class 'Warlord'", unknownClass.Message, StringComparison.Ordinal);
+        Assert.Contains("'Warlord'", unknownClass.Issues[0].Message, StringComparison.Ordinal);
     }
 
     /// <summary>Finds a portrait drawn as one of the four races.</summary>

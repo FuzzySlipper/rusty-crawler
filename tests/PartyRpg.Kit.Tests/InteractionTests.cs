@@ -133,7 +133,8 @@ public sealed class InteractionTests
     {
         TestRule rule = new();
         rule.Requires["door"] = [new InteractionRequirement(InteractionRequirementKind.Item, "iron-key", label: "the Iron Key")];
-        rule.Judgements["iron-key"] = Verdict.Unmet("the party carries none of it");
+        Verdict keyless = Verdict.Unmet("the party carries none of it");
+        rule.Judgements["iron-key"] = keyless;
 
         using PartyEntity party = Party();
         using Hall hall = Hall.Build(rule, Hall.Facing("door-0"), party);
@@ -147,9 +148,9 @@ public sealed class InteractionTests
 
         InteractionResult refused = hall.Interaction.Use();
         Assert.False(refused.IsApplied);
-        Assert.Equal("interaction-requirement-unmet", refused.Code);
+        Assert.Equal(InteractionCodes.InteractionRequirementUnmet, refused.Code);
         Assert.Contains("the Iron Key", refused.Message, StringComparison.Ordinal);
-        Assert.Contains("carries none", refused.Message, StringComparison.Ordinal);
+        Assert.Contains(keyless.Explanation, refused.Message, StringComparison.Ordinal);
 
         // Nothing moved: the door is still what it was, and nothing was recorded against it.
         Assert.Equal(InteractionTargetState.None, hall.Interaction.FocusedTarget!.State);
@@ -239,7 +240,7 @@ public sealed class InteractionTests
         // The ruleset's refusal is an outcome like any other: it carries a code, a sentence, and no change.
         Assert.False(refused.IsApplied);
         Assert.Equal("interaction-event-not-executed", refused.Code);
-        Assert.Contains("event 42", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("42", refused.Message, StringComparison.Ordinal);
         Assert.Equal(InteractionVerb.Pull, refused.Verb);
         Assert.Equal(InteractionTargetState.None, hall.Interaction.FocusedTarget!.State);
     }
@@ -375,7 +376,8 @@ public sealed class InteractionTests
             new InteractionRequirement(InteractionRequirementKind.TimeOfDay, "day", label: "daylight"),
             new InteractionRequirement(InteractionRequirementKind.Flag, "cellar-opened", label: "the cellar opened"),
         ];
-        rule.Judgements["perception"] = Verdict.Unmet("no member has trained it");
+        Verdict untrained = Verdict.Unmet("no member has trained it");
+        rule.Judgements["perception"] = untrained;
 
         using PartyEntity party = Party();
         using Hall hall = Hall.Build(rule, Hall.Facing("door-0"), party);
@@ -386,9 +388,9 @@ public sealed class InteractionTests
             hall.Interaction.FocusedTarget!.Definition.Requires.Select(requirement => requirement.Describe()));
 
         InteractionResult refused = hall.Interaction.Use();
-        Assert.Equal("interaction-requirement-unmet", refused.Code);
+        Assert.Equal(InteractionCodes.InteractionRequirementUnmet, refused.Code);
         Assert.Contains("Perception 4", refused.Message, StringComparison.Ordinal);
-        Assert.Contains("no member has trained it", refused.Message, StringComparison.Ordinal);
+        Assert.Contains(untrained.Explanation, refused.Message, StringComparison.Ordinal);
 
         // The rule is asked about each requirement in order until one is unmet, so a use that needs four
         // things answers with the one the party is missing rather than with all four: the flag behind the
