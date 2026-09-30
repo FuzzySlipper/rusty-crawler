@@ -238,15 +238,61 @@ public sealed class PersistenceTests
     }
 
     [Fact]
+    public void Saving_twice_leaves_the_debt_of_sleep_where_it_was()
+    {
+        using Played played = new(rest: new TestNights());
+        FatigueWatch fatigue = played.Session.Rest!.Fatigue!;
+        GameDate? due = fatigue.Due;
+        Assert.NotNull(due);
+
+        // Twenty hours in, a save; two hours later, another. Neither moves when the party next needs to sleep,
+        // and the published due moment stands still while the clock runs toward it.
+        played.Clock.Advance(GameDuration.FromHours(20));
+        Assert.NotNull(played.Session.Capture());
+        played.Clock.Advance(GameDuration.FromHours(2));
+        Assert.NotNull(played.Session.Capture());
+        Assert.Equal(due, fatigue.Due);
+
+        // So the debt lands when it was always going to: at the end of the day, not a day after the last save.
+        played.Clock.Advance(GameDuration.FromHours(2));
+        Assert.All(played.Party.Members, member => Assert.True(member.Conditions.Has(TestNights.Weakness)));
+    }
+
+    [Fact]
+    public void A_document_whose_day_counts_disagree_is_refused_with_both_named()
+    {
+        using Played played = new();
+        GameCalendar calendar = played.Clock.Calendar;
+        played.Clock.Advance(GameDuration.FromHours(24 * 2));
+        SessionSave captured = played.Session.Capture();
+        Assert.Equal(2, captured.World.Places.ElapsedGameDays);
+        Assert.Empty(captured.Problems(Graph(), new PartyEntityFactory(), calendar: calendar));
+
+        // The same document with a clock three days further on than the day its world records.
+        SessionSave contradictory = new(
+            captured.Party,
+            new ClockSave(captured.Clock.ElapsedMilliseconds + GameDuration.FromHours(24 * 3).Milliseconds),
+            captured.World,
+            captured.Quests,
+            captured.Journal,
+            captured.Knowledge,
+            captured.Maps);
+        string problem = Assert.Single(contradictory.Problems(Graph(), new PartyEntityFactory(), calendar: calendar));
+        Assert.Contains($"day {captured.World.Places.ElapsedGameDays}", problem, StringComparison.Ordinal);
+        Assert.Contains($"{captured.World.Places.ElapsedGameDays + 3} whole day(s)", problem, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void A_clock_holding_scheduled_work_cannot_be_saved()
     {
         using Played played = new();
         DeadlineId deadline = played.Clock.ScheduleAfter(GameDuration.FromHours(2));
 
-        // A deadline's number means nothing without the owner that scheduled it, and no owner exists, so a
-        // save refuses rather than dropping the schedule or restoring one nobody can act on.
+        // A deadline's number means nothing without the owner that scheduled it, and no owner in the session
+        // holds this one, so a save refuses rather than dropping the schedule or restoring one nobody can act on.
         SessionSaveException refused = Assert.Throws<SessionSaveException>(() => played.Session.Capture());
-        Assert.Contains("pending deadline", Assert.Single(refused.Problems), StringComparison.Ordinal);
+        Assert.Equal(SessionSaveFailure.Refused, refused.Kind);
+        Assert.Contains("no owner in the session holds", Assert.Single(refused.Problems), StringComparison.Ordinal);
 
         // Once the clock holds nothing scheduled, the same session saves.
         Assert.True(played.Clock.Cancel(deadline));
@@ -551,7 +597,7 @@ public sealed class PersistenceTests
     /// <summary>A session that has been played, and everything a load rebuilds it from.</summary>
     private sealed class Played : IDisposable
     {
-        internal Played()
+        internal Played(IRestRule? rest = null)
         {
             Clock = PersistenceTests.Clock();
             Party = CreatedParty();
@@ -564,7 +610,8 @@ public sealed class PersistenceTests
                 World,
                 clock: Clock,
                 party: Party,
-                saveStore: Store);
+                saveStore: Store,
+                rest: rest);
         }
 
         internal GameClock Clock { get; }

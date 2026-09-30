@@ -150,10 +150,8 @@ internal static class MightAndMagic7World
         PlaceStateLedger places;
         if (resume is { } save)
         {
-            // Everything the save names is judged against this world before any of it is rebuilt, so a
-            // document that does not fit leaves no half-composed world behind.
-            MightAndMagic7Persistence.RequireLoadable(save, graph, catalog, quests);
-
+            // The session judged everything the save names against this world before it moved the clock or
+            // restored the party (MightAndMagic7Persistence.RequireLoadable), so what is rebuilt here fits.
             // The pose owner is created at the pose the party resumes at, which goes through the same
             // admission an entered pose goes through: a save can never put the party where its place would
             // refuse it, and the refusal would have been named above rather than thrown here.

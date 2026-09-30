@@ -33,8 +33,7 @@ public sealed class FatigueWatch : IGameTimeObserver
     private readonly ActiveCondition _fatigue;
     private readonly GameDuration _interval;
     private DeadlineId? _held;
-    private GameDate _armedAt;
-    private GameDuration? _remaining;
+    private GameDate? _dueAt;
     private int _landed;
 
     /// <summary>Creates the watch and registers the debt the party already owes.</summary>
@@ -77,10 +76,10 @@ public sealed class FatigueWatch : IGameTimeObserver
     /// because the party is asleep.
     /// </summary>
     /// <remarks>
-    /// The clock's own deadline is the authority; this is where it lands, derived from the interval the watch
-    /// is holding, so a panel can say when the party next needs to sleep.
+    /// It is the moment the debt was registered for, fixed when it was armed, so it stands still while the
+    /// clock runs toward it and a panel can say when the party next needs to sleep.
     /// </remarks>
-    public GameDate? Due => _held is null ? null : _clock.Calendar.Add(_clock.Now, _interval);
+    public GameDate? Due => _held is null ? null : _dueAt;
 
     /// <summary>Whether the party currently carries the state.</summary>
     /// <remarks>
@@ -103,45 +102,6 @@ public sealed class FatigueWatch : IGameTimeObserver
     /// <summary>Whether this watch is holding a deadline.</summary>
     /// <param name="deadline">The handle the clock reported.</param>
     public bool Holds(DeadlineId deadline) => _held == deadline;
-
-    /// <summary>
-    /// Takes the debt off the clock, remembering how much of it is left, so a capture that cannot carry a
-    /// schedule can read the session.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The one current save schema records the game time a clock has lived through and refuses a clock that
-    /// is holding a deadline, because a deadline's number means nothing without its owner. This watch is an
-    /// owner, and it is the first: rather than weakening that refusal, a session that is about to be captured
-    /// takes its own deadline off the clock and puts it back at the point it was due, so the running session
-    /// is unchanged by a save.
-    /// </para>
-    /// <para>
-    /// <b>The debt itself is not in the document.</b> A save carries the party's own state — including the
-    /// state this debt puts on it — and the game time the clock has lived, but not when the next sleep falls
-    /// due; a resumed session therefore arms a fresh debt. That is a stated loss with a named receiver: the
-    /// save schema needs a section for schedules the moment a schedule must survive a load, and this is it.
-    /// </para>
-    /// </remarks>
-    public void Suspend()
-    {
-        if (_held is not { } held) return;
-        long since = _clock.Calendar.Between(_armedAt, _clock.Now).Milliseconds;
-        _remaining = GameDuration.FromMilliseconds(Math.Max(0, _interval.Milliseconds - since));
-        _clock.Cancel(held);
-        _held = null;
-    }
-
-    /// <summary>Puts a suspended debt back where it stood, so a capture left the session exactly as it was.</summary>
-    public void Resume()
-    {
-        if (_held is not null || _remaining is not { } remaining) return;
-        _remaining = null;
-        _armedAt = _clock.Now;
-        // A debt that was already due when it was suspended comes due on the next advance rather than being
-        // pushed a whole interval away, which is what a party that stood at the due point would have seen.
-        _held = _clock.ScheduleAfter(remaining);
-    }
 
     /// <summary>
     /// Takes one advance of the session's one clock and lands the state when the debt fell due inside it.
@@ -169,17 +129,16 @@ public sealed class FatigueWatch : IGameTimeObserver
     /// </remarks>
     public void Pay()
     {
-        _remaining = null;
         if (_held is not { } held) return;
         _clock.Cancel(held);
         _held = null;
+        _dueAt = null;
     }
 
     /// <summary>Registers the debt again, due one interval from where the clock now stands.</summary>
     public void Arm()
     {
-        _armedAt = _clock.Now;
-        _remaining = null;
+        _dueAt = _clock.Calendar.Add(_clock.Now, _interval);
         _held = _clock.ScheduleAfter(_interval);
     }
 

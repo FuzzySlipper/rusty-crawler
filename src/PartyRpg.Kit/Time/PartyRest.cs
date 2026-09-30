@@ -92,19 +92,19 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
     /// <param name="deadline">The handle the clock reported.</param>
     public bool Holds(DeadlineId deadline) => _fatigue?.Holds(deadline) ?? false;
 
-    /// <summary>
-    /// Takes the debt of sleep off the one clock for the length of a capture, and puts it back afterwards.
-    /// </summary>
+    /// <inheritdoc />
     /// <remarks>
-    /// The session's save schema records game time and refuses a clock that is holding a deadline, so the one
-    /// owner that holds one takes it off the clock while the document is being read and restores it at the
-    /// point it was due. A save therefore changes nothing about the running session — and the debt it cannot
-    /// carry is a stated loss, routed to the owner of the save schema.
+    /// The debt of sleep is rebuilt on load: a resumed session arms a fresh debt from the moment it resumes.
+    /// That is a stated loss — the save does not yet carry when the next sleep was due — and it is why a save
+    /// is not refused for it.
     /// </remarks>
-    public void Suspend() => _fatigue?.Suspend();
+    public bool RebuildsOnLoad(DeadlineId deadline) => Holds(deadline);
 
-    /// <summary>Puts a suspended debt of sleep back where it stood.</summary>
-    public void Resume() => _fatigue?.Resume();
+    /// <inheritdoc />
+    public string Describe(DeadlineId deadline) =>
+        _fatigue?.Due is { } due
+            ? string.Create(CultureInfo.InvariantCulture, $"the debt of sleep, due {due.Year:0000}-{due.Month:00}-{due.Day:00} {due.Hour:00}:{due.Minute:00}")
+            : "the debt of sleep";
 
     /// <summary>
     /// Takes one advance of the session's one clock, which is how the fatigue debt lands whether the clock

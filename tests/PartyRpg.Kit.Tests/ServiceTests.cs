@@ -622,6 +622,12 @@ public sealed class ServiceTests
         Assert.Equal("leave", left.Field("action").AsString());
         Assert.Equal("applied", left.Field("outcome").AsString());
         Assert.Null(session.Services!.Visit);
+
+        // The counter's shelf holds a restock deadline on the one clock from the first visit on. The counter
+        // rebuilds its shelf on load, so a save after a visit is taken rather than refused for the rest of the
+        // session.
+        Assert.True(counter.Clock.PendingDeadlines > 0);
+        Assert.NotNull(session.Capture());
     }
 
     [Fact]

@@ -225,12 +225,12 @@ public sealed class AutomapPolicyTests
             ProductTestContext.Payload("""{"action":"party.cast","member":0,"spell":"12","target":""}""")));
         Assert.Equal("places", Map(ui).Field("detection").AsString());
 
-        // A deadline in a save is the one thing this build does not carry yet: the clock refuses to be written
-        // with work it cannot hand back, so the save is refused by name while the detection runs — the same
-        // answer a ward gets, and the reason the automap test above saves before it casts.
+        // A running effect's end is the one deadline this build does not carry yet: the save is refused naming
+        // the detection that holds it — the same answer a ward gets, and the reason the automap test above
+        // saves before it casts.
         SessionSaveException refused = Assert.Throws<SessionSaveException>(() => MightAndMagic7Ruleset.Instance.Save(session));
-        Assert.Contains("scheduled deadline(s)", refused.Message, StringComparison.Ordinal);
-        Assert.Contains("no owner could rebuild on load", string.Join(" ", refused.Problems), StringComparison.Ordinal);
+        Assert.Contains("the running effect", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("a moment the save cannot carry yet", string.Join(" ", refused.Problems), StringComparison.Ordinal);
         Assert.Null(persistence.Payload("sessions", "session"));
     }
 

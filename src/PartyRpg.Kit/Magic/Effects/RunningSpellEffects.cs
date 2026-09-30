@@ -1,3 +1,4 @@
+using System.Globalization;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
@@ -356,6 +357,29 @@ public sealed class RunningSpellEffects : IGameTimeObserver, IDeadlineOwner, IRu
 
     /// <inheritdoc />
     public bool Holds(DeadlineId deadline) => _held.Any(held => held.Deadline == deadline);
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// An effect's end is not rebuilt: the save records that the party carries it and not when it ends, so a
+    /// resumed effect would either never end or end at load. A save taken while one runs is refused by name.
+    /// </remarks>
+    public bool RebuildsOnLoad(DeadlineId deadline) => false;
+
+    /// <inheritdoc />
+    public string Describe(DeadlineId deadline)
+    {
+        foreach (Held held in _held)
+        {
+            if (held.Deadline != deadline) continue;
+            string on = held.Member is { } member ? $" on member {member}" : string.Empty;
+            string ends = held.EndsAt is { } at
+                ? string.Create(CultureInfo.InvariantCulture, $", ending {at.Year:0000}-{at.Month:00}-{at.Day:00} {at.Hour:00}:{at.Minute:00}")
+                : string.Empty;
+            return $"the running effect '{held.Effect}'{on}{ends}";
+        }
+
+        return $"deadline {deadline}";
+    }
 
     /// <summary>Whether one character still carries what a spell left on them.</summary>
     private bool Carries(PartyMember member) => _carries?.Invoke(member) ?? true;

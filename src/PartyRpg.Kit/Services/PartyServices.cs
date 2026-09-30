@@ -464,6 +464,26 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
         return false;
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// A shelf's restock is rebuilt on load: a counter stocks its shelf from the ruleset's own stock the first
+    /// time it is visited, and its refresh runs from that visit. What the party sold to a counter and the
+    /// counts its purchases drew down are not carried — a resumed session finds each shelf as a restock would
+    /// leave it — which is a stated loss rather than a refused save.
+    /// </remarks>
+    public bool RebuildsOnLoad(DeadlineId deadline) => Holds(deadline);
+
+    /// <inheritdoc />
+    public string Describe(DeadlineId deadline)
+    {
+        foreach (ServiceShelf shelf in _shelves.Values)
+        {
+            if (shelf.Refresh == deadline) return $"the restock of {shelf.Service.Describe()}";
+        }
+
+        return $"deadline {deadline}";
+    }
+
     /// <summary>The shelves of one service, laid out the first time the party sees them.</summary>
     /// <remarks>
     /// Laying a shelf out is also what registers its refresh deadline, so a service nobody ever walks into

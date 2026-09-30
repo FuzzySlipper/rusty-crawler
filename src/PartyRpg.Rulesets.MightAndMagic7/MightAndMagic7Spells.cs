@@ -124,9 +124,6 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
     /// <summary>The item equipment word that makes a row a spell book.</summary>
     internal const string BookEquipStat = "Book";
 
-    /// <summary>The prefix the shipped item table puts in front of a book's spell id.</summary>
-    internal const string BookSpellPrefix = "S";
-
     /// <summary>The item field that states what sort of equipment a row is.</summary>
     private const string EquipStatField = "equipStat";
 
@@ -897,26 +894,14 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
     /// <summary>What every wand adds to its own row's modifier to state how many charges it holds.</summary>
     private const int WandChargeBonus = 4;
 
-    /// <summary>The spell a shipped book's own reference column names, empty when it names none.</summary>
+    /// <summary>The spell a book teaches, empty when it teaches none.</summary>
     /// <remarks>
-    /// A book's row carries the spell it teaches in the item table's own reference column, written as the
-    /// letter <c>S</c> and the spell's global id (item 400 is "Torch Light" with <c>S1</c>, item 498 is
-    /// "Souldrinker" with <c>S99</c>). The importer writes that join out as a field of its own, and this
-    /// reads the field first and falls back to the shipped spelling, so a pack written before the field
-    /// existed still teaches its spells.
+    /// The importer reads the join from the item table's own reference column (the letter <c>S</c> and the
+    /// spell's global id) and writes it as a field of its own, so this reads that field and nothing else: the
+    /// pack schema has one current shape, and a pack that lacks the field teaches nothing.
     /// </remarks>
     /// <param name="entry">The item's content entry.</param>
-    private static string Taught(ContentEntry entry)
-    {
-        string written = ContentEntry.ReadId(entry.Payload, TeachesField);
-        if (written.Length > 0) return written;
-
-        string reference = entry.GetString(DamageDiceField).Trim();
-        return reference.StartsWith(BookSpellPrefix, StringComparison.OrdinalIgnoreCase) &&
-            int.TryParse(reference[BookSpellPrefix.Length..], NumberStyles.None, CultureInfo.InvariantCulture, out int id) && id > 0
-            ? id.ToString(CultureInfo.InvariantCulture)
-            : string.Empty;
-    }
+    private static string Taught(ContentEntry entry) => ContentEntry.ReadId(entry.Payload, TeachesField);
 
     /// <summary>The rung of a spell's school the member's mastery stands at, never below the first.</summary>
     private static int Rung(PartyMember member, SpellDefinition spell) =>

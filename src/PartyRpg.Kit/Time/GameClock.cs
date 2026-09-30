@@ -111,6 +111,9 @@ public sealed class GameClock : IWorldTimeSource
     /// <summary>How many deadlines the clock is holding.</summary>
     public int PendingDeadlines => _deadlines.Count;
 
+    /// <summary>The deadlines the clock is holding, in the order they were set.</summary>
+    public IReadOnlyList<DeadlineId> Pending => [.. _deadlines.Select(held => new DeadlineId(held.Id))];
+
     /// <summary>How many owners hear this clock's advances.</summary>
     public int Observers => _observers.Count;
 

@@ -142,7 +142,7 @@ public sealed class MagicCoverageTests
             | what | across a save today |
             | --- | --- |
             | an item's spent charges | carried: a charge is item state, written with the instance's damage and enchantments, so a half-spent wand resumes half spent |
-            | an effect's existence and magnitude | not carried: while any deadline is registered the clock refuses to be captured, so a session holding a running ward, light, or haste cannot be saved at all |
+            | an effect's existence and magnitude | not carried: an effect's end is a moment the save cannot carry yet, so a save taken while a ward, light, or haste runs is refused naming the effect |
             | when an effect ends | not carried, for the same reason: the save records elapsed game time and no deadlines |
 
             The refusal is by name rather than silent — `PartyRpg.Kit.Persistence.ClockSave.Capture` throws a

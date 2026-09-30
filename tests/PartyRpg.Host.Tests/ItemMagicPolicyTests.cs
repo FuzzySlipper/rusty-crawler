@@ -172,7 +172,7 @@ public sealed class ItemMagicPolicyTests
     }
 
     [Fact]
-    public void A_spent_charge_survives_the_products_own_save_and_resume()
+    public void A_save_taken_while_a_fight_has_left_state_is_refused_by_name()
     {
         InMemoryPersistenceService persistence = new();
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(persistence, Content());
@@ -180,13 +180,39 @@ public sealed class ItemMagicPolicyTests
         ulong step = 0;
         session.Update(ProductTestContext.Update(++step, 1));
 
+        // A shot at the beast provokes it and leaves the shooter recovering, neither of which the save schema
+        // carries: the save is refused naming both rather than written with the fight silently gone.
+        session.Update(ProductTestContext.Update(++step, 1, Digital(ProductIdentity.AttackIntent)));
+        SessionSaveException refused = Assert.Throws<SessionSaveException>(() => MightAndMagic7Ruleset.Instance.Save(session));
+        Assert.Equal(SessionSaveFailure.Refused, refused.Kind);
+        Assert.Contains("during a fight", refused.Message, StringComparison.Ordinal);
+        Assert.Contains(refused.Problems, problem => problem.Contains("living creature(s) the party provoked", StringComparison.Ordinal));
+        Assert.Contains(refused.Problems, problem => problem.Contains("member(s) still owing recovery", StringComparison.Ordinal));
+        Assert.Null(persistence.Payload("sessions", "session"));
+    }
+
+    [Fact]
+    public void A_spent_charge_survives_the_products_own_save_and_resume()
+    {
+        InMemoryPersistenceService persistence = new();
+        (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(persistence, Content());
+        using IGameSession session = Casting(context, ui, combat: true);
+        MightAndMagic7Session live = (MightAndMagic7Session)session;
+        ulong step = 0;
+        session.Update(ProductTestContext.Update(++step, 1));
+
         string wand = Item(Magic(ui).Field("items"), "charged").Field("item").AsString();
         int charges = (int)Item(Magic(ui).Field("items"), "charged").Field("charges").AsNumber();
 
-        // One shot spends one charge, and the charge is item state: it is written with the instance rather
-        // than counted by the panel or by a second store beside the pack.
-        session.Update(ProductTestContext.Update(++step, 1, Digital(ProductIdentity.AttackIntent)));
+        // One casting from the wand spends one charge, and the charge is item state: it is written with the
+        // instance rather than counted by the panel or by a second store beside the pack. It is aimed at the
+        // caster rather than fired at the beast, so no fight is left for the save to refuse over.
+        session.Update(ProductTestContext.Update(++step, 1, Cast(member: 0, spell: "3", target: Member(live, 0), item: wand)));
         Assert.Equal(charges - 1, Charges(ui, wand));
+
+        // A game day passes, so the ward the casting raised has run out and nothing holds a moment the save
+        // cannot carry yet.
+        Advance(session, ref step, seconds: 24 * 60 * 60 / GameSecondsPerRealSecond);
 
         // The session's own save boundary, through the engine's store, and a resume composed from those bytes.
         SessionSave written = MightAndMagic7Ruleset.Instance.Save(session);

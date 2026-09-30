@@ -637,6 +637,9 @@ public sealed class PartyRpgSession : IGameSession
     /// </summary>
     public CombatState? Combat => _combat;
 
+    /// <summary>The owners the session composed that set deadlines on its clock, which a save asks about each.</summary>
+    internal IReadOnlyList<IDeadlineOwner> DeadlineOwners => _deadlineOwners;
+
     /// <summary>
     /// The party the session holds, or null while it is creating one and when no content or creation
     /// supplied one. The party a session accepted is the party it plays: nothing else is ever assigned here.
@@ -2510,7 +2513,7 @@ public sealed class PartyRpgSession : IGameSession
     public SessionSave Capture()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        return InCapture(() => SessionSave.Capture(this));
+        return SessionSave.Capture(this);
     }
 
     /// <summary>
@@ -2532,7 +2535,7 @@ public sealed class PartyRpgSession : IGameSession
                 $"The session in '{_composition.Title}' was composed without a save store, so there is nowhere to write a save; a session is composed with one when the product has a place to keep them.");
         }
 
-        return InCapture(() => _saves.Save(this));
+        return _saves.Save(this);
     }
 
     /// <summary>
@@ -2589,7 +2592,7 @@ public sealed class PartyRpgSession : IGameSession
 
         try
         {
-            InCapture(() => _saves.Save(this));
+            _saves.Save(this);
         }
         catch (EngineCallException error)
         {
@@ -2607,15 +2610,19 @@ public sealed class PartyRpgSession : IGameSession
         }
         catch (SessionSaveException error)
         {
-            // Two different losses behind one exception type: the session held nothing a load could rebuild,
-            // or the store could not hold what it was handed. The first carries the boundary's own list of
-            // what is missing; the second carries the store's reason. A player acts on them differently, so
-            // they are named differently.
+            // Three different losses behind one exception type, which names which it is: the session held
+            // something the save cannot carry, the product has nowhere to write, or the store could not hold
+            // what it was handed. A player acts on them differently, so they are named differently.
             return _save with
             {
                 State = SaveState.Failed,
                 At = string.Empty,
-                Code = error.Problems.Count > 0 ? "save-refused" : "save-failed",
+                Code = error.Kind switch
+                {
+                    SessionSaveFailure.Refused => "save-refused",
+                    SessionSaveFailure.Unavailable => "save-unavailable",
+                    _ => "save-failed",
+                },
                 Message = error.Message,
             };
         }
@@ -2631,30 +2638,6 @@ public sealed class PartyRpgSession : IGameSession
                 ? $"Saved the session to slot '{_save.Slot}' at {at}."
                 : $"Saved the session to slot '{_save.Slot}'.",
         };
-    }
-
-    /// <summary>
-    /// Reads the session at its save boundary with every schedule the session owns taken off the one clock.
-    /// </summary>
-    /// <remarks>
-    /// The save schema records the game time a clock has lived through and refuses a clock that is holding a
-    /// deadline, because a deadline's number means nothing without the owner that scheduled it. This session
-    /// has such an owner — the debt of sleep the rest mechanism keeps — so it takes its own deadline off the
-    /// clock for the length of the read and puts it back at the point it was due, whatever the read did. A
-    /// save therefore changes nothing about the running session, and the debt the document cannot carry is a
-    /// stated loss rather than one hidden by the capture.
-    /// </remarks>
-    private T InCapture<T>(Func<T> capture)
-    {
-        _rest?.Suspend();
-        try
-        {
-            return capture();
-        }
-        finally
-        {
-            _rest?.Resume();
-        }
     }
 
     /// <summary>

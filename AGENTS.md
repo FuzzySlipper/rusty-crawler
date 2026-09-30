@@ -83,7 +83,8 @@ locked door, rest and camping on the one clock, and conversations whose topics f
 Combat is one state in the same scene with both sides acting and either pacing. And the party now keeps a
 record — quests it has taken, a dated journal, what it has learned, standing that changes how people treat it,
 and a per-place memory of ground it has walked. Three defects stand beside the stones rather than inside them:
-a creature that cannot see its target still walks into the wall, a session's own fight is not yet in a save,
+a creature that cannot see its target still walks into the wall, a session's own fight is not yet in a save
+(a save taken while a fight has left state behind is refused by name),
 and a deadline (a ward, a light, a haste) still blocks a save by name rather than being carried.
 
 - `src/PartyRpg.Kit`, `src/PartyRpg.Rulesets.MightAndMagic7`, and `src/PartyRpg.Host` build against

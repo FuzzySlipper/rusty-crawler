@@ -171,6 +171,39 @@ public sealed class CombatState : IGameTimeObserver
     /// <summary>Whether anything in the place is fighting the party right now.</summary>
     public bool IsEngaged => _combatants.Any(combatant => combatant.Side == CombatSide.Opposition && !IsDown(combatant));
 
+    /// <summary>
+    /// What a fight has left behind that a save taken now would drop, each as a phrase; empty when nothing.
+    /// </summary>
+    /// <remarks>
+    /// A place full of creatures nobody has touched is not a fight a save loses: the population is rebuilt
+    /// from the same placements on load, each creature with the recovery it starts with. What is lost is what
+    /// the fight changed — a member still owing recovery, a creature the party provoked, a living creature it
+    /// wounded, a body in a place the fight has not cleared, and a paced round in progress — so those are
+    /// what this names.
+    /// </remarks>
+    public IReadOnlyList<string> UnsavedFight()
+    {
+        List<string> left = [];
+        int recovering = _combatants.Count(combatant => combatant.Side == CombatSide.Party && !combatant.IsReady && !IsDown(combatant));
+        if (recovering > 0) left.Add($"{recovering} member(s) still owing recovery");
+        int provoked = _combatants.Count(combatant => _provoked.Contains(combatant.Id) && !IsDown(combatant));
+        if (provoked > 0) left.Add($"{provoked} living creature(s) the party provoked");
+
+        int wounded = 0;
+        int fallen = 0;
+        foreach (Combatant combatant in _combatants)
+        {
+            if (combatant.Side != CombatSide.Opposition || Health(combatant.Subject) is not { IsMortal: true } health) continue;
+            if (health.IsDown) fallen++;
+            else if (health.Current < health.Maximum) wounded++;
+        }
+
+        if (wounded > 0) left.Add($"{wounded} living creature(s) wounded");
+        if (fallen > 0 && IsEngaged) left.Add($"{fallen} creature(s) laid out in a place not yet cleared");
+        if (Pacing == CombatPacing.TurnBased && Turns.IsHolding) left.Add("a turn-based round in progress");
+        return left;
+    }
+
     /// <summary>Where the party stands, which is what every actor's distance is measured from.</summary>
     /// <remarks>
     /// It is the world's own position, read here rather than copied: a driver that has to decide what a

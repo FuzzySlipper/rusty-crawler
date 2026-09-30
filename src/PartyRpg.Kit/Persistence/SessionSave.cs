@@ -135,6 +135,15 @@ public sealed record SessionSave
                 missing);
         }
 
+        // The schema carries no fight, so a save taken while one has left state behind — a debt of recovery,
+        // a creature provoked or wounded, a round in progress — would load with that state silently gone. It is
+        // refused by name instead, and a save once the fight is over succeeds.
+        if (session.Combat?.UnsavedFight() is { Count: > 0 } fight)
+        {
+            List<string> problems = [.. fight.Select(left => $"the fight has {left}, which a save cannot carry yet")];
+            throw new SessionSaveException($"The session cannot be saved during a fight: {string.Join("; ", problems)}.", problems);
+        }
+
         // The quest owner is absent from a session that holds one for no party and from one whose ruleset
         // stated no quests at all: both are a party with no quest state, which is what an empty section
         // records rather than a section nobody filled. The journal and the knowledge beside it are absent on
@@ -142,7 +151,7 @@ public sealed record SessionSave
         // note by, has written nothing down and learned nothing it keeps.
         return new SessionSave(
             held.Capture(),
-            ClockSave.Capture(time),
+            ClockSave.Capture(time, session.DeadlineOwners),
             place.Capture(),
             session.Quests?.Capture() ?? QuestSave.None,
             session.Journal?.Capture() ?? JournalSave.None,
@@ -174,13 +183,18 @@ public sealed record SessionSave
     /// against: a save that records an errand the game no longer states names an errand nothing can finish,
     /// and that is a contradiction to refuse rather than a quest to guess at.
     /// </param>
+    /// <param name="calendar">
+    /// The calendar the recorded game time is counted in, which is what the world's recorded day is checked
+    /// against. Without it the two day counts are not compared.
+    /// </param>
     /// <returns>Every problem found, in the order the document records them.</returns>
     /// <exception cref="ArgumentNullException">The world's places or the party factory are null.</exception>
     public IReadOnlyList<string> Problems(
         PlaceGraph places,
         PartyEntityFactory parties,
         PlacePoseAdmission? admission = null,
-        IQuestRule? quests = null)
+        IQuestRule? quests = null,
+        GameCalendar? calendar = null)
     {
         ArgumentNullException.ThrowIfNull(places);
         ArgumentNullException.ThrowIfNull(parties);
@@ -189,6 +203,17 @@ public sealed record SessionSave
         if (World.Places.ElapsedGameDays < 0)
         {
             problems.Add($"the world has reached day {World.Places.ElapsedGameDays}, which is before the session began");
+        }
+
+        // The world's day is the clock's own day count, written down twice: a document where the two disagree
+        // would restore places against one day and advance them against another, so both are named.
+        if (calendar is not null && Clock.ElapsedMilliseconds >= 0)
+        {
+            long clockDays = Clock.ElapsedMilliseconds / calendar.DayMilliseconds;
+            if (clockDays != World.Places.ElapsedGameDays)
+            {
+                problems.Add($"the world has reached day {World.Places.ElapsedGameDays} while the clock has lived {clockDays} whole day(s), and the two are the same count");
+            }
         }
 
         HashSet<PlaceId> recorded = [];

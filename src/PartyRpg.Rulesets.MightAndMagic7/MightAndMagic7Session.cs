@@ -52,11 +52,6 @@ internal sealed class MightAndMagic7Session : IGameSession
         ArgumentNullException.ThrowIfNull(context);
         GameClock clock = MightAndMagic7Time.Compose();
 
-        // The clock takes the recorded game time before the world is composed, because the world's places
-        // are read against the day the session stands on: a resumed session that restored its ledger and
-        // then moved its clock would spend its first update crossing a boundary it had already crossed.
-        resume?.Clock.ApplyTo(clock);
-
         // This game's skills are read once, here, and the same reading is handed to the service mechanism,
         // which needs the ceilings and the fees to offer a mastery lesson, to the progression owner, which
         // judges a raise against them, and to the equipment gate, which resolves what an item's row names.
@@ -265,6 +260,15 @@ internal sealed class MightAndMagic7Session : IGameSession
             InteractionUseInput? use = Use(context);
             if (resume is { } save)
             {
+                // The whole document is judged before anything moves, so every problem is named at once and a
+                // defective save leaves no clock moved and no party restored behind it.
+                MightAndMagic7Persistence.RequireLoadable(save, context.Content, quests);
+
+                // The clock takes the recorded game time before the world is composed, because the world's
+                // places are read against the day the session stands on: a resumed session that restored its
+                // ledger and then moved its clock would spend its first update crossing a boundary it had
+                // already crossed.
+                save.Clock.ApplyTo(clock);
                 party = Capacity(MightAndMagic7Party.Restore(save.Party, Declared(context.Content)), spells)!;
                 PartyResourceLedger ledger = Ledger(party);
                 world = MightAndMagic7World.Compose(context.Content, context, clock, ledger, party, save, services, conversation, corpseAnswers, loot, quests, () => Journal);

@@ -104,7 +104,8 @@ public sealed class EngineSessionSaveStore : ISessionSaveStore
             // be played, but nothing it does can be written down.
             throw new SessionSaveException(
                 $"The engine could not open the persistence store '{_scope}' that session saves are written to: {error.Message} The host selects the absolute persistence root before the product is created, so a product running without one plays but cannot save.",
-                [error.Message]);
+                [error.Message],
+                SessionSaveFailure.Unavailable);
         }
 
         return _store;

@@ -87,6 +87,10 @@ internal static class MightAndMagic7Persistence
     /// resumed as a journal entry that can never be completed.
     /// </param>
     /// <exception cref="SessionSaveException">The save cannot be resumed; the message names every problem found.</exception>
+    internal static void RequireLoadable(SessionSave save, ContentCatalog? content, MightAndMagic7Quests? quests = null) =>
+        RequireLoadable(save, content is null ? PlaceGraph.From([], []) : PlaceGraphLoader.Load(content), content, quests);
+
+    /// <inheritdoc cref="RequireLoadable(SessionSave, ContentCatalog?, MightAndMagic7Quests?)" />
     internal static void RequireLoadable(
         SessionSave save,
         PlaceGraph places,
@@ -95,7 +99,12 @@ internal static class MightAndMagic7Persistence
     {
         ArgumentNullException.ThrowIfNull(save);
         ArgumentNullException.ThrowIfNull(places);
-        IReadOnlyList<string> problems = save.Problems(places, MightAndMagic7Party.Factory(content), admission: null, quests: quests);
+        IReadOnlyList<string> problems = save.Problems(
+            places,
+            MightAndMagic7Party.Factory(content),
+            admission: null,
+            quests: quests,
+            calendar: MightAndMagic7Time.Calendar);
         if (problems.Count > 0)
         {
             throw new SessionSaveException(

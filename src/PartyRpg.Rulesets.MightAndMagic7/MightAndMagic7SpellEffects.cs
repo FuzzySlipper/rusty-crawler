@@ -242,6 +242,12 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     /// <inheritdoc />
     public bool Holds(DeadlineId deadline) => _running?.Holds(deadline) ?? false;
 
+    /// <inheritdoc />
+    public bool RebuildsOnLoad(DeadlineId deadline) => _running?.RebuildsOnLoad(deadline) ?? false;
+
+    /// <inheritdoc />
+    public string Describe(DeadlineId deadline) => _running?.Describe(deadline) ?? $"deadline {deadline}";
+
     /// <summary>Harm: the spell's own dice and kind, ordered through the fight's own gated entry.</summary>
     /// <remarks>
     /// This is the category's whole path: the spell is an attack of the spell kind, the ability the order

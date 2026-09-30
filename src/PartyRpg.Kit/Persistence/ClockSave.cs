@@ -51,27 +51,47 @@ public sealed record ClockSave
     /// Reads the clock's position into the save's own terms.
     /// </summary>
     /// <remarks>
-    /// A clock holding a deadline is refused here rather than captured, because a deadline's number means
-    /// nothing without the owner that scheduled it and no owner exists: a save that kept the number would
-    /// load a schedule nothing can act on, and a save that dropped it would lose work the session was told
-    /// about. Whoever first schedules a deadline owns carrying it through a save.
+    /// The schema records the game time the clock has lived through and no deadlines, so every deadline the
+    /// clock holds is asked of the owners that set it. One an owner rebuilds on load — a shelf's restock, the
+    /// debt of sleep — is left out, and what that costs is stated by the owner. One an owner cannot rebuild, or
+    /// one nobody holds, refuses the save with each named, because a document that dropped it would load a
+    /// session that had silently lost it.
     /// </remarks>
     /// <param name="clock">The clock to read.</param>
+    /// <param name="owners">The owners of the deadlines the clock may be holding.</param>
     /// <returns>Where the clock stood.</returns>
-    /// <exception cref="ArgumentNullException">The clock is null.</exception>
-    /// <exception cref="SessionSaveException">The clock is holding scheduled work that this schema cannot carry.</exception>
-    public static ClockSave Capture(GameClock clock)
+    /// <exception cref="ArgumentNullException">The clock or the owners are null.</exception>
+    /// <exception cref="SessionSaveException">The clock holds a deadline the schema cannot carry and nobody rebuilds.</exception>
+    public static ClockSave Capture(GameClock clock, IReadOnlyList<IDeadlineOwner> owners)
     {
         ArgumentNullException.ThrowIfNull(clock);
-        if (clock.PendingDeadlines > 0)
+        ArgumentNullException.ThrowIfNull(owners);
+        List<string> problems = [];
+        foreach (DeadlineId deadline in clock.Pending)
         {
-            throw new SessionSaveException(
-                $"The session cannot be saved: the clock is holding {clock.PendingDeadlines} scheduled deadline(s), and nothing in the product owns what one means, so a save would either lose the schedule or restore one nobody can act on.",
-                [$"the clock holds {clock.PendingDeadlines} pending deadline(s), which no owner could rebuild on load"]);
+            IDeadlineOwner? owner = owners.FirstOrDefault(candidate => candidate.Holds(deadline));
+            if (owner is null)
+            {
+                problems.Add($"the clock holds deadline {deadline}, which no owner in the session holds, so a load could not rebuild it");
+            }
+            else if (!owner.RebuildsOnLoad(deadline))
+            {
+                problems.Add($"{owner.Describe(deadline)} is a moment the save cannot carry yet and nothing rebuilds on load");
+            }
+        }
+
+        if (problems.Count > 0)
+        {
+            throw new SessionSaveException($"The session cannot be saved: {string.Join("; ", problems)}.", problems);
         }
 
         return new ClockSave(clock.Elapsed.Milliseconds);
     }
+
+    /// <summary>Reads a clock that no owner shares deadlines with, so every deadline it holds refuses the save.</summary>
+    /// <param name="clock">The clock to read.</param>
+    /// <returns>Where the clock stood.</returns>
+    public static ClockSave Capture(GameClock clock) => Capture(clock, []);
 
     /// <summary>
     /// Moves a freshly composed clock to the position this save recorded.
