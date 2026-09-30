@@ -340,81 +340,36 @@ public sealed class KnowledgeTests
     [Fact]
     public void Only_the_owner_of_a_discovery_and_the_session_that_keeps_it_write_a_note()
     {
-        // A note is reported by the owner of the moment that taught it — the mixing workflow for a recipe,
-        // and, outside the kit, this game's own answers for what a use taught — and the session is the one
-        // caller that hands a use's discoveries to the owner. A kit mechanism that reported its own facts
-        // would be a second writer of what the party knows, so the scan fails the kit if one appears. What
-        // the scan looks for is the construction of a report, so a source that reads the knowledge — a
-        // projection, a screen's own value — is not an offender.
-        string kit = Path.Combine(Repository.Root, "src", "PartyRpg.Kit");
-        string knowledge = Path.Combine(kit, "Knowledge");
-        string alchemy = Path.Combine(kit, "Alchemy", "PotionMixing.cs");
-        // The session hands a use's discoveries over where it applies the use, among the player's other acts.
-        string session = Path.Combine(kit, "Sessions", "SessionActs.cs");
-        List<string> offenders = [];
-        foreach (string source in Directory.EnumerateFiles(kit, "*.cs", SearchOption.AllDirectories))
-        {
-            if (source.StartsWith(knowledge, StringComparison.Ordinal) ||
-                string.Equals(source, alchemy, StringComparison.Ordinal) ||
-                string.Equals(source, session, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            if (source.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-                || source.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            string text = File.ReadAllText(source);
-            if (text.Contains("new KnowledgeReport(", StringComparison.Ordinal))
-            {
-                offenders.Add($"{Path.GetFileName(source)}: reports a discovery of its own");
-            }
-        }
-
-        Assert.Empty(offenders);
-
-        // The scan is not vacuous: the two writers it allows are exactly what it looks for, and they name
-        // themselves.
-        Assert.Contains("new KnowledgeReport(", File.ReadAllText(alchemy), StringComparison.Ordinal);
-        Assert.Contains("knowledge.Record(report)", File.ReadAllText(session), StringComparison.Ordinal);
+        // A note is reported by the owner of the moment that taught it — the mixing workflow for a recipe, and, outside
+        // the kit, this game's own answers for what a use taught — and the session is the one caller that hands a
+        // use's discoveries to the owner. A kit mechanism that reported its own facts would be a second writer of what
+        // the party knows. The law finds every call to the knowledge owner's one write, bound to the member itself, so
+        // a source that reads the knowledge is not an offender.
+        SourceCode kit = ProductSource.Kit;
+        ProductSource.OnlyIn(
+            kit.Uses([.. kit.Members(typeof(PartyKnowledge), nameof(PartyKnowledge.Record))]),
+            file => file is "src/PartyRpg.Kit/Alchemy/PotionMixing.cs" or "src/PartyRpg.Kit/Sessions/SessionActs.cs"
+                || file.StartsWith("src/PartyRpg.Kit/Knowledge/", StringComparison.Ordinal),
+            "What the party knows is written by the owner of the discovery and the session that hands a use's discoveries over.");
     }
 
     [Fact]
     public void The_knowledge_owner_reads_no_place_state()
     {
-        // The boundary between what the party knows and what a place currently is, stated in code rather
-        // than only in prose: nothing under Knowledge/ names the world, its places, or their per-place state,
-        // so a place the clock restores cannot reach what the party has learned even by accident. That is
-        // the whole point of the split, and a field of the world's creeping into this owner would undo it
-        // silently.
-        string knowledge = Path.Combine(Repository.Root, "src", "PartyRpg.Kit", "Knowledge");
-        string[] forbidden = ["SessionWorld", "PlaceState", "PlaceId", "World"];
-        List<string> offenders = [];
-        foreach (string source in Directory.EnumerateFiles(knowledge, "*.cs", SearchOption.AllDirectories))
-        {
-            string text = string.Join(
-                '\n',
-                File.ReadAllLines(source).Where(line =>
-                    !line.TrimStart().StartsWith("///", StringComparison.Ordinal) &&
-                    !line.TrimStart().StartsWith("//", StringComparison.Ordinal)));
-            foreach (string token in forbidden)
-            {
-                if (text.Contains(token, StringComparison.Ordinal))
-                {
-                    offenders.Add($"{Path.GetFileName(source)} names '{token}': what a party knows is not a reading of the world");
-                }
-            }
-        }
+        // The boundary between what the party knows and what a place currently is, stated in code rather than only in
+        // prose: nothing under Knowledge/ reaches the world, its places, or their per-place state, so a place the
+        // clock restores cannot reach what the party has learned even by accident. The law binds every name in the
+        // owner's sources, so the owner's own remarks may explain the boundary by naming what it is kept apart from.
+        SourceCode kit = ProductSource.Kit;
+        const string Knowledge = "src/PartyRpg.Kit/Knowledge/";
+        Assert.NotEmpty(kit.TreesUnder(Knowledge));
+        SourceSite[] offenders =
+        [
+            .. kit.UsesOfNamespace("PartyRpg.Kit.World").Concat(kit.UsesOfType(typeof(SessionWorld)))
+                .Where(site => site.File.StartsWith(Knowledge, StringComparison.Ordinal)),
+        ];
 
-        Assert.Empty(offenders);
-
-        // The scan is not vacuous: the owner's remarks explain the boundary by naming what it is kept apart
-        // from, and those words are read past on purpose — a rule that forbade explaining itself would be a
-        // trap rather than a boundary.
-        Assert.Contains("per-place state", File.ReadAllText(Path.Combine(knowledge, "PartyKnowledge.cs")), StringComparison.Ordinal);
+        Assert.True(offenders.Length == 0, "What a party knows is not a reading of the world:\n" + string.Join('\n', offenders.Select(site => site.ToString())));
     }
 
     [Fact]

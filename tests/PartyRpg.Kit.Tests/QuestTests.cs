@@ -398,40 +398,24 @@ public sealed class QuestTests
     [Fact]
     public void The_kit_s_world_and_conversation_code_own_no_quest_definition_or_objective()
     {
-        // A quest is content plus this owner: the world and the conversation name an errand's identity and
-        // never what it asks, which is what keeps a second reading of an objective out of the code that
-        // reports the deeds. The scan reads the kit's own sources rather than what the compiler produced,
-        // in the style the kit's other source scans use.
-        string[] directories =
+        // A quest is content plus this owner: the world, the conversation, and the interaction mechanism name an
+        // errand's identity and never what it asks, which is what keeps a second reading of an objective out of the
+        // code that reports the deeds. The law binds every name in those three owners' sources, so a use of anything
+        // the quest owner declares — a definition, an objective, an instance, a reading, the owner itself — fails
+        // here however it is spelled.
+        SourceCode kit = ProductSource.Kit;
+        string[] directories = ["src/PartyRpg.Kit/World/", "src/PartyRpg.Kit/Conversation/", "src/PartyRpg.Kit/Interaction/"];
+        foreach (string directory in directories) Assert.NotEmpty(kit.TreesUnder(directory));
+
+        SourceSite[] offenders =
         [
-            Path.Combine(Repository.Root, "src", "PartyRpg.Kit", "World"),
-            Path.Combine(Repository.Root, "src", "PartyRpg.Kit", "Conversation"),
-            Path.Combine(Repository.Root, "src", "PartyRpg.Kit", "Interaction"),
+            .. kit.UsesOfNamespace(typeof(PartyQuests).Namespace!)
+                .Where(site => directories.Any(directory => site.File.StartsWith(directory, StringComparison.Ordinal))),
         ];
+        Assert.True(offenders.Length == 0, "The world and the conversation own no quest:\n" + string.Join('\n', offenders.Select(site => site.ToString())));
 
-        string[] forbidden = ["QuestDefinition", "QuestObjective", "QuestInstance", "PartyQuests", "QuestReading"];
-        List<string> offenders = [];
-        foreach (string directory in directories)
-        {
-            Assert.True(Directory.Exists(directory), $"the kit directory '{directory}' is not where this scan expects it");
-            foreach (string source in Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories))
-            {
-                foreach (string line in File.ReadAllLines(source))
-                {
-                    if (line.TrimStart().StartsWith("///", StringComparison.Ordinal)) continue;
-                    if (forbidden.Any(word => line.Contains(word, StringComparison.Ordinal)))
-                    {
-                        offenders.Add($"{Path.GetFileName(source)}: {line.Trim()}");
-                    }
-                }
-            }
-        }
-
-        Assert.Empty(offenders);
-
-        // The scan is not vacuous: the owner itself is exactly what it looks for.
-        string owner = File.ReadAllText(Path.Combine(Repository.Root, "src", "PartyRpg.Kit", "Quests", "PartyQuests.cs"));
-        Assert.Contains("QuestDefinition", owner, StringComparison.Ordinal);
+        // The law is not vacuous: the owner's own sources are exactly what it looks for.
+        Assert.Contains(kit.UsesOfNamespace(typeof(PartyQuests).Namespace!), site => site.File.StartsWith("src/PartyRpg.Kit/Sessions/", StringComparison.Ordinal));
     }
 
     /// <summary>How much of one objective the party has recorded or is reported to have done.</summary>

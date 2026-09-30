@@ -330,40 +330,19 @@ public sealed class JournalTests
     [Fact]
     public void No_kit_source_outside_the_journal_and_the_session_writes_an_entry()
     {
-        // A line is written by the owner of the event or by the one subscriber that reads the reports the
-        // session already handles, and by nothing else: a kit mechanism that reported its own events would be
-        // a second writer of the party's record. What the scan looks for is the construction of a report, so
-        // a source that reads the journal — a projection, a screen's own value — is not an offender. A
-        // ruleset's own owners report through the same entry point and are outside the kit, which is where
-        // the game's finds are reported from. The scan reads the kit's own sources rather than what the
-        // compiler produced, in the style the kit's other source scans use.
-        string kit = Path.Combine(Repository.Root, "src", "PartyRpg.Kit");
-        string journal = Path.Combine(kit, "Journal");
-        // The session's reports are written in two files: the update itself, and the router that hands a
+        // A line is written by the owner of the event or by the one subscriber that reads the reports the session
+        // already handles, and by nothing else: a kit mechanism that reported its own events would be a second writer
+        // of the party's record. The law finds every call to the journal's one write, bound to the member itself, so
+        // a source that reads the journal — a projection, a screen's own value — is not an offender. A ruleset's own
+        // owners report through the same entry and are outside the kit, which is where the game's finds come from;
+        // the session's reports are written in two files: the update itself, and the router that hands a
         // conversation's offer to the owner whose answer the journal records.
-        string session = Path.Combine(kit, "Sessions", "PartyRpgSession.cs");
-        string router = Path.Combine(kit, "Sessions", "ConversationHandoffRouter.cs");
-        List<string> offenders = [];
-        foreach (string source in Directory.EnumerateFiles(kit, "*.cs", SearchOption.AllDirectories))
-        {
-            if (source.StartsWith(journal, StringComparison.Ordinal)
-                || string.Equals(source, session, StringComparison.Ordinal)
-                || string.Equals(source, router, StringComparison.Ordinal)) continue;
-            if (source.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-                || source.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)) continue;
-            string text = File.ReadAllText(source);
-            if (text.Contains("new JournalEvent(", StringComparison.Ordinal))
-            {
-                offenders.Add($"{Path.GetFileName(source)}: reports a journal event of its own");
-            }
-        }
-
-        Assert.Empty(offenders);
-
-        // The scan is not vacuous: the one subscriber is exactly what it looks for, and the owner names
-        // itself.
-        Assert.Contains("new JournalEvent(", File.ReadAllText(session), StringComparison.Ordinal);
-        Assert.Contains("new JournalEvent(", File.ReadAllText(router), StringComparison.Ordinal);
+        SourceCode kit = ProductSource.Kit;
+        ProductSource.OnlyIn(
+            kit.Uses([.. kit.Members(typeof(PartyJournal), nameof(PartyJournal.Record))]),
+            file => file is "src/PartyRpg.Kit/Sessions/PartyRpgSession.cs" or "src/PartyRpg.Kit/Sessions/ConversationHandoffRouter.cs"
+                || file.StartsWith("src/PartyRpg.Kit/Journal/", StringComparison.Ordinal),
+            "The party's record is written by the session's subscriber and the journal itself, and by no other kit mechanism.");
     }
 
     /// <summary>A world the journal is read beside: a region and an interior, with the party at the region.</summary>

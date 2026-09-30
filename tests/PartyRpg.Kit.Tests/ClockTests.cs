@@ -19,21 +19,6 @@ namespace PartyRpg.Kit.Tests;
 /// </remarks>
 public sealed class ClockTests
 {
-    /// <summary>The ambient sources a second clock would have to be built from.</summary>
-    private static readonly string[] AmbientTimeSources =
-    [
-        "DateTime",
-        "DateTimeOffset",
-        "Stopwatch",
-        "TimeProvider",
-        "Timer",
-        "Thread",
-        "System.Threading",
-        "System.Timers",
-        "Task.Delay",
-        "Environment.TickCount",
-    ];
-
     private static readonly ContentLayout Layout = new("packs", "imports", "bundles");
 
     /// <summary>A region that restores its population after three game days.</summary>
@@ -488,33 +473,6 @@ public sealed class ClockTests
 
         Assert.Equal(new GameDate(100, 1, 4, 9, 0), clock.Now);
         Assert.Equal(3, clock.ElapsedGameDays);
-    }
-
-    [Fact]
-    public void The_kit_holds_no_second_clock_timer_or_thread()
-    {
-        // The clock is the only owner of time in the product, so no source in the kit may reach for an
-        // ambient one. The scan reads the kit's own sources rather than what the compiler produced, because
-        // a timer that arrived from a package would be exactly as much a second clock as one written here.
-        string kit = Path.Combine(Repository.Root, "src", "PartyRpg.Kit");
-        string[] sources =
-        [
-            .. Directory.EnumerateFiles(kit, "*.cs", SearchOption.AllDirectories)
-                .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-                    && !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)),
-        ];
-        Assert.NotEmpty(sources);
-
-        foreach (string source in sources)
-        {
-            string text = File.ReadAllText(source);
-            foreach (string ambient in AmbientTimeSources)
-            {
-                Assert.False(
-                    text.Contains(ambient, StringComparison.Ordinal),
-                    $"{Path.GetFileName(source)} names '{ambient}': the kit's one clock is advanced by its callers, and a timer, a thread, or a wall clock beside it would be a second clock.");
-            }
-        }
     }
 
     /// <summary>The lighting policy these tests run the clock with, which is a ruleset's to state.</summary>

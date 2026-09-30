@@ -254,33 +254,6 @@ public sealed class TravelPolicyTests
     }
 
     [Fact]
-    public void The_ruleset_holds_no_second_food_counter_beside_the_partys_larder()
-    {
-        // The party's larder is the one place food is counted, so the ruleset's policy may state a rate —
-        // which it does — but may not keep a store of its own that could disagree with the party's.
-        Regex store = new(
-            @"(private|internal|protected|public)\s+(int|long|Provisions)\s+_?\w*(Food|Portions|Provisions|Rations)\w*\s*(\{[^}]*\bset\b|=(?!=|>)|;)",
-            RegexOptions.CultureInvariant);
-
-        string ruleset = Path.Combine(Repository.Root, "src", "PartyRpg.Rulesets.MightAndMagic7");
-        string[] sources =
-        [
-            .. Directory.EnumerateFiles(ruleset, "*.cs", SearchOption.AllDirectories)
-                .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-                    && !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)),
-        ];
-        Assert.NotEmpty(sources);
-
-        foreach (string source in sources)
-        {
-            Match declared = store.Match(File.ReadAllText(source));
-            Assert.False(
-                declared.Success,
-                $"{Path.GetFileName(source)} declares a food store ('{declared.Value.Trim()}'): the party's larder is the one place food is counted, and a ruleset that kept a second count could disagree with it.");
-        }
-    }
-
-    [Fact]
     public void A_host_without_a_creation_screen_publishes_the_clock_and_the_party_its_scenario_declares()
     {
         (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(World(PartyDocument(food: 6)));

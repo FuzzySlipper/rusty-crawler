@@ -1,4 +1,6 @@
-using System.Text.RegularExpressions;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Party;
@@ -174,60 +176,48 @@ public sealed class SpellEffectTests
     [Fact]
     public void The_kits_effect_application_names_no_spell_identity_and_branches_on_none()
     {
-        // What a spell's effect is belongs to the ruleset, which applies it by category behind the seam. The
-        // kit's own effect application therefore names no spell and compares no effect: it carries an identity
-        // and hands it back, which is what keeps ninety-nine spells from becoming ninety-nine code paths.
-        string magic = Path.Combine(Repository.Root, "src", "PartyRpg.Kit", "Magic");
-        string effects = Path.Combine(magic, "Effects");
-        string[] applied =
-        [
-            .. Directory.EnumerateFiles(effects, "*.cs", SearchOption.AllDirectories)
-                .Where(file => !Ignored(file)),
-        ];
-        Assert.NotEmpty(applied);
+        // What a spell's effect is belongs to the ruleset, which applies it by category behind the seam. The kit's own
+        // effect application therefore names no spell and compares no effect: it carries an identity and hands it
+        // back, which is what keeps ninety-nine spells from becoming ninety-nine code paths.
+        SourceCode kit = ProductSource.Kit;
+        const string Effects = "src/PartyRpg.Kit/Magic/Effects/";
+        const string Magic = "src/PartyRpg.Kit/Magic/";
+        Assert.NotEmpty(kit.TreesUnder(Effects));
 
-        Regex namesASpell = new(@"new\s+SpellId\s*\(\s*""", RegexOptions.CultureInvariant);
-        // Equality between two identities the mechanism was handed is how a ledger finds its own entry; what
-        // this forbids is a comparison against a word the kit itself states, which is a branch on which effect
-        // a spell carries.
-        Regex branchesOnAnEffect = new(
-            "\\.Effect\\s*(==|!=)\\s*\"|string\\.Equals\\([^;]*\\.Effect\\s*,\\s*\"",
-            RegexOptions.CultureInvariant);
-        string[] all =
-        [
-            .. Directory.EnumerateFiles(magic, "*.cs", SearchOption.AllDirectories)
-                .Where(file => !Ignored(file)),
-        ];
-        Assert.NotEmpty(all);
+        // The effect application does not know that spells have identities at all.
+        SourceSite[] named = [.. kit.UsesOfType(typeof(SpellId)).Where(site => site.File.StartsWith(Effects, StringComparison.Ordinal))];
+        Assert.True(named.Length == 0, "An effect is applied by its category, and a path that could name a spell could branch on one:\n" + string.Join('\n', named.Select(site => site.ToString())));
 
-        foreach (string source in applied)
-        {
-            string text = File.ReadAllText(source);
+        // Nowhere in the magic mechanism is a spell identity built from a word the kit states — which spells exist is
+        // content's answer — however the construction is spelled.
+        SourceSite[] literal = [.. kit.Creations(typeof(SpellId))
+            .Where(site => site.File.StartsWith(Magic, StringComparison.Ordinal) && site.Text.Contains('"', StringComparison.Ordinal))];
+        Assert.True(literal.Length == 0, "A spell the mechanism can name is a spell it can special-case:\n" + string.Join('\n', literal.Select(site => site.ToString())));
 
-            // The effect application does not know that spells have identities at all.
-            Assert.False(
-                text.Contains("SpellId", StringComparison.Ordinal),
-                $"{Path.GetFileName(source)} names a spell identity: an effect is applied by its category, and a path that could name a spell is a path that could branch on one.");
-        }
-
-        foreach (string source in all)
-        {
-            string text = File.ReadAllText(source);
-            Match named = namesASpell.Match(text);
-            Assert.False(
-                named.Success,
-                $"{Path.GetFileName(source)} builds a spell identity from a literal ('{named.Value.Trim()}'): which spells exist is content's answer, and a spell the mechanism can name is a spell it can special-case.");
-            Match branch = branchesOnAnEffect.Match(text);
-            Assert.False(
-                branch.Success,
-                $"{Path.GetFileName(source)} branches on an effect identity ('{branch.Value.Trim()}'): what a spell does is the effect owner's answer, and the mechanism hands the identity over unread.");
-        }
+        // And nothing in it compares an effect identity with a word of its own: equality between two identities the
+        // mechanism was handed is how a ledger finds its own entry, and a comparison against a literal is a branch on
+        // which effect a spell carries.
+        SourceSite[] branches = [.. EffectBranches(kit).Where(site => site.File.StartsWith(Magic, StringComparison.Ordinal))];
+        Assert.True(branches.Length == 0, "What a spell does is the effect owner's answer:\n" + string.Join('\n', branches.Select(site => site.ToString())));
     }
 
-    /// <summary>Whether a source file is build output rather than a source the kit ships.</summary>
-    private static bool Ignored(string file) =>
-        file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal) ||
-        file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal);
+    [Fact]
+    public void The_effect_branch_detector_sees_an_operator_an_equals_call_and_a_switch()
+    {
+        SourceCode probe = SourceCode.FromText(("src/PartyRpg.Kit/Magic/Probe.cs", """
+            internal sealed record Row(string Effect);
+            internal static class Probe
+            {
+                // A comparison written in a comment, row.Effect == "ward", is not a branch.
+                private static bool Ward(Row row) => row.Effect == "ward";
+                private static bool Light(Row row) => string.Equals(row.Effect, "light", System.StringComparison.Ordinal);
+                private static int Kind(Row row) => row.Effect switch { "haste" => 1, _ => 0 };
+                private static bool Same(Row row, Row other) => row.Effect == other.Effect;
+            }
+            """));
+
+        Assert.Equal([5, 6, 7], EffectBranches(probe).Select(site => site.Line).Order());
+    }
 
     /// <summary>Splits an advance into its parts, which a case that only needs one of them reads.</summary>
     private static (GameDate From, GameDate To, GameDuration Elapsed, PeriodCrossings Crossings, IReadOnlyList<DeadlineDue> Due) Split(
@@ -322,27 +312,56 @@ public sealed class SpellEffectTests
         public IReadOnlyList<SpellAim> AimsOf(SpellDefinition spell) => Offered;
     }
 
-    /// <summary>The repository root, found the way the kit's other source scans find it.</summary>
     [Fact]
     public void Only_the_running_effect_owner_writes_a_running_effect()
     {
-        // The writers are internal to the kit, so nothing outside it can write one; inside it, the one owner of
-        // running effects is the only source that does, which is what keeps a dispel from reaching a record,
-        // a balance, or a passage.
-        string kit = Path.Combine(Repository.Root, "src", "PartyRpg.Kit");
-        string owner = Path.Combine(kit, "Magic", "Effects", "RunningSpellEffects.cs");
-        List<string> offenders = [];
-        foreach (string source in Directory.EnumerateFiles(kit, "*.cs", SearchOption.AllDirectories))
+        // The writers are internal to the kit, so nothing outside it can write one; inside it, the one owner of running
+        // effects is the only source that does, which is what keeps a dispel from reaching a record, a balance, or a
+        // passage. The law binds every call to the component's two writers across the runtime.
+        SourceCode code = ProductSource.Runtime;
+        ProductSource.OnlyIn(
+            code.Uses([.. code.Members(typeof(ActiveEffects), "Apply"), .. code.Members(typeof(ActiveEffects), "Remove")]),
+            file => file == "src/PartyRpg.Kit/Magic/Effects/RunningSpellEffects.cs",
+            "A running effect is written by the running effect owner and by nothing else.");
+    }
+
+    /// <summary>
+    /// Every place code compares an effect identity with a word of its own: an equality operator, an equality call,
+    /// a switch, or a pattern whose other side is a string literal.
+    /// </summary>
+    private static IEnumerable<SourceSite> EffectBranches(SourceCode code)
+    {
+        foreach (SyntaxTree tree in code.Trees)
         {
-            if (string.Equals(source, owner, StringComparison.Ordinal)) continue;
-            if (source.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)) continue;
-            if (Regex.IsMatch(File.ReadAllText(source), @"Effects\s*\.\s*(Apply|Remove)\s*\("))
+            SemanticModel model = code.Model(tree);
+            foreach (SyntaxNode node in tree.GetRoot().DescendantNodes())
             {
-                offenders.Add(Path.GetFileName(source));
+                bool branch = node switch
+                {
+                    BinaryExpressionSyntax binary when binary.IsKind(SyntaxKind.EqualsExpression) || binary.IsKind(SyntaxKind.NotEqualsExpression) =>
+                        (IsEffect(model, binary.Left) && IsWord(binary.Right)) || (IsEffect(model, binary.Right) && IsWord(binary.Left)),
+                    InvocationExpressionSyntax invocation when model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Name: "Equals" } =>
+                        invocation.ArgumentList.Arguments.Any(argument => IsEffect(model, argument.Expression)) &&
+                        invocation.ArgumentList.Arguments.Any(argument => IsWord(argument.Expression)),
+                    SwitchExpressionSyntax switched =>
+                        IsEffect(model, switched.GoverningExpression) && switched.Arms.Any(arm => HasWord(arm.Pattern)),
+                    SwitchStatementSyntax switched =>
+                        IsEffect(model, switched.Expression) && switched.Sections.SelectMany(section => section.Labels).Any(HasWord),
+                    IsPatternExpressionSyntax matched => IsEffect(model, matched.Expression) && HasWord(matched.Pattern),
+                    _ => false,
+                };
+                if (branch) yield return SourceSite.At(node);
             }
         }
-
-        Assert.Empty(offenders);
-        Assert.Matches(@"Effects\s*\.\s*Apply\s*\(", File.ReadAllText(owner));
     }
+
+    /// <summary>Whether an expression reads an effect identity, or the text inside one.</summary>
+    private static bool IsEffect(SemanticModel model, ExpressionSyntax expression) =>
+        model.GetSymbolInfo(expression).Symbol is IPropertySymbol { Name: "Effect" } or IFieldSymbol { Name: "Effect" } ||
+        (expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Value" } access && IsEffect(model, access.Expression));
+
+    private static bool IsWord(ExpressionSyntax expression) => expression.IsKind(SyntaxKind.StringLiteralExpression);
+
+    private static bool HasWord(SyntaxNode node) =>
+        node.DescendantNodesAndSelf().OfType<LiteralExpressionSyntax>().Any(literal => literal.IsKind(SyntaxKind.StringLiteralExpression));
 }

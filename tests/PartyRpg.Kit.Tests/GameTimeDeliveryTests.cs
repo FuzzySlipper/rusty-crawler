@@ -97,25 +97,13 @@ public sealed class GameTimeDeliveryTests
     [Fact]
     public void No_source_but_the_clock_keeps_a_list_of_the_owners_of_game_time()
     {
-        // A second list of owners is a second delivery path, and a second path is how an advance reached
-        // some owners and not others: every owner is registered with the clock and nothing else.
-        string root = Repository.Root;
-        List<string> offenders = [];
-        foreach (string directory in new[] { "src/PartyRpg.Kit", "src/PartyRpg.Rulesets.MightAndMagic7", "src/PartyRpg.Host" })
-        {
-            foreach (string file in Directory.EnumerateFiles(Path.Combine(root, directory), "*.cs", SearchOption.AllDirectories))
-            {
-                if (file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)) continue;
-                if (Path.GetFileName(file) == "GameClock.cs") continue;
-                string text = File.ReadAllText(file);
-                if (text.Contains("<IGameTimeObserver>", StringComparison.Ordinal)) offenders.Add(Path.GetRelativePath(root, file));
-            }
-        }
-
-        Assert.True(
-            File.ReadAllText(Path.Combine(root, "src/PartyRpg.Kit/Time/GameClock.cs")).Contains("List<IGameTimeObserver>", StringComparison.Ordinal),
-            "The clock is where the owners of game time are kept; this law checks nothing if it keeps them some other way.");
-        Assert.Empty(offenders);
+        // A second list of owners is a second delivery path, and a second path is how an advance reached some owners
+        // and not others: every owner is registered with the clock and nothing else. The law finds every place the
+        // owner seam is a type argument — a list, a set, a dictionary's value — anywhere in the runtime.
+        ProductSource.OnlyIn(
+            ProductSource.Runtime.TypeArgumentUses(typeof(IGameTimeObserver)),
+            file => file == "src/PartyRpg.Kit/Time/GameClock.cs",
+            "The clock is the one keeper of the owners of game time.");
     }
 
     private static PartyEntity Party() =>

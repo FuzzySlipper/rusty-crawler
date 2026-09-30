@@ -217,46 +217,15 @@ public sealed class AwardTests
     [Fact]
     public void The_progression_owner_is_the_only_source_that_moves_reputation_or_fame()
     {
-        // Reputation and fame are the party's own component and the progression owner is the one path into
-        // them. The scan reads the product's own sources rather than what the compiler produced, in the style
-        // the progression suite's own scan uses, and it is the second half of the proof: a source that named
-        // one of the two mutators outside the owner would be a second writer even if it compiled.
-        string[] mutators = ["ChangeReputation(", "ChangeFame("];
-        string root = Repository.Root;
-        string[] sources =
-        [
-            .. Directory.EnumerateFiles(Path.Combine(root, "src"), "*.cs", SearchOption.AllDirectories)
-                .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-                    && !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)),
-        ];
-        Assert.NotEmpty(sources);
-
-        string owner = Path.Combine(root, "src", "PartyRpg.Kit", "Progression");
-        // The two operations are defined by the component that holds the numbers, which names them by
-        // definition rather than by use; every other source must reach them through the owner.
-        string component = Path.Combine(root, "src", "PartyRpg.Kit", "Party", "PartyReputation.cs");
-        foreach (string source in sources)
-        {
-            if (source.StartsWith(owner, StringComparison.Ordinal)
-                || string.Equals(source, component, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            string text = File.ReadAllText(source);
-            foreach (string mutator in mutators)
-            {
-                Assert.False(
-                    text.Contains(mutator, StringComparison.Ordinal),
-                    $"{Path.GetFileName(source)} names '{mutator}': the world's opinion of the party and how widely it is known are moved by the progression owner and by nothing else.");
-            }
-        }
-
-        // The scan is not vacuous: the owner names both mutators, and the component defines them.
-        string progression = File.ReadAllText(Path.Combine(owner, "PartyProgression.cs"));
-        Assert.Contains("ChangeReputation(", progression, StringComparison.Ordinal);
-        Assert.Contains("ChangeFame(", progression, StringComparison.Ordinal);
-        Assert.Contains("ChangeReputation(", File.ReadAllText(component), StringComparison.Ordinal);
+        // Reputation and fame are the party's own component and the progression owner is the one path into them. The
+        // law reads every runtime source for a call to either mutator, bound to the component's own members, so a
+        // second writer anywhere in the product fails here even if it compiled.
+        SourceCode code = ProductSource.Runtime;
+        ProductSource.OnlyIn(
+            code.Uses([.. code.Members(typeof(PartyReputation), nameof(PartyReputation.ChangeReputation)),
+                .. code.Members(typeof(PartyReputation), nameof(PartyReputation.ChangeFame))]),
+            file => file.StartsWith("src/PartyRpg.Kit/Progression/", StringComparison.Ordinal),
+            "The world's opinion of the party and how widely it is known are moved by the progression owner and by nothing else.");
     }
 
     [Fact]

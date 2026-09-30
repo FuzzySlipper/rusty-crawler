@@ -1,189 +1,263 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Xunit;
 
 namespace PartyRpg.Architecture.Tests;
 
 /// <summary>
-/// The ownership laws, checked mechanically. Each failure names the boundary it protects, because a
-/// law that only prints a path leaves the next agent to guess why the boundary exists.
+/// The ownership laws over the project graph, checked mechanically. Each failure names the boundary it protects,
+/// because a law that only prints a path leaves the next agent to guess why the boundary exists.
 /// </summary>
+/// <remarks>
+/// Every file these laws read is found through <see cref="Repository.Files"/>, which never enters build output,
+/// installed packages, the operator's local evidence, or an agent's worktrees under <c>.claude/</c>, so a second
+/// checkout beside this one is not a violation.
+/// </remarks>
 public sealed class ArchitectureLawTests
 {
-    private static string RepositoryRoot => Repository.Root;
+    /// <summary>Every project the repository builds, by name, with the peers it may reference.</summary>
+    private static readonly Dictionary<string, string[]> ProjectReferences = new(StringComparer.Ordinal)
+    {
+        ["PartyRpg.Kit"] = [],
+        ["PartyRpg.Rulesets.MightAndMagic7"] = ["PartyRpg.Kit"],
+        ["PartyRpg.Host"] = ["PartyRpg.Kit", "PartyRpg.Rulesets.MightAndMagic7"],
+        // The importer is offline tooling: it reads the operator's game data and writes packs, and it is outside
+        // the runtime graph in both directions.
+        ["MightAndMagic7.Import"] = [],
+        ["MightAndMagic7.Import.Tool"] = ["MightAndMagic7.Import"],
+        ["PortableExample"] = [],
+        // The suites' shared support may know the kit, which every suite composes its fakes over, and nothing
+        // above it: a helper that knew the ruleset would put this game's rules inside every suite.
+        ["PartyRpg.Testing"] = ["PartyRpg.Kit"],
+        ["PartyRpg.Architecture.Tests"] = ["PartyRpg.Testing"],
+        ["PartyRpg.Kit.Tests"] = ["PartyRpg.Kit", "PartyRpg.Testing"],
+        ["PartyRpg.Rulesets.MightAndMagic7.Tests"] = ["PartyRpg.Kit", "PartyRpg.Rulesets.MightAndMagic7", "PartyRpg.Testing"],
+        ["PartyRpg.Host.Tests"] = ["PartyRpg.Host", "PartyRpg.Testing"],
+        // Only a test may hold both the writer and the loader: this suite proves the packs the tool writes are
+        // packs the kit loads and the ruleset composes a session over.
+        ["MightAndMagic7.Import.Tests"] =
+            ["MightAndMagic7.Import", "MightAndMagic7.Import.Tool", "PartyRpg.Kit", "PartyRpg.Rulesets.MightAndMagic7", "PartyRpg.Testing"],
+    };
+
+    /// <summary>The packages each project may take, beyond the peers above.</summary>
+    private static readonly Dictionary<string, string[]> PackageReferences = new(StringComparer.Ordinal)
+    {
+        ["PartyRpg.Kit"] = ["Rusty.Engine"],
+        ["PartyRpg.Rulesets.MightAndMagic7"] = ["Rusty.Engine"],
+        ["PartyRpg.Host"] = ["Rusty.Engine"],
+        ["MightAndMagic7.Import"] = [],
+        ["MightAndMagic7.Import.Tool"] = [],
+        ["PortableExample"] = ["Rusty.Engine"],
+        ["PartyRpg.Testing"] = ["Microsoft.CodeAnalysis.CSharp", "xunit.assert", "xunit.extensibility.core"],
+    };
+
+    /// <summary>The packages every suite takes: the test platform and nothing else.</summary>
+    private static readonly string[] SuitePackages = ["Microsoft.NET.Test.Sdk", "xunit", "xunit.runner.visualstudio"];
+
+    /// <summary>Which assemblies each product project lets see its internals: its own suite, and nothing else.</summary>
+    private static readonly Dictionary<string, string[]> Friends = new(StringComparer.Ordinal)
+    {
+        ["PartyRpg.Kit"] = [],
+        // The ruleset's second friend is the host suite, which stages this game's creation tables from the
+        // ruleset's own so a product it creates can make a party; the ruleset's AssemblyInfo says why.
+        ["PartyRpg.Rulesets.MightAndMagic7"] = ["PartyRpg.Host.Tests", "PartyRpg.Rulesets.MightAndMagic7.Tests"],
+        ["PartyRpg.Host"] = ["PartyRpg.Host.Tests"],
+        ["MightAndMagic7.Import"] = [],
+        ["MightAndMagic7.Import.Tool"] = ["MightAndMagic7.Import.Tests"],
+        ["PortableExample"] = [],
+    };
 
     [Fact]
-    public void Kit_does_not_contain_ruleset_or_donor_vocabulary()
+    public void Every_project_references_only_the_peers_its_layer_allows()
     {
-        // Code and project configuration only: the kit's own README explains this boundary by name,
-        // and a rule that forbids explaining itself is not a boundary, it is a trap.
-        string kit = Path.Combine(RepositoryRoot, "src", "PartyRpg.Kit");
-        string[] files = [.. Directory.EnumerateFiles(kit, "*.cs", SearchOption.AllDirectories),
-            .. Directory.EnumerateFiles(kit, "*.csproj", SearchOption.AllDirectories)];
-        foreach (string file in files)
-        {
-            if (file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal) ||
-                file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
-            {
-                continue;
-            }
+        // Every project is known to this law: one that appears without an entry is the failure mode it exists for.
+        Assert.Equal(
+            ProjectReferences.Keys.Order(StringComparer.Ordinal),
+            AllProjects().Select(Name).Order(StringComparer.Ordinal));
 
-            string text = File.ReadAllText(file);
-            foreach (string forbidden in ForbiddenKitVocabulary)
-            {
-                Assert.False(
-                    text.Contains(forbidden, StringComparison.OrdinalIgnoreCase),
-                    $"The kit must not name the ruleset, its world, its donors, or its source files, but {Path.GetFileName(file)} contains '{forbidden}'.");
-            }
+        foreach (string project in AllProjects())
+        {
+            string[] actual = [.. Items(project, "ProjectReference").Select(Path.GetFileNameWithoutExtension).Order(StringComparer.Ordinal)!];
+            Assert.True(
+                ProjectReferences[Name(project)].Order(StringComparer.Ordinal).SequenceEqual(actual),
+                $"{Name(project)} references [{string.Join(", ", actual)}]; its layer allows [{string.Join(", ", ProjectReferences[Name(project)])}].");
+            AssertNoSmuggledReference(project);
         }
     }
 
     [Fact]
-    public void Project_references_follow_the_dependency_graph()
+    public void Every_project_takes_only_the_packages_its_layer_allows()
     {
-        // Every product project is known to this law: a project that appears here without being added
-        // to the expectations below is the failure mode this check exists for.
-        string[] discovered = [.. SourceProjects()
-            .Select(path => Path.GetFileNameWithoutExtension(path) ?? path)
-            .Order(StringComparer.Ordinal)];
-        string[] expectedProjects =
+        // A package is a dependency as surely as a project is: a runtime project that took a second engine, a
+        // reflection container, or a timer library would be coupled to something the graph never names.
+        foreach (string project in AllProjects())
+        {
+            string[] expected = IsSuite(project) ? SuitePackages : PackageReferences[Name(project)];
+            string[] actual = [.. Items(project, "PackageReference").Order(StringComparer.Ordinal)];
+            Assert.True(
+                expected.Order(StringComparer.Ordinal).SequenceEqual(actual),
+                $"{Name(project)} takes the packages [{string.Join(", ", actual)}]; its layer allows [{string.Join(", ", expected)}].");
+        }
+    }
+
+    [Fact]
+    public void Only_a_projects_own_suite_may_see_its_internals()
+    {
+        // A friend declaration is a dependency the reference graph cannot see: an assembly that sees another's
+        // internals is coupled to its implementation. It can be declared in the project file or in source, so both
+        // are read — the source as syntax, so a comment that names an assembly is not a declaration.
+        foreach (string project in AllProjects().Where(project => !IsUnderTests(project)))
+        {
+            string name = Name(project);
+            string directory = Path.GetDirectoryName(project)!;
+            List<string> declared = [.. Items(project, "InternalsVisibleTo")];
+            foreach (string file in Repository.Files(Repository.Relative(directory), "*.cs"))
+            {
+                SyntaxNode root = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(File.ReadAllText(file)).GetRoot();
+                foreach (AttributeSyntax attribute in root.DescendantNodes().OfType<AttributeSyntax>())
+                {
+                    if (!attribute.Name.ToString().EndsWith("InternalsVisibleTo", StringComparison.Ordinal)) continue;
+                    ExpressionSyntax argument = Assert.Single(attribute.ArgumentList!.Arguments).Expression;
+                    Assert.True(argument is LiteralExpressionSyntax, $"{Repository.Relative(file)} names a friend by something other than a literal.");
+                    declared.Add(((LiteralExpressionSyntax)argument).Token.ValueText);
+                }
+            }
+
+            Assert.True(
+                Friends[name].Order(StringComparer.Ordinal).SequenceEqual(declared.Order(StringComparer.Ordinal)),
+                $"{name} lets [{string.Join(", ", declared)}] see its internals; only [{string.Join(", ", Friends[name])}] may.");
+        }
+    }
+
+    [Fact]
+    public void No_runtime_project_reaches_the_importer()
+    {
+        // No runtime project may reference the importer, and the importer may not reference a runtime project. An
+        // import type reachable from the product would put source-shaped game data on a runtime path. The graph
+        // above states this already; it is stated again here by what it protects, so relaxing the table cannot
+        // relax it silently.
+        foreach (string runtime in new[] { "PartyRpg.Kit", "PartyRpg.Rulesets.MightAndMagic7", "PartyRpg.Host" })
+        {
+            Assert.DoesNotContain(ProjectReferences[runtime], reference => reference.StartsWith("MightAndMagic7.Import", StringComparison.Ordinal));
+        }
+
+        Assert.DoesNotContain(ProjectReferences["MightAndMagic7.Import"], reference => reference.StartsWith("PartyRpg.", StringComparison.Ordinal));
+        Assert.DoesNotContain(ProjectReferences["MightAndMagic7.Import.Tool"], reference => reference.StartsWith("PartyRpg.", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Exactly_one_project_of_the_product_declares_a_product_entry_type()
+    {
+        // The product is what src/ builds; the portable-assets example under tools/ is a separate product of its own
+        // that shows an asset consumer, and is not an entry into this one.
+        string[] declaring =
         [
-            "MightAndMagic7.Import",
-            "MightAndMagic7.Import.Tool",
-            "PartyRpg.Host",
-            "PartyRpg.Kit",
-            "PartyRpg.Rulesets.MightAndMagic7",
+            .. Repository.Files("src", "*.csproj")
+                .Where(project => !string.IsNullOrWhiteSpace(Property(project, "RustyEngineProductEntryType")))
+                .Select(Name),
         ];
-        Assert.Equal(expectedProjects, discovered);
 
-        AssertProjectReferences("PartyRpg.Kit", []);
-        AssertProjectReferences("PartyRpg.Rulesets.MightAndMagic7", ["PartyRpg.Kit"]);
-        AssertProjectReferences("PartyRpg.Host", ["PartyRpg.Kit", "PartyRpg.Rulesets.MightAndMagic7"]);
-
-        // The importer is offline tooling: it reads the operator's game data and writes packs, and it
-        // is outside the runtime graph in both directions.
-        AssertProjectReferences("MightAndMagic7.Import", []);
-        AssertProjectReferences("MightAndMagic7.Import.Tool", ["MightAndMagic7.Import"]);
-
-        foreach (string project in SourceProjects()) AssertNoSmuggledReference(project);
-        AssertImporterIsNotARuntimeDependency();
-    }
-
-    [Fact]
-    public void Exactly_one_project_declares_a_product_entry_type()
-    {
-        List<string> declaring = [];
-        foreach (string project in SourceProjects())
-        {
-            string entryType = PropertyValue(project, "RustyEngineProductEntryType");
-            if (!string.IsNullOrWhiteSpace(entryType)) declaring.Add(Path.GetFileName(project));
-        }
-
-        Assert.Equal(["PartyRpg.Host.csproj"], declaring);
+        Assert.Equal(["PartyRpg.Host"], declaring);
     }
 
     [Fact]
     public void Verify_script_covers_every_project_and_suite()
     {
-        string script = File.ReadAllText(Path.Combine(RepositoryRoot, "scripts", "verify.sh"));
+        string script = Repository.Read("scripts", "verify.sh");
 
         // Every project outside the suites is built, including the tools beside the product, so a project
         // nobody builds cannot sit in the tree looking verified.
-        string[] productProjects = [.. RepositoryProjects()
-            .Where(file => !Relative(file).StartsWith("tests/", StringComparison.Ordinal))
-            .Select(Relative)
-            .Order(StringComparer.Ordinal)];
-        string[] declaredProducts = [.. DeclaredList(script, "product_projects").Order(StringComparer.Ordinal)];
-        Assert.Equal(productProjects, declaredProducts);
+        Assert.Equal(
+            AllProjects().Where(project => !IsUnderTests(project)).Select(Repository.Relative).Order(StringComparer.Ordinal),
+            DeclaredList(script, "product_projects").Order(StringComparer.Ordinal));
+
+        // A suite is a project that brings the test platform; a project under tests/ that does not is support the
+        // suites share, which the script builds on its own so a break in it is reported as its own.
+        string[] suites = [.. AllProjects().Where(IsSuite).Select(Repository.Relative).Order(StringComparer.Ordinal)];
+        Assert.NotEmpty(suites);
+        Assert.Equal(suites, DeclaredList(script, "test_projects").Order(StringComparer.Ordinal));
+        Assert.Equal(
+            AllProjects().Where(project => IsUnderTests(project) && !IsSuite(project)).Select(Repository.Relative).Order(StringComparer.Ordinal),
+            DeclaredList(script, "test_support_projects").Order(StringComparer.Ordinal));
 
         // The companion suite has no project file, so the script is held to running the package's own suite
         // command, and that command to running every companion test file.
         Assert.Contains("npm run test:ui", script, StringComparison.Ordinal);
-        using JsonDocument package = JsonDocument.Parse(File.ReadAllText(Path.Combine(RepositoryRoot, "package.json")));
+        using JsonDocument package = JsonDocument.Parse(Repository.Read("package.json"));
         string uiSuite = package.RootElement.GetProperty("scripts").GetProperty("test:ui").GetString() ?? string.Empty;
         Assert.Contains("node --test tests/PartyRpg.Ui.Tests/*.test.mjs", uiSuite, StringComparison.Ordinal);
-
-        // A suite is a project that brings the test platform; a project under tests/ that does not is support the
-        // suites share, which the script builds on its own so a break in it is reported as its own.
-        string[] testProjects = [.. Repository.Files("tests", "*.csproj").Select(Relative).Order(StringComparer.Ordinal)];
-        string[] suites = [.. testProjects.Where(IsSuite)];
-        string[] support = [.. testProjects.Where(project => !IsSuite(project))];
-        Assert.NotEmpty(suites);
-        Assert.Equal(suites, DeclaredList(script, "test_projects").Order(StringComparer.Ordinal));
-        Assert.Equal(support, DeclaredList(script, "test_support_projects").Order(StringComparer.Ordinal));
     }
 
-    private static bool IsSuite(string relativeProject) =>
-        XDocument.Load(Path.Combine(RepositoryRoot, relativeProject)).Descendants("PackageReference")
-            .Any(reference => (string?)reference.Attribute("Include") == "Microsoft.NET.Test.Sdk");
+    [Fact]
+    public void A_repository_scan_never_enters_an_agent_worktree_or_build_output()
+    {
+        // An agent session keeps whole checkouts under .claude/worktrees/; a law that read them would find a second
+        // copy of every project and fail because a worktree exists, which is not a boundary. The walk is proved on
+        // a tree of its own making so the proof does not depend on whether a worktree happens to exist today.
+        string tree = Path.Combine(Path.GetTempPath(), "crawler-scan-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            string[] planted =
+            [
+                "src/Owned/Owned.csproj",
+                "tests/Suite/Suite.csproj",
+                ".claude/worktrees/agent/src/Owned/Owned.csproj",
+                "src/Owned/bin/Release/Owned.csproj",
+                "src/Owned/obj/Owned.csproj",
+                "node_modules/package/Package.csproj",
+                "local/verify/Evidence.csproj",
+                "src/ui/generated/Generated.csproj",
+            ];
+            foreach (string file in planted)
+            {
+                string path = Path.Combine([tree, .. file.Split('/')]);
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.WriteAllText(path, "<Project />");
+            }
 
-    private static string Relative(string path) =>
-        Path.GetRelativePath(RepositoryRoot, path).Replace(Path.DirectorySeparatorChar, '/');
+            Assert.Equal(
+                ["src/Owned/Owned.csproj", "tests/Suite/Suite.csproj"],
+                Repository.Walk(tree, string.Empty, "*.csproj")
+                    .Select(path => Path.GetRelativePath(tree, path).Replace(Path.DirectorySeparatorChar, '/'))
+                    .Order(StringComparer.Ordinal));
+        }
+        finally
+        {
+            Directory.Delete(tree, recursive: true);
+        }
+    }
+
+    /// <summary>Every project file the repository owns.</summary>
+    private static IReadOnlyList<string> AllProjects() => [.. Repository.Files(string.Empty, "*.csproj")];
+
+    private static string Name(string project) => Path.GetFileNameWithoutExtension(project);
+
+    private static bool IsUnderTests(string project) => Repository.Relative(project).StartsWith("tests/", StringComparison.Ordinal);
+
+    private static bool IsSuite(string project) =>
+        IsUnderTests(project) && Items(project, "PackageReference").Contains("Microsoft.NET.Test.Sdk", StringComparer.Ordinal);
+
+    private static IEnumerable<string> Items(string project, string item) =>
+        XDocument.Load(project).Descendants(item).Select(element => (string?)element.Attribute("Include") ?? string.Empty);
+
+    private static string Property(string project, string property) =>
+        XDocument.Load(project).Descendants(property).FirstOrDefault()?.Value.Trim() ?? string.Empty;
 
     private static List<string> DeclaredList(string script, string name)
     {
         Match match = Regex.Match(script, $@"^{name}=\((?<items>[^)]*)\)", RegexOptions.Multiline | RegexOptions.CultureInvariant);
         Assert.True(match.Success, $"scripts/verify.sh must declare {name}=( ... ).");
         return [.. match.Groups["items"].Value
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
-    }
-
-    private static readonly string[] ForbiddenKitVocabulary =
-    [
-        "MightAndMagic",
-        "Might and Magic",
-        "MM6",
-        "MM7",
-        "MM8",
-        "Enroth",
-        "Erathia",
-        "Harmondale",
-        "Emerald Isle",
-        "OpenEnroth",
-        "MMExtension",
-        "OpenMM8",
-        "PartyRpg.Host",
-        "PartyRpg.Rulesets",
-        ".lod",
-        ".odm",
-        ".ddm",
-        ".blv",
-        ".dlv",
-        "events.lod",
-        "games.lod",
-    ];
-
-    private static string PropertyValue(string projectFile, string property)
-    {
-        XDocument document = XDocument.Load(projectFile);
-        return document.Descendants(property).FirstOrDefault()?.Value.Trim() ?? string.Empty;
-    }
-
-    /// <summary>
-    /// No runtime project may reference the importer, and the importer may not reference a runtime
-    /// project. An import type reachable from the product would put source-shaped game data on a
-    /// runtime path.
-    /// </summary>
-    private static void AssertImporterIsNotARuntimeDependency()
-    {
-        string[] runtimeProjects = ["PartyRpg.Kit", "PartyRpg.Rulesets.MightAndMagic7", "PartyRpg.Host"];
-        foreach (string project in runtimeProjects)
-        {
-            foreach (XElement reference in XDocument.Load(ProjectFile(project)).Descendants("ProjectReference"))
-            {
-                string include = (string?)reference.Attribute("Include") ?? string.Empty;
-                Assert.False(
-                    include.Contains("Import", StringComparison.OrdinalIgnoreCase),
-                    $"{project} must not reference the importer ('{include}'): importing belongs offline, never on a runtime path.");
-            }
-        }
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(line => !line.StartsWith('#'))];
     }
 
     private static void AssertNoSmuggledReference(string projectFile)
     {
-        XDocument document = XDocument.Load(projectFile);
-        foreach (XElement element in document.Descendants())
+        foreach (XElement element in XDocument.Load(projectFile).Descendants())
         {
             string name = element.Name.LocalName;
             if (name is "Reference" or "Import")
@@ -203,22 +277,4 @@ public sealed class ArchitectureLawTests
             }
         }
     }
-
-    private static void AssertProjectReferences(string projectName, string[] expected)
-    {
-        XDocument document = XDocument.Load(ProjectFile(projectName));
-        string[] actual = [.. document.Descendants("ProjectReference")
-            .Select(element => (string?)element.Attribute("Include") ?? string.Empty)
-            .Select(include => Path.GetFileNameWithoutExtension(include))
-            .Order(StringComparer.Ordinal)];
-
-        Assert.Equal([.. expected.Order(StringComparer.Ordinal)], actual);
-    }
-
-    private static IEnumerable<string> RepositoryProjects() => Repository.Files(string.Empty, "*.csproj");
-
-    private static IEnumerable<string> SourceProjects() => Repository.Files("src", "*.csproj");
-
-    private static string ProjectFile(string projectName) =>
-        Path.Combine(RepositoryRoot, "src", projectName, $"{projectName}.csproj");
 }

@@ -333,41 +333,6 @@ public sealed class TravelCostWiringTests
         Assert.Equal("weak (1)", channel.Latest().Field("party").Field("conditions").AsString());
     }
 
-    [Fact]
-    public void The_kit_holds_one_food_store_and_no_second_larder()
-    {
-        // The larder's own file is the one place food is counted, so no other source may declare a store
-        // for it: a second counter beside the party's would be a number that can disagree with the one the
-        // larder reports, which is exactly what a party-scoped resource exists to prevent.
-        string larder = Path.Combine(Repository.Root, "src", "PartyRpg.Kit", "Party", "PartyFood.cs");
-        string[] sources =
-        [
-            .. Directory.EnumerateFiles(Path.Combine(Repository.Root, "src", "PartyRpg.Kit"), "*.cs", SearchOption.AllDirectories)
-                .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-                    && !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-                    && file != larder),
-        ];
-        Assert.NotEmpty(sources);
-
-        // A store is a declaration a number can live in and move through: a field, or a property with a
-        // setter. A read-only property of a food-ish name is how a value is handed on, not a second place
-        // it is kept, so it is deliberately not what this looks for.
-        Regex store = new(
-            @"(private|internal|protected|public)\s+(int|long|Provisions)\s+_?\w*(Food|Portions|Provisions|Rations)\w*\s*(\{[^}]*\bset\b|=(?!=|>)|;)",
-            RegexOptions.CultureInvariant);
-
-        // The scan is not vacuous: the larder itself is exactly what it looks for.
-        Assert.Matches(store, File.ReadAllText(larder));
-
-        foreach (string source in sources)
-        {
-            Match declared = store.Match(File.ReadAllText(source));
-            Assert.False(
-                declared.Success,
-                $"{Path.GetFileName(source)} declares a food store ('{declared.Value.Trim()}'): the party's larder is the one place food is counted, and a second counter beside it would let the two disagree.");
-        }
-    }
-
     private static readonly MovementIntentNames Names = new(
         "test.move-forward",
         "test.move-back",

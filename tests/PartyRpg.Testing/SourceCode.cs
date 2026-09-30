@@ -41,40 +41,71 @@ public sealed class SourceCode
         """;
 
     private readonly Dictionary<SyntaxTree, SemanticModel> _models = [];
+    private IReadOnlyList<BoundNode>? _index;
 
-    private SourceCode(string project)
+    private SourceCode(string name, IReadOnlyList<SyntaxTree> trees, IEnumerable<string> ownAssemblies)
     {
-        Project = project;
-        string directory = $"src/{project}";
-        List<SyntaxTree> trees = [];
-        foreach (string file in Repository.Files(directory, "*.cs"))
-        {
-            trees.Add(CSharpSyntaxTree.ParseText(
-                File.ReadAllText(file),
-                new CSharpParseOptions(LanguageVersion.Preview),
-                path: Repository.Relative(file)));
-        }
-
-        Assert.True(trees.Count > 0, $"{directory} holds no C# source, so a law over it would pass vacuously.");
+        Project = name;
+        Assert.True(trees.Count > 0, $"{name} holds no C# source, so a law over it would pass vacuously.");
         Trees = trees;
         Compilation = CSharpCompilation.Create(
-            project,
-            [.. trees, CSharpSyntaxTree.ParseText(ImplicitUsings, path: "ImplicitUsings.g.cs")],
-            References(project),
+            "SourceLaw",
+            [.. trees, CSharpSyntaxTree.ParseText(ImplicitUsings, new CSharpParseOptions(LanguageVersion.Preview), path: "ImplicitUsings.g.cs")],
+            References(ownAssemblies),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
     }
 
-    /// <summary>The project's name, which is its directory under <c>src/</c>.</summary>
+    /// <summary>The projects' names, which are their directories under <c>src/</c>, joined by a comma.</summary>
     public string Project { get; }
 
-    /// <summary>The project's own source files, each with its path relative to the repository.</summary>
+    /// <summary>The projects' own source files, each with its path relative to the repository.</summary>
     public IReadOnlyList<SyntaxTree> Trees { get; }
 
-    /// <summary>The project compiled from its sources.</summary>
+    /// <summary>The projects compiled from their sources.</summary>
     public CSharpCompilation Compilation { get; }
 
-    /// <summary>The sources of one project under <c>src/</c>, read once per suite run.</summary>
-    public static SourceCode Of(string project) => Projects.GetOrAdd(project, name => new SourceCode(name));
+    /// <summary>
+    /// The sources of one or more projects under <c>src/</c>, compiled together and read once per suite run.
+    /// </summary>
+    /// <remarks>
+    /// Projects that reference each other are compiled as one, so a name in the host that reaches the kit through a
+    /// ruleset type binds as surely as a name in the kit itself.
+    /// </remarks>
+    public static SourceCode Of(params string[] projects) =>
+        Projects.GetOrAdd(string.Join(",", projects), name =>
+        {
+            List<SyntaxTree> trees = [];
+            foreach (string project in projects)
+            {
+                foreach (string file in Repository.Files("src/" + project, "*.cs"))
+                {
+                    trees.Add(CSharpSyntaxTree.ParseText(
+                        File.ReadAllText(file),
+                        new CSharpParseOptions(LanguageVersion.Preview),
+                        path: Repository.Relative(file)));
+                }
+            }
+
+            return new SourceCode(name, trees, projects);
+        });
+
+    /// <summary>
+    /// Code a suite writes itself, compiled the same way, so a law's own detector is proved to find what it forbids
+    /// however it is spelled and to pass what it allows.
+    /// </summary>
+    public static SourceCode FromText(params (string Path, string Text)[] files) =>
+        new(
+            "text",
+            [.. files.Select(file => CSharpSyntaxTree.ParseText(file.Text, new CSharpParseOptions(LanguageVersion.Preview), path: file.Path))],
+            []);
+
+    /// <summary>The trees whose path starts with a repository-relative prefix, which must hold at least one.</summary>
+    public IReadOnlyList<SyntaxTree> TreesUnder(string prefix)
+    {
+        SyntaxTree[] under = [.. Trees.Where(tree => tree.FilePath.StartsWith(prefix, StringComparison.Ordinal))];
+        Assert.True(under.Length > 0, $"No source of {Project} is under '{prefix}', so a law over it would pass vacuously.");
+        return under;
+    }
 
     /// <summary>The symbol a runtime type stands for in this compilation, which must exist.</summary>
     public INamedTypeSymbol Type(Type type) => Type(type.FullName ?? type.Name);
@@ -144,21 +175,8 @@ public sealed class SourceCode
     public IReadOnlyList<SourceSite> Uses(params ISymbol[] symbols)
     {
         HashSet<ISymbol> targets = new(symbols.Select(symbol => symbol.OriginalDefinition), SymbolEqualityComparer.Default);
-        List<SourceSite> sites = [];
-        foreach (SyntaxTree tree in Trees)
-        {
-            SemanticModel model = Model(tree);
-            foreach (SimpleNameSyntax name in tree.GetRoot().DescendantNodes().OfType<SimpleNameSyntax>())
-            {
-                if (IsDeclarationName(name)) continue;
-                if (Bound(model, name).Any(symbol => targets.Contains(symbol.OriginalDefinition)))
-                {
-                    sites.Add(SourceSite.At(name));
-                }
-            }
-        }
-
-        return sites;
+        return [.. Index.Where(bound => bound.Node is SimpleNameSyntax && bound.Symbols.Any(symbol => targets.Contains(symbol.OriginalDefinition)))
+            .Select(bound => SourceSite.At(bound.Node))];
     }
 
     /// <summary>
@@ -167,54 +185,61 @@ public sealed class SourceCode
     public IReadOnlyList<SourceSite> UsesOfType(Type type) => UsesOfType(Type(type));
 
     /// <summary>Every place the code reaches a type symbol: its name, one of its members, or a construction of it.</summary>
-    public IReadOnlyList<SourceSite> UsesOfType(INamedTypeSymbol type)
-    {
-        List<SourceSite> sites = [];
-        foreach (SyntaxTree tree in Trees)
-        {
-            SemanticModel model = Model(tree);
-            foreach (SyntaxNode node in tree.GetRoot().DescendantNodes())
-            {
-                bool reaches = node switch
-                {
-                    SimpleNameSyntax name when !IsDeclarationName(name) =>
-                        Bound(model, name).Any(symbol => Reaches(symbol, type)),
-                    ImplicitObjectCreationExpressionSyntax creation =>
-                        model.GetTypeInfo(creation).Type is { } created && Same(created, type),
-                    _ => false,
-                };
-                if (reaches) sites.Add(SourceSite.At(node));
-            }
-        }
-
-        return sites;
-    }
+    public IReadOnlyList<SourceSite> UsesOfType(INamedTypeSymbol type) =>
+        [.. Index.Where(bound => bound.Node is ImplicitObjectCreationExpressionSyntax
+                ? bound.Created is { } created && Same(created, type)
+                : bound.Symbols.Any(symbol => Reaches(symbol, type)))
+            .Select(bound => SourceSite.At(bound.Node))];
 
     /// <summary>Every place the code reaches any type declared in a namespace, or a namespace below it.</summary>
-    public IReadOnlyList<SourceSite> UsesOfNamespace(string ns)
-    {
-        List<SourceSite> sites = [];
-        foreach (SyntaxTree tree in Trees)
-        {
-            SemanticModel model = Model(tree);
-            foreach (SimpleNameSyntax name in tree.GetRoot().DescendantNodes().OfType<SimpleNameSyntax>())
+    public IReadOnlyList<SourceSite> UsesOfNamespace(string ns) =>
+        [.. Index.Where(bound => bound.Node is SimpleNameSyntax && !bound.InDirective && bound.Symbols.Any(symbol =>
             {
-                if (IsDeclarationName(name) || name.Ancestors().Any(ancestor => ancestor is UsingDirectiveSyntax or BaseNamespaceDeclarationSyntax)) continue;
-                foreach (ISymbol symbol in Bound(model, name))
+                INamedTypeSymbol? owner = symbol as INamedTypeSymbol ?? symbol.ContainingType;
+                string? declared = owner?.ContainingNamespace?.ToDisplayString();
+                return declared is not null && (declared == ns || declared.StartsWith(ns + ".", StringComparison.Ordinal));
+            }))
+            .Select(bound => SourceSite.At(bound.Node))];
+
+    /// <summary>
+    /// Every name and every target-typed construction in the projects, bound once: the queries above read this
+    /// rather than binding the whole compilation again each.
+    /// </summary>
+    private IReadOnlyList<BoundNode> Index => _index ??= BuildIndex();
+
+    private IReadOnlyList<BoundNode> BuildIndex()
+    {
+        List<BoundNode>[] perTree = new List<BoundNode>[Trees.Count];
+        Parallel.For(0, Trees.Count, position =>
+        {
+            SyntaxTree tree = Trees[position];
+            SemanticModel model = Compilation.GetSemanticModel(tree);
+            List<BoundNode> found = [];
+            foreach (SyntaxNode node in tree.GetRoot().DescendantNodes())
+            {
+                if (node is SimpleNameSyntax name && !IsDeclarationName(name))
                 {
-                    INamedTypeSymbol? owner = symbol as INamedTypeSymbol ?? symbol.ContainingType;
-                    string? declared = owner?.ContainingNamespace?.ToDisplayString();
-                    if (declared is not null && (declared == ns || declared.StartsWith(ns + ".", StringComparison.Ordinal)))
-                    {
-                        sites.Add(SourceSite.At(name));
-                        break;
-                    }
+                    ISymbol[] symbols = [.. Bound(model, name)];
+                    if (symbols.Length == 0) continue;
+                    bool inDirective =
+                        name.Ancestors().Any(ancestor => ancestor is UsingDirectiveSyntax) ||
+                        name.AncestorsAndSelf().Any(part => part.Parent is BaseNamespaceDeclarationSyntax declaration && declaration.Name == part);
+                    found.Add(new BoundNode(name, symbols, null, inDirective));
+                }
+                else if (node is ImplicitObjectCreationExpressionSyntax creation)
+                {
+                    found.Add(new BoundNode(creation, [], model.GetTypeInfo(creation).Type, false));
                 }
             }
-        }
 
-        return sites;
+            perTree[position] = found;
+        });
+
+        return [.. perTree.SelectMany(found => found)];
     }
+
+    /// <summary>One name or construction and what it binds to.</summary>
+    private sealed record BoundNode(SyntaxNode Node, ISymbol[] Symbols, ITypeSymbol? Created, bool InDirective);
 
     /// <summary>The declarations of every type in the project, by the file that declares them.</summary>
     public IEnumerable<(SyntaxTree Tree, BaseTypeDeclarationSyntax Declaration, INamedTypeSymbol Symbol)> TypeDeclarations()
@@ -242,6 +267,88 @@ public sealed class SourceCode
         }
 
         return code.ToString();
+    }
+
+    /// <summary>Every place a type is named as a generic type argument, such as the element of a collection.</summary>
+    public IReadOnlyList<SourceSite> TypeArgumentUses(Type type)
+    {
+        INamedTypeSymbol target = Type(type);
+        List<SourceSite> sites = [];
+        foreach (SyntaxTree tree in Trees)
+        {
+            SemanticModel model = Model(tree);
+            foreach (TypeArgumentListSyntax arguments in tree.GetRoot().DescendantNodes().OfType<TypeArgumentListSyntax>())
+            {
+                foreach (TypeSyntax argument in arguments.Arguments)
+                {
+                    if (model.GetTypeInfo(argument).Type is { } bound && Same(bound, target)) sites.Add(SourceSite.At(arguments.Parent!));
+                }
+            }
+        }
+
+        return sites;
+    }
+
+    /// <summary>
+    /// Every field and every property with a <c>set</c> accessor the projects declare: the places a value can be
+    /// kept and moved, whatever their modifiers.
+    /// </summary>
+    /// <remarks>
+    /// A read-only or init-only property hands a value on and is not a store of it; a field is one however it is
+    /// declared — <c>static</c>, with no modifier at all, or <c>readonly</c> in a class, where it is a copy taken
+    /// once that the thing it copied can move away from. The one exception is a <c>readonly</c> field of a record
+    /// or a struct: an immutable report of what something was when it was made, which is a value and not a place.
+    /// </remarks>
+    public IEnumerable<(SourceSite Site, string Name, ITypeSymbol Type)> Stores()
+    {
+        foreach (SyntaxTree tree in Trees)
+        {
+            SemanticModel model = Model(tree);
+            SyntaxNode root = tree.GetRoot();
+            foreach (VariableDeclaratorSyntax variable in root.DescendantNodes().OfType<VariableDeclaratorSyntax>())
+            {
+                if (variable.Parent?.Parent is not FieldDeclarationSyntax field || field.Modifiers.Any(SyntaxKind.ConstKeyword)) continue;
+                if (model.GetDeclaredSymbol(variable) is not IFieldSymbol symbol) continue;
+                if (symbol.IsReadOnly && (symbol.ContainingType.IsRecord || symbol.ContainingType.IsValueType)) continue;
+                yield return (SourceSite.At(variable), symbol.Name, symbol.Type);
+            }
+
+            foreach (PropertyDeclarationSyntax property in root.DescendantNodes().OfType<PropertyDeclarationSyntax>())
+            {
+                if (model.GetDeclaredSymbol(property) is IPropertySymbol { SetMethod: { IsInitOnly: false } } symbol)
+                {
+                    yield return (SourceSite.At(property), symbol.Name, symbol.Type);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Every place the code steps outside safe managed code: an <c>unsafe</c> context, a pointer or function pointer
+    /// type, a <c>fixed</c> statement, or a native entry point declared by attribute.
+    /// </summary>
+    public IReadOnlyList<SourceSite> UnsafeConstructs()
+    {
+        List<SourceSite> sites = [];
+        foreach (SyntaxTree tree in Trees)
+        {
+            SemanticModel model = Model(tree);
+            foreach (SyntaxNode node in tree.GetRoot().DescendantNodes())
+            {
+                bool outside = node switch
+                {
+                    MemberDeclarationSyntax member => member.Modifiers.Any(SyntaxKind.UnsafeKeyword) || member.Modifiers.Any(SyntaxKind.ExternKeyword),
+                    LocalFunctionStatementSyntax local => local.Modifiers.Any(SyntaxKind.UnsafeKeyword) || local.Modifiers.Any(SyntaxKind.ExternKeyword),
+                    UnsafeStatementSyntax or FixedStatementSyntax or PointerTypeSyntax or FunctionPointerTypeSyntax => true,
+                    AttributeSyntax attribute => model.GetTypeInfo(attribute).Type?.ToDisplayString() is
+                        "System.Runtime.InteropServices.DllImportAttribute" or "System.Runtime.InteropServices.LibraryImportAttribute",
+                    _ => false,
+                };
+                if (outside) sites.Add(SourceSite.At(node));
+            }
+        }
+
+        return sites;
     }
 
     private static bool IsDeclarationName(SimpleNameSyntax name) =>
@@ -273,7 +380,7 @@ public sealed class SourceCode
     /// The assemblies a project's own sources compile against: the framework and everything this suite loaded,
     /// less the project's own built assembly, whose types the sources declare.
     /// </summary>
-    private static List<MetadataReference> References(string project)
+    private static List<MetadataReference> References(IEnumerable<string> ownAssemblies)
     {
         Dictionary<string, string> byName = new(StringComparer.OrdinalIgnoreCase);
         string trusted = AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string ?? string.Empty;
@@ -287,7 +394,7 @@ public sealed class SourceCode
             byName.TryAdd(Path.GetFileNameWithoutExtension(path), path);
         }
 
-        byName.Remove(project);
+        foreach (string own in ownAssemblies) byName.Remove(own);
         List<MetadataReference> references = [];
         foreach (string path in byName.Values)
         {

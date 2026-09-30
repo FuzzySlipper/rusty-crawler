@@ -231,7 +231,7 @@ public sealed class AlchemyTests
     }
 
     [Fact]
-    public void The_recipes_are_the_tables_own_and_the_kit_names_none_of_them()
+    public void Whether_a_pair_makes_a_potion_or_goes_off_is_the_tables_answer()
     {
         // The same two definitions and the same workflow: one table states that the pair makes a potion and the
         // other states that it goes off. Which of the two happens is the table's answer, and no source in the
@@ -258,28 +258,8 @@ public sealed class AlchemyTests
             Assert.Equal("mixture-burst", bursts.Mix(new MixingRequest(0, berry.Id, bottle.Id)).Code);
         }
 
-        // And the kit's own sources name no reagent, no potion, and no mixture: a recipe's words are a game's
-        // content, and the mechanism states a pair of definitions and what a table says about them.
-        string alchemy = Path.Combine(Repository.Root, "src", "PartyRpg.Kit", "Alchemy");
-        string[] sources =
-        [
-            .. Directory.EnumerateFiles(alchemy, "*.cs", SearchOption.AllDirectories)
-                .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-                    && !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)),
-        ];
-        Assert.NotEmpty(sources);
-
-        string[] forbidden = ["Cure Wounds", "Magic Potion", "Widowsweep", "Catalyst", "Philosopher", "Rejuvenation"];
-        foreach (string source in sources)
-        {
-            string text = File.ReadAllText(source);
-            foreach (string name in forbidden)
-            {
-                Assert.False(
-                    text.Contains(name, StringComparison.OrdinalIgnoreCase),
-                    $"{Path.GetFileName(source)} names '{name}': a mixture's own words are the game's content, and the kit would then have a recipe of its own.");
-            }
-        }
+        // That the kit's own sources name no reagent, no potion, and no mixture is the vocabulary law's to prove
+        // (PartyRpg.Architecture.Tests/KitVocabularyTests), which reads every kit file for the game's own names.
     }
 
     /// <summary>The spell this game's own rule reads for the potion this suite's mixtures make.</summary>

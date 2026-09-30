@@ -1,3 +1,4 @@
+using Microsoft.CodeAnalysis;
 using System.Text.Json;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
@@ -254,63 +255,32 @@ public sealed class ProgressionTests
     [Fact]
     public void The_owner_is_the_only_source_that_moves_experience_a_level_or_a_skill_point()
     {
-        // The transitions a member's progression keeps are internal to the kit and named in exactly one
-        // place, so this scan is the second half of the proof: a source that named one of them outside the
-        // owner would be a second writer even if it compiled. It reads the product's own sources rather
-        // than what the compiler produced, in the style the kit's ambient-time scan uses, and it covers the
-        // ruleset and the host as well — a second writer in either would be the same defect.
-        string[] mutators =
+        // The transitions a member's progression keeps are internal to the kit, and this law is the second half of the
+        // proof: every runtime source — the kit, the ruleset, and the host — is read for a call to one of them, bound
+        // to the members themselves, and only the progression owner may make one. A second writer anywhere in the
+        // product would be the same defect.
+        SourceCode code = ProductSource.Runtime;
+        ISymbol[] mutators =
         [
-            "AwardExperience(",
-            "SetLevel(",
-            "GrantSkillPoints(",
-            "SpendSkillPoints(",
-            "SetClassRank(",
+            .. code.Members(typeof(CharacterProgression), "AwardExperience"),
+            .. code.Members(typeof(CharacterProgression), "SetLevel"),
+            .. code.Members(typeof(CharacterProgression), "GrantSkillPoints"),
+            .. code.Members(typeof(CharacterProgression), "SpendSkillPoints"),
+            .. code.Members(typeof(CharacterProgression), "SetClassRank"),
             // What a skill entry itself holds is moved by the same owner: a raise spends points through it, and a
-            // lesson a counter sells for coin reaches the skill through its Teach. A second writer anywhere in
-            // the product fails here rather than becoming a skill that grew unasked.
-            "RaiseLevel(",
-            "SetTier(",
-            // A rank and the class that goes with it are one fact, so the promotion that moves the rank moves
-            // the class reference in the same act: a source that changed a member's class on its own would be
-            // a character whose name and whose abilities disagree, which is exactly the drift one owner exists
-            // to prevent.
-            "ChangeClass(",
+            // lesson a counter sells for coin reaches the skill through its Teach.
+            .. code.Members(typeof(CharacterSkills), nameof(CharacterSkills.RaiseLevel)),
+            .. code.Members(typeof(CharacterSkills), nameof(CharacterSkills.SetTier)),
+            // A rank and the class that goes with it are one fact, so the promotion that moves the rank moves the
+            // class reference in the same act: a source that changed a member's class on its own would be a
+            // character whose name and whose abilities disagree.
+            .. code.Members(typeof(CharacterProfile), nameof(CharacterProfile.ChangeClass)),
         ];
 
-        string root = Repository.Root;
-        string[] sources =
-        [
-            .. Directory.EnumerateFiles(Path.Combine(root, "src"), "*.cs", SearchOption.AllDirectories)
-                .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-                    && !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)),
-        ];
-        Assert.NotEmpty(sources);
-
-        string owner = Path.Combine(root, "src", "PartyRpg.Kit", "Progression");
-        string fields = Path.Combine(root, "src", "PartyRpg.Kit", "Party", "CharacterProgression.cs");
-        // The class reference is held by the profile, which is content's statement of who a character is: the
-        // promotion rewrites it through that owner's own operation, and the file that defines the operation
-        // names it by definition rather than by use.
-        string profile = Path.Combine(root, "src", "PartyRpg.Kit", "Party", "CharacterProfile.cs");
-        string entries = Path.Combine(root, "src", "PartyRpg.Kit", "Party", "CharacterSkills.cs");
-        foreach (string source in sources)
-        {
-            if (source.StartsWith(owner, StringComparison.Ordinal)
-                || string.Equals(source, fields, StringComparison.Ordinal)
-                || string.Equals(source, profile, StringComparison.Ordinal)
-                || string.Equals(source, entries, StringComparison.Ordinal))
-            {
-                continue;
-            }
-            string text = File.ReadAllText(source);
-            foreach (string mutator in mutators)
-            {
-                Assert.False(
-                    text.Contains(mutator, StringComparison.Ordinal),
-                    $"{Path.GetFileName(source)} names '{mutator}': experience, a level, and a skill point are moved by the progression owner and by nothing else.");
-            }
-        }
+        ProductSource.OnlyIn(
+            code.Uses(mutators),
+            file => file.StartsWith("src/PartyRpg.Kit/Progression/", StringComparison.Ordinal),
+            "Experience, a level, a skill point, a skill's rung, and a class are moved by the progression owner and by nothing else.");
     }
 
     private static readonly SkillId Blades = new("blades");

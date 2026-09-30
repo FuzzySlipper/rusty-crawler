@@ -477,28 +477,37 @@ public sealed class PersistenceTests
     [Fact]
     public void The_save_path_holds_no_runtime_identity_and_no_native_handle()
     {
-        string directory = Path.Combine(Repository.Root, "src", "PartyRpg.Kit", "Persistence");
-        string[] sources = [.. Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories)];
-        Assert.NotEmpty(sources);
+        // A save names people and things by the durable identities the party minted. An engine entity, a store-local
+        // handle, or a native pointer anywhere in the document's shape would be a reference a load cannot honour. The
+        // law walks the document as the serializer does — every public property of every type the document reaches —
+        // so a field added under any name, of any engine type, fails here.
+        HashSet<Type> seen = [];
+        List<string> offenders = [];
+        Walk(typeof(SessionSave), nameof(SessionSave));
+        Assert.True(seen.Count > 10, $"The walk reached {seen.Count} types, which is not the shape of a save.");
+        Assert.True(offenders.Count == 0, "A save carries durable identity only:\n" + string.Join('\n', offenders));
 
-        // A save names people and things by the durable identities the party minted. An engine entity
-        // identity, a store-local id, or a native handle in these types would be a reference a load cannot
-        // honour, so the scan fails the kit if one appears rather than leaving it to a reviewer to notice.
-        string[] forbidden = ["EntityId", "RuntimeId", "Actor", "unsafe", "Native", "GCHandle"];
-        foreach (string source in sources)
+        void Walk(Type type, string path)
         {
-            // Comments are read past on purpose: a rule that forbids explaining itself is not a boundary, it
-            // is a trap, and the reason this schema carries no runtime identity is worth writing down.
-            string text = string.Join(
-                '\n',
-                File.ReadAllLines(source).Where(line =>
-                    !line.TrimStart().StartsWith("///", StringComparison.Ordinal) &&
-                    !line.TrimStart().StartsWith("//", StringComparison.Ordinal)));
-            foreach (string token in forbidden)
+            if (type.IsPointer || type == typeof(IntPtr) || type == typeof(UIntPtr) ||
+                type.Namespace?.StartsWith("Rusty.Engine", StringComparison.Ordinal) == true ||
+                type.Namespace?.StartsWith("System.Runtime.InteropServices", StringComparison.Ordinal) == true)
             {
-                Assert.False(
-                    text.Contains(token, StringComparison.Ordinal),
-                    $"{Path.GetFileName(source)} names '{token}': a save carries durable identity only, and a runtime identity or native handle in the schema is a reference a load cannot honour.");
+                offenders.Add($"{path}: {type.FullName}");
+                return;
+            }
+
+            if (type.IsArray)
+            {
+                Walk(type.GetElementType()!, path + "[]");
+                return;
+            }
+
+            foreach (Type argument in type.IsGenericType ? type.GetGenericArguments() : []) Walk(argument, $"{path}<{argument.Name}>");
+            if (type.Namespace?.StartsWith("PartyRpg.Kit", StringComparison.Ordinal) != true || !seen.Add(type)) return;
+            foreach (System.Reflection.PropertyInfo property in type.GetProperties())
+            {
+                Walk(property.PropertyType, $"{path}.{property.Name}");
             }
         }
     }

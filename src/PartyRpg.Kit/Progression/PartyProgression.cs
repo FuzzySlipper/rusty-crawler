@@ -484,8 +484,8 @@ public sealed class PartyProgression
     /// <b>A rank is progression state, so it moves here.</b> A promotion changes the class a member belongs
     /// to and the rank it holds together, because in this game family the two are one fact: the ceiling a
     /// class and rank impose, the growth a level gives, and the skills a class may hold are all read from the
-    /// class the member now belongs to. Changing one without the other would be a character who is a knight
-    /// by name and a cavalier by table, which is exactly the state a single owner exists to make impossible.
+    /// class the member now belongs to. Changing one without the other would be a character who is one class
+    /// by name and its promotion by table, which is exactly the state a single owner exists to make impossible.
     /// </para>
     /// <para>
     /// <b>Every requirement is judged before anything moves, and the judgement is named.</b> The requirements

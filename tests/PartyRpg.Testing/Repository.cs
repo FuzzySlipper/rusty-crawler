@@ -48,9 +48,18 @@ public static class Repository
     /// </summary>
     /// <param name="relativeDirectory">The directory, relative to the root; empty for the whole repository.</param>
     /// <param name="pattern">The file pattern, such as <c>*.cs</c>.</param>
-    public static IEnumerable<string> Files(string relativeDirectory, string pattern)
+    public static IEnumerable<string> Files(string relativeDirectory, string pattern) => Walk(Root, relativeDirectory, pattern);
+
+    /// <summary>
+    /// The walk <see cref="Files"/> takes, over any checkout-shaped tree: every file matching a pattern below a
+    /// directory of the tree, skipping what a checkout does not own.
+    /// </summary>
+    /// <param name="root">The tree's root.</param>
+    /// <param name="relativeDirectory">The directory to start from, relative to the root; empty for all of it.</param>
+    /// <param name="pattern">The file pattern.</param>
+    public static IEnumerable<string> Walk(string root, string relativeDirectory, string pattern)
     {
-        string start = relativeDirectory.Length == 0 ? Root : PathOf(relativeDirectory.Split('/'));
+        string start = relativeDirectory.Length == 0 ? root : Path.Combine([root, .. relativeDirectory.Split('/')]);
         if (!Directory.Exists(start)) throw new DirectoryNotFoundException($"{start} is not a directory of the repository.");
         Stack<string> pending = new([start]);
         List<string> found = [];
@@ -61,7 +70,8 @@ public static class Repository
             foreach (string child in Directory.EnumerateDirectories(directory))
             {
                 if (IgnoredDirectories.Contains(Path.GetFileName(child))) continue;
-                if (IgnoredRoots.Contains(Relative(child), StringComparer.Ordinal)) continue;
+                string relative = Path.GetRelativePath(root, child).Replace(Path.DirectorySeparatorChar, '/');
+                if (IgnoredRoots.Contains(relative, StringComparer.Ordinal)) continue;
                 pending.Push(child);
             }
         }
