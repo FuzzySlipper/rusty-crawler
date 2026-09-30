@@ -54,12 +54,7 @@ internal sealed class MapPayloadReader
     internal float Single(string field) => BinaryPrimitives.ReadSingleLittleEndian(Take(4, field));
 
     /// <summary>Reads a fixed-width character field, which the formats pad with NUL bytes.</summary>
-    internal string Text(int width, string field)
-    {
-        ReadOnlySpan<byte> raw = Take(width, field);
-        int terminator = raw.IndexOf((byte)0);
-        return Encoding.Latin1.GetString(terminator >= 0 ? raw[..terminator] : raw);
-    }
+    internal string Text(int width, string field) => FixedText.Read(Take(width, field));
 
     /// <summary>Reads a fixed-size byte block.</summary>
     internal byte[] Bytes(int count, string field) => Take(count, field).ToArray();

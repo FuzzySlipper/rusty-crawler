@@ -21,9 +21,18 @@ namespace MightAndMagic7.Import.Tool;
 /// </remarks>
 internal static class InventoryCheck
 {
+    /// <summary>The release the recorded inventory was taken from, as the installation's own files name it.</summary>
+    /// <remarks>
+    /// Every count here is that release's. Another edition — another language, another patch — is a different
+    /// set of files, so a mismatch there is reported as the difference between the two releases rather than as
+    /// a reader that drifted.
+    /// </remarks>
+    internal const string RecordedRelease = "Update v. 1.1 (Might and Magic 7: For Blood and Honor build 1207658916 English)";
+
     internal static int Run(string installRoot)
     {
         LodInstall install = LodInstall.Open(installRoot);
+        string release = InstallProvenance.Read(install).Build;
         Mm7Tables tables = Mm7Tables.Read(install);
         TableInventory inventory = TableInventory.Read(install);
         IReadOnlyList<EvtProgram> programs = EvtProgram.ReadAll(install);
@@ -65,11 +74,19 @@ internal static class InventoryCheck
             }
         }
 
+        if (failures.Count > 0 && !string.Equals(release, RecordedRelease, StringComparison.Ordinal))
+        {
+            Console.Error.WriteLine(
+                $"This installation is '{release}' and the recorded inventory is of '{RecordedRelease}': the counts below differ between the two releases, which is not in itself a reader that drifted.");
+        }
+
         foreach (string failure in failures) Console.Error.WriteLine($"inventory mismatch: {failure}");
         Console.WriteLine(JsonSerializer.Serialize(
             new
             {
                 install = install.Root,
+                release,
+                recordedRelease = RecordedRelease,
                 result = failures.Count == 0 ? "pass" : "fail",
                 checks = _checks + sharedNames.Length,
                 failures,

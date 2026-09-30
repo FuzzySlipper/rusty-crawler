@@ -1,6 +1,8 @@
 using System.Buffers.Binary;
 using System.Text;
 
+using MightAndMagic7.Import.Lod;
+
 namespace MightAndMagic7.Import.Maps;
 
 /// <summary>Field accessors for the payloads' fixed-size records.</summary>
@@ -37,12 +39,7 @@ internal static class MapRecord
     internal static uint UInt32(ReadOnlySpan<byte> record, int offset) =>
         BinaryPrimitives.ReadUInt32LittleEndian(record[offset..]);
 
-    internal static string Text(ReadOnlySpan<byte> record, int offset, int width)
-    {
-        ReadOnlySpan<byte> raw = record.Slice(offset, width);
-        int terminator = raw.IndexOf((byte)0);
-        return Encoding.Latin1.GetString(terminator >= 0 ? raw[..terminator] : raw);
-    }
+    internal static string Text(ReadOnlySpan<byte> record, int offset, int width) => FixedText.Read(record.Slice(offset, width));
 
     /// <summary>Reads a 32-bit position.</summary>
     internal static MapPoint Point(ReadOnlySpan<byte> record, int offset) =>

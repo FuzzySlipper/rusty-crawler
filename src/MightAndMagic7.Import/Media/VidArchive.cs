@@ -1,6 +1,8 @@
 using System.Buffers.Binary;
 using System.Text;
 
+using MightAndMagic7.Import.Lod;
+
 namespace MightAndMagic7.Import.Media;
 
 /// <summary>
@@ -91,10 +93,5 @@ public sealed class VidArchive
         return new VidArchive(name, data.LongLength, entries);
     }
 
-    private static string CString(ReadOnlySpan<byte> raw)
-    {
-        int terminator = raw.IndexOf((byte)0);
-        ReadOnlySpan<byte> text = terminator >= 0 ? raw[..terminator] : raw;
-        return Encoding.Latin1.GetString(text);
-    }
+    private static string CString(ReadOnlySpan<byte> raw) => FixedText.Read(raw);
 }

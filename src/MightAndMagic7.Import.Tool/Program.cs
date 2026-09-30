@@ -36,7 +36,10 @@ internal static class Program
                 _ => Unknown(arguments[0]),
             };
         }
-        catch (Exception error) when (error is Lod.LodFormatException or IOException or UnauthorizedAccessException)
+        // Every way the operator's data or disk can fail a command is reported as the one sentence its reader
+        // wrote, not as a stack trace: a container or a table that does not decode, a picture or a sound that
+        // does not, a document that is not JSON, a path that cannot be read or written.
+        catch (Exception error) when (error is Lod.LodFormatException or MediaFormatException or JsonException or IOException or UnauthorizedAccessException)
         {
             Console.Error.WriteLine(error.Message);
             return 1;
