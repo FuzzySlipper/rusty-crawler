@@ -287,9 +287,8 @@ public sealed class MapDecoderTests
         byte[] withTrailer = [.. OutdoorPayload(), 0x00];
         LodFormatException error = Assert.Throws<LodFormatException>(() => MapDecoder.DecodeOutdoor(Payload("out01.odm", withTrailer)));
 
+        Assert.Equal(LodFault.Count, error.Fault);
         Assert.Contains("out01.odm", error.Message);
-        Assert.Contains("1 of", error.Message);
-        Assert.Contains("unconsumed", error.Message);
     }
 
     [Fact]
@@ -298,6 +297,7 @@ public sealed class MapDecoderTests
         byte[] truncated = IndoorPayload()[..40];
         LodFormatException error = Assert.Throws<LodFormatException>(() => MapDecoder.DecodeIndoor(Payload("d01.blv", truncated)));
 
+        Assert.Equal(LodFault.Truncated, error.Fault);
         Assert.Contains("d01.blv", error.Message);
         Assert.Contains("'name'", error.Message);
         Assert.Contains("0x4", error.Message);
@@ -311,9 +311,8 @@ public sealed class MapDecoderTests
         byte[] payload = IndoorPayload(poolSlackValues: 1);
         LodFormatException error = Assert.Throws<LodFormatException>(() => MapDecoder.DecodeIndoor(Payload("d01.blv", payload)));
 
-        Assert.Contains("faceData pool", error.Message);
-        Assert.Contains("holds 31 values", error.Message);
-        Assert.Contains("consumed 30", error.Message);
+        Assert.Equal(LodFault.Count, error.Fault);
+        Assert.Contains("faceData", error.Message);
     }
 
     [Fact]
@@ -324,6 +323,7 @@ public sealed class MapDecoderTests
         LodFormatException error = Assert.Throws<LodFormatException>(() =>
             MapDecoder.DecodeIndoor(Payload("d01.blv", IndoorPayload(version: 2))));
 
+        Assert.Equal(LodFault.Value, error.Fault);
         Assert.Contains("'version'", error.Message);
         Assert.Contains("0x0", error.Message);
     }
@@ -335,6 +335,7 @@ public sealed class MapDecoderTests
             Payload("d01.blv", IndoorPayload()),
             Payload("d02.dlv", IndoorDeltaPayload())));
 
+        Assert.Equal(LodFault.Reference, error.Fault);
         Assert.Contains("d02.dlv", error.Message);
         Assert.Contains("d01.blv", error.Message);
     }

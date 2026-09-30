@@ -194,7 +194,7 @@ public sealed class PotionTable
             string written = TableValue.Text(row, 0);
             if (!int.TryParse(written, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int id))
             {
-                throw new LodFormatException($"{table.Source}: row {row.Number} states the id '{written}', which is not a row number.");
+                throw new LodFormatException(LodFault.Value, $"{table.Source}: row {row.Number} states the id '{written}', which is not a row number.");
             }
 
             string name = TableValue.Text(row, 1);
@@ -218,7 +218,7 @@ public sealed class PotionTable
         rows.Sort((left, right) => left.Id.CompareTo(right.Id));
         if (rows.Count != ExpectedRows)
         {
-            throw new LodFormatException($"{table.Source}: expected {ExpectedRows} potion rows, read {rows.Count}.");
+            throw new LodFormatException(LodFault.Count, $"{table.Source}: expected {ExpectedRows} potion rows, read {rows.Count}.");
         }
 
         VerifyPower(rows, items);
@@ -260,6 +260,7 @@ public sealed class PotionTable
             if (twin is not { } match)
             {
                 throw new LodFormatException(
+                    LodFault.Missing,
                     $"{table.Source}: row {row.Number} has no id and names '{name}', which no row of the table carries an id for.");
             }
 
@@ -267,6 +268,7 @@ public sealed class PotionTable
             {
                 if (string.Equals(TableValue.Text(row, column), TableValue.Text(match, column), StringComparison.Ordinal)) continue;
                 throw new LodFormatException(
+                    LodFault.Reference,
                     $"{table.Source}: the id-less row naming '{name}' states '{TableValue.Text(row, column)}' where the row that carries its id states '{TableValue.Text(match, column)}'.");
             }
         }
@@ -306,7 +308,7 @@ public sealed class PotionTable
             if (cell.Length == 0) continue;
             if (!int.TryParse(cell, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out units[index]))
             {
-                throw new LodFormatException($"potion row {TableValue.Text(row, 0)} states the colour unit '{cell}', which is not a number.");
+                throw new LodFormatException(LodFault.Value, $"potion row {TableValue.Text(row, 0)} states the colour unit '{cell}', which is not a number.");
             }
         }
 
@@ -327,6 +329,7 @@ public sealed class PotionTable
                 out int power))
         {
             throw new LodFormatException(
+                LodFault.Value,
                 $"{table.Source}: reagent {TableValue.Text(row, 0)} ({name}) states the effect '{effect}', which does not end in the strength its bottle recipe makes.");
         }
 
@@ -356,6 +359,7 @@ public sealed class PotionTable
             if (!effect.StartsWith("+ Bottle =", StringComparison.OrdinalIgnoreCase) || equals < 0)
             {
                 throw new LodFormatException(
+                    LodFault.Value,
                     $"{table.Source}: reagent {id} ({TableValue.Text(row, 1)}) states the effect '{effect}', which is not the bottle recipe this reader understands.");
             }
 
@@ -365,6 +369,7 @@ public sealed class PotionTable
             if (!colours.TryGetValue(colour, out int result))
             {
                 throw new LodFormatException(
+                    LodFault.Reference,
                     $"{table.Source}: reagent {id} ({TableValue.Text(row, 1)}) is mixed into '{colour}', which no potion row of this table describes itself as.");
             }
 
@@ -413,7 +418,7 @@ public sealed class PotionTable
             string strength = cell[1..].Trim();
             if (!int.TryParse(strength, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int level) || level < 1)
             {
-                throw new LodFormatException($"a mixture cell states the strength '{cell}', which is not a burst strength.");
+                throw new LodFormatException(LodFault.Value, $"a mixture cell states the strength '{cell}', which is not a burst strength.");
             }
 
             return $"{Burst}:{level.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
@@ -421,7 +426,7 @@ public sealed class PotionTable
 
         if (!int.TryParse(cell, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int result))
         {
-            throw new LodFormatException($"a mixture cell states '{cell}', which is neither a result, 'no', nor a burst strength.");
+            throw new LodFormatException(LodFault.Value, $"a mixture cell states '{cell}', which is neither a result, 'no', nor a burst strength.");
         }
 
         return result.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -482,12 +487,13 @@ public sealed class PotionTable
             if (!row.IsReagent) continue;
             if (!byId.TryGetValue(row.Id, out ItemRecord item))
             {
-                throw new LodFormatException($"reagent {row.Id} ({row.Name}) has no row in the item table, so its power cannot be checked against it.");
+                throw new LodFormatException(LodFault.Missing, $"reagent {row.Id} ({row.Name}) has no row in the item table, so its power cannot be checked against it.");
             }
 
             if (!int.TryParse(item.DamageDice, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int stated) || stated != row.Power)
             {
                 throw new LodFormatException(
+                    LodFault.Reference,
                     $"reagent {row.Id} ({row.Name}) states power {row.Power} in the potion table and '{item.DamageDice}' in the item table's damage column, which the donor reads as the same number.");
             }
         }

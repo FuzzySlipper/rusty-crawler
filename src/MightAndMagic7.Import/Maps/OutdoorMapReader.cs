@@ -204,6 +204,7 @@ internal static class OutdoorMapReader
         if (vertexCount > FaceVertexSlots)
         {
             throw reader.Failure(
+                LodFault.Count,
                 $"model {modelIndex} face {faceIndex} declares {vertexCount} vertices but the layout stores {FaceVertexSlots}.");
         }
 
@@ -216,6 +217,7 @@ internal static class OutdoorMapReader
             if (id < 0 || id >= vertices.Length)
             {
                 throw reader.Failure(
+                    LodFault.Reference,
                     $"model {modelIndex} face {faceIndex} names vertex {id} but the model has {vertices.Length} vertices.");
             }
 

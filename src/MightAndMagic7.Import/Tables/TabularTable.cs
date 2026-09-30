@@ -63,6 +63,7 @@ public sealed class TabularTable
         if (records.Count < headerRowCount)
         {
             throw new LodFormatException(
+                LodFault.Count,
                 $"{source}: the table has {records.Count} rows but {headerRowCount} header rows were declared.");
         }
 

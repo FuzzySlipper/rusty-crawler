@@ -21,6 +21,7 @@ public sealed class LodArchiveTests
         // A byte the code page does not define is refused with the entry and where it stands.
         LodPayload broken = new(new LodEntry("broken.txt", 0, 3), [0x41, 0x81, 0x42], LodPayloadKind.Verbatim);
         LodFormatException refused = Assert.Throws<LodFormatException>(() => broken.AsText());
+        Assert.Equal(LodFault.Value, refused.Fault);
         Assert.Contains("broken.txt", refused.Message, StringComparison.Ordinal);
         Assert.Contains("0x81", refused.Message, StringComparison.Ordinal);
     }
@@ -111,14 +112,14 @@ public sealed class LodArchiveTests
     public void Rejects_files_that_are_not_containers()
     {
         byte[] tooSmall = new byte[16];
-        Assert.Contains("too small", Assert.Throws<LodFormatException>(() => LodArchive.FromBytes("x.lod", tooSmall)).Message);
+        Assert.Equal(LodFault.Truncated, Assert.Throws<LodFormatException>(() => LodArchive.FromBytes("x.lod", tooSmall)).Fault);
 
         byte[] wrongSignature = LodFixture.Archive("MMVI", ("a.txt", LodFixture.Verbatim("a"u8.ToArray())));
         "BAD\0"u8.CopyTo(wrongSignature);
-        Assert.Contains("signature", Assert.Throws<LodFormatException>(() => LodArchive.FromBytes("x.lod", wrongSignature)).Message);
+        Assert.Equal(LodFault.Signature, Assert.Throws<LodFormatException>(() => LodArchive.FromBytes("x.lod", wrongSignature)).Fault);
 
         LodArchive archive = LodArchive.FromBytes("x.lod", LodFixture.Archive("MMVI"));
-        Assert.Contains("no entry named", Assert.Throws<LodFormatException>(() => archive.Read("missing.txt")).Message);
+        Assert.Equal(LodFault.Missing, Assert.Throws<LodFormatException>(() => archive.Read("missing.txt")).Fault);
     }
 
     [Fact]
@@ -142,9 +143,9 @@ public sealed class LodArchiveTests
             // A declared source reads its own archive and never falls back to the other one.
             LodPayload payload = install.Read(new LodSource("map-stats", "Events.lod", "MapStats.txt"));
             Assert.Equal("new\n", payload.AsText());
-            Assert.Contains(
-                "no entry named",
-                Assert.Throws<LodFormatException>(() => install.Read(new LodSource("missing", "Icons.LOD", "Absent.txt"))).Message);
+            Assert.Equal(
+                LodFault.Missing,
+                Assert.Throws<LodFormatException>(() => install.Read(new LodSource("missing", "Icons.LOD", "Absent.txt"))).Fault);
         }
         finally
         {
@@ -159,8 +160,8 @@ public sealed class LodArchiveTests
         Directory.CreateDirectory(root);
         try
         {
-            Assert.Contains("DATA directory", Assert.Throws<LodFormatException>(() => LodInstall.Open(root)).Message);
-            Assert.Contains("not a directory", Assert.Throws<LodFormatException>(() => LodInstall.Open(Path.Combine(root, "absent"))).Message);
+            Assert.Equal(LodFault.Missing, Assert.Throws<LodFormatException>(() => LodInstall.Open(root)).Fault);
+            Assert.Equal(LodFault.Missing, Assert.Throws<LodFormatException>(() => LodInstall.Open(Path.Combine(root, "absent"))).Fault);
         }
         finally
         {

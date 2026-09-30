@@ -39,7 +39,7 @@ public sealed class QuestTable
 
         if (quests.Length == 0)
         {
-            throw new LodFormatException($"{table.Source}: the table has no quest rows.");
+            throw new LodFormatException(LodFault.Missing, $"{table.Source}: the table has no quest rows.");
         }
 
         return new QuestTable(table, quests);

@@ -136,7 +136,7 @@ internal static class IndoorDeltaReader
         {
             if (vertexId < 0 || vertexId >= counts.VertexCount)
             {
-                throw reader.Failure($"door {index} names vertex {vertexId} but the level has {counts.VertexCount} vertices.");
+                throw reader.Failure(LodFault.Reference, $"door {index} names vertex {vertexId} but the level has {counts.VertexCount} vertices.");
             }
         }
 
@@ -144,7 +144,7 @@ internal static class IndoorDeltaReader
         {
             if (faceId < 0 || faceId >= counts.FaceCount)
             {
-                throw reader.Failure($"door {index} names face {faceId} but the level has {counts.FaceCount} faces.");
+                throw reader.Failure(LodFault.Reference, $"door {index} names face {faceId} but the level has {counts.FaceCount} faces.");
             }
         }
 

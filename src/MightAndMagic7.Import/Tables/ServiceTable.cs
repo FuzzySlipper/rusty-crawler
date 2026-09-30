@@ -123,7 +123,7 @@ public sealed class ServiceTable
 
         if (buildings.Length != ExpectedRows)
         {
-            throw new LodFormatException($"{table.Source}: expected {ExpectedRows} buildings, read {buildings.Length}.");
+            throw new LodFormatException(LodFault.Count, $"{table.Source}: expected {ExpectedRows} buildings, read {buildings.Length}.");
         }
 
         return new ServiceTable(table, buildings);

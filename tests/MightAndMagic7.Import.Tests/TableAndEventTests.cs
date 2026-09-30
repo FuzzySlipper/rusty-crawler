@@ -77,8 +77,8 @@ public sealed class TableAndEventTests
             LodFixture.TextTable("POTION.TXT", header + "200\tBerry\tReagent\tMix me with something\t\t\t\t\n"),
             LodFixture.TextTable("POTNOTES.TXT", header)));
         LodFormatException refused = Assert.Throws<LodFormatException>(() => PotionTable.Read(install));
+        Assert.Equal(LodFault.Value, refused.Fault);
         Assert.Contains("200", refused.Message, StringComparison.Ordinal);
-        Assert.Contains("bottle recipe", refused.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -101,7 +101,7 @@ public sealed class TableAndEventTests
         {
             LodFormatException error = Assert.Throws<LodFormatException>(() =>
                 TabularTable.Read(LodInstall.Open(root), Mm7TableSources.MapStats, 3));
-            Assert.Contains("header rows", error.Message);
+            Assert.Equal(LodFault.Count, error.Fault);
         }
         finally
         {
@@ -172,10 +172,11 @@ public sealed class TableAndEventTests
     {
         byte[] truncated = [40, 1, 0, 0, 6];
         LodFormatException error = Assert.Throws<LodFormatException>(() => EvtProgram.Read("D01.EVT", truncated));
-        Assert.Contains("declares 41 bytes", error.Message);
+        Assert.Equal(LodFault.Truncated, error.Fault);
+        Assert.Contains("41", error.Message);
 
         byte[] tooShort = [2, 1, 0, 0, 6];
-        Assert.Contains("below the minimum", Assert.Throws<LodFormatException>(() => EvtProgram.Read("D01.EVT", tooShort)).Message);
+        Assert.Equal(LodFault.Truncated, Assert.Throws<LodFormatException>(() => EvtProgram.Read("D01.EVT", tooShort)).Fault);
     }
 
     [Fact]
@@ -227,6 +228,7 @@ public sealed class TableAndEventTests
 
         // A cell of another shape is refused with the row named.
         LodFormatException refused = Assert.Throws<LodFormatException>(() => MonsterCombat.Read("monsters.txt", 7, "A beast", Row(dice: "two dice")));
+        Assert.Equal(LodFault.Value, refused.Fault);
         Assert.Contains("monster 7 'A beast'", refused.Message, StringComparison.Ordinal);
         Assert.Contains("'two dice'", refused.Message, StringComparison.Ordinal);
     }
@@ -310,6 +312,7 @@ public sealed class TableAndEventTests
             [EvtProgram.Read("OUT01.EVT", MoveRecord(10, "Out99.odm"))],
             maps));
 
+        Assert.Equal(LodFault.Reference, error.Fault);
         Assert.Contains("Out99.odm", error.Message);
     }
 

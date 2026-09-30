@@ -42,14 +42,14 @@ public sealed class ClassTable
 
         if (ranks.Length != ExpectedRanks)
         {
-            throw new LodFormatException($"{table.Source}: expected {ExpectedRanks} ranks, read {ranks.Length}.");
+            throw new LodFormatException(LodFault.Count, $"{table.Source}: expected {ExpectedRanks} ranks, read {ranks.Length}.");
         }
 
         foreach (ClassRecord rank in ranks)
         {
             if (rank.Name.Length == 0 || rank.BaseClass.Length == 0)
             {
-                throw new LodFormatException($"{table.Source}: rank row {rank.Rank} is missing its name or base class.");
+                throw new LodFormatException(LodFault.Missing, $"{table.Source}: rank row {rank.Rank} is missing its name or base class.");
             }
         }
 

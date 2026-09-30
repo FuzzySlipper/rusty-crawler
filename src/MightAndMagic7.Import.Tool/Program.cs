@@ -176,7 +176,7 @@ internal static class Program
     {
         if (arguments.Length <= index)
         {
-            throw new Lod.LodFormatException($"Missing argument. Usage: mm7import {usage}");
+            throw new Lod.LodFormatException(Lod.LodFault.Usage, $"Missing argument. Usage: mm7import {usage}");
         }
 
         return arguments[index];
@@ -552,7 +552,7 @@ internal static class Program
             if (arguments[index] == name) return arguments[index + 1];
         }
 
-        throw new Lod.LodFormatException($"Missing {name}. Usage: mm7import write --install <game-directory> --output <directory> [--check-determinism]");
+        throw new Lod.LodFormatException(Lod.LodFault.Usage, $"Missing {name}. Usage: mm7import write --install <game-directory> --output <directory> [--check-determinism]");
     }
 
     private static string RequireInstall(string[] arguments)

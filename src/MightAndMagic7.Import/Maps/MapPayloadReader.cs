@@ -73,6 +73,7 @@ internal sealed class MapPayloadReader
         if (count > (uint)(Remaining / elementSize))
         {
             throw Failure(
+                LodFault.Truncated,
                 $"the count of '{field}' at 0x{offset:X} is {count}, which cannot fit in the {Remaining} bytes that remain.");
         }
 
@@ -85,12 +86,13 @@ internal sealed class MapPayloadReader
         if (byteSize < 0 || byteSize % elementSize != 0)
         {
             throw Failure(
+                LodFault.Value,
                 $"'{field}' at 0x{LastOffset:X} declares {byteSize} bytes, which is not a whole number of {elementSize}-byte values.");
         }
 
         if (byteSize > Remaining)
         {
-            throw Failure($"'{field}' at 0x{LastOffset:X} declares {byteSize} bytes but only {Remaining} remain.");
+            throw Failure(LodFault.Truncated, $"'{field}' at 0x{LastOffset:X} declares {byteSize} bytes but only {Remaining} remain.");
         }
 
         return byteSize / elementSize;
@@ -101,13 +103,14 @@ internal sealed class MapPayloadReader
     {
         if (count < 0)
         {
-            throw Failure($"'{field}' at 0x{Position:X} has a negative element count ({count}).");
+            throw Failure(LodFault.Value, $"'{field}' at 0x{Position:X} has a negative element count ({count}).");
         }
 
         long bytes = (long)count * elementSize;
         if (bytes > Remaining)
         {
             throw Failure(
+                LodFault.Truncated,
                 $"'{field}' at 0x{Position:X} declares {count} elements of {elementSize} bytes, but only {Remaining} remain.");
         }
 
@@ -121,7 +124,7 @@ internal sealed class MapPayloadReader
         int actual = Int32(field);
         if (actual != expected)
         {
-            throw Failure($"'{field}' at 0x{offset:X} is {actual} where the layout requires {expected}.");
+            throw Failure(LodFault.Value, $"'{field}' at 0x{offset:X} is {actual} where the layout requires {expected}.");
         }
 
         return actual;
@@ -133,6 +136,7 @@ internal sealed class MapPayloadReader
         if (Remaining != 0)
         {
             throw Failure(
+                LodFault.Count,
                 $"the walk ended at 0x{Position:X} with {Remaining} of {Length} bytes unconsumed, so the payload does not match the documented layout.");
         }
     }
@@ -156,19 +160,19 @@ internal sealed class MapPayloadReader
     }
 
     /// <summary>Builds a failure naming the entry, so a report can say which map and which field.</summary>
-    internal LodFormatException Failure(string message) => new($"{Source}: {message}");
+    internal LodFormatException Failure(LodFault fault, string message) => new(fault, $"{Source}: {message}");
 
     private ReadOnlySpan<byte> Take(int count, string field)
     {
         LastOffset = Position;
         if (count < 0)
         {
-            throw Failure($"'{field}' at 0x{Position:X} has a negative size ({count}).");
+            throw Failure(LodFault.Value, $"'{field}' at 0x{Position:X} has a negative size ({count}).");
         }
 
         if (count > Remaining)
         {
-            throw Failure($"'{field}' at 0x{Position:X} needs {count} bytes but only {Remaining} remain.");
+            throw Failure(LodFault.Truncated, $"'{field}' at 0x{Position:X} needs {count} bytes but only {Remaining} remain.");
         }
 
         ReadOnlySpan<byte> result = _bytes.AsSpan(Position, count);

@@ -637,6 +637,7 @@ public static class PlaceServiceEmitter
             if (!byStem.TryAdd(stem, program))
             {
                 throw new Lod.LodFormatException(
+                    Lod.LodFault.Ambiguous,
                     $"{program.Name}: two event programs are named after the stem '{stem}', so a map's faces cannot be matched to one of them.");
             }
         }

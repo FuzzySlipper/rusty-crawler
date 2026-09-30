@@ -128,7 +128,7 @@ internal static class IndoorMapReader
         int doorSlotCount = reader.Int32("doorCount");
         if (doorSlotCount < 0)
         {
-            throw reader.Failure($"'doorCount' at 0x{reader.LastOffset:X} is negative ({doorSlotCount}).");
+            throw reader.Failure(LodFault.Value, $"'doorCount' at 0x{reader.LastOffset:X} is negative ({doorSlotCount}).");
         }
 
         int decorationCount = reader.ArrayCount(MapRecord.DecorationSize, "decorationCount");
@@ -302,7 +302,7 @@ internal static class IndoorMapReader
             int id = vertexIds[slot];
             if (id < 0 || id >= vertices.Length)
             {
-                throw reader.Failure($"face {index} names vertex {id} but the level has {vertices.Length} vertices.");
+                throw reader.Failure(LodFault.Reference, $"face {index} names vertex {id} but the level has {vertices.Length} vertices.");
             }
 
             positions.Add(vertices[id]);
@@ -314,7 +314,7 @@ internal static class IndoorMapReader
         int extraId = MapRecord.UInt16(record, FaceExtraIdOffset);
         if (extraId >= faceExtras.Length)
         {
-            throw reader.Failure($"face {index} names face extra {extraId} but the level has {faceExtras.Length} extras.");
+            throw reader.Failure(LodFault.Reference, $"face {index} names face extra {extraId} but the level has {faceExtras.Length} extras.");
         }
 
         // A face that belongs to no sector stores zero or the all-ones sentinel there. No shipped face
@@ -323,14 +323,14 @@ internal static class IndoorMapReader
         bool hasSector = sectorId != 0 && sectorId != NoSector;
         if (hasSector && sectorId >= sectorCount)
         {
-            throw reader.Failure($"face {index} names sector {sectorId} but the level has {sectorCount} sectors.");
+            throw reader.Failure(LodFault.Reference, $"face {index} names sector {sectorId} but the level has {sectorCount} sectors.");
         }
 
         // Back sector zero means the face is not a portal; a shipped portal's far side is in range.
         int backSectorId = MapRecord.Int16(record, FaceBackSectorIdOffset);
         if (backSectorId > 0 && backSectorId >= sectorCount)
         {
-            throw reader.Failure($"face {index} names back sector {backSectorId} but the level has {sectorCount} sectors.");
+            throw reader.Failure(LodFault.Reference, $"face {index} names back sector {backSectorId} but the level has {sectorCount} sectors.");
         }
 
         MapFaceExtra extra = faceExtras[extraId];
@@ -369,7 +369,7 @@ internal static class IndoorMapReader
         int cylinderFaces = MapRecord.UInt16(record, SectorCylinderFaceCountOffset);
         if (cylinderFaces != 0)
         {
-            throw reader.Failure($"sector {index} declares {cylinderFaces} cylinder faces, which the sector data pool does not place.");
+            throw reader.Failure(LodFault.Count, $"sector {index} declares {cylinderFaces} cylinder faces, which the sector data pool does not place.");
         }
 
         int[] floorIds = sectorPool.Take(MapRecord.UInt16(record, SectorFloorCountOffset), $"sector {index} floors");
@@ -385,18 +385,18 @@ internal static class IndoorMapReader
 
         foreach (int faceId in faceIds)
         {
-            if (faceId >= faceCount) throw reader.Failure($"sector {index} names face {faceId} but the level has {faceCount} faces.");
+            if (faceId >= faceCount) throw reader.Failure(LodFault.Reference, $"sector {index} names face {faceId} but the level has {faceCount} faces.");
         }
 
         foreach (int lightId in lightIds)
         {
-            if (lightId >= lightCount) throw reader.Failure($"sector {index} names light {lightId} but the level has {lightCount} lights.");
+            if (lightId >= lightCount) throw reader.Failure(LodFault.Reference, $"sector {index} names light {lightId} but the level has {lightCount} lights.");
         }
 
         int nonBspFaceCount = MapRecord.UInt16(record, SectorNonBspFaceCountOffset);
         if (nonBspFaceCount > faceIds.Length)
         {
-            throw reader.Failure($"sector {index} declares {nonBspFaceCount} non-BSP faces but owns {faceIds.Length} faces.");
+            throw reader.Failure(LodFault.Count, $"sector {index} declares {nonBspFaceCount} non-BSP faces but owns {faceIds.Length} faces.");
         }
 
         return new MapSector(

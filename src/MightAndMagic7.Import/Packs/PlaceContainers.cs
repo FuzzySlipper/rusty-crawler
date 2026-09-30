@@ -214,6 +214,7 @@ public static class PlaceContainerEmitter
             if (!traps.TryGetValue(placeId, out PlaceMapNumbers place))
             {
                 throw new LodFormatException(
+                    LodFault.Missing,
                     $"Place {placeId} ('{fileName}') holds containers and no trap numbers, so its traps could only be written as harmless.");
             }
 
@@ -276,6 +277,7 @@ public static class PlaceContainerEmitter
             if (!byStem.TryAdd(stem, program))
             {
                 throw new Lod.LodFormatException(
+                    Lod.LodFault.Ambiguous,
                     $"'{program.Name}' and '{byStem[stem].Name}' are both the event program of map '{stem}', so a container's position cannot be attributed to one of them.");
             }
         }
@@ -384,6 +386,7 @@ public static class PlaceMapNumbersTable
             if (!numbers.TryAdd(id, place))
             {
                 throw new LodFormatException(
+                    LodFault.Ambiguous,
                     $"{tables.Maps.Table.Source}: place {id} has more than one row, so its containers have two sets of numbers.");
             }
         }

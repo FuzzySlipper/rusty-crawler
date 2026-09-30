@@ -39,12 +39,13 @@ public sealed class EvtProgram
             int recordSize = bytes[position] + 1;
             if (recordSize < MinimumRecordSize)
             {
-                throw new LodFormatException($"{name}: event record at offset {position} declares {recordSize} bytes, below the minimum.");
+                throw new LodFormatException(LodFault.Truncated, $"{name}: event record at offset {position} declares {recordSize} bytes, below the minimum.");
             }
 
             if (position + recordSize > bytes.Length)
             {
                 throw new LodFormatException(
+                    LodFault.Truncated,
                     $"{name}: event record at offset {position} declares {recordSize} bytes but only {bytes.Length - position} remain.");
             }
 

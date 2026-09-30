@@ -124,7 +124,7 @@ public sealed class MonsterTable
 
         if (monsters.Length != ExpectedRows)
         {
-            throw new LodFormatException($"{table.Source}: expected {ExpectedRows} monsters, read {monsters.Length}.");
+            throw new LodFormatException(LodFault.Count, $"{table.Source}: expected {ExpectedRows} monsters, read {monsters.Length}.");
         }
 
         return new MonsterTable(table, monsters, [.. annotations]);

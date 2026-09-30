@@ -105,13 +105,14 @@ public sealed class SpellTable
 
         if (spells.Count != ExpectedSpells)
         {
-            throw new LodFormatException($"{table.Source}: expected {ExpectedSpells} spells, read {spells.Count}.");
+            throw new LodFormatException(LodFault.Count, $"{table.Source}: expected {ExpectedSpells} spells, read {spells.Count}.");
         }
 
         SpellTable result = new(table, [.. spells]);
         if (result.Schools.Count != ExpectedSchools)
         {
             throw new LodFormatException(
+                LodFault.Count,
                 $"{table.Source}: expected {ExpectedSchools} schools, read {result.Schools.Count} ({string.Join(", ", result.Schools)}).");
         }
 

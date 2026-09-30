@@ -200,6 +200,7 @@ internal static partial class PackWriter
         {
             string failures = string.Join("; ", report.Failures.Take(5).Select(failure => $"{failure.MapId} {failure.FileName}: {failure.Reason}"));
             throw new LodFormatException(
+                LodFault.Count,
                 $"{report.FailureCount} of {report.MapCount} maps did not decode, so their arrival points cannot be imported: {failures}");
         }
 

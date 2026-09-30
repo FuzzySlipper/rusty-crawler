@@ -166,6 +166,7 @@ public sealed class PlaceGraph
         if (unresolvedDestinations.Count > 0)
         {
             throw new Lod.LodFormatException(
+                Lod.LodFault.Reference,
                 $"{unresolvedDestinations.Count} map moves name a destination that is not a known map: " +
                 string.Join("; ", unresolvedDestinations.Take(10)) +
                 (unresolvedDestinations.Count > 10 ? "; ..." : string.Empty));

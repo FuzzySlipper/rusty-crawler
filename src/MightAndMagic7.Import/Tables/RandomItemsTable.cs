@@ -104,6 +104,7 @@ public sealed class RandomItemsTable
         if (rows.Count != ExpectedRows)
         {
             throw new LodFormatException(
+                LodFault.Count,
                 $"{table.Source}: expected {ExpectedRows} weighed item rows, read {rows.Count}; a short read would leave every treasure level poorer than the data states.");
         }
 

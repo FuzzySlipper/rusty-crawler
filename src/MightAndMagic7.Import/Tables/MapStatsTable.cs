@@ -104,6 +104,7 @@ public sealed class MapStatsTable
                 if (!index.TryAdd(stem, map.Id))
                 {
                     throw new LodFormatException(
+                        LodFault.Ambiguous,
                         $"{Source}: maps {index[stem]} and {map.Id} both name the file '{map.FileName}', so a map cannot be identified by it.");
                 }
             }
@@ -134,14 +135,14 @@ public sealed class MapStatsTable
 
         if (maps.Length != ExpectedMaps)
         {
-            throw new LodFormatException($"{table.Source}: expected {ExpectedMaps} maps, read {maps.Length}.");
+            throw new LodFormatException(LodFault.Count, $"{table.Source}: expected {ExpectedMaps} maps, read {maps.Length}.");
         }
 
         foreach (MapStatsRecord map in maps)
         {
             if (map.Name.Length == 0 || map.FileName.Length == 0)
             {
-                throw new LodFormatException($"{table.Source}: map {map.Id} is missing its name or file name.");
+                throw new LodFormatException(LodFault.Missing, $"{table.Source}: map {map.Id} is missing its name or file name.");
             }
         }
 
@@ -172,6 +173,7 @@ public sealed class MapStatsTable
                 !int.TryParse(high, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out maximum))
             {
                 throw new LodFormatException(
+                    LodFault.Value,
                     $"{table.Source}: row {row.Number} column '{columnName}' states its count as '{range}', which is neither a number nor a range.");
             }
         }

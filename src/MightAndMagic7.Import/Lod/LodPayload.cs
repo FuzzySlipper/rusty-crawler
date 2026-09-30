@@ -33,6 +33,7 @@ public readonly record struct LodPayload(LodEntry Entry, byte[] Bytes, LodPayloa
         if (undefined >= 0)
         {
             throw new LodFormatException(
+                LodFault.Value,
                 $"{Entry.Name} holds byte 0x{Bytes[undefined]:X2} at offset {undefined}, which the Western code page its text is written in does not define.");
         }
 

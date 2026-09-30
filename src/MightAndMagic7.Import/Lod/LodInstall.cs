@@ -29,13 +29,13 @@ public sealed class LodInstall
         ArgumentException.ThrowIfNullOrWhiteSpace(root);
         if (!Directory.Exists(root))
         {
-            throw new LodFormatException($"'{root}' is not a directory.");
+            throw new LodFormatException(LodFault.Missing, $"'{root}' is not a directory.");
         }
 
         string dataDirectory = Path.Combine(root, DataDirectoryName);
         if (!Directory.Exists(dataDirectory))
         {
-            throw new LodFormatException($"'{root}' has no {DataDirectoryName} directory, so it is not a game installation.");
+            throw new LodFormatException(LodFault.Missing, $"'{root}' has no {DataDirectoryName} directory, so it is not a game installation.");
         }
 
         return new LodInstall(root, dataDirectory);
@@ -64,7 +64,7 @@ public sealed class LodInstall
                 string.Equals(Path.GetFileName(candidate), archiveName, StringComparison.OrdinalIgnoreCase));
         if (path is null)
         {
-            throw new LodFormatException($"'{Root}' has no container named '{archiveName}'.");
+            throw new LodFormatException(LodFault.Missing, $"'{Root}' has no container named '{archiveName}'.");
         }
 
         LodArchive archive = LodArchive.Open(path);

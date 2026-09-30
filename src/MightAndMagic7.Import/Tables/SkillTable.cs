@@ -58,7 +58,7 @@ public sealed class SkillTable
 
         if (skills.Length != ExpectedRows)
         {
-            throw new LodFormatException($"{table.Source}: expected {ExpectedRows} skills, read {skills.Length}.");
+            throw new LodFormatException(LodFault.Count, $"{table.Source}: expected {ExpectedRows} skills, read {skills.Length}.");
         }
 
         return new SkillTable(table, skills);

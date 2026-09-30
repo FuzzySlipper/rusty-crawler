@@ -136,13 +136,14 @@ public sealed class HostilityTable
         if (records.Length < 2)
         {
             throw new LodFormatException(
+                LodFault.Count,
                 $"{Mm7TableSources.Hostility}: the matrix holds {records.Length} record(s), and a matrix needs a header row and at least one kind.");
         }
 
         string[] header = records[0].Split('\t');
         if (header.Length < 2)
         {
-            throw new LodFormatException($"{Mm7TableSources.Hostility}: the header row holds {header.Length} column(s), so no kind is named.");
+            throw new LodFormatException(LodFault.Count, $"{Mm7TableSources.Hostility}: the header row holds {header.Length} column(s), so no kind is named.");
         }
 
         // The header's first cell is empty: it stands over the column of row names rather than naming a
@@ -163,6 +164,7 @@ public sealed class HostilityTable
                 if (!int.TryParse(cell, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int band))
                 {
                     throw new LodFormatException(
+                        LodFault.Value,
                         $"{Mm7TableSources.Hostility}: kind '{kind}' column '{Column(columns, column - 1)}' is '{cell}', not a hostility band.");
                 }
 

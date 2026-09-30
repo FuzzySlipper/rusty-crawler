@@ -14,7 +14,7 @@ internal static class TableValue
         string text = row.Field(column).Trim();
         if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value))
         {
-            throw new LodFormatException($"{table.Source}: row {row.Number} column {columnName} is '{text}', not a number.");
+            throw new LodFormatException(LodFault.Value, $"{table.Source}: row {row.Number} column {columnName} is '{text}', not a number.");
         }
 
         return value;
@@ -29,7 +29,7 @@ internal static class TableValue
         string text = row.Field(column).Replace(",", string.Empty, StringComparison.Ordinal).Trim();
         if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value))
         {
-            throw new LodFormatException($"{table.Source}: row {row.Number} column {columnName} is '{row.Field(column)}', not a number.");
+            throw new LodFormatException(LodFault.Value, $"{table.Source}: row {row.Number} column {columnName} is '{row.Field(column)}', not a number.");
         }
 
         return value;
@@ -62,7 +62,7 @@ internal static class TableValue
         string text = row.Field(column).Trim();
         if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double value))
         {
-            throw new LodFormatException($"{table.Source}: row {row.Number} column {columnName} is '{text}', not a number.");
+            throw new LodFormatException(LodFault.Value, $"{table.Source}: row {row.Number} column {columnName} is '{text}', not a number.");
         }
 
         return value;

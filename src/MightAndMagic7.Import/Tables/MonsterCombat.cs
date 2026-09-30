@@ -107,7 +107,7 @@ public static partial class MonsterCombat
         string row = $"{source}: monster {id} '{name}'";
         if (cells.Count < Columns)
         {
-            throw new LodFormatException($"{row} carries {cells.Count} cells where its combat columns need {Columns}.");
+            throw new LodFormatException(LodFault.Count, $"{row} carries {cells.Count} cells where its combat columns need {Columns}.");
         }
 
         string Cell(int column) => cells[column].Trim();
@@ -138,7 +138,7 @@ public static partial class MonsterCombat
     private static int Integer(string row, string cell, string what) =>
         int.TryParse(cell, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value)
             ? value
-            : throw new LodFormatException($"{row} states '{cell}' for {what}, which is not a number.");
+            : throw new LodFormatException(LodFault.Value, $"{row} states '{cell}' for {what}, which is not a number.");
 
     private static string Missile(string cell) => cell is "" or "0" ? string.Empty : cell;
 
@@ -148,7 +148,7 @@ public static partial class MonsterCombat
         Match match = DicePattern().Match(cell);
         if (!match.Success)
         {
-            throw new LodFormatException($"{row} states '{cell}' for {what}, which is not dice (a count, D, sides, and an optional +bonus).");
+            throw new LodFormatException(LodFault.Value, $"{row} states '{cell}' for {what}, which is not dice (a count, D, sides, and an optional +bonus).");
         }
 
         return new MonsterDice(
@@ -172,7 +172,7 @@ public static partial class MonsterCombat
 
         if (parts.Length != 3 || parts[0].Trim().Length == 0)
         {
-            throw new LodFormatException($"{row} states '{cell}' for a spell, which is not a name, a rung letter, and a skill.");
+            throw new LodFormatException(LodFault.Value, $"{row} states '{cell}' for a spell, which is not a name, a rung letter, and a skill.");
         }
 
         return new MonsterSpellCell(
@@ -188,7 +188,7 @@ public static partial class MonsterCombat
         Match match = SpecialPattern().Match(cell);
         if (!match.Success)
         {
-            throw new LodFormatException($"{row} states '{cell}' for its special attack, which is not a word with an optional strength and count.");
+            throw new LodFormatException(LodFault.Value, $"{row} states '{cell}' for its special attack, which is not a word with an optional strength and count.");
         }
 
         return new MonsterSpecialAttackCell(

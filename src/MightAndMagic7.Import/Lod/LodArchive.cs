@@ -107,7 +107,7 @@ public sealed class LodArchive
 
     /// <summary>Finds an entry by name and fails with a message naming the archive when it is absent.</summary>
     public LodEntry Require(string entryName) =>
-        Find(entryName) ?? throw new LodFormatException($"{Name}: no entry named '{entryName}'.");
+        Find(entryName) ?? throw new LodFormatException(LodFault.Missing, $"{Name}: no entry named '{entryName}'.");
 
     /// <summary>Reads and decodes an entry's payload.</summary>
     public LodPayload Read(string entryName) => Read(Require(entryName));
@@ -166,6 +166,7 @@ public sealed class LodArchive
         if (entry.Offset < 0 || entry.Size < 0 || entry.Offset + entry.Size > _data.LongLength)
         {
             throw new LodFormatException(
+                LodFault.Truncated,
                 $"{Name}: entry '{entry.Name}' runs past the end of the file (offset {entry.Offset}, size {entry.Size}, file {_data.LongLength}).");
         }
 
@@ -199,6 +200,7 @@ public sealed class LodArchive
             if (result.Length != decompressedSize)
             {
                 throw new LodFormatException(
+                    LodFault.Compression,
                     $"{Name}: entry '{entry.Name}' declared {decompressedSize} decompressed bytes but produced {result.Length}.");
             }
 
@@ -206,7 +208,7 @@ public sealed class LodArchive
         }
         catch (InvalidDataException error)
         {
-            throw new LodFormatException($"{Name}: entry '{entry.Name}' is not valid deflate data.", error);
+            throw new LodFormatException(LodFault.Compression, $"{Name}: entry '{entry.Name}' is not valid deflate data.", error);
         }
     }
 
@@ -304,12 +306,12 @@ public sealed class LodArchive
     {
         if (data.Length < HeaderSize + RootEntrySize)
         {
-            throw new LodFormatException($"{name}: too small to be a container ({data.Length} bytes).");
+            throw new LodFormatException(LodFault.Truncated, $"{name}: too small to be a container ({data.Length} bytes).");
         }
 
         if (!data.AsSpan(0, 3).SequenceEqual("LOD"u8))
         {
-            throw new LodFormatException($"{name}: signature is not 'LOD'.");
+            throw new LodFormatException(LodFault.Signature, $"{name}: signature is not 'LOD'.");
         }
 
         string versionString = CString(data.AsSpan(4, 80));
@@ -333,6 +335,7 @@ public sealed class LodArchive
         if (directorySize < (long)rootItemCount * fileEntrySize)
         {
             throw new LodFormatException(
+                LodFault.Truncated,
                 $"{name}: root directory holds {directorySize} bytes, too few for {rootItemCount} entries of {fileEntrySize} bytes.");
         }
 

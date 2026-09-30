@@ -74,7 +74,7 @@ public static class MapDecoder
         {
             ".odm" => MapKind.Outdoor,
             ".blv" => MapKind.Indoor,
-            _ => throw new LodFormatException($"{map.FileName} is not a map file this decoder reads."),
+            _ => throw new LodFormatException(LodFault.Missing, $"{map.FileName} is not a map file this decoder reads."),
         };
 
         // Every shipped map has its delta in the same container under the same stem, and a map decoded
@@ -92,6 +92,7 @@ public static class MapDecoder
         if (!string.Equals(mapStem, deltaStem, StringComparison.OrdinalIgnoreCase))
         {
             throw new LodFormatException(
+                LodFault.Reference,
                 $"'{delta.Entry.Name}' belongs to another map, so it is not the delta of '{payload.Entry.Name}'.");
         }
     }

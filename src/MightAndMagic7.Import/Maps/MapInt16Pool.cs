@@ -38,12 +38,13 @@ internal sealed class MapInt16Pool
     {
         if (count < 0)
         {
-            throw Failure($"'{field}' asks for {count} values from the {_name} pool at 0x{_offset:X}.");
+            throw Failure(LodFault.Count, $"'{field}' asks for {count} values from the {_name} pool at 0x{_offset:X}.");
         }
 
         if (_cursor + count > _values.Length)
         {
             throw Failure(
+                LodFault.Truncated,
                 $"the {_name} pool at 0x{_offset:X} holds {_values.Length} values, but '{field}' needs {count} more after {_cursor}.");
         }
 
@@ -61,9 +62,10 @@ internal sealed class MapInt16Pool
         if (_cursor != _values.Length)
         {
             throw Failure(
+                LodFault.Count,
                 $"the {_name} pool at 0x{_offset:X} holds {_values.Length} values but '{field}' consumed {_cursor}, so the payload does not match the documented layout.");
         }
     }
 
-    private LodFormatException Failure(string message) => new($"{_source}: {message}");
+    private LodFormatException Failure(LodFault fault, string message) => new(fault, $"{_source}: {message}");
 }

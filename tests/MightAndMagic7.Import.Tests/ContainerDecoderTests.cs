@@ -176,10 +176,10 @@ public sealed class ContainerDecoderTests
     {
         // Writing a container whose trap numbers are unknown would state that its chests are harmless, so
         // the emission fails instead of choosing a number.
-        Assert.Throws<LodFormatException>(() => PlaceContainerEmitter.Emit(
+        Assert.Equal(LodFault.Missing, Assert.Throws<LodFormatException>(() => PlaceContainerEmitter.Emit(
             new Dictionary<int, DecodedMap> { [7] = Map(176) },
             [Program(("a", 176, 0))],
-            new Dictionary<int, PlaceMapNumbers>()));
+            new Dictionary<int, PlaceMapNumbers>())).Fault);
     }
 
     [Fact]

@@ -78,7 +78,7 @@ public sealed class ItemTable
 
         if (items.Length != ExpectedRows)
         {
-            throw new LodFormatException($"{table.Source}: expected {ExpectedRows} item rows, read {items.Length}.");
+            throw new LodFormatException(LodFault.Count, $"{table.Source}: expected {ExpectedRows} item rows, read {items.Length}.");
         }
 
         return new ItemTable(table, items);
