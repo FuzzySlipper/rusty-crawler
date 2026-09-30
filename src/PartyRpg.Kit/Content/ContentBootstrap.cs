@@ -1,3 +1,5 @@
+using PartyRpg.Kit.Rulesets;
+
 namespace PartyRpg.Kit.Content;
 
 /// <summary>What a product's content root yielded: the content its selection reads, its bundles, and that selection.</summary>
@@ -45,7 +47,15 @@ public static class ContentBootstrap
     /// <param name="source">Where the content root is read from.</param>
     /// <param name="layout">Where things live inside it.</param>
     /// <param name="requestedBundleId">The bundle the product asks for, or null for none.</param>
-    public static ContentBootstrapResult Load(IContentSource source, ContentLayout layout, string? requestedBundleId)
+    /// <param name="compiledRuleset">
+    /// The ruleset the product was compiled with, which the requested bundle must be assembled for. Without one
+    /// the bundle's ruleset is not compared.
+    /// </param>
+    public static ContentBootstrapResult Load(
+        IContentSource source,
+        ContentLayout layout,
+        string? requestedBundleId,
+        RulesetId? compiledRuleset = null)
     {
         ArgumentNullException.ThrowIfNull(source);
         ContentCatalog catalog = ContentCatalogLoader.Load(source, layout);
@@ -70,6 +80,17 @@ public static class ContentBootstrap
                     requestedBundleId));
             }
 
+            return new ContentBootstrapResult(catalog.Selected([]), bundles, null, issues);
+        }
+
+        // A bundle names the ruleset it was assembled for, and the host plays the one it was compiled with: a
+        // bundle for another ruleset would hand this one content it cannot read, so the two must agree.
+        if (compiledRuleset is { } ruleset && !string.Equals(bundle.Ruleset, ruleset.Value, StringComparison.Ordinal))
+        {
+            issues.Add(new ContentValidationIssue(
+                "bundle-ruleset-mismatch",
+                $"bundle '{bundle.BundleId}' is assembled for ruleset '{bundle.Ruleset}', and the product plays '{ruleset.Value}'.",
+                bundle.BundleId));
             return new ContentBootstrapResult(catalog.Selected([]), bundles, null, issues);
         }
 

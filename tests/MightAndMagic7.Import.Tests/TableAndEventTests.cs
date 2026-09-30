@@ -188,12 +188,23 @@ public sealed class TableAndEventTests
         Assert.Equal(153, instruction.EventId);
         Assert.Equal(EvtOpcodes.MoveToMap, instruction.Opcode);
         Assert.True(instruction.TryReadMoveToMap(out MoveToMapInstruction move));
-        Assert.Equal(2727u, move.X);
-        Assert.Equal(400u, move.Y);
-        Assert.Equal(164u, move.Z);
+        Assert.Equal(2727, move.X);
+        Assert.Equal(400, move.Y);
+        Assert.Equal(164, move.Z);
         Assert.Equal(8, move.ExitPicture);
         Assert.Equal("Out03.odm", move.DestinationMapFile);
         Assert.False(move.IsWithinMap);
+    }
+
+    [Fact]
+    public void A_map_move_below_the_destination_s_zero_height_is_a_negative_height()
+    {
+        // The operator's sewer arrival stands at -511, which an unsigned reading turned into 4294966785.
+        byte[] program = MoveRecord(12, destination: "D05.blv", x: -1024, y: 300, z: -511);
+        EvtInstruction instruction = Assert.Single(EvtProgram.Read("D01.EVT", program).Instructions);
+        Assert.True(instruction.TryReadMoveToMap(out MoveToMapInstruction move));
+        Assert.Equal(-1024, move.X);
+        Assert.Equal(-511, move.Z);
     }
 
     [Fact]
@@ -253,9 +264,9 @@ public sealed class TableAndEventTests
     private static byte[] MoveRecord(
         ushort eventId,
         string destination,
-        uint x = 0,
-        uint y = 0,
-        uint z = 0,
+        int x = 0,
+        int y = 0,
+        int z = 0,
         byte exitPicture = 0)
     {
         byte[] name = System.Text.Encoding.Latin1.GetBytes(destination);
@@ -268,9 +279,9 @@ public sealed class TableAndEventTests
         record[2] = (byte)(eventId >> 8);
         record[3] = 0;
         record[4] = EvtOpcodes.MoveToMap;
-        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(5), x);
-        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(9), y);
-        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(13), z);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(5), x);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(9), y);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(13), z);
         System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(17), 0);
         System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(21), 0);
         System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(25), 0);

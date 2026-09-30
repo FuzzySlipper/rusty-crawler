@@ -87,6 +87,27 @@ public static class ContentCatalogLoader
                     ContentDocument document = ContentDocument.Read(manifest.PackId, declared.Path, source.ReadText(documentPath), issues);
                     documents.Add(document);
 
+                    // What the manifest says a document is and what the document says it is are one fact written
+                    // twice: a reader finds a document by the manifest and reads its entries by the document, so
+                    // two that disagree would file entries under a kind nobody looked for.
+                    if (document.DocumentId.Length > 0 && !string.Equals(document.DocumentId, declared.DocumentId, StringComparison.Ordinal))
+                    {
+                        issues.Add(new ContentValidationIssue(
+                            "document-id-mismatch",
+                            $"the manifest declares '{declared.Path}' as '{declared.DocumentId}' and the document names itself '{document.DocumentId}'.",
+                            manifest.PackId,
+                            declared.DocumentId));
+                    }
+
+                    if (document.DefinitionKind.Length > 0 && !string.Equals(document.DefinitionKind, declared.DefinitionKind, StringComparison.Ordinal))
+                    {
+                        issues.Add(new ContentValidationIssue(
+                            "definition-kind-mismatch",
+                            $"the manifest declares '{declared.Path}' as a '{declared.DefinitionKind}' document and the document says it holds '{document.DefinitionKind}'.",
+                            manifest.PackId,
+                            declared.DocumentId));
+                    }
+
                     if (document.DocumentId.Length > 0 &&
                         !documentOwners.TryAdd(document.DocumentId, manifest.PackId))
                     {

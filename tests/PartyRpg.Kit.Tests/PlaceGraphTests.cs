@@ -81,6 +81,19 @@ public sealed class PlaceGraphTests
     }
 
     [Fact]
+    public void A_destination_below_and_behind_the_origin_arrives_where_it_says()
+    {
+        // A sewer arrival stands below its map's zero height and west of its origin: the pose is the negative
+        // numbers the link states, not wrapped ones.
+        PlaceGraph graph = Load(
+            Places("""{ "id": "1", "kind": "region", "name": "Home" }""", """{ "id": "2", "kind": "interior", "name": "Sewer" }"""),
+            Links("""{ "id": "0", "fromPlace": "1", "toPlace": "2", "x": -1024, "y": 300, "z": -511, "yaw": 0, "pitch": 0 }"""));
+
+        PlaceTransition down = Assert.Single(graph.TransitionsFrom(new PlaceId("1")));
+        Assert.Equal(new PlacePose(-1024, 300, -511, 0, 0), graph.ResolveArrival(down));
+    }
+
+    [Fact]
     public void An_identity_written_as_a_number_and_one_written_as_a_string_mean_the_same_place()
     {
         PlaceGraph graph = Load(

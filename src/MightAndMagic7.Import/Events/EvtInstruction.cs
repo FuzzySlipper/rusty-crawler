@@ -24,13 +24,15 @@ public readonly record struct EvtInstruction(ushort EventId, byte Step, byte Opc
         int terminator = operands[26..].IndexOf((byte)0);
         if (terminator < 0) return false;
 
+        // The six operands are signed, as the donor stores them (OpenEnroth src/Engine/Evt/EvtInstruction.h:127-132):
+        // a destination below a map's zero height is a negative z, not four billion.
         move = new MoveToMapInstruction(
-            BinaryPrimitives.ReadUInt32LittleEndian(operands),
-            BinaryPrimitives.ReadUInt32LittleEndian(operands[4..]),
-            BinaryPrimitives.ReadUInt32LittleEndian(operands[8..]),
-            BinaryPrimitives.ReadUInt32LittleEndian(operands[12..]),
-            BinaryPrimitives.ReadUInt32LittleEndian(operands[16..]),
-            BinaryPrimitives.ReadUInt32LittleEndian(operands[20..]),
+            BinaryPrimitives.ReadInt32LittleEndian(operands),
+            BinaryPrimitives.ReadInt32LittleEndian(operands[4..]),
+            BinaryPrimitives.ReadInt32LittleEndian(operands[8..]),
+            BinaryPrimitives.ReadInt32LittleEndian(operands[12..]),
+            BinaryPrimitives.ReadInt32LittleEndian(operands[16..]),
+            BinaryPrimitives.ReadInt32LittleEndian(operands[20..]),
             operands[24],
             operands[25],
             System.Text.Encoding.Latin1.GetString(operands.Slice(26, terminator)));
@@ -74,12 +76,12 @@ public readonly record struct OpenChestInstruction(byte ContainerId);
 /// <param name="ExitPicture">The exit picture shown while arriving.</param>
 /// <param name="DestinationMapFile">The destination map's file name, empty for a move within the map.</param>
 public readonly record struct MoveToMapInstruction(
-    uint X,
-    uint Y,
-    uint Z,
-    uint Yaw,
-    uint Pitch,
-    uint ZSpeed,
+    int X,
+    int Y,
+    int Z,
+    int Yaw,
+    int Pitch,
+    int ZSpeed,
     byte HouseId,
     byte ExitPicture,
     string DestinationMapFile)

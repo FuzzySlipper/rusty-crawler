@@ -77,6 +77,19 @@ public sealed class ProductCompositionTests
     }
 
     [Fact]
+    public void A_bundle_assembled_for_another_ruleset_stops_the_product_by_name()
+    {
+        (string path, string text) = ProductTestContext.Bundle("partyrpg-default");
+        (ProductCreateContext context, _) = ProductTestContext.Create(
+            (path, text.Replace("\"mightandmagic7\"", "\"mightandmagic6\"", StringComparison.Ordinal)));
+
+        ContentValidationException error = Assert.Throws<ContentValidationException>(() => new CrawlerProduct(context, ProductTestContext.NoVariables));
+
+        ContentValidationIssue issue = Assert.Single(error.Issues, issue => issue.Code == "bundle-ruleset-mismatch");
+        Assert.Contains("'mightandmagic6'", issue.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void A_product_whose_content_has_not_been_generated_yet_still_starts()
     {
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create();

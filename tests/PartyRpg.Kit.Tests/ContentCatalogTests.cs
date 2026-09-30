@@ -28,6 +28,23 @@ public sealed class ContentCatalogTests
     }
 
     [Fact]
+    public void A_document_that_is_not_what_its_manifest_says_is_named_on_both_counts()
+    {
+        // The manifest files it as 'places' of kind 'place'; the document calls itself 'towns' of kind 'town'.
+        InMemoryContentSource source = new InMemoryContentSource()
+            .Add("packs/places/pack.json", Manifest("places", "definitions", documents: Document("places.json", "places", "place")))
+            .Add("packs/places/places.json", """
+                { "documentId": "towns", "definitionKind": "town", "entries": [ { "id": "1", "name": "One" } ] }
+                """);
+
+        ContentCatalog catalog = ContentCatalogLoader.Load(source, Layout);
+
+        Assert.False(catalog.IsValid);
+        Assert.Contains(catalog.Issues, issue => issue.Code == "document-id-mismatch" && issue.Message.Contains("'towns'", StringComparison.Ordinal));
+        Assert.Contains(catalog.Issues, issue => issue.Code == "definition-kind-mismatch" && issue.Message.Contains("'town'", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void A_directory_without_a_manifest_is_named_rather_than_ignored()
     {
         InMemoryContentSource source = new InMemoryContentSource().Add("packs/notes/readme.txt", "not a pack");

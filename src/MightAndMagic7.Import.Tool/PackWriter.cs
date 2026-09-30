@@ -136,7 +136,16 @@ internal static class PackWriter
         // spawn point and the creatures standing on it are one reading of one record rather than two.
         PlaceCreatureSummary creatures = PlaceCreatures.Emit(tables, maps);
 
+        // Each pack this importer owns is written into an empty directory, so a document an earlier importer
+        // wrote and this one does not is not left beside the new ones for the loader to find. Other packs under
+        // the same root — a scenario the operator staged — are not this importer's and are left alone.
         Directory.CreateDirectory(outputRoot);
+        foreach (string pack in new[] { "mm7-world", "mm7-tables" })
+        {
+            string directory = Path.Combine(outputRoot, pack);
+            if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+        }
+
         ((string, int, int) world, PlaceMapSummary mapped) = WriteWorld(
             tables,
             graph,
@@ -1498,7 +1507,7 @@ internal static class PackWriter
         writer.WriteString("description", provenance.Description);
         writer.WriteString("game", provenance.Game);
         writer.WriteString("build", provenance.BuildString);
-        writer.WriteString("producer", "mm7import");
+        writer.WriteString("producer", InstallProvenance.Producer);
         writer.WriteEndObject();
         writer.WriteStartArray("documents");
         foreach ((string path, string documentId, string definitionKind, IReadOnlyList<string> references) in documents)

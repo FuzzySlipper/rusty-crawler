@@ -35,14 +35,23 @@ internal sealed record InstallProvenance(string Game, string Build, string Descr
 
         string containerDigest = Digest(Encoding.UTF8.GetBytes(string.Join('\n', digests)));
         string build = store.Length == 0 ? release : $"{release} ({store})";
+        // Where the installation sits on the operator's disk is not part of what was imported: two operators
+        // with the same data must write the same bytes, so the description names the data and not the path.
         string description =
-            $"Imported from the operator's own installation at {install.Root}: {install.ArchiveNames().Count} containers, " +
+            $"Imported from the operator's own installation: {install.ArchiveNames().Count} containers, " +
             $"{digests.Count} digests, release {release}{(store.Length == 0 ? string.Empty : $", {store}")}.";
         return new InstallProvenance("mightandmagic7", build, description, containerDigest);
     }
 
     /// <summary>The build string a pack records.</summary>
     internal string BuildString => $"{Build} [containers {ContainerDigest[..16]}]";
+
+    /// <summary>
+    /// The importer that wrote the packs: its name and the revision it was built from, which the build stamps
+    /// into the tool's own informational version.
+    /// </summary>
+    internal static string Producer { get; } =
+        $"mm7import {typeof(InstallProvenance).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false).OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion ?? "unversioned"}";
 
     /// <summary>Reads the game's own release line from its readme, when it is there.</summary>
     private static string ReadRelease(string root)

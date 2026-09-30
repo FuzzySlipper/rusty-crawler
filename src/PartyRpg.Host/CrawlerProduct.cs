@@ -145,7 +145,7 @@ public sealed class CrawlerProduct : IEngineProduct
                 ProductIdentity.TurnSkipIntent,
                 ProductIdentity.TurnWaitIntent,
                 ProductIdentity.UiActionContract));
-        (_selection, _content) = SelectBundle(context, bundleId ?? BuiltInBundles.Default);
+        (_selection, _content) = SelectBundle(context, bundleId ?? BuiltInBundles.Default, ruleset.Id);
         _session = CreateSession();
     }
 
@@ -163,12 +163,13 @@ public sealed class CrawlerProduct : IEngineProduct
     /// than starting and meeting the defect later as a missing monster. Content that is absent yields
     /// no selection instead: a checkout whose packs have not been generated yet still runs.
     /// </remarks>
-    private static (BundleSelection Selection, ContentCatalog? Content) SelectBundle(ProductCreateContext context, string bundleId)
+    private static (BundleSelection Selection, ContentCatalog? Content) SelectBundle(ProductCreateContext context, string bundleId, RulesetId ruleset)
     {
         ContentBootstrapResult bootstrap = ContentBootstrap.Load(
             new ProductContentSource(context.Content),
             ContentLayout.Under(ProductIdentity.ContentDirectory),
-            bundleId);
+            bundleId,
+            ruleset);
         if (!bootstrap.IsValid)
         {
             throw new ContentValidationException(

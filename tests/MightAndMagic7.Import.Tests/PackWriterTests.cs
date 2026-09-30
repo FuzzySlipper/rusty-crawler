@@ -92,6 +92,62 @@ public sealed class PackWriterTests
     }
 
     [Fact]
+    public void Two_operators_with_the_same_data_in_different_places_write_the_same_bytes()
+    {
+        // The same data at two paths is two operators: where the installation sits is not what was imported,
+        // so the packs are byte for byte the same and name neither path.
+        string oneOperator = SyntheticInstallation.Create(withMaps: true);
+        string another = SyntheticInstallation.Create(withMaps: true);
+        string first = Path.Combine(Path.GetTempPath(), $"mm7-operator-a-{Guid.NewGuid():N}");
+        string second = Path.Combine(Path.GetTempPath(), $"mm7-operator-b-{Guid.NewGuid():N}");
+        try
+        {
+            PackWriter.Write(LodInstall.Open(oneOperator), first);
+            PackWriter.Write(LodInstall.Open(another), second);
+
+            Assert.True(PackWriter.AreIdentical(first, second), "two installations of the same data produced different bytes");
+            string manifest = File.ReadAllText(Path.Combine(first, "mm7-tables", "pack.json"));
+            Assert.DoesNotContain(oneOperator, manifest, StringComparison.Ordinal);
+            Assert.Contains("\"producer\": \"mm7import ", manifest, StringComparison.Ordinal);
+        }
+        finally
+        {
+            foreach (string directory in new[] { oneOperator, another, first, second })
+            {
+                if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void A_document_an_earlier_import_left_in_a_pack_is_gone_after_the_next()
+    {
+        string installRoot = SyntheticInstallation.Create(withMaps: true);
+        string output = Path.Combine(Path.GetTempPath(), $"mm7-stale-{Guid.NewGuid():N}");
+        try
+        {
+            LodInstall install = LodInstall.Open(installRoot);
+            PackWriter.Write(install, output);
+            string stale = Path.Combine(output, "mm7-tables", "retired.json");
+            File.WriteAllText(stale, "{}");
+            string staged = Path.Combine(output, "a-staged-scenario", "pack.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(staged)!);
+            File.WriteAllText(staged, "{}");
+
+            PackWriter.Write(install, output);
+
+            // The importer's own pack is written afresh, and a pack beside it that is not the importer's is kept.
+            Assert.False(File.Exists(stale));
+            Assert.True(File.Exists(staged));
+        }
+        finally
+        {
+            Directory.Delete(installRoot, recursive: true);
+            if (Directory.Exists(output)) Directory.Delete(output, recursive: true);
+        }
+    }
+
+    [Fact]
     public void An_imported_pack_records_the_game_and_the_build_it_came_from()
     {
         string installRoot = SyntheticInstallation.Create();
@@ -104,7 +160,7 @@ public sealed class PackWriterTests
             Assert.Contains("\"game\": \"mightandmagic7\"", manifest);
             Assert.Contains("\"build\":", manifest);
             Assert.Contains("containers", manifest);
-            Assert.Contains("\"producer\": \"mm7import\"", manifest);
+            Assert.Contains("\"producer\": \"mm7import ", manifest);
         }
         finally
         {
