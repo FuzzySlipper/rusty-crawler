@@ -532,9 +532,6 @@ internal sealed class MightAndMagic7Session : IGameSession
     internal SessionWorld? World => _session.LiveWorld;
 
     /// <inheritdoc />
-    public void PublishInitial() => _session.PublishInitial();
-
-    /// <inheritdoc />
     public ProductUpdateResult Update(ProductUpdate update) => _session.Update(update);
 
     /// <inheritdoc />

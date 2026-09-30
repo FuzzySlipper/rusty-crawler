@@ -308,7 +308,7 @@ public sealed class CreationModeTests
 
         // The panel's party block is the created party's own numbers, and its accepted list is the created
         // members — read from the party being played rather than from the flow that described it.
-        session.PublishWorld();
+        session.Update(Update(11, 0));
         Node published = making.Projections.Latest;
         Assert.True(published.Field("party").Field("present").Flag());
         Assert.Equal(2d, published.Field("party").Field("members").AsNumber());

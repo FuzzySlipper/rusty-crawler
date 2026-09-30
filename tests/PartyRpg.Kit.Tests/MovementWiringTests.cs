@@ -366,6 +366,27 @@ public sealed class MovementSteppingTests
         Assert.Equal([new PlaceId("1"), new PlaceId("2")], mover.Entered);
     }
 
+    [Fact]
+    public void A_destination_whose_ground_the_engine_refuses_leaves_the_party_where_it_stood()
+    {
+        PartyPoseOwner party = Party();
+        RecordingMover mover = new(party) { Refuses = new PlaceId("2") };
+        using SessionWorld world = World(party, mover);
+        PlacePose before = world.Party.PlacePose;
+
+        PlaceTransition outbound = Assert.Single(world.Graph.TransitionsFrom(new PlaceId("1")));
+        TransitionResult refused = world.Travel(outbound, TransitionKind.Walking);
+
+        // The journey is refused by name, the party stands where it stood on the ground it stood on, and the
+        // place it never reached is not marked as visited.
+        Assert.False(refused.Arrived);
+        Assert.Equal("place-ground-refused", refused.Refusal!.Code);
+        Assert.Equal(new PlaceId("1"), world.Place);
+        Assert.Equal(before, world.Party.PlacePose);
+        Assert.Equal([new PlaceId("1"), new PlaceId("2"), new PlaceId("1")], mover.Entered);
+        Assert.False(world.Places.StateOf(new PlaceId("2")).Visited);
+    }
+
     private static PartyPoseOwner Party() => new(
         new PartyPose(new PlaceId("1"), new PlacePose(4, 0, 0, Yaw: 0, Pitch: 0)),
         new FacingRule(unitsPerTurn: 2048, minimumPitch: -512, maximumPitch: 512));
@@ -454,6 +475,9 @@ public sealed class MovementSteppingTests
 
         internal List<PlaceId> Entered { get; } = [];
 
+        /// <summary>A place whose ground the engine refuses, or null when it takes every place's.</summary>
+        internal PlaceId? Refuses { get; set; }
+
         internal FallOutcome Fall { get; set; }
 
         internal bool Grounded { get; set; } = true;
@@ -464,6 +488,7 @@ public sealed class MovementSteppingTests
         public PlaceGeometryAdmission Enter(PlaceId place)
         {
             Entered.Add(place);
+            if (place == Refuses) throw new EngineCallException("Spatial", "ReplaceContentArtifact", 0);
             return PlaceGeometryAdmission.Empty(place);
         }
 

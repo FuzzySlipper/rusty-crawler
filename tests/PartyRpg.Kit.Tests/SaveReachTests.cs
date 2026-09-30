@@ -219,15 +219,14 @@ public sealed class SaveReachTests
         using Fixture fixture = new(store: false);
         fixture.Session.Start();
 
-        // The explicit entry point a caller uses: it reports the loss instead of throwing, and publishes it.
-        SaveSnapshot outcome = fixture.Session.RequestSave();
+        // A player's request reports the loss instead of throwing, and publishes it.
+        fixture.Session.Update(Update(1, 60, Payload("crawler.ui.action.v1", """{"action":"session.save"}""")));
 
-        Assert.False(outcome.Available);
-        Assert.Equal(SaveState.Failed, outcome.State);
-        Assert.Equal("save-unavailable", outcome.Code);
-        Assert.Contains("nowhere to write one", outcome.Message, StringComparison.Ordinal);
-
-        Assert.Equal("failed", fixture.Published().Field("save").Field("state").AsString());
+        ProjectedNode outcome = fixture.Published().Field("save");
+        Assert.False(outcome.Field("available").AsBoolean());
+        Assert.Equal("failed", outcome.Field("state").AsString());
+        Assert.Equal("save-unavailable", outcome.Field("code").AsString());
+        Assert.Contains("nowhere to write one", outcome.Field("message").AsString(), StringComparison.Ordinal);
 
         // The boundary itself still fails loudly for a caller that demanded a write: a product with no
         // persistence must not be able to mistake a refusal for a save.

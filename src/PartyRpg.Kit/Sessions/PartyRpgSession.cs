@@ -252,13 +252,6 @@ public sealed class PartyRpgSession : IGameSession
     }
 
     /// <inheritdoc />
-    public void PublishInitial()
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        Publish();
-    }
-
-    /// <inheritdoc />
     public ProductUpdateResult Update(ProductUpdate update)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -445,9 +438,8 @@ public sealed class PartyRpgSession : IGameSession
     /// receiving admitted updates, and must publish the frozen state it holds rather than the engine's
     /// advancing step counter.
     /// </summary>
-    public void Advance(SessionTick tick)
+    private void Advance(SessionTick tick)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
         _updates++;
         if (_mode == SessionMode.Running)
         {
@@ -545,15 +537,6 @@ public sealed class PartyRpgSession : IGameSession
         JournalSnapshot.From(Journal, Quests, LiveWorld, Clock, Knowledge, Maps),
         MapSnapshot.From(Maps, LiveWorld, _owners.Rules.Magic?.Running));
 
-    /// <summary>Publishes the world as it stands now, after a caller moved the party.</summary>
-    public void PublishWorld()
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        if (LiveWorld is not { } world) return;
-        _world = world.Snapshot;
-        Publish();
-    }
-
     /// <summary>Reads this session into the product's one current save schema, without writing anything.</summary>
     /// <returns>The session as a save records it.</returns>
     /// <exception cref="SessionSaveException">The session holds nothing a load could rebuild, or something a save cannot carry.</exception>
@@ -577,15 +560,5 @@ public sealed class PartyRpgSession : IGameSession
         }
 
         return boundary.Save(this);
-    }
-
-    /// <summary>Saves this session because the player asked for one, and reports what happened.</summary>
-    /// <returns>The save state after the request, which is what the projection now publishes.</returns>
-    public SaveSnapshot RequestSave()
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        _saves.Attempt(this, Clock);
-        Publish();
-        return _saves.State;
     }
 }

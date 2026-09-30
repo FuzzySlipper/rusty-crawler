@@ -241,32 +241,12 @@ public sealed class GameClock : IWorldTimeSource
     /// <returns>The handle the deadline is reported under.</returns>
     public DeadlineId ScheduleAfter(GameDuration delay) => Hold(checked(AbsoluteNow + delay.Milliseconds), null);
 
-    /// <summary>Registers something that should happen at a point on the calendar.</summary>
-    /// <param name="at">The point on the calendar the deadline is due at.</param>
-    /// <returns>The handle the deadline is reported under.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">The calendar does not hold the date, or the clock has already passed it.</exception>
-    public DeadlineId ScheduleAt(GameDate at)
-    {
-        Calendar.RequireValid(at, nameof(at));
-        long due = Calendar.AbsoluteMilliseconds(at);
-        if (due < AbsoluteNow)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(at),
-                at,
-                $"The clock has already passed {at}, so a deadline there would come due at once for a reason the calendar does not show.");
-        }
-
-        return Hold(due, null);
-    }
-
     /// <summary>Registers something that should happen again and again at one interval.</summary>
     /// <remarks>
     /// A repeating deadline fires at most once per advance and re-arms from the moment it fired, so an
     /// advance over a long absence brings it due once — exactly as a place's population is restored once —
     /// instead of firing an unbounded number of times for intervals that were missed while nobody was
-    /// looking. Something that must happen at a point on the calendar rather than after an interval is
-    /// registered with <see cref="ScheduleAt"/> each time it fires.
+    /// looking.
     /// </remarks>
     /// <param name="interval">How much game time passes between firings, which must be more than none.</param>
     /// <param name="firstAfter">How long until the first firing, which is one interval when none is stated.</param>

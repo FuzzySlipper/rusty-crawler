@@ -12,7 +12,7 @@ namespace PartyRpg.Kit.Time;
 /// <para>
 /// Months and years are deliberately absent. In a calendar whose months are all the same length they
 /// would be fixed durations, but a calendar is free to make them differ, and a unit whose length depends
-/// on where it starts is a date to move to, which is what <see cref="GameClock.ScheduleAt"/> is for.
+/// on where it starts is a date to move to rather than a length of time.
 /// </para>
 /// </remarks>
 public enum GameDurationUnit

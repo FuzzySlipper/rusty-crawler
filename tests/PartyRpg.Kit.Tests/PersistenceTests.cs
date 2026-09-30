@@ -196,7 +196,7 @@ public sealed class PersistenceTests
         played.Session.Hold();
         played.Session.Update(Update(6, admitted: 6));
         played.Session.ReleaseHold();
-        played.Session.PublishWorld();
+        played.Session.Update(Update(7, admitted: 0));
         Assert.Empty(played.Store.Writes);
 
         played.Session.Save();

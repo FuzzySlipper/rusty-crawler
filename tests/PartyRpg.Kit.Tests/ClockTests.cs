@@ -411,23 +411,6 @@ public sealed class ClockTests
     }
 
     [Fact]
-    public void A_deadline_registered_for_a_point_on_the_calendar_fires_when_the_clock_reaches_it()
-    {
-        GameClock clock = Clock();
-        DeadlineId opening = clock.ScheduleAt(new GameDate(100, 1, 1, 12, 0));
-
-        Assert.Empty(clock.Advance(GameDuration.FromHours(2)).Due);
-        DeadlineDue due = Assert.Single(clock.Advance(GameDuration.FromHours(1)).Due);
-        Assert.Equal(opening, due.Deadline);
-        Assert.Equal(clock.Now, due.Fired);
-
-        // A point the clock has already passed is refused: what a point in the past would mean is the
-        // caller's to say, and a deadline there would come due at once for a reason the calendar cannot show.
-        Assert.Throws<ArgumentOutOfRangeException>(() => clock.ScheduleAt(new GameDate(100, 1, 1, 9, 0)));
-        Assert.Throws<ArgumentOutOfRangeException>(() => clock.ScheduleAt(new GameDate(100, 13, 1)));
-    }
-
-    [Fact]
     public void A_cancelled_deadline_never_fires()
     {
         GameClock clock = Clock();

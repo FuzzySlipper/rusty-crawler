@@ -45,7 +45,7 @@ public sealed class SessionWorldTests
         Assert.True(arrived.Arrived);
         Assert.Equal(new PlaceId("2"), world.Place);
         Assert.True(world.Places.StateOf(new PlaceId("2")).Visited);
-        session.PublishWorld();
+        session.Update(Admitted.Nothing(1));
         Assert.Equal("2", channel.Latest().Field("world").Field("place").AsString());
         Assert.Equal("interior", channel.Latest().Field("world").Field("kind").AsString());
 

@@ -1,8 +1,5 @@
 using System.Numerics;
-using System.Text;
-using System.Text.Json;
 using PartyRpg.Kit.Combat;
-using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
@@ -12,379 +9,8 @@ using PartyRpg.Kit.Services;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
 using Rusty.Engine;
-using Rusty.Engine.Interaction;
 
 namespace PartyRpg.Kit.Sessions;
-
-/// <summary>
-/// A source of elapsed game time for the world's own bookkeeping.
-/// </summary>
-/// <remarks>
-/// The one clock satisfies this seam, and it is the source a product runs on: a place's population is
-/// restored against the day count the clock reports, so respawn is measured in the same game time travel,
-/// rest, and the admitted update all move. The seam exists so the world asks for a day count rather than
-/// for a clock, which is what lets a test drive respawn with a day source of its own. A world without a
-/// source does not advance, and says so by doing nothing.
-/// </remarks>
-public interface IWorldTimeSource
-{
-    /// <summary>Whole game days elapsed since the session began, day zero being its first day.</summary>
-    int ElapsedGameDays { get; }
-}
-
-/// <summary>
-/// What the party's movement has done so far, as an observation.
-/// </summary>
-/// <remarks>
-/// This is where a fall becomes visible: the movement owner reports what a landing cost and this records
-/// it, because applying it would mean reaching into health the kit does not hold. The party's health
-/// owner applies <see cref="LastFall"/> when it exists; until then a fall past the threshold is reported
-/// here, published as an engine diagnostic, and charged to nobody.
-/// </remarks>
-/// <param name="Last">The last step's outcome, or null before the party has taken one.</param>
-/// <param name="Falls">How many landings went past the tuning's fall threshold.</param>
-public sealed record MovementDiagnostics(MovementOutcome? Last, int Falls)
-{
-    /// <summary>Nothing has moved yet: no step, and no fall.</summary>
-    public static MovementDiagnostics None { get; } = new(null, 0);
-
-    /// <summary>What the last landing cost, or none when the party has not landed past the threshold.</summary>
-    public FallOutcome LastFall => Last?.Fall ?? FallOutcome.None;
-}
-
-/// <summary>
-/// One place's collision geometry, in the engine's own canonical artifact document.
-/// </summary>
-/// <remarks>
-/// The bytes are the engine's document, not a kit format: the engine parses them itself, and everything
-/// between content and that parse copies them unchanged. A kit that re-wrote the document would own a
-/// second copy of the engine's schema and would be the first thing to disagree with it.
-/// </remarks>
-public sealed record PlaceGeometry
-{
-    /// <summary>Creates a place's geometry.</summary>
-    /// <param name="path">The artifact's own path, which identifies it to the engine's content owner.</param>
-    /// <param name="artifact">The artifact document's bytes, exactly as content wrote them.</param>
-    /// <exception cref="ArgumentException">The artifact has no path or no bytes.</exception>
-    public PlaceGeometry(string path, ReadOnlyMemory<byte> artifact)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        if (artifact.Length == 0)
-        {
-            throw new ArgumentException(
-                $"The collision artifact '{path}' carries no bytes, so the place that declares it would be admitted as geometry nobody can walk on.",
-                nameof(artifact));
-        }
-
-        Path = path;
-        Artifact = artifact;
-    }
-
-    /// <summary>The artifact's own path, which identifies it to the engine's content owner.</summary>
-    public string Path { get; }
-
-    /// <summary>The artifact document's bytes, exactly as content wrote them.</summary>
-    public ReadOnlyMemory<byte> Artifact { get; }
-}
-
-/// <summary>Where a place's collision geometry comes from, when the loaded content carries any.</summary>
-public interface IPlaceGeometrySource
-{
-    /// <summary>The place's collision geometry, or null when content provides none for it.</summary>
-    /// <param name="place">The place the party is entering.</param>
-    PlaceGeometry? For(PlaceId place);
-}
-
-/// <summary>
-/// Reads a place's collision geometry out of the content the product loaded.
-/// </summary>
-/// <remarks>
-/// <para>
-/// The definition kind and the artifact property are supplied by whoever owns the content vocabulary, so
-/// this reader stays general while the ruleset keeps naming its own documents. The bytes handed on are
-/// the artifact document exactly as content wrote it — read out of the envelope it arrived in and never
-/// re-serialized, so the engine parses the document the author wrote rather than a copy of it.
-/// </para>
-/// <para>
-/// An entry that exists for a place but carries no artifact document stops the read instead of yielding
-/// nothing: a place whose geometry silently went missing is a party walking through the floor, and that
-/// is worse than a named failure at the moment the party tries to enter.
-/// </para>
-/// </remarks>
-public sealed class ContentPlaceGeometry : IPlaceGeometrySource
-{
-    private readonly ContentCatalog _catalog;
-    private readonly string _definitionKind;
-    private readonly string _artifactProperty;
-
-    /// <summary>Creates the reader.</summary>
-    /// <param name="catalog">The validated content the world was built from.</param>
-    /// <param name="definitionKind">The definition kind whose entries carry places' collision artifacts.</param>
-    /// <param name="artifactProperty">The property of such an entry that holds the engine's artifact document.</param>
-    /// <exception cref="ArgumentNullException">No content catalog was supplied.</exception>
-    /// <exception cref="ArgumentException">A name is missing, so no entry could ever be found.</exception>
-    public ContentPlaceGeometry(ContentCatalog catalog, string definitionKind, string artifactProperty)
-    {
-        ArgumentNullException.ThrowIfNull(catalog);
-        ArgumentException.ThrowIfNullOrWhiteSpace(definitionKind);
-        ArgumentException.ThrowIfNullOrWhiteSpace(artifactProperty);
-        _catalog = catalog;
-        _definitionKind = definitionKind;
-        _artifactProperty = artifactProperty;
-    }
-
-    /// <inheritdoc />
-    /// <exception cref="InvalidOperationException">
-    /// The place's entry declares no artifact document, so the geometry content promised cannot be handed on.
-    /// </exception>
-    public PlaceGeometry? For(PlaceId place)
-    {
-        // An entry id is unique among the entries of its definition kind across the whole root — the
-        // catalog refuses a second entry claiming one — so the first entry whose id is the place is the
-        // only entry that carries this place's geometry.
-        foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in _catalog.Entries(_definitionKind))
-        {
-            if (!string.Equals(entry.Id, place.Value, StringComparison.Ordinal)) continue;
-            if (!entry.Payload.TryGetProperty(_artifactProperty, out JsonElement artifact) ||
-                artifact.ValueKind != JsonValueKind.Object)
-            {
-                throw new InvalidOperationException(
-                    $"Place '{place}' declares collision geometry in '{pack.PackId}/{document.DocumentId}', but its '{_artifactProperty}' is not the engine's artifact document, so the place's collision cannot be admitted.");
-            }
-
-            // The entry's own identity is the artifact's path, so the engine's content owner reports
-            // which pack, document, and entry a retained artifact came from rather than an opaque handle.
-            return new PlaceGeometry(
-                $"{pack.PackId}/{document.DocumentId}/{entry.Id}.json",
-                Encoding.UTF8.GetBytes(artifact.GetRawText()));
-        }
-
-        return null;
-    }
-}
-
-/// <summary>What entering a place did to the movement's collision scene.</summary>
-/// <remarks>
-/// A place that provides no geometry is not an error and not a fallback: it is a place the party can
-/// stand nowhere in, and saying so is what keeps the emptiness visible instead of implied.
-/// </remarks>
-/// <param name="Place">The place whose geometry was asked for.</param>
-/// <param name="Admitted">Whether the engine admitted geometry for it.</param>
-/// <param name="CollisionVertices">How many collision vertices the admitted artifact carried.</param>
-/// <param name="CollisionTriangles">How many collision triangles the admitted artifact carried.</param>
-/// <param name="NavigationCells">How many walkable navigation cells the admitted artifact carried.</param>
-public sealed record PlaceGeometryAdmission(
-    PlaceId Place,
-    bool Admitted,
-    ulong CollisionVertices,
-    ulong CollisionTriangles,
-    ulong NavigationCells)
-{
-    /// <summary>The scene holds nothing for this place: the party stands on nothing in it.</summary>
-    /// <param name="place">The place whose geometry was asked for.</param>
-    public static PlaceGeometryAdmission Empty(PlaceId place) => new(place, false, 0, 0, 0);
-}
-
-/// <summary>
-/// The navigation policy a place's artifact cells are admitted under.
-/// </summary>
-/// <remarks>
-/// The artifact states its own cell size and its cells; the grid identity, the chunking, and how far a
-/// navigation step may climb are the product's policy, and they are stated here in the engine's own
-/// terms rather than being worked out from the artifact.
-/// </remarks>
-/// <param name="GridId">The grid identity the artifact's cells are projected into.</param>
-/// <param name="ChunkSize">How many cells a navigation chunk spans; the engine requires a cubic chunk.</param>
-/// <param name="MaxStepCells">How many cells a navigation step may climb.</param>
-public sealed record PlaceNavigationPolicy(ulong GridId = 0, uint ChunkSize = 16, uint MaxStepCells = 4);
-
-/// <summary>
-/// The party's movement as the world drives it: the collision scene it walks in, the geometry that
-/// belongs to the place it is in, and the one step it takes per admitted interval.
-/// </summary>
-/// <remarks>
-/// Entering and stepping are one collaborator because they are one scene: whoever admits a place's
-/// geometry is whoever resolves the party's steps in it, so the ground the party stands on and the party
-/// standing on it can never be two different scenes.
-/// </remarks>
-public interface IPartyMover : IDisposable
-{
-    /// <summary>
-    /// Releases whatever geometry the scene holds and admits the place's own, which is what makes a
-    /// place's collision belong to that place.
-    /// </summary>
-    /// <param name="place">The place the party is entering.</param>
-    /// <returns>What the scene holds for the place now.</returns>
-    PlaceGeometryAdmission Enter(PlaceId place);
-
-    /// <summary>Moves the party by one step of admitted world time.</summary>
-    /// <param name="intent">What the player asked for this step.</param>
-    /// <param name="elapsedSeconds">The admitted world time the step covers.</param>
-    /// <returns>Where the party ended up and what the engine and the tuning said about it.</returns>
-    MovementOutcome Step(MovementIntent intent, double elapsedSeconds);
-
-    /// <summary>
-    /// Whether nothing solid stands between two points of the place the party is in, in the engine's world
-    /// axes.
-    /// </summary>
-    /// <remarks>
-    /// This is the scene's own line of sight, asked of whoever holds the collision: a use reaches only what
-    /// the party can see, and the answer must come from the geometry the party is actually walking in rather
-    /// than from a second opinion about what is between two points. A mover whose place holds no geometry
-    /// answers that nothing occludes anything, because it holds nothing that could.
-    /// </remarks>
-    /// <param name="from">Where the sight line starts.</param>
-    /// <param name="to">What the party is looking at.</param>
-    /// <returns>Whether the target is in sight.</returns>
-    bool InSight(Vector3 from, Vector3 to);
-}
-
-/// <summary>
-/// The engine-backed party mover: one movement owner, and the collision scene it walks in filled from
-/// the place the party is in.
-/// </summary>
-/// <remarks>
-/// <para>
-/// The geometry path is the engine's own content artifact: bytes content already carries are admitted to
-/// the engine's content owner, and the spatial service resolves and copies them. Nothing here builds
-/// vertices, infers collision from a visual mesh, or synthesizes a document for a place that has none —
-/// a place with no artifact gets an empty scene, and empty is reported as empty.
-/// </para>
-/// <para>
-/// The release on entering is a real engine call with empty collider sets rather than a flag: the scene
-/// the party walks in is the engine's, so leaving the previous place's geometry behind is the engine's
-/// state to be emptied, not the mover's to remember.
-/// </para>
-/// </remarks>
-public sealed class EnginePartyMover : IPartyMover
-{
-    private readonly ISpatialService _spatial;
-    private readonly IContentService _content;
-    private readonly PartyMovement _movement;
-    private readonly IPlaceGeometrySource? _geometry;
-    private readonly PlaceNavigationPolicy _navigation;
-    private bool _filled;
-    private bool _disposed;
-
-    /// <summary>Creates the mover over a party's movement owner.</summary>
-    /// <param name="spatial">The engine service that owns the collision scene and resolves character steps.</param>
-    /// <param name="movement">The party's movement owner, whose scene this fills with places' geometry.</param>
-    /// <param name="content">The engine's content owner, which retains the artifact document a place provides.</param>
-    /// <param name="geometry">Where places' artifacts come from. Without one every place has no geometry.</param>
-    /// <param name="navigation">The navigation policy artifacts are admitted under.</param>
-    /// <exception cref="ArgumentNullException">A required collaborator is missing.</exception>
-    public EnginePartyMover(
-        ISpatialService spatial,
-        PartyMovement movement,
-        IContentService content,
-        IPlaceGeometrySource? geometry = null,
-        PlaceNavigationPolicy? navigation = null)
-    {
-        _spatial = spatial ?? throw new ArgumentNullException(nameof(spatial));
-        _movement = movement ?? throw new ArgumentNullException(nameof(movement));
-        _content = content ?? throw new ArgumentNullException(nameof(content));
-        _geometry = geometry;
-        _navigation = navigation ?? new PlaceNavigationPolicy();
-    }
-
-    /// <summary>What the scene holds for the place the party is in, or null before it entered one.</summary>
-    public PlaceGeometryAdmission? Current { get; private set; }
-
-    /// <summary>
-    /// The collision scene the party walks in and every place's geometry is admitted to, which is the scene
-    /// anything else that walks in the place must be stepped in too.
-    /// </summary>
-    public SpatialSession Session => _movement.Session;
-
-    /// <inheritdoc />
-    /// <exception cref="ObjectDisposedException">The mover has been disposed.</exception>
-    public PlaceGeometryAdmission Enter(PlaceId place)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        if (_geometry?.For(place) is not { } geometry)
-        {
-            // A place with no geometry leaves the scene empty, and emptying it is a real engine call only
-            // when this mover ever filled it: a mover with no geometry source has never handed the scene
-            // anything, and telling the engine to clear a scene it holds nothing in would be work that
-            // changes nothing.
-            if (_filled) Release();
-            Current = PlaceGeometryAdmission.Empty(place);
-            return Current;
-        }
-
-        if (_filled) Release();
-
-        // The reference is released as soon as the engine has resolved and copied the document: the
-        // scene retains its own collision, so nothing downstream depends on the artifact staying
-        // admitted to the content owner.
-        using ContentReference reference = _content.AdmitReference(
-            new ContentAdmissionRequest(geometry.Path, geometry.Artifact, ReadOnlyMemory<ContentSourceFile>.Empty));
-        SpatialContentArtifactReplaceReceipt receipt = _spatial.ReplaceContentArtifact(
-            new SpatialContentArtifactReplaceRequest(
-                _movement.Session,
-                reference,
-                _navigation.GridId,
-                _navigation.ChunkSize,
-                _navigation.MaxStepCells));
-
-        _filled = true;
-        Current = new PlaceGeometryAdmission(
-            place,
-            Admitted: true,
-            receipt.CollisionVertexCount,
-            receipt.CollisionTriangleCount,
-            receipt.NavigationCellCount);
-        return Current;
-    }
-
-    /// <inheritdoc />
-    /// <exception cref="ObjectDisposedException">The mover has been disposed.</exception>
-    public MovementOutcome Step(MovementIntent intent, double elapsedSeconds)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        return _movement.Step(intent, elapsedSeconds);
-    }
-
-    /// <inheritdoc />
-    /// <exception cref="ObjectDisposedException">The mover has been disposed.</exception>
-    public bool InSight(Vector3 from, Vector3 to)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-
-        // The engine's own line-of-sight composition over this mover's spatial session: the collision the
-        // party walks in is the collision it sees through, and the ray carries no entity colliders because
-        // the scene holds none — the population's colliders are not submitted to the spatial session yet.
-        return InteractionVisibilityQuery.Cast(
-            _spatial,
-            _movement.Session,
-            from,
-            to,
-            new SpatialQueryFilter(0, 0),
-            ReadOnlyMemory<SpatialEntityCollider>.Empty,
-            ReadOnlyMemory<ulong>.Empty) == InteractionVisibility.Visible;
-    }
-
-    /// <summary>Releases the engine's spatial session, which destroys its collision scene with it.</summary>
-    public void Dispose()
-    {
-        if (_disposed) return;
-        _disposed = true;
-        _movement.Dispose();
-    }
-
-    /// <summary>Empties the scene, so nothing of the place being left can be stood on.</summary>
-    private void Release()
-    {
-        _spatial.ReplaceCollision(new CollisionReplaceRequest(
-            _movement.Session,
-            ReadOnlyMemory<StaticMeshAsset>.Empty,
-            ReadOnlyMemory<Vector3>.Empty,
-            ReadOnlyMemory<Triangle>.Empty,
-            ReadOnlyMemory<StaticMeshInstance>.Empty));
-        _filled = false;
-        Current = null;
-    }
-}
 
 /// <summary>
 /// The live world inside a session: where the party is, what state each place is in, and the one path
@@ -666,6 +292,8 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
 
         // An arrival the place will not admit is a refusal, not a half-done move: the party stays put and
         // nothing is charged, because a journey nobody took is a journey nobody pays for.
+        PlaceId fromPlace = Party.Place;
+        PlacePose fromPose = Party.PlacePose;
         try
         {
             Party.Enter(result.Place, result.Pose);
@@ -677,8 +305,23 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
                 $"The destination {result.Place} refused the arrival: {error.Message}"));
         }
 
+        // The destination's ground is admitted before anything is charged, for the same reason: an engine that
+        // will not take the place's collision leaves the party back where it stood, on the ground it stood on,
+        // with its time and its provisions as they were.
+        try
+        {
+            EnterPlace(result.Place);
+        }
+        catch (EngineCallException error)
+        {
+            Party.Enter(fromPlace, fromPose);
+            EnterPlace(fromPlace);
+            return TransitionResult.Refused(kind, fromPlace, fromPose, new TravelRefusal(
+                "place-ground-refused",
+                $"The engine would not admit the ground of {result.Place}, so the party stayed where it stood: {error.Message}"));
+        }
+
         Charge(result.ChargedCost);
-        EnterPlace(result.Place);
         Places.MarkVisited(result.Place);
         return result;
     }

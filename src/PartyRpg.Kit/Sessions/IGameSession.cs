@@ -26,9 +26,6 @@ public interface IGameSession : IDisposable
     /// <summary>Releases the player's hold. An engine pause is not released by this call.</summary>
     void ReleaseHold();
 
-    /// <summary>Publishes the current presentation, for a fresh attachment or an explicit repaint.</summary>
-    void PublishInitial();
-
     /// <summary>Advances the session inside the engine-admitted update and republishes its presentation.</summary>
     ProductUpdateResult Update(ProductUpdate update);
 }

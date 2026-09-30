@@ -1,5 +1,6 @@
 using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
+using Rusty.Engine;
 using Xunit;
 
 namespace PartyRpg.Kit.Tests;
@@ -10,7 +11,7 @@ public sealed class SessionShellTests
     private static readonly SessionComposition Composition = new(new RulesetId("test.ruleset"), "Test Ruleset");
     private const double StepSeconds = 1.0 / 60.0;
 
-    private static SessionTick Tick(ulong step, uint admitted = 1) => new(step, admitted, StepSeconds);
+    private static ProductUpdate Tick(ulong step, uint admitted = 1) => Admitted.Update(step, admitted);
 
     private static PartyRpgSession Started(out RecordingUiProjectionChannel channel)
     {
@@ -40,7 +41,7 @@ public sealed class SessionShellTests
     {
         using PartyRpgSession session = Started(out RecordingUiProjectionChannel channel);
 
-        for (ulong step = 0; step < 600; step++) session.Advance(Tick(step));
+        for (ulong step = 0; step < 600; step++) session.Update(Tick(step));
 
         ProjectedNode root = channel.Latest();
         Assert.Equal("test.ruleset", root.Field("composition").Field("ruleset").AsString());
@@ -62,7 +63,7 @@ public sealed class SessionShellTests
         ulong step = 0;
         foreach (uint admitted in new uint[] { 1, 1, 4, 2, 1, 4, 4, 1, 3 })
         {
-            session.Advance(Tick(step, admitted));
+            session.Update(Tick(step, admitted));
             step += admitted;
             Assert.Equal(session.AdmittedSteps * StepSeconds, session.SimulationSeconds, 9);
         }
@@ -72,13 +73,13 @@ public sealed class SessionShellTests
     public void A_held_session_freezes_its_measurements_while_updates_keep_arriving()
     {
         using PartyRpgSession session = Started(out RecordingUiProjectionChannel channel);
-        for (ulong step = 0; step < 600; step++) session.Advance(Tick(step));
+        for (ulong step = 0; step < 600; step++) session.Update(Tick(step));
         Assert.Equal(10.0, session.SimulationSeconds, 3);
         Assert.Equal(600ul, session.AdmittedSteps);
 
         session.Hold();
         int publishedBeforeHold = channel.Count;
-        session.Advance(Tick(600));
+        session.Update(Tick(600));
 
         Assert.Equal(SessionMode.Paused, session.Mode);
         Assert.Equal(10.0, session.SimulationSeconds, 3);
@@ -89,12 +90,12 @@ public sealed class SessionShellTests
         // published seconds stay equal to the published steps, which is what proves the gap between
         // step 600 and step 700 was excluded.
         session.ReleaseHold();
-        session.Advance(Tick(700));
+        session.Update(Tick(700));
         Assert.Equal(601ul, session.AdmittedSteps);
         Assert.Equal(10.0 + StepSeconds, session.SimulationSeconds, 9);
         Assert.Equal(session.AdmittedSteps * StepSeconds, session.SimulationSeconds, 9);
 
-        session.Advance(Tick(701));
+        session.Update(Tick(701));
         Assert.Equal(602ul, session.AdmittedSteps);
         Assert.Equal(10.0 + (2 * StepSeconds), session.SimulationSeconds, 9);
         Assert.Equal(session.AdmittedSteps * StepSeconds, session.SimulationSeconds, 9);
@@ -158,7 +159,7 @@ public sealed class SessionShellTests
         Assert.Equal(SessionMode.Stopped, session.Mode);
         Assert.Equal(published + 1, channel.Count);
         Assert.Equal("stopped", channel.Latest().Field("session").Field("mode").AsString());
-        Assert.Throws<ObjectDisposedException>(() => session.Advance(Tick(1)));
+        Assert.Throws<ObjectDisposedException>(() => session.Update(Tick(1)));
         Assert.Throws<ObjectDisposedException>(() => session.Start());
     }
 }

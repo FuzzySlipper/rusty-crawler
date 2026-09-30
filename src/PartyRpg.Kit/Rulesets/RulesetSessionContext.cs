@@ -35,7 +35,6 @@ public enum SessionStart
 /// <param name="Projection">Where the session publishes its presentation.</param>
 /// <param name="Selection">The game bundle the host selected, when it selected one.</param>
 /// <param name="Content">The validated content the session may build its world from, when a bundle supplied any.</param>
-/// <param name="Time">Where elapsed game days come from, when a clock has been wired.</param>
 /// <param name="Engine">
 /// The engine's services, when the host is running inside one. A ruleset that composes movement needs
 /// more than one of them — the spatial service owns collision and resolves the party's steps, and the
@@ -114,7 +113,6 @@ public sealed record RulesetSessionContext(
     IUiProjectionChannel Projection,
     BundleSelection Selection = default,
     ContentCatalog? Content = null,
-    IWorldTimeSource? Time = null,
     IEngineContext? Engine = null,
     MovementIntentNames? Movement = null,
     CreationIntentNames? Creation = null,

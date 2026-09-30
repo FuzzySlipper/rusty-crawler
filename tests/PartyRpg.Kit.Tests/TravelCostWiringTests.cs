@@ -322,14 +322,14 @@ public sealed class TravelCostWiringTests
         // What the party is charged shows up in the same place the panel reads from, rather than in a
         // projection-only number: two portions out of three leaves it fed.
         Assert.True(world.Travel(Link("edge"), TransitionKind.Entrance).Arrived);
-        session.PublishWorld();
+        session.Update(Admitted.Nothing(1));
         Assert.Equal(1d, channel.Latest().Field("party").Field("provisions").AsNumber());
         Assert.Equal(string.Empty, channel.Latest().Field("party").Field("conditions").AsString());
 
         // A second journey spends the last portion short of the day it costs, and the weakness the larder
         // rule states is what the panel then shows.
         Assert.True(world.Travel(Link("back"), TransitionKind.Entrance).Arrived);
-        session.PublishWorld();
+        session.Update(Admitted.Nothing(2));
         Assert.Equal(0d, channel.Latest().Field("party").Field("provisions").AsNumber());
         Assert.Equal("weak (1)", channel.Latest().Field("party").Field("conditions").AsString());
     }
