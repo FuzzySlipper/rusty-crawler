@@ -619,7 +619,7 @@ public sealed class ConversationTests
                 graph,
                 owner,
                 new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()),
-                new FreeCostRule(),
+                new FreeTravel(),
                 time: clock,
                 mover: mover ? new WalkingMover(owner) : null,
                 diagnostics: diagnostics,
@@ -691,11 +691,5 @@ public sealed class ConversationTests
         public void Dispose()
         {
         }
-    }
-
-    /// <summary>A world where nothing is charged for walking, so a test's coins stay where they are.</summary>
-    private sealed class FreeCostRule : ITravelCostRule
-    {
-        public TravelCostQuote Quote(TransitionRequest request) => TravelCostQuote.Payable(TravelCost.Free);
     }
 }

@@ -512,7 +512,7 @@ public sealed class SpellEffectPolicyTests
         Assert.Equal(value, Fact(magic, name));
 
     /// <summary>How much real time one game second passes in, which is this game's own rate.</summary>
-    private const int GameSecondsPerRealSecond = 30;
+    private static readonly int GameSecondsPerRealSecond = (int)MightAndMagic7Time.Scale.GameSecondsPerRealSecond;
 
     private static readonly CastIntentNames CastControls = new(
         Declared.UiActionContract);

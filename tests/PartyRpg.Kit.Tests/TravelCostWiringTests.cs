@@ -44,7 +44,7 @@ public sealed class TravelCostWiringTests
     {
         GameClock clock = TestClock.Create();
         using PartyEntity party = Party(foodPortions: 6);
-        using SessionWorld world = World(clock, Ledger(party), new TestCostRule());
+        using SessionWorld world = World(clock, Ledger(party), new PricedTravel());
 
         // Walking is free here, and a free journey charges nothing at all — not a zero-cost charge that
         // still spends a day's food.
@@ -70,7 +70,7 @@ public sealed class TravelCostWiringTests
     {
         GameClock clock = TestClock.Create();
         using PartyEntity party = Party(foodPortions: 6);
-        TestCostRule rule = new() { Refuse = true };
+        PricedTravel rule = new() { Refuse = true };
         using SessionWorld world = World(clock, Ledger(party), rule);
         PlacePose before = world.Party.PlacePose;
 
@@ -92,7 +92,7 @@ public sealed class TravelCostWiringTests
     {
         GameClock clock = TestClock.Create();
         using PartyEntity party = Party(foodPortions: 1, memberCount: 2);
-        using SessionWorld world = World(clock, Ledger(party), new TestCostRule());
+        using SessionWorld world = World(clock, Ledger(party), new PricedTravel());
 
         // Two portions quoted, one in the larder: the day is spent down to empty and the party carries the
         // shortfall rather than the road being cancelled, which is what the donor's food store does.
@@ -113,7 +113,7 @@ public sealed class TravelCostWiringTests
     {
         using RecordingUiProjectionChannel channel = new();
         GameClock clock = TestClock.Create();
-        using SessionWorld world = World(clock, null, new TestCostRule());
+        using SessionWorld world = World(clock, null, new PricedTravel());
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
@@ -148,7 +148,7 @@ public sealed class TravelCostWiringTests
     {
         GameClock clock = TestClock.Create();
         using PartyEntity party = Party(foodPortions: 6);
-        TestCostRule rule = new()
+        PricedTravel rule = new()
         {
             Crossing = new TravelCost(new TravelTime(3, TravelTimeUnit.Days), new Provisions(3, ProvisionUnit.Portions)),
         };
@@ -178,7 +178,7 @@ public sealed class TravelCostWiringTests
             graph,
             pose,
             new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()),
-            new TestCostRule(),
+            new PricedTravel(),
             mover: new FallingMover(pose, new FallOutcome(Distance: 600, Excess: 88, Damage: 0)),
             partyEntity: party,
             falls: new TenthOfEveryone());
@@ -220,7 +220,7 @@ public sealed class TravelCostWiringTests
         GameClock clock = TestClock.Create();
         PartyPoseOwner pose = Pose();
         RecordingMover mover = RecordingMover.Stepping(pose);
-        using SessionWorld world = World(clock, null, new TestCostRule(), mover: mover, pose: pose);
+        using SessionWorld world = World(clock, null, new PricedTravel(), mover: mover, pose: pose);
         MovementInput input = new(Names, turnRatePerSecond: 512);
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
@@ -257,7 +257,7 @@ public sealed class TravelCostWiringTests
         using RecordingUiProjectionChannel channel = new();
         RecordingDiagnosticsService diagnostics = new();
         GameClock clock = TestClock.Create();
-        using SessionWorld world = World(clock, null, new TestCostRule());
+        using SessionWorld world = World(clock, null, new PricedTravel());
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
@@ -281,7 +281,7 @@ public sealed class TravelCostWiringTests
 
         // A world with neither a clock nor a party: the cost rule still quotes a journey, and the quote has
         // no owner to reach, so the world says so instead of letting the journey look free.
-        using SessionWorld world = World(clock: null, ledger: null, new TestCostRule(), diagnostics);
+        using SessionWorld world = World(clock: null, ledger: null, new PricedTravel(), diagnostics);
 
         Assert.True(world.Travel(Link("edge"), TransitionKind.Entrance).Arrived);
         Assert.Equal(
@@ -295,7 +295,7 @@ public sealed class TravelCostWiringTests
         using RecordingUiProjectionChannel channel = new();
         GameClock clock = TestClock.Create();
         using PartyEntity party = Party(foodPortions: 3, coins: 42, reputation: 5, fame: 2);
-        using SessionWorld world = World(clock, Ledger(party), new TestCostRule());
+        using SessionWorld world = World(clock, Ledger(party), new PricedTravel());
         using PartyRpgSession session = new(
             new SessionComposition(new RulesetId("test.ruleset"), "Test"),
             channel,
@@ -443,7 +443,7 @@ public sealed class TravelCostWiringTests
         ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
 
     /// <summary>The cost contract as this suite states it: walking is free, anything else is a journey.</summary>
-    private sealed class TestCostRule : ITravelCostRule
+    private sealed class PricedTravel : ITravelCostRule
     {
         /// <summary>What a quoted journey costs; a test may state its own days and provisions.</summary>
         internal TravelCost Crossing { get; init; } =

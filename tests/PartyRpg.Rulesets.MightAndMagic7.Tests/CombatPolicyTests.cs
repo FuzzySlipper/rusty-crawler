@@ -32,6 +32,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7.Tests;
 public sealed class CombatPolicyTests
 {
     [Fact]
+    [Trait(Pins.Trait, Pins.Tuning)]
     public void A_creature_the_content_places_is_hostile_on_sight_and_the_party_acts_by_recovery()
     {
         (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(
@@ -59,36 +60,37 @@ public sealed class CombatPolicyTests
         Assert.Equal("A beast", enemy.Field("name").AsString());
         Assert.Equal(100d, enemy.Field("distance").AsNumber());
 
-        // A creature's first recovery is drawn inside the row's own, which the donor's two constants make
-        // 23.437 seconds of game time: one tick is 1000/128 of a real second and a real second is thirty game
-        // seconds, so the row's hundred ticks are that long and no first recovery is longer.
-        Assert.InRange(enemy.Field("recoverySeconds").AsNumber(), 0, 23.437);
+        // A creature's first recovery is drawn inside the row's own, which the donor's tick and this game's time
+        // scale make a little over twenty-three seconds of game time: one tick is 1000/128 of a real second and a
+        // real second is thirty game seconds, so the row's hundred ticks are that long and no first recovery is
+        // longer.
+        Assert.InRange(enemy.Field("recoverySeconds").AsNumber(), 0, RowRecoverySeconds(100));
 
         // The act control orders the party to attack: both members act, each pays its own recovery, and the
         // panel shows which of them may still act. What each pays is the donor's character recovery: a
         // character holding nothing swings on the staff's hundred ticks less the speed bonus its Speed
         // attribute is worth — two ticks at seventeen, five at twenty-five — which is the whole of the sum
         // this build can read, because a party cannot wear anything yet.
-        session.Update(RulesetTestContext.Update(++step, 1, Digital(Declared.AttackIntent)));
+        session.Update(RulesetTestContext.Update(++step, 1, RulesetTestContext.Digital(Declared.AttackIntent)));
         combat = ProjectedNode.Of(ui.Latest().Value).Field("combat");
         Assert.Equal("applied", combat.Field("outcome").AsString());
         Assert.Equal(0d, combat.Field("ready").AsNumber());
         Assert.Contains("attacks A beast", combat.Field("message").AsString(), StringComparison.Ordinal);
-        Assert.Equal(22.969, combat.Field("members").Item(0).Field("recoverySeconds").AsNumber(), 3);
-        Assert.Equal(22.266, combat.Field("members").Item(1).Field("recoverySeconds").AsNumber(), 3);
+        Assert.Equal(RowRecoverySeconds(100 - 2), combat.Field("members").Item(0).Field("recoverySeconds").AsNumber(), 3);
+        Assert.Equal(RowRecoverySeconds(100 - 5), combat.Field("members").Item(1).Field("recoverySeconds").AsNumber(), 3);
         Assert.False(combat.Field("members").Item(0).Field("ready").AsBoolean());
 
         // Letting go of the control and asking again while everybody recovers is refused by name rather than
         // quietly doing nothing.
-        session.Update(RulesetTestContext.Update(++step, 1, Released(Declared.AttackIntent)));
-        session.Update(RulesetTestContext.Update(++step, 1, Digital(Declared.AttackIntent)));
+        session.Update(RulesetTestContext.Update(++step, 1, Admitted.Released(Declared.AttackIntent)));
+        session.Update(RulesetTestContext.Update(++step, 1, RulesetTestContext.Digital(Declared.AttackIntent)));
         combat = ProjectedNode.Of(ui.Latest().Value).Field("combat");
         Assert.Equal("refused", combat.Field("outcome").AsString());
         Assert.Equal("recovering", combat.Field("code").AsString());
 
         // And game time is what releases them: let go of the control, hold the world for thirty game
         // seconds, and the party is ready again — which is more than the twenty-three seconds a swing costs.
-        session.Update(RulesetTestContext.Update(++step, 1, Released(Declared.AttackIntent)));
+        session.Update(RulesetTestContext.Update(++step, 1, Admitted.Released(Declared.AttackIntent)));
         for (int index = 0; index < 60; index++) session.Update(RulesetTestContext.Update(++step, 1));
         Assert.Equal(2d, ProjectedNode.Of(ui.Latest().Value).Field("combat").Field("ready").AsNumber());
     }
@@ -176,11 +178,19 @@ public sealed class CombatPolicyTests
         Assert.Equal(10.0, first, 3);
 
         // A draw past the row's own recovery is clamped to it rather than lengthening it: the row's hundred
-        // ticks are the most a creature of this row can owe before its first action.
-        // The row's hundred ticks are 23437.5 milliseconds of game time, rounded to the millisecond the
-        // kit counts in, and a draw past them is clamped to exactly that.
-        Assert.Equal(23.438, FirstRecoverySeconds(roll: 999_999), 3);
+        // ticks are the most a creature of this row can owe before its first action, and a draw past them is
+        // clamped to exactly that.
+        Assert.Equal(RowRecoverySeconds(100), FirstRecoverySeconds(roll: 999_999), 3);
     }
+
+    /// <summary>
+    /// What a row's recovery of so many ticks is in game seconds, rounded to the millisecond the kit counts in:
+    /// the donor's tick rate and this game's time scale, read from where the ruleset states them.
+    /// </summary>
+    private static double RowRecoverySeconds(int ticks) =>
+        Math.Round(
+            ticks * 1000d / MightAndMagic7Combat.TicksPerRealSecond * MightAndMagic7Time.Scale.GameSecondsPerRealSecond,
+            MidpointRounding.AwayFromZero) / 1000d;
 
     /// <summary>The first recovery a creature of a staged world is seen with, for one roll of the engine's service.</summary>
     private static double FirstRecoverySeconds(long roll)
@@ -202,18 +212,15 @@ public sealed class CombatPolicyTests
             .AsNumber();
     }
 
-    /// <summary>What this game's own recovery answers are worth, read from the policy the product composes.</summary>
     [Fact]
-    public void This_games_recovery_answers_are_the_donors_own_numbers()
+    public void Composing_this_games_combat_reads_every_monster_row_the_catalog_states()
     {
         ContentCatalog catalog = Catalog([.. World(monsterAt: 100), Monsters(hostility: 2, recovery: 100), PartyDocument()]);
-        Assert.NotNull(catalog);
         Assert.Equal(1, MightAndMagic7Combat.Compose(catalog, random: null).MonsterCount);
     }
 
-
     [Fact]
-    public void An_attack_resolves_into_the_donors_own_damage_and_the_rows_own_resistance()
+    public void The_hit_chance_is_the_donors_own_test_and_no_resistance_moves_it()
     {
         // The chance is the donor's own test, stated here independently of the code that computes it
         // (OpenEnroth src/Engine/Objects/Character.cpp:6263-6300): the roll is uniform over the target's
@@ -228,6 +235,7 @@ public sealed class CombatPolicyTests
 
     /// <summary>What one blow of a character's own hand does through a row's resistance, step by step.</summary>
     [Fact]
+    [Trait(Pins.Trait, Pins.Tuning)]
     public void A_resistant_target_takes_measurably_less_and_an_immune_one_takes_none()
     {
         // A character's own hand against a stated monster row: a level-two creature of five points of armour
@@ -258,6 +266,7 @@ public sealed class CombatPolicyTests
 
     /// <summary>What one monster blow of a row's own dice does to a character, read from the panel.</summary>
     [Fact]
+    [Trait(Pins.Trait, Pins.Tuning)]
     public void A_monsters_blow_rolls_its_rows_own_dice_against_a_character()
     {
         // The row's `2D8+10` against a character wearing nothing: the service answers its maximum per die, so
@@ -373,7 +382,7 @@ public sealed class CombatPolicyTests
         using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(RulesetTestContext.RulesetContext(context, ui, combat: true));
         session.Start();
         session.Update(RulesetTestContext.Update(1, 1));
-        session.Update(RulesetTestContext.Update(2, 1, Digital(Declared.AttackIntent)));
+        session.Update(RulesetTestContext.Update(2, 1, RulesetTestContext.Digital(Declared.AttackIntent)));
 
         ProjectedNode combat = ProjectedNode.Of(ui.Latest().Value).Field("combat");
         Assert.True(combat.Field("resolved").AsBoolean());
@@ -563,12 +572,6 @@ public sealed class CombatPolicyTests
             """);
 
 
-
-    /// <summary>One digital event on the act control, as the engine admits a key.</summary>
-    private static ProductInputEvent Digital(string intent) => RulesetTestContext.Digital(intent);
-
-    /// <summary>The key coming back up, which is what ends a held control.</summary>
-    private static ProductInputEvent Released(string intent) => RulesetTestContext.Digital(intent, InputEdge.Released);
 
     private static ContentCatalog Catalog((string Path, string Text)[] files)
     {

@@ -599,7 +599,7 @@ public sealed class InteractionTests
                 graph,
                 owner,
                 new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()),
-                new TestCostRule(),
+                new FaresRefusedTravel(),
                 time: time,
                 mover: mover,
                 resources: party is null ? null : new PartyResourceLedger(party),
@@ -637,14 +637,5 @@ public sealed class InteractionTests
     private sealed class FakeTimeSource : IWorldTimeSource
     {
         public int ElapsedGameDays { get; set; }
-    }
-
-    /// <summary>Walking is free; anything paid is refused by name, which is what a purse-less party sees.</summary>
-    private sealed class TestCostRule : ITravelCostRule
-    {
-        public TravelCostQuote Quote(TransitionRequest request) =>
-            request.Kind is TransitionKind.PaidService
-                ? TravelCostQuote.Refused(new Refusal("test-unaffordable", "the party has no purse yet"))
-                : TravelCostQuote.Payable(TravelCost.Free);
     }
 }

@@ -284,6 +284,7 @@ public sealed class ServiceKindPolicyTests
     }
 
     [Fact]
+    [Trait(Pins.Trait, Pins.Tuning)]
     public void A_bank_keeps_the_party_s_coins_and_gives_them_back()
     {
         using Fixture fixture = Fixture.Build();
@@ -315,6 +316,7 @@ public sealed class ServiceKindPolicyTests
     }
 
     [Fact]
+    [Trait(Pins.Trait, Pins.Tuning)]
     public void A_stable_sells_a_passage_and_the_paid_travel_path_honours_it()
     {
         using Fixture fixture = Fixture.Build();

@@ -245,6 +245,7 @@ public sealed class ProgressionPolicyTests
     }
 
     [Fact]
+    [Trait(Pins.Trait, Pins.Tuning)]
     public void An_award_divides_by_the_donor_s_rule_and_the_learning_skill_raises_a_member_s_share()
     {
         using PartyEntity party = PartyOfTwo(learning: "Aelina");

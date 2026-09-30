@@ -101,13 +101,13 @@ public sealed class SessionWorldDiagnosticsTests
         PlaceGraph graph = PlaceGraphLoader.Load(
             Catalog(links: ["""{ "id": "coach", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start", "fare": true, "route": "coach" }"""]),
             new Routes());
-        using SessionWorld world = FareWorld(graph, party, new RefusingPaidTravel(), diagnostics);
+        using SessionWorld world = FareWorld(graph, party, new FaresRefusedTravel(), diagnostics);
         party.Passages.Hold(Cave, 2);
 
         TransitionResult refused = world.Board(Cave);
 
         Assert.False(refused.Arrived);
-        Assert.Equal("test-refused", refused.Refusal!.Code);
+        Assert.Equal(FaresRefusedTravel.RefusalCode, refused.Refusal!.Code);
         Assert.Equal(Home, world.Place);
         DiagnosticsPublishRequest reported = Assert.Single(diagnostics.Published);
         Assert.Equal("fare-refused", reported.Code);
@@ -195,14 +195,6 @@ public sealed class SessionWorldDiagnosticsTests
     private sealed class Routes : IFareDurationRule
     {
         public int? DaysOf(PlaceId? from, PlaceId to, string route) => route is "coach" or "caravan" ? 2 : null;
-    }
-
-    /// <summary>A cost rule that refuses travel bought from a counter and prices everything else at nothing.</summary>
-    private sealed class RefusingPaidTravel : ITravelCostRule
-    {
-        public TravelCostQuote Quote(TransitionRequest request) => request.Kind == TransitionKind.PaidService
-            ? TravelCostQuote.Refused(new Refusal("test-refused", "This suite refuses travel bought from a counter."))
-            : TravelCostQuote.Payable(TravelCost.Free);
     }
 
     /// <summary>A door that opens once and refuses to open again while it stands open.</summary>

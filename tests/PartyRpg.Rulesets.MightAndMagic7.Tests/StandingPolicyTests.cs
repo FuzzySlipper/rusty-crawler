@@ -50,6 +50,7 @@ public sealed class StandingPolicyTests
         Declared.UiActionContract);
 
     [Fact]
+    [Trait(Pins.Trait, Pins.Tuning)]
     public void The_bands_are_the_donor_s_own_words_at_the_donor_s_own_edges()
     {
         // The five words are the donor's own (OpenEnroth src/GUI/UI/UIGame.cpp:1645-1654,

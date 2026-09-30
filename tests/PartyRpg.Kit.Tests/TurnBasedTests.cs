@@ -138,11 +138,6 @@ public sealed class TurnBasedTests
         // so the order is the members in roster order and then the creatures by how much they owe.
         Assert.Equal(["Member 1", "Member 2", "quick", "slow"], combat.Turns.Order.Select(entry => entry.Name));
 
-        // Re-read: the same state states the same order, and nothing about it was drawn or remembered.
-        Assert.Equal(
-            combat.Turns.Order.Select(entry => entry.Id),
-            combat.Turns.Order.Select(entry => entry.Id));
-
         // Time moves one actor at a time and the order follows the quantity each actor holds: the member that
         // has spent its action is behind the creature that has not acted yet.
         Assert.True(combat.Engage(combat.Combatants[0].Id).IsApplied);
@@ -585,43 +580,41 @@ public sealed class TurnBasedTests
     }
 
     [Fact]
-    public void The_same_fight_produces_the_same_turns_and_the_same_rolls_in_either_pacing()
+    public void The_same_fight_produces_the_same_rolls_in_either_pacing()
     {
-        // The first blow of the same seeded fight, played twice in each pacing: nothing about the pacing adds
-        // a draw, so the attack a member makes is the attack it would have made in real time.
-        string realTime = FirstBlow(CombatPacing.RealTime);
-        Assert.Equal(realTime, FirstBlow(CombatPacing.RealTime));
-        string paced = FirstBlow(CombatPacing.TurnBased);
-        Assert.Equal(paced, FirstBlow(CombatPacing.TurnBased));
-        Assert.Contains("hit=True", paced, StringComparison.Ordinal);
-        Assert.Contains("damage=6", paced, StringComparison.Ordinal);
+        // The first blow of the same seeded fight, played once in each pacing, under a rule whose chance and dice are
+        // drawn from the engine's keyed service: nothing about the pacing adds, drops, or renames a draw, so the
+        // attack a member makes in rounds is the attack it would have made in real time, draw for draw.
+        (string realTime, IReadOnlyList<string> realTimeKeys) = FirstBlow(CombatPacing.RealTime);
+        (string paced, IReadOnlyList<string> pacedKeys) = FirstBlow(CombatPacing.TurnBased);
 
-        // And a paced fight's order is the same order twice, read from the same state.
-        using PartyEntity party = Party(members: 2);
-        using SessionWorld world = World(party, quickAt: 120, slowAt: 200);
-        CombatState combat = Fight(world, party, new Bodies());
-        Arrive(world);
-        combat.Step();
-        combat.TogglePacing();
-        Assert.Equal(
-            combat.Turns.Order.Select(entry => $"{entry.Name}:{entry.Remaining.Milliseconds}"),
-            combat.Turns.Order.Select(entry => $"{entry.Name}:{entry.Remaining.Milliseconds}"));
+        Assert.NotEmpty(realTimeKeys);
+        Assert.Equal(realTimeKeys, pacedKeys);
+        Assert.Equal(realTime, paced);
+
+        // The blow is the draws' own: the chance and the dice are rolled rather than stated, so a pacing that drew
+        // under other keys would have landed another blow.
+        Assert.Contains(realTimeKeys, key => key.EndsWith("/hit", StringComparison.Ordinal));
+        Assert.StartsWith("hit=", realTime, StringComparison.Ordinal);
     }
 
-    /// <summary>One seeded fight's first blow, read after the pacing it was played in was set.</summary>
-    private static string FirstBlow(CombatPacing pacing)
+    /// <summary>One seeded fight's first blow, read after the pacing it was played in was set, with the keys it drew.</summary>
+    private static (string Blow, IReadOnlyList<string> Keys) FirstBlow(CombatPacing pacing)
     {
         using PartyEntity party = Party(members: 1);
         using SessionWorld world = World(party, quickAt: 120);
-        CombatState combat = Fight(world, party, new Bodies(), new SeededRandom());
+        SeededRandom random = new();
+        CombatState combat = Fight(world, party, new Bodies(), random);
         Arrive(world);
         combat.Step();
         if (pacing == CombatPacing.TurnBased) combat.TogglePacing();
+        Assert.Equal(pacing, combat.Pacing);
         combat.Engage(combat.Combatants[0].Id);
         CombatResolution? resolution = combat.LastResolution;
-        return resolution is null
+        string blow = resolution is null
             ? "no resolution"
             : $"hit={resolution.Hit} rolled={resolution.Rolled} damage={resolution.Damage} left={resolution.TargetHitPoints}/{resolution.TargetHitPointsMax}";
+        return (blow, [.. random.Keys]);
     }
 
     // ---- fixtures -----------------------------------------------------------------------------------------
@@ -899,11 +892,13 @@ public sealed class TurnBasedTests
         public IAttackRolls? RollsFor(CombatSubject attacker, string key) =>
             random is null ? new Lowest() : new Keyed(random, key);
 
-        public AttackPlan PlanOf(CombatSubject attacker, CombatSubject target, AttackKind kind) => new(
-            HitChance.Always,
-            new DamageKindId("Phys"),
-            DamageRoll.Flat(BlowDamage),
-            Resistance.Of(0));
+        /// <summary>
+        /// A certain blow of the suite's own damage when no seed is stated; a drawn chance and drawn dice when one is,
+        /// so a seeded fight's blow is decided by what it draws.
+        /// </summary>
+        public AttackPlan PlanOf(CombatSubject attacker, CombatSubject target, AttackKind kind) => random is null
+            ? new(HitChance.Always, new DamageKindId("Phys"), DamageRoll.Flat(BlowDamage), Resistance.Of(0))
+            : new(HitChance.Of(9000), new DamageKindId("Phys"), new DamageRoll(dice: 2, sides: 6, bonus: 1), Resistance.Of(0));
 
         public int DamageAfterResistance(CombatSubject target, DamageKindId kind, int damage, IAttackRolls rolls) => damage;
 
@@ -974,8 +969,12 @@ public sealed class TurnBasedTests
     /// </summary>
     private sealed class SeededRandom : IRandomService
     {
+        /// <summary>Every key drawn, in order.</summary>
+        internal List<string> Keys { get; } = [];
+
         public KeyedRngReceipt DrawKeyed(KeyedRngRequest request)
         {
+            Keys.Add(request.Key);
             ulong hash = 14695981039346656037UL;
             foreach (byte value in System.Text.Encoding.UTF8.GetBytes(request.Key))
             {

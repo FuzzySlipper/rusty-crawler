@@ -244,9 +244,9 @@ public sealed class PersistenceTests
         // Twenty hours in, a save; two hours later, another. Neither moves when the party next needs to sleep,
         // and the published due moment stands still while the clock runs toward it.
         played.Clock.Advance(GameDuration.FromHours(20));
-        Assert.NotNull(played.Session.Capture());
+        Assert.Equal(played.Clock.Elapsed.Milliseconds, played.Session.Capture().Clock.ElapsedMilliseconds);
         played.Clock.Advance(GameDuration.FromHours(2));
-        Assert.NotNull(played.Session.Capture());
+        Assert.Equal(played.Clock.Elapsed.Milliseconds, played.Session.Capture().Clock.ElapsedMilliseconds);
         Assert.Equal(due, fatigue.Due);
 
         // So the debt lands when it was always going to: at the end of the day, not a day after the last save.
@@ -297,7 +297,9 @@ public sealed class PersistenceTests
 
         // Once the clock holds nothing scheduled, the same session saves.
         Assert.True(played.Clock.Cancel(deadline));
-        Assert.NotNull(played.Session.Capture());
+        SessionSave saved = played.Session.Capture();
+        Assert.Equal(played.Clock.Elapsed.Milliseconds, saved.Clock.ElapsedMilliseconds);
+        Assert.Empty(saved.Problems(Graph(), new PartyEntityFactory(), calendar: played.Clock.Calendar));
     }
 
     [Fact]
@@ -673,7 +675,7 @@ public sealed class PersistenceTests
             Graph(),
             new PartyPoseOwner(new PartyPose(Home, new PlacePose(1, 2, 3, 512, 0)), Facing),
             new PlaceStateLedger(Graph(), PlaceRespawnRule.FromContent()),
-            new TestCostRule(),
+            new TwoDaysOfRoad(),
             clock,
             mover: null,
             diagnostics: null,
@@ -689,7 +691,7 @@ public sealed class PersistenceTests
             graph,
             new PartyPoseOwner(save.World.Pose, Facing),
             PlaceStateLedger.Restore(graph, PlaceRespawnRule.FromContent(), save.World.Places),
-            new TestCostRule(),
+            new TwoDaysOfRoad(),
             clock,
             mover: null,
             diagnostics: null,
@@ -746,7 +748,7 @@ public sealed class PersistenceTests
     }
 
     /// <summary>The cost contract as this suite states it: every transition costs two days and two portions.</summary>
-    private sealed class TestCostRule : ITravelCostRule
+    private sealed class TwoDaysOfRoad : ITravelCostRule
     {
         public TravelCostQuote Quote(TransitionRequest request) =>
             TravelCostQuote.Payable(new TravelCost(

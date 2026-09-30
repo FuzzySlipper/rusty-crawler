@@ -66,7 +66,7 @@ public sealed class SessionWorldTests
         TransitionResult refused = world.Travel(outbound, TransitionKind.PaidService);
 
         Assert.False(refused.Arrived);
-        Assert.Equal("test-unaffordable", refused.Refusal?.Code);
+        Assert.Equal(FaresRefusedTravel.RefusalCode, refused.Refusal?.Code);
         Assert.Equal(new PlaceId("1"), world.Place);
         Assert.Equal(before, world.Party.PlacePose);
     }
@@ -122,7 +122,7 @@ public sealed class SessionWorldTests
             graph,
             new PartyPoseOwner(Pose(), new FacingRule(unitsPerTurn: 2048, minimumPitch: -512, maximumPitch: 512)),
             new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()),
-            new TestCostRule(),
+            new FaresRefusedTravel(),
             time);
     }
 
@@ -130,14 +130,5 @@ public sealed class SessionWorldTests
     private sealed class FakeTimeSource : IWorldTimeSource
     {
         public int ElapsedGameDays { get; set; }
-    }
-
-    /// <summary>Walking is free; anything paid is refused by name, which is what a purse-less party sees.</summary>
-    private sealed class TestCostRule : ITravelCostRule
-    {
-        public TravelCostQuote Quote(TransitionRequest request) =>
-            request.Kind is TransitionKind.PaidService
-                ? TravelCostQuote.Refused(new Refusal("test-unaffordable", "the party has no purse yet"))
-                : TravelCostQuote.Payable(TravelCost.Free);
     }
 }

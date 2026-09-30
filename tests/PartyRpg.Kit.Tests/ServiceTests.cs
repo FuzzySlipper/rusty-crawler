@@ -217,147 +217,208 @@ public sealed class ServiceTests
     }
 
     [Fact]
-    public void A_counter_s_cures_training_provisions_rooms_deposits_and_passages_run_the_same_way()
+    public void A_counter_publishes_every_offer_with_its_price_and_a_notice_at_none()
     {
-        using PartyEntity party = Party(coins: 1000);
-        PartyResourceLedger accounts = new(party);
-        PartyMember member = party.Members[0];
-        member.Conditions.Apply(new ActiveCondition(new ConditionId("Cursed"), 3));
-        member.Conditions.Apply(new ActiveCondition(new ConditionId("Poisoned"), 1));
-        member.Resources.TakeDamage(6);
-        GameClock clock = Clock();
+        using OpenCounter counter = new();
 
-        ShopRule rule = new(Shop() with
-        {
-            Operations =
-            [
-                ServiceOperationKind.Buy,
-                ServiceOperationKind.Teach,
-                ServiceOperationKind.Cure,
-                ServiceOperationKind.Train,
-                ServiceOperationKind.Provision,
-                ServiceOperationKind.Stay,
-                ServiceOperationKind.Deposit,
-                ServiceOperationKind.Withdraw,
-                ServiceOperationKind.Fare,
-            ],
-        })
-        {
-            Offerings =
-            [
-                new ServiceOffer(ServiceOfferKind.Cure, "Healing", "affliction", Value: 20, Clears: [new ConditionId("Cursed")]),
-                new ServiceOffer(ServiceOfferKind.Training, "Training", Value: 0, Limit: 2),
-                new ServiceOffer(ServiceOfferKind.Provision, "Food and drink", Value: 8, Amount: 6),
-                new ServiceOffer(ServiceOfferKind.Stay, "A room for the night", Value: 12, Amount: 8, Clears: [new ConditionId("Tired")]),
-                new ServiceOffer(ServiceOfferKind.Holding, "The counter's keeping", "vault", Value: 0),
-                new ServiceOffer(ServiceOfferKind.Fare, "A passage to Elsewhere", "9", Value: 25, Amount: 3),
-                new ServiceOffer(ServiceOfferKind.Notice, "Travellers speak of the roads to Elsewhere."),
-            ],
-        };
-
-        // The counter trains through the progression owner, which is what grants a level: the mechanism
-        // charges the fee and the owner rises the member, so no counter can level anybody by itself.
-        PartyRest rest = new(new TestNights(), party, clock, new TestRoom(), accounts);
-        clock.Observe(rest);
-        PartyServices services = new(rule, party, accounts, clock, new PartyProgression(new TrainingRule(), party), rest);
-        Assert.True(services.Open(rule.Service).IsApplied);
-
-        // What the counter offers is published with what each would cost, and a notice is published at no
-        // price because it is read rather than taken.
-        ServiceBrowse browse = services.Browse()!;
+        // What the counter offers is published with what each would cost, and a notice is published at no price
+        // because it is read rather than taken.
+        ServiceBrowse browse = counter.Services.Browse()!;
         Assert.Equal(7, browse.Offers.Count);
         Assert.Equal(20, browse.Offers.Single(line => line.Offer.Kind == ServiceOfferKind.Cure).Price);
         Assert.Equal(0, browse.Offers.Single(line => line.Offer.Kind == ServiceOfferKind.Notice).Price);
+    }
 
-        // A cure ends exactly the conditions it claims, restores the body, and moves the one purse.
-        ServiceResult cured = services.Transact(new ServiceCommand(ServiceOperationKind.Cure, "affliction", Member: 0));
+    [Fact]
+    public void A_cure_ends_exactly_the_conditions_it_claims_restores_the_body_and_is_paid_from_the_purse()
+    {
+        using OpenCounter counter = new();
+        int purse = counter.Party.Purse.Coins;
+
+        ServiceResult cured = counter.Services.Transact(new ServiceCommand(ServiceOperationKind.Cure, "affliction", Member: 0));
         Assert.True(cured.IsApplied);
         Assert.Equal(20, cured.Paid);
-        Assert.False(member.Conditions.Has(new ConditionId("Cursed")));
-        Assert.True(member.Conditions.Has(new ConditionId("Poisoned")));
-        Assert.Equal(10, member.Resources.HitPoints.Current);
+        Assert.Equal(purse - 20, counter.Party.Purse.Coins);
+        Assert.Equal(counter.Party.Purse.Coins, cured.Coins);
+        Assert.False(counter.Member.Conditions.Has(new ConditionId("Cursed")));
+        Assert.True(counter.Member.Conditions.Has(new ConditionId("Poisoned")));
+        Assert.Equal(10, counter.Member.Resources.HitPoints.Current);
+    }
 
-        // Training converts what the member has banked into one level, and the counter's own ceiling is
-        // where it stops: a step past it is refused rather than clamped. The refusal is the owner's, because
-        // this counter's own eligibility rule allows everything — a ruleset that judges the hall's ceiling
+    [Fact]
+    public void Training_raises_one_level_through_the_progression_owner_and_stops_at_the_counters_ceiling()
+    {
+        using OpenCounter counter = new();
+
+        // The counter trains through the progression owner, which is what grants a level, and the counter's own
+        // ceiling is where it stops: a step past it is refused rather than clamped. The refusal is the owner's,
+        // because this counter's own eligibility rule allows everything — a ruleset that judges the hall's ceiling
         // refuses the step before the charge and names it there, which is what this game does.
-        ServiceResult trained = services.Transact(new ServiceCommand(ServiceOperationKind.Train, Member: 0));
+        ServiceResult trained = counter.Services.Transact(new ServiceCommand(ServiceOperationKind.Train, Member: 0));
         Assert.True(trained.IsApplied);
-        Assert.Equal(2, member.Progression.Level);
-        ServiceResult capped = services.Transact(new ServiceCommand(ServiceOperationKind.Train, Member: 0));
+        Assert.Equal(2, counter.Member.Progression.Level);
+        ServiceResult capped = counter.Services.Transact(new ServiceCommand(ServiceOperationKind.Train, Member: 0));
         Assert.Equal("progression-training-capped", capped.Code);
-        Assert.Equal(2, member.Progression.Level);
+        Assert.Equal(2, counter.Member.Progression.Level);
+    }
 
-        // Provisions are the party's larder rather than its pack, and the larder is credited where a
-        // purchase would mint an item.
-        int larder = party.Food.Portions;
-        ServiceResult provisioned = services.Transact(new ServiceCommand(ServiceOperationKind.Provision));
+    [Fact]
+    public void Provisions_are_credited_to_the_larder_rather_than_the_pack()
+    {
+        using OpenCounter counter = new();
+        int larder = counter.Party.Food.Portions;
+        int items = counter.Party.Items.Count;
+
+        ServiceResult provisioned = counter.Services.Transact(new ServiceCommand(ServiceOperationKind.Provision));
         Assert.True(provisioned.IsApplied);
-        Assert.Equal(larder + 6, party.Food.Portions);
+        Assert.Equal(larder + 6, counter.Party.Food.Portions);
+        Assert.Equal(items, counter.Party.Items.Count);
+    }
 
-        // A room is a night of the rest mechanism's: the hours it gives pass on the session's one clock, the
-        // night ends what every night ends and the room's own list beside it, the larder is not drawn on, and
-        // the debt of going without sleep is paid.
+    [Fact]
+    public void A_room_is_a_night_of_the_rest_mechanism_on_the_one_clock_and_pays_the_debt_of_sleep()
+    {
+        using OpenCounter counter = new();
+        PartyMember member = counter.Member;
+
+        // The hours a room gives pass on the session's one clock, the night ends what every night ends and the
+        // room's own list beside it, the larder is not drawn on, and the debt of going without sleep is paid.
         member.Conditions.Apply(new ActiveCondition(new ConditionId("Tired"), 2));
         member.Conditions.Apply(new ActiveCondition(TestNights.Weakness, 1));
         member.Resources.TakeDamage(4);
-        int hour = clock.Now.Hour;
-        int portions = party.Food.Portions;
-        ServiceResult lodged = services.Transact(new ServiceCommand(ServiceOperationKind.Stay));
+        int hour = counter.Clock.Now.Hour;
+        int portions = counter.Party.Food.Portions;
+        ServiceResult lodged = counter.Services.Transact(new ServiceCommand(ServiceOperationKind.Stay));
         Assert.True(lodged.IsApplied);
-        Assert.Equal((hour + 8) % 24, clock.Now.Hour);
+        Assert.Equal((hour + 8) % 24, counter.Clock.Now.Hour);
         Assert.False(member.Conditions.Has(new ConditionId("Tired")));
         Assert.False(member.Conditions.Has(TestNights.Weakness));
-        Assert.Equal(10, member.Resources.HitPoints.Current);
-        Assert.Equal(portions, party.Food.Portions);
+        Assert.Equal(member.Resources.HitPoints.Maximum, member.Resources.HitPoints.Current);
+        Assert.Equal(portions, counter.Party.Food.Portions);
 
-        // The night paid the debt and it runs again from waking: a day less an hour later the party is not
-        // weak, and once the day is out it is. A whole day brings the counter back to the hour it keeps.
-        clock.Advance(GameDuration.FromHours(23));
+        // The night paid the debt and it runs again from waking: a day less an hour later the party is not weak,
+        // and once the day is out it is.
+        counter.Clock.Advance(GameDuration.FromHours(23));
         Assert.False(member.Conditions.Has(TestNights.Weakness));
-        clock.Advance(GameDuration.FromHours(1));
+        counter.Clock.Advance(GameDuration.FromHours(1));
         Assert.True(member.Conditions.Has(TestNights.Weakness));
+    }
 
-        // A deposit and a withdrawal move coin between the purse and what the counter keeps, both ways, and
-        // a withdrawal of more than is held is refused whole.
+    [Fact]
+    public void A_deposit_and_a_withdrawal_move_coin_both_ways_and_an_overdraw_is_refused_whole()
+    {
+        using OpenCounter counter = new();
+        PartyEntity party = counter.Party;
         int purse = party.Purse.Coins;
-        ServiceResult deposited = services.Transact(new ServiceCommand(ServiceOperationKind.Deposit, "vault", Count: 300));
+
+        ServiceResult deposited = counter.Services.Transact(new ServiceCommand(ServiceOperationKind.Deposit, "vault", Count: 300));
         Assert.True(deposited.IsApplied);
         Assert.Equal(300, deposited.Paid);
         Assert.Equal(purse - 300, party.Purse.Coins);
+        Assert.Equal(party.Purse.Coins, deposited.Coins);
         Assert.Equal(300, party.Holdings.BalanceOf("vault"));
 
-        ServiceResult over = services.Transact(new ServiceCommand(ServiceOperationKind.Withdraw, "vault", Count: 500));
+        ServiceResult over = counter.Services.Transact(new ServiceCommand(ServiceOperationKind.Withdraw, "vault", Count: 500));
         Assert.Equal("service-holding-short", over.Code);
         Assert.Equal(300, party.Holdings.BalanceOf("vault"));
+        Assert.Equal(purse - 300, party.Purse.Coins);
 
-        ServiceResult withdrew = services.Transact(new ServiceCommand(ServiceOperationKind.Withdraw, "vault", Count: 120));
+        ServiceResult withdrew = counter.Services.Transact(new ServiceCommand(ServiceOperationKind.Withdraw, "vault", Count: 120));
         Assert.True(withdrew.IsApplied);
         Assert.Equal(120, withdrew.Earned);
         Assert.Equal(purse - 180, party.Purse.Coins);
+        Assert.Equal(party.Purse.Coins, withdrew.Coins);
         Assert.Equal(180, party.Holdings.BalanceOf("vault"));
+    }
 
-        // A passage is what a fare buys: the party holds the ticket and the journey's length, and the
-        // counter's own account of it is what the road reads.
-        ServiceResult fare = services.Transact(new ServiceCommand(ServiceOperationKind.Fare, "9"));
+    [Fact]
+    public void A_fare_buys_a_passage_the_road_reads_and_names_the_journey_it_sold()
+    {
+        using OpenCounter counter = new();
+
+        // A passage is what a fare buys: the party holds the ticket and the journey's length, and the counter's own
+        // account of it is what the road reads.
+        ServiceResult fare = counter.Services.Transact(new ServiceCommand(ServiceOperationKind.Fare, "9"));
         Assert.True(fare.IsApplied);
         Assert.Equal(25, fare.Paid);
-        Assert.Equal(3, party.Passages.DaysTo(new PlaceId("9")));
+        Assert.Equal(3, counter.Party.Passages.DaysTo(new PlaceId("9")));
 
-        // The result says what the fare was about, which is how the session that owns the road learns which
-        // journey the counter sold without keeping its own copy of the screen's request.
+        // The result says what the fare was about, which is how the session that owns the road learns which journey
+        // the counter sold without keeping its own copy of the screen's request.
         Assert.Equal("9", fare.Subject);
+    }
 
-        // A command the counter cannot resolve is its own refusal, and a counter with one offer of a kind
-        // takes a command that names nothing.
-        ServiceResult unknown = services.Transact(new ServiceCommand(ServiceOperationKind.Fare, "77"));
-        Assert.Equal("service-no-such-offer", unknown.Code);
-        ServiceResult absent = services.Transact(new ServiceCommand(ServiceOperationKind.Cure, "eradication", Member: 0));
-        Assert.Equal("service-no-such-offer", absent.Code);
-        Assert.Equal("service-no-such-member", services.Transact(new ServiceCommand(ServiceOperationKind.Cure, "affliction", Member: 4)).Code);
+    [Fact]
+    public void A_command_the_counter_cannot_resolve_is_its_own_refusal_and_moves_nothing()
+    {
+        using OpenCounter counter = new();
+        int purse = counter.Party.Purse.Coins;
 
-        // Every result reported the party's own purse, which is the same number the party holds.
-        Assert.Equal(party.Purse.Coins, services.Browse() is not null ? party.Purse.Coins : 0);
+        Assert.Equal("service-no-such-offer", counter.Services.Transact(new ServiceCommand(ServiceOperationKind.Fare, "77")).Code);
+        Assert.Equal("service-no-such-offer", counter.Services.Transact(new ServiceCommand(ServiceOperationKind.Cure, "eradication", Member: 0)).Code);
+        Assert.Equal("service-no-such-member", counter.Services.Transact(new ServiceCommand(ServiceOperationKind.Cure, "affliction", Member: 4)).Code);
+        Assert.Equal(purse, counter.Party.Purse.Coins);
+    }
+
+    /// <summary>
+    /// A counter that offers one of every kind the mechanism serves, open to a wounded, cursed, and poisoned party
+    /// with a thousand coins, over the session's one clock and rest.
+    /// </summary>
+    private sealed class OpenCounter : IDisposable
+    {
+        internal OpenCounter()
+        {
+            Party = ServiceTests.Party(coins: 1000);
+            PartyResourceLedger accounts = new(Party);
+            Member = Party.Members[0];
+            Member.Conditions.Apply(new ActiveCondition(new ConditionId("Cursed"), 3));
+            Member.Conditions.Apply(new ActiveCondition(new ConditionId("Poisoned"), 1));
+            Member.Resources.TakeDamage(6);
+            Clock = ServiceTests.Clock();
+
+            ShopRule rule = new(Shop() with
+            {
+                Operations =
+                [
+                    ServiceOperationKind.Buy,
+                    ServiceOperationKind.Teach,
+                    ServiceOperationKind.Cure,
+                    ServiceOperationKind.Train,
+                    ServiceOperationKind.Provision,
+                    ServiceOperationKind.Stay,
+                    ServiceOperationKind.Deposit,
+                    ServiceOperationKind.Withdraw,
+                    ServiceOperationKind.Fare,
+                ],
+            })
+            {
+                Offerings =
+                [
+                    new ServiceOffer(ServiceOfferKind.Cure, "Healing", "affliction", Value: 20, Clears: [new ConditionId("Cursed")]),
+                    new ServiceOffer(ServiceOfferKind.Training, "Training", Value: 0, Limit: 2),
+                    new ServiceOffer(ServiceOfferKind.Provision, "Food and drink", Value: 8, Amount: 6),
+                    new ServiceOffer(ServiceOfferKind.Stay, "A room for the night", Value: 12, Amount: 8, Clears: [new ConditionId("Tired")]),
+                    new ServiceOffer(ServiceOfferKind.Holding, "The counter's keeping", "vault", Value: 0),
+                    new ServiceOffer(ServiceOfferKind.Fare, "A passage to Elsewhere", "9", Value: 25, Amount: 3),
+                    new ServiceOffer(ServiceOfferKind.Notice, "Travellers speak of the roads to Elsewhere."),
+                ],
+            };
+
+            PartyRest rest = new(new TestNights(), Party, Clock, new TestRoom(), accounts);
+            Clock.Observe(rest);
+            Services = new PartyServices(rule, Party, accounts, Clock, new PartyProgression(new TrainingRule(), Party), rest);
+            Assert.True(Services.Open(rule.Service).IsApplied);
+        }
+
+        internal PartyEntity Party { get; }
+
+        internal PartyMember Member { get; }
+
+        internal GameClock Clock { get; }
+
+        internal PartyServices Services { get; }
+
+        public void Dispose() => Party.Dispose();
     }
 
     /// <summary>
@@ -978,7 +1039,7 @@ public sealed class ServiceTests
                 graph,
                 owner,
                 new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()),
-                new FreeCostRule(),
+                new FreeTravel(),
                 time: clock,
                 mover: walking ? new WalkingMover(owner) : null,
                 clock: clock,
@@ -1088,11 +1149,5 @@ public sealed class ServiceTests
 
         public ConversationAnswer Take(ConversationTopic topic, ConversationContext context) =>
             new("The party steps up to the counter.", handoff: new ConversationHandoff(HandoffOwner.Counter));
-    }
-
-    /// <summary>A world where nothing is charged for walking, so a test's coins are spent at the counter.</summary>
-    private sealed class FreeCostRule : ITravelCostRule
-    {
-        public TravelCostQuote Quote(TransitionRequest request) => TravelCostQuote.Payable(TravelCost.Free);
     }
 }

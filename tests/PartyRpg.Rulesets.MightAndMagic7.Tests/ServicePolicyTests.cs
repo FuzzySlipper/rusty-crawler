@@ -40,6 +40,7 @@ public sealed class ServicePolicyTests
         Declared.UiActionContract);
 
     [Fact]
+    [Trait(Pins.Trait, Pins.Tuning)]
     public void A_staged_shop_is_entered_bought_from_identified_repaired_sold_and_left()
     {
         (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(ShopContent());
@@ -180,6 +181,7 @@ public sealed class ServicePolicyTests
     }
 
     [Fact]
+    [Trait(Pins.Trait, Pins.Tuning)]
     public void A_guild_gates_its_shelves_on_membership_the_party_carries()
     {
         (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(GuildContent());
@@ -237,6 +239,7 @@ public sealed class ServicePolicyTests
     /// </para>
     /// </remarks>
     [Fact]
+    [Trait(Pins.Trait, Pins.Tuning)]
     public void A_staged_shop_a_staged_guild_and_a_staged_temple_are_served_by_one_mechanism()
     {
         // A weapon shop: the shelf is the item table's own weapon, and buying it moves the one purse.

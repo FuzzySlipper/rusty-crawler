@@ -599,15 +599,10 @@ public sealed class MovementObservationTests
             graph,
             party,
             new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()),
-            new FreeCostRule(),
+            new FreeTravel(),
             time: null,
             mover,
             diagnostics);
-    }
-
-    private sealed class FreeCostRule : ITravelCostRule
-    {
-        public TravelCostQuote Quote(TransitionRequest request) => TravelCostQuote.Payable(TravelCost.Free);
     }
 }
 

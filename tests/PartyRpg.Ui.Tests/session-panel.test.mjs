@@ -4175,8 +4175,8 @@ test('the panel draws the automap the product projected and computes nothing of 
     assert.equal(drawn.state, '16 of 64 squares walked (25%)');
     assert.equal(drawn.viewBox, '0 0 1000 1000');
     assert.deepEqual(drawn.cells, [
-      { x: '0', y: '0', w: '62.5', h: '62.5', kind: 'low', detected: null },
-      { x: '62.5', y: '0', w: '62.5', h: '62.5', kind: 'upland', detected: null },
+      { x: '0', y: '0', w: '62.5', h: '62.5', kind: 'low' },
+      { x: '62.5', y: '0', w: '62.5', h: '62.5', kind: 'upland' },
     ]);
     assert.deepEqual(drawn.marks, [
       { id: 'door:a-shut-door', kind: 'door', detected: 'false', label: 'a shut door' },
@@ -4231,7 +4231,6 @@ function automapPanel(h) {
     w: cell.getAttribute('width'),
     h: cell.getAttribute('height'),
     kind: cell.dataset.kind,
-    detected: null,
   }));
   const marks = [...section.querySelectorAll('.crawler-map-mark')].map((mark) => ({
     id: mark.dataset.id,

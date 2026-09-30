@@ -43,7 +43,7 @@ public sealed class RestAndSchedulePolicyTests
         Declared.UiActionContract);
 
     /// <summary>What one admitted second of this game is worth, which is the product's own scale of thirty.</summary>
-    private const double GameSecondsPerSecond = 30;
+    private static readonly double GameSecondsPerSecond = MightAndMagic7Time.Scale.GameSecondsPerRealSecond;
 
     [Fact]
     public void A_places_hours_lock_its_door_at_closing_and_open_it_again_by_day()

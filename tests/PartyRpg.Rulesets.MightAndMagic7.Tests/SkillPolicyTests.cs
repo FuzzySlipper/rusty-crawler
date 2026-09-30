@@ -70,6 +70,7 @@ public sealed class SkillPolicyTests
     }
 
     [Fact]
+    [Trait(Pins.Trait, Pins.Tuning)]
     public void The_ceiling_differs_across_the_nine_shipped_classes_and_their_ranks()
     {
         MightAndMagic7Skills skills = Policy();
@@ -162,6 +163,7 @@ public sealed class SkillPolicyTests
     }
 
     [Fact]
+    [Trait(Pins.Trait, Pins.Tuning)]
     public void A_guild_keeper_teaches_the_rung_its_house_reaches_and_a_class_that_may_not_is_refused_by_promotion()
     {
         (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(GuildContent());

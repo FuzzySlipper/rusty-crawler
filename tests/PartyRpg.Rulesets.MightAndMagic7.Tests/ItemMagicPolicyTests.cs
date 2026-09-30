@@ -136,7 +136,7 @@ public sealed class ItemMagicPolicyTests
         // A wand lying in the pack is not the weapon a hand holds: the casting refuses by name and nothing is
         // spent. (The scenario wears this one, so the pack's own scroll is what proves it: a charged item has
         // to be wielded before its spell can be aimed.)
-        session.Update(RulesetTestContext.Update(++step, 1, Digital(Declared.AttackIntent)));
+        session.Update(RulesetTestContext.Update(++step, 1, RulesetTestContext.Digital(Declared.AttackIntent)));
         ProjectedNode combat = ProjectedNode.Of(ui.Latest().Value).Field("combat");
         Assert.Equal("applied", combat.Field("outcome").AsString());
 
@@ -146,18 +146,18 @@ public sealed class ItemMagicPolicyTests
 
         // Each further attack spends one more: the count is the item's own, read from the party's state rather
         // than from a number the panel kept.
-        session.Update(RulesetTestContext.Update(++step, 1, Released(Declared.AttackIntent)));
+        session.Update(RulesetTestContext.Update(++step, 1, Admitted.Released(Declared.AttackIntent)));
         for (int shot = 0; shot < charges - 2; shot++)
         {
             Advance(session, ref step, seconds: 30);
-            session.Update(RulesetTestContext.Update(++step, 1, Digital(Declared.AttackIntent)));
+            session.Update(RulesetTestContext.Update(++step, 1, RulesetTestContext.Digital(Declared.AttackIntent)));
             Assert.Equal(charges - 2 - shot, Charges(ui, wand));
         }
 
         // The last charge takes the item with it, through the inventory's own custody: the panel's own row for
         // it is gone and so is the instance the party held.
         Advance(session, ref step, seconds: 30);
-        session.Update(RulesetTestContext.Update(++step, 1, Digital(Declared.AttackIntent)));
+        session.Update(RulesetTestContext.Update(++step, 1, RulesetTestContext.Digital(Declared.AttackIntent)));
         ProjectedNode carried = Magic(ui).Field("items");
         Assert.Equal(1d, carried.Length());
         Assert.Equal("consumed", carried.Item(0).Field("kind").AsString());
@@ -181,7 +181,7 @@ public sealed class ItemMagicPolicyTests
 
         // A shot at the beast provokes it and leaves the shooter recovering, neither of which the save schema
         // carries: the save is refused naming both rather than written with the fight silently gone.
-        session.Update(RulesetTestContext.Update(++step, 1, Digital(Declared.AttackIntent)));
+        session.Update(RulesetTestContext.Update(++step, 1, RulesetTestContext.Digital(Declared.AttackIntent)));
         SessionSaveException refused = Assert.Throws<SessionSaveException>(() => MightAndMagic7Ruleset.Instance.Save(session));
         Assert.Equal(SessionSaveFailure.Refused, refused.Kind);
         Assert.Contains("during a fight", refused.Message, StringComparison.Ordinal);
@@ -278,11 +278,7 @@ public sealed class ItemMagicPolicyTests
     }
 
     /// <summary>How many real seconds one game second passes in, which is this game's own rate.</summary>
-    private const int GameSecondsPerRealSecond = 30;
-
-    private static ProductInputEvent Digital(string intent) => RulesetTestContext.Digital(intent, InputEdge.Pressed);
-
-    private static ProductInputEvent Released(string intent) => RulesetTestContext.Digital(intent, InputEdge.Released);
+    private static readonly int GameSecondsPerRealSecond = (int)MightAndMagic7Time.Scale.GameSecondsPerRealSecond;
 
     /// <summary>The session this suite plays, over this game's own ruleset and the content it authored.</summary>
     private static IGameSession Casting(ProductCreateContext context, RecordingUiService ui, bool combat = false)
