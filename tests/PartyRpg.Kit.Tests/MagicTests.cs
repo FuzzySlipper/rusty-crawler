@@ -219,7 +219,7 @@ public sealed class MagicTests
         using PartyEntity party = Party(withFire: true);
         RecordingEffects effects = new()
         {
-            Judge = SpellRefusal.CannotAct("Nyx", "what is acting on them leaves them unable to cast"),
+            Judge = SpellRefusals.CannotAct("Nyx", "what is acting on them leaves them unable to cast"),
         };
 
         Spellcasting casting = new(party, Capabilities.Magic(new TestSpells(), effects));
@@ -428,12 +428,12 @@ public sealed class MagicTests
 
         public int CostFor(PartyMember member, SpellDefinition spell) => spell.Cost;
 
-        public SpellRefusal? MayLearn(PartyMember member, SpellDefinition spell)
+        public Refusal? MayLearn(PartyMember member, SpellDefinition spell)
         {
-            if (member.Spells.Knows(spell.Id)) return SpellRefusal.AlreadyKnown(member.Profile.Name, spell.Name);
+            if (member.Spells.Knows(spell.Id)) return SpellRefusals.AlreadyKnown(member.Profile.Name, spell.Name);
             return member.Skills.LevelOf(spell.SchoolSkill) > 0
                 ? null
-                : SpellRefusal.SchoolMissing(member.Profile.Name, spell.Name, spell.SchoolSkill.Value);
+                : SpellRefusals.SchoolMissing(member.Profile.Name, spell.Name, spell.SchoolSkill.Value);
         }
 
         private static readonly AttributeId Intellect = new("Intellect");
@@ -451,9 +451,9 @@ public sealed class MagicTests
         internal bool Expressed { get; init; } = true;
 
         /// <summary>What the seam answers when it is asked whether the casting may go ahead.</summary>
-        internal SpellRefusal? Judge { get; init; }
+        internal Refusal? Judge { get; init; }
 
-        SpellRefusal? ISpellEffectRule.Judge(SpellApplication application) => Judge;
+        Refusal? ISpellEffectRule.Judge(SpellApplication application) => Judge;
 
         public SpellApplicationOutcome Apply(SpellApplication application)
         {
@@ -490,7 +490,7 @@ public sealed class MagicTests
             PartyMember learner = request.Party.Member(request.Member);
             SpellDefinition spell = TestSpells.Catalog.Read(new SpellId(lesson.Subject));
             return ((ISpellRule)_spells).MayLearn(learner, spell) is { } refused
-                ? ServiceEligibility.Refused(refused.Code, refused.Message)
+                ? ServiceEligibility.Refused(refused)
                 : ServiceEligibility.Allowed;
         }
 
@@ -534,11 +534,11 @@ public sealed class MagicTests
     /// </summary>
     private sealed class MightAndMagic7StyleEffects : ISpellEffectRule
     {
-        public SpellRefusal? Judge(SpellApplication application)
+        public Refusal? Judge(SpellApplication application)
         {
             if (application.Fight is { } fight && fight.Find(application.CasterId) is { } caster && !caster.IsReady)
             {
-                return SpellRefusal.CannotAct(caster.Name, "it is still recovering");
+                return SpellRefusals.CannotAct(caster.Name, "it is still recovering");
             }
 
             return null;

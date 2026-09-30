@@ -19,16 +19,14 @@ namespace PartyRpg.Kit.Interaction;
 public sealed record InteractionResult
 {
     private InteractionResult(
-        bool isApplied,
         InteractionTarget? target,
         InteractionVerb? verb,
         string state,
         string message,
         string residue,
         IReadOnlyList<KnowledgeReport> learned,
-        PartyRefusal? refusal)
+        Refusal? refusal)
     {
-        IsApplied = isApplied;
         Target = target;
         Verb = verb;
         State = state;
@@ -55,19 +53,21 @@ public sealed record InteractionResult
                 nameof(outcome));
         }
 
-        return new InteractionResult(true, target, target.Definition.Verb, outcome.State, message, outcome.Residue, outcome.Learned, null);
+        return new InteractionResult(target, target.Definition.Verb, outcome.State, message, outcome.Residue, outcome.Learned, null);
     }
 
     /// <summary>The use did nothing, and this is why.</summary>
     /// <param name="target">What the party was using, or null when nothing was focused at all.</param>
-    /// <param name="code">A short stable code naming the kind of refusal.</param>
-    /// <param name="message">Why nothing happened, in terms a person can act on.</param>
-    /// <exception cref="ArgumentException">The code or the message is blank.</exception>
-    public static InteractionResult Refused(InteractionTarget? target, string code, string message) =>
-        new(false, target, target?.Definition.Verb, target?.State.State ?? string.Empty, message, string.Empty, [], new PartyRefusal(code, message));
+    /// <param name="refusal">Why nothing happened.</param>
+    /// <exception cref="ArgumentNullException">No refusal was given.</exception>
+    public static InteractionResult Refused(InteractionTarget? target, Refusal refusal)
+    {
+        ArgumentNullException.ThrowIfNull(refusal);
+        return new(target, target?.Definition.Verb, target?.State.State ?? string.Empty, refusal.Message, string.Empty, [], refusal);
+    }
 
     /// <summary>Whether the use happened. A refusal left the target and the party exactly as they were.</summary>
-    public bool IsApplied { get; }
+    public bool IsApplied => Refusal is null;
 
     /// <summary>What was used, or null when the use was refused because nothing was focused.</summary>
     public InteractionTarget? Target { get; }
@@ -96,7 +96,7 @@ public sealed record InteractionResult
     public IReadOnlyList<KnowledgeReport> Learned { get; }
 
     /// <summary>The refusal, or null when the use happened.</summary>
-    public PartyRefusal? Refusal { get; }
+    public Refusal? Refusal { get; }
 
     /// <summary>The refusal's code, or empty when the use happened.</summary>
     public string Code => Refusal?.Code ?? string.Empty;

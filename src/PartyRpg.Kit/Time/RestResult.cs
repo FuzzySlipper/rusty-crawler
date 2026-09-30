@@ -26,8 +26,7 @@ public sealed record RestResult
 {
     private RestResult(
         RestKind kind,
-        bool isApplied,
-        string code,
+        Refusal? refusal,
         string message,
         GameDate from,
         GameDate to,
@@ -41,8 +40,7 @@ public sealed record RestResult
         ActiveCondition? shortage)
     {
         Kind = kind;
-        IsApplied = isApplied;
-        Code = code;
+        Refusal = refusal;
         Message = message;
         From = from;
         To = to;
@@ -86,8 +84,7 @@ public sealed record RestResult
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         return new RestResult(
             kind,
-            isApplied: true,
-            string.Empty,
+            refusal: null,
             message,
             advance.From,
             advance.To,
@@ -104,19 +101,16 @@ public sealed record RestResult
     /// <summary>Nothing happened, and this is why: the clock, the larder, and the party are untouched.</summary>
     /// <param name="kind">What the party asked for.</param>
     /// <param name="at">Where the clock still stands.</param>
-    /// <param name="code">A short stable code naming the kind of refusal.</param>
-    /// <param name="message">Why nothing happened, in terms a person can act on.</param>
+    /// <param name="refusal">Why nothing happened.</param>
     /// <returns>The result.</returns>
-    /// <exception cref="ArgumentException">The code or the message is blank.</exception>
-    public static RestResult Refused(RestKind kind, GameDate at, string code, string message)
+    /// <exception cref="ArgumentNullException">No refusal was given.</exception>
+    public static RestResult Refused(RestKind kind, GameDate at, Refusal refusal)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(code);
-        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        ArgumentNullException.ThrowIfNull(refusal);
         return new RestResult(
             kind,
-            isApplied: false,
-            code,
-            message,
+            refusal,
+            refusal.Message,
             at,
             at,
             GameDuration.None,
@@ -133,10 +127,13 @@ public sealed record RestResult
     public RestKind Kind { get; }
 
     /// <summary>Whether the period happened. A refusal moved nothing at all.</summary>
-    public bool IsApplied { get; }
+    public bool IsApplied => Refusal is null;
+
+    /// <summary>Why the period did not happen, or null when it did.</summary>
+    public Refusal? Refusal { get; }
 
     /// <summary>The refusal's code, or empty when the period happened.</summary>
-    public string Code { get; }
+    public string Code => Refusal?.Code ?? string.Empty;
 
     /// <summary>What happened, in the words a person reads.</summary>
     public string Message { get; }

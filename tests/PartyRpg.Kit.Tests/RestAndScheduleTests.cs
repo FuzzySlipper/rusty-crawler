@@ -543,7 +543,7 @@ public sealed class RestAndScheduleTests
 
         public InteractionOutcome Apply(InteractionTargetDefinition target, InteractionContext context) =>
             string.Equals(target.State, "open", StringComparison.Ordinal)
-                ? InteractionOutcome.Refused("door-already-open", "It already stands open.")
+                ? InteractionOutcome.Refused(new Refusal("door-already-open", "It already stands open."))
                 : InteractionOutcome.Applied("open", "It swings open.");
     }
 
@@ -562,13 +562,13 @@ public sealed class RestAndScheduleTests
             {
                 if (request.Site.Place.Kind != PlaceKind.Region)
                 {
-                    return RestQuote.Refused(new PartyRefusal("camp-under-a-roof", "The party stands under a roof and will not camp here."));
+                    return RestQuote.Refused(new Refusal("camp-under-a-roof", "The party stands under a roof and will not camp here."));
                 }
 
                 int hostiles = HostilesNear(request);
                 if (hostiles > 0)
                 {
-                    return RestQuote.Refused(new PartyRefusal("camp-hostiles-near", $"{hostiles} hostile creature(s) stand near enough that the party will not camp."));
+                    return RestQuote.Refused(new Refusal("camp-hostiles-near", $"{hostiles} hostile creature(s) stand near enough that the party will not camp."));
                 }
 
                 return RestQuote.Planned(GameDuration.FromHours(8), new Provisions(campCharge, ProvisionUnit.Portions));
@@ -576,7 +576,7 @@ public sealed class RestAndScheduleTests
 
             return request.Site.Place.Kind == PlaceKind.Interior
                 ? RestQuote.Planned(GameDuration.FromHours(8), new Provisions(2, ProvisionUnit.Portions))
-                : RestQuote.Refused(new PartyRefusal("rest-in-the-open", "The party stands in the open and will not sleep there."));
+                : RestQuote.Refused(new Refusal("rest-in-the-open", "The party stands in the open and will not sleep there."));
         }
 
         public RestInterruption? Interrupt(RestRequest request) => request.Kind == RestKind.Camp ? interruption : null;

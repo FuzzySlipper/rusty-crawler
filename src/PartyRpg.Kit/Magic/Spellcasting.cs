@@ -39,7 +39,7 @@ public readonly record struct SpellCastRequest(int Member, SpellId Spell, string
 public sealed record SpellCastResult
 {
     private SpellCastResult(
-        bool isCast,
+        Refusal? refusal,
         string code,
         string message,
         int member,
@@ -51,7 +51,7 @@ public sealed record SpellCastResult
         SpellApplicationOutcome? outcome,
         string source)
     {
-        IsCast = isCast;
+        Refusal = refusal;
         Code = code;
         Message = message;
         Member = member;
@@ -65,7 +65,10 @@ public sealed record SpellCastResult
     }
 
     /// <summary>Whether the spell was cast.</summary>
-    public bool IsCast { get; }
+    public bool IsCast => Refusal is null;
+
+    /// <summary>Why nothing was cast, or null when the spell was.</summary>
+    public Refusal? Refusal { get; }
 
     /// <summary>The refusal's own code, empty when the spell was cast.</summary>
     public string Code { get; }
@@ -128,7 +131,7 @@ public sealed record SpellCastResult
     {
         ArgumentNullException.ThrowIfNull(outcome);
         return new SpellCastResult(
-            isCast: true,
+            refusal: null,
             code: outcome.Code,
             message: source.Length == 0
                 ? string.Create(
@@ -160,11 +163,11 @@ public sealed record SpellCastResult
         string caster,
         SpellId spell,
         string spellName,
-        SpellRefusal refusal)
+        Refusal refusal)
     {
         ArgumentNullException.ThrowIfNull(refusal);
         return new SpellCastResult(
-            isCast: false,
+            refusal,
             refusal.Code,
             refusal.Message,
             member,
@@ -293,7 +296,7 @@ public sealed class Spellcasting
                 caster: string.Empty,
                 request.Spell,
                 spellName: string.Empty,
-                SpellRefusal.NoSuchMember(request.Member)));
+                SpellRefusals.NoSuchMember(request.Member)));
         }
 
         PartyMember caster = _party.Members[request.Member];
@@ -316,7 +319,7 @@ public sealed class Spellcasting
         {
             if (!_rule.Catalog.Declares(request.Spell))
             {
-                return Record(SpellCastResult.Refused(request.Member, caster.Profile.Name, request.Spell, spellName: string.Empty, SpellRefusal.Unknown(request.Spell.Value)));
+                return Record(SpellCastResult.Refused(request.Member, caster.Profile.Name, request.Spell, spellName: string.Empty, SpellRefusals.Unknown(request.Spell.Value)));
             }
 
             // Knowing a spell and being allowed to cast it are different questions, and the answer names which
@@ -324,7 +327,7 @@ public sealed class Spellcasting
             // price is even considered.
             if (!caster.Spells.Knows(request.Spell))
             {
-                return Record(SpellCastResult.Refused(request.Member, caster.Profile.Name, request.Spell, spell.Name, SpellRefusal.NotKnown(caster.Profile.Name, spell.Name)));
+                return Record(SpellCastResult.Refused(request.Member, caster.Profile.Name, request.Spell, spell.Name, SpellRefusals.NotKnown(caster.Profile.Name, spell.Name)));
             }
 
             SkillTier held = caster.Skills.TierOf(spell.SchoolSkill);
@@ -335,19 +338,19 @@ public sealed class Spellcasting
                     caster.Profile.Name,
                     request.Spell,
                     spell.Name,
-                    SpellRefusal.MasteryTooLow(caster.Profile.Name, spell.Name, _rungName(spell.Tier), _rungName(held))));
+                    SpellRefusals.MasteryTooLow(caster.Profile.Name, spell.Name, _rungName(spell.Tier), _rungName(held))));
             }
 
             cost = _rule.CostFor(caster, spell);
             int available = caster.Resources.SpellPoints.Current;
             if (available < cost)
             {
-                return Record(SpellCastResult.Refused(request.Member, caster.Profile.Name, request.Spell, spell.Name, SpellRefusal.NotEnoughPoints(caster.Profile.Name, spell.Name, cost, available)));
+                return Record(SpellCastResult.Refused(request.Member, caster.Profile.Name, request.Spell, spell.Name, SpellRefusals.NotEnoughPoints(caster.Profile.Name, spell.Name, cost, available)));
             }
         }
 
         CombatantId casterId = CombatantId.Of(caster.Id);
-        if (!Resolve(spell, request.Target, caster, casterId, out CombatantId? target, out string targetName, out SpellRefusal? refused))
+        if (!Resolve(spell, request.Target, caster, casterId, out CombatantId? target, out string targetName, out Refusal? refused))
         {
             return Record(SpellCastResult.Refused(request.Member, caster.Profile.Name, request.Spell, spell.Name, refused!));
         }
@@ -365,7 +368,7 @@ public sealed class Spellcasting
                 caster.Profile.Name,
                 request.Spell,
                 spell.Name,
-                SpellRefusal.NoEffectPath()));
+                SpellRefusals.NoEffectPath()));
         }
 
         // The effect owner judges first: whether the caster may act at all and whether the casting can be
@@ -384,7 +387,7 @@ public sealed class Spellcasting
                 caster.Profile.Name,
                 request.Spell,
                 spell.Name,
-                SpellRefusal.NotEnoughPoints(caster.Profile.Name, spell.Name, cost, caster.Resources.SpellPoints.Current)));
+                SpellRefusals.NotEnoughPoints(caster.Profile.Name, spell.Name, cost, caster.Resources.SpellPoints.Current)));
         }
 
         SpellApplicationOutcome outcome = effects.Apply(application);
@@ -418,35 +421,35 @@ public sealed class Spellcasting
     /// </remarks>
     private (SpellItem? Item, SpellCastResult? Refusal) FromItem(PartyMember caster, SpellCastRequest request, ItemInstanceId id)
     {
-        SpellCastResult Refuse(SpellRefusal refusal) =>
+        SpellCastResult Refuse(Refusal refusal) =>
             SpellCastResult.Refused(request.Member, caster.Profile.Name, request.Spell, spellName: string.Empty, refusal);
 
         ISpellItemNames? names = _magic.ItemNames;
-        if (_party.FindItem(id) is not { } instance) return (null, Refuse(SpellRefusal.ItemNotHeld(id.ToString())));
+        if (_party.FindItem(id) is not { } instance) return (null, Refuse(SpellRefusals.ItemNotHeld(id.ToString())));
         string called = Name(names, instance.Definition);
         if (_magic.Items is not { } items || items.Reading(instance.Definition) is not { } reading)
         {
-            return (null, Refuse(SpellRefusal.ItemCarriesNoSpell(called)));
+            return (null, Refuse(SpellRefusals.ItemCarriesNoSpell(called)));
         }
 
         if (!_rule.Catalog.Declares(reading.Spell))
         {
-            return (null, Refuse(SpellRefusal.Unknown(reading.Spell.Value)));
+            return (null, Refuse(SpellRefusals.Unknown(reading.Spell.Value)));
         }
 
         if (!string.Equals(reading.Spell.Value, request.Spell.Value, StringComparison.Ordinal))
         {
             SpellDefinition carried = _rule.Catalog.Read(reading.Spell);
             SpellDefinition named = _rule.Catalog.Read(request.Spell);
-            return (null, Refuse(SpellRefusal.ItemCarriesAnother(called, carried.Name, named.Name)));
+            return (null, Refuse(SpellRefusals.ItemCarriesAnother(called, carried.Name, named.Name)));
         }
 
         if (!reading.ConsumedByUse)
         {
-            if (!instance.Custody.IsEquipped) return (null, Refuse(SpellRefusal.ItemNotWielded(called)));
+            if (!instance.Custody.IsEquipped) return (null, Refuse(SpellRefusals.ItemNotWielded(called)));
             if (reading.Charges - instance.State.ChargesSpent <= 0)
             {
-                return (null, Refuse(SpellRefusal.ItemSpent(called, reading.Charges)));
+                return (null, Refuse(SpellRefusals.ItemSpent(called, reading.Charges)));
             }
         }
 
@@ -490,7 +493,7 @@ public sealed class Spellcasting
         CombatantId casterId,
         out CombatantId? target,
         out string targetName,
-        out SpellRefusal? refused)
+        out Refusal? refused)
     {
         target = null;
         targetName = string.Empty;
@@ -515,7 +518,7 @@ public sealed class Spellcasting
             {
                 if (named.Length == 0)
                 {
-                    refused = SpellRefusal.NoTarget(spell.Name, SpellTargetings.WireName(spell.Targeting));
+                    refused = SpellRefusals.NoTarget(spell.Name, SpellTargetings.WireName(spell.Targeting));
                     return false;
                 }
 
@@ -528,7 +531,7 @@ public sealed class Spellcasting
                     return true;
                 }
 
-                refused = SpellRefusal.NoValidTarget(spell.Name, named);
+                refused = SpellRefusals.NoValidTarget(spell.Name, named);
                 return false;
             }
 
@@ -536,7 +539,7 @@ public sealed class Spellcasting
             {
                 if (named.Length == 0)
                 {
-                    refused = SpellRefusal.NoTarget(spell.Name, SpellTargetings.WireName(spell.Targeting));
+                    refused = SpellRefusals.NoTarget(spell.Name, SpellTargetings.WireName(spell.Targeting));
                     return false;
                 }
 
@@ -555,7 +558,7 @@ public sealed class Spellcasting
                     }
                 }
 
-                refused = SpellRefusal.NoValidTarget(spell.Name, named);
+                refused = SpellRefusals.NoValidTarget(spell.Name, named);
                 return false;
             }
         }

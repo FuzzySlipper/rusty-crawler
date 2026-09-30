@@ -8,7 +8,7 @@ namespace PartyRpg.Kit.Party;
 /// </remarks>
 public sealed record ItemAcquisition
 {
-    private ItemAcquisition(ItemInstance? item, int count, PartyRefusal? refusal)
+    private ItemAcquisition(ItemInstance? item, int count, Refusal? refusal)
     {
         Item = item;
         Count = count;
@@ -27,11 +27,11 @@ public sealed record ItemAcquisition
     /// <summary>The party took nothing.</summary>
     /// <param name="refusal">Why the items were refused.</param>
     /// <exception cref="ArgumentNullException">The refusal is null.</exception>
-    public static ItemAcquisition Refused(PartyRefusal refusal) =>
+    public static ItemAcquisition Refused(Refusal refusal) =>
         new(null, 0, refusal ?? throw new ArgumentNullException(nameof(refusal)));
 
     /// <summary>The refusal, or null when the party took the items.</summary>
-    public PartyRefusal? Refusal { get; }
+    public Refusal? Refusal { get; }
 
     /// <summary>The instance the items landed in, which exists only when they were taken.</summary>
     public ItemInstance? Item { get; }

@@ -172,7 +172,7 @@ public sealed class SessionWorldTests
     {
         public TravelCostQuote Quote(TransitionRequest request) =>
             request.Kind is TransitionKind.PaidService
-                ? TravelCostQuote.Refused(new TravelRefusal("test-unaffordable", "the party has no purse yet"))
+                ? TravelCostQuote.Refused(new Refusal("test-unaffordable", "the party has no purse yet"))
                 : TravelCostQuote.Payable(TravelCost.Free);
     }
 }

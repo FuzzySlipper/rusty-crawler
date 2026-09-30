@@ -1,3 +1,4 @@
+using PartyRpg.Kit;
 using System.Globalization;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Magic;
@@ -74,21 +75,21 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     /// paced and no creature laying anybody out, so a casting out of combat is judged by the mechanism
     /// alone. A caster the fight holds is judged by the fight's own two gates, exactly as an order is.
     /// </remarks>
-    public SpellRefusal? Judge(SpellApplication application)
+    public Refusal? Judge(SpellApplication application)
     {
         ArgumentNullException.ThrowIfNull(application);
         if (application.Fight is { } fight && fight.Find(application.CasterId) is { } caster)
         {
             if (!caster.IsReady)
             {
-                return SpellRefusal.CannotAct(
+                return SpellRefusals.CannotAct(
                     caster.Name,
                     string.Create(
                         CultureInfo.InvariantCulture,
                         $"it is still recovering, with {caster.Recovery.Milliseconds}ms of game time left before it may act again"));
             }
 
-            if (fight.IsDown(caster)) return SpellRefusal.CannotAct(caster.Name, "what is acting on them leaves them unable to cast");
+            if (fight.IsDown(caster)) return SpellRefusals.CannotAct(caster.Name, "what is acting on them leaves them unable to cast");
         }
 
         // A school the caster's own class closes is refused before anything is paid, and the refusal names the
@@ -109,14 +110,14 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         SpellReading reading = _spells.ReadingOf(application.Spell);
         if (reading.Unaimable)
         {
-            return SpellRefusal.TargetUnavailable(application.Spell.Name, reading.Missing, reading.Receiver);
+            return SpellRefusals.TargetUnavailable(application.Spell.Name, reading.Missing, reading.Receiver);
         }
 
         // A spell this build applies none of is refused the same way, before anything is spent: a casting
         // that took the points or the item and changed nothing would be the same worst of both.
         if (reading.NotApplied)
         {
-            return SpellRefusal.NotApplied(application.Spell.Name, reading.Missing, reading.Receiver);
+            return SpellRefusals.NotApplied(application.Spell.Name, reading.Missing, reading.Receiver);
         }
 
         // A travel spell is judged where it is aimed, before a point is spent: a portal needs a place the
@@ -865,13 +866,13 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     }
 
     /// <summary>Whether a travel spell's aim names something the party can actually reach.</summary>
-    private SpellRefusal? TravelRefusalOf(SpellApplication application)
+    private Refusal? TravelRefusalOf(SpellApplication application)
     {
         SpellReading reading = _spells.ReadingOf(application.Spell);
         if (reading.Travel is TravelShape.None or TravelShape.Movement) return null;
         if (_world() is not { } world)
         {
-            return SpellRefusal.NoValidTarget(application.Spell.Name, "no world stands around the party");
+            return SpellRefusals.NoValidTarget(application.Spell.Name, "no world stands around the party");
         }
 
         if (reading.Travel == TravelShape.Beacon && application.TargetName.Length == 0)
@@ -882,7 +883,7 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
 
         if (application.TargetName.Length == 0)
         {
-            return SpellRefusal.NoTarget(application.Spell.Name, SpellTargetings.WireName(application.Spell.Targeting));
+            return SpellRefusals.NoTarget(application.Spell.Name, SpellTargetings.WireName(application.Spell.Targeting));
         }
 
         string named = application.TargetName;
@@ -891,26 +892,26 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
             PlaceId? beacon = BeaconPlace();
             if (beacon is null)
             {
-                return SpellRefusal.NoValidTarget(application.Spell.Name, "the party has set no beacon to recall");
+                return SpellRefusals.NoValidTarget(application.Spell.Name, "the party has set no beacon to recall");
             }
 
             if (!string.Equals(beacon.Value.Value, named, StringComparison.Ordinal))
             {
-                return SpellRefusal.NoValidTarget(application.Spell.Name, named);
+                return SpellRefusals.NoValidTarget(application.Spell.Name, named);
             }
 
             return null;
         }
 
         PlaceDefinition? place = world.Graph.Find(new PlaceId(named));
-        if (place is null) return SpellRefusal.NoValidTarget(application.Spell.Name, named);
+        if (place is null) return SpellRefusals.NoValidTarget(application.Spell.Name, named);
         if (!world.Places.StateOf(place.Id).Visited)
         {
-            return SpellRefusal.NoValidTarget(application.Spell.Name, $"{place.Name}, which the party has never been to");
+            return SpellRefusals.NoValidTarget(application.Spell.Name, $"{place.Name}, which the party has never been to");
         }
 
         return place.EntryPoints.Count == 0
-            ? SpellRefusal.NoValidTarget(application.Spell.Name, $"{place.Name}, which states nowhere to arrive")
+            ? SpellRefusals.NoValidTarget(application.Spell.Name, $"{place.Name}, which states nowhere to arrive")
             : null;
     }
 

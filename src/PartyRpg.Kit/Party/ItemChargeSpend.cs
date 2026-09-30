@@ -16,7 +16,7 @@ namespace PartyRpg.Kit.Party;
 /// </remarks>
 public sealed record ItemChargeSpend
 {
-    private ItemChargeSpend(int left, bool emptied, ItemInstance? item, PartyRefusal? refusal)
+    private ItemChargeSpend(int left, bool emptied, ItemInstance? item, Refusal? refusal)
     {
         ChargesLeft = left;
         Vanished = emptied;
@@ -48,7 +48,7 @@ public sealed record ItemChargeSpend
     /// <param name="refusal">Why nothing was spent.</param>
     /// <returns>The spend.</returns>
     /// <exception cref="ArgumentNullException">No refusal was supplied.</exception>
-    public static ItemChargeSpend Refused(PartyRefusal refusal) =>
+    public static ItemChargeSpend Refused(Refusal refusal) =>
         new(0, emptied: false, item: null, refusal ?? throw new ArgumentNullException(nameof(refusal)));
 
     /// <summary>Whether a charge was spent.</summary>
@@ -64,7 +64,7 @@ public sealed record ItemChargeSpend
     public ItemInstance? Item { get; }
 
     /// <summary>The refusal, or null when a charge was spent.</summary>
-    public PartyRefusal? Refusal { get; }
+    public Refusal? Refusal { get; }
 
     /// <inheritdoc />
     public override string ToString() => Refusal is not null

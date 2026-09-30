@@ -81,7 +81,7 @@ public sealed record PromotionResult(
     string Choice,
     IReadOnlyList<PromotionGrant> Granted,
     IReadOnlyList<PromotionDenial> Denied,
-    PartyRefusal? Refusal)
+    Refusal? Refusal)
 {
     /// <summary>Whether at least one member rose to the rank.</summary>
     public bool IsGranted => Granted.Count > 0;
@@ -101,7 +101,7 @@ public sealed record PromotionResult(
         string toClass,
         int rank,
         string choice,
-        PartyRefusal refusal)
+        Refusal refusal)
     {
         ArgumentNullException.ThrowIfNull(refusal);
         return new PromotionResult(promotion, fromClass, toClass, rank, choice, [], [], refusal);

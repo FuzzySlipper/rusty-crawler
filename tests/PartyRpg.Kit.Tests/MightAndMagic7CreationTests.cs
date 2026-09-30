@@ -193,7 +193,7 @@ public sealed class MightAndMagic7CreationTests
         Assert.Null(flow.Advance());
         Spend(flow, "Human", 50);
         Assert.Null(flow.Advance());
-        PartyRefusal fire = flow.ChooseSkill(new SkillId("Fire"))!;
+        Refusal fire = flow.ChooseSkill(new SkillId("Fire"))!;
         Assert.Equal("skill-not-legal", fire.Code);
         Assert.Contains("'Fire' is not a skill the Knight class may learn at creation", fire.Message, StringComparison.Ordinal);
         Assert.Equal("skill-fixed", flow.ChooseSkill(new SkillId("Sword"))!.Code);
@@ -202,7 +202,7 @@ public sealed class MightAndMagic7CreationTests
         PartyCreationFlow ceilings = Attributes(options, "Human", "Knight");
         for (int click = 0; click < 14; click++) Assert.Null(ceilings.RaiseAttribute(new AttributeId("Might")));
         Assert.Equal(25, AttributeOf(ceilings, "Might"));
-        PartyRefusal might = ceilings.RaiseAttribute(new AttributeId("Might"))!;
+        Refusal might = ceilings.RaiseAttribute(new AttributeId("Might"))!;
         Assert.Equal("attribute-ceiling", might.Code);
         Assert.Contains("Might is already 25 and creation raises it at most to 25", might.Message, StringComparison.Ordinal);
 
@@ -211,7 +211,7 @@ public sealed class MightAndMagic7CreationTests
         PartyCreationFlow floors = Attributes(options, "Elf", "Sorcerer");
         Assert.Null(floors.LowerAttribute(new AttributeId("Might")));
         Assert.Equal(5, AttributeOf(floors, "Might"));
-        PartyRefusal below = floors.LowerAttribute(new AttributeId("Might"))!;
+        Refusal below = floors.LowerAttribute(new AttributeId("Might"))!;
         Assert.Equal("attribute-floor", below.Code);
         Assert.Contains("creation lowers it at most to 5", below.Message, StringComparison.Ordinal);
 
@@ -223,13 +223,13 @@ public sealed class MightAndMagic7CreationTests
         Clicks(short1, "Might", 5);
         Assert.Equal(12, AttributeOf(short1, "Might"));
         Assert.Equal(1, short1.PoolRemaining);
-        PartyRefusal poor = short1.RaiseAttribute(new AttributeId("Might"))!;
+        Refusal poor = short1.RaiseAttribute(new AttributeId("Might"))!;
         Assert.Equal("attribute-pool-short", poor.Code);
         Assert.Contains("costs 2 of the 1 attribute point left", poor.Message, StringComparison.Ordinal);
 
         // The two rules that judge a whole step: the pool spent exactly and the skills chosen in full.
         PartyCreationFlow unspent = Attributes(options, "Human", "Knight");
-        PartyRefusal unspentPool = unspent.Advance()!;
+        Refusal unspentPool = unspent.Advance()!;
         Assert.Equal("attribute-pool-unspent", unspentPool.Code);
         Assert.Contains("50 remain unspent", unspentPool.Message, StringComparison.Ordinal);
 
@@ -237,7 +237,7 @@ public sealed class MightAndMagic7CreationTests
         Spend(skills, "Human", 50);
         Assert.Null(skills.Advance());
         Assert.Null(skills.ChooseSkill(new SkillId("Shield")));
-        PartyRefusal unchosen = skills.Advance()!;
+        Refusal unchosen = skills.Advance()!;
         Assert.Equal("skills-unchosen", unchosen.Code);
         Assert.Contains("starts with 2 chosen skills and 1 remains unchosen", unchosen.Message, StringComparison.Ordinal);
     }

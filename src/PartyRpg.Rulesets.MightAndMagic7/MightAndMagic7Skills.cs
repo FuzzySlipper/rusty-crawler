@@ -1,3 +1,4 @@
+using PartyRpg.Kit;
 using System.Globalization;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Party;
@@ -582,19 +583,19 @@ internal sealed class MightAndMagic7Skills : ISkillRule
     /// <param name="tier">The rung the lesson leaves the member at.</param>
     /// <param name="level">The skill level the lesson reaches, which is what a first lesson grants.</param>
     /// <returns>Why the lesson is refused, or null when it may be taught.</returns>
-    internal PartyRefusal? Lesson(PartyMember member, SkillId skill, int tier, int level)
+    internal Refusal? Lesson(PartyMember member, SkillId skill, int tier, int level)
     {
         ArgumentNullException.ThrowIfNull(member);
         if (!Catalog.Declares(skill))
         {
-            return new PartyRefusal(
+            return new Refusal(
                 "service-lesson-unknown-skill",
                 $"This game's skill table carries no '{skill}', so no counter can teach it.");
         }
 
         if (!Catalog.Read(skill).IsUsed)
         {
-            return new PartyRefusal(
+            return new Refusal(
                 "service-lesson-unused-skill",
                 $"{skill} is a row the shipped table carries and this game does not use, so nobody may learn it.");
         }
@@ -604,7 +605,7 @@ internal sealed class MightAndMagic7Skills : ISkillRule
         {
             // A closed skill the game can account for carries its own refusal, so a lesson refused for a path
             // the character chose names that choice rather than the class it left them in.
-            return ceiling.Reason ?? new PartyRefusal(
+            return ceiling.Reason ?? new Refusal(
                 "service-lesson-class-forbidden",
                 string.Create(
                     CultureInfo.InvariantCulture,
@@ -613,7 +614,7 @@ internal sealed class MightAndMagic7Skills : ISkillRule
 
         if (tier > ceiling.MaximumTier.Value)
         {
-            return new PartyRefusal(
+            return new Refusal(
                 "service-lesson-needs-promotion",
                 string.Create(
                     CultureInfo.InvariantCulture,
@@ -630,14 +631,14 @@ internal sealed class MightAndMagic7Skills : ISkillRule
         {
             // The donor's own answer to a member who skipped the first lesson (src/GUI/UI/NPCTopics.cpp:476,
             // pNPCTopics[131]): you must know the skill before you can become an expert in it.
-            return new PartyRefusal(
+            return new Refusal(
                 "service-lesson-skill-unknown",
                 $"{member.Profile.Name} has not learned {skill} at all, so there is no rung of it to raise.");
         }
 
         if (standing.Value < tier - 1)
         {
-            return new PartyRefusal(
+            return new Refusal(
                 "service-lesson-rung-short",
                 string.Create(
                     CultureInfo.InvariantCulture,
@@ -647,7 +648,7 @@ internal sealed class MightAndMagic7Skills : ISkillRule
         int wanted = tier < TeacherLevels.Length ? TeacherLevels[tier] : 0;
         if (held < wanted)
         {
-            return new PartyRefusal(
+            return new Refusal(
                 "service-lesson-level-short",
                 string.Create(
                     CultureInfo.InvariantCulture,
@@ -661,7 +662,7 @@ internal sealed class MightAndMagic7Skills : ISkillRule
             int score = member.Attributes.TryGet(gate.Attribute, out int stated) ? stated : 0;
             if (score < gate.Score)
             {
-                return new PartyRefusal(
+                return new Refusal(
                     "service-lesson-attribute-short",
                     string.Create(
                         CultureInfo.InvariantCulture,
@@ -674,7 +675,7 @@ internal sealed class MightAndMagic7Skills : ISkillRule
             int together = member.Skills.LevelOf(new SkillId(companion));
             if (together < CompanionLevel)
             {
-                return new PartyRefusal(
+                return new Refusal(
                     "service-lesson-companion-short",
                     string.Create(
                         CultureInfo.InvariantCulture,

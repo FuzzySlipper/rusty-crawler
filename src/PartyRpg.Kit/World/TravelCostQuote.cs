@@ -11,7 +11,7 @@ public sealed record TravelCostQuote
 {
     private readonly TravelCost _cost;
 
-    private TravelCostQuote(TravelCost cost, TravelRefusal? refusal)
+    private TravelCostQuote(TravelCost cost, Refusal? refusal)
     {
         _cost = cost;
         Refusal = refusal;
@@ -24,11 +24,11 @@ public sealed record TravelCostQuote
     /// <summary>The party cannot pay, or may not travel: the transition does not happen.</summary>
     /// <param name="refusal">Why the transition is refused.</param>
     /// <exception cref="ArgumentNullException">The refusal is null.</exception>
-    public static TravelCostQuote Refused(TravelRefusal refusal) =>
+    public static TravelCostQuote Refused(Refusal refusal) =>
         new(TravelCost.Free, refusal ?? throw new ArgumentNullException(nameof(refusal)));
 
     /// <summary>The refusal, or null when the party can pay.</summary>
-    public TravelRefusal? Refusal { get; }
+    public Refusal? Refusal { get; }
 
     /// <summary>The cost to charge, which exists only on an answer that is not refused.</summary>
     /// <exception cref="InvalidOperationException">This answer is a refusal, which holds no cost; read <see cref="Refusal"/> instead.</exception>

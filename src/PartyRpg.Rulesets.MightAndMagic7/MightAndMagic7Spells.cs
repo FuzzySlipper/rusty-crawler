@@ -1,3 +1,4 @@
+using PartyRpg.Kit;
 using System.Globalization;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
@@ -575,20 +576,20 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
     /// Fire magic skill to learn this spell" — which is the school skill this judges.
     /// </para>
     /// </remarks>
-    public SpellRefusal? MayLearn(PartyMember member, SpellDefinition spell)
+    public Refusal? MayLearn(PartyMember member, SpellDefinition spell)
     {
         ArgumentNullException.ThrowIfNull(member);
-        if (!Catalog.Declares(spell.Id)) return SpellRefusal.Unknown(spell.Id.Value);
+        if (!Catalog.Declares(spell.Id)) return SpellRefusals.Unknown(spell.Id.Value);
         if (ClosedSchool(member, spell) is { } closed) return closed;
-        if (member.Spells.Knows(spell.Id)) return SpellRefusal.AlreadyKnown(member.Profile.Name, spell.Name);
+        if (member.Spells.Knows(spell.Id)) return SpellRefusals.AlreadyKnown(member.Profile.Name, spell.Name);
         if (member.Skills.LevelOf(spell.SchoolSkill) <= 0)
         {
-            return SpellRefusal.SchoolMissing(member.Profile.Name, spell.Name, spell.SchoolSkill.Value);
+            return SpellRefusals.SchoolMissing(member.Profile.Name, spell.Name, spell.SchoolSkill.Value);
         }
 
         SkillTier held = member.Skills.TierOf(spell.SchoolSkill);
         if (held.Value >= spell.Tier.Value) return null;
-        return SpellRefusal.MasteryTooLow(member.Profile.Name, spell.Name, RungName(spell.Tier), RungName(held));
+        return SpellRefusals.MasteryTooLow(member.Profile.Name, spell.Name, RungName(spell.Tier), RungName(held));
     }
 
     /// <summary>
@@ -611,10 +612,10 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
     /// <param name="caster">The caster whose class and path are read.</param>
     /// <param name="spell">The spell whose school is asked about.</param>
     /// <returns>The refusal, or null when nothing about the caster's class closes the school.</returns>
-    internal SpellRefusal? ClosedSchool(PartyMember caster, SpellDefinition spell)
+    internal Refusal? ClosedSchool(PartyMember caster, SpellDefinition spell)
     {
         if (_skills?.Ceiling(caster, spell.SchoolSkill) is not { IsNone: true, Reason: { } reason }) return null;
-        return SpellRefusal.SchoolClosed(caster.Profile.Name, spell.Name, spell.SchoolSkill.Value, reason.Message);
+        return SpellRefusals.SchoolClosed(caster.Profile.Name, spell.Name, spell.SchoolSkill.Value, reason.Message);
     }
 
     /// <summary>How long one casting of a spell makes its caster recover, in the donor's own ticks.</summary>

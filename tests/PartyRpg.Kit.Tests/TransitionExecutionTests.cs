@@ -120,7 +120,7 @@ public sealed class TransitionExecutionTests
         PlaceId home = new("1");
         PlacePose standing = new(9, 9, 0, 0, 0);
         RecordingRule rule = new(_ => TravelCostQuote.Refused(
-            new TravelRefusal("travel-cost-unpayable", "The fare is 50 and the party holds 12.")));
+            new Refusal("travel-cost-unpayable", "The fare is 50 and the party holds 12.")));
         TransitionExecutive executive = new(rule);
 
         TransitionResult result = executive.Take(new TransitionRequest(

@@ -17,11 +17,10 @@ namespace PartyRpg.Kit.Services;
 /// </remarks>
 public sealed record ServiceResult
 {
-    private ServiceResult(bool isApplied, string action, string code, string message, string subject, int paid, int earned, int coins)
+    private ServiceResult(Refusal? refusal, string action, string message, string subject, int paid, int earned, int coins)
     {
-        IsApplied = isApplied;
+        Refusal = refusal;
         Action = action;
-        Code = code;
         Message = message;
         Subject = subject;
         Paid = paid;
@@ -48,32 +47,34 @@ public sealed record ServiceResult
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         ArgumentOutOfRangeException.ThrowIfNegative(paid);
         ArgumentOutOfRangeException.ThrowIfNegative(earned);
-        return new ServiceResult(true, action, string.Empty, message, subject, paid, earned, coins);
+        return new ServiceResult(null, action, message, subject, paid, earned, coins);
     }
 
     /// <summary>The command changed nothing, and this is why.</summary>
     /// <param name="action">The word for what was asked and refused.</param>
-    /// <param name="code">A short stable code naming the kind of refusal.</param>
-    /// <param name="message">Why nothing happened, in terms a person can act on.</param>
+    /// <param name="refusal">Why nothing happened.</param>
     /// <param name="coins">What the party's one purse holds, which a refusal leaves untouched.</param>
     /// <returns>The result.</returns>
-    /// <exception cref="ArgumentException">The action, the code, or the message is blank.</exception>
-    public static ServiceResult Refused(string action, string code, string message, int coins = 0)
+    /// <exception cref="ArgumentException">The action is blank.</exception>
+    /// <exception cref="ArgumentNullException">No refusal was given.</exception>
+    public static ServiceResult Refused(string action, Refusal refusal, int coins = 0)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(action);
-        ArgumentException.ThrowIfNullOrWhiteSpace(code);
-        ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        return new ServiceResult(false, action, code, message, string.Empty, 0, 0, coins);
+        ArgumentNullException.ThrowIfNull(refusal);
+        return new ServiceResult(refusal, action, refusal.Message, string.Empty, 0, 0, coins);
     }
 
     /// <summary>Whether the command happened. A refusal changed nothing at all.</summary>
-    public bool IsApplied { get; }
+    public bool IsApplied => Refusal is null;
+
+    /// <summary>Why the command did nothing, or null when it happened.</summary>
+    public Refusal? Refusal { get; }
 
     /// <summary>The word for what happened, or for what was refused.</summary>
     public string Action { get; }
 
     /// <summary>The refusal's code, or empty when the command happened.</summary>
-    public string Code { get; }
+    public string Code => Refusal?.Code ?? string.Empty;
 
     /// <summary>What the command did, or why it did nothing.</summary>
     public string Message { get; }

@@ -14,7 +14,7 @@ public sealed record ResourceSettlement
     private readonly int _purseAfter;
     private readonly int _provisionsAfter;
 
-    private ResourceSettlement(PartyCost cost, int purseAfter, int provisionsAfter, PartyRefusal? refusal)
+    private ResourceSettlement(PartyCost cost, int purseAfter, int provisionsAfter, Refusal? refusal)
     {
         _cost = cost;
         _purseAfter = purseAfter;
@@ -32,11 +32,11 @@ public sealed record ResourceSettlement
     /// <summary>Nothing was paid, and both accounts are untouched.</summary>
     /// <param name="refusal">Why the charge could not be settled.</param>
     /// <exception cref="ArgumentNullException">The refusal is null.</exception>
-    public static ResourceSettlement Refused(PartyRefusal refusal) =>
+    public static ResourceSettlement Refused(Refusal refusal) =>
         new(PartyCost.Free, 0, 0, refusal ?? throw new ArgumentNullException(nameof(refusal)));
 
     /// <summary>The refusal, or null when the charge was paid.</summary>
-    public PartyRefusal? Refusal { get; }
+    public Refusal? Refusal { get; }
 
     /// <summary>Whether the charge was paid.</summary>
     public bool Admitted => Refusal is null;

@@ -134,11 +134,11 @@ public sealed class PartyCreationFlow
     /// </remarks>
     /// <param name="index">Which member to create next, counted from zero.</param>
     /// <returns>A refusal when creation makes no member with that index, otherwise null.</returns>
-    public PartyRefusal? SelectMember(int index)
+    public Refusal? SelectMember(int index)
     {
         if (index < 0 || index >= _members.Length)
         {
-            return new PartyRefusal(
+            return new Refusal(
                 "member-unknown",
                 $"Creation makes {_members.Length} member{(_members.Length == 1 ? string.Empty : "s")}, so there is no member {index} to create.");
         }
@@ -157,12 +157,12 @@ public sealed class PartyCreationFlow
     /// </remarks>
     /// <param name="portrait">The portrait to create the character with.</param>
     /// <returns>A refusal when the choice is out of step or the portrait is not one creation offers, otherwise null.</returns>
-    public PartyRefusal? SelectPortrait(PortraitId portrait)
+    public Refusal? SelectPortrait(PortraitId portrait)
     {
         if (RequireStep(CreationStep.Portrait, "Choosing a portrait") is { } wrongStep) return wrongStep;
         if (_options.FindPortrait(portrait) is not { } chosen)
         {
-            return new PartyRefusal(
+            return new Refusal(
                 "portrait-unknown",
                 $"'{portrait}' is not a portrait creation offers, so no race is drawn as it; a portrait is chosen from the ones the ruleset lists.");
         }
@@ -172,7 +172,7 @@ public sealed class PartyCreationFlow
         {
             // The options refuse this when they are assembled, so reaching it means they were changed behind
             // creation's back; refusing is still better than creating a character with no attribute table.
-            return new PartyRefusal(
+            return new Refusal(
                 "portrait-race-unknown",
                 $"Portrait '{chosen.Name}' is drawn as race '{chosen.Race}', which creation does not offer.");
         }
@@ -196,13 +196,13 @@ public sealed class PartyCreationFlow
     /// </remarks>
     /// <param name="characterClass">The class to create the character in.</param>
     /// <returns>A refusal when the choice is out of step or the class is not one creation offers, otherwise null.</returns>
-    public PartyRefusal? SelectClass(ClassId characterClass)
+    public Refusal? SelectClass(ClassId characterClass)
     {
         if (RequireStep(CreationStep.Class, "Choosing a class") is { } wrongStep) return wrongStep;
         CreationClass? chosen = _options.FindClass(characterClass);
         if (chosen is null)
         {
-            return new PartyRefusal(
+            return new Refusal(
                 "class-unknown",
                 $"'{characterClass}' is not a class creation offers; a class is chosen from the ones the ruleset lists.");
         }
@@ -216,20 +216,20 @@ public sealed class PartyCreationFlow
     /// <summary>Names the character.</summary>
     /// <param name="name">The name to give, trimmed of surrounding whitespace.</param>
     /// <returns>A refusal when the choice is out of step or the name is not one a character may carry, otherwise null.</returns>
-    public PartyRefusal? SetName(string name)
+    public Refusal? SetName(string name)
     {
         if (RequireStep(CreationStep.Name, "Naming the character") is { } wrongStep) return wrongStep;
         string trimmed = (name ?? string.Empty).Trim();
         if (trimmed.Length == 0)
         {
-            return new PartyRefusal(
+            return new Refusal(
                 "name-blank",
                 "A character's name cannot be blank; every member of the party is named before the game starts.");
         }
 
         if (trimmed.Length > _options.NameMaximumLength)
         {
-            return new PartyRefusal(
+            return new Refusal(
                 "name-too-long",
                 $"A name holds at most {_options.NameMaximumLength} characters and '{trimmed}' holds {trimmed.Length}.");
         }
@@ -237,7 +237,7 @@ public sealed class PartyCreationFlow
         foreach (char letter in trimmed)
         {
             if (!char.IsControl(letter)) continue;
-            return new PartyRefusal(
+            return new Refusal(
                 "name-invalid",
                 $"'{trimmed}' carries a control character, which a name a player reads cannot carry.");
         }
@@ -249,7 +249,7 @@ public sealed class PartyCreationFlow
     /// <summary>Spends points on one attribute, raising it by one adjustment.</summary>
     /// <param name="attribute">Which attribute to raise.</param>
     /// <returns>A refusal when the choice is out of step, the attribute is unknown, the ceiling is reached, or the pool is short, otherwise null.</returns>
-    public PartyRefusal? RaiseAttribute(AttributeId attribute)
+    public Refusal? RaiseAttribute(AttributeId attribute)
     {
         if (RequireStep(CreationStep.Attributes, "Spending attribute points") is { } wrongStep) return wrongStep;
         if (RequireRange(attribute) is not { } range) return UnknownAttribute(attribute);
@@ -257,7 +257,7 @@ public sealed class PartyCreationFlow
         int value = ValueOf(attribute);
         if (!range.CanRaise(value))
         {
-            return new PartyRefusal(
+            return new Refusal(
                 "attribute-ceiling",
                 $"{range.Name} is already {value} and creation raises it at most to {range.Maximum} for this race.");
         }
@@ -266,7 +266,7 @@ public sealed class PartyCreationFlow
         int remaining = PoolRemainingOf(_members[_memberIndex]);
         if (cost > remaining)
         {
-            return new PartyRefusal(
+            return new Refusal(
                 "attribute-pool-short",
                 $"Raising {range.Name} by {range.RaiseSize(value)} costs {cost} of the {remaining} attribute "
                 + $"point{(remaining == 1 ? string.Empty : "s")} left; the pool of {_options.AttributePool} is spent exactly, never overdrawn.");
@@ -279,7 +279,7 @@ public sealed class PartyCreationFlow
     /// <summary>Lowers one attribute by one adjustment, returning what it cost to the pool.</summary>
     /// <param name="attribute">Which attribute to lower.</param>
     /// <returns>A refusal when the choice is out of step, the attribute is unknown, or the floor is reached, otherwise null.</returns>
-    public PartyRefusal? LowerAttribute(AttributeId attribute)
+    public Refusal? LowerAttribute(AttributeId attribute)
     {
         if (RequireStep(CreationStep.Attributes, "Spending attribute points") is { } wrongStep) return wrongStep;
         if (RequireRange(attribute) is not { } range) return UnknownAttribute(attribute);
@@ -287,7 +287,7 @@ public sealed class PartyCreationFlow
         int value = ValueOf(attribute);
         if (!range.CanLower(value))
         {
-            return new PartyRefusal(
+            return new Refusal(
                 "attribute-floor",
                 $"{range.Name} is already {value} and creation lowers it at most to {range.Minimum} for this race.");
         }
@@ -299,42 +299,42 @@ public sealed class PartyCreationFlow
     /// <summary>Chooses one of the skills the class does not fix.</summary>
     /// <param name="skill">Which skill to choose.</param>
     /// <returns>A refusal when the choice is out of step, the class may not learn the skill, it is already fixed or chosen, or enough skills are chosen, otherwise null.</returns>
-    public PartyRefusal? ChooseSkill(SkillId skill)
+    public Refusal? ChooseSkill(SkillId skill)
     {
         if (RequireStep(CreationStep.Skills, "Choosing a starting skill") is { } wrongStep) return wrongStep;
         MemberDraft member = _members[_memberIndex];
         CreationClass? characterClass = member.Class is { } classId ? _options.FindClass(classId) : null;
         if (characterClass is null)
         {
-            return new PartyRefusal(
+            return new Refusal(
                 "class-unchosen",
                 "A skill is chosen for a class, and this character has no class yet.");
         }
 
         if (characterClass.FixedSkills.Contains(skill))
         {
-            return new PartyRefusal(
+            return new Refusal(
                 "skill-fixed",
                 $"'{skill}' is one of the skills the {characterClass.Name} class starts with, so it is not a choice; the two chosen skills are picked from the rest.");
         }
 
         if (!characterClass.ChoosableSkills.Contains(skill))
         {
-            return new PartyRefusal(
+            return new Refusal(
                 "skill-not-legal",
                 $"'{skill}' is not a skill the {characterClass.Name} class may learn at creation; the class decides which skills may be chosen.");
         }
 
         if (member.ChosenSkills.Contains(skill))
         {
-            return new PartyRefusal(
+            return new Refusal(
                 "skill-already-chosen",
                 $"'{skill}' is already one of this character's chosen skills, and a skill is not learned twice.");
         }
 
         if (member.ChosenSkills.Count >= _options.ChosenSkillCount)
         {
-            return new PartyRefusal(
+            return new Refusal(
                 "skills-complete",
                 $"This character already has its {_options.ChosenSkillCount} chosen skill{(_options.ChosenSkillCount == 1 ? string.Empty : "s")}; "
                 + "remove one before choosing another.");
@@ -347,13 +347,13 @@ public sealed class PartyCreationFlow
     /// <summary>Takes back one of the chosen skills.</summary>
     /// <param name="skill">Which chosen skill to remove.</param>
     /// <returns>A refusal when the choice is out of step or the skill was not chosen, otherwise null.</returns>
-    public PartyRefusal? RemoveSkill(SkillId skill)
+    public Refusal? RemoveSkill(SkillId skill)
     {
         if (RequireStep(CreationStep.Skills, "Choosing a starting skill") is { } wrongStep) return wrongStep;
         MemberDraft member = _members[_memberIndex];
         if (!member.ChosenSkills.Remove(skill))
         {
-            return new PartyRefusal(
+            return new Refusal(
                 "skill-not-chosen",
                 $"'{skill}' is not one of this character's chosen skills, so there is nothing to take back.");
         }
@@ -368,7 +368,7 @@ public sealed class PartyCreationFlow
     /// last step finishes the member and moves on to the next one that is not finished.
     /// </remarks>
     /// <returns>A refusal when the step being confirmed is unfinished, otherwise null.</returns>
-    public PartyRefusal? Advance()
+    public Refusal? Advance()
     {
         MemberDraft member = _members[_memberIndex];
         switch (member.Step)
@@ -376,7 +376,7 @@ public sealed class PartyCreationFlow
             case CreationStep.Portrait:
                 if (member.Portrait is null)
                 {
-                    return new PartyRefusal(
+                    return new Refusal(
                         "portrait-unchosen",
                         "A character is created with a portrait; choosing one is what decides its race.");
                 }
@@ -387,7 +387,7 @@ public sealed class PartyCreationFlow
             case CreationStep.Class:
                 if (member.Class is null)
                 {
-                    return new PartyRefusal(
+                    return new Refusal(
                         "class-unchosen",
                         "A character is created in a class; choosing one is what decides which skills may be chosen.");
                 }
@@ -398,7 +398,7 @@ public sealed class PartyCreationFlow
             case CreationStep.Name:
                 if (member.Name.Length == 0)
                 {
-                    return new PartyRefusal(
+                    return new Refusal(
                         "name-blank",
                         "A character's name cannot be blank; every member of the party is named before the game starts.");
                 }
@@ -410,7 +410,7 @@ public sealed class PartyCreationFlow
                 int remaining = PoolRemainingOf(member);
                 if (remaining != 0)
                 {
-                    return new PartyRefusal(
+                    return new Refusal(
                         "attribute-pool-unspent",
                         remaining > 0
                             ? $"The pool of {_options.AttributePool} attribute points must be spent exactly and {remaining} remain{(remaining == 1 ? "s" : string.Empty)} unspent."
@@ -424,7 +424,7 @@ public sealed class PartyCreationFlow
                 if (member.ChosenSkills.Count != _options.ChosenSkillCount)
                 {
                     int missing = _options.ChosenSkillCount - member.ChosenSkills.Count;
-                    return new PartyRefusal(
+                    return new Refusal(
                         "skills-unchosen",
                         missing > 0
                             ? $"A character starts with {_options.ChosenSkillCount} chosen skill{(_options.ChosenSkillCount == 1 ? string.Empty : "s")} and {missing} remain{(missing == 1 ? "s" : string.Empty)} unchosen."
@@ -449,11 +449,11 @@ public sealed class PartyCreationFlow
     /// player's choice can, and the refusal is reported with the member it belongs to.
     /// </remarks>
     /// <returns>A refusal when the ruleset offers no default or the default breaks a creation rule, otherwise null.</returns>
-    public PartyRefusal? ApplyDefault()
+    public Refusal? ApplyDefault()
     {
         if (_defaults is null)
         {
-            return new PartyRefusal(
+            return new Refusal(
                 "no-default",
                 "This ruleset offers no default party, so there is none to start from.");
         }
@@ -463,7 +463,7 @@ public sealed class PartyCreationFlow
             CreationMemberDefaults start = _defaults.Members[index];
             _memberIndex = index;
             _members[index].Reset();
-            PartyRefusal? refused =
+            Refusal? refused =
                 SelectPortrait(start.Portrait)
                 ?? Advance()
                 ?? SelectClass(start.Class)
@@ -475,7 +475,7 @@ public sealed class PartyCreationFlow
                 ?? ApplySkills(start.ChosenSkills)
                 ?? Advance();
             if (refused is null) continue;
-            return new PartyRefusal(
+            return new Refusal(
                 refused.Code,
                 $"The default party's member {index + 1} broke a creation rule: {refused.Message}");
         }
@@ -564,7 +564,7 @@ public sealed class PartyCreationFlow
     /// adjustments a player makes — and refuses when a value cannot be reached in whole steps, which is a
     /// default the ruleset stated wrongly rather than a player's mistake.
     /// </remarks>
-    private PartyRefusal? ApplyAttributes(IReadOnlyList<AttributeScore> targets)
+    private Refusal? ApplyAttributes(IReadOnlyList<AttributeScore> targets)
     {
         foreach (AttributeScore target in targets)
         {
@@ -575,7 +575,7 @@ public sealed class PartyCreationFlow
             int size = distance < 0 ? range.LowerSize(value) : range.RaiseSize(value);
             if (distance % size != 0)
             {
-                return new PartyRefusal(
+                return new Refusal(
                     "attribute-unreachable",
                     $"{range.Name} moves {size} at a time from {value}, so a default that asks for {target.Value} asks for a value creation cannot reach.");
             }
@@ -583,7 +583,7 @@ public sealed class PartyCreationFlow
             while (ValueOf(target.Attribute) != target.Value)
             {
                 bool raising = ValueOf(target.Attribute) < target.Value;
-                PartyRefusal? refused = raising ? RaiseAttribute(target.Attribute) : LowerAttribute(target.Attribute);
+                Refusal? refused = raising ? RaiseAttribute(target.Attribute) : LowerAttribute(target.Attribute);
                 if (refused is not null) return refused;
             }
         }
@@ -592,7 +592,7 @@ public sealed class PartyCreationFlow
     }
 
     /// <summary>Chooses the skills a default asked for, through the same choice a player makes.</summary>
-    private PartyRefusal? ApplySkills(IReadOnlyList<SkillId> skills)
+    private Refusal? ApplySkills(IReadOnlyList<SkillId> skills)
     {
         foreach (SkillId skill in skills)
         {
@@ -611,11 +611,11 @@ public sealed class PartyCreationFlow
     }
 
     /// <summary>Names an attribute the chosen race does not have.</summary>
-    private PartyRefusal UnknownAttribute(AttributeId attribute)
+    private Refusal UnknownAttribute(AttributeId attribute)
     {
         MemberDraft member = _members[_memberIndex];
         string race = member.Race is { } raceId && _options.FindRace(raceId) is { } found ? found.Name : "no race";
-        return new PartyRefusal(
+        return new Refusal(
             "attribute-unknown",
             $"'{attribute}' is not an attribute a {race} has, so there are no points to spend on it.");
     }
@@ -658,10 +658,10 @@ public sealed class PartyCreationFlow
     }
 
     /// <summary>Refuses an action that belongs to a step creation has not reached.</summary>
-    private PartyRefusal? RequireStep(CreationStep expected, string action) =>
+    private Refusal? RequireStep(CreationStep expected, string action) =>
         _members[_memberIndex].Step == expected
             ? null
-            : new PartyRefusal(
+            : new Refusal(
                 "creation-step",
                 $"{action} happens at the {expected} step, and member {_memberIndex + 1} is at the {_members[_memberIndex].Step} step; creation's steps are taken in order.");
 

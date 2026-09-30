@@ -621,24 +621,24 @@ public sealed class PartyEntityTests
 
         internal List<string> SeenClasses { get; } = [];
 
-        public PartyRefusal? Judge(PartyMember member, EquipmentSlot slot, ItemInstance item)
+        public Refusal? Judge(PartyMember member, EquipmentSlot slot, ItemInstance item)
         {
             SeenClasses.Add(member.Profile.Class.Value);
             if (!_requirements.TryGetValue(item.Definition.Value, out (string Class, string Skill) requirement))
             {
-                return new PartyRefusal("nothing-says-how", $"Nothing says how '{item.Definition}' is worn.");
+                return new Refusal("nothing-says-how", $"Nothing says how '{item.Definition}' is worn.");
             }
 
             if (member.Profile.Class.Value != requirement.Class)
             {
-                return new PartyRefusal(
+                return new Refusal(
                     "class-not-allowed",
                     $"{member.Profile.Name} is a {member.Profile.Class} and may not use '{item.Definition}'.");
             }
 
             if (!member.Skills.Knows(new SkillId(requirement.Skill)))
             {
-                return new PartyRefusal(
+                return new Refusal(
                     "skill-missing",
                     $"{member.Profile.Name} has not learned '{requirement.Skill}'.");
             }
@@ -650,7 +650,7 @@ public sealed class PartyEntityTests
     /// <summary>A rule that refuses every equip, which is what a changed ruleset looks like to an old save.</summary>
     private sealed class RefusingEquipment : IEquipmentUseRule
     {
-        public PartyRefusal? Judge(PartyMember member, EquipmentSlot slot, ItemInstance item) =>
+        public Refusal? Judge(PartyMember member, EquipmentSlot slot, ItemInstance item) =>
             new("never", "This world equips nothing.");
     }
 

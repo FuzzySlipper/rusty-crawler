@@ -60,16 +60,14 @@ public readonly record struct InteractionItemYield
 public sealed record InteractionOutcome
 {
     private InteractionOutcome(
-        bool isApplied,
         string state,
         string message,
         string residue,
         IReadOnlyList<InteractionItemYield> items,
         PartyCost gain,
         IReadOnlyList<KnowledgeReport> learned,
-        PartyRefusal? refusal)
+        Refusal? refusal)
     {
-        IsApplied = isApplied;
         State = state;
         Message = message;
         Residue = residue;
@@ -98,19 +96,18 @@ public sealed record InteractionOutcome
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(state);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        return new InteractionOutcome(true, state, message, residue, items ?? [], gain ?? PartyCost.Free, learned ?? [], null);
+        return new InteractionOutcome(state, message, residue, items ?? [], gain ?? PartyCost.Free, learned ?? [], null);
     }
 
     /// <summary>The use happened and changed nothing, and this is why — a refusal with a stated consequence.</summary>
-    /// <param name="code">A short stable code naming the kind of refusal.</param>
-    /// <param name="message">Why nothing happened, in terms a person can act on.</param>
+    /// <param name="refusal">Why nothing happened.</param>
     /// <returns>The outcome.</returns>
-    /// <exception cref="ArgumentException">The code or the message is blank.</exception>
-    public static InteractionOutcome Refused(string code, string message) =>
-        new(false, string.Empty, message, string.Empty, [], PartyCost.Free, [], new PartyRefusal(code, message));
+    /// <exception cref="ArgumentNullException">No refusal was given.</exception>
+    public static InteractionOutcome Refused(Refusal refusal) =>
+        new(string.Empty, (refusal ?? throw new ArgumentNullException(nameof(refusal))).Message, string.Empty, [], PartyCost.Free, [], refusal);
 
     /// <summary>Whether the use happened. A refused outcome changed nothing at all.</summary>
-    public bool IsApplied { get; }
+    public bool IsApplied => Refusal is null;
 
     /// <summary>The word the target's state becomes, or empty on a refusal.</summary>
     public string State { get; }
@@ -131,5 +128,5 @@ public sealed record InteractionOutcome
     public IReadOnlyList<KnowledgeReport> Learned { get; }
 
     /// <summary>The refusal, or null when the use happened.</summary>
-    public PartyRefusal? Refusal { get; }
+    public Refusal? Refusal { get; }
 }

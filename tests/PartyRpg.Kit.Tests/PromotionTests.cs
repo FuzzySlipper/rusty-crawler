@@ -423,7 +423,7 @@ public sealed class PromotionTests
         public SkillCeiling Ceiling(PartyMember member, SkillId skill) => string.Equals(skill.Value, "blades", StringComparison.Ordinal)
             ? SkillCeiling.None with
             {
-                Reason = new PartyRefusal(
+                Reason = new Refusal(
                     "skill-closed-by-path",
                     $"{member.Profile.Name} took the dark path of the {member.Profile.Class}: it takes Dark and leaves Light to the other alternative."),
             }

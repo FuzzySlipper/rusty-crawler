@@ -461,8 +461,7 @@ public sealed class ProgressionTests
             return member.Progression.Experience >= 1000
                 ? ServiceEligibility.Allowed
                 : ServiceEligibility.Refused(
-                    "service-experience-short",
-                    $"{member.Profile.Name} needs {1000 - member.Progression.Experience} more experience to train to level {level + 1}.");
+                    new Refusal("service-experience-short", $"{member.Profile.Name} needs {1000 - member.Progression.Experience} more experience to train to level {level + 1}."));
         }
 
         public ServiceQuote Quote(ServiceQuoteRequest request) =>

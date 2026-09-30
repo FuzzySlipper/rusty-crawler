@@ -134,7 +134,7 @@ public sealed record SpellApplicationOutcome
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(effect);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        return new SpellApplicationOutcome(expressed: true, effect, "spell-effect-applied", message, attack, facts ?? []);
+        return new SpellApplicationOutcome(expressed: true, effect, SpellCodes.SpellEffectApplied, message, attack, facts ?? []);
     }
 
     /// <summary>
@@ -148,7 +148,7 @@ public sealed record SpellApplicationOutcome
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(effect);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        return new SpellApplicationOutcome(expressed: false, effect, "spell-effect-unexpressed", message, attack: null, facts: []);
+        return new SpellApplicationOutcome(expressed: false, effect, SpellCodes.SpellEffectUnexpressed, message, attack: null, facts: []);
     }
 
     /// <inheritdoc />
@@ -197,7 +197,7 @@ public interface ISpellEffectRule
     /// <summary>Whether this casting may be carried out at all, asked before any spell point is spent.</summary>
     /// <param name="application">The casting, resolved but not yet paid for.</param>
     /// <returns>The refusal, or null when the casting may go ahead.</returns>
-    SpellRefusal? Judge(SpellApplication application);
+    Refusal? Judge(SpellApplication application);
 
     /// <summary>Applies a casting the party has paid for.</summary>
     /// <param name="application">The casting, resolved and paid for.</param>

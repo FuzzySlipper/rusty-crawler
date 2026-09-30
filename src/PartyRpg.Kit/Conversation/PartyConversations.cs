@@ -206,8 +206,7 @@ public sealed class PartyConversations
         {
             return Record(ConversationResult.Refused(
                 "turn",
-                "conversation-person-unknown",
-                $"Nobody here is '{person}'; the people present are {string.Join(", ", subject.People.Select(one => one.Name))}.",
+                new Refusal(ConversationCodes.ConversationPersonUnknown, $"Nobody here is '{person}'; the people present are {string.Join(", ", subject.People.Select(one => one.Name))}."),
                 _speaker?.Name ?? string.Empty));
         }
 
@@ -243,8 +242,7 @@ public sealed class PartyConversations
         {
             return Record(ConversationResult.Refused(
                 "say",
-                "conversation-topic-unnamed",
-                "Nothing was named to speak about, so there is nothing to say.",
+                new Refusal(ConversationCodes.ConversationTopicUnnamed, "Nothing was named to speak about, so there is nothing to say."),
                 _speaker?.Name ?? string.Empty));
         }
 
@@ -262,8 +260,7 @@ public sealed class PartyConversations
         {
             return Record(ConversationResult.Refused(
                 "say",
-                "conversation-topic-unknown",
-                $"{_speaker?.Name ?? "Whoever is here"} has nothing to say about '{topic}'.",
+                new Refusal(ConversationCodes.ConversationTopicUnknown, $"{_speaker?.Name ?? "Whoever is here"} has nothing to say about '{topic}'."),
                 _speaker?.Name ?? string.Empty,
                 topic));
         }
@@ -272,8 +269,7 @@ public sealed class PartyConversations
         {
             return Record(ConversationResult.Refused(
                 "say",
-                "conversation-topic-withheld",
-                $"{_speaker?.Name ?? "Whoever is here"} does not bring up {found.Label} yet: {found.Availability.Reason}.",
+                new Refusal(ConversationCodes.ConversationTopicWithheld, $"{_speaker?.Name ?? "Whoever is here"} does not bring up {found.Label} yet: {found.Availability.Reason}."),
                 _speaker?.Name ?? string.Empty,
                 topic));
         }
@@ -289,8 +285,7 @@ public sealed class PartyConversations
             {
                 return Record(ConversationResult.Refused(
                     "say",
-                    "conversation-speaker-unknown",
-                    $"{found.Label} hands the conversation to '{answer.Speaker}', who is not among the people present.",
+                    new Refusal(ConversationCodes.ConversationSpeakerUnknown, $"{found.Label} hands the conversation to '{answer.Speaker}', who is not among the people present."),
                     _speaker?.Name ?? string.Empty,
                     topic));
             }
@@ -396,7 +391,7 @@ public sealed class PartyConversations
         new(_place, _placement!, _subject!, _speaker?.Id ?? string.Empty, _said, _party, _clock);
 
     private ConversationResult NotOpen(string action) =>
-        Record(ConversationResult.Refused(action, "conversation-not-open", "The party is not speaking with anybody."));
+        Record(ConversationResult.Refused(action, new Refusal(ConversationCodes.ConversationNotOpen, "The party is not speaking with anybody.")));
 
     private ConversationResult Record(ConversationResult result)
     {

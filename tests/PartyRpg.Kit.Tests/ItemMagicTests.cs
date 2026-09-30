@@ -580,7 +580,7 @@ public sealed class ItemMagicTests
 
         public int CostFor(PartyMember member, SpellDefinition spell) => spell.Cost;
 
-        public SpellRefusal? MayLearn(PartyMember member, SpellDefinition spell) => null;
+        public Refusal? MayLearn(PartyMember member, SpellDefinition spell) => null;
 
         /// <summary>
         /// What this suite's items carry: a scroll used up by its one spell, a wand holding three uses, a
@@ -638,9 +638,9 @@ public sealed class ItemMagicTests
 
         public int MagnitudeOn(PartyMember member, EffectId effect) => _running.MagnitudeOn(member, effect);
 
-        public SpellRefusal? Judge(SpellApplication application) =>
+        public Refusal? Judge(SpellApplication application) =>
             application.Caster.Conditions.Count > 0
-                ? SpellRefusal.CannotAct(application.Caster.Profile.Name, "what is acting on them leaves them unable to cast")
+                ? SpellRefusals.CannotAct(application.Caster.Profile.Name, "what is acting on them leaves them unable to cast")
                 : null;
 
         public SpellApplicationOutcome Apply(SpellApplication application) => SpellApplicationOutcome.Expressed(

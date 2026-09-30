@@ -1,3 +1,4 @@
+using PartyRpg.Kit;
 using System.Globalization;
 using System.Text.Json;
 using PartyRpg.Kit.Content;
@@ -239,7 +240,7 @@ internal static class MightAndMagic7Containers
 
         if (string.Equals(target.State, SearchedState, StringComparison.Ordinal))
         {
-            return InteractionOutcome.Refused("container-emptied", $"{target.Name} has already been emptied.");
+            return InteractionOutcome.Refused(new Refusal("container-emptied", $"{target.Name} has already been emptied."));
         }
 
         IReadOnlyList<int> contents = References(context.Placement);
@@ -267,8 +268,7 @@ internal static class MightAndMagic7Containers
             if (loot?.RollsFor(Key(context, slot)) is not { } rolls)
             {
                 return InteractionOutcome.Refused(
-                    "container-contents-unresolved",
-                    $"{target.Name} holds treasure level {-reference} at slot {slot}, and this build has no loot generator to answer it: the request the map recorded is recorded and not answered.");
+                    new Refusal("container-contents-unresolved", $"{target.Name} holds treasure level {-reference} at slot {slot}, and this build has no loot generator to answer it: the request the map recorded is recorded and not answered."));
             }
 
             LootYield yielded = loot.Reference(-reference, placeLevel, rolls);

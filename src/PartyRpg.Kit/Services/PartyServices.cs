@@ -174,7 +174,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
         _current = service;
         if (Closed(service) is { } refusal)
         {
-            return Record(ServiceResult.Refused("open", refusal.Code, refusal.Message, Coins));
+            return Record(ServiceResult.Refused("open", refusal, Coins));
         }
 
         _visit = new ServiceVisit(service, ShelfFor(service));
@@ -187,7 +187,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
     {
         if (_visit is not { } visit)
         {
-            return Record(ServiceResult.Refused("leave", "service-not-open", "The party is not standing at a service counter.", Coins));
+            return Record(ServiceResult.Refused("leave", new Refusal(ServiceCodes.ServiceNotOpen, "The party is not standing at a service counter."), Coins));
         }
 
         string name = visit.Service.Name;
@@ -234,7 +234,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
         if (command.Kind == ServiceOperationKind.Leave) return Close();
         if (_visit is not { } visit)
         {
-            return Refuse(command.Kind, "service-not-open", "The party is not standing at a service counter.");
+            return Refuse(command.Kind, ServiceCodes.ServiceNotOpen, "The party is not standing at a service counter.");
         }
 
         ServiceDefinition service = visit.Service;
@@ -242,36 +242,36 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
         Operation operation = Operations[kind];
         if (!service.Offers(kind))
         {
-            return Refuse(kind, "service-operation-unavailable", $"{service.Describe()} does not offer to {operation.Word}.");
+            return Refuse(kind, ServiceCodes.ServiceOperationUnavailable, $"{service.Describe()} does not offer to {operation.Word}.");
         }
 
         // The hours are re-judged on every command, not only when the party walked in: a shop that closed
         // while the party browsed stops serving, and says so, rather than selling on because a screen is
         // open. Locking the door outside hours belongs to the schedule owner that closes doors.
-        if (Closed(service) is { } shut) return Refuse(kind, shut.Code, shut.Message);
+        if (Closed(service) is { } shut) return Refuse(kind, shut);
 
         if (Resolve(visit, command, operation, out ServiceSubject subject, out PartyMemberId member) is { } missing) return missing;
-        if (operation.Admit?.Invoke(subject) is { } unfit) return Refuse(kind, unfit.Code, unfit.Message);
+        if (operation.Admit?.Invoke(subject) is { } unfit) return Refuse(kind, unfit);
 
         ServiceEligibility eligibility = _rule.Judge(new ServiceEligibilityRequest(service, kind, subject, member, _party, _clock));
-        if (eligibility.Refusal is { } refused) return Refuse(kind, refused.Code, refused.Message);
+        if (eligibility.Refusal is { } refused) return Refuse(kind, refused);
 
         ServiceQuote quote = _rule.Quote(new ServiceQuoteRequest(service, kind, subject, member, _party, _clock));
         if ((!quote.Charge.IsFree || !quote.Payment.IsFree || operation.NeedsAccounts) && _accounts is null)
         {
             return Refuse(
                 kind,
-                "service-no-accounts",
+                ServiceCodes.ServiceNoAccounts,
                 $"{service.Describe()} settles in coin and this session holds no party accounts to settle against; the party's purse is the only purse a service may touch.");
         }
 
         Transaction transaction = new(visit, kind, subject, member, quote);
-        if (operation.Judge?.Invoke(this, transaction) is { } blocked) return Refuse(kind, blocked.Code, blocked.Message);
+        if (operation.Judge?.Invoke(this, transaction) is { } blocked) return Refuse(kind, blocked);
 
         if (!quote.Charge.IsFree)
         {
             ResourceSettlement settlement = _accounts!.Settle(quote.Charge);
-            if (!settlement.Admitted) return Refuse(kind, settlement.Refusal!.Code, settlement.Refusal.Message);
+            if (!settlement.Admitted) return Refuse(kind, settlement.Refusal!);
         }
 
         operation.Apply(this, transaction);
@@ -511,7 +511,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
             Admit: static subject => subject.Item!.Custody.IsInSharedInventory
                 ? null
                 // A member's figure is not the party's stock: selling it would take a worn item off a character.
-                : new PartyRefusal("service-item-worn", $"{subject.Item.Definition} is worn by a member, and a shop buys what lies in the party's pack."),
+                : new Refusal(ServiceCodes.ServiceItemWorn, $"{subject.Item.Definition} is worn by a member, and a shop buys what lies in the party's pack."),
             Apply: static (services, t) => services.ApplySell(t),
             Describe: static (_, t) => $"The party sells {t.Subject.Item!.StackCount} × {t.Subject.Item.Definition} for {t.Quote.Payment.Coins} coin(s), and the counter will sell it back."),
         [ServiceOperationKind.Identify] = new(
@@ -519,7 +519,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
             SubjectShape.Item,
             // Charging to identify what is identified would be taking coin for a change that never happened.
             Admit: static subject => subject.Item!.State.IsIdentified
-                ? new PartyRefusal("service-already-identified", $"{subject.Item.Definition} is identified already, so there is nothing to learn about it.")
+                ? new Refusal(ServiceCodes.ServiceAlreadyIdentified, $"{subject.Item.Definition} is identified already, so there is nothing to learn about it.")
                 : null,
             Apply: static (_, t) => t.Subject.Item!.Identify(),
             Describe: static (_, t) => $"The party pays {t.Quote.Charge.Coins} coin(s) to identify {t.Subject.Item!.Definition}."),
@@ -527,7 +527,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
             "repair",
             SubjectShape.Item,
             Admit: static subject => subject.Item!.State.Damage == 0
-                ? new PartyRefusal("service-not-damaged", $"{subject.Item.Definition} is sound, so there is nothing to repair.")
+                ? new Refusal(ServiceCodes.ServiceNotDamaged, $"{subject.Item.Definition} is sound, so there is nothing to repair.")
                 : null,
             Apply: static (_, t) => t.Subject.Item!.Repair(t.Subject.Item.State.Damage),
             Describe: static (_, t) => $"The party pays {t.Quote.Charge.Coins} coin(s) to repair {t.Subject.Item!.Definition}."),
@@ -535,7 +535,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
             "teach",
             SubjectShape.Lesson,
             Judge: static (services, t) => t.Subject.Lesson!.Kind == ServiceLessonKind.Skill && services._progression is null
-                ? new PartyRefusal("service-no-progression", $"{t.Visit.Service.Describe()} teaches skills and this session holds no progression owner to raise one.")
+                ? new Refusal(ServiceCodes.ServiceNoProgression, $"{t.Visit.Service.Describe()} teaches skills and this session holds no progression owner to raise one.")
                 : null,
             Apply: static (services, t) => services.ApplyTeach(t),
             Describe: static (services, t) => t.Subject.Lesson!.Kind switch
@@ -559,7 +559,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
             // A training step is one level, and the level is the progression owner's to grant; it is asked before
             // the fee is taken, so no party pays for a level it could not have.
             Judge: static (services, t) => services._progression is not { } progression
-                ? new PartyRefusal("service-no-progression", $"{t.Visit.Service.Describe()} trains by the level and this session holds no progression owner to grant one.")
+                ? new Refusal(ServiceCodes.ServiceNoProgression, $"{t.Visit.Service.Describe()} trains by the level and this session holds no progression owner to grant one.")
                 : progression.JudgeTraining(t.Member, services.Terms(t)),
             Apply: static (services, t) => Require(services._progression!.Train(t.Member, services.Terms(t)).Refusal, "training"),
             Describe: static (services, t) => services.TrainMessage(t.Member, t.Quote)),
@@ -581,7 +581,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
             // A room buys a night, and the night is the rest mechanism's; whether one could be slept is asked of it
             // before the price is taken.
             Judge: static (services, t) => services._rest is not { } rest
-                ? new PartyRefusal("service-no-rest", $"{t.Visit.Service.Describe()} rents rooms by the night and this session composes no rest, so no night could be slept.")
+                ? new Refusal(ServiceCodes.ServiceNoRest, $"{t.Visit.Service.Describe()} rents rooms by the night and this session composes no rest, so no night could be slept.")
                 : rest.JudgeRoom(),
             Apply: static (services, t) => services.ApplyStay(t),
             Describe: static (_, t) => $"The party pays {t.Quote.Charge.Coins} coin(s) for {t.Subject.Offer!.Name} and rests for {t.Subject.Offer.Amount} hour(s)."),
@@ -596,7 +596,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
             SubjectShape.Offer,
             ServiceOfferKind.Holding,
             Judge: static (services, t) => services._party.Holdings.BalanceOf(Holding(t.Subject)) is var held && held < t.Subject.Count
-                ? new PartyRefusal("service-holding-short", $"{t.Visit.Service.Describe()} holds {held} coin(s) for the party and the party asked for {t.Subject.Count}.")
+                ? new Refusal(ServiceCodes.ServiceHoldingShort, $"{t.Visit.Service.Describe()} holds {held} coin(s) for the party and the party asked for {t.Subject.Count}.")
                 : null,
             Apply: static (services, t) => services._party.Holdings.Hold(Holding(t.Subject), services._party.Holdings.BalanceOf(Holding(t.Subject)) - t.Subject.Count),
             Describe: static (services, t) => $"The party takes {t.Subject.Count} coin(s) back from {t.Visit.Service.Name} and it holds {services._party.Holdings.BalanceOf(Holding(t.Subject))}."),
@@ -650,8 +650,8 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
         ServiceOfferKind? Offer = null,
         bool ForMember = false,
         bool NeedsAccounts = false,
-        Func<ServiceSubject, PartyRefusal?>? Admit = null,
-        Func<PartyServices, Transaction, PartyRefusal?>? Judge = null,
+        Func<ServiceSubject, Refusal?>? Admit = null,
+        Func<PartyServices, Transaction, Refusal?>? Judge = null,
         Action<PartyServices, Transaction> Apply = null!,
         Func<PartyServices, Transaction, string> Describe = null!);
 
@@ -676,20 +676,20 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
             {
                 if (visit.Shelf.Lot(new ServiceLotId(command.Target)) is not { } lot)
                 {
-                    return Refuse(kind, "service-no-such-lot", $"{service.Describe()} has no line '{command.Target}' on its shelves.");
+                    return Refuse(kind, ServiceCodes.ServiceNoSuchLot, $"{service.Describe()} has no line '{command.Target}' on its shelves.");
                 }
 
-                if (lot.IsEmpty) return Refuse(kind, "service-out-of-stock", $"{service.Describe()} has sold out of {lot.Label}.");
+                if (lot.IsEmpty) return Refuse(kind, ServiceCodes.ServiceOutOfStock, $"{service.Describe()} has sold out of {lot.Label}.");
 
                 int count = lot.IsSale ? lot.Count : command.Count;
                 if (count < 1)
                 {
-                    return Refuse(kind, "service-count-invalid", $"The party asked for {command.Count} × {lot.Label}, and a purchase is of at least one.");
+                    return Refuse(kind, ServiceCodes.ServiceCountInvalid, $"The party asked for {command.Count} × {lot.Label}, and a purchase is of at least one.");
                 }
 
                 if (count > lot.Count)
                 {
-                    return Refuse(kind, "service-not-enough-stock", $"{service.Describe()} holds {lot.Count} × {lot.Label} and the party asked for {count}.");
+                    return Refuse(kind, ServiceCodes.ServiceNotEnoughStock, $"{service.Describe()} holds {lot.Count} × {lot.Label} and the party asked for {count}.");
                 }
 
                 subject = ServiceSubject.OfLot(lot, count);
@@ -701,7 +701,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
                 if (!ulong.TryParse(command.Target, NumberStyles.None, CultureInfo.InvariantCulture, out ulong value) || value == 0
                     || _party.FindItem(new ItemInstanceId(value)) is not { } item)
                 {
-                    return Refuse(kind, "service-no-such-item", $"The party holds no item '{command.Target}', so there is nothing to {operation.Word}.");
+                    return Refuse(kind, ServiceCodes.ServiceNoSuchItem, $"The party holds no item '{command.Target}', so there is nothing to {operation.Word}.");
                 }
 
                 subject = ServiceSubject.OfItem(item);
@@ -712,7 +712,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
             {
                 ServiceOfferKind want = operation.Offer!.Value;
                 List<ServiceOffer> offers = [.. _rule.Offers(new ServiceOfferRequest(service, _party, _clock)).Where(offer => offer.Kind == want)];
-                if (offers.Count == 0) return Refuse(kind, "service-no-such-offer", $"{service.Describe()} offers no {operation.Word}.");
+                if (offers.Count == 0) return Refuse(kind, ServiceCodes.ServiceNoSuchOffer, $"{service.Describe()} offers no {operation.Word}.");
 
                 // A command that names nothing takes the counter's one offer of that kind — a hall has one training
                 // step, a bank one account, a tavern one room — and one that names something takes the offer that
@@ -723,7 +723,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
                 {
                     if (offers.Count > 1)
                     {
-                        return Refuse(kind, "service-offer-ambiguous", $"{service.Describe()} offers {offers.Count} things to {operation.Word} and the command named none of them.");
+                        return Refuse(kind, ServiceCodes.ServiceOfferAmbiguous, $"{service.Describe()} offers {offers.Count} things to {operation.Word} and the command named none of them.");
                     }
 
                     chosen = offers[0];
@@ -735,14 +735,14 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
 
                 if (chosen is null)
                 {
-                    return Refuse(kind, "service-no-such-offer", $"{service.Describe()} offers nothing called '{command.Target}' to {operation.Word}.");
+                    return Refuse(kind, ServiceCodes.ServiceNoSuchOffer, $"{service.Describe()} offers nothing called '{command.Target}' to {operation.Word}.");
                 }
 
                 if (operation.ForMember)
                 {
                     if (command.Member < 0 || command.Member >= _party.Members.Count)
                     {
-                        return Refuse(kind, "service-no-such-member", $"The party has no member {command.Member + 1}, so there is nobody for {chosen.Name} to act on.");
+                        return Refuse(kind, ServiceCodes.ServiceNoSuchMember, $"The party has no member {command.Member + 1}, so there is nobody for {chosen.Name} to act on.");
                     }
 
                     member = _party.Members[command.Member].Id;
@@ -753,7 +753,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
                 int count = want == ServiceOfferKind.Holding ? command.Count : Math.Max(1, command.Count);
                 if (count < 1)
                 {
-                    return Refuse(kind, "service-count-invalid", $"The party asked for {count} of {chosen.Name}, and an operation acts on at least one.");
+                    return Refuse(kind, ServiceCodes.ServiceCountInvalid, $"The party asked for {count} of {chosen.Name}, and an operation acts on at least one.");
                 }
 
                 subject = ServiceSubject.OfOffer(chosen, count);
@@ -766,10 +766,10 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
                 // rung together; a command that names no rung means the first.
                 ServiceLesson? lesson = _rule.Lessons(new ServiceLessonRequest(service, _party, _clock))
                     .FirstOrDefault(candidate => string.Equals(candidate.Subject, command.Target, StringComparison.Ordinal) && candidate.Tier == command.Tier);
-                if (lesson is null) return Refuse(kind, "service-no-such-lesson", $"{service.Describe()} teaches no lesson called '{command.Target}'.");
+                if (lesson is null) return Refuse(kind, ServiceCodes.ServiceNoSuchLesson, $"{service.Describe()} teaches no lesson called '{command.Target}'.");
                 if (command.Member < 0 || command.Member >= _party.Members.Count)
                 {
-                    return Refuse(kind, "service-no-such-member", $"The party has no member {command.Member + 1}, so a lesson has nobody to go to.");
+                    return Refuse(kind, ServiceCodes.ServiceNoSuchMember, $"The party has no member {command.Member + 1}, so a lesson has nobody to go to.");
                 }
 
                 member = _party.Members[command.Member].Id;
@@ -813,7 +813,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
     {
         ServiceOffer room = t.Subject.Offer!;
         RestResult night = _rest!.SleepInRoom(GameDuration.FromHours(room.Amount < 1 ? 1 : room.Amount), room.Conditions);
-        if (!night.IsApplied) Require(new PartyRefusal(night.Code, night.Message), "a room");
+        if (!night.IsApplied) Require(night.Refusal, "a room");
     }
 
     /// <summary>
@@ -844,7 +844,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
     /// Fails loudly when an owner refuses a change it was asked about before the charge: that is a broken
     /// promise between the judgement and the change, not a refusal a player could meet.
     /// </summary>
-    private static void Require(PartyRefusal? refusal, string what)
+    private static void Require(Refusal? refusal, string what)
     {
         if (refusal is not null)
         {
@@ -880,26 +880,30 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
 
     /// <summary>States a refusal, with the purse as the refusal left it.</summary>
     private ServiceResult Refuse(ServiceOperationKind kind, string code, string message) =>
-        Record(ServiceResult.Refused(Word(kind), code, message, Coins));
+        Refuse(kind, new Refusal(code, message));
+
+    /// <summary>States a refusal another owner gave, with the purse as the refusal left it.</summary>
+    private ServiceResult Refuse(ServiceOperationKind kind, Refusal refusal) =>
+        Record(ServiceResult.Refused(Word(kind), refusal, Coins));
 
     /// <summary>
     /// Why the counter is not serving now, or null when it is: content's hours read against the one clock. A
     /// service that states hours and a session with no clock cannot be known to be open, so that is refused by
     /// name rather than assumed open.
     /// </summary>
-    private PartyRefusal? Closed(ServiceDefinition service)
+    private Refusal? Closed(ServiceDefinition service)
     {
         if (service.Hours is not { } hours) return null;
         if (_clock is not { } clock)
         {
-            return new PartyRefusal(
-                "service-no-clock",
+            return new Refusal(
+                ServiceCodes.ServiceNoClock,
                 $"{service.Describe()} keeps {hours} and this session keeps no clock, so whether it is open cannot be known.");
         }
 
         if (hours.IsOpenAt(clock.Now)) return null;
-        return new PartyRefusal(
-            "service-closed",
+        return new Refusal(
+            ServiceCodes.ServiceClosed,
             string.Create(
                 CultureInfo.InvariantCulture,
                 $"{service.Describe()} is shut: it keeps {hours} and the clock stands at {clock.Now.Hour:00}:00."));

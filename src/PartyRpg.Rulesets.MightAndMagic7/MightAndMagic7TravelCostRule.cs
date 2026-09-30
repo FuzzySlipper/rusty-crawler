@@ -1,3 +1,4 @@
+using PartyRpg.Kit;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Services;
@@ -82,7 +83,7 @@ internal sealed class MightAndMagic7TravelCostRule : ITravelCostRule
             TransitionKind.Scripted => TravelCostQuote.Payable(TravelCost.Free),
             TransitionKind.PaidService => Board(request),
             TransitionKind.Portal => TravelCostQuote.Payable(TravelCost.Free),
-            _ => TravelCostQuote.Refused(new TravelRefusal(
+            _ => TravelCostQuote.Refused(new Refusal(
                 "travel-kind-unknown",
                 $"Travel kind '{request.Kind}' has no cost policy.")),
         };
@@ -111,7 +112,7 @@ internal sealed class MightAndMagic7TravelCostRule : ITravelCostRule
         PlaceId destination = request.Transition.To;
         if (_party is null)
         {
-            return TravelCostQuote.Refused(new TravelRefusal(
+            return TravelCostQuote.Refused(new Refusal(
                 "travel-no-party",
                 "A fare is bought by a party and this session holds none, so there is nobody to board."));
         }
@@ -119,7 +120,7 @@ internal sealed class MightAndMagic7TravelCostRule : ITravelCostRule
         int days = _party.Passages.DaysTo(destination);
         if (days <= 0)
         {
-            return TravelCostQuote.Refused(new TravelRefusal(
+            return TravelCostQuote.Refused(new Refusal(
                 "travel-fare-unpaid",
                 $"A seat to {destination} is bought at a stable or a dock and the party holds no passage to it; buying one at the counter is what pays for the journey."));
         }

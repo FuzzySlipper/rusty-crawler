@@ -292,7 +292,7 @@ public sealed class SpellEffectTests
 
         public int CostFor(PartyMember member, SpellDefinition spell) => spell.Cost;
 
-        public SpellRefusal? MayLearn(PartyMember member, SpellDefinition spell) => null;
+        public Refusal? MayLearn(PartyMember member, SpellDefinition spell) => null;
     }
 
     /// <summary>
@@ -317,7 +317,7 @@ public sealed class SpellEffectTests
 
         public PartySight Sight => _running.IsRunning(Ward) ? PartySight.Light : PartySight.Dark;
 
-        public SpellRefusal? Judge(SpellApplication application) => null;
+        public Refusal? Judge(SpellApplication application) => null;
 
         public SpellApplicationOutcome Apply(SpellApplication application)
         {

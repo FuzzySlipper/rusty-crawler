@@ -35,7 +35,6 @@ public readonly record struct MixingRequest(int Member, ItemInstanceId First, It
 public sealed record MixingResult
 {
     private MixingResult(
-        bool isMixed,
         string code,
         string message,
         int member,
@@ -50,9 +49,8 @@ public sealed record MixingResult
         int burst,
         int harm,
         string condition,
-        PartyRefusal? refusal)
+        Refusal? refusal)
     {
-        IsMixed = isMixed;
         Code = code;
         Message = message;
         Member = member;
@@ -70,8 +68,11 @@ public sealed record MixingResult
         Refusal = refusal;
     }
 
-    /// <summary>Whether the mixture was attempted, which is true of a burst and of a mixture that did nothing.</summary>
-    public bool IsMixed { get; }
+    /// <summary>
+    /// Whether the mixture was attempted, which is true of a burst and of a mixture that did nothing: both
+    /// consumed the ingredients. What came of it is <see cref="Outcome"/>.
+    /// </summary>
+    public bool IsMixed => Refusal is null;
 
     /// <summary>The outcome's own code, which is what a test and a diagnostic compare.</summary>
     public string Code { get; }
@@ -119,7 +120,7 @@ public sealed record MixingResult
     public string Condition { get; }
 
     /// <summary>Why nothing was attempted, or null when the mixture was attempted.</summary>
-    public PartyRefusal? Refusal { get; }
+    public Refusal? Refusal { get; }
 
     /// <summary>A mixture was attempted and made the thing its row states.</summary>
     /// <param name="mixer">What the mixing character is called.</param>
@@ -145,8 +146,7 @@ public sealed record MixingResult
             ? string.Create(CultureInfo.InvariantCulture, $"{mixer} mixes {first} with {second} into {resultName} of strength {power}, and learns something worth remembering.")
             : string.Create(CultureInfo.InvariantCulture, $"{mixer} mixes {first} with {second} into {resultName} of strength {power}.");
         return new MixingResult(
-            isMixed: true,
-            "mixture-mixed",
+            MixingCodes.MixtureMixed,
             message,
             member,
             mixer,
@@ -181,8 +181,7 @@ public sealed record MixingResult
     {
         ArgumentNullException.ThrowIfNull(backfire);
         return new MixingResult(
-            isMixed: true,
-            "mixture-burst",
+            MixingCodes.MixtureBurst,
             string.Create(
                 CultureInfo.InvariantCulture,
                 $"{mixer} mixes {first} with {second} and the mixture goes off at strength {strength}: both ingredients are gone and {mixer} takes {backfire.Describe()}."),
@@ -209,8 +208,7 @@ public sealed record MixingResult
     /// <returns>The result.</returns>
     public static MixingResult Nothing(string mixer, int member, string first, string second) =>
         new(
-            isMixed: true,
-            "mixture-nothing",
+            MixingCodes.MixtureNothing,
             string.Create(CultureInfo.InvariantCulture, $"{mixer} mixes {first} with {second}, and nothing comes of it; both are still where they were."),
             member,
             mixer,
@@ -234,11 +232,10 @@ public sealed record MixingResult
     /// <param name="refusal">Why nothing was attempted.</param>
     /// <returns>The result.</returns>
     /// <exception cref="ArgumentNullException">No refusal was supplied.</exception>
-    public static MixingResult Refused(int member, string mixer, string first, string second, PartyRefusal refusal)
+    public static MixingResult Refused(int member, string mixer, string first, string second, Refusal refusal)
     {
         ArgumentNullException.ThrowIfNull(refusal);
         return new MixingResult(
-            isMixed: false,
             refusal.Code,
             refusal.Message,
             member,
@@ -257,7 +254,7 @@ public sealed record MixingResult
     }
 
     /// <inheritdoc />
-    public override string ToString() => IsMixed ? $"{Code}: {Message}" : $"{Code}: {Message}";
+    public override string ToString() => IsMixed ? $"{Outcome}: {Message}" : $"refused ({Code}): {Message}";
 }
 
 /// <summary>
@@ -337,8 +334,8 @@ public sealed class PotionMixing
                 mixer: string.Empty,
                 first: string.Empty,
                 second: string.Empty,
-                new PartyRefusal(
-                    "mixture-no-member",
+                new Refusal(
+                    MixingCodes.MixtureNoMember,
                     string.Create(CultureInfo.InvariantCulture, $"The party has no member {request.Member}, so nobody mixed anything."))));
         }
 
@@ -357,7 +354,7 @@ public sealed class PotionMixing
             return Record(Refuse(
                 request,
                 mixer,
-                "mixture-same-instance",
+                MixingCodes.MixtureSameInstance,
                 $"{mixer.Profile.Name} named one instance twice, and a thing mixed with itself is one thing rather than a mixture."));
         }
 
@@ -368,7 +365,7 @@ public sealed class PotionMixing
             return Record(Refuse(
                 request,
                 mixer,
-                "mixture-ingredient-missing",
+                MixingCodes.MixtureIngredientMissing,
                 string.Create(CultureInfo.InvariantCulture, $"The pack holds no item {request.First}, so there was nothing to mix.")));
         }
 
@@ -377,7 +374,7 @@ public sealed class PotionMixing
             return Record(Refuse(
                 request,
                 mixer,
-                "mixture-ingredient-missing",
+                MixingCodes.MixtureIngredientMissing,
                 string.Create(CultureInfo.InvariantCulture, $"The pack holds no item {request.Second}, so there was nothing to mix.")));
         }
 
@@ -393,8 +390,8 @@ public sealed class PotionMixing
                 mixer.Profile.Name,
                 firstName,
                 secondName,
-                new PartyRefusal(
-                    "mixture-unknown",
+                new Refusal(
+                    MixingCodes.MixtureUnknown,
                     string.Create(
                         CultureInfo.InvariantCulture,
                         $"{firstName} and {secondName} are not a mixture this game states, so nothing was combined and both are still where they were."))));
@@ -429,8 +426,8 @@ public sealed class PotionMixing
                 mixer.Profile.Name,
                 firstName,
                 secondName,
-                new PartyRefusal(
-                    "mixture-mastery-too-low",
+                new Refusal(
+                    MixingCodes.MixtureMasteryTooLow,
                     string.Create(
                         CultureInfo.InvariantCulture,
                         $"{mixer.Profile.Name} stands at {_rule.RungName(held)} in {_rule.Skill} and {resultName} is mixed at {_rule.RungName(mixture.Tier)}; {_rule.MasteryRaisedBy(_rule.Skill)}."))));
@@ -447,8 +444,8 @@ public sealed class PotionMixing
                 mixer.Profile.Name,
                 firstName,
                 secondName,
-                new PartyRefusal(
-                    "mixture-strength-unstated",
+                new Refusal(
+                    MixingCodes.MixtureStrengthUnstated,
                     string.Create(
                         CultureInfo.InvariantCulture,
                         $"{resultName} would come out of mixing {firstName} with {secondName} at strength {power}, and this game states no strength below one for a mixture."))));
@@ -516,7 +513,7 @@ public sealed class PotionMixing
     }
 
     private static MixingResult Refuse(MixingRequest request, PartyMember mixer, string code, string message) =>
-        MixingResult.Refused(request.Member, mixer.Profile.Name, string.Empty, string.Empty, new PartyRefusal(code, message));
+        MixingResult.Refused(request.Member, mixer.Profile.Name, string.Empty, string.Empty, new Refusal(code, message));
 
     /// <summary>
     /// Reports the discovery a mixture's own row records, which is what makes a learned recipe a fact the

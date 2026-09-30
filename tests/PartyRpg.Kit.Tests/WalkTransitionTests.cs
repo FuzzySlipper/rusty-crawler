@@ -302,7 +302,7 @@ public sealed class WalkTransitionTests
         {
             Asked.Add(request);
             return Refuse == request.Kind
-                ? TravelCostQuote.Refused(new TravelRefusal("test-refused", "the test refused this journey"))
+                ? TravelCostQuote.Refused(new Refusal("test-refused", "the test refused this journey"))
                 : TravelCostQuote.Payable(TravelCost.Free);
         }
     }

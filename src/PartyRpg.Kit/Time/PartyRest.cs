@@ -127,15 +127,15 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
     /// <summary>Runs the one stop workflow over a kind, and answers with what came of it.</summary>
     /// <summary>Whether a night in a room could be slept here, and why not when it could not, without moving anything.</summary>
     /// <returns>Why no night could pass, or null when one can.</returns>
-    public PartyRefusal? JudgeRoom()
+    public Refusal? JudgeRoom()
     {
         if (_clock is null)
         {
-            return new PartyRefusal("rest-no-clock", "The party cannot sleep here: this session keeps no clock, so no night could pass.");
+            return new Refusal(RestCodes.RestNoClock, "The party cannot sleep here: this session keeps no clock, so no night could pass.");
         }
 
         return _site is null
-            ? new PartyRefusal("rest-nowhere", "The party cannot sleep here: it stands in no place a room could be in.")
+            ? new Refusal(RestCodes.RestNowhere, "The party cannot sleep here: it stands in no place a room could be in.")
             : null;
     }
 
@@ -162,7 +162,7 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
     public RestResult SleepInRoom(GameDuration period, IReadOnlyList<ConditionId> ends)
     {
         ArgumentNullException.ThrowIfNull(ends);
-        if (JudgeRoom() is { } refused) return RestResult.Refused(RestKind.Rest, _clock?.Now ?? default, refused.Code, refused.Message);
+        if (JudgeRoom() is { } refused) return RestResult.Refused(RestKind.Rest, _clock?.Now ?? default, refused);
         GameClock clock = _clock!;
         IRestSite site = _site!;
 
@@ -215,8 +215,7 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
             return RestResult.Refused(
                 kind,
                 default,
-                "rest-no-clock",
-                "The party cannot stop here: this session keeps no clock, so no period could pass.");
+                new Refusal(RestCodes.RestNoClock, "The party cannot stop here: this session keeps no clock, so no period could pass."));
         }
 
         GameDate at = clock.Now;
@@ -225,8 +224,7 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
             return RestResult.Refused(
                 kind,
                 at,
-                "rest-nowhere",
-                "The party cannot stop here: it stands in no place whose ground could be slept on or waited in.");
+                new Refusal(RestCodes.RestNowhere, "The party cannot stop here: it stands in no place whose ground could be slept on or waited in."));
         }
 
         RestRequest request = new(kind, site, _party, clock);
@@ -238,14 +236,13 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
         if (sleeps)
         {
             quote = _rule.Quote(request);
-            if (quote.Refusal is { } refusal) return RestResult.Refused(kind, at, refusal.Code, refusal.Message);
+            if (quote.Refusal is { } refusal) return RestResult.Refused(kind, at, refusal);
             if (!quote.Charge.IsNone && _accounts is null)
             {
                 return RestResult.Refused(
                     kind,
                     at,
-                    "rest-no-accounts",
-                    $"A sleep here costs {Amounts(quote.Charge)}, and this session holds no party accounts to settle it from.");
+                    new Refusal(RestCodes.RestNoAccounts, $"A sleep here costs {Amounts(quote.Charge)}, and this session holds no party accounts to settle it from."));
             }
 
             // A night the larder cannot provision is refused before it starts: a rest the party cannot feed
@@ -255,8 +252,7 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
                 return RestResult.Refused(
                     kind,
                     at,
-                    "rest-larder-short",
-                    $"A sleep here costs {Amounts(quote.Charge)} and the party's larder holds {_party.Food.Portions} {Unit(_party.Food.Unit)}.");
+                    new Refusal(RestCodes.RestLarderShort, $"A sleep here costs {Amounts(quote.Charge)} and the party's larder holds {_party.Food.Portions} {Unit(_party.Food.Unit)}."));
             }
         }
         else

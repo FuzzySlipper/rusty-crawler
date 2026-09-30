@@ -1,3 +1,4 @@
+using PartyRpg.Kit;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Skills;
@@ -93,7 +94,7 @@ internal sealed class MightAndMagic7EquipmentUse : IEquipmentUseRule
     /// about the goods: a helmet needs no skill whatever it is made of, and the game's own table gives its
     /// helmets no skill column to read anyway.
     /// </remarks>
-    public PartyRefusal? Judge(PartyMember member, EquipmentSlot slot, ItemInstance item)
+    public Refusal? Judge(PartyMember member, EquipmentSlot slot, ItemInstance item)
     {
         ArgumentNullException.ThrowIfNull(member);
         ArgumentNullException.ThrowIfNull(item);
@@ -116,14 +117,14 @@ internal sealed class MightAndMagic7EquipmentUse : IEquipmentUseRule
 
         if (_skills.Resolve(named) is not { } skill)
         {
-            return new PartyRefusal(
+            return new Refusal(
                 "equipment-skill-unknown",
                 $"The item table gives {item.Definition} the skill '{named}', which this game's skill table does not carry, so nobody can be said to have it.");
         }
 
         if (member.Skills.LevelOf(skill) > 0) return null;
 
-        return new PartyRefusal(
+        return new Refusal(
             "equipment-skill-missing",
             string.Create(
                 System.Globalization.CultureInfo.InvariantCulture,

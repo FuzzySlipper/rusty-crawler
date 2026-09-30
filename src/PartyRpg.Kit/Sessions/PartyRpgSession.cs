@@ -184,7 +184,7 @@ public sealed class PartyRpgSession : IGameSession
     public PartyCreationFlow? Creation => _creation?.Flow;
 
     /// <summary>The last creation choice the flow refused, or null when the last choice was accepted.</summary>
-    public PartyRefusal? CreationRefusal => _creation?.Refusal;
+    public Refusal? CreationRefusal => _creation?.Refusal;
 
     /// <summary>The explicit save boundary, or null when the session was composed without a save store.</summary>
     public SessionSaveBoundary? Saves => _saves.Boundary;

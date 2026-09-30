@@ -17,9 +17,8 @@ namespace PartyRpg.Kit.Conversation;
 public sealed record ConversationResult
 {
     private ConversationResult(
-        bool isApplied,
+        Refusal? refusal,
         string action,
-        string code,
         string message,
         string speaker,
         string topic,
@@ -28,9 +27,8 @@ public sealed record ConversationResult
         ConversationHandoff? handoff,
         int offers)
     {
-        IsApplied = isApplied;
+        Refusal = refusal;
         Action = action;
-        Code = code;
         Message = message;
         Speaker = speaker;
         Topic = topic;
@@ -63,28 +61,35 @@ public sealed record ConversationResult
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(action);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        return new ConversationResult(true, action, string.Empty, message, speaker, topic, text, residue, handoff, offers);
+        return new ConversationResult(null, action, message, speaker, topic, text, residue, handoff, offers);
     }
 
     /// <summary>It changed nothing, and this is why.</summary>
     /// <param name="action">The word for what was asked and refused.</param>
-    /// <param name="code">A short stable code naming the kind of refusal.</param>
-    /// <param name="message">Why nothing happened, in terms a person can act on.</param>
+    /// <param name="refusal">Why nothing happened.</param>
     /// <param name="speaker">Who the conversation is with, empty when it is not open.</param>
     /// <param name="topic">The topic that was asked for, empty when none was named.</param>
     /// <returns>The result.</returns>
-    /// <exception cref="ArgumentException">The action, the code, or the message is blank.</exception>
-    public static ConversationResult Refused(string action, string code, string message, string speaker = "", string topic = "") =>
-        new(false, Require(action, nameof(action)), Require(code, nameof(code)), Require(message, nameof(message)), speaker, topic, string.Empty, string.Empty, null, 0);
+    /// <exception cref="ArgumentException">The action is blank.</exception>
+    /// <exception cref="ArgumentNullException">No refusal was given.</exception>
+    public static ConversationResult Refused(string action, Refusal refusal, string speaker = "", string topic = "")
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(action);
+        ArgumentNullException.ThrowIfNull(refusal);
+        return new(refusal, action, refusal.Message, speaker, topic, string.Empty, string.Empty, null, 0);
+    }
 
     /// <summary>Whether it happened. A refusal changed nothing at all.</summary>
-    public bool IsApplied { get; }
+    public bool IsApplied => Refusal is null;
+
+    /// <summary>Why nothing happened, or null when it did.</summary>
+    public Refusal? Refusal { get; }
 
     /// <summary>The word for what happened, or for what was refused.</summary>
     public string Action { get; }
 
     /// <summary>The refusal's code, or empty when it happened.</summary>
-    public string Code { get; }
+    public string Code => Refusal?.Code ?? string.Empty;
 
     /// <summary>What happened, or why nothing did.</summary>
     public string Message { get; }
@@ -109,9 +114,4 @@ public sealed record ConversationResult
 
     /// <inheritdoc />
     public override string ToString() => IsApplied ? $"{Action}: {Message}" : $"{Action} refused ({Code}): {Message}";
-
-    private static string Require(string value, string parameterName) =>
-        !string.IsNullOrWhiteSpace(value)
-            ? value
-            : throw new ArgumentException($"The conversation result '{parameterName}' is blank, so a refusal would say nothing.", parameterName);
 }

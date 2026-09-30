@@ -73,7 +73,7 @@ public sealed class PartyCreationTests
         PartyCreationFlow withoutClass = new(Options);
         Assert.Null(withoutClass.SelectPortrait(FolkA));
         Assert.Null(withoutClass.Advance());
-        PartyRefusal classUnchosen = withoutClass.Advance()!;
+        Refusal classUnchosen = withoutClass.Advance()!;
         Assert.Equal("class-unchosen", classUnchosen.Code);
         Assert.Contains("which skills may be chosen", classUnchosen.Message, StringComparison.Ordinal);
         Assert.Equal(CreationStep.Class, withoutClass.Step);
@@ -83,7 +83,7 @@ public sealed class PartyCreationTests
         Assert.Null(withoutName.Advance());
         Assert.Null(withoutName.SelectClass(Fighter));
         Assert.Null(withoutName.Advance());
-        PartyRefusal nameBlank = withoutName.Advance()!;
+        Refusal nameBlank = withoutName.Advance()!;
         Assert.Equal("name-blank", nameBlank.Code);
         Assert.Contains("every member of the party is named", nameBlank.Message, StringComparison.Ordinal);
         Assert.Equal(CreationStep.Name, withoutName.Step);
@@ -95,7 +95,7 @@ public sealed class PartyCreationTests
         PartyCreationFlow flow = AttributesStep();
 
         // The pool is five points and all five must be spent; an unfinished pool names how many are left.
-        PartyRefusal unspent = flow.Advance()!;
+        Refusal unspent = flow.Advance()!;
         Assert.Equal("attribute-pool-unspent", unspent.Code);
         Assert.Contains("spent exactly", unspent.Message, StringComparison.Ordinal);
         Assert.Contains("5 remain", unspent.Message, StringComparison.Ordinal);
@@ -128,7 +128,7 @@ public sealed class PartyCreationTests
         PartyCreationFlow flow = AttributesStep();
 
         for (int click = 0; click < 4; click++) Assert.Null(flow.RaiseAttribute(Vigour));
-        PartyRefusal ceiling = flow.RaiseAttribute(Vigour)!;
+        Refusal ceiling = flow.RaiseAttribute(Vigour)!;
         Assert.Equal("attribute-ceiling", ceiling.Code);
         Assert.Contains("vigour", ceiling.Message, StringComparison.Ordinal);
         Assert.Contains("at most to 10", ceiling.Message, StringComparison.Ordinal);
@@ -148,7 +148,7 @@ public sealed class PartyCreationTests
         Assert.Equal(5, AttributeOf(flow, Vigour));
         Assert.Null(flow.LowerAttribute(Vigour));
         Assert.Equal(4, AttributeOf(flow, Vigour));
-        PartyRefusal floor = flow.LowerAttribute(Vigour)!;
+        Refusal floor = flow.LowerAttribute(Vigour)!;
         Assert.Equal("attribute-floor", floor.Code);
         Assert.Contains("at most to 4", floor.Message, StringComparison.Ordinal);
 
@@ -157,7 +157,7 @@ public sealed class PartyCreationTests
         Assert.Null(costly.RaiseAttribute(Vigour));
         Assert.Null(costly.RaiseAttribute(Vigour));
         Assert.Equal(1, costly.PoolRemaining);
-        PartyRefusal short1 = costly.RaiseAttribute(Vigour)!;
+        Refusal short1 = costly.RaiseAttribute(Vigour)!;
         Assert.Equal("attribute-pool-short", short1.Code);
         Assert.Contains("costs 2 of the 1 attribute point left", short1.Message, StringComparison.Ordinal);
 
@@ -174,12 +174,12 @@ public sealed class PartyCreationTests
     {
         PartyCreationFlow flow = SkillsStep();
 
-        PartyRefusal notLegal = flow.ChooseSkill(Wards)!;
+        Refusal notLegal = flow.ChooseSkill(Wards)!;
         Assert.Equal("skill-not-legal", notLegal.Code);
         Assert.Contains("'wards' is not a skill the fighter class may learn at creation", notLegal.Message, StringComparison.Ordinal);
         Assert.Contains("the class decides which skills may be chosen", notLegal.Message, StringComparison.Ordinal);
 
-        PartyRefusal fixedSkill = flow.ChooseSkill(Blades)!;
+        Refusal fixedSkill = flow.ChooseSkill(Blades)!;
         Assert.Equal("skill-fixed", fixedSkill.Code);
         Assert.Contains("the two chosen skills are picked from the rest", fixedSkill.Message, StringComparison.Ordinal);
 

@@ -1,3 +1,4 @@
+using PartyRpg.Kit;
 using System.Text.Json;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Conversation;
@@ -275,7 +276,7 @@ public sealed class PromotionPolicyTests
 
         // A lesson at a counter that teaches the shut school is refused in the same words, which is where a
         // player meets it: the refusal is the game's own, not the kit's sentence about a class.
-        PartyRefusal lesson = fixture.Skills.Lesson(archer, fixture.Dark, tier: 1, level: 1)!;
+        Refusal lesson = fixture.Skills.Lesson(archer, fixture.Dark, tier: 1, level: 1)!;
         Assert.Equal("skill-closed-by-path", lesson.Code);
         Assert.Contains("took the light path", lesson.Message, StringComparison.Ordinal);
 

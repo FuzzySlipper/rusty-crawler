@@ -64,7 +64,7 @@ public sealed record ProgressionTrainingResult(
     long Fee,
     string Counter,
     ProgressionStanding Standing,
-    PartyRefusal? Refusal)
+    Refusal? Refusal)
 {
     /// <summary>Whether the member rose a level.</summary>
     public bool IsTrained => Refusal is null;
@@ -81,7 +81,7 @@ public sealed record ProgressionTrainingResult(
         string name,
         int level,
         string counter,
-        PartyRefusal refusal)
+        Refusal refusal)
     {
         ArgumentNullException.ThrowIfNull(refusal);
         return new ProgressionTrainingResult(

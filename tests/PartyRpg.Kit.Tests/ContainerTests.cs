@@ -398,7 +398,7 @@ public sealed class ContainerTests
         {
             _ = context;
             if (target.Verb == InteractionVerb.Unlock) return InteractionOutcome.Applied("unlocked", "The lock falls open.");
-            if (target.State == "searched") return InteractionOutcome.Refused("container-emptied", $"{target.Name} has already been emptied.");
+            if (target.State == "searched") return InteractionOutcome.Refused(new Refusal("container-emptied", $"{target.Name} has already been emptied."));
             if (Contents.Count == 0) return InteractionOutcome.Applied("searched", $"{target.Name} is empty.");
             return InteractionOutcome.Applied("searched", $"{target.Name} holds what it holds.", items: Contents);
         }

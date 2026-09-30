@@ -48,20 +48,20 @@ public readonly record struct ServiceQuote(PartyCost Charge, PartyCost Payment, 
 /// </remarks>
 public readonly record struct ServiceEligibility
 {
-    private ServiceEligibility(PartyRefusal? refusal) => Refusal = refusal;
+    private ServiceEligibility(Refusal? refusal) => Refusal = refusal;
 
     /// <summary>The party may do this.</summary>
     public static ServiceEligibility Allowed => default;
 
     /// <summary>The party may not, and this is why.</summary>
-    /// <param name="code">A short stable code naming the kind of refusal.</param>
-    /// <param name="message">Why the party is not served, in terms a person can act on.</param>
-    /// <exception cref="ArgumentException">The code or the message is blank.</exception>
-    public static ServiceEligibility Refused(string code, string message) => new(new PartyRefusal(code, message));
+    /// <param name="refusal">Why the party is not served.</param>
+    /// <exception cref="ArgumentNullException">No refusal was given.</exception>
+    public static ServiceEligibility Refused(Refusal refusal) =>
+        new(refusal ?? throw new ArgumentNullException(nameof(refusal)));
 
     /// <summary>Whether the party may do it.</summary>
     public bool IsAllowed => Refusal is null;
 
     /// <summary>Why the party may not do it, or null when it may.</summary>
-    public PartyRefusal? Refusal { get; }
+    public Refusal? Refusal { get; }
 }

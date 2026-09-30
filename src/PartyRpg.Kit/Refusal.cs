@@ -1,19 +1,21 @@
-namespace PartyRpg.Kit.Party;
+namespace PartyRpg.Kit;
 
-/// <summary>A named reason a party-scoped change did not happen, with a message a caller can show.</summary>
+/// <summary>A named reason something the party asked for did not happen, with a message a caller can show.</summary>
 /// <remarks>
-/// The same split the world's travel refusal uses: the code is what a caller branches on and the message
-/// is what a person reads, so "the rule refused this" never collapses into a silent no-op. Rules that gate
-/// equipment and inventory answer with one of these, and so does the party when an action names an item or
-/// a person the party does not hold.
+/// This is the kit's one refusal: every mechanism that can say no — travel, a service, a spell, a blow, a
+/// rest, a use, a conversation, a quest, a promotion, the ledger — answers with one of these, and a result
+/// that can be refused carries one or carries nothing. The code is what a caller and a test branch on and
+/// the message is what a person reads, so "the rule refused this" never collapses into a silent no-op and
+/// nothing has to match an English sentence to know which refusal it was. Each mechanism states its codes
+/// as constants beside itself.
 /// </remarks>
-public sealed record PartyRefusal
+public sealed record Refusal
 {
     /// <summary>Creates a refusal.</summary>
     /// <param name="code">A short stable code naming the kind of refusal.</param>
     /// <param name="message">Why the change was refused, in terms a person can act on.</param>
     /// <exception cref="ArgumentException">The code or the message is blank.</exception>
-    public PartyRefusal(string code, string message)
+    public Refusal(string code, string message)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);

@@ -1,3 +1,4 @@
+using PartyRpg.Kit;
 using System.Text.RegularExpressions;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Party;
@@ -104,7 +105,7 @@ public sealed class TravelPolicyTests
 
         // No passage: a paid transition is refused by name rather than taken free, and nothing about the
         // party changes.
-        TravelRefusal unpaid = rule.Quote(new TransitionRequest(graph, road, TransitionKind.PaidService, Home, PlacePose.Origin)).Refusal!;
+        Refusal unpaid = rule.Quote(new TransitionRequest(graph, road, TransitionKind.PaidService, Home, PlacePose.Origin)).Refusal!;
         Assert.Equal("travel-fare-unpaid", unpaid.Code);
         Assert.Contains("passage", unpaid.Message, StringComparison.Ordinal);
 

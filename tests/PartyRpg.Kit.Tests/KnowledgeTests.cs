@@ -330,7 +330,7 @@ public sealed class KnowledgeTests
         // A refused use changed nothing, so it taught nothing: the fountain and the obelisk of this build are
         // exactly this — a fixture whose event nothing executes, refused by name, with no note written for an
         // event that never ran.
-        InteractionResult refused = InteractionResult.Refused(target, "interaction-event-not-executed", "Nothing in this build executes map events.");
+        InteractionResult refused = InteractionResult.Refused(target, new Refusal("interaction-event-not-executed", "Nothing in this build executes map events."));
         Assert.False(refused.IsApplied);
         Assert.Empty(refused.Learned);
         Assert.Single(knowledge.Notes);
@@ -608,7 +608,7 @@ public sealed class KnowledgeTests
 
         public string NameOf(ItemDefinitionId definition) => definition.Value;
 
-        public PartyRefusal? MayMix(PartyMember mixer) => null;
+        public Refusal? MayMix(PartyMember mixer) => null;
 
         public int Strength(PartyMember mixer, PotionMixture mixture, ItemInstance first, ItemInstance second) =>
             Math.Max(1, mixer.Skills.LevelOf(AlchemySkill) + mixture.Power);

@@ -29,16 +29,14 @@ public sealed record CombatResult
     private CombatResult(
         CombatantId actor,
         string actorName,
-        bool isApplied,
-        string code,
+        Refusal? refusal,
         string message,
         AttackInitiation? initiated,
         CombatResolution? resolution)
     {
         Actor = actor;
         ActorName = actorName;
-        IsApplied = isApplied;
-        Code = code;
+        Refusal = refusal;
         Message = message;
         Initiated = initiated;
         Resolution = resolution;
@@ -51,10 +49,13 @@ public sealed record CombatResult
     public string ActorName { get; }
 
     /// <summary>Whether the actor acted.</summary>
-    public bool IsApplied { get; }
+    public bool IsApplied => Refusal is null;
+
+    /// <summary>Why the actor did not act, or null when it did.</summary>
+    public Refusal? Refusal { get; }
 
     /// <summary>The refusal's own code, empty when the actor acted.</summary>
-    public string Code { get; }
+    public string Code => Refusal?.Code ?? string.Empty;
 
     /// <summary>What happened, in a sentence a person reads.</summary>
     public string Message { get; }
@@ -88,21 +89,19 @@ public sealed record CombatResult
                 CultureInfo.InvariantCulture,
                 $"{initiation.ActorName} attacks nothing in reach ({how}) and must recover {initiation.Recovery.Milliseconds}ms of game time.");
         string message = resolution is null ? attempt : $"{attempt} {resolution.Message}";
-        return new CombatResult(initiation.Actor, initiation.ActorName, isApplied: true, string.Empty, message, initiation, resolution);
+        return new CombatResult(initiation.Actor, initiation.ActorName, refusal: null, message, initiation, resolution);
     }
 
     /// <summary>The actor did not act, and this is why.</summary>
     /// <param name="actor">The combatant that was ordered.</param>
     /// <param name="actorName">What that combatant is called, empty when nobody has that identity.</param>
-    /// <param name="code">The refusal's own code.</param>
-    /// <param name="message">Why the actor did not act, in a sentence a person reads.</param>
+    /// <param name="refusal">Why the actor did not act.</param>
     /// <returns>The result.</returns>
-    /// <exception cref="ArgumentException">The code or the message is missing, so the refusal could not be told from another.</exception>
-    public static CombatResult Refused(CombatantId actor, string? actorName, string code, string message)
+    /// <exception cref="ArgumentNullException">No refusal was given.</exception>
+    public static CombatResult Refused(CombatantId actor, string? actorName, Refusal refusal)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(code);
-        ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        return new CombatResult(actor, actorName ?? string.Empty, isApplied: false, code, message, initiated: null, resolution: null);
+        ArgumentNullException.ThrowIfNull(refusal);
+        return new CombatResult(actor, actorName ?? string.Empty, refusal, refusal.Message, initiated: null, resolution: null);
     }
 
     /// <inheritdoc />

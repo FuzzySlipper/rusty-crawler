@@ -143,7 +143,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
         // was faced before the use for the rest of the update, which is the one frame a player looks at.
         _focus = _selection.Update();
         AdoptFocus();
-        _result = InteractionResult.Refused(FocusedTarget, CodeFor(reason), MessageFor(reason, receipt.Message));
+        _result = InteractionResult.Refused(FocusedTarget, new Refusal(CodeFor(reason), MessageFor(reason, receipt.Message)));
         return _result;
     }
 
@@ -272,8 +272,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
             if (verdict.IsMet) continue;
             return InteractionResult.Refused(
                 target,
-                "interaction-requirement-unmet",
-                $"{target.Definition.Name} requires {requirement.Describe()}: {verdict.Explanation}");
+                new Refusal(InteractionCodes.InteractionRequirementUnmet, $"{target.Definition.Name} requires {requirement.Describe()}: {verdict.Explanation}"));
         }
 
         // What the target guards itself with comes next, and before anything it holds: a trap the party
@@ -286,7 +285,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
         }
 
         InteractionOutcome outcome = _rule.Apply(target.Definition, context);
-        if (!outcome.IsApplied) return InteractionResult.Refused(target, outcome.Refusal!.Code, outcome.Refusal.Message);
+        if (!outcome.IsApplied) return InteractionResult.Refused(target, outcome.Refusal!);
 
         // What the use gives needs a party to take it.
         if (outcome.Items.Count > 0)
@@ -295,8 +294,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
             {
                 return InteractionResult.Refused(
                     target,
-                    "interaction-no-party",
-                    $"{target.Definition.Name} gives what it holds and this world holds no party to take it.");
+                    new Refusal(InteractionCodes.InteractionNoParty, $"{target.Definition.Name} gives what it holds and this world holds no party to take it."));
             }
         }
 
@@ -348,8 +346,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
         {
             return InteractionResult.Refused(
                 target,
-                "interaction-no-party",
-                $"{target.Definition.Name}'s {trap.Name} goes off and this world holds no party for it to catch.");
+                new Refusal(InteractionCodes.InteractionNoParty, $"{target.Definition.Name}'s {trap.Name} goes off and this world holds no party for it to catch."));
         }
 
         // The harm is taken before the state is recorded, so what the ledger says happened and what the
@@ -470,15 +467,15 @@ public sealed class PartyInteraction : IWorldInteractionScene
     /// </remarks>
     private static string CodeFor(InteractionReason reason) => reason switch
     {
-        InteractionReason.NoCandidate => "interaction-no-target",
-        InteractionReason.OutsideQuery => "interaction-outside-view",
-        InteractionReason.OutOfReach => "interaction-out-of-reach",
-        InteractionReason.Occluded => "interaction-occluded",
-        InteractionReason.VisibilityUnknown => "interaction-visibility-unknown",
-        InteractionReason.Unavailable => "interaction-unavailable",
-        InteractionReason.Locked => "interaction-locked",
-        InteractionReason.InvalidTarget => "interaction-target-gone",
-        InteractionReason.StaleTarget => "interaction-target-changed",
-        _ => "interaction-refused",
+        InteractionReason.NoCandidate => InteractionCodes.InteractionNoTarget,
+        InteractionReason.OutsideQuery => InteractionCodes.InteractionOutsideView,
+        InteractionReason.OutOfReach => InteractionCodes.InteractionOutOfReach,
+        InteractionReason.Occluded => InteractionCodes.InteractionOccluded,
+        InteractionReason.VisibilityUnknown => InteractionCodes.InteractionVisibilityUnknown,
+        InteractionReason.Unavailable => InteractionCodes.InteractionUnavailable,
+        InteractionReason.Locked => InteractionCodes.InteractionLocked,
+        InteractionReason.InvalidTarget => InteractionCodes.InteractionTargetGone,
+        InteractionReason.StaleTarget => InteractionCodes.InteractionTargetChanged,
+        _ => InteractionCodes.InteractionRefused,
     };
 }

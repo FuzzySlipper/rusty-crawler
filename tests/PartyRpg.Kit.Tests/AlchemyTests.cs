@@ -369,9 +369,9 @@ public sealed class AlchemyTests
 
         public string NameOf(ItemDefinitionId definition) => definition.Value;
 
-        public PartyRefusal? MayMix(PartyMember mixer) =>
+        public Refusal? MayMix(PartyMember mixer) =>
             mixer.Conditions.Has(Eradicated)
-                ? new PartyRefusal("mixture-cannot-act", $"{mixer.Profile.Name} is in no condition to mix anything.")
+                ? new Refusal("mixture-cannot-act", $"{mixer.Profile.Name} is in no condition to mix anything.")
                 : null;
 
         public int Strength(PartyMember mixer, PotionMixture mixture, ItemInstance first, ItemInstance second) =>
@@ -400,7 +400,7 @@ public sealed class AlchemyTests
 
         public int CostFor(PartyMember member, SpellDefinition spell) => 0;
 
-        public SpellRefusal? MayLearn(PartyMember member, SpellDefinition spell) => null;
+        public Refusal? MayLearn(PartyMember member, SpellDefinition spell) => null;
 
         public SpellItemReading? Reading(ItemDefinitionId definition) =>
             definition == Potion ? SpellItemReading.Consumed(DraughtSpell) : null;
@@ -413,7 +413,7 @@ public sealed class AlchemyTests
     {
         internal List<SpellApplication> Applications { get; } = [];
 
-        public SpellRefusal? Judge(SpellApplication application) => null;
+        public Refusal? Judge(SpellApplication application) => null;
 
         public SpellApplicationOutcome Apply(SpellApplication application)
         {

@@ -405,8 +405,8 @@ public sealed class LootTests
 
         public InteractionOutcome Apply(InteractionTargetDefinition target, InteractionContext context)
         {
-            if (Ground.At(context.Place, context.Placement.Content) is not { } body) return InteractionOutcome.Refused("corpse-gone", "Nothing lies there.");
-            if (target.State == "searched") return InteractionOutcome.Refused("container-emptied", $"{target.Name} has already been emptied.");
+            if (Ground.At(context.Place, context.Placement.Content) is not { } body) return InteractionOutcome.Refused(new Refusal("corpse-gone", "Nothing lies there."));
+            if (target.State == "searched") return InteractionOutcome.Refused(new Refusal("container-emptied", $"{target.Name} has already been emptied."));
             if (Ground.Held(body) is not { } held || held.IsEmpty) return InteractionOutcome.Applied("searched", $"{target.Name} holds nothing.");
 
             return InteractionOutcome.Applied(

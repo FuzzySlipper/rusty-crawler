@@ -15,7 +15,7 @@ public sealed record TransitionResult
         PlaceId place,
         PlacePose pose,
         TravelCost chargedCost,
-        TravelRefusal? refusal)
+        Refusal? refusal)
     {
         Arrived = arrived;
         Kind = kind;
@@ -39,7 +39,7 @@ public sealed record TransitionResult
     /// <param name="pose">The pose the party still holds in that place.</param>
     /// <param name="refusal">Why the transition was refused.</param>
     /// <exception cref="ArgumentNullException">The refusal is null.</exception>
-    public static TransitionResult Refused(TransitionKind kind, PlaceId place, PlacePose pose, TravelRefusal refusal) =>
+    public static TransitionResult Refused(TransitionKind kind, PlaceId place, PlacePose pose, Refusal refusal) =>
         new(false, kind, place, pose, TravelCost.Free, refusal ?? throw new ArgumentNullException(nameof(refusal)));
 
     /// <summary>Whether the transition happened.</summary>
@@ -58,5 +58,5 @@ public sealed record TransitionResult
     public TravelCost ChargedCost { get; }
 
     /// <summary>The named reason the transition did not happen, or null when the party arrived.</summary>
-    public TravelRefusal? Refusal { get; }
+    public Refusal? Refusal { get; }
 }

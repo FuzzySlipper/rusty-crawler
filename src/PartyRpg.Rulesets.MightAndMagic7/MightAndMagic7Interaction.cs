@@ -1,3 +1,4 @@
+using PartyRpg.Kit;
 using System.Text.Json;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
@@ -324,8 +325,7 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
             // too. Nothing here fabricates an event to fill the gap.
             int eventId = context.Placement.Source.GetInt32(EventField) ?? 0;
             return InteractionOutcome.Refused(
-                "interaction-event-not-executed",
-                $"{target.Name} raises map event {eventId} of place '{context.Place}', and nothing in this build executes map events: the event interpreter that will is not built, so neither what the event gives nor what it teaches is learned.");
+                new Refusal("interaction-event-not-executed", $"{target.Name} raises map event {eventId} of place '{context.Place}', and nothing in this build executes map events: the event interpreter that will is not built, so neither what the event gives nor what it teaches is learned."));
         }
 
         return Door(target, context);
@@ -378,7 +378,7 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     {
         if (string.Equals(target.State, OpenState, StringComparison.Ordinal))
         {
-            return InteractionOutcome.Refused("door-already-open", $"{target.Name} already stands open.");
+            return InteractionOutcome.Refused(new Refusal("door-already-open", $"{target.Name} already stands open."));
         }
 
         if (target.Verb == InteractionVerb.Unlock)

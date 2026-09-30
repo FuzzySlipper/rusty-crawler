@@ -75,7 +75,7 @@ internal sealed class CreationDriver(SessionCreation creation, CreationIntentNam
     public PartyCreationFlow Flow => creation.Flow;
 
     /// <summary>The last choice the flow refused, or null when the last choice was accepted.</summary>
-    public PartyRefusal? Refusal { get; private set; }
+    public Refusal? Refusal { get; private set; }
 
     /// <summary>Applies this update's commands, and returns the party and its world once one is accepted.</summary>
     public (PartyEntity Party, SessionWorld? World)? Drive(ActionInbox input)
@@ -107,7 +107,7 @@ internal sealed class CreationDriver(SessionCreation creation, CreationIntentNam
     {
         if (!creation.Flow.IsComplete)
         {
-            Refusal = new PartyRefusal(
+            Refusal = new Refusal(
                 "creation-incomplete",
                 $"The party cannot be accepted while creation is unfinished: {Unfinished(creation.Flow)}.");
             return null;
@@ -125,7 +125,7 @@ internal sealed class CreationDriver(SessionCreation creation, CreationIntentNam
             // An accepted party that is not played would be a second party, so both are released here.
             world?.Dispose();
             party?.Dispose();
-            Refusal = new PartyRefusal("creation-refused", $"The finished party was refused: {error.Message}");
+            Refusal = new Refusal("creation-refused", $"The finished party was refused: {error.Message}");
             diagnostics.Refused("creation", "creation-refused", Refusal.Message);
             return null;
         }
@@ -135,7 +135,7 @@ internal sealed class CreationDriver(SessionCreation creation, CreationIntentNam
     }
 
     /// <summary>Makes one creation command on the flow and returns the rule it broke, when it broke one.</summary>
-    private static PartyRefusal? Apply(PartyCreationFlow flow, CreationCommand command) => command.Kind switch
+    private static Refusal? Apply(PartyCreationFlow flow, CreationCommand command) => command.Kind switch
     {
         CreationCommandKind.SelectMember => flow.SelectMember(command.Member),
         CreationCommandKind.SelectPortrait => Missing(command, "portrait") ?? flow.SelectPortrait(new PortraitId(command.Value)),
@@ -153,9 +153,9 @@ internal sealed class CreationDriver(SessionCreation creation, CreationIntentNam
     /// Refuses a choice command that arrived without the choice it names: a control that silently does nothing
     /// looks exactly like a control that worked and changed nothing.
     /// </summary>
-    private static PartyRefusal? Missing(CreationCommand command, string choice) =>
+    private static Refusal? Missing(CreationCommand command, string choice) =>
         string.IsNullOrWhiteSpace(command.Value)
-            ? new PartyRefusal(
+            ? new Refusal(
                 "creation-choice-missing",
                 $"A {choice} choice arrived naming no {choice}, so there was nothing to choose; a {choice} is named by the id creation offers it under.")
             : null;

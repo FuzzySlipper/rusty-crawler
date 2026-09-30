@@ -13,7 +13,7 @@ namespace PartyRpg.Kit.Party;
 /// </remarks>
 public sealed record EquipmentChange
 {
-    private EquipmentChange(ItemInstance? equipped, ItemInstance? displaced, PartyRefusal? refusal)
+    private EquipmentChange(ItemInstance? equipped, ItemInstance? displaced, Refusal? refusal)
     {
         Equipped = equipped;
         Displaced = displaced;
@@ -29,11 +29,11 @@ public sealed record EquipmentChange
     /// <summary>Nothing changed.</summary>
     /// <param name="refusal">Why the change was refused.</param>
     /// <exception cref="ArgumentNullException">The refusal is null.</exception>
-    public static EquipmentChange Refused(PartyRefusal refusal) =>
+    public static EquipmentChange Refused(Refusal refusal) =>
         new(null, null, refusal ?? throw new ArgumentNullException(nameof(refusal)));
 
     /// <summary>The refusal, or null when the change happened.</summary>
-    public PartyRefusal? Refusal { get; }
+    public Refusal? Refusal { get; }
 
     /// <summary>What the slot holds afterwards, or null when it is empty or the change was refused.</summary>
     public ItemInstance? Equipped { get; }

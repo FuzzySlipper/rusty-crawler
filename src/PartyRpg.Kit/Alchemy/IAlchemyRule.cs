@@ -84,7 +84,7 @@ public interface IAlchemyRule
     /// </remarks>
     /// <param name="mixer">The character who would mix.</param>
     /// <returns>The refusal, or null when they may.</returns>
-    PartyRefusal? MayMix(PartyMember mixer);
+    Refusal? MayMix(PartyMember mixer);
 
     /// <summary>The strength the mixture's result comes out at, as this game's own arithmetic reads it.</summary>
     /// <param name="mixer">The character mixing.</param>

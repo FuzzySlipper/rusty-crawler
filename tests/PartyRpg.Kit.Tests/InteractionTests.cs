@@ -230,8 +230,7 @@ public sealed class InteractionTests
     {
         TestRule rule = new();
         rule.Outcomes["lever"] = (_, _) => InteractionOutcome.Refused(
-            "interaction-event-not-executed",
-            "A lever raises map event 42, and nothing in this build executes map events.");
+            new Refusal("interaction-event-not-executed", "A lever raises map event 42, and nothing in this build executes map events."));
 
         using Hall hall = Hall.Build(rule, Hall.Facing("lever-0"));
         hall.Interaction.Update();
@@ -548,14 +547,14 @@ public sealed class InteractionTests
                 ? outcome(target, context)
                 : target.Kind.Value switch
                 {
-                    "door" when target.State == "open" => InteractionOutcome.Refused("door-already-open", "A door already stands open."),
+                    "door" when target.State == "open" => InteractionOutcome.Refused(new Refusal("door-already-open", "A door already stands open.")),
                     "door" when target.Requires.Count > 0 && target.State != "unlocked" =>
                         InteractionOutcome.Applied("unlocked", "What the door was locked with is to hand."),
                     "door" => InteractionOutcome.Applied(
                         "open",
                         "A door swings open.",
                         "Doors do not move in this build, so the doorway cannot be walked through yet."),
-                    _ => InteractionOutcome.Refused("test-no-outcome", $"Nothing states what using {target.Name} does."),
+                    _ => InteractionOutcome.Refused(new Refusal("test-no-outcome", $"Nothing states what using {target.Name} does.")),
                 };
     }
 
@@ -689,7 +688,7 @@ public sealed class InteractionTests
     {
         public TravelCostQuote Quote(TransitionRequest request) =>
             request.Kind is TransitionKind.PaidService
-                ? TravelCostQuote.Refused(new TravelRefusal("test-unaffordable", "the party has no purse yet"))
+                ? TravelCostQuote.Refused(new Refusal("test-unaffordable", "the party has no purse yet"))
                 : TravelCostQuote.Payable(TravelCost.Free);
     }
 }

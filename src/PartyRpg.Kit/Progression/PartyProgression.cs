@@ -148,7 +148,7 @@ public sealed class PartyProgression
             return Record(ProgressionAwardResult.Refused(
                 award.Source,
                 award.Amount,
-                new PartyRefusal("progression-award-empty", $"An award of nothing from '{award.Source}' is not an award.")));
+                new Refusal("progression-award-empty", $"An award of nothing from '{award.Source}' is not an award.")));
         }
 
         IReadOnlyList<ProgressionShare> shares = _rule.Divide(new ProgressionDivision(_party, award.Source, award.Amount));
@@ -157,7 +157,7 @@ public sealed class PartyProgression
             return Record(ProgressionAwardResult.Refused(
                 award.Source,
                 award.Amount,
-                new PartyRefusal(
+                new Refusal(
                     "progression-award-unshared",
                     $"Nobody in the party could take the {award.Amount} experience '{award.Source}' was worth.")));
         }
@@ -243,13 +243,13 @@ public sealed class PartyProgression
     /// <param name="member">The member to train.</param>
     /// <param name="terms">The counter, what the step costs, and the ceiling it trains to.</param>
     /// <returns>Why the member may not train, or null when they may.</returns>
-    public PartyRefusal? JudgeTraining(PartyMemberId member, ProgressionTrainingTerms terms)
+    public Refusal? JudgeTraining(PartyMemberId member, ProgressionTrainingTerms terms)
     {
         PartyMember trainee = _party.Member(member);
         int level = trainee.Progression.Level;
         if (level >= terms.Cap)
         {
-            return new PartyRefusal(
+            return new Refusal(
                 "progression-training-capped",
                 string.Create(
                     CultureInfo.InvariantCulture,
@@ -258,7 +258,7 @@ public sealed class PartyProgression
 
         long wanted = _rule.ExperienceForLevel(level);
         return trainee.Progression.Experience < wanted
-            ? new PartyRefusal(
+            ? new Refusal(
                 "progression-experience-short",
                 string.Create(
                     CultureInfo.InvariantCulture,
@@ -323,7 +323,7 @@ public sealed class PartyProgression
                 character.Skills.LevelOf(skill),
                 SkillCeiling.None,
                 Points: 0,
-                new PartyRefusal(
+                new Refusal(
                     "skill-policy-missing",
                     "This session's ruleset states no skill policy, so nothing says how far a skill may grow or what raising one costs."));
         }
@@ -337,7 +337,7 @@ public sealed class PartyProgression
                 Reached: levels,
                 _skills.Ceiling(character, skill),
                 Points: 0,
-                new PartyRefusal(
+                new Refusal(
                     "skill-not-learned",
                     $"{character.Profile.Name} has not learned {Describe(skill)}, so there is nothing to raise; a lesson comes first."));
         }
@@ -360,7 +360,7 @@ public sealed class PartyProgression
                 // A game that can say why a skill is closed says it here: a class that may hold no magic of a
                 // school, and a character whose own path closed it, are different facts, and the second is one
                 // only the ruleset can word.
-                ceiling.Reason ?? new PartyRefusal(
+                ceiling.Reason ?? new Refusal(
                     "skill-not-permitted",
                     $"{character.Profile.Name} is a {character.Profile.Class} and this game's table lets that class hold no {Describe(skill)} at all."));
         }
@@ -374,7 +374,7 @@ public sealed class PartyProgression
                 reached,
                 ceiling,
                 Points: 0,
-                new PartyRefusal(
+                new Refusal(
                     "skill-ceiling-reached",
                     string.Create(
                         CultureInfo.InvariantCulture,
@@ -392,7 +392,7 @@ public sealed class PartyProgression
                 reached,
                 ceiling,
                 points,
-                new PartyRefusal(
+                new Refusal(
                     "insufficient-skill-points",
                     string.Create(
                         CultureInfo.InvariantCulture,
@@ -512,7 +512,7 @@ public sealed class PartyProgression
                 toClass: string.Empty,
                 rank: 0,
                 choice: string.Empty,
-                new PartyRefusal(
+                new Refusal(
                     "promotion-policy-missing",
                     "This session's ruleset states no ladder of ranks, so nothing says which class leads to which, or what a rank asks for.")));
         }
@@ -525,7 +525,7 @@ public sealed class PartyProgression
                 toClass: string.Empty,
                 rank: 0,
                 choice: string.Empty,
-                new PartyRefusal(
+                new Refusal(
                     "promotion-unknown",
                     $"This game's ladder of ranks carries no '{promotion}', so there is no rank to be given.")));
         }
@@ -566,7 +566,7 @@ public sealed class PartyProgression
                 rank.To.Value,
                 rank.Rank,
                 rank.Choice,
-                new PartyRefusal(
+                new Refusal(
                     "promotion-class-absent",
                     $"Nobody in the party is a {rank.From}, and the rank of {rank.To} is given to one: the ladder promotes {rank.From} to {rank.To} and no other class.")));
         }
@@ -630,7 +630,7 @@ public sealed class PartyProgression
                 rank.Choice,
                 [],
                 denied,
-                new PartyRefusal(
+                new Refusal(
                     "promotion-requirements-unmet",
                     string.Create(
                         CultureInfo.InvariantCulture,

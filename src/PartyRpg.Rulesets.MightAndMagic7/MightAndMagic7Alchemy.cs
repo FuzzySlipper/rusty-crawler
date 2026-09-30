@@ -1,3 +1,4 @@
+using PartyRpg.Kit;
 using System.Globalization;
 using PartyRpg.Kit.Alchemy;
 using PartyRpg.Kit.Combat;
@@ -336,11 +337,11 @@ internal sealed class MightAndMagic7Alchemy : IAlchemyRule, IAlchemyKinds
     /// (<c>OpenEnroth/src/Engine/Objects/Character.cpp:350-357</c>), and this reads the same answer the fight
     /// reads, so a character a creature's blow laid out cannot mix a potion in the middle of a fight either.
     /// </remarks>
-    public PartyRefusal? MayMix(PartyMember mixer)
+    public Refusal? MayMix(PartyMember mixer)
     {
         ArgumentNullException.ThrowIfNull(mixer);
         if (_mayAct is not { } mayAct || mayAct(mixer)) return null;
-        return new PartyRefusal(
+        return new Refusal(
             "mixture-cannot-act",
             string.Create(CultureInfo.InvariantCulture, $"{mixer.Profile.Name} is in no condition to mix anything."));
     }

@@ -1,3 +1,4 @@
+using PartyRpg.Kit;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Party;
@@ -138,7 +139,7 @@ public sealed class SkillPolicyTests
 
         // A weapon the member has the skill for is wielded; one it has not learned is refused by name.
         Assert.Null(gate.Judge(knight, new EquipmentSlot("Weapon"), Instance(party, "blade")));
-        PartyRefusal refused = gate.Judge(knight, new EquipmentSlot("Weapon"), Instance(party, "skirts"))!;
+        Refusal refused = gate.Judge(knight, new EquipmentSlot("Weapon"), Instance(party, "skirts"))!;
         Assert.Equal("equipment-skill-missing", refused.Code);
         Assert.Contains("Leather", refused.Message, StringComparison.Ordinal);
 
@@ -153,7 +154,7 @@ public sealed class SkillPolicyTests
         // An item whose row names a skill this game's skill table does not carry cannot be said to be usable
         // by anybody, so it is refused with its own word rather than quietly allowed: guessing that an
         // unknown requirement is no requirement would hand out a weapon the game's table says is not theirs.
-        PartyRefusal unknown = gate.Judge(knight, new EquipmentSlot("Weapon"), Instance(party, "club"))!;
+        Refusal unknown = gate.Judge(knight, new EquipmentSlot("Weapon"), Instance(party, "club"))!;
         Assert.Equal("equipment-skill-unknown", unknown.Code);
         Assert.Contains("club", unknown.Message, StringComparison.Ordinal);
 

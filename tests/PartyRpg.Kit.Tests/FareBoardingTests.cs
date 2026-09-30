@@ -194,7 +194,7 @@ public sealed class FareBoardingTests
         {
             Asked.Add(request);
             return Refuse == request.Kind
-                ? TravelCostQuote.Refused(new TravelRefusal("test-refused", $"A test refuses {request.Kind} travel."))
+                ? TravelCostQuote.Refused(new Refusal("test-refused", $"A test refuses {request.Kind} travel."))
                 : TravelCostQuote.Payable(TravelCost.Free);
         }
     }

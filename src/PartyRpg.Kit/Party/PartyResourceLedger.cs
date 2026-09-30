@@ -65,7 +65,7 @@ public sealed class PartyResourceLedger
     /// <returns>What was paid and where the accounts stand, or why nothing was paid.</returns>
     public ResourceSettlement Settle(PartyCost quoted)
     {
-        (PartyCost price, PartyRefusal? refused) = Judged(quoted);
+        (PartyCost price, Refusal? refused) = Judged(quoted);
         if (refused is not null) return ResourceSettlement.Refused(refused);
         PartyPurse purse = _party.Purse;
         PartyFood food = _party.Food;
@@ -87,10 +87,10 @@ public sealed class PartyResourceLedger
     /// </remarks>
     /// <param name="quoted">What the service, fare, fee, or donation quoted.</param>
     /// <returns>Why the charge would be refused, or null when it would be paid.</returns>
-    public PartyRefusal? Judge(PartyCost quoted) => Judged(quoted).Refusal;
+    public Refusal? Judge(PartyCost quoted) => Judged(quoted).Refusal;
 
     /// <summary>The price a charge settles at and, when it cannot, why.</summary>
-    private (PartyCost Price, PartyRefusal? Refusal) Judged(PartyCost quoted)
+    private (PartyCost Price, Refusal? Refusal) Judged(PartyCost quoted)
     {
         PartyCost price = quoted;
         PartyPurse purse = _party.Purse;
@@ -182,7 +182,7 @@ public sealed class PartyResourceLedger
     }
 
     /// <summary>Names what a charge the party cannot cover is short of, in one refusal a caller can show.</summary>
-    private static PartyRefusal Shortfall(PartyCost price, PartyPurse purse, PartyFood food, int missingCoins, int missingFood)
+    private static Refusal Shortfall(PartyCost price, PartyPurse purse, PartyFood food, int missingCoins, int missingFood)
     {
         string code = (missingCoins > 0, missingFood > 0) switch
         {
@@ -195,7 +195,7 @@ public sealed class PartyResourceLedger
         if (missingCoins > 0) missing.Add($"{missingCoins} coin(s)");
         if (missingFood > 0) missing.Add($"{missingFood} {food.Unit.ToString().ToLowerInvariant()}");
 
-        return new PartyRefusal(
+        return new Refusal(
             code,
             $"The price is {Amounts(price.Coins, price.Food.Amount, food.Unit)} and the party holds {Amounts(purse.Coins, food.Portions, food.Unit)}: {string.Join(" and ", missing)} short.");
     }

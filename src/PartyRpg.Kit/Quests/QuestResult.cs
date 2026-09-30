@@ -71,7 +71,7 @@ public sealed record QuestResult(
     QuestId Quest,
     QuestStage? Stage,
     QuestPayment Payment,
-    PartyRefusal? Refusal)
+    Refusal? Refusal)
 {
     /// <summary>Whether the operation happened.</summary>
     public bool IsApplied => Refusal is null;
@@ -94,7 +94,7 @@ public sealed record QuestResult(
     /// <param name="refusal">Why nothing happened.</param>
     /// <returns>The result.</returns>
     /// <exception cref="ArgumentNullException">No refusal was supplied.</exception>
-    public static QuestResult Refused(QuestAction action, QuestId quest, PartyRefusal refusal)
+    public static QuestResult Refused(QuestAction action, QuestId quest, Refusal refusal)
     {
         ArgumentNullException.ThrowIfNull(refusal);
         return new QuestResult(action, quest, Stage: null, QuestPayment.None, refusal);

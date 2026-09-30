@@ -26,7 +26,7 @@ namespace PartyRpg.Kit.Skills;
 /// chosen against it — says it here rather than leaving a caller to compose a sentence the game's own rules
 /// would disagree with.
 /// </param>
-public readonly record struct SkillCeiling(int MaximumLevel, SkillTier MaximumTier, PartyRefusal? Reason = null)
+public readonly record struct SkillCeiling(int MaximumLevel, SkillTier MaximumTier, Refusal? Reason = null)
 {
     /// <summary>A ceiling under which the skill may not be held at all.</summary>
     public static SkillCeiling None => default;

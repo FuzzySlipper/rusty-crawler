@@ -1,3 +1,4 @@
+using PartyRpg.Kit;
 using System.Globalization;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Party;
@@ -212,7 +213,7 @@ internal sealed class MightAndMagic7Promotions : IPromotionRule
     /// <param name="member">The member whose class, rank, and path are read.</param>
     /// <param name="skill">The skill that is closed to them.</param>
     /// <returns>The refusal that names the choice, or null when the closing is not a path's doing.</returns>
-    internal PartyRefusal? ClosedReason(PartyMember member, SkillId skill)
+    internal Refusal? ClosedReason(PartyMember member, SkillId skill)
     {
         ArgumentNullException.ThrowIfNull(member);
         string closed = skill.Value;
@@ -220,7 +221,7 @@ internal sealed class MightAndMagic7Promotions : IPromotionRule
         {
             if (taken.Closes is not { } left || !string.Equals(left.Value, closed, StringComparison.Ordinal)) return null;
             string opens = taken.Opens is { } opened ? opened.Value : "nothing";
-            return new PartyRefusal(
+            return new Refusal(
                 "skill-closed-by-path",
                 string.Create(
                     CultureInfo.InvariantCulture,
@@ -245,7 +246,7 @@ internal sealed class MightAndMagic7Promotions : IPromotionRule
         }
 
         if (openings.Count == 0) return null;
-        return new PartyRefusal(
+        return new Refusal(
             "skill-closed-by-unchosen-path",
             string.Create(
                 CultureInfo.InvariantCulture,

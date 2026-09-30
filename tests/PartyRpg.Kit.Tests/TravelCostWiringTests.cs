@@ -553,7 +553,7 @@ public sealed class TravelCostWiringTests
 
         public TravelCostQuote Quote(TransitionRequest request) =>
             Refuse
-                ? TravelCostQuote.Refused(new TravelRefusal("test-refused", "the test refused this journey"))
+                ? TravelCostQuote.Refused(new Refusal("test-refused", "the test refused this journey"))
                 : TravelCostQuote.Payable(request.Kind == TransitionKind.Walking ? TravelCost.Free : Crossing);
     }
 

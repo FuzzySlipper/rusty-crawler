@@ -171,14 +171,14 @@ public sealed class PartyQuests
 
         if (Instance(quest) is { } held)
         {
-            return Refuse(QuestAction.Offer, quest, new PartyRefusal(
+            return Refuse(QuestAction.Offer, quest, new Refusal(
                 "quest-already-known",
                 $"The party already stands with '{definition.Name}' at the stage '{held.Stage}', so it was not offered again."));
         }
 
         if (!string.Equals(definition.Giver, person ?? string.Empty, StringComparison.Ordinal))
         {
-            return Refuse(QuestAction.Offer, quest, new PartyRefusal(
+            return Refuse(QuestAction.Offer, quest, new Refusal(
                 "quest-not-the-giver",
                 $"'{definition.Name}' is given by {definition.Giver} and the party was told of it by {(string.IsNullOrEmpty(person) ? "nobody" : person)}, so the offer was not recorded."));
         }
@@ -186,7 +186,7 @@ public sealed class PartyQuests
         foreach (ConversationCondition condition in definition.OfferConditions)
         {
             if (_rule.Holds(new QuestConditionRequest(definition, condition, _party, _clock))) continue;
-            return Refuse(QuestAction.Offer, quest, new PartyRefusal(
+            return Refuse(QuestAction.Offer, quest, new Refusal(
                 "quest-offer-condition-unmet",
                 $"'{definition.Name}' is offered only where {condition.Describe()} holds, and it does not for this party."));
         }
@@ -203,7 +203,7 @@ public sealed class PartyQuests
         if (Instance(quest) is not { } instance) return Refuse(QuestAction.Accept, quest, NotOffered(quest));
         if (instance.Stage != QuestStage.Offered)
         {
-            return Refuse(QuestAction.Accept, quest, new PartyRefusal(
+            return Refuse(QuestAction.Accept, quest, new Refusal(
                 "quest-already-taken",
                 $"{Name(quest)} stands at the stage '{instance.Stage}', so it was not taken again."));
         }
@@ -238,21 +238,21 @@ public sealed class PartyQuests
 
         if (instance.Stage == QuestStage.TurnedIn)
         {
-            return Refuse(QuestAction.TurnIn, quest, new PartyRefusal(
+            return Refuse(QuestAction.TurnIn, quest, new Refusal(
                 "quest-already-finished",
                 $"'{definition.Name}' was already finished, so it was not paid a second time."));
         }
 
         if (instance.Stage == QuestStage.Offered)
         {
-            return Refuse(QuestAction.TurnIn, quest, new PartyRefusal(
+            return Refuse(QuestAction.TurnIn, quest, new Refusal(
                 "quest-not-accepted",
                 $"'{definition.Name}' was offered and never taken, so there is nothing to finish."));
         }
 
         if (!string.Equals(definition.Giver, person ?? string.Empty, StringComparison.Ordinal))
         {
-            return Refuse(QuestAction.TurnIn, quest, new PartyRefusal(
+            return Refuse(QuestAction.TurnIn, quest, new Refusal(
                 "quest-not-the-giver",
                 $"'{definition.Name}' is finished with {definition.Giver} and the party is speaking with {(string.IsNullOrEmpty(person) ? "nobody" : person)}, so nothing was paid."));
         }
@@ -260,7 +260,7 @@ public sealed class PartyQuests
         QuestReading reading = Read(definition, instance);
         if (reading.Unmet.Count > 0)
         {
-            return Refuse(QuestAction.TurnIn, quest, new PartyRefusal(
+            return Refuse(QuestAction.TurnIn, quest, new Refusal(
                 "quest-objectives-unmet",
                 $"'{definition.Name}' is not finished: {string.Join("; ", reading.Unmet)}."));
         }
@@ -268,14 +268,14 @@ public sealed class PartyQuests
         QuestRewards rewards = definition.Rewards;
         if (rewards.Experience > 0 && _progression is null)
         {
-            return Refuse(QuestAction.TurnIn, quest, new PartyRefusal(
+            return Refuse(QuestAction.TurnIn, quest, new Refusal(
                 "quest-no-award-owner",
                 $"'{definition.Name}' pays {rewards.Experience} experience and this session holds no owner every award arrives at, so nothing was paid."));
         }
 
         if (rewards.Coins > 0 && _ledger is null)
         {
-            return Refuse(QuestAction.TurnIn, quest, new PartyRefusal(
+            return Refuse(QuestAction.TurnIn, quest, new Refusal(
                 "quest-no-ledger",
                 $"'{definition.Name}' pays {rewards.Coins} coin and this session holds no settlement path to credit it through, so nothing was paid."));
         }
@@ -498,19 +498,19 @@ public sealed class PartyQuests
 
     private string Name(QuestId quest) => _rule.Definition(quest) is { } definition ? $"'{definition.Name}'" : $"'{quest}'";
 
-    private PartyRefusal Unknown(QuestId quest) => new(
+    private Refusal Unknown(QuestId quest) => new(
         "quest-unknown",
         $"This game states no quest '{quest}', so there is nothing to offer, take, or finish.");
 
-    private PartyRefusal NotOffered(QuestId quest) => new(
+    private Refusal NotOffered(QuestId quest) => new(
         "quest-not-offered",
         $"{Name(quest)} was never offered to this party, so there is nothing to take.");
 
-    private PartyRefusal NotTaken(QuestId quest) => new(
+    private Refusal NotTaken(QuestId quest) => new(
         "quest-not-taken",
         $"{Name(quest)} is not in the party's journal, so there is nothing to finish.");
 
-    private QuestResult Refuse(QuestAction action, QuestId quest, PartyRefusal refusal) =>
+    private QuestResult Refuse(QuestAction action, QuestId quest, Refusal refusal) =>
         Record(QuestResult.Refused(action, quest, refusal));
 
     private QuestResult Record(QuestResult result)

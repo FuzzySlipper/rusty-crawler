@@ -649,7 +649,7 @@ public sealed class CombatProjectionTests
 
         /// <summary>Nothing usable is ever reached, so no use can apply.</summary>
         public InteractionOutcome Apply(InteractionTargetDefinition target, InteractionContext context) =>
-            InteractionOutcome.Refused("nothing-usable", "This suite's world declares nothing to use.");
+            InteractionOutcome.Refused(new Refusal("nothing-usable", "This suite's world declares nothing to use."));
 
         /// <summary>One attack's draws, all of them the lowest the attack allows.</summary>
         private sealed class Lowest : IAttackRolls

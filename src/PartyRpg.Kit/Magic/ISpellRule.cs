@@ -69,5 +69,5 @@ public interface ISpellRule
     /// <param name="member">The member the spell would be learned by.</param>
     /// <param name="spell">The spell being learned.</param>
     /// <returns>The refusal, or null when the member may learn it.</returns>
-    SpellRefusal? MayLearn(PartyMember member, SpellDefinition spell);
+    Refusal? MayLearn(PartyMember member, SpellDefinition spell);
 }

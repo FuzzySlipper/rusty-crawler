@@ -140,7 +140,7 @@ public sealed class ServiceTests
         PartyResourceLedger accounts = new(party);
         ShopRule rule = new(Shop());
         rule.Eligibility = request => request.Operation == ServiceOperationKind.Teach
-            ? ServiceEligibility.Refused("test-not-a-member", "This counter teaches members only.")
+            ? ServiceEligibility.Refused(new Refusal("test-not-a-member", "This counter teaches members only."))
             : ServiceEligibility.Allowed;
         PartyServices services = new(rule, party, accounts, Clock());
         Assert.True(services.Open(rule.Service).IsApplied);
@@ -477,7 +477,7 @@ public sealed class ServiceTests
                 request.Subject.Lesson is { Kind: ServiceLessonKind.Membership };
             return joins || request.Party.Memberships.Holds("guild.fire")
                 ? ServiceEligibility.Allowed
-                : ServiceEligibility.Refused("service-membership-required", "The Fire Guild serves members only.");
+                : ServiceEligibility.Refused(new Refusal("service-membership-required", "The Fire Guild serves members only."));
         };
         PartyServices services = new(rule, party, accounts, Clock(), new PartyProgression(new TrainingRule(), party));
         Assert.True(services.Open(rule.Service).IsApplied);

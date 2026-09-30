@@ -213,7 +213,7 @@ public sealed class PartyEntity : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (!item.Custody.IsDetached)
         {
-            return ItemAcquisition.Refused(new PartyRefusal(
+            return ItemAcquisition.Refused(new Refusal(
                 "item-already-held",
                 $"Item {item.Id} is already held ({item.Custody}), so it was not taken a second time."));
         }
@@ -281,7 +281,7 @@ public sealed class PartyEntity : IDisposable
         ItemInstance? instance = FindItem(item);
         if (instance is null)
         {
-            return EquipmentChange.Refused(new PartyRefusal(
+            return EquipmentChange.Refused(new Refusal(
                 "item-not-held",
                 $"The party holds no item {item}, so nothing was equipped."));
         }
@@ -319,7 +319,7 @@ public sealed class PartyEntity : IDisposable
         ItemInstance? item = owner.Equipment.ItemIn(slot);
         if (item is null)
         {
-            return EquipmentChange.Refused(new PartyRefusal(
+            return EquipmentChange.Refused(new Refusal(
                 "slot-empty",
                 $"Member {member} has nothing in '{slot}', so there was nothing to take off."));
         }
@@ -360,7 +360,7 @@ public sealed class PartyEntity : IDisposable
         ItemInstance? item = FindItem(id);
         if (item is null)
         {
-            return ItemChargeSpend.Refused(new PartyRefusal(
+            return ItemChargeSpend.Refused(new Refusal(
                 "item-not-held",
                 $"The party holds no item {id}, so no charge was spent."));
         }
@@ -368,7 +368,7 @@ public sealed class PartyEntity : IDisposable
         int left = capacity - item.State.ChargesSpent;
         if (left <= 0)
         {
-            return ItemChargeSpend.Refused(new PartyRefusal(
+            return ItemChargeSpend.Refused(new Refusal(
                 "item-no-charges",
                 $"Item {id} holds none of the {capacity} charge(s) its kind states, so nothing was spent and it stays where it lies."));
         }

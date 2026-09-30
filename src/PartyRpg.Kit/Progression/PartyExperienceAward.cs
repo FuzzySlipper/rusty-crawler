@@ -64,7 +64,7 @@ public sealed record ProgressionAwardResult(
     long Amount,
     IReadOnlyList<ProgressionShare> Shares,
     ProgressionStanding Standing,
-    PartyRefusal? Refusal)
+    Refusal? Refusal)
 {
     /// <summary>Whether the award landed.</summary>
     public bool IsAwarded => Refusal is null;
@@ -85,7 +85,7 @@ public sealed record ProgressionAwardResult(
     /// <param name="amount">How much was offered.</param>
     /// <param name="refusal">Why it was refused.</param>
     /// <exception cref="ArgumentNullException">No refusal was supplied.</exception>
-    public static ProgressionAwardResult Refused(string source, long amount, PartyRefusal refusal)
+    public static ProgressionAwardResult Refused(string source, long amount, Refusal refusal)
     {
         ArgumentNullException.ThrowIfNull(refusal);
         return new ProgressionAwardResult(source, amount, [], ProgressionStanding.None, refusal);

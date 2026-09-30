@@ -22,7 +22,7 @@ public sealed record RestQuote
     private readonly GameDuration _duration;
     private readonly Provisions _charge;
 
-    private RestQuote(GameDuration duration, Provisions charge, PartyRefusal? refusal)
+    private RestQuote(GameDuration duration, Provisions charge, Refusal? refusal)
     {
         _duration = duration;
         _charge = charge;
@@ -51,11 +51,11 @@ public sealed record RestQuote
     /// <param name="refusal">Why the period cannot be taken.</param>
     /// <returns>The quote.</returns>
     /// <exception cref="ArgumentNullException">The refusal is null.</exception>
-    public static RestQuote Refused(PartyRefusal refusal) =>
+    public static RestQuote Refused(Refusal refusal) =>
         new(GameDuration.None, Provisions.None, refusal ?? throw new ArgumentNullException(nameof(refusal)));
 
     /// <summary>The refusal, or null when the period may be taken.</summary>
-    public PartyRefusal? Refusal { get; }
+    public Refusal? Refusal { get; }
 
     /// <summary>Whether the party may take the period.</summary>
     public bool Admitted => Refusal is null;

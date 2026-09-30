@@ -30,7 +30,7 @@ public readonly record struct SkillRaisePlan(
     int Reached,
     SkillCeiling Ceiling,
     int Points,
-    PartyRefusal? Refusal)
+    Refusal? Refusal)
 {
     /// <summary>Whether the raise would land if the member asked for it now.</summary>
     public bool IsPossible => Refusal is null;
@@ -60,7 +60,7 @@ public sealed record SkillRaiseResult(
     SkillTier Tier,
     int Points,
     int Remaining,
-    PartyRefusal? Refusal)
+    Refusal? Refusal)
 {
     /// <summary>Whether the skill was raised.</summary>
     public bool IsRaised => Refusal is null;
@@ -83,7 +83,7 @@ public sealed record SkillRaiseResult(
         int level,
         SkillTier tier,
         int remaining,
-        PartyRefusal refusal)
+        Refusal refusal)
     {
         ArgumentNullException.ThrowIfNull(refusal);
         return new SkillRaiseResult(

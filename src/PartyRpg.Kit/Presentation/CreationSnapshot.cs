@@ -162,7 +162,7 @@ public readonly record struct CreationSnapshot(
     /// <param name="refusal">The last choice the flow refused, or null when the last one was accepted.</param>
     /// <returns>Where creation stands and what it offers.</returns>
     /// <exception cref="ArgumentNullException">The flow is null.</exception>
-    public static CreationSnapshot From(PartyCreationFlow flow, PartyRefusal? refusal)
+    public static CreationSnapshot From(PartyCreationFlow flow, Refusal? refusal)
     {
         ArgumentNullException.ThrowIfNull(flow);
         CreationMember current = flow.Member(flow.MemberIndex);

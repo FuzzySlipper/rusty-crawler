@@ -15,5 +15,5 @@ public interface IEquipmentUseRule
     /// <param name="slot">The slot of that member's figure the item would occupy.</param>
     /// <param name="item">The instance that would be equipped, with its state to read.</param>
     /// <returns>A refusal when the member may not use it, or null when it may.</returns>
-    PartyRefusal? Judge(PartyMember member, EquipmentSlot slot, ItemInstance item);
+    Refusal? Judge(PartyMember member, EquipmentSlot slot, ItemInstance item);
 }

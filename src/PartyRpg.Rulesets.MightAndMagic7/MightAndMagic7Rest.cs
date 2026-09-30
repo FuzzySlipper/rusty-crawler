@@ -1,3 +1,4 @@
+using PartyRpg.Kit;
 using System.Globalization;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
@@ -214,7 +215,7 @@ internal sealed class MightAndMagic7Rest : IRestRule
         {
             if (roofed)
             {
-                return RestQuote.Refused(new PartyRefusal(
+                return RestQuote.Refused(new Refusal(
                     "camp-under-a-roof",
                     $"The party stands under a roof in {place.Name}: it rests here, or makes camp in the open."));
             }
@@ -223,7 +224,7 @@ internal sealed class MightAndMagic7Rest : IRestRule
             int hostiles = HostilesNear(request, range);
             if (hostiles > 0)
             {
-                return RestQuote.Refused(new PartyRefusal(
+                return RestQuote.Refused(new Refusal(
                     "camp-hostiles-near",
                     string.Create(
                         CultureInfo.InvariantCulture,
@@ -232,7 +233,7 @@ internal sealed class MightAndMagic7Rest : IRestRule
 
             if (Chance(place) > 0 && _random is null)
             {
-                return RestQuote.Refused(new PartyRefusal(
+                return RestQuote.Refused(new Refusal(
                     "camp-risk-unavailable",
                     "Something could find the party in the night here, and this product has no random service to judge the risk with, so the party will not camp."));
             }
@@ -246,14 +247,14 @@ internal sealed class MightAndMagic7Rest : IRestRule
         // ground and the night have their say.
         if (!roofed)
         {
-            return RestQuote.Refused(new PartyRefusal(
+            return RestQuote.Refused(new Refusal(
                 "rest-in-the-open",
                 $"The party stands in the open in {place.Name}: it makes camp here, or finds a roof."));
         }
 
         if (Chance(place) > 0 && _random is null)
         {
-            return RestQuote.Refused(new PartyRefusal(
+            return RestQuote.Refused(new Refusal(
                 "rest-risk-unavailable",
                 "Something could find the party in the night here, and this product has no random service to judge the risk with, so the party will not sleep."));
         }

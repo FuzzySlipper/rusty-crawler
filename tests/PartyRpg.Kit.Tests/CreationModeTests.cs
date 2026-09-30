@@ -190,7 +190,7 @@ public sealed class CreationModeTests
 
         // A class out of step is refused by name, and creation stays exactly where it was.
         session.Update(Update(11, 1, Choose(CreationActions.SelectClass, "class", Fighter.Value)));
-        PartyRefusal outOfStep = Refused(session);
+        Refusal outOfStep = Refused(session);
         Assert.Equal("creation-step", outOfStep.Code);
         Assert.Contains("steps are taken in order", outOfStep.Message, StringComparison.Ordinal);
         Assert.Equal(CreationStep.Portrait, session.Creation.Step);
@@ -200,7 +200,7 @@ public sealed class CreationModeTests
         // A portrait creation does not offer is refused with the rule it broke, and the projection carries
         // both the code a caller branches on and the message a person reads.
         session.Update(Update(12, 1, Choose(CreationActions.SelectPortrait, "portrait", "nobody")));
-        PartyRefusal unknown = Refused(session);
+        Refusal unknown = Refused(session);
         Assert.Equal("portrait-unknown", unknown.Code);
         Assert.Contains("is not a portrait creation offers", unknown.Message, StringComparison.Ordinal);
         Node creation = making.Projections.Latest.Field("creation");
@@ -210,14 +210,14 @@ public sealed class CreationModeTests
 
         // A choice command that arrived naming no choice is refused rather than silently dropped.
         session.Update(Update(13, 1, Payload("""{"action":"creation.select-portrait"}""")));
-        PartyRefusal missing = Refused(session);
+        Refusal missing = Refused(session);
         Assert.Equal("creation-choice-missing", missing.Code);
         Assert.Contains("naming no portrait", missing.Message, StringComparison.Ordinal);
 
         // Accepting an unfinished party is refused with the members and the steps that are unfinished, and
         // nothing is built: creation is what the player goes back to.
         session.Update(Update(14, 1, Command(CreationActions.Accept)));
-        PartyRefusal incomplete = Refused(session);
+        Refusal incomplete = Refused(session);
         Assert.Equal("creation-incomplete", incomplete.Code);
         Assert.Contains("member 1 is at the Portrait step", incomplete.Message, StringComparison.Ordinal);
         // The member that is finished is not named: what is unfinished is what stands between the player and
@@ -537,7 +537,7 @@ public sealed class CreationModeTests
         return step;
     }
 
-    private static PartyRefusal Refused(PartyRpgSession session) =>
+    private static Refusal Refused(PartyRpgSession session) =>
         session.CreationRefusal ?? throw new InvalidOperationException("Creation refused nothing.");
 
     private static int AttributeOf(PartyEntity party, int member, AttributeId attribute) =>

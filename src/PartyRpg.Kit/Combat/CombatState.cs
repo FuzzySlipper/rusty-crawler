@@ -414,8 +414,7 @@ public sealed class CombatState : IGameTimeObserver
             return Report(CombatResult.Refused(
                 actor,
                 actorName: null,
-                "unknown-combatant",
-                $"No combatant '{actor}' is in this fight, so nothing acted; a fight holds the party's members and the creatures of the place the party stands in."));
+                new Refusal(CombatCodes.UnknownCombatant, $"No combatant '{actor}' is in this fight, so nothing acted; a fight holds the party's members and the creatures of the place the party stands in.")));
         }
 
         Combatant? target = Nearest(combatant);
@@ -491,8 +490,7 @@ public sealed class CombatState : IGameTimeObserver
             return Report(CombatResult.Refused(
                 order.Actor,
                 actorName: null,
-                "unknown-combatant",
-                $"No combatant '{order.Actor}' is in this fight, so nothing acted; a fight holds the party's members and the creatures of the place the party stands in."));
+                new Refusal(CombatCodes.UnknownCombatant, $"No combatant '{order.Actor}' is in this fight, so nothing acted; a fight holds the party's members and the creatures of the place the party stands in.")));
         }
 
         if (!actor.IsReady)
@@ -500,10 +498,9 @@ public sealed class CombatState : IGameTimeObserver
             return Report(CombatResult.Refused(
                 actor.Id,
                 actor.Name,
-                "recovering",
-                string.Create(
+                new Refusal(CombatCodes.Recovering, string.Create(
                     CultureInfo.InvariantCulture,
-                    $"{actor.Name} is still recovering: {actor.Recovery.Milliseconds}ms of game time must pass before it can act again.")));
+                    $"{actor.Name} is still recovering: {actor.Recovery.Milliseconds}ms of game time must pass before it can act again."))));
         }
 
         // What the actor's conditions leave it able to do is the ruleset's answer, asked before anything is
@@ -514,8 +511,7 @@ public sealed class CombatState : IGameTimeObserver
             return Report(CombatResult.Refused(
                 actor.Id,
                 actor.Name,
-                "incapacitated",
-                $"{actor.Name} cannot act: {Describe(actor)} leaves them unable to fight, and nothing was spent on an attack they did not make."));
+                new Refusal(CombatCodes.Incapacitated, $"{actor.Name} cannot act: {Describe(actor)} leaves them unable to fight, and nothing was spent on an attack they did not make.")));
         }
 
         Combatant? target = null;
@@ -526,8 +522,7 @@ public sealed class CombatState : IGameTimeObserver
                 return Report(CombatResult.Refused(
                     actor.Id,
                     actor.Name,
-                    "unknown-target",
-                    $"No combatant '{targetId}' is in this fight, so {actor.Name} attacked nothing."));
+                    new Refusal(CombatCodes.UnknownTarget, $"No combatant '{targetId}' is in this fight, so {actor.Name} attacked nothing.")));
             }
 
             if (target.Side == CombatSide.Party && actor.Side == CombatSide.Party)
@@ -535,8 +530,7 @@ public sealed class CombatState : IGameTimeObserver
                 return Report(CombatResult.Refused(
                     actor.Id,
                     actor.Name,
-                    "friendly-target",
-                    $"{actor.Name} and {target.Name} are on the party's own side, so the order was refused rather than turned on the party."));
+                    new Refusal(CombatCodes.FriendlyTarget, $"{actor.Name} and {target.Name} are on the party's own side, so the order was refused rather than turned on the party.")));
             }
         }
 
@@ -555,10 +549,9 @@ public sealed class CombatState : IGameTimeObserver
                 return Report(CombatResult.Refused(
                     actor.Id,
                     actor.Name,
-                    "weapon-no-target",
-                    string.Create(
+                    new Refusal(CombatCodes.WeaponNoTarget, string.Create(
                         CultureInfo.InvariantCulture,
-                        $"{actor.Name} has nothing to aim the charged item in hand at, so no charge was spent; a weapon that carries a spell is fired at a target.")));
+                        $"{actor.Name} has nothing to aim the charged item in hand at, so no charge was spent; a weapon that carries a spell is fired at a target."))));
             }
 
             ItemChargeSpend spend = _party.SpendItemCharge(charged.Charge!.Value, charged.Charges);
@@ -567,7 +560,7 @@ public sealed class CombatState : IGameTimeObserver
                 // The item answered a moment ago, and the answer the state gives now is the one that counts:
                 // an emptied wand or one the party no longer holds leaves the attack unmade and the actor's
                 // recovery unspent.
-                return Report(CombatResult.Refused(actor.Id, actor.Name, spend.Refusal!.Code, spend.Refusal.Message));
+                return Report(CombatResult.Refused(actor.Id, actor.Name, spend.Refusal!));
             }
         }
 
