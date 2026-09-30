@@ -46,7 +46,6 @@ public sealed class ServicePolicyTests
         string source = File.ReadAllText(Path.Combine(SourceDirectory(), "ProductIdentity.cs"));
         string project = File.ReadAllText(Path.Combine(SourceDirectory(), "PartyRpg.Host.csproj"));
         string product = File.ReadAllText(Path.Combine(SourceDirectory(), "CrawlerProduct.cs"));
-        string ui = File.ReadAllText(Path.Combine(SourceDirectory(), "..", "ui", "main.ts"));
 
         string intent = Constant(source, "ServiceLeaveIntent");
         Assert.Equal(ServiceActions.Leave, intent);
@@ -61,21 +60,18 @@ public sealed class ServicePolicyTests
         // on the product's contract: the counter's commands are the ones the session reads.
         Assert.Contains("new ServiceIntentNames(", product, StringComparison.Ordinal);
         Assert.Contains("Service: _service", product, StringComparison.Ordinal);
-        foreach ((string constant, string action) in new[]
+        foreach (string action in new[]
         {
-            ("ACTION_SERVICE_BUY", ServiceActions.Buy),
-            ("ACTION_SERVICE_SELL", ServiceActions.Sell),
-            ("ACTION_SERVICE_IDENTIFY", ServiceActions.Identify),
-            ("ACTION_SERVICE_REPAIR", ServiceActions.Repair),
-            ("ACTION_SERVICE_TEACH", ServiceActions.Teach),
-            ("ACTION_SERVICE_LEAVE", ServiceActions.Leave),
+            ServiceActions.Buy,
+            ServiceActions.Sell,
+            ServiceActions.Identify,
+            ServiceActions.Repair,
+            ServiceActions.Teach,
+            ServiceActions.Leave,
         })
         {
-            AssertUiConstant(ui, constant, action);
+            ProjectionContractTests.AssertPanelMayClaim(action);
         }
-
-        AssertUiConstant(ui, "UI_ACTION_CONTRACT", Constant(source, "UiActionContract"));
-        AssertUiConstant(ui, "UI_ACTION_INTENT", Constant(source, "UiActionIntent"));
     }
 
     [Fact]
@@ -647,16 +643,6 @@ public sealed class ServicePolicyTests
         }
 
         throw new InvalidOperationException("Could not find the repository root above the test assembly.");
-    }
-
-    private static void AssertUiConstant(string uiSource, string name, string expected)
-    {
-        System.Text.RegularExpressions.Match match = System.Text.RegularExpressions.Regex.Match(
-            uiSource,
-            $@"const {name} = '([^']*)';",
-            System.Text.RegularExpressions.RegexOptions.CultureInvariant);
-        Assert.True(match.Success, $"src/ui/main.ts must declare {name}.");
-        Assert.Equal(expected, match.Groups[1].Value);
     }
 
     private static string Constant(string source, string name)

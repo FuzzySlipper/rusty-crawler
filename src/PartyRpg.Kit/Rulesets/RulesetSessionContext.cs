@@ -109,6 +109,11 @@ public enum SessionStart
 /// session still resolves and refuses castings and still publishes what the party can cast; no casting ever
 /// reaches it, which is what a product that offers no such control gets.
 /// </param>
+/// <param name="Keys">
+/// The keys the host bound its controls to, as a person reads them, when it bound any. The host is the only
+/// owner of which key presses which control, so it states them here and the session publishes them beside the
+/// controls; without them a screen names each button alone.
+/// </param>
 public sealed record RulesetSessionContext(
     IUiProjectionChannel Projection,
     BundleSelection Selection = default,
@@ -125,4 +130,5 @@ public sealed record RulesetSessionContext(
     CombatIntentNames? Combat = null,
     SkillRaiseIntentNames? Skills = null,
     CastIntentNames? Cast = null,
-    MixIntentNames? Mix = null);
+    MixIntentNames? Mix = null,
+    ControlKeys? Keys = null);

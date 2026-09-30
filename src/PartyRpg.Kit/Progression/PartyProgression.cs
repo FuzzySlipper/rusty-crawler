@@ -122,6 +122,20 @@ public sealed class PartyProgression
         return _rule.ExperienceForLevel(member.Progression.Level);
     }
 
+    /// <summary>The level one training step leaves a member at.</summary>
+    /// <remarks>
+    /// A training step raises one level at a time, and this is that step read for a member, so what a panel
+    /// offers to train to and what <see cref="Train"/> grants are one answer rather than two.
+    /// </remarks>
+    /// <param name="member">The member to read.</param>
+    /// <returns>The level a training step would reach.</returns>
+    /// <exception cref="ArgumentNullException">No member was supplied.</exception>
+    public int LevelTrainingReaches(PartyMember member)
+    {
+        ArgumentNullException.ThrowIfNull(member);
+        return checked(member.Progression.Level + 1);
+    }
+
     /// <summary>Awards experience to the party through this one entry, and reports who took what.</summary>
     /// <remarks>
     /// <para>
@@ -206,7 +220,7 @@ public sealed class PartyProgression
             return RecordTraining(ProgressionTrainingResult.Refused(member, trainee.Profile.Name, level, terms.Counter, refused));
         }
 
-        int reached = level + 1;
+        int reached = LevelTrainingReaches(trainee);
         ProgressionGrowth growth = _rule.Growth(new ProgressionGrowthRequest(trainee, reached));
         ArgumentOutOfRangeException.ThrowIfNegative(growth.HitPoints);
         ArgumentOutOfRangeException.ThrowIfNegative(growth.SpellPoints);
@@ -262,7 +276,7 @@ public sealed class PartyProgression
                 ProgressionCodes.ProgressionExperienceShort,
                 string.Create(
                     CultureInfo.InvariantCulture,
-                    $"{trainee.Profile.Name} needs {wanted - trainee.Progression.Experience} more experience to train to level {level + 1}."))
+                    $"{trainee.Profile.Name} needs {wanted - trainee.Progression.Experience} more experience to train to level {LevelTrainingReaches(trainee)}."))
             : null;
     }
 

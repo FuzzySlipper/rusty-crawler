@@ -204,7 +204,7 @@ Routine verification:
 ```
 
 That installs the pinned pair if needed, installs the UI dependencies, compiles the DOM companion
-from `src/ui/tsconfig.json` and runs its suite over the compiled `main.js` (`npm run test:ui`), builds
+from `src/ui/tsconfig.json` and runs its suite over the compiled modules (`npm run test:ui`), builds
 every project in Release, checks the operator's data when the install is present, runs every suite,
 and stages the CoreCLR product. Every step runs even when an earlier one fails, and the script ends
 with a summary of what passed, what was skipped and why, and what failed, exiting non-zero if anything

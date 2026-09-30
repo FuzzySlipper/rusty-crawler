@@ -60,4 +60,19 @@ public static class SpellTargetings
     /// <returns>Whether a target must be named.</returns>
     public static bool NamesTarget(SpellTargeting targeting) =>
         targeting is SpellTargeting.Ally or SpellTargeting.Foe;
+
+    /// <summary>Which side of a fight the target a casting names stands on, or null when it names none.</summary>
+    /// <remarks>
+    /// An ally is one of the party's own and a foe is one of the opposition: this is the reading a screen needs
+    /// to offer only the actors a casting may name, and it lives beside the aims so a panel never pairs an aim
+    /// with a side itself.
+    /// </remarks>
+    /// <param name="targeting">The aim being asked about.</param>
+    /// <returns>The side a named target stands on, or null when the aim names nobody.</returns>
+    public static Combat.CombatSide? Side(SpellTargeting targeting) => targeting switch
+    {
+        SpellTargeting.Ally => Combat.CombatSide.Party,
+        SpellTargeting.Foe => Combat.CombatSide.Opposition,
+        _ => null,
+    };
 }

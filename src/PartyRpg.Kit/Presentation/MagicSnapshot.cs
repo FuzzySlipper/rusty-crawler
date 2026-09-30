@@ -57,6 +57,10 @@ public readonly record struct SpellMemberRunningSnapshot(string Member, string N
 /// <param name="ChargesMax">How many uses its kind holds when full; zero for an item a use uses up.</param>
 /// <param name="Wielded">Whether a member has it equipped, which is what an item that holds charges needs.</param>
 /// <param name="Member">The member wearing it, empty when nobody does.</param>
+/// <param name="TargetSide">
+/// Which side of a fight the actor its spell names stands on — <c>party</c> or <c>opposition</c> — or empty when
+/// the spell names nobody, so a screen offers the actors a use may name without pairing an aim with a side.
+/// </param>
 public readonly record struct SpellItemSnapshot(
     string Item,
     string Name,
@@ -67,7 +71,8 @@ public readonly record struct SpellItemSnapshot(
     int Charges,
     int ChargesMax,
     bool Wielded,
-    string Member);
+    string Member,
+    string TargetSide = "");
 
 /// <summary>One reading a cast left behind, as the panel shows it.</summary>
 /// <param name="Name">What the reading is about.</param>
@@ -91,6 +96,10 @@ public readonly record struct SpellFactSnapshot(string Name, string Value);
 /// <param name="Targeting">What the spell is aimed at, as the wire spells it.</param>
 /// <param name="Effect">The effect identity the spell carries, which the panel shows and never interprets.</param>
 /// <param name="Aims">What the spell may be pointed at, empty when its aim names no such thing.</param>
+/// <param name="TargetSide">
+/// Which side of a fight the actor the spell names stands on — <c>party</c> or <c>opposition</c> — or empty when
+/// the spell names nobody, so a screen offers the actors a casting may name without pairing an aim with a side.
+/// </param>
 public readonly record struct SpellRowSnapshot(
     string Spell,
     string Name,
@@ -100,7 +109,8 @@ public readonly record struct SpellRowSnapshot(
     int Cost,
     string Targeting,
     string Effect,
-    IReadOnlyList<SpellAimSnapshot> Aims);
+    IReadOnlyList<SpellAimSnapshot> Aims,
+    string TargetSide = "");
 
 /// <summary>One member's spellbook and what casting from it costs, as the panel shows it.</summary>
 /// <param name="Index">The member's place in the party, counted from zero, which a cast control names.</param>
@@ -242,7 +252,8 @@ public readonly record struct MagicSnapshot(
                     owner.CostFor(member, definition),
                     SpellTargetings.WireName(definition.Targeting),
                     definition.Effect,
-                    RowAims(aims, definition)));
+                    RowAims(aims, definition),
+                    SideOf(definition.Targeting)));
             }
 
             SpellId? quick = member.Spells.QuickSpell;
@@ -269,14 +280,14 @@ public readonly record struct MagicSnapshot(
                 targets.Add(new SpellTargetSnapshot(
                     combatant.Id.ToString(),
                     combatant.Name,
-                    combatant.Side == CombatSide.Party ? "party" : "opposition"));
+                    Presentation.SessionProjection.WireName(combatant.Side == CombatSide.Party ? CombatSide.Party : CombatSide.Opposition)));
             }
         }
         else
         {
             foreach (PartyMember member in owner.Party.Members)
             {
-                targets.Add(new SpellTargetSnapshot(CombatantId.Of(member.Id).ToString(), member.Profile.Name, "party"));
+                targets.Add(new SpellTargetSnapshot(CombatantId.Of(member.Id).ToString(), member.Profile.Name, Presentation.SessionProjection.WireName(CombatSide.Party)));
             }
         }
 
@@ -332,7 +343,8 @@ public readonly record struct MagicSnapshot(
                     left,
                     reading.Charges,
                     item.Custody.IsEquipped,
-                    worn));
+                    worn,
+                    SideOf(carried.Targeting)));
             }
         }
 
@@ -389,6 +401,10 @@ public readonly record struct MagicSnapshot(
         foreach (SpellAim aim in aims.AimsOf(spell)) offered.Add(new SpellAimSnapshot(aim.Aim, aim.Name, aim.Kind));
         return offered;
     }
+
+    /// <summary>The side a spell's named target stands on, as the wire spells it, or empty when it names nobody.</summary>
+    private static string SideOf(SpellTargeting targeting) =>
+        SpellTargetings.Side(targeting) is { } side ? Presentation.SessionProjection.WireName(side) : string.Empty;
 
     /// <summary>Writes a moment on the calendar for a person, empty when nothing states one.</summary>
     private static string Moment(GameDate? at) => at is { } moment

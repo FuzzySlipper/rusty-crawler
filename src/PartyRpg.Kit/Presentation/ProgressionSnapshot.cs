@@ -9,9 +9,10 @@ namespace PartyRpg.Kit.Presentation;
 /// <remarks>
 /// <para>
 /// Every number is read from the member the session plays and the curve the ruleset states; none of it is a
-/// count kept here. <see cref="NextLevel"/> is what the member must have banked for the next level, so a
-/// panel can show how far along they are without knowing the curve, and <see cref="Fee"/> is the counter's
-/// own quote for this member rather than a price worked out beside it.
+/// count kept here. <see cref="NextLevelExperience"/> is what the member must have banked for the next level,
+/// so a panel can show how far along they are without knowing the curve; <see cref="NextLevel"/> is the level a
+/// training step would leave them at, the same answer the training step itself uses; and <see cref="Fee"/> is
+/// the counter's own quote for this member rather than a price worked out beside it.
 /// </para>
 /// <para>
 /// A member who stands at no counter that trains has a fee of zero and a ceiling of zero, which is what "no
@@ -25,9 +26,10 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="Level">The level the member stands at.</param>
 /// <param name="Experience">How much experience the member has earned in total.</param>
 /// <param name="SkillPoints">How many skill points the member holds unspent.</param>
-/// <param name="NextLevel">How much experience the member's next level takes, which is the curve's own figure.</param>
+/// <param name="NextLevelExperience">How much experience the member's next level takes, which is the curve's own figure.</param>
 /// <param name="Fee">What the counter the party stands at would charge this member for one level, zero when none trains.</param>
 /// <param name="Cap">The highest level that counter trains to, zero when none trains.</param>
+/// <param name="NextLevel">The level one training step would leave the member at.</param>
 public readonly record struct ProgressionMemberSnapshot(
     int Index,
     string Member,
@@ -35,9 +37,17 @@ public readonly record struct ProgressionMemberSnapshot(
     int Level,
     long Experience,
     int SkillPoints,
-    long NextLevel,
+    long NextLevelExperience,
     int Fee,
-    int Cap);
+    int Cap,
+    int NextLevel)
+{
+    /// <summary>
+    /// Whether a counter the party stands at trains this member at all, which is what a training control is
+    /// offered on; whether the step would then land is the counter's own judgement, answered when it is asked.
+    /// </summary>
+    public bool CanTrain => Cap > 0;
+}
 
 /// <summary>What the party has earned and what a level costs, as the panel needs it.</summary>
 /// <remarks>
@@ -108,7 +118,8 @@ public readonly record struct ProgressionSnapshot(
                 member.Progression.SkillPoints,
                 progression.ExperienceForNextLevel(member),
                 training?.Price ?? 0,
-                training?.Offer.Limit ?? 0));
+                training?.Offer.Limit ?? 0,
+                progression.LevelTrainingReaches(member)));
         }
 
         if (progression.LastTraining is { } trained)

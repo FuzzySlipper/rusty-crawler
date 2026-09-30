@@ -1,0 +1,711 @@
+{
+  "composition": {
+    "ruleset": "mightandmagic7",
+    "title": "Might and Magic VII: For Blood and Honor",
+    "bundle": "",
+    "contentPacks": 0
+  },
+  "session": {
+    "mode": "creating",
+    "simulationSeconds": 0,
+    "admittedSteps": 0
+  },
+  "world": {
+    "place": "",
+    "name": "",
+    "kind": "",
+    "x": 0,
+    "y": 0,
+    "z": 0,
+    "yaw": 0,
+    "visited": 0,
+    "places": 0,
+    "open": false,
+    "hours": "",
+    "nextChange": ""
+  },
+  "clock": {
+    "present": true,
+    "date": "1168-01-01",
+    "time": "09:00",
+    "daylight": "day",
+    "elapsedDays": 0
+  },
+  "party": {
+    "present": false,
+    "members": 0,
+    "coins": 0,
+    "provisions": 0,
+    "unit": "",
+    "reputation": 0,
+    "fame": 0,
+    "conditions": "",
+    "hitPoints": 0,
+    "hitPointsMax": 0,
+    "spellPoints": 0,
+    "spellPointsMax": 0,
+    "pack": 0,
+    "standingRead": false,
+    "standing": "",
+    "standingDetail": "",
+    "awards": []
+  },
+  "movement": {
+    "motion": "none",
+    "blocked": "none",
+    "stepRise": 0,
+    "fallDistance": 0,
+    "fallDamage": 0
+  },
+  "creation": {
+    "active": true,
+    "accepted": false,
+    "hasDefault": true,
+    "member": 0,
+    "members": 4,
+    "step": "portrait",
+    "pool": 0,
+    "refusalCode": "",
+    "refusalMessage": "",
+    "roster": [
+      {
+        "index": 0,
+        "step": "portrait",
+        "name": "Roderick",
+        "race": "Human",
+        "class": "Knight",
+        "portrait": "human-man",
+        "pool": 0
+      },
+      {
+        "index": 1,
+        "step": "complete",
+        "name": "Aelina",
+        "race": "Elf",
+        "class": "Sorcerer",
+        "portrait": "elf-woman",
+        "pool": 0
+      },
+      {
+        "index": 2,
+        "step": "complete",
+        "name": "Borin",
+        "race": "Dwarf",
+        "class": "Cleric",
+        "portrait": "dwarf-man",
+        "pool": 0
+      },
+      {
+        "index": 3,
+        "step": "complete",
+        "name": "Nyx",
+        "race": "Goblin",
+        "class": "Thief",
+        "portrait": "goblin-woman",
+        "pool": 0
+      }
+    ],
+    "portraits": [
+      {
+        "id": "human-woman",
+        "name": "Human woman",
+        "race": "Human",
+        "selected": false
+      },
+      {
+        "id": "human-man",
+        "name": "Human man",
+        "race": "Human",
+        "selected": true
+      },
+      {
+        "id": "elf-woman",
+        "name": "Elf woman",
+        "race": "Elf",
+        "selected": false
+      },
+      {
+        "id": "elf-man",
+        "name": "Elf man",
+        "race": "Elf",
+        "selected": false
+      },
+      {
+        "id": "goblin-woman",
+        "name": "Goblin woman",
+        "race": "Goblin",
+        "selected": false
+      },
+      {
+        "id": "goblin-man",
+        "name": "Goblin man",
+        "race": "Goblin",
+        "selected": false
+      },
+      {
+        "id": "dwarf-woman",
+        "name": "Dwarf woman",
+        "race": "Dwarf",
+        "selected": false
+      },
+      {
+        "id": "dwarf-man",
+        "name": "Dwarf man",
+        "race": "Dwarf",
+        "selected": false
+      }
+    ],
+    "classes": [
+      {
+        "id": "Knight",
+        "name": "Knight",
+        "selected": true
+      },
+      {
+        "id": "Thief",
+        "name": "Thief",
+        "selected": false
+      },
+      {
+        "id": "Monk",
+        "name": "Monk",
+        "selected": false
+      },
+      {
+        "id": "Paladin",
+        "name": "Paladin",
+        "selected": false
+      },
+      {
+        "id": "Archer",
+        "name": "Archer",
+        "selected": false
+      },
+      {
+        "id": "Ranger",
+        "name": "Ranger",
+        "selected": false
+      },
+      {
+        "id": "Cleric",
+        "name": "Cleric",
+        "selected": false
+      },
+      {
+        "id": "Druid",
+        "name": "Druid",
+        "selected": false
+      },
+      {
+        "id": "Sorcerer",
+        "name": "Sorcerer",
+        "selected": false
+      }
+    ],
+    "skills": [
+      {
+        "id": "Sword",
+        "name": "Sword",
+        "state": "fixed"
+      },
+      {
+        "id": "Leather",
+        "name": "Leather",
+        "state": "fixed"
+      },
+      {
+        "id": "Axe",
+        "name": "Axe",
+        "state": "available"
+      },
+      {
+        "id": "Spear",
+        "name": "Spear",
+        "state": "available"
+      },
+      {
+        "id": "Bow",
+        "name": "Bow",
+        "state": "available"
+      },
+      {
+        "id": "Mace",
+        "name": "Mace",
+        "state": "available"
+      },
+      {
+        "id": "Shield",
+        "name": "Shield",
+        "state": "chosen"
+      },
+      {
+        "id": "Chain",
+        "name": "Chain",
+        "state": "available"
+      },
+      {
+        "id": "Bodybuilding",
+        "name": "Bodybuilding",
+        "state": "chosen"
+      },
+      {
+        "id": "Perception",
+        "name": "Perception",
+        "state": "available"
+      },
+      {
+        "id": "Armsmaster",
+        "name": "Armsmaster",
+        "state": "available"
+      }
+    ],
+    "attributes": [
+      {
+        "id": "Might",
+        "name": "Might",
+        "value": 21,
+        "minimum": 9,
+        "maximum": 25,
+        "canRaise": true,
+        "canLower": true
+      },
+      {
+        "id": "Intellect",
+        "name": "Intellect",
+        "value": 15,
+        "minimum": 9,
+        "maximum": 25,
+        "canRaise": true,
+        "canLower": true
+      },
+      {
+        "id": "Personality",
+        "name": "Personality",
+        "value": 15,
+        "minimum": 9,
+        "maximum": 25,
+        "canRaise": true,
+        "canLower": true
+      },
+      {
+        "id": "Endurance",
+        "name": "Endurance",
+        "value": 19,
+        "minimum": 7,
+        "maximum": 25,
+        "canRaise": true,
+        "canLower": true
+      },
+      {
+        "id": "Accuracy",
+        "name": "Accuracy",
+        "value": 19,
+        "minimum": 9,
+        "maximum": 25,
+        "canRaise": true,
+        "canLower": true
+      },
+      {
+        "id": "Speed",
+        "name": "Speed",
+        "value": 17,
+        "minimum": 9,
+        "maximum": 25,
+        "canRaise": true,
+        "canLower": true
+      },
+      {
+        "id": "Luck",
+        "name": "Luck",
+        "value": 17,
+        "minimum": 7,
+        "maximum": 25,
+        "canRaise": true,
+        "canLower": true
+      }
+    ],
+    "party": []
+  },
+  "save": {
+    "available": true,
+    "resumed": false,
+    "slot": "session",
+    "state": "none",
+    "at": "",
+    "code": "",
+    "message": ""
+  },
+  "interaction": {
+    "available": false,
+    "target": "",
+    "label": "",
+    "verb": "",
+    "state": "",
+    "distance": 0,
+    "reason": "",
+    "requires": [],
+    "bodies": 0,
+    "outcome": "none",
+    "code": "",
+    "message": "",
+    "residue": ""
+  },
+  "service": {
+    "available": false,
+    "open": false,
+    "id": "",
+    "kind": "",
+    "name": "",
+    "proprietor": "",
+    "state": "",
+    "hours": "",
+    "operations": [],
+    "memberships": [],
+    "stock": [],
+    "lessons": [],
+    "offers": [],
+    "sales": [],
+    "members": [],
+    "identify": [],
+    "repair": [],
+    "fares": [],
+    "canBuy": false,
+    "canSell": false,
+    "canTeach": false,
+    "action": "",
+    "outcome": "none",
+    "code": "",
+    "message": "",
+    "paid": 0,
+    "earned": 0,
+    "coins": 0
+  },
+  "rest": {
+    "available": false,
+    "kind": "",
+    "outcome": "none",
+    "code": "",
+    "message": "",
+    "from": "",
+    "to": "",
+    "elapsedSeconds": 0,
+    "charged": 0,
+    "covered": 0,
+    "unit": "",
+    "interrupted": false,
+    "recovered": false,
+    "restored": 0,
+    "cleared": "",
+    "shortage": "",
+    "tired": false,
+    "fatigueDue": "",
+    "fatigueLanded": 0
+  },
+  "conversation": {
+    "available": false,
+    "open": false,
+    "subject": "",
+    "speaker": "",
+    "greeting": "",
+    "people": [],
+    "topics": [],
+    "withheld": [],
+    "said": [],
+    "action": "",
+    "outcome": "none",
+    "code": "",
+    "message": "",
+    "residue": "",
+    "handoff": "",
+    "topic": ""
+  },
+  "combat": {
+    "available": false,
+    "engaged": false,
+    "opposition": 0,
+    "ready": 0,
+    "pacing": "realtime",
+    "turn": {
+      "phase": "",
+      "round": 0,
+      "actor": "",
+      "actorName": "",
+      "playerTurn": false,
+      "dueSeconds": 0,
+      "roundSeconds": 0,
+      "elapsedSeconds": 0,
+      "movementSeconds": 0,
+      "last": "",
+      "order": []
+    },
+    "members": [],
+    "enemies": [],
+    "actor": "",
+    "kind": "",
+    "target": "",
+    "outcome": "none",
+    "code": "",
+    "message": "",
+    "recoverySeconds": 0,
+    "resolved": false,
+    "hit": false,
+    "chance": 0,
+    "damageRolled": 0,
+    "damage": 0,
+    "damageKind": "",
+    "resistance": "",
+    "condition": "",
+    "targetDown": false,
+    "byParty": false
+  },
+  "progression": {
+    "available": false,
+    "members": [],
+    "outcome": "none",
+    "source": "",
+    "earned": 0,
+    "code": "",
+    "message": ""
+  },
+  "promotion": {
+    "available": false,
+    "members": [],
+    "outcome": "none",
+    "promotion": "",
+    "toClass": "",
+    "rank": 0,
+    "choice": "",
+    "granted": [],
+    "denied": [],
+    "code": "",
+    "message": ""
+  },
+  "skills": {
+    "available": false,
+    "members": [],
+    "outcome": "none",
+    "member": "",
+    "skill": "",
+    "level": 0,
+    "cost": 0,
+    "code": "",
+    "message": ""
+  },
+  "magic": {
+    "available": false,
+    "members": [],
+    "targets": [],
+    "outcome": "none",
+    "member": 0,
+    "caster": "",
+    "spell": "",
+    "cost": 0,
+    "target": "",
+    "effect": "",
+    "code": "",
+    "message": "",
+    "source": "",
+    "facts": [],
+    "running": [],
+    "memberRunning": [],
+    "items": [],
+    "sight": ""
+  },
+  "alchemy": {
+    "available": false,
+    "members": [],
+    "items": [],
+    "mixtures": [],
+    "canMix": false,
+    "outcome": {
+      "member": 0,
+      "mixer": "",
+      "outcome": "",
+      "result": "",
+      "resultName": "",
+      "power": 0,
+      "burst": 0,
+      "harm": 0,
+      "condition": "",
+      "note": 0,
+      "code": "",
+      "message": ""
+    }
+  },
+  "quests": {
+    "available": false,
+    "journal": [],
+    "action": "none",
+    "outcome": "none",
+    "quest": "",
+    "experience": 0,
+    "coins": 0,
+    "items": [],
+    "records": [],
+    "delivered": [],
+    "code": "",
+    "message": ""
+  },
+  "journal": {
+    "available": true,
+    "books": [
+      {
+        "kind": "quests",
+        "title": "Current Quests",
+        "available": false,
+        "state": "This session holds no errand owner yet: what a party has been offered is kept by one composed when the party exists.",
+        "rows": []
+      },
+      {
+        "kind": "notes",
+        "title": "Auto Notes",
+        "available": true,
+        "state": "The party has learned nothing worth noting yet.",
+        "rows": []
+      },
+      {
+        "kind": "maps",
+        "title": "Maps",
+        "available": false,
+        "state": "This session keeps no map owner: what a party has walked of a place is kept by the owner composed over the places\u0027 own maps.",
+        "rows": []
+      },
+      {
+        "kind": "calendar",
+        "title": "Calendar",
+        "available": true,
+        "state": "1168-01-01",
+        "rows": [
+          {
+            "id": "date",
+            "label": "Today",
+            "detail": "1168-01-01",
+            "state": "",
+            "source": "clock",
+            "marked": false
+          },
+          {
+            "id": "time",
+            "label": "Time",
+            "detail": "09:00",
+            "state": "day",
+            "source": "clock",
+            "marked": false
+          },
+          {
+            "id": "elapsed",
+            "label": "Days since the expedition began",
+            "detail": "0",
+            "state": "",
+            "source": "clock",
+            "marked": false
+          }
+        ]
+      },
+      {
+        "kind": "history",
+        "title": "History",
+        "available": true,
+        "state": "Nothing has been written down yet.",
+        "rows": []
+      }
+    ]
+  },
+  "map": {
+    "available": false,
+    "mapped": false,
+    "title": "",
+    "place": "",
+    "name": "",
+    "kind": "",
+    "state": "",
+    "seen": 0,
+    "total": 0,
+    "detection": "",
+    "detectionMessage": "",
+    "detectionEnds": "",
+    "drawing": null
+  },
+  "controls": {
+    "pause": {
+      "action": "",
+      "enabled": false,
+      "key": "P"
+    },
+    "save": {
+      "action": "session.save",
+      "enabled": false,
+      "key": "F"
+    },
+    "use": {
+      "action": "party.use",
+      "enabled": false,
+      "key": "G"
+    },
+    "attack": {
+      "action": "party.attack",
+      "enabled": false,
+      "key": "B"
+    },
+    "turnBased": {
+      "action": "combat.turn-based",
+      "enabled": false,
+      "key": "Enter"
+    },
+    "turnSkip": {
+      "action": "combat.turn-skip",
+      "enabled": false,
+      "key": "K"
+    },
+    "turnWait": {
+      "action": "combat.turn-wait",
+      "enabled": false,
+      "key": "Y"
+    },
+    "rest": {
+      "action": "rest.rest",
+      "enabled": false,
+      "key": "R"
+    },
+    "camp": {
+      "action": "rest.camp",
+      "enabled": false,
+      "key": "C"
+    },
+    "waitDawn": {
+      "action": "rest.wait-dawn",
+      "enabled": false,
+      "key": "T"
+    },
+    "waitHour": {
+      "action": "rest.wait-hour",
+      "enabled": false,
+      "key": "H"
+    },
+    "waitFiveMinutes": {
+      "action": "rest.wait-five-minutes",
+      "enabled": false,
+      "key": "M"
+    },
+    "serviceLeave": {
+      "action": "service.leave",
+      "enabled": false,
+      "key": "X"
+    },
+    "conversationLeave": {
+      "action": "conversation.leave",
+      "enabled": false,
+      "key": "Escape"
+    },
+    "creationAdvance": {
+      "action": "creation.advance",
+      "enabled": true,
+      "key": "Enter"
+    },
+    "creationAccept": {
+      "action": "creation.accept",
+      "enabled": true,
+      "key": "Space"
+    }
+  }
+}

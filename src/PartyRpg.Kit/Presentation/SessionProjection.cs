@@ -2,6 +2,7 @@ using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Services;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
@@ -98,6 +99,14 @@ namespace PartyRpg.Kit.Presentation;
 /// Defaulted for the same reason the others are: a session whose ruleset stated no journal publishes that
 /// rather than five empty books that look like a party which has been nowhere and done nothing.
 /// </param>
+/// <param name="Map">
+/// What the party has mapped of the place it stands in, or the no-map value when the session's ruleset stated no
+/// automap.
+/// </param>
+/// <param name="Keys">
+/// The keys the host bound its controls to, or none when it bound none. Defaulted, so a session a host gave no
+/// keys publishes controls a screen names by their buttons alone rather than keys nobody pressed.
+/// </param>
 public readonly record struct SessionSnapshot(
     SessionComposition Composition,
     SessionMode Mode,
@@ -121,7 +130,8 @@ public readonly record struct SessionSnapshot(
     AlchemySnapshot Alchemy = default,
     QuestSnapshot Quests = default,
     JournalSnapshot Journal = default,
-    MapSnapshot Map = default);
+    MapSnapshot Map = default,
+    ControlKeys? Keys = null);
 
 /// <summary>Where the party is in the world, as the panel needs it: which place, where in it, and how much of the world is known.</summary>
 /// <param name="Place">The place the party is in, empty when the session has no world.</param>
@@ -228,6 +238,9 @@ public static class SessionProjection
 
     /// <summary>The name of the projection field the automap is published under.</summary>
     public const string MapField = "map";
+
+    /// <summary>The name of the projection field the stand-alone controls are published under.</summary>
+    public const string ControlsField = "controls";
 
     /// <summary>Builds the projection value for a snapshot.</summary>
     public static UiValue Build(SessionSnapshot snapshot)
@@ -390,9 +403,40 @@ public static class SessionProjection
             // ruleset stated no automap", "the place content carries no map for", and "the party has seen none
             // of a mapped place yet" are three different facts, and a block that only appeared once the party
             // had walked somewhere would leave a screen unable to tell them apart.
-            (MapField, Map(builder, snapshot.Map)));
+            (MapField, Map(builder, snapshot.Map)),
+            // The controls are published in every mode for the same reason every block is: "this control would
+            // be taken now", "it would be refused", and "it is bound to this key" are facts about the session, and
+            // a screen that worked any of them out would be a second copy of the rule that decides them.
+            (ControlsField, Controls(builder, ControlsSnapshot.Read(snapshot))));
         return builder.Build(root);
     }
+
+    /// <summary>Builds the controls block: each stand-alone control's action, whether it is offered, and its key.</summary>
+    private static uint Controls(UiValueBuilder builder, ControlsSnapshot controls) =>
+        builder.Object(
+            ("pause", Control(builder, controls.Pause)),
+            ("save", Control(builder, controls.Save)),
+            ("use", Control(builder, controls.Use)),
+            ("attack", Control(builder, controls.Attack)),
+            ("turnBased", Control(builder, controls.TurnBased)),
+            ("turnSkip", Control(builder, controls.TurnSkip)),
+            ("turnWait", Control(builder, controls.TurnWait)),
+            ("rest", Control(builder, controls.Rest)),
+            ("camp", Control(builder, controls.Camp)),
+            ("waitDawn", Control(builder, controls.WaitDawn)),
+            ("waitHour", Control(builder, controls.WaitHour)),
+            ("waitFiveMinutes", Control(builder, controls.WaitFiveMinutes)),
+            ("serviceLeave", Control(builder, controls.ServiceLeave)),
+            ("conversationLeave", Control(builder, controls.ConversationLeave)),
+            ("creationAdvance", Control(builder, controls.CreationAdvance)),
+            ("creationAccept", Control(builder, controls.CreationAccept)));
+
+    /// <summary>Builds one control of the controls block.</summary>
+    private static uint Control(UiValueBuilder builder, ControlSnapshot control) =>
+        builder.Object(
+            ("action", builder.String(control.Action ?? string.Empty)),
+            ("enabled", builder.Boolean(control.Enabled)),
+            ("key", builder.String(control.Key ?? string.Empty)));
 
     /// <summary>Builds the interaction block: what is faced, what it requires, and what the last use did.</summary>
     /// <remarks>
@@ -438,6 +482,14 @@ public static class SessionProjection
         List<uint> memberships = [];
         foreach (string membership in service.Memberships ?? []) memberships.Add(builder.String(membership));
 
+        // Which commands the counter takes is its own list of operations, read once here: a screen offers a
+        // row's command when the product says the counter takes it, and never decides that from a word itself.
+        bool buys = Takes(service, ServiceOperationKind.Buy);
+        bool sells = Takes(service, ServiceOperationKind.Sell);
+        bool identifies = Takes(service, ServiceOperationKind.Identify);
+        bool repairs = Takes(service, ServiceOperationKind.Repair);
+        bool teaches = Takes(service, ServiceOperationKind.Teach);
+
         List<uint> stock = [];
         foreach (ServiceStockSnapshot offer in service.Stock ?? [])
         {
@@ -447,7 +499,9 @@ public static class SessionProjection
                 ("name", builder.String(offer.Name)),
                 ("count", builder.Number(offer.Count)),
                 ("price", builder.Number(offer.Price)),
-                ("sale", builder.Boolean(offer.IsSale))));
+                ("sale", builder.Boolean(offer.IsSale)),
+                // A lot the counter has sold out of is still a row, and one a purchase would be refused on.
+                ("canBuy", builder.Boolean(buys && offer.Count > 0))));
         }
 
         List<uint> lessons = [];
@@ -480,6 +534,8 @@ public static class SessionProjection
         }
 
         List<uint> sales = [];
+        List<uint> identify = [];
+        List<uint> repair = [];
         foreach (ServiceSaleSnapshot offer in service.Sales ?? [])
         {
             sales.Add(builder.Object(
@@ -489,6 +545,23 @@ public static class SessionProjection
                 ("price", builder.Number(offer.Price)),
                 ("damage", builder.Number(offer.Damage)),
                 ("identified", builder.Boolean(offer.Identified))));
+
+            // What the counter would identify and what it would mend are the party's own items it has a use
+            // for: an item already known is not one to identify, and one that is whole is not one to repair.
+            if (identifies && !offer.Identified) identify.Add(Held(builder, offer));
+            if (repairs && offer.Damage > 0) repair.Add(Held(builder, offer));
+        }
+
+        // A passage is the one offer besides goods and lessons a screen has a command for, so the passages are
+        // published as their own list: which rows a player can press is the product's reading of its own kinds.
+        List<uint> fares = [];
+        foreach (ServiceOfferSnapshot offer in service.Offers ?? [])
+        {
+            if (!service.Open || !string.Equals(offer.Kind, ServiceSnapshot.WireName(ServiceOfferKind.Fare), StringComparison.Ordinal)) continue;
+            fares.Add(builder.Object(
+                ("subject", builder.String(offer.Subject)),
+                ("name", builder.String(offer.Name)),
+                ("price", builder.Number(offer.Price))));
         }
 
         List<uint> members = [];
@@ -515,6 +588,12 @@ public static class SessionProjection
             ("offers", builder.Array([.. offers])),
             ("sales", builder.Array([.. sales])),
             ("members", builder.Array([.. members])),
+            ("identify", builder.Array([.. identify])),
+            ("repair", builder.Array([.. repair])),
+            ("fares", builder.Array([.. fares])),
+            ("canBuy", builder.Boolean(buys)),
+            ("canSell", builder.Boolean(sells)),
+            ("canTeach", builder.Boolean(teaches)),
             ("action", builder.String(service.Action ?? string.Empty)),
             ("outcome", builder.String(service.Outcome ?? string.Empty)),
             ("code", builder.String(service.Code ?? string.Empty)),
@@ -523,6 +602,16 @@ public static class SessionProjection
             ("earned", builder.Number(service.Earned)),
             ("coins", builder.Number(service.Coins)));
     }
+
+    /// <summary>Whether the counter a visit has open carries out one operation.</summary>
+    private static bool Takes(ServiceSnapshot service, ServiceOperationKind operation) =>
+        service.Open && (service.Operations ?? []).Contains(PartyServices.WireName(operation), StringComparer.Ordinal);
+
+    /// <summary>Builds one of the party's items a counter would work on: which instance, and what it is called.</summary>
+    private static uint Held(UiValueBuilder builder, ServiceSaleSnapshot offer) =>
+        builder.Object(
+            ("item", builder.String(offer.Item)),
+            ("name", builder.String(offer.Name)));
 
     /// <summary>Builds the awards list: what the party has accomplished, each row in the game's own words.</summary>
     /// <remarks>
@@ -736,9 +825,13 @@ public static class SessionProjection
                 ("level", builder.Number(member.Level)),
                 ("experience", builder.Number(member.Experience)),
                 ("skillPoints", builder.Number(member.SkillPoints)),
+                ("nextLevelExperience", builder.Number(member.NextLevelExperience)),
+                // The level a training step reaches, published rather than added up by the screen: "train to
+                // level 3" is the training step's own answer.
                 ("nextLevel", builder.Number(member.NextLevel)),
                 ("fee", builder.Number(member.Fee)),
-                ("cap", builder.Number(member.Cap))));
+                ("cap", builder.Number(member.Cap)),
+                ("canTrain", builder.Boolean(member.CanTrain))));
         }
 
         return builder.Object(
@@ -890,14 +983,6 @@ public static class SessionProjection
             ("message", builder.String(skills.Message ?? string.Empty)));
     }
 
-    /// <summary>Builds the rest block: what the last stop did, what it cost, and what sleep debt stands.</summary>
-    /// <remarks>
-    /// Every fact is the mechanism's own: the kind asked for, the refusal's code and sentence, where the
-    /// clock went, what the larder was charged and covered, whether a night was broken, which conditions a
-    /// completed sleep cleared, and when the debt of sleep next falls due. A snapshot built without rest
-    /// facts carries the default value, whose strings are null rather than empty: they are published as
-    /// empty so a reader never sees a name that is not there, exactly as the service and save blocks do.
-    /// </remarks>
     /// <summary>Builds the magic block: each member's spellbook, what a casting costs, and what the last one did.</summary>
     /// <remarks>
     /// Every row and every target is sent whole so the screen decides nothing: which spells a member knows,
@@ -935,7 +1020,11 @@ public static class SessionProjection
                     ("cost", builder.Number(spell.Cost)),
                     ("targeting", builder.String(spell.Targeting)),
                     ("effect", builder.String(spell.Effect)),
-                    ("aims", builder.Array([.. aims]))));
+                    ("aims", builder.Array([.. aims])),
+                    ("targetSide", builder.String(spell.TargetSide ?? string.Empty)),
+                    // A spell that must name an actor, has nobody on its side to name, and has nothing else it may
+                    // be pointed at is one a casting would be refused on before a point was spent.
+                    ("canCast", builder.Boolean(Aimable(spell.TargetSide, magic.Targets) || (spell.Aims ?? []).Count > 0))));
             }
 
             members.Add(builder.Object(
@@ -1005,7 +1094,11 @@ public static class SessionProjection
                 ("charges", builder.Number(item.Charges)),
                 ("chargesMax", builder.Number(item.ChargesMax)),
                 ("wielded", builder.Boolean(item.Wielded)),
-                ("member", builder.String(item.Member))));
+                ("member", builder.String(item.Member)),
+                ("targetSide", builder.String(item.TargetSide ?? string.Empty)),
+                // An item is used by a member on what its spell names, so it is offered while there is somebody
+                // to use it and something on its side to name.
+                ("canUse", builder.Boolean((magic.Members ?? []).Count > 0 && Aimable(item.TargetSide, magic.Targets)))));
         }
 
         return builder.Object(
@@ -1029,13 +1122,13 @@ public static class SessionProjection
             ("sight", builder.String(magic.Sight ?? string.Empty)));
     }
 
-    /// <summary>Builds the alchemy block: what in the pack mixes, and what the last mixture did.</summary>
-    /// <remarks>
-    /// The pairs are sent as the two instance identities the pack holds, so a screen sends back exactly what
-    /// it drew and the session resolves it against the pack it holds inside the same update. Nothing about
-    /// what a pair will do is published: the game's own table is what a player learns, and the outcome row is
-    /// where an attempt's own answer arrives.
-    /// </remarks>
+    /// <summary>
+    /// Whether a casting aimed as the side says has somebody to name: always, when it names nobody, and otherwise
+    /// when an actor on that side is among the targets the projection lists.
+    /// </summary>
+    private static bool Aimable(string? side, IReadOnlyList<SpellTargetSnapshot>? targets) =>
+        string.IsNullOrEmpty(side) || (targets ?? []).Any(target => string.Equals(target.Side, side, StringComparison.Ordinal));
+
     /// <summary>Builds the quest block: every errand the party stands with, and what the last one did.</summary>
     /// <remarks>
     /// Every list is sent whole so the screen decides nothing: the journal with each quest's own objectives
@@ -1186,6 +1279,10 @@ public static class SessionProjection
                 ("partyX", builder.Number(shape.PartyX)),
                 ("partyY", builder.Number(shape.PartyY)),
                 ("facing", builder.Number(shape.Facing)),
+                // How large a mark and the party's marker are drawn, and the marker's own corners: a screen places
+                // them and divides nothing, so no published count can hand it a hole.
+                ("markRadius", builder.Number(shape.MarkRadius)),
+                ("partyPoints", builder.Array([.. shape.PartyPoints.Select(builder.Number)])),
                 ("cellsDrawn", builder.Array([.. drawn])),
                 ("marks", builder.Array([.. marks])));
         }
@@ -1206,6 +1303,13 @@ public static class SessionProjection
             ("drawing", drawing));
     }
 
+    /// <summary>Builds the alchemy block: what in the pack mixes, and what the last mixture did.</summary>
+    /// <remarks>
+    /// The pairs are sent as the two instance identities the pack holds, so a screen sends back exactly what
+    /// it drew and the session resolves it against the pack it holds inside the same update. Nothing about
+    /// what a pair will do is published: the game's own table is what a player learns, and the outcome row is
+    /// where an attempt's own answer arrives.
+    /// </remarks>
     private static uint Alchemy(UiValueBuilder builder, AlchemySnapshot alchemy)
     {
         List<uint> members = [];
@@ -1273,9 +1377,19 @@ public static class SessionProjection
             ("members", builder.Array([.. members])),
             ("items", builder.Array([.. items])),
             ("mixtures", builder.Array([.. mixtures])),
+            // A mixture is put together by a member, so one is offered while there is somebody to mix it.
+            ("canMix", builder.Boolean((alchemy.Members ?? []).Count > 0)),
             ("outcome", outcome));
     }
 
+    /// <summary>Builds the rest block: what the last stop did, what it cost, and what sleep debt stands.</summary>
+    /// <remarks>
+    /// Every fact is the mechanism's own: the kind asked for, the refusal's code and sentence, where the
+    /// clock went, what the larder was charged and covered, whether a night was broken, which conditions a
+    /// completed sleep cleared, and when the debt of sleep next falls due. A snapshot built without rest
+    /// facts carries the default value, whose strings are null rather than empty: they are published as
+    /// empty so a reader never sees a name that is not there, exactly as the service and save blocks do.
+    /// </remarks>
     private static uint Rest(UiValueBuilder builder, RestSnapshot rest) =>
         builder.Object(
             ("available", builder.Boolean(rest.Available)),

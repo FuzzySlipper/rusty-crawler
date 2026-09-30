@@ -8,5 +8,5 @@
     "rootDir": ".",
     "outDir": "generated"
   },
-  "files": ["main.ts"]
+  "include": ["*.ts"]
 }

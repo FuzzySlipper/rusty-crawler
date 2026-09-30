@@ -47,6 +47,7 @@ public sealed class CrawlerProduct : IEngineProduct
     private readonly RestIntentNames _rest;
     private readonly ConversationIntentNames _conversation;
     private readonly CombatIntentNames _combat;
+    private readonly ControlKeys _keys;
     private readonly BundleSelection _selection;
     private readonly ContentCatalog? _content;
     private IGameSession _session;
@@ -135,6 +136,9 @@ public sealed class CrawlerProduct : IEngineProduct
                 ProductIdentity.TurnSkipIntent,
                 ProductIdentity.TurnWaitIntent,
                 ProductIdentity.UiActionContract));
+        // Which key each control is bound to is the project file's declaration, handed back by the engine: the
+        // panel names those keys and no others.
+        _keys = ProductControlKeys.Read(context.Input);
         (_selection, _content) = SelectBundle(context, bundleId ?? BuiltInBundles.Default, ruleset.Id);
         _session = CreateSession();
     }
@@ -266,7 +270,8 @@ public sealed class CrawlerProduct : IEngineProduct
                 Combat: _combat,
                 Skills: _skills,
                 Cast: _cast,
-                Mix: _mix);
+                Mix: _mix,
+                Keys: _keys);
 
             // The start switch travels with the context and is answered at the ruleset's one composition
             // entry: a resumed run reads the save the slot holds and composes a session from it, and a slot

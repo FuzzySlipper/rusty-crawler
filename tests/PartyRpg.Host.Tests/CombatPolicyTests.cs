@@ -38,7 +38,6 @@ public sealed class CombatPolicyTests
         string source = File.ReadAllText(Path.Combine(SourceDirectory(), "ProductIdentity.cs"));
         string project = File.ReadAllText(ProjectFile());
         string product = File.ReadAllText(Path.Combine(SourceDirectory(), "CrawlerProduct.cs"));
-        string ui = File.ReadAllText(Path.Combine(SourceDirectory(), "..", "ui", "main.ts"));
 
         string intent = Constant(source, "AttackIntent");
         string action = ProductIdentity.AttackAction;
@@ -56,8 +55,7 @@ public sealed class CombatPolicyTests
         // product's own contract: the reader is composed over exactly these names.
         Assert.Contains("new CombatIntentNames(", product, StringComparison.Ordinal);
         Assert.Contains("Combat: _combat", product, StringComparison.Ordinal);
-        AssertUiConstant(ui, "ACTION_ATTACK", action);
-        AssertUiConstant(ui, "UI_ACTION_CONTRACT", Constant(source, "UiActionContract"));
+        ProjectionContractTests.AssertPanelMayClaim(action);
     }
 
     [Fact]
@@ -620,12 +618,6 @@ public sealed class CombatPolicyTests
         return match.Groups[1].Value;
     }
 
-    private static void AssertUiConstant(string uiSource, string name, string expected)
-    {
-        Match match = Regex.Match(uiSource, $@"const {name} = '([^']*)';", RegexOptions.CultureInvariant);
-        Assert.True(match.Success, $"src/ui/main.ts must declare {name}.");
-        Assert.Equal(expected, match.Groups[1].Value);
-    }
 
     /// <summary>One digital event on the act control, as the engine admits a key.</summary>
     private static ProductInputEvent Digital(string intent) => ProductTestContext.Digital(intent);

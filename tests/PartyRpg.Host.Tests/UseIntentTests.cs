@@ -23,7 +23,6 @@ public sealed class UseIntentTests
         string source = File.ReadAllText(Path.Combine(SourceDirectory(), "ProductIdentity.cs"));
         string project = File.ReadAllText(ProjectFile());
         string product = File.ReadAllText(Path.Combine(SourceDirectory(), "CrawlerProduct.cs"));
-        string ui = File.ReadAllText(Path.Combine(SourceDirectory(), "..", "ui", "main.ts"));
 
         string intent = Constant(source, "UseIntent");
         string action = ProductIdentity.UseAction;
@@ -41,8 +40,7 @@ public sealed class UseIntentTests
         // product's own contract: the reader is composed over exactly these names.
         Assert.Contains("new UseIntentNames(", product, StringComparison.Ordinal);
         Assert.Contains("Use: _use", product, StringComparison.Ordinal);
-        AssertUiConstant(ui, "ACTION_USE", action);
-        AssertUiConstant(ui, "UI_ACTION_CONTRACT", Constant(source, "UiActionContract"));
+        ProjectionContractTests.AssertPanelMayClaim(action);
     }
 
     [Fact]
@@ -151,10 +149,4 @@ public sealed class UseIntentTests
         return match.Groups[1].Value;
     }
 
-    private static void AssertUiConstant(string uiSource, string name, string expected)
-    {
-        Match match = Regex.Match(uiSource, $@"const {name} = '([^']*)';", RegexOptions.CultureInvariant);
-        Assert.True(match.Success, $"src/ui/main.ts must declare {name}.");
-        Assert.Equal(expected, match.Groups[1].Value);
-    }
 }

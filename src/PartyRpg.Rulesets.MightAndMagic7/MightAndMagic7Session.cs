@@ -311,6 +311,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                 Skills = context.Skills,
                 Cast = context.Cast,
                 Mix = context.Mix,
+                Keys = context.Keys,
             };
 
             SessionParty start;

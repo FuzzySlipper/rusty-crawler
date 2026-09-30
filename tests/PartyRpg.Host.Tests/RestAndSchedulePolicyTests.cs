@@ -52,7 +52,6 @@ public sealed class RestAndSchedulePolicyTests
         string source = File.ReadAllText(Path.Combine(SourceDirectory(), "ProductIdentity.cs"));
         string project = File.ReadAllText(Path.Combine(SourceDirectory(), "PartyRpg.Host.csproj"));
         string product = File.ReadAllText(Path.Combine(SourceDirectory(), "CrawlerProduct.cs"));
-        string ui = File.ReadAllText(Path.Combine(SourceDirectory(), "..", "ui", "main.ts"));
 
         // Every stop is its own control, declared in code, mapped in the project file, and sent by the
         // companion: a name that exists in only one of the three is a control nobody can press.
@@ -77,16 +76,16 @@ public sealed class RestAndSchedulePolicyTests
         // on the product's contract, so a screen's button and a key ask for exactly the same stop.
         Assert.Contains("new RestIntentNames(", product, StringComparison.Ordinal);
         Assert.Contains("Rest: _rest", product, StringComparison.Ordinal);
-        foreach ((string constant, string action) in new[]
+        foreach (string action in new[]
         {
-            ("ACTION_REST", RestActions.Rest),
-            ("ACTION_CAMP", RestActions.Camp),
-            ("ACTION_WAIT_DAWN", RestActions.WaitUntilDawn),
-            ("ACTION_WAIT_HOUR", RestActions.WaitAnHour),
-            ("ACTION_WAIT_FIVE_MINUTES", RestActions.WaitFiveMinutes),
+            RestActions.Rest,
+            RestActions.Camp,
+            RestActions.WaitUntilDawn,
+            RestActions.WaitAnHour,
+            RestActions.WaitFiveMinutes,
         })
         {
-            AssertUiConstant(ui, constant, action);
+            ProjectionContractTests.AssertPanelMayClaim(action);
         }
     }
 
@@ -569,10 +568,6 @@ public sealed class RestAndSchedulePolicyTests
         return source[start..end].Trim();
     }
 
-    private static void AssertUiConstant(string ui, string name, string value)
-    {
-        Assert.Contains($"const {name} = '{value}';", ui, StringComparison.Ordinal);
-    }
 
     private static string SourceDirectory() => Path.Combine(RepositoryRoot(), "src", "PartyRpg.Host");
 

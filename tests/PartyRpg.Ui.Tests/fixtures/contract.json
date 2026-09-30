@@ -1,0 +1,168 @@
+{
+  "projectionStream": "crawler.hud",
+  "projectionContract": "crawler.ui.snapshot.v1",
+  "actionIntent": "crawler.ui",
+  "actionContract": "crawler.ui.action.v1",
+  "actions": [
+    "combat.turn-based",
+    "combat.turn-skip",
+    "combat.turn-wait",
+    "conversation.leave",
+    "conversation.person",
+    "conversation.topic",
+    "creation.accept",
+    "creation.advance",
+    "creation.choose-skill",
+    "creation.lower-attribute",
+    "creation.raise-attribute",
+    "creation.remove-skill",
+    "creation.select-class",
+    "creation.select-member",
+    "creation.select-portrait",
+    "creation.set-name",
+    "party.attack",
+    "party.cast",
+    "party.mix",
+    "party.quick-spell",
+    "party.raise-skill",
+    "party.use",
+    "rest.camp",
+    "rest.rest",
+    "rest.wait-dawn",
+    "rest.wait-five-minutes",
+    "rest.wait-hour",
+    "service.buy",
+    "service.fare",
+    "service.identify",
+    "service.leave",
+    "service.repair",
+    "service.sell",
+    "service.teach",
+    "service.train",
+    "session.pause",
+    "session.resume",
+    "session.save"
+  ],
+  "intents": [
+    {
+      "intent": "session.pause-toggle",
+      "value": "digital",
+      "key": "P"
+    },
+    {
+      "intent": "party.move-forward",
+      "value": "digital",
+      "key": "W"
+    },
+    {
+      "intent": "party.move-back",
+      "value": "digital",
+      "key": "S"
+    },
+    {
+      "intent": "party.strafe-left",
+      "value": "digital",
+      "key": "A"
+    },
+    {
+      "intent": "party.strafe-right",
+      "value": "digital",
+      "key": "D"
+    },
+    {
+      "intent": "party.turn-left",
+      "value": "digital",
+      "key": "Q"
+    },
+    {
+      "intent": "party.turn-right",
+      "value": "digital",
+      "key": "E"
+    },
+    {
+      "intent": "party.jump",
+      "value": "digital",
+      "key": "Space"
+    },
+    {
+      "intent": "creation.advance",
+      "value": "digital",
+      "key": "Enter"
+    },
+    {
+      "intent": "creation.accept",
+      "value": "digital",
+      "key": "Space"
+    },
+    {
+      "intent": "session.save",
+      "value": "digital",
+      "key": "F"
+    },
+    {
+      "intent": "party.use",
+      "value": "digital",
+      "key": "G"
+    },
+    {
+      "intent": "service.leave",
+      "value": "digital",
+      "key": "X"
+    },
+    {
+      "intent": "conversation.leave",
+      "value": "digital",
+      "key": "Escape"
+    },
+    {
+      "intent": "rest.rest",
+      "value": "digital",
+      "key": "R"
+    },
+    {
+      "intent": "rest.camp",
+      "value": "digital",
+      "key": "C"
+    },
+    {
+      "intent": "rest.wait-dawn",
+      "value": "digital",
+      "key": "T"
+    },
+    {
+      "intent": "rest.wait-hour",
+      "value": "digital",
+      "key": "H"
+    },
+    {
+      "intent": "rest.wait-five-minutes",
+      "value": "digital",
+      "key": "M"
+    },
+    {
+      "intent": "party.attack",
+      "value": "digital",
+      "key": "B"
+    },
+    {
+      "intent": "combat.turn-based",
+      "value": "digital",
+      "key": "Enter"
+    },
+    {
+      "intent": "combat.turn-skip",
+      "value": "digital",
+      "key": "K"
+    },
+    {
+      "intent": "combat.turn-wait",
+      "value": "digital",
+      "key": "Y"
+    },
+    {
+      "intent": "crawler.ui",
+      "value": "payload:crawler.ui.action.v1",
+      "key": ""
+    }
+  ]
+}

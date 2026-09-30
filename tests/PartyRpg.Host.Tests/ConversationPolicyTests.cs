@@ -44,7 +44,6 @@ public sealed class ConversationPolicyTests
         string source = File.ReadAllText(Path.Combine(SourceDirectory(), "ProductIdentity.cs"));
         string project = File.ReadAllText(ProjectFile());
         string product = File.ReadAllText(Path.Combine(SourceDirectory(), "CrawlerProduct.cs"));
-        string ui = File.ReadAllText(Path.Combine(SourceDirectory(), "..", "ui", "main.ts"));
 
         string intent = Constant(source, "ConversationLeaveIntent");
 
@@ -61,9 +60,9 @@ public sealed class ConversationPolicyTests
         // the product's own contract, so a button and a key ask for exactly the same thing.
         Assert.Contains("new ConversationIntentNames(", product, StringComparison.Ordinal);
         Assert.Contains("Conversation: _conversation", product, StringComparison.Ordinal);
-        AssertUiConstant(ui, "ACTION_CONVERSATION_TOPIC", ConversationActions.Topic);
-        AssertUiConstant(ui, "ACTION_CONVERSATION_PERSON", ConversationActions.Person);
-        AssertUiConstant(ui, "ACTION_CONVERSATION_LEAVE", ConversationActions.Leave);
+        ProjectionContractTests.AssertPanelMayClaim(ConversationActions.Topic);
+        ProjectionContractTests.AssertPanelMayClaim(ConversationActions.Person);
+        ProjectionContractTests.AssertPanelMayClaim(ConversationActions.Leave);
     }
 
     [Fact]
@@ -483,6 +482,4 @@ public sealed class ConversationPolicyTests
         return match.Groups[1].Value;
     }
 
-    private static void AssertUiConstant(string ui, string name, string value) =>
-        Assert.Contains($"const {name} = '{value}';", ui, StringComparison.Ordinal);
 }

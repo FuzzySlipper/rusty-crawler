@@ -410,10 +410,15 @@ and a deadline (a ward, a light, a haste) still blocks a save by name rather tha
   elapsed **and** not laid out, so the ready light and the act control never offer an action the ruleset
   will refuse — health, conditions and who is down, what is hostile and how far off, the pacing, the
   round, whose turn it is with what each actor owes, what the last action did down to the chance, the
-  damage, the resistance and the condition it left, and what bodies lie here. Three checks keep the
-  companion honest: the runtime check that rendering starts no timer, a source scan that fails on a clock
-  or on any arithmetic between a combat quantity and anything else, and a test that feeds it
-  contradictory projections and requires it to echo them.
+  damage, the resistance and the condition it left, and what bodies lie here. Whether each control would be
+  taken now, the key it is bound to, and every number a screen would otherwise derive (the level a training
+  step reaches, the side a spell names, an automap mark's size) are published too, so the companion prints
+  verdicts rather than composing them. Four checks keep it honest: the runtime check that rendering starts no
+  timer, a source scan over every companion module that fails on a clock, on any arithmetic between a
+  published quantity and anything else, or on a control disabled from anything but a published verdict, a test
+  that feeds it contradictory projections and requires it to echo them, and fixtures the host suite writes from
+  the product's own projection, which the companion suite mounts and fails on when any field is missing or of
+  another type.
 - Quests, journal, knowledge, standing and the automap are the party's record of itself. A quest is a
   definition a game states plus an instance a party holds: six objective kinds each read the owner that already
   reports the fact, what is a moment rather than a state is recorded on the instance, completion is a reading
@@ -471,7 +476,7 @@ and a deadline (a ward, a light, a haste) still blocks a save by name rather tha
   the projection draws the window the game's zoom ladder picks for the place's own extent: one rectangle per
   run of seen squares, one point per mark, the party's own position and facing in the drawing's own space, and
   the game's words for what is seen or why nothing is — so the DOM companion writes shapes and computes
-  nothing (`src/ui/main.ts`, proven by the companion suite). **A detection is a live reading and never
+  nothing (`src/ui/map.ts`, proven by the companion suite). **A detection is a live reading and never
   knowledge**: this game's three detection spells leave a timed effect on the one clock and the automap marks
   exactly what that spell's own row says it looks over while it runs — nothing else, no square, and no note.
   The save carries a `maps` section (the grid each place was seen on and its cells as bits), so a load draws

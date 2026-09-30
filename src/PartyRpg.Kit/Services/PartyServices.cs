@@ -295,7 +295,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
         if (_visit is not { } visit) return null;
         ServiceDefinition service = visit.Service;
 
-        List<string> operations = [.. service.Operations.Select(operation => Word(operation))];
+        List<string> operations = [.. service.Operations.Select(operation => WireName(operation))];
         List<string> memberships = [.. _rule.Access(new ServiceAccessRequest(service, _party))];
 
         List<ServiceStockOffer> stock = [];
@@ -884,7 +884,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
 
     /// <summary>States a refusal another owner gave, with the purse as the refusal left it.</summary>
     private ServiceResult Refuse(ServiceOperationKind kind, Refusal refusal) =>
-        Record(ServiceResult.Refused(Word(kind), refusal, Coins));
+        Record(ServiceResult.Refused(WireName(kind), refusal, Coins));
 
     /// <summary>
     /// Why the counter is not serving now, or null when it is: content's hours read against the one clock. A
@@ -910,7 +910,8 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
     }
 
     /// <summary>The word for an operation, as the projection and the messages spell it.</summary>
-    private static string Word(ServiceOperationKind kind) => Operations[kind].Word;
+    /// <exception cref="KeyNotFoundException">The kind is leaving, which is no operation a counter carries out.</exception>
+    public static string WireName(ServiceOperationKind kind) => Operations[kind].Word;
 
     /// <summary>
     /// The operation an offer is taken as: the first kind, in the enumeration's own order, whose entry takes it —

@@ -53,6 +53,7 @@ public sealed class PartyRpgSession : IGameSession
     private readonly SaveRequests _saves;
     private readonly bool _resumed;
     private readonly HashSet<string> _contracts;
+    private readonly ControlKeys _keys;
     private CreationDriver? _creation;
     private bool _accepted;
     private SessionMode _mode = SessionMode.Starting;
@@ -115,6 +116,7 @@ public sealed class PartyRpgSession : IGameSession
         _acts = new SessionActs(owners, controls);
         _fight = new CombatDriver(owners, controls.Movement, controls.Combat);
         _contracts = Contracts(controls);
+        _keys = controls.Keys ?? ControlKeys.None;
 
         switch (party)
         {
@@ -601,7 +603,8 @@ public sealed class PartyRpgSession : IGameSession
         AlchemySnapshot.From(_owners.Mixing, _owners.Rules.Alchemy?.Kinds),
         QuestSnapshot.From(Quests),
         JournalSnapshot.From(Journal, Quests, LiveWorld, Clock, Knowledge, Maps),
-        MapSnapshot.From(Maps, LiveWorld, _owners.Rules.Magic?.Running));
+        MapSnapshot.From(Maps, LiveWorld, _owners.Rules.Magic?.Running),
+        _keys);
 
     /// <summary>Reads this session into the product's one current save schema, without writing anything.</summary>
     /// <returns>The session as a save records it.</returns>

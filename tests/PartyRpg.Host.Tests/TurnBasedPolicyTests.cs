@@ -36,7 +36,6 @@ public sealed class TurnBasedPolicyTests
         string source = File.ReadAllText(Path.Combine(SourceDirectory(), "ProductIdentity.cs"));
         string project = File.ReadAllText(ProjectFile());
         string product = File.ReadAllText(Path.Combine(SourceDirectory(), "CrawlerProduct.cs"));
-        string ui = File.ReadAllText(Path.Combine(SourceDirectory(), "..", "ui", "main.ts"));
 
         string toggle = Constant(source, "TurnBasedToggleIntent");
         string skip = Constant(source, "TurnSkipIntent");
@@ -61,9 +60,9 @@ public sealed class TurnBasedPolicyTests
         // declared actions on the product's own contract.
         Assert.Contains("new TurnIntentNames(", product, StringComparison.Ordinal);
         Assert.Contains("Combat: _combat", product, StringComparison.Ordinal);
-        AssertUiConstant(ui, "ACTION_TURN_BASED", toggle);
-        AssertUiConstant(ui, "ACTION_TURN_SKIP", skip);
-        AssertUiConstant(ui, "ACTION_TURN_WAIT", wait);
+        ProjectionContractTests.AssertPanelMayClaim(toggle);
+        ProjectionContractTests.AssertPanelMayClaim(skip);
+        ProjectionContractTests.AssertPanelMayClaim(wait);
     }
 
     [Fact]
@@ -326,12 +325,6 @@ public sealed class TurnBasedPolicyTests
         return literal.Groups[1].Value;
     }
 
-    private static void AssertUiConstant(string uiSource, string name, string expected)
-    {
-        Match match = Regex.Match(uiSource, $@"const {name} = '([^']*)';", RegexOptions.CultureInvariant);
-        Assert.True(match.Success, $"src/ui/main.ts must declare {name}.");
-        Assert.Equal(expected, match.Groups[1].Value);
-    }
 
     /// <summary>
     /// A world of two places whose starting region holds a creature where the test says, close enough to

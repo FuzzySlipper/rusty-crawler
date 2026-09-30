@@ -68,7 +68,30 @@ public readonly record struct MapDrawingSnapshot(
     IReadOnlyList<MapMarkSnapshot> Marks,
     double PartyX,
     double PartyY,
-    double Facing);
+    double Facing)
+{
+    /// <summary>
+    /// How large one mark and the party's own marker are drawn: half a cell of the window, in the drawing's
+    /// own units.
+    /// </summary>
+    /// <remarks>
+    /// The window always shows at least one cell, so the radius is a positive number whatever the zoom: a
+    /// screen that divided the size by a published count of cells would be handed a hole the first time a
+    /// count arrived as nothing, which is why the division is made here, once, over a count that cannot be.
+    /// </remarks>
+    public double MarkRadius => Size / Math.Max(1, Cells) / 2;
+
+    /// <summary>
+    /// The party's marker as the three corners of a triangle pointing up the drawing, in the drawing's own
+    /// space, before the facing turns it: apex, then the right and the left of its base.
+    /// </summary>
+    public IReadOnlyList<double> PartyPoints =>
+    [
+        PartyX, PartyY - MarkRadius,
+        PartyX + MarkRadius, PartyY + MarkRadius,
+        PartyX - MarkRadius, PartyY + MarkRadius,
+    ];
+}
 
 /// <summary>Where the party is on its own map, and what that map shows.</summary>
 /// <remarks>

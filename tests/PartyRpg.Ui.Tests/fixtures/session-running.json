@@ -1,0 +1,1024 @@
+{
+  "composition": {
+    "ruleset": "mightandmagic7",
+    "title": "Might and Magic VII: For Blood and Honor",
+    "bundle": "partyrpg-default",
+    "contentPacks": 2
+  },
+  "session": {
+    "mode": "running",
+    "simulationSeconds": 12.5,
+    "admittedSteps": 750
+  },
+  "world": {
+    "place": "1",
+    "name": "Emerald Island",
+    "kind": "region",
+    "x": 12552,
+    "y": 800,
+    "z": 193,
+    "yaw": 512,
+    "visited": 2,
+    "places": 76,
+    "open": true,
+    "hours": "06:00\u201318:00",
+    "nextChange": "1168-01-02 18:00"
+  },
+  "clock": {
+    "present": true,
+    "date": "1168-01-02",
+    "time": "09:30",
+    "daylight": "day",
+    "elapsedDays": 1
+  },
+  "party": {
+    "present": true,
+    "members": 4,
+    "coins": 200,
+    "provisions": 6,
+    "unit": "portions",
+    "reputation": 12,
+    "fame": 3,
+    "conditions": "weak (1)",
+    "hitPoints": 90,
+    "hitPointsMax": 120,
+    "spellPoints": 30,
+    "spellPointsMax": 40,
+    "pack": 5,
+    "standingRead": true,
+    "standing": "Friendly",
+    "standingDetail": "people speak well of the party",
+    "awards": [
+      {
+        "id": "promotion:rogue",
+        "kind": "promotion",
+        "label": "Rogue",
+        "detail": "Thief"
+      }
+    ]
+  },
+  "movement": {
+    "motion": "grounded",
+    "blocked": "wall",
+    "stepRise": 0.5,
+    "fallDistance": 0,
+    "fallDamage": 0
+  },
+  "creation": {
+    "active": false,
+    "accepted": true,
+    "hasDefault": true,
+    "member": 0,
+    "members": 2,
+    "step": "",
+    "pool": 0,
+    "refusalCode": "",
+    "refusalMessage": "",
+    "roster": [],
+    "portraits": [],
+    "classes": [],
+    "skills": [],
+    "attributes": [],
+    "party": [
+      {
+        "index": 0,
+        "name": "Roderick",
+        "race": "Human",
+        "class": "Knight",
+        "portrait": "human-man"
+      },
+      {
+        "index": 1,
+        "name": "Aelina",
+        "race": "Elf",
+        "class": "Sorcerer",
+        "portrait": "elf-woman"
+      }
+    ]
+  },
+  "save": {
+    "available": true,
+    "resumed": false,
+    "slot": "session",
+    "state": "saved",
+    "at": "1168-01-02 09:00",
+    "code": "",
+    "message": "Saved the session to slot \u0027session\u0027 at 1168-01-02 09:00."
+  },
+  "interaction": {
+    "available": true,
+    "target": "door",
+    "label": "A door",
+    "verb": "unlock",
+    "state": "closed",
+    "distance": 128,
+    "reason": "ready",
+    "requires": [
+      "the Iron Key"
+    ],
+    "bodies": 1,
+    "outcome": "refused",
+    "code": "interaction-requirement-unmet",
+    "message": "A door requires the Iron Key.",
+    "residue": ""
+  },
+  "service": {
+    "available": true,
+    "open": true,
+    "id": "sword-and-shield",
+    "kind": "Weapon Shop",
+    "name": "The Sword and Shield",
+    "proprietor": "Bertram",
+    "state": "open",
+    "hours": "06:00\u201318:00",
+    "operations": [
+      "buy",
+      "sell",
+      "identify",
+      "repair",
+      "teach",
+      "fare"
+    ],
+    "memberships": [
+      "Fire Guild membership"
+    ],
+    "stock": [
+      {
+        "lot": "stock:sword",
+        "item": "sword",
+        "name": "A fine sword",
+        "count": 2,
+        "price": 110,
+        "sale": false,
+        "canBuy": true
+      },
+      {
+        "lot": "stock:potion",
+        "item": "potion",
+        "name": "A potion",
+        "count": 0,
+        "price": 30,
+        "sale": false,
+        "canBuy": false
+      }
+    ],
+    "lessons": [
+      {
+        "kind": "skill",
+        "subject": "Sword",
+        "name": "Sword",
+        "amount": 1,
+        "price": 25,
+        "tier": 1
+      }
+    ],
+    "offers": [
+      {
+        "kind": "fare",
+        "subject": "4",
+        "name": "A passage to The Tularean Forest",
+        "amount": 2,
+        "price": 25
+      },
+      {
+        "kind": "notice",
+        "subject": "",
+        "name": "Travellers speak of the roads east.",
+        "amount": 1,
+        "price": 0
+      }
+    ],
+    "sales": [
+      {
+        "item": "3",
+        "definition": "shield",
+        "name": "A shield",
+        "price": 12,
+        "damage": 3,
+        "identified": false
+      },
+      {
+        "item": "4",
+        "definition": "dagger",
+        "name": "A dagger",
+        "price": 8,
+        "damage": 0,
+        "identified": true
+      }
+    ],
+    "members": [
+      {
+        "index": 0,
+        "name": "Roderick"
+      },
+      {
+        "index": 1,
+        "name": "Aelina"
+      }
+    ],
+    "identify": [
+      {
+        "item": "3",
+        "name": "A shield"
+      }
+    ],
+    "repair": [
+      {
+        "item": "3",
+        "name": "A shield"
+      }
+    ],
+    "fares": [
+      {
+        "subject": "4",
+        "name": "A passage to The Tularean Forest",
+        "price": 25
+      }
+    ],
+    "canBuy": true,
+    "canSell": true,
+    "canTeach": true,
+    "action": "buy",
+    "outcome": "applied",
+    "code": "",
+    "message": "The party buys 1 \u00D7 A fine sword for 110 coin(s), and 1 are left.",
+    "paid": 110,
+    "earned": 0,
+    "coins": 90
+  },
+  "rest": {
+    "available": true,
+    "kind": "rest",
+    "outcome": "applied",
+    "code": "",
+    "message": "The party rests for 8 hour(s).",
+    "from": "1168-01-01 22:00",
+    "to": "1168-01-02 06:00",
+    "elapsedSeconds": 28800,
+    "charged": 2,
+    "covered": 2,
+    "unit": "portions",
+    "interrupted": false,
+    "recovered": true,
+    "restored": 2,
+    "cleared": "weak",
+    "shortage": "",
+    "tired": false,
+    "fatigueDue": "1168-01-03 06:00",
+    "fatigueLanded": 0
+  },
+  "conversation": {
+    "available": true,
+    "open": true,
+    "subject": "person-0",
+    "speaker": "Mira",
+    "greeting": "\u0027A fine day for it.\u0027",
+    "people": [
+      {
+        "id": "mira",
+        "name": "Mira",
+        "portrait": "709",
+        "speaking": true
+      },
+      {
+        "id": "simon",
+        "name": "Simon",
+        "portrait": "707",
+        "speaking": false
+      }
+    ],
+    "topics": [
+      {
+        "id": "topic-1",
+        "label": "The contest",
+        "available": true,
+        "reason": ""
+      }
+    ],
+    "withheld": [
+      {
+        "id": "topic-2",
+        "label": "The errand",
+        "available": false,
+        "reason": "the errand is not finished"
+      }
+    ],
+    "said": [
+      {
+        "speaker": "mira",
+        "text": "\u0027A fine day for it.\u0027",
+        "residue": "the event programs behind a reply are not run"
+      }
+    ],
+    "action": "open",
+    "outcome": "applied",
+    "code": "",
+    "message": "Mira: \u0027A fine day for it.\u0027",
+    "residue": "",
+    "handoff": "",
+    "topic": ""
+  },
+  "combat": {
+    "available": true,
+    "engaged": true,
+    "opposition": 1,
+    "ready": 1,
+    "pacing": "realtime",
+    "turn": {
+      "phase": "",
+      "round": 0,
+      "actor": "",
+      "actorName": "",
+      "playerTurn": false,
+      "dueSeconds": 0,
+      "roundSeconds": 0,
+      "elapsedSeconds": 0,
+      "movementSeconds": 0,
+      "last": "",
+      "order": []
+    },
+    "members": [
+      {
+        "id": "member:1",
+        "name": "Roderick",
+        "ready": true,
+        "recoverySeconds": 0,
+        "distance": 0,
+        "hitPoints": 40,
+        "hitPointsMax": 40,
+        "conditions": "",
+        "down": false,
+        "activity": ""
+      },
+      {
+        "id": "member:2",
+        "name": "Aelina",
+        "ready": false,
+        "recoverySeconds": 1.5,
+        "distance": 0,
+        "hitPoints": 0,
+        "hitPointsMax": 24,
+        "conditions": "Unconscious",
+        "down": true,
+        "activity": ""
+      }
+    ],
+    "enemies": [
+      {
+        "id": "actor:1",
+        "name": "A beast",
+        "ready": false,
+        "recoverySeconds": 1,
+        "distance": 100,
+        "hitPoints": 14,
+        "hitPointsMax": 40,
+        "conditions": "poisoned (1)",
+        "down": false,
+        "activity": "attacking"
+      }
+    ],
+    "actor": "Roderick",
+    "kind": "melee",
+    "target": "A beast",
+    "outcome": "applied",
+    "code": "",
+    "message": "Roderick hits A beast (melee): 5 Phys damage landed.",
+    "recoverySeconds": 22.969,
+    "resolved": true,
+    "hit": true,
+    "chance": 4595,
+    "damageRolled": 5,
+    "damage": 5,
+    "damageKind": "Phys",
+    "resistance": "0",
+    "condition": "",
+    "targetDown": false,
+    "byParty": true
+  },
+  "progression": {
+    "available": true,
+    "members": [
+      {
+        "index": 0,
+        "member": "1",
+        "name": "Roderick",
+        "level": 1,
+        "experience": 7000,
+        "skillPoints": 5,
+        "nextLevelExperience": 1000,
+        "nextLevel": 2,
+        "fee": 10,
+        "cap": 5,
+        "canTrain": true
+      },
+      {
+        "index": 1,
+        "member": "2",
+        "name": "Aelina",
+        "level": 1,
+        "experience": 0,
+        "skillPoints": 0,
+        "nextLevelExperience": 1000,
+        "nextLevel": 2,
+        "fee": 0,
+        "cap": 0,
+        "canTrain": false
+      }
+    ],
+    "outcome": "awarded",
+    "source": "kill",
+    "earned": 7000,
+    "code": "",
+    "message": "The party earned 7000 experience from kill."
+  },
+  "promotion": {
+    "available": true,
+    "members": [
+      {
+        "index": 1,
+        "member": "2",
+        "name": "Aelina",
+        "class": "Sorcerer",
+        "rank": 1,
+        "promotions": [
+          {
+            "promotion": "sorcerer-wizard",
+            "toClass": "Wizard",
+            "rank": 2,
+            "choice": "",
+            "giver": "npc-48",
+            "giverName": "Thomas Grey",
+            "words": "Collect the six golem pieces.",
+            "requirements": [
+              {
+                "kind": "giver",
+                "name": "npc-48",
+                "label": "Thomas Grey",
+                "amount": 1,
+                "text": "granted by Thomas Grey"
+              },
+              {
+                "kind": "item",
+                "name": "639",
+                "label": "Golem part",
+                "amount": 6,
+                "text": "6 \u00D7 Golem part"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outcome": "granted",
+    "promotion": "knight-cavalier",
+    "toClass": "Cavalier",
+    "rank": 2,
+    "choice": "",
+    "granted": [
+      {
+        "member": "1",
+        "name": "Roderick",
+        "fromClass": "Knight",
+        "fromRank": 1,
+        "toClass": "Cavalier",
+        "rank": 2,
+        "choice": "",
+        "met": [
+          "granted by Sir Charles Quixote"
+        ]
+      }
+    ],
+    "denied": [
+      {
+        "member": "2",
+        "name": "Aelina",
+        "class": "Sorcerer",
+        "rank": 1,
+        "missing": [
+          "6 \u00D7 Golem part"
+        ]
+      }
+    ],
+    "code": "",
+    "message": "Roderick rose to Cavalier."
+  },
+  "skills": {
+    "available": true,
+    "members": [
+      {
+        "index": 0,
+        "member": "1",
+        "name": "Roderick",
+        "class": "Knight",
+        "rank": 1,
+        "skills": [
+          {
+            "skill": "Sword",
+            "block": "weapon",
+            "level": 3,
+            "tier": "basic",
+            "ceilingLevel": 12,
+            "ceilingTier": "master",
+            "pointsSpent": 5,
+            "reached": 4,
+            "cost": 4,
+            "refusal": "",
+            "refusalCode": ""
+          },
+          {
+            "skill": "Fire",
+            "block": "magic",
+            "level": 0,
+            "tier": "none",
+            "ceilingLevel": 0,
+            "ceilingTier": "none",
+            "pointsSpent": 0,
+            "reached": 0,
+            "cost": 0,
+            "refusal": "a Knight holds nothing of Fire",
+            "refusalCode": "skill-closed"
+          }
+        ]
+      }
+    ],
+    "outcome": "raised",
+    "member": "1",
+    "skill": "Sword",
+    "level": 3,
+    "cost": 3,
+    "code": "",
+    "message": "Roderick raises Sword to 3 for 3 point(s)."
+  },
+  "magic": {
+    "available": true,
+    "members": [
+      {
+        "index": 1,
+        "member": "2",
+        "name": "Aelina",
+        "class": "Sorcerer",
+        "spellPoints": 33,
+        "spellPointsMax": 36,
+        "quickSpell": "2",
+        "quickSpellName": "Fire Bolt",
+        "spells": [
+          {
+            "spell": "2",
+            "name": "Fire Bolt",
+            "school": "Fire",
+            "tier": "basic",
+            "tierRung": 1,
+            "cost": 2,
+            "targeting": "foe",
+            "effect": "damage",
+            "aims": [],
+            "targetSide": "opposition",
+            "canCast": true
+          },
+          {
+            "spell": "1",
+            "name": "Torch Light",
+            "school": "Fire",
+            "tier": "basic",
+            "tierRung": 1,
+            "cost": 1,
+            "targeting": "party",
+            "effect": "light",
+            "aims": [],
+            "targetSide": "",
+            "canCast": true
+          },
+          {
+            "spell": "31",
+            "name": "Town Portal",
+            "school": "Water",
+            "tier": "master",
+            "tierRung": 4,
+            "cost": 20,
+            "targeting": "none",
+            "effect": "travel",
+            "aims": [
+              {
+                "aim": "place:1",
+                "name": "Emerald Island",
+                "kind": "town"
+              }
+            ],
+            "targetSide": "",
+            "canCast": true
+          },
+          {
+            "spell": "68",
+            "name": "Heal",
+            "school": "Body",
+            "tier": "basic",
+            "tierRung": 1,
+            "cost": 2,
+            "targeting": "ally",
+            "effect": "healing",
+            "aims": [],
+            "targetSide": "party",
+            "canCast": true
+          }
+        ]
+      }
+    ],
+    "targets": [
+      {
+        "target": "member:1",
+        "name": "Roderick",
+        "side": "party"
+      },
+      {
+        "target": "actor:1",
+        "name": "A beast",
+        "side": "opposition"
+      }
+    ],
+    "outcome": "cast",
+    "member": 1,
+    "caster": "Aelina",
+    "spell": "2",
+    "cost": 2,
+    "target": "actor:1",
+    "effect": "damage",
+    "code": "",
+    "message": "Aelina casts Fire Bolt at A beast.",
+    "source": "7",
+    "facts": [
+      {
+        "name": "A beast",
+        "value": "14/40"
+      }
+    ],
+    "running": [
+      {
+        "effect": "light",
+        "magnitude": 1,
+        "endsAt": "1168-01-02 10:30"
+      }
+    ],
+    "memberRunning": [
+      {
+        "member": "1",
+        "name": "Roderick",
+        "effect": "resist-fire",
+        "magnitude": 5,
+        "endsAt": "1168-01-02 11:00"
+      }
+    ],
+    "items": [
+      {
+        "item": "7",
+        "name": "A wand of fire",
+        "kind": "charged",
+        "spell": "2",
+        "spellName": "Fire Bolt",
+        "targeting": "foe",
+        "charges": 5,
+        "chargesMax": 8,
+        "wielded": true,
+        "member": "Aelina",
+        "targetSide": "opposition",
+        "canUse": true
+      },
+      {
+        "item": "8",
+        "name": "A scroll of light",
+        "kind": "consumed",
+        "spell": "1",
+        "spellName": "Torch Light",
+        "targeting": "party",
+        "charges": 0,
+        "chargesMax": 0,
+        "wielded": false,
+        "member": "",
+        "targetSide": "",
+        "canUse": true
+      }
+    ],
+    "sight": "light"
+  },
+  "alchemy": {
+    "available": true,
+    "members": [
+      {
+        "index": 0,
+        "member": "1",
+        "name": "Roderick",
+        "alchemy": 0
+      },
+      {
+        "index": 1,
+        "member": "2",
+        "name": "Aelina",
+        "alchemy": 2
+      }
+    ],
+    "items": [
+      {
+        "item": "11",
+        "definition": "200",
+        "name": "Widowsweep Berries",
+        "kind": "reagent",
+        "potency": 1,
+        "count": 1
+      },
+      {
+        "item": "12",
+        "definition": "220",
+        "name": "Potion Bottle",
+        "kind": "bottle",
+        "potency": 0,
+        "count": 2
+      }
+    ],
+    "mixtures": [
+      {
+        "first": "11",
+        "second": "12",
+        "firstName": "Widowsweep Berries",
+        "secondName": "Potion Bottle"
+      }
+    ],
+    "canMix": true,
+    "outcome": {
+      "member": 1,
+      "mixer": "Aelina",
+      "outcome": "mixed",
+      "result": "222",
+      "resultName": "Cure Wounds",
+      "power": 1,
+      "burst": 0,
+      "harm": 0,
+      "condition": "",
+      "note": 0,
+      "code": "",
+      "message": "Aelina mixes Cure Wounds."
+    }
+  },
+  "quests": {
+    "available": true,
+    "journal": [
+      {
+        "quest": "35",
+        "name": "The Elven Treasury",
+        "state": "accepted",
+        "giver": "npc-43",
+        "note": "Raid the Elven Treasury and return.",
+        "residue": "the treasury is the castle\u0027s own event program, which this build does not run",
+        "objectives": [
+          {
+            "id": "reach-0",
+            "label": "Reach Castle Navan",
+            "count": 0,
+            "required": 1,
+            "met": false
+          },
+          {
+            "id": "kill-1",
+            "label": "Slay the guards",
+            "count": 1,
+            "required": 3,
+            "met": false
+          }
+        ],
+        "canTurnIn": false
+      }
+    ],
+    "action": "turn-in",
+    "outcome": "refused",
+    "quest": "35",
+    "experience": 0,
+    "coins": 0,
+    "items": [],
+    "records": [],
+    "delivered": [],
+    "code": "quest-objectives-unmet",
+    "message": "\u0027The Elven Treasury\u0027 is not finished: Reach Castle Navan."
+  },
+  "journal": {
+    "available": true,
+    "books": [
+      {
+        "kind": "quests",
+        "title": "Current Quests",
+        "available": true,
+        "state": "1 errand in the journal",
+        "rows": []
+      },
+      {
+        "kind": "notes",
+        "title": "Auto Notes",
+        "available": true,
+        "state": "1 note",
+        "rows": [
+          {
+            "id": "recipe|200\u002B220|",
+            "label": "Learned the recipe for Cure Wounds",
+            "detail": "1168-01-02 09:00",
+            "state": "",
+            "source": "alchemy",
+            "marked": false
+          }
+        ]
+      },
+      {
+        "kind": "maps",
+        "title": "Maps",
+        "available": true,
+        "state": "2 of 76 places known",
+        "rows": [
+          {
+            "id": "1",
+            "label": "Emerald Island",
+            "detail": "region",
+            "state": "visited",
+            "source": "world",
+            "marked": true
+          }
+        ]
+      },
+      {
+        "kind": "calendar",
+        "title": "Calendar",
+        "available": true,
+        "state": "1168-01-02",
+        "rows": [
+          {
+            "id": "date",
+            "label": "Today",
+            "detail": "1168-01-02",
+            "state": "",
+            "source": "clock",
+            "marked": false
+          }
+        ]
+      },
+      {
+        "kind": "history",
+        "title": "History",
+        "available": true,
+        "state": "1 entry",
+        "rows": [
+          {
+            "id": "place|1|1",
+            "label": "Entered Emerald Island",
+            "detail": "1168-01-01 09:00",
+            "state": "Emerald Island",
+            "source": "world",
+            "marked": false
+          }
+        ]
+      }
+    ]
+  },
+  "map": {
+    "available": true,
+    "mapped": true,
+    "title": "Automap",
+    "place": "1",
+    "name": "Emerald Island",
+    "kind": "region",
+    "state": "16 of 64 squares walked (25%)",
+    "seen": 16,
+    "total": 64,
+    "detection": "wizard-eye",
+    "detectionMessage": "Wizard Eye shows what stands nearby.",
+    "detectionEnds": "1168-01-02 10:30",
+    "drawing": {
+      "rung": 1,
+      "rungs": 4,
+      "cells": 16,
+      "size": 1000,
+      "partyX": 31.25,
+      "partyY": 31.25,
+      "facing": 90,
+      "markRadius": 31.25,
+      "partyPoints": [
+        31.25,
+        0,
+        62.5,
+        62.5,
+        0,
+        62.5
+      ],
+      "cellsDrawn": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 62.5,
+          "h": 62.5,
+          "kind": "low"
+        },
+        {
+          "x": 62.5,
+          "y": 0,
+          "w": 62.5,
+          "h": 62.5,
+          "kind": "upland"
+        }
+      ],
+      "marks": [
+        {
+          "id": "door:a",
+          "kind": "door",
+          "label": "a shut door",
+          "x": 31.25,
+          "y": 31.25,
+          "detected": false
+        },
+        {
+          "id": "container:b",
+          "kind": "container",
+          "label": "a far chest",
+          "x": 93.75,
+          "y": 31.25,
+          "detected": true
+        }
+      ]
+    }
+  },
+  "controls": {
+    "pause": {
+      "action": "session.pause",
+      "enabled": true,
+      "key": "P"
+    },
+    "save": {
+      "action": "session.save",
+      "enabled": true,
+      "key": "F"
+    },
+    "use": {
+      "action": "party.use",
+      "enabled": true,
+      "key": "G"
+    },
+    "attack": {
+      "action": "party.attack",
+      "enabled": true,
+      "key": "B"
+    },
+    "turnBased": {
+      "action": "combat.turn-based",
+      "enabled": true,
+      "key": "Enter"
+    },
+    "turnSkip": {
+      "action": "combat.turn-skip",
+      "enabled": false,
+      "key": "K"
+    },
+    "turnWait": {
+      "action": "combat.turn-wait",
+      "enabled": false,
+      "key": "Y"
+    },
+    "rest": {
+      "action": "rest.rest",
+      "enabled": true,
+      "key": "R"
+    },
+    "camp": {
+      "action": "rest.camp",
+      "enabled": true,
+      "key": "C"
+    },
+    "waitDawn": {
+      "action": "rest.wait-dawn",
+      "enabled": true,
+      "key": "T"
+    },
+    "waitHour": {
+      "action": "rest.wait-hour",
+      "enabled": true,
+      "key": "H"
+    },
+    "waitFiveMinutes": {
+      "action": "rest.wait-five-minutes",
+      "enabled": true,
+      "key": "M"
+    },
+    "serviceLeave": {
+      "action": "service.leave",
+      "enabled": true,
+      "key": "X"
+    },
+    "conversationLeave": {
+      "action": "conversation.leave",
+      "enabled": true,
+      "key": "Escape"
+    },
+    "creationAdvance": {
+      "action": "creation.advance",
+      "enabled": false,
+      "key": "Enter"
+    },
+    "creationAccept": {
+      "action": "creation.accept",
+      "enabled": false,
+      "key": "Space"
+    }
+  }
+}

@@ -1,4 +1,5 @@
 using System.Text;
+using System.Xml.Linq;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Presentation;
@@ -52,14 +53,71 @@ internal static class ProductTestContext
                 Encoding.UTF8.GetBytes(file.Text))),
         ];
         ProductContent content = new(staged);
-        ProductInputConfiguration input = new(
+        ProductCreateContext context = new(new FakeEngineContext(ui, persistence, spatial, contentService), content, DeclaredInput(), new Rusty.Engine.Debugging.DebugExecutionContext());
+        return (context, ui);
+    }
+
+    /// <summary>
+    /// The input configuration the engine creates the product with: the keyboard mappings the host's project file
+    /// declares, read from that file the way the engine reads it.
+    /// </summary>
+    /// <remarks>
+    /// A product a test creates is handed the same mappings the running one is, so what the product reads from them
+    /// — the key each control is bound to, which the panel names — is what the declaration says rather than nothing.
+    /// </remarks>
+    internal static ProductInputConfiguration DeclaredInput()
+    {
+        List<ProductInputMapping> mappings = [];
+        foreach (XElement mapping in XDocument.Load(ProjectFile()).Descendants("RustyEngineProductInputMapping"))
+        {
+            string[] trigger = ((string?)mapping.Attribute("Trigger") ?? string.Empty).Split(':');
+            if (trigger.Length != 3 || trigger[0] != "key") continue;
+
+            // The trigger names the key in the engine's own kebab spelling — `key-f`, `space` — which is the
+            // keyboard control's name with its words joined.
+            KeyboardControl key = Enum.Parse<KeyboardControl>(
+                string.Concat(trigger[1].Split('-').Select(word => char.ToUpperInvariant(word[0]) + word[1..])));
+            mappings.Add(new ProductInputMapping(
+                Encoding.UTF8.GetBytes((string?)mapping.Attribute("Include") ?? string.Empty),
+                Encoding.UTF8.GetBytes((string?)mapping.Attribute("Intent") ?? string.Empty),
+                InputTriggerKind.Key,
+                default,
+                default,
+                key,
+                default,
+                default,
+                default,
+                ReadOnlyMemory<KeyboardControl>.Empty,
+                new InputContext(ReadOnlyMemory<byte>.Empty)));
+        }
+
+        return new ProductInputConfiguration(
             new InputBinding(1, 1, 1),
             new InputContext(ReadOnlyMemory<byte>.Empty),
             ReadOnlyMemory<ProductInputDescriptor>.Empty,
-            ReadOnlyMemory<ProductInputMapping>.Empty,
+            mappings.ToArray(),
             InputCursorMode.PointerLock);
-        ProductCreateContext context = new(new FakeEngineContext(ui, persistence, spatial, contentService), content, input, new Rusty.Engine.Debugging.DebugExecutionContext());
-        return (context, ui);
+    }
+
+    /// <summary>The host's project file, which declares its intents and the keys they are mapped to.</summary>
+    internal static string ProjectFile() => Path.Combine(RepositoryRoot(), "src", "PartyRpg.Host", "PartyRpg.Host.csproj");
+
+    /// <summary>The repository this suite runs from.</summary>
+    internal static string RepositoryRoot()
+    {
+        DirectoryInfo? directory = new(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "AGENTS.md")) &&
+                Directory.Exists(Path.Combine(directory.FullName, "src")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new InvalidOperationException("The repository root could not be found above the test output.");
     }
 
     /// <summary>A staged bundle that selects the packs the test declares.</summary>

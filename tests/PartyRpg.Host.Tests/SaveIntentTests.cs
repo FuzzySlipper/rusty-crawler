@@ -27,7 +27,6 @@ public sealed class SaveIntentTests
     {
         string source = File.ReadAllText(Path.Combine(SourceDirectory(), "ProductIdentity.cs"));
         string project = File.ReadAllText(ProjectFile());
-        string ui = File.ReadAllText(Path.Combine(SourceDirectory(), "..", "ui", "main.ts"));
 
         string intent = Constant(source, "SaveIntent");
         string action = ProductIdentity.SaveAction;
@@ -58,8 +57,7 @@ public sealed class SaveIntentTests
         // The payload action the DOM companion sends is the kit's own save action on the product's own
         // contract, and the session's reader is composed over exactly that contract.
         string contract = Constant(source, "UiActionContract");
-        Assert.Contains($"const ACTION_SAVE = '{action}';", ui, StringComparison.Ordinal);
-        Assert.Contains($"const UI_ACTION_CONTRACT = '{contract}';", ui, StringComparison.Ordinal);
+        ProjectionContractTests.AssertPanelMayClaim(action);
 
         Assert.Equal(SaveActions.Save, action);
         SaveIntentNames names = new(intent, contract);

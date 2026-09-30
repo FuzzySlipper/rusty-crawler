@@ -193,7 +193,9 @@ identity — held as the session's creation mode (`SessionMode.Creating` with `S
 commands `CreationInput` reads), in which the one admitted update does nothing but drive the flow and
 the world, movement, and the clock are untouched, and published to the screen as `CreationSnapshot`:
 where the flow stands, every choice it offers, and the rule the last illegal choice broke), the
-structured UI value builder, the Engine-backed projection channel and the session projection, the admitted-input router that turns
+structured UI value builder, the Engine-backed projection channel and the session projection (with its controls block,
+`ControlsSnapshot`: each stand-alone control's action, whether the session would take it now, and the key the host bound it
+to as `ControlKeys` — so the panel prints every verdict and works none out), the admitted-input router that turns
 engine events into session commands, the population owner that fills a place from its placements and
 empties it on leaving (a placement that states a request rather than an answer — an encounter asking for some
 creatures of a kind — is resolved by the game's `IPlacementExpansion` while the placements are read, and what it

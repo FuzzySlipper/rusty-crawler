@@ -197,6 +197,12 @@ public sealed record SessionControls
 
     /// <summary>The mixing control.</summary>
     public MixIntentNames? Mix { get; init; }
+
+    /// <summary>
+    /// The keys the host bound its controls to, as a person reads them, which the session publishes beside each
+    /// control so a screen names the key the engine was actually told about.
+    /// </summary>
+    public ControlKeys? Keys { get; init; }
 }
 
 /// <summary>Where a session's saves go, when the product has somewhere to keep them.</summary>

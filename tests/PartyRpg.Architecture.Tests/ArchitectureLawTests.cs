@@ -127,15 +127,25 @@ public sealed class ArchitectureLawTests
         }
     }
 
+    /// <summary>
+    /// The contract the DOM companion is held to names the same projection and action contracts the host declares.
+    /// </summary>
+    /// <remarks>
+    /// The companion suite holds the panel's own names to <c>tests/PartyRpg.Ui.Tests/fixtures/contract.json</c>, and the
+    /// host suite writes that file from the product's code; this law checks the file against the host's declaration
+    /// as its source states it, so neither side can move the names without the other failing.
+    /// </remarks>
     [Fact]
     public void Ui_companion_declares_the_same_contract_as_the_host()
     {
         string source = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "PartyRpg.Host", "ProductIdentity.cs"));
-        string ui = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "ui", "main.ts"));
+        using JsonDocument contract = JsonDocument.Parse(
+            File.ReadAllText(Path.Combine(RepositoryRoot, "tests", "PartyRpg.Ui.Tests", "fixtures", "contract.json")));
 
-        AssertUiConstant(ui, "UI_CONTRACT", ConstantValue(source, "UiContract"));
-        AssertUiConstant(ui, "UI_ACTION_INTENT", ConstantValue(source, "UiActionIntent"));
-        AssertUiConstant(ui, "UI_ACTION_CONTRACT", ConstantValue(source, "UiActionContract"));
+        Assert.Equal(ConstantValue(source, "UiContract"), contract.RootElement.GetProperty("projectionContract").GetString());
+        Assert.Equal(ConstantValue(source, "UiStream"), contract.RootElement.GetProperty("projectionStream").GetString());
+        Assert.Equal(ConstantValue(source, "UiActionIntent"), contract.RootElement.GetProperty("actionIntent").GetString());
+        Assert.Equal(ConstantValue(source, "UiActionContract"), contract.RootElement.GetProperty("actionContract").GetString());
     }
 
     [Fact]
@@ -202,13 +212,6 @@ public sealed class ArchitectureLawTests
         "events.lod",
         "games.lod",
     ];
-
-    private static void AssertUiConstant(string uiSource, string name, string expected)
-    {
-        Match match = Regex.Match(uiSource, $@"const {name} = '([^']*)';", RegexOptions.CultureInvariant);
-        Assert.True(match.Success, $"src/ui/main.ts must declare {name}.");
-        Assert.Equal(expected, match.Groups[1].Value);
-    }
 
     private static string ConstantValue(string source, string name)
     {

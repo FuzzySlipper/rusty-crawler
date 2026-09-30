@@ -67,7 +67,7 @@ public sealed class ProgressionPolicyTests
         Assert.Equal(2, fresh.Field("members").Length());
         Assert.Equal(1, fresh.Field("members").Item(0).Field("level").AsNumber());
         Assert.Equal(0, fresh.Field("members").Item(0).Field("experience").AsNumber());
-        Assert.Equal(1000, fresh.Field("members").Item(0).Field("nextLevel").AsNumber());
+        Assert.Equal(1000, fresh.Field("members").Item(0).Field("nextLevelExperience").AsNumber());
         Assert.Equal(0, fresh.Field("members").Item(0).Field("fee").AsNumber());
         Assert.Equal(0, fresh.Field("members").Item(0).Field("cap").AsNumber());
 
@@ -92,7 +92,7 @@ public sealed class ProgressionPolicyTests
         Assert.Equal(3000, awarded.Field("earned").AsNumber());
         Assert.Equal(1500, awarded.Field("members").Item(0).Field("experience").AsNumber());
         Assert.Equal(1500, awarded.Field("members").Item(1).Field("experience").AsNumber());
-        Assert.Equal(1000, awarded.Field("members").Item(0).Field("nextLevel").AsNumber());
+        Assert.Equal(1000, awarded.Field("members").Item(0).Field("nextLevelExperience").AsNumber());
 
         // The award moves the party's own standing through the owner: the donor derives fame from what the
         // party has earned, a thousand experience to a point, so three thousand is three (OpenEnroth
@@ -126,7 +126,7 @@ public sealed class ProgressionPolicyTests
         // a hundred thousand experience and not yet spent any of it on a level.
         ProjectedNode before = Progression(ui);
         Assert.Equal(100000, before.Field("members").Item(0).Field("experience").AsNumber());
-        Assert.Equal(1000, before.Field("members").Item(0).Field("nextLevel").AsNumber());
+        Assert.Equal(1000, before.Field("members").Item(0).Field("nextLevelExperience").AsNumber());
         Assert.Equal(0, before.Field("members").Item(0).Field("fee").AsNumber());
 
         // The counter is entered the one way a counter is entered: the party talks to whoever keeps it.
@@ -151,7 +151,7 @@ public sealed class ProgressionPolicyTests
         Assert.Equal("trained", trained.Field("outcome").AsString());
         Assert.Equal(2, trained.Field("members").Item(0).Field("level").AsNumber());
         Assert.Equal(100000, trained.Field("members").Item(0).Field("experience").AsNumber());
-        Assert.Equal(3000, trained.Field("members").Item(0).Field("nextLevel").AsNumber());
+        Assert.Equal(3000, trained.Field("members").Item(0).Field("nextLevelExperience").AsNumber());
         Assert.Equal(5, trained.Field("members").Item(0).Field("skillPoints").AsNumber());
         Assert.Matches("level 2", trained.Field("message").AsString());
         Assert.Equal(45, ProjectedNode.Of(ui.Latest().Value).Field("party").Field("hitPointsMax").AsNumber());

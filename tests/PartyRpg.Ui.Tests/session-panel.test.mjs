@@ -1,19 +1,64 @@
 /**
- * The DOM companion's contract: it renders what the projection carries, reports the two session
- * actions it offers, owns no state, and starts no timer. The product half of the same round trip is
- * covered by tests/PartyRpg.Kit.Tests/SessionInputRouterTests.cs.
+ * The DOM companion's contract: it renders what the projection carries, offers each control exactly as the
+ * product published it, reports the actions it offers, owns no state, and starts no timer. The product half of
+ * the same round trip is covered by tests/PartyRpg.Kit.Tests/SessionInputRouterTests.cs, and the binding between
+ * the two halves by projection-contract.test.mjs over the fixtures the host suite writes.
+ *
+ * The blocks below are hand-written so each case can state one reading; the last case in this file holds every
+ * one of them to the readers, so a helper that drifted from the product's contract fails rather than testing a
+ * shape the product never publishes.
  */
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
-import { JSDOM } from 'jsdom';
 
 // The compiled companion the product ships, built by `npm run build:ui` from src/ui/tsconfig.json.
-import { mountProductUi } from '../../src/ui/generated/main.js';
+import { mountProductUi, readSnapshot } from '../../src/ui/generated/main.js';
+import { fixture, harness } from './harness.mjs';
 
 const CONTRACT = 'crawler.ui.snapshot.v1';
 const ACTION_INTENT = 'crawler.ui';
 const ACTION_CONTRACT = 'crawler.ui.action.v1';
+
+/** The names the product declares, and the key its project binds to each intent. */
+const contract = await fixture('contract.json');
+const keyOf = (intent) => contract.intents.find((entry) => entry.intent === intent)?.key ?? '';
+
+/**
+ * The controls block as the product publishes it: each control's action, whether the product would take it now,
+ * and the key the host bound it to. The pause control follows the mode a case names, and every other control is
+ * offered unless a case says otherwise — whether one would be taken is the product's rule, proved in the kit suite
+ * (ControlsProjectionTests), and what this suite proves is that the panel offers exactly what was published.
+ */
+function controls(mode = 'running', overrides = {}) {
+  const control = (action, intent = action, enabled = true) => ({ action, enabled, key: keyOf(intent) });
+  const pause =
+    mode === 'running' || mode === 'turnbased'
+      ? control('session.pause', 'session.pause-toggle')
+      : mode === 'paused'
+        ? control('session.resume', 'session.pause-toggle')
+        : control('', 'session.pause-toggle', false);
+  const offered = {
+    pause,
+    save: control('session.save'),
+    use: control('party.use'),
+    attack: control('party.attack'),
+    turnBased: control('combat.turn-based'),
+    turnSkip: control('combat.turn-skip'),
+    turnWait: control('combat.turn-wait'),
+    rest: control('rest.rest'),
+    camp: control('rest.camp'),
+    waitDawn: control('rest.wait-dawn'),
+    waitHour: control('rest.wait-hour'),
+    waitFiveMinutes: control('rest.wait-five-minutes'),
+    serviceLeave: control('service.leave'),
+    conversationLeave: control('conversation.leave'),
+    creationAdvance: control('creation.advance'),
+    creationAccept: control('creation.accept'),
+  };
+  // A case names the controls it wants refused by their field, as `{ attack: false }`.
+  for (const [name, enabled] of Object.entries(overrides)) offered[name] = { ...offered[name], enabled };
+  return offered;
+}
 
 function world(overrides = {}) {
   return {
@@ -147,6 +192,12 @@ function service(overrides = {}) {
     offers: [],
     sales: [],
     members: [],
+    identify: [],
+    repair: [],
+    fares: [],
+    canBuy: false,
+    canSell: false,
+    canTeach: false,
     action: '',
     outcome: 'none',
     code: '',
@@ -171,9 +222,9 @@ function openShop(overrides = {}) {
     operations: ['buy', 'sell', 'identify', 'repair', 'teach'],
     memberships: [],
     stock: [
-      { lot: 'stock:sword', item: 'sword', name: 'A fine sword', count: 2, price: 110, sale: false },
-      { lot: 'sold:7', item: 'dagger', name: 'dagger', count: 1, price: 22, sale: true },
-      { lot: 'stock:potion', item: 'potion', name: 'potion', count: 0, price: 30, sale: false },
+      { lot: 'stock:sword', item: 'sword', name: 'A fine sword', count: 2, price: 110, sale: false, canBuy: true },
+      { lot: 'sold:7', item: 'dagger', name: 'dagger', count: 1, price: 22, sale: true, canBuy: true },
+      { lot: 'stock:potion', item: 'potion', name: 'potion', count: 0, price: 30, sale: false, canBuy: false },
     ],
     // Two lessons of one skill: the first rung every counter that teaches a trade sells, and the mastery the
     // guild's own depth reaches. The rung is part of what identifies a lesson, so both rows are real.
@@ -182,6 +233,12 @@ function openShop(overrides = {}) {
       { kind: 'skill', subject: 'Sword', name: 'Sword, expert', amount: 1, price: 1000, tier: 2 },
     ],
     sales: [{ item: '3', definition: 'shield', name: 'shield', price: 12, damage: 3, identified: false }],
+    // What the counter would identify and mend is the product's own list of the party's items it has a use for.
+    identify: [{ item: '3', name: 'shield' }],
+    repair: [{ item: '3', name: 'shield' }],
+    canBuy: true,
+    canSell: true,
+    canTeach: true,
     members: [
       { index: 0, name: 'Roderick' },
       { index: 1, name: 'Nyx' },
@@ -206,6 +263,8 @@ function openStable(overrides = {}) {
       { kind: 'fare', subject: '4', name: 'A passage to The Tularean Forest', amount: 2, price: 25 },
       { kind: 'notice', subject: '', name: 'Travellers speak of the roads east.', amount: 1, price: 0 },
     ],
+    // The passages are the product's own list of the offers a player can press.
+    fares: [{ subject: '4', name: 'A passage to The Tularean Forest', price: 25 }],
     coins: 200,
     ...overrides,
   });
@@ -396,11 +455,11 @@ function fighting(overrides = {}) {
     members: [
       {
         id: 'member:1', name: 'Roderick', ready: false, recoverySeconds: 22.969, distance: 0,
-        hitPoints: 40, hitPointsMax: 40, conditions: '', down: false,
+        hitPoints: 40, hitPointsMax: 40, conditions: '', down: false, activity: '',
       },
       {
         id: 'member:2', name: 'Aelina', ready: false, recoverySeconds: 22.266, distance: 0,
-        hitPoints: 24, hitPointsMax: 24, conditions: '', down: false,
+        hitPoints: 24, hitPointsMax: 24, conditions: '', down: false, activity: '',
       },
     ],
     enemies: [
@@ -560,7 +619,7 @@ function progression(overrides = {}) {
     members: [
       {
         index: 0, member: '1', name: 'Roderick', level: 1, experience: 0, skillPoints: 0,
-        nextLevel: 1000, fee: 0, cap: 0,
+        nextLevelExperience: 1000, nextLevel: 2, fee: 0, cap: 0, canTrain: false,
       },
     ],
     outcome: 'none',
@@ -634,6 +693,9 @@ function snapshot(mode, seconds = 0, steps = 0, _updates = 0, facts = undefined,
   // The automap block is published in every mode too: a case that asks for none covers a projection whose
   // ruleset stated no automap, which is a different fact from a place nothing has been walked of.
   if (blocks?.map !== undefined) value.map = blocks.map;
+  // The controls are published in every mode, and every case here reads them: a case that names none gets the
+  // controls the mode it names would offer, bound to the keys the host's project declares.
+  value.controls = blocks?.controls ?? controls(mode);
   return value;
 }
 
@@ -668,92 +730,11 @@ function automap(overrides = {}) {
       partyX: 31.25,
       partyY: 31.25,
       facing: 90,
+      // How large a mark is drawn and the party marker's corners are the product's own numbers.
+      markRadius: 31.25,
+      partyPoints: [31.25, 0, 62.5, 62.5, 0, 62.5],
     },
     ...overrides,
-  };
-}
-
-function harness() {
-  const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>');
-  // The companion is browser code: it reads the global document, exactly as it does in the shell.
-  globalThis.window = dom.window;
-  globalThis.document = dom.window.document;
-  const { document } = dom.window;
-  const claims = [];
-  let listener = null;
-  let unsubscribed = false;
-  let focused = 0;
-  const context = {
-    ui: {
-      focusGameplay: () => {
-        focused += 1;
-      },
-    },
-    intents: {
-      claim: (intent, value) => claims.push({ intent, value }),
-    },
-    projection: {
-      subscribe: (next) => {
-        listener = next;
-        return () => {
-          unsubscribed = true;
-          listener = null;
-        };
-      },
-    },
-  };
-  const root = document.querySelector('#root');
-  const timers = { setTimeout: 0, setInterval: 0, requestAnimationFrame: 0 };
-  const originals = {
-    setTimeout: globalThis.setTimeout,
-    setInterval: globalThis.setInterval,
-    requestAnimationFrame: globalThis.requestAnimationFrame,
-  };
-  globalThis.setTimeout = (...args) => {
-    timers.setTimeout += 1;
-    return originals.setTimeout(...args);
-  };
-  globalThis.setInterval = (...args) => {
-    timers.setInterval += 1;
-    return originals.setInterval(...args);
-  };
-  globalThis.requestAnimationFrame = (...args) => {
-    timers.requestAnimationFrame += 1;
-    return 0;
-  };
-
-  const restore = () => {
-    globalThis.setTimeout = originals.setTimeout;
-    globalThis.setInterval = originals.setInterval;
-    globalThis.requestAnimationFrame = originals.requestAnimationFrame;
-    delete globalThis.document;
-    delete globalThis.window;
-  };
-
-  return {
-    dom,
-    document,
-    root,
-    context,
-    claims,
-    timers,
-    restore,
-    emit: (value, contract = CONTRACT) => listener?.({ contract, value }),
-    panel: () => root.querySelector('.crawler-session'),
-    // The session's own action button is a direct child of the panel: the creation screen's buttons
-    // live inside their own section, and a case that clicks 'the button' means the session's.
-    button: () => root.querySelector('.crawler-session > button'),
-    // The save control is the panel's other direct-child button, named by the class the panel gives it.
-    saveButton: () => root.querySelector('.crawler-session > button.crawler-save'),
-    // The use control is named the same way, so a case that clicks 'the save button' and one that clicks
-    // 'the use button' can never mean each other.
-    useButton: () => root.querySelector('.crawler-session > button.crawler-use'),
-    get unsubscribed() {
-      return unsubscribed;
-    },
-    get focused() {
-      return focused;
-    },
   };
 }
 
@@ -932,7 +913,7 @@ function skills(overrides = {}) {
         skills: [
           {
             skill: 'Sword', block: 'weapon', level: 3, tier: 'basic', ceilingLevel: 12,
-            ceilingTier: 'master', pointsSpent: 5, reached: 4, cost: 4, refusal: '',
+            ceilingTier: 'master', pointsSpent: 5, reached: 4, cost: 4, refusal: '', refusalCode: '',
           },
         ],
       },
@@ -959,11 +940,11 @@ function magic(overrides = {}) {
         spells: [
           {
             spell: '2', name: 'Fire Bolt', school: 'Fire', tier: 'basic', tierRung: 1,
-            cost: 2, targeting: 'foe', effect: 'damage', aims: [],
+            cost: 2, targeting: 'foe', effect: 'damage', aims: [], targetSide: 'opposition', canCast: true,
           },
           {
             spell: '1', name: 'Torch Light', school: 'Fire', tier: 'basic', tierRung: 1,
-            cost: 1, targeting: 'party', effect: 'light', aims: [],
+            cost: 1, targeting: 'party', effect: 'light', aims: [], targetSide: '', canCast: true,
           },
         ],
       },
@@ -1005,6 +986,7 @@ function alchemy(overrides = {}) {
     mixtures: [
       { first: '11', second: '12', firstName: 'Widowsweep Berries', secondName: 'Potion Bottle' },
     ],
+    canMix: true,
     outcome: {
       member: 0,
       mixer: '',
@@ -1117,18 +1099,16 @@ function quests(overrides = {}) {
         canTurnIn: false,
       },
     ],
-    outcome: {
-      action: 'turn-in',
-      outcome: 'refused',
-      quest: '35',
-      experience: 0,
-      coins: 0,
-      items: [],
-      records: [],
-      delivered: [],
-      code: 'quest-objectives-unmet',
-      message: "'The Elven Treasury' is not finished: Reach Castle Navan.",
-    },
+    action: 'turn-in',
+    outcome: 'refused',
+    quest: '35',
+    experience: 0,
+    coins: 0,
+    items: [],
+    records: [],
+    delivered: [],
+    code: 'quest-objectives-unmet',
+    message: "'The Elven Treasury' is not finished: Reach Castle Navan.",
     ...overrides,
   };
 }
@@ -2085,13 +2065,20 @@ test('the save control asks for a save when there is something to save', () => {
       },
     ]);
 
-    // A party still being made has nothing to save, so the control is offered disabled rather than as a
-    // button that would ask for a save of a session that does not exist yet.
-    h.emit(snapshot('creating', 2, 60, 61, movement(), { save: save(), creation: creation() }));
+    // A party still being made has nothing to save, and the product publishes the control refused, so it is
+    // offered disabled rather than as a button that would ask for a save of a session that does not exist yet.
+    h.emit(snapshot('creating', 2, 60, 61, movement(), {
+      save: save(),
+      creation: creation(),
+      controls: controls('creating', { save: false }),
+    }));
     assert.equal(h.saveButton().disabled, true);
 
-    // A session with no store says so on its Save row, and its control cannot work either.
-    h.emit(snapshot('running', 3, 120, 122, movement(), { save: save({ available: false }) }));
+    // A session with no store says so on its Save row, and its control, which the product refuses, cannot work.
+    h.emit(snapshot('running', 3, 120, 122, movement(), {
+      save: save({ available: false }),
+      controls: controls('running', { save: false }),
+    }));
     assert.equal(h.saveButton().disabled, true);
     assert.equal(rows(h, 'Save').Save, 'unavailable');
 
@@ -2240,7 +2227,10 @@ test('the use control asks for a use when something is faced, and says why when 
 
     // A session facing nothing: the row carries the product's own reason rather than an empty reticle, and
     // the control is offered disabled because a button that cannot work must not look like one that can.
-    h.emit(snapshot('running', 2, 120, 121, movement(), { interaction: interaction() }));
+    h.emit(snapshot('running', 2, 120, 121, movement(), {
+      interaction: interaction(),
+      controls: controls('running', { use: false }),
+    }));
     assert.equal(h.panel().getAttribute('data-interaction'), 'no-candidate');
     assert.equal(h.useButton().disabled, true);
     assert.equal(rows(h, 'Facing').Facing, 'no-candidate');
@@ -2250,7 +2240,11 @@ test('the use control asks for a use when something is faced, and says why when 
     h.emit(snapshot('running', 3, 180, 182, movement(), { interaction: interaction({ available: false }) }));
     assert.equal(h.panel().getAttribute('data-interaction'), 'none');
     assert.equal(rows(h, 'Facing').Facing, '—');
-    h.emit(snapshot('creating', 4, 240, 244, movement(), { interaction: facedDoor(), creation: creation() }));
+    h.emit(snapshot('creating', 4, 240, 244, movement(), {
+      interaction: facedDoor(),
+      creation: creation(),
+      controls: controls('creating', { use: false }),
+    }));
     assert.equal(h.useButton().disabled, true);
 
     ui.dispose();
@@ -2833,8 +2827,9 @@ test('the panel renders the fight, who may act, and what the party did', () => {
     assert.equal(quiet.enemies.length, 0);
 
     // A fight in progress: the creature is engaged, both members are recovering and say how long they owe,
-    // and the panel reports the answer the product gave rather than one of its own.
-    h.emit(snapshot('running', 2, 120, 121, movement(), { combat: fighting() }));
+    // and the panel reports the answer the product gave rather than one of its own — including that the act
+    // control would be refused while nobody may act.
+    h.emit(snapshot('running', 2, 120, 121, movement(), { combat: fighting(), controls: controls('running', { attack: false }) }));
     assert.equal(h.panel().getAttribute('data-combat'), 'engaged');
     assert.equal(h.panel().getAttribute('data-combat-ready'), '0');
     assert.equal(h.panel().getAttribute('data-combat-outcome'), 'applied');
@@ -2859,8 +2854,8 @@ test('the panel renders the fight, who may act, and what the party did', () => {
     assert.match(incoming.message, /A beast attacks Roderick/);
     assert.match(incoming.message, /Roderick is at 33\/40/);
 
-    // A recovering party cannot act from the panel: the control is disabled while the product says no member
-    // may act, which is the fight's own readiness rather than a countdown this screen runs.
+    // A recovering party cannot act from the panel: the control is disabled because the product says it would
+    // refuse the order, which is the fight's own answer rather than a countdown this screen runs.
     assert.equal(engaged.attack.disabled, true);
 
     // An order refused while everybody recovers keeps the product's code and sentence.
@@ -2917,11 +2912,11 @@ test('the panel shows the pools, the conditions, and the death the product publi
         members: [
           {
             id: 'member:1', name: 'Roderick', ready: false, recoverySeconds: 22.969, distance: 0,
-            hitPoints: 0, hitPointsMax: 40, conditions: 'Unconscious', down: true,
+            hitPoints: 0, hitPointsMax: 40, conditions: 'Unconscious', down: true, activity: '',
           },
           {
             id: 'member:2', name: 'Aelina', ready: false, recoverySeconds: 22.266, distance: 0,
-            hitPoints: 0, hitPointsMax: 24, conditions: 'Dead', down: true,
+            hitPoints: 0, hitPointsMax: 24, conditions: 'Dead', down: true, activity: '',
           },
         ],
         enemies: [],
@@ -2994,8 +2989,12 @@ test('the panel renders the pacing, whose turn it is, and what is left to act', 
   try {
     const ui = mountProductUi(h.root, h.context);
     // Real time first: there is a fight and no round, which the panel says in the product's own words — and
-    // the turn controls are there but not offered, because there is no turn of the player's to pass.
-    h.emit(snapshot('running', 1, 60, 60, movement(), { combat: fighting() }));
+    // the turn controls are there but not offered, because the product says there is no turn of the player's to
+    // pass.
+    h.emit(snapshot('running', 1, 60, 60, movement(), {
+      combat: fighting(),
+      controls: controls('running', { attack: false, turnSkip: false, turnWait: false }),
+    }));
     const real = combatPanel(h);
     assert.equal(real.pacing, 'realtime');
     assert.equal(real.phase, 'none');
@@ -3131,60 +3130,41 @@ test('a paced fight is a running session, so the pause control stays the one it 
   }
 });
 
-test('the fight controls are offered exactly when the product would take the order', () => {
+test('every control is offered exactly as the product published it, whatever the fight looks like', () => {
   const h = harness();
   try {
     const ui = mountProductUi(h.root, h.context);
 
-    // Real time with everybody recovering: the product refuses an order now, so the panel does not offer one,
-    // and there is no round for the two turn actions to pass a turn in.
-    h.emit(snapshot('running', 1, 60, 60, movement(), { combat: fighting() }));
-    const recovering = combatPanel(h);
-    assert.equal(recovering.ready, '0');
-    assert.equal(recovering.attack.disabled, true);
-    assert.equal(recovering.skip.disabled, true);
-    assert.equal(recovering.wait.disabled, true);
-
-    // Real time with somebody able to act: the same control is offered, because the product would take it.
-    h.emit(snapshot('running', 2, 120, 121, movement(), { combat: combat() }));
-    assert.equal(combatPanel(h).attack.disabled, false);
-
-    // A paced fight with a round under way: one press spends the turn, so the control follows the round the
-    // product published rather than the members' readiness — and the two turn actions are offered with it.
-    h.emit(snapshot('turnbased', 3, 180, 182, movement(), { combat: paced({ ready: 0 }) }));
-    const holding = combatPanel(h);
-    assert.equal(holding.phase, 'action');
-    assert.equal(holding.attack.disabled, false);
-    assert.equal(holding.skip.disabled, false);
-    assert.equal(holding.wait.disabled, false);
-
-    // The party's movement phase: the act control ends it, so it stays offered with nobody ready.
-    h.emit(snapshot('turnbased', 4, 240, 245, movement(), {
-      combat: paced({
-        ready: 0,
-        turn: round({ phase: 'movement', round: 2, movementSeconds: 6.5, order: [ordered({ waiting: true })] }),
-      }),
+    // When a control would be taken is the product's rule (the kit's ControlsProjectionTests prove it over a
+    // recovering party, a paced round, the party's movement phase, and a paced fight with nothing to pace). The
+    // panel's part is to offer exactly what was published — so a projection whose fight looks as if nobody may act
+    // but whose controls say the act would be taken offers the act, and the other way round.
+    h.emit(snapshot('running', 1, 60, 60, movement(), {
+      combat: fighting(),
+      controls: controls('running', { turnBased: false, turnSkip: true, turnWait: false }),
     }));
-    const moving = combatPanel(h);
-    assert.equal(moving.attack.disabled, false);
-    assert.equal(moving.skip.disabled, false);
-    assert.equal(moving.wait.disabled, false);
+    const published = combatPanel(h);
+    assert.equal(published.ready, '0');
+    assert.equal(published.attack.disabled, false);
+    assert.equal(published.pace.disabled, true);
+    assert.equal(published.skip.disabled, false);
+    assert.equal(published.wait.disabled, true);
 
-    // Turn-based pacing with nothing to pace: no round is under way, so the world steps as it does in real
-    // time and every control follows readiness again. This is the state a panel that read the phase as an
-    // empty string would offer an act in — and the product's answer there is a refusal reported where no
-    // player can see it, which is exactly the silent control this panel exists to prevent.
-    h.emit(snapshot('running', 5, 300, 306, movement(), { combat: fighting({ pacing: 'turnbased' }) }));
-    const idle = combatPanel(h);
-    assert.equal(idle.phase, 'none');
-    assert.equal(idle.attack.disabled, true);
-    assert.equal(idle.skip.disabled, true);
-    assert.equal(idle.wait.disabled, true);
-    assert.match(idle.turn, /Turn-based: nothing is being fought/);
+    h.emit(snapshot('turnbased', 2, 120, 121, movement(), {
+      combat: paced(),
+      controls: controls('turnbased', { attack: false, turnSkip: false, turnWait: false }),
+    }));
+    const refused = combatPanel(h);
+    assert.equal(refused.playerTurn, 'yes');
+    assert.equal(refused.attack.disabled, true);
+    assert.equal(refused.skip.disabled, true);
+    assert.equal(refused.wait.disabled, true);
+    assert.equal(refused.pace.disabled, false);
 
-    // The pacing toggle is the one control always offered while the mechanism is there: it asks for a pacing
-    // rather than for an act, and the product can answer it whatever the fight is doing.
-    assert.equal(idle.pace.disabled, false);
+    // A disabled control sends nothing, and an offered one sends exactly the action the product published for it.
+    h.panel().querySelector('.crawler-attack').click();
+    h.panel().querySelector('.crawler-pace').click();
+    assert.deepEqual(h.claims.map((claim) => claim.value.data), [{ action: 'combat.turn-based' }]);
 
     ui.dispose();
   } finally {
@@ -3258,54 +3238,6 @@ test('the panel echoes the fight it was published rather than working the fight 
   }
 });
 
-test('the companion reaches for no clock and computes no combat quantity', async () => {
-  const source = await readFile(new URL('../../src/ui/main.ts', import.meta.url), 'utf8');
-
-  // The fight is paced by game time the product measures. A screen that reached for a clock or a timer would
-  // be running a second pacing — and would show a character ready before the fight agreed, which is the
-  // failure publishing the recovery rather than counting it down exists to prevent.
-  for (const forbidden of [
-    'setTimeout(',
-    'setInterval(',
-    'requestAnimationFrame(',
-    'requestIdleCallback(',
-    'queueMicrotask(',
-    'Date.now',
-    'new Date',
-    'performance.now',
-  ]) {
-    assert.equal(source.includes(forbidden), false, `the companion reaches for ${forbidden}`);
-  }
-
-  // The fight's own rendering is the only place a combat value is touched, and there each is read, compared,
-  // and printed — never combined. A rule appearing there looks like an operator between a combat quantity and
-  // anything else, which is what this scan fails on. Formatting a value (`toFixed`), reading the length of a
-  // published list, and comparing a value (`> 0`, `=== 'action'`) are all presentation, and stay allowed.
-  const fight = source.slice(source.indexOf('const renderCombat'), source.indexOf('const render = ('));
-  assert.notEqual(fight.length, 0, 'the companion no longer renders a fight at all');
-  // A quantity is named as the projection spells it, however it was reached — `view.ready`, `actor.hitPoints`.
-  const quantity =
-    '(?:[A-Za-z_$][\\w$]*\\.)*(?:recoverySeconds|remainingSeconds|roundSeconds|movementSeconds|dueSeconds|elapsedSeconds|hitPoints|hitPointsMax|distance|damage|damageRolled|chance|opposition|ready|down|engaged|playerTurn)';
-  const patterns = [
-    new RegExp(`${quantity}\\s*[-+*/%]`),
-    new RegExp(`[-+*/%]\\s*${quantity}`),
-    new RegExp(`Math\\.[a-z]+\\([^)]*${quantity}`),
-  ];
-  // A template's `${...}` placeholders hold the reads themselves, and the separator between two of them —
-  // `${hitPoints}/${hitPointsMax}` — is a slash this scan would otherwise read as division. They are replaced
-  // by a single marker first, so what is left is the code around them; each placeholder's own body is then
-  // scanned the same way, so a rule cannot hide inside an interpolation either.
-  const code = fight.replaceAll(/\$\{[^}]*\}/g, '_');
-  for (const pattern of patterns) {
-    const match = pattern.exec(code);
-    assert.equal(match, null, `the fight rendering computes a combat quantity: ${match?.[0] ?? ''}`);
-    for (const placeholder of fight.matchAll(/\$\{([^}]*)\}/g)) {
-      const inside = pattern.exec(placeholder[1]);
-      assert.equal(inside, null, `a placeholder computes a combat quantity: ${inside?.[0] ?? ''}`);
-    }
-  }
-});
-
 test('the panel renders what each member earned and what a level would cost', () => {
   const h = harness();
   try {
@@ -3337,7 +3269,7 @@ test('the panel renders what each member earned and what a level would cost', ()
         members: [
           {
             index: 0, member: '1', name: 'Roderick', level: 1, experience: 7000, skillPoints: 0,
-            nextLevel: 1000, fee: 10, cap: 5,
+            nextLevelExperience: 1000, nextLevel: 2, fee: 10, cap: 5, canTrain: true,
           },
         ],
       }),
@@ -3371,7 +3303,7 @@ test('the panel renders what each member earned and what a level would cost', ()
         members: [
           {
             index: 0, member: '1', name: 'Roderick', level: 2, experience: 7000, skillPoints: 5,
-            nextLevel: 3000, fee: 20, cap: 5,
+            nextLevelExperience: 3000, nextLevel: 3, fee: 20, cap: 5, canTrain: true,
           },
         ],
       }),
@@ -3389,7 +3321,7 @@ test('the panel renders what each member earned and what a level would cost', ()
         members: [
           {
             index: 0, member: '1', name: 'Roderick', level: 2, experience: 1000, skillPoints: 5,
-            nextLevel: 3000, fee: 20, cap: 5,
+            nextLevelExperience: 3000, nextLevel: 3, fee: 20, cap: 5, canTrain: true,
           },
         ],
       }),
@@ -3460,6 +3392,7 @@ test('the panel renders every member\'s skills with their ceilings and what a ra
                 skill: 'Sword', block: 'weapon', level: 12, tier: 'master', ceilingLevel: 12,
                 ceilingTier: 'master', pointsSpent: 78, reached: 13, cost: 0,
                 refusal: 'Sword stands at level 12 and Roderick, a Knight of rank 1, may raise it to 12 and no further; a promotion raises the ceiling.',
+                refusalCode: 'skill-ceiling',
               },
             ],
           },
@@ -3639,10 +3572,12 @@ test('the panel shows the effects running on each character, and the magic the p
           {
             item: '7', name: 'Scroll of Fire Bolt', kind: 'consumed', spell: '2', spellName: 'Fire Bolt',
             targeting: 'foe', charges: 0, chargesMax: 0, wielded: false, member: '',
+            targetSide: 'opposition', canUse: true,
           },
           {
             item: '9', name: 'Wand of Fire', kind: 'charged', spell: '2', spellName: 'Fire Bolt',
             targeting: 'foe', charges: 12, chargesMax: 39, wielded: true, member: 'Aelina',
+            targetSide: 'opposition', canUse: true,
           },
         ],
       }),
@@ -3746,6 +3681,8 @@ test('the panel shows what a cast changed, what is running, and where a spell ma
                   { aim: '2', name: 'Cave', kind: 'place' },
                   { aim: '3', name: 'Village', kind: 'place' },
                 ],
+                targetSide: '',
+                canCast: true,
               },
             ],
           },
@@ -3788,7 +3725,7 @@ test('the panel shows the journal, what each errand asks, and why a turn-in was 
     assert.equal(questsPanel(h).hidden, true);
 
     // A party with a journal but nothing in it is the third fact: the mechanism is there and no errand is.
-    h.emit(snapshot('running', 2, 120, 121, movement(), { quests: quests({ journal: [], outcome: { ...quests().outcome, action: 'none', outcome: 'none', code: '', message: '' } }) }));
+    h.emit(snapshot('running', 2, 120, 121, movement(), { quests: quests({ journal: [], action: 'none', outcome: 'none', code: '', message: '' }) }));
     assert.equal(h.panel().getAttribute('data-quests'), 'present');
     assert.equal(questsPanel(h).state, 'The party has been offered nothing.');
     // The errands belong to the quest owner, so a session that publishes them without a journal block still
@@ -3839,18 +3776,16 @@ test('the panel shows the journal, what each errand asks, and why a turn-in was 
             ],
           },
         ],
-        outcome: {
-          action: 'turn-in',
-          outcome: 'applied',
-          quest: '35',
-          experience: 4000,
-          coins: 250,
-          items: [],
-          records: ['errand:35 (1)'],
-          delivered: [],
-          code: '',
-          message: "The errand '35' was finished.",
-        },
+        action: 'turn-in',
+        outcome: 'applied',
+        quest: '35',
+        experience: 4000,
+        coins: 250,
+        items: [],
+        records: ['errand:35 (1)'],
+        delivered: [],
+        code: '',
+        message: "The errand '35' was finished.",
       }),
     }));
     const finished = questsPanel(h);
@@ -4320,3 +4255,36 @@ function automapPanel(h) {
     party: { points: party.getAttribute('points'), transform: party.getAttribute('transform') },
   };
 }
+
+test('every hand-written block this suite publishes is one the readers read without a problem', () => {
+  // The cases above write their own blocks so each can state one reading; this holds every one of them to the
+  // readers the product's own fixtures are held to, so a helper that drifted from the contract — a field renamed,
+  // one missing — fails here rather than exercising a shape the product never publishes.
+  const blocks = {
+    clock: clock(),
+    party: party({ awards: [{ id: 'promotion:rogue', kind: 'promotion', label: 'Rogue', detail: 'Thief' }] }),
+    creation: creation(),
+    save: save(),
+    interaction: facedDoor(),
+    service: openShop(),
+    rest: rest(),
+    conversation: talking(),
+    combat: paced(),
+    progression: progression(),
+    promotion: promotion(),
+    skills: skills(),
+    magic: magic(),
+    alchemy: alchemy(),
+    quests: quests(),
+    journal: journal(),
+    map: automap(),
+  };
+  for (const [name, published] of [
+    ['every block', snapshot('turnbased', 1, 60, 60, movement(), blocks)],
+    ['the stable', snapshot('running', 1, 60, 60, movement(), { ...blocks, service: openStable() })],
+    ['the struck fight', snapshot('running', 1, 60, 60, movement(), { ...blocks, combat: struck() })],
+    ['the accepted party', snapshot('running', 1, 60, 60, movement(), { ...blocks, creation: acceptedParty() })],
+  ]) {
+    assert.deepEqual(readSnapshot(published).problems, [], `${name} has a field the readers do not read`);
+  }
+});

@@ -10,6 +10,9 @@ Implemented today:
   lifecycle to the session. The engine's pause and the player's hold are separate authorities: an
   engine resume does not release a hold the player asked for.
 - `BuiltInRulesets` is the host's explicit ruleset selection, and the only place it chooses one.
+- `ProductControlKeys` reads, from the keyboard mappings the engine hands the product at creation, which key
+  the project file bound each stand-alone control to, and hands those labels to the session through the
+  ruleset context; the panel names those keys and no others, so a hint cannot drift from the declaration.
 - `ProductIdentity` declares the product id, title, projection stream and contract, and the two
   input names once; the project file declares the same values, and the architecture suite fails when
   the two drift.
