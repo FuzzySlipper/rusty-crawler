@@ -12,11 +12,11 @@ namespace PartyRpg.Kit.Combat;
 /// <param name="Resolution">What an attack does when it lands, and whether an actor may act at all.</param>
 /// <param name="Abilities">What a named ability does, beside the ordinary attack the resolution answers for.</param>
 /// <param name="Weapons">What each character wields, which decides the kind of its attack.</param>
-/// <param name="Fallen">Who hears about the creatures the fight reads as down.</param>
+/// <param name="Deaths">Who hears about each creature's death, once, in the order named.</param>
 public sealed record CombatRules(
     ICombatRule Rule,
     IMonsterAiPolicy? Ai = null,
     ICombatResolutionRule? Resolution = null,
     ICombatAbilityResolutionRule? Abilities = null,
     ICombatWeaponRule? Weapons = null,
-    IFallenCreatureObserver? Fallen = null);
+    IReadOnlyList<ICreatureDeathObserver>? Deaths = null);

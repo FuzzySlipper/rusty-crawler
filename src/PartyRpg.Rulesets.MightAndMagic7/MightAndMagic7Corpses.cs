@@ -34,7 +34,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// named things.
 /// </para>
 /// </remarks>
-internal sealed class MightAndMagic7Corpses : IFallenCreatureObserver, ICorpseSource
+internal sealed class MightAndMagic7Corpses : ICreatureDeathObserver, ICorpseSource
 {
     private readonly CorpseGround _ground;
     private readonly MightAndMagic7Loot _loot;
@@ -53,23 +53,19 @@ internal sealed class MightAndMagic7Corpses : IFallenCreatureObserver, ICorpseSo
     internal CorpseGround Ground => _ground;
 
     /// <inheritdoc />
-    public IReadOnlyList<Corpse> Observe(PlaceId place, IReadOnlyList<FallenCreature> fallen)
+    /// <remarks>
+    /// A death is reported once, so what it left is rolled once, here, under a key that names that death. Without
+    /// a random service nothing can be drawn, and the body holds nothing: that is a product that cannot generate
+    /// loot rather than a body whose loot is a promise to roll later.
+    /// </remarks>
+    public void Died(CreatureDeath death)
     {
-        IReadOnlyList<Corpse> bodies = _ground.Observe(place, fallen);
-        foreach (Corpse body in bodies)
-        {
-            // A body that already holds something keeps it: this reading happens every update, and a death
-            // that was generated for once must not be rolled again on the next one.
-            if (_ground.Held(body) is not null) continue;
-
-            // Without a random service nothing can be drawn, and the body holds nothing: that is a product
-            // that cannot generate loot rather than a body whose loot is a promise to roll later.
-            if (_loot.RollsFor(Key(body)) is not { } rolls) continue;
-            _ground.Hold(body, _loot.Death(body.Body, rolls));
-        }
-
-        return bodies;
+        Corpse body = _ground.Lay(death);
+        if (_loot.RollsFor(Key(body)) is { } rolls) _ground.Hold(body, _loot.Death(body.Body, rolls));
     }
+
+    /// <inheritdoc />
+    public void Repopulated(PlaceId place) => _ground.Repopulated();
 
     /// <inheritdoc />
     public IReadOnlyList<PlacementDefinition> CorpsesOf(PlaceId place) =>

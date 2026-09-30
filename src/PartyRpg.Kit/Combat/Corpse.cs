@@ -2,26 +2,6 @@ using PartyRpg.Kit.World;
 
 namespace PartyRpg.Kit.Combat;
 
-/// <summary>One creature a fight read as down: the placement it was, where it fell, and what it is called.</summary>
-/// <remarks>
-/// <para>
-/// This is what a fight says about a creature that went down, and it is deliberately a reading rather than a
-/// change: the fight does not create anything, place anything, or take anything away. It states the three
-/// facts a body is — which placement the creature was, where it stood when it fell, and what the ruleset
-/// called it — and whoever keeps the bodies decides what they mean.
-/// </para>
-/// <para>
-/// Where it fell is the actor's live position and not its placement's, because a creature that closed on the
-/// party before it died lies where it was killed rather than where content put it. The placement travels
-/// whole so the body keeps the content entry it came from: what a creature's row says about its treasure is
-/// read from the same record the living creature was read from, and no copy of it is made here.
-/// </para>
-/// </remarks>
-/// <param name="Placement">The placement the creature was created from, with the pose it stood at before it moved.</param>
-/// <param name="Fell">Where it stood when the fight read it as down.</param>
-/// <param name="Name">What the ruleset calls it, which is what a body is named by.</param>
-public readonly record struct FallenCreature(PlacementDefinition Placement, PlacePose Fell, string Name);
-
 /// <summary>What one downed creature left behind, as whoever keeps the bodies holds it.</summary>
 /// <remarks>
 /// <para>

@@ -60,6 +60,13 @@ public sealed class PlacePopulation : IDisposable
     /// </summary>
     public PlaceId? Place { get; private set; }
 
+    /// <summary>How many times a population has been built, which moves each time the place's entities are made afresh.</summary>
+    /// <remarks>
+    /// Whatever belonged to the entities of one build — a body lying where one of them fell — belongs to no
+    /// entity of the next, so a caller that keeps such things compares this before and after a step.
+    /// </remarks>
+    public long Generation { get; private set; }
+
     /// <summary>The live entities, in the order content declared their placements.</summary>
     public IReadOnlyList<PlacePopulationEntity> Entities => _live;
 
@@ -136,6 +143,7 @@ public sealed class PlacePopulation : IDisposable
         PlaceState state = _places.StateOf(place);
         Despawn();
         Place = place;
+        Generation++;
 
         // An emptied place populates nobody until the world restores it. Building its population on
         // re-entry would quietly undo the party's clearing, and the restore the ledger reports is the

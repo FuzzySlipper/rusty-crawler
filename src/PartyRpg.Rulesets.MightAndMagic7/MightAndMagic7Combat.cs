@@ -40,7 +40,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// equipment, and their place is the sum below.
 /// </para>
 /// </remarks>
-internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule, ICombatAbilityResolutionRule, ICombatWeaponRule, IFallenCreatureObserver
+internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule, ICombatAbilityResolutionRule, ICombatWeaponRule
 {
     /// <summary>The definition kind a monster row is imported under.</summary>
     internal const string MonsterDefinitionKind = "monster";
@@ -362,7 +362,6 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     private readonly Dictionary<string, string> _people;
     private readonly MonsterFacts? _person;
     private readonly IRandomService? _random;
-    private readonly IFallenCreatureObserver? _fallen;
     private readonly MightAndMagic7Spells? _spells;
     private readonly Func<PartyEntity?> _party;
     private readonly Func<IMemberSpellEffects?> _memberEffects;
@@ -372,7 +371,6 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         Dictionary<string, string> people,
         MonsterFacts? person,
         IRandomService? random,
-        IFallenCreatureObserver? fallen,
         MightAndMagic7Spells? spells,
         Func<PartyEntity?>? party,
         Func<IMemberSpellEffects?>? memberEffects)
@@ -381,7 +379,6 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         _people = people;
         _person = person;
         _random = random;
-        _fallen = fallen;
         _spells = spells;
         _party = party ?? (() => null);
         _memberEffects = memberEffects ?? (() => null);
@@ -429,11 +426,6 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// creature takes its whole recovery before it first acts, which is deterministic and is the honest
     /// answer for a product that cannot draw.
     /// </param>
-    /// <param name="fallen">
-    /// Whoever is told what the party brought down, when a session has anybody: a session hands the owner
-    /// that keeps the bodies, which is also where the award for a death is made. A fight that is told nobody
-    /// reports nothing, and everything about the fight itself is unchanged.
-    /// </param>
     /// <param name="spells">
     /// This game's magic, which states what each spell a creature casts is worth and rolls. A caller that
     /// composed none gets one read here, so a creature's spell still lands with the spell's own numbers.
@@ -455,12 +447,11 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     internal static MightAndMagic7Combat Compose(
         ContentCatalog? catalog,
         IRandomService? random,
-        IFallenCreatureObserver? fallen = null,
         MightAndMagic7Spells? spells = null,
         Func<PartyEntity?>? party = null,
         Func<IMemberSpellEffects?>? memberEffects = null)
     {
-        if (catalog is null) return new MightAndMagic7Combat([], [], null, random, fallen, spells, party, memberEffects);
+        if (catalog is null) return new MightAndMagic7Combat([], [], null, random, spells, party, memberEffects);
         List<ContentValidationIssue> issues = [];
         Dictionary<int, MonsterFacts> monsters = ReadMonsters(catalog, spells ?? MightAndMagic7Spells.Read(catalog), issues);
         Dictionary<string, string> people = ReadPeople(catalog);
@@ -483,19 +474,8 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             .OrderBy(row => row.Id)
             .FirstOrDefault();
 
-        return new MightAndMagic7Combat(monsters, people, person, random, fallen, spells ?? MightAndMagic7Spells.Read(catalog), party, memberEffects);
+        return new MightAndMagic7Combat(monsters, people, person, random, spells ?? MightAndMagic7Spells.Read(catalog), party, memberEffects);
     }
-
-    /// <summary>What the fight read as down in one place, handed to whoever keeps what the fallen left.</summary>
-    /// <remarks>
-    /// The kit's fight owns no body: it states what it read and this game decides what that means — which is
-    /// what makes a kill leave a searchable thing without the fight learning what loot is.
-    /// </remarks>
-    /// <param name="place">The place the fight read.</param>
-    /// <param name="fallen">Every creature it read as down there, in the order it read them.</param>
-    /// <returns>The bodies lying in that place now.</returns>
-    public IReadOnlyList<Corpse> Observe(PlaceId place, IReadOnlyList<FallenCreature> fallen) =>
-        _fallen?.Observe(place, fallen) ?? [];
 
     /// <summary>How many monster rows this policy can fight.</summary>
     internal int MonsterCount => _monsters.Count;

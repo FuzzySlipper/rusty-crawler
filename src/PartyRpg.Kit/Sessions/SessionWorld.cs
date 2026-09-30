@@ -27,6 +27,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     private readonly TransitionExecutive _transitions;
     private readonly IDisposable? _clockSubscription;
     private readonly IFallRule? _falls;
+    private readonly ICorpseSource? _corpses;
     private readonly IWorldTimeSource? _time;
     private readonly GameClock? _clock;
     private readonly PartyResourceLedger? _resources;
@@ -136,6 +137,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         Creatures = creatures;
         Schedule = schedule ?? PlaceSchedule.Empty;
         Interaction = interaction is null ? null : new PartyInteraction(this, interaction.Rule, interaction.Space, interaction.Tuning, interaction.Corpses);
+        _corpses = interaction?.Corpses;
         // The place the party starts in is entered exactly as any other is, so the scene it walks in is
         // filled from that place's content before the first step rather than one arrival late.
         mover?.Enter(party.Place);
@@ -449,7 +451,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
 
         // The population follows the same advance: a place whose reset came due is repopulated here, in
         // the same update that moved the clock, rather than by a second timer of its own.
-        _population.Step(Party.Place, restored);
+        Step(restored);
 
         // A restored place comes back as it was: what the party did to its doors and containers belongs to
         // the visit that did it, so a place whose population is restored forgets it in the same update. A
@@ -460,7 +462,19 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     }
 
     /// <summary>Populates the party's place, which also happens on the first update after arriving.</summary>
-    public IReadOnlyList<PlacePopulationEntity> Populate() => _population.Step(Party.Place, []);
+    public IReadOnlyList<PlacePopulationEntity> Populate() => Step([]);
+
+    /// <summary>
+    /// Steps the population, and tells whoever keeps bodies when it was built afresh: a body belongs to the
+    /// entities of one build, and the next build holds none of them.
+    /// </summary>
+    private IReadOnlyList<PlacePopulationEntity> Step(IReadOnlyList<PlaceState> restored)
+    {
+        long before = _population.Generation;
+        IReadOnlyList<PlacePopulationEntity> live = _population.Step(Party.Place, restored);
+        if (_population.Generation != before) _corpses?.Repopulated(Party.Place);
+        return live;
+    }
 
     /// <summary>
     /// Captures the world's durable state: where the party stands, and what each place remembers.

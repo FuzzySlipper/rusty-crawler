@@ -38,13 +38,12 @@ public sealed class ProgressionTests
     {
         using PartyEntity party = PartyOfTwo();
         PartyProgression progression = new(new TestRule(), party);
-        Bodies ground = new();
-        ProgressionAwards awards = new(placement => Worth(placement), () => progression, ground);
+        ProgressionAwards awards = new(placement => Worth(placement), () => progression);
 
-        // A fight reports the creature it brought down, and the kill is worth what its own row states. The
-        // award divides among the two members and lands on their experience: 250 each, which is the rule's
-        // own equal division.
-        IReadOnlyList<Corpse> bodies = awards.Observe(Here, [Fallen("beast-1", 250)]);
+        // A fight reports the creature it brought down, once, and the kill is worth what its own row states.
+        // The award divides among the two members and lands on their experience: 250 each, which is the
+        // rule's own equal division.
+        awards.Died(Death("beast-1", 250));
         ProgressionAwardResult kill = progression.LastAward!;
         Assert.True(kill.IsAwarded);
         Assert.Equal(ProgressionAwards.KillSource, kill.Source);
@@ -52,26 +51,16 @@ public sealed class ProgressionTests
         Assert.Equal(2, kill.Shares.Count);
         Assert.Equal(125, party.Members[0].Progression.Experience);
         Assert.Equal(125, party.Members[1].Progression.Experience);
-        Assert.Equal(1, awards.PaidDeaths);
-        Assert.Single(bodies);
 
-        // The same reading on the next update is the same death, not a second one: a fight re-reads the
-        // place every update, and a death that paid twice would be experience nobody earned.
-        awards.Observe(Here, [Fallen("beast-1", 250)]);
-        Assert.Equal(125, party.Members[0].Progression.Experience);
-        Assert.Equal(1, awards.PaidDeaths);
-
-        // A second creature is a second death, and it pays.
-        awards.Observe(Here, [Fallen("beast-1", 250), Fallen("beast-2", 100)]);
+        // A second creature is a second death, and it pays; a death worth nothing pays nothing.
+        awards.Died(Death("beast-2", 100));
         Assert.Equal(175, party.Members[0].Progression.Experience);
-        Assert.Equal(2, awards.PaidDeaths);
+        awards.Died(Death("beast-3", 0));
+        Assert.Equal(175, party.Members[0].Progression.Experience);
 
-        // A creature the fight no longer reads as down is forgotten with its body: when it is read as down
-        // again — the world restored the place, or the party walked out and back in — that is a new death
-        // with a new serial, and it pays again.
-        awards.Observe(Here, []);
-        Assert.Equal(0, awards.PaidDeaths);
-        awards.Observe(Here, [Fallen("beast-1", 250)]);
+        // The same creature killed again — the world restored the place, or the party walked out and back in —
+        // is a new death, reported anew, and it pays again.
+        awards.Died(Death("beast-1", 250));
         Assert.Equal(300, party.Members[0].Progression.Experience);
 
         // The second source: a completed quest arrives at the same entry, with the same division and the
@@ -358,10 +347,10 @@ public sealed class ProgressionTests
     private static long Worth(PlacementDefinition placement) =>
         placement.Source.GetInt32("experience") ?? 0;
 
-    /// <summary>One creature a fight read as down, as the fight reports it.</summary>
-    private static FallenCreature Fallen(string id, int experience) => new(
+    /// <summary>One creature's death, as the fight reports it.</summary>
+    private static CreatureDeath Death(string id, int experience) => new(
+        Here,
         Placement("monster", id, experience),
-        PlacePose.Origin,
         $"A creature {id}");
 
     private static PlacementDefinition Placement(string kind, string id, int experience) => new(
@@ -431,21 +420,6 @@ public sealed class ProgressionTests
             3 => "master",
             _ => "grand master",
         };
-    }
-
-    /// <summary>
-    /// The bodies owner a fight reports to, which is the kit's own ground behind the observer the fight asks.
-    /// </summary>
-    /// <remarks>
-    /// The ground is the kit's real owner of what the fallen left; what this adds is the observer shape a
-    /// fight asks, which is the same two lines the loot owner's own ruleset adapter writes.
-    /// </remarks>
-    private sealed class Bodies : IFallenCreatureObserver
-    {
-        private readonly CorpseGround _ground = new();
-
-        public IReadOnlyList<Corpse> Observe(PlaceId place, IReadOnlyList<FallenCreature> fallen) =>
-            _ground.Observe(place, fallen);
     }
 
     /// <summary>One counter that offers nothing but training, priced and capped as the test states.</summary>

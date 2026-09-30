@@ -22,7 +22,7 @@ internal static class Capabilities
             rule as ICombatResolutionRule,
             rule as ICombatAbilityResolutionRule,
             rule as ICombatWeaponRule,
-            rule as IFallenCreatureObserver);
+            rule is ICreatureDeathObserver deaths ? [deaths] : null);
 
     /// <summary>A casting over a fake's answers, with every capability the two fakes implement.</summary>
     internal static MagicRules Magic(ISpellRule spells, ISpellEffectRule? effects = null) =>

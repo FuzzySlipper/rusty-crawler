@@ -289,6 +289,42 @@ public sealed class CombatResolutionTests
         }
     }
 
+    [Fact]
+    public void A_death_is_reported_once_at_the_blow_that_caused_it_however_long_the_body_lies()
+    {
+        Rules rules = new(hitChance: HitChance.Always, damage: DamageRoll.Flat(50));
+        using SessionWorld world = World(rules, out PartyEntity party, creatureAt: 100, hitPoints: 4);
+        using PartyEntity owned = party;
+        Arrive(world);
+        List<CreatureDeath> heard = [];
+        CombatState combat = new(Capabilities.Combat(rules) with { Deaths = [new Heard(heard)] }, party, world, Clock());
+        combat.Step();
+        Combatant member = combat.Combatants.First(combatant => combatant.Side == CombatSide.Party);
+        Combatant beast = combat.Opposition[0];
+
+        CombatResult blow = combat.Order(new AttackOrder(member.Id, AttackKind.Melee, beast.Id));
+        Assert.True(blow.Resolution!.TargetDown);
+
+        // The fight goes on reading the place for as long as the party stands there, and the body lies in it
+        // all that time: the death was one moment, and it was heard once, with the creature's own placement.
+        for (int update = 0; update < 5; update++)
+        {
+            combat.Step();
+            combat.Observe(Advance(60_000));
+        }
+
+        CreatureDeath death = Assert.Single(heard);
+        Assert.Equal(Hall, death.Place);
+        Assert.Equal(beast.Subject.Placement!.Content, death.Placement.Content);
+        Assert.Equal(beast.Name, death.Name);
+    }
+
+    /// <summary>Records every death a fight reports, in the order it reports them.</summary>
+    private sealed class Heard(List<CreatureDeath> heard) : ICreatureDeathObserver
+    {
+        public void Died(CreatureDeath death) => heard.Add(death);
+    }
+
     /// <summary>Resolves one party attack against a creature of a staged world, and hands back what it did.</summary>
     private static CombatResolution Resolve(Rules rules, out SessionWorld world, out PartyEntity party)
     {

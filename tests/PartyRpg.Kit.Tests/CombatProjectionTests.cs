@@ -579,7 +579,7 @@ public sealed class CombatProjectionTests
     /// here rather than in the product, which is the seam under test.
     /// </summary>
     private sealed class Rules(CorpseGround ground, int creatureHitPoints)
-        : ICombatRule, ICombatResolutionRule, IFallenCreatureObserver, IInteractionRule, ICorpseSource
+        : ICombatRule, ICombatResolutionRule, ICreatureDeathObserver, IInteractionRule, ICorpseSource
     {
         /// <summary>The creature's own placement identity, which is also the identity of its body.</summary>
         private const string Creature = "beast";
@@ -626,9 +626,11 @@ public sealed class CombatProjectionTests
             ? member.Resources.HitPoints.Maximum
             : creatureHitPoints;
 
-        /// <summary>What this suite's fight read as down, handed to the one owner of the bodies.</summary>
-        public IReadOnlyList<Corpse> Observe(PlaceId place, IReadOnlyList<FallenCreature> fallen) =>
-            ground.Observe(place, fallen);
+        /// <summary>A death this suite's fight reported, laid by the one owner of the bodies.</summary>
+        public void Died(CreatureDeath death) => ground.Lay(death);
+
+        /// <summary>A population built afresh holds none of the bodies the last one left.</summary>
+        public void Repopulated(PlaceId place) => ground.Repopulated();
 
         /// <summary>Every body lying in a place, as the placements the mechanism discovers beside content.</summary>
         public IReadOnlyList<PlacementDefinition> CorpsesOf(PlaceId place) =>

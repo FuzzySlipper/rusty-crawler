@@ -394,7 +394,7 @@ public sealed class SpellEffectPolicyTests
         // the same party reads the same ward the session's cast wrote: the ledger that applied it is only what
         // holds when it ends, and a fight composed without one still reads the ward the party carries.
         RunningSpellEffects effects = new(party, clock: null, StillCarries);
-        return MightAndMagic7Combat.Compose(catalog, random: null, fallen: null, spells, () => party, () => effects);
+        return MightAndMagic7Combat.Compose(catalog, random: null, spells, () => party, () => effects);
     }
 
     /// <summary>Whether a character still carries what a spell left on them, as this game answers it.</summary>

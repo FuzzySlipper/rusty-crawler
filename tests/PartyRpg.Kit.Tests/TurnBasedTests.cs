@@ -675,43 +675,16 @@ public sealed class TurnBasedTests
         return [.. lines];
     }
 
-    /// <summary>What this suite's fights leave behind: the bodies a fight read, one serial per death.</summary>
-    private sealed class Bodies : IFallenCreatureObserver
+    /// <summary>What this suite's fights leave behind: one body per death, in the order they fell.</summary>
+    private sealed class Bodies
     {
-        private readonly Dictionary<PlaceId, Dictionary<string, Corpse>> _places = [];
-        private readonly Dictionary<string, long> _serials = [];
-        private long _next;
+        private readonly CorpseGround _ground = new();
 
         /// <summary>The bodies lying in one place, which is what a toggle must not disturb.</summary>
-        internal IReadOnlyList<Corpse> Lying(PlaceId place) =>
-            _places.TryGetValue(place, out Dictionary<string, Corpse>? held) ? [.. held.Values] : [];
+        internal IReadOnlyList<Corpse> Lying(PlaceId place) => _ground.In(place);
 
-        /// <inheritdoc />
-        public IReadOnlyList<Corpse> Observe(PlaceId place, IReadOnlyList<FallenCreature> fallen)
-        {
-            if (!_places.TryGetValue(place, out Dictionary<string, Corpse>? held))
-            {
-                held = [];
-                _places[place] = held;
-            }
-
-            List<Corpse> bodies = [];
-            foreach (FallenCreature creature in fallen)
-            {
-                string key = creature.Placement.Content.Id;
-                if (!_serials.TryGetValue(key, out long serial))
-                {
-                    serial = ++_next;
-                    _serials[key] = serial;
-                }
-
-                Corpse body = new(place, creature.Placement, creature.Name, serial);
-                held[key] = body;
-                bodies.Add(body);
-            }
-
-            return bodies;
-        }
+        /// <summary>Lays the body a death left.</summary>
+        internal void Lay(CreatureDeath death) => _ground.Lay(death);
     }
 
     /// <summary>The identity of the creature a placement of this suite's world put there.</summary>
@@ -922,7 +895,7 @@ public sealed class TurnBasedTests
     /// party member owes the suite's member recovery, a creature owes the recovery its own placement states,
     /// and every blow lands for the suite's own harm.
     /// </summary>
-    private sealed class TestRule(Bodies bodies, IRandomService? random = null) : ICombatRule, ICombatResolutionRule, IFallenCreatureObserver
+    private sealed class TestRule(Bodies bodies, IRandomService? random = null) : ICombatRule, ICombatResolutionRule, ICreatureDeathObserver
     {
         private const double NoticeRange = 5000;
 
@@ -947,7 +920,7 @@ public sealed class TurnBasedTests
 
         public double ReachOf(CombatSubject subject, AttackKind kind) => NoticeRange;
 
-        public IReadOnlyList<Corpse> Observe(PlaceId place, IReadOnlyList<FallenCreature> fallen) => bodies.Observe(place, fallen);
+        public void Died(CreatureDeath death) => bodies.Lay(death);
 
         /// <summary>
         /// The attack's rolls: this suite's own draws when it states a seed, and the lowest the attack allows

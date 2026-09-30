@@ -233,13 +233,17 @@ internal sealed class MightAndMagic7Session : IGameSession
         // own ledger the same way: as providers, read at the moment the quantity is wanted rather than
         // captured when the policy was composed. What a ward on one character is worth is that character's own
         // reading, which is why the ledger travels beside the party rather than the party's effects alone.
-        // A death reaches the quest owner before it reaches the purse: the errands a party has taken count what
-        // the fight read as down, and what a death pays is awarded on the same report, so a kill objective and
-        // the experience for the kill are one reading of one death rather than two.
+        // A death is reported once, at the blow that caused it, to each of three observers named here in order:
+        // the body is laid and its loot rolled, the errands a party has taken count it, and what it was worth is
+        // awarded — one report of one death rather than three readings of the place.
         MightAndMagic7Combat? composed = null;
-        QuestDeaths deaths = new(() => owners.Quests, corpseAnswers);
-        ProgressionAwards awards = new(Worth, () => owners.Progression, deaths);
-        composed = MightAndMagic7Combat.Compose(Declared(context.Content), context.Engine?.Random, awards, spells, () => owners.Party, () => spellEffects);
+        ICreatureDeathObserver[] deaths =
+        [
+            corpseAnswers,
+            new QuestDeaths(() => owners.Quests),
+            new ProgressionAwards(Worth, () => owners.Progression),
+        ];
+        composed = MightAndMagic7Combat.Compose(Declared(context.Content), context.Engine?.Random, spells, () => owners.Party, () => spellEffects);
         MightAndMagic7Combat combat = composed;
 
         long Worth(PlacementDefinition placement) =>
@@ -259,7 +263,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             Service = services,
             Rest = rest,
             Conversation = conversation,
-            Combat = new CombatRules(combat, monsterAi, Resolution: combat, Abilities: combat, Weapons: combat, Fallen: combat),
+            Combat = new CombatRules(combat, monsterAi, Resolution: combat, Abilities: combat, Weapons: combat, Deaths: deaths),
             Progression = new ProgressionRules(MightAndMagic7Progression.Instance, promotions),
             Standing = standing,
             Skills = skills,

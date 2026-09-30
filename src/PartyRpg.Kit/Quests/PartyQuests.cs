@@ -362,20 +362,19 @@ public sealed class PartyQuests
     }
 
     /// <summary>
-    /// Records what a fight reported as down, which is what a kill objective reads.
+    /// Records one creature's death against every kill objective an instance still wants.
     /// </summary>
     /// <remarks>
     /// A death is an event and not a state — the body lies there and then is gone — so what a kill objective
-    /// counts is recorded here rather than read later. Which deaths count is the ruleset's answer, because
-    /// what a creature is, is content's; this adds up what it is told and never guesses from a name.
+    /// counts is recorded here rather than read later, and it is reported once, so it is counted once. Which
+    /// deaths count is the ruleset's answer, because what a creature is, is content's; this adds up what it is
+    /// told and never guesses from a name.
     /// </remarks>
-    /// <param name="place">The place the fight happened in.</param>
-    /// <param name="bodies">What the fight read as down, as the bodies owner holds them.</param>
-    /// <exception cref="ArgumentNullException">No bodies were supplied.</exception>
-    public void ObserveDeaths(PlaceId place, IReadOnlyList<Corpse> bodies)
+    /// <param name="death">The death.</param>
+    /// <exception cref="ArgumentNullException">No death was supplied.</exception>
+    public void ObserveDeath(CreatureDeath death)
     {
-        ArgumentNullException.ThrowIfNull(bodies);
-        if (bodies.Count == 0) return;
+        ArgumentNullException.ThrowIfNull(death);
 
         // Walked by position for the same reason a place is: what a death does is record progress, which
         // replaces the instance being read.
@@ -389,14 +388,8 @@ public sealed class PartyQuests
             foreach (QuestObjective objective in definition.Objectives)
             {
                 if (objective.Kind != QuestObjectiveKind.Kill) continue;
-                if (objective.Place.Length > 0 && !string.Equals(objective.Place, place.Value, StringComparison.Ordinal)) continue;
-
-                int counted = 0;
-                foreach (Corpse body in bodies)
-                {
-                    counted += _rule.Counts(new QuestKillRequest(definition, objective, place, body.Body, body.Name));
-                }
-
+                if (objective.Place.Length > 0 && !string.Equals(objective.Place, death.Place.Value, StringComparison.Ordinal)) continue;
+                int counted = _rule.Counts(new QuestKillRequest(definition, objective, death.Place, death.Placement, death.Name));
                 if (counted > 0) current = current.Record(objective.Id, Math.Min(objective.Count, current.Recorded(objective.Id) + counted));
             }
 

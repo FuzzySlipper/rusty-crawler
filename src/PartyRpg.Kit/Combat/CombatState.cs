@@ -46,7 +46,7 @@ public sealed class CombatState : IGameTimeObserver
     private readonly ICombatResolutionRule? _resolution;
     private readonly ICombatAbilityResolutionRule? _abilities;
     private readonly ICombatWeaponRule? _weapons;
-    private readonly IFallenCreatureObserver? _fallen;
+    private readonly IReadOnlyList<ICreatureDeathObserver> _deaths;
     private readonly PartyEntity _party;
     private readonly ICombatWorld? _world;
     private readonly GameClock? _clock;
@@ -93,7 +93,7 @@ public sealed class CombatState : IGameTimeObserver
         _resolution = rules.Resolution;
         _abilities = rules.Abilities;
         _weapons = rules.Weapons;
-        _fallen = rules.Fallen;
+        _deaths = rules.Deaths ?? [];
         _party = party ?? throw new ArgumentNullException(nameof(party));
         _world = world;
         _clock = clock;
@@ -291,7 +291,6 @@ public sealed class CombatState : IGameTimeObserver
 
         if (_world is { } world)
         {
-            List<FallenCreature> fallen = [];
             foreach (PlacePopulationEntity entity in world.Population)
             {
                 if (!entity.IsAlive) continue;
@@ -319,20 +318,7 @@ public sealed class CombatState : IGameTimeObserver
                     new Combatant(subject, side, name, kind, distance, _rule.InitialRecovery(subject, kind));
                 combatant.Observe(side, name, kind, distance);
                 live.Add(combatant);
-
-                // What the creature left is read here, where its live position and its own health are both in
-                // hand: a body lies where the creature stood when it went down, which is not where content
-                // placed it. The reading is handed over whole below, so the owner of the bodies never has to
-                // guess which of them are still down.
-                if (CreatureHealth.Find(entity.Actor) is { IsDown: true }) fallen.Add(new FallenCreature(entity.Placement, pose, name));
             }
-
-            // The place's own reading replaces whatever the owner held: a creature standing again, or a place
-            // the party has left, cannot leave a body behind. It is read here, in the pass that already has
-            // each creature's name and pose in hand, and read again by <see cref="ObserveFallen"/> after an
-            // order that fells one — the same question asked twice in one update for the same reason: what the
-            // place holds is what the party's own last act left it holding.
-            _fallen?.Observe(world.Place, fallen);
         }
 
         _combatants.Clear();
@@ -619,43 +605,7 @@ public sealed class CombatState : IGameTimeObserver
         CombatResolution? resolution = Resolve(actor, target, kind, ability);
         _lastResolution = resolution;
 
-        // A death this order caused is a body the place holds now, and the reading that states what the place
-        // holds was already taken when the world was last read — before the blow that felled this target. It
-        // is taken again here, so whoever keeps the bodies learns about the death in the update that made it
-        // rather than in the one after: a body nothing has been told about is a corpse the party cannot see
-        // or search until an update it did not earn. Only a creature leaves one, so a member going down asks
-        // for nothing.
-        if (resolution is { TargetDown: true } && target is { Subject.Member: null }) ObserveFallen();
         return Report(CombatResult.Applied(initiation, resolution));
-    }
-
-    /// <summary>
-    /// Tells whoever keeps the bodies what this place holds as down, whole.
-    /// </summary>
-    /// <remarks>
-    /// It is the fight's own reading — which creatures stand in the place, where they stand now, and which of
-    /// them the harm it has done has taken down — asked of the same world <see cref="Step"/> re-reads, and
-    /// answered as one list so the owner of the bodies never has to guess which of them are still down. It is
-    /// asked after an order that felled a creature for the same reason it is asked on every step: what the
-    /// place holds is a reading of the place, and a reading taken before the blow is a reading of a place the
-    /// party has already changed.
-    /// </remarks>
-    private void ObserveFallen()
-    {
-        if (_fallen is null || _world is not { } world) return;
-        List<FallenCreature> fallen = [];
-        foreach (PlacePopulationEntity entity in world.Population)
-        {
-            if (!entity.IsAlive) continue;
-
-            CombatantId id = CombatantId.Of(entity.Id);
-            PlacePose pose = world.PoseOf(id) ?? entity.Pose;
-            CombatSubject subject = new(id, world.Place, pose, member: null, entity);
-            if (_rule.NatureOf(subject) is not { IsCreature: true }) continue;
-            if (CreatureHealth.Find(entity.Actor) is { IsDown: true }) fallen.Add(new FallenCreature(entity.Placement, pose, _rule.NameOf(subject)));
-        }
-
-        _fallen.Observe(world.Place, fallen);
     }
 
     /// <summary>
@@ -815,7 +765,18 @@ public sealed class CombatState : IGameTimeObserver
             return laid;
         }
 
-        return damage > 0 && Health(target.Subject) is { } health && health.Wound(damage);
+        if (damage <= 0 || Health(target.Subject) is not { } health || !health.Wound(damage)) return false;
+
+        // This blow is what took the creature down, which is the one moment it dies: every observer the game
+        // named hears it now, once, and nothing reads the death back out of the place later.
+        if (target.Subject.Entity is { } entity)
+        {
+            PlacePose fell = _world?.PoseOf(target.Id) ?? target.Subject.Pose;
+            CreatureDeath death = new(target.Subject.Place, entity.Placement with { Pose = fell }, target.Name);
+            foreach (ICreatureDeathObserver observer in _deaths) observer.Died(death);
+        }
+
+        return true;
     }
 
     /// <summary>The creature's own health, when the actor is a world entity that has any.</summary>

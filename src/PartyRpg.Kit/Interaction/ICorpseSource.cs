@@ -30,4 +30,11 @@ public interface ICorpseSource
     /// <param name="place">The place to read.</param>
     /// <returns>The bodies, empty when nothing lies there.</returns>
     IReadOnlyList<PlacementDefinition> CorpsesOf(PlaceId place);
+
+    /// <summary>
+    /// Tells the source that a place's population was built afresh — the party walked in, or the clock restored
+    /// it — so every body it held belonged to a visit that is over.
+    /// </summary>
+    /// <param name="place">The place whose population was built.</param>
+    void Repopulated(PlaceId place);
 }

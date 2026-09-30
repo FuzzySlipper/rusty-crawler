@@ -346,7 +346,7 @@ public sealed class LootTests
     /// <see cref="LootTable"/> drawn through the keyed service — so what is being proved is the kit's
     /// mechanism with this test's numbers rather than a stub of either half.
     /// </remarks>
-    private sealed class Rules : ICombatRule, ICombatResolutionRule, IFallenCreatureObserver, ICorpseSource, IInteractionRule
+    private sealed class Rules : ICombatRule, ICombatResolutionRule, ICreatureDeathObserver, ICorpseSource, IInteractionRule
     {
         private readonly KeyedRandom _random;
         private readonly LootTable _table;
@@ -371,21 +371,17 @@ public sealed class LootTests
         /// <summary>What one death leaves: two six-sided dice of coin and one item of the first level.</summary>
         private static readonly TreasureRoll Death = new(100, 2, 6, 1, LootFilter.Any);
 
-        public IReadOnlyList<Corpse> Observe(PlaceId place, IReadOnlyList<FallenCreature> fallen)
+        public void Died(CreatureDeath death)
         {
-            IReadOnlyList<Corpse> bodies = Ground.Observe(place, fallen);
-            foreach (Corpse body in bodies)
-            {
-                if (Ground.Held(body) is not null) continue;
-                LootRolls rolls = new(_random, seed: LootSeed, scope: "test.loot", key: $"death/{place}/{body.Content}/{body.Serial}");
-                Generations++;
-                int coins = rolls.Dice(Death.GoldRolls, Death.GoldSides);
-                LootCandidate picked = Assert.IsType<LootCandidate>(_table.Pick(Death.Level, Death.Filter, rolls));
-                Ground.Hold(body, new LootYield([new LootItem(picked.Definition)], coins));
-            }
-
-            return bodies;
+            Corpse body = Ground.Lay(death);
+            LootRolls rolls = new(_random, seed: LootSeed, scope: "test.loot", key: $"death/{death.Place}/{body.Content}/{body.Serial}");
+            Generations++;
+            int coins = rolls.Dice(Death.GoldRolls, Death.GoldSides);
+            LootCandidate picked = Assert.IsType<LootCandidate>(_table.Pick(Death.Level, Death.Filter, rolls));
+            Ground.Hold(body, new LootYield([new LootItem(picked.Definition)], coins));
         }
+
+        public void Repopulated(PlaceId place) => Ground.Repopulated();
 
         public IReadOnlyList<PlacementDefinition> CorpsesOf(PlaceId place) =>
             [.. Ground.In(place).Select(body => body.Body)];

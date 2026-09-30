@@ -9,35 +9,22 @@ namespace PartyRpg.Kit.Combat;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>A body is the fight's own reading, kept so something else can reach it.</b> A fight re-reads the place
-/// every update and knows exactly which creatures are down and where they lie; nothing else does. This holds
-/// that reading keyed by the place and the creature's placement, which is the same identity the interaction
-/// mechanism discovers targets by, so a body is reachable by the mechanism that already serves a chest
-/// rather than by a second path of its own.
+/// <b>A body is laid when its creature dies.</b> The death is reported once, from the blow that caused it, and
+/// the body is laid then — keyed by the place and the creature's placement, which is the identity the
+/// interaction mechanism discovers targets by, so a body is reachable by the mechanism that already serves a
+/// chest rather than by a second path of its own. Nothing re-reads the place to find it.
 /// </para>
 /// <para>
-/// <b>What a death left is decided once, when it falls.</b> A body's loot is generated the moment the fight
-/// first reads the creature as down, under a key that names that death, and held here. Searching the body
-/// hands over what it holds; nothing is rolled again, so the same body cannot yield two different lots and a
-/// search the party could not carry away leaves the body exactly as full as it was. That is the donor's own
-/// reading of a death — an actor's item and gold are settled when it dies
-/// (<c>src/Engine/Objects/Actor.cpp:192-212</c>, <c>Actor::SetRandomGoldIfTheresNoItem</c>) — and it is why
-/// this ground holds the loot rather than only the body.
+/// <b>What a death left is decided once, when it falls.</b> Whoever rolls a body's loot holds it here under the
+/// body's serial. Searching the body hands over what it holds; nothing is rolled again, so the same body cannot
+/// yield two different lots and a search the party could not carry away leaves the body exactly as full as it
+/// was.
 /// </para>
 /// <para>
 /// <b>A body lasts for the visit.</b> It is an entity the place's population created, and those live exactly
-/// as long as the party stands there: leaving destroys them, a restore rebuilds the place from content, and
-/// a cleared place holds nobody until its interval elapses. A body therefore goes with the visit that made
-/// it, and this ground forgets every other place the moment the fight reads a new one. That is the same rule
-/// a creature's own health follows, and it is why nothing here is durable state: there is nothing to save
-/// that a rebuilt place would not contradict.
-/// </para>
-/// <para>
-/// <b>The ground is replaced, never accumulated.</b> Every observation states what the fight read as down in
-/// the place it is in, whole, so a creature that is standing again — the world restored the place under the
-/// party, or the party walked out and back in — cannot leave a body behind. A creature that is still down
-/// keeps the serial it was given and the loot that death left, so the party finds the body it left standing
-/// over rather than a new one.
+/// as long as the population does: walking into a place and the clock restoring one both build the population
+/// afresh, and that is when this ground forgets every body it held. Nothing here is durable state: there is
+/// nothing to save that a rebuilt place would not contradict.
 /// </para>
 /// </remarks>
 public sealed class CorpseGround
@@ -46,96 +33,58 @@ public sealed class CorpseGround
     private readonly Dictionary<long, LootYield> _held = [];
     private long _serials;
 
-    /// <summary>States what a fight read as down in one place, and answers with the bodies lying there now.</summary>
-    /// <remarks>
-    /// The place is the one the fight stands in, and a body in any other place is forgotten here: the party
-    /// left it, the entities of that visit are gone, and a body that outlived them would be a corpse standing
-    /// where a living creature now walks. The answer is what the ground holds after the reading, so whoever
-    /// generates a body's loot reads the serials this call just gave out rather than guessing at them.
-    /// </remarks>
-    /// <param name="place">The place the fight read.</param>
-    /// <param name="fallen">Every creature it read as down there, in the order it read them.</param>
-    /// <returns>The bodies lying in that place now, in the order the fight read them.</returns>
-    /// <exception cref="ArgumentNullException">No list of the fallen was supplied.</exception>
-    public IReadOnlyList<Corpse> Observe(PlaceId place, IReadOnlyList<FallenCreature> fallen)
+    /// <summary>Lays the body a death left, where the creature fell.</summary>
+    /// <param name="death">The death.</param>
+    /// <returns>The body, with the serial that names this death.</returns>
+    public Corpse Lay(CreatureDeath death)
     {
-        ArgumentNullException.ThrowIfNull(fallen);
-
-        // What was lying here before this reading is read before the ground is emptied, because a body that
-        // is still down keeps the serial it was given — and with it the loot that death left.
-        Dictionary<PlacementContentId, Corpse>? before =
-            _places.TryGetValue(place, out Dictionary<PlacementContentId, Corpse>? held) ? held : null;
-        _places.Clear();
-        if (fallen.Count == 0)
+        ArgumentNullException.ThrowIfNull(death);
+        Corpse body = new(death.Place, death.Placement, death.Name, ++_serials);
+        if (!_places.TryGetValue(death.Place, out Dictionary<PlacementContentId, Corpse>? lying))
         {
-            _held.Clear();
-            return [];
+            lying = [];
+            _places[death.Place] = lying;
         }
 
-        Dictionary<PlacementContentId, Corpse> lying = [];
-        List<Corpse> bodies = [];
-        foreach (FallenCreature creature in fallen)
-        {
-            Corpse body = before is not null && before.TryGetValue(creature.Placement.Content, out Corpse? known)
-                ? known with { Body = creature.Placement with { Pose = creature.Fell }, Name = creature.Name }
-                : new Corpse(place, creature.Placement with { Pose = creature.Fell }, creature.Name, ++_serials);
-            lying[creature.Placement.Content] = body;
-            bodies.Add(body);
-        }
-
-        // What the deaths that are gone left goes with them: a body nothing is lying at is a body the party
-        // has left behind, and holding its loot would be holding the loot of a place this ground no longer
-        // speaks about.
-        foreach (long serial in _held.Keys.Where(serial => !bodies.Any(body => body.Serial == serial)).ToList())
-        {
-            _held.Remove(serial);
-        }
-
-        _places[place] = lying;
-        return bodies;
+        lying[body.Content] = body;
+        return body;
     }
 
     /// <summary>
-    /// The body lying at one placement, or null when nothing is down there.
+    /// Forgets every body and what each held, because a place's population was built afresh and the visit the
+    /// bodies belonged to is over.
     /// </summary>
-    /// <remarks>
-    /// This is the question a ruleset asks about a placement it is describing: a creature's placement reads
-    /// as a living creature when no body lies at it, and as a body when one does. The answer is a reading of
-    /// the fight's own last observation, so nothing has to be remembered twice.
-    /// </remarks>
-    /// <param name="place">The place the placement stands in.</param>
-    /// <param name="content">The placement's identity in that place.</param>
-    /// <returns>The body, or null when the placement is not down.</returns>
+    public void Repopulated()
+    {
+        _places.Clear();
+        _held.Clear();
+    }
+
+    /// <summary>The body lying at a placement, or null when nothing lies there.</summary>
+    /// <param name="place">The place to look in.</param>
+    /// <param name="content">The placement the creature was.</param>
     public Corpse? At(PlaceId place, PlacementContentId content) =>
         _places.TryGetValue(place, out Dictionary<PlacementContentId, Corpse>? held) && held.TryGetValue(content, out Corpse? body)
             ? body
             : null;
 
-    /// <summary>Every body lying in one place, in the order the fight read them.</summary>
+    /// <summary>Every body lying in a place, in the order they fell.</summary>
     /// <param name="place">The place to read.</param>
-    /// <returns>The bodies, empty when nothing is down there.</returns>
     public IReadOnlyList<Corpse> In(PlaceId place) =>
         _places.TryGetValue(place, out Dictionary<PlacementContentId, Corpse>? held) ? [.. held.Values] : [];
 
-    /// <summary>What one death left, or null when nothing has said yet.</summary>
-    /// <remarks>
-    /// Nothing is rolled here: this is what the body holds, generated once by whoever owns generation. A body
-    /// nothing has generated for holds nothing, which is the honest answer for a product that cannot draw.
-    /// </remarks>
-    /// <param name="body">The body to read.</param>
-    /// <returns>What it holds, or null when nothing was generated for it.</returns>
-    /// <exception cref="ArgumentNullException">No body was supplied.</exception>
+    /// <summary>What a body holds, or null when nothing was ever held for it.</summary>
+    /// <param name="body">The body.</param>
     public LootYield? Held(Corpse body)
     {
         ArgumentNullException.ThrowIfNull(body);
         return _held.GetValueOrDefault(body.Serial);
     }
 
-    /// <summary>Records what one death left, once.</summary>
-    /// <param name="body">The body the loot belongs to.</param>
-    /// <param name="loot">What the death left.</param>
-    /// <returns>Whether it was recorded; false when this body already held something.</returns>
-    /// <exception cref="ArgumentNullException">No body or no loot was supplied.</exception>
+    /// <summary>Holds what a body's death left, once.</summary>
+    /// <param name="body">The body.</param>
+    /// <param name="loot">What it holds.</param>
+    /// <returns>Whether it was held, which is false when the body already holds something.</returns>
     public bool Hold(Corpse body, LootYield loot)
     {
         ArgumentNullException.ThrowIfNull(body);

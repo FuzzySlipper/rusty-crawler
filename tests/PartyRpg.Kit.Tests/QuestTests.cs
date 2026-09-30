@@ -74,8 +74,8 @@ public sealed class QuestTests
         // reach is met by standing in the place the quest names, and a kill counts what the fight read as
         // down where the quest says the deed happens.
         quests.Observe(Vault);
-        quests.ObserveDeaths(Keep, [Body(Keep, Monster)]);
-        quests.ObserveDeaths(Keep, [Body(Keep, Monster)]);
+        quests.ObserveDeath(Death(Keep, Monster));
+        quests.ObserveDeath(Death(Keep, Monster));
 
         // Everything the party already carries is read from its own owners: the seal in the one inventory,
         // the flag with its magnitude, and the record the conversation leaves of having met somebody.
@@ -136,9 +136,11 @@ public sealed class QuestTests
         quests.Offer(everything.Id, "marshal");
         quests.Accept(everything.Id);
 
-        // A kill objective counts the fight's own report: two deaths of the row it names count, and a death
-        // of another row or in another place counts for nothing.
-        quests.ObserveDeaths(Keep, [Body(Keep, Monster), Body(Keep, "9"), Body(Vault, Monster)]);
+        // A kill objective counts the fight's own report of each death: a death of the row it names counts, and
+        // a death of another row or in another place counts for nothing.
+        quests.ObserveDeath(Death(Keep, Monster));
+        quests.ObserveDeath(Death(Keep, "9"));
+        quests.ObserveDeath(Death(Vault, Monster));
         Assert.Equal(1, Progress(quests, "kill"));
 
         // A reach objective reads the world's own place: standing in the place it names meets it, and the
@@ -216,7 +218,7 @@ public sealed class QuestTests
         party.Records.Set(Signal.Value, 2);
         party.Records.Set(ClerkMet.Value, 1);
         quests.Observe(Vault);
-        quests.ObserveDeaths(Keep, [Body(Keep, Monster)]);
+        quests.ObserveDeath(Death(Keep, Monster));
         Assert.True(quests.TurnIn(everything.Id, "marshal").IsApplied);
 
         // A quest that states a completion condition beyond its objectives is judged on it as well, and says
@@ -227,7 +229,8 @@ public sealed class QuestTests
         party.AcquireItem(Parcel);
         party.Records.Set(ClerkMet.Value, 1);
         quests.Observe(Vault);
-        quests.ObserveDeaths(Keep, [Body(Keep, Monster), Body(Keep, Monster)]);
+        quests.ObserveDeath(Death(Keep, Monster));
+        quests.ObserveDeath(Death(Keep, Monster));
         QuestResult gated = quests.TurnIn(Errand().Id, "marshal");
         Assert.Equal("quest-objectives-unmet", gated.Refusal!.Code);
         Assert.Contains("the party's standing", gated.Refusal.Message, StringComparison.Ordinal);
@@ -257,7 +260,7 @@ public sealed class QuestTests
         quests.Accept(Everything().Id);
 
         // One instance is part-way through both of the deeds this owner records, and the other has not begun.
-        quests.ObserveDeaths(Keep, [Body(Keep, Monster)]);
+        quests.ObserveDeath(Death(Keep, Monster));
         quests.Observe(Vault);
 
         QuestSave save = quests.Capture();
@@ -322,7 +325,7 @@ public sealed class QuestTests
 
         // One death in the place the errand names moves the errand and nothing else: the patrol asks for a
         // place rather than for a kill, so what one instance records is its own.
-        quests.ObserveDeaths(Keep, [Body(Keep, Monster)]);
+        quests.ObserveDeath(Death(Keep, Monster));
         Assert.Equal(1, Progress(quests, Errand(), "kill"));
         Assert.Equal(0, Progress(quests, Errand(), "reach"));
 
@@ -381,7 +384,8 @@ public sealed class QuestTests
         party.Records.Set(Signal.Value, 2);
         party.Records.Set(ClerkMet.Value, 1);
         quests.Observe(Vault);
-        quests.ObserveDeaths(Keep, [Body(Keep, Monster), Body(Keep, Monster)]);
+        quests.ObserveDeath(Death(Keep, Monster));
+        quests.ObserveDeath(Death(Keep, Monster));
         party.Reputation.ChangeReputation(4);
         QuestResult finished = quests.TurnIn(Errand().Id, "marshal");
         Assert.True(finished.IsApplied, finished.Refusal?.Message);
@@ -442,8 +446,8 @@ public sealed class QuestTests
     /// <summary>The source of an award a finished quest earned, as the owner names it.</summary>
     private static string QuestSource() => PartyQuests.QuestSource;
 
-    /// <summary>A creature the fight read as down, as the ruleset would read it from a placement.</summary>
-    private static Corpse Body(PlaceId place, string row)
+    /// <summary>A creature's death, as the fight reports it, read from a placement as the ruleset would.</summary>
+    private static CreatureDeath Death(PlaceId place, string row)
     {
         using JsonDocument payload = JsonDocument.Parse($$"""{ "kind": "monster", "id": "monster-0", "monster": {{row}} }""");
         PlacementDefinition placement = new(
@@ -452,7 +456,7 @@ public sealed class QuestTests
             0,
             PlacePose.Origin,
             new ContentEntry("monster-0", payload.RootElement.Clone()));
-        return new Corpse(place, placement, $"a creature of row {row}", 1);
+        return new CreatureDeath(place, placement, $"a creature of row {row}");
     }
 
     [Fact]

@@ -204,26 +204,32 @@ public sealed class LootPolicyTests
     [Fact]
     public void A_death_leaves_a_body_holding_what_its_row_states_and_searching_it_takes_that()
     {
-        // The whole path the product takes: the fight reports what it read as down, this game generates the
-        // death's loot once and holds it on the body, and the search hands it through the container
-        // mechanism's own transfer.
+        // The whole path the product takes: the fight reports a death once, this game lays the body and
+        // generates that death's loot once, and the search hands it through the container mechanism's own
+        // transfer.
         MightAndMagic7Loot loot = Loot(Treasure(chance: 100, rolls: 3, sides: 6, level: 1, kind: string.Empty, skill: "sword"));
         CorpseGround ground = new();
         MightAndMagic7Corpses corpses = new(ground, loot);
 
-        IReadOnlyList<Corpse> bodies = corpses.Observe(
+        corpses.Died(new CreatureDeath(
             new PlaceId("7"),
-            [new FallenCreature(Body("monster", "beast", monster: 4), new PlacePose(120, 8, 0, 0, 0), "A beast")]);
+            Body("monster", "beast", monster: 4) with { Pose = new PlacePose(120, 8, 0, 0, 0) },
+            "A beast"));
 
-        Corpse body = Assert.Single(bodies);
+        Corpse body = Assert.Single(ground.In(new PlaceId("7")));
         Assert.Equal(120, body.Pose.X, 3);
         LootYield held = Assert.IsType<LootYield>(ground.Held(body));
         Assert.InRange(held.Coins, 3, 18);
         Assert.Equal(Sword, Assert.Single(held.Items).Definition.Value);
 
-        // A second reading of the same place does not roll again: the body keeps what its death left.
-        corpses.Observe(new PlaceId("7"), [new FallenCreature(body.Body, body.Pose, "A beast")]);
-        Assert.Equal(held, ground.Held(body));
+        // A population built afresh holds none of the bodies the last one left, and what they held goes with them.
+        corpses.Repopulated(new PlaceId("7"));
+        Assert.Empty(ground.In(new PlaceId("7")));
+        Assert.Null(ground.Held(body));
+        Assert.Empty(corpses.CorpsesOf(new PlaceId("7")));
+        corpses.Died(new CreatureDeath(new PlaceId("7"), body.Body, "A beast"));
+        body = Assert.Single(ground.In(new PlaceId("7")));
+        held = Assert.IsType<LootYield>(ground.Held(body));
 
         // The body is offered as the same kind of target a chest is, and searching it hands over the item and
         // the coin through the same outcome the container mechanism applies.
@@ -257,9 +263,8 @@ public sealed class LootPolicyTests
         MightAndMagic7Loot loot = Loot(Treasure(chance: 0, rolls: 0, sides: 0, level: 0));
         CorpseGround ground = new();
         MightAndMagic7Corpses corpses = new(ground, loot);
-        Corpse body = Assert.Single(corpses.Observe(
-            new PlaceId("7"),
-            [new FallenCreature(Body("monster", "beast", monster: 4), PlacePose.Origin, "A beast")]));
+        corpses.Died(new CreatureDeath(new PlaceId("7"), Body("monster", "beast", monster: 4), "A beast"));
+        Corpse body = Assert.Single(ground.In(new PlaceId("7")));
 
         Assert.True(ground.Held(body)?.IsEmpty);
         InteractionTargetDefinition described = Assert.IsType<InteractionTargetDefinition>(
