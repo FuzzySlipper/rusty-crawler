@@ -27,7 +27,12 @@ public sealed class ShippedContentTests
 
         ContentCatalog packs = ContentCatalogLoader.Load(source, layout);
         Assert.True(packs.IsValid, string.Join("; ", packs.Issues.Select(issue => issue.ToString())));
-        string[] packDirectories = [.. Directory.GetDirectories(Path.Combine(root, layout.ContentPacks))
+        // Every root the loader reads packs from, which includes the importer's output: an operator's own imported
+        // packs lie there, ignored by the repository, and the loader reads them exactly as it reads authored ones.
+        string[] packDirectories = [.. layout.PackRoots()
+            .Select(packRoot => Path.Combine(root, packRoot))
+            .Where(Directory.Exists)
+            .SelectMany(Directory.GetDirectories)
             .Where(directory => File.Exists(Path.Combine(directory, "pack.json")))
             .Select(directory => Path.GetFileName(directory)!)
             .Order(StringComparer.Ordinal)];
