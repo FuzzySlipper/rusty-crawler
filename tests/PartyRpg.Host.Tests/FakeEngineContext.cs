@@ -11,16 +11,26 @@ namespace PartyRpg.Host.Tests;
 /// never proved. When a stone attaches a mechanism to another service, the double gains it then, and
 /// the test that needs it is written with it. Persistence has arrived that way: a session composes its
 /// save store over the engine's persistence service, so the double carries one when a test asks for it.
+/// Movement has too: a test that asks for a scripted spatial service (and the content service a place's
+/// collision artifact is admitted through) gets a product that composes its movers over them.
 /// </remarks>
 internal sealed class FakeEngineContext : IEngineContext
 {
     private readonly IPersistenceService? _persistence;
+    private readonly ISpatialService? _spatial;
+    private readonly IContentService? _content;
     private readonly TestRandomService _random = new();
 
-    internal FakeEngineContext(RecordingUiService ui, IPersistenceService? persistence = null)
+    internal FakeEngineContext(
+        RecordingUiService ui,
+        IPersistenceService? persistence = null,
+        ISpatialService? spatial = null,
+        IContentService? content = null)
     {
         Ui = ui;
         _persistence = persistence;
+        _spatial = spatial;
+        _content = content;
     }
 
     /// <summary>The random service this context answers with, which a test states the roll of.</summary>
@@ -45,11 +55,11 @@ internal sealed class FakeEngineContext : IEngineContext
     public IKinematicService Kinematic => Unsupported<IKinematicService>();
 
     /// <summary>
-    /// No engine runtime runs in this suite, so the spatial service is reported as absent rather than
-    /// answered by a stand-in: the product composes movement only when a real engine supplies one, and
-    /// a double that pretended to collide with nothing would be the one lie collision cannot tell.
+    /// Absent unless a test asks for the scripted one: the product composes movement only when an engine
+    /// supplies a spatial service, and the scripted service records what the product asks of it rather than
+    /// pretending to collide.
     /// </summary>
-    public ISpatialService Spatial => null!;
+    public ISpatialService Spatial => _spatial!;
 
     public IPerceptionService Perception => Unsupported<IPerceptionService>();
 
@@ -61,7 +71,7 @@ internal sealed class FakeEngineContext : IEngineContext
 
     public IVoxelScenePresentationService VoxelScenePresentation => Unsupported<IVoxelScenePresentationService>();
 
-    public IContentService Content => Unsupported<IContentService>();
+    public IContentService Content => _content ?? Unsupported<IContentService>();
 
     public IAuthoredContentService AuthoredContent => Unsupported<IAuthoredContentService>();
 

@@ -15,4 +15,9 @@
   <ItemGroup>
     <ProjectReference Include="../../src/PartyRpg.Host/PartyRpg.Host.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- The scripted engine services are the Kit suite's own, shared rather than copied. -->
+    <Compile Include="../PartyRpg.Kit.Tests/ScriptedSpatialService.cs" Link="Shared/ScriptedSpatialService.cs" />
+    <Compile Include="../PartyRpg.Kit.Tests/ScriptedContentService.cs" Link="Shared/ScriptedContentService.cs" />
+  </ItemGroup>
 </Project>

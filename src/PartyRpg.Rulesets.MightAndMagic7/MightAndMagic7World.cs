@@ -174,25 +174,37 @@ internal static class MightAndMagic7World
             places = new PlaceStateLedger(graph, respawn);
         }
 
-        return new SessionWorld(
-            graph,
-            party,
-            places,
+        // One pair of movers over one spatial session: the party and the place's creatures walk in the same
+        // scene, and whatever the world is not handed is released here rather than left holding a session.
+        (IPartyMover? mover, ICreatureMover? creatures) = Movers(party, context);
+        try
+        {
+            return new SessionWorld(
+                graph,
+                party,
+                places,
 
-            // The cost rule is composed over the party itself, because a fare is the party's own passage:
-            // the counter that sells one writes it on the party and the road that honours it reads and
-            // tears the same state, so a seat bought in one town cannot be spent in another's name.
-            new MightAndMagic7TravelCostRule(entity),
-            clock,
-            Movers(party, context).Mover,
-            context.Engine?.Diagnostics,
-            PlaceEntranceLoader.Load(catalog, graph),
-            clock,
-            resources,
-            entity,
-            new InteractionPolicy(Interaction(conversation, schedules.Schedule, corpses, loot, journal), MightAndMagic7Movement.Space, MightAndMagic7Interaction.Aim),
-            schedules.Schedule,
-            Movers(party, context).Creatures);
+                // The cost rule is composed over the party itself, because a fare is the party's own passage:
+                // the counter that sells one writes it on the party and the road that honours it reads and
+                // tears the same state, so a seat bought in one town cannot be spent in another's name.
+                new MightAndMagic7TravelCostRule(entity),
+                clock,
+                mover,
+                context.Engine?.Diagnostics,
+                PlaceEntranceLoader.Load(catalog, graph),
+                clock,
+                resources,
+                entity,
+                new InteractionPolicy(Interaction(conversation, schedules.Schedule, corpses, loot, journal), MightAndMagic7Movement.Space, MightAndMagic7Interaction.Aim),
+                schedules.Schedule,
+                creatures);
+        }
+        catch
+        {
+            (creatures as IDisposable)?.Dispose();
+            mover?.Dispose();
+            throw;
+        }
     }
 
     /// <summary>
@@ -260,9 +272,8 @@ internal static class MightAndMagic7World
             ? new ContentPlaceGeometry(catalog, GeometryDefinitionKind, GeometryArtifactProperty)
             : null;
 
-        return (
-            new EnginePartyMover(spatial, movement, engine.Content, geometry),
-            new EngineCreatureMotion(spatial, movement.Session, MightAndMagic7Movement.Space, tuning.Controller));
+        EnginePartyMover mover = new(spatial, movement, engine.Content, geometry);
+        return (mover, new EngineCreatureMotion(spatial, mover, MightAndMagic7Movement.Space, tuning.Controller));
     }
 
     /// <summary>

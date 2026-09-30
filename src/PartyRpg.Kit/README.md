@@ -209,8 +209,9 @@ or taking the one turn a paced round handed it, asks the `IMonsterAiPolicy` seam
 enemy, how fast a creature moves, and what it does with its moment, applies a decision as an order or as a
 step through the `ICreatureMover` seam, reports what every creature is doing, and marks a place whose
 opposition is all down as cleared through the world's own per-place state; `EngineCreatureMotion` is the
-engine-backed mover — one character step per creature in the party's own collision scene, steered by the
-engine's navigation when a place has one, and no C# collision anywhere), one damage entry for a character's
+engine-backed mover — built over the party's own `EnginePartyMover`, so every creature's character step goes
+to the one scene the place's collision was admitted to, steered at the engine's waypoint only when the place's
+admission carried navigation cells and the engine reports the path reached, and no C# collision anywhere), one damage entry for a character's
 own health
 (`Party/` — `PartyMember.TakeDamage` is where every wound arrives, a creature's bite and a sprung trap
 alike, taking harm into the party's own pool, keeping `CharacterResources.Deficit` for how far past empty

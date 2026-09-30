@@ -31,6 +31,17 @@ internal static class ProductTestContext
     /// </summary>
     internal static (ProductCreateContext Context, RecordingUiService Ui) Create(
         IPersistenceService? persistence,
+        params (string Path, string Text)[] files) =>
+        Create(persistence, spatial: null, contentService: null, files);
+
+    /// <summary>
+    /// A product context whose engine supplies the given services, which is what a session's movers are
+    /// composed over.
+    /// </summary>
+    internal static (ProductCreateContext Context, RecordingUiService Ui) Create(
+        IPersistenceService? persistence,
+        ISpatialService? spatial,
+        IContentService? contentService,
         params (string Path, string Text)[] files)
     {
         RecordingUiService ui = new();
@@ -47,7 +58,7 @@ internal static class ProductTestContext
             ReadOnlyMemory<ProductInputDescriptor>.Empty,
             ReadOnlyMemory<ProductInputMapping>.Empty,
             InputCursorMode.PointerLock);
-        ProductCreateContext context = new(new FakeEngineContext(ui, persistence), content, input, new Rusty.Engine.Debugging.DebugExecutionContext());
+        ProductCreateContext context = new(new FakeEngineContext(ui, persistence, spatial, contentService), content, input, new Rusty.Engine.Debugging.DebugExecutionContext());
         return (context, ui);
     }
 

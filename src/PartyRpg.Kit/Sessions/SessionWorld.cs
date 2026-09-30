@@ -290,6 +290,12 @@ public sealed class EnginePartyMover : IPartyMover
     /// <summary>What the scene holds for the place the party is in, or null before it entered one.</summary>
     public PlaceGeometryAdmission? Current { get; private set; }
 
+    /// <summary>
+    /// The collision scene the party walks in and every place's geometry is admitted to, which is the scene
+    /// anything else that walks in the place must be stepped in too.
+    /// </summary>
+    public SpatialSession Session => _movement.Session;
+
     /// <inheritdoc />
     /// <exception cref="ObjectDisposedException">The mover has been disposed.</exception>
     public PlaceGeometryAdmission Enter(PlaceId place)

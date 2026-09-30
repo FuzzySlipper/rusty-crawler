@@ -1,5 +1,6 @@
 using System.Numerics;
 using PartyRpg.Kit.Movement;
+using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.World;
 using Rusty.Engine;
 
@@ -51,7 +52,7 @@ public sealed class EngineCreatureMotion : ICreatureMover, IDisposable
     private const uint NavigationBudget = 1024;
 
     private readonly ISpatialService _spatial;
-    private readonly SpatialSession _session;
+    private readonly EnginePartyMover _scene;
     private readonly PlaceSpace _space;
     private readonly CharacterControllerConfig _controller;
     private readonly Dictionary<CombatantId, Walker> _walkers = [];
@@ -60,7 +61,11 @@ public sealed class EngineCreatureMotion : ICreatureMover, IDisposable
 
     /// <summary>Creates the mover over the collision scene the party walks in.</summary>
     /// <param name="spatial">The engine service that owns collision and resolves character steps.</param>
-    /// <param name="session">The scene the place's collision was admitted to, which is the party's own.</param>
+    /// <param name="scene">
+    /// The party's own mover, which owns the scene a place's collision is admitted to. A creature is stepped
+    /// in that scene and no other, and what the scene admitted for the place is what says whether there is
+    /// any navigation to steer by.
+    /// </param>
     /// <param name="space">How a place's own coordinates and facing unit become the engine's world.</param>
     /// <param name="controller">
     /// The engine controller profile a creature is swept with, which is the party's profile scaled per
@@ -69,13 +74,12 @@ public sealed class EngineCreatureMotion : ICreatureMover, IDisposable
     /// <exception cref="ArgumentNullException">A required collaborator is missing.</exception>
     public EngineCreatureMotion(
         ISpatialService spatial,
-        SpatialSession session,
+        EnginePartyMover scene,
         PlaceSpace space,
         CharacterControllerConfig controller)
     {
         _spatial = spatial ?? throw new ArgumentNullException(nameof(spatial));
-        ArgumentNullException.ThrowIfNull(session);
-        _session = session;
+        _scene = scene ?? throw new ArgumentNullException(nameof(scene));
         _space = space;
         _controller = controller;
     }
@@ -146,7 +150,7 @@ public sealed class EngineCreatureMotion : ICreatureMover, IDisposable
             Sequence: ++_sequence);
 
         CharacterStepReceipt receipt = _spatial.ProposeCharacterStep(new CharacterStepRequest(
-            _session,
+            _scene.Session,
             position,
             walker.Motion,
             default,
@@ -198,12 +202,16 @@ public sealed class EngineCreatureMotion : ICreatureMover, IDisposable
     /// <param name="target">What it is walking at.</param>
     private Vector3 Steer(Vector3 position, Vector3 target)
     {
-        NavigationStepResult nav = _spatial.EvaluateNavigationStep(
-            new NavigationStepRequest(_session, position, target, NavigationStepUnits, NavigationBudget));
+        // A place whose admission carried no navigation cells has nothing to steer by, so the engine is not
+        // asked once per creature per update for an answer that can only be that there is none.
+        if (_scene.Current is not { NavigationCells: > 0 }) return target;
 
-        // A waypoint the engine did not state is no waypoint: a creature in a place with no navigation, or
-        // one whose target nothing can reach, walks straight at what it wants.
-        return nav.NextWaypoint == Vector3.Zero ? target : nav.NextWaypoint;
+        NavigationStepResult nav = _spatial.EvaluateNavigationStep(
+            new NavigationStepRequest(_scene.Session, position, target, NavigationStepUnits, NavigationBudget));
+
+        // Only a path the engine found names a waypoint; any other outcome — no path, a budget spent, an end
+        // that is not walkable — leaves the creature walking straight at what it wants.
+        return nav.Outcome == NavigationPathOutcome.Reached ? nav.NextWaypoint : target;
     }
 
     /// <summary>
