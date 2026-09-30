@@ -344,7 +344,7 @@ public sealed class CombatResolutionTests
 
     /// <summary>The fight this suite exercises: the kit's state over the suite's own rule.</summary>
     private static CombatState Fight(SessionWorld world, PartyEntity party, Rules rules) =>
-        new(rules, party, world, Clock());
+        new(Capabilities.Combat(rules), party, world, Clock());
 
     private static PlacePose Pose() => new(0, 0, 0, 0, 0);
 

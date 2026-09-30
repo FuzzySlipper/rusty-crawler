@@ -85,7 +85,7 @@ public readonly record struct CreatureMoveOutcome(bool Moved, PlacePose Pose, do
 /// changes: a position from one place must never be read as a position in another.
 /// </para>
 /// </remarks>
-public interface ICreatureMover
+public interface ICreatureMover : IDisposable
 {
     /// <summary>Where a creature stands now, or null when nothing has moved it from its placement.</summary>
     /// <param name="creature">The creature, by the identity the fight knows it under.</param>

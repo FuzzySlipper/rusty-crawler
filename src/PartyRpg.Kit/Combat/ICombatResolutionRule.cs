@@ -16,7 +16,7 @@ namespace PartyRpg.Kit.Combat;
 /// <b>It is a separate seam from <see cref="ICombatRule"/>, and optional.</b> Pacing a fight and resolving
 /// one are different answers, and a product may hold the first without the second: the fight stills paces
 /// actors, still refuses an order while one is recovering, and simply records that an attack was attempted
-/// and nothing came of it. That is why a fight asks whether the rule it was handed also answers resolution
+/// and nothing came of it. That is why a fight is handed a resolution by name in <see cref="CombatRules"/>
 /// rather than requiring every ruleset to state damage it does not have yet.
 /// </para>
 /// <para>

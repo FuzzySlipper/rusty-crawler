@@ -44,6 +44,7 @@ public sealed class CombatState : IGameTimeObserver
 {
     private readonly ICombatRule _rule;
     private readonly ICombatResolutionRule? _resolution;
+    private readonly ICombatAbilityResolutionRule? _abilities;
     private readonly ICombatWeaponRule? _weapons;
     private readonly IFallenCreatureObserver? _fallen;
     private readonly PartyEntity _party;
@@ -59,10 +60,10 @@ public sealed class CombatState : IGameTimeObserver
     private long _attacksResolved;
 
     /// <summary>Creates a fight over the party and the world it stands in.</summary>
-    /// <param name="rule">
-    /// This game's answers about recovery, hostility, reach, and what an actor is. A rule that also answers
-    /// <see cref="ICombatResolutionRule"/> resolves what its attacks do; one that answers only pacing fights
-    /// without resolving anything, and every attack is recorded as an attempt that came to nothing.
+    /// <param name="rules">
+    /// This game's answers about recovery, hostility, reach, and what an actor is, with each further capability
+    /// named. A fight given a resolution resolves what its attacks do; one given only pacing fights without
+    /// resolving anything, and every attack is recorded as an attempt that came to nothing.
     /// </param>
     /// <param name="party">
     /// The party, which is the fight's own side: its members are combatants whether or not anything is
@@ -79,18 +80,20 @@ public sealed class CombatState : IGameTimeObserver
     /// moment.
     /// </param>
     /// <param name="diagnostics">Where every order and refusal is reported. Optional, and nothing depends on it.</param>
-    /// <exception cref="ArgumentNullException">No rule or no party was supplied.</exception>
+    /// <exception cref="ArgumentNullException">No rules or no party was supplied.</exception>
     public CombatState(
-        ICombatRule rule,
+        CombatRules rules,
         PartyEntity party,
         ICombatWorld? world = null,
         GameClock? clock = null,
         IDiagnosticsService? diagnostics = null)
     {
-        _rule = rule ?? throw new ArgumentNullException(nameof(rule));
-        _resolution = rule as ICombatResolutionRule;
-        _weapons = rule as ICombatWeaponRule;
-        _fallen = rule as IFallenCreatureObserver;
+        ArgumentNullException.ThrowIfNull(rules);
+        _rule = rules.Rule ?? throw new ArgumentNullException(nameof(rules));
+        _resolution = rules.Resolution;
+        _abilities = rules.Abilities;
+        _weapons = rules.Weapons;
+        _fallen = rules.Fallen;
         _party = party ?? throw new ArgumentNullException(nameof(party));
         _world = world;
         _clock = clock;
@@ -298,9 +301,7 @@ public sealed class CombatState : IGameTimeObserver
                 // closed on the party would measure every distance, notice range, and target against where
                 // the creature used to be.
                 CombatantId id = CombatantId.Of(entity.Id);
-                PlacePose pose = _world is ICombatPositions positions && positions.PoseOf(id) is { } standing
-                    ? standing
-                    : entity.Pose;
+                PlacePose pose = world.PoseOf(id) ?? entity.Pose;
                 CombatSubject subject = new(id, world.Place, pose, member: null, entity);
                 if (_rule.NatureOf(subject) is not { IsCreature: true } nature) continue;
 
@@ -648,9 +649,7 @@ public sealed class CombatState : IGameTimeObserver
             if (!entity.IsAlive) continue;
 
             CombatantId id = CombatantId.Of(entity.Id);
-            PlacePose pose = _world is ICombatPositions positions && positions.PoseOf(id) is { } standing
-                ? standing
-                : entity.Pose;
+            PlacePose pose = world.PoseOf(id) ?? entity.Pose;
             CombatSubject subject = new(id, world.Place, pose, member: null, entity);
             if (_rule.NatureOf(subject) is not { IsCreature: true }) continue;
             if (CreatureHealth.Find(entity.Actor) is { IsDown: true }) fallen.Add(new FallenCreature(entity.Placement, pose, _rule.NameOf(subject)));
@@ -738,7 +737,7 @@ public sealed class CombatState : IGameTimeObserver
         // Which of the actor's own ways of attacking this is decides what the blow is worth, when the order
         // named one and the ruleset answers for them: a creature's second attack has its own dice and its own
         // kind of harm, and a spell its own. Nothing here reads the name; it is handed straight back.
-        AttackPlan plan = ability is { Length: > 0 } named && resolution is ICombatAbilityResolutionRule abilities
+        AttackPlan plan = ability is { Length: > 0 } named && _abilities is { } abilities
             ? abilities.PlanOfAbility(actor.Subject, target.Subject, kind, named)
             : resolution.PlanOf(actor.Subject, target.Subject, kind);
         int hitRoll = rolls.Roll("hit", 0, HitChance.Certain - 1);

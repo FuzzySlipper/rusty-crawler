@@ -228,7 +228,7 @@ public readonly record struct MagicSnapshot(
         // The effect path is asked for the two things only it knows: what a spell may be pointed at when its
         // aim names no actor, and what it has left running. A path that answers neither publishes a spellbook
         // whose spells are all aimed at actors or nobody, which is what a game with no travel states.
-        ISpellAimRule? aims = owner.Effects as ISpellAimRule;
+        ISpellAimRule? aims = owner.Magic.Aim;
         List<SpellMemberSnapshot> members = [];
         for (int index = 0; index < owner.Party.Members.Count; index++)
         {
@@ -291,7 +291,7 @@ public readonly record struct MagicSnapshot(
         }
 
         List<SpellRunningSnapshot> running = [];
-        if (owner.Effects is IRunningSpellEffects ledger)
+        if (owner.Magic.Running is { } ledger)
         {
             foreach (RunningSpellEffect effect in ledger.Running)
             {
@@ -302,7 +302,7 @@ public readonly record struct MagicSnapshot(
         // What a spell has left on each character, read from the same ledger: a ward cast on one member is
         // that member's row, which is how a player sees that the rest of the band is unaffected.
         List<SpellMemberRunningSnapshot> memberRunning = [];
-        if (owner.Effects is IMemberSpellEffects onMembers)
+        if (owner.Magic.Members is { } onMembers)
         {
             foreach (RunningSpellEffect effect in onMembers.RunningOnMembers)
             {
@@ -316,9 +316,9 @@ public readonly record struct MagicSnapshot(
         // with how much of it is left. The reading is the game's own rows and the count is the party's item
         // state, so nothing here decides what an item is worth or how full it is.
         List<SpellItemSnapshot> items = [];
-        if (owner.Rule is ISpellItemRule spellItems)
+        if (owner.Magic.Items is { } spellItems)
         {
-            ISpellItemNames? names = owner.Rule as ISpellItemNames;
+            ISpellItemNames? names = owner.Magic.ItemNames;
             foreach (ItemInstance item in owner.Party.Items)
             {
                 if (spellItems.Reading(item.Definition) is not { } reading) continue;
@@ -341,7 +341,7 @@ public readonly record struct MagicSnapshot(
             }
         }
 
-        string sight = owner.Effects is IPartySightRule light ? PartySights.WireName(light.Sight) : string.Empty;
+        string sight = owner.Magic.Sight is { } light ? PartySights.WireName(light.Sight) : string.Empty;
         if (owner.Last is { } last)
         {
             return new MagicSnapshot(

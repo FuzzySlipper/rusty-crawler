@@ -16,4 +16,9 @@ namespace PartyRpg.Kit.Interaction;
 /// so what the party aims at and what it can walk to are one space.
 /// </param>
 /// <param name="Tuning">The aim the reticle acquires and releases targets within.</param>
-public sealed record InteractionPolicy(IInteractionRule Rule, PlaceSpace Space, InteractionTuning Tuning);
+/// <param name="Corpses">
+/// What a fight left lying in each place, which the reticle can face and a use can search, or null for a game
+/// whose fights leave nothing. It is named here rather than discovered on the rule, so a rule that wraps
+/// another cannot drop it by not forwarding it.
+/// </param>
+public sealed record InteractionPolicy(IInteractionRule Rule, PlaceSpace Space, InteractionTuning Tuning, ICorpseSource? Corpses = null);

@@ -206,7 +206,7 @@ public sealed class SessionOwners
 
         if (Combat is null && rules.Combat is { } combat && Party is { } fighters)
         {
-            Combat = new CombatState(combat.Rule, fighters, World, clock, Diagnostics.Service);
+            Combat = new CombatState(combat, fighters, World, clock, Diagnostics.Service);
             Observe(Combat);
             if (combat.Ai is { } policy)
             {
@@ -217,7 +217,7 @@ public sealed class SessionOwners
         // The casting workflow is composed over the fight, so a cast and a swing are paced by one state.
         if (Casting is null && rules.Magic is { } magic && Party is { } casters)
         {
-            Casting = new Spellcasting(casters, magic.Spells, magic.Effects, Combat, rules.Skills is { } skills ? skills.TierName : null);
+            Casting = new Spellcasting(casters, magic, Combat, rules.Skills is { } skills ? skills.TierName : null);
             if (!_magicObserved && magic.Time is { } lasting)
             {
                 _magicObserved = true;

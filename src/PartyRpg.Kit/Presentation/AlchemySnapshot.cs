@@ -126,8 +126,9 @@ public readonly record struct AlchemySnapshot(
 
     /// <summary>Reads the pack screen's alchemy out of the mixing workflow, or nothing when it holds none.</summary>
     /// <param name="mixing">The session's mixing workflow, or null when it composes none.</param>
+    /// <param name="kinds">The game's reading of what each row is, or null when it states none.</param>
     /// <returns>The alchemy the pack screen shows.</returns>
-    public static AlchemySnapshot From(PotionMixing? mixing)
+    public static AlchemySnapshot From(PotionMixing? mixing, IAlchemyKinds? kinds = null)
     {
         if (mixing is not { } owner) return None;
 
@@ -153,7 +154,7 @@ public readonly record struct AlchemySnapshot(
                 item.Id.ToString(),
                 item.Definition.Value,
                 owner.Rule.NameOf(item.Definition),
-                KindOf(owner.Rule, item.Definition),
+                kinds?.KindOf(item.Definition) ?? string.Empty,
                 item.State.Potency,
                 item.StackCount));
         }
@@ -190,18 +191,6 @@ public readonly record struct AlchemySnapshot(
 
         return new AlchemySnapshot(true, members, items, mixtures, outcome);
     }
-
-    /// <summary>
-    /// What kind of row a definition is, as the panel's wire spells it.
-    /// </summary>
-    /// <remarks>
-    /// The kit's own mixing workflow states nothing about kinds — a mixture is a pair of definitions and that
-    /// is all it needs — so the kind is the game's own answer through <see cref="IAlchemyKinds"/>, which is
-    /// where a screen learns that this thing is a bottle and that one is a reagent without either of them
-    /// being a kit concept. A game that answers no kinds leaves the cell empty rather than inventing a word.
-    /// </remarks>
-    private static string KindOf(IAlchemyRule rule, ItemDefinitionId definition) =>
-        rule is IAlchemyKinds kinds ? kinds.KindOf(definition) : string.Empty;
 }
 
 /// <summary>What kind of thing a definition is, for a screen that names the rows it draws.</summary>

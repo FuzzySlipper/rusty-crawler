@@ -3,6 +3,7 @@ using PartyRpg.Kit.Alchemy;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Skills;
 using Rusty.Engine;
 
@@ -40,7 +41,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// itself states as incompatible. That difference is deliberate and is recorded here rather than rounded.
 /// </para>
 /// </remarks>
-internal sealed class MightAndMagic7Alchemy : IAlchemyRule, PartyRpg.Kit.Presentation.IAlchemyKinds
+internal sealed class MightAndMagic7Alchemy : IAlchemyRule, IAlchemyKinds
 {
     /// <summary>The definition kind the potion table is declared under.</summary>
     internal const string PotionDefinitionKind = "potion";

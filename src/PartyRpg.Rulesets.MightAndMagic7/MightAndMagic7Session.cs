@@ -4,6 +4,7 @@ using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Journal;
 using PartyRpg.Kit.Knowledge;
+using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Progression;
@@ -258,12 +259,23 @@ internal sealed class MightAndMagic7Session : IGameSession
             Service = services,
             Rest = rest,
             Conversation = conversation,
-            Combat = new CombatRules(combat, monsterAi),
+            Combat = new CombatRules(combat, monsterAi, Resolution: combat, Abilities: combat, Weapons: combat, Fallen: combat),
             Progression = new ProgressionRules(MightAndMagic7Progression.Instance, promotions),
             Standing = standing,
             Skills = skills,
-            Magic = spells is null ? null : new MagicRules(spells, spellEffects, Running: spellEffects, Time: spellEffects),
-            Alchemy = alchemy is null ? null : new AlchemyRules(alchemy, alchemy.Catalog),
+            Magic = spells is null
+                ? null
+                : new MagicRules(
+                    spells,
+                    spellEffects,
+                    Running: spellEffects,
+                    Time: spellEffects,
+                    Aim: spellEffects,
+                    Members: spellEffects,
+                    Sight: spellEffects,
+                    Items: spells,
+                    ItemNames: spells),
+            Alchemy = alchemy is null ? null : new AlchemyRules(alchemy, alchemy.Catalog, Kinds: alchemy),
             Quests = quests,
             Journal = journal,
             Knowledge = knowledge,

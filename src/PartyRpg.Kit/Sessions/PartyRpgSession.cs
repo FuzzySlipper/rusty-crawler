@@ -532,7 +532,7 @@ public sealed class PartyRpgSession : IGameSession
         PromotionSnapshot.From(Progression),
         SkillsSnapshot.From(Progression),
         MagicSnapshot.From(_owners.Casting, _owners.Rules.Skills),
-        AlchemySnapshot.From(_owners.Mixing),
+        AlchemySnapshot.From(_owners.Mixing, _owners.Rules.Alchemy?.Kinds),
         QuestSnapshot.From(Quests),
         JournalSnapshot.From(Journal, Quests, LiveWorld, Clock, Knowledge, Maps),
         MapSnapshot.From(Maps, LiveWorld, _owners.Rules.Magic?.Running));

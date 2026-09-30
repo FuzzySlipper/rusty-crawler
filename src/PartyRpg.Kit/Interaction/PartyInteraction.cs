@@ -71,11 +71,11 @@ public sealed class PartyInteraction : IWorldInteractionScene
     /// </param>
     /// <param name="tuning">The aim the reticle acquires and releases targets within.</param>
     /// <exception cref="ArgumentNullException">The world or the rule is missing.</exception>
-    public PartyInteraction(IInteractionWorld world, IInteractionRule rule, PlaceSpace space, InteractionTuning tuning)
+    public PartyInteraction(IInteractionWorld world, IInteractionRule rule, PlaceSpace space, InteractionTuning tuning, ICorpseSource? corpses = null)
     {
         _world = world ?? throw new ArgumentNullException(nameof(world));
         _rule = rule ?? throw new ArgumentNullException(nameof(rule));
-        _corpses = rule as ICorpseSource;
+        _corpses = corpses;
         _space = space;
         _tuning = tuning;
         _selection = new WorldInteraction(this);

@@ -133,7 +133,7 @@ public sealed class SpellEffectTests
         using PartyEntity party = Party();
         GameClock clock = Clock();
         RecordingEffects effects = new(party, clock);
-        Spellcasting casting = new(party, new TestSpells(), effects);
+        Spellcasting casting = new(party, Capabilities.Magic(new TestSpells(), effects));
         party.Members[0].Spells.Learn(Travel);
 
         effects.Expressed = SpellApplicationOutcome.Expressed(

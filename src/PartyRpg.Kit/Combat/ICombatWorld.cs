@@ -29,4 +29,15 @@ public interface ICombatWorld
 
     /// <summary>The entities alive in the party's place right now.</summary>
     IReadOnlyList<PlacePopulationEntity> Population { get; }
+
+    /// <summary>Where an actor stands now, or null when this world has no live position for it.</summary>
+    /// <remarks>
+    /// A world actor stands where its placement put it unless something has moved it, which is what a creature
+    /// that closes on the party does; a fight that went on measuring a moved creature against its placement
+    /// would be a fight against a ghost. A world that owns no live position for an actor answers null and the
+    /// fight reads the placement, which is the honest reading of a world nothing moves in. Positions are in the
+    /// place's own units, the units a placement and the party's pose are stated in.
+    /// </remarks>
+    /// <param name="actor">The actor to look for, by the identity the fight knows it under.</param>
+    PlacePose? PoseOf(CombatantId actor);
 }

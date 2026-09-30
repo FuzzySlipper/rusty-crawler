@@ -22,7 +22,7 @@ namespace PartyRpg.Kit.Sessions;
 /// game. Arriving and travelling both mark the place visited, so knowledge accrues the same way
 /// wherever the party goes.
 /// </remarks>
-public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionWorld, IRestSite, ICombatWorld, ICombatPositions
+public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionWorld, IRestSite, ICombatWorld
 {
     private readonly TransitionExecutive _transitions;
     private readonly IDisposable? _clockSubscription;
@@ -135,7 +135,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         Mover = mover;
         Creatures = creatures;
         Schedule = schedule ?? PlaceSchedule.Empty;
-        Interaction = interaction is null ? null : new PartyInteraction(this, interaction.Rule, interaction.Space, interaction.Tuning);
+        Interaction = interaction is null ? null : new PartyInteraction(this, interaction.Rule, interaction.Space, interaction.Tuning, interaction.Corpses);
         // The place the party starts in is entered exactly as any other is, so the scene it walks in is
         // filled from that place's content before the first step rather than one arrival late.
         mover?.Enter(party.Place);
@@ -485,7 +485,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
 
         // The creature mover walks in the party mover's own spatial session, so it is released first and
         // releases nothing of its own beyond the walkers it kept: the scene belongs to the movement.
-        (Creatures as IDisposable)?.Dispose();
+        Creatures?.Dispose();
         Mover?.Dispose();
     }
 
@@ -610,7 +610,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// placement keeps the two apart: a world that has no position of its own for an actor must not claim
     /// content's, because a fight that read one would measure a creature that moved against where it began.
     /// </remarks>
-    PlacePose? ICombatPositions.PoseOf(CombatantId actor) => Creatures?.PoseOf(actor);
+    PlacePose? ICombatWorld.PoseOf(CombatantId actor) => Creatures?.PoseOf(actor);
 
     /// <summary>
     /// What is alive in the place right now, which is what a fight decides who is hostile from.

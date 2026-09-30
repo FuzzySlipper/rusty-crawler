@@ -19,5 +19,6 @@
     <!-- The scripted engine services are the Kit suite's own, shared rather than copied. -->
     <Compile Include="../PartyRpg.Kit.Tests/ScriptedSpatialService.cs" Link="Shared/ScriptedSpatialService.cs" />
     <Compile Include="../PartyRpg.Kit.Tests/ScriptedContentService.cs" Link="Shared/ScriptedContentService.cs" />
+    <Compile Include="../PartyRpg.Kit.Tests/Capabilities.cs" Link="Shared/Capabilities.cs" />
   </ItemGroup>
 </Project>

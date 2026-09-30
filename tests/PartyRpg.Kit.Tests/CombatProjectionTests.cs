@@ -373,7 +373,7 @@ public sealed class CombatProjectionTests
                 new SessionParty.Playing(World: _world, Party: _party),
                 rules: new SessionRules
                 {
-                    Combat = new CombatRules(rules),
+                    Combat = Capabilities.Combat(rules),
                 },
                 controls: new SessionControls
                 {
@@ -563,7 +563,8 @@ public sealed class CombatProjectionTests
             interaction: new InteractionPolicy(
                 rules,
                 PlaceSpace.HeightIsThird(facing, radiansAtZeroFacing: 0),
-                new InteractionTuning(acquisitionAngleRadians: 0.20, releaseAngleRadians: 0.31)),
+                new InteractionTuning(acquisitionAngleRadians: 0.20, releaseAngleRadians: 0.31),
+                Corpses: rules),
             schedule: null);
     }
 

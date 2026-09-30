@@ -9,6 +9,7 @@ using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Maps;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
+using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Promotion;
 using PartyRpg.Kit.Quests;
@@ -80,37 +81,19 @@ public sealed record SessionRules
     public MapRules? Map { get; init; }
 }
 
-/// <summary>A game's answers about fighting, and the policy its creatures act by.</summary>
-/// <param name="Rule">What each actor is worth in recovery, what hostility means, and what an attack reaches.</param>
-/// <param name="Ai">How a creature decides, or null for a fight whose other side never acts.</param>
-public sealed record CombatRules(ICombatRule Rule, IMonsterAiPolicy? Ai = null);
-
 /// <summary>A game's answers about growth, and the ladder of ranks it states.</summary>
 /// <param name="Rule">The experience curve and what a level grants.</param>
 /// <param name="Promotions">The ranks a class leads to, or null for a game that states none.</param>
 public sealed record ProgressionRules(IProgressionRule Rule, IPromotionRule? Promotions = null);
 
-/// <summary>A game's answers about spells, and the path their effects take.</summary>
-/// <param name="Spells">What each spell costs, requires, and aims at.</param>
-/// <param name="Effects">What a spell that lands does, or null for a game whose spells change nothing yet.</param>
-/// <param name="Running">
-/// The effects a spell leaves running on the one clock, which a detection's drawing and a panel's list read,
-/// or null when the effect path keeps none.
-/// </param>
-/// <param name="Time">
-/// The part of the effect path that hears the one clock, so a ward ends in the advance that reaches its
-/// deadline; null when the effect path keeps nothing that lasts.
-/// </param>
-public sealed record MagicRules(
-    ISpellRule Spells,
-    ISpellEffectRule? Effects = null,
-    IRunningSpellEffects? Running = null,
-    IGameTimeObserver? Time = null);
-
 /// <summary>A game's answers about mixing, and the mixtures its own table states.</summary>
 /// <param name="Rule">What mixing asks of a character and what a mixture that goes off costs.</param>
 /// <param name="Mixtures">The mixtures the game states.</param>
-public sealed record AlchemyRules(IAlchemyRule Rule, AlchemyCatalog Mixtures);
+/// <param name="Kinds">
+/// What the game reads each row as — a potion, a reagent, a bottle — which the pack screen shows, or null when
+/// it states none. The mixing itself needs nothing but the pair, so this is the screen's and only the screen's.
+/// </param>
+public sealed record AlchemyRules(IAlchemyRule Rule, AlchemyCatalog Mixtures, IAlchemyKinds? Kinds = null);
 
 /// <summary>A game's answers about the automap, and where each place's own map comes from.</summary>
 /// <param name="Rule">How far a walking party sees and how the map is drawn.</param>

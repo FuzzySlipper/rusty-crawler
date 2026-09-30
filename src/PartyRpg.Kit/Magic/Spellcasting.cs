@@ -209,6 +209,7 @@ public sealed record SpellCastResult
 public sealed class Spellcasting
 {
     private readonly PartyEntity _party;
+    private readonly MagicRules _magic;
     private readonly ISpellRule _rule;
     private readonly ISpellEffectRule? _effects;
     private readonly CombatState? _fight;
@@ -231,20 +232,23 @@ public sealed class Spellcasting
     /// <exception cref="ArgumentNullException">No party or no spell policy was supplied.</exception>
     public Spellcasting(
         PartyEntity party,
-        ISpellRule rule,
-        ISpellEffectRule? effects = null,
+        MagicRules magic,
         CombatState? fight = null,
         Func<SkillTier, string>? rungName = null)
     {
         _party = party ?? throw new ArgumentNullException(nameof(party));
-        _rule = rule ?? throw new ArgumentNullException(nameof(rule));
-        _effects = effects;
+        _magic = magic ?? throw new ArgumentNullException(nameof(magic));
+        _rule = magic.Spells ?? throw new ArgumentNullException(nameof(magic));
+        _effects = magic.Effects;
         _fight = fight;
         _rungName = rungName ?? (tier => tier.Value.ToString(CultureInfo.InvariantCulture));
     }
 
     /// <summary>This game's answers about its own magic, which the panel reads through this owner.</summary>
     public ISpellRule Rule => _rule;
+
+    /// <summary>The game's answers about spells, each capability named, which the panel reads beside the workflow.</summary>
+    public MagicRules Magic => _magic;
 
     /// <summary>The party whose members cast.</summary>
     public PartyEntity Party => _party;
@@ -399,7 +403,7 @@ public sealed class Spellcasting
             cost,
             targetName,
             outcome,
-            spentItem && source is { } used ? Name(_rule as ISpellItemNames, used.Definition) : string.Empty));
+            spentItem && source is { } used ? Name(_magic.ItemNames, used.Definition) : string.Empty));
     }
 
     /// <summary>
@@ -417,10 +421,10 @@ public sealed class Spellcasting
         SpellCastResult Refuse(SpellRefusal refusal) =>
             SpellCastResult.Refused(request.Member, caster.Profile.Name, request.Spell, spellName: string.Empty, refusal);
 
-        ISpellItemNames? names = _rule as ISpellItemNames;
+        ISpellItemNames? names = _magic.ItemNames;
         if (_party.FindItem(id) is not { } instance) return (null, Refuse(SpellRefusal.ItemNotHeld(id.ToString())));
         string called = Name(names, instance.Definition);
-        if (_rule is not ISpellItemRule items || items.Reading(instance.Definition) is not { } reading)
+        if (_magic.Items is not { } items || items.Reading(instance.Definition) is not { } reading)
         {
             return (null, Refuse(SpellRefusal.ItemCarriesNoSpell(called)));
         }

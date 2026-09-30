@@ -553,7 +553,7 @@ public sealed class TurnBasedTests
             new SessionParty.Playing(World: world, Party: party),
             rules: new SessionRules
             {
-                Combat = new CombatRules(new Refusing()),
+                Combat = Capabilities.Combat(new Refusing()),
             },
             controls: new SessionControls
             {
@@ -743,7 +743,7 @@ public sealed class TurnBasedTests
     }
 
     private static CombatState Fight(SessionWorld world, PartyEntity party, Bodies bodies, IRandomService? random = null) =>
-        new(new TestRule(bodies, random), party, world, Clock());
+        new(Capabilities.Combat(new TestRule(bodies, random)), party, world, Clock());
 
     private static PartyRpgSession Session(RecordingUiProjectionChannel channel, SessionWorld world, PartyEntity party) =>
         new(
@@ -751,7 +751,7 @@ public sealed class TurnBasedTests
             channel,
             new SessionOwners(Clock()),
             new SessionParty.Playing(world, party),
-            new SessionRules { Combat = new CombatRules(new TestRule(new Bodies())) },
+            new SessionRules { Combat = Capabilities.Combat(new TestRule(new Bodies())) },
             new SessionControls
             {
                 Combat = new CombatIntentNames(

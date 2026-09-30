@@ -1,0 +1,39 @@
+using PartyRpg.Kit.Combat;
+using PartyRpg.Kit.Magic;
+using PartyRpg.Kit.Sessions;
+
+namespace PartyRpg.Kit.Tests;
+
+/// <summary>
+/// Composes a suite's fakes into the named capabilities the kit's mechanisms take.
+/// </summary>
+/// <remarks>
+/// A product names each capability where it composes a mechanism; a suite's fake usually answers several of them
+/// in one small class, and states which by the interfaces it implements. This reads that statement once, here,
+/// so a suite composes a fight or a casting with exactly what its fake says it answers.
+/// </remarks>
+internal static class Capabilities
+{
+    /// <summary>A fight over a fake's answers, with every capability the fake implements.</summary>
+    internal static CombatRules Combat(ICombatRule rule, IMonsterAiPolicy? ai = null) =>
+        new(
+            rule,
+            ai,
+            rule as ICombatResolutionRule,
+            rule as ICombatAbilityResolutionRule,
+            rule as ICombatWeaponRule,
+            rule as IFallenCreatureObserver);
+
+    /// <summary>A casting over a fake's answers, with every capability the two fakes implement.</summary>
+    internal static MagicRules Magic(ISpellRule spells, ISpellEffectRule? effects = null) =>
+        new(
+            spells,
+            effects,
+            effects as IRunningSpellEffects,
+            effects as IGameTimeObserver,
+            effects as ISpellAimRule,
+            effects as IMemberSpellEffects,
+            effects as IPartySightRule,
+            spells as ISpellItemRule,
+            spells as ISpellItemNames);
+}

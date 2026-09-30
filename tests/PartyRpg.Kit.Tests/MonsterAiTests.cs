@@ -427,7 +427,7 @@ public sealed class MonsterAiTests
 
     /// <summary>The fight this suite exercises: the kit's state over the test's own rule.</summary>
     private static CombatState Fight(SessionWorld world, PartyEntity party, bool resolving = false, double noticeRange = NoticeRange) =>
-        new(resolving ? new Biting(noticeRange) : new TestRule(noticeRange), party, world, Clock());
+        new(Capabilities.Combat(resolving ? new Biting(noticeRange) : new TestRule(noticeRange)), party, world, Clock());
 
     /// <summary>
     /// A world of two places: one hall holding a creature inside its notice range, a creature far outside it,
@@ -530,6 +530,11 @@ public sealed class MonsterAiTests
     /// </summary>
     private sealed class Walking : ICreatureMover
     {
+        /// <summary>This mover holds nothing of the engine's to release.</summary>
+        public void Dispose()
+        {
+        }
+
         private readonly Dictionary<CombatantId, PlacePose> _poses = [];
 
         /// <summary>How many steps were asked for, so a test can tell a decision from a movement.</summary>

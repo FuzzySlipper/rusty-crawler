@@ -61,7 +61,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// knowledge owner — so the interpreter lands as the half that fills them.
 /// </para>
 /// </remarks>
-internal sealed class MightAndMagic7Interaction : IInteractionRule, ICorpseSource
+internal sealed class MightAndMagic7Interaction : IInteractionRule
 {
     /// <summary>The placement kind an interior's door slot is imported as.</summary>
     internal const string DoorPlacementKind = "door";
@@ -330,16 +330,6 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule, ICorpseSourc
 
         return Door(target, context);
     }
-
-    /// <summary>What is lying in one place, which is what the interaction mechanism merges beside content.</summary>
-    /// <remarks>
-    /// The bodies the fight reported travel to the mechanism from here because this rule is the one object
-    /// both halves of a session are composed over: the fight is handed this game's corpse owner to report to,
-    /// and the mechanism is handed this game's answers. A world-composed source would be a second owner of
-    /// one fact.
-    /// </remarks>
-    public IReadOnlyList<PlacementDefinition> CorpsesOf(PlaceId place) =>
-        _corpses?.CorpsesOf(place) ?? [];
 
     /// <summary>
     /// Reports what one search yielded to the party's journal, one event per distinct item.

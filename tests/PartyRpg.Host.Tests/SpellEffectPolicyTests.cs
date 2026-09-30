@@ -7,6 +7,7 @@ using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
+using PartyRpg.Kit.Tests;
 using PartyRpg.Rulesets.MightAndMagic7;
 using Rusty.Engine;
 using Xunit;
@@ -405,7 +406,7 @@ public sealed class SpellEffectPolicyTests
     /// <summary>A fight over the session's own world, read once, so its subjects are the live ones.</summary>
     private static CombatState FightOf(MightAndMagic7Session live, ICombatRule rule)
     {
-        CombatState fight = new(rule, live.Party!, live.World);
+        CombatState fight = new(Capabilities.Combat(rule), live.Party!, live.World);
         fight.Step();
         return fight;
     }

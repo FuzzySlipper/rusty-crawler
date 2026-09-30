@@ -232,7 +232,7 @@ public sealed class AlchemyTests
         Assert.Equal(9, potion.State.Potency);
 
         Effects effects = new();
-        Spellcasting casting = new(party, new Spells(potion.Definition), effects);
+        Spellcasting casting = new(party, Capabilities.Magic(new Spells(potion.Definition), effects));
 
         SpellCastResult drunk = casting.Cast(new SpellCastRequest(0, DraughtSpell, Target: string.Empty, Item: potion.Id));
 

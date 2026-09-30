@@ -193,7 +193,7 @@ internal static class MightAndMagic7World
                 clock,
                 resources,
                 entity,
-                new InteractionPolicy(Interaction(conversation, schedules.Schedule, corpses, loot, journal), MightAndMagic7Movement.Space, MightAndMagic7Interaction.Aim),
+                new InteractionPolicy(Interaction(conversation, schedules.Schedule, corpses, loot, journal), MightAndMagic7Movement.Space, MightAndMagic7Interaction.Aim, corpses),
                 schedules.Schedule,
                 creatures,
                 MightAndMagic7Movement.Falls);

@@ -32,7 +32,7 @@ namespace PartyRpg.Kit.Combat;
 /// wherever the ground admits it.
 /// </para>
 /// </remarks>
-public sealed class EngineCreatureMotion : ICreatureMover, IDisposable
+public sealed class EngineCreatureMotion : ICreatureMover
 {
     /// <summary>How far ahead the engine's navigation is asked to look for a walkable step, in place units.</summary>
     /// <remarks>

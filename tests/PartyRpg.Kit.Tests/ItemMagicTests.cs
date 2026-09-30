@@ -290,7 +290,7 @@ public sealed class ItemMagicTests
         using PartyEntity party = Party();
         using SessionWorld world = World(party, creatureAt: 100);
         Arrive(world);
-        CombatState fight = new(rules, party, world, Clock());
+        CombatState fight = new(Capabilities.Combat(rules), party, world, Clock());
 
         // What the actor's own hand holds decides how it attacks: the weapon answer names a spell-kind attack
         // with the item's own ability, and the fight reads that where it re-reads its actors.
@@ -440,7 +440,7 @@ public sealed class ItemMagicTests
     }
 
     /// <summary>The one casting workflow, over this suite's spell rule and effect path.</summary>
-    private static Spellcasting Casting(PartyEntity party, Effects effects) => new(party, new Spells(), effects);
+    private static Spellcasting Casting(PartyEntity party, Effects effects) => new(party, Capabilities.Magic(new Spells(), effects));
 
     /// <summary>Whether a character the game has laid out carries nothing a spell left.</summary>
     private static bool LaidOut(PartyMember member) =>

@@ -212,7 +212,7 @@ public sealed class CombatStateTests
             new SessionParty.Playing(World: world, Party: party),
             rules: new SessionRules
             {
-                Combat = new CombatRules(new TestCombatRule(new SeededRandom())),
+                Combat = Capabilities.Combat(new TestCombatRule(new SeededRandom())),
             },
             controls: new SessionControls
             {
@@ -275,7 +275,7 @@ public sealed class CombatStateTests
             new SessionParty.Playing(World: world, Party: party),
             rules: new SessionRules
             {
-                Combat = new CombatRules(new TestCombatRule(new SeededRandom())),
+                Combat = Capabilities.Combat(new TestCombatRule(new SeededRandom())),
             },
             controls: new SessionControls
             {
@@ -398,7 +398,7 @@ public sealed class CombatStateTests
 
     /// <summary>The fight this suite exercises: the kit's state over the test's own rule.</summary>
     private static CombatState Fight(SessionWorld world, PartyEntity party, IRandomService? random = null) =>
-        new(new TestCombatRule(random), party, world, Clock());
+        new(Capabilities.Combat(new TestCombatRule(random)), party, world, Clock());
 
     private static PlacePose Pose() => new(0, 0, 0, 0, 0);
 

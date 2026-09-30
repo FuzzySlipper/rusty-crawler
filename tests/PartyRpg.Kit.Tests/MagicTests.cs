@@ -116,7 +116,7 @@ public sealed class MagicTests
     {
         using PartyEntity party = Party(withFire: true);
         RecordingEffects effects = new();
-        Spellcasting casting = new(party, new TestSpells(), effects);
+        Spellcasting casting = new(party, Capabilities.Magic(new TestSpells(), effects));
         party.Members[0].Spells.Learn(Torch);
 
         Assert.Equal(1, casting.CostFor(party.Members[0], TestSpells.Catalog.Read(Torch)));
@@ -154,8 +154,7 @@ public sealed class MagicTests
         RecordingEffects effects = new();
         Spellcasting casting = new(
             party,
-            new TestSpells(),
-            effects,
+            Capabilities.Magic(new TestSpells(), effects),
             fight: null,
             rungName: tier => tier.Value == 2 ? "expert" : "basic");
         PartyMember caster = party.Members[0];
@@ -197,17 +196,17 @@ public sealed class MagicTests
         // which leaves it recovering, and the cast is refused for the recovery it still owes.
         caster.Resources.RestoreSpellPoints(10);
         caster.Spells.Learn(Torch);
-        CombatState fight = new(new TestCombat(), party);
+        CombatState fight = new(Capabilities.Combat(new TestCombat()), party);
         fight.Step();
         Assert.True(fight.Order(new AttackOrder(CombatantId.Of(caster.Id), AttackKind.Melee, null)).IsApplied);
-        Spellcasting paced = new(party, new TestSpells(), new MightAndMagic7StyleEffects(), fight);
+        Spellcasting paced = new(party, Capabilities.Magic(new TestSpells(), new MightAndMagic7StyleEffects()), fight);
         int points = caster.Resources.SpellPoints.Current;
         SpellCastResult recovering = paced.Cast(new SpellCastRequest(0, Torch, Target: string.Empty));
         Assert.Equal("spell-caster-cannot-act", recovering.Code);
         Assert.Equal(points, caster.Resources.SpellPoints.Current);
 
         // A session with no effect path resolves and refuses rather than spending a point on nothing.
-        Spellcasting pathless = new(party, new TestSpells());
+        Spellcasting pathless = new(party, Capabilities.Magic(new TestSpells()));
         Assert.Equal("spell-no-effect-path", pathless.Cast(new SpellCastRequest(0, Torch, "")).Code);
 
         // A member the party does not have is refused before anything else is asked.
@@ -223,7 +222,7 @@ public sealed class MagicTests
             Judge = SpellRefusal.CannotAct("Nyx", "what is acting on them leaves them unable to cast"),
         };
 
-        Spellcasting casting = new(party, new TestSpells(), effects);
+        Spellcasting casting = new(party, Capabilities.Magic(new TestSpells(), effects));
         party.Members[0].Spells.Learn(Torch);
         int before = party.Members[0].Resources.SpellPoints.Current;
 
@@ -240,7 +239,7 @@ public sealed class MagicTests
     {
         using PartyEntity party = Party(withFire: true);
         RecordingEffects effects = new() { Expressed = false };
-        Spellcasting casting = new(party, new TestSpells(), effects);
+        Spellcasting casting = new(party, Capabilities.Magic(new TestSpells(), effects));
         party.Members[0].Spells.Learn(Torch);
         int before = party.Members[0].Resources.SpellPoints.Current;
 
@@ -261,7 +260,7 @@ public sealed class MagicTests
     public void The_pool_the_panel_reads_is_the_rules_answer_for_the_class_and_the_scores()
     {
         using PartyEntity party = Party(withFire: true);
-        Spellcasting casting = new(party, new TestSpells(), new RecordingEffects());
+        Spellcasting casting = new(party, Capabilities.Magic(new TestSpells(), new RecordingEffects()));
         party.Members[0].Spells.Learn(FireBolt);
         party.Members[0].Spells.Learn(Torch);
 

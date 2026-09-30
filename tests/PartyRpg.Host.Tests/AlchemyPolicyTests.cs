@@ -167,7 +167,7 @@ public sealed class AlchemyPolicyTests
         using PartyEntity party = Party();
         GameClock clock = Clock();
         MightAndMagic7SpellEffects effects = new(spells, clock, () => null);
-        Spellcasting casting = new(party, spells, effects, fight: null);
+        Spellcasting casting = new(party, new MagicRules(spells, effects, Running: effects, Members: effects, Items: spells, ItemNames: spells), fight: null);
 
         // A potion the party itself mixed: the strength it came out at is what its effect is read at, which is
         // the donor's own reading of a potion (its duration is thirty minutes a point of strength,

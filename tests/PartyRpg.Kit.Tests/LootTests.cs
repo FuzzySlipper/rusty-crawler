@@ -320,6 +320,11 @@ public sealed class LootTests
     /// somewhere other than where content placed it.</summary>
     private sealed class MovedCreature(PlacePose? pose) : ICreatureMover
     {
+        /// <summary>This mover holds nothing of the engine's to release.</summary>
+        public void Dispose()
+        {
+        }
+
         private PlacePose? _pose = pose;
 
         internal void Move(PlacePose? to) => _pose = to;
@@ -548,7 +553,8 @@ public sealed class LootTests
                 interaction: new InteractionPolicy(
                     rules,
                     PlaceSpace.HeightIsThird(new FacingRule(unitsPerTurn: 2048, minimumPitch: -512, maximumPitch: 512), radiansAtZeroFacing: 0),
-                    new InteractionTuning(acquisitionAngleRadians: 0.20, releaseAngleRadians: 0.31)),
+                    new InteractionTuning(acquisitionAngleRadians: 0.20, releaseAngleRadians: 0.31),
+                    Corpses: rules),
                 creatures: mover);
 
             // The party's place is populated exactly as the session populates it on the first update after
@@ -557,7 +563,7 @@ public sealed class LootTests
 
             // The fight is composed over the same world the interaction mechanism reads, exactly as the
             // session composes it, so a kill and a search are two halves of one world rather than two.
-            return new Den(world, party, new CombatState(rules, party, world), rules, mover, time);
+            return new Den(world, party, new CombatState(Capabilities.Combat(rules), party, world), rules, mover, time);
         }
 
         public void Dispose()
