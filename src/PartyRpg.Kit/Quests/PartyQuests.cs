@@ -280,14 +280,11 @@ public sealed class PartyQuests
                 $"'{definition.Name}' pays {rewards.Coins} coin and this session holds no settlement path to credit it through, so nothing was paid."));
         }
 
-        // What the pack would refuse is asked before the errand is finished rather than after: an item
-        // reward that cannot be taken would otherwise leave the quest paid in part.
-        foreach (QuestRewardItem item in rewards.Items)
+        // What the pack would refuse is asked before the errand is finished rather than after, and for every
+        // item reward together: a reward that cannot be taken would otherwise leave the quest paid in part.
+        if (_party.Inventory.Judge(rewards.Items.Select(item => (new ItemDefinitionId(item.Item), item.Count))) is { } refused)
         {
-            if (_party.Inventory.Judge(new ItemDefinitionId(item.Item), item.Count) is { } refused)
-            {
-                return Refuse(QuestAction.TurnIn, quest, refused);
-            }
+            return Refuse(QuestAction.TurnIn, quest, refused);
         }
 
         ProgressionAwardResult? award = rewards.Experience > 0
@@ -308,11 +305,12 @@ public sealed class PartyQuests
             Deliver(objective.Objective, delivered);
         }
 
+        // Every reward was judged together a moment ago, so none is refused here; what is reported as taken is
+        // what the pack actually took all the same.
         List<QuestRewardItem> taken = [];
         foreach (QuestRewardItem item in rewards.Items)
         {
-            _party.AcquireItem(new ItemDefinitionId(item.Item), item.Count);
-            taken.Add(item);
+            if (_party.AcquireItem(new ItemDefinitionId(item.Item), item.Count).Admitted) taken.Add(item);
         }
 
         // The record the quest leaves is written last, so what a later rank or topic reads as "finished" is

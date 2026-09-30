@@ -688,6 +688,44 @@ public sealed class ServiceTests
     }
 
     [Fact]
+    public void A_key_released_while_a_screen_is_open_does_not_walk_the_party_when_it_closes()
+    {
+        using PartyEntity party = Party(coins: 500);
+        using Counter counter = Counter.Build(new ShopRule(Shop()), party, walking: true);
+        using RecordingUiProjectionChannel channel = new();
+        using PartyRpgSession session = new(
+            new SessionComposition(new RulesetId("test.ruleset"), "Test"),
+            channel,
+            counter.World,
+            movementInput: new MovementInput(MovementControls, turnRatePerSecond: 2048),
+            clock: counter.Clock,
+            party: party,
+            accounts: counter.Accounts,
+            service: counter.Rule,
+            useInput: new InteractionUseInput(UseControls),
+            serviceInput: ServiceControls,
+            conversation: new CounterConversation(counter.Rule),
+            conversationInput: ConversationControls);
+        session.Start();
+
+        // Forward goes down and the party walks; then it talks to the keeper with the key still down.
+        session.Update(Update(1, 1, Digital("test.move-forward", InputEdge.Pressed)));
+        session.Update(Update(2, 0));
+        session.Update(Update(3, 1, Digital("test.use", InputEdge.Pressed)));
+        Assert.True(channel.Latest().Field(SessionProjection.ConversationField).Field("open").AsBoolean());
+        PlacePose standing = counter.World.Party.PlacePose;
+
+        // The key comes up while the conversation owns the controls, and the conversation is left: the release
+        // was read even though nothing walked, so the party stands where it stood.
+        session.Update(Update(4, 1, Digital("test.move-forward", InputEdge.Released)));
+        session.Update(Update(5, 1, Digital("test.conversation.leave", InputEdge.Pressed)));
+        Assert.False(channel.Latest().Field(SessionProjection.ConversationField).Field("open").AsBoolean());
+        session.Update(Update(6, 1));
+        session.Update(Update(7, 1));
+        Assert.Equal(standing, counter.World.Party.PlacePose);
+    }
+
+    [Fact]
     public void A_visit_holds_the_party_still_while_the_world_keeps_its_clock()
     {
         using PartyEntity party = Party(coins: 500);

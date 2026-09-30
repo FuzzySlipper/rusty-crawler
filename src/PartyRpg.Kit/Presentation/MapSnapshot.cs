@@ -168,7 +168,7 @@ public readonly record struct MapSnapshot(
         PlacePose pose = world.Party.PlacePose;
         int cells = Math.Max(1, zoom.Cells);
         double cell = DrawingSize / cells;
-        MapCell here = map.Grid.CellAt(pose.X, pose.Z);
+        MapCell here = map.Grid.CellAt(pose.X, pose.Y);
         int left = here.Column - (cells / 2);
         int top = here.Row - (cells / 2);
         double? partyX = Placeable(pose.X, map.Grid.OriginX, left, map.Grid.CellSize, cell);

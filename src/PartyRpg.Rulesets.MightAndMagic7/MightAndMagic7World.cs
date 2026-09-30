@@ -195,7 +195,8 @@ internal static class MightAndMagic7World
                 entity,
                 new InteractionPolicy(Interaction(conversation, schedules.Schedule, corpses, loot, journal), MightAndMagic7Movement.Space, MightAndMagic7Interaction.Aim),
                 schedules.Schedule,
-                creatures);
+                creatures,
+                MightAndMagic7Movement.Falls);
         }
         catch
         {

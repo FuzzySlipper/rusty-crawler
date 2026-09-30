@@ -8,6 +8,24 @@ namespace MightAndMagic7.Import.Tests;
 public sealed class LodArchiveTests
 {
     [Fact]
+    public void A_text_table_is_read_as_Western_text_and_an_undefined_byte_is_named()
+    {
+        // A curly apostrophe and an accented letter as the English release writes them, one byte each.
+        LodPayload table = new(new LodEntry("npcnews.txt", 0, 6), [0x4F, 0x92, 0x43, 0x6C, 0xE9, 0x72], LodPayloadKind.Verbatim);
+        Assert.Equal("O\u2019Cl\u00e9r", table.AsText());
+
+        // A table that says it is UTF-8 is read as UTF-8.
+        LodPayload marked = new(new LodEntry("marked.txt", 0, 5), [0xEF, 0xBB, 0xBF, 0xC3, 0xA9], LodPayloadKind.Verbatim);
+        Assert.Equal("\u00e9", marked.AsText());
+
+        // A byte the code page does not define is refused with the entry and where it stands.
+        LodPayload broken = new(new LodEntry("broken.txt", 0, 3), [0x41, 0x81, 0x42], LodPayloadKind.Verbatim);
+        LodFormatException refused = Assert.Throws<LodFormatException>(() => broken.AsText());
+        Assert.Contains("broken.txt", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("0x81", refused.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Reads_the_header_and_lists_entries_by_name()
     {
         LodArchive archive = LodArchive.FromBytes(

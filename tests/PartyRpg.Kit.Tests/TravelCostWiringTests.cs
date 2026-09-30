@@ -169,6 +169,51 @@ public sealed class TravelCostWiringTests
     }
 
     [Fact]
+    public void A_landing_past_the_threshold_harms_each_member_through_their_own_damage_entry()
+    {
+        using PartyEntity party = Party(foodPortions: 6);
+        PartyPoseOwner pose = Pose();
+        PlaceGraph graph = Graph();
+        using SessionWorld world = new(
+            graph,
+            pose,
+            new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()),
+            new TestCostRule(),
+            mover: new FallingMover(pose, new FallOutcome(Distance: 600, Excess: 88, Damage: 0)),
+            partyEntity: party,
+            falls: new TenthOfEveryone());
+        int[] before = [.. party.Members.Select(member => member.Resources.HitPoints.Current)];
+
+        world.Step(default, 1.0 / 60);
+
+        // Each member loses what the rule priced for them, and nobody is spared or charged twice.
+        Assert.Equal(
+            before.Zip(party.Members, (was, member) => was - (member.Resources.HitPoints.Maximum / 10)),
+            party.Members.Select(member => member.Resources.HitPoints.Current));
+    }
+
+    /// <summary>A fall rule that takes a tenth of what each member can take.</summary>
+    private sealed class TenthOfEveryone : IFallRule
+    {
+        public int DamageTo(PartyMember member, FallOutcome fall) => member.Resources.HitPoints.Maximum / 10;
+    }
+
+    /// <summary>A mover whose every step lands a fall.</summary>
+    private sealed class FallingMover(PartyPoseOwner party, FallOutcome fall) : IPartyMover
+    {
+        public bool InSight(Vector3 from, Vector3 to) => true;
+
+        public PlaceGeometryAdmission Enter(PlaceId place) => PlaceGeometryAdmission.Empty(place);
+
+        public MovementOutcome Step(MovementIntent intent, double elapsedSeconds) =>
+            new(party.Capture().Pose, Vector3.Zero, Grounded: true, default, CharacterBlockFlags.None, default, SurfaceEffect.Ordinary, fall);
+
+        public void Dispose()
+        {
+        }
+    }
+
+    [Fact]
     public void The_session_advances_the_clock_by_the_interval_the_movement_step_covers()
     {
         using RecordingUiProjectionChannel channel = new();
@@ -186,9 +231,12 @@ public sealed class TravelCostWiringTests
         session.Start();
 
         // One update of 120 admitted steps of a sixtieth of a second: the walk covers two seconds, and the
-        // clock is moved by exactly those two seconds converted at its own scale — one interval, one owner.
+        // clock is moved by exactly those two seconds converted at its own scale — one interval, one owner. The
+        // update publishes its projection once, after the walk and the clock have both moved.
+        int published = channel.Count;
         session.Update(Update(0, admitted: 120, fixedDelta: StepSeconds, input: [Forward()]));
 
+        Assert.Equal(published + 1, channel.Count);
         Assert.Equal([2.0], mover.Steps);
         Assert.Equal(GameDuration.FromSeconds(60), clock.Elapsed);
 

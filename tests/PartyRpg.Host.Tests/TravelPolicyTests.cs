@@ -29,6 +29,39 @@ namespace PartyRpg.Host.Tests;
 /// </remarks>
 public sealed class TravelPolicyTests
 {
+    [Fact]
+    public void A_fall_takes_the_donors_share_of_each_members_own_health()
+    {
+        // The donor's arithmetic: the whole distance, times a tenth of the member's maximum health, over 256.
+        // A member who can take 40 and falls 600 loses (600 × 4) / 256 = 9; one who can take 95 loses 21.
+        using PartyEntity party = new PartyEntityFactory().Create(new PartyCreation(
+            [Member("Roderick", 40), Member("Ysolde", 95)],
+            coins: 0,
+            foodPortions: 0,
+            ProvisionUnit.Portions,
+            reputation: 0,
+            fame: 0));
+        PartyRpg.Kit.Movement.FallOutcome fall = new(Distance: 600, Excess: 600 - 512, Damage: 0);
+
+        Assert.Equal(9, MightAndMagic7Movement.Falls.DamageTo(party.Members[0], fall));
+        Assert.Equal(21, MightAndMagic7Movement.Falls.DamageTo(party.Members[1], fall));
+
+        static MemberCreation Member(string name, int hitPoints) => new(new PartyMemberSeed(
+            name,
+            new RaceId("human"),
+            new ClassId("knight"),
+            [new AttributeScore(new AttributeId("Might"), 13)],
+            skills: [],
+            spells: [],
+            experience: 0,
+            level: 1,
+            skillPoints: 0,
+            classRank: 1,
+            conditions: [],
+            hitPoints: ResourcePool.Full(hitPoints),
+            spellPoints: ResourcePool.Full(0)));
+    }
+
     private static readonly PlaceId Home = new("1");
 
     [Fact]

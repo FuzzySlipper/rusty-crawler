@@ -209,6 +209,25 @@ public sealed class InteractionTests
     }
 
     [Fact]
+    public void A_use_the_target_refuses_takes_no_price()
+    {
+        // The price is judged first and settled last: the target's own answer refuses the use, so the party
+        // pays nothing for a use that did not happen.
+        TestRule rule = new();
+        rule.Prices["person"] = PartyCost.OfGold(10);
+        rule.Outcomes["person"] = (_, _) => InteractionOutcome.Refused("ferryman-asleep", "The ferryman is asleep.");
+
+        using PartyEntity party = Party(coins: 25);
+        using Hall hall = Hall.Build(rule, Hall.Facing("person-0"), party);
+        hall.Interaction.Update();
+        InteractionResult answer = hall.Interaction.Use();
+
+        Assert.False(answer.IsApplied);
+        Assert.Equal("ferryman-asleep", answer.Code);
+        Assert.Equal(25, party.Purse.Coins);
+    }
+
+    [Fact]
     public void What_a_use_gives_lands_in_the_shared_pack_or_refuses_the_use_whole()
     {
         TestRule rule = new();

@@ -323,6 +323,25 @@ public sealed class SpellEffectPolicyTests
     }
 
     [Fact]
+    public void A_spell_this_build_applies_none_of_is_refused_by_name_before_it_is_paid_for()
+    {
+        (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(Content());
+        using IGameSession session = Casting(context, ui);
+        MightAndMagic7Session live = (MightAndMagic7Session)session;
+        int before = live.Party!.Members[0].Resources.SpellPoints.Current;
+
+        // Shield turns a missile aside, and nothing in this build resolves a missile the spell could turn: the
+        // casting is refused where it is judged, naming what it would do and whose it would be, and no spell
+        // point is spent on a casting that would change nothing.
+        Cast(session, ui, 1, "17", string.Empty);
+        ProjectedNode refused = Magic(ui);
+        Assert.Equal("refused", refused.Field("outcome").AsString());
+        Assert.Equal("spell-not-applied", refused.Field("code").AsString());
+        Assert.Contains("the fight's own ranged resolution", refused.Field("message").AsString(), StringComparison.Ordinal);
+        Assert.Equal(before, live.Party.Members[0].Resources.SpellPoints.Current);
+    }
+
+    [Fact]
     public void A_spell_whose_target_this_build_cannot_aim_at_is_refused_by_name_before_it_is_paid_for()
     {
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(Content());
@@ -576,6 +595,7 @@ public sealed class SpellEffectPolicyTests
                 { "id": "3", "school": "Fire", "level": 3, "name": "Fire Resistance", "resist": "Fire" },
                 { "id": "5", "school": "Fire", "level": 5, "name": "Haste", "resist": "0" },
                 { "id": "12", "school": "Air", "level": 1, "name": "Wizard Eye", "resist": "0" },
+                { "id": "17", "school": "Air", "level": 6, "name": "Shield", "resist": "0" },
                 { "id": "31", "school": "Water", "level": 9, "name": "Town Portal", "resist": "0" },
                 { "id": "42", "school": "Earth", "level": 9, "name": "Telekinesis", "resist": "0" },
                 { "id": "53", "school": "Spirit", "level": 9, "name": "Raise Dead", "resist": "0" },
@@ -659,14 +679,14 @@ public sealed class SpellEffectPolicyTests
                                       { "id": "Accuracy", "value": 30 }, { "id": "Speed", "value": 25 },
                                       { "id": "Luck", "value": 13 } ],
                       "skills": [ { "id": "Fire", "level": 6, "tier": 2, "pointsSpent": 1 },
-                                  { "id": "Air", "level": 3, "tier": 1, "pointsSpent": 1 },
+                                  { "id": "Air", "level": 3, "tier": 2, "pointsSpent": 1 },
                                   { "id": "Water", "level": 2, "tier": 3, "pointsSpent": 1 },
                                   { "id": "Earth", "level": 3, "tier": 3, "pointsSpent": 1 },
                                   { "id": "Mind", "level": 4, "tier": 2, "pointsSpent": 1 },
                                   { "id": "Spirit", "level": 4, "tier": 3, "pointsSpent": 1 },
                                   { "id": "Body", "level": 2, "tier": 1, "pointsSpent": 1 },
                                   { "id": "Light", "level": 2, "tier": 1, "pointsSpent": 1 } ],
-                      "spells": [ "1", "3", "5", "12", "31", "42", "53", "61", "68", "80" ], "conditions": [] },
+                      "spells": [ "1", "3", "5", "12", "17", "31", "42", "53", "61", "68", "80" ], "conditions": [] },
                     { "name": "Borin", "race": "Human", "class": "Knight", "level": 1, "hitPoints": 40,
                       "spellPoints": 0,
                       "attributes": [ { "id": "Might", "value": 13 }, { "id": "Intellect", "value": 9 },

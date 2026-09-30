@@ -812,9 +812,14 @@ public sealed class PartyRpgSession : IGameSession
         bool attacked = false;
         bool skipped = false;
         bool waited = false;
+
+        // What the player holds is read on every update, whatever owns the controls: a key released while a
+        // screen was open or a turn was awaited is a release the reader must see, or the party would walk on
+        // when the screen closed. What is read is only applied when the party may act.
+        MovementIntent intent = _movementInput?.Read(update.Input) ?? default;
         if (!awaitingTurn && !screenOwnsControls)
         {
-            StepParty(update.Input, seconds);
+            StepParty(intent, seconds);
             if (!quiescent)
             {
                 // Using something follows the step that carried the party to it, in the same update: the
@@ -838,7 +843,7 @@ public sealed class PartyRpgSession : IGameSession
         // The act control is read once per update whatever the mode, because what it holds is a fact about the
         // key: in real time a hold keeps attacking as members recover, and in a paced fight only a press
         // commits a turn, so a held key cannot spend turn after turn.
-        bool attackHeld = !screenOwnsControls && ReadsAttack(update.Input);
+        bool attackHeld = ReadsAttack(update.Input) && !screenOwnsControls;
         bool pressed = attackHeld && !_attackHeld && !_attackSuppressed;
         if (_attackSuppressed)
         {
@@ -892,8 +897,6 @@ public sealed class PartyRpgSession : IGameSession
         // The world advances with the same admitted time the session measures: one clock, one update. The
         // day boundary the clock just crossed is what its places are restored against, so a crossing
         // reaches respawn here rather than through a schedule of the world's own.
-        bool restored = false;
-        bool changed = false;
         if (_liveWorld is { } world)
         {
             // What the party can see is added to its map here, once per update and before anything is read from
@@ -906,9 +909,8 @@ public sealed class PartyRpgSession : IGameSession
             // a publish would leave the world's own facts — the place, the pose, and the hours its doors keep
             // — one update behind the clock published beside them, which is exactly how a shop that shut at
             // six would still read open in the projection that shows the clock striking six.
-            restored = world.AdvanceTime().Count > 0;
+            world.AdvanceTime();
             WorldSnapshot live = world.Snapshot;
-            changed = live != _world;
             _world = live;
 
             // The place the party now stands in is read here, where the world's own report of it arrives, and
@@ -955,12 +957,9 @@ public sealed class PartyRpgSession : IGameSession
         // update, so the panel never shows a fight whose turn it is not yet waiting for.
         ResolveMode();
 
+        // The update is consumed and its one projection published last, once the world, the clock, and the
+        // fight have all moved, so the place and the fight stand beside the clock this update moved.
         Advance(tick);
-
-        // A world that changed or was restored publishes again, so the place and the fight stand beside the
-        // clock this update moved rather than one publish behind it.
-        if (restored || changed) Publish();
-
         return ProductUpdateResult.None;
     }
 
@@ -1143,18 +1142,15 @@ public sealed class PartyRpgSession : IGameSession
     }
 
     /// <summary>
-    /// Reads the player's movement controls and asks the world to move the party by the admitted interval.
+    /// Asks the world to move the party by the admitted interval, as the controls read this update ask.
     /// </summary>
     /// <remarks>
-    /// A paused session still reads what the player holds — a key released while the session was held must
-    /// not keep walking after it resumes — but it never steps, because no admitted time passes for a
-    /// session that is not running.
+    /// The controls are read by the caller on every update, held or not, so a release is never missed; this
+    /// never steps a session that is not running, because no admitted time passes for it.
     /// </remarks>
-    private void StepParty(ReadOnlySpan<ProductInputEvent> input, double seconds)
+    private void StepParty(MovementIntent intent, double seconds)
     {
-        if (_movementInput is null) return;
-        MovementIntent intent = _movementInput.Read(input);
-        if (seconds <= 0 || LiveWorld is not { } world) return;
+        if (_movementInput is null || seconds <= 0 || LiveWorld is not { } world) return;
         world.Step(intent, seconds);
     }
 

@@ -173,8 +173,9 @@ and a deadline (a ward, a light, a haste) still blocks a save by name rather tha
 - The product shows a world and a party only when a bundle carries places, a scenario start, and a
   scenario party; the shipped bundle carries none of them, so a running product without imported packs
   reports no world and no party. Those are content the operator imports, and none of it ships.
-- Fall damage is priced by movement and applied by nobody: a landing past the tuning's threshold is
-  reported with its distance and its excess, and no character loses health. Collision geometry now
+- A landing past the tuning's threshold harms each member through their own damage entry, priced by the
+  world's `IFallRule` (this game's is the donor's share of each member's maximum health; feather falling is
+  not applied because item enchantments are not). Collision geometry now
   travels with content: `write` emits the engine's own spatial artifact for every place whose solid
   faces can be closed (all 76 of the operator's places; 824,320 triangles), and the mover admits it
   when the party enters a place and reports the counts the engine admitted. A place whose geometry

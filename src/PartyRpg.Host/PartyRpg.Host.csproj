@@ -24,6 +24,10 @@
     <RustyEngineProductUiProjectionStream>crawler.hud</RustyEngineProductUiProjectionStream>
     <RustyEngineProductUiProjectionContract>crawler.ui.snapshot.v1</RustyEngineProductUiProjectionContract>
     <RustyEngineProductLifecycleMode>realtime</RustyEngineProductLifecycleMode>
+    <!-- The party turns with keys and the panel is clicked, so there is no mouselook to lock the pointer for:
+         a click on the game view focuses keyboard input without pointer lock, and Escape (the conversation's
+         leave key) is never also the browser's pointer-lock exit. -->
+    <RustyEngineProductInputCursorMode>unlocked</RustyEngineProductInputCursorMode>
     <RustyEngineProductFixedStepHz>60</RustyEngineProductFixedStepHz>
     <RustyEngineProductFixedStepMaxCatchUpSteps>4</RustyEngineProductFixedStepMaxCatchUpSteps>
     <RustyEngineWatchPaths>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'));$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../PartyRpg.Kit'));$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../PartyRpg.Rulesets.MightAndMagic7'));$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../ui'));$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../content'))</RustyEngineWatchPaths>

@@ -123,6 +123,22 @@ public sealed record SpellRefusal
         "spell-target-unavailable",
         $"{spell} acts on {missing}, and this build has no way to aim a spell at one (receiver: {receiver}).");
 
+    /// <summary>
+    /// The game states the spell and this build applies none of what it does, so a casting would be paid for
+    /// and change nothing.
+    /// </summary>
+    /// <remarks>
+    /// It is refused before a point or an item is spent, for the same reason an unaimable target is: the
+    /// sentence names what the spell would do and the owner that would have to exist for it to happen.
+    /// </remarks>
+    /// <param name="spell">What the spell is called.</param>
+    /// <param name="missing">What the spell would do.</param>
+    /// <param name="receiver">Which owner would have to exist for it to happen.</param>
+    /// <returns>The refusal.</returns>
+    public static SpellRefusal NotApplied(string spell, string missing, string receiver) => new(
+        "spell-not-applied",
+        $"{spell} would leave {missing}, and this build applies none of it yet (receiver: {receiver}), so it was not cast and nothing was spent.");
+
     /// <summary>The party has no such member, so a casting has nobody to go to.</summary>
     /// <param name="position">The place in the party the casting named, counted from zero.</param>
     /// <returns>The refusal.</returns>

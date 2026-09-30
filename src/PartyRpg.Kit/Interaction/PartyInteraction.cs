@@ -276,8 +276,10 @@ public sealed class PartyInteraction : IWorldInteractionScene
                 $"{target.Definition.Name} requires {requirement.Describe()}: {verdict.Explanation}");
         }
 
-        // What the use costs settles through the party's one settlement path, which judges both accounts
-        // before either moves, so a charge the party cannot cover refuses the use whole.
+        // What the use costs is judged here and settled only once everything else the use asks has been judged,
+        // so a use that is refused for any reason — a trap, the target's own answer, a pack with no room —
+        // takes nothing from the party.
+        PartyResourceLedger? payer = null;
         if (!target.Definition.Price.IsFree)
         {
             if (_world.Accounts is not { } accounts)
@@ -288,8 +290,8 @@ public sealed class PartyInteraction : IWorldInteractionScene
                     $"{target.Definition.Name} asks a price and this world holds no party whose accounts could pay it.");
             }
 
-            ResourceSettlement settlement = accounts.Settle(target.Definition.Price);
-            if (!settlement.Admitted) return InteractionResult.Refused(target, settlement.Refusal!.Code, settlement.Refusal.Message);
+            if (accounts.Judge(target.Definition.Price) is { } unpaid) return InteractionResult.Refused(target, unpaid.Code, unpaid.Message);
+            payer = accounts;
         }
 
         // What the target guards itself with comes next, and before anything it holds: a trap the party
@@ -316,13 +318,20 @@ public sealed class PartyInteraction : IWorldInteractionScene
                     $"{target.Definition.Name} gives what it holds and this world holds no party to take it.");
             }
 
-            foreach (InteractionItemYield yield in outcome.Items)
+            // Room is judged for everything the use gives together, so a pack that has room for either of two
+            // things is not handed both.
+            if (keeper.Inventory.Judge(outcome.Items.Select(yield => (yield.Definition, yield.Count))) is { } refusal)
             {
-                if (keeper.Inventory.Judge(yield.Definition, yield.Count) is { } refusal)
-                {
-                    return InteractionResult.Refused(target, refusal.Code, refusal.Message);
-                }
+                return InteractionResult.Refused(target, refusal.Code, refusal.Message);
             }
+        }
+
+        // Everything was judged; the price is paid now, and it was judged a moment ago against accounts nothing
+        // has touched since.
+        if (payer is not null)
+        {
+            ResourceSettlement settlement = payer.Settle(target.Definition.Price);
+            if (!settlement.Admitted) return InteractionResult.Refused(target, settlement.Refusal!.Code, settlement.Refusal.Message);
         }
 
         string taken = HandOver(target, outcome);
@@ -406,19 +415,22 @@ public sealed class PartyInteraction : IWorldInteractionScene
     private string HandOver(InteractionTarget target, InteractionOutcome outcome)
     {
         List<string> taken = [];
+        List<string> left = [];
         if (outcome.Items.Count > 0 && _world.Party is { } keeper)
         {
             foreach (InteractionItemYield yield in outcome.Items)
             {
                 ItemAcquisition acquisition = keeper.AcquireItem(yield.Definition, yield.Count);
-                if (!acquisition.Admitted) continue;
-                taken.Add($"{yield.Count} × {yield.Definition}");
+                if (acquisition.Admitted) taken.Add($"{yield.Count} × {yield.Definition}");
+                else left.Add($"{yield.Count} × {yield.Definition} ({acquisition.Refusal?.Message ?? "refused"})");
             }
         }
 
         if (!outcome.Gain.IsFree && _world.Accounts is { } accounts) accounts.Credit(outcome.Gain);
-        if (taken.Count == 0) return string.Empty;
-        return $"The party takes {string.Join(" and ", taken)}.";
+        List<string> said = [];
+        if (taken.Count > 0) said.Add($"The party takes {string.Join(" and ", taken)}.");
+        if (left.Count > 0) said.Add($"It could not take {string.Join(" and ", left)}.");
+        return string.Join(" ", said);
     }
 
     /// <summary>Takes the selection's answer onto this mechanism's own view of what is focused.</summary>

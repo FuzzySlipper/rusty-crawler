@@ -682,7 +682,13 @@ function harness() {
   const claims = [];
   let listener = null;
   let unsubscribed = false;
+  let focused = 0;
   const context = {
+    ui: {
+      focusGameplay: () => {
+        focused += 1;
+      },
+    },
     intents: {
       claim: (intent, value) => claims.push({ intent, value }),
     },
@@ -744,6 +750,9 @@ function harness() {
     useButton: () => root.querySelector('.crawler-session > button.crawler-use'),
     get unsubscribed() {
       return unsubscribed;
+    },
+    get focused() {
+      return focused;
     },
   };
 }
@@ -2966,6 +2975,10 @@ test('the fight control asks for the attack it was shown, on the product contrac
     assert.equal(h.claims[0].value.kind, 'product-payload');
     assert.equal(h.claims[0].value.contract, ACTION_CONTRACT);
 
+    // The button that was clicked holds focus, and the Engine gives the game no key whose path runs through
+    // a button, so the panel hands focus back to the game view with the claim.
+    assert.equal(h.focused, 1);
+
     // The keyboard hint names the key the product declared, so a player who never presses the button knows
     // the control exists.
     assert.match(h.panel().textContent, /Attack with the button or the B key/);
@@ -3983,6 +3996,15 @@ test('the panel shows what in the pack mixes, sends the mixture a player pressed
     assert.equal(h.panel().getAttribute('data-alchemy'), 'present');
     const pack = alchemyPanel(h);
     assert.equal(pack.hidden, false);
+
+    // A projection that carries the same alchemy block leaves the controls standing: the mix button is the
+    // same element and the mixer the player chose is still chosen, so a click is not lost to a rebuild.
+    const chosen = h.panel().querySelector('.crawler-alchemy-mixer');
+    chosen.selectedIndex = 1;
+    h.emit(snapshot('running', 3, 180, 181, movement(), { alchemy: alchemy() }));
+    assert.equal(alchemyPanel(h).mixtures[0].mix, pack.mixtures[0].mix);
+    assert.equal(h.panel().querySelector('.crawler-alchemy-mixer').selectedIndex, 1);
+    chosen.selectedIndex = 0;
 
     // What the pack holds for mixing, as the product published it: the two rows, what kind each is, and the
     // strength the instance carries — a potion mixed from a dragon's eye and one mixed from a berry are the

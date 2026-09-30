@@ -110,8 +110,7 @@ internal static class MightAndMagic7Movement
     /// <remarks>
     /// Fall damage has no rate here on purpose. The donor's damage is proportional to each character's own
     /// maximum health (OpenEnroth <c>src/Engine/Party.cpp:1028</c>), so no single rate in this profile
-    /// could be faithful: a fall is reported with its distance and excess, and whoever owns the party's
-    /// health prices it from there.
+    /// could be faithful: the profile measures the fall, and <see cref="Falls"/> prices it per member.
     /// </remarks>
     /// <param name="spatial">The engine service whose default controller profile this game's profile is scaled from.</param>
     internal static MovementTuning Tuning(ISpatialService spatial) =>
@@ -188,5 +187,25 @@ internal static class MightAndMagic7Movement
                 MaximumDisplacementPerStep = (float)Length(engine.Solver.MaximumDisplacementPerStep),
             },
         };
+    }
+
+    /// <summary>What a landing past the threshold does to each member, as this game prices it.</summary>
+    internal static IFallRule Falls { get; } = new FallDamage();
+
+    /// <summary>
+    /// The donor's fall damage: the whole distance fallen, times a tenth of the member's maximum health, over
+    /// 256 — so a fall hurts every member by the same share of what they can take.
+    /// </summary>
+    /// <remarks>
+    /// Faithful to the arithmetic of OpenEnroth <c>src/Engine/Party.cpp:1028-1037</c> (<c>giveFallDamage</c>),
+    /// called for a fall of more than 512 units (<c>src/Engine/Graphics/Outdoor.cpp:1426-1432</c>), which is
+    /// this game's <see cref="FallThreshold"/>. Two parts are not applied: the donor spares a member wearing an
+    /// item of feather falling, and item enchantments do not exist in this build yet; and it sets a recovery
+    /// on each member, which is combat recovery this landing does not charge.
+    /// </remarks>
+    private sealed class FallDamage : IFallRule
+    {
+        public int DamageTo(PartyMember member, FallOutcome fall) =>
+            (int)(fall.Distance * (member.Resources.HitPoints.Maximum / 10)) / 256;
     }
 }

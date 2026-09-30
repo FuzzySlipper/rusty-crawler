@@ -400,6 +400,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
 {
     private readonly TransitionExecutive _transitions;
     private readonly IDisposable? _clockSubscription;
+    private readonly IFallRule? _falls;
     private readonly IWorldTimeSource? _time;
     private readonly GameClock? _clock;
     private readonly PartyResourceLedger? _resources;
@@ -462,6 +463,10 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// party walks in. Without one creatures stand where content placed them: a product with no engine has
     /// nothing to move them with, and says so rather than sliding them through walls.
     /// </param>
+    /// <param name="falls">
+    /// What a landing past the tuning's threshold does to each member. Without one a fall is measured and
+    /// reported and harms nobody, which is what a game that states no fall damage asks for.
+    /// </param>
     /// <exception cref="ArgumentNullException">A required collaborator is missing.</exception>
     public SessionWorld(
         PlaceGraph graph,
@@ -477,7 +482,8 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         PartyEntity? partyEntity = null,
         InteractionPolicy? interaction = null,
         PlaceSchedule? schedule = null,
-        ICreatureMover? creatures = null)
+        ICreatureMover? creatures = null,
+        IFallRule? falls = null)
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(party);
@@ -492,6 +498,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         _clockSubscription = clock?.Observe(this);
         _resources = resources;
         _entity = partyEntity;
+        _falls = falls;
         _diagnostics = diagnostics;
         Graph = graph;
         Party = party;
@@ -1160,23 +1167,37 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     }
 
     /// <summary>
-    /// Reports a fall the tuning priced to the engine's diagnostics, without applying it.
+    /// Lands a fall the tuning measured past its threshold on each member, and reports it.
     /// </summary>
     /// <remarks>
-    /// A fall is the party's health owner's business, and that owner does not exist yet; the report is
-    /// what makes the cost observable in the meantime, and it names the place so the drop can be traced
-    /// to the geometry that produced it.
+    /// The harm is the game's answer for each member and arrives through that member's own damage entry, so a
+    /// fall leaves the same conditions a trap or a blow would when it empties a member. A world composed
+    /// without a fall rule, or without a party, reports the landing and harms nobody.
     /// </remarks>
     private void Report(MovementOutcome outcome)
     {
-        if (!outcome.Fall.PastThreshold || _diagnostics is null) return;
+        if (!outcome.Fall.PastThreshold) return;
         FallOutcome fall = outcome.Fall;
-        _diagnostics.Publish(new DiagnosticsPublishRequest(
+        int harmed = 0;
+        int total = 0;
+        if (_falls is { } rule && _entity is { } party)
+        {
+            foreach (PartyMember member in party.Members)
+            {
+                int damage = Math.Max(0, rule.DamageTo(member, fall));
+                if (damage == 0) continue;
+                member.TakeDamage(damage);
+                harmed++;
+                total += damage;
+            }
+        }
+
+        _diagnostics?.Publish(new DiagnosticsPublishRequest(
             DiagnosticsSeverity.Info,
             DiagnosticsDisposition.Accepted,
             Source: "movement",
             Code: "fall-past-threshold",
-            Message: $"The party landed in place '{Party.Place}' after falling {fall.Distance:0.###}, past the tuning's threshold by {fall.Excess:0.###}; the fall is reported and not applied, because the party's health owner does not exist yet.",
+            Message: $"The party landed in place '{Party.Place}' after falling {fall.Distance:0.###}, past the tuning's threshold by {fall.Excess:0.###}; {harmed} member(s) took {total} harm.",
             Correlation: string.Empty));
     }
 }

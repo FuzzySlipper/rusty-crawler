@@ -73,8 +73,35 @@ public sealed class PartyResourceLedger
     /// <returns>What was paid and where the accounts stand, or why nothing was paid.</returns>
     public ResourceSettlement Settle(PartyCost quoted)
     {
+        (PartyCost price, PartyRefusal? refused) = Judged(quoted);
+        if (refused is not null) return ResourceSettlement.Refused(refused);
+        PartyPurse purse = _party.Purse;
+        PartyFood food = _party.Food;
+
+        // Both debits were judged a moment ago and nothing has touched the party since, so neither can
+        // refuse now; their answers are discarded so the only refusal a caller can see is the one composed
+        // above.
+        purse.TryDebit(price.Coins);
+        food.TrySpend(price.Food);
+        return ResourceSettlement.Paid(price, purse.Coins, food.Portions);
+    }
+
+    /// <summary>
+    /// Whether a charge would settle now, and why not when it would not, without moving anything.
+    /// </summary>
+    /// <remarks>
+    /// It is the same judgement <see cref="Settle"/> makes, so a caller that must judge everything a use asks
+    /// before anything moves can ask this first and settle last, and the settlement cannot then refuse.
+    /// </remarks>
+    /// <param name="quoted">What the service, fare, fee, or donation quoted.</param>
+    /// <returns>Why the charge would be refused, or null when it would be paid.</returns>
+    public PartyRefusal? Judge(PartyCost quoted) => Judged(quoted).Refusal;
+
+    /// <summary>The price a charge settles at and, when it cannot, why.</summary>
+    private (PartyCost Price, PartyRefusal? Refusal) Judged(PartyCost quoted)
+    {
         SettlementQuote quote = _settlement?.Quote(quoted, _party.Reputation) ?? SettlementQuote.Payable(quoted);
-        if (quote.Refusal is { } refusal) return ResourceSettlement.Refused(refusal);
+        if (quote.Refusal is { } refusal) return (quoted, refusal);
 
         PartyCost price = quote.Cost;
         PartyPurse purse = _party.Purse;
@@ -85,17 +112,9 @@ public sealed class PartyResourceLedger
         int missingCoins = Math.Max(0, price.Coins - purse.Coins);
         bool foodCovered = price.Food.Amount == 0 || food.CanCover(price.Food);
         int missingFood = foodCovered ? 0 : price.Food.Amount - food.Portions;
-        if (missingCoins > 0 || missingFood > 0)
-        {
-            return ResourceSettlement.Refused(Shortfall(price, purse, food, missingCoins, missingFood));
-        }
-
-        // Both debits were judged a moment ago and nothing has touched the party since, so neither can
-        // refuse now; their answers are discarded so the only refusal a caller can see is the one composed
-        // above.
-        purse.TryDebit(price.Coins);
-        food.TrySpend(price.Food);
-        return ResourceSettlement.Paid(price, purse.Coins, food.Portions);
+        return missingCoins > 0 || missingFood > 0
+            ? (price, Shortfall(price, purse, food, missingCoins, missingFood))
+            : (price, null);
     }
 
     /// <summary>Puts value into the party's accounts: a sale's takings, a reward, or provisions found.</summary>

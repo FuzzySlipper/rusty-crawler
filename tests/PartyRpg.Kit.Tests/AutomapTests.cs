@@ -192,6 +192,25 @@ public sealed class AutomapTests
     }
 
     [Fact]
+    public void The_window_is_centred_on_the_party_s_ground_position_and_not_on_its_height()
+    {
+        // A party far down the ground's second axis and standing low: the window follows where it stands on
+        // the ground, so its marker is inside the drawing whatever its height.
+        foreach (PlacePose pose in new[] { new PlacePose(1, 29, 0, 0, 0), new PlacePose(29, 1, 29, 0, 0) })
+        {
+            GameClock clock = Clock();
+            PartyMaps maps = Maps(Region);
+            SessionWorld world = World(clock);
+            world.ArriveAt(Region, pose);
+            maps.Observe(Region, world.Party.PlacePose);
+
+            MapDrawingSnapshot drawing = Assert.IsType<MapDrawingSnapshot>(MapSnapshot.From(maps, world).Drawing);
+            Assert.InRange(drawing.PartyX, 0, MapSnapshot.DrawingSize);
+            Assert.InRange(drawing.PartyY, 0, MapSnapshot.DrawingSize);
+        }
+    }
+
+    [Fact]
     public void The_automap_is_drawn_from_the_party_own_state_with_its_square_and_facing()
     {
         GameClock clock = Clock();

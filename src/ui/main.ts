@@ -16,6 +16,13 @@ interface ProjectionEnvelope {
 }
 
 interface ProductUiContext {
+  /**
+   * The Engine's interface port. Keyboard input reaches the game only while the game view holds focus, so a
+   * control this panel claims an action through hands focus back to it afterwards.
+   */
+  readonly ui?: {
+    focusGameplay(): void;
+  };
   readonly projection?: {
     subscribe(listener: (projection: ProjectionEnvelope | null) => void): () => void;
   };
@@ -3647,12 +3654,17 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   let renderedSkills = '';
   let renderedPromotion = '';
   let renderedMagic = '';
+  let renderedAlchemy = '';
   const claim = (name: string, data: Record<string, unknown> = {}): void => {
     context.intents?.claim(UI_ACTION_INTENT, {
       kind: 'product-payload',
       contract: UI_ACTION_CONTRACT,
       data: { action: name, ...data },
     });
+    // Every claim here comes from a button the player clicked, which now holds keyboard focus; the Engine
+    // gives the game no key whose event path runs through a button, so the game view takes focus back and
+    // the next held key walks the party rather than pressing the button again.
+    context.ui?.focusGameplay();
   };
 
   action.addEventListener('click', () => {
@@ -5044,6 +5056,12 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
       : view.items.length === 0
         ? 'The pack holds nothing that mixes.'
         : `${view.items.length} thing${view.items.length === 1 ? '' : 's'} in the pack that mixes · ${view.mixtures.length} mixture${view.mixtures.length === 1 ? '' : 's'} to attempt`;
+
+    // The controls are rebuilt only when what they show changed, as every other screen's are: a rebuild on
+    // every projection would reset the mixer's own selection many times a second under the player's pointer.
+    const signature = JSON.stringify(view);
+    if (signature === renderedAlchemy) return;
+    renderedAlchemy = signature;
 
     alchemyItems.replaceChildren(
       ...view.items.map((item) => {

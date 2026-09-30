@@ -112,6 +112,13 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
             return SpellRefusal.TargetUnavailable(application.Spell.Name, reading.Missing, reading.Receiver);
         }
 
+        // A spell this build applies none of is refused the same way, before anything is spent: a casting
+        // that took the points or the item and changed nothing would be the same worst of both.
+        if (reading.NotApplied)
+        {
+            return SpellRefusal.NotApplied(application.Spell.Name, reading.Missing, reading.Receiver);
+        }
+
         // A travel spell is judged where it is aimed, before a point is spent: a portal needs a place the
         // world holds and the party has been to, and a beacon needs one it has set. The same judgement is what
         // a refusal names, so a player who typed a place that is not there is told so for the price of a cast

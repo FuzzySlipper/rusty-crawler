@@ -218,6 +218,7 @@ internal readonly record struct BuffReading(EffectId Effect, Func<int, int, int>
 /// <param name="Divergence">How this build's reading of the spell is coarser than the game's, empty when it is not.</param>
 /// <param name="Missing">What this build cannot apply for the spell, empty when it applies all of it.</param>
 /// <param name="Receiver">Who owns what is missing, empty when nothing is.</param>
+/// <param name="NotApplied">Whether this build applies nothing of the spell, so a casting is refused before it is paid for.</param>
 internal readonly record struct SpellReading(
     HealingMode Healing,
     int HealBase,
@@ -241,7 +242,8 @@ internal readonly record struct SpellReading(
     bool Unaimable,
     string Divergence,
     string Missing,
-    string Receiver)
+    string Receiver,
+    bool NotApplied = false)
 {
     /// <summary>The reading of a spell whose category this field does not describe.</summary>
     internal static readonly SpellReading None = new(
@@ -379,7 +381,7 @@ internal static class Readings
 
     /// <summary>What this build cannot apply for a spell, and who owns it.</summary>
     internal static SpellReading NotYet(string missing, string receiver) =>
-        SpellReading.None with { Missing = missing, Receiver = receiver };
+        SpellReading.None with { Missing = missing, Receiver = receiver, NotApplied = true };
 
     /// <summary>
     /// A spell whose effect needs a target this build cannot name, refused by name before it is paid for.
