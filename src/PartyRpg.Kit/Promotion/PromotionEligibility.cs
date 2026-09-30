@@ -13,10 +13,9 @@ namespace PartyRpg.Kit.Promotion;
 /// lives in, the party's own carried records, and who the party is speaking with — and nothing is inferred.
 /// </para>
 /// <para>
-/// <b>An errand is the one kind this build cannot judge.</b> Nothing yet owns a quest's state, so a rank
-/// that asks for a finished errand is unmet here and says so in its own words: the requirement is stated by
-/// the ladder, refused by name, and carried to the owner that will judge it rather than being faked by a
-/// flag nobody sets.
+/// <b>An errand is judged as the record its turn-in leaves.</b> The quest owner writes a record on the party
+/// when an errand is handed back, so a rank that asks for a finished errand asks for that record and is read
+/// here like any other award, rather than by a flag nobody sets.
 /// </para>
 /// </remarks>
 internal static class PromotionEligibility

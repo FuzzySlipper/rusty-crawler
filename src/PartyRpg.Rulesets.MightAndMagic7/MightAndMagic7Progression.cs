@@ -40,8 +40,8 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// dark alternatives differ in what they unlock and not in what a level gives: every pair in both tables
 /// states the same two numbers (Champion and Black Knight 9/0, Priest of the Sun and Priest of the Moon
 /// 4/5, Arch Mage and Lich 3/6, and the rest), so a character who has not chosen a path yet still has
-/// exactly one growth a level can give. Choosing the path is the promotion stone's, and it will move the
-/// rank through the same owner this reads.
+/// exactly one growth a level can give. Choosing the path is a promotion, which moves the rank through the
+/// same owner this reads.
 /// </para>
 /// <para>
 /// <b>What is not read.</b> The donor's learning bonus also counts hired teachers, instructors, and

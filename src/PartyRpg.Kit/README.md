@@ -171,8 +171,8 @@ the counter the party stands at quoted — every number the ruleset's, none of t
 promotes from and to, the rank it reaches, the alternative it takes, the record it leaves, and every
 `PromotionRequirement` it asks for; `IPromotionRule` is the ruleset's one answer over it), judges each
 requirement against the party — a giver the party is speaking with, an item the one inventory holds, a
-record the party carries, and an errand, which no owner in this build judges and which is therefore refused
-by name and travels to the owner that will — and moves the class and the rank together, so a ceiling, a
+record the party carries, which is also how a finished errand is asked for, as the record the quest owner
+writes when it is turned in — and moves the class and the rank together, so a ceiling, a
 growth table, and every class condition read one fact rather than three that could drift. `PromotionSnapshot`
 publishes the ladder a panel shows and the report a rank left: who rose, from which class to which, what
 each of them met, and who it passed over with what they were missing), the skill
@@ -260,7 +260,7 @@ brought due once each, delivered by the clock itself to every `IGameTimeObserver
 owners an admitted update does and no caller forwards an advance by hand, `GameDuration` and `GameDate` values, the `DeadlineId` handles travel, rest,
 training, and spell durations register against, day and night from a `DaylightWindow`, and the
 `IWorldTimeSource` day count the world's respawn reads).
-Everything else in the owner map is still to come.
+Of the owner map, only followers (#8514) and item enchantments (#8513) have no producer yet.
 
 Persistence landed with the party. `SessionSave` is one current schema and nothing else: the party's own
 `PartySave`, `ClockSave`'s elapsed game time, and `WorldSave`'s place, pose, and per-place state, with no
@@ -272,9 +272,9 @@ A save happens only where the product asks for one: `SessionSaveBoundary` is the
 a save leaves out is as decided as what it carries — in-flight movement outcomes, cached projections, the
 population's runtime entities, engine handles, and every store-local entity identity are composed again on
 load — and a document wrong in several places is refused with every problem named at once, never only the
-first. The
-sections a session does not own yet — containers and loose world items, and scenario flags — are absent
-because no owner holds their state; the schema grows a section when one does. The quests section is
+first. Scenario
+flags are the party's own records and travel in its section; what the party did to a place's doors and
+containers is held live by the world's `InteractionLedger` and is not saved yet (#8593). The quests section is
 the one that arrived with its owner: it carries every instance a party holds — the stage, the progress
 recorded against objectives that are moments rather than states, and the place each offer was taken in —
 and no definition at all, because what a quest is means is read from the game's own content when the
@@ -295,7 +295,7 @@ knows unaffected by a place reset.
 The day shape follows the donor's day boundary: a new day takes one ration, the food store is spent down to
 empty rather than the day being refused, and the ruleset's consequence for the larder the day left — weakness
 on every member — is applied by the ledger that spent it
-(`OpenEnroth/src/Engine/Engine.cpp`, the timed-effects party update; `src/Engine/Party.cpp`, `SetFood`).
+(`OpenEnroth/src/Engine/Engine.cpp`, the timed-effects party update; `OpenEnroth/src/Engine/Party.cpp`, `SetFood`).
 What ends that condition — rest, a cure, a day's recovery — is recovery's work, not the day's. The charge,
 the threshold, and the weakened consequence are the ruleset's, so the kit holds none of them.
 
@@ -303,5 +303,5 @@ the threshold, and the weakened consequence are the ruleset's, so the kit holds 
 recorded in [`../../docs/research/mm7-data-inventory.md`](../../docs/research/mm7-data-inventory.md) — the
 donor's item state carries no weight field to read (`OpenEnroth/src/Engine/Objects/Item.h`, whose only
 size is a grid footprint that the one-shared-pack divergence replaces), and armour's cost there is attack
-recovery rather than a carry allowance (`src/Engine/Objects/Character.cpp`, `GetAttackRecoveryTime`).
+recovery rather than a carry allowance (`OpenEnroth/src/Engine/Objects/Character.cpp`, `GetAttackRecoveryTime`).
 Inventing a weight would invent a limit the game does not have, so the shared pack has none.

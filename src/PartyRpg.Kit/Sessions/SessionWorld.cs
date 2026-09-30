@@ -496,7 +496,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// entities, and what the party has done to each place's targets are absent on purpose. The graph and the
     /// entrances are loaded content, the scene is refilled from the place the party resumes in, movement
     /// observations belong to the steps that produced them, the entities are rebuilt from placements, and
-    /// interaction state is live state the persistence owner does not carry yet — each of them a runtime
+    /// interaction state is live state the persistence owner does not carry yet (#8593) — each of them a runtime
     /// shape that a load composes again rather than one a save carries.
     /// </remarks>
     public WorldSave Capture() => new(Party.Capture(), Places.Capture());

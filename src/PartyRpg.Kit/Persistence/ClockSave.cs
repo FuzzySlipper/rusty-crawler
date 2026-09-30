@@ -22,9 +22,9 @@ namespace PartyRpg.Kit.Persistence;
 /// nothing reads.
 /// </para>
 /// <para>
-/// Scheduled work is absent for a reason that fails loudly rather than quietly: nothing in the product owns
-/// a deadline yet, so a clock that is holding one cannot be captured at all, and
-/// <see cref="Capture"/> says so instead of writing a save that silently lost the schedule.
+/// Scheduled work is absent and fails loudly rather than quietly: a deadline its owner rebuilds on load is
+/// left out, and any other refuses the save by name in <see cref="Capture"/> instead of writing a save that
+/// silently lost the schedule. Carrying such deadlines is #8617.
 /// </para>
 /// </remarks>
 public sealed record ClockSave

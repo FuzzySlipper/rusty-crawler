@@ -37,9 +37,8 @@ namespace PartyRpg.Kit.Persistence;
 /// map section is the one that is keyed by place, and deliberately so: what a party has seen of a place is
 /// ground rather than a fact about a thing, so it records the grid the cells were seen on and the cells, and
 /// a place the world restores touches none of it.
-/// Sections arrive with the owners that hold their state: containers and loose world items, and scenario
-/// flags have no owner in the product yet, so a save has nothing of theirs to carry and this document does
-/// not pretend otherwise by holding a section nobody fills.
+/// Scenario flags are the party's own records and travel in its section. What the party did to a place's
+/// doors and containers is held live by the world's interaction ledger and is not carried yet (#8593).
 /// </para>
 /// <para>
 /// <b>What is deliberately absent is as decided as what is here.</b> In-flight movement outcomes, cached

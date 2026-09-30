@@ -260,9 +260,8 @@ internal sealed class MightAndMagic7Promotions : IPromotionRule
     /// errand's own words name something the party brings back — "steal the vase and return it", "bring the
     /// lich jars" — the rank asks for that item, because holding it is state a party really has, and the
     /// shipped quest bit it is the turn-in of is named in the row's own comment. Where the errand is a deed
-    /// with a turn-in — "kill Wromthrax", "move the weight in Watchtower 6" — the rank states it as a quest
-    /// requirement naming the shipped quest table's bit, which no owner in this build judges: it is refused
-    /// by name and travels to the owner of quests. Two errands are counts the original keeps as its own
+    /// with a turn-in — "kill Wromthrax", "move the weight in Watchtower 6" — the rank asks for the
+    /// <c>errand:&lt;bit&gt;</c> record the quest owner writes when that errand is turned in. Two errands are counts the original keeps as its own
     /// awards rather than as quests, and those are stated as records with a magnitude, which a party carries.
     /// </para>
     /// <para>

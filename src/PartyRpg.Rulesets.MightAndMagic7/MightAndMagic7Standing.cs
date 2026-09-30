@@ -65,8 +65,8 @@ internal readonly record struct ReputationBand(string Word, int Floor, string Re
 /// beside the reputation category (<c>src/GUI/UI/UIQuickReference.cpp:134-143</c>) and reads it in exactly
 /// one place: whether somebody will join the party, gated on the party's fame exceeding their own
 /// (<c>src/GUI/UI/UIdialogue.cpp:78</c>, which the donor disables with a note that it is an MM8 behaviour).
-/// This build has no follower owner yet, so nothing can join the party and that gate has nothing to guard;
-/// the ruleset's README names the owner it waits for. Fame is published as its own number and nothing here
+/// This build has no follower owner yet (#8514), so nothing can join the party and that gate has nothing to
+/// guard. Fame is published as its own number and nothing here
 /// invents a band for it.
 /// </para>
 /// <para>

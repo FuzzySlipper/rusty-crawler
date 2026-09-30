@@ -426,8 +426,8 @@ internal static class MightAndMagic7Containers
     /// <summary>What a trap of the place's own damage takes from every member.</summary>
     /// <remarks>
     /// The donor's amount is five points plus as many twenty-sided dice as the map's row declares
-    /// (<c>src/Engine/Objects/SpriteObject.cpp:518-520</c>). With no owner of randomness in this build the
-    /// dice are taken at their mean — ten and a half per die, rounded down — so the same trap always costs
+    /// (<c>src/Engine/Objects/SpriteObject.cpp:518-520</c>). This game takes the dice at their mean rather
+    /// than drawing them — ten and a half per die, rounded down — so the same trap always costs
     /// the same, and a test can state what a sprung trap costs.
     /// </remarks>
     private static int TrapDamage(int dice) => TrapBaseDamage + ((dice * (TrapDieSides + 1)) / 2);

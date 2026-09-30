@@ -65,19 +65,19 @@ internal enum MightAndMagic7SpecialAttackKind
     /// <summary>Eradicates the character, which is the far end of the ladder.</summary>
     Eradicated,
 
-    /// <summary>Breaks an item the character carries, which the items stone owns.</summary>
+    /// <summary>Breaks an item the character carries, which this build does not apply yet.</summary>
     BreakAny,
 
-    /// <summary>Breaks the character's armour, which the items stone owns.</summary>
+    /// <summary>Breaks the character's armour, which this build does not apply yet.</summary>
     BreakArmor,
 
-    /// <summary>Breaks the character's weapon, which the items stone owns.</summary>
+    /// <summary>Breaks the character's weapon, which this build does not apply yet.</summary>
     BreakWeapon,
 
-    /// <summary>Steals from the character, which the items stone owns.</summary>
+    /// <summary>Steals from the character, which this build does not apply yet.</summary>
     Steal,
 
-    /// <summary>Ages the character, which the progression stone owns.</summary>
+    /// <summary>Ages the character, which this build does not apply yet.</summary>
     Aging,
 
     /// <summary>Drains the character's spell points.</summary>

@@ -140,7 +140,7 @@ public sealed record PlaceEntranceSummary(
 /// into; a link whose event's first move is a different link, which an event's later steps reach only
 /// after its earlier ones have run, so nothing about walking selects it; and a link whose source map
 /// carries no face for its event at all. The last two leave the requirement with the event interpreter
-/// that does not exist yet, and the summary names every one of them.
+/// that does not exist yet (#9006), and the summary names every one of them.
 /// </para>
 /// </remarks>
 public static class PlaceEntranceEmitter

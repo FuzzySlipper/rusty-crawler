@@ -797,9 +797,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
         }
 
         // A lesson a member has already taken is not sold twice: teaching a skill to a level the member
-        // already stands at would be charging for a change that never happened. How far a class may take a
-        // skill is the progression owner's ceiling, which does not exist yet, so nothing here pretends to
-        // enforce one.
+        // already stands at would be charging for a change that never happened.
         PartyMember recipient = request.Party.Member(request.Member);
         SkillId skill = new(teaching.Subject);
         int level = recipient.Skills.LevelOf(skill);

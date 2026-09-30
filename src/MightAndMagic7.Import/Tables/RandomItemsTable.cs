@@ -29,8 +29,8 @@ public readonly record struct RandomItemRow(int Id, IReadOnlyList<int> Chances)
 /// <para>
 /// <b>The second section is not read, and that is stated rather than silent.</b> The table's lower half
 /// holds the chances of the enchantments an item may carry, which is a rule this build has no owner for: a
-/// generated item here carries no standard or special enchantment, and the stone that brings items and
-/// enchantments is where that section's numbers are read.
+/// generated item here carries no standard or special enchantment, and item enchantments (#8513) are where
+/// that section's numbers are read.
 /// </para>
 /// <para>
 /// <b>The count is checked, not assumed.</b> A short read would silently weigh fewer items and make every

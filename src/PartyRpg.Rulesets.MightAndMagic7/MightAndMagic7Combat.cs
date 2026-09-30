@@ -32,12 +32,11 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// </para>
 /// <para>
 /// <b>What is approximated is stated.</b> The donor's character recovery is a sum of terms read off the
-/// equipped figure — a weapon's skill, armour, a shield, enchantments, and haste — and this build's party
-/// has no way to wear anything yet: no slot vocabulary, no equipment rule, and no item a character starts
-/// with. What is left is the two terms a character's own body states — its speed, which the donor reads
-/// through its attribute-bonus table, and the armsmaster skill — plus the unarmed base, which is the donor's
-/// own branch for a character holding nothing. The equipment terms belong to the stone that brings items and
-/// equipment, and their place is the sum below.
+/// equipped figure — a weapon's skill, armour, a shield, enchantments, and haste — and this build does not
+/// read the figure's weapon and armour terms yet (#9005). What is read is haste and the two terms a
+/// character's own body states — its speed, which the donor reads through its attribute-bonus table, and the
+/// armsmaster skill — plus the unarmed base, which is the donor's own branch for a character holding nothing.
+/// The equipment terms' place is the sum below.
 /// </para>
 /// </remarks>
 internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule, ICombatAbilityResolutionRule, ICombatWeaponRule
@@ -529,11 +528,9 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
 
     /// <inheritdoc />
     /// <remarks>
-    /// Hand-to-hand, for everybody, and that is a statement about this build rather than about the game: a
-    /// member with a bow or a wand in hand would shoot with it and a monster whose row carries a missile
-    /// would throw one, and neither is reachable yet — the party cannot wear anything, and a creature's row
-    /// reaches the fight as a name, a band, and a recovery. The three kinds are the kit's, and this is where
-    /// each one becomes reachable.
+    /// A creature whose row carries a missile throws it and everything else swings. A member's charged wand is
+    /// answered by <see cref="WeaponOf"/>; a bow in hand is not read yet, because the equipped figure's weapon
+    /// terms are not (#9005). The three kinds are the kit's, and this is where each one becomes reachable.
     /// </remarks>
     public AttackKind AttackKindFor(CombatSubject subject)
     {
@@ -596,8 +593,8 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// <para>
     /// <b>What the hand holds is content's vocabulary rather than this policy's.</b> This build's figures are
     /// filled by content and no slot is named as a hand yet, so a charged item the member wears is what they
-    /// wield; when the owner of items and equipment states a figure's own slots, this reads the hand rather
-    /// than the whole figure (receiver: the item and equipment stone, whose slot vocabulary would name it).
+    /// wield; when this game names a figure's own slots, this reads the hand rather than the whole figure
+    /// (#9005).
     /// </para>
     /// </remarks>
     /// <param name="attacker">The actor whose weapon is read.</param>
@@ -755,13 +752,12 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// rather than as another swing of the first.
     /// </para>
     /// <para>
-    /// <b>A monster's spell lands with the row's own dice.</b> The donor takes a spell's harm from its own
+    /// <b>A monster's spell lands with the spell's own dice.</b> The donor takes a spell's harm from its own
     /// per-spell table (<c>CalcSpellDamage</c>, <c>src/Engine/Spells/Spells.cpp:813</c>, over
-    /// <c>pSpellDatas</c> at <c>Spells.cpp:193</c>), which the imported spell content states as a kind of
-    /// harm and a description rather than as dice. What this game can state is the kind — read from the
-    /// spell's own <c>Resist</c> column, so a creature's fire bolt is fire and its mind blast is mind — and
-    /// the dice are the row's first attack until the stone that brings spells brings their numbers. The hit
-    /// test is the creature's own, because a spell this build casts is aimed like any other attack.
+    /// <c>pSpellDatas</c> at <c>Spells.cpp:193</c>), and so does this game: the dice are this game's per-spell
+    /// reading at the mastery and skill the creature's row states, and the kind is the spell's own
+    /// <c>Resist</c> column, so a creature's fire bolt is fire and its mind blast is mind. The hit test is the
+    /// creature's own, because a spell this build casts is aimed like any other attack.
     /// </para>
     /// <para>
     /// A member of the party has no such abilities: what a character's attack is worth is answered for the
@@ -904,13 +900,13 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// </para>
     /// <para>
     /// <b>Only characters take conditions.</b> A game's conditions are the party's own state, and the donor
-    /// applies them to characters — an actor's paralysis is a buff, which belongs to the monsters-and-AI
-    /// stone, so nothing here invents a condition store for the world.
+    /// applies them to characters — an actor's paralysis is a buff, and nothing here holds a creature's
+    /// running effects, so nothing here invents a condition store for the world.
     /// </para>
     /// <para>
     /// The special attacks that leave something other than a condition are named and not invented: breaking
-    /// an item, stealing one, and aging belong to the stones that own items and progression, and a drained
-    /// spell point is not a condition at all.
+    /// an item, stealing one, and aging are not applied yet, and a drained spell point is not a condition at
+    /// all.
     /// </para>
     /// </remarks>
     public CombatCondition? ConditionOf(CombatSubject attacker, CombatSubject target, DamageKindId kind, IAttackRolls rolls)
@@ -970,12 +966,11 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// The donor's resistance is a sum of what the character was born with — nothing: it is their hired
     /// enchanter, a grandmaster's leather armour, and the temporary bonuses items and spells carry
     /// (OpenEnroth <c>src/Engine/Objects/Character.cpp:1945-1990</c>, <c>GetActualResistance</c>). This
-    /// build's party can wear nothing, carries no enchantment, and knows no spell, so every resistance is
-    /// zero and an unarmed party is hurt by everything in full.
+    /// build reads the ward a spell leaves running and nothing else: what the figure wears is not read yet
+    /// (#9005) and items carry no enchantment (#8513).
     /// </para>
     /// <para>
-    /// The equipment and spell terms belong to the stones that bring items and magic, and this is where they
-    /// go: the sum, in the donor's own order.
+    /// Those terms go here: the sum, in the donor's own order.
     /// </para>
     /// </remarks>
     private Resistance CharacterResistance(PartyMember member, DamageKindId kind)
@@ -1006,8 +1001,8 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// OpenEnroth <c>src/Engine/Objects/Character.cpp:814-856</c> (<c>CalculateMeleeDamageTo</c>): an unarmed
     /// character rolls a three-sided die and adds a point, then their might bonus and the armsmaster
     /// reduction, and a landed blow never does less than one point. The donor's other terms — a weapon's own
-    /// dice, an enchantment, a spell — are read off an equipped figure this build cannot fill, and they
-    /// belong in this sum with the items stone.
+    /// dice, an enchantment — are read off the equipped figure, which this sum does not read yet (#9005);
+    /// the spells a member has running are read below.
     /// </remarks>
     private DamageRoll CharacterDamage(PartyMember member)
     {
@@ -1027,8 +1022,8 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// OpenEnroth <c>src/Engine/Objects/Character.cpp:768-778</c> (<c>GetActualAttack</c>) and
     /// <c>Character.cpp:2666-2688</c> (<c>GetSkillBonus(ATTRIBUTE_ATTACK)</c>): the accuracy bonus, plus an
     /// unarmed character's unarmed skill at the multiplier their mastery is worth, plus what armsmaster adds
-    /// to every attack. A weapon skill, a weapon's own bonus, and a spell's blessing are terms of an equipped
-    /// figure and belong here with the items stone.
+    /// to every attack. A weapon skill and a weapon's own bonus are terms of the equipped figure, which this
+    /// sum does not read yet (#9005).
     /// </remarks>
     private static int AttackBonus(PartyMember member)
     {
@@ -1041,9 +1036,9 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// <summary>What a character's armor class is worth, in the donor's own sum.</summary>
     /// <remarks>
     /// OpenEnroth <c>src/Engine/Objects/Character.cpp:1875-1887</c> (<c>GetActualAC</c>): the speed bonus
-    /// plus what the character is wearing or dodging with, never below zero. This build wears nothing, so
-    /// what is left is the speed bonus and the dodging skill, which the donor adds at its own multipliers
-    /// while no armour is worn (<c>Character.cpp:2596-2647</c>).
+    /// plus what the character is wearing or dodging with, never below zero. What is worn is not read yet
+    /// (#9005), so what is left is the speed bonus and the dodging skill, which the donor adds at its own
+    /// multipliers while no armour is worn (<c>Character.cpp:2596-2647</c>).
     /// </remarks>
     private int CharacterArmorClass(PartyMember member)
     {
@@ -1202,8 +1197,8 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// weapon's own enchantment, haste, the weapon skill's expert reduction, and the speed bonus
     /// (OpenEnroth <c>src/Engine/Objects/Character.cpp:1636-1750</c>). Of those, this build can state four:
     /// the base for a character holding nothing, the armsmaster reduction, haste, and the speed bonus. The
-    /// rest are read off an equipped figure this product cannot fill yet, and they belong to the stone that
-    /// brings items and equipment — this sum is where they go, in the donor's own order.
+    /// rest are read off the equipped figure, which this sum does not read yet (#9005) — this is where they
+    /// go, in the donor's own order.
     /// </remarks>
     private GameDuration CharacterRecovery(PartyMember? member, AttackKind kind)
     {
@@ -1695,11 +1690,9 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// kind of harm is a buff, a cure, or a utility: the donor applies those to the caster or their allies
     /// out of its own spell data and actor buffs (<c>src/Engine/Spells/Spells.cpp:193</c>,
     /// <c>pSpellDatas</c>, and <c>src/Engine/Objects/Actor.cpp:3593-3641</c>,
-    /// <c>_427102_IsOkToCastSpell</c>), neither of which exists here yet, so a creature does not choose one.
-    /// The stone that brings spells and actor effects is where those become castable, and it is the same
-    /// place the numbers of a damaging spell belong: the donor takes them from its own per-spell table
-    /// (<c>CalcSpellDamage</c>, <c>src/Engine/Spells/Spells.cpp:813</c>), which this build's imported spell
-    /// content states as a kind and a description rather than as dice.
+    /// <c>_427102_IsOkToCastSpell</c>), and nothing here holds a creature's running effects, so a creature
+    /// does not choose one. A damaging spell's numbers are the spell's own row, read at the rung and skill
+    /// the creature's cell states.
     /// </para>
     /// </remarks>
     /// <param name="Name">The spell's name, as the table writes it, empty when the row casts none.</param>
@@ -1722,12 +1715,11 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         /// </summary>
         /// <remarks>
         /// A spell whose own content states a kind of harm is one a fight can resolve; one that states none —
-        /// a shield, a cure, a dispel, a ward — is a spell the donor applies to the caster or their allies out
-        /// of spell data and actor buffs this build does not have yet, so a creature never chooses it. That is
-        /// the same answer the donor's own gate gives a spell it is not useful to cast
-        /// (<c>src/Engine/Objects/Actor.cpp:3593-3641</c>, <c>_427102_IsOkToCastSpell</c>), stated where this
-        /// build's own lack is: the stone that brings spells and actor effects is where these become
-        /// castable, and the creature keeps them on its row until then.
+        /// a shield, a cure, a dispel, a ward — is a spell the donor applies to the caster or their allies
+        /// through actor buffs, and nothing here holds a creature's running effects, so a creature never chooses
+        /// it. That is the same answer the donor's own gate gives a spell it is not useful to cast
+        /// (<c>src/Engine/Objects/Actor.cpp:3593-3641</c>, <c>_427102_IsOkToCastSpell</c>), and the creature
+        /// keeps them on its row until an owner of a creature's effects makes them castable.
         /// </remarks>
         public bool IsUsable => Name.Length > 0 && UseChance > 0 && Kind is not null && Roll is not null;
 

@@ -511,7 +511,7 @@ public sealed class ContentPlaceGeometryTests
 }
 
 /// <summary>
-/// What a fall becomes in the session: an observation, a diagnostic, and nothing applied.
+/// What a fall becomes in a world composed without a fall rule: an observation, a diagnostic, and no harm.
 /// </summary>
 public sealed class MovementObservationTests
 {
@@ -542,8 +542,8 @@ public sealed class MovementObservationTests
         Assert.Equal(600, observed.LastFall.Distance, 6);
         Assert.True(observed.LastFall.PastThreshold);
 
-        // The fall is reported and not applied: the party's health owner does not exist yet, which is why
-        // the number is published for whoever will own it rather than charged here.
+        // The fall is reported and not applied: this world is composed with no fall rule and no party, so
+        // the number is published and nobody is harmed.
         DiagnosticsPublishRequest published = Assert.Single(diagnostics.Published);
         Assert.Equal("fall-past-threshold", published.Code);
         Assert.Equal("movement", published.Source);

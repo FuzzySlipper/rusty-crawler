@@ -492,8 +492,7 @@ internal sealed class MightAndMagic7Session : IGameSession
     /// rather than a second one: the wrapper exists to compose this game's world, clock, services, and people
     /// and to forward the lifecycle, and what the session it composed holds is part of what it holds. A
     /// creature's order is given through here, which is the one gated entry the player's control uses as well
-    /// — the AI that will give one on its own is the monsters-and-AI stone's, and until it exists nothing else
-    /// drives the other side of a fight.
+    /// — the combat director gives one on its own under this game's monster AI, through that same entry.
     /// </remarks>
     internal CombatState? Combat => _session.Combat;
 

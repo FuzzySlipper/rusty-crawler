@@ -117,9 +117,9 @@ internal static class ProductIdentity
     /// <remarks>
     /// The original's rest key is R (<c>docs/research/mm7-manual-outline.md</c> p.59, "R to rest"), and this
     /// product keeps it: resting is the one stop the original gives a key of its own. The other stops take
-    /// letters the original spends on screens this build does not have yet — T and H open two of its books
-    /// and C casts — so a stone that adds books or casting moves these controls deliberately rather than
-    /// inheriting a collision. Every stop is its own control because every stop is a different act: one key
+    /// letters the original spends on its books (T and H) and its casting (C), which this build reaches
+    /// through the panel rather than a key — so a change that gives them keys moves these controls
+    /// deliberately rather than inheriting a collision. Every stop is its own control because every stop is a different act: one key
     /// cannot mean "rest until healed" and "wait without healing". The declaration here and the mapping in
     /// the project file are the two halves of one control, because the engine refuses a mapping whose intent
     /// it was never told about.

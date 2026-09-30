@@ -103,7 +103,8 @@ public sealed class EngineCreatureMotion : ICreatureMover
         // Where to walk is the engine's own answer when it has one: a creature steers at the next walkable
         // point along the way to its target, so a corridor bend or a wall is walked around rather than
         // pushed against. A place with no navigation projection, or a target nothing can reach, leaves the
-        // creature walking straight at its target, which is the honest answer when nothing can say better.
+        // creature walking straight at its target, which is the honest answer when nothing can say better
+        // (#8665).
         Vector3 steer = Steer(position, target);
         double x = steer.X - position.X;
         double z = steer.Z - position.Z;

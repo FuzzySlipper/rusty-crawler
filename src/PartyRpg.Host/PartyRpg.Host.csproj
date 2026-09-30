@@ -100,8 +100,8 @@
     <RustyEngineProductInputMapping Include="conversation.leave.key-escape" Intent="conversation.leave" Trigger="key:escape:pressed" />
     <!-- The stop controls: one per act, because a rest heals and a wait does not, and one key cannot mean
          both. R is the original's own rest key. T, H, C, and M are letters the original spends on its book
-         screens and its casting, which this build does not have yet: the stones that add them move these
-         controls deliberately rather than inheriting a collision. Every declaration here has its constant in
+         screens and its casting, which this build reaches through the panel rather than a key: a change
+         that gives them keys moves these controls deliberately rather than inheriting a collision. Every declaration here has its constant in
          ProductIdentity.cs, and the engine refuses a mapping whose intent the product never declared. -->
     <RustyEngineProductInputIntent Include="rest.rest" Value="digital" />
     <RustyEngineProductInputMapping Include="rest.rest.key-r" Intent="rest.rest" Trigger="key:key-r:pressed" />

@@ -424,8 +424,8 @@ internal sealed class MightAndMagic7Skills : ISkillRule
         // class's name until a promotion renames it, so the base class's name answers for every rank of its
         // family; where the two second promotions differ — the light and dark alternatives differ in exactly
         // the Light and Dark schools and in nothing else — the shared row is what both allow, so a character
-        // who has not chosen a path is promised only what either path would give. Naming the path is the
-        // promotion stone's work, and until it lands the two schools' grand-master rungs are open to nobody.
+        // who has not chosen a path is promised only what either path would give. A promotion names the path
+        // by renaming the class, and the alternative's own row is what opens its school's grand-master rung.
         Dictionary<(string Class, int Rank), string> tables = [];
         foreach (string[] family in Families)
         {
@@ -553,10 +553,10 @@ internal sealed class MightAndMagic7Skills : ISkillRule
     /// </para>
     /// <para>
     /// <b>What is not judged here.</b> The donor's master-rung teachers for the Light and Dark schools also
-    /// want a quest bit (<c>src/GUI/UI/NPCTopics.cpp:485-491</c>, <c>QBIT_114</c> and <c>QBIT_110</c>); no
-    /// owner of quest state exists in this build, so the requirement is recorded rather than invented, and
-    /// the rung's class ceiling — which only the light or dark second promotion reaches — is what stands in
-    /// its place. A quest stone judges the bit through this same answer when quest state lands.
+    /// want a quest bit (<c>src/GUI/UI/NPCTopics.cpp:485-491</c>, <c>QBIT_114</c> and <c>QBIT_110</c>); this
+    /// game states no errand for either bit, so the requirement is recorded rather than invented, and the
+    /// rung's class ceiling — which only the light or dark second promotion reaches — is what stands in its
+    /// place. An errand stated for either bit would be judged here as the <c>errand:&lt;bit&gt;</c> record.
     /// </para>
     /// </remarks>
     /// <param name="member">The member the lesson would go to.</param>

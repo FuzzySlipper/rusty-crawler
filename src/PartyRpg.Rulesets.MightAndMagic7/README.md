@@ -16,9 +16,9 @@ Owns:
   tier is content, authored by the importer from the donor's four id bands
   (`OpenEnroth/src/GUI/UI/UIPopup.cpp:2092-2112`); what a mixture comes out at and what a burst costs are
   this ruleset's readings over the donor's own
-  arithmetic (`src/GUI/UI/UIPopup.cpp:2141-2162, 2267-2268`, `:2118-2131`). What each potion does when drunk
+  arithmetic (`OpenEnroth/src/GUI/UI/UIPopup.cpp:2141-2162, 2267-2268`, `:2118-2131`). What each potion does when drunk
   is one row per shipped potion id, authored from the donor's drinking switch
-  (`src/Engine/Objects/Character.cpp:3080-3300`) and expressed through the same effect path a spell uses, so
+  (`OpenEnroth/src/Engine/Objects/Character.cpp:3080-3300`) and expressed through the same effect path a spell uses, so
   `docs/magic-coverage.md` lists the potions beside the spells and cannot drift from them.
 - The nine spell schools and their 99 spells (`MightAndMagic7Spells`): which skill gates each school, the
   tier each spell requires, what one casting costs at each rung of that school's mastery, how long it makes
@@ -62,7 +62,7 @@ Owns:
   discoveries this game keeps — a find when the shipped item table marks it an artifact or a relic, a recipe
   when the potion table's own cell records one, and a landmark's effect or a line read when the event that
   gave it runs. The shipped discovery table and the map events that set its rows are both read by nobody in
-  this build yet, which is why a fountain cannot be drunk from and an obelisk cannot be read.
+  this build yet (#9006), which is why a fountain cannot be drunk from and an obelisk cannot be read.
 - Content interpretation and presentation meaning: what an imported region,
   map, sprite, or sound means to this ruleset.
 - Session composition: assembling the kit's named services with Might and Magic
@@ -109,15 +109,15 @@ population reads the place's placements, so every visit and every load see the s
 that counts every one of a kind in a place counts that same resolution), and what using
 something means here (`MightAndMagic7Interaction` —
 a door from the delta's own stored state with the donor's interaction range, a decoration that raises an
-event as a fixture whose use names the event nothing executes yet, a `requires` array on a placement as
+event as a fixture whose use names the event nothing executes yet (#9006), a `requires` array on a placement as
 this game's locks, and a refusal that says what it needs), which places are clocked
 (`MightAndMagic7Schedules` — the counters' own hours, or the hours a place states in its own entry, read
 against the one clock so a door outside them is an unmet requirement rather than a menu entry that hides
 itself), what fighting costs here (`MightAndMagic7Combat` — a monster's recovery is the monster table's own
 `Recovery` column, its hostility band is the distance at which it notices the party, and a character is
 paced by the donor's own attack-recovery sum as far as this build can read it: the base for a character
-holding nothing, the armsmaster reduction, and the speed bonus, since a party cannot wear anything yet; a
-creature's first recovery is a keyed draw over the actor so a group placed together does not strike in
+holding nothing, the armsmaster reduction, haste, and the speed bonus, since what a member wears is not read
+into it yet (#9005); a creature's first recovery is a keyed draw over the actor so a group placed together does not strike in
 lockstep, a creature is recognized by a placement of kind `monster` naming the row it is, and a person a
 map's own record places reads the monster row that record names rather than one peasant row for everybody),
 what a creature does with its moment (`MightAndMagic7MonsterAi` — the row's `AI Type` column decides
@@ -132,11 +132,10 @@ cannot cast, so a creature keeps it on its row and never chooses it), and what o
 same policy's other half,
 `ICombatResolutionRule` and `ICombatAbilityResolutionRule`: a character's chance to land a blow is the
 donor's own hit test
-`ICombatResolutionRule`: a character's chance to land a blow is the donor's own hit test
 (`Character.cpp:6263-6300`) and a creature's is its other one (`Actor.cpp:3691-3707`), a character's blow is
 the unarmed three-sided die plus their might and armsmaster bonuses (`Character.cpp:814-856`) while a
 creature's is its row's own dice — its second attack's dice and kind of harm when the order names that
-way of attacking, and a spell's own kind with the row's dice until the magic stone brings a spell's numbers
+way of attacking, and a spell's own dice and kind from this game's per-spell table
 — harm is of the row's own kind (`ItemEnums.h:10-23`, read from the monster
 table's own attack-type column) and a monster's blow may leave the condition its special-attack column names
 through the donor's chance and saving throw (`Character.cpp:1333-1600`), and resistance is the donor's four
@@ -215,7 +214,7 @@ party to that owner through the promotion handoff; the ceiling a class and rank 
 path when a class's own choice closed a school, so a lesson, a book, and a casting are each refused with the
 alternative named (`skill-closed-by-path`); and `PromotionSnapshot` publishes the ladder and what each rank
 did, member by member, for the panel. What the shipped data carries, what this game authors, and the live
-promotion through both stages are recorded in `local/verify/promotions/` (ignored local evidence).
+promotion through both stages are recorded in [`docs/evidence/promotions.md`](../../docs/evidence/promotions.md).
 What the world makes of the party is landed beside them. `MightAndMagic7Standing` states the bands —
 the donor's own five words at the donor's own four edges (`UIGame.cpp:1645-1654`, `GetReputationString`),
 read into this game's convention in which a higher reputation is a better one, where the donor negates a
@@ -227,8 +226,7 @@ at all, which is the donor's own reading (`Actor.cpp:3164-3167`). **Nothing in t
 the donor's three movers the other way — killing a townsperson (`Actor.cpp:1083-1105`,
 `ApplyFineForKillingPeasant`), being caught stealing (`Shops.cpp:1147-1174`), and the dark sacrifice the
 donor charges fifteen points for (`CastSpellInfo.cpp:2800-2809`) — belong to owners this build does not have,
-so the descent is named here rather than faked: the crime, theft, and dark-path effect stones carry it
-(file a task against whichever lands first, and it reaches the world's opinion through
+so the descent is named here rather than faked (#9008; it reaches the world's opinion through
 `PartyProgression.Award`'s one entry as every other deed does). A person says what the town makes of the party
 once the party is worth an opinion: `MightAndMagic7Conversation` composes one line for every person the NPC
 table describes, gated on a standing condition at the "Friendly" band's own floor — the same vocabulary every
@@ -256,14 +254,13 @@ are written by nobody**: `award:arena-wins` (five victories, the Champion's ligh
 `award:bounties` (ten thousand gold of town-hall bounties, the Hunter's dark one) are stated as records a
 rank requires, and neither the arena nor a bounty turn-in credits them — a bounty pays coin and leaves no
 record, and a party record is set rather than added to, so a count is not something
-the record path can express yet. The reading above names either record if a later stone writes one; the
-receiver is whichever lands first of the arena and a counting record path (a quest reward that adds to a
-record rather than replacing it, which belongs to `PartyRecords`). Fame carries no bands, because the donor
+the record path can express yet. The reading above names either record once something writes one (#8689:
+the arena, and a counting record path in `PartyRecords`). Fame carries no bands, because the donor
 gives it none: it prints fame as a bare number (`UIQuickReference.cpp:134-143`) and reads it in exactly one
 place, whether somebody will join the party, gated on the party's fame exceeding their own and disabled in the
 donor with a note that it is an MM8 behaviour (`UIDialogue.cpp:70-95`). Nothing can join a party in this build
-— there is no follower owner — so that gate has nothing to guard yet and is routed to the followers stone
-rather than faked. Standing and accomplishments ride the party's own save section: reputation, fame, and the
+— there is no follower owner — so that gate has nothing to guard yet and is routed to #8514 rather than
+faked. Standing and accomplishments ride the party's own save section: reputation, fame, and the
 party's effects are all durable state, and the ruleset suite turns an errand in, saves through the engine's
 store, resumes, and reads the same band and the same record back.
 
@@ -299,9 +296,7 @@ this game counts as worth keeping. The operator's own data carries both halves o
 install's discovery table holds 207 rows (39 what a well or fountain gives, 14 the obelisks' own messages,
 61 potion recipes, and the rest instructors, seers, and odd events), and the map event programs set those
 numbers 122 times across 16 programs. The importer reads no discovery table and nothing executes a map
-event, so a fixture's use is refused with the event named and nothing is claimed to have been learned from
-it. Everything else
-listed above — the remaining class, skill, spell, monster, item, and formula policy, and rest and
-fatigue and service hours — attaches to the session as its stone lands. Fidelity per system — what matches
+event (#9006), so a fixture's use is refused with the event named and nothing is claimed to have been
+learned from it. Fidelity per system — what matches
 the original, what is approximate, and what is deliberately ours — is fixed in
 [`../../docs/gameplay-design.md`](../../docs/gameplay-design.md).

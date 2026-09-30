@@ -69,8 +69,8 @@ public sealed class CombatPolicyTests
         // The act control orders the party to attack: both members act, each pays its own recovery, and the
         // panel shows which of them may still act. What each pays is the donor's character recovery: a
         // character holding nothing swings on the staff's hundred ticks less the speed bonus its Speed
-        // attribute is worth — two ticks at seventeen, five at twenty-five — which is the whole of the sum
-        // this build can read, because a party cannot wear anything yet.
+        // attribute is worth — two ticks at seventeen, five at twenty-five — because this party wears nothing
+        // and runs no haste, and what a member wears is not read into the sum yet (#9005).
         session.Update(RulesetTestContext.Update(++step, 1, RulesetTestContext.Digital(Declared.AttackIntent)));
         combat = ProjectedNode.Of(ui.Latest().Value).Field("combat");
         Assert.Equal("applied", combat.Field("outcome").AsString());
@@ -270,8 +270,8 @@ public sealed class CombatPolicyTests
     public void A_monsters_blow_rolls_its_rows_own_dice_against_a_character()
     {
         // The row's `2D8+10` against a character wearing nothing: the service answers its maximum per die, so
-        // sixteen plus ten is twenty-six, and nothing in this build resists it — a character's resistances
-        // come from items and spells, and this party can wear nothing and knows none.
+        // sixteen plus ten is twenty-six, and nothing resists it — a character's resistances come from items
+        // and spells, and this party wears nothing and runs no ward.
         BlowFacts blow = Blow(special: "0", level: 1, roll: 100);
 
         // A creature striking a character is the donor's other hit test (OpenEnroth

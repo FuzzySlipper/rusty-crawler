@@ -3,12 +3,10 @@ namespace PartyRpg.Kit.Promotion;
 /// <summary>What kind of thing a rank asks for before it is given, as the vocabulary this mechanism judges.</summary>
 /// <remarks>
 /// <para>
-/// Four kinds, and each is a shape of state rather than a rule: <see cref="Giver"/> is a person, and it is
+/// Three kinds, and each is a shape of state rather than a rule: <see cref="Giver"/> is a person, and it is
 /// the person the party is taking the rank from; <see cref="Item"/> is something the party carries, counted
-/// in the one inventory a party has; <see cref="Award"/> is a record of a deed the party carries, with how
-/// much of it; and <see cref="Quest"/> is a finished errand, which is a kind a ruleset may state and this
-/// build cannot judge — nothing yet owns an errand's state, so a rank that asks for one is refused by name
-/// and the requirement travels to the owner that will judge it.
+/// in the one inventory a party has; and <see cref="Award"/> is a record of a deed the party carries, with
+/// how much of it — which is also how a finished errand is asked for, as the record its turn-in leaves.
 /// </para>
 /// <para>
 /// The kinds are deliberately few and deliberately closed: a rank's requirement is a named thing of one of
@@ -32,13 +30,13 @@ public enum PromotionRequirementKind
 /// <remarks>
 /// <para>
 /// The name is an identity and never a resolved rule: an item's definition, a person's identity among the
-/// people the world carries, a record's own name, and an errand's own name are all content's or the
+/// people the world carries, and a record's own name are all content's or the
 /// ruleset's, and this type only carries what was stated. The label is what a person reads, because a
 /// refusal that listed a definition's number would leave a player unable to tell what was missing.
 /// </para>
 /// <para>
 /// <b>An amount is meaningful per kind.</b> An item's amount is how many the party must carry, an award's is
-/// the magnitude the record must have reached, and a giver or an errand asks for exactly one. The amount is
+/// the magnitude the record must have reached, and a giver asks for exactly one. The amount is
 /// at least one whichever kind it is, so a requirement that asks for nothing is inexpressible rather than
 /// quietly always met.
 /// </para>
