@@ -13,6 +13,7 @@ internal static class LodFixture
     internal const int HeaderSize = 256;
     internal const int RootEntrySize = 32;
     internal const int EntrySize = 32;
+    internal const int Mm8EntrySize = 76;
     internal const int CompressionHeaderSize = 16;
     internal const int ImageHeaderSize = 48;
 
@@ -44,6 +45,48 @@ internal static class LodFixture
         BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(HeaderSize + 0x10), (uint)(HeaderSize + RootEntrySize));
         BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(HeaderSize + 0x14), (uint)directory.Length);
         BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(HeaderSize + 0x1C), (ushort)entries.Length);
+        directory.CopyTo(result, HeaderSize + RootEntrySize);
+        return result;
+    }
+
+    /// <summary>
+    /// Builds one archive whose header declares <c>MMVIII</c>, whose directory records are 76 bytes wide.
+    /// </summary>
+    /// <remarks>
+    /// The record is the donor's <c>LodFileEntry_MM8</c> (OpenEnroth <c>src/Library/Lod/LodSnapshots.h:67-85</c>):
+    /// a 16-byte name, eleven words the reader has no use for, the payload's offset at 64 and its size at 68,
+    /// and one more unused word. The unused words are filled with a pattern rather than left zero, so a
+    /// reader that took the offset or the size from the narrower record's positions would read garbage.
+    /// </remarks>
+    /// <param name="entries">The entries, whose payloads are already wrapped as given.</param>
+    /// <param name="declaredDirectorySize">
+    /// The directory size the root entry declares, or null for the size the records actually take.
+    /// </param>
+    internal static byte[] Mm8Archive(IReadOnlyList<(string Name, byte[] Payload)> entries, int? declaredDirectorySize = null)
+    {
+        byte[] directory = new byte[entries.Count * Mm8EntrySize];
+        int dataStart = HeaderSize + RootEntrySize + directory.Length;
+        List<byte> file = [.. new byte[dataStart]];
+
+        for (int index = 0; index < entries.Count; index++)
+        {
+            (string name, byte[] payload) = entries[index];
+            int record = index * Mm8EntrySize;
+            for (int unused = 16; unused < Mm8EntrySize; unused++) directory[record + unused] = (byte)(0xA0 + index);
+            WriteFixed(directory, record, name, 16);
+            BinaryPrimitives.WriteUInt32LittleEndian(directory.AsSpan(record + 64), (uint)(file.Count - HeaderSize - RootEntrySize));
+            BinaryPrimitives.WriteUInt32LittleEndian(directory.AsSpan(record + 68), (uint)payload.Length);
+            file.AddRange(payload);
+        }
+
+        byte[] result = [.. file];
+        Encoding.ASCII.GetBytes("LOD\0").CopyTo(result, 0);
+        WriteFixed(result, 4, "MMVIII", 80);
+        WriteFixed(result, 84, "fixture", 80);
+        WriteFixed(result, HeaderSize, "fixture-root", 16);
+        BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(HeaderSize + 0x10), (uint)(HeaderSize + RootEntrySize));
+        BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(HeaderSize + 0x14), (uint)(declaredDirectorySize ?? directory.Length));
+        BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(HeaderSize + 0x1C), (ushort)entries.Count);
         directory.CopyTo(result, HeaderSize + RootEntrySize);
         return result;
     }

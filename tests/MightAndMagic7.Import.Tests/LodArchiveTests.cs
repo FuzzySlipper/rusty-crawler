@@ -1,5 +1,7 @@
+using System.Buffers.Binary;
 using System.Text;
 using MightAndMagic7.Import.Lod;
+using MightAndMagic7.Import.Maps;
 using Xunit;
 
 namespace MightAndMagic7.Import.Tests;
@@ -82,6 +84,122 @@ public sealed class LodArchiveTests
         Assert.True(archive.IsCompressed(archive.Require("deflated.txt")));
         Assert.False(archive.IsCompressed(archive.Require("plain.txt")));
         Assert.True(archive.IsCompressed(archive.Require("image.bmp")) is false);
+    }
+
+    [Fact]
+    public void A_deflated_map_and_its_delta_are_inflated_and_decode_as_the_stored_pair_does()
+    {
+        // A map is the largest thing the compressed wrapper carries and the one a decoder walks field by
+        // field, so the inflated bytes have to be the payload exactly: one byte short or long fails the walk.
+        byte[] level = MapDecoderTests.IndoorPayload(faceCorners: 6, lightCount: 3, doorSlots: 3);
+        byte[] delta = MapDecoderTests.IndoorDeltaPayload(doorSlots: 3);
+        LodArchive archive = LodArchive.FromBytes(
+            "Games.lod",
+            LodFixture.Archive(
+                "GameMMVI",
+                ("d07.blv", LodFixture.Compressed(level)),
+                ("d07.dlv", LodFixture.Compressed(delta)),
+                ("d08.blv", LodFixture.CompressedStored(level)),
+                ("d08.dlv", LodFixture.CompressedStored(delta))));
+
+        LodPayload deflatedLevel = archive.Read("d07.blv");
+        LodPayload deflatedDelta = archive.Read("d07.dlv");
+        Assert.Equal(LodPayloadKind.Compressed, deflatedLevel.Kind);
+        Assert.Equal(LodPayloadKind.Compressed, deflatedDelta.Kind);
+        Assert.True(archive.IsCompressed(archive.Require("d07.blv")));
+        Assert.True(archive.Require("d07.blv").Size < LodFixture.CompressionHeaderSize + level.Length);
+        Assert.Equal(level, deflatedLevel.Bytes);
+        Assert.Equal(delta, deflatedDelta.Bytes);
+        Assert.Equal(LodPayloadKind.CompressedStored, archive.Read("d08.blv").Kind);
+
+        IndoorMap inflated = MapDecoder.DecodeIndoor(deflatedLevel, deflatedDelta);
+        IndoorMap stored = MapDecoder.DecodeIndoor(archive.Read("d08.blv"), archive.Read("d08.dlv"));
+        Assert.Equal(6, Assert.Single(inflated.Faces).VertexIds.Count);
+        Assert.Equal(3, inflated.Lights.Count);
+        Assert.Equal(3, inflated.Doors.Count);
+        Assert.Equal(stored.Counts, inflated.Counts);
+        Assert.Equal(stored.Vertices, inflated.Vertices);
+        Assert.Equal(stored.Faces[0].Vertices, inflated.Faces[0].Vertices);
+    }
+
+    [Fact]
+    public void A_deflated_payload_that_does_not_inflate_to_its_declared_size_is_a_compression_failure()
+    {
+        byte[] level = MapDecoderTests.IndoorPayload();
+        byte[] wrongSize = LodFixture.Compressed(level);
+        BinaryPrimitives.WriteUInt32LittleEndian(wrongSize.AsSpan(12), (uint)(level.Length + 1));
+        byte[] corrupt = LodFixture.Compressed(level);
+        corrupt.AsSpan(LodFixture.CompressionHeaderSize, 8).Fill(0xFF);
+        LodArchive archive = LodArchive.FromBytes(
+            "Games.lod",
+            LodFixture.Archive("GameMMVI", ("short.blv", wrongSize), ("corrupt.blv", corrupt)));
+
+        LodFormatException mismatched = Assert.Throws<LodFormatException>(() => archive.Read("short.blv"));
+        Assert.Equal(LodFault.Compression, mismatched.Fault);
+        Assert.Contains("short.blv", mismatched.Message, StringComparison.Ordinal);
+        Assert.Equal(LodFault.Compression, Assert.Throws<LodFormatException>(() => archive.Read("corrupt.blv")).Fault);
+    }
+
+    [Fact]
+    public void An_archive_declaring_the_eighth_games_version_reads_its_76_byte_directory_records()
+    {
+        // Three entries, so a reader striding the directory at the narrower record width would read the
+        // second and third names out of the first record's unused words; the unused words themselves are
+        // filled, so an offset or a size read from the narrower record's positions would be garbage.
+        byte[] text = Encoding.Latin1.GetBytes("row\tvalue\n1\t2\n");
+        LodArchive archive = LodArchive.FromBytes(
+            "wide.lod",
+            LodFixture.Mm8Archive(
+            [
+                ("gamma.txt", LodFixture.Verbatim("third"u8.ToArray())),
+                ("alpha.txt", LodFixture.Compressed(text)),
+                ("beta.txt", LodFixture.Verbatim("second payload"u8.ToArray())),
+            ]));
+
+        Assert.Equal(LodVersion.Mm8, archive.Version);
+        Assert.Equal("MMVIII", archive.VersionString);
+        Assert.Equal(LodArchive.Mm8FileEntrySize, archive.FileEntrySize);
+        Assert.Empty(archive.DuplicateEntryNames);
+        Assert.Equal(["alpha.txt", "beta.txt", "gamma.txt"], archive.Entries.Select(entry => entry.Name));
+        Assert.Equal(LodFixture.Compressed(text).Length, archive.Require("alpha.txt").Size);
+        Assert.Equal(14, archive.Require("beta.txt").Size);
+        Assert.Equal(text, archive.Read("alpha.txt").Bytes);
+        Assert.Equal(LodPayloadKind.Compressed, archive.Read("alpha.txt").Kind);
+        Assert.Equal("second payload", Encoding.Latin1.GetString(archive.Read("beta.txt").Bytes));
+        Assert.Equal("third", Encoding.Latin1.GetString(archive.Read("gamma.txt").Bytes));
+    }
+
+    [Fact]
+    public void A_wide_directory_too_short_for_its_declared_records_is_refused_by_the_width_it_needs()
+    {
+        // The root entry declares room for three records of the narrower width only: enough for a reader
+        // that assumed 32 bytes, too little for the 76 this version's records take.
+        byte[] archive = LodFixture.Mm8Archive(
+            [
+                ("a.txt", LodFixture.Verbatim("a"u8.ToArray())),
+                ("b.txt", LodFixture.Verbatim("b"u8.ToArray())),
+                ("c.txt", LodFixture.Verbatim("c"u8.ToArray())),
+            ],
+            declaredDirectorySize: 3 * LodFixture.EntrySize);
+
+        LodFormatException refused = Assert.Throws<LodFormatException>(() => LodArchive.FromBytes("wide.lod", archive));
+        Assert.Equal(LodFault.Truncated, refused.Fault);
+        Assert.Contains("wide.lod", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("3 entries of 76 bytes", refused.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_wide_record_whose_size_runs_past_the_file_is_refused_when_it_is_read()
+    {
+        byte[] bytes = LodFixture.Mm8Archive([("a.txt", LodFixture.Verbatim("abc"u8.ToArray()))]);
+        int record = LodFixture.HeaderSize + LodFixture.RootEntrySize;
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(record + 68), 4096);
+        LodArchive archive = LodArchive.FromBytes("wide.lod", bytes);
+
+        Assert.Equal(4096, archive.Require("a.txt").Size);
+        LodFormatException refused = Assert.Throws<LodFormatException>(() => archive.Read("a.txt"));
+        Assert.Equal(LodFault.Truncated, refused.Fault);
+        Assert.Contains("'a.txt'", refused.Message, StringComparison.Ordinal);
     }
 
     [Fact]
