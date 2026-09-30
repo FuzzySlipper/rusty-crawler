@@ -10,7 +10,7 @@ Markers: **[verified: p:l]** donor source line; **[verified: data E@0xN]** measu
 Validated for this doc **[verified: data]**: all **13 `.odm`, 13 `.ddm`, 63 `.blv`, 63 `.dlv`** parse to exactly
 `entryLength-16` bytes under the layouts below, no slack; the three BLV pools (`faceData`, `sectorData`,
 `sectorLightData`) and the DLV door pool are consumed exactly, no remainder. (13 outdoor + 63 indoor = the 76 map
-files of `local/research/mm7-data-inventory.md`.)
+files of [`mm7-data-inventory.md`](mm7-data-inventory.md).)
 
 ## 1. Container level
 

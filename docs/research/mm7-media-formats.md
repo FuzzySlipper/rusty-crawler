@@ -87,10 +87,10 @@ Decision predicates, in effect verbatim **[donor: LodFormats.cpp:40-122]**:
 | sprite | `dataSize>0 && width>0 && height>0 && paletteId>0 && unk_0==0 && emptyBottomLines<=height && blob == 32 + height*8 + dataSize` |
 | font | `firstChar < lastChar && field_3 == 8 && height ∈ [4,63] && all other header fields 0` |
 
-**Correction to `local/research/mm7-data-inventory.md`.** Flag `0x100` does not mean "text": in `ICONS.LOD` its 76
+**Correction to [`mm7-data-inventory.md`](mm7-data-inventory.md).** Flag `0x100` does not mean "text": in `ICONS.LOD` its 76
 `0x100` entries are 42 `.pcx`, 14 `.fnt`, 8 `.txt`, 6 `.str`, 5 `.evt`, 1 `.bin` (75 deflated, 1 stored) **[data]**.
 Nor is the `"mvii"` header the only deflate path — sprites, bitmaps and icons carry zlib **inside** the 48-byte header via
-`decompressedSize` (§2, §3). Also `local/tools/mm7lod.py:257-263` reads `paletteId`/`anotherPaletteId` from 0x20/0x22
+`decompressedSize` (§2, §3). Also the operator-local research extractor (`mm7lod.py:257-263`, never in the repository) reads `paletteId`/`anotherPaletteId` from 0x20/0x22
 instead of 0x24/0x26, seeing only 61 of those 76 and emitting 15 (12 fonts, 3 PCX) as raw wrapper bytes; the predicate
 above finds all 76 **[data]**.
 
@@ -231,7 +231,7 @@ ffmpeg (entry → `.smk`/`.bik` → mp4/webm), and the product excludes reproduc
 **[docs/gameplay-design.md:432]**. The 26 `Music/*.mp3` files need no decoding.
 ## 7. Repository constraints and recommended artifacts
 
-Already fixed: `local/` is git-ignored (`/.gitignore:1`), so artifacts stay there; original game data is operator-supplied
+Already fixed: the operator-local `local` tree is ignored by `.gitignore`, so artifacts stay there; original game data is operator-supplied
 and never committed, with provenance kept for anything checked in **[src/MightAndMagic7.Import/README.md:24-27]**; imported
 media is "a local development convenience with recorded provenance, never a shipped artifact"
 **[docs/gameplay-design.md:432]**, owned by the importer/pack layer **[docs/code-organization.md:118]**. Re-implement from
@@ -239,7 +239,7 @@ this spec; do not port donor C++.
 
 Emit (1) **one PNG per decoded unit**, RGBA8, index 0 → alpha 0 only where the data says transparent (sprites always,
 images per `flags & 0x200`), colours from the embedded palette (images) or `pal%03d` (sprites); (2) **one JSON manifest**
-(`local/extracted/media/media-manifest.json`) whose run header carries the source install identity (release/build, e.g.
+(`media-manifest.json` in the media output directory) whose run header carries the source install identity (release/build, e.g.
 GOG build id + `MM7.exe` sha256) and the decoder version; (3) never copy raw entry bytes into the repository.
 
 Identity scheme, extending the importer's declared form `ArchiveName:EntryName`
