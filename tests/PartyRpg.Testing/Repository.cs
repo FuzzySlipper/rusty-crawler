@@ -6,8 +6,7 @@ namespace PartyRpg.Testing;
 /// <remarks>
 /// <para>
 /// The root is found by two markers the repository tracks — <c>Directory.Build.props</c> and
-/// <c>scripts/verify.sh</c> — rather than by <c>AGENTS.md</c>, which <c>.gitignore</c> matches and a checkout may
-/// carry a local variant of.
+/// <c>scripts/verify.sh</c> — which are build inputs, so a checkout that can run a suite always has them.
 /// </para>
 /// <para>
 /// Every scan goes through <see cref="Files"/>, which never descends into what is not the repository's own: build
