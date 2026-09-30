@@ -8,7 +8,7 @@ namespace PartyRpg.Kit.Party;
 /// <remarks>
 /// <para>
 /// <b>One entity, not four characters.</b> The roster and its members, the one shared inventory, equipment
-/// by member, the purse, the larder, reputation and fame, followers, party-wide effects, and the identity
+/// by member, the purse, the larder, reputation and fame, running effects, records, and the identity
 /// cursors are all components of this entity, and session mechanisms address the party rather than reaching
 /// into members. The kit composes the engine's own <see cref="Actor"/> rather than inventing a second
 /// entity graph: <see cref="Actor"/> <i>is</i> the entity, every named property below reads the component
@@ -16,13 +16,13 @@ namespace PartyRpg.Kit.Party;
 /// party rather than a copy of it.
 /// </para>
 /// <para>
-/// <b>Wrapping never creates a component.</b> Every read below goes through the actor, so a party whose
+/// <b>Reading never creates a component.</b> Every read below goes through the actor, so a party whose
 /// entity lacks a component reports that by failing, not by quietly attaching an empty one — only
 /// <see cref="PartyEntityFactory"/> attaches anything, and it does so explicitly, once, from creation or
 /// from a save. The store the party lives in is its own, distinct from the store a visit populates with
 /// world entities: the world destroys what lives in a place when the party leaves, and a party cannot be
-/// destroyed by walking out of a room. <see cref="PartyEntityFactory"/> owns the store's lifetime;
-/// <see cref="Wrap"/> borrows one.
+/// destroyed by walking out of a room. <see cref="PartyEntityFactory"/> creates the store, and the party owns
+/// it from then on.
 /// </para>
 /// <para>
 /// <b>Three identities, deliberately different.</b> <see cref="RuntimeId"/> is runtime identity: the
@@ -46,33 +46,14 @@ public sealed class PartyEntity : IDisposable
 
     private readonly EntityStore _store;
     private readonly Actor _party;
-    private readonly bool _ownsStore;
     private readonly IEquipmentUseRule? _equipmentUse;
     private bool _disposed;
 
-    internal PartyEntity(EntityStore store, Actor party, bool ownsStore, IEquipmentUseRule? equipmentUse)
+    internal PartyEntity(EntityStore store, Actor party, IEquipmentUseRule? equipmentUse)
     {
         _store = store;
         _party = party;
-        _ownsStore = ownsStore;
         _equipmentUse = equipmentUse;
-    }
-
-    /// <summary>
-    /// Wraps a party entity that already exists in a store the caller owns.
-    /// </summary>
-    /// <remarks>
-    /// Wrapping composes nothing: the facade reads whatever components the entity carries, and a component
-    /// it does not carry fails on the read instead of being created. Disposing a wrapped party disposes
-    /// nothing, because the store belongs to whoever created the entity.
-    /// </remarks>
-    /// <param name="party">The engine actor for the party entity.</param>
-    /// <param name="equipmentUse">The rule that gates equipping, when the caller has one to apply.</param>
-    /// <exception cref="ArgumentNullException">The actor is null.</exception>
-    public static PartyEntity Wrap(Actor party, IEquipmentUseRule? equipmentUse = null)
-    {
-        ArgumentNullException.ThrowIfNull(party);
-        return new PartyEntity(party.Store, party, ownsStore: false, equipmentUse);
     }
 
     /// <summary>The engine actor for the party, through which components are attached and read.</summary>
@@ -109,9 +90,6 @@ public sealed class PartyEntity : IDisposable
 
     /// <summary>The party's reputation and fame.</summary>
     public PartyReputation Reputation => _party.Get<PartyReputation>();
-
-    /// <summary>The followers travelling with the party.</summary>
-    public PartyFollowers Followers => _party.Get<PartyFollowers>();
 
     /// <summary>The effects running on the whole party: what a spell or a potion left, until its time ends.</summary>
     public ActiveEffects Effects => _party.Get<ActiveEffects>();
@@ -203,7 +181,7 @@ public sealed class PartyEntity : IDisposable
     /// </para>
     /// <para>
     /// What the party does with the instance is unchanged: it lies detached until
-    /// <see cref="AcquireItem(ItemInstance)"/> admits it, and that admission is the capacity rule's answer.
+    /// <see cref="AcquireItem(ItemInstance)"/> takes it.
     /// </para>
     /// </remarks>
     /// <param name="definition">The content definition the instance is a copy of.</param>
@@ -222,10 +200,9 @@ public sealed class PartyEntity : IDisposable
     /// </summary>
     /// <remarks>
     /// This is the only way an item enters the party, and it enters the pack and nowhere else: a pickup
-    /// cannot land on a member, because a member owns only what it has equipped. What the pack does with it
-    /// is the capacity rule's and the stacking rule's business — an offer merges into compatible stacks up to
-    /// the rule's maximum and starts whole stacks beyond it — and a refusal leaves the party exactly as it
-    /// was, with the instance still held by whoever generated it.
+    /// cannot land on a member, because a member owns only what it has equipped. The pack has no limit — neither
+    /// the shipped item table nor the original's item state states a weight or a bulk, so none is invented —
+    /// and nothing this game carries shares an instance, so an offer of several becomes that many instances.
     /// </remarks>
     /// <param name="item">The instance the party is offered, which no party may already hold.</param>
     /// <returns>Where the items landed and how many were taken, or why nothing was taken.</returns>
@@ -241,42 +218,17 @@ public sealed class PartyEntity : IDisposable
                 $"Item {item.Id} is already held ({item.Custody}), so it was not taken a second time."));
         }
 
-        if (Inventory.Judge(item.Definition, item.StackCount) is { } refusal) return ItemAcquisition.Refused(refusal);
-
+        // Nothing this game carries shares an instance, so every item of an offer is an instance of its own; the
+        // offered instance carries the last of them.
         int count = item.StackCount;
-        int maximum = Inventory.MaximumStack(item.Definition);
-        ItemInstance? landed = null;
-        int left = count;
-
-        // Only what lies in the pack merges: an equipped stack is a member's figure and keeps its own count.
-        if (maximum > 1)
+        for (int piece = 1; piece < count; piece++)
         {
-            foreach (ItemInstance stack in Inventory.StacksMatching(item.Definition, item.State))
-            {
-                int room = maximum - stack.StackCount;
-                if (room <= 0) continue;
-                int taken = Math.Min(room, left);
-                stack.AddToStack(taken);
-                left -= taken;
-                landed ??= stack;
-                if (left == 0) return ItemAcquisition.Taken(landed, count);
-            }
+            Inventory.Append(new ItemInstance(Identity.MintItemId(), item.Definition, 1, item.State));
         }
 
-        // What is left becomes whole stacks of its own, each within the rule's maximum, and the offered
-        // instance carries the last of them. An offer that merged away entirely leaves the identity minted for
-        // it unused, which is why the cursor counts identities handed out rather than items held: an identity
-        // is never reused, so a gap in them costs nothing.
-        int pieces = ((left - 1) / maximum) + 1;
-        for (int piece = 1; piece < pieces; piece++)
-        {
-            Inventory.Append(new ItemInstance(Identity.MintItemId(), item.Definition, maximum, item.State));
-        }
-
-        int last = left - (maximum * (pieces - 1));
-        if (last < count) item.RemoveFromStack(count - last);
+        if (count > 1) item.RemoveFromStack(count - 1);
         Inventory.Append(item);
-        return ItemAcquisition.Taken(landed ?? item, count);
+        return ItemAcquisition.Taken(item, count);
     }
 
     /// <summary>Takes new items of one definition into the party's shared pack.</summary>
@@ -342,10 +294,6 @@ public sealed class PartyEntity : IDisposable
         if (_equipmentUse?.Judge(owner, slot, instance) is { } refusal) return EquipmentChange.Refused(refusal);
 
         ItemInstance? displaced = owner.Equipment.ItemIn(slot);
-        if (displaced is not null && Inventory.Judge(displaced.Definition, displaced.StackCount) is { } noRoom)
-        {
-            return EquipmentChange.Refused(noRoom);
-        }
 
         Detach(instance);
         if (displaced is not null)
@@ -375,8 +323,6 @@ public sealed class PartyEntity : IDisposable
                 "slot-empty",
                 $"Member {member} has nothing in '{slot}', so there was nothing to take off."));
         }
-
-        if (Inventory.Judge(item.Definition, item.StackCount) is { } refusal) return EquipmentChange.Refused(refusal);
 
         owner.Equipment.Detach(slot);
         Inventory.Append(item);
@@ -504,7 +450,6 @@ public sealed class PartyEntity : IDisposable
             Food.Unit,
             Reputation.Reputation,
             Reputation.Fame,
-            [.. Followers.Followers],
             [.. Effects.Active],
             [.. Records.All],
             [.. Holdings.All],
@@ -512,16 +457,15 @@ public sealed class PartyEntity : IDisposable
             [.. Memberships.All]);
     }
 
-    /// <summary>Disposes the store the party was created in, when this party created it.</summary>
+    /// <summary>Disposes the store the party was created in.</summary>
     /// <remarks>
-    /// A wrapped party owns no store and disposes nothing. Disposing ends the party's entities with the
-    /// store, which is what ending a session does; a save captured beforehand is unaffected.
+    /// Disposing ends the party's entities with the store, which is what ending a session does; a save captured beforehand is unaffected.
     /// </remarks>
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
-        if (_ownsStore) _store.Dispose();
+        _store.Dispose();
     }
 
     /// <summary>Takes an instance out of whatever holds it inside the party, leaving its custody untouched.</summary>

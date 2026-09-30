@@ -126,16 +126,16 @@ and a deadline (a ward, a light, a haste) still blocks a save by name rather tha
   spatial service — a product without one has no movement rather than movement through walls.
 - The party exists. `PartyEntity` is one façade over one engine entity: the roster and its members, the
   one shared inventory of item instances, each member's equipment, the purse and the larder, reputation
-  and fame, followers, the running effects, and what the party has on record, deposited, holds passage
-  for, and is a member of (each its own component, so a dispel reaches only running effects) are components
-  attached to it and read live where the
-  entity carries them, so a wrapped party that lacks one fails on the read rather than growing an empty
-  one. Custody is a closed set of detached, the shared pack, or one member's slot, which is what makes
+  and fame, the running effects, and what the party has on record, deposited, holds passage for, and is
+  a member of (each its own component, so a dispel reaches only running effects) are components attached
+  to it by the factory and read live, so a party that lacks one fails on the read rather than growing an
+  empty one. Followers and item enchantments have no producer yet and are not carried: they arrive with
+  their stone's own tasks (#8514, #8513). Custody is a closed set of detached, the shared pack, or one member's slot, which is what makes
   "carried but not worn" inexpressible and a per-character pack a shape the state does not have.
   Runtime entity identity, content identity, and the durable member and item identities a save carries
   are kept apart. Encumbrance is decided and not introduced: neither the shipped item table nor the
-  donor's item state has a weight, so the capacity rule asks about the shared pack as a whole rather
-  than inventing a limit no source states.
+  donor's item state has a weight, so the shared pack has no limit rather than one no source states, and
+  nothing this game carries shares an instance.
 - The party's accounts have one settlement path. Every charge is judged against the purse and the
   larder before either moves and refused whole, naming every shortfall rather than overdrawing the
   purse; a day eats one ration, and a larder left short weakens every member. The donor's starving
@@ -186,8 +186,8 @@ and a deadline (a ward, a light, a haste) still blocks a save by name rather tha
   (the engine derives collision navigation itself, and nothing asks for a path yet), and a door's
   polygons are solid where they stand because doors do not move yet.
 - The session persists under one current schema: the party (members with their skills, spells,
-  progression and portraits; every item instance with its custody, damage and enchantments; purse,
-  larder, standing, followers, effects and the identity cursors), the clock's elapsed game time, the
+  progression and portraits; every item instance with its custody, damage, charges and strength; purse,
+  larder, standing, effects, records, holdings, passages, memberships and the identity cursors), the clock's elapsed game time, the
   party's place and pose, and per-place state. The document carries no version and no migration path —
   one schema, replaced rather than evolved. Saving happens only where the product asks for it, and a
   load rebuilds what is transient (movement outcomes, projections, the population's runtime entities)

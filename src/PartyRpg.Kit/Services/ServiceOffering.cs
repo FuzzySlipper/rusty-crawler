@@ -149,7 +149,7 @@ public sealed record ServiceLesson
 /// <para>
 /// A shelf can hold two lines of one definition — the shop's own stock, and the very item the party sold
 /// it — and they are not interchangeable: one mints a new instance, the other returns the instance the
-/// party brought in, with its damage and its enchantments intact. The lot identity is what keeps the two
+/// party brought in, with its damage and its charges intact. The lot identity is what keeps the two
 /// apart, and it is what a browse publishes and a buy command echoes back.
 /// </para>
 /// <para>
@@ -190,7 +190,7 @@ public readonly record struct ServiceLotId
 /// <para>
 /// A lot is either content's own line — a definition, from which buying mints new instances — or an
 /// instance the party sold, which the shop holds and can sell back as the very same item. The distinction
-/// matters because a sold artifact's damage and enchantments are part of it: a shelf that minted a fresh
+/// matters because a sold artifact's damage and charges are part of it: a shelf that minted a fresh
 /// copy would be selling something the party never brought in.
 /// </para>
 /// <para>

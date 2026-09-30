@@ -8,7 +8,7 @@ namespace PartyRpg.Kit.Party;
 /// An instance is not a definition. The definition is content's answer to "what kind of thing is this" and
 /// never changes; the instance is the thing itself, and <see cref="Id"/> is what keeps one artifact
 /// distinct from another copy of the same kind through a save. The state it carries — identified, damaged,
-/// enchanted — belongs to the instance for the same reason.
+/// spent — belongs to the instance for the same reason.
 /// </para>
 /// <para>
 /// An instance created outside the party starts <see cref="ItemCustody.Detached"/>: it lies on the ground,
@@ -22,7 +22,7 @@ public sealed class ItemInstance
     /// <param name="id">The instance's durable identity, which a save round-trips.</param>
     /// <param name="definition">The content definition this is a copy of.</param>
     /// <param name="stackCount">How many of the definition this instance carries, which must be at least one.</param>
-    /// <param name="state">The instance's condition, or the unidentified, sound, unenchanted state when omitted.</param>
+    /// <param name="state">The instance's condition, or the unidentified, sound state when omitted.</param>
     /// <exception cref="ArgumentOutOfRangeException">The stack count is below one.</exception>
     public ItemInstance(
         ItemInstanceId id,
@@ -53,7 +53,7 @@ public sealed class ItemInstance
     /// <summary>How many of the definition this instance carries; at least one.</summary>
     public int StackCount { get; private set; }
 
-    /// <summary>The instance's condition: identified, damaged, and enchanted.</summary>
+    /// <summary>The instance's condition: identified, damaged, charges spent, and strength.</summary>
     public ItemState State { get; private set; }
 
     /// <summary>Where the party holds this instance, or that the party does not hold it at all.</summary>
@@ -85,14 +85,6 @@ public sealed class ItemInstance
     /// </remarks>
     internal void SpendCharge() => State = State.WithChargeSpent();
 
-    /// <summary>Adds or replaces one enchantment on the instance.</summary>
-    /// <param name="enchantment">The enchantment to carry.</param>
-    public void Enchant(ItemEnchantment enchantment) => State = State.Enchanted(enchantment);
-
-    /// <summary>Removes one enchantment from the instance.</summary>
-    /// <param name="enchantment">The enchantment to remove.</param>
-    public void Disenchant(EnchantmentId enchantment) => State = State.Disenchanted(enchantment);
-
     /// <summary>Records where the party holds the instance. Only the party moves items, so only it calls this.</summary>
     internal void Place(ItemCustody custody) => Custody = custody;
 
@@ -109,14 +101,6 @@ public sealed class ItemInstance
         }
 
         StackCount -= count;
-    }
-
-    /// <summary>Adds items to this instance's stack, which a merge in the shared pack does.</summary>
-    /// <param name="count">How many to add, which must be at least one.</param>
-    internal void AddToStack(int count)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
-        StackCount = checked(StackCount + count);
     }
 
     /// <inheritdoc />

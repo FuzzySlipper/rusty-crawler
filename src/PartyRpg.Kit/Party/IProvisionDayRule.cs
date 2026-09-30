@@ -19,23 +19,17 @@ namespace PartyRpg.Kit.Party;
 /// <see cref="PartyFood.CanCover"/> for the charge before it begins, while the day's own accounting is
 /// what this rule prices.
 /// </para>
-/// <para>
-/// Followers are counted in the charge because they eat, but the consequence is a member's condition: a
-/// follower carries no condition state, so what a hungry follower suffers is nothing the party holds yet.
-/// </para>
 /// </remarks>
 public interface IProvisionDayRule
 {
     /// <summary>How much food one day of travelling or camping costs the party.</summary>
     /// <param name="members">How many members the party has, which a charge per head counts.</param>
-    /// <param name="followers">How many followers travel with it.</param>
     /// <returns>The day's charge, in the unit the party's larder measures.</returns>
-    Provisions DailyCharge(int members, int followers);
+    Provisions DailyCharge(int members);
 
     /// <summary>The consequence a larder at this level has for every member, or null when nobody is weakened.</summary>
     /// <param name="portionsAfter">What the larder holds once the day has been spent.</param>
     /// <param name="members">How many members the party has.</param>
-    /// <param name="followers">How many followers travel with it.</param>
     /// <returns>The condition every member suffers, or null when the party comes through the day fed.</returns>
-    ActiveCondition? Consequence(int portionsAfter, int members, int followers);
+    ActiveCondition? Consequence(int portionsAfter, int members);
 }

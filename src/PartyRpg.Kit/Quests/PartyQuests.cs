@@ -280,13 +280,6 @@ public sealed class PartyQuests
                 $"'{definition.Name}' pays {rewards.Coins} coin and this session holds no settlement path to credit it through, so nothing was paid."));
         }
 
-        // What the pack would refuse is asked before the errand is finished rather than after, and for every
-        // item reward together: a reward that cannot be taken would otherwise leave the quest paid in part.
-        if (_party.Inventory.Judge(rewards.Items.Select(item => (new ItemDefinitionId(item.Item), item.Count))) is { } refused)
-        {
-            return Refuse(QuestAction.TurnIn, quest, refused);
-        }
-
         ProgressionAwardResult? award = rewards.Experience > 0
             ? _progression!.Award(new PartyExperienceAward(QuestSource, rewards.Experience))
             : null;

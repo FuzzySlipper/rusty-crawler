@@ -35,17 +35,12 @@ namespace PartyRpg.Kit.Party;
 public sealed class PartyResourceLedger
 {
     private readonly PartyEntity _party;
-    private readonly ISettlementRule? _settlement;
     private readonly IProvisionDayRule? _provisioning;
 
     /// <summary>Creates the one settlement path over the party whose accounts it moves.</summary>
     /// <param name="party">
     /// The party that owns the purse, the larder, and the standing a charge is priced against. The ledger
     /// borrows it and does not outlive it.
-    /// </param>
-    /// <param name="settlement">
-    /// The rule that prices a charge and decides whether the party is served. Without one the quoted price
-    /// is what the party pays.
     /// </param>
     /// <param name="provisioning">
     /// The rule that prices a day and states what a short larder does. Without one a day costs nothing and
@@ -54,19 +49,16 @@ public sealed class PartyResourceLedger
     /// <exception cref="ArgumentNullException">The party is null.</exception>
     public PartyResourceLedger(
         PartyEntity party,
-        ISettlementRule? settlement = null,
         IProvisionDayRule? provisioning = null)
     {
         ArgumentNullException.ThrowIfNull(party);
         _party = party;
-        _settlement = settlement;
         _provisioning = provisioning;
     }
 
     /// <summary>Settles one charge against the party's purse and larder, whole or not at all.</summary>
     /// <remarks>
-    /// The rule prices the charge first, because what a service asks and what the party pays are different
-    /// numbers; then both accounts are judged; then both are debited. A refusal at any step leaves the party
+    /// Both accounts are judged first; then both are debited. A refusal at any step leaves the party
     /// exactly as it was, which is what lets a caller offer a price, take the answer, and show it.
     /// </remarks>
     /// <param name="quoted">What the service, fare, fee, or donation quoted.</param>
@@ -100,10 +92,7 @@ public sealed class PartyResourceLedger
     /// <summary>The price a charge settles at and, when it cannot, why.</summary>
     private (PartyCost Price, PartyRefusal? Refusal) Judged(PartyCost quoted)
     {
-        SettlementQuote quote = _settlement?.Quote(quoted, _party.Reputation) ?? SettlementQuote.Payable(quoted);
-        if (quote.Refusal is { } refusal) return (quoted, refusal);
-
-        PartyCost price = quote.Cost;
+        PartyCost price = quoted;
         PartyPurse purse = _party.Purse;
         PartyFood food = _party.Food;
 
@@ -153,9 +142,8 @@ public sealed class PartyResourceLedger
     public ProvisionDay SpendDay()
     {
         int members = _party.Members.Count;
-        int followers = _party.Followers.Count;
-        Provisions charged = _provisioning?.DailyCharge(members, followers) ?? Provisions.None;
-        return SpendDay(charged, members, followers);
+        Provisions charged = _provisioning?.DailyCharge(members) ?? Provisions.None;
+        return SpendDay(charged, members);
     }
 
     /// <summary>Spends a day the world already priced: a transition's quoted provisions.</summary>
@@ -167,10 +155,10 @@ public sealed class PartyResourceLedger
     /// <param name="charged">What the day costs, as the world quoted it, in the unit the larder measures.</param>
     /// <returns>What the day took and what it did.</returns>
     public ProvisionDay SpendDay(Provisions charged) =>
-        SpendDay(charged, _party.Members.Count, _party.Followers.Count);
+        SpendDay(charged, _party.Members.Count);
 
     /// <summary>Spends a day's food and applies the ruleset's consequence for what the larder holds afterwards.</summary>
-    private ProvisionDay SpendDay(Provisions charged, int members, int followers)
+    private ProvisionDay SpendDay(Provisions charged, int members)
     {
         PartyFood food = _party.Food;
         int covered = 0;
@@ -182,7 +170,7 @@ public sealed class PartyResourceLedger
             food.TryDebit(covered);
         }
 
-        ActiveCondition? shortage = _provisioning?.Consequence(food.Portions, members, followers);
+        ActiveCondition? shortage = _provisioning?.Consequence(food.Portions, members);
         if (shortage is { } condition)
         {
             // Hungry members carry the ruleset's own condition; ending it belongs to recovery, which is

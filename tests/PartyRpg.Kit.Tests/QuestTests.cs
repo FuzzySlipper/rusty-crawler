@@ -459,37 +459,6 @@ public sealed class QuestTests
         return new CreatureDeath(place, placement, $"a creature of row {row}");
     }
 
-    [Fact]
-    public void Item_rewards_are_judged_together_so_a_pack_with_room_for_one_pays_none()
-    {
-        // A pack that takes one thing, and an errand that pays two: each alone would fit, together they do not,
-        // so the turn-in is refused whole rather than paying the first and reporting both as taken.
-        using PartyEntity party = new PartyEntityFactory(inventoryCapacity: new RoomForOne()).Create(
-            new PartyCreation([Member("Roderick")], coins: 0, foodPortions: 0, reputation: 0, fame: 0));
-        QuestDefinition generous = new(
-            new QuestId("generous"),
-            "A generous errand",
-            "marshal",
-            [],
-            new QuestRewards(items: [new QuestRewardItem(Medal.Value), new QuestRewardItem(Seal.Value)]));
-        PartyQuests quests = new(new TestQuests(generous), party, new PartyResourceLedger(party), new PartyProgression(new TestProgression(), party));
-        quests.Offer(generous.Id, "marshal");
-        quests.Accept(generous.Id);
-
-        QuestResult refused = quests.TurnIn(generous.Id, "marshal");
-
-        Assert.Equal("pack-full", refused.Refusal!.Code);
-        Assert.Equal(0, party.Inventory.TotalOf(Medal));
-        Assert.Equal(QuestStage.Accepted, quests.Read(generous.Id)!.Instance.Stage);
-    }
-
-    /// <summary>A pack with room for one thing.</summary>
-    private sealed class RoomForOne : IInventoryCapacityRule
-    {
-        public PartyRefusal? Judge(IReadOnlyList<ItemInstance> held, ItemDefinitionId definition, int count) =>
-            held.Count + count > 1 ? new PartyRefusal("pack-full", "The pack takes one thing.") : null;
-    }
-
     /// <summary>The errand the first test drives: a short quest with a payment of every kind.</summary>
     private static QuestDefinition Errand() => new(
         new QuestId("seal-of-office"),

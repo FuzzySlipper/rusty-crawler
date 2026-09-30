@@ -141,18 +141,17 @@ durable `ItemInstanceId` and an `ItemState` of identified, damaged, and enchante
 `ItemCustody` that is detached, the shared pack, or a single member's slot and nothing else, so a
 per-character pack is a state these types cannot express; `Capture` writes each instance's identity, state,
 and custody and `Restore` rebuilds them), `PartyPurse`, `PartyFood`,
-`PartyReputation`, `PartyFollowers`, the running effects on the party and on each member (`ActiveEffects`,
+`PartyReputation`, the running effects on the party and on each member (`ActiveEffects`,
 written only by `RunningSpellEffects`), `PartyRecords`, `PartyHoldings`, `PartyPassages`, `PartyMemberships`,
 the minting of durable identities in
 `PartyIdentitySource`, and `PartyEntityFactory`, which builds a party from creation or from a `PartySave`
-and never lets a wrapped party grow a component, with the item rules it composes arriving as
-`IEquipmentUseRule`, `IInventoryCapacityRule`, and `IItemStackingRule` — what may be worn, what the shared
-pack takes, and how far copies bundle are the ruleset's answers over content and tuning, never a skill
-name, a slot name, or a limit in the kit), the party's owned resources (`PartyResourceLedger`, the
+and is the only code that attaches a party component, with the one item rule it composes arriving as
+`IEquipmentUseRule` — what may be worn is the ruleset's answer over content and tuning, never a skill name
+or a slot name in the kit), the party's owned resources (`PartyResourceLedger`, the
 one path that settles a `PartyCost` against the purse and the larder whole or not at all — refusing with
 every shortfall named rather than overdrawing the purse — credits the same two accounts, and spends a
-travelling or camping day as a `ProvisionDay`, priced and judged by a ruleset's `ISettlementRule` and
-`IProvisionDayRule` with `SettlementQuote` and `ResourceSettlement` as the answer and the outcome), the
+travelling or camping day as a `ProvisionDay`, priced by a ruleset's `IProvisionDayRule`, with `ResourceSettlement` as the
+outcome), the
 one progression owner (`Progression/` — `PartyProgression` is where experience, a level, a skill
 point, and a rank move and nowhere else: `Award` is the one entry a kill, a quest, or any other source arrives at and
 divides by the ruleset's own rule, `Train` is what a counter's step settles through — the fee charged by
@@ -266,8 +265,7 @@ A save happens only where the product asks for one: `SessionSaveBoundary` is the
 a save leaves out is as decided as what it carries — in-flight movement outcomes, cached projections, the
 population's runtime entities, engine handles, and every store-local entity identity are composed again on
 load — and a document wrong in several places is refused with every problem named at once, never only the
-first. A load also does not re-judge what it carries: the rules a party obeys are supplied when it is built,
-so a capacity rule that has changed gates new pickups and never loses an item the party already owned. The
+first. The
 sections a session does not own yet — containers and loose world items, and scenario flags — are absent
 because no owner holds their state; the schema grows a section when one does. The quests section is
 the one that arrived with its owner: it carries every instance a party holds — the stage, the progress
@@ -299,8 +297,4 @@ recorded in [`../../docs/research/mm7-data-inventory.md`](../../docs/research/mm
 donor's item state carries no weight field to read (`OpenEnroth/src/Engine/Objects/Item.h`, whose only
 size is a grid footprint that the one-shared-pack divergence replaces), and armour's cost there is attack
 recovery rather than a carry allowance (`src/Engine/Objects/Character.cpp`, `GetAttackRecoveryTime`).
-Inventing a weight would invent a limit the game does not have, so the seam is left named instead:
-`IInventoryCapacityRule` is asked about the shared pack as a whole and never about a character, which is
-the shape the design pins for a later party-wide allowance — the sum over members and followers needs a
-hook that can read the party, and today's rule is composed before the party exists and sees only the
-pack's contents.
+Inventing a weight would invent a limit the game does not have, so the shared pack has none.

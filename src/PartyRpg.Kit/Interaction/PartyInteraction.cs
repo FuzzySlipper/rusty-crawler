@@ -276,24 +276,6 @@ public sealed class PartyInteraction : IWorldInteractionScene
                 $"{target.Definition.Name} requires {requirement.Describe()}: {verdict.Explanation}");
         }
 
-        // What the use costs is judged here and settled only once everything else the use asks has been judged,
-        // so a use that is refused for any reason — a trap, the target's own answer, a pack with no room —
-        // takes nothing from the party.
-        PartyResourceLedger? payer = null;
-        if (!target.Definition.Price.IsFree)
-        {
-            if (_world.Accounts is not { } accounts)
-            {
-                return InteractionResult.Refused(
-                    target,
-                    "interaction-no-accounts",
-                    $"{target.Definition.Name} asks a price and this world holds no party whose accounts could pay it.");
-            }
-
-            if (accounts.Judge(target.Definition.Price) is { } unpaid) return InteractionResult.Refused(target, unpaid.Code, unpaid.Message);
-            payer = accounts;
-        }
-
         // What the target guards itself with comes next, and before anything it holds: a trap the party
         // cannot get past is answered here, never by handing over what it was guarding. The ruleset stated
         // every word and number of it, and the workflow — notice it before defeating it, spend it once, let
@@ -306,32 +288,16 @@ public sealed class PartyInteraction : IWorldInteractionScene
         InteractionOutcome outcome = _rule.Apply(target.Definition, context);
         if (!outcome.IsApplied) return InteractionResult.Refused(target, outcome.Refusal!.Code, outcome.Refusal.Message);
 
-        // What the use gives is judged before anything moves: a pack with no room for what was found refuses
-        // the whole use rather than leaving a container half emptied into it.
+        // What the use gives needs a party to take it.
         if (outcome.Items.Count > 0)
         {
-            if (_world.Party is not { } keeper)
+            if (_world.Party is null)
             {
                 return InteractionResult.Refused(
                     target,
                     "interaction-no-party",
                     $"{target.Definition.Name} gives what it holds and this world holds no party to take it.");
             }
-
-            // Room is judged for everything the use gives together, so a pack that has room for either of two
-            // things is not handed both.
-            if (keeper.Inventory.Judge(outcome.Items.Select(yield => (yield.Definition, yield.Count))) is { } refusal)
-            {
-                return InteractionResult.Refused(target, refusal.Code, refusal.Message);
-            }
-        }
-
-        // Everything was judged; the price is paid now, and it was judged a moment ago against accounts nothing
-        // has touched since.
-        if (payer is not null)
-        {
-            ResourceSettlement settlement = payer.Settle(target.Definition.Price);
-            if (!settlement.Admitted) return InteractionResult.Refused(target, settlement.Refusal!.Code, settlement.Refusal.Message);
         }
 
         string taken = HandOver(target, outcome);

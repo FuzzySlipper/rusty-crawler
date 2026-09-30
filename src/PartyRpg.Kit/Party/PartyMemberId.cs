@@ -11,7 +11,7 @@ namespace PartyRpg.Kit.Party;
 /// This is durable save identity. It is not runtime identity — the engine's <c>EntityId</c> for a member
 /// belongs to the store holding the party, differs after every load, and is never written down — and it
 /// is not content identity, because a character is created rather than defined, so no catalog names one.
-/// Equipment, followers, custody, and effects all name a person by this value precisely so that a save
+/// Equipment, custody, and effects all name a person by this value precisely so that a save
 /// can be read without the store that wrote it.
 /// </remarks>
 public readonly record struct PartyMemberId

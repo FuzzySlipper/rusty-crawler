@@ -27,42 +27,23 @@ namespace PartyRpg.Kit.Party;
 public sealed class PartyEntityFactory
 {
     private readonly IEquipmentUseRule? _equipmentUse;
-    private readonly IInventoryCapacityRule? _inventoryCapacity;
-    private readonly IItemStackingRule? _stacking;
     private readonly ICharacterHealthRule? _health;
-    private readonly int _hiredFollowerLimit;
 
     /// <summary>Creates a factory over the rules the party it builds obeys.</summary>
     /// <param name="equipmentUse">
     /// The rule that decides whether a member may wear or wield an item. Without one nothing gates
     /// equipment, which is the honest state of a product whose ruleset has not answered yet.
     /// </param>
-    /// <param name="inventoryCapacity">
-    /// The rule that decides whether the shared pack takes more items. Without one the pack has no limit,
-    /// which is what a game with no encumbrance has.
-    /// </param>
-    /// <param name="stacking">
-    /// The rule that says how far copies of one definition bundle. Without one nothing stacks.
-    /// </param>
-    /// <param name="hiredFollowerLimit">How many hired followers the party may have at once, from tuning.</param>
     /// <param name="health">
     /// The rule that says what a wound leaves on a member: the condition a character's own health takes from
     /// harm, whether that harm came from a fight or from a trap. Without one a member's pool stops at empty
     /// and no condition follows, which is what a ruleset stating no thresholds gets.
     /// </param>
-    /// <exception cref="ArgumentOutOfRangeException">The hired limit is negative.</exception>
     public PartyEntityFactory(
         IEquipmentUseRule? equipmentUse = null,
-        IInventoryCapacityRule? inventoryCapacity = null,
-        IItemStackingRule? stacking = null,
-        int hiredFollowerLimit = 0,
         ICharacterHealthRule? health = null)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(hiredFollowerLimit);
         _equipmentUse = equipmentUse;
-        _inventoryCapacity = inventoryCapacity;
-        _stacking = stacking;
-        _hiredFollowerLimit = hiredFollowerLimit;
         _health = health;
     }
 
@@ -85,18 +66,17 @@ public sealed class PartyEntityFactory
         foreach (MemberCreation member in creation.Members) members.Add(AttachMember(store, identity.MintMemberId(), member.Seed, [], _health));
 
         entity.Add(new PartyRoster(members));
-        entity.Add(new PartyInventory(_inventoryCapacity, _stacking));
+        entity.Add(new PartyInventory());
         entity.Add(new PartyPurse(creation.Coins));
         entity.Add(new PartyFood(creation.FoodPortions, creation.FoodUnit));
         entity.Add(new PartyReputation(creation.Reputation, creation.Fame));
-        entity.Add(new PartyFollowers(_hiredFollowerLimit));
         entity.Add(new ActiveEffects());
         entity.Add(new PartyRecords());
         entity.Add(new PartyHoldings());
         entity.Add(new PartyPassages());
         entity.Add(new PartyMemberships());
 
-        PartyEntity party = new(store, entity, ownsStore: true, _equipmentUse);
+        PartyEntity party = new(store, entity, _equipmentUse);
         for (int index = 0; index < members.Count; index++)
         {
             EquipStarting(party, members[index], creation.Members[index].StartingEquipment);
@@ -128,21 +108,19 @@ public sealed class PartyEntityFactory
         List<PartyMember> members = [];
         foreach (PartyMemberSave member in save.Members) members.Add(AttachMember(store, member.Id, member.Seed, member.Effects, _health));
 
-        PartyInventory inventory = new(_inventoryCapacity, _stacking);
-        PartyFollowers followers = new(_hiredFollowerLimit);
+        PartyInventory inventory = new();
         entity.Add(new PartyRoster(members));
         entity.Add(inventory);
         entity.Add(new PartyPurse(save.Coins));
         entity.Add(new PartyFood(save.FoodPortions, save.FoodUnit));
         entity.Add(new PartyReputation(save.Reputation, save.Fame));
-        entity.Add(followers);
         entity.Add(new ActiveEffects(save.Effects));
         entity.Add(new PartyRecords(save.Records));
         entity.Add(new PartyHoldings(save.Holdings));
         entity.Add(new PartyPassages(save.Passages));
         entity.Add(new PartyMemberships(save.Memberships));
 
-        PartyEntity party = new(store, entity, ownsStore: true, _equipmentUse);
+        PartyEntity party = new(store, entity, _equipmentUse);
 
         // Each instance goes back where the save says it was held. No rule is consulted: the save recorded
         // what the party held, and a rule that has since changed must not lose an item the party owned.
@@ -162,7 +140,6 @@ public sealed class PartyEntityFactory
             inventory.Append(instance);
         }
 
-        foreach (PartyFollower follower in save.Followers) followers.Add(follower);
         return party;
     }
 
@@ -241,27 +218,6 @@ public sealed class PartyEntityFactory
             else if (!occupied.Add((item.Custody.Member, item.Custody.Slot.Value)))
             {
                 problems.Add($"member {item.Custody.Member} has two items recorded in slot '{item.Custody.Slot}'");
-            }
-        }
-
-        HashSet<PartyMemberId> followers = [];
-        foreach (PartyFollower follower in save.Followers)
-        {
-            if (follower.Id.Value == 0)
-            {
-                problems.Add($"follower '{follower.Name}' is recorded without an identity");
-            }
-            else if (!followers.Add(follower.Id))
-            {
-                problems.Add($"follower {follower.Id} is recorded more than once");
-            }
-            else if (follower.Id.Value >= save.NextMemberValue)
-            {
-                problems.Add($"follower {follower.Id} is not below the member cursor {save.NextMemberValue}, so a restored party could mint that identity again");
-            }
-            else if (members.Contains(follower.Id))
-            {
-                problems.Add($"follower {follower.Id} shares an identity with a member");
             }
         }
 

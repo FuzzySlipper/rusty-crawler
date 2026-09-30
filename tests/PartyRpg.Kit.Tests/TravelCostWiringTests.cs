@@ -563,9 +563,9 @@ public sealed class TravelCostWiringTests
     /// </summary>
     private sealed class Rations(PartyEntity party, ConditionId weakness) : IProvisionDayRule
     {
-        public Provisions DailyCharge(int members, int followers) => new(1, ProvisionUnit.Portions);
+        public Provisions DailyCharge(int members) => new(1, ProvisionUnit.Portions);
 
-        public ActiveCondition? Consequence(int portionsAfter, int members, int followers)
+        public ActiveCondition? Consequence(int portionsAfter, int members)
         {
             if (portionsAfter >= 1)
             {

@@ -162,25 +162,6 @@ public sealed class PersistenceTests
 
         Assert.Equal(4, after.State.Damage);
         Assert.True(after.State.IsIdentified);
-        Assert.Equal(
-            [new ItemEnchantment(new EnchantmentId("flame"), 7), new ItemEnchantment(new EnchantmentId("ward"), 2)],
-            after.State.Enchantments);
-    }
-
-    [Fact]
-    public void A_restore_keeps_what_was_saved_and_the_rules_supplied_at_load_still_gate_new_items()
-    {
-        using Played played = new();
-        SessionSave save = played.Session.Capture();
-        int held = save.Party.Items.Count;
-
-        // The rules a party obeys are policy and are supplied when it is built, so a load supplies them
-        // again — and does not re-judge what the save already recorded, because re-running a changed rule
-        // could lose an item the product itself saved.
-        using PartyEntity restored = new PartyEntityFactory(inventoryCapacity: new RefuseEverything()).Restore(save.Party);
-        Assert.Equal(held, restored.Items.Count);
-        ItemAcquisition refused = restored.AcquireItem(new ItemDefinitionId("sword"));
-        Assert.Equal("test-no-room", refused.Refusal!.Code);
     }
 
     [Fact]
@@ -337,8 +318,7 @@ public sealed class PersistenceTests
             sound.Party.FoodUnit,
             sound.Party.Reputation,
             sound.Party.Fame,
-            sound.Party.Followers,
-            sound.Party.Effects);
+            effects: sound.Party.Effects);
         PlaceState[] states =
         [
             .. sound.World.Places.States,
@@ -588,7 +568,6 @@ public sealed class PersistenceTests
         Assert.Equal(before.Food.Unit, after.Food.Unit);
         Assert.Equal(before.Reputation.Reputation, after.Reputation.Reputation);
         Assert.Equal(before.Reputation.Fame, after.Reputation.Fame);
-        Assert.Equal(before.Followers.Followers, after.Followers.Followers);
         Assert.Equal(before.Effects.Active, after.Effects.Active);
     }
 
@@ -599,7 +578,6 @@ public sealed class PersistenceTests
         Assert.Equal(before.StackCount, after.StackCount);
         Assert.Equal(before.State.IsIdentified, after.State.IsIdentified);
         Assert.Equal(before.State.Damage, after.State.Damage);
-        Assert.Equal(before.State.Enchantments, after.State.Enchantments);
     }
 
     /// <summary>A session that has been played, and everything a load rebuilds it from.</summary>
@@ -649,8 +627,6 @@ public sealed class PersistenceTests
             ItemInstance signet = Party.AcquireItem(new ItemDefinitionId("signet")).Item!;
             signet.Identify();
             signet.TakeDamage(4);
-            signet.Enchant(new ItemEnchantment(new EnchantmentId("flame"), 7));
-            signet.Enchant(new ItemEnchantment(new EnchantmentId("ward"), 2));
 
             // Coins spent the way a shop would spend them, so the purse is not its starting value.
             Assert.True(Party.Purse.TryDebit(197));
@@ -717,8 +693,7 @@ public sealed class PersistenceTests
             save.FoodUnit,
             save.Reputation,
             save.Fame,
-            save.Followers,
-            save.Effects);
+            effects: save.Effects);
 
     /// <summary>The place rule a pose outside the place is refused by, as a world would supply one.</summary>
     private static PlacePoseAdmission RefusesNegativeX() => (PlaceId _, PlacePose pose, out PlacePose admitted) =>
@@ -824,9 +799,9 @@ public sealed class PersistenceTests
     /// <summary>The larder policy this suite states: one portion a day, hunger when the larder is empty.</summary>
     private sealed class Rations(PartyEntity party, ConditionId weakness) : IProvisionDayRule
     {
-        public Provisions DailyCharge(int members, int followers) => new(1, ProvisionUnit.Portions);
+        public Provisions DailyCharge(int members) => new(1, ProvisionUnit.Portions);
 
-        public ActiveCondition? Consequence(int portionsAfter, int members, int followers)
+        public ActiveCondition? Consequence(int portionsAfter, int members)
         {
             if (portionsAfter >= 1)
             {
@@ -838,10 +813,4 @@ public sealed class PersistenceTests
         }
     }
 
-    /// <summary>A capacity rule that refuses everything, so a rule supplied at load is observable.</summary>
-    private sealed class RefuseEverything : IInventoryCapacityRule
-    {
-        public PartyRefusal? Judge(IReadOnlyList<ItemInstance> items, ItemDefinitionId definition, int count) =>
-            new("test-no-room", "the test's pack holds nothing more");
-    }
 }

@@ -67,8 +67,8 @@ playtest stop SESSION
   `Accept party` button, not by a key. Click the play area once before expecting keys to arrive.
 - **`input` holds take virtual-key codes**, not key names: W 87, A 65, S 68, D 83, Q 81, E 69, G 71
   (the use key), P 80, Space 32. A batch that names a key instead is refused by the service's validation;
-  that refusal currently reaches the caller as an `EOF` from the service rather than as the sentence,
-  which is a playtest-service defect rather than a product one — send VK codes and it does not arise.
+  the service now returns a descriptive `invalid_input` error (task 8701), and the session remains
+  usable for a subsequent valid batch.
 - Keys are held, not tapped: one `hold` of `W` walks, one `hold` of `Q`/`E` turns, and the panel's
   `Position` row is the feedback loop — turn until the bearing is right, walk, re-read, repeat. At 60 fps
   a held `W` moves the party about 382 units a second and a held `Q`/`E` turns about 512 facing units a

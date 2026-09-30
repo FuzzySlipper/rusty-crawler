@@ -291,7 +291,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule, ISpellI
         Entry(93, [30, 30, 30, 30], [90, 90, 80, 70], 6, 6, 2, SpellTargeting.Foe, SpellEffects.Damage),   // Shrapmetal
         Entry(94, [35, 35, 35, 35], [120, 120, 100, 80], 0, 0, 2, SpellTargeting.Foe, SpellEffects.Condition, Readings.NotYet("an undead creature made to fight for the party", "the fight's allegiance state, which is a side rather than a loyalty")),   // Control Undead
         Entry(95, [40, 40, 40, 40], [110, 110, 110, 110], 0, 0, 2, SpellTargeting.Caster, SpellEffects.Utility, Readings.NotYet("harm reflected onto whoever struck the party", "the fight's damage application")),   // Pain Reflection
-        Entry(96, [45, 45, 45, 45], [200, 200, 200, 150], 0, 0, 3, SpellTargeting.None, SpellEffects.Utility, Readings.Unaimable("a follower to give up", "an item-aim owner: the party's followers exist and nothing aims a spell at one")),   // Sacrifice
+        Entry(96, [45, 45, 45, 45], [200, 200, 200, 150], 0, 0, 3, SpellTargeting.None, SpellEffects.Utility, Readings.Unaimable("a follower to give up", "a follower owner: the party keeps no followers until hirelings and story companions land")),   // Sacrifice
         Entry(97, [50, 50, 50, 50], [120, 120, 120, 100], 0, 25, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Dragon Breath
         Entry(98, [55, 55, 55, 55], [250, 250, 250, 250], 50, 1, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Armageddon
         Entry(99, [60, 60, 60, 60], [300, 300, 300, 300], 25, 8, 4, SpellTargeting.Foe, SpellEffects.Damage),   // Souldrinker

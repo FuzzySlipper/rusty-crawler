@@ -9,8 +9,8 @@ namespace PartyRpg.Kit.Party;
 /// </summary>
 /// <remarks>
 /// This is durable save identity and the reason item instances exist apart from item definitions. Two
-/// instances of one definition are different things — one is identified, one is damaged, one carries an
-/// enchantment — and a save that recorded only the definition would turn a named artifact back into an
+/// instances of one definition are different things — one is identified, one is damaged, one has spent a
+/// charge — and a save that recorded only the definition would turn a named artifact back into an
 /// anonymous copy of its kind. It is neither runtime identity nor content identity: the definition is
 /// content's, and nothing about a visit names an instance.
 /// </remarks>

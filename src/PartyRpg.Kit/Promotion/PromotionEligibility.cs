@@ -72,7 +72,7 @@ internal static class PromotionEligibility
                         : $"needs {requirement}, and the party carries {held.ToString(CultureInfo.InvariantCulture)}");
             }
 
-            case PromotionRequirementKind.Award:
+            default:
             {
                 int held = party.Records.CountOf(requirement.Name);
                 bool met = held >= requirement.Amount;
@@ -82,18 +82,6 @@ internal static class PromotionEligibility
                     met
                         ? $"holds the record of {requirement}"
                         : $"needs the record of {requirement}, and the party's record stands at {held.ToString(CultureInfo.InvariantCulture)}");
-            }
-
-            default:
-            {
-                // The errand kind is stated and not judged: the owner that will judge it does not exist yet,
-                // and this says which requirement is waiting rather than treating it as met or as an absence.
-                return new PromotionRequirementVerdict(
-                    requirement,
-                    false,
-                    string.Create(
-                        CultureInfo.InvariantCulture,
-                        $"needs {requirement}, and nothing in this build owns an errand's state to judge it"));
             }
         }
     }

@@ -255,15 +255,6 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
 
         ServiceQuote quote = _rule.Quote(new ServiceQuoteRequest(service, operation, subject, member, _party, _clock));
 
-        // What the party must be able to hold is judged before anything is settled, so a purchase the pack
-        // cannot take refuses whole rather than charging for goods that would have to be dropped.
-        if (operation == ServiceOperationKind.Buy &&
-            subject.Definition is { } definition &&
-            _party.Inventory.Judge(definition, subject.Count) is { } noRoom)
-        {
-            return Refuse(command.Kind, noRoom.Code, noRoom.Message);
-        }
-
         if ((!quote.Charge.IsFree || !quote.Payment.IsFree) && _accounts is null)
         {
             return Refuse(

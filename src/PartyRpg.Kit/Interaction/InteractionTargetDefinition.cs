@@ -43,7 +43,6 @@ public sealed record InteractionTargetDefinition
     /// time it is used.
     /// </param>
     /// <param name="requires">What the use requires, in the order the checks happen; empty when it requires nothing.</param>
-    /// <param name="price">What the use costs the party, settled through the party's one settlement path; free when it costs nothing.</param>
     /// <exception cref="ArgumentException">The name is blank, which names nothing a person could be shown.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The reach is not a finite, positive distance.</exception>
     public InteractionTargetDefinition(
@@ -52,8 +51,7 @@ public sealed record InteractionTargetDefinition
         InteractionVerb verb,
         double reach,
         string state = "",
-        IReadOnlyList<InteractionRequirement>? requires = null,
-        PartyCost? price = null)
+        IReadOnlyList<InteractionRequirement>? requires = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         if (!double.IsFinite(reach) || reach <= 0)
@@ -70,7 +68,6 @@ public sealed record InteractionTargetDefinition
         Reach = reach;
         State = state;
         Requires = requires ?? [];
-        Price = price ?? PartyCost.Free;
     }
 
     /// <summary>What kind of thing the target is.</summary>
@@ -90,7 +87,4 @@ public sealed record InteractionTargetDefinition
 
     /// <summary>What the use requires, in the order the checks happen.</summary>
     public IReadOnlyList<InteractionRequirement> Requires { get; init; }
-
-    /// <summary>What the use costs the party.</summary>
-    public PartyCost Price { get; init; }
 }

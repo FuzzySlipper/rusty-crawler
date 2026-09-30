@@ -32,7 +32,6 @@ public sealed record PartySave
     /// <param name="foodUnit">The unit the larder measured provisions in.</param>
     /// <param name="reputation">What the world thought of the party.</param>
     /// <param name="fame">How widely the party was known.</param>
-    /// <param name="followers">The followers travelling with the party.</param>
     /// <param name="effects">The effects running on the whole party.</param>
     /// <param name="records">What the party had on record.</param>
     /// <param name="holdings">What the party had deposited, account by account.</param>
@@ -50,7 +49,6 @@ public sealed record PartySave
         ProvisionUnit foodUnit = ProvisionUnit.Portions,
         int reputation = 0,
         int fame = 0,
-        IReadOnlyList<PartyFollower>? followers = null,
         IReadOnlyList<PartyEffect>? effects = null,
         IReadOnlyList<PartyRecord>? records = null,
         IReadOnlyList<PartyHolding>? holdings = null,
@@ -77,7 +75,6 @@ public sealed record PartySave
         FoodUnit = foodUnit;
         Reputation = reputation;
         Fame = fame;
-        Followers = followers ?? [];
         Effects = effects ?? [];
         Records = records ?? [];
         Holdings = holdings ?? [];
@@ -111,9 +108,6 @@ public sealed record PartySave
 
     /// <summary>How widely the party was known.</summary>
     public int Fame { get; }
-
-    /// <summary>The followers travelling with the party.</summary>
-    public IReadOnlyList<PartyFollower> Followers { get; }
 
     /// <summary>The effects running on the whole party.</summary>
     public IReadOnlyList<PartyEffect> Effects { get; }

@@ -20,7 +20,6 @@ public sealed class PartyResourceTests
     private static readonly ClassId Fighter = new("fighter");
     private static readonly AttributeId Vigour = new("vigour");
     private static readonly ConditionId Weakened = new("weakened");
-    private static readonly FollowerDefinitionId Porter = new("porter");
 
     [Fact]
     public void A_settlement_debits_the_purse_and_the_larder_together()
@@ -85,61 +84,10 @@ public sealed class PartyResourceTests
     }
 
     [Fact]
-    public void Reputation_changes_what_a_policy_charges_and_whether_it_serves_the_party()
-    {
-        TempleStanding temple = new();
-        using PartyEntity party = Build(coins: 100, reputation: 25);
-        PartyResourceLedger ledger = new(party, temple);
-
-        // The rule's own threshold: a party the town thinks well of pays a tenth less than the quoted price.
-        ResourceSettlement discounted = ledger.Settle(PartyCost.OfGold(50));
-
-        Assert.True(discounted.Admitted);
-        Assert.Equal(45, discounted.Cost.Coins);
-        Assert.Equal(55, party.Purse.Coins);
-
-        // The same quoted price after one deed costs the party its standing: below the rule's line it is not
-        // served at all, and nothing is taken.
-        party.Reputation.ChangeReputation(-30);
-        ResourceSettlement refused = ledger.Settle(PartyCost.OfGold(50));
-
-        Assert.False(refused.Admitted);
-        Assert.Equal("standing-refused", refused.Refusal!.Code);
-        Assert.Contains("-5", refused.Refusal.Message, StringComparison.Ordinal);
-        Assert.Equal(55, party.Purse.Coins);
-
-        // The rule was handed the standing the party actually carried and decided for itself, which is what
-        // makes this a policy's answer rather than a branch inside the settlement path.
-        Assert.Equal(new[] { 25, -5 }, temple.SeenReputations);
-    }
-
-    [Fact]
-    public void Fame_reaches_the_same_policy_and_changes_its_answer()
-    {
-        TempleStanding temple = new();
-        using PartyEntity party = Build(coins: 100, reputation: 10, fame: 0);
-        PartyResourceLedger ledger = new(party, temple);
-
-        ResourceSettlement charged = ledger.Settle(PartyCost.OfGold(50));
-
-        Assert.True(charged.Admitted);
-        Assert.Equal(50, charged.Cost.Coins);
-        Assert.Equal(50, party.Purse.Coins);
-
-        // Reputation alone earns no waiver here: the rule's other threshold counts what people have heard.
-        party.Reputation.ChangeFame(10);
-        ResourceSettlement waived = ledger.Settle(PartyCost.OfGold(50));
-
-        Assert.True(waived.Admitted);
-        Assert.True(waived.Cost.IsFree);
-        Assert.Equal(50, party.Purse.Coins);
-    }
-
-    [Fact]
     public void A_day_costs_the_rulesets_charge_and_weakens_a_party_below_its_threshold()
     {
         Rations rations = new(perDay: 2, weakenedBelow: 3, Weakened);
-        using PartyEntity party = Build(foodPortions: 5, memberCount: 2, hiredFollowers: 1);
+        using PartyEntity party = Build(foodPortions: 5, memberCount: 2);
         PartyResourceLedger ledger = new(party, provisioning: rations);
 
         ProvisionDay fed = ledger.SpendDay();
@@ -151,9 +99,9 @@ public sealed class PartyResourceTests
         Assert.Equal(3, party.Food.Portions);
         Assert.All(party.Members, member => Assert.False(member.Conditions.Has(Weakened)));
 
-        // Every head the party has reaches the rule, followers included, so a charge per head is the
-        // ruleset's decision to make rather than a number the kit picked.
-        Assert.Equal((2, 1), rations.LastAsked);
+        // Every member the party has reaches the rule, so a charge per head is the ruleset's decision to make
+        // rather than a number the kit picked.
+        Assert.Equal(2, rations.LastAsked);
         Assert.Equal(1, rations.ChargesAsked);
 
         // One more day leaves the larder below the rule's line, and the condition the rule named lands on
@@ -256,25 +204,13 @@ public sealed class PartyResourceTests
         int foodPortions = 0,
         int reputation = 0,
         int fame = 0,
-        int memberCount = 1,
-        int hiredFollowers = 0)
+        int memberCount = 1)
     {
         List<MemberCreation> members = [];
         for (int index = 0; index < memberCount; index++) members.Add(new MemberCreation(Seed($"Member {index + 1}")));
 
-        PartyEntity party = new PartyEntityFactory(hiredFollowerLimit: hiredFollowers).Create(
+        return new PartyEntityFactory().Create(
             new PartyCreation(members, coins, foodPortions, ProvisionUnit.Portions, reputation, fame));
-
-        for (int index = 0; index < hiredFollowers; index++)
-        {
-            Assert.Null(party.Followers.Add(new PartyFollower(
-                party.Identity.MintMemberId(),
-                Porter,
-                $"Follower {index + 1}",
-                FollowerKind.Hired)));
-        }
-
-        return party;
     }
 
     private static PartyMemberSeed Seed(string name) => new(
@@ -291,37 +227,6 @@ public sealed class PartyResourceTests
         conditions: [],
         hitPoints: ResourcePool.Full(10),
         spellPoints: ResourcePool.Full(5));
-
-    /// <summary>
-    /// A ruleset policy of the kind a temple writes: it refuses a party the town distrusts, charges a party
-    /// it thinks well of less, and waives the price for a party whose fame has reached it. Every number here
-    /// is the test's own, which is exactly why the kit has none.
-    /// </summary>
-    private sealed class TempleStanding : ISettlementRule
-    {
-        private const int DistrustedBelow = 0;
-        private const int WellRegardedAt = 20;
-        private const int FamedAt = 10;
-
-        /// <summary>The standings the rule was handed, in the order it was asked.</summary>
-        internal List<int> SeenReputations { get; } = [];
-
-        public SettlementQuote Quote(PartyCost quoted, PartyReputation standing)
-        {
-            SeenReputations.Add(standing.Reputation);
-            if (standing.Reputation < DistrustedBelow)
-            {
-                return SettlementQuote.Refused(new PartyRefusal(
-                    "standing-refused",
-                    $"A party of reputation {standing.Reputation} is not served here."));
-            }
-
-            if (standing.Fame >= FamedAt) return SettlementQuote.Payable(PartyCost.Free);
-
-            int charged = standing.Reputation >= WellRegardedAt ? quoted.Coins - (quoted.Coins / 10) : quoted.Coins;
-            return SettlementQuote.Payable(new PartyCost(charged, quoted.Food));
-        }
-    }
 
     /// <summary>A ruleset's daily larder policy: what a day costs, and where a party counts as weakened.</summary>
     private sealed class Rations : IProvisionDayRule
@@ -340,17 +245,17 @@ public sealed class PartyResourceTests
         /// <summary>How often a camping day asked for its charge; a road already priced asks nothing.</summary>
         internal int ChargesAsked { get; private set; }
 
-        /// <summary>The heads the last camping charge was asked about, members and followers alike.</summary>
-        internal (int Members, int Followers) LastAsked { get; private set; }
+        /// <summary>The members the last camping charge was asked about.</summary>
+        internal int LastAsked { get; private set; }
 
-        public Provisions DailyCharge(int members, int followers)
+        public Provisions DailyCharge(int members)
         {
             ChargesAsked++;
-            LastAsked = (members, followers);
+            LastAsked = members;
             return Portions(_perDay);
         }
 
-        public ActiveCondition? Consequence(int portionsAfter, int members, int followers) =>
+        public ActiveCondition? Consequence(int portionsAfter, int members) =>
             portionsAfter < _weakenedBelow ? new ActiveCondition(_weakened, 1) : null;
     }
 }

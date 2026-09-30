@@ -152,32 +152,6 @@ public sealed class AlchemyTests
     }
 
     [Fact]
-    public void A_mixture_the_pack_cannot_take_is_refused_whole_and_leaves_both_ingredients_where_they_lay()
-    {
-        using PartyEntity party = Party(alchemyLevel: 3, alchemyTier: 1, capacity: new RoomForTwo());
-        AlchemyCatalog catalog = new([
-            new PotionMixture(Berry, Bottle, MixtureOutcome.Produces(Draught), new SkillTier(1), Power: 5),
-        ]);
-        PotionMixing mixing = new(party, catalog, new Rule());
-
-        ItemInstance berry = Take(party, Berry);
-        ItemInstance bottle = Take(party, Bottle);
-
-        // The pack holds two instances and its own rule lets it hold no more: the potion would be a third, so
-        // the whole attempt is refused before either ingredient is spent.
-        MixingResult refused = mixing.Mix(new MixingRequest(0, berry.Id, bottle.Id));
-
-        Assert.False(refused.IsMixed);
-        Assert.NotNull(refused.Refusal);
-        Assert.Equal("pack-full", refused.Refusal!.Code);
-        Assert.NotNull(party.FindItem(berry.Id));
-        Assert.NotNull(party.FindItem(bottle.Id));
-        Assert.Equal(Berry, party.FindItem(berry.Id)!.Definition);
-        Assert.Equal(Bottle, party.FindItem(bottle.Id)!.Definition);
-        Assert.Equal(2, party.Inventory.Count);
-    }
-
-    [Fact]
     public void A_mixture_that_is_not_one_and_a_character_who_cannot_act_are_each_refused_by_name()
     {
         using PartyEntity party = Party(alchemyLevel: 3, alchemyTier: 1);
@@ -315,8 +289,7 @@ public sealed class AlchemyTests
         int alchemyLevel,
         int alchemyTier,
         int secondLevel = 0,
-        int secondTier = 0,
-        IInventoryCapacityRule? capacity = null)
+        int secondTier = 0)
     {
         PartyCreation creation = new(
             [
@@ -327,7 +300,7 @@ public sealed class AlchemyTests
             foodPortions: 6,
             reputation: 0,
             fame: 0);
-        return new PartyEntityFactory(inventoryCapacity: capacity).Create(creation);
+        return new PartyEntityFactory().Create(creation);
     }
 
     private static MemberCreation Member(string name, int alchemyLevel, int alchemyTier) =>
@@ -371,15 +344,6 @@ public sealed class AlchemyTests
         }
 
         throw new InvalidOperationException("The repository root could not be found from the test's own output directory.");
-    }
-
-    /// <summary>A pack that holds two instances and no more, so an acquisition past that is refused whole.</summary>
-    private sealed class RoomForTwo : IInventoryCapacityRule
-    {
-        public PartyRefusal? Judge(IReadOnlyList<ItemInstance> items, ItemDefinitionId definition, int count) =>
-            items.Count + count > 2
-                ? new PartyRefusal("pack-full", "The pack holds two things and no more, so the potion would not fit.")
-                : null;
     }
 
     /// <summary>This suite's own answers about mixing: a skill, its rung names, and what a burst is worth.</summary>

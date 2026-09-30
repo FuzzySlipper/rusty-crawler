@@ -30,9 +30,7 @@ public sealed class PartyEntityTests
     private static readonly ConditionId Weakened = new("weakened");
     private static readonly EffectId Warded = new("warded");
     private static readonly EffectId Swift = new("swift");
-    private static readonly EnchantmentId Keen = new("keen");
     private static readonly EquipmentSlot Hand = new("hand");
-    private static readonly FollowerDefinitionId Porter = new("porter");
     private static readonly ItemDefinitionId Blade = new("blade");
     private static readonly ItemDefinitionId Arrow = new("arrow");
     private static readonly ItemDefinitionId Torch = new("torch");
@@ -52,7 +50,7 @@ public sealed class PartyEntityTests
         Assert.True(party.Actor.Has<PartyPurse>());
         Assert.True(party.Actor.Has<PartyFood>());
         Assert.True(party.Actor.Has<PartyReputation>());
-        Assert.True(party.Actor.Has<PartyFollowers>());
+        Assert.True(party.Actor.Has<PartyRecords>());
         Assert.True(party.Actor.Has<ActiveEffects>());
         Assert.True(party.Actor.Has<PartyIdentitySource>());
         Assert.Equal(new[] { "Ann", "Bo" }, party.Members.Select(member => member.Profile.Name));
@@ -77,24 +75,6 @@ public sealed class PartyEntityTests
         Assert.Equal(2, party.Reputation.Fame);
         Assert.Empty(party.Inventory.Items);
         Assert.Empty(party.Items);
-    }
-
-    [Fact]
-    public void Wrapping_a_party_entity_creates_no_component()
-    {
-        using EntityStore store = new();
-        Actor entity = new(store, store.Create(new EntityTypeId(PartyEntity.EntityKind), EntityLifecycle.Active));
-        PartyEntity wrapped = PartyEntity.Wrap(entity);
-
-        // Wrapping is composition, not construction: a party entity that carries nothing reports that on the
-        // read rather than growing an empty component the caller never asked for.
-        Assert.Throws<InvalidOperationException>(() => wrapped.Inventory);
-        Assert.Throws<InvalidOperationException>(() => wrapped.Roster);
-        Assert.Empty(store.Diagnostics().Components);
-
-        // A wrapped party borrows the store, so disposing the facade leaves the caller's store alone.
-        wrapped.Dispose();
-        Assert.Equal(1, store.Diagnostics().EntityCount);
     }
 
     [Fact]
@@ -232,7 +212,7 @@ public sealed class PartyEntityTests
             [Torch.Value] = (Fighter.Value, Blades.Value),
         });
         using PartyEntity party = Build(
-            new PartyEntityFactory(gate, stacking: new StackLimits(new Dictionary<string, int> { [Arrow.Value] = 4 })),
+            new PartyEntityFactory(gate),
             Member("Ann", Fighter, new SkillEntry(Blades, 1, SkillTier.None, 1)),
             Member("Bo", Adept));
         PartyMember ann = party.Members[0];
@@ -259,8 +239,8 @@ public sealed class PartyEntityTests
             }
         }
 
-        Assert.Equal(4, party.Items.Count);
-        Assert.Equal(3, inPack.Count);
+        Assert.Equal(8, party.Items.Count);
+        Assert.Equal(7, inPack.Count);
         Assert.Single(onFigures);
         Assert.Equal(8, party.Items.Sum(item => item.StackCount));
         Assert.Equal(6, party.Inventory.TotalOf(Arrow));
@@ -275,70 +255,16 @@ public sealed class PartyEntityTests
             Member("Bo", Adept));
         party.AcquireItem(Arrow, 3);
 
-        // The party's store enumerates every component family it holds, and the party composes exactly eleven
+        // The party's store enumerates every component family it holds, and the party composes exactly ten
         // party-scoped families, eight per-member ones, and the running effects, one family whose values sit on
         // the party and on each member alike. A per-character pack would be another per-member family and
         // would fail here, which is what makes "only what it has equipped" structural rather than a promise:
         // there is no family for a loose list to live in.
         EntityStoreDiagnostics diagnostics = party.Store.Diagnostics();
-        Assert.Equal(20, diagnostics.Components.Count);
-        Assert.Equal(11, diagnostics.Components.Count(family => family.ValueCount == 1));
+        Assert.Equal(19, diagnostics.Components.Count);
+        Assert.Equal(10, diagnostics.Components.Count(family => family.ValueCount == 1));
         Assert.Equal(8, diagnostics.Components.Count(family => family.ValueCount == party.Members.Count));
         Assert.Equal(1, diagnostics.Components.Count(family => family.ValueCount == party.Members.Count + 1));
-    }
-
-    [Fact]
-    public void Taking_more_than_a_stack_holds_starts_more_instances()
-    {
-        using PartyEntity party = Build(
-            new PartyEntityFactory(stacking: new StackLimits(new Dictionary<string, int> { [Arrow.Value] = 3 })),
-            Member("Ann", Fighter));
-
-        ItemAcquisition first = party.AcquireItem(Arrow, 2);
-        ItemAcquisition rest = party.AcquireItem(Arrow, 7);
-
-        // The stack already in the pack takes one, and the remainder becomes whole stacks of its own.
-        Assert.Equal(3, first.Item!.StackCount);
-        Assert.Same(first.Item, rest.Item);
-        Assert.Equal(3, party.Inventory.Items.Count);
-        Assert.Equal(new[] { 3, 3, 3 }, party.Inventory.Items.Select(item => item.StackCount));
-        Assert.Equal(9, party.Inventory.TotalOf(Arrow));
-        Assert.Equal(3, party.Inventory.Items.Select(item => item.Id).Distinct().Count());
-    }
-
-    [Fact]
-    public void An_instance_that_differs_in_state_never_merges_into_another()
-    {
-        using PartyEntity party = Build(
-            new PartyEntityFactory(stacking: new StackLimits(new Dictionary<string, int> { [Arrow.Value] = 5 })),
-            Member("Ann", Fighter));
-        ItemInstance damaged = party.AcquireItem(Arrow, 2).Item!;
-        damaged.TakeDamage(1);
-
-        ItemAcquisition taken = party.AcquireItem(Arrow, 1);
-
-        // A damaged item must not disappear into a sound stack: instances merge only when the whole state
-        // matches.
-        Assert.NotSame(damaged, taken.Item);
-        Assert.Equal(2, party.Inventory.Items.Count);
-        Assert.Equal(1, party.Inventory.Items.Single(item => !item.State.Matches(damaged.State)).StackCount);
-    }
-
-    [Fact]
-    public void A_refused_pickup_leaves_the_party_and_the_offer_alone()
-    {
-        using PartyEntity party = Build(new PartyEntityFactory(inventoryCapacity: new LooseItemLimit(1)), Member("Ann", Fighter));
-        party.AcquireItem(Blade);
-        ItemInstance offered = party.CreateItem(Torch);
-
-        ItemAcquisition refused = party.AcquireItem(offered);
-
-        Assert.False(refused.Admitted);
-        Assert.Equal("pack-full", refused.Refusal!.Code);
-        Assert.Null(refused.Item);
-        Assert.Single(party.Inventory.Items);
-        Assert.True(offered.Custody.IsDetached);
-        Assert.DoesNotContain(party.Items, item => item.Id == offered.Id);
     }
 
     [Fact]
@@ -362,25 +288,6 @@ public sealed class PartyEntityTests
         // The kit knows no class and no skill: the rule was handed the member, read the class and the skills
         // off it, and answered for itself.
         Assert.Equal(new[] { Adept.Value }, gate.SeenClasses);
-    }
-
-    [Fact]
-    public void Equipping_is_refused_when_the_pack_cannot_take_what_the_slot_would_displace()
-    {
-        using PartyEntity party = Build(new PartyEntityFactory(inventoryCapacity: new LooseItemLimit(1)), Member("Ann", Fighter));
-        PartyMember ann = party.Members[0];
-        ItemInstance torch = party.AcquireItem(Torch).Item!;
-        party.Equip(ann.Id, Hand, torch.Id);
-        ItemInstance blade = party.AcquireItem(Blade).Item!;
-
-        EquipmentChange change = party.Equip(ann.Id, Hand, blade.Id);
-
-        // A swap with nowhere to put the displaced item is refused whole: the party keeps what it had instead
-        // of losing an item in the middle of a change.
-        Assert.False(change.Admitted);
-        Assert.Equal("pack-full", change.Refusal!.Code);
-        Assert.Same(torch, ann.Equipment.ItemIn(Hand));
-        Assert.Same(blade, party.Inventory.Items.Single());
     }
 
     [Fact]
@@ -521,20 +428,6 @@ public sealed class PartyEntityTests
     }
 
     [Fact]
-    public void Hired_followers_obey_the_limit_and_story_followers_do_not()
-    {
-        using PartyEntity party = Build(new PartyEntityFactory(hiredFollowerLimit: 1), Member("Ann", Fighter));
-
-        Assert.Null(party.Followers.Add(new PartyFollower(party.Identity.MintMemberId(), Porter, "Tam", FollowerKind.Hired)));
-        PartyRefusal? refused = party.Followers.Add(new PartyFollower(party.Identity.MintMemberId(), Porter, "Ula", FollowerKind.Hired));
-        Assert.Equal("hired-limit-reached", refused!.Code);
-        Assert.Null(party.Followers.Add(new PartyFollower(party.Identity.MintMemberId(), Porter, "Vik", FollowerKind.Story)));
-
-        Assert.Equal(2, party.Followers.Count);
-        Assert.Equal(1, party.Followers.HiredCount);
-    }
-
-    [Fact]
     public void A_captured_party_keeps_its_durable_identities_across_a_restore()
     {
         SkillGatedEquipment gate = new(new Dictionary<string, (string Class, string Skill)>
@@ -549,7 +442,6 @@ public sealed class PartyEntityTests
         blade.Identify();
         original.Equip(original.Members[0].Id, Hand, blade.Id);
         original.AcquireItem(Torch);
-        original.Followers.Add(new PartyFollower(original.Identity.MintMemberId(), Porter, "Tam", FollowerKind.Story));
         new RunningSpellEffects(original).Start(Warded, 3, lasts: null);
         original.Purse.Credit(25);
 
@@ -578,7 +470,6 @@ public sealed class PartyEntityTests
         Assert.Equal(ItemCustody.EquippedBy(first.Members[0].Id, Hand), restored.Custody);
         Assert.Equal(Torch, first.Inventory.Items.Single().Definition);
         Assert.Equal(125, first.Purse.Coins);
-        Assert.Equal(FollowerKind.Story, first.Followers.Followers.Single().Kind);
         Assert.Equal(3, first.Effects.MagnitudeOf(Warded));
 
         // The identity cursor comes back too, so nothing a restore mints can collide with what it loaded.
@@ -592,40 +483,18 @@ public sealed class PartyEntityTests
     {
         using PartyEntity party = Build(new PartyEntityFactory(), Member("Ann", Fighter, new SkillEntry(Blades, 1, SkillTier.None, 1)));
         ItemInstance blade = party.AcquireItem(Blade).Item!;
-        blade.Enchant(new ItemEnchantment(Keen, 2));
+        blade.Identify();
         party.Equip(party.Members[0].Id, Hand, blade.Id);
         ItemSave recorded = party.Capture().Items.Single();
 
         blade.TakeDamage(3);
-        blade.Disenchant(Keen);
         party.AcquireItem(Torch);
         party.Members[0].Resources.TakeDamage(5);
 
         Assert.Equal(0, recorded.State.Damage);
-        Assert.Equal(Keen, recorded.State.Enchantments.Single().Enchantment);
+        Assert.True(recorded.State.IsIdentified);
         Assert.Single(party.Capture().Items, item => item.Id == blade.Id);
         Assert.Equal(2, party.Capture().Items.Count);
-    }
-
-    [Fact]
-    public void Restoring_does_not_re_judge_what_the_save_recorded()
-    {
-        using PartyEntity original = Build(new PartyEntityFactory(), Member("Ann", Fighter, new SkillEntry(Blades, 1, SkillTier.None, 1)));
-        ItemInstance blade = original.AcquireItem(Blade).Item!;
-        original.Equip(original.Members[0].Id, Hand, blade.Id);
-        original.AcquireItem(Arrow, 3);
-        original.AcquireItem(Torch);
-
-        // The rules changed since the save was written: nothing may be equipped any more and the pack takes
-        // nothing at all. The save already recorded what the party held, and losing an artifact to a tuning
-        // change is worse than admitting a rule that is now stale.
-        PartyEntityFactory hostile = new(new RefusingEquipment(), new LooseItemLimit(0));
-        using PartyEntity restored = hostile.Restore(original.Capture());
-
-        Assert.True(restored.Members[0].Equipment.Has(Hand));
-        Assert.Equal(3, restored.Inventory.TotalOf(Arrow));
-        Assert.Equal(Torch, restored.Inventory.Items.Single(item => item.Definition == Torch).Definition);
-        Assert.Equal(5, restored.Items.Sum(item => item.StackCount));
     }
 
     [Fact]
@@ -785,26 +654,4 @@ public sealed class PartyEntityTests
             new("never", "This world equips nothing.");
     }
 
-    /// <summary>A pack that takes at most this many loose items.</summary>
-    private sealed class LooseItemLimit : IInventoryCapacityRule
-    {
-        private readonly int _maximum;
-
-        internal LooseItemLimit(int maximum) => _maximum = maximum;
-
-        public PartyRefusal? Judge(IReadOnlyList<ItemInstance> held, ItemDefinitionId definition, int count) =>
-            held.Count + count > _maximum
-                ? new PartyRefusal("pack-full", $"The pack holds {held.Count} and takes at most {_maximum}.")
-                : null;
-    }
-
-    /// <summary>How far copies of a definition bundle, stated by the test rather than by the kit.</summary>
-    private sealed class StackLimits : IItemStackingRule
-    {
-        private readonly Dictionary<string, int> _limits;
-
-        internal StackLimits(Dictionary<string, int> limits) => _limits = limits;
-
-        public int MaximumStack(ItemDefinitionId definition) => _limits.GetValueOrDefault(definition.Value, 1);
-    }
 }

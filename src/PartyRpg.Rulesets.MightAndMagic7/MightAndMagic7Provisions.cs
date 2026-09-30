@@ -14,7 +14,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// <c>SetFood</c> clamps at zero and never goes negative). The manual says the same in words — an
 /// overland crossing "takes several days and consumes 1 food unit per day", and camping on grass consumes
 /// one unit (p.26 and p.24 of <c>docs/research/mm7-manual-outline.md</c>). The day's charge therefore does
-/// not scale with the number of heads, which is why the members and followers the interface offers are
+/// not scale with the number of heads, which is why the member count the interface offers is
 /// deliberately unused: multiplying by them would be a rule no donor states.
 /// </para>
 /// <para>
@@ -63,11 +63,11 @@ internal sealed class MightAndMagic7Provisions : IProvisionDayRule
     internal static Provisions DayRations => new(RationsPerDay, ProvisionUnit.Portions);
 
     /// <inheritdoc />
-    public Provisions DailyCharge(int members, int followers) => DayRations;
+    public Provisions DailyCharge(int members) => DayRations;
 
     /// <inheritdoc />
     /// <exception cref="ArgumentOutOfRangeException">The party's state cannot be changed; the count is never negative.</exception>
-    public ActiveCondition? Consequence(int portionsAfter, int members, int followers)
+    public ActiveCondition? Consequence(int portionsAfter, int members)
     {
         if (portionsAfter >= RationsPerDay)
         {

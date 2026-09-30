@@ -53,7 +53,7 @@ public sealed class PartyIdentitySource
     /// <summary>The next item instance identity this party would mint, which is what a save records.</summary>
     public ulong NextItemValue => _nextItemValue;
 
-    /// <summary>Mints the identity of a person joining the party, whether a member or a follower.</summary>
+    /// <summary>Mints the identity of a member joining the party.</summary>
     /// <exception cref="InvalidOperationException">The cursor has no value left to mint.</exception>
     public PartyMemberId MintMemberId()
     {

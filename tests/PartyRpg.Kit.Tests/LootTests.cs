@@ -91,35 +91,6 @@ public sealed class LootTests
     }
 
     [Fact]
-    public void A_body_a_pack_cannot_take_is_refused_whole_and_still_holds_everything_it_did()
-    {
-        // A pack that takes nothing: the transfer is judged before anything moves, so the party ends up with
-        // neither the item nor the coin rather than with half of what the body held.
-        using Den den = Den.Build(capacity: 0);
-        den.Kill();
-        Corpse body = Assert.Single(den.Corpses.In(DenPlace));
-        LootYield held = Assert.IsType<LootYield>(den.Corpses.Held(body));
-
-        InteractionResult refused = den.Use();
-        Assert.False(refused.IsApplied);
-        Assert.Equal("pack-full", refused.Code);
-        Assert.Empty(den.Party.Inventory.Items);
-        Assert.Equal(0, den.Party.Purse.Coins);
-
-        // Nothing was taken, so nothing was marked as taken: the body reads as it did, and it still holds
-        // exactly what the death left, which is what makes the retry a retry rather than a reroll.
-        Assert.Equal(string.Empty, den.Interaction.FocusedTarget?.State.State);
-        Assert.Equal(held, den.Corpses.Held(body));
-
-        // The same body searched by a party with room gives what the first attempt would have.
-        using Den roomy = Den.Build();
-        roomy.Kill();
-        roomy.Use();
-        Assert.Single(roomy.Party.Inventory.Items);
-        Assert.Equal(held.Items[0].Definition, roomy.Party.Inventory.Items[0].Definition);
-    }
-
-    [Fact]
     public void A_corpses_loot_is_generated_once_and_a_second_search_gives_nothing_more()
     {
         using Den den = Den.Build();
@@ -446,15 +417,6 @@ public sealed class LootTests
         }
     }
 
-    /// <summary>A pack that takes what a test allows and refuses the rest by name.</summary>
-    private sealed class PackLimit(int maximum) : IInventoryCapacityRule
-    {
-        public PartyRefusal? Judge(IReadOnlyList<ItemInstance> held, ItemDefinitionId definition, int count) =>
-            held.Count + count > maximum
-                ? new PartyRefusal("pack-full", $"The pack holds {held.Count} and takes at most {maximum}.")
-                : null;
-    }
-
     /// <summary>The place these tests kill and search in: one creature, one party, and one fight.</summary>
     private sealed class Den : IDisposable
     {
@@ -518,7 +480,7 @@ public sealed class LootTests
         internal InteractionResult Use() =>
             World.Interact(use: true) ?? throw new InvalidOperationException("This den was built without an interaction policy.");
 
-        internal static Den Build(int capacity = int.MaxValue)
+        internal static Den Build()
         {
             ContentCatalog catalog = ContentCatalogLoader.Load(
                 new InMemoryContentSource()
@@ -527,7 +489,7 @@ public sealed class LootTests
                 Layout).RequireValid();
 
             PlaceGraph graph = PlaceGraphLoader.Load(catalog);
-            PartyEntity party = NewParty(capacity);
+            PartyEntity party = NewParty();
             PartyPoseOwner owner = new(
                 new PartyPose(DenPlace, new PlacePose(0, 0, 0, 1536, 0)),
                 new FacingRule(unitsPerTurn: 2048, minimumPitch: -512, maximumPitch: 512));
@@ -568,7 +530,7 @@ public sealed class LootTests
             _party.Dispose();
         }
 
-        private static PartyEntity NewParty(int capacity)
+        private static PartyEntity NewParty()
         {
             MemberCreation member = new(new PartyMemberSeed(
                 "Tester",
@@ -584,7 +546,7 @@ public sealed class LootTests
                 conditions: [],
                 hitPoints: ResourcePool.Full(20),
                 spellPoints: ResourcePool.Full(5)));
-            return new PartyEntityFactory(inventoryCapacity: capacity == int.MaxValue ? null : new PackLimit(capacity)).Create(
+            return new PartyEntityFactory().Create(
                 new PartyCreation(
                     [member],
                     coins: 0,

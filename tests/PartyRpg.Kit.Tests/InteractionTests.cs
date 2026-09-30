@@ -178,57 +178,7 @@ public sealed class InteractionTests
     }
 
     [Fact]
-    public void A_use_that_costs_settles_through_the_partys_own_accounts_or_refuses_whole()
-    {
-        TestRule rule = new();
-        rule.Prices["person"] = PartyCost.OfGold(10);
-        rule.Outcomes["person"] = (_, _) => InteractionOutcome.Applied("spoken", "The ferryman takes the coins.");
-
-        using PartyEntity rich = Party(coins: 25);
-        using Hall paid = Hall.Build(rule, Hall.Facing("person-0"), rich);
-        paid.Interaction.Update();
-        InteractionResult result = paid.Interaction.Use();
-
-        Assert.True(result.IsApplied);
-        Assert.Equal(15, rich.Purse.Coins);
-        paid.Interaction.Update();
-        Assert.Equal(1, paid.Interaction.FocusedTarget!.State.Revision);
-
-        // A party that cannot cover the charge is refused by the one settlement path, with its own shortfall
-        // named, and nothing at all happens to the target.
-        using PartyEntity poor = Party(coins: 4);
-        using Hall refused = Hall.Build(rule, Hall.Facing("person-0"), poor);
-        refused.Interaction.Update();
-        InteractionResult answer = refused.Interaction.Use();
-
-        Assert.False(answer.IsApplied);
-        Assert.Equal("purse-short", answer.Code);
-        Assert.Contains("6 coin(s)", answer.Message, StringComparison.Ordinal);
-        Assert.Equal(4, poor.Purse.Coins);
-        Assert.Equal(InteractionTargetState.None, refused.Interaction.FocusedTarget!.State);
-    }
-
-    [Fact]
-    public void A_use_the_target_refuses_takes_no_price()
-    {
-        // The price is judged first and settled last: the target's own answer refuses the use, so the party
-        // pays nothing for a use that did not happen.
-        TestRule rule = new();
-        rule.Prices["person"] = PartyCost.OfGold(10);
-        rule.Outcomes["person"] = (_, _) => InteractionOutcome.Refused("ferryman-asleep", "The ferryman is asleep.");
-
-        using PartyEntity party = Party(coins: 25);
-        using Hall hall = Hall.Build(rule, Hall.Facing("person-0"), party);
-        hall.Interaction.Update();
-        InteractionResult answer = hall.Interaction.Use();
-
-        Assert.False(answer.IsApplied);
-        Assert.Equal("ferryman-asleep", answer.Code);
-        Assert.Equal(25, party.Purse.Coins);
-    }
-
-    [Fact]
-    public void What_a_use_gives_lands_in_the_shared_pack_or_refuses_the_use_whole()
+    public void What_a_use_gives_lands_in_the_shared_pack()
     {
         TestRule rule = new();
         rule.Outcomes["chest"] = (_, _) => InteractionOutcome.Applied(
@@ -248,18 +198,6 @@ public sealed class InteractionTests
         Assert.Contains("2 × coin-pouch", found.Message, StringComparison.Ordinal);
         hall.Interaction.Update();
         Assert.Equal(1, hall.Interaction.FocusedTarget!.State.Revision);
-
-        // A pack with no room for what was found refuses the whole use: the state is not recorded, nothing
-        // enters the pack, and the refusal is the pack's own answer.
-        using PartyEntity full = Party(capacity: 0);
-        using Hall cramped = Hall.Build(rule, Hall.Facing("chest-0"), full);
-        cramped.Interaction.Update();
-        InteractionResult refused = cramped.Interaction.Use();
-
-        Assert.False(refused.IsApplied);
-        Assert.Equal("pack-full", refused.Code);
-        Assert.Equal(0, full.Inventory.Count);
-        Assert.Equal(InteractionTargetState.None, cramped.Interaction.FocusedTarget!.State);
     }
 
     [Fact]
@@ -476,8 +414,8 @@ public sealed class InteractionTests
     }
 
     /// <summary>A party that carries whatever a test gives it, with the rules a test states.</summary>
-    private static PartyEntity Party(int coins = 0, int capacity = int.MaxValue) =>
-        new PartyEntityFactory(inventoryCapacity: capacity == int.MaxValue ? null : new PackLimit(capacity)).Create(
+    private static PartyEntity Party(int coins = 0) =>
+        new PartyEntityFactory().Create(
             new PartyCreation(
                 [new MemberCreation(new PartyMemberSeed(
                     "Tester",
@@ -510,15 +448,6 @@ public sealed class InteractionTests
         InputValueKind.ProductPayload, InputPhase.DirectUi, InputProvenance.DirectUi, default, default, default, 0f, 0f,
         ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty,
         Encoding.UTF8.GetBytes(contract), Encoding.UTF8.GetBytes(json));
-
-    /// <summary>A pack that takes what a test allows and refuses the rest by name.</summary>
-    private sealed class PackLimit(int maximum) : IInventoryCapacityRule
-    {
-        public PartyRefusal? Judge(IReadOnlyList<ItemInstance> held, ItemDefinitionId definition, int count) =>
-            held.Count + count > maximum
-                ? new PartyRefusal("pack-full", $"The pack holds {held.Count} and takes at most {maximum}.")
-                : null;
-    }
 
     /// <summary>A mover that holds no collision but reports everything it is asked about as unseen.</summary>
     private sealed class BlindMover : IPartyMover
@@ -561,8 +490,6 @@ public sealed class InteractionTests
         /// <summary>What each placement kind requires, in the order the checks happen.</summary>
         internal Dictionary<string, IReadOnlyList<InteractionRequirement>> Requires { get; } = new(StringComparer.Ordinal);
 
-        /// <summary>What each placement kind costs.</summary>
-        internal Dictionary<string, PartyCost> Prices { get; } = new(StringComparer.Ordinal);
 
         /// <summary>What a use of each kind produces.</summary>
         internal Dictionary<string, Func<InteractionTargetDefinition, InteractionContext, InteractionOutcome>> Outcomes { get; } = new(StringComparer.Ordinal);
@@ -596,7 +523,6 @@ public sealed class InteractionTests
                 // ruleset's answer about the verb and never the mechanism's.
                 Verb = requires.Count > 0 && state != "unlocked" ? InteractionVerb.Unlock : definition.Verb,
                 Requires = requires,
-                Price = Prices.GetValueOrDefault(request.Placement.Content.Kind, PartyCost.Free),
             };
         }
 

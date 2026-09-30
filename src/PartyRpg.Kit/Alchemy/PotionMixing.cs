@@ -454,14 +454,6 @@ public sealed class PotionMixing
                         $"{resultName} would come out of mixing {firstName} with {secondName} at strength {power}, and this game states no strength below one for a mixture."))));
         }
 
-        // The pack is asked before anything is consumed, so a party whose pack cannot take the potion keeps
-        // both ingredients. Nothing between this judgement and the acquisition can take the room away: the two
-        // ingredients leave the pack first, and a pack with more room is never a pack that refuses.
-        if (_party.Inventory.Judge(result, count: 1) is { } refused)
-        {
-            return Record(MixingResult.Refused(request.Member, mixer.Profile.Name, firstName, secondName, refused));
-        }
-
         ItemInstance made = _party.CreateItem(
             result,
             ItemState.Unidentified.WithPotency(power).Identified(),

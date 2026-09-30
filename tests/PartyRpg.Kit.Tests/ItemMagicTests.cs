@@ -280,7 +280,7 @@ public sealed class ItemMagicTests
             discharged.Identity.MintItemId(),
             WandOfBolt,
             stackCount: 1,
-            state: new ItemState(isIdentified: true, damage: 0, enchantments: null, chargesSpent: WandCharges));
+            state: new ItemState(isIdentified: true, damage: 0, chargesSpent: WandCharges));
         Assert.True(discharged.AcquireItem(spent).Admitted);
         Assert.True(discharged.Equip(discharged.Members[0].Id, Hand, spent.Id).Admitted);
 

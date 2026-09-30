@@ -492,9 +492,9 @@ public sealed class RestAndScheduleTests
     /// <summary>What a day costs this suite's party, and what a larder left short does to it.</summary>
     private sealed class Rations : IProvisionDayRule
     {
-        public Provisions DailyCharge(int members, int followers) => new(1, ProvisionUnit.Portions);
+        public Provisions DailyCharge(int members) => new(1, ProvisionUnit.Portions);
 
-        public ActiveCondition? Consequence(int portionsAfter, int members, int followers) =>
+        public ActiveCondition? Consequence(int portionsAfter, int members) =>
             portionsAfter >= 1 ? null : new ActiveCondition(Weakness, 1);
     }
 

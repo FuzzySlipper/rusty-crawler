@@ -26,9 +26,6 @@ public enum PromotionRequirementKind
 
     /// <summary>A record of a deed the party carries, by the record's own identity and how much of it.</summary>
     Award,
-
-    /// <summary>A finished errand, by the errand's own identity. Stated by a ruleset; judged by the quest owner.</summary>
-    Quest,
 }
 
 /// <summary>One thing a rank asks for: a kind, the identity the owner resolves, and how much of it.</summary>
@@ -100,21 +97,13 @@ public sealed record PromotionRequirement
     public static PromotionRequirement ForAward(string award, int amount = 1, string label = "") =>
         new(PromotionRequirementKind.Award, award, amount, label);
 
-    /// <summary>A rank that asks for a finished errand, which the quest owner judges.</summary>
-    /// <param name="quest">The errand's own identity.</param>
-    /// <param name="label">How the errand reads to a player, or empty to read as the identity.</param>
-    /// <returns>The requirement.</returns>
-    public static PromotionRequirement ForQuest(string quest, string label = "") =>
-        new(PromotionRequirementKind.Quest, quest, 1, label);
-
     /// <summary>How this requirement reads inside a list of what a rank asks for.</summary>
     /// <returns>The words a person reads.</returns>
     public override string ToString() => Kind switch
     {
         PromotionRequirementKind.Giver => $"granted by {Word()}",
         PromotionRequirementKind.Item => Amount > 1 ? $"{Amount} × {Word()}" : Word(),
-        PromotionRequirementKind.Award => Amount > 1 ? $"{Word()} ({Amount})" : Word(),
-        _ => $"the errand '{Word()}' finished",
+        _ => Amount > 1 ? $"{Word()} ({Amount})" : Word(),
     };
 
     /// <summary>The word a person reads for this requirement's own thing.</summary>

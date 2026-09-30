@@ -11,26 +11,15 @@ namespace PartyRpg.Kit.Party;
 /// instances leave for a slot through the party, and the party is the only code that moves them.
 /// </para>
 /// <para>
-/// Only what lies here merges. An instance worn in a slot is a member's figure and keeps its own stack, so
-/// equipping half a bundle is possible and the pack keeps the rest. Two instances merge only when they are
-/// the same definition and the same state in every respect — a damaged item never disappears into a sound
-/// one — and only as far as <see cref="IItemStackingRule"/> allows.
-/// </para>
-/// <para>
-/// Mutation is internal on purpose: the pack holds the state, and the party owns the two rules (capacity
-/// and stacking) that decide what entering it means.
+/// Mutation is internal on purpose: the pack holds the state, and the party is the only code that decides what
+/// entering it means.
 /// </para>
 /// </remarks>
 public sealed class PartyInventory
 {
     private readonly List<ItemInstance> _items = [];
-    private readonly IInventoryCapacityRule? _capacity;
-    private readonly IItemStackingRule? _stacking;
-
-    internal PartyInventory(IInventoryCapacityRule? capacity, IItemStackingRule? stacking)
+    internal PartyInventory()
     {
-        _capacity = capacity;
-        _stacking = stacking;
     }
 
     /// <summary>The loose instances, in the order the party took them.</summary>
@@ -78,49 +67,6 @@ public sealed class PartyInventory
         }
 
         return total;
-    }
-
-    /// <summary>Asks the caller's capacity rule about taking items, or admits them when no rule was supplied.</summary>
-    internal PartyRefusal? Judge(ItemDefinitionId definition, int count) =>
-        _capacity?.Judge(_items, definition, count);
-
-    /// <summary>
-    /// Asks the capacity rule about taking several things together, as though the pack took each in turn.
-    /// </summary>
-    /// <remarks>
-    /// A use or an errand that gives more than one thing is judged whole: each is asked about against what the
-    /// pack would hold once it had taken the ones before it, so a pack with room for either of two things is
-    /// not handed both. The instances the judgement imagines are never held by anyone.
-    /// </remarks>
-    /// <param name="items">What would be taken, in the order it would be taken.</param>
-    /// <returns>The first refusal, or null when the pack takes all of it.</returns>
-    internal PartyRefusal? Judge(IEnumerable<(ItemDefinitionId Definition, int Count)> items)
-    {
-        if (_capacity is null) return null;
-        List<ItemInstance> held = [.. _items];
-        ulong imagined = ulong.MaxValue;
-        foreach ((ItemDefinitionId definition, int count) in items)
-        {
-            if (_capacity.Judge(held, definition, count) is { } refusal) return refusal;
-            held.Add(new ItemInstance(new ItemInstanceId(imagined--), definition, count));
-        }
-
-        return null;
-    }
-
-    /// <summary>How many of one definition may share an instance, never below one.</summary>
-    internal int MaximumStack(ItemDefinitionId definition) => Math.Max(1, _stacking?.MaximumStack(definition) ?? 1);
-
-    /// <summary>The loose stacks a merge may top up: same definition, same state in every respect.</summary>
-    internal IReadOnlyList<ItemInstance> StacksMatching(ItemDefinitionId definition, ItemState state)
-    {
-        List<ItemInstance> matching = [];
-        foreach (ItemInstance item in _items)
-        {
-            if (item.Definition == definition && item.State.Matches(state)) matching.Add(item);
-        }
-
-        return matching;
     }
 
     /// <summary>Puts an instance in the pack, which only the party does after its rules have admitted it.</summary>

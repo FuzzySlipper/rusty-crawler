@@ -79,39 +79,33 @@ public sealed class PromotionTests
     }
 
     [Fact]
-    public void Every_unmet_requirement_is_named_and_an_errand_is_routed_rather_than_faked()
+    public void Every_unmet_requirement_is_named_and_a_rank_is_given_once_all_are_met()
     {
         using PartyEntity party = PartyOf(Member("Roderick", Recruit));
         PartyProgression progression = new(new TestRule(), party, promotions: FourKinds());
         PartyMember member = party.Members[0];
 
         // Nothing at all has been met: the party is speaking with the wrong person, carries none of what the
-        // rank asks for, holds none of the deed's record, and owns no errand's state.
+        // rank asks for, and holds none of the deed's record.
         PromotionResult refused = progression.Promote("recruit-sergeant", "somebody-else");
         Assert.False(refused.IsGranted);
         Assert.Equal("promotion-requirements-unmet", refused.Refusal!.Code);
         PromotionDenial denial = Assert.Single(refused.Denied);
-        Assert.Equal(4, denial.Missing.Count);
+        Assert.Equal(3, denial.Missing.Count);
 
         // Each requirement is named by its own words, with the party's own standing in them: a player reads
-        // which of the four blocked the rank rather than that something did.
+        // which of the three blocked the rank rather than that something did.
         Assert.Contains(denial.Missing, line => line.Contains("granted by quartermaster", StringComparison.Ordinal));
         Assert.Contains(denial.Missing, line => line.Contains("needs 2 × token, and the party carries 0", StringComparison.Ordinal));
         Assert.Contains(denial.Missing, line => line.Contains("needs the record of three victories (3), and the party's record stands at 0", StringComparison.Ordinal));
-        Assert.Contains(denial.Missing, line => line.Contains("nothing in this build owns an errand's state to judge it", StringComparison.Ordinal));
         Assert.Contains("granted by quartermaster", refused.Refusal.Message, StringComparison.Ordinal);
 
-        // Three of the four are state the party really holds, so they can be met; the errand cannot be, and
-        // the rank stays refused with that one requirement named. Nothing invents a flag to stand in for it.
+        // Each is state the party really holds, so meeting all three — at the giver — grants the rank.
         party.AcquireItem(new ItemDefinitionId("token"), 2);
         party.Records.Set("victories", 3);
-        PromotionResult stillRefused = progression.Promote("recruit-sergeant", "quartermaster");
-        Assert.False(stillRefused.IsGranted);
-        PromotionDenial remaining = Assert.Single(stillRefused.Denied);
-        string only = Assert.Single(remaining.Missing);
-        Assert.Contains("the errand", only, StringComparison.Ordinal);
-        Assert.Equal("recruit", member.Profile.Class.Value);
-        Assert.Equal(1, member.Progression.ClassRank);
+        PromotionResult granted = progression.Promote("recruit-sergeant", "quartermaster");
+        Assert.True(granted.IsGranted);
+        Assert.Equal(2, member.Progression.ClassRank);
     }
 
     [Fact]
@@ -369,7 +363,6 @@ public sealed class PromotionTests
                     PromotionRequirement.FromGiver("quartermaster", "quartermaster"),
                     PromotionRequirement.ForItem("token", 2, "token"),
                     PromotionRequirement.ForAward("victories", 3, "three victories"),
-                    PromotionRequirement.ForQuest("12", "the errand the table states"),
                 ]),
         ]));
 

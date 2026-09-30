@@ -13,7 +13,7 @@ public sealed record ItemSave
     /// <param name="id">The instance's durable identity.</param>
     /// <param name="definition">The content definition the instance is a copy of.</param>
     /// <param name="stackCount">How many of the definition the instance carried; at least one.</param>
-    /// <param name="state">The instance's condition: identified, damaged, and enchanted.</param>
+    /// <param name="state">The instance's condition: identified, damaged, charges spent, and strength.</param>
     /// <param name="custody">Where the party held the instance.</param>
     /// <exception cref="ArgumentOutOfRangeException">The stack count is below one, which is not an instance a party can hold.</exception>
     public ItemSave(
@@ -47,7 +47,7 @@ public sealed record ItemSave
     /// <summary>How many of the definition the instance carried.</summary>
     public int StackCount { get; }
 
-    /// <summary>The instance's condition: identified, damaged, and enchanted.</summary>
+    /// <summary>The instance's condition: identified, damaged, charges spent, and strength.</summary>
     public ItemState State { get; }
 
     /// <summary>Where the party held the instance.</summary>

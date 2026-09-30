@@ -150,10 +150,9 @@ public sealed class ContainerTests
     }
 
     [Fact]
-    public void What_a_container_gives_enters_the_shared_inventory_and_what_does_not_fit_is_refused_whole()
+    public void What_a_container_gives_enters_the_shared_inventory()
     {
-        // Two definitions, one of which the pack has no room for: the transfer is judged before anything
-        // moves, so the party ends up with neither rather than with half of what the chest held.
+        // Two definitions: what the chest held enters the party's one shared pack, each item an instance of its own.
         ContainerRule rule = new()
         {
             Contents =
@@ -169,8 +168,7 @@ public sealed class ContainerTests
             cellar.Interaction.Update();
             InteractionResult searched = cellar.Interaction.Use();
             Assert.True(searched.IsApplied);
-            // No stacking rule is composed here, which is what a game that has not said what bundles does:
-            // two of one definition are two instances, and the pack counts them as two.
+            // Nothing this game carries shares an instance: two of one definition are two instances.
             Assert.Equal(3, roomy.Inventory.Items.Count);
             Assert.Equal(2, roomy.Inventory.TotalOf(new ItemDefinitionId("brass-lamp")));
             Assert.Equal(1, roomy.Inventory.TotalOf(new ItemDefinitionId("iron-key")));
@@ -180,23 +178,6 @@ public sealed class ContainerTests
             InteractionResult again = cellar.Interaction.Use();
             Assert.False(again.IsApplied);
             Assert.Equal("container-emptied", again.Code);
-        }
-
-        using PartyEntity cramped = Party(perception: 0, disarmTraps: 0, hitPoints: 20, capacity: 1);
-        using (Cellar cellar = Cellar.Build(rule, cramped))
-        {
-            cellar.Interaction.Update();
-            InteractionResult refused = cellar.Interaction.Use();
-
-            Assert.False(refused.IsApplied);
-            Assert.Equal("pack-full", refused.Code);
-            Assert.Contains("takes at most 1", refused.Message, StringComparison.Ordinal);
-            Assert.Empty(cramped.Inventory.Items);
-
-            // A refused transfer left the container as it was: nothing was taken, so nothing is emptied,
-            // and the state it reads as is the state the use found.
-            Assert.Equal(string.Empty, cellar.Interaction.FocusedTarget?.State.State);
-            Assert.Equal(0, cellar.Interaction.FocusedTarget?.State.Revision);
         }
     }
 
@@ -311,14 +292,14 @@ public sealed class ContainerTests
         disarmedState: "disarmed",
         sprungState: "sprung");
 
-    private static PartyEntity Party(int perception, int disarmTraps, int hitPoints, int capacity = int.MaxValue)
+    private static PartyEntity Party(int perception, int disarmTraps, int hitPoints)
     {
         // Three members, so a trap that catches the party is visibly a loss to each of them rather than to
         // one character: this product's party is a band sharing one pose, and a container is used by the band.
         List<SkillEntry> skilled = [];
         if (perception > 0) skilled.Add(new SkillEntry(new SkillId("perception"), perception, SkillTier.None, perception));
         if (disarmTraps > 0) skilled.Add(new SkillEntry(new SkillId("disarm-traps"), disarmTraps, SkillTier.None, disarmTraps));
-        return new PartyEntityFactory(inventoryCapacity: capacity == int.MaxValue ? null : new PackLimit(capacity)).Create(
+        return new PartyEntityFactory().Create(
             new PartyCreation(
                 [
                     Member("Tester", skilled, hitPoints),
@@ -347,15 +328,6 @@ public sealed class ContainerTests
             conditions: [],
             hitPoints: ResourcePool.Full(hitPoints),
             spellPoints: ResourcePool.Full(5)));
-
-    /// <summary>A pack that takes what a test allows and refuses the rest by name.</summary>
-    private sealed class PackLimit(int maximum) : IInventoryCapacityRule
-    {
-        public PartyRefusal? Judge(IReadOnlyList<ItemInstance> held, ItemDefinitionId definition, int count) =>
-            held.Count + count > maximum
-                ? new PartyRefusal("pack-full", $"The pack holds {held.Count} and takes at most {maximum}.")
-                : null;
-    }
 
     /// <summary>
     /// This suite's game: a container that may hold a trap, may be locked, and holds what the test says.
