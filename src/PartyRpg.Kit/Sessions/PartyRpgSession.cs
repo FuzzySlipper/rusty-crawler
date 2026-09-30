@@ -298,19 +298,15 @@ public sealed class PartyRpgSession : IGameSession
         // player holds, so a key released while it was held does not keep walking when it resumes.
         bool quiescent = _mode == SessionMode.Paused;
 
-        // A paced fight waiting for a turn, and a screen — a counter or a conversation — own the player's
-        // controls: the party does not step while either lasts. The world keeps advancing behind a screen, one
-        // clock and one update; a fight waiting for a committed turn pauses it, because time is what a turn
-        // spends rather than what updates carry.
-        bool awaitingTurn = Combat is { Turns.WaitsForPlayer: true };
-        bool screenOwnsControls = Services is { IsOpen: true } || Conversations is { IsOpen: true };
+        ControlHolder controls = HeldBy();
+        bool screenOwnsControls = controls == ControlHolder.Screen;
 
         // What the player holds is read on every update, whatever owns the controls, so a release is never
         // missed; it is applied only when the party may act.
         MovementIntent intent = _movement?.Read(update.Input) ?? default;
         if (!screenOwnsControls)
         {
-            if (!awaitingTurn && _movement is not null && seconds > 0) LiveWorld?.Step(intent, seconds);
+            if (controls == ControlHolder.Party && _movement is not null && seconds > 0) LiveWorld?.Step(intent, seconds);
 
             // A use and a stop are instants rather than intervals, so they follow the step that carried the
             // party to what it faces, in the same update, and still apply while a turn is being taken.
@@ -420,6 +416,30 @@ public sealed class PartyRpgSession : IGameSession
                 controls.Cast?.ActionContract, controls.Mix?.ActionContract,
             }.OfType<string>(),
             StringComparer.Ordinal);
+
+    /// <summary>What the player's controls act on in this update.</summary>
+    /// <remarks>
+    /// This is not a <see cref="SessionMode"/>, deliberately: the mode says how the world is paced, and a screen
+    /// does not pace it — the world keeps advancing behind a counter or a conversation, one clock and one update.
+    /// What a screen changes is what the player's keys reach, which is this.
+    /// </remarks>
+    private enum ControlHolder
+    {
+        /// <summary>The party: a step walks it, and a use, a stop, a cast, and a mixture apply.</summary>
+        Party,
+
+        /// <summary>A counter or a conversation: the screen is what the player acts on, and the party stands still.</summary>
+        Screen,
+
+        /// <summary>A paced fight waiting for a committed turn: the party does not walk, and an instant still applies.</summary>
+        Turn,
+    }
+
+    /// <summary>Who holds the player's controls this update: an open screen first, then a turn the fight awaits.</summary>
+    private ControlHolder HeldBy() =>
+        Services is { IsOpen: true } || Conversations is { IsOpen: true }
+            ? ControlHolder.Screen
+            : Combat is { Turns.WaitsForPlayer: true } ? ControlHolder.Turn : ControlHolder.Party;
 
     /// <summary>The interval this admitted update covers, which is zero for a session that is not running.</summary>
     /// <remarks>

@@ -29,9 +29,9 @@ namespace PartyRpg.Kit.Tests;
 /// </remarks>
 public sealed class AlchemyTests
 {
-    private static readonly ItemDefinitionId Berry = new("berry");
-    private static readonly ItemDefinitionId Bottle = new("bottle");
-    private static readonly ItemDefinitionId Draught = new("draught");
+    internal static readonly ItemDefinitionId Berry = new("berry");
+    internal static readonly ItemDefinitionId Bottle = new("bottle");
+    internal static readonly ItemDefinitionId Draught = new("draught");
     private static readonly ItemDefinitionId Tonic = new("tonic");
     private static readonly ItemDefinitionId Rock = new("rock");
     private static readonly ItemDefinitionId Token = new("token");
@@ -311,7 +311,7 @@ public sealed class AlchemyTests
     private static readonly SpellId DraughtSpell = new("potion:draught");
 
     /// <summary>A party of two, so a mixture from the wrong character would be visible.</summary>
-    private static PartyEntity Party(
+    internal static PartyEntity Party(
         int alchemyLevel,
         int alchemyTier,
         int secondLevel = 0,
@@ -349,7 +349,7 @@ public sealed class AlchemyTests
             spellPoints: ResourcePool.Full(20)));
 
     /// <summary>Takes one item of a definition into the pack and hands the instance back.</summary>
-    private static ItemInstance Take(PartyEntity party, ItemDefinitionId definition)
+    internal static ItemInstance Take(PartyEntity party, ItemDefinitionId definition)
     {
         ItemInstance item = party.CreateItem(definition);
         Assert.True(party.AcquireItem(item).Admitted);
@@ -383,7 +383,7 @@ public sealed class AlchemyTests
     }
 
     /// <summary>This suite's own answers about mixing: a skill, its rung names, and what a burst is worth.</summary>
-    private sealed class Rule : IAlchemyRule
+    internal sealed class Rule : IAlchemyRule
     {
         internal int BurstHarm { get; init; } = 5;
 
@@ -419,7 +419,7 @@ public sealed class AlchemyTests
     /// <summary>
     /// This suite's item rule: the potion its own table makes carries one spell, and using it uses it up.
     /// </summary>
-    private sealed class Spells : ISpellRule, ISpellItemRule
+    internal sealed class Spells : ISpellRule, ISpellItemRule
     {
         private readonly SpellCatalog _catalog = new(
         [
@@ -445,7 +445,7 @@ public sealed class AlchemyTests
     /// <summary>
     /// This suite's effect path, which records the casting it was handed and says it applied it.
     /// </summary>
-    private sealed class Effects : ISpellEffectRule
+    internal sealed class Effects : ISpellEffectRule
     {
         internal List<SpellApplication> Applications { get; } = [];
 

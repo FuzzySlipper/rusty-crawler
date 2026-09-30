@@ -532,7 +532,7 @@ public sealed class CombatStateTests
     /// placement of the creature kind, its name is the row it names, and everything the kit asks about an
     /// actor is answered from that.
     /// </summary>
-    private sealed class TestCombatRule(IRandomService? random) : ICombatRule
+    internal sealed class TestCombatRule(IRandomService? random) : ICombatRule
     {
         private const double NoticeRange = 500;
 

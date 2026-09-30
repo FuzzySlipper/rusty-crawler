@@ -1,4 +1,5 @@
 using System.Text;
+using PartyRpg.Kit.Alchemy;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Movement;
@@ -286,6 +287,40 @@ public sealed class CreationModeTests
         Assert.Equal(2, making.Mover.Steps.Count);
         Assert.Equal(1, making.Mover.Steps[1].Intent.Forward);
         Assert.True(session.LiveWorld.Party.PlacePose.X > 4);
+    }
+
+    [Fact]
+    public void A_created_party_is_composed_with_every_mechanism_a_party_handed_to_the_session_is()
+    {
+        // The same game's answers, composed once over a party creation built and once over a party the session
+        // was handed: the two sessions end with the same mechanisms, because one sequence composes both.
+        SessionRules rules = new()
+        {
+            Combat = Capabilities.Combat(new CombatStateTests.TestCombatRule(null)),
+            Magic = Capabilities.Magic(new AlchemyTests.Spells(AlchemyTests.Draught), new AlchemyTests.Effects()),
+            Alchemy = new AlchemyRules(new AlchemyTests.Rule(), new AlchemyCatalog([])),
+        };
+
+        using Making making = new(new PartyCreationFlow(Options, Defaults), rules);
+        Assert.Null(making.Session.Combat);
+        making.Session.Update(Update(10, 1, Digital(Controls.Accept)));
+        Node created = making.Projections.Latest;
+
+        using CapturedProjections handed = new();
+        using PartyRpgSession played = new(
+            Composition,
+            handed,
+            new SessionOwners(Clock()),
+            new SessionParty.Playing(Party: new PartyEntityFactory().Create(OneMemberParty())),
+            rules,
+            new SessionControls { Creation = Controls });
+
+        Assert.NotNull(making.Session.Combat);
+        foreach (string block in new[] { "combat", "magic", "alchemy" })
+        {
+            Assert.True(created.Field(block).Field("available").Flag(), $"The created session composed no {block}.");
+            Assert.True(handed.Latest.Field(block).Field("available").Flag(), $"The played session composed no {block}.");
+        }
     }
 
     [Fact]
@@ -687,7 +722,7 @@ public sealed class CreationModeTests
         private readonly PlaceGraph _graph;
         private readonly PartyPoseOwner _pose;
 
-        internal Making(PartyCreationFlow flow)
+        internal Making(PartyCreationFlow flow, SessionRules? rules = null)
         {
             Clock = Clock();
             _graph = TestGraph();
@@ -699,7 +734,8 @@ public sealed class CreationModeTests
                 Projections,
                 new SessionOwners(Clock),
                 new SessionParty.Creating(new SessionCreation(flow, Build, Compose)),
-                controls: new SessionControls
+                rules,
+                new SessionControls
                 {
                     Movement = new MovementInput(MovementNames, turnRatePerSecond: 512),
                     Creation = Controls,
