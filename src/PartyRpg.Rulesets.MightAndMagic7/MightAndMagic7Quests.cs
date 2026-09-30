@@ -74,30 +74,10 @@ internal sealed class MightAndMagic7Quests : IQuestRule
     /// <summary>The field a placement names the monster row it stands for under.</summary>
     internal const string MonsterField = "monster";
 
-    /// <summary>What one errand pays, which is ours: the shipped table carries no reward column.</summary>
-    /// <remarks>
-    /// The original pays a quest's experience from its event programs, which this build does not run and
-    /// whose numbers are not in any table, so this game states one amount for every errand rather than
-    /// pretending to a figure it did not read. It is deliberately flat: a rank's errand is a rank's errand,
-    /// and the ladder — not the purse — is what a promotion is for.
-    /// </remarks>
-    internal const long ErrandExperience = 4000;
 
-    /// <summary>What one errand pays in coin, which is ours for the same reason.</summary>
-    /// <remarks>
-    /// The donor's quests pay coin from their event programs, which this build does not run; this game pays a
-    /// flat sum so an errand is worth the journey rather than only the rank it leads to.
-    /// </remarks>
-    internal const int ErrandCoins = 250;
 
-    /// <summary>How much a bounty pays for one beast of a stated level, as the donor computes it.</summary>
-    /// <remarks>
-    /// A hundred times the beast's level, which is the donor's own arithmetic
-    /// (OpenEnroth <c>src/GUI/UI/Houses/TownHall.cpp:143-176</c>): the notice the counter posts and what the
-    /// contract pays are the same number because they are the same reading.
-    /// </remarks>
-    internal const int BountyPerLevel = 100;
 
+    private readonly TuningProfile _tuning;
     private readonly Dictionary<string, QuestDefinition> _byId = new(StringComparer.Ordinal);
     private readonly Dictionary<string, List<QuestDefinition>> _byGiver = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _placesByName;
@@ -117,8 +97,10 @@ internal sealed class MightAndMagic7Quests : IQuestRule
         Dictionary<string, Dictionary<string, int>> placed,
         Dictionary<string, string> monstersByName,
         Dictionary<string, int> monsterLevels,
-        Dictionary<string, string> itemsByName)
+        Dictionary<string, string> itemsByName,
+        TuningProfile tuning)
     {
+        _tuning = tuning;
         _notes = notes;
         _placesByName = placesByName;
         _placeOfPlacement = placeOfPlacement;
@@ -219,7 +201,7 @@ internal sealed class MightAndMagic7Quests : IQuestRule
             levels[name] = Math.Max(1, entry.GetInt32("level") ?? 1);
         }
 
-        MightAndMagic7Quests quests = new(notes, placesByName, placeOfPlacement, encounters, placed, monstersByName, levels, itemsByName);
+        MightAndMagic7Quests quests = new(notes, placesByName, placeOfPlacement, encounters, placed, monstersByName, levels, itemsByName, MightAndMagic7Tuning.Read(catalog));
         quests.ReadAuthored(authored, words, issues);
         if (issues.Count > 0)
         {
@@ -311,7 +293,7 @@ internal sealed class MightAndMagic7Quests : IQuestRule
                 reading.Name,
                 rank.Giver,
                 objectives,
-                new QuestRewards(ErrandExperience, ErrandCoins),
+                new QuestRewards(quests._tuning.Whole(MightAndMagic7Tuning.ErrandExperience), quests._tuning.Whole(MightAndMagic7Tuning.ErrandCoins)),
                 record: ErrandRecord(bit),
                 note: note,
                 residue: reading.Residue);
@@ -644,7 +626,7 @@ internal sealed class MightAndMagic7Quests : IQuestRule
     {
         if (!_encountersOfPlace.TryGetValue(place.Value, out IReadOnlyList<string>? beasts) || beasts.Count == 0) return null;
         string beast = beasts[(Math.Max(1, now.Month) - 1) % beasts.Count];
-        int reward = BountyPerLevel * _monsterLevels.GetValueOrDefault(beast, 1);
+        int reward = _tuning.Whole(MightAndMagic7Tuning.BountyPerLevel) * _monsterLevels.GetValueOrDefault(beast, 1);
         return new BountyTerms(beast, reward, null);
     }
 

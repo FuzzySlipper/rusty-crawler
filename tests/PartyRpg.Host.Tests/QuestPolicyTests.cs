@@ -211,10 +211,10 @@ public sealed class QuestPolicyTests
         ProjectedNode finished = ProjectedNode.Of(ui.Latest().Value).Field("quests");
         Assert.Equal("applied", finished.Field("outcome").AsString());
         Assert.Equal("turned-in", finished.Field("journal").Item(0).Field("state").AsString());
-        Assert.Equal(MightAndMagic7Quests.ErrandExperience, finished.Field("experience").AsNumber());
-        Assert.Equal(MightAndMagic7Quests.ErrandCoins, finished.Field("coins").AsNumber());
+        Assert.Equal(MightAndMagic7Tuning.ErrandExperience.Default, finished.Field("experience").AsNumber());
+        Assert.Equal(MightAndMagic7Tuning.ErrandCoins.Default, finished.Field("coins").AsNumber());
         Assert.Equal(
-            (double)(banked + MightAndMagic7Quests.ErrandExperience),
+            (double)(banked + MightAndMagic7Tuning.ErrandExperience.Default),
             ProjectedNode.Of(ui.Latest().Value).Field("progression").Field("members").Item(0).Field("experience").AsNumber());
 
         // The rank that asks for that errand is now given: the requirement the ladder states is the record the

@@ -105,6 +105,9 @@ public static class ContentBootstrap
             return new ContentBootstrapResult(catalog.Selected([]), bundles, null, issues);
         }
 
-        return new ContentBootstrapResult(catalog.Selected(selection.Packs), bundles, selection, issues);
+        // The tuning pack the bundle names is selected beside its content packs, so the session reads its values
+        // from the same catalog it reads everything else from.
+        IReadOnlyList<LoadedPack> selected = selection.TuningPack is { } tuning ? [.. selection.Packs, tuning] : selection.Packs;
+        return new ContentBootstrapResult(catalog.Selected(selected), bundles, selection, issues);
     }
 }

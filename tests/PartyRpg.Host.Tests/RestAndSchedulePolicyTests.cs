@@ -183,6 +183,31 @@ public sealed class RestAndSchedulePolicyTests
     }
 
     [Fact]
+    public void A_bundles_tuning_pack_sets_how_long_a_night_is_and_a_value_out_of_range_is_refused_at_composition()
+    {
+        // The same shop, assembled by a bundle that also names a tuning pack stating a six-hour night: the rest
+        // advances the clock by what the pack says rather than by the ruleset's default of eight.
+        (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(Tuned(6, ShopChest));
+        using (IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
+            ProductTestContext.RulesetContext(context, ui) with { Use = UseControls, Rest = RestControls }))
+        {
+            session.Start();
+            session.Update(ProductTestContext.Update(0, 1, ProductTestContext.Digital(ProductIdentity.RestIntent)));
+            ProjectedNode rested = ProjectedNode.Of(ui.Latest().Value);
+            Assert.Equal("applied", rested.Field("rest").Field("outcome").AsString());
+            Assert.Equal(6 * 3600, rested.Field("rest").Field("elapsedSeconds").AsNumber());
+            Assert.Equal(2, rested.Field("rest").Field("charged").AsNumber());
+        }
+
+        // A night the handle does not admit is named where the session is composed, not met in play.
+        (ProductCreateContext refused, RecordingUiService refusedUi) = ProductTestContext.Create(Tuned(30, ShopChest));
+        ContentValidationException error = Assert.Throws<ContentValidationException>(() =>
+            MightAndMagic7Ruleset.Instance.CreateSession(
+                ProductTestContext.RulesetContext(refused, refusedUi) with { Use = UseControls, Rest = RestControls }));
+        Assert.Contains(error.Issues, issue => issue.Code == "tuning-out-of-range");
+    }
+
+    [Fact]
     public void A_held_session_passes_no_time_and_applies_no_stop_until_it_is_released()
     {
         using IGameSession session = Shop(out RecordingUiService ui, ShopChest);
@@ -400,6 +425,44 @@ public sealed class RestAndSchedulePolicyTests
         session.Start();
         return session;
     }
+
+    /// <summary>The shop's content, under a bundle that also names a tuning pack stating the night's length.</summary>
+    private static (string Path, string Text)[] Tuned(int sleepHours, string placements) =>
+    [
+        .. Content(
+            places:
+            $$"""
+            { "id": "7", "kind": "interior", "name": "The Sword and Shield", "respawnDays": 672,
+              "encounterPercent": 0,
+              "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ],
+              "placements": [ {{placements}} ] }
+            """,
+            start: "7",
+            services: null).Skip(1),
+        ($"{ProductTestContext.ContentDirectory}/bundles/partyrpg-default/bundle.json",
+            """
+            {
+              "schemaVersion": 1,
+              "bundleId": "partyrpg-default",
+              "ruleset": "mightandmagic7",
+              "contentPacks": [ "world" ],
+              "tuningPack": "tuning",
+              "description": "test bundle"
+            }
+            """),
+        ($"{ProductTestContext.ContentDirectory}/content-packs/tuning/pack.json",
+            """
+            {
+              "schemaVersion": 1,
+              "packId": "tuning",
+              "kind": "tuning",
+              "provenance": { "description": "authored for a test" },
+              "documents": [ { "path": "tuning.json", "documentId": "tuning", "definitionKind": "tuning" } ]
+            }
+            """),
+        ($"{ProductTestContext.ContentDirectory}/content-packs/tuning/tuning.json",
+            $$"""{ "documentId": "tuning", "definitionKind": "tuning", "entries": [ { "id": "{{MightAndMagic7Tuning.SleepHours.Id}}", "value": {{sleepHours}} } ] }"""),
+    ];
 
     /// <summary>A bundle with one world pack holding the places a case declares.</summary>
     private static (string Path, string Text)[] Content(string places, string start, string? services) =>

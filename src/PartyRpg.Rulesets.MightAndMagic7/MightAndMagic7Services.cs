@@ -142,6 +142,8 @@ internal sealed class MightAndMagic7Services : IServiceRule
     private readonly MightAndMagic7Skills? _skills;
     private readonly MightAndMagic7Spells? _magic;
 
+    private readonly TuningProfile _tuning;
+
     private MightAndMagic7Services(
         Dictionary<ServiceId, ServiceDefinition> services,
         Dictionary<ServiceId, ServiceFacts> facts,
@@ -153,8 +155,10 @@ internal sealed class MightAndMagic7Services : IServiceRule
         MightAndMagic7Skills? skills,
         MightAndMagic7Spells? magic,
         MightAndMagic7Quests? quests,
-        Func<PartyQuests?>? journal)
+        Func<PartyQuests?>? journal,
+        TuningProfile tuning)
     {
+        _tuning = tuning;
         _services = services;
         _facts = facts;
         _items = items;
@@ -304,7 +308,8 @@ internal sealed class MightAndMagic7Services : IServiceRule
             // gets one read here, so a guild still sells its school's spells.
             spellPolicy ?? MightAndMagic7Spells.Read(catalog, skillPolicy),
             quests,
-            journal);
+            journal,
+            MightAndMagic7Tuning.Read(catalog));
     }
 
     /// <inheritdoc />
@@ -640,7 +645,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
                     ServiceOfferKind.Fare,
                     $"A passage to {fare.Name}",
                     Subject: fare.Place,
-                    Value: MightAndMagic7ServiceKinds.FareBase(service.Kind.Value),
+                    Value: FareBase(service.Kind.Value),
                     Amount: fare.Days));
             }
         }
@@ -1125,6 +1130,11 @@ internal sealed class MightAndMagic7Services : IServiceRule
     private static int RoomPrice(ServiceDefinition service) =>
         ServicePricing.AtLeast(ServicePricing.Coins(1, service.PriceMultiplier * service.PriceMultiplier / 10), 1);
 
+    /// <summary>What a passage costs before the counter's own multiplier: a berth or a coach seat, as tuned.</summary>
+    /// <param name="kind">The service kind's name.</param>
+    private int FareBase(string kind) =>
+        _tuning.Whole(string.Equals(kind, MightAndMagic7ServiceKinds.Boats, StringComparison.Ordinal) ? MightAndMagic7Tuning.BoatFare : MightAndMagic7Tuning.CoachFare);
+
     /// <summary>What a passage costs, as the donor prices a seat or a berth.</summary>
     /// <remarks>
     /// OpenEnroth <c>src/Engine/PriceCalculator.cpp:162-174</c>, <c>transportCostForPlayer</c>: the
@@ -1132,9 +1142,9 @@ internal sealed class MightAndMagic7Services : IServiceRule
     /// discounted by the merchant and never below a third of the base. The days the journey takes are the
     /// route's own and travel in the offer, not in the price.
     /// </remarks>
-    private static ServiceQuote FarePrice(ServiceDefinition service, ServiceSubject subject, int merchant)
+    private ServiceQuote FarePrice(ServiceDefinition service, ServiceSubject subject, int merchant)
     {
-        int basePrice = subject.Value > 0 ? subject.Value : MightAndMagic7ServiceKinds.FareBase(service.Kind.Value);
+        int basePrice = subject.Value > 0 ? subject.Value : FareBase(service.Kind.Value);
         int price = ServicePricing.Percent(ServicePricing.Coins(basePrice, service.PriceMultiplier), merchant);
         int floor = Math.Max(1, basePrice / 3);
         return ServiceQuote.Charging(ServicePricing.AtLeast(price, floor), basePrice);
@@ -1152,10 +1162,10 @@ internal sealed class MightAndMagic7Services : IServiceRule
     /// carry the base that produces the donor's price through it — the guild's multiplier over its skill
     /// multiplier, times the donor's five hundred — and every kind keeps one arithmetic.
     /// </remarks>
-    private static int LessonValue(ServiceDefinition service) =>
+    private int LessonValue(ServiceDefinition service) =>
         MightAndMagic7ServiceKinds.IsGuild(service.Kind.Value)
-            ? ServicePricing.Coins(1, MightAndMagic7ServiceKinds.LessonBasePrice * service.PriceMultiplier / service.SkillPriceMultiplier)
-            : MightAndMagic7ServiceKinds.LessonBasePrice;
+            ? ServicePricing.Coins(1, _tuning.Whole(MightAndMagic7Tuning.LessonBasePrice) * service.PriceMultiplier / service.SkillPriceMultiplier)
+            : _tuning.Whole(MightAndMagic7Tuning.LessonBasePrice);
 
     /// <summary>Reads one service entry into the definition the mechanism serves.</summary>
     private static ServiceDefinition? Definition(
@@ -1563,7 +1573,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
         }
 
         List<ServiceStockLine> lines = [];
-        for (int index = position; index < candidates.Count && lines.Count < MightAndMagic7ServiceKinds.ShopStockLines; index += stride)
+        for (int index = position; index < candidates.Count && lines.Count < _tuning.Whole(MightAndMagic7Tuning.ShopStockLines); index += stride)
         {
             ItemFacts item = candidates[index];
             lines.Add(new ServiceStockLine(item.Definition, 1, item.Value, item.Name));

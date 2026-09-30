@@ -81,17 +81,7 @@ internal sealed class MightAndMagic7Rest : IRestRule
     /// <summary>The place-entry field that states how often something wanders into the place.</summary>
     internal const string EncounterChanceField = "encounterPercent";
 
-    /// <summary>How long a sleep lasts, as the manual's own rest option states it.</summary>
-    /// <remarks>Eight hours: <c>docs/research/mm7-manual-outline.md</c> p.24, "Rest &amp; Heal 8 Hours".</remarks>
-    internal const int SleepHours = 8;
 
-    /// <summary>What a night under a roof costs, in provisions.</summary>
-    /// <remarks>
-    /// OpenEnroth <c>src/GUI/UI/UIRest.cpp:46-48</c>: indoors the required food is two, whatever the party's
-    /// size. The donor's own modifiers — a dragon in the party eats more, a quartermaster less — are follower
-    /// rules this build has no owner for, so the base number is what a roof costs here.
-    /// </remarks>
-    internal const int RoofedRestRations = 2;
 
     /// <summary>What a camp costs when the ground states no price of its own.</summary>
     /// <remarks>OpenEnroth <c>src/Engine/Data/TileEnumFunctions.cpp:120-121</c>: the table's default is two.</remarks>
@@ -161,7 +151,13 @@ internal sealed class MightAndMagic7Rest : IRestRule
 
     private readonly IRandomService? _random;
 
-    private MightAndMagic7Rest(IRandomService? random) => _random = random;
+    private MightAndMagic7Rest(IRandomService? random, TuningProfile tuning)
+    {
+        _random = random;
+        _tuning = tuning;
+    }
+
+    private readonly TuningProfile _tuning;
 
     /// <summary>Reads this game's rest policy, and judges the ground every place states.</summary>
     /// <remarks>
@@ -178,7 +174,7 @@ internal sealed class MightAndMagic7Rest : IRestRule
     /// <exception cref="ContentValidationException">A place states a ground this game cannot price.</exception>
     internal static MightAndMagic7Rest Compose(ContentCatalog? catalog, IRandomService? random)
     {
-        if (catalog is null) return new MightAndMagic7Rest(random);
+        if (catalog is null) return new MightAndMagic7Rest(random, MightAndMagic7Tuning.Read(null));
         List<ContentValidationIssue> issues = [];
         foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in catalog.Entries(PlaceGraphLoader.PlaceDefinitionKind))
         {
@@ -198,7 +194,7 @@ internal sealed class MightAndMagic7Rest : IRestRule
                 issues);
         }
 
-        return new MightAndMagic7Rest(random);
+        return new MightAndMagic7Rest(random, MightAndMagic7Tuning.Read(catalog));
     }
 
     /// <inheritdoc />
@@ -242,7 +238,7 @@ internal sealed class MightAndMagic7Rest : IRestRule
             }
 
             return RestQuote.Planned(
-                GameDuration.FromHours(SleepHours),
+                GameDuration.FromHours(_tuning.Whole(MightAndMagic7Tuning.SleepHours)),
                 new Provisions(Rations(place), ProvisionUnit.Portions));
         }
 
@@ -263,8 +259,8 @@ internal sealed class MightAndMagic7Rest : IRestRule
         }
 
         return RestQuote.Planned(
-            GameDuration.FromHours(SleepHours),
-            new Provisions(RoofedRestRations, ProvisionUnit.Portions));
+            GameDuration.FromHours(_tuning.Whole(MightAndMagic7Tuning.SleepHours)),
+            new Provisions(_tuning.Whole(MightAndMagic7Tuning.RoofedRestRations), ProvisionUnit.Portions));
     }
 
     /// <inheritdoc />

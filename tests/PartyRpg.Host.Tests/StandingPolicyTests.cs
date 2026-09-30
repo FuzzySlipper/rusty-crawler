@@ -104,7 +104,7 @@ public sealed class StandingPolicyTests
         // The one mover this game states, through the one owner that writes either number: an errand the
         // town asked for and saw finished is worth one point per thousand experience it paid, which is the
         // donor's own figure for what word of a deed is worth (src/Engine/Party.cpp:371-379, Party::fame).
-        ProgressionAwardResult errand = progression.Award(new PartyExperienceAward(PartyQuests.QuestSource, MightAndMagic7Quests.ErrandExperience));
+        ProgressionAwardResult errand = progression.Award(new PartyExperienceAward(PartyQuests.QuestSource, (long)MightAndMagic7Tuning.ErrandExperience.Default));
         Assert.True(errand.IsAwarded);
         Assert.Equal(4, errand.Standing.Reputation);
         Assert.Equal(4, party.Reputation.Reputation);
@@ -157,11 +157,11 @@ public sealed class StandingPolicyTests
         // line appears in the same conversation without anything having been invalidated: availability is
         // recomputed from the party on every read.
         PartyProgression progression = new(MightAndMagic7Progression.Instance, fixture.Party);
-        progression.Award(new PartyExperienceAward(PartyQuests.QuestSource, MightAndMagic7Quests.ErrandExperience));
+        progression.Award(new PartyExperienceAward(PartyQuests.QuestSource, (long)MightAndMagic7Tuning.ErrandExperience.Default));
         Assert.Equal(4, fixture.Party.Reputation.Reputation);
         Assert.False(fixture.Offer(person, MightAndMagic7Conversation.StandingTopicId).IsOnOffer);
 
-        progression.Award(new PartyExperienceAward(PartyQuests.QuestSource, MightAndMagic7Quests.ErrandExperience));
+        progression.Award(new PartyExperienceAward(PartyQuests.QuestSource, (long)MightAndMagic7Tuning.ErrandExperience.Default));
         Assert.Equal("Friendly", MightAndMagic7Standing.BandOf(fixture.Party.Reputation.Reputation).Word);
         ConversationOffer offered = fixture.Offer(person, MightAndMagic7Conversation.StandingTopicId);
         Assert.True(offered.IsOnOffer);

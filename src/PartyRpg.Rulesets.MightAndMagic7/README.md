@@ -78,6 +78,12 @@ Boundary rules:
   loading, reflection discovery, or ambient service lookup.
 - Might and Magic VI and VIII are donor context for formats and divergences, not
   targets: no code path may quietly depend on their data.
+- Adjustable values are the handles `MightAndMagic7Tuning` declares — an errand's
+  default pay, a bounty's rate, a lesson's base price, a shelf's lines, the two
+  fares, a night's length, and what a night under a roof eats — each with its
+  default, range, and meaning. A rule reads them through the `TuningProfile` it
+  composes from the selected catalog, so a bundle's tuning pack changes play
+  without a rebuild and a value out of range stops composition by name.
 
 Implemented today: `MightAndMagic7Ruleset` (the compiled ruleset and its identity) and
 `MightAndMagic7Session`, which composes the kit's session shell with this game's identity: this game's

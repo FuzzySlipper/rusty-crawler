@@ -116,7 +116,7 @@ have different authors:
 | Kind | Holds | Author |
 | --- | --- | --- |
 | Definitions | Catalogs with meaning: classes, races, skills, spells, monsters, items, services, quests, conditions, places | Authored, or generated from imported tables |
-| Tuning | One discoverable typed profile tree of adjustable values (curves, prices, coefficients) | Authored |
+| Tuning | Values for the handles a ruleset declares (`TuningHandle`: id, default, range, meaning), read into one `TuningProfile` per session; an unknown id, a non-number, or a value out of range is refused at composition with every problem named | Authored |
 | Scenario | The starting state: party defaults, placements, spawns, quest state, initial scenario flags | Authored |
 | Imported world | Geometry, spatial data, media, and tables normalized by the importer, with provenance | Offline generation from an operator-supplied install |
 
@@ -140,7 +140,7 @@ The kit validates the whole catalog when a product starts, not each pack alone: 
 well formed and still disagree by claiming the same pack id, by declaring the same entry id, or by
 referring to something neither has. A pack under the imports root must also record the game and build it
 came from, so imported content cannot silently mix editions. A bundle names a ruleset, the packs to load
-with it, and an optional tuning pack; a bundle that names a pack which is not present stops the product
+with it, and an optional tuning pack, which is selected beside its content packs so a rule reads its values from the same catalog as everything else; a bundle that names a pack which is not present stops the product
 with every missing piece named at once. Content that is simply absent is not an error — a checkout whose
 packs have not been generated yet starts with no bundle selected and says so.
 

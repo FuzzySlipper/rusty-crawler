@@ -57,23 +57,9 @@ internal static class MightAndMagic7ServiceKinds
     /// <summary>The kind an alchemist stands under.</summary>
     internal const string Alchemist = "Alchemist";
 
-    /// <summary>
-    /// The base price of a lesson, before the counter's multiplier: the donor's own five hundred
-    /// (OpenEnroth <c>src/Engine/PriceCalculator.cpp:150-160</c>, <c>skillLearningCostForPlayer</c>).
-    /// </summary>
-    internal const int LessonBasePrice = 500;
 
-    /// <summary>
-    /// How many lines a shop's shelves hold, which is the donor's own twelve-slot shop floor shown six to
-    /// a row (OpenEnroth <c>src/GUI/UI/Houses/Shops.cpp:626-660</c>, <c>itemAmountInShop</c>).
-    /// </summary>
-    internal const int ShopStockLines = 8;
 
-    /// <summary>What a coach seat costs before the stable's own multiplier, as the donor prices it.</summary>
-    internal const int CoachFare = 25;
 
-    /// <summary>What a berth costs before the dock's own multiplier; a boat is twice a coach.</summary>
-    internal const int BoatFare = 50;
 
     /// <summary>The material words the item table uses for the rarities no ordinary shop stocks.</summary>
     /// <remarks>
@@ -229,14 +215,6 @@ internal static class MightAndMagic7ServiceKinds
         if (paired) return tier <= 1 ? 2 : 4;
         return Math.Clamp(tier, 1, 4);
     }
-
-    /// <summary>What a fare costs before the counter's multiplier, by the kind that sells it.</summary>
-    /// <remarks>
-    /// OpenEnroth <c>src/Engine/PriceCalculator.cpp:162-174</c>, <c>transportCostForPlayer</c>: a boat is
-    /// twice a coach, and both scale by the counter's own multiplier.
-    /// </remarks>
-    /// <param name="kind">The kind's name.</param>
-    internal static int FareBase(string kind) => string.Equals(kind, Boats, StringComparison.Ordinal) ? BoatFare : CoachFare;
 
     /// <summary>
     /// How many hours a rented room gives the party, from the hour the clock stands at.
