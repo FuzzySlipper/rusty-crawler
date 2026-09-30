@@ -33,7 +33,6 @@ public sealed class RestAndSchedulePolicyTests
 {
     private static readonly UseIntentNames UseControls = new(
         ProductIdentity.UseIntent,
-        ProductIdentity.UseAction,
         ProductIdentity.UiActionContract);
 
     private static readonly RestIntentNames RestControls = new(

@@ -1,6 +1,5 @@
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using PartyRpg.Kit.Input;
 using Rusty.Engine;
 
 namespace PartyRpg.Kit.Sessions;
@@ -148,127 +147,59 @@ public sealed record CreationCommand(CreationCommandKind Kind, int Member = 0, s
     public static CreationCommand Of(CreationCommandKind kind) => new(kind);
 }
 
-/// <summary>
-/// Reads admitted input into the creation commands a screen asked for.
-/// </summary>
-/// <remarks>
-/// <para>
-/// This is the creation screen's counterpart to the movement reader: the session consults it inside its one
-/// admitted update while it is creating a party, and not at all while it is playing. Every command is
-/// discrete — a choice is made once — so nothing is remembered between updates, unlike a held key.
-/// </para>
-/// <para>
-/// A digital event on a declared control carries its command; a payload on the declared contract carries
-/// the action it names. Anything else, including a malformed payload, carries no command: an input channel
-/// must not throw on hostile bytes, and a caller that receives nothing simply has nothing to apply.
-/// </para>
-/// </remarks>
+/// <summary>The creation commands a player gave, read from the admitted input of each update, in order.</summary>
 public sealed class CreationInput
 {
     private readonly byte[] _advance;
     private readonly byte[] _accept;
-    private readonly byte[] _actionContract;
+    private readonly string _actionContract;
 
-    /// <summary>Creates the reader for one product's declared creation controls.</summary>
-    /// <param name="names">The intent and contract names the commands arrive on.</param>
-    /// <exception cref="ArgumentNullException">No control names were declared.</exception>
+    /// <summary>Creates the reader for the declared creation controls.</summary>
+    /// <param name="names">The creation controls the host declared.</param>
     public CreationInput(CreationIntentNames names)
     {
         ArgumentNullException.ThrowIfNull(names);
         _advance = Encoding.UTF8.GetBytes(names.Advance);
         _accept = Encoding.UTF8.GetBytes(names.Accept);
-        _actionContract = Encoding.UTF8.GetBytes(names.ActionContract);
+        _actionContract = names.ActionContract;
     }
 
-    /// <summary>Reads one update's admitted input into the creation commands it carries, in order.</summary>
-    /// <param name="input">The admitted input slice of one engine update.</param>
-    /// <returns>The commands the screen asked for, in the order they arrived.</returns>
-    public IReadOnlyList<CreationCommand> Read(ReadOnlySpan<ProductInputEvent> input)
+    /// <summary>The creation commands this update carried.</summary>
+    /// <param name="inbox">The update's input.</param>
+    public IReadOnlyList<CreationCommand> Read(ActionInbox inbox)
     {
+        ArgumentNullException.ThrowIfNull(inbox);
         List<CreationCommand> commands = [];
-        foreach (ProductInputEvent inputEvent in input)
+        foreach (ProductInputEvent inputEvent in inbox.Digital)
         {
-            if (inputEvent.ValueKind == InputValueKind.Digital)
-            {
-                if (!IsActivation(inputEvent)) continue;
-                if (inputEvent.Intent.Span.SequenceEqual(_advance)) commands.Add(CreationCommand.Of(CreationCommandKind.Advance));
-                else if (inputEvent.Intent.Span.SequenceEqual(_accept)) commands.Add(CreationCommand.Of(CreationCommandKind.Accept));
-                continue;
-            }
+            if (!InputEvents.IsActivation(inputEvent)) continue;
+            if (inputEvent.Intent.Span.SequenceEqual(_advance)) commands.Add(CreationCommand.Of(CreationCommandKind.Advance));
+            else if (inputEvent.Intent.Span.SequenceEqual(_accept)) commands.Add(CreationCommand.Of(CreationCommandKind.Accept));
+        }
 
-            if (inputEvent.ValueKind != InputValueKind.ProductPayload) continue;
-            if (!inputEvent.PayloadContract.Span.SequenceEqual(_actionContract)) continue;
-            if (Command(inputEvent.PayloadData.Span) is { } command) commands.Add(command);
+        foreach (UiAction action in inbox.Take(_actionContract, name => Command(name) is not null))
+        {
+            commands.Add(Command(action.Name)!(action));
         }
 
         return commands;
     }
 
-    /// <summary>
-    /// Whether a digital event is an activation. A physical press carries an edge; a direct interface
-    /// claim is admitted with no edge at all, so its own phase and provenance are what identify it.
-    /// </summary>
-    private static bool IsActivation(in ProductInputEvent inputEvent) =>
-        inputEvent.Edge == InputEdge.Pressed
-        || inputEvent.Phase == InputPhase.DirectUi
-        || inputEvent.Provenance == InputProvenance.DirectUi;
-
-    /// <summary>Reads one payload action into the command it names, or null when it names none of ours.</summary>
-    private static CreationCommand? Command(ReadOnlySpan<byte> utf8)
+    /// <summary>How a named creation action becomes a command, or null for a name creation does not take.</summary>
+    private static Func<UiAction, CreationCommand>? Command(string name) => name switch
     {
-        CreationActionDto? action = Parse(utf8);
-        if (action?.Action is not { Length: > 0 } name) return null;
-        return name switch
-        {
-            // A member command without an index names member -1, which creation refuses by name: the
-            // refusal is the answer a screen can show, where dropping the command would show nothing.
-            CreationActions.SelectMember => new CreationCommand(CreationCommandKind.SelectMember, action.Member ?? -1),
-            CreationActions.SelectPortrait => Choice(CreationCommandKind.SelectPortrait, action.Portrait),
-            CreationActions.SelectClass => Choice(CreationCommandKind.SelectClass, action.Class),
-            CreationActions.SetName => new CreationCommand(CreationCommandKind.SetName, Value: action.Name ?? string.Empty),
-            CreationActions.RaiseAttribute => Choice(CreationCommandKind.RaiseAttribute, action.Attribute),
-            CreationActions.LowerAttribute => Choice(CreationCommandKind.LowerAttribute, action.Attribute),
-            CreationActions.ChooseSkill => Choice(CreationCommandKind.ChooseSkill, action.Skill),
-            CreationActions.RemoveSkill => Choice(CreationCommandKind.RemoveSkill, action.Skill),
-            CreationActions.Advance => CreationCommand.Of(CreationCommandKind.Advance),
-            CreationActions.Accept => CreationCommand.Of(CreationCommandKind.Accept),
-            _ => null,
-        };
-    }
+        CreationActions.SelectMember => action => new CreationCommand(CreationCommandKind.SelectMember, action.Int("member") ?? -1),
+        CreationActions.SelectPortrait => action => Choice(CreationCommandKind.SelectPortrait, action.Text("portrait")),
+        CreationActions.SelectClass => action => Choice(CreationCommandKind.SelectClass, action.Text("class")),
+        CreationActions.SetName => action => new CreationCommand(CreationCommandKind.SetName, Value: action.Text("name")),
+        CreationActions.RaiseAttribute => action => Choice(CreationCommandKind.RaiseAttribute, action.Text("attribute")),
+        CreationActions.LowerAttribute => action => Choice(CreationCommandKind.LowerAttribute, action.Text("attribute")),
+        CreationActions.ChooseSkill => action => Choice(CreationCommandKind.ChooseSkill, action.Text("skill")),
+        CreationActions.RemoveSkill => action => Choice(CreationCommandKind.RemoveSkill, action.Text("skill")),
+        CreationActions.Advance => action => CreationCommand.Of(CreationCommandKind.Advance),
+        CreationActions.Accept => action => CreationCommand.Of(CreationCommandKind.Accept),
+        _ => null,
+    };
 
-    /// <summary>States a choice command, keeping a missing choice blank so the session can refuse it by name.</summary>
-    private static CreationCommand Choice(CreationCommandKind kind, string? value) =>
-        new(kind, Value: value ?? string.Empty);
-
-    /// <summary>
-    /// Reads an action from admitted payload bytes. Malformed or empty payloads return null: an input
-    /// channel must not throw on hostile bytes, and a caller that receives null simply has no action.
-    /// </summary>
-    private static CreationActionDto? Parse(ReadOnlySpan<byte> utf8)
-    {
-        if (utf8.IsEmpty) return null;
-        try
-        {
-            return JsonSerializer.Deserialize(utf8, CreationActionJsonContext.Default.CreationActionDto);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
+    private static CreationCommand Choice(CreationCommandKind kind, string value) => new(kind, Value: value);
 }
-
-/// <summary>The creation action payload's wire record: an action name plus whatever choice it carries.</summary>
-internal sealed record CreationActionDto(
-    string? Action,
-    int? Member,
-    string? Portrait,
-    string? Class,
-    string? Name,
-    string? Attribute,
-    string? Skill);
-
-/// <summary>Source-generated JSON for the creation action payload, so reading it stays AOT-safe.</summary>
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
-[JsonSerializable(typeof(CreationActionDto))]
-internal sealed partial class CreationActionJsonContext : JsonSerializerContext;

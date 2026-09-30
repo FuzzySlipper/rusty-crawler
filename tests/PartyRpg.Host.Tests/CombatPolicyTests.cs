@@ -41,7 +41,7 @@ public sealed class CombatPolicyTests
         string ui = File.ReadAllText(Path.Combine(SourceDirectory(), "..", "ui", "main.ts"));
 
         string intent = Constant(source, "AttackIntent");
-        string action = Constant(source, "AttackAction");
+        string action = ProductIdentity.AttackAction;
 
         // Declared in code and in the project file, and mapped there: the engine refuses a mapping whose
         // intent it was never told about, so both halves are what make the key a control.

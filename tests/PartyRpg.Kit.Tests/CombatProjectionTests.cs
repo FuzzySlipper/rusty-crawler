@@ -379,9 +379,6 @@ public sealed class CombatProjectionTests
                 {
                     Combat = new CombatIntentNames(
                     "test.attack",
-                    // The companion's own action name, so the test drives the control the product declares
-                    // rather than one invented for it.
-                    "party.attack",
                     "test.actions",
                     new TurnIntentNames("combat.turn-based", "combat.turn-skip", "combat.turn-wait", "test.actions")),
                 });

@@ -513,8 +513,6 @@ public sealed class SpellEffectPolicyTests
     private const int GameSecondsPerRealSecond = 30;
 
     private static readonly CastIntentNames CastControls = new(
-        ProductIdentity.CastAction,
-        ProductIdentity.QuickSpellAction,
         ProductIdentity.UiActionContract);
 
     /// <summary>Every roll comes in at its highest, which beats every resistance threshold there is.</summary>

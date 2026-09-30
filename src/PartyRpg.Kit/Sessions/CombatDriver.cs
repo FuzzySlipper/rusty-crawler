@@ -90,13 +90,13 @@ internal sealed class CombatDriver(SessionOwners owners, MovementInput? movement
     private readonly ActControl _act = new();
 
     /// <summary>The turn controls this update carried.</summary>
-    public TurnControls ReadTurns(ReadOnlySpan<ProductInputEvent> input) => _turns?.Read(input) ?? TurnControls.None;
+    public TurnControls ReadTurns(ActionInbox input) => _turns?.Read(input) ?? TurnControls.None;
 
     /// <summary>The orders this update carried, read whatever owns the controls so a release is never missed.</summary>
     /// <param name="input">The update's admitted input.</param>
     /// <param name="turn">The turn controls read from the same input.</param>
     /// <param name="screenOwnsControls">Whether a counter or a conversation owns the player's controls.</param>
-    public FightOrders Read(ReadOnlySpan<ProductInputEvent> input, TurnControls turn, bool screenOwnsControls)
+    public FightOrders Read(ActionInbox input, TurnControls turn, bool screenOwnsControls)
     {
         bool down = _input is not null && owners.Combat is not null && _input.Read(input) && !screenOwnsControls;
         bool paced = !screenOwnsControls && owners.Combat is { Pacing: CombatPacing.TurnBased };

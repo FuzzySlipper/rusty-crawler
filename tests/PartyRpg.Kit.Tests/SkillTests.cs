@@ -184,9 +184,9 @@ public sealed class SkillTests
     [Fact]
     public void A_raise_control_reads_the_member_the_skill_and_the_levels_a_screen_names()
     {
-        SkillRaiseInput input = new(new SkillRaiseIntentNames(SkillRaiseActions.Raise, "test.actions"));
+        SkillRaiseInput input = new(new SkillRaiseIntentNames("test.actions"));
 
-        IReadOnlyList<SkillRaiseRequest> raises = input.Read(
+        IReadOnlyList<SkillRaiseRequest> raises = input.Read(new(
         [
             Payload("""{"action":"party.raise-skill","member":2,"skill":"Sword","levels":2}"""),
             // Another contract's action is not ours, and neither is a payload that names no skill.
@@ -196,7 +196,7 @@ public sealed class SkillTests
             // hostile bytes.
             Payload("""{"action":"party.raise-skill","member":"""),
             Payload("""{"action":"party.raise-skill","member":1,"skill":"Fire"}"""),
-        ]);
+        ]));
 
         Assert.Equal(2, raises.Count);
         Assert.Equal(2, raises[0].Member);

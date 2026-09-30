@@ -1,6 +1,4 @@
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Party;
 using Rusty.Engine;
 
@@ -18,27 +16,20 @@ namespace PartyRpg.Kit.Progression;
 /// <exception cref="ArgumentException">A name is missing, so no event could ever be claimed for it.</exception>
 public sealed record SkillRaiseIntentNames
 {
-    /// <summary>Creates the declared skill-spend control names.</summary>
-    /// <param name="action">The payload action a screen's raise control sends.</param>
-    /// <param name="actionContract">The payload contract the screen's actions arrive on.</param>
-    public SkillRaiseIntentNames(string action, string actionContract)
+    /// <summary>Creates the declared skill-spend control.</summary>
+    /// <param name="actionContract">The payload contract a screen's skill-spend commands arrive on.</param>
+    /// <exception cref="ArgumentException">The contract is missing, so no event could ever be claimed on it.</exception>
+    public SkillRaiseIntentNames(string actionContract)
     {
-        Action = Require(action, nameof(action));
-        ActionContract = Require(actionContract, nameof(actionContract));
+        ActionContract = !string.IsNullOrWhiteSpace(actionContract)
+            ? actionContract
+            : throw new ArgumentException(
+                "The skill control declares no contract, so no event could ever be claimed on it.",
+                nameof(actionContract));
     }
 
-    /// <summary>The payload action that asks to raise a member's skill.</summary>
-    public string Action { get; }
-
-    /// <summary>The payload contract the screen's actions arrive on.</summary>
+    /// <summary>The payload contract a screen's skill-spend commands arrive on.</summary>
     public string ActionContract { get; }
-
-    private static string Require(string name, string parameterName) =>
-        !string.IsNullOrWhiteSpace(name)
-            ? name
-            : throw new ArgumentException(
-                $"The skill control '{parameterName}' declares no name, so no event could ever be claimed for it.",
-                parameterName);
 }
 
 /// <summary>The actions a skills screen sends, on the payload contract the product declares.</summary>
@@ -69,97 +60,38 @@ public static class SkillRaiseActions
 /// <param name="Levels">How many levels to add, at least one.</param>
 public readonly record struct SkillRaiseRequest(int Member, SkillId Skill, int Levels);
 
-/// <summary>Reads admitted input into the raises a screen asked for.</summary>
-/// <remarks>
-/// <para>
-/// The counterpart to the creation and service readers: the session consults it inside its one admitted
-/// update, and a raise is discrete — points are spent once per press — so nothing is held between updates.
-/// </para>
-/// A payload that names no skill produces no request, because there is nothing to raise and no refusal the
-/// owner could word about it; a payload that names a skill this game does not declare is carried through
-/// and refused by name there. A malformed payload produces nothing at all, because an input channel must
-/// not throw on hostile bytes.
-/// </para>
-/// </remarks>
+/// <summary>The skill raises a player asked for, read from the admitted input of each update, in order.</summary>
 public sealed class SkillRaiseInput
 {
-    private readonly byte[] _actionContract;
-    private readonly string _action;
+    private readonly string _actionContract;
 
-    /// <summary>Creates the reader for one product's declared skill-spend controls.</summary>
-    /// <param name="names">The action and contract names a raise arrives on.</param>
-    /// <exception cref="ArgumentNullException">No control names were declared.</exception>
+    /// <summary>Creates the reader for the declared skill-spend control.</summary>
+    /// <param name="names">The skill-spend control the host declared.</param>
     public SkillRaiseInput(SkillRaiseIntentNames names)
     {
         ArgumentNullException.ThrowIfNull(names);
-        _action = names.Action;
-        _actionContract = Encoding.UTF8.GetBytes(names.ActionContract);
+        _actionContract = names.ActionContract;
     }
 
-    /// <summary>Reads one update's admitted input into the raises it carries, in order.</summary>
-    /// <param name="input">The admitted input slice of one engine update.</param>
-    /// <returns>The raises the screen asked for, in the order they arrived.</returns>
-    public IReadOnlyList<SkillRaiseRequest> Read(ReadOnlySpan<ProductInputEvent> input)
+    /// <summary>The raises this update carried; one that names no skill is dropped.</summary>
+    /// <param name="inbox">The update's input.</param>
+    public IReadOnlyList<SkillRaiseRequest> Read(ActionInbox inbox)
     {
+        ArgumentNullException.ThrowIfNull(inbox);
         List<SkillRaiseRequest> raises = [];
-        foreach (ProductInputEvent inputEvent in input)
+        foreach (UiAction action in inbox.Take(_actionContract, SkillRaiseActions.Raise))
         {
-            if (inputEvent.ValueKind != InputValueKind.ProductPayload) continue;
-            if (!inputEvent.PayloadContract.Span.SequenceEqual(_actionContract)) continue;
-            if (Raise(inputEvent.PayloadData.Span) is { } raise) raises.Add(raise);
+            string skill = action.Text("skill");
+            if (skill.Length == 0) continue;
+
+            // A raise of no levels is read as one level: the owner refuses what it will not do, rather than the
+            // reader silently turning a request into nothing.
+            raises.Add(new SkillRaiseRequest(
+                action.Int("member") ?? 0,
+                new SkillId(skill),
+                action.Int("levels") is { } levels && levels > 0 ? levels : 1));
         }
 
         return raises;
     }
-
-    /// <summary>Reads one payload into the raise it names, or null when it names none of ours.</summary>
-    private SkillRaiseRequest? Raise(ReadOnlySpan<byte> utf8)
-    {
-        SkillRaiseDto? action = Parse(utf8);
-        if (action is null || !string.Equals(action.Action, _action, StringComparison.Ordinal)) return null;
-        string skill = action.Skill?.ValueKind switch
-        {
-            JsonValueKind.String => action.Skill.Value.GetString() ?? string.Empty,
-            JsonValueKind.Number => action.Skill.Value.GetRawText(),
-            _ => string.Empty,
-        };
-
-        if (skill.Length == 0) return null;
-
-        // A raise of no levels is read as one level: the action is a request to raise the skill, and the
-        // owner refuses what it will not do rather than the reader silently turning a request into nothing.
-        return new SkillRaiseRequest(
-            action.Member ?? 0,
-            new SkillId(skill),
-            action.Levels is { } levels && levels > 0 ? levels : 1);
-    }
-
-    /// <summary>
-    /// Reads an action from admitted payload bytes. Malformed or empty payloads return null: an input
-    /// channel must not throw on hostile bytes, and a caller that receives null simply has no action.
-    /// </summary>
-    private static SkillRaiseDto? Parse(ReadOnlySpan<byte> utf8)
-    {
-        if (utf8.IsEmpty) return null;
-        try
-        {
-            return JsonSerializer.Deserialize(utf8, SkillRaiseJsonContext.Default.SkillRaiseDto);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
 }
-
-/// <summary>The skill raise payload's wire record: an action name plus the member, skill, and levels.</summary>
-internal sealed record SkillRaiseDto(
-    string? Action,
-    int? Member,
-    JsonElement? Skill,
-    int? Levels);
-
-/// <summary>Source-generated JSON for the skill raise payload, so reading it stays AOT-safe.</summary>
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
-[JsonSerializable(typeof(SkillRaiseDto))]
-internal sealed partial class SkillRaiseJsonContext : JsonSerializerContext;

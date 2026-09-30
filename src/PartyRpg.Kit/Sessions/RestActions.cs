@@ -1,6 +1,5 @@
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Time;
 using Rusty.Engine;
 
@@ -100,120 +99,56 @@ public static class RestActions
     public const string WaitFiveMinutes = "rest.wait-five-minutes";
 }
 
-/// <summary>
-/// Reads admitted input into the stops a player asked for, in the order they arrived.
-/// </summary>
-/// <remarks>
-/// <para>
-/// This is the stop controls' counterpart to the creation and service readers: the session consults it
-/// inside its one admitted update, and every command it reads is discrete — a rest is asked for once — so
-/// nothing is remembered between updates. A digital event on a declared control carries its stop; a payload
-/// on the declared contract carries the action it names. Anything else, including a malformed payload,
-/// carries no stop: an input channel must not throw on hostile bytes, and a caller that receives nothing
-/// simply has nothing to apply.
-/// </para>
-/// <para>
-/// Several stops in one update are several stops, applied in the order they arrived: a party that asks to
-/// wait an hour twice waits two hours, and one that rests and then camps does both, exactly as the update's
-/// own sequence of commands says.
-/// </para>
-/// </remarks>
+/// <summary>The stops a player asked for, read from the admitted input of each update, in the order they arrived.</summary>
 public sealed class RestInput
 {
-    private readonly byte[] _rest;
-    private readonly byte[] _camp;
-    private readonly byte[] _waitUntilDawn;
-    private readonly byte[] _waitAnHour;
-    private readonly byte[] _waitFiveMinutes;
-    private readonly byte[] _actionContract;
+    private readonly (byte[] Intent, RestKind Kind)[] _intents;
+    private readonly string _actionContract;
 
-    /// <summary>Creates the reader for one product's declared stop controls.</summary>
-    /// <param name="names">The intent and contract names the commands arrive on.</param>
-    /// <exception cref="ArgumentNullException">No control names were declared.</exception>
+    /// <summary>Creates the reader for the declared stop controls.</summary>
+    /// <param name="names">The stop controls the host declared.</param>
     public RestInput(RestIntentNames names)
     {
         ArgumentNullException.ThrowIfNull(names);
-        _rest = Encoding.UTF8.GetBytes(names.Rest);
-        _camp = Encoding.UTF8.GetBytes(names.Camp);
-        _waitUntilDawn = Encoding.UTF8.GetBytes(names.WaitUntilDawn);
-        _waitAnHour = Encoding.UTF8.GetBytes(names.WaitAnHour);
-        _waitFiveMinutes = Encoding.UTF8.GetBytes(names.WaitFiveMinutes);
-        _actionContract = Encoding.UTF8.GetBytes(names.ActionContract);
+        _intents =
+        [
+            (Encoding.UTF8.GetBytes(names.Rest), RestKind.Rest),
+            (Encoding.UTF8.GetBytes(names.Camp), RestKind.Camp),
+            (Encoding.UTF8.GetBytes(names.WaitUntilDawn), RestKind.WaitUntilDawn),
+            (Encoding.UTF8.GetBytes(names.WaitAnHour), RestKind.WaitAnHour),
+            (Encoding.UTF8.GetBytes(names.WaitFiveMinutes), RestKind.WaitFiveMinutes),
+        ];
+        _actionContract = names.ActionContract;
     }
 
-    /// <summary>Reads one update's admitted input into the stops it carries, in order.</summary>
-    /// <param name="input">The admitted input slice of one engine update.</param>
-    /// <returns>The stops the player asked for, in the order they arrived.</returns>
-    public IReadOnlyList<RestKind> Read(ReadOnlySpan<ProductInputEvent> input)
+    /// <summary>The stops this update carried.</summary>
+    /// <param name="inbox">The update's input.</param>
+    public IReadOnlyList<RestKind> Read(ActionInbox inbox)
     {
+        ArgumentNullException.ThrowIfNull(inbox);
         List<RestKind> stops = [];
-        foreach (ProductInputEvent inputEvent in input)
+        foreach (ProductInputEvent inputEvent in inbox.Digital)
         {
-            if (inputEvent.ValueKind == InputValueKind.Digital)
+            if (!InputEvents.IsActivation(inputEvent)) continue;
+            foreach ((byte[] intent, RestKind kind) in _intents)
             {
-                if (!IsActivation(inputEvent)) continue;
-                if (inputEvent.Intent.Span.SequenceEqual(_rest)) stops.Add(RestKind.Rest);
-                else if (inputEvent.Intent.Span.SequenceEqual(_camp)) stops.Add(RestKind.Camp);
-                else if (inputEvent.Intent.Span.SequenceEqual(_waitUntilDawn)) stops.Add(RestKind.WaitUntilDawn);
-                else if (inputEvent.Intent.Span.SequenceEqual(_waitAnHour)) stops.Add(RestKind.WaitAnHour);
-                else if (inputEvent.Intent.Span.SequenceEqual(_waitFiveMinutes)) stops.Add(RestKind.WaitFiveMinutes);
-                continue;
+                if (!inputEvent.Intent.Span.SequenceEqual(intent)) continue;
+                stops.Add(kind);
+                break;
             }
-
-            if (inputEvent.ValueKind != InputValueKind.ProductPayload) continue;
-            if (!inputEvent.PayloadContract.Span.SequenceEqual(_actionContract)) continue;
-            if (Kind(inputEvent.PayloadData.Span) is { } kind) stops.Add(kind);
         }
 
+        foreach (UiAction action in inbox.Take(_actionContract, name => Kind(name) is not null)) stops.Add(Kind(action.Name)!.Value);
         return stops;
     }
 
-    /// <summary>
-    /// Whether a digital event is an activation. A physical press carries an edge; a direct interface
-    /// claim is admitted with no edge at all, so its own phase and provenance are what identify it.
-    /// </summary>
-    private static bool IsActivation(in ProductInputEvent inputEvent) =>
-        inputEvent.Edge == InputEdge.Pressed
-        || inputEvent.Phase == InputPhase.DirectUi
-        || inputEvent.Provenance == InputProvenance.DirectUi;
-
-    /// <summary>Reads one payload action into the stop it names, or null when it names none of ours.</summary>
-    private static RestKind? Kind(ReadOnlySpan<byte> utf8)
+    private static RestKind? Kind(string action) => action switch
     {
-        RestActionDto? action = Parse(utf8);
-        return action?.Action switch
-        {
-            RestActions.Rest => RestKind.Rest,
-            RestActions.Camp => RestKind.Camp,
-            RestActions.WaitUntilDawn => RestKind.WaitUntilDawn,
-            RestActions.WaitAnHour => RestKind.WaitAnHour,
-            RestActions.WaitFiveMinutes => RestKind.WaitFiveMinutes,
-            _ => null,
-        };
-    }
-
-    /// <summary>
-    /// Reads an action from admitted payload bytes. Malformed or empty payloads return null: an input
-    /// channel must not throw on hostile bytes, and a caller that receives null simply has no action.
-    /// </summary>
-    private static RestActionDto? Parse(ReadOnlySpan<byte> utf8)
-    {
-        if (utf8.IsEmpty) return null;
-        try
-        {
-            return JsonSerializer.Deserialize(utf8, RestActionJsonContext.Default.RestActionDto);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
+        RestActions.Rest => RestKind.Rest,
+        RestActions.Camp => RestKind.Camp,
+        RestActions.WaitUntilDawn => RestKind.WaitUntilDawn,
+        RestActions.WaitAnHour => RestKind.WaitAnHour,
+        RestActions.WaitFiveMinutes => RestKind.WaitFiveMinutes,
+        _ => null,
+    };
 }
-
-/// <summary>The stop action payload's wire record: an action name, and nothing else.</summary>
-internal sealed record RestActionDto(string? Action);
-
-/// <summary>Source-generated JSON for the stop action payload, so reading it stays AOT-safe.</summary>
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
-[JsonSerializable(typeof(RestActionDto))]
-internal sealed partial class RestActionJsonContext : JsonSerializerContext;

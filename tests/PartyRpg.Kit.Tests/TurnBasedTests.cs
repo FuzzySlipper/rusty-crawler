@@ -460,25 +460,25 @@ public sealed class TurnBasedTests
     {
         TurnInput reader = new(new TurnIntentNames("test.turn-based", "test.turn-skip", "test.turn-wait", "test.actions"));
 
-        Assert.Equal(TurnControls.None, reader.Read([]));
+        Assert.Equal(TurnControls.None, reader.Read(new([])));
 
         // Each control is its own intent, and a held key is a key still down rather than a new decision: a
         // toggle that repeated while its key stayed down would switch the pacing every update.
-        Assert.True(reader.Read([Pressed("test.turn-based")]).Toggle);
-        Assert.True(reader.Read([Pressed("test.turn-skip")]).Skip);
-        Assert.True(reader.Read([Pressed("test.turn-wait")]).Wait);
-        Assert.Equal(TurnControls.None, reader.Read([Held("test.turn-based")]));
-        Assert.Equal(TurnControls.None, reader.Read([Pressed("test.something-else")]));
+        Assert.True(reader.Read(new([Pressed("test.turn-based")])).Toggle);
+        Assert.True(reader.Read(new([Pressed("test.turn-skip")])).Skip);
+        Assert.True(reader.Read(new([Pressed("test.turn-wait")])).Wait);
+        Assert.Equal(TurnControls.None, reader.Read(new([Held("test.turn-based")])));
+        Assert.Equal(TurnControls.None, reader.Read(new([Pressed("test.something-else")])));
 
         // The companion's own buttons ask for exactly the same acts on the declared contract.
-        Assert.True(reader.Read([Payload("""{ "action": "combat.turn-based" }""")]).Toggle);
-        Assert.True(reader.Read([Payload("""{ "action": "combat.turn-skip" }""")]).Skip);
-        Assert.True(reader.Read([Payload("""{ "action": "combat.turn-wait" }""")]).Wait);
-        Assert.Equal(TurnControls.None, reader.Read([Payload("""{ "action": "party.attack" }""")]));
-        Assert.Equal(TurnControls.None, reader.Read([Payload("not json")]));
+        Assert.True(reader.Read(new([Payload("""{ "action": "combat.turn-based" }""")])).Toggle);
+        Assert.True(reader.Read(new([Payload("""{ "action": "combat.turn-skip" }""")])).Skip);
+        Assert.True(reader.Read(new([Payload("""{ "action": "combat.turn-wait" }""")])).Wait);
+        Assert.Equal(TurnControls.None, reader.Read(new([Payload("""{ "action": "party.attack" }""")])));
+        Assert.Equal(TurnControls.None, reader.Read(new([Payload("not json")])));
 
         // A direct interface claim carries no edge at all, which is how a panel's own control arrives.
-        Assert.True(reader.Read([Claimed("test.turn-based")]).Toggle);
+        Assert.True(reader.Read(new([Claimed("test.turn-based")])).Toggle);
     }
 
     [Fact]
@@ -558,7 +558,6 @@ public sealed class TurnBasedTests
             controls: new SessionControls
             {
                 Combat = new CombatIntentNames(
-                "test.attack",
                 "test.attack",
                 "test.actions",
                 new TurnIntentNames("combat.turn-based", "combat.turn-skip", "combat.turn-wait", "test.actions")),
@@ -756,7 +755,6 @@ public sealed class TurnBasedTests
             new SessionControls
             {
                 Combat = new CombatIntentNames(
-                    "test.attack",
                     "test.attack",
                     "test.actions",
                     new TurnIntentNames("combat.turn-based", "combat.turn-skip", "combat.turn-wait", "test.actions")),

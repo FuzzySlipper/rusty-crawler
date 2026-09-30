@@ -34,8 +34,6 @@ namespace PartyRpg.Host.Tests;
 public sealed class AutomapPolicyTests
 {
     private static readonly CastIntentNames CastControls = new(
-        ProductIdentity.CastAction,
-        ProductIdentity.QuickSpellAction,
         ProductIdentity.UiActionContract);
 
     [Fact]

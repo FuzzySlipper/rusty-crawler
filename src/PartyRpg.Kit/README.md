@@ -113,7 +113,10 @@ grouped by mechanism: `CombatRules`, `ProgressionRules`, `MagicRules`, `AlchemyR
 the update applies a player's acts through `SessionActs`, drives the fight in either pacing through
 `CombatDriver` and `ActControl`, hands a conversation's offer to its owner through the exhaustive
 `ConversationHandoffRouter` over the closed `HandoffOwner` list, and settles save requests through
-`SaveRequests`; the live
+`SaveRequests`. Every reader takes its actions from one `ActionInbox` per update — each payload parsed
+once, each semantic action's name the kit's own constant beside its reader, a product declaring only keys
+and contracts — and an action on the session's contracts that nothing took is reported as
+`action-unclaimed`; the live
 world it steps (`SessionWorld`), the one clock it advances by the admitted interval and the party it
 holds and publishes — with the clock's own schedule (`OpeningHours`, `PlaceSchedule`: which hours a place
 keeps and when that next changes, read against the clock's position rather than counted in a step) and the

@@ -1,18 +1,15 @@
-using System.Globalization;
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Party;
 using Rusty.Engine;
 
 namespace PartyRpg.Kit.Sessions;
 
-/// <summary>The controls a product declares for casting: one payload action for a spell, one for the quick slot.</summary>
+/// <summary>The control a product declares for casting: the contract its two payload actions arrive on.</summary>
 /// <remarks>
 /// <para>
-/// Names are data rather than vocabulary, exactly as the movement, creation, save, use, service, rest, and
-/// skill controls are: the kit claims what a product declares and invents no control of its own.
+/// The actions' names are the kit's (<see cref="CastActions"/>), as every semantic action's is; a product
+/// declares the contract they arrive on.
 /// </para>
 /// <para>
 /// <b>Casting has no key of its own, and that is deliberate.</b> A casting names a spell and a target, and
@@ -24,33 +21,20 @@ namespace PartyRpg.Kit.Sessions;
 /// </remarks>
 public sealed record CastIntentNames
 {
-    /// <summary>Creates the declared casting control names.</summary>
-    /// <param name="cast">The payload action that casts one named spell at one named target.</param>
-    /// <param name="quickSpell">The payload action that sets or clears one member's quick spell.</param>
+    /// <summary>Creates the declared casting control.</summary>
     /// <param name="actionContract">The payload contract a screen's casting commands arrive on.</param>
-    /// <exception cref="ArgumentException">A name is missing, so no event could ever be claimed for it.</exception>
-    public CastIntentNames(string cast, string quickSpell, string actionContract)
+    /// <exception cref="ArgumentException">The contract is missing, so no event could ever be claimed on it.</exception>
+    public CastIntentNames(string actionContract)
     {
-        Cast = Require(cast, nameof(cast));
-        QuickSpell = Require(quickSpell, nameof(quickSpell));
-        ActionContract = Require(actionContract, nameof(actionContract));
+        ActionContract = !string.IsNullOrWhiteSpace(actionContract)
+            ? actionContract
+            : throw new ArgumentException(
+                "The casting control declares no contract, so no event could ever be claimed on it.",
+                nameof(actionContract));
     }
-
-    /// <summary>The payload action that casts one member's named spell at a named target.</summary>
-    public string Cast { get; }
-
-    /// <summary>The payload action that puts a spell in a member's quick slot, or clears it.</summary>
-    public string QuickSpell { get; }
 
     /// <summary>The payload contract a screen's casting commands arrive on.</summary>
     public string ActionContract { get; }
-
-    private static string Require(string name, string parameterName) =>
-        !string.IsNullOrWhiteSpace(name)
-            ? name
-            : throw new ArgumentException(
-                $"The casting control '{parameterName}' declares no name, so no event could ever be claimed for it.",
-                parameterName);
 }
 
 /// <summary>The payload actions a spellbook screen sends, on the payload contract the product declares.</summary>
@@ -80,136 +64,48 @@ public readonly record struct CastRequest(int Member, SpellId Spell, string Targ
 /// <param name="Spell">The spell to keep in the slot, empty to clear it.</param>
 public readonly record struct QuickSpellRequest(int Member, SpellId? Spell);
 
-/// <summary>
-/// Reads admitted input into the castings and quick-slot choices a screen asked for.
-/// </summary>
-/// <remarks>
-/// The counterpart to the creation, service, and skill readers: the session consults it inside its one
-/// admitted update. A payload that names no spell produces no request, because there is nothing to cast and
-/// no refusal worth wording about it; a payload that names a spell this game does not declare is carried
-/// through and refused by name there. A malformed payload produces nothing at all, because an input channel
-/// must not throw on hostile bytes.
-/// </remarks>
+/// <summary>The castings and quick-slot choices a player made, read from the admitted input of each update.</summary>
 public sealed class CastInput
 {
-    private readonly byte[] _actionContract;
-    private readonly string _cast;
-    private readonly string _quickSpell;
+    private readonly string _actionContract;
 
-    /// <summary>Creates the reader for one product's declared casting controls.</summary>
-    /// <param name="names">The actions and the contract a casting arrives on.</param>
-    /// <exception cref="ArgumentNullException">No control names were declared.</exception>
+    /// <summary>Creates the reader for the declared casting control.</summary>
+    /// <param name="names">The casting control the host declared.</param>
     public CastInput(CastIntentNames names)
     {
         ArgumentNullException.ThrowIfNull(names);
-        _cast = names.Cast;
-        _quickSpell = names.QuickSpell;
-        _actionContract = Encoding.UTF8.GetBytes(names.ActionContract);
+        _actionContract = names.ActionContract;
     }
 
-    /// <summary>Reads one update's admitted input into the castings it carries, in order.</summary>
-    /// <param name="input">The admitted input slice of one engine update.</param>
-    /// <returns>The castings the screen asked for, in the order they arrived.</returns>
-    public IReadOnlyList<CastRequest> Read(ReadOnlySpan<ProductInputEvent> input)
+    /// <summary>The castings this update carried, in the order they arrived; one that names no spell is dropped.</summary>
+    /// <param name="inbox">The update's input.</param>
+    public IReadOnlyList<CastRequest> Read(ActionInbox inbox)
     {
+        ArgumentNullException.ThrowIfNull(inbox);
         List<CastRequest> casts = [];
-        foreach (ProductInputEvent inputEvent in input)
+        foreach (UiAction action in inbox.Take(_actionContract, CastActions.Cast))
         {
-            if (inputEvent.ValueKind != InputValueKind.ProductPayload) continue;
-            if (!inputEvent.PayloadContract.Span.SequenceEqual(_actionContract)) continue;
-            if (Cast(inputEvent.PayloadData.Span) is { } cast) casts.Add(cast);
+            string spell = action.Text("spell");
+            if (spell.Length == 0) continue;
+            ItemInstanceId? item = action.Identity("item") is { } id ? new ItemInstanceId(id) : null;
+            casts.Add(new CastRequest(action.Int("member") ?? 0, new SpellId(spell), action.Text("target"), item));
         }
 
         return casts;
     }
 
-    /// <summary>Reads one update's admitted input into the quick-slot choices it carries, in order.</summary>
-    /// <param name="input">The admitted input slice of one engine update.</param>
-    /// <returns>The choices the screen made, in the order they arrived.</returns>
-    public IReadOnlyList<QuickSpellRequest> ReadQuick(ReadOnlySpan<ProductInputEvent> input)
+    /// <summary>The quick-slot choices this update carried; one that names no spell clears the slot.</summary>
+    /// <param name="inbox">The update's input.</param>
+    public IReadOnlyList<QuickSpellRequest> ReadQuick(ActionInbox inbox)
     {
+        ArgumentNullException.ThrowIfNull(inbox);
         List<QuickSpellRequest> choices = [];
-        foreach (ProductInputEvent inputEvent in input)
+        foreach (UiAction action in inbox.Take(_actionContract, CastActions.QuickSpell))
         {
-            if (inputEvent.ValueKind != InputValueKind.ProductPayload) continue;
-            if (!inputEvent.PayloadContract.Span.SequenceEqual(_actionContract)) continue;
-            if (Quick(inputEvent.PayloadData.Span) is { } choice) choices.Add(choice);
+            string spell = action.Text("spell");
+            choices.Add(new QuickSpellRequest(action.Int("member") ?? 0, spell.Length == 0 ? null : new SpellId(spell)));
         }
 
         return choices;
     }
-
-    /// <summary>Reads one payload into the casting it names, or null when it names none of ours.</summary>
-    private CastRequest? Cast(ReadOnlySpan<byte> utf8)
-    {
-        CastDto? action = Parse(utf8);
-        if (action is null || !string.Equals(action.Action, _cast, StringComparison.Ordinal)) return null;
-        string spell = Spell(action.Spell);
-        if (spell.Length == 0) return null;
-        return new CastRequest(action.Member ?? 0, new SpellId(spell), action.Target ?? string.Empty, Item(action.Item));
-    }
-
-    /// <summary>
-    /// The item a payload names as a casting's source, or null when it names none or an unreadable one.
-    /// </summary>
-    /// <remarks>
-    /// An identity that is not a whole number above zero names no instance, and a casting with no source is a
-    /// casting from the spellbook rather than a defect: an input channel must not throw on hostile bytes, and
-    /// the workflow refuses what it cannot resolve by name where a person can see it.
-    /// </remarks>
-    private static ItemInstanceId? Item(JsonElement? element)
-    {
-        string written = Spell(element);
-        return ulong.TryParse(written, NumberStyles.None, CultureInfo.InvariantCulture, out ulong value) && value > 0
-            ? new ItemInstanceId(value)
-            : null;
-    }
-
-    /// <summary>
-    /// Reads one payload into the quick-slot choice it names, or null when it names none of ours.
-    /// </summary>
-    /// <remarks>
-    /// A choice that names no spell is a cleared slot rather than nothing at all: a player who empties the
-    /// slot asked for exactly that, and the reader must not turn the request into silence.
-    /// </remarks>
-    private QuickSpellRequest? Quick(ReadOnlySpan<byte> utf8)
-    {
-        CastDto? action = Parse(utf8);
-        if (action is null || !string.Equals(action.Action, _quickSpell, StringComparison.Ordinal)) return null;
-        string spell = Spell(action.Spell);
-        return new QuickSpellRequest(action.Member ?? 0, spell.Length == 0 ? null : new SpellId(spell));
-    }
-
-    /// <summary>A spell identity read from a payload, which may be a string or a number.</summary>
-    private static string Spell(JsonElement? element) => element?.ValueKind switch
-    {
-        JsonValueKind.String => element.Value.GetString() ?? string.Empty,
-        JsonValueKind.Number => element.Value.GetRawText(),
-        _ => string.Empty,
-    };
-
-    /// <summary>
-    /// Reads an action from admitted payload bytes. Malformed or empty payloads return null: an input
-    /// channel must not throw on hostile bytes, and a caller that receives null simply has no action.
-    /// </summary>
-    private static CastDto? Parse(ReadOnlySpan<byte> utf8)
-    {
-        if (utf8.IsEmpty) return null;
-        try
-        {
-            return JsonSerializer.Deserialize(utf8, CastJsonContext.Default.CastDto);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
 }
-
-/// <summary>The casting payload's wire record: an action name plus the member, spell, target, and item.</summary>
-internal sealed record CastDto(string? Action, int? Member, JsonElement? Spell, string? Target, JsonElement? Item);
-
-/// <summary>Source-generated JSON for the casting payload, so reading it stays AOT-safe.</summary>
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
-[JsonSerializable(typeof(CastDto))]
-internal sealed partial class CastJsonContext : JsonSerializerContext;

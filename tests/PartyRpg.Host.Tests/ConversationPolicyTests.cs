@@ -181,7 +181,7 @@ public sealed class ConversationPolicyTests
         using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
             ProductTestContext.RulesetContext(context, ui) with
             {
-                Use = new UseIntentNames(ProductIdentity.UseIntent, ProductIdentity.UseAction, ProductIdentity.UiActionContract),
+                Use = new UseIntentNames(ProductIdentity.UseIntent, ProductIdentity.UiActionContract),
                 Service = new ServiceIntentNames(ProductIdentity.ServiceLeaveIntent, ProductIdentity.UiActionContract),
                 Conversation = new ConversationIntentNames(ProductIdentity.ConversationLeaveIntent, ProductIdentity.UiActionContract),
             });

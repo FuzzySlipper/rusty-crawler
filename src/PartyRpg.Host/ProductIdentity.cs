@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Sessions;
 
@@ -81,7 +82,7 @@ internal static class ProductIdentity
     /// The payload action name that uses whatever the party is facing, sent by the DOM companion's use
     /// control on the UI action contract.
     /// </summary>
-    internal const string UseAction = "party.use";
+    internal const string UseAction = UseActions.Use;
 
     /// <summary>
     /// The digital intent that leaves the service counter a visit has open.
@@ -159,7 +160,7 @@ internal static class ProductIdentity
     /// The payload action name that orders the same attack, sent by the DOM companion's attack control on the
     /// UI action contract.
     /// </summary>
-    internal const string AttackAction = "party.attack";
+    internal const string AttackAction = CombatActions.Attack;
 
     /// <summary>
     /// The digital intent that switches a fight between real-time and turn-based pacing.
@@ -200,7 +201,7 @@ internal static class ProductIdentity
     /// The payload action name that asks the live session to save, sent by the DOM companion's save control
     /// on the UI action contract.
     /// </summary>
-    internal const string SaveAction = "session.save";
+    internal const string SaveAction = SaveActions.Save;
 
     /// <summary>
     /// The payload action name that casts one member's named spell at a named target, sent by the DOM
@@ -213,7 +214,7 @@ internal static class ProductIdentity
     /// player pressed names the member, the spell, and the target the projection offered, and no control of
     /// the keyboard means "cast this one".
     /// </remarks>
-    internal const string CastAction = "party.cast";
+    internal const string CastAction = CastActions.Cast;
 
     /// <summary>
     /// The payload action name that puts one spell in one member's quick slot, or clears it.
@@ -223,7 +224,7 @@ internal static class ProductIdentity
     /// the spell; a payload that names no spell empties the slot. It is an action rather than a key because
     /// what a key would do — cast the slot — needs a target as well, and that is <see cref="CastAction"/>.
     /// </remarks>
-    internal const string QuickSpellAction = "party.quick-spell";
+    internal const string QuickSpellAction = CastActions.QuickSpell;
 
     /// <summary>
     /// The payload action name that mixes the two items a screen named, sent by the DOM companion's pack
@@ -235,7 +236,7 @@ internal static class ProductIdentity
     /// mixing is two clicks on two items rather than a key, and the row a player pressed names both
     /// instances the projection offered.
     /// </remarks>
-    internal const string MixAction = "party.mix";
+    internal const string MixAction = AlchemyActions.Mix;
 
     /// <summary>
     /// The payload action name that asks the live session to spend a member's skill points on a raise, sent

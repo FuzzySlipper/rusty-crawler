@@ -216,7 +216,7 @@ public sealed class CombatStateTests
             },
             controls: new SessionControls
             {
-                Combat = new CombatIntentNames("test.attack", "test.attack", "test.actions"),
+                Combat = new CombatIntentNames("test.attack", "test.actions"),
             });
 
         Arrive(world);
@@ -279,7 +279,7 @@ public sealed class CombatStateTests
             },
             controls: new SessionControls
             {
-                Combat = new CombatIntentNames("test.attack", "test.attack", "test.actions"),
+                Combat = new CombatIntentNames("test.attack", "test.actions"),
             });
 
         Arrive(world);
@@ -326,28 +326,28 @@ public sealed class CombatStateTests
     [Fact]
     public void The_act_control_is_read_from_a_held_mapping_a_press_and_a_panel_claim()
     {
-        CombatInput reader = new(new CombatIntentNames("test.attack", "test.attack", "test.actions"));
+        CombatInput reader = new(new CombatIntentNames("test.attack", "test.actions"));
 
         // A control a product maps as held arrives as a state for every update it stays down, and reports
         // nothing once it comes up — which is the shape the engine's own held mappings emit.
-        Assert.True(reader.Read([Held()]));
-        Assert.True(reader.Read([Held()]));
-        Assert.False(reader.Read([]));
+        Assert.True(reader.Read(new([Held()])));
+        Assert.True(reader.Read(new([Held()])));
+        Assert.False(reader.Read(new([])));
 
         // A pressed edge latches until its release, which is the shape a press mapping emits.
-        Assert.True(reader.Read([Attack()]));
-        Assert.True(reader.Read([]));
-        Assert.False(reader.Read([Release()]));
+        Assert.True(reader.Read(new([Attack()])));
+        Assert.True(reader.Read(new([])));
+        Assert.False(reader.Read(new([Release()])));
 
         // A panel claim asks for exactly the update it arrives in, because a claim has nobody to send a
         // release: a button that stayed held would keep the party attacking after the player stopped.
-        Assert.True(reader.Read([Claimed()]));
-        Assert.False(reader.Read([]));
+        Assert.True(reader.Read(new([Claimed()])));
+        Assert.False(reader.Read(new([])));
 
-        // A payload carrying the declared action asks once; anything else on the contract asks for nothing.
-        Assert.True(reader.Read([Payload("""{ "action": "test.attack" }""")]));
-        Assert.False(reader.Read([Payload("""{ "action": "test.use" }""")]));
-        Assert.False(reader.Read([Payload("not json")]));
+        // A payload carrying the attack action asks once; anything else on the contract asks for nothing.
+        Assert.True(reader.Read(new([Payload("""{ "action": "party.attack" }""")])));
+        Assert.False(reader.Read(new([Payload("""{ "action": "party.use" }""")])));
+        Assert.False(reader.Read(new([Payload("not json")])));
     }
 
     /// <summary>One held-edge event on the act control, as the engine emits a held mapping.</summary>

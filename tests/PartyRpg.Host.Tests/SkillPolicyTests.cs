@@ -33,7 +33,6 @@ public sealed class SkillPolicyTests
 
     private static readonly UseIntentNames UseControls = new(
         ProductIdentity.UseIntent,
-        ProductIdentity.UseAction,
         ProductIdentity.UiActionContract);
 
     private static readonly ConversationIntentNames ConversationControls = new(
@@ -41,7 +40,6 @@ public sealed class SkillPolicyTests
         ProductIdentity.UiActionContract);
 
     private static readonly SkillRaiseIntentNames SkillControls = new(
-        ProductIdentity.SkillRaiseAction,
         ProductIdentity.UiActionContract);
 
     [ImportedFact("skills.json")]

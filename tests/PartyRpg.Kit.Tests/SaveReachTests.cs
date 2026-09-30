@@ -36,7 +36,7 @@ public sealed class SaveReachTests
     private static readonly ContentLayout Layout = new("packs", "imports", "bundles");
     private static readonly SessionComposition Composition = new(new RulesetId("test.ruleset"), "Save reach");
     private static readonly FacingRule Facing = new(unitsPerTurn: 2048, minimumPitch: -512, maximumPitch: 512);
-    private static readonly SaveIntentNames Controls = new("session.save", "session.save", "crawler.ui.action.v1");
+    private static readonly SaveIntentNames Controls = new("session.save", "crawler.ui.action.v1");
 
     [Fact]
     public void A_save_request_arriving_in_an_admitted_update_writes_exactly_once()
@@ -252,9 +252,8 @@ public sealed class SaveReachTests
     {
         // A control with no name is a key that could never ask for anything, so it is refused where the
         // product declares it rather than composed as a save nobody can request.
-        Assert.Throws<ArgumentException>(() => new SaveIntentNames("", "session.save", "crawler.ui.action.v1"));
-        Assert.Throws<ArgumentException>(() => new SaveIntentNames("session.save", " ", "crawler.ui.action.v1"));
-        Assert.Throws<ArgumentException>(() => new SaveIntentNames("session.save", "session.save", ""));
+        Assert.Throws<ArgumentException>(() => new SaveIntentNames("", "crawler.ui.action.v1"));
+        Assert.Throws<ArgumentException>(() => new SaveIntentNames("session.save", ""));
     }
 
     /// <summary>A played session over a party created through this game's own creation flow.</summary>

@@ -237,7 +237,6 @@ internal static class ProductTestContext
             Combat: combat
                 ? new CombatIntentNames(
                     ProductIdentity.AttackIntent,
-                    ProductIdentity.AttackAction,
                     ProductIdentity.UiActionContract,
                     new TurnIntentNames(
                         ProductIdentity.TurnBasedToggleIntent,

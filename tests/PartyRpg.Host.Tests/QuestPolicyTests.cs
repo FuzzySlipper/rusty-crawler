@@ -39,7 +39,6 @@ public sealed class QuestPolicyTests
 {
     private static readonly UseIntentNames UseControls = new(
         ProductIdentity.UseIntent,
-        ProductIdentity.UseAction,
         ProductIdentity.UiActionContract);
 
     private static readonly ConversationIntentNames ConversationControls = new(

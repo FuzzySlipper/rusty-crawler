@@ -52,6 +52,7 @@ public sealed class PartyRpgSession : IGameSession
     private readonly CombatDriver _fight;
     private readonly SaveRequests _saves;
     private readonly bool _resumed;
+    private readonly HashSet<string> _contracts;
     private CreationDriver? _creation;
     private bool _accepted;
     private SessionMode _mode = SessionMode.Starting;
@@ -108,6 +109,7 @@ public sealed class PartyRpgSession : IGameSession
         owners.Bind(rules ?? SessionRules.None, records);
         _acts = new SessionActs(owners, controls);
         _fight = new CombatDriver(owners, controls.Movement, controls.Combat);
+        _contracts = Contracts(controls);
 
         switch (party)
         {
@@ -261,7 +263,10 @@ public sealed class PartyRpgSession : IGameSession
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         SessionTick tick = SessionTick.From(update.Facts);
-        ReadOnlySpan<ProductInputEvent> input = update.Input;
+
+        // Every payload the update carried is parsed once, here, and each reader takes the actions it acts on;
+        // what nobody took is reported when the update is done.
+        ActionInbox input = new(update.Input);
 
         // A save request is settled before the step it accompanies: the player asked at the moment whose
         // projection they were reading, so the document describes that moment rather than one tick later.
@@ -282,6 +287,7 @@ public sealed class PartyRpgSession : IGameSession
             }
 
             _updates++;
+            ReportUnclaimed(input);
             Publish();
             return ProductUpdateResult.None;
         }
@@ -308,7 +314,7 @@ public sealed class PartyRpgSession : IGameSession
 
         // What the player holds is read on every update, whatever owns the controls, so a release is never
         // missed; it is applied only when the party may act.
-        MovementIntent intent = _movement?.Read(input) ?? default;
+        MovementIntent intent = _movement?.Read(update.Input) ?? default;
         if (!screenOwnsControls)
         {
             if (!awaitingTurn && _movement is not null && seconds > 0) LiveWorld?.Step(intent, seconds);
@@ -383,9 +389,44 @@ public sealed class PartyRpgSession : IGameSession
         // The mode is resolved after the fight has had its say, because the fight decides whether the next
         // update waits for a committed turn; the update is then consumed and its one projection published.
         ResolveMode();
+        ReportUnclaimed(input);
         Advance(tick);
         return ProductUpdateResult.None;
     }
+
+    /// <summary>
+    /// Reports every action on this session's own contracts that nothing took, so a control the panel offered and
+    /// the session could not act on says so rather than looking like a control that did nothing.
+    /// </summary>
+    /// <remarks>
+    /// An action goes untaken when the mechanism it belongs to is not composed, or is not open to take it at that
+    /// moment — a purchase with no counter open, a casting while the session is held — or when its name is one no
+    /// mechanism knows. The host's own pause and resume reach the lifecycle through its router before the update,
+    /// so they are the host's rather than the session's to report.
+    /// </remarks>
+    private void ReportUnclaimed(ActionInbox input)
+    {
+        foreach (UiAction action in input.Unclaimed(_contracts))
+        {
+            if (action.Name is UiActionPayload.PauseSession or UiActionPayload.ResumeSession) continue;
+            _owners.Diagnostics.Refused(
+                "input",
+                "action-unclaimed",
+                $"'{action.Name}' arrived on '{action.Contract}' and nothing in this session took it: the mechanism it belongs to is not composed, was not open to take it in {_mode} mode, or does not know the name.");
+        }
+    }
+
+    /// <summary>The contracts the host declared this session's semantic actions on.</summary>
+    private static HashSet<string> Contracts(SessionControls controls) =>
+        new(
+            new[]
+            {
+                controls.Creation?.ActionContract, controls.Save?.ActionContract, controls.Use?.ActionContract,
+                controls.Service?.ActionContract, controls.Rest?.ActionContract, controls.Conversation?.ActionContract,
+                controls.Combat?.ActionContract, controls.Combat?.Turn?.ActionContract, controls.Skills?.ActionContract,
+                controls.Cast?.ActionContract, controls.Mix?.ActionContract,
+            }.OfType<string>(),
+            StringComparer.Ordinal);
 
     /// <summary>The interval this admitted update covers, which is zero for a session that is not running.</summary>
     /// <remarks>

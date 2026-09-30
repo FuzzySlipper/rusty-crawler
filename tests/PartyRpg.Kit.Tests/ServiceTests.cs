@@ -41,7 +41,7 @@ public sealed class ServiceTests
 {
     private static readonly ContentLayout Layout = new("packs", "imports", "bundles");
     private static readonly PlaceId CounterPlace = new("1");
-    private static readonly UseIntentNames UseControls = new("test.use", "test.use", "test.ui.action.v1");
+    private static readonly UseIntentNames UseControls = new("test.use", "test.ui.action.v1");
     private static readonly ServiceIntentNames ServiceControls = new("test.service.leave", "test.ui.action.v1");
     private static readonly ConversationIntentNames ConversationControls = new("test.conversation.leave", "test.ui.action.v1");
     private static readonly MovementIntentNames MovementControls = new(

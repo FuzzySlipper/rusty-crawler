@@ -17,30 +17,25 @@ namespace PartyRpg.Kit.Sessions;
 /// more: what a save contains, where it goes, and what makes it loadable are the persistence owner's rules.
 /// </para>
 /// <para>
-/// Two names are needed because a product offers two ways to ask: a digital intent for a key, and one action
-/// name on the payload contract the interface already claims its semantic actions on. Both are read inside the
-/// one admitted update, so a key and a button ask for exactly the same save.
+/// A product offers two ways to ask: a digital intent for a key, and the kit's own action
+/// (<see cref="SaveActions.Save"/>) on the payload contract the interface already claims its semantic actions on.
+/// Both are read inside the one admitted update, so a key and a button ask for exactly the same save.
 /// </para>
 /// </remarks>
 public sealed record SaveIntentNames
 {
     /// <summary>Names the controls a save request arrives on.</summary>
     /// <param name="intent">The digital intent that asks the session to save.</param>
-    /// <param name="action">The payload action name that asks the session to save.</param>
-    /// <param name="actionContract">The payload contract that action arrives on.</param>
+    /// <param name="actionContract">The payload contract the save action arrives on.</param>
     /// <exception cref="ArgumentException">A name is missing, so no event could ever be claimed for it.</exception>
-    public SaveIntentNames(string intent, string action, string actionContract)
+    public SaveIntentNames(string intent, string actionContract)
     {
         Intent = Require(intent, nameof(intent));
-        Action = Require(action, nameof(action));
         ActionContract = Require(actionContract, nameof(actionContract));
     }
 
     /// <summary>The digital intent that asks the session to save.</summary>
     public string Intent { get; }
-
-    /// <summary>The payload action name that asks the session to save.</summary>
-    public string Action { get; }
 
     /// <summary>The payload contract that action arrives on.</summary>
     public string ActionContract { get; }
@@ -51,6 +46,13 @@ public sealed record SaveIntentNames
             : throw new ArgumentException(
                 $"The save control '{parameterName}' declares no name, so no event could ever be claimed for it.",
                 parameterName);
+}
+
+/// <summary>The payload action a screen sends to ask for a save.</summary>
+public static class SaveActions
+{
+    /// <summary>Asks the session to save, exactly as the save key does.</summary>
+    public const string Save = "session.save";
 }
 
 /// <summary>
@@ -67,8 +69,7 @@ internal sealed class SaveRequests
 {
     private readonly string _title;
     private readonly byte[]? _intent;
-    private readonly string? _action;
-    private readonly byte[]? _actionContract;
+    private readonly string? _actionContract;
 
     public SaveRequests(string title, SessionSaving? saving, SaveIntentNames? names, bool resumed)
     {
@@ -78,8 +79,7 @@ internal sealed class SaveRequests
         // The declared controls are read once, into the exact bytes an admitted event carries, so the reader
         // compares bytes rather than decoding a name on every event of every update.
         _intent = names is null ? null : Encoding.UTF8.GetBytes(names.Intent);
-        _action = names?.Action;
-        _actionContract = names is null ? null : Encoding.UTF8.GetBytes(names.ActionContract);
+        _actionContract = names?.ActionContract;
         State = SaveSnapshot.None(
             available: Boundary is not null,
             resumed: resumed,
@@ -102,26 +102,11 @@ internal sealed class SaveRequests
     /// A malformed payload carries no request: an input channel must not throw on hostile bytes. Several requests
     /// in one update are one save, because they are one moment.
     /// </remarks>
-    public bool Asked(ReadOnlySpan<ProductInputEvent> input)
+    public bool Asked(ActionInbox inbox)
     {
-        if (_intent is null || _actionContract is null || _action is null) return false;
-        foreach (ProductInputEvent inputEvent in input)
-        {
-            if (inputEvent.ValueKind == InputValueKind.Digital)
-            {
-                if (inputEvent.Intent.Span.SequenceEqual(_intent) && InputEvents.IsActivation(inputEvent)) return true;
-                continue;
-            }
-
-            if (inputEvent.ValueKind != InputValueKind.ProductPayload) continue;
-            if (!inputEvent.PayloadContract.Span.SequenceEqual(_actionContract)) continue;
-            if (string.Equals(UiActionPayload.Parse(inputEvent.PayloadData.Span)?.Name, _action, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        if (_intent is null || _actionContract is null) return false;
+        bool asked = inbox.Activated(_intent);
+        return inbox.Take(_actionContract, SaveActions.Save).Count > 0 || asked;
     }
 
     /// <summary>Saves the session if it can, and records what happened in <see cref="State"/>.</summary>

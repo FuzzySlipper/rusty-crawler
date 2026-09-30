@@ -40,12 +40,9 @@ public sealed class KnowledgePolicyTests
 {
     private static readonly UseIntentNames UseControls = new(
         ProductIdentity.UseIntent,
-        ProductIdentity.UseAction,
         ProductIdentity.UiActionContract);
 
     private static readonly CastIntentNames CastControls = new(
-        ProductIdentity.CastAction,
-        ProductIdentity.QuickSpellAction,
         ProductIdentity.UiActionContract);
 
     /// <summary>The shipped potion rows this suite mixes: two real potions and the one they make.</summary>

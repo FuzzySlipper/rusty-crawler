@@ -1,6 +1,5 @@
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using PartyRpg.Kit.Input;
 using Rusty.Engine;
 
 namespace PartyRpg.Kit.Sessions;
@@ -87,126 +86,40 @@ public enum ConversationCommandKind
     Leave,
 }
 
-/// <summary>
-/// Reads admitted input into the conversation commands a screen asked for.
-/// </summary>
-/// <remarks>
-/// <para>
-/// This is the conversation screen's counterpart to the service and creation readers: the session consults
-/// it inside its one admitted update while a conversation is open, and not at all while the party is
-/// walking. Every command is discrete — a topic is taken once — so nothing is remembered between updates,
-/// which is the opposite of a held movement key.
-/// </para>
-/// <para>
-/// A digital event on the declared leave control carries its command; a payload on the declared contract
-/// carries the action it names and whatever it names. Anything else, including a malformed payload, carries
-/// no command: an input channel must not throw on hostile bytes, and a caller that receives nothing simply
-/// has nothing to apply.
-/// </para>
-/// </remarks>
+/// <summary>The conversation commands a player gave, read from the admitted input of each update, in order.</summary>
 public sealed class ConversationInput
 {
     private readonly byte[] _leave;
-    private readonly byte[] _actionContract;
+    private readonly string _actionContract;
 
-    /// <summary>Creates the reader for one product's declared conversation controls.</summary>
-    /// <param name="names">The intent and contract names the commands arrive on.</param>
-    /// <exception cref="ArgumentNullException">No control names were declared.</exception>
+    /// <summary>Creates the reader for the declared conversation controls.</summary>
+    /// <param name="names">The conversation controls the host declared.</param>
     public ConversationInput(ConversationIntentNames names)
     {
         ArgumentNullException.ThrowIfNull(names);
         _leave = Encoding.UTF8.GetBytes(names.Leave);
-        _actionContract = Encoding.UTF8.GetBytes(names.ActionContract);
+        _actionContract = names.ActionContract;
     }
 
-    /// <summary>Reads one update's admitted input into the conversation commands it carries, in order.</summary>
-    /// <param name="input">The admitted input slice of one engine update.</param>
-    /// <returns>The commands the screen asked for, in the order they arrived.</returns>
-    public IReadOnlyList<ConversationCommand> Read(ReadOnlySpan<ProductInputEvent> input)
+    /// <summary>The conversation commands this update carried.</summary>
+    /// <param name="inbox">The update's input.</param>
+    public IReadOnlyList<ConversationCommand> Read(ActionInbox inbox)
     {
+        ArgumentNullException.ThrowIfNull(inbox);
         List<ConversationCommand> commands = [];
-        foreach (ProductInputEvent inputEvent in input)
+        if (inbox.Activated(_leave)) commands.Add(ConversationCommand.Leave);
+        foreach (UiAction action in inbox.Take(
+            _actionContract,
+            name => name is ConversationActions.Topic or ConversationActions.Person or ConversationActions.Leave))
         {
-            if (inputEvent.ValueKind == InputValueKind.Digital)
+            commands.Add(action.Name switch
             {
-                if (inputEvent.Intent.Span.SequenceEqual(_leave) && IsActivation(inputEvent))
-                {
-                    commands.Add(ConversationCommand.Leave);
-                }
-
-                continue;
-            }
-
-            if (inputEvent.ValueKind != InputValueKind.ProductPayload) continue;
-            if (!inputEvent.PayloadContract.Span.SequenceEqual(_actionContract)) continue;
-            if (Command(inputEvent.PayloadData.Span) is { } command) commands.Add(command);
+                ConversationActions.Topic => new ConversationCommand(ConversationCommandKind.Topic, action.Text("target")),
+                ConversationActions.Person => new ConversationCommand(ConversationCommandKind.Person, action.Text("target")),
+                _ => ConversationCommand.Leave,
+            });
         }
 
         return commands;
     }
-
-    /// <summary>
-    /// Whether a digital event is an activation. A physical press carries an edge; a direct interface
-    /// claim is admitted with no edge at all, so its own phase and provenance are what identify it.
-    /// </summary>
-    private static bool IsActivation(in ProductInputEvent inputEvent) =>
-        inputEvent.Edge == InputEdge.Pressed
-        || inputEvent.Phase == InputPhase.DirectUi
-        || inputEvent.Provenance == InputProvenance.DirectUi;
-
-    /// <summary>Reads one payload action into the command it names, or null when it names none of ours.</summary>
-    private static ConversationCommand? Command(ReadOnlySpan<byte> utf8)
-    {
-        ConversationActionDto? action = Parse(utf8);
-        if (action?.Action is not { Length: > 0 } name) return null;
-        string target = Target(action.Target);
-        // A command that names nothing is still a command: the mechanism refuses it by name, where dropping
-        // it would show nothing at all.
-        return name switch
-        {
-            ConversationActions.Topic => new ConversationCommand(ConversationCommandKind.Topic, target),
-            ConversationActions.Person => new ConversationCommand(ConversationCommandKind.Person, target),
-            ConversationActions.Leave => ConversationCommand.Leave,
-            _ => null,
-        };
-    }
-
-    /// <summary>
-    /// Reads what a command names, whether the screen wrote it as a string or as a number.
-    /// </summary>
-    /// <remarks>
-    /// An identity is an identity: a topic named "topic-12" and a person named 7 are both identities, and a
-    /// screen that wrote one of them as a JSON number should not have its command dropped for it.
-    /// </remarks>
-    private static string Target(JsonElement? target) => target?.ValueKind switch
-    {
-        JsonValueKind.String => target.Value.GetString() ?? string.Empty,
-        JsonValueKind.Number => target.Value.GetRawText(),
-        _ => string.Empty,
-    };
-
-    /// <summary>
-    /// Reads an action from admitted payload bytes. Malformed or empty payloads return null: an input
-    /// channel must not throw on hostile bytes, and a caller that receives null simply has no action.
-    /// </summary>
-    private static ConversationActionDto? Parse(ReadOnlySpan<byte> utf8)
-    {
-        if (utf8.IsEmpty) return null;
-        try
-        {
-            return JsonSerializer.Deserialize(utf8, ConversationActionJsonContext.Default.ConversationActionDto);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
 }
-
-/// <summary>The conversation action payload's wire record: an action name plus whatever it names.</summary>
-internal sealed record ConversationActionDto(string? Action, JsonElement? Target);
-
-/// <summary>Source-generated JSON for the conversation action payload, so reading it stays AOT-safe.</summary>
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
-[JsonSerializable(typeof(ConversationActionDto))]
-internal sealed partial class ConversationActionJsonContext : JsonSerializerContext;

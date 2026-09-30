@@ -259,13 +259,10 @@ public sealed class MagicPolicyTests
 
     private static readonly UseIntentNames UseControls = new(
         ProductIdentity.UseIntent,
-        ProductIdentity.UseAction,
         ProductIdentity.UiActionContract);
     private static readonly ServiceIntentNames ServiceControls = new("test.service.leave", ProductIdentity.UiActionContract);
     private static readonly ConversationIntentNames ConversationControls = new("test.conversation.leave", ProductIdentity.UiActionContract);
     private static readonly CastIntentNames CastControls = new(
-        ProductIdentity.CastAction,
-        ProductIdentity.QuickSpellAction,
         ProductIdentity.UiActionContract);
 
     /// <summary>Whether a counter's lessons include one of a kind whose name a person reads as stated.</summary>

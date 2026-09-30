@@ -29,7 +29,7 @@ public sealed class InteractionTests
 {
     private static readonly ContentLayout Layout = new("packs", "imports", "bundles");
     private static readonly PlaceId HallPlace = new("1");
-    private static readonly UseIntentNames UseControls = new("test.use", "test.use", "test.ui.action.v1");
+    private static readonly UseIntentNames UseControls = new("test.use", "test.ui.action.v1");
     private const double StepSeconds = 1.0 / 60.0;
 
     [Fact]
@@ -391,7 +391,7 @@ public sealed class InteractionTests
 
         // The panel's own control asks on the payload contract, and it uses exactly what the key uses.
         hall.Move(Hall.Facing("lever-0"));
-        session.Update(Update(7, 1, Payload(UseControls.ActionContract, """{"action":"test.use"}""")));
+        session.Update(Update(7, 1, Payload(UseControls.ActionContract, """{"action":"party.use"}""")));
         Assert.Equal("pulled", hall.Interaction.FocusedTarget!.State.State);
 
         // A held session still uses: a use is an instant rather than an interval, so a lever pulled while

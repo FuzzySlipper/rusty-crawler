@@ -1,6 +1,5 @@
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Services;
 using Rusty.Engine;
 
@@ -101,139 +100,60 @@ public static class ServiceActions
     public const string Leave = "service.leave";
 }
 
-/// <summary>
-/// Reads admitted input into the service commands a screen asked for.
-/// </summary>
-/// <remarks>
-/// <para>
-/// This is the service screen's counterpart to the creation reader: the session consults it inside its one
-/// admitted update while a visit is open, and not at all while the party is walking. Every command is
-/// discrete — a purchase is made once — so nothing is remembered between updates, which is the opposite of
-/// a held movement key and the same shape a creation choice has.
-/// </para>
-/// <para>
-/// A digital event on the declared leave control carries its command; a payload on the declared contract
-/// carries the action it names. Anything else, including a malformed payload, carries no command: an input
-/// channel must not throw on hostile bytes, and a caller that receives nothing simply has nothing to apply.
-/// </para>
-/// </remarks>
+/// <summary>The service commands a player gave, read from the admitted input of each update, in the order they arrived.</summary>
 public sealed class ServiceInput
 {
-    private readonly byte[] _leave;
-    private readonly byte[] _actionContract;
+    private static readonly HashSet<string> Known = new(StringComparer.Ordinal)
+    {
+        ServiceActions.Buy, ServiceActions.Sell, ServiceActions.Identify, ServiceActions.Repair,
+        ServiceActions.Teach, ServiceActions.Train, ServiceActions.Fare, ServiceActions.Leave,
+    };
 
-    /// <summary>Creates the reader for one product's declared service controls.</summary>
-    /// <param name="names">The intent and contract names the commands arrive on.</param>
-    /// <exception cref="ArgumentNullException">No control names were declared.</exception>
+    private readonly byte[] _leave;
+    private readonly string _actionContract;
+
+    /// <summary>Creates the reader for the declared service controls.</summary>
+    /// <param name="names">The service controls the host declared.</param>
     public ServiceInput(ServiceIntentNames names)
     {
         ArgumentNullException.ThrowIfNull(names);
         _leave = Encoding.UTF8.GetBytes(names.Leave);
-        _actionContract = Encoding.UTF8.GetBytes(names.ActionContract);
+        _actionContract = names.ActionContract;
     }
 
-    /// <summary>Reads one update's admitted input into the service commands it carries, in order.</summary>
-    /// <param name="input">The admitted input slice of one engine update.</param>
-    /// <returns>The commands the screen asked for, in the order they arrived.</returns>
-    public IReadOnlyList<ServiceCommand> Read(ReadOnlySpan<ProductInputEvent> input)
+    /// <summary>The service commands this update carried.</summary>
+    /// <param name="inbox">The update's input.</param>
+    public IReadOnlyList<ServiceCommand> Read(ActionInbox inbox)
     {
+        ArgumentNullException.ThrowIfNull(inbox);
         List<ServiceCommand> commands = [];
-        foreach (ProductInputEvent inputEvent in input)
+        if (inbox.Activated(_leave)) commands.Add(ServiceCommand.Of(ServiceCommandKind.Leave));
+        foreach (UiAction action in inbox.Take(_actionContract, Known.Contains))
         {
-            if (inputEvent.ValueKind == InputValueKind.Digital)
-            {
-                if (inputEvent.Intent.Span.SequenceEqual(_leave) && IsActivation(inputEvent))
-                {
-                    commands.Add(ServiceCommand.Of(ServiceCommandKind.Leave));
-                }
-
-                continue;
-            }
-
-            if (inputEvent.ValueKind != InputValueKind.ProductPayload) continue;
-            if (!inputEvent.PayloadContract.Span.SequenceEqual(_actionContract)) continue;
-            if (Command(inputEvent.PayloadData.Span) is { } command) commands.Add(command);
+            if (Command(action) is { } command) commands.Add(command);
         }
 
         return commands;
     }
 
-    /// <summary>
-    /// Whether a digital event is an activation. A physical press carries an edge; a direct interface
-    /// claim is admitted with no edge at all, so its own phase and provenance are what identify it.
-    /// </summary>
-    private static bool IsActivation(in ProductInputEvent inputEvent) =>
-        inputEvent.Edge == InputEdge.Pressed
-        || inputEvent.Phase == InputPhase.DirectUi
-        || inputEvent.Provenance == InputProvenance.DirectUi;
-
-    /// <summary>Reads one payload action into the command it names, or null when it names none of ours.</summary>
-    private static ServiceCommand? Command(ReadOnlySpan<byte> utf8)
+    private static ServiceCommand? Command(UiAction action)
     {
-        ServiceActionDto? action = Parse(utf8);
-        if (action?.Action is not { Length: > 0 } name) return null;
-        string target = Target(action.Target);
-        // A command that names nothing is still a command: the mechanism refuses it by name, where dropping
-        // it would show nothing, and a count below one is refused the same way rather than rounded up.
-        return name switch
+        string target = action.Text("target");
+        return action.Name switch
         {
-            ServiceActions.Buy => new ServiceCommand(ServiceCommandKind.Buy, target, Count: action.Count ?? 1),
+            ServiceActions.Buy => new ServiceCommand(ServiceCommandKind.Buy, target, Count: action.Int("count") ?? 1),
             ServiceActions.Sell => new ServiceCommand(ServiceCommandKind.Sell, target),
             ServiceActions.Identify => new ServiceCommand(ServiceCommandKind.Identify, target),
             ServiceActions.Repair => new ServiceCommand(ServiceCommandKind.Repair, target),
             ServiceActions.Teach => new ServiceCommand(
                 ServiceCommandKind.Teach,
                 target,
-                action.Member ?? 0,
-                Tier: action.Tier is { } tier && tier > 0 ? tier : 1),
-            ServiceActions.Train => new ServiceCommand(ServiceCommandKind.Train, Member: action.Member ?? 0),
+                action.Int("member") ?? 0,
+                Tier: action.Int("tier") is { } tier && tier > 0 ? tier : 1),
+            ServiceActions.Train => new ServiceCommand(ServiceCommandKind.Train, Member: action.Int("member") ?? 0),
             ServiceActions.Fare => new ServiceCommand(ServiceCommandKind.Fare, target),
             ServiceActions.Leave => ServiceCommand.Of(ServiceCommandKind.Leave),
             _ => null,
         };
     }
-
-    /// <summary>
-    /// Reads what a command names, whether the screen wrote it as a string or as a number.
-    /// </summary>
-    /// <remarks>
-    /// An identity is an identity: a lot named "stock:sword" and an instance named 7 are both targets, and
-    /// a screen that wrote one of them as a JSON number should not have its command dropped for it.
-    /// </remarks>
-    private static string Target(JsonElement? target) => target?.ValueKind switch
-    {
-        JsonValueKind.String => target.Value.GetString() ?? string.Empty,
-        JsonValueKind.Number => target.Value.GetRawText(),
-        _ => string.Empty,
-    };
-
-    /// <summary>
-    /// Reads an action from admitted payload bytes. Malformed or empty payloads return null: an input
-    /// channel must not throw on hostile bytes, and a caller that receives null simply has no action.
-    /// </summary>
-    private static ServiceActionDto? Parse(ReadOnlySpan<byte> utf8)
-    {
-        if (utf8.IsEmpty) return null;
-        try
-        {
-            return JsonSerializer.Deserialize(utf8, ServiceActionJsonContext.Default.ServiceActionDto);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
 }
-
-/// <summary>The service action payload's wire record: an action name plus whatever it names.</summary>
-internal sealed record ServiceActionDto(
-    string? Action,
-    JsonElement? Target,
-    int? Member,
-    int? Count,
-    int? Tier);
-
-/// <summary>Source-generated JSON for the service action payload, so reading it stays AOT-safe.</summary>
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
-[JsonSerializable(typeof(ServiceActionDto))]
-internal sealed partial class ServiceActionJsonContext : JsonSerializerContext;

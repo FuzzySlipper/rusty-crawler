@@ -1,6 +1,7 @@
 using PartyRpg.Kit.Alchemy;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Conversation;
+using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Magic;
@@ -10,6 +11,7 @@ using PartyRpg.Kit.Services;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
 using Rusty.Engine;
+
 
 namespace PartyRpg.Kit.Sessions;
 
@@ -50,7 +52,7 @@ internal sealed class SessionActs(SessionOwners owners, SessionControls controls
     /// what stands behind them — a counter, a household, an errand — is offered from inside that conversation.
     /// What a use taught is handed to the knowledge owner, which decides whether it is news.
     /// </remarks>
-    public void Interact(ReadOnlySpan<ProductInputEvent> input)
+    public void Interact(ActionInbox input)
     {
         if (owners.World is not { } world) return;
         InteractionResult? result = world.Interact(_use is not null && _use.Read(input));
@@ -67,7 +69,7 @@ internal sealed class SessionActs(SessionOwners owners, SessionControls controls
     }
 
     /// <summary>Applies the conversation commands this update carried while somebody is being spoken with.</summary>
-    public void Converse(ReadOnlySpan<ProductInputEvent> input)
+    public void Converse(ActionInbox input)
     {
         if (owners.Conversations is not { } conversations || _conversation is null) return;
         foreach (ConversationCommand command in _conversation.Read(input))
@@ -87,7 +89,7 @@ internal sealed class SessionActs(SessionOwners owners, SessionControls controls
     /// Applies the stops this update carried: each is applied whole, so there is nothing to resume and no screen
     /// that could be drawn while the clock is halfway through the night.
     /// </summary>
-    public void Stop(ReadOnlySpan<ProductInputEvent> input)
+    public void Stop(ActionInbox input)
     {
         if (owners.Rest is not { Available: true } rest || _rest is null) return;
         foreach (RestKind kind in _rest.Read(input))
@@ -110,7 +112,7 @@ internal sealed class SessionActs(SessionOwners owners, SessionControls controls
     /// and writes the passage on the party, and the journey belongs to the world. Asking for a journey the party
     /// already holds a passage to boards it, which is how a boarding refused once can be tried again.
     /// </remarks>
-    public void Serve(ReadOnlySpan<ProductInputEvent> input)
+    public void Serve(ActionInbox input)
     {
         if (owners.Services is not { IsOpen: true } services || _service is null) return;
         foreach (ServiceCommand command in _service.Read(input))
@@ -147,7 +149,7 @@ internal sealed class SessionActs(SessionOwners owners, SessionControls controls
     /// Applies the skill raises this update carried through the progression owner's one spend path, so a raise
     /// past the ceiling or the pool is refused with the limit or the shortfall named and nothing moves.
     /// </summary>
-    public void Raise(ReadOnlySpan<ProductInputEvent> input)
+    public void Raise(ActionInbox input)
     {
         if (_raise is null || owners.Progression is not { } progression) return;
         foreach (SkillRaiseRequest raise in _raise.Read(input))
@@ -172,7 +174,7 @@ internal sealed class SessionActs(SessionOwners owners, SessionControls controls
     /// is a character's own state and is read whatever is open.
     /// </param>
     /// <returns>The member whose casting was applied last this update, which a paced fight spends a turn for.</returns>
-    public CombatantId? Cast(ReadOnlySpan<ProductInputEvent> input, bool allowed)
+    public CombatantId? Cast(ActionInbox input, bool allowed)
     {
         if (_cast is null || owners.Casting is not { } casting) return null;
 
@@ -221,7 +223,7 @@ internal sealed class SessionActs(SessionOwners owners, SessionControls controls
     /// <summary>Applies the mixtures this update carried through the one mixing workflow.</summary>
     /// <param name="input">The update's admitted input.</param>
     /// <param name="allowed">Whether a mixture may be applied, which a screen owning the controls forbids.</param>
-    public void Mix(ReadOnlySpan<ProductInputEvent> input, bool allowed)
+    public void Mix(ActionInbox input, bool allowed)
     {
         if (_mix is null || owners.Mixing is not { } mixing) return;
         foreach (MixRequest request in _mix.Read(input))

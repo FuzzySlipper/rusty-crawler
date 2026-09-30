@@ -224,7 +224,7 @@ public sealed class ItemMagicPolicyTests
         using IGameSession resumed = MightAndMagic7Ruleset.Instance.CreateSession(
             ProductTestContext.RulesetContext(resumedContext, resumedUi, combat: true) with
             {
-                Cast = new CastIntentNames(ProductIdentity.CastAction, ProductIdentity.QuickSpellAction, ProductIdentity.UiActionContract),
+                Cast = new CastIntentNames(ProductIdentity.UiActionContract),
                 Start = PartyRpg.Kit.Rulesets.SessionStart.Resume,
             });
         resumed.Start();
@@ -291,7 +291,7 @@ public sealed class ItemMagicPolicyTests
         IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
             ProductTestContext.RulesetContext(context, ui, combat: combat) with
             {
-                Cast = new CastIntentNames(ProductIdentity.CastAction, ProductIdentity.QuickSpellAction, ProductIdentity.UiActionContract),
+                Cast = new CastIntentNames(ProductIdentity.UiActionContract),
             });
         session.Start();
         return session;

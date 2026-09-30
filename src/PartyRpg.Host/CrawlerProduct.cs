@@ -90,11 +90,9 @@ public sealed class CrawlerProduct : IEngineProduct
             ProductIdentity.UiActionContract);
         _save = new SaveIntentNames(
             ProductIdentity.SaveIntent,
-            ProductIdentity.SaveAction,
             ProductIdentity.UiActionContract);
         _use = new UseIntentNames(
             ProductIdentity.UseIntent,
-            ProductIdentity.UseAction,
             ProductIdentity.UiActionContract);
         _service = new ServiceIntentNames(
             ProductIdentity.ServiceLeaveIntent,
@@ -116,21 +114,14 @@ public sealed class CrawlerProduct : IEngineProduct
             ProductIdentity.UiActionContract);
         // The skill-spend control is one payload action and no key: spending a point is the character
         // screen's own act, and the screen names the member and the skill it drew.
-        _skills = new SkillRaiseIntentNames(
-            ProductIdentity.SkillRaiseAction,
-            ProductIdentity.UiActionContract);
+        _skills = new SkillRaiseIntentNames(ProductIdentity.UiActionContract);
         // Casting is two payload actions and no key, for the same reason: a spell, a caster, and a target are
         // what a screen's own rows name, and one press of a key could say none of them. The quick slot is the
         // second action, because which spell a character keeps there is a choice the spellbook screen makes.
-        _cast = new CastIntentNames(
-            ProductIdentity.CastAction,
-            ProductIdentity.QuickSpellAction,
-            ProductIdentity.UiActionContract);
+        _cast = new CastIntentNames(ProductIdentity.UiActionContract);
         // Mixing is one payload action and no key, for the same reason casting is two: which two of the things
         // the party carries a player put together is what the pack screen's own rows name.
-        _mix = new MixIntentNames(
-            ProductIdentity.MixAction,
-            ProductIdentity.UiActionContract);
+        _mix = new MixIntentNames(ProductIdentity.UiActionContract);
         // The act control is one intent and one action, because the act is one act: what a member does with
         // it is the ruleset's answer about that member, and a player presses the same control for a spell, a
         // shot, or a swing. The pace controls travel with it, because a paced fight is the same fight: one
@@ -138,7 +129,6 @@ public sealed class CrawlerProduct : IEngineProduct
         // consequences differ.
         _combat = new CombatIntentNames(
             ProductIdentity.AttackIntent,
-            ProductIdentity.AttackAction,
             ProductIdentity.UiActionContract,
             new TurnIntentNames(
                 ProductIdentity.TurnBasedToggleIntent,

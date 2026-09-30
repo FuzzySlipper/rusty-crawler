@@ -1,6 +1,5 @@
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using PartyRpg.Kit.Input;
 using Rusty.Engine;
 
 namespace PartyRpg.Kit.Sessions;
@@ -99,114 +98,41 @@ public readonly record struct TurnControls(bool Toggle, bool Skip, bool Wait)
     public bool Any => Toggle || Skip || Wait;
 }
 
-/// <summary>
-/// Reads admitted input into what the player asked of a paced fight.
-/// </summary>
-/// <remarks>
-/// <para>
-/// This is the pace controls' counterpart to the movement, act, and stop readers, and it keeps the same
-/// discipline: one call per admitted update, one name claimed per control, and anything else — including a
-/// malformed payload — carries nothing, because an input channel must not throw on hostile bytes.
-/// </para>
-/// <para>
-/// <b>These controls are pressed, never held.</b> A hold edge reports that a key is still down, and a toggle
-/// that repeated while its key stayed down would switch the pacing back and forth every update; so would a
-/// skip that repeated. A physical press carries an edge and is read once, and a direct interface claim is
-/// read for the one update it arrives in, exactly as the act control's own button is.
-/// </para>
-/// </remarks>
+/// <summary>The turn controls a paced fight is taken with, read from the admitted input of each update.</summary>
+/// <remarks>Each is a decision rather than a state, so a press asks and a held key asks nothing more.</remarks>
 public sealed class TurnInput
 {
     private readonly byte[] _toggle;
     private readonly byte[] _skip;
     private readonly byte[] _wait;
-    private readonly byte[] _actionContract;
+    private readonly string _actionContract;
 
-    /// <summary>Creates the reader for one product's declared pace controls.</summary>
-    /// <param name="names">The intent and contract names the pace controls arrive on.</param>
-    /// <exception cref="ArgumentNullException">No control names were declared.</exception>
+    /// <summary>Creates the reader for the declared turn controls.</summary>
+    /// <param name="names">The turn controls the host declared.</param>
     public TurnInput(TurnIntentNames names)
     {
         ArgumentNullException.ThrowIfNull(names);
         _toggle = Encoding.UTF8.GetBytes(names.Toggle);
         _skip = Encoding.UTF8.GetBytes(names.Skip);
         _wait = Encoding.UTF8.GetBytes(names.Wait);
-        _actionContract = Encoding.UTF8.GetBytes(names.ActionContract);
+        _actionContract = names.ActionContract;
     }
 
-    /// <summary>Reads one update's admitted input into what the player asked of the pacing.</summary>
-    /// <param name="input">The admitted input slice of one engine update.</param>
-    /// <returns>What was asked, none of it when nothing was.</returns>
-    public TurnControls Read(ReadOnlySpan<ProductInputEvent> input)
+    /// <summary>The turn controls this update carried.</summary>
+    /// <param name="inbox">The update's input.</param>
+    public TurnControls Read(ActionInbox inbox)
     {
-        bool toggle = false;
-        bool skip = false;
-        bool wait = false;
-        foreach (ProductInputEvent inputEvent in input)
+        ArgumentNullException.ThrowIfNull(inbox);
+        bool toggle = inbox.Activated(_toggle);
+        bool skip = inbox.Activated(_skip);
+        bool wait = inbox.Activated(_wait);
+        foreach (UiAction action in inbox.Take(_actionContract, name => name is TurnActions.Toggle or TurnActions.Skip or TurnActions.Wait))
         {
-            if (inputEvent.ValueKind == InputValueKind.Digital)
-            {
-                if (!IsActivation(inputEvent)) continue;
-                ReadOnlySpan<byte> intent = inputEvent.Intent.Span;
-                if (intent.SequenceEqual(_toggle)) toggle = true;
-                else if (intent.SequenceEqual(_skip)) skip = true;
-                else if (intent.SequenceEqual(_wait)) wait = true;
-                continue;
-            }
-
-            if (inputEvent.ValueKind != InputValueKind.ProductPayload) continue;
-            if (!inputEvent.PayloadContract.Span.SequenceEqual(_actionContract)) continue;
-            switch (Parse(inputEvent.PayloadData.Span)?.Action)
-            {
-                case TurnActions.Toggle:
-                    toggle = true;
-                    break;
-                case TurnActions.Skip:
-                    skip = true;
-                    break;
-                case TurnActions.Wait:
-                    wait = true;
-                    break;
-                default:
-                    break;
-            }
+            toggle |= action.Name == TurnActions.Toggle;
+            skip |= action.Name == TurnActions.Skip;
+            wait |= action.Name == TurnActions.Wait;
         }
 
         return new TurnControls(toggle, skip, wait);
     }
-
-    /// <summary>
-    /// Whether a digital event is an activation. A physical press carries an edge and a direct interface
-    /// claim carries no edge at all, so its own phase and provenance are what identify it; a held edge is a
-    /// key still being down rather than a new decision, and none of these controls repeats.
-    /// </summary>
-    private static bool IsActivation(in ProductInputEvent inputEvent) =>
-        inputEvent.Edge == InputEdge.Pressed
-        || inputEvent.Phase == InputPhase.DirectUi
-        || inputEvent.Provenance == InputProvenance.DirectUi;
-
-    /// <summary>
-    /// Reads an action from admitted payload bytes. Malformed or empty payloads return null: an input channel
-    /// must not throw on hostile bytes, and a caller that receives null simply has no action.
-    /// </summary>
-    private static TurnActionDto? Parse(ReadOnlySpan<byte> utf8)
-    {
-        if (utf8.IsEmpty) return null;
-        try
-        {
-            return JsonSerializer.Deserialize(utf8, TurnActionJsonContext.Default.TurnActionDto);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
 }
-
-/// <summary>The pace action payload's wire record: an action name, and nothing else.</summary>
-internal sealed record TurnActionDto(string? Action);
-
-/// <summary>Source-generated JSON for the pace action payload, so reading it stays AOT-safe.</summary>
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
-[JsonSerializable(typeof(TurnActionDto))]
-internal sealed partial class TurnActionJsonContext : JsonSerializerContext;

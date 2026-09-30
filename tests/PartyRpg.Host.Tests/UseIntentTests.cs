@@ -26,7 +26,7 @@ public sealed class UseIntentTests
         string ui = File.ReadAllText(Path.Combine(SourceDirectory(), "..", "ui", "main.ts"));
 
         string intent = Constant(source, "UseIntent");
-        string action = Constant(source, "UseAction");
+        string action = ProductIdentity.UseAction;
 
         // Declared in code and in the project file, and mapped there: both halves are what make the key a
         // control, because the engine refuses a mapping whose intent was never declared.

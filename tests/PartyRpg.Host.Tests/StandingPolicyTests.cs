@@ -45,7 +45,6 @@ public sealed class StandingPolicyTests
     private static readonly PlaceId HallPlace = new("1");
     private static readonly UseIntentNames UseControls = new(
         ProductIdentity.UseIntent,
-        ProductIdentity.UseAction,
         ProductIdentity.UiActionContract);
     private static readonly ConversationIntentNames ConversationControls = new(
         ProductIdentity.ConversationLeaveIntent,

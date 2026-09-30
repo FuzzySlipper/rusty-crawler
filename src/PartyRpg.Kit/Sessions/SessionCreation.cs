@@ -1,6 +1,8 @@
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Party;
 using Rusty.Engine;
+
 
 namespace PartyRpg.Kit.Sessions;
 
@@ -76,7 +78,7 @@ internal sealed class CreationDriver(SessionCreation creation, CreationIntentNam
     public PartyRefusal? Refusal { get; private set; }
 
     /// <summary>Applies this update's commands, and returns the party and its world once one is accepted.</summary>
-    public (PartyEntity Party, SessionWorld? World)? Drive(ReadOnlySpan<ProductInputEvent> input)
+    public (PartyEntity Party, SessionWorld? World)? Drive(ActionInbox input)
     {
         foreach (CreationCommand command in _input.Read(input))
         {

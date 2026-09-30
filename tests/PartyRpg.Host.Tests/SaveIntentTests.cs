@@ -30,7 +30,7 @@ public sealed class SaveIntentTests
         string ui = File.ReadAllText(Path.Combine(SourceDirectory(), "..", "ui", "main.ts"));
 
         string intent = Constant(source, "SaveIntent");
-        string action = Constant(source, "SaveAction");
+        string action = ProductIdentity.SaveAction;
 
         // Declared in code and in the project file, and mapped there: the engine refuses a mapping whose
         // intent was never declared, so both halves are what make the key a control.
@@ -55,15 +55,15 @@ public sealed class SaveIntentTests
             new[] { Constant(source, "PauseToggleIntent"), intent }.Order(StringComparer.Ordinal),
             declaredInProject);
 
-        // The payload action the DOM companion sends is the product's own action name on the product's own
-        // contract, and the session's reader is composed over exactly those names.
+        // The payload action the DOM companion sends is the kit's own save action on the product's own
+        // contract, and the session's reader is composed over exactly that contract.
         string contract = Constant(source, "UiActionContract");
         Assert.Contains($"const ACTION_SAVE = '{action}';", ui, StringComparison.Ordinal);
         Assert.Contains($"const UI_ACTION_CONTRACT = '{contract}';", ui, StringComparison.Ordinal);
 
-        SaveIntentNames names = new(intent, action, contract);
+        Assert.Equal(SaveActions.Save, action);
+        SaveIntentNames names = new(intent, contract);
         Assert.Equal(intent, names.Intent);
-        Assert.Equal(action, names.Action);
         Assert.Equal(contract, names.ActionContract);
     }
 
