@@ -135,9 +135,7 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
     /// and each member recovers through the one recovery a completed night gives — the pools and what this
     /// game says a night ends — plus whatever the room itself states it ends. What differs is what the party
     /// is spared: the night was paid for at the counter, so the ruleset is not asked whether the party may
-    /// sleep here, nothing wanders in, and the larder is not drawn on. The donor's own room is that shape: it
-    /// heals the party and resets its days without rest, and spends no food
-    /// (OpenEnroth <c>src/Application/Game.cpp:1054-1068</c>).
+    /// sleep here, nothing wanders in, and the larder is not drawn on.
     /// </para>
     /// <para>
     /// It does not become the last stop the rest mechanism reports: the counter that rented the room reports
@@ -147,7 +145,7 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
     /// <param name="period">How long the night lasts, which the room states.</param>
     /// <param name="ends">The conditions the room says a night in it ends, beside those every night ends.</param>
     /// <returns>The night, or why the party could not take it.</returns>
-    public RestResult Lodge(GameDuration period, IReadOnlyList<ConditionId> ends)
+    public RestResult SleepInRoom(GameDuration period, IReadOnlyList<ConditionId> ends)
     {
         ArgumentNullException.ThrowIfNull(ends);
         if (_clock is not { } clock)

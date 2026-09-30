@@ -798,7 +798,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
 
                 ServiceOffer room = subject.Offer!;
                 int hours = room.Amount < 1 ? 1 : room.Amount;
-                RestResult night = rest.Lodge(GameDuration.FromHours(hours), room.Conditions);
+                RestResult night = rest.SleepInRoom(GameDuration.FromHours(hours), room.Conditions);
                 return night.IsApplied ? null : Refuse(kind, night.Code, night.Message);
             }
 

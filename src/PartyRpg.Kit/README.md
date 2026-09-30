@@ -110,7 +110,7 @@ world it steps (`SessionWorld`), the one clock it advances by the admitted inter
 holds and publishes — with the clock's own schedule (`OpeningHours`, `PlaceSchedule`: which hours a place
 keeps and when that next changes, read against the clock's position rather than counted in a step) and the
 stops a party takes on it (`PartyRest`, `FatigueWatch`, `IRestRule`, `IRestSite`: rest, camp, wait, and the
-night a rented room gives (`PartyRest.Lodge`, which is the only other way to sleep and is the same sleep),
+night a rented room gives (`PartyRest.SleepInRoom`, which is the only other way to sleep and is the same sleep),
 each advancing the one clock by a game-time period, settling the day through the party's own ledger, and
 holding the debt of sleep as a deadline the clock brings due) — the compiled ruleset and session contracts, the pack envelope with its
 catalog loader, validator and bundle resolution (`ContentCatalog.Selected` is the one place a bundle's

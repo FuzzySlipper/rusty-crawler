@@ -612,6 +612,9 @@ internal sealed class MightAndMagic7Services : IServiceRule
                 "Food and drink",
                 Value: ProvisionPrice(service),
                 Amount: facts.ProvisionPortions > 0 ? facts.ProvisionPortions : 1));
+            // A room is the rest mechanism's own night: it heals the party, pays its debt of sleep, and spends no
+            // food, which is the donor's room (OpenEnroth src/Application/Game.cpp:1054-1068: restAndHeal, days
+            // without rest reset, and nothing taken from the larder).
             offers.Add(new ServiceOffer(
                 ServiceOfferKind.Stay,
                 "A room for the night",
