@@ -69,7 +69,7 @@ public sealed class EngineSessionSaveStore : ISessionSaveStore
             // to know is which slot could not be read and why — not which serializer type refused it.
             throw new SessionSaveException(
                 $"The save in slot '{slot}' cannot be read under the current schema: {error.Message}",
-                [error.Message]);
+                [new SaveProblem(SaveCodes.SaveUnreadable, slot, error.Message)]);
         }
 
         return load.Present ? load.State : null;
@@ -104,7 +104,7 @@ public sealed class EngineSessionSaveStore : ISessionSaveStore
             // be played, but nothing it does can be written down.
             throw new SessionSaveException(
                 $"The engine could not open the persistence store '{_scope}' that session saves are written to: {error.Message} The host selects the absolute persistence root before the product is created, so a product running without one plays but cannot save.",
-                [error.Message],
+                [new SaveProblem(SaveCodes.SaveStoreUnopened, _scope, error.Message)],
                 SessionSaveFailure.Unavailable);
         }
 

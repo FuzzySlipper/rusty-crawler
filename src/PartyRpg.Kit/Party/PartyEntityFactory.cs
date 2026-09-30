@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Persistence;
 using Rusty.Engine.Entities;
 
 namespace PartyRpg.Kit.Party;
@@ -93,7 +94,7 @@ public sealed class PartyEntityFactory
     public PartyEntity Restore(PartySave save)
     {
         ArgumentNullException.ThrowIfNull(save);
-        IReadOnlyList<string> problems = Problems(save);
+        IReadOnlyList<SaveProblem> problems = Problems(save);
         if (problems.Count > 0)
         {
             throw new ArgumentException(
@@ -157,12 +158,12 @@ public sealed class PartyEntityFactory
     /// </remarks>
     /// <param name="save">The recorded party.</param>
     /// <exception cref="ArgumentNullException">The save is null.</exception>
-    public IReadOnlyList<string> Problems(PartySave save)
+    public IReadOnlyList<SaveProblem> Problems(PartySave save)
     {
         ArgumentNullException.ThrowIfNull(save);
-        List<string> problems = [];
-        if (save.NextMemberValue == 0) problems.Add("the member identity cursor is zero, so a member could be minted with no identity");
-        if (save.NextItemValue == 0) problems.Add("the item identity cursor is zero, so an item could be minted with no identity");
+        List<SaveProblem> problems = [];
+        if (save.NextMemberValue == 0) problems.Add(new SaveProblem(SaveCodes.SaveCursorZero, "member", "the member identity cursor is zero, so a member could be minted with no identity"));
+        if (save.NextItemValue == 0) problems.Add(new SaveProblem(SaveCodes.SaveCursorZero, "item", "the item identity cursor is zero, so an item could be minted with no identity"));
 
         HashSet<PartyMemberId> members = [];
         for (int position = 0; position < save.Members.Count; position++)
@@ -170,15 +171,21 @@ public sealed class PartyEntityFactory
             PartyMemberSave member = save.Members[position];
             if (member.Id.Value == 0)
             {
-                problems.Add($"member {position + 1} is recorded without an identity, so nothing in the save can say who it is");
+                problems.Add(new SaveProblem(
+                    SaveCodes.SaveMemberUnidentified,
+                    $"{position + 1}",
+                    $"member {position + 1} is recorded without an identity, so nothing in the save can say who it is"));
             }
             else if (!members.Add(member.Id))
             {
-                problems.Add($"member {member.Id} is recorded more than once");
+                problems.Add(new SaveProblem(SaveCodes.SaveMemberTwice, $"{member.Id}", $"member {member.Id} is recorded more than once"));
             }
             else if (member.Id.Value >= save.NextMemberValue)
             {
-                problems.Add($"member {member.Id} is not below the member cursor {save.NextMemberValue}, so a restored party could mint that identity again");
+                problems.Add(new SaveProblem(
+                    SaveCodes.SaveMemberBeyondCursor,
+                    $"{member.Id}",
+                    $"member {member.Id} is not below the member cursor {save.NextMemberValue}, so a restored party could mint that identity again"));
             }
         }
 
@@ -188,17 +195,23 @@ public sealed class PartyEntityFactory
         {
             if (item.Id.Value == 0)
             {
-                problems.Add("an item is recorded without an identity, so nothing in the save can say which instance it is");
+                problems.Add(new SaveProblem(
+                    SaveCodes.SaveItemUnidentified,
+                    string.Empty,
+                    "an item is recorded without an identity, so nothing in the save can say which instance it is"));
                 continue;
             }
 
             if (!items.Add(item.Id))
             {
-                problems.Add($"item {item.Id} is recorded more than once");
+                problems.Add(new SaveProblem(SaveCodes.SaveItemTwice, $"{item.Id}", $"item {item.Id} is recorded more than once"));
             }
             else if (item.Id.Value >= save.NextItemValue)
             {
-                problems.Add($"item {item.Id} is not below the item cursor {save.NextItemValue}, so a restored party could mint that identity again");
+                problems.Add(new SaveProblem(
+                    SaveCodes.SaveItemBeyondCursor,
+                    $"{item.Id}",
+                    $"item {item.Id} is not below the item cursor {save.NextItemValue}, so a restored party could mint that identity again"));
             }
 
             // Where an instance was held is one of three places. A record held by nobody is refused here
@@ -206,23 +219,32 @@ public sealed class PartyEntityFactory
             // loot the party never picked up.
             if (item.Custody.IsDetached)
             {
-                problems.Add($"item {item.Id} is recorded as held by nobody, so restoring it would hand the party an item it never took");
+                problems.Add(new SaveProblem(
+                    SaveCodes.SaveItemHeldByNobody,
+                    $"{item.Id}",
+                    $"item {item.Id} is recorded as held by nobody, so restoring it would hand the party an item it never took"));
                 continue;
             }
 
             if (!item.Custody.IsEquipped) continue;
             if (!members.Contains(item.Custody.Member))
             {
-                problems.Add($"item {item.Id} is recorded as worn by member {item.Custody.Member}, whom the save does not record");
+                problems.Add(new SaveProblem(
+                    SaveCodes.SaveItemWornByStranger,
+                    $"{item.Id}",
+                    $"item {item.Id} is recorded as worn by member {item.Custody.Member}, whom the save does not record"));
             }
             else if (!occupied.Add((item.Custody.Member, item.Custody.Slot.Value)))
             {
-                problems.Add($"member {item.Custody.Member} has two items recorded in slot '{item.Custody.Slot}'");
+                problems.Add(new SaveProblem(
+                    SaveCodes.SaveSlotTwice,
+                    $"{item.Id}",
+                    $"member {item.Custody.Member} has two items recorded in slot '{item.Custody.Slot}'"));
             }
         }
 
-        if (save.Coins < 0) problems.Add($"the purse is recorded holding {save.Coins}");
-        if (save.FoodPortions < 0) problems.Add($"the larder is recorded holding {save.FoodPortions}");
+        if (save.Coins < 0) problems.Add(new SaveProblem(SaveCodes.SavePurseNegative, string.Empty, $"the purse is recorded holding {save.Coins}"));
+        if (save.FoodPortions < 0) problems.Add(new SaveProblem(SaveCodes.SaveLarderNegative, string.Empty, $"the larder is recorded holding {save.FoodPortions}"));
 
         // What the party carries beside its purse and larder: each family's entries must be named once and hold
         // what its owner can hold, or the restored party would not know which of two entries is meant.
@@ -240,14 +262,26 @@ public sealed class PartyEntityFactory
     }
 
     /// <summary>Names every entry of one family that is unnamed, repeated, or below what its owner holds.</summary>
-    private static void Named(List<string> problems, string what, IEnumerable<(string Name, int Value)> entries, int minimum)
+    private static void Named(List<SaveProblem> problems, string what, IEnumerable<(string Name, int Value)> entries, int minimum)
     {
         HashSet<string> seen = new(StringComparer.Ordinal);
         foreach ((string name, int value) in entries)
         {
-            if (string.IsNullOrWhiteSpace(name)) problems.Add($"a {what} is recorded without a name");
-            else if (!seen.Add(name)) problems.Add($"the {what} '{name}' is recorded more than once");
-            else if (value < minimum) problems.Add($"the {what} '{name}' is recorded at {value}, below the {minimum} it is held at");
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                problems.Add(new SaveProblem(SaveCodes.SaveEntryUnnamed, string.Empty, $"a {what} is recorded without a name"));
+            }
+            else if (!seen.Add(name))
+            {
+                problems.Add(new SaveProblem(SaveCodes.SaveEntryTwice, name, $"the {what} '{name}' is recorded more than once"));
+            }
+            else if (value < minimum)
+            {
+                problems.Add(new SaveProblem(
+                    SaveCodes.SaveEntryBelowMinimum,
+                    name,
+                    $"the {what} '{name}' is recorded at {value}, below the {minimum} it is held at"));
+            }
         }
     }
 

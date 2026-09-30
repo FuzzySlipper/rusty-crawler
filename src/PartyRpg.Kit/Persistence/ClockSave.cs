@@ -1,3 +1,4 @@
+using System.Globalization;
 using PartyRpg.Kit.Time;
 
 namespace PartyRpg.Kit.Persistence;
@@ -66,17 +67,23 @@ public sealed record ClockSave
     {
         ArgumentNullException.ThrowIfNull(clock);
         ArgumentNullException.ThrowIfNull(owners);
-        List<string> problems = [];
+        List<SaveProblem> problems = [];
         foreach (DeadlineId deadline in clock.Pending)
         {
             IDeadlineOwner? owner = owners.FirstOrDefault(candidate => candidate.Holds(deadline));
             if (owner is null)
             {
-                problems.Add($"the clock holds deadline {deadline}, which no owner in the session holds, so a load could not rebuild it");
+                problems.Add(new SaveProblem(
+                    SaveCodes.SaveDeadlineUnowned,
+                    Subject(deadline),
+                    $"the clock holds deadline {deadline}, which no owner in the session holds, so a load could not rebuild it"));
             }
             else if (!owner.RebuildsOnLoad(deadline))
             {
-                problems.Add($"{owner.Describe(deadline)} is a moment the save cannot carry yet and nothing rebuilds on load");
+                problems.Add(new SaveProblem(
+                    SaveCodes.SaveDeadlineUncarried,
+                    Subject(deadline),
+                    $"{owner.Describe(deadline)} is a moment the save cannot carry yet and nothing rebuilds on load"));
             }
         }
 
@@ -92,6 +99,9 @@ public sealed record ClockSave
     /// <param name="clock">The clock to read.</param>
     /// <returns>Where the clock stood.</returns>
     public static ClockSave Capture(GameClock clock) => Capture(clock, []);
+
+    /// <summary>The subject a deadline's problem is about: the deadline's own number on the clock.</summary>
+    private static string Subject(DeadlineId deadline) => deadline.Value.ToString(CultureInfo.InvariantCulture);
 
     /// <summary>
     /// Moves a freshly composed clock to the position this save recorded.

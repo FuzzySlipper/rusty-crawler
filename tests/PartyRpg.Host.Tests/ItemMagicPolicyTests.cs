@@ -186,8 +186,8 @@ public sealed class ItemMagicPolicyTests
         SessionSaveException refused = Assert.Throws<SessionSaveException>(() => MightAndMagic7Ruleset.Instance.Save(session));
         Assert.Equal(SessionSaveFailure.Refused, refused.Kind);
         Assert.Contains("during a fight", refused.Message, StringComparison.Ordinal);
-        Assert.Contains(refused.Problems, problem => problem.Contains("living creature(s) the party provoked", StringComparison.Ordinal));
-        Assert.Contains(refused.Problems, problem => problem.Contains("member(s) still owing recovery", StringComparison.Ordinal));
+        Assert.Contains(refused.Problems, problem => problem.Code == SaveCodes.SaveFightUnsaved && problem.Subject == "provoked");
+        Assert.Contains(refused.Problems, problem => problem.Code == SaveCodes.SaveFightUnsaved && problem.Subject == "recovery");
         Assert.Null(persistence.Payload("sessions", "session"));
     }
 

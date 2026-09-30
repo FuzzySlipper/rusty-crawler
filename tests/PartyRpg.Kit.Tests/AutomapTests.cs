@@ -177,18 +177,18 @@ public sealed class AutomapTests
             new MapTerritorySave("2", 0, 0, 64, 8, 8, "00"),
         ]);
 
-        IReadOnlyList<string> problems = save.Problems(Graph(), PartyMaps.MaxPlaces);
-        Assert.Contains(problems, problem => problem.Contains("mapped twice", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("the world has no such place", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("not a grid", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("would not line up", StringComparison.Ordinal));
+        IReadOnlyList<SaveProblem> problems = save.Problems(Graph(), PartyMaps.MaxPlaces);
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveMapTwice && problem.Subject == "1");
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveMapPlaceUnknown && problem.Subject == "99");
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveMapGridDefective && problem.Subject == "2");
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveMapCellsMisaligned && problem.Subject == "2");
 
         // A save that only holds what the party really walked is not refused, and the section is judged by the
         // one rule that keeps it finite: what a party maps is its own bound rather than a content limit.
         Assert.Empty(new MapSave([new MapTerritorySave("1", 0, 0, 4, 8, 8, "ffffffffffffffff")]).Problems(Graph(), PartyMaps.MaxPlaces));
         Assert.Contains(
             new MapSave([new MapTerritorySave("1", 0, 0, 4, 8, 8, "ffffffffffffffff")]).Problems(Graph(), limit: 0),
-            problem => problem.Contains("holds maps of 1 places", StringComparison.Ordinal));
+            problem => problem.Code == SaveCodes.SaveMapsOversize);
     }
 
     [Fact]

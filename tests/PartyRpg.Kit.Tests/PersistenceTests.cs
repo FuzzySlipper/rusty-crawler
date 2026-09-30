@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -223,6 +224,9 @@ public sealed class PersistenceTests
         Assert.Contains("holds no party", refused.Message, StringComparison.Ordinal);
         Assert.Contains("holds no clock", refused.Message, StringComparison.Ordinal);
         Assert.Contains("holds no world", refused.Message, StringComparison.Ordinal);
+        Assert.Equal(
+            ["party", "clock", "world"],
+            refused.Problems.Where(problem => problem.Code == SaveCodes.SavePartMissing).Select(problem => problem.Subject));
         Assert.Equal(3, refused.Problems.Count);
     }
 
@@ -266,9 +270,12 @@ public sealed class PersistenceTests
             captured.Journal,
             captured.Knowledge,
             captured.Maps);
-        string problem = Assert.Single(contradictory.Problems(Graph(), new PartyEntityFactory(), calendar: calendar));
-        Assert.Contains($"day {captured.World.Places.ElapsedGameDays}", problem, StringComparison.Ordinal);
-        Assert.Contains($"{captured.World.Places.ElapsedGameDays + 3} whole day(s)", problem, StringComparison.Ordinal);
+        SaveProblem problem = Assert.Single(contradictory.Problems(Graph(), new PartyEntityFactory(), calendar: calendar));
+        Assert.Equal(SaveCodes.SaveDayDisagrees, problem.Code);
+
+        // Both counts are named, so a person reading the refusal sees which two days disagree.
+        Assert.Contains($"day {captured.World.Places.ElapsedGameDays}", problem.Text, StringComparison.Ordinal);
+        Assert.Contains($"{captured.World.Places.ElapsedGameDays + 3} whole day(s)", problem.Text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -281,7 +288,9 @@ public sealed class PersistenceTests
         // holds this one, so a save refuses rather than dropping the schedule or restoring one nobody can act on.
         SessionSaveException refused = Assert.Throws<SessionSaveException>(() => played.Session.Capture());
         Assert.Equal(SessionSaveFailure.Refused, refused.Kind);
-        Assert.Contains("no owner in the session holds", Assert.Single(refused.Problems), StringComparison.Ordinal);
+        SaveProblem unowned = Assert.Single(refused.Problems);
+        Assert.Equal(SaveCodes.SaveDeadlineUnowned, unowned.Code);
+        Assert.Equal(deadline.Value.ToString(CultureInfo.InvariantCulture), unowned.Subject);
 
         // Once the clock holds nothing scheduled, the same session saves.
         Assert.True(played.Clock.Cancel(deadline));
@@ -336,14 +345,15 @@ public sealed class PersistenceTests
                 new PlaceStateLedgerSnapshot(sound.World.Places.ElapsedGameDays, states)));
 
         // Nothing is built while the document is judged, so the whole list arrives at once.
-        IReadOnlyList<string> problems = broken.Problems(Graph(), new PartyEntityFactory(), RefusesNegativeX());
+        IReadOnlyList<SaveProblem> problems = broken.Problems(Graph(), new PartyEntityFactory(), RefusesNegativeX());
+        string current = sound.World.Places.States[0].Place.Value;
 
-        Assert.Contains(problems, problem => problem.Contains("member 1 is recorded without an identity", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("whom the save does not record", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("the world has no such place", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("does not admit the party's recorded pose", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("is recorded twice", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("after the day", StringComparison.Ordinal));
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveMemberUnidentified && problem.Subject == "1");
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveItemWornByStranger && problem.Subject == $"{items[^1].Id}");
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SavePlaceUnknown && problem.Subject == "nowhere");
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SavePoseOutside && problem.Subject == Cave.Value);
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SavePlaceTwice && problem.Subject == current);
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SavePlaceRestoredFuture && problem.Subject == current);
     }
 
     [Fact]
@@ -361,7 +371,7 @@ public sealed class PersistenceTests
         SessionSave loaded = Decode(Encoding.UTF8.GetBytes(document.ToJsonString()));
         Assert.Contains(
             loaded.Problems(Graph(), new PartyEntityFactory()),
-            problem => problem.Contains("member 1 is recorded without an identity", StringComparison.Ordinal));
+            problem => problem.Code == SaveCodes.SaveMemberUnidentified && problem.Subject == "1");
         ArgumentException refused = Assert.Throws<ArgumentException>(() => new PartyEntityFactory().Restore(loaded.Party));
         Assert.Contains("member 1 is recorded without an identity", refused.Message, StringComparison.Ordinal);
     }
@@ -379,9 +389,10 @@ public sealed class PersistenceTests
             save,
             [.. save.Items, new ItemSave(loose.Id, loose.Definition, 1, loose.State, ItemCustody.Detached)]);
 
-        IReadOnlyList<string> problems = new PartyEntityFactory().Problems(withDetached);
-        string problem = Assert.Single(problems, entry => entry.Contains("held by nobody", StringComparison.Ordinal));
-        Assert.Contains("an item it never took", problem, StringComparison.Ordinal);
+        IReadOnlyList<SaveProblem> problems = new PartyEntityFactory().Problems(withDetached);
+        SaveProblem problem = Assert.Single(problems, entry => entry.Code == SaveCodes.SaveItemHeldByNobody);
+        Assert.Equal($"{loose.Id}", problem.Subject);
+        Assert.Contains("an item it never took", problem.Text, StringComparison.Ordinal);
 
         ArgumentException refused = Assert.Throws<ArgumentException>(() => new PartyEntityFactory().Restore(withDetached));
         Assert.Contains("held by nobody", refused.Message, StringComparison.Ordinal);

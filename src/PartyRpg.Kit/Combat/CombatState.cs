@@ -175,7 +175,8 @@ public sealed class CombatState : IGameTimeObserver
     public bool IsEngaged => _combatants.Any(combatant => combatant.Side == CombatSide.Opposition && !IsDown(combatant));
 
     /// <summary>
-    /// What a fight has left behind that a save taken now would drop, each as a phrase; empty when nothing.
+    /// What a fight has left behind that a save taken now would drop, each named by what it is — <c>recovery</c>,
+    /// <c>provoked</c>, <c>wounded</c>, <c>fallen</c>, or <c>round</c> — beside a phrase; empty when nothing.
     /// </summary>
     /// <remarks>
     /// A place full of creatures nobody has touched is not a fight a save loses: the population is rebuilt
@@ -184,13 +185,13 @@ public sealed class CombatState : IGameTimeObserver
     /// wounded, a body in a place the fight has not cleared, and a paced round in progress — so those are
     /// what this names.
     /// </remarks>
-    public IReadOnlyList<string> UnsavedFight()
+    public IReadOnlyList<(string Subject, string Phrase)> UnsavedFight()
     {
-        List<string> left = [];
+        List<(string Subject, string Phrase)> left = [];
         int recovering = _combatants.Count(combatant => combatant.Side == CombatSide.Party && !combatant.IsReady && !IsDown(combatant));
-        if (recovering > 0) left.Add($"{recovering} member(s) still owing recovery");
+        if (recovering > 0) left.Add(("recovery", $"{recovering} member(s) still owing recovery"));
         int provoked = _combatants.Count(combatant => _provoked.Contains(combatant.Id) && !IsDown(combatant));
-        if (provoked > 0) left.Add($"{provoked} living creature(s) the party provoked");
+        if (provoked > 0) left.Add(("provoked", $"{provoked} living creature(s) the party provoked"));
 
         int wounded = 0;
         int fallen = 0;
@@ -201,9 +202,9 @@ public sealed class CombatState : IGameTimeObserver
             else if (health.Current < health.Maximum) wounded++;
         }
 
-        if (wounded > 0) left.Add($"{wounded} living creature(s) wounded");
-        if (fallen > 0 && IsEngaged) left.Add($"{fallen} creature(s) laid out in a place not yet cleared");
-        if (Pacing == CombatPacing.TurnBased && Turns.IsHolding) left.Add("a turn-based round in progress");
+        if (wounded > 0) left.Add(("wounded", $"{wounded} living creature(s) wounded"));
+        if (fallen > 0 && IsEngaged) left.Add(("fallen", $"{fallen} creature(s) laid out in a place not yet cleared"));
+        if (Pacing == CombatPacing.TurnBased && Turns.IsHolding) left.Add(("round", "a turn-based round in progress"));
         return left;
     }
 

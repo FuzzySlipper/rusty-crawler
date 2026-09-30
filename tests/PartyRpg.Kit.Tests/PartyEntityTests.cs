@@ -1,5 +1,6 @@
 using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Skills;
 using PartyRpg.Kit.World;
@@ -421,10 +422,10 @@ public sealed class PartyEntityTests
             records: [new PartyRecord("errand:seal", 1), new PartyRecord("errand:seal", 2)],
             holdings: [new PartyHolding("vault", 0)],
             memberships: ["guild.fire", "guild.fire"]);
-        IReadOnlyList<string> problems = new PartyEntityFactory().Problems(broken);
-        Assert.Contains("the record 'errand:seal' is recorded more than once", problems);
-        Assert.Contains("the account 'vault' is recorded at 0, below the 1 it is held at", problems);
-        Assert.Contains("the membership 'guild.fire' is recorded more than once", problems);
+        IReadOnlyList<SaveProblem> problems = new PartyEntityFactory().Problems(broken);
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveEntryTwice && problem.Subject == "errand:seal");
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveEntryBelowMinimum && problem.Subject == "vault");
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveEntryTwice && problem.Subject == "guild.fire");
     }
 
     [Fact]

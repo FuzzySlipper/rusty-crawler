@@ -1,5 +1,6 @@
 using System.Globalization;
 using PartyRpg.Kit.Time;
+using PartyRpg.Kit.Persistence;
 
 namespace PartyRpg.Kit.Journal;
 
@@ -158,15 +159,17 @@ public sealed record JournalSave(IReadOnlyList<JournalEntrySave>? Entries = null
     /// <param name="elapsedMilliseconds">The game time the save's clock had reached.</param>
     /// <param name="limit">How many lines a history this build keeps may hold.</param>
     /// <returns>Every problem found, in the order the lines are recorded.</returns>
-    public IReadOnlyList<string> Problems(long elapsedMilliseconds, int limit)
+    public IReadOnlyList<SaveProblem> Problems(long elapsedMilliseconds, int limit)
     {
-        List<string> problems = [];
+        List<SaveProblem> problems = [];
         if (Entries.Count > limit)
         {
-            problems.Add(
+            problems.Add(new SaveProblem(
+                SaveCodes.SaveJournalOversize,
+                string.Empty,
                 string.Create(
                     CultureInfo.InvariantCulture,
-                    $"the journal holds {Entries.Count} entries and this build keeps at most {limit}, so the document was written by something that does not bound a history"));
+                    $"the journal holds {Entries.Count} entries and this build keeps at most {limit}, so the document was written by something that does not bound a history")));
         }
 
         HashSet<string> seen = new(StringComparer.Ordinal);
@@ -174,26 +177,31 @@ public sealed record JournalSave(IReadOnlyList<JournalEntrySave>? Entries = null
         {
             if (entry.Kind is not ("place" or "quest-offered" or "quest-taken" or "quest-finished" or "rank" or "meeting" or "find"))
             {
-                problems.Add($"a journal entry is recorded as '{entry.Kind}', which is not a kind this build has");
+                problems.Add(new SaveProblem(SaveCodes.SaveJournalKindUnknown, entry.Text ?? string.Empty, $"a journal entry is recorded as '{entry.Kind}', which is not a kind this build has"));
             }
 
             if (string.IsNullOrWhiteSpace(entry.Source) || string.IsNullOrWhiteSpace(entry.Subject) || string.IsNullOrWhiteSpace(entry.Text))
             {
-                problems.Add($"a journal entry of kind '{entry.Kind}' records no source, subject, or words, so it would read as an empty line");
+                problems.Add(new SaveProblem(
+                    SaveCodes.SaveJournalEmpty,
+                    entry.Text ?? string.Empty,
+                    $"a journal entry of kind '{entry.Kind}' records no source, subject, or words, so it would read as an empty line"));
             }
 
             if (entry.ElapsedMilliseconds < 0 || entry.ElapsedMilliseconds > elapsedMilliseconds)
             {
-                problems.Add(
+                problems.Add(new SaveProblem(
+                    SaveCodes.SaveJournalFuture,
+                    entry.Text ?? string.Empty,
                     string.Create(
                         CultureInfo.InvariantCulture,
-                        $"a journal entry happened {entry.ElapsedMilliseconds} ms into the session and the save had reached {elapsedMilliseconds} ms, so it is dated in a future the party never lived"));
+                        $"a journal entry happened {entry.ElapsedMilliseconds} ms into the session and the save had reached {elapsedMilliseconds} ms, so it is dated in a future the party never lived")));
             }
 
             string identity = $"{entry.Kind}|{entry.Subject}|{entry.Place}";
             if (!seen.Add(identity))
             {
-                problems.Add($"the journal records '{entry.Text}' twice, so the same event would be two entries");
+                problems.Add(new SaveProblem(SaveCodes.SaveJournalTwice, entry.Text ?? string.Empty, $"the journal records '{entry.Text}' twice, so the same event would be two entries"));
             }
         }
 

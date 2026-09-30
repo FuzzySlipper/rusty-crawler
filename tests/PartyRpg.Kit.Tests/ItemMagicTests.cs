@@ -381,7 +381,7 @@ public sealed class ItemMagicTests
         // running says so by name (Den task #8617 owns carrying deadlines in the save).
         SessionSaveException refused = Assert.Throws<SessionSaveException>(() => ClockSave.Capture(clock));
         Assert.Contains("deadline", refused.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.NotEmpty(refused.Problems);
+        Assert.Contains(refused.Problems, problem => problem.Code == SaveCodes.SaveDeadlineUnowned);
     }
 
     [Fact]

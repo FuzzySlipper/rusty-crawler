@@ -124,10 +124,10 @@ public sealed record SessionSave
         GameClock? time = session.Clock;
         SessionWorld? place = session.LiveWorld;
 
-        List<string> missing = [];
-        if (held is null) missing.Add("the session holds no party, so a save would load as an expedition nobody leads");
-        if (time is null) missing.Add("the session holds no clock, so a save would load with no game time");
-        if (place is null) missing.Add("the session holds no world, so a save would name no place to resume in");
+        List<SaveProblem> missing = [];
+        if (held is null) missing.Add(new SaveProblem(SaveCodes.SavePartMissing, "party", "the session holds no party, so a save would load as an expedition nobody leads"));
+        if (time is null) missing.Add(new SaveProblem(SaveCodes.SavePartMissing, "clock", "the session holds no clock, so a save would load with no game time"));
+        if (place is null) missing.Add(new SaveProblem(SaveCodes.SavePartMissing, "world", "the session holds no world, so a save would name no place to resume in"));
         if (held is null || time is null || place is null)
         {
             throw new SessionSaveException(
@@ -140,7 +140,13 @@ public sealed record SessionSave
         // refused by name instead, and a save once the fight is over succeeds.
         if (session.Combat?.UnsavedFight() is { Count: > 0 } fight)
         {
-            List<string> problems = [.. fight.Select(left => $"the fight has {left}, which a save cannot carry yet")];
+            List<SaveProblem> problems =
+            [
+                .. fight.Select(left => new SaveProblem(
+                    SaveCodes.SaveFightUnsaved,
+                    left.Subject,
+                    $"the fight has {left.Phrase}, which a save cannot carry yet")),
+            ];
             throw new SessionSaveException($"The session cannot be saved during a fight: {string.Join("; ", problems)}.", problems);
         }
 
@@ -189,7 +195,7 @@ public sealed record SessionSave
     /// </param>
     /// <returns>Every problem found, in the order the document records them.</returns>
     /// <exception cref="ArgumentNullException">The world's places or the party factory are null.</exception>
-    public IReadOnlyList<string> Problems(
+    public IReadOnlyList<SaveProblem> Problems(
         PlaceGraph places,
         PartyEntityFactory parties,
         PlacePoseAdmission? admission = null,
@@ -199,10 +205,13 @@ public sealed record SessionSave
         ArgumentNullException.ThrowIfNull(places);
         ArgumentNullException.ThrowIfNull(parties);
 
-        List<string> problems = [.. parties.Problems(Party)];
+        List<SaveProblem> problems = [.. parties.Problems(Party)];
         if (World.Places.ElapsedGameDays < 0)
         {
-            problems.Add($"the world has reached day {World.Places.ElapsedGameDays}, which is before the session began");
+            problems.Add(new SaveProblem(
+                SaveCodes.SaveDayBeforeStart,
+                string.Empty,
+                $"the world has reached day {World.Places.ElapsedGameDays}, which is before the session began"));
         }
 
         // The world's day is the clock's own day count, written down twice: a document where the two disagree
@@ -212,7 +221,10 @@ public sealed record SessionSave
             long clockDays = Clock.ElapsedMilliseconds / calendar.DayMilliseconds;
             if (clockDays != World.Places.ElapsedGameDays)
             {
-                problems.Add($"the world has reached day {World.Places.ElapsedGameDays} while the clock has lived {clockDays} whole day(s), and the two are the same count");
+                problems.Add(new SaveProblem(
+                    SaveCodes.SaveDayDisagrees,
+                    string.Empty,
+                    $"the world has reached day {World.Places.ElapsedGameDays} while the clock has lived {clockDays} whole day(s), and the two are the same count"));
             }
         }
 
@@ -221,23 +233,29 @@ public sealed record SessionSave
         {
             if (places.Find(state.Place) is null)
             {
-                problems.Add($"place '{state.Place}' is recorded as visited, and the world has no such place");
+                problems.Add(new SaveProblem(SaveCodes.SavePlaceUnknown, $"{state.Place}", $"place '{state.Place}' is recorded as visited, and the world has no such place"));
                 continue;
             }
 
             if (!recorded.Add(state.Place))
             {
-                problems.Add($"place '{state.Place}' is recorded twice");
+                problems.Add(new SaveProblem(SaveCodes.SavePlaceTwice, $"{state.Place}", $"place '{state.Place}' is recorded twice"));
             }
 
             if (state.RespawnCount < 0)
             {
-                problems.Add($"place '{state.Place}' is recorded with {state.RespawnCount} restorations of its population");
+                problems.Add(new SaveProblem(
+                    SaveCodes.SavePlaceRestorationsNegative,
+                    $"{state.Place}",
+                    $"place '{state.Place}' is recorded with {state.RespawnCount} restorations of its population"));
             }
 
             if (state.LastResetDay is { } resetDay && resetDay > World.Places.ElapsedGameDays)
             {
-                problems.Add($"place '{state.Place}' was last restored on day {resetDay}, after the day {World.Places.ElapsedGameDays} the save had reached");
+                problems.Add(new SaveProblem(
+                    SaveCodes.SavePlaceRestoredFuture,
+                    $"{state.Place}",
+                    $"place '{state.Place}' was last restored on day {resetDay}, after the day {World.Places.ElapsedGameDays} the save had reached"));
             }
         }
 
@@ -281,50 +299,71 @@ public sealed record SessionSave
     /// is exactly what a quest is, so nothing here refuses a quest for being somewhere else.
     /// </para>
     /// </remarks>
-    private IEnumerable<string> QuestProblems(PlaceGraph places, IQuestRule? quests)
+    private IEnumerable<SaveProblem> QuestProblems(PlaceGraph places, IQuestRule? quests)
     {
         HashSet<QuestId> recorded = [];
         foreach (QuestInstanceSave instance in Quests.Instances)
         {
             if (!recorded.Add(instance.Quest))
             {
-                yield return $"the quest '{instance.Quest}' is recorded twice, so which instance the party's history belongs to would be ambiguous";
+                yield return new SaveProblem(
+                    SaveCodes.SaveQuestTwice,
+                    $"{instance.Quest}",
+                    $"the quest '{instance.Quest}' is recorded twice, so which instance the party's history belongs to would be ambiguous");
             }
 
             if (instance.Stage is not ("offered" or "accepted" or "turned-in"))
             {
-                yield return $"the quest '{instance.Quest}' is recorded at the stage '{instance.Stage}', which is not one this build has";
+                yield return new SaveProblem(
+                    SaveCodes.SaveQuestStageUnknown,
+                    $"{instance.Quest}",
+                    $"the quest '{instance.Quest}' is recorded at the stage '{instance.Stage}', which is not one this build has");
             }
 
             if (quests is not null && quests.Definition(instance.Quest) is null)
             {
-                yield return $"the quest '{instance.Quest}' is recorded and this game states no such quest, so nothing could judge, finish, or pay it";
+                yield return new SaveProblem(
+                    SaveCodes.SaveQuestUnknown,
+                    $"{instance.Quest}",
+                    $"the quest '{instance.Quest}' is recorded and this game states no such quest, so nothing could judge, finish, or pay it");
             }
 
             if (instance.OfferedIn.Length > 0 && places.Find(new PlaceId(instance.OfferedIn)) is null)
             {
-                yield return $"the quest '{instance.Quest}' was recorded as offered in place '{instance.OfferedIn}', which the world does not have";
+                yield return new SaveProblem(
+                    SaveCodes.SaveQuestPlaceUnknown,
+                    $"{instance.Quest}",
+                    $"the quest '{instance.Quest}' was recorded as offered in place '{instance.OfferedIn}', which the world does not have");
             }
 
             if (string.IsNullOrWhiteSpace(instance.Giver))
             {
-                yield return $"the quest '{instance.Quest}' records no giver, so nothing says who offered it or who it is finished with";
+                yield return new SaveProblem(
+                    SaveCodes.SaveQuestNoGiver,
+                    $"{instance.Quest}",
+                    $"the quest '{instance.Quest}' records no giver, so nothing says who offered it or who it is finished with");
             }
         }
     }
 
     /// <summary>Every problem with where the save says the party is.</summary>
-    private IEnumerable<string> PoseProblems(PlaceGraph places, PlacePoseAdmission? admission)
+    private IEnumerable<SaveProblem> PoseProblems(PlaceGraph places, PlacePoseAdmission? admission)
     {
         if (places.Find(World.Pose.Place) is null)
         {
-            yield return $"the party is recorded in place '{World.Pose.Place}', which the world does not have";
+            yield return new SaveProblem(
+                SaveCodes.SavePosePlaceUnknown,
+                $"{World.Pose.Place}",
+                $"the party is recorded in place '{World.Pose.Place}', which the world does not have");
             yield break;
         }
 
         if (!Finite(World.Pose.Pose))
         {
-            yield return $"the party's recorded pose in place '{World.Pose.Place}' is not made of numbers, so there is nowhere to stand";
+            yield return new SaveProblem(
+                SaveCodes.SavePoseNotNumbers,
+                $"{World.Pose.Place}",
+                $"the party's recorded pose in place '{World.Pose.Place}' is not made of numbers, so there is nowhere to stand");
             yield break;
         }
 
@@ -333,7 +372,10 @@ public sealed record SessionSave
         // own to second-guess that with.
         if (admission is not null && !admission(World.Pose.Place, World.Pose.Pose, out _))
         {
-            yield return $"place '{World.Pose.Place}' does not admit the party's recorded pose {World.Pose.Pose}, so the party would resume outside the place";
+            yield return new SaveProblem(
+                SaveCodes.SavePoseOutside,
+                $"{World.Pose.Place}",
+                $"place '{World.Pose.Place}' does not admit the party's recorded pose {World.Pose.Pose}, so the party would resume outside the place");
         }
     }
 

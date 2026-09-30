@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using PartyRpg.Kit.World;
+using PartyRpg.Kit.Persistence;
 
 namespace PartyRpg.Kit.Maps;
 
@@ -152,16 +153,18 @@ public sealed record MapSave(IReadOnlyList<MapTerritorySave>? Places = null)
     /// <param name="limit">How many places a map keeper of this build may hold.</param>
     /// <returns>Every problem found, in the order the maps are recorded.</returns>
     /// <exception cref="ArgumentNullException">The world's places are null.</exception>
-    public IReadOnlyList<string> Problems(PlaceGraph places, int limit)
+    public IReadOnlyList<SaveProblem> Problems(PlaceGraph places, int limit)
     {
         ArgumentNullException.ThrowIfNull(places);
-        List<string> problems = [];
+        List<SaveProblem> problems = [];
         if (Places.Count > limit)
         {
-            problems.Add(
+            problems.Add(new SaveProblem(
+                SaveCodes.SaveMapsOversize,
+                string.Empty,
                 string.Create(
                     CultureInfo.InvariantCulture,
-                    $"the party holds maps of {Places.Count} places and this build keeps at most {limit}, so the document was written by something that does not bound what a party maps"));
+                    $"the party holds maps of {Places.Count} places and this build keeps at most {limit}, so the document was written by something that does not bound what a party maps")));
         }
 
         HashSet<string> seen = new(StringComparer.Ordinal);
@@ -169,34 +172,45 @@ public sealed record MapSave(IReadOnlyList<MapTerritorySave>? Places = null)
         {
             if (!seen.Add(recorded.Place))
             {
-                problems.Add($"place '{recorded.Place}' is mapped twice, so the party would hold two answers about the same ground");
+                problems.Add(new SaveProblem(
+                    SaveCodes.SaveMapTwice,
+                    recorded.Place,
+                    $"place '{recorded.Place}' is mapped twice, so the party would hold two answers about the same ground"));
             }
 
             if (places.Find(new PlaceId(recorded.Place)) is null)
             {
-                problems.Add($"place '{recorded.Place}' is recorded as mapped, and the world has no such place");
+                problems.Add(new SaveProblem(
+                    SaveCodes.SaveMapPlaceUnknown,
+                    recorded.Place,
+                    $"place '{recorded.Place}' is recorded as mapped, and the world has no such place"));
                 continue;
             }
 
             if (!Grid(recorded, out string? defective))
             {
-                problems.Add($"place '{recorded.Place}' is mapped on {defective}");
+                problems.Add(new SaveProblem(SaveCodes.SaveMapGridDefective, recorded.Place, $"place '{recorded.Place}' is mapped on {defective}"));
                 continue;
             }
 
             int digits = (recorded.Columns * recorded.Rows + 3) / 4;
             if (recorded.Seen.Length != digits)
             {
-                problems.Add(
+                problems.Add(new SaveProblem(
+                    SaveCodes.SaveMapCellsMisaligned,
+                    recorded.Place,
                     string.Create(
                         CultureInfo.InvariantCulture,
-                        $"place '{recorded.Place}' is mapped on a {recorded.Columns}x{recorded.Rows} grid and records {recorded.Seen.Length} digits where {digits} cells need {digits}, so the bits would not line up with the ground"));
+                        $"place '{recorded.Place}' is mapped on a {recorded.Columns}x{recorded.Rows} grid and records {recorded.Seen.Length} digits where {digits} cells need {digits}, so the bits would not line up with the ground")));
                 continue;
             }
 
             if (recorded.Seen.Any(digit => !IsHex(digit)))
             {
-                problems.Add($"place '{recorded.Place}' records cells that are not hexadecimal, so nothing says what it saw");
+                problems.Add(new SaveProblem(
+                    SaveCodes.SaveMapCellsNotHex,
+                    recorded.Place,
+                    $"place '{recorded.Place}' records cells that are not hexadecimal, so nothing says what it saw"));
                 continue;
             }
         }

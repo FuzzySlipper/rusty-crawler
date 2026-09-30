@@ -214,16 +214,17 @@ public sealed class KnowledgeTests
             new KnowledgeNoteSave("find", "search", "511", string.Empty, -1, Keep.Value),
         ]);
 
-        IReadOnlyList<string> problems = contradicted.Problems(elapsed, PartyKnowledge.MaxNotes);
+        IReadOnlyList<SaveProblem> problems = contradicted.Problems(elapsed, PartyKnowledge.MaxNotes);
 
         // Every contradiction is named at once: the same fact twice, a kind this build has no word for, a
         // note learned after the game time the save had reached, a note that says nothing at all, and one
         // learned before the session began.
         Assert.Equal(5, problems.Count);
-        Assert.Contains(problems, problem => problem.Contains("twice", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("'omen'", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("a future the party never lived", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("empty note", StringComparison.Ordinal));
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveKnowledgeTwice && problem.Subject == "Learned the recipe for draught");
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveKnowledgeKindUnknown && problem.Subject == "Something was learned");
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveKnowledgeFuture && problem.Subject == "Read a line");
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveKnowledgeEmpty);
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveKnowledgeFuture && problem.Subject.Length == 0);
 
         // A knowledge the product itself wrote is not re-judged: the notes it recorded pass, including one
         // whose place the world no longer carries, because what the party knows outlives the places it
@@ -237,7 +238,7 @@ public sealed class KnowledgeTests
                 new KnowledgeNoteSave("find", "search", $"item-{index}", $"Found item {index}", elapsed))]);
         Assert.Contains(
             oversize.Problems(elapsed, PartyKnowledge.MaxNotes),
-            problem => problem.Contains("this build keeps at most", StringComparison.Ordinal));
+            problem => problem.Code == SaveCodes.SaveKnowledgeOversize);
     }
 
     [Fact]

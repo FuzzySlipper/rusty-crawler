@@ -228,7 +228,7 @@ public sealed class AutomapPolicyTests
         // saves before it casts.
         SessionSaveException refused = Assert.Throws<SessionSaveException>(() => MightAndMagic7Ruleset.Instance.Save(session));
         Assert.Contains("the running effect", refused.Message, StringComparison.Ordinal);
-        Assert.Contains("a moment the save cannot carry yet", string.Join(" ", refused.Problems), StringComparison.Ordinal);
+        Assert.Contains(refused.Problems, problem => problem.Code == SaveCodes.SaveDeadlineUncarried);
         Assert.Null(persistence.Payload("sessions", "session"));
     }
 

@@ -20,15 +20,15 @@ public sealed class SessionSaveException : Exception
     /// Which loss this is. Left out, a failure that names problems is a refusal and one that names none is a
     /// store that failed.
     /// </param>
-    public SessionSaveException(string message, IReadOnlyList<string>? problems = null, SessionSaveFailure? kind = null)
+    public SessionSaveException(string message, IReadOnlyList<SaveProblem>? problems = null, SessionSaveFailure? kind = null)
         : base(message)
     {
         Problems = problems ?? [];
         Kind = kind ?? (Problems.Count > 0 ? SessionSaveFailure.Refused : SessionSaveFailure.Failed);
     }
 
-    /// <summary>Every part of the save that is missing or contradictory.</summary>
-    public IReadOnlyList<string> Problems { get; }
+    /// <summary>Every part of the save that is missing or contradictory, each named by its code and subject.</summary>
+    public IReadOnlyList<SaveProblem> Problems { get; }
 
     /// <summary>Which loss this is, which is what a player is told to do about it.</summary>
     public SessionSaveFailure Kind { get; }

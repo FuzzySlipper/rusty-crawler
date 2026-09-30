@@ -219,7 +219,7 @@ public sealed class JournalTests
         JournalSave oversize = new([.. journal.Capture().Entries, .. journal.Capture().Entries, .. journal.Capture().Entries, .. journal.Capture().Entries, .. journal.Capture().Entries]);
         Assert.Contains(
             oversize.Problems(clock.Elapsed.Milliseconds, JournalHistory.MaxEntries),
-            problem => problem.Contains("this build keeps at most", StringComparison.Ordinal));
+            problem => problem.Code == SaveCodes.SaveJournalOversize);
     }
 
     [Fact]
@@ -238,16 +238,17 @@ public sealed class JournalTests
             new JournalEntrySave("place", "world", "3", string.Empty, -1, "3"),
         ]);
 
-        IReadOnlyList<string> problems = contradicted.Problems(elapsed, JournalHistory.MaxEntries);
+        IReadOnlyList<SaveProblem> problems = contradicted.Problems(elapsed, JournalHistory.MaxEntries);
 
         // Every contradiction is named at once: the same event twice, a kind this build has no word for, a
         // line dated after the game time the save had reached, a line that says nothing at all, and a line
         // that happened before the session began.
         Assert.Equal(5, problems.Count);
-        Assert.Contains(problems, problem => problem.Contains("twice", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("'omen'", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("a future the party never lived", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("empty line", StringComparison.Ordinal));
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveJournalTwice && problem.Subject == "Entered the keep");
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveJournalKindUnknown && problem.Subject == "Something happened");
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveJournalFuture && problem.Subject == "Entered the cave");
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveJournalEmpty);
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveJournalFuture && problem.Subject.Length == 0);
 
         // A history the product itself wrote is not re-judged: the lines it recorded pass, including one whose
         // place the world no longer carries, because a record outlives the places it happened in.

@@ -1,5 +1,6 @@
 using System.Globalization;
 using PartyRpg.Kit.Time;
+using PartyRpg.Kit.Persistence;
 
 namespace PartyRpg.Kit.Knowledge;
 
@@ -152,15 +153,17 @@ public sealed record KnowledgeSave(IReadOnlyList<KnowledgeNoteSave>? Notes = nul
     /// <param name="elapsedMilliseconds">The game time the save's clock had reached.</param>
     /// <param name="limit">How many facts a knowledge this build keeps may hold.</param>
     /// <returns>Every problem found, in the order the facts are recorded.</returns>
-    public IReadOnlyList<string> Problems(long elapsedMilliseconds, int limit)
+    public IReadOnlyList<SaveProblem> Problems(long elapsedMilliseconds, int limit)
     {
-        List<string> problems = [];
+        List<SaveProblem> problems = [];
         if (Notes.Count > limit)
         {
-            problems.Add(
+            problems.Add(new SaveProblem(
+                SaveCodes.SaveKnowledgeOversize,
+                string.Empty,
                 string.Create(
                     CultureInfo.InvariantCulture,
-                    $"the party knows {Notes.Count} facts and this build keeps at most {limit}, so the document was written by something that does not bound what a party knows"));
+                    $"the party knows {Notes.Count} facts and this build keeps at most {limit}, so the document was written by something that does not bound what a party knows")));
         }
 
         HashSet<string> seen = new(StringComparer.Ordinal);
@@ -168,26 +171,31 @@ public sealed record KnowledgeSave(IReadOnlyList<KnowledgeNoteSave>? Notes = nul
         {
             if (note.Kind is not ("effect" or "clue" or "recipe" or "find"))
             {
-                problems.Add($"a knowledge note is recorded as '{note.Kind}', which is not a kind this build has");
+                problems.Add(new SaveProblem(SaveCodes.SaveKnowledgeKindUnknown, note.Text ?? string.Empty, $"a knowledge note is recorded as '{note.Kind}', which is not a kind this build has"));
             }
 
             if (string.IsNullOrWhiteSpace(note.Source) || string.IsNullOrWhiteSpace(note.Subject) || string.IsNullOrWhiteSpace(note.Text))
             {
-                problems.Add($"a knowledge note of kind '{note.Kind}' records no source, subject, or words, so it would read as an empty note");
+                problems.Add(new SaveProblem(
+                    SaveCodes.SaveKnowledgeEmpty,
+                    note.Text ?? string.Empty,
+                    $"a knowledge note of kind '{note.Kind}' records no source, subject, or words, so it would read as an empty note"));
             }
 
             if (note.ElapsedMilliseconds < 0 || note.ElapsedMilliseconds > elapsedMilliseconds)
             {
-                problems.Add(
+                problems.Add(new SaveProblem(
+                    SaveCodes.SaveKnowledgeFuture,
+                    note.Text ?? string.Empty,
                     string.Create(
                         CultureInfo.InvariantCulture,
-                        $"a knowledge note was learned {note.ElapsedMilliseconds} ms into the session and the save had reached {elapsedMilliseconds} ms, so it is dated in a future the party never lived"));
+                        $"a knowledge note was learned {note.ElapsedMilliseconds} ms into the session and the save had reached {elapsedMilliseconds} ms, so it is dated in a future the party never lived")));
             }
 
             string identity = $"{note.Kind}|{note.Subject}|{note.Place}";
             if (!seen.Add(identity))
             {
-                problems.Add($"the party knows '{note.Text}' twice, so the same fact would be two notes");
+                problems.Add(new SaveProblem(SaveCodes.SaveKnowledgeTwice, note.Text ?? string.Empty, $"the party knows '{note.Text}' twice, so the same fact would be two notes"));
             }
         }
 

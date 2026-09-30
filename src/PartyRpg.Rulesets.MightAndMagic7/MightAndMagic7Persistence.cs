@@ -99,7 +99,7 @@ internal static class MightAndMagic7Persistence
     {
         ArgumentNullException.ThrowIfNull(save);
         ArgumentNullException.ThrowIfNull(places);
-        IReadOnlyList<string> problems = save.Problems(
+        IReadOnlyList<SaveProblem> problems = save.Problems(
             places,
             MightAndMagic7Party.Factory(content),
             admission: null,
