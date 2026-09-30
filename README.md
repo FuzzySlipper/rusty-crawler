@@ -228,12 +228,13 @@ Ordinary development runs the product on the pinned runtime:
 rusty dev --project ./src/PartyRpg.Host/PartyRpg.Host.csproj
 ```
 
-The same command is what `.den-serve.json` uses. **This box's own headless browser cannot hold an
-interactive session**: a few seconds after it attaches, the host reports
-`DEV_HOST_VIDEO_FEEDBACK_UNSUPPORTED` and stops the runtime, so a live check from here confirms the
-product-to-DOM leg (the projection renders with real values). A session held through the agent
-playtest service's remote browser does keep running and takes the player's keys, which is where the
-movement, transition, and travel-cost readings under `local/verify/` come from.
+The same command is what `.den-serve.json` uses; `--headless` runs it unattended, and `--live-debug`
+opens the engine's debug surface. **The runtime needs a GPU adapter**: `rusty dev` always builds the
+engine's renderer and refuses to load without one (a software Vulkan driver such as llvmpipe counts).
+**The product draws no world**: the only engine services it uses are UI, spatial, content, random,
+diagnostics and persistence, so the frame the renderer presents is empty and the game is the DOM panel
+over it. A session driven through the agent playtest service's browser takes the player's keys, and the
+panel's Position row is the feedback loop.
 
 The offline importer reads the operator's own installation and never writes to it:
 
