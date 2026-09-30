@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Party;
 
 namespace PartyRpg.Kit.Loot;
@@ -64,7 +65,7 @@ public sealed class LootTable
     /// <param name="rolls">The keyed rolls the pick is drawn from.</param>
     /// <returns>The candidate, or null when there is nothing to pick.</returns>
     /// <exception cref="ArgumentNullException">No rolls were supplied.</exception>
-    public LootCandidate? Pick(int level, LootFilter filter, LootRolls rolls)
+    public LootCandidate? Pick(int level, LootFilter filter, KeyedRolls rolls)
     {
         ArgumentNullException.ThrowIfNull(rolls);
         int total = WeightAt(level, filter);

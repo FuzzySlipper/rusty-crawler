@@ -302,7 +302,7 @@ public sealed class CombatState : IGameTimeObserver
                 CombatSubject subject = new(id, world.Place, pose, member: null, entity);
                 if (_rule.NatureOf(subject) is not { IsCreature: true } nature) continue;
 
-                double distance = Distance(world.Pose, pose);
+                double distance = world.Pose.DistanceTo(pose);
                 CombatSide side = _provoked.Contains(subject.Id) || nature.Notices(distance)
                     ? CombatSide.Opposition
                     : CombatSide.Neutral;
@@ -841,14 +841,6 @@ public sealed class CombatState : IGameTimeObserver
         return nearest;
     }
 
-    /// <summary>How far apart two actors stand, in the place's own units.</summary>
-    private static double Distance(PlacePose from, PlacePose to)
-    {
-        double x = to.X - from.X;
-        double y = to.Y - from.Y;
-        double z = to.Z - from.Z;
-        return Math.Sqrt((x * x) + (y * y) + (z * z));
-    }
 
     /// <summary>Reports what one order did, whether it applied or was refused.</summary>
     /// <remarks>

@@ -522,7 +522,7 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
         string opens = hours.NextChangeAfter(clock.Calendar, now) is { } next
             ? string.Create(
                 System.Globalization.CultureInfo.InvariantCulture,
-                $" and it opens again at {next.Year:0000}-{next.Month:00}-{next.Day:00} {next.Hour:00}:{next.Minute:00}")
+                $" and it opens again at {next.MinuteText}")
             : string.Empty;
         return InteractionRequirementVerdict.Unsatisfied(
             string.Create(

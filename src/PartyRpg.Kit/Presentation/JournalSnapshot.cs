@@ -261,7 +261,7 @@ public readonly record struct JournalSnapshot(bool Available, IReadOnlyList<Jour
 
     /// <summary>The calendar's own numbers for a day, in the form every other block publishes dates in.</summary>
     private static string Date(GameDate date) =>
-        string.Create(CultureInfo.InvariantCulture, $"{date.Year:0000}-{date.Month:00}-{date.Day:00}");
+        date.DayText;
 
     /// <summary>The time of day, to the minute, in the form every other block publishes times in.</summary>
     private static string Time(GameDate date) =>

@@ -181,5 +181,5 @@ public sealed record JournalEntry(
         && string.Equals(Place, journalEvent.Place, StringComparison.Ordinal);
 
     /// <inheritdoc />
-    public override string ToString() => $"{Date.Year:0000}-{Date.Month:00}-{Date.Day:00} {Text}";
+    public override string ToString() => $"{Date.DayText} {Text}";
 }

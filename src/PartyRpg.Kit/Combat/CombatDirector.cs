@@ -384,7 +384,7 @@ public sealed class CombatDirector
                 other,
                 party || _policy.AreEnemies(creature.Subject, other.Subject),
                 party,
-                Distance(self, Where(other))));
+                self.DistanceTo(Where(other))));
         }
 
         (int current, int maximum) = _combat.Vitals(creature);
@@ -409,14 +409,6 @@ public sealed class CombatDirector
         ? _combat.PartyPose
         : combatant.Subject.Entity?.Pose ?? combatant.Subject.Pose;
 
-    /// <summary>How far apart two positions are, in the place's own units.</summary>
-    private static double Distance(PlacePose from, PlacePose to)
-    {
-        double x = to.X - from.X;
-        double y = to.Y - from.Y;
-        double z = to.Z - from.Z;
-        return Math.Sqrt((x * x) + (y * y) + (z * z));
-    }
 
     /// <summary>Reports one creature's decision, with the place it happened in.</summary>
     private void Report(PlaceId place, CreatureActivity activity)

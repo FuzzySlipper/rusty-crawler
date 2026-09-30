@@ -193,7 +193,7 @@ public sealed class LootTests
             new LootCandidate(new ItemDefinitionId("cloak"), [0, 10], "cloak", string.Empty),
         ]);
 
-        LootRolls rolls = new(new KeyedRandom(11UL), seed: 7, scope: "test.loot", key: "a-chest/0");
+        KeyedRolls rolls = new(new KeyedRandom(11UL), seed: 7, scope: "test.loot", key: "a-chest/0");
 
         // One item weighs at each level, so each level's pool is exactly the one that is weighed there.
         Assert.Equal(10, table.WeightAt(1, LootFilter.Any));
@@ -216,8 +216,8 @@ public sealed class LootTests
     {
         // A purpose of its own per draw, and the same purpose is the same value: that is the whole of what
         // makes generation reproducible without anything being recorded.
-        LootRolls rolls = new(new KeyedRandom(3UL), seed: 5, scope: "test.loot", key: "death/1");
-        LootRolls same = new(new KeyedRandom(3UL), seed: 5, scope: "test.loot", key: "death/1");
+        KeyedRolls rolls = new(new KeyedRandom(3UL), seed: 5, scope: "test.loot", key: "death/1");
+        KeyedRolls same = new(new KeyedRandom(3UL), seed: 5, scope: "test.loot", key: "death/1");
 
         Assert.Equal(rolls.Between(1, 1000), same.Between(1, 1000));
         Assert.Equal(rolls.Dice(3, 6), same.Dice(3, 6));
@@ -228,7 +228,7 @@ public sealed class LootTests
         Assert.True(findings.Distinct().Count() > 1, "eight findings of one generation drew one value");
 
         // A different key is a different generation.
-        LootRolls other = new(new KeyedRandom(3UL), seed: 5, scope: "test.loot", key: "death/2");
+        KeyedRolls other = new(new KeyedRandom(3UL), seed: 5, scope: "test.loot", key: "death/2");
         Assert.NotEqual(rolls.Between(1, 100000), other.Between(1, 100000));
     }
 
@@ -342,7 +342,7 @@ public sealed class LootTests
         public void Died(CreatureDeath death)
         {
             Corpse body = Ground.Lay(death);
-            LootRolls rolls = new(_random, seed: LootSeed, scope: "test.loot", key: $"death/{death.Place}/{body.Content}/{body.Serial}");
+            KeyedRolls rolls = new(_random, seed: LootSeed, scope: "test.loot", key: $"death/{death.Place}/{body.Content}/{body.Serial}");
             Generations++;
             int coins = rolls.Dice(Death.GoldRolls, Death.GoldSides);
             LootCandidate picked = Assert.IsType<LootCandidate>(_table.Pick(Death.Level, Death.Filter, rolls));
@@ -372,7 +372,7 @@ public sealed class LootTests
         public double ReachOf(CombatSubject subject, AttackKind kind) => 512;
 
         public IAttackRolls? RollsFor(CombatSubject attacker, string key) =>
-            new AttackRolls(_random, seed: 1, scope: "test.attack", key);
+            new KeyedRolls(_random, seed: 1, scope: "test.attack", key);
 
         public AttackPlan PlanOf(CombatSubject attacker, CombatSubject target, AttackKind kind) => new(
             HitChance.Always,

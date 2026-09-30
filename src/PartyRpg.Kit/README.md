@@ -60,7 +60,7 @@ Owns:
   resistance and immunity, conditions a hit leaves, and the thresholds a wound is judged against
   application, real-time and turn-based mode coordination, what a downed creature leaves
   (`CorpseGround`, fed by the fight's own reading), monster presence and AI coordination.
-- Loot: the keyed draws one generation makes (`LootRolls`), the candidates content weighs by
+- Loot: the keyed draws one generation makes (`KeyedRolls`, the same keyed draws an attack makes), the candidates content weighs by
   treasure level (`LootTable`, `LootCandidate`, `LootFilter`), the shape of a treasure request
   (`TreasureRoll`), and what one generation produced (`LootYield`). Which numbers a game's tables
   carry and what its levels mean stay the ruleset's.
@@ -202,7 +202,7 @@ ruleset answer about what a thing is plus the fight's own memory of what the par
 `ICombatRule` seam for recovery values, notice ranges, reach, and names, and the one resolution path every
 kind of attack takes — the fight consumes the `AttackInitiation` it published, asks the
 `ICombatResolutionRule` seam for a chance, a kind of harm, dice, and the target's resistance, rolls them
-through keyed `AttackRolls` under a key that names the attack, applies what is left to whoever owns the
+through keyed `KeyedRolls` under a key that names the attack, applies what is left to whoever owns the
 target's health, applies the `CombatCondition` a landed hit leaves, records a `CombatResolution`, and
 reports it, with `DamageKindId`, `DamageRoll` (dice, a bonus, and a floor), `Resistance` (a weight or full
 immunity), `HitChance` in ten-thousandths, and `AttackPlan` as the vocabulary; `CreatureHealth` is a
@@ -243,7 +243,7 @@ is an outcome with a code and a sentence rather than a silent no-op — and a co
 mechanism discovers: `CorpseGround` keeps what the fight read as down, the ruleset hands it back as the
 creature's own placement lying where it fell, and searching it is the same workflow a chest goes through),
 what a death leaves (`Loot/` — `TreasureRoll` is the shape a treasure rule takes once its format has been
-read, `LootTable` draws a weighted candidate at a level behind an opaque `LootFilter`, and `LootRolls`
+read, `LootTable` draws a weighted candidate at a level behind an opaque `LootFilter`, and `KeyedRolls`
 makes every draw under a key that names the death or the container, so the same kill yields the same loot
 twice; what the numbers mean stays the ruleset's), and time (`GameClock` over a validated
 `GameCalendar` — one explicit `Advance`/`AdvanceAdmittedSeconds` path with a returned `ClockAdvance`

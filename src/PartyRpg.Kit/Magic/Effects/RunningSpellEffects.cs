@@ -372,7 +372,7 @@ public sealed class RunningSpellEffects : IGameTimeObserver, IDeadlineOwner, IRu
             if (held.Deadline != deadline) continue;
             string on = held.Member is { } member ? $" on member {member}" : string.Empty;
             string ends = held.EndsAt is { } at
-                ? string.Create(CultureInfo.InvariantCulture, $", ending {at.Year:0000}-{at.Month:00}-{at.Day:00} {at.Hour:00}:{at.Minute:00}")
+                ? string.Create(CultureInfo.InvariantCulture, $", ending {at.MinuteText}")
                 : string.Empty;
             return $"the running effect '{held.Effect}'{on}{ends}";
         }

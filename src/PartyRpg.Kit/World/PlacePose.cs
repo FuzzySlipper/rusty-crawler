@@ -17,6 +17,16 @@ public readonly record struct PlacePose(double X, double Y, double Z, double Yaw
 {
     /// <summary>A pose at the origin, facing along the place's first axis.</summary>
     public static PlacePose Origin => default;
+
+    /// <summary>How far this position stands from another, in the place's own units.</summary>
+    /// <param name="other">The other position.</param>
+    public double DistanceTo(PlacePose other)
+    {
+        double x = other.X - X;
+        double y = other.Y - Y;
+        double z = other.Z - Z;
+        return Math.Sqrt((x * x) + (y * y) + (z * z));
+    }
 }
 
 /// <summary>A named spot in a place the party can arrive at.</summary>

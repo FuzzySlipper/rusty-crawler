@@ -35,7 +35,7 @@ public readonly record struct ClockSnapshot(bool Present, string Date, string Ti
         GameDate now = clock.Now;
         return new ClockSnapshot(
             true,
-            $"{now.Year:0000}-{now.Month:00}-{now.Day:00}",
+            now.DayText,
             // The panel is a HUD and the calendar's smallest unit is a second, so publishing to the minute
             // is a presentation choice: the clock keeps the seconds, and a reader that needs them reads it.
             $"{now.Hour:00}:{now.Minute:00}",

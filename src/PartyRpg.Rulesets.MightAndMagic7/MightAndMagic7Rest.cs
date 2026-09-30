@@ -276,7 +276,7 @@ internal sealed class MightAndMagic7Rest : IRestRule
         GameDate at = request.Clock.Now;
         string key = string.Create(
             CultureInfo.InvariantCulture,
-            $"{place.Id}@{at.Year:0000}-{at.Month:00}-{at.Day:00}T{at.Hour:00}:{at.Minute:00}");
+            $"{place.Id}@{at.DayText}T{at.Hour:00}:{at.Minute:00}");
         long roll = _random.DrawKeyed(new KeyedRngRequest(RollSeed, RollScope, key, 1, 100)).Value;
         if (roll > chance) return null;
 

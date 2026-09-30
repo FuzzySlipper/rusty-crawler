@@ -702,7 +702,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     public IAttackRolls? RollsFor(CombatSubject attacker, string key)
     {
         ArgumentNullException.ThrowIfNull(attacker);
-        return _random is null ? null : new AttackRolls(_random, RollSeed, AttackRollScope, key);
+        return _random is null ? null : new KeyedRolls(_random, RollSeed, AttackRollScope, key);
     }
 
     /// <inheritdoc />
@@ -740,7 +740,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             : Facts(attacker)?.Attack ?? DamageRoll.Flat(0);
         int armor = ArmorClassOf(target);
         HitChance chance = attacker.Member is { } character
-            ? CharacterHitChance(character, armor, kind, Distance(attacker, target))
+            ? CharacterHitChance(character, armor, kind, attacker.Pose.DistanceTo(target.Pose))
             : CreatureHitChance(Facts(attacker)?.Level ?? 0, armor);
 
         return new AttackPlan(chance, damageKind, damage, ResistanceOf(target, damageKind));
@@ -830,7 +830,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         int rung = fromWand ? 1 : MightAndMagic7Spells.Rung(caster, spell);
         DamageRoll damage = _spells?.Damage(spell, level, rung) ?? DamageRoll.Flat(0);
         return new AttackPlan(
-            CharacterHitChance(caster, ArmorClassOf(target), AttackKind.Spell, Distance(attacker, target)),
+            CharacterHitChance(caster, ArmorClassOf(target), AttackKind.Spell, attacker.Pose.DistanceTo(target.Pose)),
             kind,
             damage,
             ResistanceOf(target, kind));
@@ -1193,14 +1193,6 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     private static bool IsPerson(CombatSubject subject) =>
         string.Equals(subject.Placement?.Content.Kind, PersonPlacementKind, StringComparison.Ordinal);
 
-    /// <summary>How far apart two actors stand, in the place's own units.</summary>
-    private static double Distance(CombatSubject from, CombatSubject to)
-    {
-        double x = to.Pose.X - from.Pose.X;
-        double y = to.Pose.Y - from.Pose.Y;
-        double z = to.Pose.Z - from.Pose.Z;
-        return Math.Sqrt((x * x) + (y * y) + (z * z));
-    }
 
     /// <summary>
     /// What a character's attack recovery is worth, in the donor's sum and floored at the donor's minimum.

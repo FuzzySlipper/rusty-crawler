@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace PartyRpg.Kit.Time;
 
 /// <summary>A point on the game calendar: the date, and the time of day within it.</summary>
@@ -70,4 +72,10 @@ public readonly record struct GameDate
 
     /// <summary>The second of the minute.</summary>
     public int Second { get; }
+
+    /// <summary>The day this date falls on, written the one way every screen and sentence writes it.</summary>
+    public string DayText => string.Create(CultureInfo.InvariantCulture, $"{Year:0000}-{Month:00}-{Day:00}");
+
+    /// <summary>The day and the minute of it, written the one way every screen and sentence writes them.</summary>
+    public string MinuteText => string.Create(CultureInfo.InvariantCulture, $"{DayText} {Hour:00}:{Minute:00}");
 }

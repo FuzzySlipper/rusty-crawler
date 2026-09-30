@@ -938,10 +938,7 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         foreach (PlacePopulationEntity entity in alive)
         {
             string placed = entity.Placement?.Source.GetString("name") ?? entity.Placement?.Content.Id ?? string.Empty;
-            double dx = entity.Pose.X - world.Party.PlacePose.X;
-            double dy = entity.Pose.Y - world.Party.PlacePose.Y;
-            double dz = entity.Pose.Z - world.Party.PlacePose.Z;
-            double distance = Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+            double distance = entity.Pose.DistanceTo(world.Party.PlacePose);
             if (distance >= nearest) continue;
             nearest = distance;
             name = placed.Length > 0 ? placed : "something";
@@ -977,9 +974,7 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     {
         if (_clock is not { } clock) return string.Empty;
         GameDate ends = clock.Calendar.Add(clock.Now, lasts);
-        return string.Create(
-            CultureInfo.InvariantCulture,
-            $"{ends.Year:0000}-{ends.Month:00}-{ends.Day:00} {ends.Hour:00}:{ends.Minute:00}");
+        return ends.MinuteText;
     }
 
     /// <summary>The game time between where the clock stands and the next time its daylight window opens.</summary>

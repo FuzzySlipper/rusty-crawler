@@ -1,46 +1,71 @@
 using Rusty.Engine;
 
-namespace PartyRpg.Kit.Loot;
+namespace PartyRpg.Kit.Combat;
+
+/// <summary>Where one attack's rolls come from, as the mechanism that resolves it asks for them.</summary>
+/// <remarks>
+/// <para>
+/// Rolling is the kit's work and drawing is whoever owns randomness: an attack's hit roll, its damage dice,
+/// and whatever checks its resistance needs are all drawn through this one object, so every draw of one
+/// attack is made under keys that name that attack and nothing else. Two attacks can therefore never share
+/// a draw by accident, and the same state replayed produces the same fight.
+/// </para>
+/// <para>
+/// <b>Who supplies it.</b> A ruleset hands the fight one <see cref="IAttackRolls"/> per attack from
+/// <see cref="ICombatResolutionRule.RollsFor"/>, because the ruleset is what holds the engine's random
+/// service and states the seed and scope its draws live under. The kit never reaches for randomness itself.
+/// </para>
+/// </remarks>
+public interface IAttackRolls
+{
+    /// <summary>Draws one value uniformly from a stated range, for a stated purpose.</summary>
+    /// <param name="purpose">
+    /// What the draw is for. Two draws of one attack must be asked for under different purposes, which is
+    /// what keeps a hit roll from being the damage roll of the same swing.
+    /// </param>
+    /// <param name="minimum">The least value the draw may be.</param>
+    /// <param name="maximum">The most value the draw may be, which must not lie below the least.</param>
+    /// <returns>The drawn value, inside the range.</returns>
+    int Roll(string purpose, int minimum, int maximum);
+}
 
 /// <summary>
-/// The draws one generation makes, taken from the engine's keyed random service under a key that names what
-/// is being generated.
+/// The draws one attack or one generation makes, taken from the engine's keyed random service under a key
+/// that names it.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Every draw is keyed, so generation is reproducible.</b> The engine takes an explicit seed and reads no
-/// wall clock, so a chance, a handful of dice, and a weighted pick drawn under one key are the same values
-/// every time they are asked for. That is what makes a chest's contents the same on a second look and a
-/// corpse's loot the same on a second search, without anything being recorded: the key is the body or the
-/// container, and the same key resolves to the same loot.
+/// <b>Every draw is keyed, so a fight and a generation are reproducible.</b> The engine takes an explicit
+/// seed and reads no wall clock, so a hit roll, a handful of dice, and a weighted pick drawn under one key
+/// are the same values every time they are asked for. That is what makes a fight replay identically and a
+/// chest's contents the same on a second look, without anything being recorded: the key is the attack, the
+/// body, or the container, and the same key resolves to the same draws.
 /// </para>
 /// <para>
 /// <b>The purposes are separate draws.</b> A hit roll must not be the damage roll of the same swing, and a
-/// chance must not be the pick it guards, so every draw of one generation is asked for under a purpose that
-/// names it. The engine's own keyed draw makes that a fact of the key rather than a discipline of the
-/// caller.
+/// chance must not be the pick it guards, so every draw is asked for under a purpose that names it.
 /// </para>
 /// <para>
-/// <b>No randomness is drawn here.</b> This holds the service and the key; a product with no random service
-/// has no rolls at all, and says so by its generator answering nothing rather than by drawing from an
-/// invented source.
+/// <b>A product that cannot draw gets no rolls at all.</b> The ruleset holds the random service and states
+/// the seed and scope; with no service it answers null where rolls are asked for, and the fight or the
+/// generator then resolves nothing rather than drawing from an invented source.
 /// </para>
 /// </remarks>
-public sealed class LootRolls
+public sealed class KeyedRolls : IAttackRolls
 {
     private readonly IRandomService _random;
     private readonly ulong _seed;
     private readonly string _scope;
     private readonly string _key;
 
-    /// <summary>Creates the rolls of one generation.</summary>
+    /// <summary>Creates the rolls of one attack or one generation.</summary>
     /// <param name="random">The engine's random service, which draws the values.</param>
-    /// <param name="seed">The seed this game's loot is drawn from.</param>
+    /// <param name="seed">The seed the owner's draws are made from.</param>
     /// <param name="scope">The scope the draws live under, so they cannot collide with another owner's.</param>
-    /// <param name="key">What this generation is called, which must not be blank.</param>
+    /// <param name="key">What this attack or generation is called, which must not be blank.</param>
     /// <exception cref="ArgumentNullException">No service was supplied.</exception>
     /// <exception cref="ArgumentException">The scope or the key is blank, so two generations could share draws.</exception>
-    public LootRolls(IRandomService random, ulong seed, string scope, string key)
+    public KeyedRolls(IRandomService random, ulong seed, string scope, string key)
     {
         _random = random ?? throw new ArgumentNullException(nameof(random));
         ArgumentException.ThrowIfNullOrWhiteSpace(scope);
@@ -115,17 +140,13 @@ public sealed class LootRolls
     /// <param name="purpose">What the repetition is, which must not be blank.</param>
     /// <returns>The rolls, drawing under the longer key.</returns>
     /// <exception cref="ArgumentException">The purpose is blank, so the repetition would repeat a draw.</exception>
-    public LootRolls Under(string purpose)
+    public KeyedRolls Under(string purpose)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(purpose);
-        return new LootRolls(_random, _seed, _scope, $"{_key}/{purpose}");
+        return new KeyedRolls(_random, _seed, _scope, $"{_key}/{purpose}");
     }
 
-    /// <summary>Draws one value under a purpose of its own, from a range with both ends included.</summary>
-    /// <param name="purpose">What the draw is for, which must not be blank.</param>
-    /// <param name="minimum">The least value the draw may be.</param>
-    /// <param name="maximum">The most value the draw may be.</param>
-    /// <returns>The drawn value.</returns>
+    /// <inheritdoc />
     /// <exception cref="ArgumentException">The purpose is missing, so the draw could collide with another.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The range is not a range.</exception>
     public int Roll(string purpose, int minimum, int maximum)

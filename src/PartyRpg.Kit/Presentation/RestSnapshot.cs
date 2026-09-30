@@ -130,7 +130,5 @@ public readonly record struct RestSnapshot(
     private static string Date(GameDate? at) =>
         at is not { Year: > 0 } moment
             ? string.Empty
-            : string.Create(
-                CultureInfo.InvariantCulture,
-                $"{moment.Year:0000}-{moment.Month:00}-{moment.Day:00} {moment.Hour:00}:{moment.Minute:00}");
+            : moment.MinuteText;
 }

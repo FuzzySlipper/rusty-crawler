@@ -372,5 +372,5 @@ public readonly record struct MapSnapshot(
 
     /// <summary>The calendar's own form for a day, as every other block publishes dates in.</summary>
     private static string Date(Time.GameDate date) =>
-        string.Create(CultureInfo.InvariantCulture, $"{date.Year:0000}-{date.Month:00}-{date.Day:00} {date.Hour:00}:{date.Minute:00}");
+        date.MinuteText;
 }

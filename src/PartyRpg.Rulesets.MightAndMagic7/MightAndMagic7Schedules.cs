@@ -206,8 +206,6 @@ internal sealed class MightAndMagic7Schedules
     internal string DescribeNextChange(PlaceId place, GameClock? clock)
     {
         if (clock is null || Schedule.NextChangeAfter(place, clock.Now, clock.Calendar) is not { } change) return string.Empty;
-        return string.Create(
-            CultureInfo.InvariantCulture,
-            $"{change.Year:0000}-{change.Month:00}-{change.Day:00} {change.Hour:00}:{change.Minute:00}");
+        return change.MinuteText;
     }
 }

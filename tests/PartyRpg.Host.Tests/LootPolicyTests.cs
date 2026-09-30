@@ -352,10 +352,10 @@ public sealed class LootPolicyTests
                 Monster(4, "A beast", treasure)),
             random: Keyed());
 
-    private static LootRolls Rolls(string key) => new(Keyed(), seed: 9, scope: "test.loot", key);
+    private static KeyedRolls Rolls(string key) => new(Keyed(), seed: 9, scope: "test.loot", key);
 
     /// <summary>The same rolls a case names its own key for.</summary>
-    private static LootRolls Findings(string key) => Rolls(key);
+    private static KeyedRolls Findings(string key) => Rolls(key);
 
     /// <summary>
     /// The engine's keyed randomness, answered as the engine answers it: the same scope and key always draw

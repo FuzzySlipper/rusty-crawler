@@ -537,9 +537,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     {
         if (_clock is not { } clock) return string.Empty;
         return Schedule.NextChangeAfter(place, clock.Now, clock.Calendar) is { } change
-            ? string.Create(
-                System.Globalization.CultureInfo.InvariantCulture,
-                $"{change.Year:0000}-{change.Month:00}-{change.Day:00} {change.Hour:00}:{change.Minute:00}")
+            ? change.MinuteText
             : string.Empty;
     }
 

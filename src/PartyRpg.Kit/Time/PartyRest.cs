@@ -103,7 +103,7 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
     /// <inheritdoc />
     public string Describe(DeadlineId deadline) =>
         _fatigue?.Due is { } due
-            ? string.Create(CultureInfo.InvariantCulture, $"the debt of sleep, due {due.Year:0000}-{due.Month:00}-{due.Day:00} {due.Hour:00}:{due.Minute:00}")
+            ? string.Create(CultureInfo.InvariantCulture, $"the debt of sleep, due {due.MinuteText}")
             : "the debt of sleep";
 
     /// <summary>
@@ -404,7 +404,7 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
     private static string Describe(GameDate at) =>
         at.Year <= 0
             ? "no date"
-            : string.Create(CultureInfo.InvariantCulture, $"{at.Year:0000}-{at.Month:00}-{at.Day:00} {at.Hour:00}:{at.Minute:00}");
+            : at.MinuteText;
 
     /// <summary>What a charge is, in the words a refusal uses.</summary>
     private static string Amounts(Provisions charge) =>

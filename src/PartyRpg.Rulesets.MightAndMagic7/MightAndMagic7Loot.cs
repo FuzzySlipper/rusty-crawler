@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Combat;
 using System.Globalization;
 using System.Text.Json;
 using PartyRpg.Kit.Content;
@@ -285,8 +286,8 @@ internal sealed class MightAndMagic7Loot
     /// <summary>The rolls one generation is drawn under, or null when this product cannot draw.</summary>
     /// <param name="key">What is being generated, which must name the death or the container it belongs to.</param>
     /// <returns>The rolls, or null when there is no random service.</returns>
-    internal LootRolls? RollsFor(string key) =>
-        _random is null ? null : new LootRolls(_random, RollSeed, RollScope, key);
+    internal KeyedRolls? RollsFor(string key) =>
+        _random is null ? null : new KeyedRolls(_random, RollSeed, RollScope, key);
 
     /// <summary>What one creature's death left, as the row the creature named states it.</summary>
     /// <remarks>
@@ -299,7 +300,7 @@ internal sealed class MightAndMagic7Loot
     /// <param name="rolls">The rolls the death is drawn under.</param>
     /// <returns>What the death left, which may be nothing at all.</returns>
     /// <exception cref="ArgumentNullException">No body or no rolls were supplied.</exception>
-    internal LootYield Death(PlacementDefinition body, LootRolls rolls)
+    internal LootYield Death(PlacementDefinition body, KeyedRolls rolls)
     {
         ArgumentNullException.ThrowIfNull(body);
         ArgumentNullException.ThrowIfNull(rolls);
@@ -325,7 +326,7 @@ internal sealed class MightAndMagic7Loot
     /// <param name="rolls">The rolls the reference is drawn under.</param>
     /// <returns>What the reference yields, which may be nothing at all.</returns>
     /// <exception cref="ArgumentNullException">No rolls were supplied.</exception>
-    internal LootYield Reference(int level, int placeLevel, LootRolls rolls)
+    internal LootYield Reference(int level, int placeLevel, KeyedRolls rolls)
     {
         ArgumentNullException.ThrowIfNull(rolls);
         (int least, int most) = LevelAt(level, placeLevel);
@@ -343,7 +344,7 @@ internal sealed class MightAndMagic7Loot
         {
             // Each finding draws under its own name, because a keyed draw of one purpose is the same value
             // every time it is asked for: a container of five things must not be five copies of one.
-            LootRolls drawn = rolls.Under($"finding/{finding}");
+            KeyedRolls drawn = rolls.Under($"finding/{finding}");
             int what = drawn.Between(1, 100);
             if (what <= NothingBelow) continue;
             if (what <= CoinBelow)
@@ -363,7 +364,7 @@ internal sealed class MightAndMagic7Loot
     /// The fallback is the donor's: a level that offers nothing the request asked for hands over a crude
     /// longsword rather than nothing, which is what makes "a random item of this level" always an item.
     /// </remarks>
-    private LootItem? ItemAt(int level, LootFilter filter, LootRolls rolls)
+    private LootItem? ItemAt(int level, LootFilter filter, KeyedRolls rolls)
     {
         if (level >= TreasureRoll.HighestLevel) return Artifact(rolls);
         if (level == TreasureRoll.HighestLevel - 1 && filter == LootFilter.Any && rolls.Chance(ArtifactChance) && Artifact(rolls) is { } rare)
@@ -378,11 +379,11 @@ internal sealed class MightAndMagic7Loot
     }
 
     /// <summary>One artifact out of the pool this game will hand out, or nothing when it holds none.</summary>
-    private LootItem? Artifact(LootRolls rolls) =>
+    private LootItem? Artifact(KeyedRolls rolls) =>
         _artifacts.Length == 0 ? null : new LootItem(_artifacts[rolls.Pick(_artifacts.Length)].Definition);
 
     /// <summary>What one treasure level's coin is worth.</summary>
-    private static int CoinsAt(int level, LootRolls rolls) =>
+    private static int CoinsAt(int level, KeyedRolls rolls) =>
         level >= 1 && level <= CoinsByLevel.Length
             ? rolls.Between(CoinsByLevel[level - 1].Least, CoinsByLevel[level - 1].Most)
             : 0;

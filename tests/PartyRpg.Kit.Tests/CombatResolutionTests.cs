@@ -551,7 +551,7 @@ public sealed class CombatResolutionTests
         public double ReachOf(CombatSubject subject, AttackKind kind) => 1000;
 
         public IAttackRolls? RollsFor(CombatSubject attacker, string key) => _random is { } random
-            ? new AttackRolls(random, seed: 7, "test.attack", key)
+            ? new KeyedRolls(random, seed: 7, "test.attack", key)
             : new Scripted(_roll, _face);
 
         public AttackPlan PlanOf(CombatSubject attacker, CombatSubject target, AttackKind kind) => new(

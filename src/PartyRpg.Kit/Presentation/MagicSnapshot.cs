@@ -397,9 +397,7 @@ public readonly record struct MagicSnapshot(
 
     /// <summary>Writes a moment on the calendar for a person, empty when nothing states one.</summary>
     private static string Moment(GameDate? at) => at is { } moment
-        ? string.Create(
-            CultureInfo.InvariantCulture,
-            $"{moment.Year:0000}-{moment.Month:00}-{moment.Day:00} {moment.Hour:00}:{moment.Minute:00}")
+        ? moment.MinuteText
         : string.Empty;
 
     /// <summary>What one rung of a skill's ladder is called, or its number when no policy names one.</summary>
