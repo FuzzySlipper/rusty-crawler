@@ -1,103 +1,99 @@
 # Live checks
 
-How a lane takes a live-check target, drives the running product through its own panel, and reads what
-it answers. This is the durable procedure; which checks are in flight, and what each one must show, is
-Den's business and is not mirrored here.
+How a lane serves the product, stages what a check needs, drives it through its own panel, reads what it
+answers, and puts tracked content back. This is the durable procedure; which checks are in flight, and what
+each must show, is Den's business. Readings a document cites as proof are published in
+[`evidence/`](evidence/README.md).
 
-## Targets
+## Serving a checkout of its own
 
-A **live-check target** is one running dev host with its own port, its own playtest profile, and its own
-content root. On `den-agents` two stand up as user units, both self-restarting, both holding stdin open,
-both bound to the host's LAN address so a browser on this box can reach them:
-
-| Target | Checkout | URL | Unit | Content root |
-| --- | --- | --- | --- | --- |
-| A | this repository | `http://192.168.1.10:4176/` | `rc-live.service` | the repository's own `content/` |
-| B | a worktree, e.g. `/home/agent/dev/rc-live-b` | `http://192.168.1.10:4178/` | `rc-live-b.service` | the worktree's own `content/` |
-
-Each writes its build and runtime output to its own `.runtime/`, and its stdout to `/tmp/rc-live.log` and
-`/tmp/rc-live-b.log`. The playtest profiles `rusty-crawler` and `rusty-crawler-b` name those URLs; adding
-a third target means adding a unit, a port, and a profile entry, in that order — and restarting the
-playtest service, whose registry it reads once at startup, before `playtest start` knows the new id.
-
-**Stage on B, never on A.** A target's dev host watches its own `src/` and `content/` and replaces the
-running runtime on any write. On A those paths are the repository's, which is the collision that made two
-lanes drop each other's sessions: one lane's scenario write restarted the product under the other lane's
-browser. B exists so that a check can stage freely; a change to A's content is a change to the repository.
-
-## Staging on B
-
-A live check usually stages two things: a **scenario** (which place the party starts in, and where) and,
-when the place under test is defended or otherwise unsuitable, a **variant of an imported pack** with the
-unwanted records dropped. Both are hand-written JSON under `content/partyrpg/imports/<pack>/`, named by
-`content/partyrpg/bundles/<bundle>/bundle.json`, and generated game data is never committed.
-
-Two loader rules decide whether the product starts, and one staging rule keeps a write out of the other
-checkout:
-
-- **A pack's directory name must equal its `packId`.** The loader refuses a mismatch by name:
-  `the manifest says 'x' but the pack directory is 'y'`.
-- **One root, one pack per document id.** Every pack directory under `content/partyrpg/imports` is read
-  and validated whether or not the bundle names it, so a variant *replaces* the pack it varies in that
-  root rather than sitting beside it: two packs declaring `places` stop the product with
-  `document id 'places' is already declared by pack '...'`. Keep the untouched packs one directory
-  outside the root while a variant is staged — the `rc-live-b` worktree keeps them in
-  `content/partyrpg/imports-base/` — and move them back when the variant is done with.
-- **Copy contents, never a link.** A worktree's content root can hold *symlinks* to the main checkout's
-  packs; `cp -r <pack> <variant>` copies the symlink, and a write through it edits the main checkout's
-  pack. Copy with `cp -rL <pack>/. <variant>/`, and check `[ -L <variant> ]` (or `readlink -f`) before
-  writing into it.
-
-Then wait for the runtime to come back: the dev host logs `runtime-replaced`, and a content refusal
-appears as `Error: "CSHARP_PRODUCT_CALL: ... status 99: Rusty Crawler cannot start: <reason>"` in the same
-log. A refusal is a started-nothing, not a half-loaded world.
-
-## Attaching and driving
+A check runs from a checkout (or worktree) of its own, because the dev host watches its project's `src/`
+and `content/` and replaces the running runtime on any write there: staging into a checkout another lane is
+playing drops that lane's session.
 
 ```sh
-playtest start rusty-crawler-b                                   # session id; observe returns console[], page_errors[], path (PNG)
-playtest observe SESSION                                        # a PNG and the console/page-error stream
+rusty install                                   # the pinned pair, once per machine
+rusty dev --project src/PartyRpg.Host/PartyRpg.Host.csproj \
+  --port <port> --bind-host <address> --live-debug
+```
+
+- **Bind to an address the browser can reach.** The Engine's development host admits a request only from
+  the origin it is bound to, so a browser on another machine (the playtest service's) needs the host bound
+  to an address that browser reaches rather than to loopback. `.den-serve.json` is the same command with
+  Den choosing host and port.
+- **The runtime needs a GPU adapter** (a software Vulkan driver counts); without one the load fails.
+- The product draws no world: the frame is empty and the game is the DOM panel over it. `--live-debug`
+  exposes the Engine's debug surface; the product registers no gameplay debug modules of its own yet, so
+  the panel is the way to read gameplay state.
+- Wait for the host to log that the runtime was replaced. A content refusal appears in the same log as the
+  product's own sentence (`Rusty Crawler cannot start: <reason>`); a refused start has loaded nothing.
+
+## Staging content
+
+A check usually stages the operator's imported packs, a bundle that names them, and often a hand-written
+**scenario** pack (which place the party starts in, where, and with what party) or a **variant** of an
+imported pack with unwanted records dropped. All of it lives under `content/partyrpg/imports/<pack>/`
+(ignored) and `content/partyrpg/bundles/partyrpg-default/bundle.json` (tracked). Generated game data is never
+committed.
+
+- **A pack's directory name must equal its `packId`.** The loader refuses a mismatch by name.
+- **One root, one pack per document id.** Every pack directory under `content/partyrpg/imports` is read and
+  validated whether or not the bundle names it, so a variant *replaces* the pack it varies in that root: two
+  packs declaring the same document id stop the product with both named. Move the untouched pack one
+  directory outside the root while a variant is staged, and back afterwards.
+- **Copy contents, never a link.** A worktree's content root can hold symlinks to another checkout's packs;
+  `cp -r` copies the link and a write through it edits the other checkout. Copy with
+  `cp -rL <pack>/. <variant>/` and check `readlink -f` before writing.
+
+## Staging a pose
+
+When no scenario entry point stands near what a check needs, stage the pose through a save instead of
+walking there:
+
+1. Play to any point, and save (`F`, or the panel's save control). The save is the checkout's persistence
+   store, slot `session` (`.runtime/persistence/sessions/session`): the header `RSP2`, a little-endian u64
+   version, a u64 length, then the JSON document.
+2. Stop the host, rewrite only `world.pose` (the place id and the `x`, `y`, `z`, `yaw`, `pitch` of the pose),
+   and fix the length field.
+3. Serve again with `RUSTY_CRAWLER_START=resume`. The same party, clock, errands and journal now stand at the
+   staged pose; a resume with nothing saved is refused by name.
+
+Record a staged pose as staging, not as play, in the evidence.
+
+## Driving and reading
+
+```sh
+playtest games                                                    # the profiles the service knows
+playtest start <profile>                                          # prints the session id
+playtest observe SESSION                                          # a PNG plus console[] and page_errors[]
 playtest browser SESSION --json '{"op":"click","selector":"text=Accept party"}'
 playtest browser SESSION --json '{"op":"inspect","selector":".crawler-session dt,.crawler-session dd"}'
 playtest input   SESSION --json '[{"kind":"hold","keys":[87],"ms":800}]'   # hold W for 800 ms
 playtest stop SESSION
 ```
 
-- **The panel is the reliable input surface**: creation is accepted by clicking the panel's own
-  `Accept party` button, not by a key. Click the play area once before expecting keys to arrive.
-- **`input` holds take virtual-key codes**, not key names: W 87, A 65, S 68, D 83, Q 81, E 69, G 71
-  (the use key), P 80, Space 32. A batch that names a key instead is refused by the service's validation;
-  the service now returns a descriptive `invalid_input` error (task 8701), and the session remains
-  usable for a subsequent valid batch.
-- Keys are held, not tapped: one `hold` of `W` walks, one `hold` of `Q`/`E` turns, and the panel's
-  `Position` row is the feedback loop — turn until the bearing is right, walk, re-read, repeat. At 60 fps
-  a held `W` moves the party about 382 units a second and a held `Q`/`E` turns about 512 facing units a
-  second (2048 to a turn).
-- **Read the panel's rows, not a screenshot, for exact words**: `inspect` with a selector returns each
-  matched element's `innerText`, so `.crawler-session dt` and `.crawler-session dd` give the panel's facts
-  in order (`Pack`, `Coins`, `Position`, `Facing`, `Use`, …), and
-  `.crawler-use-result` / `.crawler-use-residue` give the last use's sentence and its residue. The same
-  panel's `data-*` attributes (`data-place`, `data-interaction`, `data-use`) are the product's own words
-  for the same facts. The panel is `position: fixed` with its own scrollbar, so a fact below the fold is
-  read from the DOM or photographed after scrolling the panel, not the page.
+A profile names the URL the service's browser opens; adding or changing one is `playtest reload` after the
+service's game list is edited.
 
-## Reading failures
-
-- `observe` and `browser` return the page's `console[]` and `page_errors[]`. WebGL warnings such as
-  `GPU stall due to ReadPixels` are the browser's, not the product's; a product-side JavaScript failure
-  arrives as a `pageerror`.
-- The product's own refusals are sentences in the panel and in the host log, and the host log is where a
-  refused start states why (`status 99` plus the reason).
-- A product that registers live-debug commands publishes them at
-  `GET /__rusty/product/runtime/debug/catalog`, executed with `POST .../debug/execute` and a
-  `text/plain; charset=utf-8` body. This product registers the engine's entity and renderer reads; it
-  registers none of its own, so the panel remains the way to read gameplay state.
-- A browser session can outlive the product's runtime replacement with a stale projection on screen: if
-  the panel's `Admitted steps` and `Simulation` stop moving, the session is not stepping. Reload by
-  stopping and starting the session (`playtest stop` then `playtest start`), then re-accept the party.
+- **The panel is the reliable input surface**: creation is accepted by clicking its `Accept party` button.
+  Click the play area once before expecting keys to arrive.
+- **`input` holds take virtual-key codes**, not names: W 87, A 65, S 68, D 83, Q 81, E 69, G 71 (use),
+  P 80 (pause), F 70 (save), B 66 (act), Enter 13 (pacing), Space 32. The declared keys are listed in
+  [`../src/PartyRpg.Host/README.md`](../src/PartyRpg.Host/README.md).
+- Keys are held, not tapped, and the panel's `Position` row is the feedback loop: turn until the bearing is
+  right, walk, re-read. At 60 steps a second a held `W` walks about 382 units a second and a held `Q`/`E`
+  turns about 512 facing units a second (2048 to a turn). The panel cannot tell a blocked direction from an
+  input that never arrived.
+- **Read the panel's rows, not a screenshot, for exact words**: `inspect` returns each matched element's
+  `innerText`; `.crawler-session dt` / `dd` give the facts in order, `.crawler-use-result` and
+  `.crawler-use-residue` the last use's sentence and residue, and the panel's `data-*` attributes and its
+  `data-problems` list are the product's own words for the same facts.
+- A session whose `Admitted steps` and `Simulation` stop moving is not stepping (a replaced runtime under an
+  old page, for one): stop and start the playtest session, then re-accept the party.
 
 ## Cleanup
 
-`playtest stop SESSION` releases the browser slot for another lane; the pool is not single-session. Leave
-the staged packs in place while the check is being read — a lane that stages over another lane's scenario
-is the same collision in a quieter form — and stage A back to what the repository says it is.
+`playtest stop SESSION` releases the browser slot. When the check is done, put tracked content back — the
+bundle (`git checkout -- content/partyrpg/bundles`) and any tracked file a variant touched — move any pack
+set aside back into the import root, and stop the host. Publish the readings a document will cite as a small
+text record under [`evidence/`](evidence/README.md): no screenshots, saves, game data, or LAN addresses.

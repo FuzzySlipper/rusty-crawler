@@ -16,19 +16,22 @@ Implemented today:
 - `ProductIdentity` declares the product id, title, projection stream and contract, and the two
   input names once; the project file declares the same values, and the host suite (`ControlDeclarationTests`,
   which reads the constants by reference and the project file as XML) fails when the two drift.
-- The project file declares the product metadata, the `session.pause-toggle` intent and its key
-  mapping, the movement intents and their keys, the save control (`session.save` on F), the use control
-  (`party.use` on G, using whatever the party faces), the service and conversation ways out, the stop
-  controls, the act control (`party.attack` on B, held, so a held key keeps attacking as each member's
-  recovery elapses — the donor's own key and trigger), the pace controls (the toggle `combat.turn-based` on
-  Enter, the original's own key, and the two turn actions `combat.turn-skip` on K and `combat.turn-wait` on
-  Y), the creation screen's two controls
-  (`creation.advance` on Enter and `creation.accept` on Space) with the `crawler.ui` payload channel
-  its choices and its panel buttons arrive on, and the TypeScript build target.
+- `BuiltInBundles` is the compiled list of bundles the product will start from, and `ProductStart` reads
+  whether a start is fresh or resumed from `RUSTY_CRAWLER_START` (a resume with nothing saved is refused by
+  name rather than starting fresh).
+- The project file declares the product metadata and 23 input intents, each digital with its key: pause
+  (`session.pause-toggle`, P) and save (`session.save`, F); the movement intents (W/S/A/D, Q/E, Space); use
+  (`party.use`, G); the ways out of a counter and a conversation (`service.leave`, X; `conversation.leave`,
+  Escape); the stops (`rest.rest` R, `rest.camp` C, `rest.wait-dawn` T, `rest.wait-hour` H,
+  `rest.wait-five-minutes` M); the act control (`party.attack`, B, held, so a held key keeps attacking as each
+  member's recovery elapses — the donor's own key and trigger); the pace controls (`combat.turn-based` on
+  Enter, the original's own key, and `combat.turn-skip` K and `combat.turn-wait` Y); and creation's two
+  (`creation.advance` Enter, `creation.accept` Space). Everything that names a row — a choice at creation, a
+  counter's offer, a topic, a spell and its target, a mix — arrives as a payload action on the `crawler.ui`
+  channel, declared beside them. The TypeScript build target is declared there too.
 
-Still to come: bundle selection, launcher and diagnostics surfaces, content bundles, and the gameplay
-intents (a look or aim control, screen keys, and casting) that arrive with the stones that implement
-them.
+Not declared: a look or aim control and a launcher; `docs/live-checks.md` covers how a check selects content
+instead.
 
 Boundary rules:
 

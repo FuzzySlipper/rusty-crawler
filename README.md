@@ -7,61 +7,22 @@ party-centric, first-person RPGs in the Might and Magic VI/VII/VIII tradition.
 The party is the durable center of gravity: a small band of characters shares one
 world, one clock, one purse, and one unfolding expedition.
 
-Might and Magic VI, VII, and VIII are the first compiled ruleset, compatibility
-corpus, content source, and game-bundle family. They are not the implicit
-PartyRpg architecture.
+Might and Magic VII: For Blood and Honor is the first compiled ruleset, content
+source, and game bundle, and the only game recreated; VI and VIII are donor context
+only. It is not the implicit PartyRpg architecture.
 
 The working formula is: **Engine guarantees. Kit shapes. Ruleset decides.
 Bundle assembles. Host launches.**
 
-> **Current state: foundation stone 6 is in progress.** The spine, the world, the party and its
-> resources, the one clock and calendar, character creation, what a crossing costs, the one interaction
-> mechanism with its doors, containers and people, every shipped service kind, schedules, rest and
-> camping, conversations, combat's first landing, attack resolution, and now the other half of a fight —
-> monsters — have landed: a session with imported content walks its party, settles what it spends, talks to
-> the people it meets, and fights, over the live world, in real time, paced by one recovery quantity per
-> actor, with hostility as world state rather than a mode flag, with every attack resolving into a hit or a
-> miss, damage its target's resistance may take a share of, the condition the blow leaves, and the death a
-> character's own health decides, and with an imported place holding real opposition: 1,800 encounters
-> emitted from the levels' own spawn records across 72 places, resolved by this game's own draw into 1,900 to
-> 5,458 creatures when a place is populated, each driven by this game's own policy — the
-> monster table's AI class, movement, speed, second attack, and spells, and the shipped hostility matrix
-> between kinds — through the same gated entry the player's control uses. A creature the party brings down
-> leaves a corpse where it fell, searchable through the same container mechanism a chest is, holding what
-> this game's own treasure tables say the death left: the monster table's cell for the row that fell, and
-> the item table's own weights drawn under a key that names the death, so the same kill yields the same
-> loot. The same fight is played in either pacing: real time by recovery, or turn-based in rounds — one
-> toggle, initiative read from that same recovery, an action phase and the party's movement phase, skip and
-> wait, and a session that waits for each of the player's committed turns instead of stepping the world. What
-> combat does not do yet is let a creature see its way around geometry: one that cannot see its target
-> walks straight at it, because no place carries a navigation projection yet.
-> Magic has landed as a catalog, learning, one casting workflow, and what a spell does: nine schools and
-> their 99 spells read from the shipped table with this game's own numbers beside them, spell books bought at
-> a guild and consumed into a character's spellbook, one casting workflow shared by exploration and combat
-> with the spell points the ruleset derives for each character, a quick spell each, and all eight effect
-> categories applied through the seam — harm through the fight's own resolution, health through a member's
-> pool, conditions through the condition model, wards and hastes through the effects the fight reads, light
-> through a deadline on the one clock, travel through the world's own transition path, detection over the
-> places the world holds, and the utilities through the state they change. `docs/magic-coverage.md` states,
-> per spell, how far each one is expressed. Quests are landed with them: one owner of what a party has been
-> offered, taken, and finished, definitions a pack states over the 512 shipped quest rows, objectives that
-> read the fight's deaths, the pack, the world's places, the conversation's records, and the party's flags,
-> and one turn-in that pays experience, coin, items, and records to their own owners. The party keeps a
-> record beside them: a journal whose dated lines are written by the owners of the events themselves — the
-> place the world reports, each moment of an errand, a rank taken, a person met, a notable find — with the
-> same event written once, dated in game time rather than wall time, bounded so it cannot grow without
-> limit, and carried through a save as the game time it happened at. Its five books (current quests, auto
-> notes, maps, calendar, and history) are one projection the panel renders without deciding anything: the
-> quests are read from the quest owner, the notes from the knowledge owner, the maps from the map owner the
-> automap is drawn from, the calendar from the one clock, and the history from the journal itself. Knowledge
-> is landed beside them: the facts a party can look up again, dated by the one clock and kept apart from the
-> world's per-place state, and the automap with it — a per-place set of squares the party has walked, filled
-> as it sees ground, drawn from each place's own map (a region's terrain at its own tile pitch, an interior's
-> own outlines rasterised), projected as runs of squares with the party's position and facing and the marks on
-> ground already seen, kept when the world restores a place, carried by a save, and with a detection adding
-> exactly what its own spell states as a live reading that walks nothing. The shipped bundle carries no
-> content — so a running product without imported packs reports no world and no party.
-> See [`AGENTS.md`](AGENTS.md) for the exact current state.
+> **Current state.** Foundation stones 1 and 2 are closed; stones 3 to 8 (world, party, interaction and
+> services, combat, progression and magic, quests and knowledge) have each landed their mechanism and each
+> still carries open residue that Den tasks receive; stone 9 (breadth) has not started. With the
+> operator's imported packs selected, a session creates or resumes a party, walks it through the imported
+> world, pays for crossings, fares and nights, opens doors and containers, talks, trades, trains, learns
+> and casts spells, fights in real time or in rounds, takes and turns in errands, and keeps a dated journal,
+> notes and an automap it can save and resume. The shipped bundle selects no packs, so a product without
+> them reports no world and no party. [`AGENTS.md`](AGENTS.md) states the shape and lists the residue with
+> each receiver; the project READMEs under [`src/`](src/README.md) hold the per-mechanism detail.
 
 ## Ownership
 
@@ -157,12 +118,12 @@ current.
 | Path | Holds |
 | --- | --- |
 | [`AGENTS.md`](AGENTS.md) | The working contract: direction, ownership, boundary rules, donor posture, git and documentation conventions. |
-| [`docs/`](docs/README.md) | Durable documents: the [gameplay design](docs/gameplay-design.md), the [code organization](docs/code-organization.md), the [research notes](docs/research/), and the [review lane model](docs/agent-review/README.md). |
+| [`docs/`](docs/README.md) | Durable documents: the [gameplay design](docs/gameplay-design.md), the [code organization](docs/code-organization.md), the [research notes](docs/research/), the [live-check procedure](docs/live-checks.md) and its published [evidence](docs/evidence/README.md), and the [review lane model](docs/agent-review/README.md). |
 | [`src/`](src/README.md) | The product graph: kit, ruleset, host, importer and its tool, and the product DOM companion. |
 | [`tests/`](tests/README.md) | The suites, including the architecture suite that enforces the ownership laws. |
-| [`content/`](content/README.md) | Loaded content: bundles, authored content packs, and per-region imports produced offline. |
-| [`data/`](data/README.md) | Small checked-in reference tables a person maintains. |
-| `scripts/` | Engine pair installation and pin movement, and `verify.sh`. |
+| [`content/`](content/README.md) | Loaded content: the shipped bundle, and the packs the importer writes offline (never committed). |
+| `scripts/` | `verify.sh`, the one verification entry. The Engine pair is installed and moved by the Engine's own `rusty` command. |
+| [`tools/`](tools/portable-assets-example/README.md) | An independent Engine example product, built by `verify.sh` so it keeps compiling against the pin; not part of the product graph. |
 
 For every task, identify:
 
@@ -283,10 +244,10 @@ emits each place's collision geometry into the world pack, in the engine's own s
 refuses a place whose solid faces cannot be closed enough for a party to stand on — the shape and the
 rules are in [`docs/research/mm7-map-formats.md`](docs/research/mm7-map-formats.md) §8.
 
-Den serves the product through `.den-serve.json` on port 4176. A second target on another port, with its
-own content root, is how two lanes run live checks at once; the procedure — which content root may be
-staged into, how a pack directory and a bundle are named, how the panel is driven and read, and what a
-refused start looks like — is in [`docs/live-checks.md`](docs/live-checks.md).
+Den serves the product through `.den-serve.json` (preferred port 4176, `--live-debug`). The procedure for
+a live check — serving a checkout of its own, staging content and a pose, driving and reading the panel
+through the playtest service, and restoring tracked content afterwards — is in
+[`docs/live-checks.md`](docs/live-checks.md); published readings are in [`docs/evidence/`](docs/evidence/README.md).
 
 ## Guidance and proof
 

@@ -2,8 +2,8 @@
 
 Status: **the owner map the code is built to.** It fixes where things belong, so a
 task does not have to invent the seams; it describes owners and boundaries, not
-APIs. What has actually landed, and what has not, lives in
-[`../AGENTS.md`](../AGENTS.md) under "Current state" rather than here.
+APIs. The owners below exist in `src/`; what each implements is in its project
+README, and the open residue is in [`../AGENTS.md`](../AGENTS.md) under "Current state".
 
 Read it with [`gameplay-design.md`](gameplay-design.md), which defines the shape
 being expressed, and [`../AGENTS.md`](../AGENTS.md), which owns the vocabulary,
@@ -23,8 +23,7 @@ PartyRpg.Host  (one product entry; selects ruleset, bundle, defaults)
 TypeScript UI  (DOM presentation of projections; semantic actions back)
 ```
 
-The rules are one-directional and enforced by an architecture suite once the
-projects exist:
+The rules are one-directional and enforced by `tests/PartyRpg.Architecture.Tests`:
 
 - **Kit never names the game.** No `MightAndMagic`, no edition names, no place,
   class, skill, spell, monster, or item names, no donor names, no source-file
@@ -56,13 +55,13 @@ Working names; the responsibilities are the contract, the names are not.
 | --- | --- | --- |
 | Session | The one live session: its clock, party, world, mode, and saved state; composed from a compiled ruleset + bundle + content packs | Rules, formulas, content meaning |
 | Ruleset contract | The typed seam a ruleset implements: catalogs it supplies, policy it answers, session services it composes | Any concrete rule |
-| Party | **The party entity** and every component attached to it: roster and members, shared inventory, equipment by member, shared purse, food, reputation and fame, followers, running effects, records, holdings, passages and memberships (each its own component), party position in the world. Session mechanisms address the party, not four loose characters | Per-character detail; world state; any per-character pack |
+| Party | **The party entity** and every component attached to it: roster and members, shared inventory, equipment by member, shared purse, food, reputation and fame, followers, running effects, records, holdings, passages and memberships (each its own component). Session mechanisms address the party, not four loose characters | Per-character detail; world state, including where the party stands (the World owner's pose); any per-character pack |
 | Character | Per-character attributes, resources, conditions, skills with mastery and level, spellbook, experience, level, rank, path — and **only the items it has equipped** | How a class grows; what a rank allows; items it is not wearing |
 | Creation | The character-creation flow and its validation, driven by ruleset-supplied choices and budgets | The ruleset's class tables |
 | Skills | Skill catalog shape, per-character skill entries, the raise a spent point buys, tier values, training sources as world entities | Which class may learn what, and to which tier; the skill-point pool itself (the Progression owner holds it) |
 | Magic | Spell catalog shape, known spells, casting workflow (validate → cost → target → apply), buffs with game-time duration, item-borne casting | School lists, costs, tiers, and per-spell effect policy |
 | Combat | One combat state over the live world: pacing mode, per-actor recovery, turn queue, attack execution, effect and condition application, monster AI coordination, corpses and loot | Damage formulas, monster definitions, condition meanings |
-| World | The place graph, entry points, transitions with cost, entity population, spatial stepping, per-place runtime state, spawn and respawn | What a place contains (content), how it looks (Engine + media) |
+| World | The place graph, entry points, transitions with cost, the party's one pose, entity population, spatial stepping, per-place runtime state and interaction state, spawn and respawn | What a place contains (content), how it looks (Engine + media) |
 | Knowledge | The facts a party can look up again: notes keyed by kind, subject, and place, dated by the one clock and bounded | Where a fact was learned (the place's own state)
 | Maps | What a party has walked: a per-place set of seen squares over the place's own map, bounded by that grid and by the game's sight rule, and the drawing projected from it (the window, the runs of seen squares, the marks, the party's pose) | The place's own map — content's raster — and the world's state; a detection's reveal, which is a live reading and never a square |
 | Journal | The party's dated record: lines reported by the owners of the events, five books their facts are read through, bounded | Quest definitions; the world's own place knowledge; what a book's owner holds |
@@ -126,7 +125,8 @@ Rules:
   overwrites an import silently.
 - Every imported pack records its source: game, release or build, importer
   revision, and what was transformed.
-- Original game data is never committed; extracted tables stay in `local/`.
+- Original game data is never committed; extracted tables stay in the operator's
+  ignored local tree.
 
 ## 6a. The content pack envelope
 
@@ -213,11 +213,14 @@ advance by hand, so none can forward it to the wrong audience.
 ## 10. Persistence
 
 A save is a snapshot of the session: the party (members with skills, spells,
-progression, and path; the shared inventory; each member's equipment), clock and
-calendar, current place and position, per-place world state, knowledge, quest
-state, containers and loose world items, and the scenario flags. Transient things
-— in-flight combat pacing, open screens, target selections, AI intentions — are
-deliberately dropped and rebuilt on load.
+progression, and path; the shared inventory; each member's equipment; its records,
+which hold the scenario flags), the clock's elapsed game time, current place and
+pose, per-place world state, quests, journal, knowledge, and the automap. Transient
+things — movement outcomes, projections, open screens, target selections, AI
+intentions, runtime entities — are deliberately dropped and rebuilt on load. What a
+save should carry and does not yet is residue with a receiver in
+[`../AGENTS.md`](../AGENTS.md): per-target interaction state, clock deadlines, and a
+fight in progress.
 
 One current schema during development. No versions, migrations, compatibility
 readers, or original-format support.

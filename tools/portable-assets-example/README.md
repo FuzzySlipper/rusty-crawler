@@ -1,6 +1,10 @@
 # Portable asset consumer
 
-Small independent Engine product on the repository's pinned SDK/runtime pair.
+Small independent Engine product on the repository's pinned SDK/runtime pair. It is not part of the
+Rusty Crawler product graph: it is kept here as a worked example of consuming portable assets on this
+repository's pin, and `scripts/verify.sh` builds it (the architecture suite requires every project outside
+`tests/` in that list) so a pin move that breaks it is seen. Its own product entry is not an entry into
+Rusty Crawler; the one-entry law reads `src/` only.
 It loads a directional sprite atlas and animated GLB through
 `PortableAssetContent`, without a Workbench dependency or descriptor parser.
 

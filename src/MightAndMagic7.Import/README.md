@@ -1,12 +1,11 @@
 # MightAndMagic7.Import
 
-Planned home of offline knowledge about the original Might and Magic VII data
-files and about the donor projects that document them. The extraction source is
-the operator's own installation at
-`/home/research/old-games/game-mm7`; extracted data stays in ignored
-`local/` paths and is never committed.
+Offline knowledge about the original Might and Magic VII data files and about the
+donor projects that document them. The extraction source is the operator's own
+installation (by default `/home/research/old-games/game-mm7`); what it extracts
+stays outside the repository and is never committed.
 
-Owns, once implemented:
+Owns:
 
 - Source formats: the original archive, rule-table, map, sprite, sound, and image
   formats, with the structure layouts this repository relies on.
@@ -65,4 +64,4 @@ the reaches a walking party can take its transitions through included. The sourc
 [`../../docs/research/mm7-data-inventory.md`](../../docs/research/mm7-data-inventory.md),
 [`mm7-map-formats.md`](../../docs/research/mm7-map-formats.md), and
 [`mm7-media-formats.md`](../../docs/research/mm7-media-formats.md). The Python
-extractors under ignored `local/tools/` are research tools, not this project.
+extractors in the operator's ignored local tree are research tools, not this project.

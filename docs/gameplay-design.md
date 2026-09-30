@@ -1,6 +1,7 @@
 # Gameplay design: the shape of the game
 
-Status: **design intent for a product that does not exist yet.** This document
+Status: **the design the product is built to.** Stones 1 to 8 have landed against
+it (their open residue is listed in [`../AGENTS.md`](../AGENTS.md)). This document
 fixes the *shape* of the game — what the player does, what systems must therefore
 exist, and how faithful each one is meant to be. It deliberately does not fix
 tuning, formulas, or interfaces; those belong to the ruleset, the content, and
@@ -392,7 +393,7 @@ The rules that make that work:
   never a boundary on what a stone must handle.
 
 The stones, in dependency order — each line is a capability class, not a task
-list, and the coverage plan will break them into tasks:
+list, and each is a Den campaign (`rusty-crawler#8454` to `#8462`) whose tasks carry it:
 
 1. **Product and engine shell.** Host entry, lifecycle, one admitted update,
    input intents, staging, and the UI shell that later stones render into.

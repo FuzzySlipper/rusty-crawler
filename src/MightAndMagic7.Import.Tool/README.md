@@ -1,8 +1,8 @@
 # MightAndMagic7.Import.Tool
 
-Planned operator-facing command line that drives `MightAndMagic7.Import`:
-inspect a source file, import an operator-supplied game installation, and write
-normalized packs under `content/`.
+The operator-facing command line (`mm7import`) that drives `MightAndMagic7.Import`:
+inspect a source file, check an operator-supplied game installation against the
+recorded inventory, and write normalized packs under `content/partyrpg/imports`.
 
 Boundary rules:
 

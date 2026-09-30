@@ -5,13 +5,13 @@ require a product rebuild, and content never carries code. The four content kind
 and the rule that regeneration never overwrites authored work are fixed in
 [`../docs/code-organization.md`](../docs/code-organization.md).
 
-Planned layout:
+Layout:
 
 | Path | Holds |
 | --- | --- |
-| `partyrpg/bundles/` | Game-bundle declarations: which ruleset, content packs, and tuning profiles a launchable product selects. |
-| `partyrpg/content-packs/` | Authored **definitions** (classes, races, skills, spells, monsters, items, services, quests, conditions, places), **tuning** profiles, and **scenario** state. |
-| `partyrpg/imports/<place>/` | Imported world content produced offline from an operator-supplied installation: geometry, spatial data, media, normalized tables, and the provenance that records game, build, source file, and transformation. Imports are generated; their sources stay outside the repository. |
+| `partyrpg/bundles/` | Game-bundle declarations: which ruleset, content packs, and tuning profiles a launchable product selects. The shipped `partyrpg-default` selects none until the operator names imported packs. |
+| `partyrpg/content-packs/` | The authored root: **definitions**, **tuning** profiles, and **scenario** state that are ours rather than imported. None is committed today. |
+| `partyrpg/imports/<pack>/` | Packs `mm7import write` produces offline from an operator-supplied installation: tables, places and their collision artifacts, placements, encounters, maps, and the provenance that records game, build, source file, and transformation. Generated and never committed. |
 
 Boundary rules:
 
@@ -25,4 +25,5 @@ Boundary rules:
 - Definitions are data, not code: if content seems to need behavior, the
   behavior belongs in the ruleset and the content should carry the values.
 
-Only this README exists so far; no content is checked in.
+What is checked in is this README, the two directory READMEs, and the default bundle; every pack the
+product plays is generated from the operator's own data.
