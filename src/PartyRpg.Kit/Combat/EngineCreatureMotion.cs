@@ -34,23 +34,6 @@ namespace PartyRpg.Kit.Combat;
 /// </remarks>
 public sealed class EngineCreatureMotion : ICreatureMover
 {
-    /// <summary>How far ahead the engine's navigation is asked to look for a walkable step, in place units.</summary>
-    /// <remarks>
-    /// A creature steers at the next walkable waypoint rather than at its target, so a wall between the two
-    /// is walked around instead of pushed against. The distance is the scale of a doorway or a corridor
-    /// bend in this game's places; it is not a claim about the creature's stride, because the engine's own
-    /// character step is what moves it.
-    /// </remarks>
-    private const float NavigationStepUnits = 512;
-
-    /// <summary>How many navigation cells one steering query may visit before it gives up.</summary>
-    /// <remarks>
-    /// A budget rather than a promise: a creature that cannot find a way walks straight at its target, which
-    /// is what this mover did before it asked at all, and a query that explored a whole region every update
-    /// for every creature would cost more than the fight it serves.
-    /// </remarks>
-    private const uint NavigationBudget = 1024;
-
     private readonly ISpatialService _spatial;
     private readonly EnginePartyMover _scene;
     private readonly PlaceSpace _space;
@@ -199,7 +182,7 @@ public sealed class EngineCreatureMotion : ICreatureMover
         if (_scene.Current is not { NavigationCells: > 0 }) return target;
 
         NavigationStepResult nav = _spatial.EvaluateNavigationStep(
-            new NavigationStepRequest(_scene.Session, position, target, NavigationStepUnits, NavigationBudget));
+            new NavigationStepRequest(_scene.Session, position, target, _scene.Navigation.SteeringStep, _scene.Navigation.SteeringBudget));
 
         // Only a path the engine found names a waypoint; any other outcome — no path, a budget spent, an end
         // that is not walkable — leaves the creature walking straight at what it wants.

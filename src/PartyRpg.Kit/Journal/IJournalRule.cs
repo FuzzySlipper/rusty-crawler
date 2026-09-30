@@ -7,7 +7,7 @@ namespace PartyRpg.Kit.Journal;
 /// <remarks>
 /// <para>
 /// This is the ruleset's whole contribution to the journal, and it is deliberately three answers rather than
-/// one. <see cref="Book"/> is the words: the five books' names and what each says when it holds nothing or
+/// one. <see cref="Book"/> is the words: the books' names and what each says when it holds nothing or
 /// cannot be filled, which is presentation meaning and belongs to the game whose manual names them.
 /// <see cref="Phrase"/> is how a line about one kind of event begins — "entered", "took on", "met" — which is
 /// the sentence a person reads in their own record. <see cref="WorthRecording"/> is the threshold: whether an
@@ -21,12 +21,18 @@ namespace PartyRpg.Kit.Journal;
 /// <para>
 /// <b>A session whose ruleset states no journal has none.</b> A product composed without one holds no record
 /// of where the party has been or what it did, and its projection says the mechanism is not there rather
-/// than showing five empty books.
+/// than showing empty books.
 /// </para>
 /// </remarks>
 public interface IJournalRule
 {
-    /// <summary>What this game calls one of the five books, and what it says when it holds nothing.</summary>
+    /// <summary>
+    /// The books this game's journal keeps, in the order a panel shows them. Each is a kind of page the kit
+    /// knows how to fill from its owner; which of them a game keeps, and in what order, is the game's.
+    /// </summary>
+    IReadOnlyList<JournalBookKind> Books { get; }
+
+    /// <summary>What this game calls one of its books, and what it says when it holds nothing.</summary>
     /// <param name="book">Which book.</param>
     /// <returns>The book's words.</returns>
     JournalBookWords Book(JournalBookKind book);

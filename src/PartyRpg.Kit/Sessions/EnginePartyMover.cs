@@ -78,22 +78,25 @@ public sealed class EnginePartyMover : IPartyMover
     /// <param name="spatial">The engine service that owns the collision scene and resolves character steps.</param>
     /// <param name="movement">The party's movement owner, whose scene this fills with places' geometry.</param>
     /// <param name="content">The engine's content owner, which retains the artifact document a place provides.</param>
+    /// <param name="navigation">The game's navigation policy, which artifacts are admitted under and creatures steer by.</param>
     /// <param name="geometry">Where places' artifacts come from. Without one every place has no geometry.</param>
-    /// <param name="navigation">The navigation policy artifacts are admitted under.</param>
     /// <exception cref="ArgumentNullException">A required collaborator is missing.</exception>
     public EnginePartyMover(
         ISpatialService spatial,
         PartyMovement movement,
         IContentService content,
-        IPlaceGeometrySource? geometry = null,
-        PlaceNavigationPolicy? navigation = null)
+        PlaceNavigationPolicy navigation,
+        IPlaceGeometrySource? geometry = null)
     {
         _spatial = spatial ?? throw new ArgumentNullException(nameof(spatial));
         _movement = movement ?? throw new ArgumentNullException(nameof(movement));
         _content = content ?? throw new ArgumentNullException(nameof(content));
         _geometry = geometry;
-        _navigation = navigation ?? new PlaceNavigationPolicy();
+        _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
     }
+
+    /// <summary>The game's navigation policy, which a creature walking in the same scene steers by.</summary>
+    public PlaceNavigationPolicy Navigation => _navigation;
 
     /// <summary>What the scene holds for the place the party is in, or null before it entered one.</summary>
     public PlaceGeometryAdmission? Current { get; private set; }

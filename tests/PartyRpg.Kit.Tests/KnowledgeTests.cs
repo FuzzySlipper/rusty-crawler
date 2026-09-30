@@ -564,6 +564,9 @@ public sealed class KnowledgeTests
     /// <summary>This suite's journal: five books with the test's own words, so the notes book can be read.</summary>
     private sealed class TestJournal : IJournalRule
     {
+        public IReadOnlyList<JournalBookKind> Books { get; } =
+            [JournalBookKind.Quests, JournalBookKind.Notes, JournalBookKind.Maps, JournalBookKind.Calendar, JournalBookKind.History];
+
         public JournalBookWords Book(JournalBookKind book) => book switch
         {
             JournalBookKind.Quests => new("Current Quests", "no errands", "no quests stated"),

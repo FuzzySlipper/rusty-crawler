@@ -119,7 +119,7 @@ public sealed class EngineMovementTests
     {
         PartyPoseOwner party = new(new PartyPose(Place, PlacePose.Origin), Facing);
         PartyMovement movement = new(spatial, party, Space, new SpatialSessionConfig(0.5, 16, VoxelSurfaceMode.GreedyCubes));
-        EnginePartyMover mover = new(spatial, movement, new ScriptedContentService(), new OnePlace());
+        EnginePartyMover mover = new(spatial, movement, new ScriptedContentService(), new PlaceNavigationPolicy(0, 16, 4, 512, 1024), new OnePlace());
         return (mover, new EngineCreatureMotion(spatial, mover, Space, spatial.DefaultCharacterControllerConfig()));
     }
 

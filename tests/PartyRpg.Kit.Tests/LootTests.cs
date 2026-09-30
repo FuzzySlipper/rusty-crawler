@@ -337,7 +337,7 @@ public sealed class LootTests
         internal int Draws => _random.Draws;
 
         /// <summary>What one death leaves: two six-sided dice of coin and one item of the first level.</summary>
-        private static readonly TreasureRoll Death = new(100, 2, 6, 1, LootFilter.Any);
+        private static readonly (int GoldRolls, int GoldSides, int Level, LootFilter Filter) Death = (2, 6, 1, LootFilter.Any);
 
         public void Died(CreatureDeath death)
         {

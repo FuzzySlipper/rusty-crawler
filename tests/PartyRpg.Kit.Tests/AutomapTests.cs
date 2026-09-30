@@ -643,6 +643,9 @@ public sealed class AutomapTests
     /// <summary>This suite's journal policy, which only has to name its books.</summary>
     private sealed class TestJournal : IJournalRule
     {
+        public IReadOnlyList<JournalBookKind> Books { get; } =
+            [JournalBookKind.Quests, JournalBookKind.Notes, JournalBookKind.Maps, JournalBookKind.Calendar, JournalBookKind.History];
+
         public JournalBookWords Book(JournalBookKind book) => new(
             JournalBook.Word(book),
             "nothing",

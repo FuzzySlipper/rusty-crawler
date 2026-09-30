@@ -1,5 +1,6 @@
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Sessions;
 using Rusty.Engine;
 
 namespace PartyRpg.Rulesets.MightAndMagic7;
@@ -191,6 +192,14 @@ internal static class MightAndMagic7Movement
 
     /// <summary>What a landing past the threshold does to each member, as this game prices it.</summary>
     internal static IFallRule Falls { get; } = new FallDamage();
+
+    /// <summary>
+    /// How this game's places are navigated: artifacts projected into one grid in cubic chunks of sixteen cells
+    /// with a four-cell climb, and a creature steering half a tile ahead — the width of a doorway or a corridor
+    /// bend in these places — with a thousand-cell budget before it walks straight at what it wants.
+    /// </summary>
+    /// <remarks>Ours: no donor states a steering distance, and these are the values the kit used to assume.</remarks>
+    internal static PlaceNavigationPolicy Navigation { get; } = new(GridId: 0, ChunkSize: 16, MaxStepCells: 4, SteeringStep: 512, SteeringBudget: 1024);
 
     /// <summary>
     /// The donor's fall damage: the whole distance fallen, times a tenth of the member's maximum health, over

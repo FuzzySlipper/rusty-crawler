@@ -277,7 +277,7 @@ internal static class MightAndMagic7World
             ? new ContentPlaceGeometry(catalog, GeometryDefinitionKind, GeometryArtifactProperty)
             : null;
 
-        EnginePartyMover mover = new(spatial, movement, engine.Content, geometry);
+        EnginePartyMover mover = new(spatial, movement, engine.Content, MightAndMagic7Movement.Navigation, geometry);
         return (mover, new EngineCreatureMotion(spatial, mover, MightAndMagic7Movement.Space, tuning.Controller));
     }
 

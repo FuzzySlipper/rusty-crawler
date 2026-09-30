@@ -1,9 +1,9 @@
 namespace PartyRpg.Kit.Journal;
 
-/// <summary>One of the books a party's journal is kept in.</summary>
+/// <summary>A kind of book a party's journal can keep: a page the kit knows how to fill from its owner.</summary>
 /// <remarks>
-/// The five are the design's own set of books rather than a screen's tabs: quests, notes, maps, calendar, and
-/// history. What each holds is a different owner's reading — the quest owner's errands, the knowledge owner's
+/// Which of these a game keeps, and in what order, is the game's answer (<see cref="IJournalRule.Books"/>). What
+/// each holds is a different owner's reading — the quest owner's errands, the knowledge owner's
 /// discoveries, the world's places, the clock's date, this journal's own dated lines — so no book is a copy of
 /// another and none of them is computed by a screen.
 /// </remarks>
@@ -25,7 +25,7 @@ public enum JournalBookKind
     History,
 }
 
-/// <summary>What a game calls one of the five books, and what it says when the book holds nothing.</summary>
+/// <summary>What a game calls one of its books, and what it says when the book holds nothing.</summary>
 /// <remarks>
 /// The words belong to the ruleset rather than to the kit, exactly as every other piece of presentation
 /// meaning does: a game's books are named in its own manual, and a kit that spelled them itself would be
@@ -52,7 +52,7 @@ public readonly record struct JournalBookWords(string Title, string Empty, strin
 /// <param name="Marked">Whether the owner marks this row, which a screen shows as done rather than working out.</param>
 public readonly record struct JournalBookRow(string Id, string Label, string Detail = "", string State = "", bool Marked = false);
 
-/// <summary>One of the five books as a session can fill it.</summary>
+/// <summary>One of the books as a session can fill it.</summary>
 /// <remarks>
 /// <para>
 /// <b>A book that cannot be filled is not an empty book.</b> "This session holds no owner that keeps notes"
@@ -66,7 +66,7 @@ public readonly record struct JournalBookRow(string Id, string Label, string Det
 /// anything having had to notice.
 /// </para>
 /// </remarks>
-/// <param name="Kind">Which of the five books this is.</param>
+/// <param name="Kind">Which kind of book this is.</param>
 /// <param name="Title">What the game calls it.</param>
 /// <param name="Available">Whether the session holds the owner that fills it.</param>
 /// <param name="State">What the game says about it: what it holds, why it is empty, or what is missing.</param>
@@ -78,20 +78,6 @@ public sealed record JournalBook(
     string State,
     IReadOnlyList<JournalBookRow> Rows)
 {
-    /// <summary>The five books, in the order a journal keeps them.</summary>
-    /// <remarks>
-    /// The order is stated here rather than left to whichever enumeration a caller happens to walk, so the
-    /// books a panel shows are the same books in the same order on every projection.
-    /// </remarks>
-    public static IReadOnlyList<JournalBookKind> All { get; } =
-    [
-        JournalBookKind.Quests,
-        JournalBookKind.Notes,
-        JournalBookKind.Maps,
-        JournalBookKind.Calendar,
-        JournalBookKind.History,
-    ];
-
     /// <summary>The word the projection spells one book's kind with.</summary>
     /// <param name="kind">The kind.</param>
     /// <returns>The word.</returns>

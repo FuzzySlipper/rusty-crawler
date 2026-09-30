@@ -149,4 +149,12 @@ public sealed record PlaceGeometryAdmission(
 /// <param name="GridId">The grid identity the artifact's cells are projected into.</param>
 /// <param name="ChunkSize">How many cells a navigation chunk spans; the engine requires a cubic chunk.</param>
 /// <param name="MaxStepCells">How many cells a navigation step may climb.</param>
-public sealed record PlaceNavigationPolicy(ulong GridId = 0, uint ChunkSize = 16, uint MaxStepCells = 4);
+/// <param name="SteeringStep">
+/// How far ahead, in place units, a creature asks the navigation for its next walkable waypoint: the scale of a
+/// doorway or a corridor bend in the game's places, not a claim about a stride.
+/// </param>
+/// <param name="SteeringBudget">
+/// How many navigation cells one steering query may visit before it gives up and the creature walks straight at
+/// its target.
+/// </param>
+public sealed record PlaceNavigationPolicy(ulong GridId, uint ChunkSize, uint MaxStepCells, float SteeringStep, uint SteeringBudget);

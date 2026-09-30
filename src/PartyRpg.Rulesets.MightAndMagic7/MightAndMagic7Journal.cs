@@ -54,6 +54,17 @@ internal sealed class MightAndMagic7Journal : IJournalRule
     internal MightAndMagic7Journal(MightAndMagic7Loot? loot = null) => _loot = loot;
 
     /// <inheritdoc />
+    /// <remarks>The manual's own five books, in its own order (<c>docs/research/mm7-manual-outline.md</c> p.165).</remarks>
+    public IReadOnlyList<JournalBookKind> Books { get; } =
+    [
+        JournalBookKind.Quests,
+        JournalBookKind.Notes,
+        JournalBookKind.Maps,
+        JournalBookKind.Calendar,
+        JournalBookKind.History,
+    ];
+
+    /// <inheritdoc />
     public JournalBookWords Book(JournalBookKind book) => book switch
     {
         JournalBookKind.Quests => new(

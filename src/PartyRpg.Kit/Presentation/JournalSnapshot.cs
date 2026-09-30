@@ -24,7 +24,7 @@ public readonly record struct JournalRowSnapshot(
     string Source,
     bool Marked);
 
-/// <summary>One of the five books, as the panel shows it.</summary>
+/// <summary>One of the journal's books, as the panel shows it.</summary>
 /// <remarks>
 /// The book's words are the ruleset's, its rows are read from the owner that holds each fact at the moment
 /// the projection is built, and its state says what it holds or why it holds nothing. A book whose owner the
@@ -43,7 +43,7 @@ public readonly record struct JournalBookSnapshot(
     string State,
     IReadOnlyList<JournalRowSnapshot> Rows);
 
-/// <summary>The party's journal as the panel needs it: its five books, and what each holds.</summary>
+/// <summary>The party's journal as the panel needs it: its books, and what each holds.</summary>
 /// <remarks>
 /// <para>
 /// <b>The books are readings of the owners that hold their facts, not copies kept here.</b> The quests book's
@@ -55,7 +55,7 @@ public readonly record struct JournalBookSnapshot(
 /// </para>
 /// <para>
 /// <b>A session with no journal owner has no books at all.</b> Its ruleset stated no journal, so the block
-/// says the mechanism is not there and carries no list: five empty books would look exactly like a party
+/// says the mechanism is not there and carries no list: empty books would look exactly like a party
 /// that has been nowhere and done nothing.
 /// </para>
 /// <para>
@@ -65,7 +65,7 @@ public readonly record struct JournalBookSnapshot(
 /// </para>
 /// </remarks>
 /// <param name="Available">Whether the session holds a journal owner at all.</param>
-/// <param name="Books">The five books, in the order a journal keeps them.</param>
+/// <param name="Books">The books the game keeps, in its own order.</param>
 public readonly record struct JournalSnapshot(bool Available, IReadOnlyList<JournalBookSnapshot> Books)
 {
     /// <summary>No journal owner: the session's ruleset stated no journal, so there are no books.</summary>
@@ -90,7 +90,7 @@ public readonly record struct JournalSnapshot(bool Available, IReadOnlyList<Jour
         if (journal is null) return None;
 
         List<JournalBookSnapshot> books = [];
-        foreach (JournalBookKind kind in JournalBook.All)
+        foreach (JournalBookKind kind in journal.Rule.Books)
         {
             JournalBookWords words = journal.Rule.Book(kind);
             books.Add(kind switch
