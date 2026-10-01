@@ -21,7 +21,9 @@ Owns:
   path whether the casting may go ahead, pay the spell points through the member's own pool, hand the
   casting over — and the effect seam a game fills. The kit knows no spell, no school, no cost, and no
   effect: a definition carries the school's skill, the rung it asks for, the price this caster pays, what it
-  is aimed at, and an opaque effect identity, and `ISpellEffectRule` is where every effect is expressed.
+  is aimed at, and an opaque effect identity, and `ISpellEffectRule` is where every effect is expressed. An aim
+  (`SpellTargeting`) is the caster, one member, one opponent, one actor of either side (`Either`, a member first and a
+  creature the fight holds otherwise, which the projection publishes as the side `any`), or the band.
 - Magic's effect mechanisms (`Magic/Effects/`): what a game's category paths apply through. A duration is
   a deadline on the session's one clock, held by `RunningSpellEffects` and applied through the party's own
   carried effects, so a ward or a light lapses on an advance and not on a count of updates; an effect a
@@ -69,7 +71,8 @@ Owns:
   and `StealFrom` lifts from a person the party stands with — drawn by a game's `IServiceRule.Steal` as a
   `ServiceTheft` and carried out by one step whichever kind it was: coin through the ledger, goods into the pack
   with the stolen mark when the draw says so, the fine onto `PartyDebts`, the deed to `PartyProgression.Deed`, and a
-  counter's ban onto `PartyBans`; `Repay` pays coin toward what the party owes on an account a counter collects),
+  counter's ban onto `PartyBans`; `Repay` pays coin toward what the party owes on an account a counter collects; a
+  cure ends what its offer `Clears` and leaves what it `Leaves` on a member it ended something for),
   quests (`Quests/` — one owner of what a party has been
   offered, taken, and finished, with definitions a game states, objectives that read the owners already
   reporting them, and one turn-in that pays each reward to its own owner), containers, doors, travel
@@ -134,7 +137,8 @@ keeps and when that next changes, read against the clock's position rather than 
 stops a party takes on it (`PartyRest`, `FatigueWatch`, `IRestRule`, `IRestSite`: rest, camp, wait, and the
 night a rented room gives (`PartyRest.SleepInRoom`, which is the only other way to sleep and is the same sleep),
 each advancing the one clock by a game-time period, settling the day through the party's own ledger, and
-holding the debt of sleep as a deadline the clock brings due) — the compiled ruleset and session contracts, the pack envelope with its
+holding the debt of sleep as a deadline the clock brings due; a completed night fills every member and then asks the
+rule's `IRestRule.Rested` what each keeps) — the compiled ruleset and session contracts, the pack envelope with its
 catalog loader, validator and bundle resolution (`ContentCatalog.Selected` is the one place a bundle's
 selection becomes the content a session reads: the packs it named contribute, and the packs it did not
 are not loaded at all; the loader refuses the whole root by name when two packs claim one id, or an entry

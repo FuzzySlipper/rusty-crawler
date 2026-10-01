@@ -243,6 +243,9 @@ public sealed class ServiceTests
         Assert.False(counter.Member.Conditions.Has(new ConditionId("Cursed")));
         Assert.True(counter.Member.Conditions.Has(new ConditionId("Poisoned")));
         Assert.Equal(10, counter.Member.Resources.HitPoints.Current);
+
+        // What the cure says it leaves is left on the member it ended something for.
+        Assert.True(counter.Member.Conditions.Has(new ConditionId("Marked")));
     }
 
     [Fact]
@@ -560,7 +563,7 @@ public sealed class ServiceTests
             {
                 Offerings =
                 [
-                    new ServiceOffer(ServiceOfferKind.Cure, "Healing", "affliction", Value: 20, Clears: [new ConditionId("Cursed")]),
+                    new ServiceOffer(ServiceOfferKind.Cure, "Healing", "affliction", Value: 20, Clears: [new ConditionId("Cursed")], Leaves: [new ConditionId("Marked")]),
                     new ServiceOffer(ServiceOfferKind.Training, "Training", Value: 0, Limit: 2),
                     new ServiceOffer(ServiceOfferKind.Provision, "Food and drink", Value: 8, Amount: 6),
                     new ServiceOffer(ServiceOfferKind.Stay, "A room for the night", Value: 12, Amount: 8, Clears: [new ConditionId("Tired")]),

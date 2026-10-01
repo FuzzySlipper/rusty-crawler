@@ -189,7 +189,7 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
 
     /// <summary>
     /// What a completed night gives each member: both pools filled, and every condition the ruleset says a
-    /// night ends cleared, with any the night's own source adds.
+    /// night ends cleared, with any the night's own source adds; then the ruleset says what the member keeps of it.
     /// </summary>
     /// <returns>How many members recovered.</returns>
     private int Recover(RestRequest request, IReadOnlyList<ConditionId> alsoEnds, List<ConditionId> cleared)
@@ -201,6 +201,7 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
         {
             member.Resources.RestoreAll();
             foreach (ConditionId condition in ends) member.Conditions.Clear(condition);
+            _rule.Rested(request, member);
             restored++;
         }
 

@@ -85,7 +85,10 @@ internal static class MightAndMagic7Conditions
     /// <summary>Eradication, the one condition a temple charges dearest for.</summary>
     internal static readonly ConditionId Eradicated = new("Eradicated");
 
-    /// <summary>The zombie state a body raised at a temple of the dark powers comes back in.</summary>
+    /// <summary>
+    /// The zombie state a dead character is raised in by a reanimation or a temple of the dark powers
+    /// (<see cref="MightAndMagic7Undeath"/> states what it does).
+    /// </summary>
     internal static readonly ConditionId Zombie = new("Zombie");
 
     /// <summary>Good health, which the donor lists as a condition and which no counter removes.</summary>
@@ -118,8 +121,27 @@ internal static class MightAndMagic7Conditions
     [
         Cursed, Weak, Sleep, Fear, Drunk, Insane,
         PoisonWeak, DiseaseWeak, PoisonMedium, DiseaseMedium, PoisonSevere, DiseaseSevere,
-        Paralyzed, Unconscious,
+        Paralyzed, Unconscious, Zombie,
     ];
+
+    /// <summary>The afflictions a temple of the dark powers ends, which is every one but the zombie state it keeps.</summary>
+    private static readonly IReadOnlyList<ConditionId> DarkAfflictions = [.. Afflictions.Where(condition => condition != Zombie)];
+
+    /// <summary>
+    /// The temples of the dark powers, by the building table's own ids, which are the service ids this game's counters
+    /// carry.
+    /// </summary>
+    /// <remarks>
+    /// OpenEnroth <c>src/Engine/Data/HouseEnums.h:91-95</c> names them (<c>HOUSE_TEMPLE_DEYJA</c> 78,
+    /// <c>HOUSE_TEMPLE_PIT</c> 81, <c>HOUSE_TEMPLE_MOUNT_NIGHON</c> 82), and <c>src/GUI/UI/Houses/Temple.cpp:44-55</c>
+    /// and <c>:178-188</c> are where the engine itself singles them out: their healing keeps a zombie and raises the
+    /// dead, petrified, and eradicated as zombies. The data tables carry no such mark, so the three are named here.
+    /// </remarks>
+    private static readonly HashSet<string> DarkTemples = new(["78", "81", "82"], StringComparer.Ordinal);
+
+    /// <summary>Whether a temple is one of the dark powers', whose healing keeps and makes zombies.</summary>
+    /// <param name="service">The temple's service id.</param>
+    internal static bool IsDarkTemple(ServiceId service) => DarkTemples.Contains(service.Value);
 
     /// <summary>The conditions a night's rest ends, which is what a room clears and a cure need not.</summary>
     /// <remarks>
@@ -154,15 +176,26 @@ internal static class MightAndMagic7Conditions
     /// What one temple offers: a cure per condition family, in the order the families are priced.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Each offer names the conditions it ends, so the mechanism clears exactly what the counter claims and
     /// a panel can show it. The base value is the donor's family multiplier, and the price rule turns that
     /// and the member's own severity into coins.
+    /// </para>
+    /// <para>
+    /// <b>A temple of the dark powers keeps the dead.</b> Its healing ends no zombie state and stands the dead, the
+    /// petrified, and the eradicated back up as zombies (<see cref="MightAndMagic7Undeath"/>); every other temple's
+    /// healing ends the zombie state with the ordinary afflictions, at the ordinary price, because the donor's price
+    /// reads it as neither death nor eradication (OpenEnroth <c>src/Engine/PriceCalculator.cpp:107-125</c>).
+    /// </para>
     /// </remarks>
     /// <param name="conditions">The conditions a member is suffering, which decides what is offered.</param>
-    internal static IReadOnlyList<ServiceOffer> Cures(IReadOnlyList<ActiveCondition> conditions)
+    /// <param name="dark">Whether the temple is one of the dark powers'.</param>
+    internal static IReadOnlyList<ServiceOffer> Cures(IReadOnlyList<ActiveCondition> conditions, bool dark = false)
     {
         List<ServiceOffer> offers = [];
-        if (conditions.Any(condition => Afflictions.Contains(condition.Condition)))
+        IReadOnlyList<ConditionId> afflictions = dark ? DarkAfflictions : Afflictions;
+        IReadOnlyList<ConditionId>? raisedAs = dark ? [Zombie] : null;
+        if (conditions.Any(condition => afflictions.Contains(condition.Condition)))
         {
             offers.Add(new ServiceOffer(
                 ServiceOfferKind.Cure,
@@ -170,7 +203,7 @@ internal static class MightAndMagic7Conditions
                 Subject: "affliction",
                 Value: OrdinaryMultiplier,
                 Amount: 1,
-                Clears: Afflictions));
+                Clears: afflictions));
         }
 
         List<ConditionId> serious = [];
@@ -180,22 +213,24 @@ internal static class MightAndMagic7Conditions
         {
             offers.Add(new ServiceOffer(
                 ServiceOfferKind.Cure,
-                "Raise the dead",
+                dark ? "Raise the dead as zombies" : "Raise the dead",
                 Subject: "death",
                 Value: SeriousMultiplier,
                 Amount: 1,
-                Clears: serious));
+                Clears: serious,
+                Leaves: raisedAs));
         }
 
         if (conditions.Any(condition => condition.Condition == Eradicated))
         {
             offers.Add(new ServiceOffer(
                 ServiceOfferKind.Cure,
-                "Restore the eradicated",
+                dark ? "Restore the eradicated as zombies" : "Restore the eradicated",
                 Subject: "eradication",
                 Value: EradicatedMultiplier,
                 Amount: 1,
-                Clears: [Eradicated]));
+                Clears: [Eradicated],
+                Leaves: raisedAs));
         }
 
         return offers;

@@ -204,6 +204,56 @@ public sealed class CreatureSpellPolicyTests
         Assert.DoesNotContain(struck, result => result.Initiated?.Target == Creature(live, "far").Id);
     }
 
+    [Fact]
+    public void A_charmed_creature_beside_the_party_does_not_keep_it_from_making_camp()
+    {
+        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(Creatures());
+        using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
+            RulesetTestContext.RulesetContext(context, ui) with
+            {
+                Cast = new CastIntentNames(Declared.UiActionContract),
+                Rest = new RestIntentNames(
+                    Declared.RestIntent,
+                    Declared.CampIntent,
+                    Declared.WaitUntilDawnIntent,
+                    Declared.WaitAnHourIntent,
+                    Declared.WaitFiveMinutesIntent,
+                    Declared.UiActionContract),
+            });
+        session.Start();
+        MightAndMagic7Session live = (MightAndMagic7Session)session;
+        Stand(session);
+
+        // A beast and a ghost stand a few hundred units off, well inside the donor's camping range (OpenEnroth
+        // src/Engine/Objects/Actor.cpp:3458-3481), so the party will not lie down.
+        session.Update(RulesetTestContext.Update(2, 1, RulesetTestContext.Digital(Declared.CampIntent)));
+        ProjectedNode wary = ProjectedNode.Of(ui.Latest().Value).Field("rest");
+        Assert.Equal(MightAndMagic7Codes.CampHostilesNear, wary.Field("code").AsString());
+        Assert.Contains("There are 2 hostile", wary.Field("message").AsString(), StringComparison.Ordinal);
+
+        // A charm stands the beast with the party: the donor's check passes over what is friendly to the party
+        // (Actor.cpp:3473-3477, with a charm read as friendly at Actor.cpp:2097-2104), so it no longer counts.
+        CastAt(session, 3, "60", Creature(live, "beast"));
+        Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
+        session.Update(RulesetTestContext.Update(4, 1));
+        Assert.Equal(CombatSide.Ally, Creature(live, "beast").Side);
+        session.Update(RulesetTestContext.Update(5, 1, RulesetTestContext.Digital(Declared.CampIntent)));
+        ProjectedNode still = ProjectedNode.Of(ui.Latest().Value).Field("rest");
+        Assert.Equal(MightAndMagic7Codes.CampHostilesNear, still.Field("code").AsString());
+        Assert.Contains("There are 1 hostile", still.Field("message").AsString(), StringComparison.Ordinal);
+
+        // Whatever made a creature an ally makes it one here: the ghost a binding of the dead takes is the other, and
+        // with both standing with the party it makes camp beside them.
+        CastAt(session, 6, "94", Creature(live, "ghost"));
+        Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
+        session.Update(RulesetTestContext.Update(7, 1));
+        Assert.Equal(CombatSide.Ally, Creature(live, "ghost").Side);
+        session.Update(RulesetTestContext.Update(8, 1, RulesetTestContext.Digital(Declared.CampIntent)));
+        ProjectedNode camped = ProjectedNode.Of(ui.Latest().Value).Field("rest");
+        Assert.Equal("camp", camped.Field("kind").AsString());
+        Assert.Equal("applied", camped.Field("outcome").AsString());
+    }
+
     /// <summary>The creature the session's own fight holds under its placement's own identity.</summary>
     private static Combatant Creature(MightAndMagic7Session live, string name) =>
         live.Combat!.Combatants.FirstOrDefault(combatant => !combatant.Subject.IsMember && combatant.Subject.Placement?.Content.Id == name)

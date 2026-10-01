@@ -151,11 +151,13 @@ internal sealed class MightAndMagic7Rest : IRestRule
     internal static readonly ConditionId Weakness = MightAndMagic7Provisions.Weakness;
 
     private readonly IRandomService? _random;
+    private readonly Func<PlacePopulationEntity, bool> _allied;
 
-    private MightAndMagic7Rest(IRandomService? random, TuningProfile tuning)
+    private MightAndMagic7Rest(IRandomService? random, TuningProfile tuning, Func<PlacePopulationEntity, bool>? allied)
     {
         _random = random;
         _tuning = tuning;
+        _allied = allied ?? (_ => false);
     }
 
     private readonly TuningProfile _tuning;
@@ -171,11 +173,16 @@ internal sealed class MightAndMagic7Rest : IRestRule
     /// The engine's random service, which a camp's risk is drawn from. Without one this game will not take
     /// the risk at all, and refuses a camp in a place where something could find the party.
     /// </param>
+    /// <param name="allied">
+    /// Whether a creature stands with the party right now — charmed, enslaved, controlled, called up, or stood back up —
+    /// as the fight reads it. Such a creature does not keep the party from making camp. Without one, only a creature a
+    /// spell created is known to stand with the party.
+    /// </param>
     /// <returns>This game's answers about sleeping, camping, waiting, and going without sleep.</returns>
     /// <exception cref="ContentValidationException">A place states a ground this game cannot price.</exception>
-    internal static MightAndMagic7Rest Compose(ContentCatalog? catalog, IRandomService? random)
+    internal static MightAndMagic7Rest Compose(ContentCatalog? catalog, IRandomService? random, Func<PlacePopulationEntity, bool>? allied = null)
     {
-        if (catalog is null) return new MightAndMagic7Rest(random, MightAndMagic7Tuning.Read(null));
+        if (catalog is null) return new MightAndMagic7Rest(random, MightAndMagic7Tuning.Read(null), allied);
         List<ContentValidationIssue> issues = [];
         foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in catalog.Entries(PlaceGraphLoader.PlaceDefinitionKind))
         {
@@ -195,7 +202,7 @@ internal sealed class MightAndMagic7Rest : IRestRule
                 issues);
         }
 
-        return new MightAndMagic7Rest(random, MightAndMagic7Tuning.Read(catalog));
+        return new MightAndMagic7Rest(random, MightAndMagic7Tuning.Read(catalog), allied);
     }
 
     /// <inheritdoc />
@@ -315,6 +322,14 @@ internal sealed class MightAndMagic7Rest : IRestRule
         return [Weakness];
     }
 
+    /// <inheritdoc />
+    /// <remarks>A zombie wakes with no spell points and half the health the night filled (<see cref="MightAndMagic7Undeath"/>).</remarks>
+    public void Rested(RestRequest request, PartyMember member)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        MightAndMagic7Undeath.Rested(member);
+    }
+
     /// <summary>How often something wanders into a place, as the place's own content states it.</summary>
     /// <remarks>
     /// The donor's encounter chance is a per-map number and its rest roll is a percentage against it
@@ -347,7 +362,7 @@ internal sealed class MightAndMagic7Rest : IRestRule
     /// creatures its content places.
     /// </para>
     /// </remarks>
-    private static int HostilesNear(RestRequest request, double range)
+    private int HostilesNear(RestRequest request, double range)
     {
         PlacePose party = request.Site.Pose;
         double squared = range * range;
@@ -358,9 +373,11 @@ internal sealed class MightAndMagic7Rest : IRestRule
             if (!string.Equals(entity.Content.Kind, CreaturePlacementKind, StringComparison.Ordinal)) continue;
             if (CreatureHealth.Find(entity.Actor) is { IsDown: true }) continue;
 
-            // A creature a spell created stands with the party, and the donor's check passes over what is friendly
-            // to it (Actor.cpp:3473-3477).
-            if (MightAndMagic7Summons.IsSummoned(entity.Placement)) continue;
+            // A creature that stands with the party — one a spell created, and one charmed, enslaved, or controlled,
+            // whatever made it an ally — is not a hostile, and the donor's check passes over what is friendly to the
+            // party (Actor.cpp:3473-3477, where an actor counts only when it is an enemy or its relation to the party is
+            // not friendly; Actor.cpp:2097-2104 reads a charm and a binding as friendly).
+            if (MightAndMagic7Summons.IsSummoned(entity.Placement) || _allied(entity)) continue;
             PlacePose at = entity.Pose;
             double x = at.X - party.X;
             double y = at.Y - party.Y;

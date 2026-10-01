@@ -214,6 +214,35 @@ public sealed class MagicTests
     }
 
     [Fact]
+    public void A_spell_aimed_at_either_side_takes_a_member_and_is_refused_a_name_nobody_answers_to()
+    {
+        using PartyEntity party = Party(withFire: true);
+        RecordingEffects effects = new();
+        Spellcasting casting = new(party, Capabilities.Magic(new EitherSpells(), effects));
+        PartyMember caster = party.Members[0];
+        PartyMember companion = party.Members[1];
+        caster.Spells.Learn(EitherSpells.Rouse.Id);
+
+        // The wire spells the aim as its own word, and no single side describes it.
+        Assert.Equal("either", SpellTargetings.WireName(SpellTargeting.Either));
+        Assert.True(SpellTargetings.NamesTarget(SpellTargeting.Either));
+        Assert.Null(SpellTargetings.Side(SpellTargeting.Either));
+
+        // A member named is the member the effect path is handed, exactly as an ally's aim takes one.
+        SpellCastResult onMember = casting.Cast(new SpellCastRequest(0, EitherSpells.Rouse.Id, CombatantId.Of(companion.Id).ToString()));
+        Assert.True(onMember.IsCast);
+        Assert.Equal(CombatantId.Of(companion.Id), Assert.Single(effects.Applications).Target);
+        Assert.Equal("Borin", onMember.Target);
+
+        // Nothing named is refused as a missing aim, and a creature with no fight to find it in as an invalid one,
+        // both before anything is paid.
+        int points = caster.Resources.SpellPoints.Current;
+        Assert.Equal("spell-target-missing", casting.Cast(new SpellCastRequest(0, EitherSpells.Rouse.Id, string.Empty)).Code);
+        Assert.Equal("spell-target-invalid", casting.Cast(new SpellCastRequest(0, EitherSpells.Rouse.Id, "actor:7")).Code);
+        Assert.Equal(points, caster.Resources.SpellPoints.Current);
+    }
+
+    [Fact]
     public void The_seam_is_asked_whether_the_casting_may_go_ahead_before_anything_is_paid()
     {
         using PartyEntity party = Party(withFire: true);
@@ -437,6 +466,28 @@ public sealed class MagicTests
         }
 
         private static readonly AttributeId Intellect = new("Intellect");
+    }
+
+    /// <summary>One spell of the fire school whose aim names an actor of either side.</summary>
+    private sealed class EitherSpells : ISpellRule
+    {
+        internal static readonly SpellDefinition Rouse = new(
+            new SpellId("5"),
+            "Rouse",
+            "fire",
+            FireSkill,
+            new SkillTier(1),
+            Cost: 2,
+            SpellTargeting.Either,
+            "utility");
+
+        SpellCatalog ISpellRule.Catalog { get; } = new([Rouse]);
+
+        public int SpellPointCapacity(PartyMember member) => 10;
+
+        public int CostFor(PartyMember member, SpellDefinition spell) => spell.Cost;
+
+        public Refusal? MayLearn(PartyMember member, SpellDefinition spell) => null;
     }
 
     /// <summary>

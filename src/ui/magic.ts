@@ -46,7 +46,7 @@ export interface SpellItemView {
   readonly kind: string;
   readonly spell: string;
   readonly spellName: string;
-  /** What the spell it carries is aimed at: `none`, `caster`, `ally`, `foe`, or `party`. */
+  /** What the spell it carries is aimed at: `none`, `caster`, `ally`, `foe`, `either`, or `party`. */
   readonly targeting: string;
   readonly charges: number;
   readonly chargesMax: number;
@@ -54,7 +54,7 @@ export interface SpellItemView {
   readonly wielded: boolean;
   /** The member wearing it, empty when nobody does. */
   readonly member: string;
-  /** Which side the actor its spell names stands on, `party` or `opposition`; empty when it names nobody. */
+  /** Which side the actor its spell names stands on, `party` or `opposition`, or `any` for either; empty when it names nobody. */
   readonly targetSide: string;
   /** Whether the product would take a use of it now. */
   readonly canUse: boolean;
@@ -76,13 +76,13 @@ export interface SpellRowView {
   readonly tierRung: number;
   /** What one casting costs this caster, as the product's own answer for that member. */
   readonly cost: number;
-  /** What the spell is aimed at: `none`, `caster`, `ally`, `foe`, or `party`. */
+  /** What the spell is aimed at: `none`, `caster`, `ally`, `foe`, `either`, or `party`. */
   readonly targeting: string;
   /** The effect identity the spell carries, which the panel shows and never interprets. */
   readonly effect: string;
   /** What it may be pointed at when its aim names no actor, empty when its aim names nothing. */
   readonly aims: readonly SpellAimView[];
-  /** Which side the actor it names stands on, `party` or `opposition`; empty when it names nobody. */
+  /** Which side the actor it names stands on, `party` or `opposition`, or `any` for either; empty when it names nobody. */
   readonly targetSide: string;
   /** Whether a casting of it could be aimed at all now, which is when its control is offered. */
   readonly canCast: boolean;

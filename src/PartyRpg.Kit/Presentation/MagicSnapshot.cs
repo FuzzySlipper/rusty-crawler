@@ -91,8 +91,8 @@ public sealed record SpellMemberRunningSnapshot(string Member, string Name, stri
 /// <param name="Wielded">Whether a member has it equipped, which is what an item that holds charges needs.</param>
 /// <param name="Member">The member wearing it, empty when nobody does.</param>
 /// <param name="TargetSide">
-/// Which side of a fight the actor its spell names stands on — <c>party</c> or <c>opposition</c> — or empty when
-/// the spell names nobody, so a screen offers the actors a use may name without pairing an aim with a side.
+/// Which side of a fight the actor its spell names stands on — <c>party</c> or <c>opposition</c>, or <c>any</c> when
+/// it may name an actor of either side — or empty when the spell names nobody, so a screen offers the actors a use may name without pairing an aim with a side.
 /// </param>
 public sealed record SpellItemSnapshot(
     string Item,
@@ -161,8 +161,8 @@ public sealed record SpellFactSnapshot(string Name, string Value)
 /// <param name="Effect">The effect identity the spell carries, which the panel shows and never interprets.</param>
 /// <param name="Aims">What the spell may be pointed at, empty when its aim names no such thing.</param>
 /// <param name="TargetSide">
-/// Which side of a fight the actor the spell names stands on — <c>party</c> or <c>opposition</c> — or empty when
-/// the spell names nobody, so a screen offers the actors a casting may name without pairing an aim with a side.
+/// Which side of a fight the actor the spell names stands on — <c>party</c> or <c>opposition</c>, or <c>any</c> when
+/// it may name an actor of either side — or empty when the spell names nobody, so a screen offers the actors a casting may name without pairing an aim with a side.
 /// </param>
 public sealed record SpellRowSnapshot(
     string Spell,
@@ -514,9 +514,17 @@ public sealed record MagicSnapshot(
         return offered;
     }
 
-    /// <summary>The side a spell's named target stands on, as the wire spells it, or empty when it names nobody.</summary>
+    /// <summary>
+    /// The side a spell's named target stands on, as the wire spells it: <see cref="AnySide"/> when it may name an
+    /// actor of either side, and empty when it names nobody.
+    /// </summary>
     private static string SideOf(SpellTargeting targeting) =>
-        SpellTargetings.Side(targeting) is { } side ? Presentation.SessionProjection.WireName(side) : string.Empty;
+        targeting == SpellTargeting.Either
+            ? AnySide
+            : SpellTargetings.Side(targeting) is { } side ? Presentation.SessionProjection.WireName(side) : string.Empty;
+
+    /// <summary>The wire's word for a spell that may name an actor of either side, which every listed target matches.</summary>
+    internal const string AnySide = "any";
 
     /// <summary>Writes a moment on the calendar for a person, empty when nothing states one.</summary>
     private static string Moment(GameDate? at) => at is { } moment
@@ -561,9 +569,11 @@ public sealed record MagicSnapshot(
             ("sight", builder.String(Sight)));
 
     /// <summary>
-    /// Whether a casting aimed as the side says has somebody to name: always, when it names nobody, and otherwise
-    /// when an actor on that side is among the targets this block lists.
+    /// Whether a casting aimed as the side says has somebody to name: always, when it names nobody; when any target is
+    /// listed, when it may name either side; and otherwise when an actor on that side is among the targets this block
+    /// lists.
     /// </summary>
     internal bool Aimable(string side) =>
-        side.Length == 0 || Targets.Any(target => string.Equals(target.Side, side, StringComparison.Ordinal));
+        side.Length == 0 ||
+        (string.Equals(side, AnySide, StringComparison.Ordinal) ? Targets.Count > 0 : Targets.Any(target => string.Equals(target.Side, side, StringComparison.Ordinal)));
 }

@@ -168,6 +168,88 @@ public sealed class SummonPolicyTests
         Assert.Contains(unsaved.Problems, problem => problem.Code == SaveCodes.SaveFightUnsaved && problem.Subject == "summoned");
     }
 
+    [Fact]
+    public void A_dead_member_rises_as_a_zombie_whose_state_holds_its_pools_down_and_survives_a_save()
+    {
+        InMemoryPersistenceService persistence = new();
+        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(persistence, World(lightTier: 2, beastAt: 9000));
+        using IGameSession session = Casting(context, ui);
+        MightAndMagic7Session live = (MightAndMagic7Session)session;
+        session.Update(RulesetTestContext.Update(1, 1));
+        PartyMember caster = live.Party!.Members[0];
+        PartyMember borin = live.Party.Members[1];
+
+        // The spell names an actor of either side, so the panel offers the party's own members beside the creatures.
+        ProjectedNode row = Items(Magic(ui).Field("members").Item(0).Field("spells")).Single(spell => spell.Field("spell").AsString() == "89");
+        Assert.Equal("either", row.Field("targeting").AsString());
+        Assert.Equal("any", row.Field("targetSide").AsString());
+
+        // A living member is not a body: the casting is refused before anything is spent (ours; the donor spends the
+        // points and changes nothing, OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:2632-2640).
+        int points = caster.Resources.SpellPoints.Current;
+        Cast(session, ui, 2, "89", Target(borin));
+        Assert.Equal(MightAndMagic7Codes.SpellNotABody, Magic(ui).Field("code").AsString());
+        Assert.Equal(points, caster.Resources.SpellPoints.Current);
+
+        // Borin dies, with a curse and a poison on him.
+        borin.Conditions.Apply(new ActiveCondition(MightAndMagic7Conditions.Cursed, 1));
+        borin.Conditions.Apply(new ActiveCondition(MightAndMagic7Conditions.PoisonWeak, 1));
+        borin.Resources.TakeDamage(borin.Resources.HitPoints.Current + 5);
+        borin.Conditions.Apply(new ActiveCondition(MightAndMagic7Conditions.Dead));
+        session.Update(RulesetTestContext.Update(3, 1));
+
+        // Reanimate aimed at him stands him up as a zombie: every condition ends, his health is filled and his spell
+        // points emptied (Character.cpp:485-505), and he acts again (Character.cpp:350-357).
+        Cast(session, ui, 4, "89", Target(borin));
+        Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
+        Assert.True(points > caster.Resources.SpellPoints.Current);
+        Assert.Equal([MightAndMagic7Conditions.Zombie], borin.Conditions.Active.Select(condition => condition.Condition));
+        Assert.Equal(400, borin.Resources.HitPoints.Current);
+        Assert.Equal(0, borin.Resources.SpellPoints.Current);
+        Assert.True(MightAndMagic7Conditions.CanAct(borin));
+        Assert.Contains(Items(Magic(ui).Field("facts")), fact => fact.Field("name").AsString() == "zombie" && fact.Field("value").AsString() == "Borin");
+
+        // A zombie is not dead, so a second casting has nothing to raise.
+        Cast(session, ui, 5, "89", Target(borin));
+        Assert.Equal(MightAndMagic7Codes.SpellNotABody, Magic(ui).Field("code").AsString());
+
+        // An hour of game time is twelve five-minute steps, and each takes one health toward half his maximum
+        // (Engine.cpp:1236, :1425-1429).
+        Advance(session, 1);
+        Assert.Equal(388, borin.Resources.HitPoints.Current);
+        Assert.Equal(0, borin.Resources.SpellPoints.Current);
+
+        // A heal stops at half his maximum (Character.cpp:1283-1297), and a night leaves him no spell points and half
+        // the health it filled (Party.cpp:737-739).
+        borin.Resources.TakeDamage(288);
+        Assert.Equal(100, MightAndMagic7Undeath.Heal(borin, 500));
+        Assert.Equal(200, borin.Resources.HitPoints.Current);
+        Assert.Equal(0, MightAndMagic7Undeath.Heal(borin, 500));
+        borin.Resources.RestoreAll();
+        MightAndMagic7Undeath.Rested(borin);
+        Assert.Equal(200, borin.Resources.HitPoints.Current);
+        Assert.Equal(0, borin.Resources.SpellPoints.Current);
+
+        // The state is the member's own condition, so the product's save carries it and a resumed product plays him as
+        // the zombie he was, drifting as before.
+        borin.Resources.RestoreHitPoints(50);
+        SessionSave written = MightAndMagic7Ruleset.Instance.Save(session);
+        Assert.Contains(written.Party.Members[1].Seed.Conditions, condition => condition.Condition == MightAndMagic7Conditions.Zombie);
+        (ProductCreateContext resumedContext, RecordingUiService resumedUi) = RulesetTestContext.Create(persistence, World(lightTier: 2, beastAt: 9000));
+        using IGameSession resumed = MightAndMagic7Ruleset.Instance.ResumeSession(
+            RulesetTestContext.RulesetContext(resumedContext, resumedUi) with { Cast = new CastIntentNames(Declared.UiActionContract) });
+        resumed.Start();
+        PartyMember again = ((MightAndMagic7Session)resumed).Party!.Members[1];
+        Assert.True(MightAndMagic7Undeath.IsZombie(again));
+        Assert.False(again.Conditions.Has(MightAndMagic7Conditions.Dead));
+        Assert.Equal(250, again.Resources.HitPoints.Current);
+        Advance(resumed, 1);
+        Assert.Equal(238, again.Resources.HitPoints.Current);
+    }
+
+    /// <summary>The entries of one projected list, in order.</summary>
+    private static IEnumerable<ProjectedNode> Items(ProjectedNode list) => Enumerable.Range(0, list.Length()).Select(list.Item);
+
     /// <summary>A length of whole game minutes, in the milliseconds a remaining length is counted in.</summary>
     private static long GameDurationMinutes(int minutes) => minutes * 60L * 1000L;
 

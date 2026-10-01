@@ -81,9 +81,9 @@ export function mountSpellbook(host: Host): Section<MagicView> {
     memberRunning.hidden = view.memberRunning.length === 0;
     if (!changed(view)) return;
 
-    /** The actors on the side the product says a casting names, or none when it names nobody. */
+    /** The actors on the side the product says a casting names, every one for `any`, or none when it names nobody. */
     const candidates = (side: string): readonly SpellTargetView[] =>
-      side === '' ? [] : view.targets.filter((target) => target.side === side);
+      side === '' ? [] : side === 'any' ? view.targets : view.targets.filter((target) => target.side === side);
     const casters = view.members.map((member) => ({ value: String(member.index), text: member.name }));
 
     items.replaceChildren(

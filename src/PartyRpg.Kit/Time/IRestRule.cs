@@ -185,6 +185,20 @@ public interface IRestRule
     /// <returns>The conditions a night's sleep ends, in the order they are cleared.</returns>
     IReadOnlyList<ConditionId> RecoveredBy(RestRequest request);
 
+    /// <summary>
+    /// What a completed sleep leaves one member with once their pools were filled and the night's conditions cleared.
+    /// </summary>
+    /// <remarks>
+    /// A night fills every member's pools, and a game whose own conditions keep a character below full even after
+    /// one answers here, through the member's own pools: the mechanism fills and clears, then asks once per member.
+    /// A game with no such condition states nothing, which is the default.
+    /// </remarks>
+    /// <param name="request">What the party asked for, where it stands, and the one clock.</param>
+    /// <param name="member">The member who has just recovered.</param>
+    void Rested(RestRequest request, PartyMember member)
+    {
+    }
+
     /// <summary>The state going too long without sleep puts on every member.</summary>
     ActiveCondition Fatigue { get; }
 

@@ -178,6 +178,26 @@ public sealed class RestAndScheduleTests
     }
 
     [Fact]
+    public void A_rest_asks_the_rule_what_each_member_keeps_once_the_night_filled_them()
+    {
+        GameClock clock = TestClock.At(hour: 22);
+        using PartyEntity party = Party(foodPortions: 4, wounded: 25, weak: true);
+        PartyResourceLedger accounts = Ledger(party);
+        using SessionWorld roofed = Site(clock, party, accounts, kind: PlaceKind.Interior);
+        roofed.Populate();
+
+        // The night fills both pools and clears what it ends, and then the rule's own answer for each member stands:
+        // this one keeps a member at twelve health whatever the night gave, and leaves the spell points it filled.
+        PartyRest rest = new(new TestRestRule(campCharge: 3, wakesWith: 12), party, clock, roofed, accounts);
+        RestResult rested = rest.Perform(RestKind.Rest);
+
+        Assert.True(rested.IsApplied);
+        Assert.False(party.Members[0].Conditions.Has(Weakness));
+        Assert.Equal(12, party.Members[0].Resources.HitPoints.Current);
+        Assert.Equal(10, party.Members[0].Resources.SpellPoints.Current);
+    }
+
+    [Fact]
     public void A_rest_that_eats_the_last_of_the_larder_leaves_the_party_weak()
     {
         // Recovery happens before the day is settled, so the larder's own rule has the last word: a night that
@@ -538,8 +558,16 @@ public sealed class RestAndScheduleTests
     /// This suite's game: a roof to rest under, the open to camp in, a ground that costs what the test says,
     /// creatures that keep a party from lying down, and a night that may be broken.
     /// </summary>
-    private sealed class TestRestRule(int campCharge, RestInterruption? interruption = null) : IRestRule
+    private sealed class TestRestRule(int campCharge, RestInterruption? interruption = null, int? wakesWith = null) : IRestRule
     {
+        /// <summary>Leaves every member with the health this suite states, when it states any, once a night filled them.</summary>
+        public void Rested(RestRequest request, PartyMember member)
+        {
+            if (wakesWith is not { } kept) return;
+            int over = member.Resources.HitPoints.Current - kept;
+            if (over > 0) member.Resources.TakeDamage(over);
+        }
+
         /// <summary>How near a creature keeps a party from camping, in the place's own units.</summary>
         private const double HostileRange = 512;
 

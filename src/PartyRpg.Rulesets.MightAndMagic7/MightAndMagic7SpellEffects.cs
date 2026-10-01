@@ -160,7 +160,15 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
             return crowded;
         }
 
-        if (reading.Reanimates is not null && _summons.JudgeReanimation(application) is { } notABody) return notABody;
+        // A reanimation aimed at a member stands a dead character up as a zombie, and one aimed at anything else stands
+        // a creature's body up to fight for the party: each is judged by its own owner.
+        if (reading.Reanimates is not null)
+        {
+            Refusal? cannot = AimedMember(application) is { } member
+                ? MightAndMagic7Undeath.JudgeRising(member, application.Spell.Name)
+                : _summons.JudgeReanimation(application);
+            if (cannot is not null) return cannot;
+        }
 
         // A travel spell is judged where it is aimed, before a point is spent: a portal needs a place the
         // world holds and the party has been to, and a beacon needs one it has set. The same judgement is what
@@ -679,7 +687,8 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
             {
                 foreach (PartyMember member in members)
                 {
-                    member.Resources.RestoreHitPoints(amount);
+                    // Through this game's own ceiling, which a zombie holds at half (MightAndMagic7Undeath).
+                    MightAndMagic7Undeath.Heal(member, amount);
                     facts.Add(Pool(member));
                 }
 
@@ -1197,6 +1206,16 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
 
         if (reading.Reanimates is { } reanimate)
         {
+            // A dead character rises as a zombie (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:2632-2640).
+            if (AimedMember(application) is { } member)
+            {
+                IReadOnlyList<SpellEffectFact> risen = MightAndMagic7Undeath.Raise(member);
+                return SpellApplicationOutcome.Expressed(
+                    application.Spell.Effect,
+                    $"{application.Spell.Name}: {MightAndMagic7Undeath.Describe(member)}.",
+                    risen);
+            }
+
             return _summons.Reanimate(application, reanimate, _spells.LevelOf(application), MightAndMagic7Spells.MasteryOf(application.Caster, application.Spell));
         }
 
@@ -1368,6 +1387,18 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         }
 
         return application.Party.Members;
+    }
+
+    /// <summary>The party member a casting aimed at one actor of either side named, or null when it named a creature.</summary>
+    private static PartyMember? AimedMember(SpellApplication application)
+    {
+        if (application.Target is not { } target) return null;
+        foreach (PartyMember member in application.Party.Members)
+        {
+            if (CombatantId.Of(member.Id) == target) return member;
+        }
+
+        return null;
     }
 
     /// <summary>What a spell's own numbers are worth at this caster's school level and mastery.</summary>

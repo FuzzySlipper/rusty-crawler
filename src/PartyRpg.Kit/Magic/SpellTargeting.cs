@@ -4,10 +4,10 @@ namespace PartyRpg.Kit.Magic;
 /// <remarks>
 /// <para>
 /// A spell's aim is what decides whether a casting needs a target at all and which of the things the
-/// session holds may be one: the caster alone, one of its own side, one of the other side, or the whole
-/// band with nobody named. It is deliberately a vocabulary rather than a rule — how far a spell reaches,
+/// session holds may be one: the caster alone, one of its own side, one of the other side, one actor of either
+/// side, or the whole band with nobody named. It is deliberately a vocabulary rather than a rule — how far a spell reaches,
 /// whether an area is involved, and what a game calls its own aims are the ruleset's answers over its own
-/// definitions, and the mechanism reads only which of these five a definition states.
+/// definitions, and the mechanism reads only which of these six a definition states.
 /// </para>
 /// <para>
 /// <b>The words are the wire's, not a game's.</b> A projection publishes them so a screen can offer the
@@ -31,6 +31,16 @@ public enum SpellTargeting
 
     /// <summary>The spell is cast on the whole band and nobody is named.</summary>
     Party,
+
+    /// <summary>
+    /// The spell is cast on one actor of either side: one of the party's own members, or one of the opposition.
+    /// </summary>
+    /// <remarks>
+    /// A spell whose effect differs by what it lands on — one thing done to a creature, another to a character —
+    /// names its target this way, and the effect owner reads which of the two the casting named. The mechanism
+    /// resolves a member first and an actor the fight holds otherwise, exactly as the two single-side aims do.
+    /// </remarks>
+    Either,
 }
 
 /// <summary>The one vocabulary a spell's aim is spelled with, on the wire and in a refusal.</summary>
@@ -52,6 +62,7 @@ public static class SpellTargetings
         SpellTargeting.Ally => "ally",
         SpellTargeting.Foe => "foe",
         SpellTargeting.Party => "party",
+        SpellTargeting.Either => "either",
         _ => throw new ArgumentOutOfRangeException(nameof(targeting), targeting, "Unknown spell targeting."),
     };
 
@@ -59,7 +70,7 @@ public static class SpellTargetings
     /// <param name="targeting">The aim being asked about.</param>
     /// <returns>Whether a target must be named.</returns>
     public static bool NamesTarget(SpellTargeting targeting) =>
-        targeting is SpellTargeting.Ally or SpellTargeting.Foe;
+        targeting is SpellTargeting.Ally or SpellTargeting.Foe or SpellTargeting.Either;
 
     /// <summary>Which side of a fight the target a casting names stands on, or null when it names none.</summary>
     /// <remarks>
@@ -68,7 +79,10 @@ public static class SpellTargetings
     /// with a side itself.
     /// </remarks>
     /// <param name="targeting">The aim being asked about.</param>
-    /// <returns>The side a named target stands on, or null when the aim names nobody.</returns>
+    /// <returns>
+    /// The side a named target stands on, or null when the aim names nobody or names an actor of either side
+    /// (<see cref="SpellTargeting.Either"/>, which no single side describes).
+    /// </returns>
     public static Combat.CombatSide? Side(SpellTargeting targeting) => targeting switch
     {
         SpellTargeting.Ally => Combat.CombatSide.Party,

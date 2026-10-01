@@ -175,6 +175,12 @@ public static class MightAndMagic7Codes
     /// <summary>The refusal code <c>spell-not-a-body</c>: a spell that raises the dead is aimed at something that is not lying dead.</summary>
     public const string SpellNotABody = "spell-not-a-body";
 
+    /// <summary>
+    /// The refusal code <c>spell-cannot-rise</c>: a spell that raises a dead character as a zombie is aimed at one who
+    /// cannot rise as one — eradicated, a Lich, or a zombie already.
+    /// </summary>
+    public const string SpellCannotRise = "spell-cannot-rise";
+
     /// <summary>The refusal code <c>spell-place-no-arrival</c>: a travel spell names a place that states nowhere to arrive.</summary>
     public const string SpellPlaceNoArrival = "spell-place-no-arrival";
 

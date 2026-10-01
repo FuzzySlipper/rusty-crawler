@@ -362,6 +362,7 @@ public sealed class CombatPolicyTests
             MightAndMagic7Conditions.DiseaseWeak, MightAndMagic7Conditions.DiseaseMedium, MightAndMagic7Conditions.DiseaseSevere,
             MightAndMagic7Conditions.Paralyzed, MightAndMagic7Conditions.Unconscious,
             MightAndMagic7Conditions.Dead, MightAndMagic7Conditions.Petrified, MightAndMagic7Conditions.Eradicated,
+            MightAndMagic7Conditions.Zombie,
         })
         {
             List<ActiveCondition> suffering = [new ActiveCondition(condition)];
@@ -378,6 +379,33 @@ public sealed class CombatPolicyTests
             eradicated.Cures,
             offer => offer.ClearsCondition(MightAndMagic7Conditions.Eradicated) &&
                      offer.Value == MightAndMagic7Conditions.EradicatedMultiplier);
+    }
+
+    [Fact]
+    public void A_temple_ends_the_zombie_state_at_the_ordinary_price_and_a_temple_of_the_dark_powers_keeps_and_makes_it()
+    {
+        // An ordinary temple's healing ends the zombie state with every other affliction, priced as an ordinary
+        // affliction because the donor's price reads it as neither death nor eradication (OpenEnroth
+        // src/GUI/UI/Houses/Temple.cpp:33-81, src/Engine/PriceCalculator.cpp:102-133).
+        IReadOnlyList<ActiveCondition> zombie = [new ActiveCondition(MightAndMagic7Conditions.Zombie), new ActiveCondition(MightAndMagic7Conditions.Cursed, 1)];
+        ServiceOffer healing = Assert.Single(MightAndMagic7Conditions.Cures(zombie));
+        Assert.True(healing.ClearsCondition(MightAndMagic7Conditions.Zombie));
+        Assert.Equal(MightAndMagic7Conditions.OrdinaryMultiplier, healing.Value);
+        Assert.Empty(healing.Left);
+
+        // The three temples of the dark powers are the building table's 78, 81, and 82 (src/Engine/Data/HouseEnums.h:91-95):
+        // their healing keeps a zombie a zombie (Temple.cpp:178-188) and stands the dead back up as zombies
+        // (Temple.cpp:44-55, 64-67).
+        Assert.True(MightAndMagic7Conditions.IsDarkTemple(new ServiceId("78")));
+        Assert.False(MightAndMagic7Conditions.IsDarkTemple(new ServiceId("74")));
+        ServiceOffer dark = Assert.Single(MightAndMagic7Conditions.Cures(zombie, dark: true));
+        Assert.False(dark.ClearsCondition(MightAndMagic7Conditions.Zombie));
+        Assert.True(dark.ClearsCondition(MightAndMagic7Conditions.Cursed));
+        ServiceOffer raised = Assert.Single(MightAndMagic7Conditions.Cures([new ActiveCondition(MightAndMagic7Conditions.Dead)], dark: true));
+        Assert.True(raised.ClearsCondition(MightAndMagic7Conditions.Dead));
+        Assert.Equal([MightAndMagic7Conditions.Zombie], raised.Left);
+        Assert.Equal(MightAndMagic7Conditions.SeriousMultiplier, raised.Value);
+        Assert.Empty(Assert.Single(MightAndMagic7Conditions.Cures([new ActiveCondition(MightAndMagic7Conditions.Dead)])).Left);
     }
 
     /// <summary>One party attack against a monster row of a stated physical resistance, read from the panel.</summary>

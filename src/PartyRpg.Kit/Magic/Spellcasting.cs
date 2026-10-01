@@ -515,27 +515,6 @@ public sealed class Spellcasting
                 targetName = _fight?.Find(casterId)?.Name ?? caster.Profile.Name;
                 return true;
 
-            case SpellTargeting.Ally:
-            {
-                if (named.Length == 0)
-                {
-                    refused = SpellRefusals.NoTarget(spell.Name, SpellTargetings.WireName(spell.Targeting));
-                    return false;
-                }
-
-                CombatantId.TryParse(named, out CombatantId ally);
-                foreach (PartyMember member in _party.Members)
-                {
-                    if (CombatantId.Of(member.Id) != ally) continue;
-                    target = CombatantId.Of(member.Id);
-                    targetName = member.Profile.Name;
-                    return true;
-                }
-
-                refused = SpellRefusals.NoValidTarget(spell.Name, named);
-                return false;
-            }
-
             default:
             {
                 if (named.Length == 0)
@@ -544,25 +523,58 @@ public sealed class Spellcasting
                     return false;
                 }
 
-                // A spell aimed at an opponent is aimed at a creature the fight holds: a member of the
-                // party named for such a spell is not a target that can be turned on, and a place with no
-                // fight in it has nobody to aim at.
-                if (_fight is { } fight && CombatantId.TryParse(named, out CombatantId opponent))
+                // An aim of one side takes an actor of that side and nothing else, and an aim of either side
+                // takes a member first and a creature the fight holds otherwise: a member named for a spell aimed
+                // at an opponent is not a target that can be turned on, and a creature named for one aimed at an
+                // ally is not one that can be healed.
+                bool members = spell.Targeting is SpellTargeting.Ally or SpellTargeting.Either;
+                bool opponents = spell.Targeting is SpellTargeting.Foe or SpellTargeting.Either;
+                if (members && MemberNamed(named) is { } member)
                 {
-                    foreach (Combatant combatant in fight.Combatants)
-                    {
-                        if (combatant.Subject.Member is not null) continue;
-                        if (combatant.Id != opponent) continue;
-                        target = combatant.Id;
-                        targetName = combatant.Name;
-                        return true;
-                    }
+                    target = CombatantId.Of(member.Id);
+                    targetName = member.Profile.Name;
+                    return true;
+                }
+
+                if (opponents && OpponentNamed(named) is { } opponent)
+                {
+                    target = opponent.Id;
+                    targetName = opponent.Name;
+                    return true;
                 }
 
                 refused = SpellRefusals.NoValidTarget(spell.Name, named);
                 return false;
             }
         }
+    }
+
+    /// <summary>The party member a casting named, or null when it named none of them.</summary>
+    private PartyMember? MemberNamed(string named)
+    {
+        if (!CombatantId.TryParse(named, out CombatantId ally)) return null;
+        foreach (PartyMember member in _party.Members)
+        {
+            if (CombatantId.Of(member.Id) == ally) return member;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The creature the fight holds that a casting named, or null when it named none: a place with no fight in it
+    /// has nobody to aim at, and a member of the party is never an opponent.
+    /// </summary>
+    private Combatant? OpponentNamed(string named)
+    {
+        if (_fight is not { } fight || !CombatantId.TryParse(named, out CombatantId opponent)) return null;
+        foreach (Combatant combatant in fight.Combatants)
+        {
+            if (combatant.Subject.Member is not null) continue;
+            if (combatant.Id == opponent) return combatant;
+        }
+
+        return null;
     }
 
     private SpellCastResult Record(SpellCastResult result)

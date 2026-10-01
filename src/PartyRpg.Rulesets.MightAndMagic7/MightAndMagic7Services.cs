@@ -659,7 +659,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
         List<ServiceOffer> offers = [];
         if (string.Equals(service.Kind.Value, MightAndMagic7ServiceKinds.Temple, StringComparison.Ordinal))
         {
-            offers.AddRange(MightAndMagic7Conditions.Cures(Conditions(request.Party)));
+            offers.AddRange(MightAndMagic7Conditions.Cures(Conditions(request.Party), MightAndMagic7Conditions.IsDarkTemple(service.Id)));
         }
         else if (string.Equals(service.Kind.Value, MightAndMagic7ServiceKinds.Training, StringComparison.Ordinal))
         {

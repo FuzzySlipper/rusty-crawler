@@ -1060,14 +1060,20 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
     }
 
     /// <summary>
-    /// Ends what a cure's own list names and, when the offer restores, fills the patient's pools: a temple's
-    /// healing is one act on the member it was bought for.
+    /// Ends what a cure's own list names, leaves what it says it leaves, and, when the offer restores, fills the
+    /// patient's pools: a temple's healing is one act on the member it was bought for.
     /// </summary>
     private void ApplyCure(Transaction t)
     {
         ServiceOffer cure = t.Subject.Offer!;
         PartyMember patient = _party.Member(t.Member);
+        bool suffered = cure.Conditions.Any(patient.Conditions.Has);
         foreach (ConditionId condition in cure.Conditions) patient.Conditions.Clear(condition);
+        if (suffered)
+        {
+            foreach (ConditionId condition in cure.Left) patient.Conditions.Apply(new ActiveCondition(condition));
+        }
+
         if (cure.Amount > 0) patient.Resources.RestoreAll();
     }
 

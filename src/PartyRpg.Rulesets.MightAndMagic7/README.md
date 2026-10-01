@@ -48,7 +48,15 @@ Owns:
   most ten hit points a level of that reach (`CastSpellInfo.cpp:2613-2662`). Both carry who made them, which
   the fight reads as the ally side; both are worth no experience and drop nothing; a raised body leaves the
   corpse ground with what it held; and a save taken while one stands is refused by name, because the schema
-  carries no population (#8658). What each spell does inside its category is its row in
+  carries no population (#8658). The same reanimation aimed at a dead member (the row's aim names an actor of
+  either side) raises them as a zombie (`MightAndMagic7Undeath`, `CastSpellInfo.cpp:2632-2640`,
+  `Character.cpp:485-505`): the member's own `Zombie` condition, which a save carries with the rest, every other
+  condition ended, health filled and spell points emptied; the zombie acts, a heal stops at half its maximum
+  (`Character.cpp:1283-1297`), every five minutes of game time its health falls by one toward half and its spell
+  points by one toward none (`Engine.cpp:1425-1429`), a night leaves it no spell points and half its health
+  (`Party.cpp:737-739`), an ordinary temple ends the state at the ordinary price, and the temples of the dark powers
+  (buildings 78, 81 and 82) keep it and raise the dead as zombies (`Temple.cpp:33-81`, `:178-188`); what is faithful
+  and what is ours is stated per effect on `MightAndMagic7Undeath`. What each spell does inside its category is its row in
   `MightAndMagic7SpellReadings`, and how far this build expresses each one is reported per spell in
   `docs/magic-coverage.md`, which a test generates and checks against those rows.
 - Items that carry a spell (`MightAndMagic7Spells.Reading`): a scroll read once and used up, and a wand
@@ -282,7 +290,8 @@ tables for a container's random reference: the level is remapped through the pla
 (`ItemEnums.h:977-978`) — a body and a chest are then searched through the one container mechanism, and a
 corpse reads as the same kind of target a chest is), and what stopping costs here (`MightAndMagic7Rest` — eight hours under a roof or in the open, the
 donor's ground table for what a camp eats, its own proximity rule for a party that will not lie down with
-creatures near, an interrupted night that lasts only the hours it lasted, and the day-long debt of sleep
+creatures near — a creature on the fight's ally side, whatever made it one (a charm, a binding, a control, or a spell
+that created it), is not one of them (`Actor.cpp:3458-3481`) — an interrupted night that lasts only the hours it lasted, and the day-long debt of sleep
 that weakens the party on the clock's own deadline). Party creation's game definitions are landed too:
 `MightAndMagic7Creation.Options` offers the four races with their attribute ranges, the eight portraits,
 and the nine base classes with the two skills each fixes, the nine it offers, and the hit and spell
