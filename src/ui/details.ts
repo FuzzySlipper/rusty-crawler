@@ -262,7 +262,17 @@ export function mountDetails(host: Host): Details {
         : save.state === 'failed'
           ? 'failed'
           : '—';
-    rows.start.textContent = save.resumed ? 'resumed' : 'fresh';
+    // Which start the party took is the composition's own word: a new party created on the screen, a new party
+    // the scenario fixed, or the one a save held.
+    panel.dataset.partyStart = composition.partyStart;
+    rows.start.textContent =
+      composition.partyStart === 'creation'
+        ? 'new · created party'
+        : composition.partyStart === 'scenario'
+          ? 'new · scenario party'
+          : composition.partyStart === 'resumed'
+            ? 'resumed'
+            : '—';
     saveResult.hidden = save.message === '';
     saveResult.dataset.state = save.state;
     saveResult.dataset.code = save.code;

@@ -253,7 +253,7 @@ public sealed class ProjectionContractTests
     /// </remarks>
     private static SessionSnapshot Empty()
     {
-        SessionSnapshot bare = SessionSnapshots.Bare(Composition with { Bundle = null, ContentPacks = 0 }, SessionMode.Starting, WorldSnapshot.Empty);
+        SessionSnapshot bare = SessionSnapshots.Bare(Composition with { Bundle = null, ContentPacks = 0, PartyStart = SessionPartyStart.Scenario }, SessionMode.Starting, WorldSnapshot.Empty);
         return bare with
         {
             Interaction = bare.Interaction with { Outcome = string.Empty },

@@ -59,6 +59,10 @@ public sealed class PlaytestRegistrationTests
         {
             Assert.Equal("creating", creating.RootElement.GetProperty("mode").GetString());
             Assert.Equal(JsonValueKind.Null, creating.RootElement.GetProperty("place").ValueKind);
+            // Which game this is: the bundle, what it selected, and the start the party is taking.
+            JsonElement composition = creating.RootElement.GetProperty("composition");
+            Assert.Equal(BuiltInBundles.Default, composition.GetProperty("bundle").GetString());
+            Assert.Equal("creation", composition.GetProperty("partyStart").GetString());
         }
 
         using (JsonDocument forward = Json(catalog.Execute($"playtest.action {ProductIdentity.MoveForwardIntent}")))

@@ -355,21 +355,7 @@ internal static class MightAndMagic7World
     /// <exception cref="ContentValidationException">The selection states more than one start, or one that names no place.</exception>
     private static (PlaceId Place, string? EntryPoint)? ReadStart(ContentCatalog catalog)
     {
-        List<(LoadedPack Pack, ContentDocument Document, ContentEntry Entry)> starts = [.. catalog.Entries(StartDefinitionKind)];
-        if (starts.Count == 0) return null;
-
-        if (starts.Count > 1)
-        {
-            throw new ContentValidationException(
-                $"The content this product selected states {starts.Count} scenario starts, and which place the party begins in would be the order the packs happened to load in. The candidates are {Joined(starts)}.",
-                [.. starts.Select(candidate => new ContentValidationIssue(
-                    "scenario-start-ambiguous",
-                    $"{Candidate(candidate)}, and it is one of {starts.Count} starts this selection states.",
-                    candidate.Pack.PackId,
-                    candidate.Document.DocumentId))]);
-        }
-
-        (LoadedPack Pack, ContentDocument Document, ContentEntry Entry) only = starts[0];
+        if (OnlyStart(catalog) is not { } only) return null;
         string place = only.Entry.GetId("place");
         if (place.Length == 0)
         {
@@ -384,17 +370,91 @@ internal static class MightAndMagic7World
 
         string entryPoint = only.Entry.GetId("entryPoint");
         return (new PlaceId(place), entryPoint.Length == 0 ? null : entryPoint);
+    }
 
-        // One candidate stated the way a refusal reads it: which pack and document declared the start,
-        // which entry it is, and the place it would put the party in.
-        static string Candidate((LoadedPack Pack, ContentDocument Document, ContentEntry Entry) start)
+    /// <summary>
+    /// Which start a new session's party takes, as the selected scenario states it, or null when it states none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The statement lives on the scenario start, not on the bundle.</b> How a game begins — where the party
+    /// stands and who the party is — is one decision of the scenario's, and the start entry is already where the
+    /// ruleset reads it: a scenario pack that ships a fixed party is the one that knows it means the party to be
+    /// played, and the same pack selected by any bundle begins the same way. A bundle is the kit's pack selection
+    /// and carries no ruleset meaning, so putting the switch there would make two bundles over one scenario two
+    /// different games, and would leave a bundle stating a party for a scenario that has none.
+    /// </para>
+    /// <para>
+    /// The property is <c>party</c>, with <c>creation</c> (the player-facing screen) or <c>scenario</c> (the
+    /// party this scenario's <c>scenario-party</c> document fixes). A start that leaves it out takes creation
+    /// wherever the host offers a creation screen; any other word is refused by name, because a misspelled
+    /// switch silently taking the default would play a game nobody chose.
+    /// </para>
+    /// </remarks>
+    /// <param name="catalog">The content the product selected, when it selected any.</param>
+    /// <returns>The stated start, or null when the selection states no start or a start that does not say.</returns>
+    /// <exception cref="ContentValidationException">The selection states more than one start, or one whose party word is not a start.</exception>
+    internal static (SessionPartyStart Start, string Entry, string Pack)? StatedPartyStart(ContentCatalog? catalog)
+    {
+        if (catalog is null || OnlyStart(catalog) is not { } only) return null;
+        if (!only.Entry.Has(PartyStartProperty)) return null;
+
+        string word = only.Entry.GetString(PartyStartProperty);
+        return word switch
         {
-            string place = start.Entry.GetId("place");
-            string begins = place.Length == 0 ? "no place" : $"place '{place}'";
-            return $"'{start.Entry.Id}' in {start.Pack.PackId}/{start.Document.DocumentId}, which begins the party in {begins}";
+            CreationPartyStart => (SessionPartyStart.Creation, only.Entry.Id, only.Pack.PackId),
+            ScenarioPartyStart => (SessionPartyStart.Scenario, only.Entry.Id, only.Pack.PackId),
+            _ => throw new ContentValidationException(
+                $"The scenario start '{only.Entry.Id}' in {only.Pack.PackId}/{only.Document.DocumentId} says its party is '{word}', which is not a start: a new session's party is '{CreationPartyStart}' or '{ScenarioPartyStart}'.",
+                [new ContentValidationIssue(
+                    "scenario-start-party-unknown",
+                    $"start '{only.Entry.Id}' says its party is '{word}', and the party starts are '{CreationPartyStart}' and '{ScenarioPartyStart}'.",
+                    only.Pack.PackId,
+                    only.Document.DocumentId)]),
+        };
+    }
+
+    /// <summary>The property of a scenario start that says which start a new session's party takes.</summary>
+    internal const string PartyStartProperty = "party";
+
+    /// <summary>The word for a start in which the player creates the party.</summary>
+    internal const string CreationPartyStart = "creation";
+
+    /// <summary>The word for a start that plays the party the scenario fixes.</summary>
+    internal const string ScenarioPartyStart = "scenario";
+
+    /// <summary>The one start entry the selection states, or null when it states none.</summary>
+    /// <exception cref="ContentValidationException">The selection states more than one start.</exception>
+    private static (LoadedPack Pack, ContentDocument Document, ContentEntry Entry)? OnlyStart(ContentCatalog catalog)
+    {
+        List<(LoadedPack Pack, ContentDocument Document, ContentEntry Entry)> starts = [.. catalog.Entries(StartDefinitionKind)];
+        if (starts.Count == 0) return null;
+
+        if (starts.Count > 1)
+        {
+            throw new ContentValidationException(
+                $"The content this product selected states {starts.Count} scenario starts, and which place the party begins in would be the order the packs happened to load in. The candidates are {Joined(starts)}.",
+                [.. starts.Select(candidate => new ContentValidationIssue(
+                    "scenario-start-ambiguous",
+                    $"{Candidate(candidate)}, and it is one of {starts.Count} starts this selection states.",
+                    candidate.Pack.PackId,
+                    candidate.Document.DocumentId))]);
         }
+
+        return starts[0];
 
         static string Joined(IReadOnlyList<(LoadedPack Pack, ContentDocument Document, ContentEntry Entry)> candidates) =>
             string.Join("; ", candidates.Select(Candidate));
+    }
+
+    /// <summary>
+    /// One start stated the way a refusal reads it: which pack and document declared it, which entry it is, and
+    /// the place it would put the party in.
+    /// </summary>
+    private static string Candidate((LoadedPack Pack, ContentDocument Document, ContentEntry Entry) start)
+    {
+        string place = start.Entry.GetId("place");
+        string begins = place.Length == 0 ? "no place" : $"place '{place}'";
+        return $"'{start.Entry.Id}' in {start.Pack.PackId}/{start.Document.DocumentId}, which begins the party in {begins}";
     }
 }

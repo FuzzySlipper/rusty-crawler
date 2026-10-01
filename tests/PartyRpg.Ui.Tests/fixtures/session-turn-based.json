@@ -3,7 +3,8 @@
     "ruleset": "mightandmagic7",
     "title": "Might and Magic VII: For Blood and Honor",
     "bundle": "partyrpg-default",
-    "contentPacks": 2
+    "contentPacks": 2,
+    "partyStart": "creation"
   },
   "session": {
     "mode": "turnbased",
