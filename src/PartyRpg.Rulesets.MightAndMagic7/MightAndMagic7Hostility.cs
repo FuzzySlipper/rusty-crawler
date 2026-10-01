@@ -136,6 +136,23 @@ internal sealed class MightAndMagic7Hostility
     /// <param name="other">The kind it is looking at.</param>
     internal bool IsEnemy(int self, int other) => Band(self, other) != 0;
 
+    /// <summary>Whether a kind is one of the undead, which a turning and a binding of the dead are aimed at.</summary>
+    /// <remarks>
+    /// The donor names its undead by kind — ghost, lich, skeleton warrior, vampire, wight, zombie, and ghoul
+    /// (<c>OpenEnroth/src/Engine/Objects/MonsterEnumFunctions.cpp:278-288</c>, <c>MONSTER_SUPERTYPE_UNDEAD</c>) — and
+    /// those are the shipped matrix's own column names for the kinds, so a kind is read as undead when its column is
+    /// one of them. A matrix that names no kinds has no undead.
+    /// </remarks>
+    /// <param name="kind">The kind's column index.</param>
+    internal bool IsUndead(int kind) =>
+        kind > 0 && kind < Columns.Count && UndeadKinds.Contains(Columns[kind]);
+
+    /// <summary>The undead kinds, by the matrix's own column names.</summary>
+    private static readonly HashSet<string> UndeadKinds = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Ghost", "Lich", "Skeleton Warrior", "Vampire", "Wight", "Zombie", "Ghoul",
+    };
+
 
     /// <summary>Reads one row's bands, refusing a band this game has no meaning for.</summary>
     private static IReadOnlyDictionary<int, int> ReadBands(

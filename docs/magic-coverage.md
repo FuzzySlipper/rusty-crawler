@@ -128,12 +128,12 @@ the shipped `POTION.TXT` states what each potion is for in words and no numbers 
 | damage | 33 | 1 | 0 | 34 |
 | healing | 6 | 1 | 0 | 7 |
 | resistance | 9 | 1 | 0 | 10 |
-| condition | 9 | 0 | 10 | 19 |
+| condition | 13 | 2 | 4 | 19 |
 | light | 1 | 0 | 0 | 1 |
 | travel | 2 | 0 | 4 | 6 |
 | detection | 3 | 0 | 0 | 3 |
 | utility | 8 | 2 | 9 | 19 |
-| **all** | **71** | **5** | **23** | **99** |
+| **all** | **75** | **7** | **17** | **99** |
 
 ## Every spell
 
@@ -175,8 +175,8 @@ master, and four grand master.
 | 31 | travel | 3 | none | implemented | a portal taken through the world's own transition path, charged by the world's own cost rule |  |
 | 32 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 33 | travel | 4 | none | implemented | a beacon set in the party's own carried state and recalled through the world's own transition path |  |
-| 34 | condition | 1 | foe | not yet | a condition on a world actor | the fight's own condition model, which is the party's |
-| 35 | condition | 1 | foe | not yet | a creature slowed | the fight's own actor state, which paces an actor by its row |
+| 34 | condition | 1 | foe | approximated | a creature the casting named, not immune to earth, has twenty of the donor's ticks added to what it must recover before it acts again, through the fight's own recovery (OpenEnroth src/Engine/Objects/Actor.cpp:3073-3080, 3179-3188); the donor rolls the spell's hit as a blow's and knocks the creature back, and this build always lands it and moves nobody (ours) |  |
+| 35 | condition | 1 | foe | implemented | a creature the casting named, not immune to earth, is slowed on its own state: its recovery is doubled and its pace divided by the spell's power until the clock ends it (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:572-610, src/Engine/Objects/Actor.cpp:1296, src/Engine/Graphics/Indoor.cpp:814-816) |  |
 | 36 | resistance | 1 | ally | implemented | a ward on the character the casting named, read by the fight's own resistance for that character and ended by its own deadline; the donor gives several of these to the whole party at once (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:767-801, pPartyBuffs[PARTY_BUFF_RESIST_*]), and this game's own table aims each one at a single character |  |
 | 37 | damage | 1 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 38 | resistance | 2 | party | implemented | armour class carried by the party and read by the fight's own armour class |  |
@@ -189,7 +189,7 @@ master, and four grand master.
 | 45 | detection | 1 | caster | implemented | a report read from the places and the population the world holds |  |
 | 46 | utility | 1 | ally | implemented | an effect on the character the casting named, read by the fight's own resolution for that character and ended by its own deadline; the donor rewards a blessing, a fate, and hammerhands to one character below the rungs where it widens them to the party (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:846-880, :1631-1656, :2364-2384), and this game's own table aims each one at a single character |  |
 | 47 | utility | 1 | ally | implemented | an effect on the character the casting named, read by the fight's own resolution for that character and ended by its own deadline; the donor rewards a blessing, a fate, and hammerhands to one character below the rungs where it widens them to the party (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:846-880, :1631-1656, :2364-2384), and this game's own table aims each one at a single character |  |
-| 48 | condition | 1 | foe | not yet | a creature turned away from the party | the fight's allegiance state, which is a side rather than a fear |
+| 48 | condition | 1 | foe | implemented | every undead creature in view is made afraid on its own state and runs from what it fights until the clock ends it (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:1734-1762); the table aims the casting at a creature, and the spell takes hold of every one in view as the donor's does |  |
 | 49 | condition | 2 | ally | implemented | the named conditions lifted through the member's own condition state |  |
 | 50 | utility | 2 | caster | not yet | the party's gear protected from harm | item state, which carries what a spell would protect |
 | 51 | utility | 2 | ally | implemented | an effect on the character the casting named, read by the fight's own resolution for that character and ended by its own deadline; the donor rewards a blessing, a fate, and hammerhands to one character below the rungs where it widens them to the party (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:846-880, :1631-1656, :2364-2384), and this game's own table aims each one at a single character |  |
@@ -204,7 +204,7 @@ master, and four grand master.
 | 60 | condition | 2 | foe | not yet | a charmed creature that fights for the party | the fight's allegiance state, which is a side rather than a loyalty |
 | 61 | condition | 2 | ally | implemented | the named conditions lifted through the member's own condition state |  |
 | 62 | condition | 2 | foe | not yet | a creature driven against its own | the fight's allegiance state, which is a side rather than a rage |
-| 63 | condition | 3 | foe | not yet | creatures made afraid | the fight's own actor state, which is not the party's condition model |
+| 63 | condition | 3 | foe | implemented | every living creature in view, not immune to mind, is made afraid on its own state and runs from what it fights until the clock ends it (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:2089-2119); the table aims the casting at a creature, and the spell takes hold of every one in view as the donor's does |  |
 | 64 | condition | 3 | ally | implemented | the named conditions lifted through the member's own condition state |  |
 | 65 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 66 | condition | 4 | foe | not yet | an enslaved creature that fights for the party | the fight's allegiance state, which is a side rather than a loyalty |
@@ -222,7 +222,7 @@ master, and four grand master.
 | 78 | damage | 1 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 79 | damage | 1 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 80 | utility | 1 | none | approximated | the donor dispels the buffs of the creature it is cast on; this build's spell effects are the party's, so the casting ends what spells have left running on the party (receiver: an actor-buff owner for world actors) |  |
-| 81 | condition | 1 | foe | not yet | a condition on a world actor | the fight's own condition model, which is the party's |
+| 81 | condition | 1 | foe | implemented | a creature the casting named, not immune to light, is paralysed on its own state: the fight's gate refuses it every action until the clock ends it (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:549-570) |  |
 | 82 | utility | 2 | caster | not yet | a creature summoned to stand with the party | the world's population, which places what content declares |
 | 83 | utility | 2 | party | approximated | every score a fight reads is raised for every member; the pools a raised endurance, intellect, or personality would deepen are set by progression and are not re-read while it runs (ours) |  |
 | 84 | damage | 2 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
@@ -233,7 +233,7 @@ master, and four grand master.
 | 89 | utility | 1 | foe | not yet | a corpse raised to fight for the party | the world's bodies and the fight's allegiance state |
 | 90 | damage | 1 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 91 | utility | 1 | ally | not yet | a weapon to bear | an item-aim owner: the pack holds the party's items and nothing aims a spell at one |
-| 92 | condition | 1 | foe | not yet | a creature shrunk | the fight's own actor state, which is not the party's condition model |
+| 92 | condition | 1 | foe | approximated | a creature the casting named, not immune to dark, is shrunk on its own state and the harm it does is divided by the spell's power until the clock ends it (OpenEnroth src/Engine/Objects/SpriteObject.cpp:951-1040, src/Engine/Objects/Character.cpp:5842-5846); the donor's grand master ray shrinks every creature near where it lands, and this build shrinks the one named (ours) |  |
 | 93 | damage | 2 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 94 | condition | 2 | foe | not yet | an undead creature made to fight for the party | the fight's allegiance state, which is a side rather than a loyalty |
 | 95 | utility | 2 | caster | implemented | pain reflection on the caster: the harm a creature's blow or missile does them is turned back onto that creature through its own resistance by the fight's damage application, until its own deadline; the donor gives it to every character at master and above (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:2813-2840), and this game's own table aims it at the caster |  |

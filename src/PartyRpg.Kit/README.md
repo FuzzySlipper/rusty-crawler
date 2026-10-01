@@ -234,7 +234,9 @@ immunity), `HitChance` in ten-thousandths, and `AttackPlan` as the vocabulary �
 turned back onto the attacker through the optional `ICombatReflectionRule` `CombatRules` names, landed on the
 attacker's own health and reported as the resolution's `Reflected`; `CreatureHealth` is a
 creature's own health, a component attached by the population's `IPlacementComposer` when the creature is
-placed (`CreatureHealthComposer` over the game's `ICreatureVitals`), so a fight keeps no tally of its own beside
+placed (`CreatureComposer` over the game's `ICreatureVitals`, which also attaches the `CreatureEffects` a spell
+leaves on a creature — a paralysis, a slowing, a fear, a charm — counted down by the fight's own clock advances
+and read by the game's answers), so a fight keeps no tally of its own beside
 it; where a placed entity stands is its own too (`PlacePopulationEntity.Pose`, moved only by `MoveTo`); a death
 is reported once, from the wound that caused it, to the `ICreatureDeathObserver`s `CombatRules` names; and `CombatState.Vitals`, `IsDown`, and `LastResolution` are
 what the panel reads; no scene, no second population, no per-kind cooldown, no per-kind damage class, and

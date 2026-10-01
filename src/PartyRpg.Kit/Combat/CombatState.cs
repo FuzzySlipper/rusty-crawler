@@ -206,6 +206,9 @@ public sealed class CombatState : IGameTimeObserver
 
         if (wounded > 0) left.Add(("wounded", $"{wounded} living creature(s) wounded"));
         if (fallen > 0 && IsEngaged) left.Add(("fallen", $"{fallen} creature(s) laid out in a place not yet cleared"));
+        int spelled = _combatants.Count(combatant =>
+            combatant.Subject.Entity is { } entity && !IsDown(combatant) && CreatureEffects.Find(entity.Actor) is { Any: true });
+        if (spelled > 0) left.Add(("spelled", $"{spelled} creature(s) a spell is still acting on"));
         if (Pacing == CombatPacing.TurnBased && Turns.IsHolding) left.Add(("round", "a turn-based round in progress"));
         return left;
     }
@@ -640,9 +643,11 @@ public sealed class CombatState : IGameTimeObserver
     public bool IsDown(Combatant combatant)
     {
         ArgumentNullException.ThrowIfNull(combatant);
-        if (_resolution is { } rule && !rule.CanAct(combatant.Subject)) return true;
-        if (combatant.Subject.Member is not null) return false;
 
+        // A member is down when what is acting on them leaves them unable to act; a creature is down only when its
+        // health is spent. A creature a spell holds still is still standing — it can be attacked, it still counts
+        // as what a place holds, and it acts again when the spell lets go — so its gate is the order's, not this.
+        if (combatant.Subject.Member is not null) return _resolution is { } rule && !rule.CanAct(combatant.Subject);
         return Health(combatant.Subject)?.IsDown ?? false;
     }
 
@@ -803,6 +808,39 @@ public sealed class CombatState : IGameTimeObserver
         ? string.Join(", ", member.Conditions.Active.Select(condition => condition.ToString()))
         : "what is acting on them";
 
+    /// <summary>
+    /// Remembers that the party has acted against a creature, which puts it into the fight as an attack does.
+    /// </summary>
+    /// <remarks>
+    /// An attack provokes its target where it is ordered; a spell that does no harm — a paralysis, a slowing — is
+    /// still an act against the creature, and the game that applied it says so here, so the creature stays an enemy
+    /// for as long as it stands there whatever pacing is in force.
+    /// </remarks>
+    /// <param name="target">The creature acted against.</param>
+    /// <returns>Whether a creature in this fight has that identity.</returns>
+    public bool Provoke(CombatantId target)
+    {
+        if (!_byId.TryGetValue(target, out Combatant? combatant) || combatant.Side == CombatSide.Party) return false;
+        _provoked.Add(target);
+        combatant.Provoke();
+        return true;
+    }
+
+    /// <summary>Adds game time to what an actor must recover before it may act again.</summary>
+    /// <remarks>
+    /// This is the one way something other than an actor's own action costs it time — a blow that staggers it — and
+    /// it moves the same pacing quantity an action charges, so both pacings read it the same way.
+    /// </remarks>
+    /// <param name="actor">The actor held back.</param>
+    /// <param name="by">How much game time it owes beyond what it already did.</param>
+    /// <returns>Whether an actor in this fight has that identity.</returns>
+    public bool Delay(CombatantId actor, GameDuration by)
+    {
+        if (!_byId.TryGetValue(actor, out Combatant? combatant)) return false;
+        combatant.Spend(GameDuration.FromMilliseconds(checked(combatant.Recovery.Milliseconds + by.Milliseconds)));
+        return true;
+    }
+
     /// <summary>The combatant an identity belongs to, or null when no actor in this fight has it.</summary>
     /// <param name="id">The identity to look for.</param>
     public Combatant? Find(CombatantId id) => _byId.GetValueOrDefault(id);
@@ -829,7 +867,13 @@ public sealed class CombatState : IGameTimeObserver
     {
         ArgumentNullException.ThrowIfNull(advance);
         if (!advance.Moved) return;
-        foreach (Combatant combatant in _combatants) combatant.Recover(advance.Elapsed);
+        foreach (Combatant combatant in _combatants)
+        {
+            combatant.Recover(advance.Elapsed);
+
+            // What a spell left on a creature runs out with the same game time its recovery does.
+            if (combatant.Subject.Entity is { } entity) CreatureEffects.Find(entity.Actor)?.Elapse(advance.Elapsed);
+        }
     }
 
     /// <summary>The combatant already in this fight under an identity, or null when none is.</summary>

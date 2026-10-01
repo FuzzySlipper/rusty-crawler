@@ -533,11 +533,13 @@ public sealed class SpellEffectPolicyTests
     /// <param name="spells">The spell rows a suite casts, or null for this suite's own.</param>
     /// <param name="party">The scenario party a suite plays, or null for this suite's own.</param>
     /// <param name="monster">The creature row a suite fights, or null for this suite's own.</param>
+    /// <param name="places">The places a suite stands in, or null for this suite's own.</param>
     /// <param name="extra">Further documents a suite's own pack declares, each with its manifest line.</param>
     internal static (string Path, string Text)[] Content(
         (string Path, string Text)? spells = null,
         (string Path, string Text)? party = null,
         (string Path, string Text)? monster = null,
+        (string Path, string Text)? places = null,
         params (string Path, string Text, string Manifest)[] extra) =>
     [
         RulesetTestContext.Bundle("partyrpg-default", "world"),
@@ -559,7 +561,7 @@ public sealed class SpellEffectPolicyTests
               ]
             }
             """),
-        ($"{RulesetTestContext.ContentDirectory}/content-packs/world/places.json",
+        places ?? ($"{RulesetTestContext.ContentDirectory}/content-packs/world/places.json",
             """
             {
               "documentId": "places",

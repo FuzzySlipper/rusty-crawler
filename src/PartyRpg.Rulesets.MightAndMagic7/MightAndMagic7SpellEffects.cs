@@ -40,6 +40,7 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     private readonly MightAndMagic7Spells _spells;
     private readonly GameClock? _clock;
     private readonly Func<SessionWorld?> _world;
+    private readonly Func<MightAndMagic7Combat?> _combat;
     private RunningSpellEffects? _running;
 
     /// <summary>Creates this game's effect path over its own spell table.</summary>
@@ -53,12 +54,21 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     /// world itself because this path is composed before the session's world exists on the path that creates
     /// its party, and because a product without content has no world to move anybody through.
     /// </param>
+    /// <param name="combat">
+    /// This game's fight policy, read when a spell takes hold of a creature: what the creature is immune to and
+    /// whether it is undead are its own row's answers. A provider for the same reason the world is one.
+    /// </param>
     /// <exception cref="ArgumentNullException">No spell table was supplied.</exception>
-    internal MightAndMagic7SpellEffects(MightAndMagic7Spells spells, GameClock? clock = null, Func<SessionWorld?>? world = null)
+    internal MightAndMagic7SpellEffects(
+        MightAndMagic7Spells spells,
+        GameClock? clock = null,
+        Func<SessionWorld?>? world = null,
+        Func<MightAndMagic7Combat?>? combat = null)
     {
         _spells = spells ?? throw new ArgumentNullException(nameof(spells));
         _clock = clock;
         _world = world ?? (() => null);
+        _combat = combat ?? (() => null);
     }
 
     /// <summary>The effects spells have left running, once a caster has left one.</summary>
@@ -585,6 +595,10 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     {
         SpellReading reading = _spells.ReadingOf(application.Spell);
 
+        // A condition aimed at a creature is left on the creature's own state, which the fight's readings and its
+        // own decisions consult; a party member's condition is the member's.
+        if (reading.OnCreature is { } creature) return AfflictCreatures(application, creature);
+
         // A reading that leaves a condition rather than lifting one is the drinking of a catalyst, which the
         // donor's own case poisons the drinker with; it lands on the character the casting named, through their
         // own condition state, exactly as a cure lands there.
@@ -630,6 +644,88 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
                 $"{application.Spell.Name}: {string.Join(", ", lifted)} lifted.",
                 facts);
     }
+
+    /// <summary>
+    /// Leaves a spell's effect on the creatures it takes hold of, on each creature's own state.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>What takes hold is the creature's own answer.</b> The donor lands a creature spell only on an actor that
+    /// is not immune to the spell's kind of harm (<c>Actor::DoesDmgTypeDoDamage</c>, read at each cast in
+    /// <c>OpenEnroth/src/Engine/Spells/CastSpellInfo.cpp</c> and <c>src/Engine/Objects/SpriteObject.cpp:1020-1030</c>),
+    /// and a turning or a fear only on the undead or on the living (<c>CastSpellInfo.cpp:1752-1758</c>,
+    /// <c>:2108-2116</c>). Both are read from the creature's own row, so an immune creature is named as immune and
+    /// the casting is still spent, as the donor spends it.
+    /// </para>
+    /// <para>
+    /// <b>What it leaves is read where it applies.</b> The effect is held on the creature
+    /// (<see cref="CreatureEffects"/>) and counted down by the fight's own clock advances; the fight's gate, its
+    /// recovery, its harm, and the creature's own decisions read it. An act against a creature puts it into the
+    /// fight as an attack does, which is the donor's aggressor flag (<c>CastSpellInfo.cpp:565</c>, <c>:602</c>).
+    /// </para>
+    /// </remarks>
+    private SpellApplicationOutcome AfflictCreatures(SpellApplication application, CreatureReading reading)
+    {
+        if (application.Fight is not { } fight) return Unexpressed(application, "no creature stands in reach to take hold of");
+        MightAndMagic7Combat? policy = _combat();
+        List<Combatant> taken = [];
+        if (reading.Reach == CreatureReach.Named)
+        {
+            if (application.Target is { } named && fight.Find(named) is { Subject.Entity: not null } one && !fight.IsDown(one))
+            {
+                taken.Add(one);
+            }
+        }
+        else
+        {
+            taken.AddRange(fight.Combatants.Where(combatant =>
+                combatant.Subject.Entity is not null && !fight.IsDown(combatant) && combatant.Distance <= MassSpellDepth));
+        }
+
+        (int power, GameDuration lasts) = reading.Lasts is { } length
+            ? Worth(application, reading.Power, length)
+            : (Worth(application, reading.Power, (_, _) => GameDuration.None).Power, GameDuration.None);
+        List<SpellEffectFact> facts = [];
+        List<string> lines = [];
+        foreach (Combatant creature in taken)
+        {
+            CombatSubject subject = creature.Subject;
+            bool undead = policy?.IsUndead(subject) == true;
+            if (reading.Kind == CreatureKindGate.Undead && !undead) continue;
+            if (reading.Kind == CreatureKindGate.Living && undead) continue;
+            if (CreatureEffects.Find(subject.Entity!.Actor) is not { } effects) continue;
+            if (reading.ResistedBy is { } kind && policy?.ImmuneTo(subject, kind) == true)
+            {
+                lines.Add($"{creature.Name} is immune to {kind}, and nothing takes hold");
+                facts.Add(new SpellEffectFact("immune", creature.Name));
+                continue;
+            }
+
+            foreach (EffectId ended in reading.Ends ?? []) effects.Remove(ended);
+            if (!lasts.IsNone) effects.Apply(reading.Effect, power, lasts);
+            if (reading.DelayTicks > 0) fight.Delay(creature.Id, MightAndMagic7Combat.Ticks(reading.DelayTicks));
+            if (reading.Provokes) fight.Provoke(creature.Id);
+            lines.Add(lasts.IsNone
+                ? $"{creature.Name} is {reading.Effect}"
+                : $"{creature.Name} is {reading.Effect} at {power} until the clock has run {Describe(lasts)}");
+            facts.Add(new SpellEffectFact(reading.Effect.Value, creature.Name));
+        }
+
+        if (lines.Count == 0)
+        {
+            return taken.Count == 0
+                ? Unexpressed(application, "no creature it can take hold of stands in reach")
+                : Unexpressed(application, "no creature in reach is one it takes hold of");
+        }
+
+        return Expressed(application, string.Join("; ", lines), facts);
+    }
+
+    /// <summary>
+    /// How far from the party a spell that takes hold of every creature in view reaches: the donor's own mass-spell
+    /// depth (<c>OpenEnroth/src/Application/GameConfig.h:200</c>, <c>mass_spell_depth</c>).
+    /// </summary>
+    private const double MassSpellDepth = 4096;
 
     /// <summary>Light: a light carried by the party, ended by the clock's own daylight window.</summary>
     /// <remarks>

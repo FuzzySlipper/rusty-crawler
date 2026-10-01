@@ -374,6 +374,42 @@ public sealed class CombatResolutionTests
         }
     }
 
+    [Fact]
+    public void What_a_spell_leaves_on_a_creature_is_its_own_and_runs_out_with_the_fights_clock()
+    {
+        Rules rules = new();
+        using SessionWorld world = World(rules, out PartyEntity party, creatureAt: 100);
+        using (party)
+        {
+            Arrive(world);
+            CombatState combat = Fight(world, party, rules);
+            combat.Step();
+            Combatant beast = combat.Opposition[0];
+
+            // A placed creature carries its effects from the moment it is placed, empty until something leaves one.
+            CreatureEffects effects = CreatureEffects.Find(beast.Subject.Entity!.Actor)!;
+            Assert.False(effects.Any);
+            EffectId held = new("held");
+            effects.Apply(held, magnitude: 2, GameDuration.FromSeconds(10));
+            Assert.Equal(2, effects.MagnitudeOf(held));
+
+            // The fight's own advances count it down, and the advance that reaches its length ends it; meanwhile the
+            // fight names it among what a save would drop.
+            combat.Observe(Advance(9_000));
+            Assert.True(effects.Has(held));
+            Assert.Contains(combat.UnsavedFight(), left => left.Subject == "spelled");
+            combat.Observe(Advance(1_000));
+            Assert.False(effects.Has(held));
+
+            // An act that is not a blow can still hold a creature back and put it into the fight.
+            long owed = beast.Recovery.Milliseconds;
+            Assert.True(combat.Delay(beast.Id, GameDuration.FromSeconds(3)));
+            Assert.Equal(owed + 3_000, beast.Recovery.Milliseconds);
+            Assert.True(combat.Provoke(beast.Id));
+            Assert.False(combat.Provoke(combat.Combatants.First(combatant => combatant.Side == CombatSide.Party).Id));
+        }
+    }
+
     private sealed class Heard(List<CreatureDeath> heard) : ICreatureDeathObserver
     {
         public void Died(CreatureDeath death) => heard.Add(death);

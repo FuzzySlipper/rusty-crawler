@@ -64,6 +64,54 @@ internal enum DetectionScope
     Minds,
 }
 
+/// <summary>Which creatures a spell aimed at a foe takes hold of.</summary>
+internal enum CreatureReach
+{
+    /// <summary>The one creature the casting named.</summary>
+    Named,
+
+    /// <summary>
+    /// Every creature standing within the donor's mass-spell depth of the party, which is what the donor's own
+    /// "every actor in the viewport" is in this build (<c>OpenEnroth/src/Application/GameConfig.h:200</c>,
+    /// <c>mass_spell_depth</c>, 4096).
+    /// </summary>
+    InView,
+}
+
+/// <summary>Which kinds of creature a spell aimed at a foe can take hold of at all.</summary>
+internal enum CreatureKindGate
+{
+    /// <summary>Any creature.</summary>
+    Any,
+
+    /// <summary>Only the undead.</summary>
+    Undead,
+
+    /// <summary>Only the living, which is every creature that is not undead.</summary>
+    Living,
+}
+
+/// <summary>What a spell leaves on a creature: an effect of the creature's own, how strong, for how long, and on whom.</summary>
+/// <param name="Effect">The effect the creature carries, which the fight's readings name.</param>
+/// <param name="ResistedBy">The kind of harm a creature immune to which is untouched by the spell, or null for none.</param>
+/// <param name="Power">What the effect is worth at the caster's school level and mastery.</param>
+/// <param name="Lasts">How long it lasts at the caster's school level and mastery, or null when it leaves nothing that lasts.</param>
+/// <param name="Reach">Which creatures it takes hold of.</param>
+/// <param name="Kind">Which kinds of creature it can take hold of.</param>
+/// <param name="Provokes">Whether casting it is an act against the creature that puts it into the fight.</param>
+/// <param name="DelayTicks">The donor's ticks the creature's recovery is pushed back by, zero for none.</param>
+/// <param name="Ends">The effects it replaces on the creature, which is the donor's charm, berserk and enslavement each ending the others.</param>
+internal readonly record struct CreatureReading(
+    EffectId Effect,
+    DamageKindId? ResistedBy,
+    Func<int, int, int> Power,
+    Func<int, int, GameDuration>? Lasts,
+    CreatureReach Reach = CreatureReach.Named,
+    CreatureKindGate Kind = CreatureKindGate.Any,
+    bool Provokes = true,
+    int DelayTicks = 0,
+    EffectId[]? Ends = null);
+
 /// <summary>A ward's strength and length, as the donor's own formulas over the caster's school.</summary>
 /// <remarks>
 /// The power and the duration are functions of the caster's level in the spell's school and its mastery rung
@@ -215,6 +263,34 @@ internal static class WardFormulas
     internal static readonly Func<int, int, GameDuration> PainReflectionLasts = (level, mastery) =>
         GameDuration.FromHours(1) + GameDuration.FromMinutes((mastery >= 4 ? 15 : 5) * level);
 
+    /// <summary>
+    /// Minutes per level of the school, at one rate for each rung of mastery: the shape every creature spell's
+    /// length is stated in by the donor.
+    /// </summary>
+    /// <param name="novice">Minutes per level at novice.</param>
+    /// <param name="expert">Minutes per level at expert.</param>
+    /// <param name="master">Minutes per level at master.</param>
+    /// <param name="grandmaster">Minutes per level at grand master.</param>
+    /// <param name="flat">Minutes added whatever the level.</param>
+    internal static Func<int, int, GameDuration> MinutesPerLevel(int novice, int expert, int master, int grandmaster, int flat = 0) =>
+        (level, mastery) => GameDuration.FromMinutes(flat + (level * mastery switch
+        {
+            <= 1 => novice,
+            2 => expert,
+            3 => master,
+            _ => grandmaster,
+        }));
+
+    /// <summary>A power that is one value for each rung of mastery.</summary>
+    internal static Func<int, int, int> ByMastery(int novice, int expert, int master, int grandmaster) =>
+        (_, mastery) => mastery switch
+        {
+            <= 1 => novice,
+            2 => expert,
+            3 => master,
+            _ => grandmaster,
+        };
+
     /// <summary>The donor's day of protection at master: four hours per level.</summary>
     internal static readonly Func<int, int, GameDuration> FourHoursPerLevel = (level, _) => GameDuration.FromHours(4 * level);
 
@@ -304,6 +380,7 @@ internal readonly record struct BuffReading(
 /// <param name="Rejuvenates">Whether the casting gives back every year its carrier was aged beyond their natural age.</param>
 /// <param name="ForGood">The score the casting raises for good, once for each character, or null for none.</param>
 /// <param name="ForGoodBy">How much that score is raised by.</param>
+/// <param name="OnCreature">What the spell leaves on the creatures it takes hold of, or null when it touches none.</param>
 internal readonly record struct SpellReading(
     HealingMode Healing,
     int HealBase,
@@ -334,7 +411,8 @@ internal readonly record struct SpellReading(
     int AgesCaster = 0,
     bool Rejuvenates = false,
     AttributeId? ForGood = null,
-    int ForGoodBy = 0)
+    int ForGoodBy = 0,
+    CreatureReading? OnCreature = null)
 {
     /// <summary>The reading of a spell whose category this field does not describe.</summary>
     internal static readonly SpellReading None = new(
@@ -446,6 +524,10 @@ internal static class Readings
     /// <summary>A carried effect the donor withholds while a character it would land on is weak, which is its haste.</summary>
     internal static SpellReading WithheldFromTheWeak(this SpellReading reading) =>
         reading.Buff is { } buff ? reading with { Buff = buff with { SparesTheWeak = true } } : reading;
+
+    /// <summary>A spell that leaves an effect on the creatures it takes hold of.</summary>
+    /// <param name="creature">What it leaves, on whom, and for how long.</param>
+    internal static SpellReading OnCreatures(CreatureReading creature) => SpellReading.None with { OnCreature = creature };
 
     /// <summary>A casting that leaves its caster older than their natural age, which is the donor's divine intervention.</summary>
     /// <param name="reading">The reading the spell otherwise has.</param>
@@ -598,6 +680,21 @@ internal static class SpellEffectIds
 
     /// <summary>Regeneration, whose magnitude is the health a character is given back every five minutes.</summary>
     internal static readonly EffectId Regeneration = new("spell.regeneration");
+
+    /// <summary>A creature held where it stands, unable to act: <c>ACTOR_BUFF_PARALYZED</c>.</summary>
+    internal static readonly EffectId CreatureParalyzed = new("creature.paralyzed");
+
+    /// <summary>A creature slowed, whose magnitude divides its pace and which doubles its recovery: <c>ACTOR_BUFF_SLOWED</c>.</summary>
+    internal static readonly EffectId CreatureSlowed = new("creature.slowed");
+
+    /// <summary>A creature afraid, which runs from what it fights: <c>ACTOR_BUFF_AFRAID</c>.</summary>
+    internal static readonly EffectId CreatureAfraid = new("creature.afraid");
+
+    /// <summary>A creature shrunk, whose magnitude divides the harm it does: <c>ACTOR_BUFF_SHRINK</c>.</summary>
+    internal static readonly EffectId CreatureShrunk = new("creature.shrunk");
+
+    /// <summary>A creature staggered, which leaves nothing that lasts: the stun pushes its recovery back.</summary>
+    internal static readonly EffectId CreatureStunned = new("creature.stunned");
 
     /// <summary>Invisibility, which is carried as a fact rather than as a magnitude.</summary>
     internal static readonly EffectId Invisibility = new("spell.invisibility");

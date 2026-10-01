@@ -308,7 +308,7 @@ public sealed class MonsterAiPolicyTests
                 RulesetTestContext.Content(context),
                 ContentLayout.Under(RulesetTestContext.ContentDirectory)).RequireValid();
             MightAndMagic7Combat combat = MightAndMagic7Combat.Compose(catalog, random);
-            return new Fixture(catalog, files, MightAndMagic7MonsterAi.Compose(catalog, combat, random), combat)
+            return new Fixture(catalog, files, MightAndMagic7MonsterAi.Compose(combat, random), combat)
             {
                 EngineRoll = engineRoll,
             };

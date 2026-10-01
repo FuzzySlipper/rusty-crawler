@@ -95,6 +95,14 @@ Owns:
     carrying pain reflection turns the harm a creature's blow or missile did them back onto that creature through
     its own resistance (`:5875-5900`, `:6042-6062`), through the kit's `ICombatReflectionRule`. Faithful; the items
     that shield their wearer wait for #8513.
+  - **what a spell leaves on a creature** (the kit's `CreatureEffects`, held on the creature and counted down by
+    the fight's own clock advances): a paralysis is the fight's gate refusing every action (`Actor.cpp:169-176`), a
+    slowing doubles the creature's recovery (`Actor.cpp:1296`) and divides its pace (`Indoor.cpp:814-816`), a
+    shrinking divides its blow (`Character.cpp:5842-5846`), a fear makes it run in `MightAndMagic7MonsterAi`
+    (`TurnEngine.cpp:889-892`), and a stun adds the donor's twenty ticks to its recovery through the fight's own
+    `Delay` (`Actor.cpp:3179-3188`). A creature immune to the spell's kind of harm is untouched, and which kinds are
+    undead is read from the shipped matrix's own column names (`MonsterEnumFunctions.cpp:278-288`). A creature a
+    spell holds still is not down: it can be struck and the place still holds it.
   A member wearing a bow shoots it at whatever the party's pick finds, where the donor swings at a target in
   melee range and shoots otherwise (`Character.cpp:6367-6397`): the kit asks one kind of attack per actor rather
   than per target (ours). Each sum is a list of terms, so a later owner's term — a buff, an enchantment — is one

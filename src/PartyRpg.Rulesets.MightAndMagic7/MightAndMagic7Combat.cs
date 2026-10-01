@@ -385,6 +385,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     private readonly Func<IMemberSpellEffects?> _memberEffects;
     private readonly MightAndMagic7Figure? _figure;
     private readonly GameClock? _clock;
+    private readonly MightAndMagic7Hostility _hostility;
 
     private MightAndMagic7Combat(
         Dictionary<int, MonsterFacts> monsters,
@@ -395,9 +396,11 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         Func<PartyEntity?>? party,
         Func<IMemberSpellEffects?>? memberEffects,
         MightAndMagic7Figure? figure,
-        GameClock? clock)
+        GameClock? clock,
+        MightAndMagic7Hostility hostility)
     {
         _clock = clock;
+        _hostility = hostility;
         _monsters = monsters;
         _people = people;
         _person = person;
@@ -528,7 +531,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         MightAndMagic7Figure? figure = null,
         GameClock? clock = null)
     {
-        if (catalog is null) return new MightAndMagic7Combat([], [], null, random, spells, party, memberEffects, figure: null, clock);
+        if (catalog is null) return new MightAndMagic7Combat([], [], null, random, spells, party, memberEffects, figure: null, clock, MightAndMagic7Hostility.Empty);
         List<ContentValidationIssue> issues = [];
         Dictionary<int, MonsterFacts> monsters = ReadMonsters(catalog, spells ?? MightAndMagic7Spells.Read(catalog), issues);
         Dictionary<string, string> people = ReadPeople(catalog);
@@ -551,11 +554,45 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             .OrderBy(row => row.Id)
             .FirstOrDefault();
 
-        return new MightAndMagic7Combat(monsters, people, person, random, spells ?? MightAndMagic7Spells.Read(catalog), party, memberEffects, figure ?? MightAndMagic7Figure.Read(catalog), clock);
+        return new MightAndMagic7Combat(
+            monsters,
+            people,
+            person,
+            random,
+            spells ?? MightAndMagic7Spells.Read(catalog),
+            party,
+            memberEffects,
+            figure ?? MightAndMagic7Figure.Read(catalog),
+            clock,
+            MightAndMagic7Hostility.Read(catalog));
     }
 
     /// <summary>How many monster rows this policy can fight.</summary>
     internal int MonsterCount => _monsters.Count;
+
+    /// <summary>What every kind of monster thinks of every other kind, read once from content.</summary>
+    internal MightAndMagic7Hostility MonsterKinds => _hostility;
+
+    /// <summary>Whether a creature is one of the undead, by the kind its own row belongs to.</summary>
+    /// <param name="subject">The creature.</param>
+    internal bool IsUndead(CombatSubject subject) =>
+        Facts(subject) is { } facts && _hostility.IsUndead(facts.HostilityKind);
+
+    /// <summary>Whether a creature's own row makes it immune to one kind of harm.</summary>
+    /// <param name="subject">The creature.</param>
+    /// <param name="kind">The kind of harm.</param>
+    internal bool ImmuneTo(CombatSubject subject, DamageKindId kind) =>
+        Facts(subject) is { } facts && facts.ResistanceOf(kind).IsImmune;
+
+    /// <summary>What a spell has left on a creature under one identity, zero when nothing runs or it is not a creature.</summary>
+    /// <param name="subject">The creature.</param>
+    /// <param name="effect">The effect to read.</param>
+    internal static int OnCreature(CombatSubject subject, EffectId effect) =>
+        subject.Member is null && subject.Entity is { } entity ? CreatureEffects.Find(entity.Actor)?.MagnitudeOf(effect) ?? 0 : 0;
+
+    /// <summary>Whether a creature runs from what it fights because a spell made it afraid.</summary>
+    /// <param name="subject">The creature.</param>
+    internal static bool IsAfraid(CombatSubject subject) => OnCreature(subject, SpellEffectIds.CreatureAfraid) > 0;
 
     /// <inheritdoc />
     public string NameOf(CombatSubject subject)
@@ -641,7 +678,14 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     public GameDuration RecoveryAfter(CombatSubject subject, AttackKind kind)
     {
         ArgumentNullException.ThrowIfNull(subject);
-        if (Creature(subject) is { } creature) return creature.Recovery;
+        // A slowed creature takes twice as long over everything it does: the donor doubles its recovery while the
+        // buff runs (OpenEnroth src/Engine/Objects/Actor.cpp:1296, 1370, 1445, 1516).
+        if (Creature(subject) is { } creature)
+        {
+            return OnCreature(subject, SpellEffectIds.CreatureSlowed) > 0
+                ? GameDuration.FromMilliseconds(checked(creature.Recovery.Milliseconds * SlowedRecovery))
+                : creature.Recovery;
+        }
 
         // A character's spell is paced by the spell's own row at the character's mastery, which is the donor's
         // own recovery column (<c>src/Engine/Spells/Spells.cpp:162-168</c>, <c>recovery_per_skill</c>). Which
@@ -911,8 +955,14 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             divisor *= ShieldDivisor;
         }
 
+        // A shrunk creature's blow is divided by the ray's power (Character.cpp:5842-5846, and :6013-6016 for a
+        // missile), whatever it strikes.
+        if (OnCreature(attacker, SpellEffectIds.CreatureShrunk) is > 1 and int shrunk) divisor *= shrunk;
         return divisor;
     }
+
+    /// <summary>How many times its own recovery a slowed creature takes: twice, <c>Actor.cpp:1296</c>.</summary>
+    private const int SlowedRecovery = 2;
 
     /// <summary>What a shield divides a missile's harm by: half, <c>Character.cpp:6007-6008</c>.</summary>
     private const int ShieldDivisor = 2;
@@ -1085,7 +1135,10 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     public bool CanAct(CombatSubject subject)
     {
         ArgumentNullException.ThrowIfNull(subject);
-        if (subject.Member is not { } member) return true;
+
+        // A creature a spell paralysed stands where it is and does nothing until it lets go (OpenEnroth
+        // src/Engine/Objects/Actor.cpp:169-176, src/Engine/TurnEngine/TurnEngine.cpp:806-810).
+        if (subject.Member is not { } member) return OnCreature(subject, SpellEffectIds.CreatureParalyzed) <= 0;
         return MightAndMagic7Conditions.CanAct(member);
     }
 
@@ -2112,7 +2165,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// millisecond rather than truncated, because truncating every tick would make a hundred-tick swing two
     /// milliseconds shorter than the donor's own.
     /// </remarks>
-    private static GameDuration Ticks(int ticks) =>
+    internal static GameDuration Ticks(int ticks) =>
         GameDuration.FromMilliseconds(
             (long)Math.Round(
                 ticks * (double)GameDuration.MillisecondsPerSecond * MightAndMagic7Time.Scale.GameSecondsPerRealSecond / TicksPerRealSecond,

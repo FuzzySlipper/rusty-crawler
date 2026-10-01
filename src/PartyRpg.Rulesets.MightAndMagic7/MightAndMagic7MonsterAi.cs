@@ -115,10 +115,10 @@ internal sealed class MightAndMagic7MonsterAi : IMonsterAiPolicy
     /// </param>
     /// <returns>This game's monster policy.</returns>
     /// <exception cref="ContentValidationException">The content states a hostility matrix this game cannot read; every problem is named.</exception>
-    internal static MightAndMagic7MonsterAi Compose(ContentCatalog? catalog, MightAndMagic7Combat combat, IRandomService? random)
+    internal static MightAndMagic7MonsterAi Compose(MightAndMagic7Combat combat, IRandomService? random)
     {
         ArgumentNullException.ThrowIfNull(combat);
-        return new MightAndMagic7MonsterAi(combat, MightAndMagic7Hostility.Read(catalog), random);
+        return new MightAndMagic7MonsterAi(combat, combat.MonsterKinds, random);
     }
 
     /// <inheritdoc />
@@ -161,7 +161,12 @@ internal sealed class MightAndMagic7MonsterAi : IMonsterAiPolicy
     public double SpeedOf(CombatSubject subject)
     {
         ArgumentNullException.ThrowIfNull(subject);
-        return _combat.FactsOf(subject)?.Speed ?? 0;
+
+        // A slowed creature covers ground at its pace divided by the spell's power (OpenEnroth
+        // src/Engine/Graphics/Indoor.cpp:814-816, Outdoor.cpp:1625).
+        double speed = _combat.FactsOf(subject)?.Speed ?? 0;
+        int slowed = MightAndMagic7Combat.OnCreature(subject, SpellEffectIds.CreatureSlowed);
+        return slowed > 1 ? speed / slowed : speed;
     }
 
     /// <inheritdoc />
@@ -176,10 +181,15 @@ internal sealed class MightAndMagic7MonsterAi : IMonsterAiPolicy
         ArgumentNullException.ThrowIfNull(situation);
         if (_combat.FactsOf(situation.Self.Subject) is not { } facts) return CreatureDecision.Wait;
 
+        // A creature a spell holds still does nothing at all; the fight's gate would refuse anything it chose.
+        if (!_combat.CanAct(situation.Self.Subject)) return CreatureDecision.Wait;
+
         CreatureCandidate? target = Target(situation, facts);
         if (target is not { } chosen) return CreatureDecision.Wait;
 
-        if (Runs(situation, facts, chosen.Distance))
+        // A creature a spell made afraid runs from what it fights, as the donor's own frightened actor does
+        // (OpenEnroth src/Engine/TurnEngine/TurnEngine.cpp:889-892, AI_Flee).
+        if (Runs(situation, facts, chosen.Distance) || MightAndMagic7Combat.IsAfraid(situation.Self.Subject))
         {
             // A creature that holds its post cannot run from it; it stands, which is what the donor's own
             // stationary branch does with a wimp (<c>src/Engine/Objects/Actor.cpp:2678-2684</c>).

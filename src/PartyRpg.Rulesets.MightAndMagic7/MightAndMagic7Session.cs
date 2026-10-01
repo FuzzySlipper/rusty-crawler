@@ -97,7 +97,10 @@ internal sealed class MightAndMagic7Session : IGameSession
         // nothing to travel through, and a spell that travels says so rather than moving anybody.
         PartyEntity? party = null;
         SessionWorld? world = null;
-        MightAndMagic7SpellEffects? spellEffects = spells is null ? null : new MightAndMagic7SpellEffects(spells, clock, () => owners.World);
+        // What a spell leaves on a creature is judged by that creature's own row — what it is immune to, whether it
+        // is undead — which the fight policy composed below reads, so the effect path is handed it as a provider.
+        MightAndMagic7Combat? composed = null;
+        MightAndMagic7SpellEffects? spellEffects = spells is null ? null : new MightAndMagic7SpellEffects(spells, clock, () => owners.World, () => composed);
         // This game's automap is read beside them: how far a walking party sees, what each place's own map
         // squares and features are drawn as, the zoom ladder, and what a detection reveals over it. Both halves
         // are read from the content the product loaded — the maps themselves come from the placed-map document
@@ -256,7 +259,6 @@ internal sealed class MightAndMagic7Session : IGameSession
         // fined, and what it was worth is awarded under the word the crime path names for it — one report of
         // one death rather than four readings of the place. The fine is told before the award because it reads
         // the standing the deed is about to lower, which is the donor's own order.
-        MightAndMagic7Combat? composed = null;
         MightAndMagic7Crimes crimes = new(Townsperson, () => owners.Party, () => owners.Accounts);
         ICreatureDeathObserver[] deaths =
         [
@@ -287,7 +289,7 @@ internal sealed class MightAndMagic7Session : IGameSession
         // the shipped hostility matrix as content, and what a creature does with its moment is its own row's
         // AI class, speed, attacks, and spells. The driver that asks these questions is the kit's, so the
         // other side of every fight is decided by this game's data rather than by a class per monster.
-        MightAndMagic7MonsterAi monsterAi = MightAndMagic7MonsterAi.Compose(Declared(context.Content), combat, context.Engine?.Random);
+        MightAndMagic7MonsterAi monsterAi = MightAndMagic7MonsterAi.Compose(combat, context.Engine?.Random);
 
         SessionRules rules = new()
         {

@@ -143,7 +143,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         Party = party;
         Places = places;
         Places.MarkVisited(party.Place);
-        _population = new PlacePopulation(graph, places, vitals is null ? null : new CreatureHealthComposer(vitals), expansion);
+        _population = new PlacePopulation(graph, places, vitals is null ? null : new CreatureComposer(vitals), expansion);
         _entrances = Index(graph, entrances);
         Mover = mover;
         Creatures = creatures;
