@@ -25,6 +25,9 @@ public static class PlaytestCodes
     /// <summary>The refusal code <c>steer-screen</c>: a counter or a conversation holds the controls.</summary>
     public const string SteerScreen = "steer-screen";
 
+    /// <summary>The refusal code <c>steer-no-flight</c>: the party may not fly now, so a rise or a sink asks for nothing.</summary>
+    public const string SteerNoFlight = "steer-no-flight";
+
     /// <summary>The refusal code <c>look-not-a-number</c>: a look delta is not a finite number.</summary>
     public const string LookNotANumber = "look-not-a-number";
 

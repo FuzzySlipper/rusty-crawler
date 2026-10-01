@@ -599,6 +599,30 @@ it, and the party must not fall through a floor. Every one of the 76 shipped pla
 **[verified: data]**: 824,320 triangles over 449,417 positions, from 146,160 interior faces (294,096
 triangles), 419,354 terrain triangles (209,677 squares) and 53,876 model faces (110,870 triangles).
 
+### 8.5 Water: the `surfaces` beside the artifact
+
+Each `place-geometry` entry also carries `surfaces`, a list (empty for a place with none) of named ground, each
+`{ "surface", "positions", "triangles" }` over corners in the same engine axes as the artifact, plus the counts
+`waterSquares` and `fluidFaces` when they are not zero. They sit beside the artifact rather than in it because the
+engine parses the artifact with unknown fields refused **[verified: engine
+`rust/crates/csharp-engine-services/src/spatial.rs`, `SpatialContentArtifact`, `deny_unknown_fields`]**.
+
+- `water` is a region's terrain squares whose tile the game's tile table flags `TILE_WATER` (0x2), two triangles a
+  square, the same two the collision carries **[donor `src/Engine/Data/TileEnums.h:9`,
+  `src/Engine/Graphics/OutdoorTerrain.cpp:114-120`]**. The tile table is `dtile.bin` in `Events.lod`: a 32-bit
+  count, then that many 26-byte records — a 16-byte texture name, two unused words, tileset, variant, flags
+  **[donor `src/Engine/Snapshots/EntitySnapshots.h:189-197`; verified: data, the entry's size is exactly the count's
+  records]**. A map's tile byte below 90 is a record index; 90–233 is one of the map's four tilesets, 36 bytes each,
+  offset from that tileset's base record (the first named record whose tileset reads as the same and whose variant
+  is 0); 234 and up is no tile **[donor `src/Engine/Snapshots/CompositeSnapshots.cpp:512-551`,
+  `src/Engine/Snapshots/EnumSnapshots.cpp:65-97`]**. A shoreline tile drawn over water carries `TILE_SHORE` instead,
+  and is land.
+- `fluid` is every solid face carrying `FACE_IsFluid` (0x10), indoors and on outdoor models alike — both families
+  store the same face attributes **[donor `src/Engine/Graphics/FaceEnums.h:12`,
+  `src/Engine/Snapshots/EntitySnapshots.cpp:282`, `:1568`]**. The donor reads such a face as "on water" for footsteps
+  and never drowns a party on it **[donor `src/Engine/Graphics/Indoor.cpp:1499`, `:1708`;
+  `src/Engine/Graphics/Outdoor.cpp:854`]**; what either surface does is the ruleset's.
+
 Arrival heights need one correction the game itself makes and the pack does not: the donor ignores a
 start-point decoration's stored z and computes the floor level under it
 **[donor `src/Engine/PartyPlacement.cpp:33-45`, "vanilla worked it around by always placing the party on

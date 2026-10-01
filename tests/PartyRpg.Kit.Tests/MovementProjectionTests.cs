@@ -1,8 +1,10 @@
 using System.Numerics;
 using PartyRpg.Kit.Movement;
+using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
+using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
 using Rusty.Engine;
 using Xunit;
@@ -158,6 +160,37 @@ public sealed class MovementProjectionTests
     {
         UiValue value = SessionProjection.Build(snapshot);
         return new ProjectedNode(value, value.Root);
+    }
+
+    [Fact]
+    public void The_ground_under_the_party_is_published_with_its_harm_and_who_is_spared()
+    {
+        // The world's reading, copied: the panel is handed the interval and the time before the next harm, and the
+        // carrier is named from the party when it has one and by identity when it does not.
+        GroundReading reading = new(
+            new SurfaceEffect("water", 1, 1),
+            GameDuration.FromSeconds(30),
+            new GameDate(100, 1, 1, 9, 0, 30),
+            GameDuration.FromSeconds(20),
+            [new GroundShelter(new EffectId("breath"), "Breath", new PartyMemberId(7), Everybody: false)]);
+        ProjectedNode footing = Movement(MovementSnapshot.From(Outcome(), footing: FootingSnapshot.From(reading, party: null))).Field("footing");
+
+        Assert.Equal("water", footing.Field("ground").AsString());
+        Assert.True(footing.Field("harmful").AsBoolean());
+        Assert.Equal(30d, footing.Field("every").AsNumber());
+        Assert.Equal(20d, footing.Field("nextHarmIn").AsNumber());
+        ProjectedNode shelter = footing.Field("shelters").Item(0);
+        Assert.Equal("breath", shelter.Field("effect").AsString());
+        Assert.Equal("Breath", shelter.Field("name").AsString());
+        Assert.Equal("7", shelter.Field("member").AsString());
+        Assert.Equal("7", shelter.Field("memberName").AsString());
+        Assert.False(shelter.Field("everybody").AsBoolean());
+
+        // A session with no world says it stands on nothing and nothing harms it.
+        ProjectedNode none = Movement(MovementSnapshot.From(null)).Field("footing");
+        Assert.Equal(string.Empty, none.Field("ground").AsString());
+        Assert.False(none.Field("harmful").AsBoolean());
+        Assert.Equal(0, none.Field("shelters").Count());
     }
 
     private static ProjectedNode Movement(MovementSnapshot movement) =>

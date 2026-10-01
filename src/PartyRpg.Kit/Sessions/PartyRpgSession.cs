@@ -642,7 +642,7 @@ public sealed class PartyRpgSession : IGameSession
             _simulationSeconds,
             _admittedSteps,
             _world,
-            MovementSnapshot.From(LiveWorld?.Movement.Last),
+            MovementSnapshot.From(LiveWorld?.Movement.Last, LiveWorld?.Mover?.MayFly == true, FootingSnapshot.From(LiveWorld?.Ground(), Party)),
             ClockSnapshot.From(Clock),
             _readings.Party(Party, party, _owners.Rules.Standing),
             // While a party is being made the flow is the screen's subject; once one is played, the members shown
@@ -654,7 +654,7 @@ public sealed class PartyRpgSession : IGameSession
             InteractionSnapshot.From(LiveWorld?.Interaction),
             ServiceSnapshot.From(Services),
             RestSnapshot.Read(Rest, Clock),
-            ConversationSnapshot.From(Conversations),
+            ConversationSnapshot.From(Conversations, Services),
             CombatSnapshot.From(Combat, _owners.Director),
             ProgressionSnapshot.From(Progression, Services),
             _readings.Promotion(Progression, party),

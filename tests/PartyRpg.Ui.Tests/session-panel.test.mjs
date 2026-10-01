@@ -86,6 +86,19 @@ function movement(overrides = {}) {
     stepRise: 0,
     fallDistance: 0,
     fallDamage: 0,
+    footing: footing(),
+    ...overrides,
+  };
+}
+
+/** The ground under the party as the product publishes it: ordinary ground that harms nobody and spares nobody. */
+function footing(overrides = {}) {
+  return {
+    ground: 'ordinary',
+    harmful: false,
+    every: 0,
+    nextHarmIn: 0,
+    shelters: [],
     ...overrides,
   };
 }
@@ -120,6 +133,7 @@ function party(overrides = {}) {
     standing: '',
     standingDetail: '',
     awards: [],
+    debts: [],
     conditions: '',
     hitPoints: 40,
     hitPointsMax: 40,
@@ -195,6 +209,9 @@ function service(overrides = {}) {
     identify: [],
     repair: [],
     fares: [],
+    debts: [],
+    thieves: [],
+    canSteal: false,
     canBuy: false,
     canSell: false,
     canTeach: false,
@@ -222,9 +239,9 @@ function openShop(overrides = {}) {
     operations: ['buy', 'sell', 'identify', 'repair', 'teach'],
     memberships: [],
     stock: [
-      { lot: 'stock:sword', item: 'sword', name: 'A fine sword', count: 2, price: 110, sale: false, canBuy: true },
-      { lot: 'sold:7', item: 'dagger', name: 'dagger', count: 1, price: 22, sale: true, canBuy: true },
-      { lot: 'stock:potion', item: 'potion', name: 'potion', count: 0, price: 30, sale: false, canBuy: false },
+      { lot: 'stock:sword', item: 'sword', name: 'A fine sword', count: 2, price: 110, sale: false, canBuy: true, canSteal: false },
+      { lot: 'sold:7', item: 'dagger', name: 'dagger', count: 1, price: 22, sale: true, canBuy: true, canSteal: false },
+      { lot: 'stock:potion', item: 'potion', name: 'potion', count: 0, price: 30, sale: false, canBuy: false, canSteal: false },
     ],
     // Two lessons of one skill: the first rung every counter that teaches a trade sells, and the mastery the
     // guild's own depth reaches. The rung is part of what identifies a lesson, so both rows are real.
@@ -232,7 +249,7 @@ function openShop(overrides = {}) {
       { kind: 'skill', subject: 'Sword', name: 'Sword', amount: 1, price: 25, tier: 1 },
       { kind: 'skill', subject: 'Sword', name: 'Sword, expert', amount: 1, price: 1000, tier: 2 },
     ],
-    sales: [{ item: '3', definition: 'shield', name: 'shield', price: 12, damage: 3, identified: false }],
+    sales: [{ item: '3', definition: 'shield', name: 'shield', price: 12, damage: 3, identified: false, stolen: false }],
     // What the counter would identify and mend is the product's own list of the party's items it has a use for.
     identify: [{ item: '3', name: 'shield' }],
     repair: [{ item: '3', name: 'shield' }],
@@ -522,6 +539,7 @@ function conversation(overrides = {}) {
     residue: '',
     handoff: '',
     topic: '',
+    thieves: [],
     ...overrides,
   };
 }
@@ -1511,7 +1529,7 @@ test('renders nothing until the product publishes, then renders what it publishe
       title: '',
       button: 'Starting…',
       disabled: true,
-      values: Array(33).fill('—'),
+      values: Array(36).fill('—'),
       place: '',
     });
 
@@ -1525,11 +1543,11 @@ test('renders nothing until the product publishes, then renders what it publishe
       disabled: false,
       values: [
         'running', '12.3 s', '740', '2',
-        // The date, the time, the days, the party, what it carries, the purse, the food, the standing, what
-        // the standing means, and the conditions, then what the party has left to lose and to cast with: a
-        // projection that carries no party block shows all twelve as not known.
-        '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—',
-        '1', '—', '1234, 5678, 0 @ 512', '1 / 76', 'grounded', '—', '—', '—',
+        // The date, the time, the days, the party, what it carries, the purse, what it owes, the food, the
+        // standing, what the standing means, and the conditions, then what the party has left to lose and to
+        // cast with: a projection that carries no party block shows all thirteen as not known.
+        '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—',
+        '1', '—', '1234, 5678, 0 @ 512', '1 / 76', 'grounded', '—', '—', '—', 'ordinary', '—',
         '—', '—', '—',
         // A projection that carries no save block is a session this companion cannot read as saveable, and
         // the panel says so on the Save row rather than offering a save it cannot make. A projection that
@@ -1637,8 +1655,8 @@ test('the companion holds no state and starts no timer', () => {
     // Rendering the newest projection replaces the previous values rather than accumulating them.
     assert.deepEqual(readPanel(h).values, [
       'running', '3.0 s', '180', '2',
-      '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—',
-      '1', '—', '1234, 5678, 0 @ 512', '1 / 76', '—', '—', '—', '—',
+      '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—',
+      '1', '—', '1234, 5678, 0 @ 512', '1 / 76', '—', '—', '—', '—', '—', '—',
       '—', '—', '—',
       'unavailable', 'fresh', '—', '—', '—', '—',
     ]);
@@ -1677,6 +1695,57 @@ test('the panel reports what the last movement step did', () => {
     // A landing in the air, with the drop and what the tuning priced it at.
     h.emit(snapshot('running', 4, 240, 243, movement({ motion: 'airborne', fallDistance: 28, fallDamage: 27 })));
     assert.deepEqual(movementRows(h), { motion: 'airborne', blocked: '—', step: '—', fall: '28 · 27 damage' });
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the panel prints the ground under the party, when it next harms the party, and what spares whom', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // Water that harms the party, with one member spared by what they drank: the panel prints the interval and the
+    // time before the next harm exactly as the product published them, and names who is spared.
+    h.emit(snapshot('running', 1, 60, 60, movement({
+      footing: footing({
+        ground: 'water',
+        harmful: true,
+        every: 30,
+        nextHarmIn: 12.5,
+        shelters: [{ effect: 'spell.water-breathing', name: 'Water Breathing', member: '2', memberName: 'Aelina', everybody: false }],
+      }),
+    })));
+    assert.deepEqual(rows(h, 'Footing', 'Spared by'), {
+      Footing: 'water · harms every 30 s · next in 13 s',
+      'Spared by': 'Water Breathing (Aelina)',
+    });
+    assert.equal(h.panel().getAttribute('data-footing'), 'water');
+    assert.equal(h.panel().getAttribute('data-harm'), 'harmful');
+
+    // A walk over the water spares everybody, and the product says the water harms nobody now: the panel prints the
+    // ground alone rather than a harm it was not handed.
+    h.emit(snapshot('running', 2, 120, 121, movement({
+      footing: footing({
+        ground: 'water',
+        shelters: [{ effect: 'spell.water-walk', name: 'Water Walk', member: '1', memberName: 'Roderick', everybody: true }],
+      }),
+    })));
+    assert.deepEqual(rows(h, 'Footing', 'Spared by'), { Footing: 'water', 'Spared by': 'Water Walk (Roderick, everybody)' });
+    assert.equal(h.panel().getAttribute('data-harm'), 'none');
+
+    // In the air the party stands on nothing, and the flight is what spares it.
+    h.emit(snapshot('running', 3, 180, 182, movement({
+      motion: 'flying',
+      footing: footing({
+        ground: '',
+        shelters: [{ effect: 'spell.fly', name: 'Fly', member: '1', memberName: 'Roderick', everybody: true }],
+      }),
+    })));
+    assert.deepEqual(rows(h, 'Footing', 'Spared by'), { Footing: '—', 'Spared by': 'Fly (Roderick, everybody)' });
+    assert.equal(h.panel().getAttribute('data-footing'), 'none');
 
     ui.dispose();
   } finally {
@@ -2450,6 +2519,81 @@ test('every service control asks for the command it was shown, on the product co
   }
 });
 
+test('a thief and a debt are rows the product published, and each asks for the act it was shown', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // A shop that keeps a shelf a thief can reach: one row per member the product named and line it holds, a line
+    // nothing is left of shown as one nobody can reach for. A stolen thing the party carries says so.
+    h.emit(snapshot('running', 1, 60, 60, movement(), {
+      service: openShop({
+        operations: ['buy', 'sell', 'identify', 'repair', 'teach', 'steal'],
+        canSteal: true,
+        thieves: [{ index: 1, name: 'Nyx' }],
+        stock: [
+          { lot: 'stock:sword', item: 'sword', name: 'A fine sword', count: 2, price: 110, sale: false, canBuy: true, canSteal: true },
+          { lot: 'stock:potion', item: 'potion', name: 'potion', count: 0, price: 30, sale: false, canBuy: false, canSteal: false },
+        ],
+        sales: [{ item: '3', definition: 'shield', name: 'shield', price: 12, damage: 0, identified: true, stolen: true }],
+      }),
+    }));
+    const steal = [...h.panel().querySelectorAll('.crawler-service .crawler-options button')].filter((button) => button.dataset.id.startsWith('steal-'));
+    assert.deepEqual(steal.map((button) => [button.dataset.id, button.textContent, button.disabled]), [
+      ['steal-1-stock:sword', 'Nyx: A fine sword', false],
+      ['steal-1-stock:potion', 'Nyx: potion', true],
+    ]);
+    clickService(h, 'steal-1-stock:sword');
+    assert.deepEqual(h.claims.slice(-1)[0].value.data, { action: 'service.steal', target: 'stock:sword', member: 1 });
+    assert.match(h.panel().querySelector('.crawler-service').textContent, /Sell shield, stolen — 12/);
+
+    // A hall that collects the party's fine: the row pays what the product says the purse would hand over now,
+    // and an empty purse is a row nobody can press.
+    h.emit(snapshot('running', 2, 120, 120, movement(), {
+      party: party({ debts: [{ account: 'fine', coins: 350 }] }),
+      service: service({
+        open: true,
+        id: 'hall',
+        kind: 'Town Hall',
+        name: 'The Town Hall',
+        state: 'open',
+        operations: ['repay'],
+        debts: [{ subject: 'fine', name: "the party's fine", owed: 350, price: 200, canRepay: true }],
+        coins: 200,
+      }),
+    }));
+    assert.equal(rows(h, 'Owed').Owed, '350 (fine)');
+    const repay = [...h.panel().querySelectorAll('.crawler-service .crawler-options button')].find((button) => button.dataset.id === 'repay-fine');
+    assert.equal(repay.textContent, "the party's fine: 350 owed — pay 200");
+    clickService(h, 'repay-fine');
+    assert.deepEqual(h.claims.slice(-1)[0].value.data, { action: 'service.repay', target: 'fine', count: 200 });
+
+    h.emit(snapshot('running', 3, 180, 180, movement(), {
+      service: service({
+        open: true,
+        id: 'hall',
+        kind: 'Town Hall',
+        name: 'The Town Hall',
+        state: 'open',
+        operations: ['repay'],
+        debts: [{ subject: 'fine', name: "the party's fine", owed: 350, price: 0, canRepay: false }],
+      }),
+    }));
+    const empty = [...h.panel().querySelectorAll('.crawler-service .crawler-options button')].find((button) => button.dataset.id === 'repay-fine');
+    assert.equal(empty.disabled, true);
+    assert.equal(rows(h, 'Owed').Owed, '—');
+
+    for (const claim of h.claims) {
+      assert.equal(claim.intent, ACTION_INTENT);
+      assert.equal(claim.value.contract, ACTION_CONTRACT);
+    }
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
 test('the panel shows what a transaction did and why a refusal refused', () => {
   const h = harness();
   try {
@@ -2776,12 +2920,17 @@ test('every conversation control asks for the choice it was shown, on the produc
             { id: 'topic-1', label: 'The contest', available: true, reason: '' },
             { id: 'topic-2', label: 'The errand', available: false, reason: 'the errand the table calls 7 is not finished' },
           ],
+          // The members the product says could try to lift what the person carries, each a button of its own.
+          thieves: [{ index: 2, name: 'Nyx' }],
         }),
       }),
     );
 
     clickTopic(h, 'topic-1');
     clickPerson(h, 'simon');
+    const thief = h.panel().querySelector('.crawler-conversation button[data-id="steal-2"]');
+    assert.equal(thief.textContent, 'Nyx: steal');
+    thief.dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
     clickFlow(h, 'Take your leave');
 
     assert.deepEqual(
@@ -2789,6 +2938,7 @@ test('every conversation control asks for the choice it was shown, on the produc
       [
         { action: 'conversation.topic', target: 'topic-1' },
         { action: 'conversation.person', target: 'simon' },
+        { action: 'conversation.steal', member: 2 },
         { action: 'conversation.leave' },
       ],
     );

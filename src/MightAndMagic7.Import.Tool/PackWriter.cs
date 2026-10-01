@@ -116,7 +116,7 @@ internal static partial class PackWriter
         IReadOnlyList<EvtProgram> programs = EvtProgram.ReadAll(install);
         PlaceGraph graph = PlaceGraph.Build(programs, tables.Maps);
         IReadOnlyDictionary<int, DecodedMap> maps = detail == MapDetail.EntryPoints ? DecodeMaps(install) : new Dictionary<int, DecodedMap>();
-        IReadOnlyList<PlaceCollision> collisions = maps.Count == 0 ? [] : EmitCollisions(tables, maps);
+        IReadOnlyList<PlaceCollision> collisions = maps.Count == 0 ? [] : EmitCollisions(tables, maps, TerrainTileTable.Read(install));
 
         // The entrances are derived from the same decoded maps the collision is: a place's trigger faces
         // are map data, so an import that decoded no map has none to derive and says so per link.
@@ -186,13 +186,13 @@ internal static partial class PackWriter
     /// nothing to stand on. That is worse for one place than a mesh with a hole in it, and better than a
     /// party that falls through a floor.
     /// </remarks>
-    private static IReadOnlyList<PlaceCollision> EmitCollisions(Mm7Tables tables, IReadOnlyDictionary<int, DecodedMap> maps)
+    private static IReadOnlyList<PlaceCollision> EmitCollisions(Mm7Tables tables, IReadOnlyDictionary<int, DecodedMap> maps, TerrainTileTable tiles)
     {
         List<PlaceCollision> places = [];
         foreach (MapStatsRecord map in tables.Maps.Maps)
         {
             if (!maps.TryGetValue(map.Id, out DecodedMap? decoded)) continue;
-            places.Add(PlaceCollisionEmitter.Emit(map.Id, map.FileName, decoded));
+            places.Add(PlaceCollisionEmitter.Emit(map.Id, map.FileName, decoded, tiles));
         }
 
         return places;

@@ -171,7 +171,8 @@ Boundary rules:
   default pay, a bounty's rate, a lesson's base price, a shelf's lines, the two
   fares and how many days each network's journey takes (`fare.coach-days`, two, and
   `fare.boat-days`, three), a night's length, what a night under a roof eats, and how long a well's
-  temporary bonus lasts (`fixture.bonus-hours`, a day — ours: the donor keeps it until the next rest) — each with its
+  temporary bonus lasts (`fixture.bonus-hours`, a day — ours: the donor keeps it until the next rest), and how long a
+  counter that caught a thief stays shut against the party (`theft.ban-hours`, the donor's day) — each with its
   default, range, and meaning. A rule reads them through the `TuningProfile` it
   composes from the selected catalog, so a bundle's tuning pack changes play
   without a rebuild and a value out of range stops composition by name.
@@ -182,7 +183,13 @@ world and movement policy (`MightAndMagic7World`, `MightAndMagic7Movement` — t
 speed, cited from the donor, and the engine's own controller tuning scaled to that body; the donor's fall harm,
 which a feather fall the party carries spares (`Outdoor.cpp:1426`); and the jump spell's leap, the party's own jump
 at the donor's ratio of a thousand to five times ninety-six (`CastSpellInfo.cpp:1111-1121`, `Outdoor.cpp:1193-1197`),
-whose landing is not a fall — flight and water are not this build's yet, see `docs/magic-coverage.md`), the one clock
+whose landing is not a fall; and flight, which its caster carries and pays a spell point for every five minutes in the
+air below grand master (`Engine.cpp:1286-1296`), at four times the walk up to the donor's ceiling, never indoors;
+and drowning, a tenth of each character's health every thirty game seconds the party stands on a region's water
+(`Engine.cpp:1083-1099`), spared by a water walk its caster carries and pays for every twenty minutes on water, and
+for one character by water breathing, with no stop allowed in water (`Game.cpp:1088-1089`); fluid faces are named
+and drown nobody, as in the donor; the drowning rule names what spares whom — a water walk and a flight that holds
+the party up spare everybody, water breathing its drinker — for the panel's footing row), the one clock
 (`MightAndMagic7Time` — the authored calendar, the donor's starting moment, its thirty-to-one rate, and
 the hours it calls daylight), the party its content declares as scenario state (`MightAndMagic7Party`,
 through the same factory creation hands a party to, never a party of its own invention, and what a host
@@ -248,8 +255,10 @@ names the kinds, `MightAndMagic7SpecialAttacks` is the vocabulary of the table's
 (matched whole, with the strength and count the importer read), and
 `MightAndMagic7Health` is what a wound leaves on a character: unconscious while their health plus base
 endurance is at least one, dead below that (`Character.cpp:1310-1316`)), what a kill leaves
-(`MightAndMagic7Corpses` — the fight reports what it read as down and this game generates each death's
-loot once, under a key that names the place, the creature, and which death it was, and holds it on the
+(`MightAndMagic7Corpses` — a creature that dies on a region's water sinks and leaves no body, so what it carried
+is lost, as the donor removes it (`Outdoor.cpp:1596-1619`) and loots only a dead body (`Viewport.cpp:239-241`),
+read through the party's mover at the place's named ground under the body; otherwise the fight reports what it read
+as down and this game generates each death's loot once, under a key that names the place, the creature, and which death it was, and holds it on the
 body: the monster table's own treasure cell, read by the importer into a chance, coin dice, a treasure
 level and the kind of thing asked for (`Monsters.cpp:440-490`), with the coin rolled and the item drawn
 from the item table's own weights by level (`ItemTable.cpp:316-374`) and the donor's fallback when a level
@@ -332,16 +341,45 @@ rather than `kill`, so the deed reaches the world's opinion through `PartyProgre
 every other deed does. **Any other peaceful person's death lowers it the same point** (ours: the donor moves
 reputation only beside a peasant's fine) — a guard or an adept a place's own records stand there is credited
 under `person-kill`, with no fine; a creature the fight reads as peaceful for another reason (the party
-unseen, a band-zero creature) is not a person and is an ordinary kill. The fine beside a townsperson's death is the donor's sum, `100 × (base + the row's level + the party's
-reputation in the donor's sign)` clamped to `0..4,000,000`, read before the deed moves the standing as the
-donor's order has it, and approximated three ways that are ours: the map table's per-place base fine is read
-as zero (the importer does not carry that column; zero is Emerald Isle's own value), the fine is taken from
-the purse through the party's ledger at the moment of the death — as much as the purse holds — where the donor
-carries it as a debt a town hall collects (`TownHall.cpp:30-45`), and the donor's light-and-dark exemptions
-(`Actor.cpp:1087-1091`) are not read. The donor's other two movers have no owner here: being caught stealing
-(`Shops.cpp:1147-1174`) needs a stealing act, which nothing offers although the Stealing skill can be
-learned (#9025, with the carried fine and the town hall that collects it), and the dark sacrifice the
-donor charges fifteen points for (`CastSpellInfo.cpp:2800-2809`) needs a follower to give up (#8514). A
+unseen, a band-zero creature) is not a person and is an ordinary kill; a death worth no experience reaches the
+standing as a deed (`PartyProgression.Deed`) rather than being dropped. The fine beside a townsperson's death is
+the donor's sum, `100 × (base + the row's level + the party's reputation in the donor's sign)`, read before the
+deed moves the standing as the donor's order has it. The base is the map table's "Steal Perm" column
+(`MapTable.cpp:73`), which the importer now carries onto every place as `stealFine` (Emerald Isle's own value is
+zero). **The fine is a debt, as the donor's is** (`uFine`): it is added to what the party owes on the `fine`
+account (`PartyDebts`), the whole kept between nothing and four million as the donor keeps it
+(`Actor.cpp:1093-1099`), saved with the party, and paid at a town hall (`TownHall.cpp:30-45`, below); the purse is
+never touched at the death. Ours: the donor's light-and-dark exemptions (`Actor.cpp:1087-1091`) are not read,
+and its throne room's year in jail that clears a fine (`UIHouses.cpp:346-351`) has no building here, because the
+imported building table carries no throne room.
+**Theft is the donor's, through the one service mechanism** (`MightAndMagic7Theft`). Who may try is the donor's:
+a member with the Stealing skill learned and able to act (`Character.cpp:360-362`), at the four shops whose
+screen offers a thief the shelf — weapon, armour, magic, alchemist (`Shops.cpp:1100-1137`; a guild's books have
+no theft) — or from a person standing in the world, reached from the conversation with them. A thief's reach is
+one of the donor's five luck draws (−200…+200) plus the skill's level times its rung's figure (100/200/300/500,
+`Character.cpp:110-118`). At a counter the cost of being seen is `100 × (standing in the donor's sign + base fine)`
+plus the line's worth, three times over for a weapon (`Character.cpp:1166-1174`); one theft in twenty is seen
+whatever the measures say, a reach that covers the cost goes unseen, one short by less than five hundred is seen
+with the goods, and one shorter still is seen empty-handed (`Character.cpp:1180-1192`). Seen: the cost is added
+to the fine, the world's opinion falls one point (two with the goods), and the counter will not serve the party
+for `theft.ban-hours` (the donor's day, `Shops.cpp:1147-1166`); unseen, the opinion still falls two points
+(`Shops.cpp:1165-1171`). What a shelf gives up carries the stolen mark (`Shops.cpp:1123`), and no counter will
+buy, identify, or repair a stolen thing (`Item.cpp:684-686`). From a person the cost is their row's level plus
+`100 × (base fine + standing)`, a thief who falls short is seen (`Character.cpp:1211-1214`), and every attempt
+lowers the opinion one point whatever comes of it (`Actor.cpp:1236`); an unseen hand finds coin three times in
+ten — the skill's level of dice whose sides the rung decides, never more than the person carries — something
+else three times in ten, and nothing the rest (`Character.cpp:1220-1279`). Ours: a person who sees the hand fines
+the party the cost the donor reckons and never charges, and the person robbed — not every peasant near, as the
+donor's `AggroSurroundingPeasants` has it — stops talking and is put into the fight; what a person carries is what
+their row would leave if they fell, drawn once and remembered for the session but not saved (the donor keeps it
+on the actor, which this build does not save); a counter's line is worth the item table's value without the
+donor's enchantment; and a theft charges no recovery time. Each theft's fall in the world's opinion is a deed
+that pays no experience, told through `PartyProgression.Deed` under its own word (`theft-caught`,
+`theft-caught-with-goods`, `theft-unseen`, `pickpocket`), which `MightAndMagic7Standing` reads. **A town hall
+collects the fine** (`TownHall.cpp:30-45`, `:71-91`): while the party owes one, the hall offers the debt, and a
+repayment takes what was asked, no more than is owed and no more than the purse holds. The donor's last mover the
+wrong way, the dark sacrifice it charges fifteen points for (`CastSpellInfo.cpp:2800-2809`), needs a follower to
+give up (#8514), and will be told through the same deed entry. A
 person says what the town makes of the party
 once the party is worth an opinion: `MightAndMagic7Conversation` composes one line for every person the NPC
 table describes, gated on a standing condition at the "Friendly" band's own floor — the same vocabulary every
@@ -430,9 +468,10 @@ projectile from a point at the party, this build flies nothing: approximate); `s
 that person opens through the outcome, as using a person does); `check-skill` (a chosen character at the rank and
 exactly the mastery, `OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:517-524`). **Presentation, passed over**: the
 product draws no world and plays no sound, so `set-texture`, `set-sprite`, `play-sound`, `character-animation`,
-`toggle-indoor-light`, and a `set-faces-bit` that only hides a face group change nothing and the event's
-gameplay steps still run — a decision, not a deferral; a `set-faces-bit` that makes a face group passable or
-water states its residue (#8594 for collision, #9030 for water) and runs on. The variables, each through its owner: `quest-bit` (the
+`toggle-indoor-light`, and a `set-faces-bit` that only hides a face group or makes it fluid change nothing and the
+event's gameplay steps still run — a decision, not a deferral (a fluid face is not water a party drowns in, and its
+footsteps, splash and sinking corpses are not modelled); a `set-faces-bit` that makes a face group passable states
+its residue (#8594) and runs on. The variables, each through its owner: `quest-bit` (the
 party record `errand:<bit>` the conversation already reads), `member-bit` (a party record — the donor's is per
 character), `autonote` (a knowledge report of the discovery row: `stat` and `misc` an effect, `obelisk`,
 `teacher` and `seer` a clue, `potion` a recipe), `gold`, `item` (given through the acquisition path,

@@ -56,13 +56,15 @@ public readonly record struct ServiceLessonOffer(
 /// <param name="Price">What the service would pay the party for it.</param>
 /// <param name="Damage">How damaged the instance is; zero is sound.</param>
 /// <param name="Identified">Whether the party knows what it is.</param>
+/// <param name="Stolen">Whether the instance carries the stolen mark, which a counter may refuse to deal in.</param>
 public readonly record struct ServiceSaleOffer(
     ItemInstanceId Item,
     ItemDefinitionId Definition,
     string Name,
     int Price,
     int Damage,
-    bool Identified);
+    bool Identified,
+    bool Stolen = false);
 
 /// <summary>One member a lesson could be taught to, as the panel offers them.</summary>
 /// <param name="Index">The member's place in the party, counted from zero, which a teach command names.</param>
@@ -96,6 +98,10 @@ public readonly record struct ServiceMemberOffer(int Index, PartyMemberId Member
 /// </param>
 /// <param name="Sales">What of the party's own the counter would buy.</param>
 /// <param name="Members">The members a lesson, a cure, or a training step could go to.</param>
+/// <param name="Thieves">
+/// The members who could try to take a line off this counter's shelves without paying, which is empty at a
+/// counter nobody can steal from.
+/// </param>
 public sealed record ServiceBrowse(
     ServiceDefinition Service,
     IReadOnlyList<string> Operations,
@@ -104,4 +110,5 @@ public sealed record ServiceBrowse(
     IReadOnlyList<ServiceLessonOffer> Lessons,
     IReadOnlyList<ServiceOfferLine> Offers,
     IReadOnlyList<ServiceSaleOffer> Sales,
-    IReadOnlyList<ServiceMemberOffer> Members);
+    IReadOnlyList<ServiceMemberOffer> Members,
+    IReadOnlyList<ServiceMemberOffer> Thieves);

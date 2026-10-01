@@ -1,4 +1,5 @@
 using PartyRpg.Kit.Conversation;
+using PartyRpg.Kit.Services;
 
 namespace PartyRpg.Kit.Presentation;
 
@@ -103,6 +104,12 @@ public sealed record ConversationSnapshot(
     string Handoff,
     string Topic)
 {
+    /// <summary>
+    /// The members who could try to lift what the person spoken with carries, as the service mechanism's theft rule
+    /// answered for each; empty when no conversation is open, nobody here can be robbed, or no member could try.
+    /// </summary>
+    public IReadOnlyList<ServiceMemberSnapshot> Thieves { get; init; } = [];
+
     /// <summary>No conversation mechanism: there is nobody to speak with and nothing to say.</summary>
     public static ConversationSnapshot None => new(
         Available: false,
@@ -124,8 +131,12 @@ public sealed record ConversationSnapshot(
 
     /// <summary>Reads the conversation facts out of the session's mechanism.</summary>
     /// <param name="conversations">The session's conversation mechanism, or null when it holds none.</param>
+    /// <param name="services">
+    /// The session's service mechanism, which answers who could try to rob the person spoken with; without one,
+    /// nobody could, because nothing would carry a theft out.
+    /// </param>
     /// <returns>The facts the panel shows, or <see cref="None"/> when there is no mechanism.</returns>
-    public static ConversationSnapshot From(PartyConversations? conversations)
+    public static ConversationSnapshot From(PartyConversations? conversations, PartyServices? services = null)
     {
         if (conversations is null) return None;
 
@@ -178,7 +189,12 @@ public sealed record ConversationSnapshot(
             Message: last?.Message ?? string.Empty,
             Residue: last?.Residue ?? string.Empty,
             Handoff: last?.Handoff?.ToString() ?? string.Empty,
-            Topic: last?.Topic ?? string.Empty);
+            Topic: last?.Topic ?? string.Empty)
+        {
+            Thieves = conversations.IsOpen && conversations.Placement is { } robbed && services is not null
+                ? [.. services.ThievesFrom(conversations.Place, robbed).Select(member => new ServiceMemberSnapshot(member.Index, member.Name))]
+                : [],
+        };
     }
 
     /// <summary>Writes the conversation block: who is here, what was said, and what may be asked about.</summary>
@@ -205,5 +221,8 @@ public sealed record ConversationSnapshot(
             ("message", builder.String(Message)),
             ("residue", builder.String(Residue)),
             ("handoff", builder.String(Handoff)),
-            ("topic", builder.String(Topic)));
+            ("topic", builder.String(Topic)),
+            // Who could try to lift what the person carries is the product's answer, published whole, so a screen
+            // offers the act to exactly those members and decides nothing about who may steal.
+            ("thieves", builder.Array([.. Thieves.Select(member => member.Write(builder))])));
 }

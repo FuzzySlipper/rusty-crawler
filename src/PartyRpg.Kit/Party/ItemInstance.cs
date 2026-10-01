@@ -107,6 +107,13 @@ public sealed class ItemInstance
         Stamp = ChangeStamp.Next();
     }
 
+    /// <summary>Marks the instance as taken without being paid for, which the service mechanism's theft does.</summary>
+    public void MarkStolen()
+    {
+        State = State.Stolen();
+        Stamp = ChangeStamp.Next();
+    }
+
     /// <summary>Records where the party holds the instance. Only the party moves items, so only it calls this.</summary>
     internal void Place(ItemCustody custody)
     {

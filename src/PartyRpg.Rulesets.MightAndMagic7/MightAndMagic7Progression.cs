@@ -260,15 +260,15 @@ internal sealed class MightAndMagic7Progression : IProgressionRule
     /// (<c>src/Engine/Objects/Actor.cpp:1083-1105</c>, <c>src/GUI/UI/Houses/Shops.cpp:1147-1174</c>), so what
     /// this answers is: a finished errand moves the world's opinion by what
     /// <see cref="MightAndMagic7Standing"/> states, a townsperson's death — the award
-    /// <see cref="MightAndMagic7Crimes"/> credits under its own word — lowers it one point, and any other
-    /// award — a creature brought down — moves it not at all. What the world heard about is fame, and the
+    /// <see cref="MightAndMagic7Crimes"/> credits under its own word — lowers it one point, a theft lowers it
+    /// by the donor's own steps as a deed that pays no experience (<see cref="MightAndMagic7Theft"/>), and any
+    /// other award — a creature brought down — moves it not at all. What the world heard about is fame, and the
     /// party's whole experience is what fame is read from, which is the donor's own figure.
     /// </para>
     /// <para>
-    /// <b>Two of the donor's movers the wrong way are not here.</b> Being caught stealing and the dark
-    /// sacrifice the donor charges fifteen points for (<c>src/Engine/Spells/CastSpellInfo.cpp:2800-2809</c>)
-    /// belong to owners this build does not have — a stealing act and a follower — and the ruleset's README
-    /// names where each is routed.
+    /// <b>One of the donor's movers the wrong way is not here.</b> The dark sacrifice the donor charges fifteen
+    /// points for (<c>src/Engine/Spells/CastSpellInfo.cpp:2800-2809</c>) belongs to an owner this build does not
+    /// have — a follower to give up — and the ruleset's README names where it is routed.
     /// </para>
     /// </remarks>
     public ProgressionStanding Standing(ProgressionStandingRequest request)

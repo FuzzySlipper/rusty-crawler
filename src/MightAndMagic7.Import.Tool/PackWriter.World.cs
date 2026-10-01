@@ -111,12 +111,56 @@ internal static partial class PackWriter
                 writer.WriteEndObject();
                 if (place.DroppedFaces > 0) writer.WriteNumber("droppedFaces", place.DroppedFaces);
                 if (place.DroppedTriangles > 0) writer.WriteNumber("droppedDegenerateTriangles", place.DroppedTriangles);
+                if (place.WaterSquares > 0) writer.WriteNumber("waterSquares", place.WaterSquares);
+                if (place.FluidFaces > 0) writer.WriteNumber("fluidFaces", place.FluidFaces);
                 writer.WritePropertyName("artifact");
                 writer.WriteRawValue(artifact);
+                WriteSurfaces(writer, place.Surfaces);
             }));
         }
 
         return WriteDocument(packDirectory, "place-geometry.json", "place-geometry", "place-geometry", entries);
+    }
+
+    /// <summary>
+    /// Writes the place's named ground beside its artifact: each surface's name and its triangles, over corners of its
+    /// own in the engine's axes.
+    /// </summary>
+    /// <remarks>
+    /// A surface is written whole or not at all, and a place with none writes an empty list rather than leaving the
+    /// property out, so a reader can tell "this place has no water" from a pack written before water was marked. Each
+    /// mesh is written compactly, one corner and one triangle per array, because its reader is the product's own
+    /// classifier and a region's water is thousands of squares.
+    /// </remarks>
+    private static void WriteSurfaces(Utf8JsonWriter writer, IReadOnlyList<PlaceSurface> surfaces)
+    {
+        writer.WriteStartArray("surfaces");
+        foreach (PlaceSurface surface in surfaces)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("surface", surface.Surface);
+            writer.WriteStartArray("positions");
+            for (int index = 0; index < surface.Mesh.VertexCount; index++)
+            {
+                (double x, double y, double z) = surface.Mesh.Position(index);
+                writer.WriteRawValue(string.Create(CultureInfo.InvariantCulture, $"[{x},{y},{z}]"));
+            }
+
+            writer.WriteEndArray();
+            writer.WriteStartArray("triangles");
+            for (int index = 0; index < surface.Mesh.TriangleCount; index++)
+            {
+                IReadOnlyList<int> triangles = surface.Mesh.Triangles;
+                writer.WriteRawValue(string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"[{triangles[index * 3]},{triangles[(index * 3) + 1]},{triangles[(index * 3) + 2]}]"));
+            }
+
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+        }
+
+        writer.WriteEndArray();
     }
 
     /// <summary>The name a geometry source's counts are written under.</summary>
@@ -247,6 +291,9 @@ internal static partial class PackWriter
                 writer.WriteEndArray();
                 writer.WriteNumber("respawnDays", map.RespawnDays);
                 writer.WriteNumber("alertDays", map.AlertDays);
+                // The base fine a crime here starts from, which this game's theft and crime rules read off the
+                // place rather than off a table the runtime never sees.
+                writer.WriteNumber("stealFine", map.StealFine);
                 writer.WriteNumber("treasureLevel", map.TreasureLevel);
                 writer.WriteNumber("encounterPercent", map.EncounterPercent);
                 WriteOptionalString(writer, "track", map.Track);

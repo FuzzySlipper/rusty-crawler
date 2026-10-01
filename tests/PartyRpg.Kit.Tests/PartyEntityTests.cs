@@ -257,15 +257,15 @@ public sealed class PartyEntityTests
             Member("Bo", Adept));
         party.AcquireItem(Arrow, 3);
 
-        // The party's store enumerates every component family it holds, and the party composes exactly ten
+        // The party's store enumerates every component family it holds, and the party composes exactly twelve
         // party-scoped families, nine per-member ones (the stored resistances among them, which hold numbers and
         // no item), and the running effects, one family whose values sit on
         // the party and on each member alike. A per-character pack would be another per-member family and
         // would fail here, which is what makes "only what it has equipped" structural rather than a promise:
         // there is no family for a loose list to live in.
         EntityStoreDiagnostics diagnostics = party.Store.Diagnostics();
-        Assert.Equal(20, diagnostics.Components.Count);
-        Assert.Equal(10, diagnostics.Components.Count(family => family.ValueCount == 1));
+        Assert.Equal(22, diagnostics.Components.Count);
+        Assert.Equal(12, diagnostics.Components.Count(family => family.ValueCount == 1));
         Assert.Equal(9, diagnostics.Components.Count(family => family.ValueCount == party.Members.Count));
         Assert.Equal(1, diagnostics.Components.Count(family => family.ValueCount == party.Members.Count + 1));
     }

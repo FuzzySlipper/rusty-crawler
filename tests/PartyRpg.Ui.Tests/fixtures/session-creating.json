@@ -48,14 +48,22 @@
     "standingRead": false,
     "standing": "",
     "standingDetail": "",
-    "awards": []
+    "awards": [],
+    "debts": []
   },
   "movement": {
     "motion": "none",
     "blocked": "none",
     "stepRise": 0,
     "fallDistance": 0,
-    "fallDamage": 0
+    "fallDamage": 0,
+    "footing": {
+      "ground": "",
+      "harmful": false,
+      "every": 0,
+      "nextHarmIn": 0,
+      "shelters": []
+    }
   },
   "creation": {
     "active": true,
@@ -369,6 +377,9 @@
     "identify": [],
     "repair": [],
     "fares": [],
+    "debts": [],
+    "thieves": [],
+    "canSteal": false,
     "canBuy": false,
     "canSell": false,
     "canTeach": false,
@@ -417,7 +428,8 @@
     "message": "",
     "residue": "",
     "handoff": "",
-    "topic": ""
+    "topic": "",
+    "thieves": []
   },
   "combat": {
     "available": false,

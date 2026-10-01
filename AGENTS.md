@@ -82,7 +82,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 
 - **Graph and surface.** Kit, ruleset and host build against the pinned Engine pair; the importer and its
   tool are offline and outside the runtime graph in both directions. The host declares one product entry,
-  23 input intents with their keys, and the `crawler.ui` payload channel. The session publishes one
+  25 input intents with their keys, and the `crawler.ui` payload channel. The session publishes one
   projection (`crawler.hud` / `crawler.ui.snapshot.v1`) when it has changed; the TypeScript companion
   renders it with no state, rule or timer of its own, and fixtures the host suite writes bind the C# and
   TypeScript sides of that contract. The runtime needs a GPU adapter; the product draws no world, so the
@@ -94,11 +94,12 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 - **World and time.** Places, arrival points and transitions load from packs; walking into a reach,
   boarding a fare the party bought, and a travel spell all take one transition path that charges the clock
   and the larder once. Movement and collision are the Engine's (the character step over each place's
-  spatial artifact); a fall past the threshold harms members through the ruleset's fall rule. `GameClock`
+  spatial artifact, flying mode under a flight, and the water a place's packs name beside it); a fall past the
+  threshold and standing in water harm members through the ruleset's rules. `GameClock`
   over an authored calendar is the only time, and every advance reaches every owner registered with it.
 - **Party.** `PartyEntity` is one entity with its components: roster and members, one shared inventory of
   item instances, per-member equipment, purse and larder, reputation and fame, running effects, records,
-  holdings, passages and memberships. Every charge is judged and settled through one ledger. Creation is a
+  holdings, passages, memberships, debts and bans. Every charge is judged and settled through one ledger. Creation is a
   session mode with its own flow, and the scenario path builds a party through the same factory.
 - **Interaction and services.** One use workflow serves doors, containers, people and fixtures; a fixture runs
   the steps of its imported map event this game interprets and refuses the rest by name. One service
@@ -143,11 +144,10 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 - Stone 6, combat: a fight is not carried in a save, and a save taken with one pending is refused (#8658);
   an order commands every member rather than a selected one (#8659).
 - Stone 7, progression and magic: training takes no game time (#8671); the two counted deeds two ranks need
-  have no writer (#8689); a laid-out member can be promoted (#8705); flight, water walking and breathing, and
-  a creature summoned or raised to fight for the party are "not yet" in `docs/magic-coverage.md` (#9029,
-  #9030, #9031; item-aimed effects #8513; followers #8514).
-- Stone 8, record: an errand's item is protected only from sale (#8687); stealing, and a fine carried as a
-  debt, have no owner (#9025).
+  have no writer (#8689); a laid-out member can be promoted (#8705); a creature summoned or raised to
+  fight for the party is "not yet" in `docs/magic-coverage.md` (#9031; item-aimed effects #8513; followers
+  #8514).
+- Stone 8, record: an errand's item is protected only from sale (#8687).
 
 When a stone lands or a residue closes, update this section, `README.md`, and the owning project README
 together.

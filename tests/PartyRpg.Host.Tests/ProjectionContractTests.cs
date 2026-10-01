@@ -117,9 +117,12 @@ public sealed class ProjectionContractTests
         ServiceActions.Teach,
         ServiceActions.Fare,
         ServiceActions.Train,
+        ServiceActions.Steal,
+        ServiceActions.Repay,
         ServiceActions.Leave,
         ConversationActions.Topic,
         ConversationActions.Person,
+        ConversationActions.Steal,
         ConversationActions.Leave,
         RestActions.Rest,
         RestActions.Camp,
@@ -274,13 +277,22 @@ public sealed class ProjectionContractTests
         12.5,
         750,
         new WorldSnapshot("1", "Emerald Island", "region", new PlacePose(12552, 800, 193, 512, 0), 2, 76, Open: true, Hours: "06:00–18:00", NextChange: "1168-01-02 18:00"),
-        new MovementSnapshot(Moved: true, Grounded: true, CharacterBlockFlags.Wall, StepRise: 0.5, FallDistance: 0, FallDamage: 0),
+        new MovementSnapshot(
+            Moved: true, Grounded: true, CharacterBlockFlags.Wall, StepRise: 0.5, FallDistance: 0, FallDamage: 0,
+            Footing: new FootingSnapshot(
+                "water", Harmful: true, Every: 30, NextHarmIn: 12.5,
+                [
+                    new FootingShelterSnapshot("spell.water-breathing", "Water Breathing", "2", "Aelina", Everybody: false),
+                ])),
         new ClockSnapshot(true, "1168-01-02", "09:30", "day", 1),
         new PartySnapshot(
             true, 4, 200, 6, "portions", 12, 3, "weak (1)",
             HitPoints: 90, HitPointsMax: 120, SpellPoints: 30, SpellPointsMax: 40, Pack: 5,
             StandingRead: true, Standing: "Friendly", StandingDetail: "people speak well of the party",
-            Awards: [new AwardSnapshot("promotion:rogue", "promotion", "Rogue", "Thief")]),
+            Awards: [new AwardSnapshot("promotion:rogue", "promotion", "Rogue", "Thief")])
+        {
+            Debts = [new PartyDebt("fine", 350)],
+        },
         new CreationSnapshot(
             Active: false, Accepted: true, HasDefault: true, MemberIndex: 0, MemberCount: 2, Step: string.Empty,
             PoolRemaining: 0, RefusalCode: string.Empty, RefusalMessage: string.Empty,
@@ -303,7 +315,7 @@ public sealed class ProjectionContractTests
             Proprietor: "Bertram",
             State: "open",
             Hours: "06:00–18:00",
-            Operations: ["buy", "sell", "identify", "repair", "teach", "fare"],
+            Operations: ["buy", "sell", "identify", "repair", "teach", "fare", "steal", "repay"],
             Memberships: ["Fire Guild membership"],
             Stock:
             [
@@ -315,11 +327,12 @@ public sealed class ProjectionContractTests
             [
                 new ServiceOfferSnapshot("fare", "4", "A passage to The Tularean Forest", 2, 25),
                 new ServiceOfferSnapshot("notice", string.Empty, "Travellers speak of the roads east.", 1, 0),
+                new ServiceOfferSnapshot("debt", "fine", "the party's fine", 350, 90),
             ],
             Sales:
             [
                 new ServiceSaleSnapshot("3", "shield", "A shield", 12, 3, false),
-                new ServiceSaleSnapshot("4", "dagger", "A dagger", 8, 0, true),
+                new ServiceSaleSnapshot("4", "dagger", "A dagger", 8, 0, true) { Stolen = true },
             ],
             Members: [new ServiceMemberSnapshot(0, "Roderick"), new ServiceMemberSnapshot(1, "Aelina")],
             Action: "buy",
@@ -328,7 +341,10 @@ public sealed class ProjectionContractTests
             Message: "The party buys 1 × A fine sword for 110 coin(s), and 1 are left.",
             Paid: 110,
             Earned: 0,
-            Coins: 90),
+            Coins: 90)
+        {
+            Thieves = [new ServiceMemberSnapshot(1, "Aelina")],
+        },
         new RestSnapshot(
             true, "rest", "applied", string.Empty, "The party rests for 8 hour(s).", "1168-01-01 22:00", "1168-01-02 06:00",
             28800, 2, 2, "portions", false, true, 2, "weak", string.Empty, false, "1168-01-03 06:00", 0),
@@ -348,7 +364,10 @@ public sealed class ProjectionContractTests
             Message: "Mira: 'A fine day for it.'",
             Residue: string.Empty,
             Handoff: string.Empty,
-            Topic: string.Empty),
+            Topic: string.Empty)
+        {
+            Thieves = [new ServiceMemberSnapshot(1, "Aelina")],
+        },
         new CombatSnapshot(
             Available: true,
             Engaged: true,

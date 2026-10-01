@@ -2230,6 +2230,23 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             : null;
     }
 
+    /// <summary>
+    /// The level of the row a person placement fights as — the row its record names, or the shipped peasant — or
+    /// null when the placement is not a person or no row answers for it.
+    /// </summary>
+    /// <remarks>
+    /// This is what a hand in a person's purse is measured against: the donor adds the person's own level to what
+    /// being caught costs (OpenEnroth <c>src/Engine/Objects/Character.cpp:1212</c>, <c>StealFromActor</c>).
+    /// </remarks>
+    /// <param name="placement">The placement to read.</param>
+    /// <returns>The row's level, or null.</returns>
+    /// <exception cref="ArgumentNullException">No placement was supplied.</exception>
+    internal int? PersonLevel(PlacementDefinition placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+        return PersonFacts(placement)?.Level;
+    }
+
     /// <summary>The name of the person a placement holds, or null when nothing here names one.</summary>
     /// <remarks>
     /// A person placement names the people standing there by the identity their own entry was imported

@@ -50,11 +50,13 @@ internal readonly record struct ReputationBand(string Word, int Floor, string Re
 /// is credited as <see cref="MightAndMagic7Crimes.TownspersonKillSource"/> and the fine beside it is
 /// <see cref="MightAndMagic7Crimes"/>'s. Killing any other peaceful person — a guard or an adept a place
 /// stands there — lowers it the same point with no fine (ours), credited as
-/// <see cref="MightAndMagic7Crimes.PersonKillSource"/>. The donor's other two movers the wrong way have no owner in this
-/// build: being caught stealing needs a stealing act, which nothing offers although the Stealing skill can be
-/// learned, and the dark sacrifice the donor charges fifteen points for
-/// (<c>src/Engine/Spells/CastSpellInfo.cpp:2800-2809</c>) needs a follower to give up. See the ruleset's
-/// README for where each is routed.
+/// <see cref="MightAndMagic7Crimes.PersonKillSource"/>. <b>A theft lowers it as the donor's does</b>
+/// (<see cref="MightAndMagic7Theft"/>): a thief seen empty-handed at a counter one point, one seen with the goods
+/// and one nobody saw two (<c>src/GUI/UI/Houses/Shops.cpp:1147-1171</c>), and every attempt on a person's purse
+/// one (<c>src/Engine/Objects/Actor.cpp:1236</c>) — each a deed that pays no experience, told through
+/// <see cref="PartyProgression.Deed"/>. The donor's last mover the wrong way, the dark sacrifice it charges
+/// fifteen points for (<c>src/Engine/Spells/CastSpellInfo.cpp:2800-2809</c>), needs a follower to give up; see the
+/// ruleset's README for where it is routed.
 /// </para>
 /// <para>
 /// <b>The bands do three things, and the third is the donor's own arithmetic.</b> They word what a person
@@ -174,9 +176,10 @@ internal sealed class MightAndMagic7Standing : IStandingRule
     /// <summary>What the world's opinion of a deed is worth, as this game reads the event that carried it.</summary>
     /// <remarks>
     /// <para>
-    /// Two deeds move it. A townsperson's death lowers it by one point, the donor's own step
+    /// A peaceful person's death lowers it by one point, the donor's own step
     /// (<c>src/Engine/Objects/Actor.cpp:1101-1102</c>, a location's sign-flipped <c>reputation++</c>), whatever
-    /// the person was worth in experience. A finished errand raises it.
+    /// the person was worth in experience — a death worth nothing reaches here as a deed rather than an award.
+    /// A theft lowers it by the donor's own steps, and a finished errand raises it.
     /// </para>
     /// <para>
     /// A finished errand moves it by one point per thousand experience the errand
@@ -195,14 +198,20 @@ internal sealed class MightAndMagic7Standing : IStandingRule
     internal static int ReputationFor(ProgressionStandingRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        if (request.Event != ProgressionEventKind.Award) return 0;
-        if (string.Equals(request.Source, MightAndMagic7Crimes.TownspersonKillSource, StringComparison.Ordinal) ||
-            string.Equals(request.Source, MightAndMagic7Crimes.PersonKillSource, StringComparison.Ordinal))
+        if (request.Event == ProgressionEventKind.Training) return 0;
+        switch (request.Source)
         {
-            return MightAndMagic7Crimes.PersonKillReputation;
+            case MightAndMagic7Crimes.TownspersonKillSource or MightAndMagic7Crimes.PersonKillSource:
+                return MightAndMagic7Crimes.PersonKillReputation;
+            case MightAndMagic7Theft.CaughtSource:
+                return MightAndMagic7Theft.CaughtReputation;
+            case MightAndMagic7Theft.CaughtWithGoodsSource or MightAndMagic7Theft.UnseenSource:
+                return MightAndMagic7Theft.TakenReputation;
+            case MightAndMagic7Theft.PickpocketSource:
+                return MightAndMagic7Theft.PickpocketReputation;
         }
 
-        if (!string.Equals(request.Source, PartyQuests.QuestSource, StringComparison.Ordinal)) return 0;
+        if (request.Event != ProgressionEventKind.Award || !string.Equals(request.Source, PartyQuests.QuestSource, StringComparison.Ordinal)) return 0;
         return (int)Math.Max(1, request.Amount / ExperiencePerPoint);
     }
 

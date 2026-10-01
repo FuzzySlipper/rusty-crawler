@@ -223,6 +223,11 @@ public sealed class PackWriterTests
             Assert.Equal(63, graph.Places.Count(place => place.Kind == PlaceKind.Interior));
             PlaceDefinition region = graph.Places.First(place => place.Kind == PlaceKind.Region);
             Assert.Contains(region.EntryPoints, point => point.Id == "Party Start");
+
+            // Every place carries the map table's base fine — its "Perm" column (OpenEnroth
+            // src/Engine/Tables/MapTable.cpp:73) — which the fixture states as the row's id modulo sixteen, so the
+            // game's theft rule reads it off the place rather than off a table the runtime never sees.
+            Assert.All(graph.Places, place => Assert.Equal(int.Parse(place.Id.Value, System.Globalization.CultureInfo.InvariantCulture) % 16, place.Source.GetInt32("stealFine")));
             Assert.Contains(region.EntryPoints, point => point.Id == "North Start");
 
             // Every place carries the automap raster the product draws from, and the document is what the
@@ -450,6 +455,12 @@ public sealed class PackWriterTests
                     Assert.Equal(entry.GetProperty("triangles").GetInt32(), artifact.GetProperty("collision").GetProperty("triangles").GetArrayLength());
                     Assert.Equal(127 * 127, entry.GetProperty("geometryCounts").GetProperty("terrain").GetProperty("faces").GetInt32());
                     Assert.Empty(artifact.GetProperty("navigation").GetProperty("cells").EnumerateArray());
+
+                    // Each region's water row is written beside the artifact as its own named ground.
+                    Assert.Equal(126, entry.GetProperty("waterSquares").GetInt32());
+                    JsonElement surface = Assert.Single(entry.GetProperty("surfaces").EnumerateArray());
+                    Assert.Equal("water", surface.GetProperty("surface").GetString());
+                    Assert.Equal(126 * 2, surface.GetProperty("triangles").GetArrayLength());
                 }
             }
 
@@ -465,11 +476,15 @@ public sealed class PackWriterTests
             ContentBootstrapResult bootstrap = ContentBootstrap.Load(new FileContentSource(root), Layout, "imported");
             Assert.True(bootstrap.IsValid, string.Join("; ", bootstrap.Issues.Select(issue => issue.ToString())));
             PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog);
-            ContentPlaceGeometry source = new(bootstrap.Catalog, "place-geometry", "artifact");
+            ContentPlaceGeometry source = new(bootstrap.Catalog, "place-geometry", "artifact", "surfaces");
 
             PlaceDefinition region = graph.Places.First(place => place.Kind == PlaceKind.Region);
             PlaceGeometry? collision = source.For(region.Id);
             Assert.NotNull(collision);
+
+            // The product reads the water the importer wrote as the place's named ground.
+            Assert.Equal(["water"], collision.Surfaces.Names);
+            Assert.Equal(126 * 2, collision.Surfaces.TriangleCount);
             Assert.Equal($"mm7-world/place-geometry/{region.Id.Value}.json", collision.Path);
             Assert.True(collision.Artifact.Length > 0);
 

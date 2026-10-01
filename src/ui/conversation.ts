@@ -36,6 +36,13 @@ export interface ConversationLineView {
   readonly residue: string;
 }
 
+/** One member the product says could try to lift what the person spoken with carries. */
+export interface ConversationThiefView {
+  /** The member's place in the party, which a theft command names. */
+  readonly index: number;
+  readonly name: string;
+}
+
 /** The conversation block: who is here, what was said, which topics are on offer, and which are withheld. */
 export interface ConversationView {
   readonly available: boolean;
@@ -56,6 +63,8 @@ export interface ConversationView {
   readonly handoff: string;
   /** The topic the last choice named, empty before one. */
   readonly topic: string;
+  /** The members who could try to lift what the person carries; empty when nobody could. */
+  readonly thieves: readonly ConversationThiefView[];
 }
 
 function readTopic(entry: Fields): ConversationTopicView {
@@ -85,6 +94,7 @@ export function readConversation(f: Fields): ConversationView {
     residue: f.text('residue'),
     handoff: f.text('handoff'),
     topic: f.text('topic'),
+    thieves: f.list('thieves', (entry) => ({ index: entry.number('index'), name: entry.text('name') })),
   };
 }
 
@@ -104,6 +114,7 @@ export function mountConversation(host: Host): Section<ConversationReading> {
   const topics = element('div', 'crawler-options');
   const withheld = element('ul', 'crawler-withheld');
   const said = element('ul', 'crawler-said');
+  const thieves = element('div', 'crawler-row');
   const actions = element('div', 'crawler-actions');
   const leave = button('Take your leave');
   leave.addEventListener('click', () => {
@@ -112,7 +123,7 @@ export function mountConversation(host: Host): Section<ConversationReading> {
   actions.append(leave);
   const outcome = result('crawler-conversation-result');
   const residue = result('crawler-conversation-residue');
-  conversation.append(conversationHead, greeting, people, topics, withheld, said, actions, outcome, residue);
+  conversation.append(conversationHead, greeting, people, topics, withheld, said, thieves, actions, outcome, residue);
   const changed = redrawGuard();
 
   const render = ({ conversation: view, leave: control }: ConversationReading): void => {
@@ -142,7 +153,7 @@ export function mountConversation(host: Host): Section<ConversationReading> {
     if (!changed(view)) return;
 
     if (!view.open) {
-      for (const list of [people, topics, withheld, said]) list.replaceChildren();
+      for (const list of [people, topics, withheld, said, thieves]) list.replaceChildren();
       return;
     }
 
@@ -179,6 +190,18 @@ export function mountConversation(host: Host): Section<ConversationReading> {
         item.dataset.id = topic.id;
         item.textContent = `${topic.label} — ${topic.reason}`;
         return item;
+      }),
+    );
+
+    // Who could try to lift what the person carries is the product's list: one button per member it named, which
+    // sends that member's hand. What came of it is the counter's report, because a theft is the service mechanism's.
+    thieves.replaceChildren(
+      ...view.thieves.map((thief) => {
+        const choice = button(`${thief.name}: steal`);
+        choice.dataset.id = `steal-${thief.index}`;
+        choice.dataset.member = String(thief.index);
+        choice.addEventListener('click', () => claim(ACTIONS.conversationSteal, { member: thief.index }));
+        return choice;
       }),
     );
 

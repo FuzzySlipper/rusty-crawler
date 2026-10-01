@@ -16,6 +16,9 @@ public static class MightAndMagic7Codes
     /// <summary>The refusal code <c>camp-under-a-roof</c>.</summary>
     public const string CampUnderARoof = "camp-under-a-roof";
 
+    /// <summary>The refusal code <c>rest-in-water</c>: the party is asked to stop while it stands in water.</summary>
+    public const string RestInWater = "rest-in-water";
+
     /// <summary>The refusal code <c>container-contents-unresolved</c>.</summary>
     public const string ContainerContentsUnresolved = "container-contents-unresolved";
 
@@ -142,6 +145,15 @@ public static class MightAndMagic7Codes
     /// <summary>The refusal code <c>service-passage-held</c>.</summary>
     public const string ServicePassageHeld = "service-passage-held";
 
+    /// <summary>The refusal code <c>service-item-stolen</c>: a counter will not buy, identify, or repair a stolen thing.</summary>
+    public const string ServiceItemStolen = "service-item-stolen";
+
+    /// <summary>The refusal code <c>service-nothing-owed</c>: a repayment toward an account the party owes nothing on.</summary>
+    public const string ServiceNothingOwed = "service-nothing-owed";
+
+    /// <summary>The refusal code <c>service-nothing-to-pay-with</c>: a repayment from an empty purse.</summary>
+    public const string ServiceNothingToPayWith = "service-nothing-to-pay-with";
+
     /// <summary>The refusal code <c>service-training-capped</c>.</summary>
     public const string ServiceTrainingCapped = "service-training-capped";
 
@@ -151,6 +163,9 @@ public static class MightAndMagic7Codes
     /// <summary>The refusal code <c>skill-closed-by-unchosen-path</c>.</summary>
     public const string SkillClosedByUnchosenPath = "skill-closed-by-unchosen-path";
 
+    /// <summary>The refusal code <c>spell-indoors</c>: a spell the open sky is needed for is cast under a roof.</summary>
+    public const string SpellIndoors = "spell-indoors";
+
     /// <summary>The refusal code <c>spell-airborne</c>: a leap is cast while the party is not standing on anything.</summary>
     public const string SpellAirborne = "spell-airborne";
 
@@ -159,6 +174,21 @@ public static class MightAndMagic7Codes
 
     /// <summary>The refusal code <c>spell-place-unvisited</c>: a travel spell names a place the party has never been to.</summary>
     public const string SpellPlaceUnvisited = "spell-place-unvisited";
+
+    /// <summary>The refusal code <c>theft-cannot-act</c>: the member who would try is in no state to act.</summary>
+    public const string TheftCannotAct = "theft-cannot-act";
+
+    /// <summary>The refusal code <c>theft-chance-unavailable</c>: this product has no random service to draw a theft with.</summary>
+    public const string TheftChanceUnavailable = "theft-chance-unavailable";
+
+    /// <summary>The refusal code <c>theft-no-skill</c>: the member who would try has not learned to steal.</summary>
+    public const string TheftNoSkill = "theft-no-skill";
+
+    /// <summary>The refusal code <c>theft-nobody-to-rob</c>: what the party stands with is not a person who carries anything.</summary>
+    public const string TheftNobodyToRob = "theft-nobody-to-rob";
+
+    /// <summary>The refusal code <c>theft-not-a-shop</c>: the counter keeps nothing on a shelf a hand could reach.</summary>
+    public const string TheftNotAShop = "theft-not-a-shop";
 
     /// <summary>The refusal code <c>travel-fare-unpaid</c>.</summary>
     public const string TravelFareUnpaid = "travel-fare-unpaid";

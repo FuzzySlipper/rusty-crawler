@@ -2,6 +2,7 @@ using System.Globalization;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Sessions;
+using PartyRpg.Testing;
 using Rusty.Engine;
 using Xunit;
 
@@ -179,6 +180,43 @@ public sealed class CombatProjectionPolicyTests
         Assert.Equal(1d, ProjectedNode.Of(ui.Latest().Value).Field("interaction").Field("bodies").AsNumber());
     }
 
+    [Theory]
+    [InlineData("water", 0)]
+    [InlineData("road", 1)]
+    public void A_creature_brought_down_on_water_sinks_and_leaves_no_body_to_search(string ground, int bodies)
+    {
+        // The place's whole floor is named ground, as the importer writes a region's water squares beside its collision;
+        // the creature stands on it where content placed it, and the engine double leaves every step where it began and
+        // finds nothing between the party and a body lying in reach.
+        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(
+            persistence: null,
+            new ScriptedSpatialService { Rays = _ => default },
+            new ScriptedContentService(),
+            [.. World(monsterAt: 100, ground: ground), MonsterRow(recovery: 100, hitPoints: 1), PartyDocument()]);
+        using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
+            RulesetTestContext.RulesetContext(context, ui, combat: true));
+        session.Start();
+        MightAndMagic7Session live = (MightAndMagic7Session)session;
+        ulong step = 0;
+        session.Update(RulesetTestContext.Update(++step, 1));
+        Assert.NotNull(live.Party);
+
+        ProjectedNode combat = Combat(ui);
+        for (int order = 0; order < 20 && combat.Field("opposition").AsNumber() > 0; order++)
+        {
+            session.Update(RulesetTestContext.Update(++step, 1, RulesetTestContext.Payload(Act)));
+            combat = Combat(ui);
+        }
+
+        Assert.Equal(0d, combat.Field("opposition").AsNumber());
+        session.Update(RulesetTestContext.Update(++step, 1));
+
+        // On water the donor removes the dead creature (OpenEnroth src/Engine/Graphics/Outdoor.cpp:1617-1619), and only a
+        // dead creature's body is looted (src/Engine/Graphics/Viewport.cpp:239-241): no body is left to search, so what it
+        // carried is lost. On any other named ground the body lies there as ever.
+        Assert.Equal((double)bodies, ProjectedNode.Of(ui.Latest().Value).Field("interaction").Field("bodies").AsNumber());
+    }
+
     /// <summary>The fight block the panel renders, from the newest projection the product published.</summary>
     private static ProjectedNode Combat(RecordingUiService ui) => ProjectedNode.Of(ui.Latest().Value).Field("combat");
 
@@ -189,11 +227,12 @@ public sealed class CombatProjectionPolicyTests
     /// A world of two places whose starting region holds one creature where the test says, plus the scenario
     /// start that puts the party in it.
     /// </summary>
-    private static (string Path, string Text)[] World(double monsterAt) =>
+    private static (string Path, string Text)[] World(double monsterAt, string? ground = null) =>
     [
+        .. ground is null ? Array.Empty<(string, string)>() : [Floor(ground)],
         RulesetTestContext.Bundle("partyrpg-default", "world"),
         ($"{RulesetTestContext.ContentDirectory}/content-packs/world/pack.json",
-            """
+            $$"""
             {
               "schemaVersion": 1,
               "packId": "world",
@@ -203,6 +242,7 @@ public sealed class CombatProjectionPolicyTests
                 { "path": "places.json", "documentId": "places", "definitionKind": "place" },
                 { "path": "monsters.json", "documentId": "monsters", "definitionKind": "monster" },
                 { "path": "start.json", "documentId": "start", "definitionKind": "scenario-start" },
+                {{(ground is null ? string.Empty : GeometryDocument)}}
                 { "path": "party.json", "documentId": "party", "definitionKind": "scenario-party" }
               ]
             }
@@ -227,6 +267,24 @@ public sealed class CombatProjectionPolicyTests
             { "documentId": "start", "definitionKind": "scenario-start", "entries": [ { "id": "start", "place": "1", "entryPoint": "Party Start" } ] }
             """),
     ];
+
+    /// <summary>The pack's line for the collision document <see cref="Floor"/> stages.</summary>
+    private const string GeometryDocument =
+        """{ "path": "place-geometry.json", "documentId": "place-geometry", "definitionKind": "place-geometry" },""";
+
+    /// <summary>The starting region's collision, whose whole floor is the named ground given.</summary>
+    private static (string Path, string Text) Floor(string ground) =>
+        ($"{RulesetTestContext.ContentDirectory}/content-packs/world/place-geometry.json",
+            $$"""
+            {
+              "documentId": "place-geometry",
+              "definitionKind": "place-geometry",
+              "entries": [ { "id": "1", "artifact": { "stated": "by the scripted engine, which reads nothing" },
+                             "surfaces": [ { "surface": "{{ground}}",
+                                             "positions": [ [-4096, 0, -4096], [4096, 0, -4096], [4096, 0, 4096], [-4096, 0, 4096] ],
+                                             "triangles": [ [0, 1, 2], [0, 2, 3] ] } ] } ]
+            }
+            """);
 
     /// <summary>A monster row shaped the way the importer emits one: every field typed.</summary>
     private static (string Path, string Text) MonsterRow(

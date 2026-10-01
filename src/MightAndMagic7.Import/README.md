@@ -53,8 +53,10 @@ Owns:
   built from the solid faces the map decoders already resolve — portals, ethereal
   faces and degenerate corners excluded, outdoor terrain tiled from its height
   field — and refused whole for a place that cannot be closed enough for a party
-  to stand on. The document's shape and what it must contain are in
-  [`../../docs/research/mm7-map-formats.md`](../../docs/research/mm7-map-formats.md) §8.
+  to stand on. Beside each artifact the place's named ground: `water` for a region's terrain squares whose tile
+  the game's tile table (`dtile.bin`, `TerrainTileTable`) flags as water, and `fluid` for solid faces the level
+  marks fluid, each over the same triangles the collision carries. The document's shape and what it must contain
+  are in [`../../docs/research/mm7-map-formats.md`](../../docs/research/mm7-map-formats.md) §8.
 
 Boundary rules:
 

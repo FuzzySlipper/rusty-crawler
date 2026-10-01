@@ -42,6 +42,8 @@ public sealed class PlaytestRegistrationTests
         Assert.Contains(ProductIdentity.MoveForwardIntent, actions);
         Assert.Contains(ProductIdentity.UseIntent, actions);
         Assert.Contains(ProductIdentity.SaveIntent, actions);
+        Assert.Contains(ProductIdentity.AscendIntent, actions);
+        Assert.Contains(ProductIdentity.DescendIntent, actions);
     }
 
     [Fact]
@@ -96,6 +98,17 @@ public sealed class PlaytestRegistrationTests
             Assert.Equal("KeyW", forward.RootElement.GetProperty("key").GetString());
             Assert.True(forward.RootElement.GetProperty("available").GetBoolean());
             Assert.True(forward.RootElement.GetProperty("durationMs").GetDouble() > 0);
+        }
+
+        // Rising and sinking are movement controls the party's own flight decides: in a lair with no flight running
+        // they are described with their keys and refused with the reason, while a walk is offered.
+        foreach ((string intent, string key) in new[] { (ProductIdentity.AscendIntent, "ArrowUp"), (ProductIdentity.DescendIntent, "ArrowDown") })
+        {
+            using JsonDocument rise = Json(catalog.Execute($"playtest.action {intent}"));
+            Assert.Equal(key, rise.RootElement.GetProperty("key").GetString());
+            Assert.True(rise.RootElement.GetProperty("hold").GetBoolean());
+            Assert.False(rise.RootElement.GetProperty("available").GetBoolean());
+            Assert.Contains("may not fly", rise.RootElement.GetProperty("reason").GetString(), StringComparison.Ordinal);
         }
 
         // The use control is offered because the party faces the door, as the panel's use button is.

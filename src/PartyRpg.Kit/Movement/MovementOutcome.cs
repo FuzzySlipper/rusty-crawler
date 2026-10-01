@@ -21,6 +21,7 @@ namespace PartyRpg.Kit.Movement;
 /// <param name="Stance">What the engine made of the stance the intent asked for.</param>
 /// <param name="Surface">The surface the party is standing on after the step.</param>
 /// <param name="Fall">What a landing in this step cost, or none when the party did not land.</param>
+/// <param name="Flying">Whether the party is flying after the step.</param>
 public readonly record struct MovementOutcome(
     PlacePose Pose,
     Vector3 Displacement,
@@ -29,7 +30,8 @@ public readonly record struct MovementOutcome(
     CharacterBlockFlags Blocked,
     CharacterStanceFact Stance,
     SurfaceEffect Surface,
-    FallOutcome Fall)
+    FallOutcome Fall,
+    bool Flying = false)
 {
     /// <summary>Whether something in the world stopped the party from going where it asked.</summary>
     public bool WasBlocked => Blocked != CharacterBlockFlags.None;

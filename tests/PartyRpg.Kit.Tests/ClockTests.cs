@@ -27,6 +27,23 @@ public sealed class ClockTests
     private static GameCalendar Calendar => GameCalendar.TwelveMonthsOfFourWeeks;
 
     [Fact]
+    public void The_next_boundary_of_an_interval_is_the_one_a_span_from_now_crosses_first()
+    {
+        GameDuration thirty = GameDuration.FromSeconds(30);
+        GameDate now = new(100, 1, 1, 9, 0, 10);
+        GameDate next = Calendar.NextBoundary(now, thirty);
+
+        Assert.Equal(new GameDate(100, 1, 1, 9, 0, 30), next);
+        Assert.Equal(GameDuration.FromSeconds(20), Calendar.Between(now, next));
+        Assert.Equal(0, Calendar.Boundaries(now, Calendar.Add(now, GameDuration.FromMilliseconds(19_999)), thirty));
+        Assert.Equal(1, Calendar.Boundaries(now, next, thirty));
+
+        // A date on a boundary has already passed it: the next is a whole interval on.
+        Assert.Equal(new GameDate(100, 1, 1, 9, 1, 0), Calendar.NextBoundary(next, thirty));
+        Assert.Throws<ArgumentOutOfRangeException>(() => Calendar.NextBoundary(now, GameDuration.None));
+    }
+
+    [Fact]
     public void The_authored_calendar_shapes_a_year_as_twelve_four_week_months()
     {
         // The shipped tables carry no calendar, so these constants are ours; what makes them usable is

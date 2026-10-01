@@ -1,6 +1,8 @@
+using System.Numerics;
 using System.Text;
 using System.Text.Json;
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.World;
 
 namespace PartyRpg.Kit.Sessions;
@@ -18,8 +20,9 @@ public sealed record PlaceGeometry
     /// <summary>Creates a place's geometry.</summary>
     /// <param name="path">The artifact's own path, which identifies it to the engine's content owner.</param>
     /// <param name="artifact">The artifact document's bytes, exactly as content wrote them.</param>
+    /// <param name="surfaces">The place's named ground, or null when content names none.</param>
     /// <exception cref="ArgumentException">The artifact has no path or no bytes.</exception>
-    public PlaceGeometry(string path, ReadOnlyMemory<byte> artifact)
+    public PlaceGeometry(string path, ReadOnlyMemory<byte> artifact, PlaceSurfaces? surfaces = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         if (artifact.Length == 0)
@@ -31,6 +34,7 @@ public sealed record PlaceGeometry
 
         Path = path;
         Artifact = artifact;
+        Surfaces = surfaces ?? PlaceSurfaces.None;
     }
 
     /// <summary>The artifact's own path, which identifies it to the engine's content owner.</summary>
@@ -38,6 +42,13 @@ public sealed record PlaceGeometry
 
     /// <summary>The artifact document's bytes, exactly as content wrote them.</summary>
     public ReadOnlyMemory<byte> Artifact { get; }
+
+    /// <summary>
+    /// The place's named ground — water, road, whatever content names — over the same triangles the artifact collides
+    /// with. It travels beside the artifact rather than in it, because the engine refuses a field its document does
+    /// not define.
+    /// </summary>
+    public PlaceSurfaces Surfaces { get; }
 }
 
 /// <summary>Where a place's collision geometry comes from, when the loaded content carries any.</summary>
@@ -69,14 +80,20 @@ public sealed class ContentPlaceGeometry : IPlaceGeometrySource
     private readonly ContentCatalog _catalog;
     private readonly string _definitionKind;
     private readonly string _artifactProperty;
+    private readonly string? _surfacesProperty;
 
     /// <summary>Creates the reader.</summary>
     /// <param name="catalog">The validated content the world was built from.</param>
     /// <param name="definitionKind">The definition kind whose entries carry places' collision artifacts.</param>
     /// <param name="artifactProperty">The property of such an entry that holds the engine's artifact document.</param>
+    /// <param name="surfacesProperty">
+    /// The property of such an entry that names the place's ground: a list of objects each with a <c>surface</c> name,
+    /// <c>positions</c> as three-number arrays in the engine's axes, and <c>triangles</c> as three-index arrays. Null
+    /// for content whose places name no ground; an entry without the property names none either.
+    /// </param>
     /// <exception cref="ArgumentNullException">No content catalog was supplied.</exception>
     /// <exception cref="ArgumentException">A name is missing, so no entry could ever be found.</exception>
-    public ContentPlaceGeometry(ContentCatalog catalog, string definitionKind, string artifactProperty)
+    public ContentPlaceGeometry(ContentCatalog catalog, string definitionKind, string artifactProperty, string? surfacesProperty = null)
     {
         ArgumentNullException.ThrowIfNull(catalog);
         ArgumentException.ThrowIfNullOrWhiteSpace(definitionKind);
@@ -84,6 +101,7 @@ public sealed class ContentPlaceGeometry : IPlaceGeometrySource
         _catalog = catalog;
         _definitionKind = definitionKind;
         _artifactProperty = artifactProperty;
+        _surfacesProperty = surfacesProperty;
     }
 
     /// <inheritdoc />
@@ -109,10 +127,88 @@ public sealed class ContentPlaceGeometry : IPlaceGeometrySource
             // which pack, document, and entry a retained artifact came from rather than an opaque handle.
             return new PlaceGeometry(
                 $"{pack.PackId}/{document.DocumentId}/{entry.Id}.json",
-                Encoding.UTF8.GetBytes(artifact.GetRawText()));
+                Encoding.UTF8.GetBytes(artifact.GetRawText()),
+                Surfaces(place, pack, document, entry));
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Reads a place's named ground, refusing a list that is not one rather than reading part of it: a place whose
+    /// water silently went missing is a party that never drowns there.
+    /// </summary>
+    private PlaceSurfaces? Surfaces(PlaceId place, LoadedPack pack, ContentDocument document, ContentEntry entry)
+    {
+        if (_surfacesProperty is null || !entry.Payload.TryGetProperty(_surfacesProperty, out JsonElement list)) return null;
+        string where = $"'{pack.PackId}/{document.DocumentId}'";
+        if (list.ValueKind != JsonValueKind.Array)
+        {
+            throw new InvalidOperationException($"Place '{place}' names its ground in {where}, but its '{_surfacesProperty}' is not a list.");
+        }
+
+        List<SurfaceMesh> meshes = [];
+        foreach (JsonElement surface in list.EnumerateArray())
+        {
+            if (surface.ValueKind != JsonValueKind.Object ||
+                !surface.TryGetProperty("surface", out JsonElement name) || name.ValueKind != JsonValueKind.String ||
+                !surface.TryGetProperty("positions", out JsonElement positions) || positions.ValueKind != JsonValueKind.Array ||
+                !surface.TryGetProperty("triangles", out JsonElement triangles) || triangles.ValueKind != JsonValueKind.Array)
+            {
+                throw new InvalidOperationException(
+                    $"Place '{place}' names its ground in {where}, and one entry of '{_surfacesProperty}' is not a surface name with positions and triangles.");
+            }
+
+            List<Vector3> corners = [];
+            foreach (JsonElement corner in positions.EnumerateArray())
+            {
+                if (Triple(corner) is not { } xyz)
+                {
+                    throw new InvalidOperationException($"Place '{place}' names ground '{name.GetString()}' in {where} with a corner that is not three numbers.");
+                }
+
+                corners.Add(new Vector3((float)xyz.A, (float)xyz.B, (float)xyz.C));
+            }
+
+            List<int> indices = [];
+            foreach (JsonElement triangle in triangles.EnumerateArray())
+            {
+                if (Triple(triangle) is not { } abc || abc.A % 1 != 0 || abc.B % 1 != 0 || abc.C % 1 != 0)
+                {
+                    throw new InvalidOperationException($"Place '{place}' names ground '{name.GetString()}' in {where} with a triangle that is not three corner indices.");
+                }
+
+                indices.Add((int)abc.A);
+                indices.Add((int)abc.B);
+                indices.Add((int)abc.C);
+            }
+
+            meshes.Add(new SurfaceMesh(name.GetString() ?? string.Empty, corners, indices));
+        }
+
+        try
+        {
+            return new PlaceSurfaces(meshes);
+        }
+        catch (ArgumentException refused)
+        {
+            throw new InvalidOperationException($"Place '{place}' names its ground in {where}, and it cannot be read: {refused.Message}", refused);
+        }
+    }
+
+    /// <summary>Three numbers in an array, or null when the element is not exactly that.</summary>
+    private static (double A, double B, double C)? Triple(JsonElement element)
+    {
+        if (element.ValueKind != JsonValueKind.Array || element.GetArrayLength() != 3) return null;
+        double[] values = new double[3];
+        int index = 0;
+        foreach (JsonElement value in element.EnumerateArray())
+        {
+            if (value.ValueKind != JsonValueKind.Number) return null;
+            values[index++] = value.GetDouble();
+        }
+
+        return (values[0], values[1], values[2]);
     }
 }
 

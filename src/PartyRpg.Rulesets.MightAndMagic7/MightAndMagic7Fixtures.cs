@@ -144,12 +144,19 @@ internal sealed class MightAndMagic7Fixtures
     /// <summary>The face bit that lets a party pass through a face group (<c>src/Engine/Graphics/FaceEnums.h:39</c>).</summary>
     private const long PassableFaceBit = 0x2000_0000;
 
-    /// <summary>The face bit that makes a face group water (<c>src/Engine/Graphics/FaceEnums.h:12</c>).</summary>
+    /// <summary>
+    /// The face bit that makes a face group fluid (<c>src/Engine/Graphics/FaceEnums.h:12</c>), which a player cannot act
+    /// on here.
+    /// </summary>
+    /// <remarks>
+    /// A fluid face is not the water a party drowns in: the donor drowns a party only on a region's water squares
+    /// (<c>src/Engine/Graphics/Outdoor.cpp:1321-1335</c>, <c>:1389-1395</c>) and reads a fluid face for its footsteps, a
+    /// splash, a corpse sinking and a night's food outdoors (<c>src/Engine/Graphics/Indoor.cpp:1499</c>,
+    /// <c>Outdoor.cpp:355-362</c>, <c>:854</c>, <c>:1417</c>, <c>:1617</c>). This build plays no sound and draws no
+    /// splash, prices a camp by its place, and reads its imported fluid faces for nothing, so a face group an event
+    /// turns fluid is presentation and is passed over like one made invisible.
+    /// </remarks>
     private const long FluidFaceBit = 0x0000_0010;
-
-    /// <summary>The residue a step that turns ground into water leaves, which this build marks at import only.</summary>
-    internal const string WaterResidue =
-        "Which ground is water is fixed when the place is imported (#9030), so a face group an event turns to water stays as it was.";
 
     /// <summary>
     /// The steps that change only what a player sees or hears: a texture, a sprite, a sound, a character's
@@ -754,10 +761,9 @@ internal sealed class MightAndMagic7Fixtures
                         // What a player would see or hear is not drawn here; the event's gameplay runs on.
                         break;
                     case "set-faces-bit":
-                        // A face group made invisible is presentation; one made passable, or made water, changes the
-                        // ground a party walks on, which this build's collision does not follow.
+                        // A face group made invisible or fluid is presentation; one made passable changes the ground a
+                        // party walks on, which this build's collision does not follow.
                         if ((current.Flag & PassableFaceBit) != 0) Residue(CollisionResidue);
-                        if ((current.Flag & FluidFaceBit) != 0) Residue(WaterResidue);
                         if ((current.Flag & ~(InvisibleFaceBit | PassableFaceBit | FluidFaceBit)) != 0)
                         {
                             return NotInterpreted(_target, mapEvent, current, string.Create(CultureInfo.InvariantCulture, $"a face bit 0x{current.Flag:X} this game does not read"));

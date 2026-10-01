@@ -54,6 +54,8 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     problems: '0',
     motion: 'none',
     blocked: 'none',
+    footing: 'none',
+    harm: 'none',
     clock: 'none',
     party: 'none',
     light: 'unknown',

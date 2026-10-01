@@ -49,6 +49,12 @@ public enum ProgressionEventKind
 
     /// <summary>A member was trained a level.</summary>
     Training,
+
+    /// <summary>
+    /// The party did something the world hears of that paid no experience: a theft, a sacrifice, a worthless
+    /// death a game still counts against the party.
+    /// </summary>
+    Deed,
 }
 
 /// <summary>How much a progression event changes the party's standing, as this game's rule answers it.</summary>

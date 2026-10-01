@@ -4,6 +4,7 @@ using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Loot;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.World;
 
 namespace PartyRpg.Rulesets.MightAndMagic7;
@@ -30,6 +31,16 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// loot is not generated twice" a fact rather than a promise.
 /// </para>
 /// <para>
+/// <b>A creature that dies on water sinks.</b> The donor removes a dead creature that lies on a region's water rather
+/// than leaving it to be searched (OpenEnroth <c>src/Engine/Graphics/Outdoor.cpp:1596-1619</c>, where the water is the
+/// terrain's own water squares that <c>ODM_GetFloorLevel</c> reports), and only a dead creature's body is ever looted
+/// (<c>src/Engine/Graphics/Viewport.cpp:239-241</c>), so whatever it carried is lost with it. Here the ground under the
+/// body is the place's named ground at the pose it fell at, read through the party's mover, which holds the place's
+/// <c>PlaceSurfaces</c>; a body on water is not laid and nothing is rolled for it, so its loot is lost as in the donor.
+/// What the death pays and counts is unaffected: the other observers hear it as they hear any death. Only ground
+/// named water sinks a body — a fluid face does not, as in the donor — and an interior has none.
+/// </para>
+/// <para>
 /// <b>A body is named for what it was.</b> The name comes from the fight's own naming of the creature, so a
 /// body reads as the thing the party killed rather than as a row id, and two bodies of two creatures are two
 /// named things.
@@ -39,15 +50,18 @@ internal sealed class MightAndMagic7Corpses : ICreatureDeathObserver, ICorpseSou
 {
     private readonly CorpseGround _ground;
     private readonly MightAndMagic7Loot _loot;
+    private readonly Func<SessionWorld?> _world;
 
     /// <summary>Creates this game's corpse answers over the ground the fight reports to.</summary>
     /// <param name="ground">What the fight's readings are kept in, which is also what holds what a death left.</param>
     /// <param name="loot">This game's loot, which generation is asked of.</param>
+    /// <param name="world">The live world, whose mover says what ground a body fell on; null for none.</param>
     /// <exception cref="ArgumentNullException">No ground or no loot was supplied.</exception>
-    internal MightAndMagic7Corpses(CorpseGround ground, MightAndMagic7Loot loot)
+    internal MightAndMagic7Corpses(CorpseGround ground, MightAndMagic7Loot loot, Func<SessionWorld?>? world = null)
     {
         _ground = ground ?? throw new ArgumentNullException(nameof(ground));
         _loot = loot ?? throw new ArgumentNullException(nameof(loot));
+        _world = world ?? (() => null);
     }
 
     /// <summary>The ground this game keeps its bodies in, which the panel and a suite read.</summary>
@@ -61,9 +75,17 @@ internal sealed class MightAndMagic7Corpses : ICreatureDeathObserver, ICorpseSou
     /// </remarks>
     public void Died(CreatureDeath death)
     {
+        if (Sinks(death)) return;
         Corpse body = _ground.Lay(death);
         if (_loot.RollsFor(Key(body)) is { } rolls) _ground.Hold(body, _loot.Death(body.Body, rolls));
     }
+
+    /// <summary>Whether a death lies on water in a place open to the sky, which leaves no body to search.</summary>
+    /// <param name="death">The death, standing where it fell.</param>
+    internal bool Sinks(CreatureDeath death) =>
+        _world() is { } world &&
+        world.Graph.Find(death.Place) is { Kind: not PlaceKind.Interior } &&
+        string.Equals(world.Mover?.GroundUnder(death.Place, death.Placement.Pose), MightAndMagic7Movement.WaterSurface, StringComparison.Ordinal);
 
     /// <inheritdoc />
     public void Repopulated(PlaceId place) => _ground.Repopulated();

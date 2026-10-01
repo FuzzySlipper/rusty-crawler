@@ -193,6 +193,39 @@ public sealed class PersistenceTests
     }
 
     [Fact]
+    public void What_the_party_owes_the_counters_that_bar_it_and_a_stolen_mark_survive_the_saved_bytes()
+    {
+        using Played played = new();
+        played.Play();
+        played.Party.Debts.Owe("fine", 1250);
+        played.Party.Bans.Bar("sword-and-shield", played.Clock.Elapsed + GameDuration.FromHours(24));
+        ItemInstance signet = Assert.Single(played.Party.Items, item => item.Definition == new ItemDefinitionId("signet"));
+        signet.MarkStolen();
+
+        SessionSave loaded = Decode(Encode(played.Session.Capture()));
+        using PartyEntity restored = new PartyEntityFactory().Restore(loaded.Party);
+
+        // A debt is owed until it is paid and a ban stands until its moment on the clock, so both are the party's
+        // own state a load brings back as it was; the mark a theft left travels with the thing taken.
+        Assert.Equal(1250, restored.Debts.OwedOn("fine"));
+        Assert.Equal(played.Party.Bans.All, restored.Bans.All);
+        Assert.NotNull(restored.Bans.BarredUntil("sword-and-shield", played.Clock.Elapsed));
+        Assert.True(restored.FindItem(signet.Id)!.State.IsStolen);
+        Assert.True(restored.FindItem(signet.Id)!.State.IsIdentified);
+
+        // A debt recorded at nothing, or one recorded twice, is not one the party ever owed, and is refused by name.
+        PartySave twice = new(
+            loaded.Party.NextMemberValue,
+            loaded.Party.NextItemValue,
+            loaded.Party.Members,
+            loaded.Party.Items,
+            debts: [new PartyDebt("fine", 10), new PartyDebt("fine", 20), new PartyDebt("toll", 0)]);
+        string problems = string.Join("; ", new PartyEntityFactory().Problems(twice));
+        Assert.Contains("the debt 'fine' is recorded more than once", problems, StringComparison.Ordinal);
+        Assert.Contains("the debt 'toll' is recorded at 0", problems, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Only_the_explicit_boundary_writes_a_save()
     {
         using Played played = new();

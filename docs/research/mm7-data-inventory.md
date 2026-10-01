@@ -125,8 +125,8 @@ by name at 2, both hireling steps — a figure the ruleset suite counts over the
   engine/localization data, not tables.
 - **`.bin` tables** — 11 in `Events.lod` (`dchest`, `ddeclist`, `dift`, `dmonlist`,
   `dobjlist`, `doverlay`, `dpft`, `dsft`, `dsounds`, `dtft`, `dtile`). Compressed
-  binary with no layout documented in the paths I read; `ChestTable.cpp` mentions
-  `dchest.bin` but does not give its format.
+  binary; `ChestTable.cpp` mentions `dchest.bin` but does not give its format. Only `dtile.bin` is read,
+  for which terrain squares are water; its layout is in `mm7-map-formats.md` §8.5.
 - **`.str` files** (76) — each map's NUL-separated string table, read for the lines a fixture's hint and
   status steps name; the decoration names it also holds are not read.
 - **Map geometry** — `.odm`, `.ddm`, `.blv`, `.dlv` are listed with sizes and

@@ -1,6 +1,8 @@
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Sessions;
+using PartyRpg.Kit.Time;
+using PartyRpg.Kit.World;
 using Rusty.Engine;
 
 namespace PartyRpg.Rulesets.MightAndMagic7;
@@ -115,7 +117,80 @@ internal static class MightAndMagic7Movement
     /// </remarks>
     /// <param name="spatial">The engine service whose default controller profile this game's profile is scaled from.</param>
     internal static MovementTuning Tuning(ISpatialService spatial) =>
-        new(Controller(spatial), new FallPolicy(FallThreshold, damagePerUnit: 0));
+        new(Controller(spatial), new FallPolicy(FallThreshold, damagePerUnit: 0), flight: Flight());
+
+    /// <summary>The ground the importer writes a region's water squares under, which this game drowns a party on.</summary>
+    /// <remarks>
+    /// Water here is ground, not a volume: the donor's party stands on its water squares and drowns there, and never
+    /// swims (OpenEnroth <c>src/Engine/Graphics/Outdoor.cpp:1389-1395</c>), so the party's mover walks on water as on any
+    /// floor and the engine's swimming mode — buoyancy and drag inside a water box the product names each step — is not
+    /// asked for. It stays available should a place ever want water a party sinks into.
+    /// </remarks>
+    internal const string WaterSurface = "water";
+
+    /// <summary>How often water drowns a party standing in it: thirty game seconds.</summary>
+    /// <remarks>
+    /// OpenEnroth sets its water timer 128 ticks ahead each time it drowns the party (<c>src/Engine/Engine.cpp:1085-1086</c>),
+    /// and 128 ticks are one real second (<c>src/Core/Time/Duration.h:28</c>) of a clock that runs thirty times real time
+    /// (<c>:29</c>). Faithful in length; the intervals are counted on the calendar's own boundaries rather than from
+    /// the moment the party stepped in, so the first comes up to thirty seconds early or late.
+    /// </remarks>
+    internal static readonly GameDuration DrowningInterval = GameDuration.FromSeconds(30);
+
+    /// <summary>What standing on this game's ground does to the party: water drowns it.</summary>
+    /// <param name="party">The party whose carried effects can spare it, or null for a world without one.</param>
+    /// <param name="mover">The party's mover, which says whether a flight is holding it above the water now.</param>
+    internal static IGroundHazardRule Hazards(PartyEntity? party, IPartyMover? mover = null) => new Drowning(party, mover);
+
+    /// <summary>What this game calls the effects that spare a party its water, which is what the panel reads.</summary>
+    /// <remarks>Ours: the spells' and the potion's own names, written once where the shelters are read.</remarks>
+    private const string WaterWalkName = "Water Walk";
+
+    /// <inheritdoc cref="WaterWalkName"/>
+    private const string WaterBreathingName = "Water Breathing";
+
+    /// <inheritdoc cref="WaterWalkName"/>
+    private const string FlyName = "Fly";
+
+    /// <summary>How many times the walk a flying party moves: the donor's rise, sink, and running flight.</summary>
+    /// <remarks>
+    /// OpenEnroth sets a rise and a sink to four times the walk (<c>src/Engine/Graphics/Outdoor.cpp:1013</c>,
+    /// <c>:1223</c>) and a flying party running forward or back to four times its walk (<c>:1119</c>, <c>:1160</c>).
+    /// The engine's flying mode bounds every direction by one speed, so this one value is all of them.
+    /// </remarks>
+    internal const double FlightSpeedMultiple = 4;
+
+    /// <summary>The height a flying party rises no higher than, in place units (donor default).</summary>
+    /// <remarks>OpenEnroth <c>src/Application/GameConfig.h:214</c>, <c>max_flight_height</c>, 4000.</remarks>
+    internal const double FlightCeiling = 4000;
+
+    /// <summary>How long a flying party takes to reach its flight speed from a hover, in seconds (ours).</summary>
+    internal const double FlightSpeedUpSeconds = 0.1;
+
+    /// <summary>
+    /// The flight profile: the donor's flying speed and ceiling, reached in a tenth of a second, and kept without drag.
+    /// </summary>
+    /// <remarks>
+    /// The donor sets a flying party's speed outright each frame, so there is no donor acceleration to take; the
+    /// engine's flying mode accelerates toward the speed asked for, and a tenth of a second to get there — near the
+    /// donor's at once without a jolt — is ours. No drag, because the donor's flying party stops when its keys are
+    /// released and the acceleration already brakes it.
+    /// </remarks>
+    private static FlightTuning Flight() =>
+        new(
+            speed: WalkSpeed * FlightSpeedMultiple,
+            acceleration: WalkSpeed * FlightSpeedMultiple / FlightSpeedUpSeconds,
+            drag: 0,
+            ceiling: FlightCeiling);
+
+    /// <summary>
+    /// Whether this game's party may fly now: somebody standing carries a flight they can still pay for, and the party
+    /// stands under the open sky.
+    /// </summary>
+    /// <param name="party">The party whose members carry a flight, or null for a world without one.</param>
+    /// <param name="graph">The places, which say whether the party's place has a roof.</param>
+    /// <param name="pose">The party's pose, which says which place it stands in now.</param>
+    internal static IFlightRule FlightRule(PartyEntity? party, PlaceGraph graph, PartyPoseOwner pose) => new Flying(party, graph, pose);
 
     /// <summary>The engine's default controller profile, expressed for this game's party.</summary>
     /// <remarks>
@@ -201,6 +276,104 @@ internal static class MightAndMagic7Movement
     /// </summary>
     /// <remarks>Ours: no donor states a steering distance, and these are the values the kit used to assume.</remarks>
     internal static PlaceNavigationPolicy Navigation { get; } = new(GridId: 0, ChunkSize: 16, MaxStepCells: 4, SteeringStep: 512, SteeringBudget: 1024);
+
+    /// <summary>
+    /// The donor's flight conditions: the flight runs, the place has no roof, and its caster can keep paying.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The donor flies only while its flight buff runs (OpenEnroth <c>src/Engine/Graphics/Outdoor.cpp:960-964</c>),
+    /// never indoors (<c>src/Engine/Graphics/Indoor.cpp:1451</c>), and takes off or keeps flying on a key only while
+    /// the caster has spell points left or the flight was cast at grand master (<c>Outdoor.cpp:1000-1004</c>,
+    /// <c>:1215-1218</c>). Here the caster carries the flight and its magnitude is what it costs them, so a flight
+    /// that costs nothing needs nothing in the pool. A caster the game has laid out holds nobody up.
+    /// </para>
+    /// <para>
+    /// <b>An adaptation, stated.</b> The donor's party with an empty caster hovers until a flight key is pressed; here
+    /// it comes down at the next step, under the fall rule.
+    /// </para>
+    /// </remarks>
+    private sealed class Flying(PartyEntity? party, PlaceGraph graph, PartyPoseOwner pose) : IFlightRule
+    {
+        public bool MayFly
+        {
+            get
+            {
+                if (party is null || graph.Find(pose.Place) is not { Kind: not PlaceKind.Interior }) return false;
+                foreach (PartyMember member in party.Members)
+                {
+                    if (!member.Effects.Has(SpellEffectIds.Fly) || MightAndMagic7SpellEffects.LaidOut(member)) continue;
+
+                    if (member.Effects.MagnitudeOf(SpellEffectIds.Fly) == 0 || member.Resources.SpellPoints.Current > 0) return true;
+                }
+
+                return false;
+            }
+        }
+    }
+
+    /// <summary>
+    /// The donor's drowning: every thirty game seconds a party stands on water, each character not spared loses a tenth
+    /// of what they can take.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Faithful to the arithmetic of OpenEnroth <c>src/Engine/Engine.cpp:1083-1099</c>: a character takes
+    /// <c>GetMaxHealth() * 0.1</c>, unless they carry the water-walk buff the water breathing potion raises on its
+    /// drinker. The donor sets its water damage only on a water square of the terrain, never on a model's or a
+    /// dungeon's fluid face (<c>src/Engine/Graphics/Outdoor.cpp:1321-1335</c>, <c>:1389-1395</c>; indoors it is cleared,
+    /// <c>src/Engine/Graphics/Indoor.cpp:1708</c>), and never while the party's water walk runs (<c>Outdoor.cpp:1351-1360</c>),
+    /// so this drowns only on <see cref="WaterSurface"/> and only without a water walk.
+    /// </para>
+    /// <para>
+    /// <b>What spares whom, published.</b> The shelters this reads are the same facts it judges by: a water walk somebody
+    /// standing carries spares everybody, a water breathing spares its drinker, and a flight spares everybody while it
+    /// holds the party above the water — the mover reports no footing in the air, so nothing is asked of the ground.
+    /// </para>
+    /// <para>
+    /// <b>Three adaptations, stated.</b> The donor's harm is typed as fire and so meets a character's fire resistance; here
+    /// it is plain harm. The donor also spares a character wearing an item of water walking or a relic, and item
+    /// enchantments do not exist in this build yet (#8513). And the donor's party cannot walk from land into water
+    /// without a water walk at all — it is stopped at the edge and drowns only where it fell in — where here water is
+    /// ground a party may walk into.
+    /// </para>
+    /// </remarks>
+    private sealed class Drowning(PartyEntity? party, IPartyMover? mover) : IGroundHazardRule
+    {
+        public GameDuration? IntervalOn(SurfaceEffect ground) =>
+            ground.Id == WaterSurface && !WalksOnWater() ? DrowningInterval : null;
+
+        public int DamageTo(PartyMember member, SurfaceEffect ground) =>
+            MightAndMagic7SpellEffects.LaidOut(member) || member.Effects.Has(SpellEffectIds.WaterBreathing)
+                ? 0
+                : member.Resources.HitPoints.Maximum / 10;
+
+        public IReadOnlyList<GroundShelter> Shelters
+        {
+            get
+            {
+                if (party is null) return [];
+                List<GroundShelter> shelters = [];
+                bool flying = mover?.Flying == true;
+                foreach (PartyMember member in party.Members)
+                {
+                    if (MightAndMagic7SpellEffects.LaidOut(member)) continue;
+                    if (flying && member.Effects.Has(SpellEffectIds.Fly)) shelters.Add(new GroundShelter(SpellEffectIds.Fly, FlyName, member.Id, Everybody: true));
+                    if (member.Effects.Has(SpellEffectIds.WaterWalk)) shelters.Add(new GroundShelter(SpellEffectIds.WaterWalk, WaterWalkName, member.Id, Everybody: true));
+                    if (member.Effects.Has(SpellEffectIds.WaterBreathing))
+                    {
+                        shelters.Add(new GroundShelter(SpellEffectIds.WaterBreathing, WaterBreathingName, member.Id, Everybody: false));
+                    }
+                }
+
+                return shelters;
+            }
+        }
+
+        /// <summary>Whether somebody standing keeps the party walking over the water.</summary>
+        private bool WalksOnWater() =>
+            party?.Members.Any(member => member.Effects.Has(SpellEffectIds.WaterWalk) && !MightAndMagic7SpellEffects.LaidOut(member)) == true;
+    }
 
     /// <summary>
     /// The donor's fall damage: the whole distance fallen, times a tenth of the member's maximum health, over

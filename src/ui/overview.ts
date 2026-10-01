@@ -44,7 +44,7 @@ export interface WorldView {
  * all — no world, or no step yet — and the remaining fields then describe no step rather than a quiet one.
  */
 export interface MovementView {
-  /** The state the last step left the party in: `none`, `grounded`, or `airborne`. */
+  /** The state the last step left the party in: `none`, `grounded`, `airborne`, or `flying`. */
   readonly motion: string;
   /** What refused the step: a reason word, or `none` when nothing did. */
   readonly blocked: string;
@@ -52,6 +52,34 @@ export interface MovementView {
   readonly stepRise: number;
   readonly fallDistance: number;
   readonly fallDamage: number;
+  /** What the ground under the party does to it now. */
+  readonly footing: FootingView;
+}
+
+/** One effect that spares the party, or one member, the harm of the ground it stands on. */
+export interface FootingShelterView {
+  readonly effect: string;
+  /** What the game calls it. */
+  readonly name: string;
+  readonly member: string;
+  readonly memberName: string;
+  /** Whether it spares the whole party; otherwise its carrier alone. */
+  readonly everybody: boolean;
+}
+
+/**
+ * The ground under the party, as the product read it: `ground` is empty while the party stands on nothing, and the
+ * harm fields describe no harm while `harmful` is false.
+ */
+export interface FootingView {
+  /** The ground's name as content states it, or empty. */
+  readonly ground: string;
+  readonly harmful: boolean;
+  /** How often the ground harms the party, in game seconds. */
+  readonly every: number;
+  /** How many game seconds before the next harm lands. */
+  readonly nextHarmIn: number;
+  readonly shelters: readonly FootingShelterView[];
 }
 
 /** Where the game clock stands. `present` is false when the session's ruleset composed no clock. */
@@ -81,6 +109,14 @@ export interface AwardView {
   readonly detail: string;
 }
 
+/** What the party owes on one account. */
+export interface DebtView {
+  /** The game's word for the account. */
+  readonly account: string;
+  /** What is owed on it. */
+  readonly coins: number;
+}
+
 /** The party's own accounts and standing. `present` is false when the session holds no party. */
 export interface PartyView {
   readonly present: boolean;
@@ -100,6 +136,8 @@ export interface PartyView {
   /** What that band means for how the party is treated, empty when nothing is read. */
   readonly standingDetail: string;
   readonly awards: readonly AwardView[];
+  /** What the party owes, account by account; empty when it owes nothing. */
+  readonly debts: readonly DebtView[];
   /** The conditions acting on the party, empty when none act. */
   readonly conditions: string;
   readonly hitPoints: number;
@@ -224,6 +262,23 @@ export function readMovement(f: Fields): MovementView {
     stepRise: f.number('stepRise'),
     fallDistance: f.number('fallDistance'),
     fallDamage: f.number('fallDamage'),
+    footing: readFooting(f.object('footing')),
+  };
+}
+
+function readFooting(f: Fields): FootingView {
+  return {
+    ground: f.text('ground'),
+    harmful: f.flag('harmful'),
+    every: f.number('every'),
+    nextHarmIn: f.number('nextHarmIn'),
+    shelters: f.list('shelters', (entry) => ({
+      effect: entry.text('effect'),
+      name: entry.text('name'),
+      member: entry.text('member'),
+      memberName: entry.text('memberName'),
+      everybody: entry.flag('everybody'),
+    })),
   };
 }
 
@@ -256,6 +311,7 @@ export function readParty(f: Fields): PartyView {
       label: award.text('label'),
       detail: award.text('detail'),
     })),
+    debts: f.list('debts', (debt) => ({ account: debt.text('account'), coins: debt.number('coins') })),
     conditions: f.text('conditions'),
     hitPoints: f.number('hitPoints'),
     hitPointsMax: f.number('hitPointsMax'),

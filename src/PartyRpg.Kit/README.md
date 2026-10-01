@@ -64,7 +64,13 @@ Owns:
   treasure level (`LootTable`, `LootCandidate`, `LootFilter`), the shape of a treasure request
   (`TreasureRoll`), and what one generation produced (`LootYield`). Which numbers a game's tables
   carry and what its levels mean stay the ruleset's.
-- World interaction: NPC conversation, services, quests (`Quests/` — one owner of what a party has been
+- World interaction: NPC conversation, services (`Services/` — one `PartyServices` operation table judged before
+  anything is settled; a theft is one of its operations — `Steal` takes one line off a shelf without pricing it,
+  and `StealFrom` lifts from a person the party stands with — drawn by a game's `IServiceRule.Steal` as a
+  `ServiceTheft` and carried out by one step whichever kind it was: coin through the ledger, goods into the pack
+  with the stolen mark when the draw says so, the fine onto `PartyDebts`, the deed to `PartyProgression.Deed`, and a
+  counter's ban onto `PartyBans`; `Repay` pays coin toward what the party owes on an account a counter collects),
+  quests (`Quests/` — one owner of what a party has been
   offered, taken, and finished, with definitions a game states, objectives that read the owners already
   reporting them, and one turn-in that pays each reward to its own owner), containers, doors, travel
   between world regions and indoor maps.
@@ -147,7 +153,7 @@ matches it on both, so a retune changes the journey without content being writte
 held or saved ticket), the party's pose and derived view (`PartyPoseOwner`, `FacingRule`, `PartyView`), the party
 entity and its attached components (`PartyEntity` over the engine's own entity store, with `PartyRoster` and `PartyMember`, the one shared
 `PartyInventory` of `ItemInstance`s beside each member's `CharacterEquipment` — every instance carrying a
-durable `ItemInstanceId` and an `ItemState` of identified, damaged, and enchanted, and reporting one
+durable `ItemInstanceId` and an `ItemState` of identified, damaged, enchanted, and stolen, and reporting one
 `ItemCustody` that is detached, the shared pack, or a single member's slot and nothing else, so a
 per-character pack is a state these types cannot express; `Capture` writes each instance's identity, state,
 and custody and `Restore` rebuilds them), `PartyPurse`, `PartyFood`,
@@ -155,6 +161,8 @@ and custody and `Restore` rebuilds them), `PartyPurse`, `PartyFood`,
 written only by `RunningSpellEffects`), each member's stored base resistances (`CharacterResistances` —
 what a permanent gift added, by kind of harm, carried in the member's seed; a ruleset's racial and class terms
 are read beside it, never stored), `PartyRecords`, `PartyHoldings`, `PartyPassages`, `PartyMemberships`,
+`PartyDebts` (what the party owes, account by account, written by a game's crimes and the service mechanism's theft
+and repayment), `PartyBans` (the counters shut against the party until a moment of the one clock),
 the minting of durable identities in
 `PartyIdentitySource`, and `PartyEntityFactory`, which builds a party from creation or from a `PartySave`
 and is the only code that attaches a party component, with the one item rule it composes arriving as
@@ -172,8 +180,10 @@ one progression owner (`Progression/` — `PartyProgression` is where experience
 point, and a rank move and nowhere else — the years a character was aged beyond their natural age,
 `CharacterProgression.AgeOffset`, are the one exception, written by whatever the game says ages a character or
 gives the years back (`Age`, `Rejuvenate`) and carried in the member's seed: `Award` is the one entry a kill, a quest, or any other source arrives at and
-divides by the ruleset's own rule, `Gift` gives one named member experience or skill points outright — a well's
-gift rather than an earned award, so nothing is divided and standing does not move — `Train` is what a counter's step settles through — the fee charged by
+divides by the ruleset's own rule, `Deed` is the entry a deed that pays no experience — a theft, a sacrifice, a
+worthless death a game still counts — reaches the world's opinion by, through the same standing step, `Gift` gives
+one named member experience or skill points outright — a well's gift rather than an earned award, so nothing is
+divided and standing does not move — `Train` is what a counter's step settles through — the fee charged by
 the party's one ledger, the level's pools grown by the ruleset's class and rank tables, the points granted,
 and both pools filled — and `RaiseSkill` is the only way a skill point is spent: it asks the skill policy
 for the price of the levels and the ceiling the member's class and rank impose, refuses past that ceiling
@@ -230,8 +240,19 @@ empties it on leaving (a placement that states a request rather than an answer �
 creatures of a kind — is resolved by the game's `IPlacementExpansion` while the placements are read, and what it
 answers stands in its stead for every reader; the game must answer the same on every read, which is why it
 draws under a key naming the place and the placement), the Engine-backed movement owner with its vertical and surface policy (and a leap a game asks of the next step,
-`PartyMotion.Leap` through `IPartyMover.Leap`, the party's own jump at a stated multiple whose landing is not a fall), the reaches that let a party walk
-into a transition, the movement facts the panel reports, the one combat state
+`PartyMotion.Leap` through `IPartyMover.Leap`, the party's own jump at a stated multiple whose landing is not a fall;
+and flight, the engine's flying mode asked for while a game's `IFlightRule` allows it and the party has risen —
+`MovementIntent.Vertical` from the optional rise and sink controls of `MovementIntentNames`, a `FlightTuning` on the
+`MovementTuning` with its speed and ceiling, a landing when a sink meets the ground, and a fall measured from where a
+flight that ends in the air left the party; and a place's named ground, `PlaceSurfaces` read beside its artifact by
+`ContentPlaceGeometry` and looked up at the ground point the engine reports, so the mover's `Footing` says when the
+party stands in water, and a game's `IGroundHazardRule` harms it there once for every interval the clock crosses,
+through `SessionWorld`, while `IRestRule.Stop` may refuse any stop where it stands; `SessionWorld.Ground` reads the
+footing, the hazard's interval, the calendar boundary its next harm lands at (`GameCalendar.NextBoundary`, the one
+`Endure` counts next) and the rule's `GroundShelter`s, which the movement block publishes as `footing`; and
+`IPartyMover.GroundUnder` looks a pose in the party's place up on the same `PlaceSurfaces` at the point it stands on,
+`PlaceSpace.GroundPosition`), the reaches that let a party walk into a transition, the movement facts the panel
+reports, the one combat state
 (`Combat/` — a `CombatState` over the live world and nothing else, with a `Combatant` per party member and
 per creature the ruleset recognizes in the party's place, one `Combatant.Recovery` quantity each advanced
 from the game time the one clock reports and gated before any `AttackOrder` is applied, `Hostility` as a

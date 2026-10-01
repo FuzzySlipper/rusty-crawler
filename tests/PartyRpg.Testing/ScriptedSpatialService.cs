@@ -45,6 +45,12 @@ public sealed class ScriptedSpatialService : ISpatialService
     /// <summary>Where a character step ends; by default where it started, since this double collides with nothing.</summary>
     public Func<CharacterStepRequest, Vector3> StepEnds { get; set; } = request => request.Position;
 
+    /// <summary>
+    /// What a step's receipt says beyond where it ends — a contact, the footing — as the test scripts it; by default the
+    /// receipt is left as this double builds it.
+    /// </summary>
+    public Func<CharacterStepRequest, CharacterStepReceipt, CharacterStepReceipt> Answer { get; set; } = (_, receipt) => receipt;
+
     /// <inheritdoc />
     public SpatialSession CreateSession(SpatialSessionConfig config)
     {
@@ -82,13 +88,13 @@ public sealed class ScriptedSpatialService : ISpatialService
         Vector3 end = StepEnds(request);
         Transform before = new(request.Position, Quaternion.Identity, Vector3.One);
         Transform after = new(end, Quaternion.Identity, Vector3.One);
-        return default(CharacterStepReceipt) with
+        return Answer(request, default(CharacterStepReceipt) with
         {
             TransformBefore = before,
             Transform = after,
             Displacement = end - request.Position,
             Motion = request.Motion with { Grounded = true, LastCommandSequence = request.Command.Sequence },
-        };
+        });
     }
 
     /// <inheritdoc />
@@ -168,7 +174,13 @@ public sealed class ScriptedSpatialService : ISpatialService
     public SpatialQueryReceipt ContainsPoint(SpatialContainsPointRequest request) => throw Unsupported();
 
     /// <inheritdoc />
-    public SpatialHit CastRay(SpatialRaycastRequest request) => throw Unsupported();
+    public SpatialHit CastRay(SpatialRaycastRequest request) => Rays is { } answer ? answer(request) : throw Unsupported();
+
+    /// <summary>
+    /// What a ray answers, as the test scripts it — a line of sight to something lying in reach; by default a ray is not
+    /// something the case expects, and asking for one fails it.
+    /// </summary>
+    public Func<SpatialRaycastRequest, SpatialHit>? Rays { get; set; }
 
     /// <inheritdoc />
     public SpatialHit CastSegment(SpatialSegmentCastRequest request) => throw Unsupported();

@@ -91,3 +91,8 @@ public sealed record ProgressionAwardResult(
         return new ProgressionAwardResult(source, amount, [], ProgressionStanding.None, refusal);
     }
 }
+
+/// <summary>What one deed that paid no experience did to the party's standing.</summary>
+/// <param name="Source">The word the deed was credited as, which is what the standing rule read.</param>
+/// <param name="Standing">What the deed did to the party's reputation and fame.</param>
+public sealed record ProgressionDeedResult(string Source, ProgressionStanding Standing);

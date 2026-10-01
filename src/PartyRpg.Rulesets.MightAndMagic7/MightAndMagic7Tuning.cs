@@ -70,9 +70,15 @@ internal static class MightAndMagic7Tuning
     /// </summary>
     internal static readonly TuningHandle FixtureBonusHours = new("fixture.bonus-hours", 24, 1, 24 * 336, "how many game hours a well's or fountain's temporary bonus lasts");
 
+    /// <summary>
+    /// How long a counter that caught the party stealing will not serve it, in hours (the donor's one day,
+    /// OpenEnroth src/GUI/UI/Houses/Shops.cpp:1164).
+    /// </summary>
+    internal static readonly TuningHandle TheftBanHours = new("theft.ban-hours", 24, 1, 24 * 336, "how many game hours a counter that caught a thief stays shut against the party");
+
     internal static readonly IReadOnlyList<TuningHandle> Handles =
     [
-        FixtureBonusHours,
+        FixtureBonusHours, TheftBanHours,
         ErrandExperience, ErrandCoins, BountyPerLevel, LessonBasePrice, ShopStockLines, CoachFare, BoatFare, CoachDays, BoatDays, SleepHours, RoofedRestRations,
     ];
 

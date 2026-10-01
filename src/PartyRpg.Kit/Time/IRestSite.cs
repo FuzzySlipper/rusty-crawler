@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.World;
 
@@ -37,6 +38,12 @@ public interface IRestSite
     /// townsfolk are content's words — so it hands the entities over and the policy answers.
     /// </remarks>
     IReadOnlyList<PlacePopulationEntity> Population { get; }
+
+    /// <summary>
+    /// The ground the party stands on, or null when nothing reports one — a party in the air, or a world with no
+    /// mover. A game reads it to refuse a rest where lying down is not possible, such as standing in water.
+    /// </summary>
+    SurfaceEffect? Footing => null;
 }
 
 /// <summary>What one stop is judged against: the kind asked for, where the party stands, and the one clock.</summary>

@@ -25,6 +25,7 @@ const ROWS = [
   ['party', 'Party'],
   ['pack', 'Pack'],
   ['coins', 'Coins'],
+  ['owed', 'Owed'],
   ['food', 'Food'],
   ['standing', 'Standing'],
   ['regard', 'Regard'],
@@ -39,6 +40,8 @@ const ROWS = [
   ['blocked', 'Blocked'],
   ['step', 'Step up'],
   ['fall', 'Fall'],
+  ['footing', 'Footing'],
+  ['spared', 'Spared by'],
   ['member', 'Member'],
   ['creationStep', 'Creation step'],
   ['pool', 'Pool'],
@@ -190,6 +193,10 @@ export function mountDetails(host: Host): Details {
     rows.party.textContent = party.present ? String(party.members) : '—';
     rows.pack.textContent = party.present ? String(party.pack) : '—';
     rows.coins.textContent = party.present ? String(party.coins) : '—';
+    // What the party owes, account by account, as the product published it: owing is not paying, so a fine the
+    // purse could not cover is shown beside the purse rather than hidden in it.
+    rows.owed.textContent =
+      party.present && party.debts.length > 0 ? party.debts.map((debt) => `${debt.coins} (${debt.account})`).join(', ') : '—';
     rows.food.textContent = party.present ? `${party.provisions} ${party.unit}` : '—';
     rows.standing.textContent = !party.present
       ? '—'
@@ -221,6 +228,24 @@ export function mountDetails(host: Host): Details {
     rows.step.textContent = movement.stepRise > 0 ? `+${movement.stepRise.toFixed(1)}` : '—';
     rows.fall.textContent =
       movement.fallDistance > 0 ? `${movement.fallDistance.toFixed(0)} · ${movement.fallDamage.toFixed(0)} damage` : '—';
+
+    // The ground under the party and what spares whom, as the product read them: the panel prints the interval and
+    // the time before the next harm it was handed, and decides nothing about who is harmed.
+    const { footing } = movement;
+    panel.dataset.footing = footing.ground === '' ? 'none' : footing.ground;
+    panel.dataset.harm = footing.harmful ? 'harmful' : 'none';
+    rows.footing.textContent =
+      footing.ground === ''
+        ? '—'
+        : footing.harmful
+          ? `${footing.ground} · harms every ${footing.every.toFixed(0)} s · next in ${footing.nextHarmIn.toFixed(0)} s`
+          : footing.ground;
+    rows.spared.textContent =
+      footing.shelters.length === 0
+        ? '—'
+        : footing.shelters
+            .map((shelter) => `${shelter.name} (${shelter.memberName}${shelter.everybody ? ', everybody' : ''})`)
+            .join(', ');
 
     // Creation's own facts: which member is being made, where it stands, and what the pool still holds.
     rows.member.textContent = creation.active || creation.accepted ? `${creation.member + 1} / ${creation.members}` : '—';

@@ -402,9 +402,18 @@ public sealed class ServiceKindPolicyTests
         Assert.Equal(300, bounty.Amount);
         Assert.Contains("bounty", bounty.Name, StringComparison.Ordinal);
 
-        // A town hall transacts nothing: what it has is a surface, because claiming a bounty needs a kill
-        // this build has no combat for.
-        Assert.Empty(hall.Current!.Operations);
+        // A town hall's one transaction is taking the party's fine (OpenEnroth src/GUI/UI/Houses/TownHall.cpp:30-45):
+        // the bounty is a surface, and the fine is offered only while the party owes one.
+        Assert.Equal([ServiceOperationKind.Repay], hall.Current!.Operations);
+        Assert.DoesNotContain(
+            fixture.Rule.Offers(new ServiceOfferRequest(hall.Current!, fixture.Party, fixture.Clock)),
+            offer => offer.Kind == ServiceOfferKind.Debt);
+        fixture.Party.Debts.Owe(MightAndMagic7Theft.FineAccount, 75);
+        ServiceOffer fine = Assert.Single(
+            fixture.Rule.Offers(new ServiceOfferRequest(hall.Current!, fixture.Party, fixture.Clock)),
+            offer => offer.Kind == ServiceOfferKind.Debt);
+        Assert.Equal(MightAndMagic7Theft.FineAccount, fine.Subject);
+        Assert.Equal(75, fine.Amount);
 
         // A house is somebody's home rather than a counter: the interaction mechanism reaches it as a person
         // to talk to, and the use names whoever the table says lives there. The name comes from the dialogue
