@@ -9,7 +9,9 @@ dotnet src/MightAndMagic7.Import.Tool/bin/Release/net10.0/mm7import.dll write --
 
 To load them, add their pack ids to the [`partyrpg-default` bundle](../bundles/partyrpg-default/bundle.json).
 The bundle is the one place that decides what plays: a pack it does not name is still read and validated,
-but it contributes no definitions, no placements, and no scenario start. A bundle that names a pack which
+but it contributes no definitions, no placements, and no scenario start; a broken pack it does not name
+still stops the product, with a refusal that says the pack is not selected and where it was read from, so
+the fix is to repair it or move it out of the root. A bundle that names a pack which
 is not present stops the product with the missing pack named, so a bundle is only edited after the packs
 exist.
 

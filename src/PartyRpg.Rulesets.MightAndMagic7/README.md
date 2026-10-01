@@ -213,11 +213,11 @@ and drown nobody, as in the donor; the drowning rule names what spares whom — 
 the party up spare everybody, water breathing its drinker — for the panel's footing row), the one clock
 (`MightAndMagic7Time` — the authored calendar, the donor's starting moment, its thirty-to-one rate, and
 the hours it calls daylight), the party its content declares as scenario state (`MightAndMagic7Party`,
-through the same factory creation hands a party to, never a party of its own invention, and what a host
-that declared no creation screen plays — one party per selection, refused by name with every candidate
+through the same factory creation hands a party to, never a party of its own invention, and what a session
+on the scenario's start plays — one party per selection, refused by name with every candidate
 when the selection states two, exactly as the scenario's starting place is), the larder's
 policy (`MightAndMagic7Provisions` — one ration a day, and the weak condition a larder left short puts
-on every member), and what a crossing costs (`MightAndMagic7TravelCostRule` — a day on the road and the
+on every member, which a rest ends and a meal does not, as in the donor), and what a crossing costs (`MightAndMagic7TravelCostRule` — a day on the road and the
 rations it eats; a fare is honoured by the passage the party bought, and a portal — a crossing the caster
 issues rather than a place — is free of road time because the spell already paid for it), how long a journey a
 counter sells takes (`MightAndMagic7FareDays` — a stable sells on the `coach` route and a dock on the `boat`
@@ -227,7 +227,7 @@ strands a passage), where those counters sell passages to (`MightAndMagic7FareNe
 the counters content places, every stable reaches every other place that keeps a stable and every dock every other
 port, one crossing per pair of stops landing at the destination's own start; the counter's offers and the world
 graph's sold crossings are both read from it, through `MightAndMagic7World.Graph`, and content that authors a sold
-crossing of its own is refused by name; ours, simpler than the donor's thirty-five scheduled routes), which creatures a level's spawn records put on the field
+crossing of its own, or stands one passage counter in two places, is refused by name; ours, simpler than the donor's thirty-five scheduled routes), which creatures a level's spawn records put on the field
 (`MightAndMagic7Spawns` — the importer writes each actor spawn record as an `encounter` placement and chooses nothing;
 this game draws a random slot's count from its range and each creature's grade from the donor's odds for the
 slot's difficulty, through the engine's keyed random service under the place and the spawn index, when the
@@ -307,10 +307,21 @@ and the nine base classes with the two skills each fixes, the nine it offers, an
 points it starts with, over a pool of fifty points and two chosen skills per character;
 `MightAndMagic7CreationTables` records which of those values the shipped data carries and
 which are ours, with the manual citation and the donor transcription each authored value rests on; and
-`MightAndMagic7Creation.Defaults` is the default party the flow applies through its own validation, and a
-host that declares a creation screen gets that flow as the session's creation mode — the party a player
-accepts is built through the same factory and the world is composed over it — so a new game is created
-while a host without a creation screen plays the party its scenario fixes. The
+`MightAndMagic7Creation.Defaults` is the default party the flow applies through its own validation. Which
+start a new session takes is the selected scenario's statement: the `scenario-start` entry's `party` word
+(`MightAndMagic7World.StatedPartyStart`, answered in `MightAndMagic7Session.NewPartyStart`) is `creation` —
+the session's creation mode, where the party a player accepts is built through the same factory and the world
+is composed over it — or `scenario`, which plays the party the scenario's `scenario-party` document fixes
+with no creation screen. It sits on the start rather than the bundle because how a game begins is the
+scenario's decision and a bundle is only the kit's pack selection. A start that leaves it out takes creation
+wherever the host declared a creation screen and the scenario's party where it declared none; a start asking
+for creation from a host without the screen, a start asking for the scenario's party when the selection
+states none, and a word that is neither are each refused by name. The composition block's `partyStart`
+(`creation`, `scenario`, or `resumed`) says which start the session took. Whichever start it is, what the
+party plays — its ledger and the world composed over it with every answer the world needs — is composed by
+the session's one `Play` (also the resumed path's), and the kit composes every owner over it through one
+sequence: both paths must go through that one composition, which `SessionCompositionParityTests` proves by
+asking every owner to answer on each path and naming the owner and path that does not. The
 class and skill definitions the choices name are checked against the loaded content, which refuses a
 catalog that contradicts them. This game's save meaning is landed with them: `MightAndMagic7Persistence`
 states the storage scope a session's saves live in under the host's persistence root, the engine-backed
@@ -493,7 +504,9 @@ refusal. **Interpreted**: `exit`, `jump`, `compare`, `add`, `subtract` and `set`
 themselves run as the refill of what a fixture reads; `change-door-state` (open, close, or toggle a door at rest,
 `OpenEnroth/src/Engine/Graphics/Indoor.cpp:721-770`: the place's door placement of that id is recorded in the
 door owner's own word under its own identity through the outcome's target changes, so a lever-opened door reads
-open; a door id the place does not hold moves nothing, as the donor's lookup; the collision does not move, #8594,
+open; a door id the place does not hold moves nothing, as the donor's lookup, and a place holding two doors under
+one id is refused while the world is built (`interaction-door-number-reused`) rather than moving the first as the
+donor's lookup would; the collision does not move, #8594,
 stated as residue); `give-item` (the named item, or one the loot owner draws at the step's treasure level from the
 kind it admits, through the acquisition path, `OpenEnroth/src/Engine/Tables/ItemTable.cpp:316-360`); `cast-spell`
 (the spell's own roll at the step's rank and mastery landed on the chosen characters — the donor flies a

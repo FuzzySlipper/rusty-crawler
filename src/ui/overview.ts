@@ -12,6 +12,8 @@ export interface CompositionView {
   /** The game bundle the product started from, empty when no bundle was selected. */
   readonly bundle: string;
   readonly contentPacks: number;
+  /** Which start the party took: `creation`, `scenario` (the party the scenario fixes), or `resumed`. */
+  readonly partyStart: string;
 }
 
 export interface SessionView {
@@ -227,6 +229,7 @@ export function readComposition(f: Fields): CompositionView {
     title: f.text('title'),
     bundle: f.text('bundle'),
     contentPacks: f.number('contentPacks'),
+    partyStart: f.text('partyStart'),
   };
 }
 

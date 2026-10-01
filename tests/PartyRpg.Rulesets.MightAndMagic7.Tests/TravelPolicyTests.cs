@@ -157,7 +157,7 @@ public sealed class TravelPolicyTests
 
         using PartyEntity party = MightAndMagic7Party.Compose(catalog)
             ?? throw new InvalidOperationException("The scenario declares a party, so composing it must produce one.");
-        PartyResourceLedger accounts = new(party, provisioning: new MightAndMagic7Provisions(party));
+        PartyResourceLedger accounts = new(party, provisioning: new MightAndMagic7Provisions());
         GameClock clock = TestClock.Create();
         PartyPoseOwner owner = new(
             new PartyPose(Home, PlacePose.Origin),
@@ -288,6 +288,37 @@ public sealed class TravelPolicyTests
     }
 
     [Fact]
+    public void A_passage_counter_standing_in_two_places_is_refused_and_one_with_two_doors_is_one_counter()
+    {
+        // The counter is what a party asks for its passages, and those leave from where it stands: one counter
+        // in two towns would sell from whichever was read first, so it is refused by name, both places named.
+        (string Path, string Text)[] twoTowns = Rewrite(
+            """{ "id": "service-55", "kind": "service", "houseId": 55, "x": 100, "y": 0, "z": 0 }""",
+            """{ "id": "service-54", "kind": "service", "houseId": 54, "x": 50, "y": 0, "z": 0 }, { "id": "service-55", "kind": "service", "houseId": 55, "x": 100, "y": 0, "z": 0 }""");
+        ContentValidationException error = Assert.Throws<ContentValidationException>(() => MightAndMagic7FareNetwork.Read(Catalog(twoTowns)));
+        ContentValidationIssue issue = Assert.Single(error.Issues);
+        Assert.Equal("fare-counter-placed-twice", issue.Code);
+        Assert.Contains("'54'", issue.Message, StringComparison.Ordinal);
+        Assert.Contains("place '1'", issue.Message, StringComparison.Ordinal);
+        Assert.Contains("place '2'", issue.Message, StringComparison.Ordinal);
+
+        // The same counter placed twice where it stands is one counter with two doors, and sells what it sold.
+        (string Path, string Text)[] twoDoors = Rewrite(
+            """{ "id": "service-63", "kind": "service", "houseId": 63, "x": 200, "y": 0, "z": 0 }""",
+            """{ "id": "service-63", "kind": "service", "houseId": 63, "x": 200, "y": 0, "z": 0 }, { "id": "service-54-back", "kind": "service", "houseId": 54, "x": 300, "y": 0, "z": 0 }""");
+        Assert.Equal(
+            new[] { "2", "3" },
+            MightAndMagic7FareNetwork.Read(Catalog(twoDoors)).SoldBy("54").Select(passage => passage.Place.Value));
+
+        static (string Path, string Text)[] Rewrite(string from, string to)
+        {
+            (string Path, string Text)[] files = Network();
+            Assert.Single(files, file => file.Text.Contains(from, StringComparison.Ordinal));
+            return [.. files.Select(file => (file.Path, file.Text.Replace(from, to, StringComparison.Ordinal)))];
+        }
+    }
+
+    [Fact]
     public void Magical_travel_costs_no_road_because_the_spell_already_paid_for_it()
     {
         ContentCatalog catalog = Catalog(World());
@@ -305,12 +336,12 @@ public sealed class TravelPolicyTests
     }
 
     [Fact]
-    public void A_day_eats_one_ration_and_an_empty_larder_weakens_the_party_until_it_is_fed()
+    public void A_day_eats_one_ration_and_an_empty_larder_weakens_the_party_until_it_rests()
     {
         ContentCatalog catalog = Catalog(World(PartyDocument(food: 2)));
         using PartyEntity party = MightAndMagic7Party.Compose(catalog)
             ?? throw new InvalidOperationException("The scenario declares a party, so composing it must produce one.");
-        PartyResourceLedger ledger = new(party, provisioning: new MightAndMagic7Provisions(party));
+        PartyResourceLedger ledger = new(party, provisioning: new MightAndMagic7Provisions());
 
         // The donor's day takes one unit, and one unit only: the charge does not scale with the two members
         // the scenario declares, because the donor's food store is the party's own single number.
@@ -330,14 +361,15 @@ public sealed class TravelPolicyTests
         Assert.Equal(MightAndMagic7Provisions.Weakness, hungry.Shortage!.Value.Condition);
         Assert.All(party.Members, member => Assert.Equal(1, member.Conditions.SeverityOf(MightAndMagic7Provisions.Weakness)));
 
-        // Provisions arriving through the party's own path, and the next day the larder covers, is what
-        // ends the hunger: the rule states both ends of it.
+        // A fed day is no new shortage, but it does not end the weakness: the donor clears the weak condition
+        // only on a full rest (OpenEnroth src/Engine/Party.cpp:698-721), and the same condition may be the
+        // fatigue rule's, which a meal must not end. A completed sleep clears it (RestAndScheduleTests).
         ledger.Credit(PartyCost.OfFood(new Provisions(2, ProvisionUnit.Portions)));
         ProvisionDay fed = ledger.SpendDay();
 
         Assert.Null(fed.Shortage);
         Assert.Equal(1, party.Food.Portions);
-        Assert.All(party.Members, member => Assert.False(member.Conditions.Has(MightAndMagic7Provisions.Weakness)));
+        Assert.All(party.Members, member => Assert.Equal(1, member.Conditions.SeverityOf(MightAndMagic7Provisions.Weakness)));
     }
 
     [Fact]

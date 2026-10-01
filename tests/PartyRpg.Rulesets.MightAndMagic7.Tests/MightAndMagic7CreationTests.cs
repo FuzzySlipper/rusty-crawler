@@ -1,7 +1,9 @@
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using PartyRpg.Kit;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Persistence;
 using Xunit;
 
 namespace PartyRpg.Rulesets.MightAndMagic7.Tests;
@@ -36,8 +38,12 @@ public sealed class MightAndMagic7CreationTests
         "Knight", "Thief", "Monk", "Paladin", "Archer", "Ranger", "Cleric", "Druid", "Sorcerer",
     ];
 
+    /// <summary>The party section's metadata, taken from the options the whole save document is written with.</summary>
+    private static readonly JsonTypeInfo<PartySave> PartySaveJson =
+        (JsonTypeInfo<PartySave>)SessionSaveJson.TypeInfo.Options.GetTypeInfo(typeof(PartySave));
+
     [Fact]
-    public void Every_base_class_and_race_the_ruleset_allows_can_be_created()
+    public void Every_base_class_and_race_the_ruleset_allows_can_be_created_and_saved()
     {
         PartyCreationOptions options = MightAndMagic7Creation.Options();
         PartyEntityFactory factory = new();
@@ -49,7 +55,10 @@ public sealed class MightAndMagic7CreationTests
             foreach (CreationRace race in options.Races)
             {
                 combinations++;
-                CreationPortrait portrait = options.Portraits.First(candidate => candidate.Race == race.Id);
+                // Each member takes a different one of the race's portraits where the race offers several,
+                // so the save below proves each member keeps its own rather than a shared default.
+                CreationPortrait[] portraits = [.. options.Portraits.Where(candidate => candidate.Race == race.Id)];
+                Assert.NotEmpty(portraits);
                 IReadOnlyList<int> clicks = SpendPool(race);
                 SkillId[] chosen =
                 [
@@ -62,7 +71,7 @@ public sealed class MightAndMagic7CreationTests
                 PartyCreationFlow flow = new(options);
                 for (int member = 0; member < options.MemberCount; member++)
                 {
-                    Assert.Null(flow.SelectPortrait(portrait.Id));
+                    Assert.Null(flow.SelectPortrait(portraits[member % portraits.Length].Id));
                     Assert.Null(flow.Advance());
                     Assert.Null(flow.SelectClass(characterClass.Id));
                     Assert.Null(flow.Advance());
@@ -105,6 +114,32 @@ public sealed class MightAndMagic7CreationTests
                         Assert.True(member.Attributes[range.Attribute] <= range.Maximum);
                     }
                 }
+
+                // The created party is what the save carries: through the saved document's own JSON metadata
+                // and back through the factory, every member keeps what creation chose — the portrait above all,
+                // which nothing but creation decides.
+                byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(party.Capture(), PartySaveJson);
+                using PartyEntity restored = factory.Restore(JsonSerializer.Deserialize(bytes, PartySaveJson)!);
+                Assert.Equal(party.Members.Count, restored.Members.Count);
+                for (int index = 0; index < party.Members.Count; index++)
+                {
+                    PartyMember made = party.Members[index];
+                    PartyMember loaded = restored.Members[index];
+                    Assert.Equal(made.Id, loaded.Id);
+                    Assert.Equal(portraits[index % portraits.Length].Id, loaded.Profile.Portrait);
+                    Assert.Equal(made.Profile.Name, loaded.Profile.Name);
+                    Assert.Equal(made.Profile.Race, loaded.Profile.Race);
+                    Assert.Equal(made.Profile.Class, loaded.Profile.Class);
+                    Assert.Equal(made.Attributes.Scores, loaded.Attributes.Scores);
+                    Assert.Equal(
+                        made.Skills.Entries.Select(entry => (entry.Skill, entry.Tier)),
+                        loaded.Skills.Entries.Select(entry => (entry.Skill, entry.Tier)));
+                    Assert.Equal(made.Resources.HitPoints.Maximum, loaded.Resources.HitPoints.Maximum);
+                    Assert.Equal(made.Resources.SpellPoints.Maximum, loaded.Resources.SpellPoints.Maximum);
+                }
+
+                Assert.Equal(party.Purse.Coins, restored.Purse.Coins);
+                Assert.Equal(party.Food.Portions, restored.Food.Portions);
             }
         }
 

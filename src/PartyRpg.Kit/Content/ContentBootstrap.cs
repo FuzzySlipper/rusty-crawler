@@ -38,7 +38,9 @@ public sealed record ContentBootstrapResult(
 /// the bundle named and no others, so an unselected pack is not loaded at all: the world's places, the
 /// scenario's start, and the scenario's party are read from the selection, and a checkout holding packs
 /// nobody selected plays exactly as an empty one does. The whole root is still read and judged, which is
-/// what keeps a broken pack on disk a failure worth naming rather than a defect the selection hides.
+/// what keeps a broken pack on disk a failure worth naming rather than a defect the selection hides; an
+/// issue in a pack the selection does not load carries <see cref="ContentValidationIssue.NotSelected"/>,
+/// which says so and names the directory it was read from.
 /// </para>
 /// </remarks>
 public static class ContentBootstrap
@@ -60,11 +62,10 @@ public static class ContentBootstrap
         ArgumentNullException.ThrowIfNull(source);
         ContentCatalog catalog = ContentCatalogLoader.Load(source, layout);
         BundleCatalog bundles = BundleCatalog.Load(source, layout);
-        List<ContentValidationIssue> issues = [.. catalog.Issues, .. bundles.Issues];
 
         if (requestedBundleId is null or { Length: 0 })
         {
-            return new ContentBootstrapResult(catalog.Selected([]), bundles, null, issues);
+            return Unselected(source, layout, catalog, bundles, [], "the product selected no bundle");
         }
 
         GameBundle? bundle = bundles.Find(requestedBundleId);
@@ -72,26 +73,32 @@ public static class ContentBootstrap
         {
             // Nothing to select from is a content root that has not been populated yet; a content root
             // that has bundles but not the requested one is a packaging mistake worth stopping for.
+            List<ContentValidationIssue> missing = [];
             if (bundles.Bundles.Count > 0)
             {
-                issues.Add(new ContentValidationIssue(
+                missing.Add(new ContentValidationIssue(
                     "requested-bundle-missing",
                     $"the product asks for bundle '{requestedBundleId}', which is not present; the content root has {string.Join(", ", bundles.Bundles.Select(entry => entry.BundleId))}.",
                     requestedBundleId));
             }
 
-            return new ContentBootstrapResult(catalog.Selected([]), bundles, null, issues);
+            return Unselected(source, layout, catalog, bundles, missing, $"bundle '{requestedBundleId}' is not present, so nothing is selected");
         }
 
         // A bundle names the ruleset it was assembled for, and the host plays the one it was compiled with: a
         // bundle for another ruleset would hand this one content it cannot read, so the two must agree.
         if (compiledRuleset is { } ruleset && !string.Equals(bundle.Ruleset, ruleset.Value, StringComparison.Ordinal))
         {
-            issues.Add(new ContentValidationIssue(
-                "bundle-ruleset-mismatch",
-                $"bundle '{bundle.BundleId}' is assembled for ruleset '{bundle.Ruleset}', and the product plays '{ruleset.Value}'.",
-                bundle.BundleId));
-            return new ContentBootstrapResult(catalog.Selected([]), bundles, null, issues);
+            return Unselected(
+                source,
+                layout,
+                catalog,
+                bundles,
+                [new ContentValidationIssue(
+                    "bundle-ruleset-mismatch",
+                    $"bundle '{bundle.BundleId}' is assembled for ruleset '{bundle.Ruleset}', and the product plays '{ruleset.Value}'.",
+                    bundle.BundleId)],
+                $"bundle '{bundle.BundleId}' cannot be played, so nothing is selected");
         }
 
         ResolvedBundle selection;
@@ -101,13 +108,70 @@ public static class ContentBootstrap
         }
         catch (ContentValidationException error)
         {
-            issues.AddRange(error.Issues);
-            return new ContentBootstrapResult(catalog.Selected([]), bundles, null, issues);
+            return Unselected(source, layout, catalog, bundles, error.Issues, $"bundle '{bundle.BundleId}' did not resolve, so nothing is selected");
         }
 
         // The tuning pack the bundle names is selected beside its content packs, so the session reads its values
         // from the same catalog it reads everything else from.
         IReadOnlyList<LoadedPack> selected = selection.TuningPack is { } tuning ? [.. selection.Packs, tuning] : selection.Packs;
+        List<ContentValidationIssue> issues =
+        [
+            .. Judged(source, layout, catalog, selected, $"bundle '{bundle.BundleId}' does not name it"),
+            .. bundles.Issues,
+        ];
         return new ContentBootstrapResult(catalog.Selected(selected), bundles, selection, issues);
+    }
+
+    /// <summary>A result that selects nothing, carrying every issue the root, the bundles, and the selection raised.</summary>
+    private static ContentBootstrapResult Unselected(
+        IContentSource source,
+        ContentLayout layout,
+        ContentCatalog catalog,
+        BundleCatalog bundles,
+        IReadOnlyList<ContentValidationIssue> selectionIssues,
+        string reason) =>
+        new(catalog.Selected([]), bundles, null, [.. Judged(source, layout, catalog, [], reason), .. bundles.Issues, .. selectionIssues]);
+
+    /// <summary>
+    /// The root's issues, each one in a pack the selection does not load marked as not selected, with the
+    /// directory it was read from.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Why an unselected pack is judged at all.</b> The whole root is what the operator staged, and the
+    /// loader reads identity across every pack in it — a pack id, a document id, and an entry id are the
+    /// root's, not one pack's — so a pack that is present and wrong is a contradiction in the content the
+    /// product holds whether or not this bundle names it. Refusing the start costs the operator a restart;
+    /// letting it through keeps a defect that surfaces later, under some other bundle, as a silently wrong
+    /// artifact.
+    /// </para>
+    /// <para>
+    /// <b>Why the refusal says so.</b> A start refused by a pack nobody selected must not read as a defect in
+    /// the game the operator chose: the issue states that the pack is not selected, why, and the directory it
+    /// came from, so the fix — repair the pack, or move it out of the root — is in the message.
+    /// </para>
+    /// </remarks>
+    private static IEnumerable<ContentValidationIssue> Judged(
+        IContentSource source,
+        ContentLayout layout,
+        ContentCatalog catalog,
+        IReadOnlyList<LoadedPack> selected,
+        string reason)
+    {
+        HashSet<string> loaded = [.. selected.Select(pack => pack.PackId)];
+        Dictionary<string, string> readFrom = new(StringComparer.Ordinal);
+        foreach (string root in layout.PackRoots())
+        {
+            foreach (string directory in source.ListDirectories(root)) readFrom.TryAdd(directory, $"{root}/{directory}");
+        }
+
+        foreach (ContentValidationIssue issue in catalog.Issues)
+        {
+            // Every issue the loader raises names the pack directory it read (a pack's id is its directory), so
+            // an issue whose pack is a directory the selection does not load is that pack's, and is marked.
+            yield return !loaded.Contains(issue.PackId) && readFrom.TryGetValue(issue.PackId, out string? path)
+                ? issue with { NotSelected = $"pack '{issue.PackId}' is not selected: {reason}; it was read from '{path}' because every pack under the content root is judged at start" }
+                : issue;
+        }
     }
 }

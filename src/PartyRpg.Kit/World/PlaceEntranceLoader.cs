@@ -21,6 +21,12 @@ namespace PartyRpg.Kit.World;
 /// rather than the first. An entrance the world silently dropped would be a door that only works
 /// sometimes, which is far harder to diagnose than a load that refuses.
 /// </para>
+/// <para>
+/// Several entrances may take one transition, and that is not a duplicate: a doorway is often more than one
+/// face, each its own reach onto the same crossing. Nothing finds an entrance by its transition or by its
+/// own id — a step finds the one it walked into by where it is — and an entrance's own id is unique among
+/// entrances because the catalog refuses two entries of one kind sharing one.
+/// </para>
 /// </remarks>
 public static class PlaceEntranceLoader
 {
@@ -55,9 +61,19 @@ public static class PlaceEntranceLoader
         Dictionary<string, PlaceTransition> transitions = [];
         foreach (PlaceTransition transition in graph.Transitions)
         {
-            // Two entries in one document cannot share an id, so the first wins and the graph's own load
-            // has already refused a graph where that was not true.
-            transitions.TryAdd(transition.Source, transition);
+            // A loaded graph holds each transition id once: two authored links sharing one are refused by the
+            // catalog (entry-id-reused, per kind), and a fare-network crossing under an id another transition
+            // holds by the graph's load (transition-id-reused). A graph a caller assembled from parts is not
+            // trusted to have done the same, so a second transition under an id is refused here by name too.
+            if (!transitions.TryAdd(transition.Source, transition))
+            {
+                throw new ContentValidationException(
+                    $"The world's entrances cannot be read: transition '{transition.Source}' is held by the world more than once, so an entrance naming it could take either.",
+                    [new ContentValidationIssue(
+                        "transition-id-reused",
+                        $"transition '{transition.Source}' is held by the world more than once, so an entrance naming it could take either.",
+                        transition.Source)]);
+            }
         }
 
         List<ContentValidationIssue> issues = [];

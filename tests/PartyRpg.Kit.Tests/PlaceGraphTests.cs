@@ -110,6 +110,63 @@ public sealed class PlaceGraphTests
     }
 
     [Fact]
+    public void A_place_whose_arrival_points_share_an_id_is_refused_naming_the_place_and_the_id()
+    {
+        // A start and a transition both name an arrival point by its id, so a place declaring one id twice would
+        // answer both with whichever came first and leave the author's other point dead: the graph is refused, as
+        // a place declared twice is, with the place and the id named.
+        ContentValidationException error = Assert.Throws<ContentValidationException>(() => Load(
+            Places(
+                """{ "id": "1", "kind": "region", "name": "Home", "entryPoints": [ { "id": "West Start", "x": 1 }, { "id": "Party Start" }, { "id": "West Start", "x": 2 } ] }""",
+                """{ "id": "2", "kind": "interior", "name": "Cave", "entryPoints": [ { "id": "North Start", "x": 1 }, { "id": "north start", "x": 2 } ] }"""),
+            Links("""{ "id": "0", "toPlace": "1", "entryPoint": "West Start" }""")));
+
+        Assert.Equal(new[] { "entry-point-id-reused", "entry-point-id-reused" }, error.Issues.Select(issue => issue.Code));
+        Assert.Equal("place '1' declares arrival point 'West Start' more than once.", error.Issues[0].Message);
+        Assert.Contains("The world graph cannot be built: place '1' declares arrival point 'West Start' more than once.", error.Message, StringComparison.Ordinal);
+
+        // Ids that differ only in case are one id, because that is how a point is looked up; both spellings are named.
+        Assert.StartsWith("place '2' declares arrival point 'north start' more than once", error.Issues[1].Message, StringComparison.Ordinal);
+        Assert.Contains("'North Start'", error.Issues[1].Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_place_whose_arrival_points_are_distinct_loads_each_of_them_unchanged()
+    {
+        PlaceGraph graph = Load(
+            Places("""{ "id": "1", "kind": "region", "name": "Home", "entryPoints": [ { "id": "West Start", "x": 1 }, { "id": "East Start", "x": 2 }, { "id": "Party Start", "x": 3 } ] }"""),
+            Links("""{ "id": "0", "toPlace": "1", "entryPoint": "east start" }"""));
+
+        PlaceDefinition home = graph.Require(new PlaceId("1"));
+        Assert.Equal(new[] { "West Start", "East Start", "Party Start" }, home.EntryPoints.Select(point => point.Id));
+        Assert.Equal(new PlacePose(2, 0, 0, 0, 0), graph.ResolveArrival(Assert.Single(graph.WorldIssued)));
+        Assert.Equal(new PlacePose(1, 0, 0, 0, 0), home.FindEntryPoint("WEST START")!.Pose);
+        Assert.Null(home.FindEntryPoint("South Start"));
+    }
+
+    [Fact]
+    public void A_definition_built_with_two_points_answering_to_one_id_refuses_the_lookup_rather_than_choosing()
+    {
+        // The loader never builds one, but a definition is a value anyone can construct: the lookup itself
+        // refuses a name two points answer to, so no path can land a party at whichever came first.
+        PlaceGraph graph = Load(Places("""{ "id": "1", "kind": "region", "name": "Home" }"""), Links());
+        PlaceDefinition twice = graph.Require(new PlaceId("1")) with
+        {
+            EntryPoints = [new PlaceEntryPoint("West Start", PlacePose.Origin), new PlaceEntryPoint("west start", new PlacePose(1, 0, 0, 0, 0))],
+        };
+
+        ContentValidationException error = Assert.Throws<ContentValidationException>(() => twice.FindEntryPoint("West Start"));
+        ContentValidationIssue ambiguous = Assert.Single(error.Issues);
+        Assert.Equal("entry-point-ambiguous", ambiguous.Code);
+        Assert.Contains("'West Start' and 'west start'", ambiguous.Message, StringComparison.Ordinal);
+
+        // A graph built from such a definition refuses a transition naming it the same way, by name.
+        PlaceGraph assembled = PlaceGraph.From([twice], []);
+        Assert.Throws<ContentValidationException>(() => assembled.ResolveArrival(
+            new PlaceTransition(null, twice.Id, PlaceArrival.AtEntryPoint("WEST START"), "start")));
+    }
+
+    [Fact]
     public void Asking_a_graph_for_a_place_it_does_not_have_names_the_place()
     {
         PlaceGraph graph = Load(Places("""{ "id": "1", "kind": "region", "name": "Home" }"""), Links());

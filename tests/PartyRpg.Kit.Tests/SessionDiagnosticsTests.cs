@@ -333,14 +333,16 @@ public sealed class SessionDiagnosticsTests
                     built.Add(party);
                     return party;
                 },
-                party => new SessionWorld(
-                    graph,
-                    // The place the world would start the party in admits no pose at all, so the world cannot be
-                    // composed over the party that was just built.
-                    new PartyPoseOwner(new PartyPose(HallPlace, PlacePose.Origin), Facing, Nowhere),
-                    new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()),
-                    new FreeTravel(),
-                    resources: new PartyResourceLedger(party)))),
+                party => new SessionParty.Playing(
+                    new SessionWorld(
+                        graph,
+                        // The place the world would start the party in admits no pose at all, so the world cannot be
+                        // composed over the party that was just built.
+                        new PartyPoseOwner(new PartyPose(HallPlace, PlacePose.Origin), Facing, Nowhere),
+                        new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()),
+                        new FreeTravel(),
+                        resources: new PartyResourceLedger(party)),
+                    party))),
             controls: new SessionControls { Creation = new CreationIntentNames("test.creation-advance", "test.creation-accept", Contract) });
         session.Start();
         Assert.True(session.Creation!.IsComplete);
@@ -354,6 +356,44 @@ public sealed class SessionDiagnosticsTests
         Assert.Equal(SessionMode.Creating, session.Mode);
         Assert.Null(session.Party);
         Assert.Single(built);
+    }
+
+    [Fact]
+    public void A_finished_party_whose_play_is_composed_over_another_party_is_refused_and_released()
+    {
+        RecordingDiagnosticsService diagnostics = new();
+        List<PartyEntity> built = [];
+        using RecordingUiProjectionChannel channel = new();
+        using PartyRpgSession session = new(
+            Composition,
+            channel,
+            new SessionOwners(TestClock.Create(), diagnostics),
+            new SessionParty.Creating(new SessionCreation(
+                new PartyCreationFlow(CreationOptions, CreationDefaults),
+                creation =>
+                {
+                    PartyEntity party = new PartyEntityFactory().Create(creation);
+                    built.Add(party);
+                    return party;
+                },
+                // What the accepted party plays must be composed over that party: a second band answered here would
+                // be two parties for one expedition.
+                party =>
+                {
+                    PartyEntity other = new PartyEntityFactory().Create(new PartyCreationFlow(CreationOptions, CreationDefaults).ToCreation());
+                    built.Add(other);
+                    return new SessionParty.Playing(Party: other);
+                })),
+            controls: new SessionControls { Creation = new CreationIntentNames("test.creation-advance", "test.creation-accept", Contract) });
+        session.Start();
+
+        session.Update(Admitted.Update(1, 1, Admitted.Digital("test.creation-accept")));
+
+        Assert.Equal(CreationCodes.CreationRefused, session.CreationRefusal!.Code);
+        Assert.Equal(SessionMode.Creating, session.Mode);
+        Assert.Null(session.Party);
+        Assert.Equal(2, built.Count);
+        built[1].Dispose();
     }
 
     /// <summary>Faces the person standing in the hall and speaks with them, which opens the conversation.</summary>

@@ -84,6 +84,14 @@ public static class PlaytestReadout
             writer.WriteNumber("admittedSteps", snapshot.AdmittedSteps);
             writer.WriteNumber("simulationSeconds", snapshot.SimulationSeconds);
 
+            // What the session was composed from — the bundle, how many packs it selected, and which start the party
+            // took — so a live check reads which game it is playing from the session rather than from the panel.
+            writer.WriteStartObject("composition");
+            writer.WriteString("bundle", snapshot.Composition.Bundle ?? string.Empty);
+            writer.WriteNumber("contentPacks", snapshot.Composition.ContentPacks);
+            writer.WriteString("partyStart", SessionProjection.WireName(snapshot.Composition.PartyStart));
+            writer.WriteEndObject();
+
             Refusal? steering = Steering(snapshot);
             writer.WriteStartObject("steering");
             writer.WriteBoolean("available", steering is null);

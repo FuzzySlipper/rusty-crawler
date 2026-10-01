@@ -160,6 +160,9 @@ public static class SessionProjection
     /// <summary>The composition's resolved content pack count field.</summary>
     public const string ContentPacksField = "contentPacks";
 
+    /// <summary>The composition's field naming which start the party took: creation, scenario, or resumed.</summary>
+    public const string PartyStartField = "partyStart";
+
     /// <summary>The world object's wire name.</summary>
     public const string WorldField = "world";
 
@@ -346,7 +349,18 @@ public static class SessionProjection
             (RulesetField, builder.String(composition.Ruleset.Value)),
             (TitleField, builder.String(composition.Title)),
             (BundleField, builder.String(composition.Bundle is { } bundle ? bundle : string.Empty)),
-            (ContentPacksField, builder.Number(composition.ContentPacks)));
+            (ContentPacksField, builder.Number(composition.ContentPacks)),
+            (PartyStartField, builder.String(WireName(composition.PartyStart))));
+
+    /// <summary>The wire name for the start a session's party took.</summary>
+    /// <param name="start">The start the session states.</param>
+    public static string WireName(SessionPartyStart start) => start switch
+    {
+        SessionPartyStart.Creation => "creation",
+        SessionPartyStart.Scenario => "scenario",
+        SessionPartyStart.Resumed => "resumed",
+        _ => throw new ArgumentOutOfRangeException(nameof(start), start, "A session's party took a start the wire has no word for."),
+    };
 
     /// <summary>
     /// The wire name for the state the party's last admitted step left it in.

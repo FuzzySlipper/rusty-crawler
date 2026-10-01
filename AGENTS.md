@@ -101,7 +101,9 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 - **Party.** `PartyEntity` is one entity with its components: roster and members, one shared inventory of
   item instances, per-member equipment, purse and larder, reputation and fame, running effects, records,
   holdings, passages, memberships, debts and bans. Every charge is judged and settled through one ledger. Creation is a
-  session mode with its own flow, and the scenario path builds a party through the same factory.
+  session mode with its own flow, and the scenario path builds a party through the same factory and the
+  same owner composition (a parity suite proves every owner answers on both); the
+  scenario start's `party` word picks one (creation by default) and the projection names it.
 - **Interaction and services.** One use workflow serves doors, containers, people and fixtures; a fixture runs
   the steps of its imported map event this game interprets and refuses the rest by name. One service
   mechanism, an operation table judged before anything is settled, serves every shipped service kind; towns
@@ -132,10 +134,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 
 **Open residue and its receivers** (Den task ids; Den owns their status):
 
-- Stone 3, world: duplicate arrival ids refused (#8707); creatures cannot path around a wall because places
-  carry no navigation cells (#8665).
-- Stone 4, party: a scenario cannot choose between creation and its own party (#8589); both creation paths
-  proved to compose the same owners (#8688).
+- Stone 3, world: creatures cannot path around a wall because places carry no navigation cells (#8665).
 - Stone 5, interaction and services: opened doors and emptied containers are not saved (#8593), and a
   searched chest can be looted twice (#8696); a door's collision, and a face group an event makes passable, do not move (#8594); a
   container above or below the floor cannot be used (#8697); deadlines (fatigue, wards, light, haste) block

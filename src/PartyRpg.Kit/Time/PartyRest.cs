@@ -88,6 +88,9 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
     /// <summary>Whether a stop can be applied at all: this session keeps a clock and the party stands somewhere.</summary>
     public bool Available => _clock is not null && _site is not null;
 
+    /// <summary>The party every stop is applied to.</summary>
+    public PartyEntity Party => _party;
+
     /// <summary>Whether this mechanism is holding the deadline the clock reported.</summary>
     /// <param name="deadline">The handle the clock reported.</param>
     public bool Holds(DeadlineId deadline) => _fatigue?.Holds(deadline) ?? false;

@@ -656,6 +656,8 @@ function snapshot(mode, seconds = 0, steps = 0, _updates = 0, facts = undefined,
       title: 'Might and Magic VII: For Blood and Honor',
       bundle: 'partyrpg-default',
       contentPacks: 2,
+      // Which start the party took is the composition's own word; a case names another to see it printed.
+      partyStart: blocks?.partyStart ?? 'scenario',
     },
     session: { mode, simulationSeconds: seconds, admittedSteps: steps },
     world: world(),
@@ -1553,7 +1555,7 @@ test('renders nothing until the product publishes, then renders what it publishe
         // the panel says so on the Save row rather than offering a save it cannot make. A projection that
         // carries no interaction block is a session with nothing to use, and its four rows say the same
         // thing rather than showing an empty reticle that looks like an empty room.
-        'unavailable', 'fresh', '—', '—', '—', '—',
+        'unavailable', 'new · scenario party', '—', '—', '—', '—',
       ],
       place: 'Emerald Island · region',
     });
@@ -1575,6 +1577,7 @@ test('reports an unselected bundle and counts a single pack in the singular', ()
         title: 'Might and Magic VII: For Blood and Honor',
         bundle: '',
         contentPacks: 0,
+        partyStart: 'scenario',
       },
       session: { mode: 'running', simulationSeconds: 0, admittedSteps: 0 },
       world: world(),
@@ -1587,6 +1590,7 @@ test('reports an unselected bundle and counts a single pack in the singular', ()
         title: 'Might and Magic VII: For Blood and Honor',
         bundle: 'partyrpg-default',
         contentPacks: 1,
+        partyStart: 'scenario',
       },
       session: { mode: 'running', simulationSeconds: 0, admittedSteps: 0 },
       world: world(),
@@ -1658,7 +1662,7 @@ test('the companion holds no state and starts no timer', () => {
       '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—',
       '1', '—', '1234, 5678, 0 @ 512', '1 / 76', '—', '—', '—', '—', '—', '—',
       '—', '—', '—',
-      'unavailable', 'fresh', '—', '—', '—', '—',
+      'unavailable', 'new · scenario party', '—', '—', '—', '—',
     ]);
     assert.equal(h.root.querySelectorAll('.crawler-session').length, 1);
 
@@ -2176,7 +2180,7 @@ test('a landed save shows the moment and the slot, and a refused one shows why',
     }));
     assert.equal(h.panel().getAttribute('data-save'), 'saved');
     assert.equal(rows(h, 'Save', 'Start').Save, '1168-01-01 09:30 · session');
-    assert.equal(rows(h, 'Save', 'Start').Start, 'fresh');
+    assert.equal(rows(h, 'Save', 'Start').Start, 'new · scenario party');
     const result = h.panel().querySelector('.crawler-save-result');
     assert.equal(result.hidden, false);
     assert.equal(result.getAttribute('data-state'), 'saved');
@@ -2200,6 +2204,25 @@ test('a landed save shows the moment and the slot, and a refused one shows why',
   }
 });
 
+test('the start row names which start the party took, as the composition says', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    h.emit(snapshot('creating', 0, 0, 0, undefined, { partyStart: 'creation' }));
+    assert.equal(rows(h, 'Start').Start, 'new · created party');
+    assert.equal(h.panel().getAttribute('data-party-start'), 'creation');
+
+    h.emit(snapshot('running', 1, 60, 60, undefined, { partyStart: 'scenario' }));
+    assert.equal(rows(h, 'Start').Start, 'new · scenario party');
+    assert.equal(h.panel().getAttribute('data-party-start'), 'scenario');
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
 test('a resumed session says so, and shows the party it resumed', () => {
   const h = harness();
   try {
@@ -2211,9 +2234,11 @@ test('a resumed session says so, and shows the party it resumed', () => {
       party: party({ members: 2 }),
       creation: acceptedParty(),
       save: save({ resumed: true }),
+      partyStart: 'resumed',
     }));
 
     assert.equal(rows(h, 'Start').Start, 'resumed');
+    assert.equal(h.panel().getAttribute('data-party-start'), 'resumed');
     assert.equal(h.panel().getAttribute('data-creation'), 'resumed');
     assert.equal(creationPanel(h).head, 'Party resumed');
     assert.equal(creationPanel(h).accepted.length, 2);

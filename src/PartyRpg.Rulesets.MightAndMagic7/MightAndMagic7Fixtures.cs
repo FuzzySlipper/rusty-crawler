@@ -1351,7 +1351,9 @@ internal sealed class MightAndMagic7Fixtures
         /// own use reads and recorded under its own identity, so a door a lever opened reads as open when the
         /// party walks up to it. Open and close move a door to that end; toggle moves a door at rest to the
         /// other (OpenEnroth <c>src/Engine/Graphics/Indoor.cpp:721-770</c>). A door id the place does not hold
-        /// moves nothing, as the donor's own lookup does.
+        /// moves nothing, as the donor's own lookup does. At most one door matches: a place holding two under one
+        /// number is refused while the world is built (<c>interaction-door-number-reused</c>), so the lookup below
+        /// never chooses.
         /// </remarks>
         private Refusal? Door(MapEvent mapEvent, MapEventStep step)
         {

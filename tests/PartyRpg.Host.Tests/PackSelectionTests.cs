@@ -90,6 +90,30 @@ public sealed class PackSelectionTests
     }
 
     [Fact]
+    public void A_broken_scenario_pack_the_bundle_did_not_name_stops_the_product_saying_it_is_not_selected()
+    {
+        // The live shape that caused this rule: a leftover scenario pack beside the one the bundle names — here
+        // broken, so the product meets it. The whole root is judged, so the start is refused; what this proves
+        // is that the refusal reads as the leftover's, not the selection's: not selected, and where it was read.
+        (string Path, string Text)[] content =
+        [
+            .. Content(["world", "scenario-b"]).Select(file => file.Path.EndsWith("/scenario-a/start.json", StringComparison.Ordinal)
+                ? (file.Path, "{ not json")
+                : file),
+        ];
+        (ProductCreateContext context, _) = ProductTestContext.Create(content);
+
+        ContentValidationException error = Assert.Throws<ContentValidationException>(
+            () => new CrawlerProduct(context, ProductTestContext.NoVariables));
+
+        Assert.All(error.Issues, issue => Assert.Equal("scenario-a", issue.PackId));
+        Assert.All(error.Issues, issue => Assert.NotNull(issue.NotSelected));
+        Assert.Contains(error.Issues, issue => issue.Code == "document-not-json");
+        Assert.Contains($"bundle '{BuiltInBundles.Default}' does not name it", error.Message, StringComparison.Ordinal);
+        Assert.Contains($"'{ProductTestContext.ContentDirectory}/content-packs/scenario-a'", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Two_starts_inside_the_selection_are_refused_with_both_candidates_named()
     {
         (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(
