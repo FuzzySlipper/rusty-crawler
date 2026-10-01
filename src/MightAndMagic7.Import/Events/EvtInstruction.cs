@@ -277,6 +277,30 @@ public readonly record struct EvtInstruction(ushort EventId, byte Step, byte Opc
         return true;
     }
 
+    /// <summary>Reads which creatures a summoning step puts on the field and where, when this instruction is one.</summary>
+    /// <remarks>
+    /// A one-byte encounter slot, a one-byte grade (zero leaves it to the map's odds), a one-byte count (zero leaves it
+    /// to the slot's range), the 32-bit point, the 32-bit group the creatures join and the 32-bit unique name they take
+    /// (OpenEnroth <c>src/Engine/Evt/EvtInstruction.cpp:997-1007</c>).
+    /// </remarks>
+    /// <param name="summon">The decoded instruction.</param>
+    public bool TryReadSummonMonsters(out SummonMonstersInstruction summon)
+    {
+        summon = default;
+        if (Opcode != EvtOpcodes.SummonMonsters || Operands.Length < 23) return false;
+        ReadOnlySpan<byte> operands = Operands.Span;
+        summon = new SummonMonstersInstruction(
+            operands[0],
+            operands[1],
+            operands[2],
+            BinaryPrimitives.ReadInt32LittleEndian(operands[3..]),
+            BinaryPrimitives.ReadInt32LittleEndian(operands[7..]),
+            BinaryPrimitives.ReadInt32LittleEndian(operands[11..]),
+            BinaryPrimitives.ReadInt32LittleEndian(operands[15..]),
+            BinaryPrimitives.ReadInt32LittleEndian(operands[19..]));
+        return true;
+    }
+
     /// <summary>Reads which person a conversation step opens, when this instruction is one.</summary>
     /// <remarks>A 32-bit person id (OpenEnroth <c>src/Engine/Evt/EvtInstruction.cpp:1020-1022</c>).</remarks>
     /// <param name="person">The person's id.</param>
@@ -422,6 +446,21 @@ public readonly record struct GiveItemInstruction(int Level, int Kind, int Item)
 /// <param name="ToY">Where it flies to, Y.</param>
 /// <param name="ToZ">Where it flies to, Z.</param>
 public readonly record struct CastSpellInstruction(int Spell, int Mastery, int Rank, int FromX, int FromY, int FromZ, int ToX, int ToY, int ToZ);
+
+/// <summary>A decoded summoning of creatures from one of the map's encounter slots.</summary>
+/// <param name="Slot">The map's encounter slot: one to three.</param>
+/// <param name="Grade">The grade: zero leaves it to the map's odds, one to three fix A to C.</param>
+/// <param name="Count">How many: zero leaves it to the slot's range.</param>
+/// <param name="X">Where they stand, X.</param>
+/// <param name="Y">Where they stand, Y.</param>
+/// <param name="Z">Where they stand, Z.</param>
+/// <param name="Group">The group they join.</param>
+/// <param name="UniqueName">The unique name they take, zero for their row's own.</param>
+public readonly record struct SummonMonstersInstruction(int Slot, int Grade, int Count, int X, int Y, int Z, int Group, int UniqueName)
+{
+    /// <summary>The encounter number the donor builds from the slot and the grade (OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:88</c>).</summary>
+    public int Encounter => Slot + (3 * Grade);
+}
 
 /// <summary>A decoded change of a person's topic.</summary>
 /// <param name="Person">The person's id.</param>

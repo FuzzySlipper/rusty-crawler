@@ -106,6 +106,13 @@ internal sealed record MapEventStep(
     /// <summary>The facing a move within the place sets the party down with, in the donor's units; -1 keeps the party's own.</summary>
     internal int Yaw { get; init; } = -1;
 
+    /// <summary>
+    /// The encounter slot a summoning names, as the importer read it from the place's own map table row — written the
+    /// way an encounter placement states its slot — or null when the step is not a summoning or names none.
+    /// </summary>
+    /// <remarks>Where the creatures stand is <see cref="Position"/>, how many is <see cref="MapEventStep.Amount"/> (zero for the slot's own range), and the group they join is <see cref="Group"/>.</remarks>
+    internal JsonElement? Summons { get; init; }
+
     /// <summary>The variable a step reads or writes, as one identity a timer and a fixture can share.</summary>
     /// <remarks>
     /// A numbered family's slot and a family whose value names the thing — a quest bit, a party bit, a note, an
@@ -506,6 +513,7 @@ internal sealed class MightAndMagic7MapEvents
                 House = Whole(element, "house"),
                 Greeting = Whole(element, "greeting"),
                 Yaw = ContentEntry.ReadDouble(element, "yaw") is { } yaw ? (int)yaw : -1,
+                Summons = element.TryGetProperty("summons", out JsonElement summons) && summons.ValueKind == JsonValueKind.Object ? summons.Clone() : null,
             });
         }
 

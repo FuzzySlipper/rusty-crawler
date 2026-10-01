@@ -661,7 +661,7 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
     [ImportedFact("place-events.json")]
     public void Every_shipped_fixture_runs_or_is_refused_by_a_named_step_and_the_split_is_counted()
     {
-        // Every event a fixture of the operator's install raises is run once, by a fresh party on a fresh
+        // Every event a fixture or a plate of the operator's install raises is run once, by a fresh party on a fresh
         // fixture, and its answer is counted: applied, or refused with the code and the instruction or variable
         // that stopped it. Nothing else may come back — no other refusal and no throw — which is what makes
         // "every instruction this game does not interpret is refused by name" a counted fact.
@@ -679,10 +679,16 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
         // A count of the dead reads what each place holds as a session populates it — its creatures as the
         // encounters resolve them and the people its actor records stand — none of them down on a first visit.
         PlaceGraph graph = MightAndMagic7World.Graph(catalog);
-        PlacePopulationContent placed = PlacePopulationContent.Read(graph, MightAndMagic7Spawns.Compose(catalog, random));
+        MightAndMagic7Spawns spawns = MightAndMagic7Spawns.Compose(catalog, random);
+        PlacePopulationContent placed = PlacePopulationContent.Read(graph, spawns);
+
+        // A summoning puts its creatures into the live population of the place the party stands in, so the place an
+        // event belongs to is populated before it runs, as walking into it populates it in a session.
+        using PlacePopulation live = new(graph, new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()), expansion: spawns);
         int applied = 0;
         int travelled = 0;
         int relocated = 0;
+        int summoned = 0;
         SortedDictionary<string, int> refused = new(StringComparer.Ordinal);
         List<string> unrouted = [];
 
@@ -691,6 +697,8 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
         {
             // A session's running effects are kept over its one party, so each fresh party has its own.
             using PartyEntity party = Party();
+            live.Step(mapEvent.Place, []);
+            int before = live.Entities.Count;
             PartyProgression progression = new(MightAndMagic7Progression.Instance, party);
             PartyJournal journal = new(new MightAndMagic7Journal(loot), clock);
             MightAndMagic7Interaction rule = new(fixtures: new MightAndMagic7Fixtures(
@@ -702,11 +710,13 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
                 progression: () => progression,
                 people: person => conversation?.PersonOf(person),
                 actors: place => [.. placed.PlacementsOf(place).Where(MightAndMagic7Fixtures.IsActor).Select(placement => new PlaceActor(placement, Down: false))],
-                journal: () => journal));
+                journal: () => journal,
+                population: place => live.Place == place ? live : null));
             (InteractionOutcome outcome, _) = Use(rule, Fixture(mapEvent.Id, mapEvent.Label, string.Empty), mapEvent.Place, party, clock, transitions: graph.TransitionsFrom(mapEvent.Place));
             if (outcome.IsApplied)
             {
                 applied++;
+                summoned += live.Entities.Count - before;
                 if (outcome.Travels is not null) travelled++;
                 if (outcome.Relocates is not null) relocated++;
                 continue;
@@ -723,18 +733,22 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
             if (!Regex.IsMatch(outcome.Refusal.Message, @"#\d{4}")) unrouted.Add($"{mapEvent.Place}.{mapEvent.Id}: {outcome.Refusal.Message}");
         }
 
-        output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"applied {applied}, travelled {travelled}, relocated {relocated}"));
+        output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"applied {applied}, travelled {travelled}, relocated {relocated}, summoned {summoned}"));
         foreach ((string reason, int count) in refused) output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"refused {reason}: {count}"));
         foreach (string missing in unrouted) output.WriteLine($"unrouted {missing}");
         Assert.Empty(unrouted);
         Assert.Equal(events.Events.Count(candidate => candidate.Raised || candidate.Stepped), applied + refused.Values.Sum());
-        // The figures the ruleset README states for the operator's install.
-        Assert.Equal(705, applied);
+        // The figures the ruleset README states for the operator's install: 810 events, 653 a fixture raises and 168 a
+        // plate does (11 both).
+        Assert.Equal(810, events.Events.Count(candidate => candidate.Raised || candidate.Stepped));
+        Assert.Equal(808, applied);
 
         // Of those, a fresh party's use of a travel event takes it along a link 145 times — the rest stop at a
-        // condition it does not meet — and sets it down elsewhere in its own place 54 times.
+        // condition it does not meet — and sets it down elsewhere in its own place 54 times; and the three plates
+        // that spring an ambush put 80 creatures on the field.
         Assert.Equal(145, travelled);
         Assert.Equal(54, relocated);
+        Assert.Equal(80, summoned);
         string[] stated = ["hireling: 2"];
         Assert.Equal(stated, refused.Select(entry => string.Create(CultureInfo.InvariantCulture, $"{entry.Key}: {entry.Value}")));
         Assert.Equal(2, refused.Values.Sum());

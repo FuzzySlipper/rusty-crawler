@@ -17,7 +17,8 @@ party walks into, and no longer takes "the first move" of an event:
 - a **clicked face group** (or decoration) whose event moves the party is a `fixture` the party *uses*, standing
   over its faces at their lowest corner; its event's move step names the link it takes;
 - a **pressure plate** whose event moves the party is a `place-entrance` reach that *raises* the event's
-  `floor-trigger` placement when the party walks onto it;
+  `floor-trigger` placement when the party walks onto it (since #9044 every plate is, whatever its event does:
+  1,023 plates in 40 places raise 168 floor triggers, of which these travel plates are 310 in 13 places raising 59);
 - a **house's door** whose event also moves the party is the house's own: using the house runs the event (#9043), and a
   branch that reaches the move takes it instead of opening the house;
 - a **person's topic** raising one of the global program's moves runs it as the world's own scripted move (#9042);

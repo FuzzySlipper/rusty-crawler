@@ -229,6 +229,8 @@ internal sealed class MightAndMagic7Fixtures
     private readonly Func<PartyJournal?> _journal;
     private readonly Func<string, SpokenTopic?> _topics;
     private readonly Func<int, bool> _greetings;
+    private readonly Func<PlaceId, PlacePopulation?> _population;
+    private long _summoned;
 
     /// <summary>Creates this game's fixtures over the map events content carries.</summary>
     /// <param name="events">The map events and the discovery table.</param>
@@ -253,6 +255,10 @@ internal sealed class MightAndMagic7Fixtures
     /// conversation answers (<see cref="MightAndMagic7Conversation.SpokenTopic"/>); absent in a session that speaks with nobody.
     /// </param>
     /// <param name="greetings">Whether the greeting table carries a row, which a step changing a person's greeting names.</param>
+    /// <param name="population">
+    /// The live population of a place, which a summoning puts its creatures into; null for a place the party does not
+    /// stand in now, and absent in a session that keeps none.
+    /// </param>
     internal MightAndMagic7Fixtures(
         MightAndMagic7MapEvents events,
         Func<PartyKnowledge?>? knowledge = null,
@@ -266,10 +272,12 @@ internal sealed class MightAndMagic7Fixtures
         Func<PlaceId, IReadOnlyList<PlaceActor>?>? actors = null,
         Func<PartyJournal?>? journal = null,
         Func<string, SpokenTopic?>? topics = null,
-        Func<int, bool>? greetings = null)
+        Func<int, bool>? greetings = null,
+        Func<PlaceId, PlacePopulation?>? population = null)
     {
         _topics = topics ?? (_ => null);
         _greetings = greetings ?? (_ => false);
+        _population = population ?? (_ => null);
         _actors = actors ?? (_ => null);
         _journal = journal ?? (() => null);
         _events = events ?? throw new ArgumentNullException(nameof(events));
@@ -1021,6 +1029,9 @@ internal sealed class MightAndMagic7Fixtures
                     case "toggle-actor-group-flag":
                         if (GroupFlag(mapEvent, current) is { } refusedFlag) return refusedFlag;
                         break;
+                    case "summon-monsters":
+                        if (Summon(mapEvent, current) is { } refusedSummon) return refusedSummon;
+                        break;
                     case "check-season":
                     {
                         if (_context.Clock is not { } clock || InSeason(current.Which, clock.Now) is not { } holds)
@@ -1314,6 +1325,17 @@ internal sealed class MightAndMagic7Fixtures
 
                 case "hireling":
                     return (false, VariableNotInterpreted(_target, mapEvent, step, "this build keeps no hirelings, #8514"));
+
+                // Whether the party is invisible, whatever the value (OpenEnroth src/Engine/Objects/Character.cpp:3979-3980):
+                // the spell's party-wide effect, the one the fight reads for whether a creature notices the party.
+                case "invisible":
+                    return (party.Effects.MagnitudeOf(SpellEffectIds.Invisibility) > 0, null);
+
+                // The place's alert status, compared for equality rather than at least (OpenEnroth
+                // src/Engine/Objects/Character.cpp:3956-3958). The donor reads it from the map's saved state, every shipped
+                // map states zero, and no instruction or code of the donor's writes it, so it is zero in play.
+                case "alert":
+                    return (step.Value == 0, null);
             }
 
             Func<PartyMember, int, int?>? read = step.Variable switch
@@ -1845,6 +1867,49 @@ internal sealed class MightAndMagic7Fixtures
             }
 
             return (step.Amount > 0 ? dead >= step.Amount : dead == total, null);
+        }
+
+        /// <summary>Collects a summoning: the creatures of one of the place's encounter slots put on the field at the step's point.</summary>
+        /// <remarks>
+        /// The slot is resolved as a spawn record's is (<see cref="MightAndMagic7Spawns.Summoned"/>), now, so a run that
+        /// cannot draw what it summons is refused before anything is settled; the creatures enter the place's live
+        /// population when the run is applied, through the population's own creation, and the fight reads them as it
+        /// reads every creature — a goblin summoned in ambush is the party's enemy by its row's own notice band, and one
+        /// joining a group the event turns hostile is an enemy by that. They stand for the visit: the donor's own are
+        /// saved with the map, while this build's schema carries no population, so a save taken while one stands is
+        /// refused by name as one taken beside a summoned elemental is (#8658).
+        /// </remarks>
+        private Refusal? Summon(MapEvent mapEvent, MapEventStep step)
+        {
+            if (step.Summons is not { } slot)
+            {
+                return NotInterpreted(_target, mapEvent, step, "a summoning whose encounter the place's map table resolves to no creature");
+            }
+
+            if (_rules._population(mapEvent.Place) is not { } population)
+            {
+                return NotInterpreted(_target, mapEvent, step, "a summoning in a session that keeps no live population of this place to put creatures in");
+            }
+
+            string id = string.Create(CultureInfo.InvariantCulture, $"event-{mapEvent.Place}-{mapEvent.Id}-{step.Step}-{++_rules._summoned}");
+            IReadOnlyList<PlacementDefinition> creatures = MightAndMagic7Spawns.Summoned(id, slot, step.Amount, step.Position, step.Group, Rolls(mapEvent), out string? unresolved);
+            if (unresolved is not null)
+            {
+                return new Refusal(
+                    MightAndMagic7Codes.FixtureNothingToRoll,
+                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}', whose step {step.Step} summons creatures, and {unresolved}: nothing was changed."));
+            }
+
+            _effects.Add(() =>
+            {
+                foreach (PlacementDefinition creature in creatures) population.Summon(creature);
+            });
+            foreach (IGrouping<string, PlacementDefinition> kind in creatures.GroupBy(creature => creature.Source.GetString("monsterName"), StringComparer.Ordinal))
+            {
+                _done.Add(string.Create(CultureInfo.InvariantCulture, $"{kind.Count()} {kind.Key} appear."));
+            }
+
+            return null;
         }
 
         /// <summary>Collects a group of the place's creatures turned hostile, or made peaceful again, which the place keeps.</summary>

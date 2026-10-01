@@ -346,7 +346,7 @@ internal static class Program
 
     /// <summary>
     /// What the fixture derivation produced: the things whose use raises one of a place's own events, the events
-    /// carried, the raised events another emitter answers for, and how many steps of each kind the fixtures'
+    /// carried, the raised events another emitter answers for, and how many steps of each kind the fixtures' and floor triggers'
     /// events hold.
     /// </summary>
     /// <remarks>
@@ -364,6 +364,8 @@ internal static class Program
         floorTriggers = fixtures.Triggers.Count,
         steppedEvents = fixtures.SteppedEventCount,
         houseEvents = fixtures.HousedEventCount,
+        steppedEventsOwnedElsewhere = fixtures.SteppedOwnedElsewhere,
+        steppedEventsWithoutInstructions = fixtures.SteppedWithoutInstructions,
         travelEvents = fixtures.TravelEventCount,
         eventsCarried = fixtures.Events.Count,
         raisedEventsOwnedElsewhere = fixtures.OwnedElsewhere,

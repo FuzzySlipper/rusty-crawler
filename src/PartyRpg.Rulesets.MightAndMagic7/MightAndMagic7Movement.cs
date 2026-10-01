@@ -63,6 +63,28 @@ internal static class MightAndMagic7Movement
     internal const double FallThreshold = 512;
 
     /// <summary>
+    /// How far above its feet the ground over a buried creature may lie and the creature still be stood on it, in
+    /// place units: the whole height a region's ground can state.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The maps' spawn and actor records state a height the donor does not keep outdoors: an outdoor actor below
+    /// the floor level is lifted onto it on its next update (OpenEnroth <c>src/Engine/Graphics/Outdoor.cpp:1648-1649</c>),
+    /// and a spawn stands its creatures at the record's own point (<c>src/Engine/Objects/Actor.cpp:4327-4328</c>). So a
+    /// record at height zero under a hillside is ordinary content — Harmondale's goblin spawns sit up to a body
+    /// height under its slopes, and some regions' records lie more than a thousand units under the ground
+    /// (<c>docs/evidence/creature-settling.md</c>).
+    /// </para>
+    /// <para>
+    /// A region's ground is a byte per cell times 32 (<c>src/Engine/Graphics/OutdoorTerrain.h:146</c>), so no ground
+    /// stands more than 8160 units above a record at height zero; the reach is that range rounded up to the next
+    /// power of two. The kit stands a creature on ground over its feet only when the engine has refused to step it
+    /// where it is, so a creature standing clear is never moved by this.
+    /// </para>
+    /// </remarks>
+    internal const double CreatureSettleReach = 8192;
+
+    /// <summary>
     /// The engine heading, in radians, that a place facing of zero means.
     /// </summary>
     /// <remarks>

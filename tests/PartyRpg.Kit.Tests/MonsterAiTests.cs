@@ -311,6 +311,35 @@ public sealed class MonsterAiTests
     }
 
     [Fact]
+    public void A_creature_the_mover_cannot_step_is_stuck_by_name_where_it_stands_and_the_fight_goes_on()
+    {
+        using PartyEntity party = Party();
+        Refusal embedded = new(CreatureMoveCodes.Embedded, "The creature stands inside collision the engine cannot step it out of.");
+        Walking walker = new() { Holds = embedded };
+        using SessionWorld world = World(party, new Days(), beastAt: 900, farBeastAt: 100000, creatures: walker);
+        CombatState fight = Fight(world, party, noticeRange: 2000);
+        CombatDirector director = new(fight, new Mind { EngageRange = 100 }, walker, world.Places);
+        world.ArriveAt(Hall, Pose());
+        world.Populate();
+        fight.Step();
+
+        // The creature wants to close and the mover cannot step it: it is reported stuck, with the mover's own
+        // reason, it stands where content put it, and the next update decides again rather than stopping.
+        for (int update = 0; update < 3; update++)
+        {
+            director.Step(Hall, 1.0);
+            fight.Step();
+            CreatureActivity activity = Assert.Single(director.Activity, entry => entry.Name == "A beast");
+            Assert.Equal(CreatureActivityKind.Stuck, activity.Action);
+            Assert.False(activity.Applied);
+            Assert.Same(embedded, activity.Refusal);
+            Assert.Equal(900, fight.Opposition[0].Distance);
+        }
+
+        Assert.Equal("stuck", CreatureActivityKinds.WireName(CreatureActivityKind.Stuck));
+    }
+
+    [Fact]
     public void A_policy_that_calls_another_creature_an_enemy_turns_the_creature_on_it()
     {
         using PartyEntity party = Party();
@@ -529,10 +558,14 @@ public sealed class MonsterAiTests
         /// <summary>How far a creature walks per second of admitted time.</summary>
         internal double Speed { get; set; } = 400;
 
+        /// <summary>Why every creature is held rather than stepped, as an engine that cannot place them answers; null to walk.</summary>
+        internal Refusal? Holds { get; init; }
+
         public CreatureMoveOutcome Move(CreatureMoveRequest request)
         {
             Moves++;
             PlacePose from = request.From;
+            if (Holds is { } refusal) return CreatureMoveOutcome.Held(from, refusal);
             double x = request.TargetPose.X - from.X;
             double y = request.TargetPose.Y - from.Y;
             double z = request.TargetPose.Z - from.Z;

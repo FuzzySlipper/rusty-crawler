@@ -46,6 +46,24 @@ public sealed class ScriptedSpatialService : ISpatialService
     public Func<CharacterStepRequest, Vector3> StepEnds { get; set; } = request => request.Position;
 
     /// <summary>
+    /// A step's end on open ground at the pace the step's own profile states: along the commanded heading, at the
+    /// profile's forward (or backward) ground speed, for the step's time.
+    /// </summary>
+    /// <remarks>
+    /// It is a script for <see cref="StepEnds"/>, not a controller: it neither accelerates nor collides, so what it
+    /// shows is only which pace the product handed the engine, read back as a distance.
+    /// </remarks>
+    /// <param name="request">The step the product proposed.</param>
+    public static Vector3 AtProfilePace(CharacterStepRequest request)
+    {
+        float forward = request.Command.PlanarIntent.Y;
+        float speed = forward >= 0 ? request.Config.Ground.ForwardSpeed : request.Config.Ground.BackwardSpeed;
+        float yaw = request.Command.HeadingYawRadians;
+        Vector3 heading = new(MathF.Sin(yaw), 0, -MathF.Cos(yaw));
+        return request.Position + (heading * (forward * speed * request.Command.StepSeconds));
+    }
+
+    /// <summary>
     /// What a step's receipt says beyond where it ends — a contact, the footing — as the test scripts it; by default the
     /// receipt is left as this double builds it.
     /// </summary>

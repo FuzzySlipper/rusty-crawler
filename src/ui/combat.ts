@@ -28,7 +28,7 @@ export interface FighterView {
   readonly conditions: string;
   /** Whether the actor is out of the fight: laid out by what is on it, or taken down by harm. */
   readonly down: boolean;
-  /** What a driven actor is doing — `closing`, `backing away`, `holding`, `attacking`, `down` — empty for members. */
+  /** What a driven actor is doing — `closing`, `backing away`, `holding`, `attacking`, `stuck`, `down` — empty for members. */
   readonly activity: string;
 }
 

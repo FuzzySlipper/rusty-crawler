@@ -97,9 +97,17 @@ event raises it when clicked (`src/Engine/Graphics/Viewport.cpp:201-213`) **[don
 clicked faces and decorations raise, 478 open a building, 345 open a container, 382 do nothing but move doors, and
 56 are absent from their program; the other **653 are fixtures' events** — the ones that move the party among them —
 standing as **1,268 fixtures in 76 places** (one per region model, or per group of an interior's faces within 256
-units, at the faces' lowest corner), with **3,639 steps** between them. **59 events** that move the party are raised
-by **310 pressure plates in 13 places**, carried as floor triggers. **57 events** hold a timer trigger, which is how a
-well's charges are refilled. Of the 478 events that open a building, **47 do more than open it** — a quest bit that shuts a
+units, at the faces' lowest corner), with **3,639 steps** between them. Pressure plates raise **177 events**: **168**
+are carried as floor triggers, raised by **1,023 plates in 40 places** — **59** of them move the party, the rest spring
+traps (spells, harm, an ambush), raise alarms, compare an invisible party, or move doors — and **9** are absent from
+their program; no counter or container answers for a plate's event **[data]**. The donor raises a plate's event when
+the party, touching the floor, comes onto a face carrying the attribute that is not the face it stood on before
+(`src/Engine/Graphics/Indoor.cpp:1488-1494`, `src/Engine/Graphics/Outdoor.cpp:966-980`) — once per step onto it, not
+while it stands there **[donor]**. **11 steps summon monsters**: a one-byte encounter slot and grade, a count, a point,
+a group and a unique name (`src/Engine/Evt/EvtInstruction.cpp:997-1007`), which the donor turns into a spawn record of
+its own and spawns as a level's (`src/Engine/Evt/EvtInterpreter.cpp:77-99`) **[donor]**; every one names a slot its map
+table row resolves **[data]**. **57 events** hold a timer trigger, which is how a well's charges are refilled.
+Of the 478 events that open a building, **47 do more than open it** — a quest bit that shuts a
 shop, the arbiter's door, the hostels of Celeste and The Pit whose door also moves the party — and are carried for the
 house's own use to run; their placement names them as `sourceEvent`. `npcgreet.txt` holds **205 greeting rows**
 **[data]**, which a `set-npc-greeting` step names (`src/Engine/Evt/EvtInterpreter.cpp:541-545`) **[donor]**.
@@ -125,10 +133,10 @@ one a `set-npc-topic` step of any program names), **68 of those check their offe
 world's own links 68 (raised by William Darvees once event 4 changes his slot), 69 and 70 (the temples' keepers)
 **[data]**. Written as `global-event` entries in the steps a place's events are written in; a person carries a
 topic for each slot whose row the table labels, **416 topics over 300 people**, and the topic table carries the
-**446 rows** with an answer or an event **[data]**. With every step the ruleset interprets, a fresh party runs **705 of the 707** fixture and floor-trigger
-events — 145 of them taking it along a travel link and 54 setting it down elsewhere in its own place — and is refused
-by name at 2, both hireling steps — a figure the ruleset suite counts over the written packs rather than
-`mm7import verify`.
+**446 rows** with an answer or an event **[data]**. With every step the ruleset interprets, a fresh party runs **808 of the 810** fixture and floor-trigger
+events — 145 of them taking it along a travel link, 54 setting it down elsewhere in its own place, and 3 ambushes
+putting 80 creatures on the field — and is refused by name at 2, both hireling steps — a figure the ruleset suite
+counts over the written packs rather than `mm7import verify`.
 
 **Every one of the 193 inter-map links has a disposition** **[data]**: 174 are taken by using a clicked face group
 (`used`, 2 of them a building's door whose event also moves the party — event 376 of Celeste and The Pit — whose

@@ -88,6 +88,9 @@ public static class EvtOpcodes
     /// <summary>Jumps when the calendar stands in a season.</summary>
     public const byte CheckSeason = 56;
 
+    /// <summary>Puts creatures of one of the map's encounter slots on the field at a point of the map.</summary>
+    public const byte SummonMonsters = 19;
+
     /// <summary>Casts a spell from one point of the map at another.</summary>
     public const byte CastSpell = 21;
 
@@ -151,7 +154,7 @@ public static class EvtOpcodes
         [Add] = "add",
         [Subtract] = "subtract",
         [Set] = "set",
-        [19] = "summon-monsters",
+        [SummonMonsters] = "summon-monsters",
         [21] = "cast-spell",
         [22] = "speak-npc",
         [23] = "set-faces-bit",

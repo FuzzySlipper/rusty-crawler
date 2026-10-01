@@ -268,7 +268,8 @@ internal sealed class MightAndMagic7Session : IGameSession
             place => owners.World is { } standing ? MightAndMagic7Fixtures.ActorsOf(standing, place) : null,
             () => owners.Journal,
             topic => conversation?.SpokenTopic(topic),
-            row => conversation?.HasGreeting(row) == true);
+            row => conversation?.HasGreeting(row) == true,
+            place => owners.World is { } live && live.Population.Place == place ? live.Population : null);
         events = fixtures;
 
         // This game's journal policy is read once, here, over the loot reading that knows which item rows the

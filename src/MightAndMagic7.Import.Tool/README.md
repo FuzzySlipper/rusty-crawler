@@ -25,13 +25,16 @@ records — the 703 actor records that name no person, all placed as `actor` pla
 held hidden, none refused, 35 in the Temple of Baa — which `verify` checks too; packs written before this block
 existed lack the levels' own creatures and must be rewritten. The summary's `entrances` block states every travel
 link's disposition — 193 links: 176 used (2 of them a house's door whose event also moves the party), 11 walked, 1
-either, 3 spoken (the global program's moves a person's topic raises), 2 unreachable; 76 under a condition, each quest bit a condition compares named with what raises
-its writers — and the 310 plates a party treads on, each link with its trigger, condition and evidence
+either, 3 spoken (the global program's moves a person's topic raises), 2 unreachable; 76 under a condition, each quest
+bit a condition compares named with what raises its writers — and the 1,023 plates a party treads on in 40 places
+(every plate whose event no counter or container answers for), each link with its trigger, condition and evidence
 ([`../../docs/evidence/travel-links.md`](../../docs/evidence/travel-links.md)); `verify` checks the counts. Packs
 written before travel events became fixtures and floor triggers still turn every clicked travel face into a
-walked-into reach and carry no event for it, so they must be rewritten. The summary's `fixtures` block states the fixtures
-written (1,268 in 76 places over 653 events), the floor triggers (59), the raised events another emitter answers for, the discovery
-notes (186), the history lines (28), and how many steps of each kind the fixtures' events hold, which is the split the ruleset's
+walked-into reach and carry no event for it, and packs written before every plate became a floor trigger carry only
+the 59 plates' events that move the party and no summoning's slot, so both must be rewritten. The summary's `fixtures`
+block states the fixtures written (1,268 in 76 places over 653 events), the floor triggers (168, of which 59 move the
+party), the plate events another emitter answers for (none) or the program lacks (9), the raised events another emitter answers for, the discovery
+notes (186), the history lines (28), and how many steps of each kind the fixtures' and floor triggers' events hold, which is the split the ruleset's
 interpretation is measured against. The `globalEvents` block states the global program carried (446 events), the ones a
 person's topic raises (365, 68 of them checking whether their topic is offered), its moves (3), and the step kinds of the
 raised ones; the `people` block's topics are now a person's slots (416 over 300 people), each answered by its event, and
