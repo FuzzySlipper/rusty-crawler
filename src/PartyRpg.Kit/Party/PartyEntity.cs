@@ -106,12 +106,19 @@ public sealed class PartyEntity : IDisposable
     /// <summary>The memberships the party has been granted.</summary>
     public PartyMemberships Memberships => _party.Get<PartyMemberships>();
 
+    /// <summary>What the party owes, account by account.</summary>
+    public PartyDebts Debts => _party.Get<PartyDebts>();
+
+    /// <summary>The counters that will not serve the party, each until a moment of the one clock.</summary>
+    public PartyBans Bans => _party.Get<PartyBans>();
+
     /// <summary>The origin of the party's durable identities, which a save records as a cursor.</summary>
     public PartyIdentitySource Identity => _party.Get<PartyIdentitySource>();
 
     /// <summary>
     /// The latest change stamp any of the party's state carries: its pack and every item in it, purse, larder,
-    /// standing, running effects, records, holdings, passages and memberships, and every member's own state.
+    /// standing, running effects, records, holdings, passages, memberships, debts and bans, and every member's own
+    /// state.
     /// </summary>
     /// <remarks>
     /// Each of those owners takes a new stamp whenever it changes (<see cref="ChangeStamp"/>), so this moves
@@ -131,6 +138,8 @@ public sealed class PartyEntity : IDisposable
             stamp = Math.Max(stamp, Holdings.Stamp);
             stamp = Math.Max(stamp, Passages.Stamp);
             stamp = Math.Max(stamp, Memberships.Stamp);
+            stamp = Math.Max(stamp, Debts.Stamp);
+            stamp = Math.Max(stamp, Bans.Stamp);
             foreach (ItemInstance item in Inventory.Items) stamp = Math.Max(stamp, item.Stamp);
             foreach (PartyMember member in Roster.Members) stamp = Math.Max(stamp, member.Stamp);
             return stamp;
@@ -484,7 +493,9 @@ public sealed class PartyEntity : IDisposable
             [.. Records.All],
             [.. Holdings.All],
             [.. Passages.All],
-            [.. Memberships.All]);
+            [.. Memberships.All],
+            [.. Debts.All],
+            [.. Bans.All]);
     }
 
     /// <summary>Disposes the store the party was created in.</summary>

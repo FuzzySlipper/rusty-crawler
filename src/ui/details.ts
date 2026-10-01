@@ -25,6 +25,7 @@ const ROWS = [
   ['party', 'Party'],
   ['pack', 'Pack'],
   ['coins', 'Coins'],
+  ['owed', 'Owed'],
   ['food', 'Food'],
   ['standing', 'Standing'],
   ['regard', 'Regard'],
@@ -190,6 +191,10 @@ export function mountDetails(host: Host): Details {
     rows.party.textContent = party.present ? String(party.members) : '—';
     rows.pack.textContent = party.present ? String(party.pack) : '—';
     rows.coins.textContent = party.present ? String(party.coins) : '—';
+    // What the party owes, account by account, as the product published it: owing is not paying, so a fine the
+    // purse could not cover is shown beside the purse rather than hidden in it.
+    rows.owed.textContent =
+      party.present && party.debts.length > 0 ? party.debts.map((debt) => `${debt.coins} (${debt.account})`).join(', ') : '—';
     rows.food.textContent = party.present ? `${party.provisions} ${party.unit}` : '—';
     rows.standing.textContent = !party.present
       ? '—'

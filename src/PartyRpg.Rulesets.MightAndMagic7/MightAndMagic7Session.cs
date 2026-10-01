@@ -145,12 +145,30 @@ internal sealed class MightAndMagic7Session : IGameSession
         // reading of one placement is what keeps what a use offers and what a transaction does in step.
         // The quests travel with them, because a counter's bounty notice and a counter's refusal to buy
         // what an errand still needs are both answers about the party's own quest state.
+        // This game's loot is read once, here, and the same reading answers every half of a session that asks
+        // what something carries: what a death left, which the fight's report generates, what a container's
+        // random reference resolves to, which the world's interaction answers read, and what a person's purse
+        // holds when a thief reaches into it. One loot owner means one table read and one seed.
+        MightAndMagic7Loot loot = MightAndMagic7Loot.Compose(Declared(context.Content), context.Engine?.Random);
+
+        // A theft is this game's answer about a hand on a counter's shelf or in a person's purse: it draws on the
+        // engine's random service, reads what a person carries from the loot above and how strong they are from
+        // the fight composed below, and reads each place's base fine from the places content carries. The same
+        // reading answers the fine a townsperson's death lays on the party, so a crime and a theft are fined over
+        // one base and owed on one account.
+        MightAndMagic7Theft theft = MightAndMagic7Theft.Read(
+            Declared(context.Content),
+            context.Engine?.Random,
+            loot,
+            placement => composed?.PersonLevel(placement));
+
         MightAndMagic7Services? services = MightAndMagic7Services.Read(
             Declared(context.Content),
             skills,
             spells,
             quests,
-            () => owners.Quests);
+            () => owners.Quests,
+            theft);
 
         // This game's answers about people are read once here, for the same reason: the world needs them to
         // say who stands at a placement the party faces, and the session needs the one instance to speak
@@ -212,10 +230,6 @@ internal sealed class MightAndMagic7Session : IGameSession
         // actor is called. It is composed whether or not the host declared an act control, because the fight
         // is what reads the world — what is hostile, who is ready — and the control is only how a player
         // gives an order.
-        // This game's loot is read once, here, and the same reading answers both halves of a session: what a
-        // death left, which the fight's report generates, and what a container's random reference resolves
-        // to, which the world's interaction answers read. One loot owner means one table read and one seed.
-        MightAndMagic7Loot loot = MightAndMagic7Loot.Compose(Declared(context.Content), context.Engine?.Random);
 
         // This game's fixtures are read once, here, over the map events and the discovery table content carries:
         // what a well gives, what an obelisk says, and what a sign reads are steps of the place's own events, run
@@ -265,7 +279,7 @@ internal sealed class MightAndMagic7Session : IGameSession
         // a deed against the party (and a townsperson's is fined), and what it was worth is awarded under the word the crime path names for it — one report of
         // one death rather than four readings of the place. The fine is told before the award because it reads
         // the standing the deed is about to lower, which is the donor's own order.
-        MightAndMagic7Crimes crimes = new(Townsperson, MightAndMagic7Combat.IsPerson, () => owners.Party, () => owners.Accounts);
+        MightAndMagic7Crimes crimes = new(Townsperson, MightAndMagic7Combat.IsPerson, () => owners.Party, theft.BaseFine);
         ICreatureDeathObserver[] deaths =
         [
             corpseAnswers,

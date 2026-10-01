@@ -44,9 +44,14 @@ export const ACTIONS = {
   serviceTeach: 'service.teach',
   serviceTrain: 'service.train',
   serviceFare: 'service.fare',
+  // A theft names the line reached for and the member whose hand it is; a repayment names the account and the coins.
+  serviceSteal: 'service.steal',
+  serviceRepay: 'service.repay',
   // A conversation's choices: a topic to bring up, or another person to turn to.
   conversationTopic: 'conversation.topic',
   conversationPerson: 'conversation.person',
+  // A hand in the purse of the person spoken with, naming the member who tries.
+  conversationSteal: 'conversation.steal',
   // The skill-spend control: the member drawn and the skill on that row; the product judges ceiling and price.
   raiseSkill: 'party.raise-skill',
   // A casting names the member, the spell, and the target the product published for it — one action rather than a

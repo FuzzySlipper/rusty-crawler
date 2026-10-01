@@ -210,14 +210,14 @@ placement rather than for service behavior. All 21 kinds are in scope:
 
 | Kind | Serves |
 | --- | --- |
-| Weapon shop, armor shop, magic shop, alchemist | Buy, sell, identify, repair, teach basic skills, stock that refreshes on a multi-day interval |
+| Weapon shop, armor shop, magic shop, alchemist | Buy, sell, identify, repair, teach basic skills, stock that refreshes on a multi-day interval; a thief with the Stealing skill can take from the shelf, and a thief seen is fined and barred for a day |
 | Guilds: seven per-school guilds plus light and dark | Membership, basic school skill, learning books, and the spell levels that guild tier may sell |
 | Temple | Paid removal of every condition including death and eradication |
 | Tavern | Food, drink, rooms for safe rest, rumors |
 | Training hall | Convert experience into a level for a fee, with a level cap set per hall |
 | Bank | Store gold safely |
 | Stable, dock | Paid overland and sea routes to other places |
-| Town hall | Local authority, tasks, and a bounty board |
+| Town hall | Local authority, tasks, a bounty board, and the fine the party owes, paid off here |
 | Throne, castle, entrance markers | The doorways that lead to rulers, quest givers, and dungeons |
 | Ordinary houses | Odd jobs, guild members, master teachers |
 

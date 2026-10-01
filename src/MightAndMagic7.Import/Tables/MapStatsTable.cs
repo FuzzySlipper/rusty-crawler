@@ -36,6 +36,12 @@ public readonly record struct EncounterSlot(string Monster, int Difficulty, int 
 /// <param name="FileName">The map file's name inside the assets container.</param>
 /// <param name="RespawnDays">Days before the map's population resets.</param>
 /// <param name="AlertDays">Days the map stays alerted after the party is noticed.</param>
+/// <param name="StealFine">
+/// The map's base fine: the table's "Perm" column, which the donor reads as <c>baseStealingFine</c>
+/// (<c>OpenEnroth src/Engine/Tables/MapTable.cpp:73</c>) and adds, a hundred gold to the point, to what being
+/// caught stealing or killing a peasant here costs (<c>src/GUI/UI/Houses/Shops.cpp:1103</c>,
+/// <c>src/Engine/Objects/Actor.cpp:1093</c>).
+/// </param>
 /// <param name="TreasureLevel">Treasure level used when generating loot here.</param>
 /// <param name="EncounterPercent">Base chance of a random encounter.</param>
 /// <param name="Slot1">The map's first encounter slot.</param>
@@ -51,6 +57,7 @@ public readonly record struct MapStatsRecord(
     string FileName,
     int RespawnDays,
     int AlertDays,
+    int StealFine,
     int TreasureLevel,
     int EncounterPercent,
     EncounterSlot Slot1,
@@ -123,6 +130,7 @@ public sealed class MapStatsTable
             TableValue.Text(row, 2),
             TableValue.Integer(table, row, 6, "Refil Days"),
             TableValue.Integer(table, row, 7, "Alert Days"),
+            TableValue.Integer(table, row, 8, "Steal Perm"),
             TableValue.Integer(table, row, 11, "Tres 0-6"),
             TableValue.Integer(table, row, 12, "Enc %"),
             Slot(table, row, 17, 18, 19, "Mon 1"),

@@ -119,6 +119,48 @@ public sealed class ProgressionTests
     }
 
     [Fact]
+    public void A_deed_that_pays_nothing_still_reaches_the_world_s_opinion_through_the_same_standing_step()
+    {
+        using PartyEntity party = PartyOfTwo();
+        PartyProgression progression = new(new DeedRule(), party);
+
+        // An award of nothing is not an award, but a deed that paid nothing is still news: the deed entry asks the
+        // rule what the world makes of it under its own word, moves nobody's experience, and reports the standing.
+        ProgressionDeedResult deed = progression.Deed("caught");
+        Assert.Equal("caught", deed.Source);
+        Assert.Equal(-2, deed.Standing.Reputation);
+        Assert.Equal(-2, party.Reputation.Reputation);
+        Assert.Equal(0, party.Members[0].Progression.Experience);
+        Assert.Same(deed, progression.LastDeed);
+        Assert.Null(progression.LastAward);
+
+        // A death worth nothing reaches the same entry, under the word it is credited as, so a game that counts a
+        // worthless person's death against the party is answered as it would be for a worthy one.
+        ProgressionAwards awards = new(placement => Worth(placement), () => progression, _ => "caught");
+        awards.Died(new CreatureDeath(Here, Placement("person", "nobody", 0), "Nobody"));
+        Assert.Equal(-4, party.Reputation.Reputation);
+        Assert.Null(progression.LastAward);
+
+        Assert.Throws<ArgumentException>(() => progression.Deed(" "));
+    }
+
+    /// <summary>A standing rule under which every deed lowers the world's opinion by two and an award moves nothing.</summary>
+    private sealed class DeedRule : IProgressionRule
+    {
+        public long ExperienceForLevel(int level) => 1000;
+
+        public IReadOnlyList<ProgressionShare> Divide(ProgressionDivision division) =>
+            [.. division.Party.Members.Select(member => new ProgressionShare(member.Id, member.Profile.Name, division.Amount))];
+
+        public ProgressionGrowth Growth(ProgressionGrowthRequest request) => ProgressionGrowth.None;
+
+        public ProgressionStanding Standing(ProgressionStandingRequest request) =>
+            request.Event == ProgressionEventKind.Deed && request.Amount == 0
+                ? new ProgressionStanding(-2, 0)
+                : ProgressionStanding.None;
+    }
+
+    [Fact]
     public void An_award_moves_the_party_standing_through_the_party_s_own_component()
     {
         using PartyEntity party = PartyOfTwo();
@@ -451,5 +493,11 @@ public sealed class ProgressionTests
             request.Operation == ServiceOperationKind.Train
                 ? ServiceQuote.Charging(_fee, _fee)
                 : ServiceQuote.Free;
+
+        /// <summary>No member steals here: this suite's counters keep nothing a thief is tried for.</summary>
+        public Refusal? JudgeTheft(ServiceTheftRequest request) => new("test-no-theft", "This suite's counters keep nothing a thief is tried for.");
+
+        /// <summary>No theft is drawn here, for the same reason.</summary>
+        public ServiceTheft Steal(ServiceTheftRequest request) => ServiceTheft.Refused(JudgeTheft(request)!);
     }
 }

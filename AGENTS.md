@@ -99,7 +99,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   over an authored calendar is the only time, and every advance reaches every owner registered with it.
 - **Party.** `PartyEntity` is one entity with its components: roster and members, one shared inventory of
   item instances, per-member equipment, purse and larder, reputation and fame, running effects, records,
-  holdings, passages and memberships. Every charge is judged and settled through one ledger. Creation is a
+  holdings, passages, memberships, debts and bans. Every charge is judged and settled through one ledger. Creation is a
   session mode with its own flow, and the scenario path builds a party through the same factory.
 - **Interaction and services.** One use workflow serves doors, containers, people and fixtures; a fixture runs
   the steps of its imported map event this game interprets and refuses the rest by name. One service
@@ -132,7 +132,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 
 - Stone 3, world: every travel link accounted for (#8577); duplicate arrival ids refused (#8707); the only
   region-to-region reach cannot be walked (#8713); creatures cannot path around a wall because places carry
-  no navigation cells (#8665).
+  no navigation cells (#8665); the panel does not show footing or the water effects, and a creature killed
+  on water leaves a corpse (#9034).
 - Stone 4, party: a scenario cannot choose between creation and its own party (#8589); both creation paths
   proved to compose the same owners (#8688).
 - Stone 5, interaction and services: opened doors and emptied containers are not saved (#8593), and a
@@ -147,8 +148,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 - Stone 7, progression and magic: training takes no game time (#8671); the two counted deeds two ranks need
   have no writer (#8689); a laid-out member can be promoted (#8705); item-aimed effects (#8513) and followers
   (#8514) are "not yet" in `docs/magic-coverage.md`.
-- Stone 8, record: an errand's item is protected only from sale (#8687); stealing, and a fine carried as a
-  debt, have no owner (#9025).
+- Stone 8, record: an errand's item is protected only from sale (#8687).
 
 When a stone lands or a residue closes, update this section, `README.md`, and the owning project README
 together.

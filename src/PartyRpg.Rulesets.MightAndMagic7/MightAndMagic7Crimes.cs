@@ -32,28 +32,22 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// and its death is an ordinary kill.
 /// </para>
 /// <para>
-/// <b>The fine is the donor's arithmetic, approximated in three stated ways.</b> The donor adds
+/// <b>The fine is the donor's arithmetic, carried as the donor carries it.</b> The donor adds
 /// <c>100 × (the map's base fine + the peasant's level + the party's reputation in its own sign)</c> to the
 /// party's fine, clamped to <c>0..4,000,000</c> (<c>Actor.cpp:1093-1099</c>). This game reads the same sum
-/// with the level from the row the person fights as and the reputation turned into the donor's sign, so a
-/// party the town already dislikes pays more and a well-liked one pays less, down to nothing. What is ours:
+/// with the level from the row the person fights as, the reputation turned into the donor's sign, and the
+/// place's base fine — the map table's "Steal Perm" column (<c>src/Engine/Tables/MapTable.cpp:73</c>), which
+/// the importer carries onto the place — so a party the town already dislikes pays more and a well-liked one
+/// pays less, down to nothing. The fine is not taken from the purse: it is added to what the party owes on
+/// <see cref="MightAndMagic7Theft.FineAccount"/>, the one account a caught thief's fine is owed on too, and a
+/// town hall collects it (<c>src/GUI/UI/Houses/TownHall.cpp:30-45</c>), so a purse too light to pay leaves the
+/// party owing rather than forgiven. What is ours:
 /// </para>
 /// <list type="bullet">
 /// <item>
 /// <description>
-/// The map's base fine (the map table's "Steal Perm" column, <c>src/Engine/Tables/MapTable.cpp:73</c>) is
-/// read as zero everywhere: the importer does not carry the column onto a place. Zero is Emerald Isle's own
-/// value, so the tutorial island fines exactly as the donor does; the other places' one hundred to fifteen
-/// hundred gold more per death are not charged.
-/// </description>
-/// </item>
-/// <item>
-/// <description>
-/// The fine is taken from the purse at the moment of the death, as much of it as the purse holds, through
-/// the party's one ledger. The donor carries it as a debt instead — paid at a town hall
-/// (<c>src/GUI/UI/Houses/TownHall.cpp:30-45</c>) or cleared by the throne room's jail
-/// (<c>src/GUI/UI/UIHouses.cpp:346-351</c>) — and this build has no debt on the party, so what the purse
-/// cannot cover is not owed afterwards.
+/// The donor's throne room clears a fine by a year in jail (<c>src/GUI/UI/UIHouses.cpp:346-351</c>); this
+/// build has no throne room, so a fine is only ever paid off.
 /// </description>
 /// </item>
 /// <item>
@@ -88,23 +82,23 @@ internal sealed class MightAndMagic7Crimes : ICreatureDeathObserver
     private readonly Func<PlacementDefinition, int?> _townsperson;
     private readonly Func<PlacementDefinition, bool> _person;
     private readonly Func<PartyEntity?> _party;
-    private readonly Func<PartyResourceLedger?> _accounts;
+    private readonly Func<PlaceId, int> _baseFine;
 
-    /// <summary>Composes the crime path over the fight's reading of a placement and the party's own accounts.</summary>
+    /// <summary>Composes the crime path over the fight's reading of a placement and the party's own debts.</summary>
     /// <param name="townsperson">The level of the townsperson a placement holds, or null when it is not one.</param>
     /// <param name="person">Whether a placement holds a peaceful person the place's own records stand there.</param>
     /// <param name="party">The party, read when a death is reported, because a session may create it later.</param>
-    /// <param name="accounts">The party's one ledger, read when a death is reported for the same reason.</param>
+    /// <param name="baseFine">A place's base fine, the map table's own column as the place carries it.</param>
     internal MightAndMagic7Crimes(
         Func<PlacementDefinition, int?> townsperson,
         Func<PlacementDefinition, bool> person,
         Func<PartyEntity?> party,
-        Func<PartyResourceLedger?> accounts)
+        Func<PlaceId, int> baseFine)
     {
         _townsperson = townsperson ?? throw new ArgumentNullException(nameof(townsperson));
         _person = person ?? throw new ArgumentNullException(nameof(person));
         _party = party ?? throw new ArgumentNullException(nameof(party));
-        _accounts = accounts ?? throw new ArgumentNullException(nameof(accounts));
+        _baseFine = baseFine ?? throw new ArgumentNullException(nameof(baseFine));
     }
 
     /// <summary>
@@ -121,13 +115,14 @@ internal sealed class MightAndMagic7Crimes : ICreatureDeathObserver
         return _person(death.Placement) ? PersonKillSource : ProgressionAwards.KillSource;
     }
 
-    /// <summary>The donor's fine for one townsperson's death, with the place's base read as zero.</summary>
+    /// <summary>The donor's fine for one townsperson's death.</summary>
     /// <param name="level">The townsperson's row level.</param>
     /// <param name="reputation">The party's reputation in this game's sign, in which higher is better.</param>
+    /// <param name="baseFine">The place's base fine, the map table's own column.</param>
     /// <returns>The fine in gold, never below zero and never above the donor's ceiling.</returns>
-    internal static int FineFor(int level, int reputation)
+    internal static int FineFor(int level, int reputation, int baseFine = 0)
     {
-        long points = (long)level - reputation;
+        long points = (long)baseFine + level - reputation;
         return (int)Math.Clamp(points * FinePerPoint, 0, FineCeiling);
     }
 
@@ -136,11 +131,12 @@ internal sealed class MightAndMagic7Crimes : ICreatureDeathObserver
     {
         ArgumentNullException.ThrowIfNull(death);
         if (_townsperson(death.Placement) is not { } level) return;
-        if (_party() is not { } party || _accounts() is not { } accounts) return;
-        int taken = Math.Min(FineFor(level, party.Reputation.Reputation), party.Purse.Coins);
+        if (_party() is not { } party) return;
+        int owed = party.Debts.OwedOn(MightAndMagic7Theft.FineAccount);
+        int added = MightAndMagic7Theft.Added(owed, FineFor(level, party.Reputation.Reputation, _baseFine(death.Place)));
 
-        // What is taken is what the purse holds up to the fine, so the settlement is judged whole and cannot
-        // refuse; a purse with nothing in it pays nothing, which is the stated approximation of a debt.
-        if (taken > 0) accounts.Settle(PartyCost.OfGold(taken));
+        // The fine is owed rather than taken: the whole is kept between nothing and the donor's ceiling, and a
+        // town hall is where it is paid.
+        if (added > 0) party.Debts.Owe(MightAndMagic7Theft.FineAccount, owed + added);
     }
 }

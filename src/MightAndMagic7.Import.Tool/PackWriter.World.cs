@@ -291,6 +291,9 @@ internal static partial class PackWriter
                 writer.WriteEndArray();
                 writer.WriteNumber("respawnDays", map.RespawnDays);
                 writer.WriteNumber("alertDays", map.AlertDays);
+                // The base fine a crime here starts from, which this game's theft and crime rules read off the
+                // place rather than off a table the runtime never sees.
+                writer.WriteNumber("stealFine", map.StealFine);
                 writer.WriteNumber("treasureLevel", map.TreasureLevel);
                 writer.WriteNumber("encounterPercent", map.EncounterPercent);
                 WriteOptionalString(writer, "track", map.Track);

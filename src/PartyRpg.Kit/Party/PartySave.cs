@@ -37,6 +37,8 @@ public sealed record PartySave
     /// <param name="holdings">What the party had deposited, account by account.</param>
     /// <param name="passages">The passages the party held and had not yet taken.</param>
     /// <param name="memberships">The memberships the party had been granted.</param>
+    /// <param name="debts">What the party owed, account by account.</param>
+    /// <param name="bans">The counters that would not serve the party, each until a moment of the clock.</param>
     /// <exception cref="ArgumentException">The save records no members.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A recorded amount is negative.</exception>
     public PartySave(
@@ -53,7 +55,9 @@ public sealed record PartySave
         IReadOnlyList<PartyRecord>? records = null,
         IReadOnlyList<PartyHolding>? holdings = null,
         IReadOnlyList<PartyPassage>? passages = null,
-        IReadOnlyList<string>? memberships = null)
+        IReadOnlyList<string>? memberships = null,
+        IReadOnlyList<PartyDebt>? debts = null,
+        IReadOnlyList<PartyBan>? bans = null)
     {
         ArgumentNullException.ThrowIfNull(members);
         ArgumentNullException.ThrowIfNull(items);
@@ -80,6 +84,8 @@ public sealed record PartySave
         Holdings = holdings ?? [];
         Passages = passages ?? [];
         Memberships = memberships ?? [];
+        Debts = debts ?? [];
+        Bans = bans ?? [];
     }
 
     /// <summary>The member identity cursor a restored party mints from.</summary>
@@ -123,4 +129,10 @@ public sealed record PartySave
 
     /// <summary>The memberships the party had been granted.</summary>
     public IReadOnlyList<string> Memberships { get; }
+
+    /// <summary>What the party owed, account by account.</summary>
+    public IReadOnlyList<PartyDebt> Debts { get; }
+
+    /// <summary>The counters that would not serve the party, each until a moment of the clock.</summary>
+    public IReadOnlyList<PartyBan> Bans { get; }
 }

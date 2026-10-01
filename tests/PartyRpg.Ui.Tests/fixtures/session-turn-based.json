@@ -55,6 +55,12 @@
         "label": "Rogue",
         "detail": "Thief"
       }
+    ],
+    "debts": [
+      {
+        "account": "fine",
+        "coins": 350
+      }
     ]
   },
   "movement": {
@@ -137,7 +143,9 @@
       "identify",
       "repair",
       "teach",
-      "fare"
+      "fare",
+      "steal",
+      "repay"
     ],
     "memberships": [
       "Fire Guild membership"
@@ -150,7 +158,8 @@
         "count": 2,
         "price": 110,
         "sale": false,
-        "canBuy": true
+        "canBuy": true,
+        "canSteal": true
       },
       {
         "lot": "stock:potion",
@@ -159,7 +168,8 @@
         "count": 0,
         "price": 30,
         "sale": false,
-        "canBuy": false
+        "canBuy": false,
+        "canSteal": false
       }
     ],
     "lessons": [
@@ -186,6 +196,13 @@
         "name": "Travellers speak of the roads east.",
         "amount": 1,
         "price": 0
+      },
+      {
+        "kind": "debt",
+        "subject": "fine",
+        "name": "the party\u0027s fine",
+        "amount": 350,
+        "price": 90
       }
     ],
     "sales": [
@@ -195,7 +212,8 @@
         "name": "A shield",
         "price": 12,
         "damage": 3,
-        "identified": false
+        "identified": false,
+        "stolen": false
       },
       {
         "item": "4",
@@ -203,7 +221,8 @@
         "name": "A dagger",
         "price": 8,
         "damage": 0,
-        "identified": true
+        "identified": true,
+        "stolen": true
       }
     ],
     "members": [
@@ -235,6 +254,22 @@
         "price": 25
       }
     ],
+    "debts": [
+      {
+        "subject": "fine",
+        "name": "the party\u0027s fine",
+        "owed": 350,
+        "price": 90,
+        "canRepay": true
+      }
+    ],
+    "thieves": [
+      {
+        "index": 1,
+        "name": "Aelina"
+      }
+    ],
+    "canSteal": true,
     "canBuy": true,
     "canSell": true,
     "canTeach": true,
@@ -316,7 +351,13 @@
     "message": "Mira: \u0027A fine day for it.\u0027",
     "residue": "",
     "handoff": "",
-    "topic": ""
+    "topic": "",
+    "thieves": [
+      {
+        "index": 1,
+        "name": "Aelina"
+      }
+    ]
   },
   "combat": {
     "available": true,

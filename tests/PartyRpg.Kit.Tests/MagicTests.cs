@@ -496,6 +496,12 @@ public sealed class MagicTests
 
         public ServiceQuote Quote(ServiceQuoteRequest request) =>
             ServiceQuote.Charging(request.Subject.Value, request.Subject.Value);
+
+        /// <summary>No member steals here: this suite's counters keep nothing a thief is tried for.</summary>
+        public Refusal? JudgeTheft(ServiceTheftRequest request) => new("test-no-theft", "This suite's counters keep nothing a thief is tried for.");
+
+        /// <summary>No theft is drawn here, for the same reason.</summary>
+        public ServiceTheft Steal(ServiceTheftRequest request) => ServiceTheft.Refused(JudgeTheft(request)!);
     }
 
     /// <summary>A fight's answers, stated by this suite: everybody swings, everybody recovers a second.</summary>

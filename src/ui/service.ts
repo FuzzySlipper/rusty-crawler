@@ -26,6 +26,8 @@ export interface ServiceStockView {
   readonly sale: boolean;
   /** Whether the counter would sell one now. */
   readonly canBuy: boolean;
+  /** Whether a thief could reach for one now. */
+  readonly canSteal: boolean;
 }
 
 /** One lesson a service teaches. */
@@ -51,6 +53,8 @@ export interface ServiceSaleView {
   readonly price: number;
   readonly damage: number;
   readonly identified: boolean;
+  /** Whether the item carries the stolen mark, which a counter may refuse to deal in. */
+  readonly stolen: boolean;
 }
 
 /** One of the party's items a counter would identify or repair. */
@@ -74,6 +78,19 @@ export interface ServiceFareView {
   readonly subject: string;
   readonly name: string;
   readonly price: number;
+}
+
+/** One debt the party owes on an account the counter collects. */
+export interface ServiceDebtView {
+  /** The account, which a repayment names. */
+  readonly subject: string;
+  readonly name: string;
+  /** What is owed on it. */
+  readonly owed: number;
+  /** What a repayment of all of it would take from the purse now. */
+  readonly price: number;
+  /** Whether a repayment would take anything now. */
+  readonly canRepay: boolean;
 }
 
 /** One member a lesson could be taught to. */
@@ -106,6 +123,11 @@ export interface ServiceView {
   readonly identify: readonly ServiceHeldView[];
   readonly repair: readonly ServiceHeldView[];
   readonly fares: readonly ServiceFareView[];
+  readonly debts: readonly ServiceDebtView[];
+  /** The members the product says could try the shelves without paying. */
+  readonly thieves: readonly ServiceMemberView[];
+  /** Whether the counter keeps a shelf a thief could reach, with somebody able to try. */
+  readonly canSteal: boolean;
   /** Whether the counter sells from its shelves at all. */
   readonly canBuy: boolean;
   /** Whether it buys the party's items. */
@@ -148,6 +170,7 @@ export function readService(f: Fields): ServiceView {
       price: entry.number('price'),
       sale: entry.flag('sale'),
       canBuy: entry.flag('canBuy'),
+      canSteal: entry.flag('canSteal'),
     })),
     lessons: f.list('lessons', (entry) => ({
       kind: entry.text('kind'),
@@ -171,11 +194,21 @@ export function readService(f: Fields): ServiceView {
       price: entry.number('price'),
       damage: entry.number('damage'),
       identified: entry.flag('identified'),
+      stolen: entry.flag('stolen'),
     })),
     members: f.list('members', (entry) => ({ index: entry.number('index'), name: entry.text('name') })),
     identify: f.list('identify', readHeld),
     repair: f.list('repair', readHeld),
     fares: f.list('fares', (entry) => ({ subject: entry.text('subject'), name: entry.text('name'), price: entry.number('price') })),
+    debts: f.list('debts', (entry) => ({
+      subject: entry.text('subject'),
+      name: entry.text('name'),
+      owed: entry.number('owed'),
+      price: entry.number('price'),
+      canRepay: entry.flag('canRepay'),
+    })),
+    thieves: f.list('thieves', (entry) => ({ index: entry.number('index'), name: entry.text('name') })),
+    canSteal: f.flag('canSteal'),
     canBuy: f.flag('canBuy'),
     canSell: f.flag('canSell'),
     canTeach: f.flag('canTeach'),
@@ -208,6 +241,8 @@ export function mountService(host: Host): Section<ServiceReading> {
   const memberSelect = element('select');
   memberRow.append(memberLabel, memberSelect);
   const stockRow = element('div', 'crawler-row');
+  const stealRow = element('div', 'crawler-row');
+  const debtRow = element('div', 'crawler-row');
   const saleRow = element('div', 'crawler-row');
   const lessonRow = element('div', 'crawler-row');
   const offerRow = element('div', 'crawler-row');
@@ -219,7 +254,7 @@ export function mountService(host: Host): Section<ServiceReading> {
     if (leave.dataset.action !== undefined && leave.dataset.action !== '') claim(leave.dataset.action);
   });
   actions.append(leave);
-  service.append(serviceHead, state, access, memberRow, stockRow, offerRow, saleRow, lessonRow, actions, outcome);
+  service.append(serviceHead, state, access, memberRow, stockRow, stealRow, offerRow, debtRow, saleRow, lessonRow, actions, outcome);
   const changed = redrawGuard();
 
   const render = ({ service: view, leave: control }: ServiceReading): void => {
@@ -256,7 +291,7 @@ export function mountService(host: Host): Section<ServiceReading> {
     if (!changed(view)) return;
 
     if (!view.open) {
-      for (const row of [stockRow, offerRow, saleRow, lessonRow]) row.replaceChildren();
+      for (const row of [stockRow, stealRow, offerRow, debtRow, saleRow, lessonRow]) row.replaceChildren();
       memberRow.hidden = true;
       return;
     }
@@ -290,11 +325,49 @@ export function mountService(host: Host): Section<ServiceReading> {
           ),
     );
 
+    // What a thief could reach for: one row per line still on the shelf and member the product named, which sends
+    // that member's hand for that line. The product draws whether anybody sees it.
+    stealRow.replaceChildren(
+      !view.canSteal
+        ? element('div')
+        : options(
+            claim,
+            'Steal',
+            view.thieves.flatMap((thief) =>
+              view.stock.map((entry) => ({
+                id: `steal-${thief.index}-${entry.lot}`,
+                text: `${thief.name}: ${entry.name}`,
+                action: ACTIONS.serviceSteal,
+                enabled: entry.canSteal,
+                payload: () => ({ target: entry.lot, member: thief.index }),
+              })),
+            ),
+          ),
+    );
+
+    // What the party owes on an account this counter collects: a row that pays toward it what the product says
+    // the purse would hand over now.
+    debtRow.replaceChildren(
+      view.debts.length === 0
+        ? element('div')
+        : options(
+            claim,
+            'Owed',
+            view.debts.map((entry) => ({
+              id: `repay-${entry.subject}`,
+              text: `${entry.name}: ${entry.owed} owed — pay ${entry.price}`,
+              action: ACTIONS.serviceRepay,
+              enabled: entry.canRepay,
+              payload: () => ({ target: entry.subject, count: entry.price }),
+            })),
+          ),
+    );
+
     // What the party carries that the counter would buy, identify, or mend: the product's own lists, one row each.
     const held = [
       ...(view.canSell ? view.sales : []).map((entry) => ({
         id: `sell-${entry.item}`,
-        text: `Sell ${entry.name}${entry.damage > 0 ? `, damaged ${entry.damage}` : ''}${entry.identified ? '' : ', unidentified'} — ${entry.price}`,
+        text: `Sell ${entry.name}${entry.damage > 0 ? `, damaged ${entry.damage}` : ''}${entry.identified ? '' : ', unidentified'}${entry.stolen ? ', stolen' : ''} — ${entry.price}`,
         action: ACTIONS.serviceSell,
         payload: () => ({ target: entry.item }),
       })),
