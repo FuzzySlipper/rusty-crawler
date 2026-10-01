@@ -21,7 +21,7 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="Time">The time of day, whole minutes.</param>
 /// <param name="Daylight">Which half of the daylight window the clock stands in, as the wire spells it.</param>
 /// <param name="ElapsedDays">Whole game days elapsed since the session began, which is what respawn is measured in.</param>
-public readonly record struct ClockSnapshot(bool Present, string Date, string Time, string Daylight, int ElapsedDays)
+public sealed record ClockSnapshot(bool Present, string Date, string Time, string Daylight, int ElapsedDays)
 {
     /// <summary>The clock of a session whose ruleset composed none.</summary>
     public static ClockSnapshot None => new(false, string.Empty, string.Empty, string.Empty, 0);
@@ -42,4 +42,15 @@ public readonly record struct ClockSnapshot(bool Present, string Date, string Ti
             clock.IsDaylight ? "day" : "night",
             clock.ElapsedGameDays);
     }
+
+    /// <summary>Writes the clock block.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The block's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("present", builder.Boolean(Present)),
+            ("date", builder.String(Date)),
+            ("time", builder.String(Time)),
+            ("daylight", builder.String(Daylight)),
+            ("elapsedDays", builder.Number(ElapsedDays)));
 }

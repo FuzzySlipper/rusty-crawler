@@ -22,7 +22,7 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="Cost">What one more level would cost, zero when it would be refused.</param>
 /// <param name="Refusal">Why one more level would be refused, empty when it would land.</param>
 /// <param name="RefusalCode">The code of that refusal, which a caller branches on; empty when it would land.</param>
-public readonly record struct SkillRowSnapshot(
+public sealed record SkillRowSnapshot(
     string Skill,
     string Block,
     int Level,
@@ -33,7 +33,27 @@ public readonly record struct SkillRowSnapshot(
     int Reached,
     int Cost,
     string Refusal,
-    string RefusalCode);
+    string RefusalCode)
+{
+    /// <summary>Writes one skill row: its level, its ceiling, and what a raise would buy.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("skill", builder.String(Skill)),
+            ("block", builder.String(Block)),
+            ("level", builder.Number(Level)),
+            ("tier", builder.String(Tier)),
+            ("ceilingLevel", builder.Number(CeilingLevel)),
+            ("ceilingTier", builder.String(CeilingTier)),
+            ("pointsSpent", builder.Number(PointsSpent)),
+            // What the next point would reach, published rather than added up by the screen: a panel
+            // that showed "raise to level 5" would otherwise be doing the ruleset's arithmetic.
+            ("reached", builder.Number(Reached)),
+            ("cost", builder.Number(Cost)),
+            ("refusal", builder.String(Refusal)),
+            ("refusalCode", builder.String(RefusalCode)));
+}
 
 /// <summary>One member's skills, in the order the member learned them.</summary>
 /// <param name="Index">The member's place in the party, counted from zero, which a raise control names.</param>
@@ -42,13 +62,26 @@ public readonly record struct SkillRowSnapshot(
 /// <param name="Class">The member's class, as content names it.</param>
 /// <param name="Rank">The member's class rank, which is what a promotion raises.</param>
 /// <param name="Skills">The skills the member has learned, with what the next level of each would cost.</param>
-public readonly record struct SkillMemberSnapshot(
+public sealed record SkillMemberSnapshot(
     int Index,
     string Member,
     string Name,
     string Class,
     int Rank,
-    IReadOnlyList<SkillRowSnapshot> Skills);
+    IReadOnlyList<SkillRowSnapshot> Skills)
+{
+    /// <summary>Writes one member and their skills.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("index", builder.Number(Index)),
+            ("member", builder.String(Member)),
+            ("name", builder.String(Name)),
+            ("class", builder.String(Class)),
+            ("rank", builder.Number(Rank)),
+            ("skills", builder.Array([.. Skills.Select(row => row.Write(builder))])));
+}
 
 /// <summary>What every member can hold and what the next skill point would buy.</summary>
 /// <remarks>
@@ -74,7 +107,7 @@ public readonly record struct SkillMemberSnapshot(
 /// <param name="Cost">What the last raise cost in skill points, zero when it was refused or none happened.</param>
 /// <param name="Code">The last refusal's code, empty when the last raise landed or none has happened.</param>
 /// <param name="Message">What the last raise reported, empty before anybody has spent a point.</param>
-public readonly record struct SkillsSnapshot(
+public sealed record SkillsSnapshot(
     bool Available,
     IReadOnlyList<SkillMemberSnapshot> Members,
     string Outcome,
@@ -178,4 +211,24 @@ public readonly record struct SkillsSnapshot(
         SkillBlock.Unused => "unused",
         _ => throw new ArgumentOutOfRangeException(nameof(block), block, "Unknown skill block."),
     };
+
+    /// <summary>Writes the skills block: each member's skills, their ceilings, and what a raise would buy.</summary>
+    /// <remarks>
+    /// Every row is sent whole — the skill, its block, the level, the rung's own word, the ceiling level and
+    /// the ceiling rung's word, what the next level would cost and the sentence that refuses it — so the
+    /// screen reads a plan rather than computing one.
+    /// </remarks>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The block's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("available", builder.Boolean(Available)),
+            ("members", builder.Array([.. Members.Select(member => member.Write(builder))])),
+            ("outcome", builder.String(Outcome)),
+            ("member", builder.String(Member)),
+            ("skill", builder.String(Skill)),
+            ("level", builder.Number(Level)),
+            ("cost", builder.Number(Cost)),
+            ("code", builder.String(Code)),
+            ("message", builder.String(Message)));
 }

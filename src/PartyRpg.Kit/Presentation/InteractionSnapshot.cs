@@ -39,7 +39,7 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="Code">The last refusal's code, empty when the last use applied or none has happened.</param>
 /// <param name="Message">What the last use reported, empty before the party has used anything.</param>
 /// <param name="Residue">What the last use could not deliver, empty when it delivered all of it.</param>
-public readonly record struct InteractionSnapshot(
+public sealed record InteractionSnapshot(
     bool Available,
     string Target,
     string Label,
@@ -99,4 +99,27 @@ public readonly record struct InteractionSnapshot(
             Residue: result?.Residue ?? string.Empty,
             Bodies: interaction.Bodies.Count);
     }
+
+    /// <summary>Writes the interaction block: what is faced, what it requires, and what the last use did.</summary>
+    /// <remarks>
+    /// The requirements are sent as the sentences the ruleset gave them, so a locked door announces what it
+    /// needs before anybody tries it, and the panel spells none of them itself.
+    /// </remarks>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The block's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("available", builder.Boolean(Available)),
+            ("target", builder.String(Target)),
+            ("label", builder.String(Label)),
+            ("verb", builder.String(Verb)),
+            ("state", builder.String(State)),
+            ("distance", builder.Number(Distance)),
+            ("reason", builder.String(Reason)),
+            ("requires", builder.Array([.. Requires.Select(builder.String)])),
+            ("bodies", builder.Number(Bodies)),
+            ("outcome", builder.String(Outcome)),
+            ("code", builder.String(Code)),
+            ("message", builder.String(Message)),
+            ("residue", builder.String(Residue)));
 }

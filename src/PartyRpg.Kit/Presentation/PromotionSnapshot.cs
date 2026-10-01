@@ -17,12 +17,24 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="Label">How it reads to a person.</param>
 /// <param name="Amount">How much of it is asked for.</param>
 /// <param name="Text">The requirement as one phrase a screen prints.</param>
-public readonly record struct PromotionRequirementSnapshot(
+public sealed record PromotionRequirementSnapshot(
     string Kind,
     string Name,
     string Label,
     int Amount,
-    string Text);
+    string Text)
+{
+    /// <summary>Writes one thing a rank asks for.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("kind", builder.String(Kind)),
+            ("name", builder.String(Name)),
+            ("label", builder.String(Label)),
+            ("amount", builder.Number(Amount)),
+            ("text", builder.String(Text)));
+}
 
 /// <summary>One rank a class leads to, as the panel needs it.</summary>
 /// <param name="Promotion">The rank's identity in the ladder, which a conversation hands over.</param>
@@ -33,7 +45,7 @@ public readonly record struct PromotionRequirementSnapshot(
 /// <param name="GiverName">Who gives it, as a person reads the name.</param>
 /// <param name="Words">What the giver says when the rank is taken.</param>
 /// <param name="Requirements">What the rank asks for, in the ladder's own order.</param>
-public readonly record struct PromotionRankSnapshot(
+public sealed record PromotionRankSnapshot(
     string Promotion,
     string ToClass,
     int Rank,
@@ -41,7 +53,22 @@ public readonly record struct PromotionRankSnapshot(
     string Giver,
     string GiverName,
     string Words,
-    IReadOnlyList<PromotionRequirementSnapshot> Requirements);
+    IReadOnlyList<PromotionRequirementSnapshot> Requirements)
+{
+    /// <summary>Writes one rank a class leads to.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("promotion", builder.String(Promotion)),
+            ("toClass", builder.String(ToClass)),
+            ("rank", builder.Number(Rank)),
+            ("choice", builder.String(Choice)),
+            ("giver", builder.String(Giver)),
+            ("giverName", builder.String(GiverName)),
+            ("words", builder.String(Words)),
+            ("requirements", builder.Array([.. Requirements.Select(requirement => requirement.Write(builder))])));
+}
 
 /// <summary>One member and the ranks its class leads to.</summary>
 /// <param name="Index">The member's place in the party, counted from zero.</param>
@@ -50,13 +77,26 @@ public readonly record struct PromotionRankSnapshot(
 /// <param name="Class">The class the member belongs to.</param>
 /// <param name="Rank">The rank the member holds.</param>
 /// <param name="Promotions">The ranks this class leads to, which is empty at the top of a ladder.</param>
-public readonly record struct PromotionMemberSnapshot(
+public sealed record PromotionMemberSnapshot(
     int Index,
     string Member,
     string Name,
     string Class,
     int Rank,
-    IReadOnlyList<PromotionRankSnapshot> Promotions);
+    IReadOnlyList<PromotionRankSnapshot> Promotions)
+{
+    /// <summary>Writes one member: the class and rank they hold, and the ranks it leads to.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("index", builder.Number(Index)),
+            ("member", builder.String(Member)),
+            ("name", builder.String(Name)),
+            ("class", builder.String(Class)),
+            ("rank", builder.Number(Rank)),
+            ("promotions", builder.Array([.. Promotions.Select(rank => rank.Write(builder))])));
+}
 
 /// <summary>One member a rank was given to, as the panel reads it.</summary>
 /// <param name="Member">The member's durable identity.</param>
@@ -67,7 +107,7 @@ public readonly record struct PromotionMemberSnapshot(
 /// <param name="Rank">The rank the member now holds.</param>
 /// <param name="Choice">The alternative the rank took, empty when it is not a split of two.</param>
 /// <param name="Met">What the rank asked for and the member met, in the ladder's own order.</param>
-public readonly record struct PromotionGrantSnapshot(
+public sealed record PromotionGrantSnapshot(
     string Member,
     string Name,
     string FromClass,
@@ -75,7 +115,22 @@ public readonly record struct PromotionGrantSnapshot(
     string ToClass,
     int Rank,
     string Choice,
-    IReadOnlyList<string> Met);
+    IReadOnlyList<string> Met)
+{
+    /// <summary>Writes one rank the last promotion granted.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("member", builder.String(Member)),
+            ("name", builder.String(Name)),
+            ("fromClass", builder.String(FromClass)),
+            ("fromRank", builder.Number(FromRank)),
+            ("toClass", builder.String(ToClass)),
+            ("rank", builder.Number(Rank)),
+            ("choice", builder.String(Choice)),
+            ("met", builder.Array([.. Met.Select(builder.String)])));
+}
 
 /// <summary>One member a rank was not given to, and what they were missing.</summary>
 /// <param name="Member">The member's durable identity.</param>
@@ -83,12 +138,24 @@ public readonly record struct PromotionGrantSnapshot(
 /// <param name="Class">The class the member stands in.</param>
 /// <param name="Rank">The rank the member stands at.</param>
 /// <param name="Missing">What the rank asked for and the member did not have.</param>
-public readonly record struct PromotionDenialSnapshot(
+public sealed record PromotionDenialSnapshot(
     string Member,
     string Name,
     string Class,
     int Rank,
-    IReadOnlyList<string> Missing);
+    IReadOnlyList<string> Missing)
+{
+    /// <summary>Writes one member the last promotion refused, and what they lack.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("member", builder.String(Member)),
+            ("name", builder.String(Name)),
+            ("class", builder.String(Class)),
+            ("rank", builder.Number(Rank)),
+            ("missing", builder.Array([.. Missing.Select(builder.String)])));
+}
 
 /// <summary>What the party may become and what its last rank did, as the panel needs it.</summary>
 /// <remarks>
@@ -117,7 +184,7 @@ public readonly record struct PromotionDenialSnapshot(
 /// <param name="Denied">Who did not and what they were missing, in the party's own order.</param>
 /// <param name="Code">The last refusal's code, empty when the last rank landed or none has been asked for.</param>
 /// <param name="Message">What the last rank reported, empty before anybody has been promoted.</param>
-public readonly record struct PromotionSnapshot(
+public sealed record PromotionSnapshot(
     bool Available,
     IReadOnlyList<PromotionMemberSnapshot> Members,
     string Outcome,
@@ -296,4 +363,28 @@ public readonly record struct PromotionSnapshot(
 
         return string.Empty;
     }
+
+    /// <summary>Writes the promotion block: which ranks the party's classes lead to, and what the last rank did.</summary>
+    /// <remarks>
+    /// Every member is sent whole — the class and rank they hold and, for each rank that class leads to, the
+    /// class it names, the alternative it takes, who gives it, and everything it asks for — so a screen shows
+    /// the ladder rather than composing one from rules it would have to know. What the last rank met and what
+    /// it missed is the owner's own report, published as it stands: the judgement belongs where the party's
+    /// state is, not on the screen.
+    /// </remarks>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The block's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("available", builder.Boolean(Available)),
+            ("members", builder.Array([.. Members.Select(member => member.Write(builder))])),
+            ("outcome", builder.String(Outcome)),
+            ("promotion", builder.String(Promotion)),
+            ("toClass", builder.String(ToClass)),
+            ("rank", builder.Number(Rank)),
+            ("choice", builder.String(Choice)),
+            ("granted", builder.Array([.. Granted.Select(grant => grant.Write(builder))])),
+            ("denied", builder.Array([.. Denied.Select(denial => denial.Write(builder))])),
+            ("code", builder.String(Code)),
+            ("message", builder.String(Message)));
 }

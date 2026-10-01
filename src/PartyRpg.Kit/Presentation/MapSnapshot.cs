@@ -18,7 +18,19 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="Width">How wide the run is drawn.</param>
 /// <param name="Height">How tall one row of cells is drawn.</param>
 /// <param name="Kind">What the cells of this run are, in the game's own word.</param>
-public readonly record struct MapCellSnapshot(double X, double Y, double Width, double Height, string Kind);
+public sealed record MapCellSnapshot(double X, double Y, double Width, double Height, string Kind)
+{
+    /// <summary>Writes one run of seen cells.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The run's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("x", builder.Number(X)),
+            ("y", builder.Number(Y)),
+            ("w", builder.Number(Width)),
+            ("h", builder.Number(Height)),
+            ("kind", builder.String(Kind)));
+}
 
 /// <summary>One thing the map marks, as a screen draws it.</summary>
 /// <param name="Id">The mark's identity.</param>
@@ -27,13 +39,26 @@ public readonly record struct MapCellSnapshot(double X, double Y, double Width, 
 /// <param name="X">Where it stands across the drawing.</param>
 /// <param name="Y">Where it stands down the drawing.</param>
 /// <param name="Detected">Whether a detection is what put it here, which a screen shows differently.</param>
-public readonly record struct MapMarkSnapshot(
+public sealed record MapMarkSnapshot(
     string Id,
     string Kind,
     string Label,
     double X,
     double Y,
-    bool Detected);
+    bool Detected)
+{
+    /// <summary>Writes one mark on the drawing.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The mark's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("id", builder.String(Id)),
+            ("kind", builder.String(Kind)),
+            ("label", builder.String(Label)),
+            ("x", builder.Number(X)),
+            ("y", builder.Number(Y)),
+            ("detected", builder.Boolean(Detected)));
+}
 
 /// <summary>The drawing itself: the window the map shows, and everything in it.</summary>
 /// <remarks>
@@ -59,7 +84,7 @@ public readonly record struct MapMarkSnapshot(
 /// <param name="PartyX">Where the party stands across the drawing.</param>
 /// <param name="PartyY">Where the party stands down the drawing.</param>
 /// <param name="Facing">Which way the party faces, in degrees across the drawing.</param>
-public readonly record struct MapDrawingSnapshot(
+public sealed record MapDrawingSnapshot(
     int Rung,
     int Rungs,
     int Cells,
@@ -91,6 +116,25 @@ public readonly record struct MapDrawingSnapshot(
         PartyX + MarkRadius, PartyY + MarkRadius,
         PartyX - MarkRadius, PartyY + MarkRadius,
     ];
+
+    /// <summary>Writes the drawing: numbers in the drawing's own space, and only numbers.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The drawing's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("rung", builder.Number(Rung)),
+            ("rungs", builder.Number(Rungs)),
+            ("cells", builder.Number(Cells)),
+            ("size", builder.Number(Size)),
+            ("partyX", builder.Number(PartyX)),
+            ("partyY", builder.Number(PartyY)),
+            ("facing", builder.Number(Facing)),
+            // How large a mark and the party's marker are drawn, and the marker's own corners: a screen places
+            // them and divides nothing, so no published count can hand it a hole.
+            ("markRadius", builder.Number(MarkRadius)),
+            ("partyPoints", builder.Array([.. PartyPoints.Select(builder.Number)])),
+            ("cellsDrawn", builder.Array([.. Drawn.Select(run => run.Write(builder))])),
+            ("marks", builder.Array([.. Marks.Select(mark => mark.Write(builder))])));
 }
 
 /// <summary>Where the party is on its own map, and what that map shows.</summary>
@@ -126,7 +170,7 @@ public readonly record struct MapDrawingSnapshot(
 /// <param name="DetectionMessage">What it is revealing, in the game's own sentence, empty when none runs.</param>
 /// <param name="DetectionEnds">When that detection lapses, as a point on the calendar, empty when nothing says.</param>
 /// <param name="Drawing">The drawing, or null when there is nothing to draw.</param>
-public readonly record struct MapSnapshot(
+public sealed record MapSnapshot(
     bool Available,
     bool Mapped,
     string Title,
@@ -396,4 +440,38 @@ public readonly record struct MapSnapshot(
     /// <summary>The calendar's own form for a day, as every other block publishes dates in.</summary>
     private static string Date(Time.GameDate date) =>
         date.MinuteText;
+
+    /// <summary>Writes the automap block: what the party has mapped of the place it stands in.</summary>
+    /// <remarks>
+    /// <para>
+    /// The drawing is sent as numbers in the drawing's own space — where each run of seen cells starts, how
+    /// wide it is, what kind it is, where the party stands and which way it faces — so a screen places shapes
+    /// and computes no scale, no offset, and no position of its own. Unseen ground contributes no shape at
+    /// all, and what a detection revealed is sent as marks flagged as revealed, which is the whole of what a
+    /// detection puts on the map.
+    /// </para>
+    /// <para>
+    /// <b>A block with no drawing is published as no drawing.</b> There is nothing to draw whenever the
+    /// session holds no map owner, holds no world yet, or stands in a place content states no map for, and the
+    /// block says so with an absent drawing rather than one of zero extent — a screen handed a window of no
+    /// cells and a size of nothing would be handed a shape it can only divide into holes.
+    /// </para>
+    /// </remarks>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The block's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("available", builder.Boolean(Available)),
+            ("mapped", builder.Boolean(Mapped)),
+            ("title", builder.String(Title)),
+            ("place", builder.String(Place)),
+            ("name", builder.String(Name)),
+            ("kind", builder.String(Kind)),
+            ("state", builder.String(State)),
+            ("seen", builder.Number(Seen)),
+            ("total", builder.Number(Total)),
+            ("detection", builder.String(Detection)),
+            ("detectionMessage", builder.String(DetectionMessage)),
+            ("detectionEnds", builder.String(DetectionEnds)),
+            ("drawing", Drawing is { } shape ? shape.Write(builder) : builder.Null()));
 }

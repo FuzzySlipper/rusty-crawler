@@ -38,7 +38,7 @@ namespace PartyRpg.Kit.Presentation;
 /// <c>holding</c>, <c>attacking</c>, or <c>down</c>. Empty for the party's own members, whose doing is the
 /// player's and is published as the last order instead.
 /// </param>
-public readonly record struct CombatActorSnapshot(
+public sealed record CombatActorSnapshot(
     string Id,
     string Name,
     bool Ready,
@@ -48,7 +48,24 @@ public readonly record struct CombatActorSnapshot(
     int HitPointsMax = 0,
     string Conditions = "",
     bool Down = false,
-    string Activity = "");
+    string Activity = "")
+{
+    /// <summary>Writes one actor of a fight: who it is, whether it may act, and how long it owes.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("id", builder.String(Id)),
+            ("name", builder.String(Name)),
+            ("ready", builder.Boolean(Ready)),
+            ("recoverySeconds", builder.Number(RecoverySeconds)),
+            ("distance", builder.Number(Distance)),
+            ("hitPoints", builder.Number(HitPoints)),
+            ("hitPointsMax", builder.Number(HitPointsMax)),
+            ("conditions", builder.String(Conditions)),
+            ("down", builder.Boolean(Down)),
+            ("activity", builder.String(Activity)));
+}
 
 /// <summary>
 /// What the fight is, who is in it, and what the party's last order did.
@@ -101,7 +118,7 @@ public readonly record struct CombatActorSnapshot(
 /// something drives the opposition, so the last thing that happened may be a blow the party took; a panel
 /// that could not tell the two apart would show a wound with no author.
 /// </param>
-public readonly record struct CombatSnapshot(
+public sealed record CombatSnapshot(
     bool Available,
     bool Engaged,
     int Opposition,
@@ -287,6 +304,46 @@ public readonly record struct CombatSnapshot(
         TurnAction.Skip => "skip",
         _ => "wait",
     };
+
+    /// <summary>Writes the fight block: who is in it, who may act, and what the last order did.</summary>
+    /// <remarks>
+    /// Both sides are sent whole so the screen decides nothing: the party's members with their readiness,
+    /// and the actors fighting them. Readiness is the ready light itself — an actor may act when its recovery
+    /// has elapsed and nothing has laid it out — and the recovery is sent beside it as the length of game
+    /// time the fight holds, so the panel shows what the product says and never counts a cooldown down for
+    /// itself.
+    /// </remarks>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The block's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("available", builder.Boolean(Available)),
+            ("engaged", builder.Boolean(Engaged)),
+            ("opposition", builder.Number(Opposition)),
+            ("ready", builder.Number(Ready)),
+            // Which pacing this one fight is being played in, and the round it is in: a panel that could not
+            // tell a real-time fight from a paced one could not say why the world is waiting for it.
+            ("pacing", builder.String(SessionProjection.WireName(Pacing))),
+            ("turn", Turn is { } round ? round.Write(builder) : CombatTurnSnapshot.WriteNone(builder)),
+            ("members", builder.Array([.. Members.Select(actor => actor.Write(builder))])),
+            ("enemies", builder.Array([.. Enemies.Select(actor => actor.Write(builder))])),
+            ("actor", builder.String(Actor)),
+            ("kind", builder.String(Kind)),
+            ("target", builder.String(Target)),
+            ("outcome", builder.String(Outcome)),
+            ("code", builder.String(Code)),
+            ("message", builder.String(Message)),
+            ("recoverySeconds", builder.Number(RecoverySeconds)),
+            ("resolved", builder.Boolean(Resolved)),
+            ("hit", builder.Boolean(Hit)),
+            ("chance", builder.Number(Chance)),
+            ("damageRolled", builder.Number(DamageRolled)),
+            ("damage", builder.Number(Damage)),
+            ("damageKind", builder.String(DamageKind)),
+            ("resistance", builder.String(Resistance)),
+            ("condition", builder.String(Condition)),
+            ("targetDown", builder.Boolean(TargetDown)),
+            ("byParty", builder.Boolean(ByParty)));
 }
 
 /// <summary>
@@ -306,7 +363,7 @@ public readonly record struct CombatSnapshot(
 /// <param name="CanAct">Whether the fight leaves it able to act at all.</param>
 /// <param name="Waiting">Whether it has deferred its turn to the end of the round.</param>
 /// <param name="Current">Whether this is the actor whose turn it is.</param>
-public readonly record struct TurnOrderActorSnapshot(
+public sealed record TurnOrderActorSnapshot(
     string Id,
     string Name,
     CombatSide Side,
@@ -314,7 +371,22 @@ public readonly record struct TurnOrderActorSnapshot(
     bool Ready,
     bool CanAct,
     bool Waiting,
-    bool Current);
+    bool Current)
+{
+    /// <summary>Writes one actor of the order a paced round acts in.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("id", builder.String(Id)),
+            ("name", builder.String(Name)),
+            ("side", builder.String(SessionProjection.WireName(Side))),
+            ("remainingSeconds", builder.Number(RemainingSeconds)),
+            ("ready", builder.Boolean(Ready)),
+            ("canAct", builder.Boolean(CanAct)),
+            ("waiting", builder.Boolean(Waiting)),
+            ("current", builder.Boolean(Current)));
+}
 
 /// <summary>
 /// The round the fight is in, as the panel needs it: which phase, whose turn, and what is left to act.
@@ -343,7 +415,7 @@ public readonly record struct TurnOrderActorSnapshot(
 /// <param name="MovementSeconds">What is left of the party's movement phase.</param>
 /// <param name="Last">What the party's last committed turn did: <c>act</c>, <c>skip</c>, or <c>wait</c>, empty before one.</param>
 /// <param name="Order">The fight's actors in the order they act, ascending remaining recovery.</param>
-public readonly record struct CombatTurnSnapshot(
+public sealed record CombatTurnSnapshot(
     TurnPhase Phase,
     int Round,
     string Actor,
@@ -354,4 +426,48 @@ public readonly record struct CombatTurnSnapshot(
     double ElapsedSeconds,
     double MovementSeconds,
     string Last,
-    IReadOnlyList<TurnOrderActorSnapshot> Order);
+    IReadOnlyList<TurnOrderActorSnapshot> Order)
+{
+    /// <summary>Writes the round a paced fight is in: the phase, whose turn it is, and the order actors act in.</summary>
+    /// <remarks>
+    /// Every number here is the pacing's own — a length of game time, never a countdown the screen runs — and
+    /// the order is the fight's own reading of each actor's recovery, so a panel that shows a member due in
+    /// two seconds is showing what the fight holds rather than what the panel worked out.
+    /// </remarks>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The round's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("phase", builder.String(SessionProjection.WireName(Phase))),
+            ("round", builder.Number(Round)),
+            ("actor", builder.String(Actor)),
+            ("actorName", builder.String(ActorName)),
+            ("playerTurn", builder.Boolean(PlayerTurn)),
+            ("dueSeconds", builder.Number(DueSeconds)),
+            ("roundSeconds", builder.Number(RoundSeconds)),
+            ("elapsedSeconds", builder.Number(ElapsedSeconds)),
+            ("movementSeconds", builder.Number(MovementSeconds)),
+            ("last", builder.String(Last)),
+            ("order", builder.Array([.. Order.Select(actor => actor.Write(builder))])));
+
+    /// <summary>Writes the round of a fight no round is under way in, which is what the real-time pacing is.</summary>
+    /// <remarks>
+    /// The fields are the round's own, each in its empty reading: no phase, no actor, and zeros. "No round" is
+    /// told apart from a paced round in its first instant by the empty phase, which no pacing ever publishes.
+    /// </remarks>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The round's node.</returns>
+    internal static uint WriteNone(UiValueBuilder builder) =>
+        builder.Object(
+            ("phase", builder.String(string.Empty)),
+            ("round", builder.Number(0)),
+            ("actor", builder.String(string.Empty)),
+            ("actorName", builder.String(string.Empty)),
+            ("playerTurn", builder.Boolean(false)),
+            ("dueSeconds", builder.Number(0)),
+            ("roundSeconds", builder.Number(0)),
+            ("elapsedSeconds", builder.Number(0)),
+            ("movementSeconds", builder.Number(0)),
+            ("last", builder.String(string.Empty)),
+            ("order", builder.Array()));
+}

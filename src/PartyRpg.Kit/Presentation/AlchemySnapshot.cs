@@ -16,13 +16,26 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="Kind">How the game reads the row: a potion, a reagent, the bottle, or the catalyst.</param>
 /// <param name="Potency">How strong the instance is, zero when nothing has stated a strength for it.</param>
 /// <param name="Count">How many of the definition the instance carries.</param>
-public readonly record struct AlchemyItemSnapshot(
+public sealed record AlchemyItemSnapshot(
     string Item,
     string Definition,
     string Name,
     string Kind,
     int Potency,
-    int Count);
+    int Count)
+{
+    /// <summary>Writes one item in the pack that mixes.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("item", builder.String(Item)),
+            ("definition", builder.String(Definition)),
+            ("name", builder.String(Name)),
+            ("kind", builder.String(Kind)),
+            ("potency", builder.Number(Potency)),
+            ("count", builder.Number(Count)));
+}
 
 /// <summary>One mixture the pack currently offers, as the panel shows it.</summary>
 /// <remarks>
@@ -43,11 +56,22 @@ public readonly record struct AlchemyItemSnapshot(
 /// <param name="Second">The other ingredient, as the pack holds it.</param>
 /// <param name="FirstName">What a person reads for the first.</param>
 /// <param name="SecondName">What a person reads for the second.</param>
-public readonly record struct AlchemyMixtureSnapshot(
+public sealed record AlchemyMixtureSnapshot(
     string First,
     string Second,
     string FirstName,
-    string SecondName);
+    string SecondName)
+{
+    /// <summary>Writes one pair the pack holds that mixes.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("first", builder.String(First)),
+            ("second", builder.String(Second)),
+            ("firstName", builder.String(FirstName)),
+            ("secondName", builder.String(SecondName)));
+}
 
 /// <summary>What the last mixture did, or why nothing was mixed, as the panel shows it.</summary>
 /// <remarks>
@@ -69,7 +93,7 @@ public readonly record struct AlchemyMixtureSnapshot(
 /// <param name="Note">The discovery the mixture records, zero when the game states none.</param>
 /// <param name="Code">The outcome's own code, which a screen may key on.</param>
 /// <param name="Message">What happened, in a sentence a person reads.</param>
-public readonly record struct AlchemyOutcomeSnapshot(
+public sealed record AlchemyOutcomeSnapshot(
     int Member,
     string Mixer,
     string Outcome,
@@ -81,7 +105,26 @@ public readonly record struct AlchemyOutcomeSnapshot(
     string Condition,
     int Note,
     string Code,
-    string Message);
+    string Message)
+{
+    /// <summary>Writes what the last mixture did.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The outcome's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("member", builder.Number(Member)),
+            ("mixer", builder.String(Mixer)),
+            ("outcome", builder.String(Outcome)),
+            ("result", builder.String(Result)),
+            ("resultName", builder.String(ResultName)),
+            ("power", builder.Number(Power)),
+            ("burst", builder.Number(Burst)),
+            ("harm", builder.Number(Harm)),
+            ("condition", builder.String(Condition)),
+            ("note", builder.Number(Note)),
+            ("code", builder.String(Code)),
+            ("message", builder.String(Message)));
+}
 
 /// <summary>One character, as the pack screen's own chooser names them.</summary>
 /// <remarks>
@@ -93,7 +136,18 @@ public readonly record struct AlchemyOutcomeSnapshot(
 /// <param name="Member">The character's durable identity.</param>
 /// <param name="Name">What the character is called.</param>
 /// <param name="Alchemy">How far up the mixing skill's ladder they stand, as this game counts rungs.</param>
-public readonly record struct AlchemyMemberSnapshot(int Index, string Member, string Name, int Alchemy);
+public sealed record AlchemyMemberSnapshot(int Index, string Member, string Name, int Alchemy)
+{
+    /// <summary>Writes one member and the rung of mixing they stand at.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("index", builder.Number(Index)),
+            ("member", builder.String(Member)),
+            ("name", builder.String(Name)),
+            ("alchemy", builder.Number(Alchemy)));
+}
 
 /// <summary>The alchemy the pack screen shows: what can be mixed, and what the last mixture did.</summary>
 /// <remarks>
@@ -114,7 +168,7 @@ public readonly record struct AlchemyMemberSnapshot(int Index, string Member, st
 /// <param name="Items">The pack's own things that take part in a mixture, in the order the pack holds them.</param>
 /// <param name="Mixtures">The pairs the pack currently offers, in pack order.</param>
 /// <param name="Outcome">What the last mixture did, or null when nothing has been mixed.</param>
-public readonly record struct AlchemySnapshot(
+public sealed record AlchemySnapshot(
     bool Available,
     IReadOnlyList<AlchemyMemberSnapshot> Members,
     IReadOnlyList<AlchemyItemSnapshot> Items,
@@ -191,6 +245,29 @@ public readonly record struct AlchemySnapshot(
 
         return new AlchemySnapshot(true, members, items, mixtures, outcome);
     }
+
+    /// <summary>The outcome row of a block no mixture has been tried in: every field in its empty reading.</summary>
+    private static readonly AlchemyOutcomeSnapshot NoOutcome =
+        new(0, string.Empty, string.Empty, string.Empty, string.Empty, 0, 0, 0, string.Empty, 0, string.Empty, string.Empty);
+
+    /// <summary>Writes the alchemy block: what in the pack mixes, and what the last mixture did.</summary>
+    /// <remarks>
+    /// The pairs are sent as the two instance identities the pack holds, so a screen sends back exactly what
+    /// it drew and the session resolves it against the pack it holds inside the same update. Nothing about
+    /// what a pair will do is published: the game's own table is what a player learns, and the outcome row is
+    /// where an attempt's own answer arrives.
+    /// </remarks>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The block's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("available", builder.Boolean(Available)),
+            ("members", builder.Array([.. Members.Select(member => member.Write(builder))])),
+            ("items", builder.Array([.. Items.Select(item => item.Write(builder))])),
+            ("mixtures", builder.Array([.. Mixtures.Select(mixture => mixture.Write(builder))])),
+            // A mixture is put together by a member, so one is offered while there is somebody to mix it.
+            ("canMix", builder.Boolean(Members.Count > 0)),
+            ("outcome", (Outcome ?? NoOutcome).Write(builder)));
 }
 
 /// <summary>What kind of thing a definition is, for a screen that names the rows it draws.</summary>

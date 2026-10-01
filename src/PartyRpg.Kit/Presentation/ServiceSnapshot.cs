@@ -9,13 +9,29 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="Count">How many are left on the shelves.</param>
 /// <param name="Price">What one costs the party.</param>
 /// <param name="IsSale">Whether the counter is reselling something it bought from the party.</param>
-public readonly record struct ServiceStockSnapshot(
+public sealed record ServiceStockSnapshot(
     string Lot,
     string Item,
     string Name,
     int Count,
     int Price,
-    bool IsSale);
+    bool IsSale)
+{
+    /// <summary>Writes one lot on the shelves.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <param name="buys">Whether the counter the party stands at takes a purchase at all.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder, bool buys) =>
+        builder.Object(
+            ("lot", builder.String(Lot)),
+            ("item", builder.String(Item)),
+            ("name", builder.String(Name)),
+            ("count", builder.Number(Count)),
+            ("price", builder.Number(Price)),
+            ("sale", builder.Boolean(IsSale)),
+            // A lot the counter has sold out of is still a row, and one a purchase would be refused on.
+            ("canBuy", builder.Boolean(buys && Count > 0)));
+}
 
 /// <summary>One lesson a service teaches, as the panel shows it.</summary>
 /// <param name="Kind">Whether the lesson grants a skill or a party-wide effect, as the wire spells it.</param>
@@ -24,13 +40,29 @@ public readonly record struct ServiceStockSnapshot(
 /// <param name="Amount">The skill level the lesson reaches, or the effect's magnitude.</param>
 /// <param name="Price">What the lesson costs the party.</param>
 /// <param name="Tier">The rung of a skill's ladder the lesson leaves a member at, where one is the first.</param>
-public readonly record struct ServiceLessonSnapshot(
+public sealed record ServiceLessonSnapshot(
     string Kind,
     string Subject,
     string Name,
     int Amount,
     int Price,
-    int Tier);
+    int Tier)
+{
+    /// <summary>Writes one lesson the counter teaches.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("kind", builder.String(Kind)),
+            ("subject", builder.String(Subject)),
+            ("name", builder.String(Name)),
+            ("amount", builder.Number(Amount)),
+            ("price", builder.Number(Price)),
+            // The rung is published because two lessons of one skill are two rows on the screen: a
+            // teach command names the subject and the rung together, and the row a player pressed is
+            // the row it sends back.
+            ("tier", builder.Number(Tier)));
+}
 
 /// <summary>One of the party's own items, as a service that would buy it shows it.</summary>
 /// <param name="Item">The instance's durable identity, which a sell command names.</param>
@@ -39,13 +71,34 @@ public readonly record struct ServiceLessonSnapshot(
 /// <param name="Price">What the counter would pay the party for it.</param>
 /// <param name="Damage">How damaged the instance is; zero is sound.</param>
 /// <param name="Identified">Whether the party knows what it is.</param>
-public readonly record struct ServiceSaleSnapshot(
+public sealed record ServiceSaleSnapshot(
     string Item,
     string Definition,
     string Name,
     int Price,
     int Damage,
-    bool Identified);
+    bool Identified)
+{
+    /// <summary>Writes one of the party's items the counter would buy.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("item", builder.String(Item)),
+            ("definition", builder.String(Definition)),
+            ("name", builder.String(Name)),
+            ("price", builder.Number(Price)),
+            ("damage", builder.Number(Damage)),
+            ("identified", builder.Boolean(Identified)));
+
+    /// <summary>Writes this item as one a counter would work on: which instance, and what it is called.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint WriteHeld(UiValueBuilder builder) =>
+        builder.Object(
+            ("item", builder.String(Item)),
+            ("name", builder.String(Name)));
+}
 
 /// <summary>One thing a counter offers besides goods and lessons, as the panel shows it.</summary>
 /// <remarks>
@@ -59,17 +112,50 @@ public readonly record struct ServiceSaleSnapshot(
 /// <param name="Name">What a person reads for it.</param>
 /// <param name="Amount">How much of the subject there is: the days a passage takes, the portions a provision fills, the hours a room lasts.</param>
 /// <param name="Price">What the counter charges the party for it.</param>
-public readonly record struct ServiceOfferSnapshot(
+public sealed record ServiceOfferSnapshot(
     string Kind,
     string Subject,
     string Name,
     int Amount,
-    int Price);
+    int Price)
+{
+    /// <summary>Writes one other offer the counter makes.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("kind", builder.String(Kind)),
+            // The subject is what a command naming the offer names — the place a passage reaches, the
+            // condition a cure removes — so a row a player presses sends back the thing it was about
+            // rather than a position in a list that the next browse could reorder.
+            ("subject", builder.String(Subject)),
+            ("name", builder.String(Name)),
+            ("amount", builder.Number(Amount)),
+            ("price", builder.Number(Price)));
+
+    /// <summary>Writes this offer as a passage a screen has a command for.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint WriteFare(UiValueBuilder builder) =>
+        builder.Object(
+            ("subject", builder.String(Subject)),
+            ("name", builder.String(Name)),
+            ("price", builder.Number(Price)));
+}
 
 /// <summary>One member a lesson could be taught to.</summary>
 /// <param name="Index">The member's place in the party, counted from zero, which a teach command names.</param>
 /// <param name="Name">What the member is called.</param>
-public readonly record struct ServiceMemberSnapshot(int Index, string Name);
+public sealed record ServiceMemberSnapshot(int Index, string Name)
+{
+    /// <summary>Writes one member a lesson could go to.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("index", builder.Number(Index)),
+            ("name", builder.String(Name)));
+}
 
 /// <summary>What the party is doing at a service, as the panel needs it.</summary>
 /// <remarks>
@@ -109,7 +195,7 @@ public readonly record struct ServiceMemberSnapshot(int Index, string Name);
 /// <param name="Paid">How many coins the last command took from the party's purse.</param>
 /// <param name="Earned">How many coins the last command put into it.</param>
 /// <param name="Coins">What the party's one purse holds, as the service mechanism reads it.</param>
-public readonly record struct ServiceSnapshot(
+public sealed record ServiceSnapshot(
     bool Available,
     bool Open,
     string Id,
@@ -271,4 +357,66 @@ public readonly record struct ServiceSnapshot(
         ServiceLessonKind.Membership => "membership",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown lesson kind."),
     };
+
+    /// <summary>Writes the service block: which counter the party stands at, what it offers, and what happened.</summary>
+    /// <remarks>
+    /// Every list is sent whole so the screen decides nothing: the shelves with their prices, the lessons
+    /// with their fees, what the counter would buy from the party, and which members a lesson could go to.
+    /// </remarks>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The block's node.</returns>
+    internal uint Write(UiValueBuilder builder)
+    {
+        // Which commands the counter takes is its own list of operations, read once here: a screen offers a
+        // row's command when the product says the counter takes it, and never decides that from a word itself.
+        bool buys = Takes(ServiceOperationKind.Buy);
+        bool sells = Takes(ServiceOperationKind.Sell);
+        bool identifies = Takes(ServiceOperationKind.Identify);
+        bool repairs = Takes(ServiceOperationKind.Repair);
+        bool teaches = Takes(ServiceOperationKind.Teach);
+
+        // What the counter would identify and what it would mend are the party's own items it has a use for:
+        // an item already known is not one to identify, and one that is whole is not one to repair.
+        IEnumerable<ServiceSaleSnapshot> identify = identifies ? Sales.Where(offer => !offer.Identified) : [];
+        IEnumerable<ServiceSaleSnapshot> repair = repairs ? Sales.Where(offer => offer.Damage > 0) : [];
+
+        // A passage is the one offer besides goods and lessons a screen has a command for, so the passages are
+        // published as their own list: which rows a player can press is the product's reading of its own kinds.
+        string fare = WireName(ServiceOfferKind.Fare);
+        IEnumerable<ServiceOfferSnapshot> fares = Open ? Offers.Where(offer => string.Equals(offer.Kind, fare, StringComparison.Ordinal)) : [];
+
+        return builder.Object(
+            ("available", builder.Boolean(Available)),
+            ("open", builder.Boolean(Open)),
+            ("id", builder.String(Id)),
+            ("kind", builder.String(Kind)),
+            ("name", builder.String(Name)),
+            ("proprietor", builder.String(Proprietor)),
+            ("state", builder.String(State)),
+            ("hours", builder.String(Hours)),
+            ("operations", builder.Array([.. Operations.Select(builder.String)])),
+            ("memberships", builder.Array([.. Memberships.Select(builder.String)])),
+            ("stock", builder.Array([.. Stock.Select(offer => offer.Write(builder, buys))])),
+            ("lessons", builder.Array([.. Lessons.Select(offer => offer.Write(builder))])),
+            ("offers", builder.Array([.. Offers.Select(offer => offer.Write(builder))])),
+            ("sales", builder.Array([.. Sales.Select(offer => offer.Write(builder))])),
+            ("members", builder.Array([.. Members.Select(member => member.Write(builder))])),
+            ("identify", builder.Array([.. identify.Select(offer => offer.WriteHeld(builder))])),
+            ("repair", builder.Array([.. repair.Select(offer => offer.WriteHeld(builder))])),
+            ("fares", builder.Array([.. fares.Select(offer => offer.WriteFare(builder))])),
+            ("canBuy", builder.Boolean(buys)),
+            ("canSell", builder.Boolean(sells)),
+            ("canTeach", builder.Boolean(teaches)),
+            ("action", builder.String(Action)),
+            ("outcome", builder.String(Outcome)),
+            ("code", builder.String(Code)),
+            ("message", builder.String(Message)),
+            ("paid", builder.Number(Paid)),
+            ("earned", builder.Number(Earned)),
+            ("coins", builder.Number(Coins)));
+    }
+
+    /// <summary>Whether the counter a visit has open carries out one operation.</summary>
+    private bool Takes(ServiceOperationKind operation) =>
+        Open && Operations.Contains(PartyServices.WireName(operation), StringComparer.Ordinal);
 }

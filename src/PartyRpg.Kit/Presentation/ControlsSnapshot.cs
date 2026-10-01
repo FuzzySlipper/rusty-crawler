@@ -100,7 +100,17 @@ public sealed record ControlKeys
 /// <param name="Action">The payload action the control sends, empty when there is nothing for it to ask.</param>
 /// <param name="Enabled">Whether the product would take the control now, which is when a screen offers it.</param>
 /// <param name="Key">The key the host bound it to, as a person reads it, empty when none.</param>
-public readonly record struct ControlSnapshot(string Action, bool Enabled, string Key);
+public sealed record ControlSnapshot(string Action, bool Enabled, string Key)
+{
+    /// <summary>Writes one control: its action, whether it is offered, and its key.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The control's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("action", builder.String(Action)),
+            ("enabled", builder.Boolean(Enabled)),
+            ("key", builder.String(Key)));
+}
 
 /// <summary>Every control a panel offers outside a list, with whether the product would take it now.</summary>
 /// <remarks>
@@ -116,7 +126,7 @@ public readonly record struct ControlSnapshot(string Action, bool Enabled, strin
 /// they belong to; these are the ones that stand on their own.
 /// </para>
 /// </remarks>
-public readonly record struct ControlsSnapshot(
+public sealed record ControlsSnapshot(
     ControlSnapshot Pause,
     ControlSnapshot Save,
     ControlSnapshot Use,
@@ -139,7 +149,7 @@ public readonly record struct ControlsSnapshot(
     /// <returns>Each control's action, whether it is offered, and its key.</returns>
     public static ControlsSnapshot Read(SessionSnapshot snapshot)
     {
-        ControlKeys keys = snapshot.Keys ?? ControlKeys.None;
+        ControlKeys keys = snapshot.Keys;
         SessionMode mode = snapshot.Mode;
 
         // The pause control asks for whichever of the two a press would do: a paced fight is a running session
@@ -198,4 +208,26 @@ public readonly record struct ControlsSnapshot(
             new(CreationActions.Advance, creating, keys.CreationAdvance),
             new(CreationActions.Accept, creating, keys.CreationAccept));
     }
+
+    /// <summary>Writes the controls block: each stand-alone control's action, whether it is offered, and its key.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The block's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("pause", Pause.Write(builder)),
+            ("save", Save.Write(builder)),
+            ("use", Use.Write(builder)),
+            ("attack", Attack.Write(builder)),
+            ("turnBased", TurnBased.Write(builder)),
+            ("turnSkip", TurnSkip.Write(builder)),
+            ("turnWait", TurnWait.Write(builder)),
+            ("rest", Rest.Write(builder)),
+            ("camp", Camp.Write(builder)),
+            ("waitDawn", WaitDawn.Write(builder)),
+            ("waitHour", WaitHour.Write(builder)),
+            ("waitFiveMinutes", WaitFiveMinutes.Write(builder)),
+            ("serviceLeave", ServiceLeave.Write(builder)),
+            ("conversationLeave", ConversationLeave.Write(builder)),
+            ("creationAdvance", CreationAdvance.Write(builder)),
+            ("creationAccept", CreationAccept.Write(builder)));
 }

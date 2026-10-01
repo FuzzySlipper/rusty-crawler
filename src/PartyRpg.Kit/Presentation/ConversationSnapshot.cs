@@ -7,20 +7,52 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="Name">What the person is called.</param>
 /// <param name="Portrait">The portrait content gives them, empty when it gives none.</param>
 /// <param name="Speaking">Whether this is the person speaking now.</param>
-public readonly record struct ConversationPersonSnapshot(string Id, string Name, string Portrait, bool Speaking);
+public sealed record ConversationPersonSnapshot(string Id, string Name, string Portrait, bool Speaking)
+{
+    /// <summary>Writes one person present.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("id", builder.String(Id)),
+            ("name", builder.String(Name)),
+            ("portrait", builder.String(Portrait)),
+            ("speaking", builder.Boolean(Speaking)));
+}
 
 /// <summary>One topic a speaker has, as the panel shows it.</summary>
 /// <param name="Id">The topic's identity, which a topic command names.</param>
 /// <param name="Label">How the topic reads in the list.</param>
 /// <param name="Available">Whether the topic may be chosen now.</param>
 /// <param name="Reason">Why it may not, empty when it may.</param>
-public readonly record struct ConversationTopicSnapshot(string Id, string Label, bool Available, string Reason);
+public sealed record ConversationTopicSnapshot(string Id, string Label, bool Available, string Reason)
+{
+    /// <summary>Writes one topic, on offer or withheld.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("id", builder.String(Id)),
+            ("label", builder.String(Label)),
+            ("available", builder.Boolean(Available)),
+            ("reason", builder.String(Reason)));
+}
 
 /// <summary>One thing said while the conversation has been open, as the panel shows it.</summary>
 /// <param name="Speaker">Who said it.</param>
 /// <param name="Text">What was said.</param>
 /// <param name="Residue">What saying it could not carry out, empty when it carried all of it.</param>
-public readonly record struct ConversationLineSnapshot(string Speaker, string Text, string Residue);
+public sealed record ConversationLineSnapshot(string Speaker, string Text, string Residue)
+{
+    /// <summary>Writes one line said so far.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("speaker", builder.String(Speaker)),
+            ("text", builder.String(Text)),
+            ("residue", builder.String(Residue)));
+}
 
 /// <summary>What the party is saying, and to whom, as the panel needs it.</summary>
 /// <remarks>
@@ -53,7 +85,7 @@ public readonly record struct ConversationLineSnapshot(string Speaker, string Te
 /// <param name="Residue">What the last answer could not carry out, empty when it carried all of it.</param>
 /// <param name="Handoff">The owner the party was last handed to, empty when it was handed to nobody.</param>
 /// <param name="Topic">The topic the last answer came from, empty when none did.</param>
-public readonly record struct ConversationSnapshot(
+public sealed record ConversationSnapshot(
     bool Available,
     bool Open,
     string Subject,
@@ -148,4 +180,30 @@ public readonly record struct ConversationSnapshot(
             Handoff: last?.Handoff?.ToString() ?? string.Empty,
             Topic: last?.Topic ?? string.Empty);
     }
+
+    /// <summary>Writes the conversation block: who is here, what was said, and what may be asked about.</summary>
+    /// <remarks>
+    /// Every list is sent whole so the screen decides nothing: the people present, the topics on offer, the
+    /// topics the state withholds with the reason each is withheld, and what has been said so far.
+    /// </remarks>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The block's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("available", builder.Boolean(Available)),
+            ("open", builder.Boolean(Open)),
+            ("subject", builder.String(Subject)),
+            ("speaker", builder.String(Speaker)),
+            ("greeting", builder.String(Greeting)),
+            ("people", builder.Array([.. People.Select(person => person.Write(builder))])),
+            ("topics", builder.Array([.. Topics.Select(topic => topic.Write(builder))])),
+            ("withheld", builder.Array([.. Withheld.Select(topic => topic.Write(builder))])),
+            ("said", builder.Array([.. Said.Select(line => line.Write(builder))])),
+            ("action", builder.String(Action)),
+            ("outcome", builder.String(Outcome)),
+            ("code", builder.String(Code)),
+            ("message", builder.String(Message)),
+            ("residue", builder.String(Residue)),
+            ("handoff", builder.String(Handoff)),
+            ("topic", builder.String(Topic)));
 }

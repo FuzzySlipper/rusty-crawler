@@ -43,7 +43,7 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="Tired">Whether the party currently carries the state going without sleep puts on it.</param>
 /// <param name="FatigueDue">When the debt of sleep next falls due, empty while the party is asleep.</param>
 /// <param name="FatigueLanded">How many times the debt has fallen due since the session began.</param>
-public readonly record struct RestSnapshot(
+public sealed record RestSnapshot(
     bool Available,
     string Kind,
     string Outcome,
@@ -131,4 +131,34 @@ public readonly record struct RestSnapshot(
         at is not { Year: > 0 } moment
             ? string.Empty
             : moment.MinuteText;
+
+    /// <summary>Writes the rest block: what the last stop did, what it cost, and what sleep debt stands.</summary>
+    /// <remarks>
+    /// Every fact is the mechanism's own: the kind asked for, the refusal's code and sentence, where the
+    /// clock went, what the larder was charged and covered, whether a night was broken, which conditions a
+    /// completed sleep cleared, and when the debt of sleep next falls due.
+    /// </remarks>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The block's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("available", builder.Boolean(Available)),
+            ("kind", builder.String(Kind)),
+            ("outcome", builder.String(Outcome)),
+            ("code", builder.String(Code)),
+            ("message", builder.String(Message)),
+            ("from", builder.String(From)),
+            ("to", builder.String(To)),
+            ("elapsedSeconds", builder.Number(ElapsedSeconds)),
+            ("charged", builder.Number(Charged)),
+            ("covered", builder.Number(Covered)),
+            ("unit", builder.String(Unit)),
+            ("interrupted", builder.Boolean(Interrupted)),
+            ("recovered", builder.Boolean(Recovered)),
+            ("restored", builder.Number(Restored)),
+            ("cleared", builder.String(Cleared)),
+            ("shortage", builder.String(Shortage)),
+            ("tired", builder.Boolean(Tired)),
+            ("fatigueDue", builder.String(FatigueDue)),
+            ("fatigueLanded", builder.Number(FatigueLanded)));
 }

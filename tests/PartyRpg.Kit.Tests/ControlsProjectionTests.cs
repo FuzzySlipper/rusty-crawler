@@ -23,9 +23,7 @@ public sealed class ControlsProjectionTests
 {
     private static readonly SessionComposition Composition = new(new RulesetId("test.ruleset"), "Test Ruleset");
 
-    private static readonly ControlsSnapshot None = default;
-
-    private static SessionSnapshot Session(SessionMode mode) => new(Composition, mode, 0, 0, WorldSnapshot.Empty);
+    private static SessionSnapshot Session(SessionMode mode) => SessionSnapshots.Bare(Composition, mode, WorldSnapshot.Empty);
 
     private static CombatSnapshot Fight(int ready, CombatPacing pacing = CombatPacing.RealTime, CombatTurnSnapshot? turn = null) => new(
         Available: true,
@@ -150,7 +148,6 @@ public sealed class ControlsProjectionTests
         Assert.Equal("Escape", controls.ConversationLeave.Key);
         // A control the host bound to no key has none, and a screen names its button alone.
         Assert.Equal(string.Empty, controls.Rest.Key);
-        Assert.NotEqual(None, controls);
 
         // The projection publishes the same answers.
         ProjectedNode published = Project(Session(SessionMode.Running) with { Keys = keys }).Field(SessionProjection.ControlsField);

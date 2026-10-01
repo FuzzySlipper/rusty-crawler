@@ -13,125 +13,81 @@ namespace PartyRpg.Kit.Presentation;
 
 /// <summary>
 /// One complete session presentation: what the session is, what mode it is in, the admitted simulation
-/// it has measured so far, where the party is and what its last movement step did, where the game clock
-/// stands, and what the party's own accounts hold. Every value here is owned by one of those owners; none
-/// of it is a placeholder for a mechanism that does not exist yet.
+/// it has measured so far, and every block the projection publishes, each read from the owner that holds
+/// its facts. Every value here is owned by one of those owners; none of it is a placeholder for a mechanism
+/// that does not exist yet.
 /// </summary>
+/// <remarks>
+/// Every block is required and every block is a reference: a snapshot cannot be built without a reading of
+/// each one, so no block reaches <see cref="SessionProjection.Build"/> as a value nobody read. A session
+/// without a mechanism passes that block's own no-mechanism value (each block's <c>None</c>), which says the
+/// mechanism is not there rather than showing an empty one that looks like a quiet street.
+/// </remarks>
 /// <param name="Composition">The compiled ruleset this session runs.</param>
 /// <param name="Mode">The session's mode.</param>
 /// <param name="SimulationSeconds">Admitted simulation time accumulated while running.</param>
 /// <param name="AdmittedSteps">Admitted fixed steps accumulated while running.</param>
 /// <param name="World">Where the party is, or an empty world when the session has no places loaded.</param>
 /// <param name="Movement">
-/// What the party's last admitted step did, or no facts at all when the session has no movement to
-/// report — a session without a world, or one whose party has not stepped yet. The default is that
-/// empty value, so a snapshot built without movement facts publishes a panel that says so rather than
-/// one that claims the way is clear.
+/// What the party's last admitted step did, or no facts at all when the session has no movement to report —
+/// a session without a world, or one whose party has not stepped yet — so the panel says so rather than
+/// claiming the way is clear.
 /// </param>
 /// <param name="Clock">
-/// Where the session's one clock stands, or the not-known value when its ruleset composed none. It is
-/// defaulted for the same reason movement is: a snapshot built without a clock publishes a panel that says
-/// it does not know the date rather than one that shows a date nobody kept.
+/// Where the session's one clock stands, or the not-known value when its ruleset composed none, so the panel
+/// says it does not know the date rather than showing a date nobody kept.
 /// </param>
 /// <param name="Party">
-/// The party's accounts and standing, or the not-known value when the session holds no party — which is
-/// what content that declares neither members nor starting values gets. Defaulted, so a session without a
-/// party publishes that rather than an empty purse it invented.
+/// The party's accounts and standing, or the not-known value when the session holds no party — which is what
+/// content that declares neither members nor starting values gets — rather than an empty purse it invented.
 /// </param>
 /// <param name="Creation">
-/// What the session is creating, or null when it is doing neither that nor playing a party it accepted.
-/// Defaulted for the same reason the party is: a session that creates nothing publishes that rather than a
-/// screen that shows an unfinished party nobody is making, and a snapshot built without creation facts
-/// publishes the empty screen rather than a draft with no lists in it.
+/// What the session is creating or the party it plays, or the empty screen when it is doing neither, rather
+/// than a screen that shows an unfinished party nobody is making.
 /// </param>
-/// <param name="Save">
-/// How the session stands with its save slot, or the never-saved state when a snapshot carries no save
-/// facts. Defaulted for the same reason the clock is: a session that has saved nothing publishes that
-/// rather than an outcome nobody produced.
-/// </param>
-/// <param name="Interaction">
-/// What the party faces and what using it did, or the no-mechanism value when the session holds no
-/// interaction at all. Defaulted for the same reason the others are: a session whose ruleset composed no
-/// interaction publishes that rather than an empty reticle that looks like an empty room.
-/// </param>
-/// <param name="Service">
-/// What the party is doing at a service, or the no-mechanism value when the session holds none. Defaulted
-/// for the same reason the others are: a session whose ruleset answered no service policy publishes that
-/// rather than a counter with nothing on it.
-/// </param>
-/// <param name="Rest">
-/// What the party's last stop did and what going without sleep is doing to it, or the no-mechanism value
-/// when the session holds no rest mechanism. Defaulted for the same reason the others are: a session whose
-/// ruleset answered no rest policy publishes that rather than a rest that never happened.
-/// </param>
-/// <param name="Conversation">
-/// What the party is saying and to whom, or the no-mechanism value when the session holds no conversation
-/// mechanism. Defaulted for the same reason the others are: a session whose ruleset answered no dialogue
-/// policy publishes that rather than an empty conversation that looks like somebody with nothing to say.
-/// </param>
-/// <param name="Combat">
-/// Who is fighting, who may act, and what the party's last order did, or the no-mechanism value when the
-/// session holds no fight. Defaulted for the same reason the others are: a session whose ruleset answered no
-/// combat policy publishes that rather than a quiet street that looks like a fight nobody can see.
-/// </param>
-/// <param name="Progression">
-/// What the party has earned and what a level costs, or the no-owner value when the session holds none.
-/// Defaulted for the same reason the others are: a session whose ruleset answered no progression policy
-/// publishes that rather than a party whose levels nothing could rise.
-/// </param>
-/// <param name="Promotion">
-/// Which ranks the party's classes lead to and what the last rank did, or the no-ladder value when the
-/// session's ruleset stated none. Defaulted for the same reason the others are: a session whose ruleset
-/// answered no ladder publishes that rather than a party nothing could ever promote.
-/// </param>
-/// <param name="Magic">
-/// What the party can cast and what the last casting did, or the no-magic value when the session holds no
-/// spell policy. Defaulted for the same reason the others are: a session whose ruleset answered no magic
-/// publishes that rather than a spellbook nothing could cast from.
-/// </param>
-/// <param name="Quests">
-/// What the party's journal holds and what its last errand did, or the no-owner value when the session's
-/// ruleset stated no quests. Defaulted for the same reason the others are: a session whose ruleset answered
-/// no quest policy publishes that rather than a journal nobody fills.
-/// </param>
-/// <param name="Journal">
-/// The five books and what each holds, or the no-journal value when the session holds no journal owner.
-/// Defaulted for the same reason the others are: a session whose ruleset stated no journal publishes that
-/// rather than five empty books that look like a party which has been nowhere and done nothing.
-/// </param>
-/// <param name="Map">
-/// What the party has mapped of the place it stands in, or the no-map value when the session's ruleset stated no
-/// automap.
-/// </param>
+/// <param name="Save">How the session stands with its save slot, the never-saved state until a save is asked for.</param>
+/// <param name="Interaction">What the party faces and what using it did, or the no-mechanism value.</param>
+/// <param name="Service">What the party is doing at a service, or the no-mechanism value.</param>
+/// <param name="Rest">What the party's last stop did and what going without sleep is doing to it, or the no-mechanism value.</param>
+/// <param name="Conversation">What the party is saying and to whom, or the no-mechanism value.</param>
+/// <param name="Combat">Who is fighting, who may act, and what the party's last order did, or the no-mechanism value.</param>
+/// <param name="Progression">What the party has earned and what a level costs, or the no-owner value.</param>
+/// <param name="Promotion">Which ranks the party's classes lead to and what the last rank did, or the no-ladder value.</param>
+/// <param name="Skills">Each member's skills, their ceilings, and what a raise would buy, or the no-policy value.</param>
+/// <param name="Magic">What the party can cast and what the last casting did, or the no-magic value.</param>
+/// <param name="Alchemy">What in the pack mixes and what the last mixture did, or the no-mixtures value.</param>
+/// <param name="Quests">What the party's journal holds and what its last errand did, or the no-owner value.</param>
+/// <param name="Journal">The five books and what each holds, or the no-journal value.</param>
+/// <param name="Map">What the party has mapped of the place it stands in, or the no-map value.</param>
 /// <param name="Keys">
-/// The keys the host bound its controls to, or none when it bound none. Defaulted, so a session a host gave no
-/// keys publishes controls a screen names by their buttons alone rather than keys nobody pressed.
+/// The keys the host bound its controls to, <see cref="ControlKeys.None"/> when it bound none, so a screen names
+/// those controls by their buttons alone rather than by keys nobody pressed.
 /// </param>
-public readonly record struct SessionSnapshot(
+public sealed record SessionSnapshot(
     SessionComposition Composition,
     SessionMode Mode,
     double SimulationSeconds,
     ulong AdmittedSteps,
     WorldSnapshot World,
-    MovementSnapshot Movement = default,
-    ClockSnapshot Clock = default,
-    PartySnapshot Party = default,
-    CreationSnapshot? Creation = null,
-    SaveSnapshot Save = default,
-    InteractionSnapshot Interaction = default,
-    ServiceSnapshot Service = default,
-    RestSnapshot Rest = default,
-    ConversationSnapshot Conversation = default,
-    CombatSnapshot Combat = default,
-    ProgressionSnapshot Progression = default,
-    PromotionSnapshot Promotion = default,
-    SkillsSnapshot Skills = default,
-    MagicSnapshot Magic = default,
-    AlchemySnapshot Alchemy = default,
-    QuestSnapshot Quests = default,
-    JournalSnapshot Journal = default,
-    MapSnapshot Map = default,
-    ControlKeys? Keys = null);
+    MovementSnapshot Movement,
+    ClockSnapshot Clock,
+    PartySnapshot Party,
+    CreationSnapshot Creation,
+    SaveSnapshot Save,
+    InteractionSnapshot Interaction,
+    ServiceSnapshot Service,
+    RestSnapshot Rest,
+    ConversationSnapshot Conversation,
+    CombatSnapshot Combat,
+    ProgressionSnapshot Progression,
+    PromotionSnapshot Promotion,
+    SkillsSnapshot Skills,
+    MagicSnapshot Magic,
+    AlchemySnapshot Alchemy,
+    QuestSnapshot Quests,
+    JournalSnapshot Journal,
+    MapSnapshot Map,
+    ControlKeys Keys);
 
 /// <summary>Where the party is in the world, as the panel needs it: which place, where in it, and how much of the world is known.</summary>
 /// <param name="Place">The place the party is in, empty when the session has no world.</param>
@@ -146,7 +102,7 @@ public readonly record struct SessionSnapshot(
 /// </param>
 /// <param name="Hours">The hours the place keeps, empty when content clocks nothing in it.</param>
 /// <param name="NextChange">When those hours next change, as a point on the game calendar, empty when nothing does.</param>
-public readonly record struct WorldSnapshot(
+public sealed record WorldSnapshot(
     string Place,
     string Name,
     string Kind,
@@ -162,6 +118,26 @@ public readonly record struct WorldSnapshot(
 
     /// <summary>Whether the session has a world at all.</summary>
     public bool HasWorld => Places > 0;
+
+    /// <summary>Writes the world block: which place, where in it, and how much of the world is known.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The block's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("place", builder.String(Place)),
+            ("name", builder.String(Name)),
+            ("kind", builder.String(Kind)),
+            ("x", builder.Number(Pose.X)),
+            ("y", builder.Number(Pose.Y)),
+            ("z", builder.Number(Pose.Z)),
+            ("yaw", builder.Number(Pose.Yaw)),
+            ("visited", builder.Number(Visited)),
+            ("places", builder.Number(Places)),
+            // Whether the town's doors stand open is a clock read published beside the place: a shop
+            // that shut at its closing hour reads shut here in the same projection that shows the hour.
+            ("open", builder.Boolean(Open)),
+            ("hours", builder.String(Hours)),
+            ("nextChange", builder.String(NextChange)));
 }
 
 /// <summary>Builds the session projection value. The wire vocabulary is stable and versioned by contract.</summary>
@@ -243,1265 +219,126 @@ public static class SessionProjection
     public const string ControlsField = "controls";
 
     /// <summary>Builds the projection value for a snapshot.</summary>
+    /// <remarks>
+    /// Each block is written by its own snapshot, which is the one place its keys are spelled; this method only
+    /// says which blocks the projection carries and in what order. Every block is a value the session read from
+    /// its owner, so there is no block here a snapshot was not given.
+    /// </remarks>
     public static UiValue Build(SessionSnapshot snapshot)
     {
         UiValueBuilder builder = new();
         uint root = builder.Object(
-            ("composition", builder.Object(
-                (RulesetField, builder.String(snapshot.Composition.Ruleset.Value)),
-                (TitleField, builder.String(snapshot.Composition.Title)),
-                (BundleField, builder.String(snapshot.Composition.Bundle ?? string.Empty)),
-                (ContentPacksField, builder.Number(snapshot.Composition.ContentPacks)))),
+            ("composition", Composition(builder, snapshot.Composition)),
             (SessionField, builder.Object(
                 ("mode", builder.String(WireName(snapshot.Mode))),
                 ("simulationSeconds", builder.Number(snapshot.SimulationSeconds)),
                 ("admittedSteps", builder.Number(snapshot.AdmittedSteps)))),
-            (WorldField, builder.Object(
-                ("place", builder.String(snapshot.World.Place)),
-                ("name", builder.String(snapshot.World.Name)),
-                ("kind", builder.String(snapshot.World.Kind)),
-                ("x", builder.Number(snapshot.World.Pose.X)),
-                ("y", builder.Number(snapshot.World.Pose.Y)),
-                ("z", builder.Number(snapshot.World.Pose.Z)),
-                ("yaw", builder.Number(snapshot.World.Pose.Yaw)),
-                ("visited", builder.Number(snapshot.World.Visited)),
-                ("places", builder.Number(snapshot.World.Places)),
-                // Whether the town's doors stand open is a clock read published beside the place: a shop
-                // that shut at its closing hour reads shut here in the same projection that shows the hour.
-                ("open", builder.Boolean(snapshot.World.Open)),
-                ("hours", builder.String(snapshot.World.Hours ?? string.Empty)),
-                ("nextChange", builder.String(snapshot.World.NextChange ?? string.Empty)))),
+            (WorldField, snapshot.World.Write(builder)),
             // The clock and the party are published even when the session has neither: "no clock" and "no
             // party" are facts about the session the panel shows, and a block that only appeared once the
             // ruleset supplied one would leave them indistinguishable from a projection that never asked.
-            (ClockField, builder.Object(
-                ("present", builder.Boolean(snapshot.Clock.Present)),
-                ("date", builder.String(snapshot.Clock.Date ?? string.Empty)),
-                ("time", builder.String(snapshot.Clock.Time ?? string.Empty)),
-                ("daylight", builder.String(snapshot.Clock.Daylight ?? string.Empty)),
-                ("elapsedDays", builder.Number(snapshot.Clock.ElapsedDays)))),
-            (PartyField, builder.Object(
-                ("present", builder.Boolean(snapshot.Party.Present)),
-                ("members", builder.Number(snapshot.Party.Members)),
-                ("coins", builder.Number(snapshot.Party.Coins)),
-                ("provisions", builder.Number(snapshot.Party.Provisions)),
-                ("unit", builder.String(snapshot.Party.Unit ?? string.Empty)),
-                ("reputation", builder.Number(snapshot.Party.Reputation)),
-                ("fame", builder.Number(snapshot.Party.Fame)),
-                ("conditions", builder.String(snapshot.Party.Conditions ?? string.Empty)),
-                // What the party has left to lose and to cast with: a night's sleep restores the pools, and
-                // a panel that showed only food and conditions would leave the recovery invisible.
-                ("hitPoints", builder.Number(snapshot.Party.HitPoints)),
-                ("hitPointsMax", builder.Number(snapshot.Party.HitPointsMax)),
-                ("spellPoints", builder.Number(snapshot.Party.SpellPoints)),
-                ("spellPointsMax", builder.Number(snapshot.Party.SpellPointsMax)),
-                // What the party carries: everything a search, a purchase, or a kill put in the one shared
-                // pack, so what a corpse held is visible as a number that moved rather than only as a
-                // sentence about it.
-                ("pack", builder.Number(snapshot.Party.Pack)),
-                // Whether this game reads a standing at all, what it calls the band the party falls in, and
-                // what that band does. The words are the ruleset's, printed unchanged: a game that reads
-                // neither is a different fact from a party whose accomplishments happen to be empty.
-                ("standingRead", builder.Boolean(snapshot.Party.StandingRead)),
-                ("standing", builder.String(snapshot.Party.Standing ?? string.Empty)),
-                ("standingDetail", builder.String(snapshot.Party.StandingDetail ?? string.Empty)),
-                // What the party has accomplished, one row per record the game counts, each in the game's
-                // own words: a screen shows them and decides nothing about what a record means.
-                ("awards", Awards(builder, snapshot.Party.Awards)))),
+            (ClockField, snapshot.Clock.Write(builder)),
+            (PartyField, snapshot.Party.Write(builder)),
             // Published even when nothing has moved: the motion word says which of "the world refused me"
             // and "the party has not stepped yet" the panel is looking at, and a block that only appeared
             // once something had moved would leave the two indistinguishable again.
-            (MovementField, builder.Object(
-                ("motion", builder.String(MotionWord(snapshot.Movement))),
-                ("blocked", builder.String(WireName(snapshot.Movement.Blocked))),
-                ("stepRise", builder.Number(snapshot.Movement.StepRise)),
-                ("fallDistance", builder.Number(snapshot.Movement.FallDistance)),
-                ("fallDamage", builder.Number(snapshot.Movement.FallDamage)))),
+            (MovementField, snapshot.Movement.Write(builder)),
             // The creation screen is published in every mode for the same reason: "not creating" and
             // "creating a party nobody has finished" are different facts, and a block that only appeared
             // while the flow was live would leave a screen unable to tell them apart.
-            (CreationField, Creation(builder, snapshot.Creation ?? CreationSnapshot.None)),
+            (CreationField, snapshot.Creation.Write(builder)),
             // The save block is published in every mode for the same reason again: a session that cannot
             // save, one that has saved nothing yet, and one whose last save failed are three different
             // facts, and a block that only appeared after a save would leave a player unable to tell them
             // apart — which is exactly how a save that silently did nothing would look.
-            (SaveField, builder.Object(
-                ("available", builder.Boolean(snapshot.Save.Available)),
-                ("resumed", builder.Boolean(snapshot.Save.Resumed)),
-                // A snapshot built without save facts carries the default value, whose strings are null
-                // rather than empty: the block publishes them as empty so a reader never sees a name that
-                // is not there, exactly as the clock and party blocks do.
-                ("slot", builder.String(snapshot.Save.Slot ?? string.Empty)),
-                ("state", builder.String(WireName(snapshot.Save.State))),
-                ("at", builder.String(snapshot.Save.At ?? string.Empty)),
-                ("code", builder.String(snapshot.Save.Code ?? string.Empty)),
-                ("message", builder.String(snapshot.Save.Message ?? string.Empty)))),
+            (SaveField, snapshot.Save.Write(builder)),
             // The interaction block is published in every mode for the same reason the save block is: "this
             // session holds no interaction", "nothing is in front of the party", and "something is in front
             // of the party and out of reach" are three different facts, and a block that only appeared when
             // something was usable would leave a player unable to tell an empty room from a refused aim.
-            (InteractionField, Interaction(builder, snapshot.Interaction)),
+            (InteractionField, snapshot.Interaction.Write(builder)),
             // The service block is published in every mode for the same reason the interaction block is:
             // "this session holds no service mechanism", "the party stands at no counter", and "the counter
             // is shut for the night" are three different facts, and a block that only appeared at a counter
             // would leave a player unable to tell an empty street from a refused door.
-            (ServiceField, Service(builder, snapshot.Service)),
+            (ServiceField, snapshot.Service.Write(builder)),
             // The rest block is published in every mode for the same reason the service block is: "this
             // session holds no rest mechanism", "the party has not stopped yet", and "the party was refused a
             // night's sleep" are three different facts, and a block that only appeared after a stop would
             // leave a player unable to tell a quiet street from a refused camp.
-            (RestField, Rest(builder, snapshot.Rest)),
+            (RestField, snapshot.Rest.Write(builder)),
             // The conversation block is published in every mode for the same reason the rest block is:
             // "this session holds no conversation mechanism", "nobody is being spoken with", and "the
             // person has nothing to say about that" are three different facts, and a block that only
             // appeared while somebody was talking would leave a player unable to tell an empty road from a
             // topic the state withholds.
-            (ConversationField, Conversation(builder, snapshot.Conversation)),
+            (ConversationField, snapshot.Conversation.Write(builder)),
             // The fight block is published in every mode for the same reason the conversation block is:
             // "this session holds no fight", "nothing is hostile", and "the party is fighting and two of its
             // members are recovering" are three different facts, and a block that only appeared once
             // something was hostile would leave a player unable to tell a quiet street from a fight.
-            (CombatField, Combat(builder, snapshot.Combat)),
+            (CombatField, snapshot.Combat.Write(builder)),
             // The progression block is published in every mode for the same reason the fight block is: "this
             // session holds no progression owner", "the party has earned nothing", and "a member has banked
             // what a level takes" are three different facts, and a block that only appeared once somebody
             // had levelled would leave a player unable to tell an unearned level from a mechanism that is
             // not there.
-            (ProgressionField, Progression(builder, snapshot.Progression)),
+            (ProgressionField, snapshot.Progression.Write(builder)),
             // The promotion block is published in every mode for the same reason the progression block is:
             // "this session's ruleset stated no ladder", "no class of the party's leads anywhere", and "a
             // member rose a rank" are three different facts, and a block that only appeared once somebody had
             // been promoted would leave a screen unable to tell a party at the top of its ladder from a game
             // that has no ranks at all.
-            (PromotionField, Promotion(builder, snapshot.Promotion)),
+            (PromotionField, snapshot.Promotion.Write(builder)),
             // The skills block is published in every mode for the same reason the progression block is: "this
             // session's ruleset stated no skill policy", "the party holds no skills yet", and "a member's
             // blade is at the ceiling their class allows" are three different facts, and a block that only
             // appeared once somebody had spent a point would leave a screen unable to tell them apart.
-            (SkillsField, Skills(builder, snapshot.Skills)),
+            (SkillsField, snapshot.Skills.Write(builder)),
             // The magic block is published in every mode for the same reason the skills block is: "this
             // session's ruleset stated no magic policy", "nobody has learned a spell", and "a member holds a
             // spell their mastery or their pool will not pay for" are three different facts, and a block
             // that only appeared once somebody had cast would leave a screen unable to tell them apart.
-            (MagicField, Magic(builder, snapshot.Magic)),
+            (MagicField, snapshot.Magic.Write(builder)),
             // The alchemy block is published in every mode for the same reason the magic block is: "this
             // session's ruleset stated no mixtures", "the pack holds nothing that mixes", and "a mixture was
             // refused for a mastery or for want of room" are three different facts, and a block that only
             // appeared once something had been mixed would leave a pack screen unable to tell them apart.
-            (AlchemyField, Alchemy(builder, snapshot.Alchemy)),
+            (AlchemyField, snapshot.Alchemy.Write(builder)),
             // The quests block is published in every mode for the same reason the alchemy block is: "this
             // session's ruleset stated no quests", "the party has taken nothing", and "an errand was refused
             // because an objective is unmet" are three different facts, and a block that only appeared once
             // somebody had taken an errand would leave a screen unable to tell them apart.
-            (QuestsField, Quests(builder, snapshot.Quests)),
+            (QuestsField, snapshot.Quests.Write(builder)),
             // The journal block is published in every mode for the same reason the quests block is: "this
             // session's ruleset stated no journal at all", "the party has been nowhere and written nothing
             // down", and "a book no owner fills yet" are three different facts, and a block that only
             // appeared once something had been written would leave a screen unable to tell them apart.
-            (JournalField, Journal(builder, snapshot.Journal)),
+            (JournalField, snapshot.Journal.Write(builder)),
             // The automap is published in every mode for the same reason the journal is: "this session's
             // ruleset stated no automap", "the place content carries no map for", and "the party has seen none
             // of a mapped place yet" are three different facts, and a block that only appeared once the party
             // had walked somewhere would leave a screen unable to tell them apart.
-            (MapField, Map(builder, snapshot.Map)),
+            (MapField, snapshot.Map.Write(builder)),
             // The controls are published in every mode for the same reason every block is: "this control would
             // be taken now", "it would be refused", and "it is bound to this key" are facts about the session, and
             // a screen that worked any of them out would be a second copy of the rule that decides them.
-            (ControlsField, Controls(builder, ControlsSnapshot.Read(snapshot))));
+            (ControlsField, ControlsSnapshot.Read(snapshot).Write(builder)));
         return builder.Build(root);
     }
 
-    /// <summary>Builds the controls block: each stand-alone control's action, whether it is offered, and its key.</summary>
-    private static uint Controls(UiValueBuilder builder, ControlsSnapshot controls) =>
+    /// <summary>Writes the composition block: which ruleset, which bundle, and how much content it resolved.</summary>
+    /// <remarks>
+    /// A composition that selected no bundle states that with no bundle identity, which the wire spells as an
+    /// empty name: it is the one optional value a block here carries, and it is the composition's own fact rather
+    /// than a block the snapshot was not given.
+    /// </remarks>
+    private static uint Composition(UiValueBuilder builder, SessionComposition composition) =>
         builder.Object(
-            ("pause", Control(builder, controls.Pause)),
-            ("save", Control(builder, controls.Save)),
-            ("use", Control(builder, controls.Use)),
-            ("attack", Control(builder, controls.Attack)),
-            ("turnBased", Control(builder, controls.TurnBased)),
-            ("turnSkip", Control(builder, controls.TurnSkip)),
-            ("turnWait", Control(builder, controls.TurnWait)),
-            ("rest", Control(builder, controls.Rest)),
-            ("camp", Control(builder, controls.Camp)),
-            ("waitDawn", Control(builder, controls.WaitDawn)),
-            ("waitHour", Control(builder, controls.WaitHour)),
-            ("waitFiveMinutes", Control(builder, controls.WaitFiveMinutes)),
-            ("serviceLeave", Control(builder, controls.ServiceLeave)),
-            ("conversationLeave", Control(builder, controls.ConversationLeave)),
-            ("creationAdvance", Control(builder, controls.CreationAdvance)),
-            ("creationAccept", Control(builder, controls.CreationAccept)));
-
-    /// <summary>Builds one control of the controls block.</summary>
-    private static uint Control(UiValueBuilder builder, ControlSnapshot control) =>
-        builder.Object(
-            ("action", builder.String(control.Action ?? string.Empty)),
-            ("enabled", builder.Boolean(control.Enabled)),
-            ("key", builder.String(control.Key ?? string.Empty)));
-
-    /// <summary>Builds the interaction block: what is faced, what it requires, and what the last use did.</summary>
-    /// <remarks>
-    /// The requirements are sent as the sentences the ruleset gave them, so a locked door announces what it
-    /// needs before anybody tries it, and the panel spells none of them itself. A snapshot built without
-    /// interaction facts carries the default value, whose strings and list are null rather than empty: they
-    /// are published as empty so a reader never sees a name that is not there, exactly as the save block does.
-    /// </remarks>
-    private static uint Interaction(UiValueBuilder builder, InteractionSnapshot interaction)
-    {
-        List<uint> requires = [];
-        foreach (string requirement in interaction.Requires ?? []) requires.Add(builder.String(requirement));
-
-        return builder.Object(
-            ("available", builder.Boolean(interaction.Available)),
-            ("target", builder.String(interaction.Target ?? string.Empty)),
-            ("label", builder.String(interaction.Label ?? string.Empty)),
-            ("verb", builder.String(interaction.Verb ?? string.Empty)),
-            ("state", builder.String(interaction.State ?? string.Empty)),
-            ("distance", builder.Number(interaction.Distance)),
-            ("reason", builder.String(interaction.Reason ?? string.Empty)),
-            ("requires", builder.Array([.. requires])),
-            ("bodies", builder.Number(interaction.Bodies)),
-            ("outcome", builder.String(interaction.Outcome ?? string.Empty)),
-            ("code", builder.String(interaction.Code ?? string.Empty)),
-            ("message", builder.String(interaction.Message ?? string.Empty)),
-            ("residue", builder.String(interaction.Residue ?? string.Empty)));
-    }
-
-    /// <summary>Builds the service block: which counter the party stands at, what it offers, and what happened.</summary>
-    /// <remarks>
-    /// Every list is sent whole so the screen decides nothing: the shelves with their prices, the lessons
-    /// with their fees, what the counter would buy from the party, and which members a lesson could go to.
-    /// A snapshot built without service facts carries the default value, whose strings and lists are null
-    /// rather than empty: they are published as empty so a reader never sees a name that is not there,
-    /// exactly as the save and interaction blocks do.
-    /// </remarks>
-    private static uint Service(UiValueBuilder builder, ServiceSnapshot service)
-    {
-        List<uint> operations = [];
-        foreach (string operation in service.Operations ?? []) operations.Add(builder.String(operation));
-
-        List<uint> memberships = [];
-        foreach (string membership in service.Memberships ?? []) memberships.Add(builder.String(membership));
-
-        // Which commands the counter takes is its own list of operations, read once here: a screen offers a
-        // row's command when the product says the counter takes it, and never decides that from a word itself.
-        bool buys = Takes(service, ServiceOperationKind.Buy);
-        bool sells = Takes(service, ServiceOperationKind.Sell);
-        bool identifies = Takes(service, ServiceOperationKind.Identify);
-        bool repairs = Takes(service, ServiceOperationKind.Repair);
-        bool teaches = Takes(service, ServiceOperationKind.Teach);
-
-        List<uint> stock = [];
-        foreach (ServiceStockSnapshot offer in service.Stock ?? [])
-        {
-            stock.Add(builder.Object(
-                ("lot", builder.String(offer.Lot)),
-                ("item", builder.String(offer.Item)),
-                ("name", builder.String(offer.Name)),
-                ("count", builder.Number(offer.Count)),
-                ("price", builder.Number(offer.Price)),
-                ("sale", builder.Boolean(offer.IsSale)),
-                // A lot the counter has sold out of is still a row, and one a purchase would be refused on.
-                ("canBuy", builder.Boolean(buys && offer.Count > 0))));
-        }
-
-        List<uint> lessons = [];
-        foreach (ServiceLessonSnapshot offer in service.Lessons ?? [])
-        {
-            lessons.Add(builder.Object(
-                ("kind", builder.String(offer.Kind)),
-                ("subject", builder.String(offer.Subject)),
-                ("name", builder.String(offer.Name)),
-                ("amount", builder.Number(offer.Amount)),
-                ("price", builder.Number(offer.Price)),
-                // The rung is published because two lessons of one skill are two rows on the screen: a
-                // teach command names the subject and the rung together, and the row a player pressed is
-                // the row it sends back.
-                ("tier", builder.Number(offer.Tier))));
-        }
-
-        List<uint> offers = [];
-        foreach (ServiceOfferSnapshot offer in service.Offers ?? [])
-        {
-            offers.Add(builder.Object(
-                ("kind", builder.String(offer.Kind)),
-                // The subject is what a command naming the offer names — the place a passage reaches, the
-                // condition a cure removes — so a row a player presses sends back the thing it was about
-                // rather than a position in a list that the next browse could reorder.
-                ("subject", builder.String(offer.Subject)),
-                ("name", builder.String(offer.Name)),
-                ("amount", builder.Number(offer.Amount)),
-                ("price", builder.Number(offer.Price))));
-        }
-
-        List<uint> sales = [];
-        List<uint> identify = [];
-        List<uint> repair = [];
-        foreach (ServiceSaleSnapshot offer in service.Sales ?? [])
-        {
-            sales.Add(builder.Object(
-                ("item", builder.String(offer.Item)),
-                ("definition", builder.String(offer.Definition)),
-                ("name", builder.String(offer.Name)),
-                ("price", builder.Number(offer.Price)),
-                ("damage", builder.Number(offer.Damage)),
-                ("identified", builder.Boolean(offer.Identified))));
-
-            // What the counter would identify and what it would mend are the party's own items it has a use
-            // for: an item already known is not one to identify, and one that is whole is not one to repair.
-            if (identifies && !offer.Identified) identify.Add(Held(builder, offer));
-            if (repairs && offer.Damage > 0) repair.Add(Held(builder, offer));
-        }
-
-        // A passage is the one offer besides goods and lessons a screen has a command for, so the passages are
-        // published as their own list: which rows a player can press is the product's reading of its own kinds.
-        List<uint> fares = [];
-        foreach (ServiceOfferSnapshot offer in service.Offers ?? [])
-        {
-            if (!service.Open || !string.Equals(offer.Kind, ServiceSnapshot.WireName(ServiceOfferKind.Fare), StringComparison.Ordinal)) continue;
-            fares.Add(builder.Object(
-                ("subject", builder.String(offer.Subject)),
-                ("name", builder.String(offer.Name)),
-                ("price", builder.Number(offer.Price))));
-        }
-
-        List<uint> members = [];
-        foreach (ServiceMemberSnapshot member in service.Members ?? [])
-        {
-            members.Add(builder.Object(
-                ("index", builder.Number(member.Index)),
-                ("name", builder.String(member.Name))));
-        }
-
-        return builder.Object(
-            ("available", builder.Boolean(service.Available)),
-            ("open", builder.Boolean(service.Open)),
-            ("id", builder.String(service.Id ?? string.Empty)),
-            ("kind", builder.String(service.Kind ?? string.Empty)),
-            ("name", builder.String(service.Name ?? string.Empty)),
-            ("proprietor", builder.String(service.Proprietor ?? string.Empty)),
-            ("state", builder.String(service.State ?? string.Empty)),
-            ("hours", builder.String(service.Hours ?? string.Empty)),
-            ("operations", builder.Array([.. operations])),
-            ("memberships", builder.Array([.. memberships])),
-            ("stock", builder.Array([.. stock])),
-            ("lessons", builder.Array([.. lessons])),
-            ("offers", builder.Array([.. offers])),
-            ("sales", builder.Array([.. sales])),
-            ("members", builder.Array([.. members])),
-            ("identify", builder.Array([.. identify])),
-            ("repair", builder.Array([.. repair])),
-            ("fares", builder.Array([.. fares])),
-            ("canBuy", builder.Boolean(buys)),
-            ("canSell", builder.Boolean(sells)),
-            ("canTeach", builder.Boolean(teaches)),
-            ("action", builder.String(service.Action ?? string.Empty)),
-            ("outcome", builder.String(service.Outcome ?? string.Empty)),
-            ("code", builder.String(service.Code ?? string.Empty)),
-            ("message", builder.String(service.Message ?? string.Empty)),
-            ("paid", builder.Number(service.Paid)),
-            ("earned", builder.Number(service.Earned)),
-            ("coins", builder.Number(service.Coins)));
-    }
-
-    /// <summary>Whether the counter a visit has open carries out one operation.</summary>
-    private static bool Takes(ServiceSnapshot service, ServiceOperationKind operation) =>
-        service.Open && (service.Operations ?? []).Contains(PartyServices.WireName(operation), StringComparer.Ordinal);
-
-    /// <summary>Builds one of the party's items a counter would work on: which instance, and what it is called.</summary>
-    private static uint Held(UiValueBuilder builder, ServiceSaleSnapshot offer) =>
-        builder.Object(
-            ("item", builder.String(offer.Item)),
-            ("name", builder.String(offer.Name)));
-
-    /// <summary>Builds the awards list: what the party has accomplished, each row in the game's own words.</summary>
-    /// <remarks>
-    /// A snapshot built without a standing rule carries no list at all, and the rows are published as empty
-    /// here so a reader never sees an identity where a name should be; a game that counts nothing as an
-    /// accomplishment publishes the same empty list, and the two are told apart by whether the party block
-    /// reads a standing at all.
-    /// </remarks>
-    private static uint Awards(UiValueBuilder builder, IReadOnlyList<AwardSnapshot>? awards)
-    {
-        List<uint> rows = [];
-        foreach (AwardSnapshot award in awards ?? [])
-        {
-            rows.Add(builder.Object(
-                ("id", builder.String(award.Id)),
-                ("kind", builder.String(award.Kind)),
-                ("label", builder.String(award.Label)),
-                ("detail", builder.String(award.Detail))));
-        }
-
-        return builder.Array([.. rows]);
-    }
-
-    /// <summary>Builds the conversation block: who is here, what was said, and what may be asked about.</summary>
-    /// <remarks>
-    /// Every list is sent whole so the screen decides nothing: the people present, the topics on offer, the
-    /// topics the state withholds with the reason each is withheld, and what has been said so far. A
-    /// snapshot built without conversation facts carries the default value, whose strings and lists are null
-    /// rather than empty: they are published as empty so a reader never sees a name that is not there,
-    /// exactly as the rest and service blocks do.
-    /// </remarks>
-    private static uint Conversation(UiValueBuilder builder, ConversationSnapshot conversation)
-    {
-        List<uint> people = [];
-        foreach (ConversationPersonSnapshot person in conversation.People ?? [])
-        {
-            people.Add(builder.Object(
-                ("id", builder.String(person.Id)),
-                ("name", builder.String(person.Name)),
-                ("portrait", builder.String(person.Portrait)),
-                ("speaking", builder.Boolean(person.Speaking))));
-        }
-
-        List<uint> topics = [];
-        foreach (ConversationTopicSnapshot topic in conversation.Topics ?? [])
-        {
-            topics.Add(Topic(builder, topic));
-        }
-
-        List<uint> withheld = [];
-        foreach (ConversationTopicSnapshot topic in conversation.Withheld ?? [])
-        {
-            withheld.Add(Topic(builder, topic));
-        }
-
-        List<uint> said = [];
-        foreach (ConversationLineSnapshot line in conversation.Said ?? [])
-        {
-            said.Add(builder.Object(
-                ("speaker", builder.String(line.Speaker)),
-                ("text", builder.String(line.Text)),
-                ("residue", builder.String(line.Residue))));
-        }
-
-        return builder.Object(
-            ("available", builder.Boolean(conversation.Available)),
-            ("open", builder.Boolean(conversation.Open)),
-            ("subject", builder.String(conversation.Subject ?? string.Empty)),
-            ("speaker", builder.String(conversation.Speaker ?? string.Empty)),
-            ("greeting", builder.String(conversation.Greeting ?? string.Empty)),
-            ("people", builder.Array([.. people])),
-            ("topics", builder.Array([.. topics])),
-            ("withheld", builder.Array([.. withheld])),
-            ("said", builder.Array([.. said])),
-            ("action", builder.String(conversation.Action ?? string.Empty)),
-            ("outcome", builder.String(conversation.Outcome ?? string.Empty)),
-            ("code", builder.String(conversation.Code ?? string.Empty)),
-            ("message", builder.String(conversation.Message ?? string.Empty)),
-            ("residue", builder.String(conversation.Residue ?? string.Empty)),
-            ("handoff", builder.String(conversation.Handoff ?? string.Empty)),
-            ("topic", builder.String(conversation.Topic ?? string.Empty)));
-    }
-
-    /// <summary>Builds one topic of a conversation block, on offer or withheld.</summary>
-    private static uint Topic(UiValueBuilder builder, ConversationTopicSnapshot topic) =>
-        builder.Object(
-            ("id", builder.String(topic.Id)),
-            ("label", builder.String(topic.Label)),
-            ("available", builder.Boolean(topic.Available)),
-            ("reason", builder.String(topic.Reason)));
-
-    /// <summary>Builds the fight block: who is in it, who may act, and what the last order did.</summary>
-    /// <remarks>
-    /// Both sides are sent whole so the screen decides nothing: the party's members with their readiness,
-    /// and the actors fighting them. Readiness is the ready light itself — an actor may act when its recovery
-    /// has elapsed and nothing has laid it out — and the recovery is sent beside it as the length of game
-    /// time the fight holds, so the panel shows what the product says and never counts a cooldown down for
-    /// itself. A snapshot built without fight facts carries the default value, whose lists are null rather
-    /// than empty: they are published as empty so a reader never sees an actor that is not there, exactly as
-    /// the rest and conversation blocks do.
-    /// </remarks>
-    private static uint Combat(UiValueBuilder builder, CombatSnapshot combat)
-    {
-        List<uint> members = [];
-        foreach (CombatActorSnapshot actor in combat.Members ?? []) members.Add(Fighter(builder, actor));
-
-        List<uint> enemies = [];
-        foreach (CombatActorSnapshot actor in combat.Enemies ?? []) enemies.Add(Fighter(builder, actor));
-
-        return builder.Object(
-            ("available", builder.Boolean(combat.Available)),
-            ("engaged", builder.Boolean(combat.Engaged)),
-            ("opposition", builder.Number(combat.Opposition)),
-            ("ready", builder.Number(combat.Ready)),
-            // Which pacing this one fight is being played in, and the round it is in: a panel that could not
-            // tell a real-time fight from a paced one could not say why the world is waiting for it.
-            ("pacing", builder.String(WireName(combat.Pacing))),
-            ("turn", Turn(builder, combat.Turn)),
-            ("members", builder.Array([.. members])),
-            ("enemies", builder.Array([.. enemies])),
-            ("actor", builder.String(combat.Actor ?? string.Empty)),
-            ("kind", builder.String(combat.Kind ?? string.Empty)),
-            ("target", builder.String(combat.Target ?? string.Empty)),
-            ("outcome", builder.String(combat.Outcome ?? string.Empty)),
-            ("code", builder.String(combat.Code ?? string.Empty)),
-            ("message", builder.String(combat.Message ?? string.Empty)),
-            ("recoverySeconds", builder.Number(combat.RecoverySeconds)),
-            ("resolved", builder.Boolean(combat.Resolved)),
-            ("hit", builder.Boolean(combat.Hit)),
-            ("chance", builder.Number(combat.Chance)),
-            ("damageRolled", builder.Number(combat.DamageRolled)),
-            ("damage", builder.Number(combat.Damage)),
-            ("damageKind", builder.String(combat.DamageKind ?? string.Empty)),
-            ("resistance", builder.String(combat.Resistance ?? string.Empty)),
-            ("condition", builder.String(combat.Condition ?? string.Empty)),
-            ("targetDown", builder.Boolean(combat.TargetDown)),
-            ("byParty", builder.Boolean(combat.ByParty)));
-    }
-
-    /// <summary>
-    /// Builds the round a paced fight is in: the phase, whose turn it is, and the order actors act in.
-    /// </summary>
-    /// <remarks>
-    /// Every number here is the pacing's own — a length of game time, never a countdown the screen runs — and
-    /// the order is the fight's own reading of each actor's recovery, so a panel that shows a member due in
-    /// two seconds is showing what the fight holds rather than what the panel worked out. A snapshot built
-    /// without a round publishes zeros and no phase, which is what the real-time pacing is.
-    /// </remarks>
-    private static uint Turn(UiValueBuilder builder, CombatTurnSnapshot? turn)
-    {
-        List<uint> order = [];
-        foreach (TurnOrderActorSnapshot actor in turn?.Order ?? []) order.Add(Ordered(builder, actor));
-
-        return builder.Object(
-            ("phase", builder.String(turn is { } paced ? WireName(paced.Phase) : string.Empty)),
-            ("round", builder.Number(turn?.Round ?? 0)),
-            ("actor", builder.String(turn?.Actor ?? string.Empty)),
-            ("actorName", builder.String(turn?.ActorName ?? string.Empty)),
-            ("playerTurn", builder.Boolean(turn?.PlayerTurn ?? false)),
-            ("dueSeconds", builder.Number(turn?.DueSeconds ?? 0)),
-            ("roundSeconds", builder.Number(turn?.RoundSeconds ?? 0)),
-            ("elapsedSeconds", builder.Number(turn?.ElapsedSeconds ?? 0)),
-            ("movementSeconds", builder.Number(turn?.MovementSeconds ?? 0)),
-            ("last", builder.String(turn?.Last ?? string.Empty)),
-            ("order", builder.Array([.. order])));
-    }
-
-    /// <summary>Builds one actor of the order a paced round acts in.</summary>
-    private static uint Ordered(UiValueBuilder builder, TurnOrderActorSnapshot actor) =>
-        builder.Object(
-            ("id", builder.String(actor.Id)),
-            ("name", builder.String(actor.Name)),
-            ("side", builder.String(WireName(actor.Side))),
-            ("remainingSeconds", builder.Number(actor.RemainingSeconds)),
-            ("ready", builder.Boolean(actor.Ready)),
-            ("canAct", builder.Boolean(actor.CanAct)),
-            ("waiting", builder.Boolean(actor.Waiting)),
-            ("current", builder.Boolean(actor.Current)));
-
-    /// <summary>Builds one actor of a fight block: who it is, whether it may act, and how long it owes.</summary>
-    private static uint Fighter(UiValueBuilder builder, CombatActorSnapshot actor) =>
-        builder.Object(
-            ("id", builder.String(actor.Id)),
-            ("name", builder.String(actor.Name)),
-            ("ready", builder.Boolean(actor.Ready)),
-            ("recoverySeconds", builder.Number(actor.RecoverySeconds)),
-            ("distance", builder.Number(actor.Distance)),
-            ("hitPoints", builder.Number(actor.HitPoints)),
-            ("hitPointsMax", builder.Number(actor.HitPointsMax)),
-            ("conditions", builder.String(actor.Conditions ?? string.Empty)),
-            ("down", builder.Boolean(actor.Down)),
-            ("activity", builder.String(actor.Activity ?? string.Empty)));
-
-    /// <summary>Builds the progression block: what each member has earned and what a level would cost.</summary>
-    /// <remarks>
-    /// Every member is sent whole so the screen decides nothing: the level, the experience banked, the
-    /// points held, the experience the curve takes for the next level, and the fee the counter the party
-    /// stands at would charge for it. A snapshot built without progression facts carries the default value,
-    /// whose list is null rather than empty: it is published as empty so a reader never sees a member that
-    /// is not there, exactly as the fight and rest blocks do.
-    /// </remarks>
-    private static uint Progression(UiValueBuilder builder, ProgressionSnapshot progression)
-    {
-        List<uint> members = [];
-        foreach (ProgressionMemberSnapshot member in progression.Members ?? [])
-        {
-            members.Add(builder.Object(
-                ("index", builder.Number(member.Index)),
-                ("member", builder.String(member.Member)),
-                ("name", builder.String(member.Name)),
-                ("level", builder.Number(member.Level)),
-                ("experience", builder.Number(member.Experience)),
-                ("skillPoints", builder.Number(member.SkillPoints)),
-                ("nextLevelExperience", builder.Number(member.NextLevelExperience)),
-                // The level a training step reaches, published rather than added up by the screen: "train to
-                // level 3" is the training step's own answer.
-                ("nextLevel", builder.Number(member.NextLevel)),
-                ("fee", builder.Number(member.Fee)),
-                ("cap", builder.Number(member.Cap)),
-                ("canTrain", builder.Boolean(member.CanTrain))));
-        }
-
-        return builder.Object(
-            ("available", builder.Boolean(progression.Available)),
-            ("members", builder.Array([.. members])),
-            ("outcome", builder.String(progression.Outcome ?? string.Empty)),
-            ("source", builder.String(progression.Source ?? string.Empty)),
-            ("earned", builder.Number(progression.Earned)),
-            ("code", builder.String(progression.Code ?? string.Empty)),
-            ("message", builder.String(progression.Message ?? string.Empty)));
-    }
-
-    /// <summary>Builds the promotion block: which ranks the party's classes lead to, and what the last rank did.</summary>
-    /// <remarks>
-    /// Every member is sent whole — the class and rank they hold and, for each rank that class leads to, the
-    /// class it names, the alternative it takes, who gives it, and everything it asks for — so a screen shows
-    /// the ladder rather than composing one from rules it would have to know. What the last rank met and what
-    /// it missed is the owner's own report, published as it stands: the judgement belongs where the party's
-    /// state is, not on the screen.
-    /// </remarks>
-    private static uint Promotion(UiValueBuilder builder, PromotionSnapshot promotion)
-    {
-        List<uint> members = [];
-        foreach (PromotionMemberSnapshot member in promotion.Members ?? [])
-        {
-            List<uint> ranks = [];
-            foreach (PromotionRankSnapshot rank in member.Promotions)
-            {
-                List<uint> requirements = [];
-                foreach (PromotionRequirementSnapshot requirement in rank.Requirements)
-                {
-                    requirements.Add(builder.Object(
-                        ("kind", builder.String(requirement.Kind)),
-                        ("name", builder.String(requirement.Name)),
-                        ("label", builder.String(requirement.Label)),
-                        ("amount", builder.Number(requirement.Amount)),
-                        ("text", builder.String(requirement.Text))));
-                }
-
-                ranks.Add(builder.Object(
-                    ("promotion", builder.String(rank.Promotion)),
-                    ("toClass", builder.String(rank.ToClass)),
-                    ("rank", builder.Number(rank.Rank)),
-                    ("choice", builder.String(rank.Choice)),
-                    ("giver", builder.String(rank.Giver)),
-                    ("giverName", builder.String(rank.GiverName)),
-                    ("words", builder.String(rank.Words)),
-                    ("requirements", builder.Array([.. requirements]))));
-            }
-
-            members.Add(builder.Object(
-                ("index", builder.Number(member.Index)),
-                ("member", builder.String(member.Member)),
-                ("name", builder.String(member.Name)),
-                ("class", builder.String(member.Class)),
-                ("rank", builder.Number(member.Rank)),
-                ("promotions", builder.Array([.. ranks]))));
-        }
-
-        List<uint> granted = [];
-        foreach (PromotionGrantSnapshot grant in promotion.Granted ?? [])
-        {
-            granted.Add(builder.Object(
-                ("member", builder.String(grant.Member)),
-                ("name", builder.String(grant.Name)),
-                ("fromClass", builder.String(grant.FromClass)),
-                ("fromRank", builder.Number(grant.FromRank)),
-                ("toClass", builder.String(grant.ToClass)),
-                ("rank", builder.Number(grant.Rank)),
-                ("choice", builder.String(grant.Choice)),
-                ("met", builder.Array([.. grant.Met.Select(builder.String)]))));
-        }
-
-        List<uint> denied = [];
-        foreach (PromotionDenialSnapshot denial in promotion.Denied ?? [])
-        {
-            denied.Add(builder.Object(
-                ("member", builder.String(denial.Member)),
-                ("name", builder.String(denial.Name)),
-                ("class", builder.String(denial.Class)),
-                ("rank", builder.Number(denial.Rank)),
-                ("missing", builder.Array([.. denial.Missing.Select(builder.String)]))));
-        }
-
-        return builder.Object(
-            ("available", builder.Boolean(promotion.Available)),
-            ("members", builder.Array([.. members])),
-            ("outcome", builder.String(promotion.Outcome ?? string.Empty)),
-            ("promotion", builder.String(promotion.Promotion ?? string.Empty)),
-            ("toClass", builder.String(promotion.ToClass ?? string.Empty)),
-            ("rank", builder.Number(promotion.Rank)),
-            ("choice", builder.String(promotion.Choice ?? string.Empty)),
-            ("granted", builder.Array([.. granted])),
-            ("denied", builder.Array([.. denied])),
-            ("code", builder.String(promotion.Code ?? string.Empty)),
-            ("message", builder.String(promotion.Message ?? string.Empty)));
-    }
-
-    /// <summary>Builds the skills block: each member's skills, their ceilings, and what a raise would buy.</summary>
-    /// <remarks>
-    /// Every row is sent whole — the skill, its block, the level, the rung's own word, the ceiling level and
-    /// the ceiling rung's word, what the next level would cost and the sentence that refuses it — so the
-    /// screen reads a plan rather than computing one. A snapshot built without skill facts carries the
-    /// default value, whose list is null rather than empty: it is published as empty so a reader never sees
-    /// a member that is not there, exactly as the progression and fight blocks do.
-    /// </remarks>
-    private static uint Skills(UiValueBuilder builder, SkillsSnapshot skills)
-    {
-        List<uint> members = [];
-        foreach (SkillMemberSnapshot member in skills.Members ?? [])
-        {
-            List<uint> rows = [];
-            foreach (SkillRowSnapshot row in member.Skills)
-            {
-                rows.Add(builder.Object(
-                    ("skill", builder.String(row.Skill)),
-                    ("block", builder.String(row.Block)),
-                    ("level", builder.Number(row.Level)),
-                    ("tier", builder.String(row.Tier)),
-                    ("ceilingLevel", builder.Number(row.CeilingLevel)),
-                    ("ceilingTier", builder.String(row.CeilingTier)),
-                    ("pointsSpent", builder.Number(row.PointsSpent)),
-                    // What the next point would reach, published rather than added up by the screen: a panel
-                    // that showed "raise to level 5" would otherwise be doing the ruleset's arithmetic.
-                    ("reached", builder.Number(row.Reached)),
-                    ("cost", builder.Number(row.Cost)),
-                    ("refusal", builder.String(row.Refusal)),
-                    ("refusalCode", builder.String(row.RefusalCode))));
-            }
-
-            members.Add(builder.Object(
-                ("index", builder.Number(member.Index)),
-                ("member", builder.String(member.Member)),
-                ("name", builder.String(member.Name)),
-                ("class", builder.String(member.Class)),
-                ("rank", builder.Number(member.Rank)),
-                ("skills", builder.Array([.. rows]))));
-        }
-
-        return builder.Object(
-            ("available", builder.Boolean(skills.Available)),
-            ("members", builder.Array([.. members])),
-            ("outcome", builder.String(skills.Outcome ?? string.Empty)),
-            ("member", builder.String(skills.Member ?? string.Empty)),
-            ("skill", builder.String(skills.Skill ?? string.Empty)),
-            ("level", builder.Number(skills.Level)),
-            ("cost", builder.Number(skills.Cost)),
-            ("code", builder.String(skills.Code ?? string.Empty)),
-            ("message", builder.String(skills.Message ?? string.Empty)));
-    }
-
-    /// <summary>Builds the magic block: each member's spellbook, what a casting costs, and what the last one did.</summary>
-    /// <remarks>
-    /// Every row and every target is sent whole so the screen decides nothing: which spells a member knows,
-    /// what each costs that caster, what each is aimed at, what it may be pointed at when its aim names no
-    /// actor, and which actors a casting could name with the side each is on. What the last casting changed
-    /// is published as named readings of the state it changed, and what spells have left running is published
-    /// with the moment each one lapses, so the panel shows a cast's outcome and the party's wards from state
-    /// rather than from the wording of a message. A snapshot built without magic facts carries the default
-    /// value, whose lists are null rather than empty: they are published as empty so a reader never sees a
-    /// name that is not there, exactly as the service and skills blocks do.
-    /// </remarks>
-    private static uint Magic(UiValueBuilder builder, MagicSnapshot magic)
-    {
-        List<uint> members = [];
-        foreach (SpellMemberSnapshot member in magic.Members ?? [])
-        {
-            List<uint> spells = [];
-            foreach (SpellRowSnapshot spell in member.Spells ?? [])
-            {
-                List<uint> aims = [];
-                foreach (SpellAimSnapshot aim in spell.Aims ?? [])
-                {
-                    aims.Add(builder.Object(
-                        ("aim", builder.String(aim.Aim)),
-                        ("name", builder.String(aim.Name)),
-                        ("kind", builder.String(aim.Kind))));
-                }
-
-                spells.Add(builder.Object(
-                    ("spell", builder.String(spell.Spell)),
-                    ("name", builder.String(spell.Name)),
-                    ("school", builder.String(spell.School)),
-                    ("tier", builder.String(spell.Tier)),
-                    ("tierRung", builder.Number(spell.TierRung)),
-                    ("cost", builder.Number(spell.Cost)),
-                    ("targeting", builder.String(spell.Targeting)),
-                    ("effect", builder.String(spell.Effect)),
-                    ("aims", builder.Array([.. aims])),
-                    ("targetSide", builder.String(spell.TargetSide ?? string.Empty)),
-                    // A spell that must name an actor, has nobody on its side to name, and has nothing else it may
-                    // be pointed at is one a casting would be refused on before a point was spent.
-                    ("canCast", builder.Boolean(Aimable(spell.TargetSide, magic.Targets) || (spell.Aims ?? []).Count > 0))));
-            }
-
-            members.Add(builder.Object(
-                ("index", builder.Number(member.Index)),
-                ("member", builder.String(member.Member)),
-                ("name", builder.String(member.Name)),
-                ("class", builder.String(member.Class)),
-                ("spellPoints", builder.Number(member.SpellPoints)),
-                ("spellPointsMax", builder.Number(member.SpellPointsMax)),
-                ("quickSpell", builder.String(member.QuickSpell)),
-                ("quickSpellName", builder.String(member.QuickSpellName)),
-                ("spells", builder.Array([.. spells]))));
-        }
-
-        List<uint> targets = [];
-        foreach (SpellTargetSnapshot target in magic.Targets ?? [])
-        {
-            targets.Add(builder.Object(
-                ("target", builder.String(target.Target)),
-                ("name", builder.String(target.Name)),
-                ("side", builder.String(target.Side))));
-        }
-
-        List<uint> facts = [];
-        foreach (SpellFactSnapshot fact in magic.Facts ?? [])
-        {
-            facts.Add(builder.Object(
-                ("name", builder.String(fact.Name)),
-                ("value", builder.String(fact.Value))));
-        }
-
-        List<uint> running = [];
-        foreach (SpellRunningSnapshot effect in magic.Running ?? [])
-        {
-            running.Add(builder.Object(
-                ("effect", builder.String(effect.Effect)),
-                ("magnitude", builder.Number(effect.Magnitude)),
-                ("endsAt", builder.String(effect.EndsAt))));
-        }
-
-        // What runs on each character rather than on the band, each row naming them: this is what makes a ward
-        // cast on one member visible as theirs while the other members' rows stay empty.
-        List<uint> memberRunning = [];
-        foreach (SpellMemberRunningSnapshot effect in magic.MemberRunning ?? [])
-        {
-            memberRunning.Add(builder.Object(
-                ("member", builder.String(effect.Member)),
-                ("name", builder.String(effect.Name)),
-                ("effect", builder.String(effect.Effect)),
-                ("magnitude", builder.Number(effect.Magnitude)),
-                ("endsAt", builder.String(effect.EndsAt))));
-        }
-
-        // The items the party carries that hold a spell: what each is, what it carries, and how much of it is
-        // left. A panel shows them and sends back the instance identity it was handed, so using one asks the
-        // product about the item it drew rather than about a row number.
-        List<uint> items = [];
-        foreach (SpellItemSnapshot item in magic.Items ?? [])
-        {
-            items.Add(builder.Object(
-                ("item", builder.String(item.Item)),
-                ("name", builder.String(item.Name)),
-                ("kind", builder.String(item.Kind)),
-                ("spell", builder.String(item.Spell)),
-                ("spellName", builder.String(item.SpellName)),
-                ("targeting", builder.String(item.Targeting)),
-                ("charges", builder.Number(item.Charges)),
-                ("chargesMax", builder.Number(item.ChargesMax)),
-                ("wielded", builder.Boolean(item.Wielded)),
-                ("member", builder.String(item.Member)),
-                ("targetSide", builder.String(item.TargetSide ?? string.Empty)),
-                // An item is used by a member on what its spell names, so it is offered while there is somebody
-                // to use it and something on its side to name.
-                ("canUse", builder.Boolean((magic.Members ?? []).Count > 0 && Aimable(item.TargetSide, magic.Targets)))));
-        }
-
-        return builder.Object(
-            ("available", builder.Boolean(magic.Available)),
-            ("members", builder.Array([.. members])),
-            ("targets", builder.Array([.. targets])),
-            ("outcome", builder.String(magic.Outcome ?? string.Empty)),
-            ("member", builder.Number(magic.Member)),
-            ("caster", builder.String(magic.Caster ?? string.Empty)),
-            ("spell", builder.String(magic.Spell ?? string.Empty)),
-            ("cost", builder.Number(magic.Cost)),
-            ("target", builder.String(magic.Target ?? string.Empty)),
-            ("effect", builder.String(magic.Effect ?? string.Empty)),
-            ("code", builder.String(magic.Code ?? string.Empty)),
-            ("message", builder.String(magic.Message ?? string.Empty)),
-            ("source", builder.String(magic.Source ?? string.Empty)),
-            ("facts", builder.Array([.. facts])),
-            ("running", builder.Array([.. running])),
-            ("memberRunning", builder.Array([.. memberRunning])),
-            ("items", builder.Array([.. items])),
-            ("sight", builder.String(magic.Sight ?? string.Empty)));
-    }
-
-    /// <summary>
-    /// Whether a casting aimed as the side says has somebody to name: always, when it names nobody, and otherwise
-    /// when an actor on that side is among the targets the projection lists.
-    /// </summary>
-    private static bool Aimable(string? side, IReadOnlyList<SpellTargetSnapshot>? targets) =>
-        string.IsNullOrEmpty(side) || (targets ?? []).Any(target => string.Equals(target.Side, side, StringComparison.Ordinal));
-
-    /// <summary>Builds the quest block: every errand the party stands with, and what the last one did.</summary>
-    /// <remarks>
-    /// Every list is sent whole so the screen decides nothing: the journal with each quest's own objectives
-    /// and their progress, what a turn-in paid, and the words of a refusal. A snapshot built without quest
-    /// facts carries the default value, whose strings and lists are null rather than empty: they are
-    /// published as empty so a reader never sees a name that is not there, exactly as the other blocks do.
-    /// </remarks>
-    private static uint Quests(UiValueBuilder builder, QuestSnapshot quests)
-    {
-        List<uint> journal = [];
-        foreach (QuestJournalSnapshot quest in quests.Journal ?? [])
-        {
-            List<uint> objectives = [];
-            foreach (QuestObjectiveSnapshot objective in quest.Objectives ?? [])
-            {
-                objectives.Add(builder.Object(
-                    ("id", builder.String(objective.Id)),
-                    ("label", builder.String(objective.Label)),
-                    ("count", builder.Number(objective.Count)),
-                    ("required", builder.Number(objective.Required)),
-                    ("met", builder.Boolean(objective.Met))));
-            }
-
-            journal.Add(builder.Object(
-                ("quest", builder.String(quest.Quest)),
-                ("name", builder.String(quest.Name)),
-                ("state", builder.String(quest.State)),
-                ("giver", builder.String(quest.Giver)),
-                ("note", builder.String(quest.Note)),
-                ("residue", builder.String(quest.Residue)),
-                ("objectives", builder.Array([.. objectives])),
-                ("canTurnIn", builder.Boolean(quest.CanTurnIn))));
-        }
-
-        List<uint> items = [];
-        foreach (string item in quests.Items ?? []) items.Add(builder.String(item));
-
-        List<uint> records = [];
-        foreach (string record in quests.Records ?? []) records.Add(builder.String(record));
-
-        List<uint> delivered = [];
-        foreach (string item in quests.Delivered ?? []) delivered.Add(builder.String(item));
-
-        return builder.Object(
-            ("available", builder.Boolean(quests.Available)),
-            ("journal", builder.Array([.. journal])),
-            ("action", builder.String(quests.Action ?? string.Empty)),
-            ("outcome", builder.String(quests.Outcome ?? string.Empty)),
-            ("quest", builder.String(quests.Quest ?? string.Empty)),
-            ("experience", builder.Number(quests.Experience)),
-            ("coins", builder.Number(quests.Coins)),
-            ("items", builder.Array([.. items])),
-            ("records", builder.Array([.. records])),
-            ("delivered", builder.Array([.. delivered])),
-            ("code", builder.String(quests.Code ?? string.Empty)),
-            ("message", builder.String(quests.Message ?? string.Empty)));
-    }
-
-    /// <summary>Builds the journal block: the five books and what each of them holds.</summary>
-    /// <remarks>
-    /// Every row is sent whole, with the words the owner gave it and the state the owner reports, so a screen
-    /// that shows a book decides nothing about it: it prints a title, a state sentence, and rows. The quests
-    /// book carries no rows because its page is the quests block, read from the same owner at the same
-    /// moment: publishing the errands twice would be two readings of one fact on one wire. A snapshot built
-    /// without a journal carries the default value, whose list is null rather than empty, and it is published
-    /// as no books at all so a reader never sees a book nobody filled.
-    /// </remarks>
-    private static uint Journal(UiValueBuilder builder, JournalSnapshot journal)
-    {
-        List<uint> books = [];
-        foreach (JournalBookSnapshot book in journal.Books ?? [])
-        {
-            List<uint> rows = [];
-            foreach (JournalRowSnapshot row in book.Rows ?? [])
-            {
-                rows.Add(builder.Object(
-                    ("id", builder.String(row.Id)),
-                    ("label", builder.String(row.Label)),
-                    ("detail", builder.String(row.Detail)),
-                    ("state", builder.String(row.State)),
-                    ("source", builder.String(row.Source)),
-                    ("marked", builder.Boolean(row.Marked))));
-            }
-
-            books.Add(builder.Object(
-                ("kind", builder.String(book.Kind)),
-                ("title", builder.String(book.Title)),
-                ("available", builder.Boolean(book.Available)),
-                ("state", builder.String(book.State)),
-                ("rows", builder.Array([.. rows]))));
-        }
-
-        return builder.Object(
-            ("available", builder.Boolean(journal.Available)),
-            ("books", builder.Array([.. books])));
-    }
-
-    /// <summary>Builds the automap block: what the party has mapped of the place it stands in.</summary>
-    /// <remarks>
-    /// <para>
-    /// The drawing is sent as numbers in the drawing's own space — where each run of seen cells starts, how
-    /// wide it is, what kind it is, where the party stands and which way it faces — so a screen places shapes
-    /// and computes no scale, no offset, and no position of its own. Unseen ground contributes no shape at
-    /// all, and what a detection revealed is sent as marks flagged as revealed, which is the whole of what a
-    /// detection puts on the map.
-    /// </para>
-    /// <para>
-    /// <b>A snapshot with no drawing is published as no drawing.</b> There is nothing to draw whenever the
-    /// session holds no map owner, holds no world yet, or stands in a place content states no map for, and the
-    /// block says so with an absent drawing rather than one of zero extent — a screen handed a window of no
-    /// cells and a size of nothing would be handed a shape it can only divide into holes. What a drawing it
-    /// does carry is numbers and only numbers, which is what the product's own wire requires of a number.
-    /// </para>
-    /// </remarks>
-    private static uint Map(UiValueBuilder builder, MapSnapshot map)
-    {
-        uint drawing = builder.Null();
-        if (map.Drawing is { } shape)
-        {
-            List<uint> drawn = [];
-            List<uint> marks = [];
-            foreach (MapCellSnapshot run in shape.Drawn ?? [])
-            {
-                drawn.Add(builder.Object(
-                    ("x", builder.Number(run.X)),
-                    ("y", builder.Number(run.Y)),
-                    ("w", builder.Number(run.Width)),
-                    ("h", builder.Number(run.Height)),
-                    ("kind", builder.String(run.Kind ?? string.Empty))));
-            }
-
-            foreach (MapMarkSnapshot mark in shape.Marks ?? [])
-            {
-                marks.Add(builder.Object(
-                    ("id", builder.String(mark.Id ?? string.Empty)),
-                    ("kind", builder.String(mark.Kind ?? string.Empty)),
-                    ("label", builder.String(mark.Label ?? string.Empty)),
-                    ("x", builder.Number(mark.X)),
-                    ("y", builder.Number(mark.Y)),
-                    ("detected", builder.Boolean(mark.Detected))));
-            }
-
-            drawing = builder.Object(
-                ("rung", builder.Number(shape.Rung)),
-                ("rungs", builder.Number(shape.Rungs)),
-                ("cells", builder.Number(shape.Cells)),
-                ("size", builder.Number(shape.Size)),
-                ("partyX", builder.Number(shape.PartyX)),
-                ("partyY", builder.Number(shape.PartyY)),
-                ("facing", builder.Number(shape.Facing)),
-                // How large a mark and the party's marker are drawn, and the marker's own corners: a screen places
-                // them and divides nothing, so no published count can hand it a hole.
-                ("markRadius", builder.Number(shape.MarkRadius)),
-                ("partyPoints", builder.Array([.. shape.PartyPoints.Select(builder.Number)])),
-                ("cellsDrawn", builder.Array([.. drawn])),
-                ("marks", builder.Array([.. marks])));
-        }
-
-        return builder.Object(
-            ("available", builder.Boolean(map.Available)),
-            ("mapped", builder.Boolean(map.Mapped)),
-            ("title", builder.String(map.Title ?? string.Empty)),
-            ("place", builder.String(map.Place ?? string.Empty)),
-            ("name", builder.String(map.Name ?? string.Empty)),
-            ("kind", builder.String(map.Kind ?? string.Empty)),
-            ("state", builder.String(map.State ?? string.Empty)),
-            ("seen", builder.Number(map.Seen)),
-            ("total", builder.Number(map.Total)),
-            ("detection", builder.String(map.Detection ?? string.Empty)),
-            ("detectionMessage", builder.String(map.DetectionMessage ?? string.Empty)),
-            ("detectionEnds", builder.String(map.DetectionEnds ?? string.Empty)),
-            ("drawing", drawing));
-    }
-
-    /// <summary>Builds the alchemy block: what in the pack mixes, and what the last mixture did.</summary>
-    /// <remarks>
-    /// The pairs are sent as the two instance identities the pack holds, so a screen sends back exactly what
-    /// it drew and the session resolves it against the pack it holds inside the same update. Nothing about
-    /// what a pair will do is published: the game's own table is what a player learns, and the outcome row is
-    /// where an attempt's own answer arrives.
-    /// </remarks>
-    private static uint Alchemy(UiValueBuilder builder, AlchemySnapshot alchemy)
-    {
-        List<uint> members = [];
-        foreach (AlchemyMemberSnapshot member in alchemy.Members ?? [])
-        {
-            members.Add(builder.Object(
-                ("index", builder.Number(member.Index)),
-                ("member", builder.String(member.Member)),
-                ("name", builder.String(member.Name)),
-                ("alchemy", builder.Number(member.Alchemy))));
-        }
-
-        List<uint> items = [];
-        foreach (AlchemyItemSnapshot item in alchemy.Items ?? [])
-        {
-            items.Add(builder.Object(
-                ("item", builder.String(item.Item)),
-                ("definition", builder.String(item.Definition)),
-                ("name", builder.String(item.Name)),
-                ("kind", builder.String(item.Kind)),
-                ("potency", builder.Number(item.Potency)),
-                ("count", builder.Number(item.Count))));
-        }
-
-        List<uint> mixtures = [];
-        foreach (AlchemyMixtureSnapshot mixture in alchemy.Mixtures ?? [])
-        {
-            mixtures.Add(builder.Object(
-                ("first", builder.String(mixture.First)),
-                ("second", builder.String(mixture.Second)),
-                ("firstName", builder.String(mixture.FirstName)),
-                ("secondName", builder.String(mixture.SecondName))));
-        }
-
-        uint outcome = alchemy.Outcome is { } last
-            ? builder.Object(
-                ("member", builder.Number(last.Member)),
-                ("mixer", builder.String(last.Mixer)),
-                ("outcome", builder.String(last.Outcome)),
-                ("result", builder.String(last.Result)),
-                ("resultName", builder.String(last.ResultName)),
-                ("power", builder.Number(last.Power)),
-                ("burst", builder.Number(last.Burst)),
-                ("harm", builder.Number(last.Harm)),
-                ("condition", builder.String(last.Condition)),
-                ("note", builder.Number(last.Note)),
-                ("code", builder.String(last.Code)),
-                ("message", builder.String(last.Message)))
-            : builder.Object(
-                ("member", builder.Number(0)),
-                ("mixer", builder.String(string.Empty)),
-                ("outcome", builder.String(string.Empty)),
-                ("result", builder.String(string.Empty)),
-                ("resultName", builder.String(string.Empty)),
-                ("power", builder.Number(0)),
-                ("burst", builder.Number(0)),
-                ("harm", builder.Number(0)),
-                ("condition", builder.String(string.Empty)),
-                ("note", builder.Number(0)),
-                ("code", builder.String(string.Empty)),
-                ("message", builder.String(string.Empty)));
-
-        return builder.Object(
-            ("available", builder.Boolean(alchemy.Available)),
-            ("members", builder.Array([.. members])),
-            ("items", builder.Array([.. items])),
-            ("mixtures", builder.Array([.. mixtures])),
-            // A mixture is put together by a member, so one is offered while there is somebody to mix it.
-            ("canMix", builder.Boolean((alchemy.Members ?? []).Count > 0)),
-            ("outcome", outcome));
-    }
-
-    /// <summary>Builds the rest block: what the last stop did, what it cost, and what sleep debt stands.</summary>
-    /// <remarks>
-    /// Every fact is the mechanism's own: the kind asked for, the refusal's code and sentence, where the
-    /// clock went, what the larder was charged and covered, whether a night was broken, which conditions a
-    /// completed sleep cleared, and when the debt of sleep next falls due. A snapshot built without rest
-    /// facts carries the default value, whose strings are null rather than empty: they are published as
-    /// empty so a reader never sees a name that is not there, exactly as the service and save blocks do.
-    /// </remarks>
-    private static uint Rest(UiValueBuilder builder, RestSnapshot rest) =>
-        builder.Object(
-            ("available", builder.Boolean(rest.Available)),
-            ("kind", builder.String(rest.Kind ?? string.Empty)),
-            ("outcome", builder.String(rest.Outcome ?? string.Empty)),
-            ("code", builder.String(rest.Code ?? string.Empty)),
-            ("message", builder.String(rest.Message ?? string.Empty)),
-            ("from", builder.String(rest.From ?? string.Empty)),
-            ("to", builder.String(rest.To ?? string.Empty)),
-            ("elapsedSeconds", builder.Number(rest.ElapsedSeconds)),
-            ("charged", builder.Number(rest.Charged)),
-            ("covered", builder.Number(rest.Covered)),
-            ("unit", builder.String(rest.Unit ?? string.Empty)),
-            ("interrupted", builder.Boolean(rest.Interrupted)),
-            ("recovered", builder.Boolean(rest.Recovered)),
-            ("restored", builder.Number(rest.Restored)),
-            ("cleared", builder.String(rest.Cleared ?? string.Empty)),
-            ("shortage", builder.String(rest.Shortage ?? string.Empty)),
-            ("tired", builder.Boolean(rest.Tired)),
-            ("fatigueDue", builder.String(rest.FatigueDue ?? string.Empty)),
-            ("fatigueLanded", builder.Number(rest.FatigueLanded)));
-
-    /// <summary>Builds the creation block: where the flow stands, what it offers, and what it refused.</summary>
-    /// <remarks>
-    /// The lists are the flow's own options and the party's own members, sent whole so the screen decides
-    /// nothing: a screen that had to work out which skills a class offers, or which attribute a score
-    /// belongs to, would be evaluating the game's rules.
-    /// </remarks>
-    private static uint Creation(UiValueBuilder builder, CreationSnapshot creation)
-    {
-        List<uint> roster = [];
-        foreach (CreationMemberSnapshot member in creation.Roster)
-        {
-            roster.Add(builder.Object(
-                ("index", builder.Number(member.Index)),
-                ("step", builder.String(member.Step)),
-                ("name", builder.String(member.Name)),
-                ("race", builder.String(member.Race)),
-                ("class", builder.String(member.Class)),
-                ("portrait", builder.String(member.Portrait)),
-                ("pool", builder.Number(member.PoolRemaining))));
-        }
-
-        List<uint> portraits = [];
-        foreach (CreationPortraitSnapshot portrait in creation.Portraits)
-        {
-            portraits.Add(builder.Object(
-                ("id", builder.String(portrait.Id)),
-                ("name", builder.String(portrait.Name)),
-                ("race", builder.String(portrait.Race)),
-                ("selected", builder.Boolean(portrait.Selected))));
-        }
-
-        List<uint> classes = [];
-        foreach (CreationClassSnapshot option in creation.Classes)
-        {
-            classes.Add(builder.Object(
-                ("id", builder.String(option.Id)),
-                ("name", builder.String(option.Name)),
-                ("selected", builder.Boolean(option.Selected))));
-        }
-
-        List<uint> skills = [];
-        foreach (CreationSkillSnapshot skill in creation.Skills)
-        {
-            skills.Add(builder.Object(
-                ("id", builder.String(skill.Id)),
-                ("name", builder.String(skill.Name)),
-                ("state", builder.String(skill.State))));
-        }
-
-        List<uint> attributes = [];
-        foreach (CreationAttributeSnapshot attribute in creation.Attributes)
-        {
-            attributes.Add(builder.Object(
-                ("id", builder.String(attribute.Id)),
-                ("name", builder.String(attribute.Name)),
-                ("value", builder.Number(attribute.Value)),
-                ("minimum", builder.Number(attribute.Minimum)),
-                ("maximum", builder.Number(attribute.Maximum)),
-                ("canRaise", builder.Boolean(attribute.CanRaise)),
-                ("canLower", builder.Boolean(attribute.CanLower))));
-        }
-
-        List<uint> party = [];
-        foreach (CreationPartyMemberSnapshot member in creation.Party)
-        {
-            party.Add(builder.Object(
-                ("index", builder.Number(member.Index)),
-                ("name", builder.String(member.Name)),
-                ("race", builder.String(member.Race)),
-                ("class", builder.String(member.Class)),
-                ("portrait", builder.String(member.Portrait))));
-        }
-
-        return builder.Object(
-            ("active", builder.Boolean(creation.Active)),
-            ("accepted", builder.Boolean(creation.Accepted)),
-            ("hasDefault", builder.Boolean(creation.HasDefault)),
-            ("member", builder.Number(creation.MemberIndex)),
-            ("members", builder.Number(creation.MemberCount)),
-            ("step", builder.String(creation.Step)),
-            ("pool", builder.Number(creation.PoolRemaining)),
-            ("refusalCode", builder.String(creation.RefusalCode)),
-            ("refusalMessage", builder.String(creation.RefusalMessage)),
-            ("roster", builder.Array([.. roster])),
-            ("portraits", builder.Array([.. portraits])),
-            ("classes", builder.Array([.. classes])),
-            ("skills", builder.Array([.. skills])),
-            ("attributes", builder.Array([.. attributes])),
-            ("party", builder.Array([.. party])));
-    }
+            (RulesetField, builder.String(composition.Ruleset.Value)),
+            (TitleField, builder.String(composition.Title)),
+            (BundleField, builder.String(composition.Bundle is { } bundle ? bundle : string.Empty)),
+            (ContentPacksField, builder.Number(composition.ContentPacks)));
 
     /// <summary>
     /// The wire name for the state the party's last admitted step left it in.

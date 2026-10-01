@@ -121,10 +121,12 @@ public sealed class MovementProjectionTests
     [Fact]
     public void A_session_that_has_not_moved_publishes_no_movement_facts_at_all()
     {
-        // The session builds its snapshot without movement facts while no mover feeds it, and the default
-        // is the empty value rather than a quiet step: the panel must be able to say that it does not know
-        // what the last step did.
-        SessionSnapshot snapshot = new(Composition, SessionMode.Running, 3, 180, World());
+        // The session reads no movement facts while no mover feeds it, and what it reads is the empty value
+        // rather than a quiet step: the panel must be able to say that it does not know what the last step did.
+        SessionSnapshot snapshot = SessionSnapshots.Bare(Composition, SessionMode.Running, World(), 3, 180) with
+        {
+            Movement = MovementSnapshot.From(null),
+        };
 
         Assert.Equal(MovementSnapshot.None, snapshot.Movement);
 
@@ -162,7 +164,7 @@ public sealed class MovementProjectionTests
         Published(Snapshot(movement)).Field(SessionProjection.MovementField);
 
     private static SessionSnapshot Snapshot(MovementSnapshot movement) =>
-        new(Composition, SessionMode.Running, 12.5, 750, World(), movement);
+        SessionSnapshots.Bare(Composition, SessionMode.Running, World(), 12.5, 750) with { Movement = movement };
 
     private static WorldSnapshot World() =>
         new("test-place", "Test Place", "region", new PlacePose(1234, 5678, 0, Yaw: 512, Pitch: 0), 1, 76);

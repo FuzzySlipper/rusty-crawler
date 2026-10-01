@@ -30,7 +30,7 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="Fee">What the counter the party stands at would charge this member for one level, zero when none trains.</param>
 /// <param name="Cap">The highest level that counter trains to, zero when none trains.</param>
 /// <param name="NextLevel">The level one training step would leave the member at.</param>
-public readonly record struct ProgressionMemberSnapshot(
+public sealed record ProgressionMemberSnapshot(
     int Index,
     string Member,
     string Name,
@@ -47,6 +47,25 @@ public readonly record struct ProgressionMemberSnapshot(
     /// offered on; whether the step would then land is the counter's own judgement, answered when it is asked.
     /// </summary>
     public bool CanTrain => Cap > 0;
+
+    /// <summary>Writes one member: what they have earned and what a level would cost.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("index", builder.Number(Index)),
+            ("member", builder.String(Member)),
+            ("name", builder.String(Name)),
+            ("level", builder.Number(Level)),
+            ("experience", builder.Number(Experience)),
+            ("skillPoints", builder.Number(SkillPoints)),
+            ("nextLevelExperience", builder.Number(NextLevelExperience)),
+            // The level a training step reaches, published rather than added up by the screen: "train to
+            // level 3" is the training step's own answer.
+            ("nextLevel", builder.Number(NextLevel)),
+            ("fee", builder.Number(Fee)),
+            ("cap", builder.Number(Cap)),
+            ("canTrain", builder.Boolean(CanTrain)));
 }
 
 /// <summary>What the party has earned and what a level costs, as the panel needs it.</summary>
@@ -71,7 +90,7 @@ public readonly record struct ProgressionMemberSnapshot(
 /// <param name="Earned">How much experience the last award was worth, zero when the last event was not one.</param>
 /// <param name="Code">The last refusal's code, empty when the last event landed or none has happened.</param>
 /// <param name="Message">What the last event reported, empty before the party has earned or trained anything.</param>
-public readonly record struct ProgressionSnapshot(
+public sealed record ProgressionSnapshot(
     bool Available,
     IReadOnlyList<ProgressionMemberSnapshot> Members,
     string Outcome,
@@ -163,4 +182,22 @@ public readonly record struct ProgressionSnapshot(
             Code: string.Empty,
             Message: string.Empty);
     }
+
+    /// <summary>Writes the progression block: what each member has earned and what a level would cost.</summary>
+    /// <remarks>
+    /// Every member is sent whole so the screen decides nothing: the level, the experience banked, the
+    /// points held, the experience the curve takes for the next level, and the fee the counter the party
+    /// stands at would charge for it.
+    /// </remarks>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The block's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("available", builder.Boolean(Available)),
+            ("members", builder.Array([.. Members.Select(member => member.Write(builder))])),
+            ("outcome", builder.String(Outcome)),
+            ("source", builder.String(Source)),
+            ("earned", builder.Number(Earned)),
+            ("code", builder.String(Code)),
+            ("message", builder.String(Message)));
 }

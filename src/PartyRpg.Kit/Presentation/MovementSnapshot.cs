@@ -36,7 +36,7 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="FallDamage">
 /// What that landing cost, in the unit the party's health is measured in. Zero when the fall cost nothing.
 /// </param>
-public readonly record struct MovementSnapshot(
+public sealed record MovementSnapshot(
     bool Moved,
     bool Grounded,
     CharacterBlockFlags Blocked,
@@ -76,4 +76,15 @@ public readonly record struct MovementSnapshot(
             FallDistance: step.Fall.Distance,
             FallDamage: step.Fall.Damage);
     }
+
+    /// <summary>Writes the movement block.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The block's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("motion", builder.String(SessionProjection.MotionWord(this))),
+            ("blocked", builder.String(SessionProjection.WireName(Blocked))),
+            ("stepRise", builder.Number(StepRise)),
+            ("fallDistance", builder.Number(FallDistance)),
+            ("fallDamage", builder.Number(FallDamage)));
 }

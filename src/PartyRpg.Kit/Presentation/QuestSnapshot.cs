@@ -8,7 +8,19 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="Count">How much of it the party has done.</param>
 /// <param name="Required">How much of it the quest asks for.</param>
 /// <param name="Met">Whether that is enough.</param>
-public readonly record struct QuestObjectiveSnapshot(string Id, string Label, int Count, int Required, bool Met);
+public sealed record QuestObjectiveSnapshot(string Id, string Label, int Count, int Required, bool Met)
+{
+    /// <summary>Writes one objective of a quest and its progress.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("id", builder.String(Id)),
+            ("label", builder.String(Label)),
+            ("count", builder.Number(Count)),
+            ("required", builder.Number(Required)),
+            ("met", builder.Boolean(Met)));
+}
 
 /// <summary>One quest the party stands with, as the journal shows it.</summary>
 /// <remarks>
@@ -24,7 +36,7 @@ public readonly record struct QuestObjectiveSnapshot(string Id, string Label, in
 /// <param name="Residue">What the errand asks for that this game does not judge, empty when it judges all of it.</param>
 /// <param name="Objectives">What it asks, in the order the quest states it.</param>
 /// <param name="CanTurnIn">Whether the party may finish it with its giver right now.</param>
-public readonly record struct QuestJournalSnapshot(
+public sealed record QuestJournalSnapshot(
     string Quest,
     string Name,
     string State,
@@ -32,7 +44,22 @@ public readonly record struct QuestJournalSnapshot(
     string Note,
     string Residue,
     IReadOnlyList<QuestObjectiveSnapshot> Objectives,
-    bool CanTurnIn);
+    bool CanTurnIn)
+{
+    /// <summary>Writes one errand the party stands with.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("quest", builder.String(Quest)),
+            ("name", builder.String(Name)),
+            ("state", builder.String(State)),
+            ("giver", builder.String(Giver)),
+            ("note", builder.String(Note)),
+            ("residue", builder.String(Residue)),
+            ("objectives", builder.Array([.. Objectives.Select(objective => objective.Write(builder))])),
+            ("canTurnIn", builder.Boolean(CanTurnIn)));
+}
 
 /// <summary>What the party's journal holds and what its last errand did, as the panel needs it.</summary>
 /// <remarks>
@@ -62,7 +89,7 @@ public readonly record struct QuestJournalSnapshot(
 /// <param name="Delivered">What the last turn-in took back, one line per delivery.</param>
 /// <param name="Code">The last refusal's code, empty when the last operation applied or none has happened.</param>
 /// <param name="Message">What the last operation reported, empty before anything has happened.</param>
-public readonly record struct QuestSnapshot(
+public sealed record QuestSnapshot(
     bool Available,
     IReadOnlyList<QuestJournalSnapshot> Journal,
     string Action,
@@ -157,4 +184,26 @@ public readonly record struct QuestSnapshot(
             Code: last.Refusal?.Code ?? string.Empty,
             Message: last.Describe());
     }
+
+    /// <summary>Writes the quest block: every errand the party stands with, and what the last one did.</summary>
+    /// <remarks>
+    /// Every list is sent whole so the screen decides nothing: the journal with each quest's own objectives
+    /// and their progress, what a turn-in paid, and the words of a refusal.
+    /// </remarks>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The block's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("available", builder.Boolean(Available)),
+            ("journal", builder.Array([.. Journal.Select(quest => quest.Write(builder))])),
+            ("action", builder.String(Action)),
+            ("outcome", builder.String(Outcome)),
+            ("quest", builder.String(Quest)),
+            ("experience", builder.Number(Experience)),
+            ("coins", builder.Number(Coins)),
+            ("items", builder.Array([.. Items.Select(builder.String)])),
+            ("records", builder.Array([.. Records.Select(builder.String)])),
+            ("delivered", builder.Array([.. Delivered.Select(builder.String)])),
+            ("code", builder.String(Code)),
+            ("message", builder.String(Message)));
 }

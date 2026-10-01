@@ -239,14 +239,30 @@ public sealed class ProjectionContractTests
 
     private static ControlKeys Keys() => ProductControlKeys.Read(ProductTestContext.DeclaredInput());
 
-    /// <summary>A session that composed nothing yet: every block in its no-mechanism reading.</summary>
-    private static SessionSnapshot Empty() => new(
-        Composition with { Bundle = null, ContentPacks = 0 },
-        SessionMode.Starting,
-        0,
-        0,
-        WorldSnapshot.Empty,
-        Keys: Keys());
+    /// <summary>A session that composed nothing yet: every block with nothing in it.</summary>
+    /// <remarks>
+    /// The blocks are each one's no-mechanism value with no outcome word, which is the blank reading this fixture
+    /// has always held: a screen must read every field of a block that has nothing to say, including an outcome
+    /// that names nothing.
+    /// </remarks>
+    private static SessionSnapshot Empty()
+    {
+        SessionSnapshot bare = SessionSnapshots.Bare(Composition with { Bundle = null, ContentPacks = 0 }, SessionMode.Starting, WorldSnapshot.Empty);
+        return bare with
+        {
+            Interaction = bare.Interaction with { Outcome = string.Empty },
+            Service = bare.Service with { Outcome = string.Empty },
+            Rest = bare.Rest with { Outcome = string.Empty },
+            Conversation = bare.Conversation with { Outcome = string.Empty },
+            Combat = bare.Combat with { Outcome = string.Empty },
+            Progression = bare.Progression with { Outcome = string.Empty },
+            Promotion = bare.Promotion with { Outcome = string.Empty },
+            Skills = bare.Skills with { Outcome = string.Empty },
+            Magic = bare.Magic with { Outcome = string.Empty },
+            Quests = bare.Quests with { Action = string.Empty, Outcome = string.Empty },
+            Keys = Keys(),
+        };
+    }
 
     /// <summary>A running session in which every block carries something: the fight is in real time.</summary>
     private static SessionSnapshot Running() => new(

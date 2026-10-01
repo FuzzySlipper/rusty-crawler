@@ -16,13 +16,26 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="State">Its state, as the owner words it, empty when it has none.</param>
 /// <param name="Source">Which owner reported it, which is what the row is attributable to.</param>
 /// <param name="Marked">Whether the owner marks it, which a screen shows as done rather than working out.</param>
-public readonly record struct JournalRowSnapshot(
+public sealed record JournalRowSnapshot(
     string Id,
     string Label,
     string Detail,
     string State,
     string Source,
-    bool Marked);
+    bool Marked)
+{
+    /// <summary>Writes one row of a book.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("id", builder.String(Id)),
+            ("label", builder.String(Label)),
+            ("detail", builder.String(Detail)),
+            ("state", builder.String(State)),
+            ("source", builder.String(Source)),
+            ("marked", builder.Boolean(Marked)));
+}
 
 /// <summary>One of the journal's books, as the panel shows it.</summary>
 /// <remarks>
@@ -36,12 +49,24 @@ public readonly record struct JournalRowSnapshot(
 /// <param name="Available">Whether the session holds the owner that fills it.</param>
 /// <param name="State">What the game says about it.</param>
 /// <param name="Rows">What it holds, in the owner's own order.</param>
-public readonly record struct JournalBookSnapshot(
+public sealed record JournalBookSnapshot(
     string Kind,
     string Title,
     bool Available,
     string State,
-    IReadOnlyList<JournalRowSnapshot> Rows);
+    IReadOnlyList<JournalRowSnapshot> Rows)
+{
+    /// <summary>Writes one book: its title, its state sentence, and its rows.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The book's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("kind", builder.String(Kind)),
+            ("title", builder.String(Title)),
+            ("available", builder.Boolean(Available)),
+            ("state", builder.String(State)),
+            ("rows", builder.Array([.. Rows.Select(row => row.Write(builder))])));
+}
 
 /// <summary>The party's journal as the panel needs it: its books, and what each holds.</summary>
 /// <remarks>
@@ -66,7 +91,7 @@ public readonly record struct JournalBookSnapshot(
 /// </remarks>
 /// <param name="Available">Whether the session holds a journal owner at all.</param>
 /// <param name="Books">The books the game keeps, in its own order.</param>
-public readonly record struct JournalSnapshot(bool Available, IReadOnlyList<JournalBookSnapshot> Books)
+public sealed record JournalSnapshot(bool Available, IReadOnlyList<JournalBookSnapshot> Books)
 {
     /// <summary>No journal owner: the session's ruleset stated no journal, so there are no books.</summary>
     public static JournalSnapshot None => new(false, []);
@@ -266,4 +291,18 @@ public readonly record struct JournalSnapshot(bool Available, IReadOnlyList<Jour
     /// <summary>The time of day, to the minute, in the form every other block publishes times in.</summary>
     private static string Time(GameDate date) =>
         string.Create(CultureInfo.InvariantCulture, $"{date.Hour:00}:{date.Minute:00}");
+
+    /// <summary>Writes the journal block: the five books and what each of them holds.</summary>
+    /// <remarks>
+    /// Every row is sent whole, with the words the owner gave it and the state the owner reports, so a screen
+    /// that shows a book decides nothing about it: it prints a title, a state sentence, and rows. The quests
+    /// book carries no rows because its page is the quests block, read from the same owner at the same
+    /// moment: publishing the errands twice would be two readings of one fact on one wire.
+    /// </remarks>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The block's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("available", builder.Boolean(Available)),
+            ("books", builder.Array([.. Books.Select(book => book.Write(builder))])));
 }

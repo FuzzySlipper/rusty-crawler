@@ -53,7 +53,7 @@ public enum SaveState
 /// nothing a load could rebuild, and <c>save-failed</c> when the write itself did not land.
 /// </param>
 /// <param name="Message">What happened, in the terms of the save that could not be used.</param>
-public readonly record struct SaveSnapshot(
+public sealed record SaveSnapshot(
     bool Available,
     bool Resumed,
     string Slot,
@@ -77,4 +77,17 @@ public readonly record struct SaveSnapshot(
     /// <returns>The state a session that has saved nothing publishes.</returns>
     public static SaveSnapshot None(bool available, bool resumed, string slot) =>
         new(available, resumed, slot, SaveState.Never, string.Empty, string.Empty, string.Empty);
+
+    /// <summary>Writes the save block: whether the session can save, and how its last request ended.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The block's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("available", builder.Boolean(Available)),
+            ("resumed", builder.Boolean(Resumed)),
+            ("slot", builder.String(Slot)),
+            ("state", builder.String(SessionProjection.WireName(State))),
+            ("at", builder.String(At)),
+            ("code", builder.String(Code)),
+            ("message", builder.String(Message)));
 }

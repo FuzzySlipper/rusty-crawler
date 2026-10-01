@@ -1,6 +1,7 @@
 using System.Globalization;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Skills;
 using PartyRpg.Kit.Time;
 
@@ -15,13 +16,33 @@ namespace PartyRpg.Kit.Magic;
 /// <param name="Aim">The identity a casting echoes back to choose this.</param>
 /// <param name="Name">What a person reads for it.</param>
 /// <param name="Kind">What sort of thing it is, as the game's own word.</param>
-public readonly record struct SpellAimSnapshot(string Aim, string Name, string Kind);
+public sealed record SpellAimSnapshot(string Aim, string Name, string Kind)
+{
+    /// <summary>Writes one thing a spell may be pointed at when its aim names no actor.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("aim", builder.String(Aim)),
+            ("name", builder.String(Name)),
+            ("kind", builder.String(Kind)));
+}
 
 /// <summary>One effect a spell has left running, as the panel shows it.</summary>
 /// <param name="Effect">The effect identity the spell left, which the panel shows and never interprets.</param>
 /// <param name="Magnitude">The magnitude it acts at.</param>
 /// <param name="EndsAt">When the clock ends it, formatted for a person, empty when nothing states an end.</param>
-public readonly record struct SpellRunningSnapshot(string Effect, int Magnitude, string EndsAt);
+public sealed record SpellRunningSnapshot(string Effect, int Magnitude, string EndsAt)
+{
+    /// <summary>Writes one effect running on the band.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("effect", builder.String(Effect)),
+            ("magnitude", builder.Number(Magnitude)),
+            ("endsAt", builder.String(EndsAt)));
+}
 
 /// <summary>One effect a spell has left running on one character, as the panel shows it.</summary>
 /// <remarks>
@@ -34,7 +55,19 @@ public readonly record struct SpellRunningSnapshot(string Effect, int Magnitude,
 /// <param name="Effect">The effect identity the spell left, which the panel shows and never interprets.</param>
 /// <param name="Magnitude">The magnitude it acts at.</param>
 /// <param name="EndsAt">When the clock ends it, formatted for a person, empty when nothing states an end.</param>
-public readonly record struct SpellMemberRunningSnapshot(string Member, string Name, string Effect, int Magnitude, string EndsAt);
+public sealed record SpellMemberRunningSnapshot(string Member, string Name, string Effect, int Magnitude, string EndsAt)
+{
+    /// <summary>Writes one effect running on one character, naming them.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("member", builder.String(Member)),
+            ("name", builder.String(Name)),
+            ("effect", builder.String(Effect)),
+            ("magnitude", builder.Number(Magnitude)),
+            ("endsAt", builder.String(EndsAt)));
+}
 
 /// <summary>One item the party holds that carries a spell, as the panel shows it.</summary>
 /// <remarks>
@@ -61,7 +94,7 @@ public readonly record struct SpellMemberRunningSnapshot(string Member, string N
 /// Which side of a fight the actor its spell names stands on — <c>party</c> or <c>opposition</c> — or empty when
 /// the spell names nobody, so a screen offers the actors a use may name without pairing an aim with a side.
 /// </param>
-public readonly record struct SpellItemSnapshot(
+public sealed record SpellItemSnapshot(
     string Item,
     string Name,
     string Kind,
@@ -72,12 +105,43 @@ public readonly record struct SpellItemSnapshot(
     int ChargesMax,
     bool Wielded,
     string Member,
-    string TargetSide = "");
+    string TargetSide = "")
+{
+    /// <summary>Writes one item the party carries that holds a spell.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <param name="magic">The block the item is listed in, which says who could use it and on what.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder, MagicSnapshot magic) =>
+        builder.Object(
+            ("item", builder.String(Item)),
+            ("name", builder.String(Name)),
+            ("kind", builder.String(Kind)),
+            ("spell", builder.String(Spell)),
+            ("spellName", builder.String(SpellName)),
+            ("targeting", builder.String(Targeting)),
+            ("charges", builder.Number(Charges)),
+            ("chargesMax", builder.Number(ChargesMax)),
+            ("wielded", builder.Boolean(Wielded)),
+            ("member", builder.String(Member)),
+            ("targetSide", builder.String(TargetSide)),
+            // An item is used by a member on what its spell names, so it is offered while there is somebody
+            // to use it and something on its side to name.
+            ("canUse", builder.Boolean(magic.Members.Count > 0 && magic.Aimable(TargetSide))));
+}
 
 /// <summary>One reading a cast left behind, as the panel shows it.</summary>
 /// <param name="Name">What the reading is about.</param>
 /// <param name="Value">What it reads as.</param>
-public readonly record struct SpellFactSnapshot(string Name, string Value);
+public sealed record SpellFactSnapshot(string Name, string Value)
+{
+    /// <summary>Writes one named reading of the state the last casting changed.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("name", builder.String(Name)),
+            ("value", builder.String(Value)));
+}
 
 /// <summary>One spell as a panel shows it: what it is, what it costs its caster, and what it is aimed at.</summary>
 /// <remarks>
@@ -100,7 +164,7 @@ public readonly record struct SpellFactSnapshot(string Name, string Value);
 /// Which side of a fight the actor the spell names stands on — <c>party</c> or <c>opposition</c> — or empty when
 /// the spell names nobody, so a screen offers the actors a casting may name without pairing an aim with a side.
 /// </param>
-public readonly record struct SpellRowSnapshot(
+public sealed record SpellRowSnapshot(
     string Spell,
     string Name,
     string School,
@@ -110,7 +174,28 @@ public readonly record struct SpellRowSnapshot(
     string Targeting,
     string Effect,
     IReadOnlyList<SpellAimSnapshot> Aims,
-    string TargetSide = "");
+    string TargetSide = "")
+{
+    /// <summary>Writes one spell a member knows: what it costs that caster and what it is aimed at.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <param name="magic">The block the spell is listed in, whose targets say whether it has anybody to name.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder, MagicSnapshot magic) =>
+        builder.Object(
+            ("spell", builder.String(Spell)),
+            ("name", builder.String(Name)),
+            ("school", builder.String(School)),
+            ("tier", builder.String(Tier)),
+            ("tierRung", builder.Number(TierRung)),
+            ("cost", builder.Number(Cost)),
+            ("targeting", builder.String(Targeting)),
+            ("effect", builder.String(Effect)),
+            ("aims", builder.Array([.. Aims.Select(aim => aim.Write(builder))])),
+            ("targetSide", builder.String(TargetSide)),
+            // A spell that must name an actor, has nobody on its side to name, and has nothing else it may
+            // be pointed at is one a casting would be refused on before a point was spent.
+            ("canCast", builder.Boolean(magic.Aimable(TargetSide) || Aims.Count > 0)));
+}
 
 /// <summary>One member's spellbook and what casting from it costs, as the panel shows it.</summary>
 /// <param name="Index">The member's place in the party, counted from zero, which a cast control names.</param>
@@ -122,7 +207,7 @@ public readonly record struct SpellRowSnapshot(
 /// <param name="QuickSpell">The spell in the member's quick slot, empty when the slot holds none.</param>
 /// <param name="QuickSpellName">What that spell is called, empty when the slot holds none.</param>
 /// <param name="Spells">The spells the member knows, in the order they were learned.</param>
-public readonly record struct SpellMemberSnapshot(
+public sealed record SpellMemberSnapshot(
     int Index,
     string Member,
     string Name,
@@ -131,7 +216,24 @@ public readonly record struct SpellMemberSnapshot(
     int SpellPointsMax,
     string QuickSpell,
     string QuickSpellName,
-    IReadOnlyList<SpellRowSnapshot> Spells);
+    IReadOnlyList<SpellRowSnapshot> Spells)
+{
+    /// <summary>Writes one member's spellbook.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <param name="magic">The block the member is listed in.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder, MagicSnapshot magic) =>
+        builder.Object(
+            ("index", builder.Number(Index)),
+            ("member", builder.String(Member)),
+            ("name", builder.String(Name)),
+            ("class", builder.String(Class)),
+            ("spellPoints", builder.Number(SpellPoints)),
+            ("spellPointsMax", builder.Number(SpellPointsMax)),
+            ("quickSpell", builder.String(QuickSpell)),
+            ("quickSpellName", builder.String(QuickSpellName)),
+            ("spells", builder.Array([.. Spells.Select(spell => spell.Write(builder, magic))])));
+}
 
 /// <summary>One actor a casting may be aimed at, as the fight and the party stand now.</summary>
 /// <remarks>
@@ -142,7 +244,17 @@ public readonly record struct SpellMemberSnapshot(
 /// <param name="Target">The identity a cast command names.</param>
 /// <param name="Name">What the actor is called.</param>
 /// <param name="Side">Which side the actor is on, as the wire spells it: <c>party</c> or <c>opposition</c>.</param>
-public readonly record struct SpellTargetSnapshot(string Target, string Name, string Side);
+public sealed record SpellTargetSnapshot(string Target, string Name, string Side)
+{
+    /// <summary>Writes one actor a casting could name, with the side it is on.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("target", builder.String(Target)),
+            ("name", builder.String(Name)),
+            ("side", builder.String(Side)));
+}
 
 /// <summary>What the party can cast, what it may aim at, and what the last casting did.</summary>
 /// <remarks>
@@ -183,7 +295,7 @@ public readonly record struct SpellTargetSnapshot(string Target, string Name, st
 /// publishes none.
 /// </param>
 /// <param name="Source">What carried the last casting, empty when it came from the caster's own spellbook.</param>
-public readonly record struct MagicSnapshot(
+public sealed record MagicSnapshot(
     bool Available,
     IReadOnlyList<SpellMemberSnapshot> Members,
     IReadOnlyList<SpellTargetSnapshot> Targets,
@@ -410,4 +522,48 @@ public readonly record struct MagicSnapshot(
     private static string Moment(GameDate? at) => at is { } moment
         ? moment.MinuteText
         : string.Empty;
+
+    /// <summary>Writes the magic block: each member's spellbook, what a casting costs, and what the last one did.</summary>
+    /// <remarks>
+    /// Every row and every target is sent whole so the screen decides nothing: which spells a member knows,
+    /// what each costs that caster, what each is aimed at, what it may be pointed at when its aim names no
+    /// actor, and which actors a casting could name with the side each is on. What the last casting changed
+    /// is published as named readings of the state it changed, and what spells have left running is published
+    /// with the moment each one lapses, so the panel shows a cast's outcome and the party's wards from state
+    /// rather than from the wording of a message.
+    /// </remarks>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The block's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("available", builder.Boolean(Available)),
+            ("members", builder.Array([.. Members.Select(member => member.Write(builder, this))])),
+            ("targets", builder.Array([.. Targets.Select(target => target.Write(builder))])),
+            ("outcome", builder.String(Outcome)),
+            ("member", builder.Number(Member)),
+            ("caster", builder.String(Caster)),
+            ("spell", builder.String(Spell)),
+            ("cost", builder.Number(Cost)),
+            ("target", builder.String(Target)),
+            ("effect", builder.String(Effect)),
+            ("code", builder.String(Code)),
+            ("message", builder.String(Message)),
+            ("source", builder.String(Source)),
+            ("facts", builder.Array([.. Facts.Select(fact => fact.Write(builder))])),
+            ("running", builder.Array([.. Running.Select(effect => effect.Write(builder))])),
+            // What runs on each character rather than on the band, each row naming them: this is what makes a
+            // ward cast on one member visible as theirs while the other members' rows stay empty.
+            ("memberRunning", builder.Array([.. MemberRunning.Select(effect => effect.Write(builder))])),
+            // The items the party carries that hold a spell: what each is, what it carries, and how much of it
+            // is left. A panel shows them and sends back the instance identity it was handed, so using one asks
+            // the product about the item it drew rather than about a row number.
+            ("items", builder.Array([.. Items.Select(item => item.Write(builder, this))])),
+            ("sight", builder.String(Sight)));
+
+    /// <summary>
+    /// Whether a casting aimed as the side says has somebody to name: always, when it names nobody, and otherwise
+    /// when an actor on that side is among the targets this block lists.
+    /// </summary>
+    internal bool Aimable(string side) =>
+        side.Length == 0 || Targets.Any(target => string.Equals(target.Side, side, StringComparison.Ordinal));
 }

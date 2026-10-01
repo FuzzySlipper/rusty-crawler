@@ -15,14 +15,28 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="Class">The class chosen, empty while none has been.</param>
 /// <param name="Portrait">The portrait chosen, empty while none has been.</param>
 /// <param name="PoolRemaining">How many attribute points this member has still to spend.</param>
-public readonly record struct CreationMemberSnapshot(
+public sealed record CreationMemberSnapshot(
     int Index,
     string Step,
     string Name,
     string Race,
     string Class,
     string Portrait,
-    int PoolRemaining);
+    int PoolRemaining)
+{
+    /// <summary>Writes one member of the roster being made.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("index", builder.Number(Index)),
+            ("step", builder.String(Step)),
+            ("name", builder.String(Name)),
+            ("race", builder.String(Race)),
+            ("class", builder.String(Class)),
+            ("portrait", builder.String(Portrait)),
+            ("pool", builder.Number(PoolRemaining)));
+}
 
 /// <summary>One member of the party a session accepted, as the screen shows it once it is playing.</summary>
 /// <remarks>
@@ -34,25 +48,58 @@ public readonly record struct CreationMemberSnapshot(
 /// <param name="Race">The character's race.</param>
 /// <param name="Class">The character's class.</param>
 /// <param name="Portrait">The portrait the character was created with, empty when it carries none.</param>
-public readonly record struct CreationPartyMemberSnapshot(
+public sealed record CreationPartyMemberSnapshot(
     int Index,
     string Name,
     string Race,
     string Class,
-    string Portrait);
+    string Portrait)
+{
+    /// <summary>Writes one member of the party being played.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("index", builder.Number(Index)),
+            ("name", builder.String(Name)),
+            ("race", builder.String(Race)),
+            ("class", builder.String(Class)),
+            ("portrait", builder.String(Portrait)));
+}
 
 /// <summary>One portrait creation offers, with whether the member being created has chosen it.</summary>
 /// <param name="Id">The portrait's identity, which is what choosing it sends back.</param>
 /// <param name="Name">What the portrait is called.</param>
 /// <param name="Race">The race the portrait is drawn as, which is what choosing it decides.</param>
 /// <param name="Selected">Whether this is the portrait the member being created carries.</param>
-public readonly record struct CreationPortraitSnapshot(string Id, string Name, string Race, bool Selected);
+public sealed record CreationPortraitSnapshot(string Id, string Name, string Race, bool Selected)
+{
+    /// <summary>Writes one portrait on offer.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("id", builder.String(Id)),
+            ("name", builder.String(Name)),
+            ("race", builder.String(Race)),
+            ("selected", builder.Boolean(Selected)));
+}
 
 /// <summary>One class creation offers, with whether the member being created has chosen it.</summary>
 /// <param name="Id">The class's identity, which is what choosing it sends back.</param>
 /// <param name="Name">What the class is called.</param>
 /// <param name="Selected">Whether this is the class the member being created belongs to.</param>
-public readonly record struct CreationClassSnapshot(string Id, string Name, bool Selected);
+public sealed record CreationClassSnapshot(string Id, string Name, bool Selected)
+{
+    /// <summary>Writes one class on offer.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("id", builder.String(Id)),
+            ("name", builder.String(Name)),
+            ("selected", builder.Boolean(Selected)));
+}
 
 /// <summary>One skill of the member being created, and where it stands.</summary>
 /// <remarks>
@@ -64,7 +111,17 @@ public readonly record struct CreationClassSnapshot(string Id, string Name, bool
 /// <param name="Id">The skill's identity, which is what choosing or removing it sends back.</param>
 /// <param name="Name">The skill's display name, which is its identity when the choices carry no other.</param>
 /// <param name="State">Where the skill stands: the wire word for fixed, chosen, or available.</param>
-public readonly record struct CreationSkillSnapshot(string Id, string Name, string State);
+public sealed record CreationSkillSnapshot(string Id, string Name, string State)
+{
+    /// <summary>Writes one skill on offer and where it stands.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("id", builder.String(Id)),
+            ("name", builder.String(Name)),
+            ("state", builder.String(State)));
+}
 
 /// <summary>
 /// One attribute of the member being created, with the range its race allows and what the pool can do.
@@ -81,14 +138,28 @@ public readonly record struct CreationSkillSnapshot(string Id, string Name, stri
 /// <param name="Maximum">The highest creation may raise it to for this race.</param>
 /// <param name="CanRaise">Whether one raise still fits under the ceiling.</param>
 /// <param name="CanLower">Whether one lowering still fits above the floor.</param>
-public readonly record struct CreationAttributeSnapshot(
+public sealed record CreationAttributeSnapshot(
     string Id,
     string Name,
     int Value,
     int Minimum,
     int Maximum,
     bool CanRaise,
-    bool CanLower);
+    bool CanLower)
+{
+    /// <summary>Writes one attribute, its bounds, and which way it may move.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("id", builder.String(Id)),
+            ("name", builder.String(Name)),
+            ("value", builder.Number(Value)),
+            ("minimum", builder.Number(Minimum)),
+            ("maximum", builder.Number(Maximum)),
+            ("canRaise", builder.Boolean(CanRaise)),
+            ("canLower", builder.Boolean(CanLower)));
+}
 
 /// <summary>
 /// The creation a session is in the middle of, as the screen shows it: where the flow stands, what the
@@ -122,7 +193,7 @@ public readonly record struct CreationAttributeSnapshot(
 /// <param name="Skills">The skills the chosen class fixes or offers, with where each one stands.</param>
 /// <param name="Attributes">The attributes the chosen race brings, with what the pool may do to each.</param>
 /// <param name="Party">The party this session accepted, once it is playing it; empty otherwise.</param>
-public readonly record struct CreationSnapshot(
+public sealed record CreationSnapshot(
     bool Active,
     bool Accepted,
     bool HasDefault,
@@ -293,6 +364,32 @@ public readonly record struct CreationSnapshot(
 
         return attributes;
     }
+
+    /// <summary>Writes the creation block: where the flow stands, what it offers, and what it refused.</summary>
+    /// <remarks>
+    /// The lists are the flow's own options and the party's own members, sent whole so the screen decides
+    /// nothing: a screen that had to work out which skills a class offers, or which attribute a score
+    /// belongs to, would be evaluating the game's rules.
+    /// </remarks>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The block's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("active", builder.Boolean(Active)),
+            ("accepted", builder.Boolean(Accepted)),
+            ("hasDefault", builder.Boolean(HasDefault)),
+            ("member", builder.Number(MemberIndex)),
+            ("members", builder.Number(MemberCount)),
+            ("step", builder.String(Step)),
+            ("pool", builder.Number(PoolRemaining)),
+            ("refusalCode", builder.String(RefusalCode)),
+            ("refusalMessage", builder.String(RefusalMessage)),
+            ("roster", builder.Array([.. Roster.Select(member => member.Write(builder))])),
+            ("portraits", builder.Array([.. Portraits.Select(portrait => portrait.Write(builder))])),
+            ("classes", builder.Array([.. Classes.Select(option => option.Write(builder))])),
+            ("skills", builder.Array([.. Skills.Select(skill => skill.Write(builder))])),
+            ("attributes", builder.Array([.. Attributes.Select(attribute => attribute.Write(builder))])),
+            ("party", builder.Array([.. Party.Select(member => member.Write(builder))])));
 }
 
 /// <summary>

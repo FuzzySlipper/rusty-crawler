@@ -331,8 +331,8 @@ public sealed class AutomapTests
             maps: fresh,
             world,
             new TestRunning("detect.unplaced"));
-        Assert.DoesNotContain(detected.Drawing!.Value.Marks, mark => mark.Id == "creature:nowhere");
-        AssertFinite(detected.Drawing!.Value);
+        Assert.DoesNotContain(detected.Drawing!.Marks, mark => mark.Id == "creature:nowhere");
+        AssertFinite(detected.Drawing!);
     }
 
     [Fact]
@@ -350,7 +350,7 @@ public sealed class AutomapTests
         // to, and nothing beyond what it has seen.
         MapSnapshot quiet = MapSnapshot.From(maps, world, new TestRunning());
         Assert.Empty(quiet.Detection);
-        Assert.Equal(["door:a-door"], quiet.Drawing!.Value.Marks.Select(mark => mark.Id));
+        Assert.Equal(["door:a-door"], quiet.Drawing!.Marks.Select(mark => mark.Id));
 
         // A detection whose own claim is two things adds exactly those two, flagged as revealed, and the ground
         // the party has seen is untouched: a spell that looked at a place does not walk it, and nothing is
@@ -360,8 +360,8 @@ public sealed class AutomapTests
         Assert.Equal("life is marked", detected.DetectionMessage);
         Assert.Equal(
             ["creature:a-crawler", "creature:another-crawler"],
-            detected.Drawing!.Value.Marks.Where(mark => mark.Detected).Select(mark => mark.Id).Order(StringComparer.Ordinal));
-        Assert.Equal(2, detected.Drawing!.Value.Marks.Count(mark => mark.Detected));
+            detected.Drawing!.Marks.Where(mark => mark.Detected).Select(mark => mark.Id).Order(StringComparer.Ordinal));
+        Assert.Equal(2, detected.Drawing!.Marks.Count(mark => mark.Detected));
         Assert.Equal(seen, Territory(maps, Region).SeenCount);
         Assert.Empty(knowledge.Notes);
 
@@ -369,9 +369,9 @@ public sealed class AutomapTests
         // the map is the detection's own answer rather than the mechanism's opinion about what is useful.
         MapSnapshot one = MapSnapshot.From(maps, world, new TestRunning("detect.one"));
         Assert.Equal("one mark", one.Detection);
-        Assert.Equal(["the nearest crawler"], one.Drawing!.Value.Marks.Where(mark => mark.Detected).Select(mark => mark.Label));
+        Assert.Equal(["the nearest crawler"], one.Drawing!.Marks.Where(mark => mark.Detected).Select(mark => mark.Label));
         MapSnapshot empty = MapSnapshot.From(maps, world, new TestRunning("detect.none"));
-        Assert.DoesNotContain(empty.Drawing!.Value.Marks, mark => mark.Detected);
+        Assert.DoesNotContain(empty.Drawing!.Marks, mark => mark.Detected);
         Assert.Equal(seen, Territory(maps, Region).SeenCount);
     }
 
@@ -416,13 +416,12 @@ public sealed class AutomapTests
     /// <summary>The automap block as the panel is handed it, over one reading of the party's map.</summary>
     private static ProjectedNode MapBlock(MapSnapshot map)
     {
-        SessionSnapshot snapshot = new(
+        SessionSnapshot snapshot = SessionSnapshots.Bare(
             new SessionComposition(new RulesetId("test.ruleset"), "Test Ruleset"),
             SessionMode.Running,
-            1,
-            1,
             WorldSnapshot.Empty,
-            Map: map);
+            1,
+            1) with { Map = map };
         UiValue value = SessionProjection.Build(snapshot);
         return new ProjectedNode(value, value.Root).Field(SessionProjection.MapField);
     }

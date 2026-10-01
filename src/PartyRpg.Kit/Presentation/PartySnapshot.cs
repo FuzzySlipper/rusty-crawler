@@ -14,7 +14,18 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="Kind">What family the game counts it in, as the game words it.</param>
 /// <param name="Label">What the game calls it.</param>
 /// <param name="Detail">What is true of it beyond its name, empty when nothing is.</param>
-public readonly record struct AwardSnapshot(string Id, string Kind, string Label, string Detail);
+public sealed record AwardSnapshot(string Id, string Kind, string Label, string Detail)
+{
+    /// <summary>Writes one row of the awards list, in the game's own words.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("id", builder.String(Id)),
+            ("kind", builder.String(Kind)),
+            ("label", builder.String(Label)),
+            ("detail", builder.String(Detail)));
+}
 
 /// <summary>The party's own accounts and standing, as the panel shows them.</summary>
 /// <remarks>
@@ -68,7 +79,7 @@ public readonly record struct AwardSnapshot(string Id, string Kind, string Label
 /// What the party has accomplished, in the game's own words, in the order the party carries the records;
 /// empty when it has done nothing this game counts or when its ruleset counts nothing.
 /// </param>
-public readonly record struct PartySnapshot(
+public sealed record PartySnapshot(
     bool Present,
     int Members,
     int Coins,
@@ -77,6 +88,7 @@ public readonly record struct PartySnapshot(
     int Reputation,
     int Fame,
     string Conditions,
+    IReadOnlyList<AwardSnapshot> Awards,
     int HitPoints = 0,
     int HitPointsMax = 0,
     int SpellPoints = 0,
@@ -84,11 +96,10 @@ public readonly record struct PartySnapshot(
     int Pack = 0,
     bool StandingRead = false,
     string Standing = "",
-    string StandingDetail = "",
-    IReadOnlyList<AwardSnapshot>? Awards = null)
+    string StandingDetail = "")
 {
     /// <summary>The party of a session that holds none.</summary>
-    public static PartySnapshot None => new(false, 0, 0, 0, string.Empty, 0, 0, string.Empty);
+    public static PartySnapshot None => new(false, 0, 0, 0, string.Empty, 0, 0, string.Empty, []);
 
     /// <summary>Reads the party as the panel needs it.</summary>
     /// <param name="party">The party the session holds, or null when it holds none.</param>
@@ -132,6 +143,7 @@ public readonly record struct PartySnapshot(
             party.Reputation.Reputation,
             party.Reputation.Fame,
             DescribeConditions(party),
+            awards,
             // What the party has left to lose and to cast with, summed over its members: a night's sleep
             // restores the pools, and a panel that showed only food and conditions would leave a rested
             // party and a wounded one looking the same.
@@ -142,8 +154,7 @@ public readonly record struct PartySnapshot(
             party.Inventory.Count,
             standing is not null,
             reading.Band ?? string.Empty,
-            reading.Reading ?? string.Empty,
-            awards);
+            reading.Reading ?? string.Empty);
     }
 
     /// <summary>
@@ -179,4 +190,38 @@ public readonly record struct PartySnapshot(
         ProvisionUnit.Portions => "portions",
         _ => throw new ArgumentOutOfRangeException(nameof(unit), unit, "Unknown unit of provisions."),
     };
+
+    /// <summary>Writes the party block: its accounts, its pools, what it carries, and its standing.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The block's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("present", builder.Boolean(Present)),
+            ("members", builder.Number(Members)),
+            ("coins", builder.Number(Coins)),
+            ("provisions", builder.Number(Provisions)),
+            ("unit", builder.String(Unit)),
+            ("reputation", builder.Number(Reputation)),
+            ("fame", builder.Number(Fame)),
+            ("conditions", builder.String(Conditions)),
+            // What the party has left to lose and to cast with: a night's sleep restores the pools, and
+            // a panel that showed only food and conditions would leave the recovery invisible.
+            ("hitPoints", builder.Number(HitPoints)),
+            ("hitPointsMax", builder.Number(HitPointsMax)),
+            ("spellPoints", builder.Number(SpellPoints)),
+            ("spellPointsMax", builder.Number(SpellPointsMax)),
+            // What the party carries: everything a search, a purchase, or a kill put in the one shared
+            // pack, so what a corpse held is visible as a number that moved rather than only as a
+            // sentence about it.
+            ("pack", builder.Number(Pack)),
+            // Whether this game reads a standing at all, what it calls the band the party falls in, and
+            // what that band does. The words are the ruleset's, printed unchanged: a game that reads
+            // neither is a different fact from a party whose accomplishments happen to be empty.
+            ("standingRead", builder.Boolean(StandingRead)),
+            ("standing", builder.String(Standing)),
+            ("standingDetail", builder.String(StandingDetail)),
+            // What the party has accomplished, one row per record the game counts, each in the game's
+            // own words: a screen shows them and decides nothing about what a record means. A game that
+            // counts nothing publishes the same empty list, and the two are told apart by standingRead.
+            ("awards", builder.Array([.. Awards.Select(award => award.Write(builder))])));
 }
