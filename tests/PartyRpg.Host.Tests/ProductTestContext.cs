@@ -81,7 +81,7 @@ internal static class ProductTestContext
                 Encoding.UTF8.GetBytes((string?)mapping.Attribute("Include") ?? string.Empty),
                 Encoding.UTF8.GetBytes((string?)mapping.Attribute("Intent") ?? string.Empty),
                 InputTriggerKind.Key,
-                default,
+                trigger[2] == "held" ? InputEdge.Held : InputEdge.Pressed,
                 default,
                 key,
                 default,
@@ -98,6 +98,48 @@ internal static class ProductTestContext
             mappings.ToArray(),
             InputCursorMode.PointerLock);
     }
+
+    /// <summary>
+    /// A world with one interior whose door stands in front of the scenario's starting point, and the creation
+    /// tables the product needs to make its party before the world is composed over it.
+    /// </summary>
+    internal static (string Path, string Text)[] DoorWorld() =>
+    [
+        Bundle("partyrpg-default", "world", "creation-tables"),
+        .. CreationTables(),
+        ($"{ContentDirectory}/content-packs/world/pack.json",
+            """
+            {
+              "schemaVersion": 1,
+              "packId": "world",
+              "kind": "definitions",
+              "provenance": { "description": "authored for a test" },
+              "documents": [
+                { "path": "places.json", "documentId": "places", "definitionKind": "place" },
+                { "path": "start.json", "documentId": "start", "definitionKind": "scenario-start" }
+              ]
+            }
+            """),
+        ($"{ContentDirectory}/content-packs/world/places.json",
+            """
+            {
+              "documentId": "places",
+              "definitionKind": "place",
+              "entries": [
+                { "id": "52", "kind": "interior", "name": "The Dragon's Lair", "respawnDays": 7,
+                  "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ],
+                  "placements": [
+                    { "id": "door-0", "kind": "door", "sourceField": "doors", "sourceIndex": 0,
+                      "x": 100, "y": 0, "z": 0, "positionSource": "vertexIds", "doorId": 1,
+                      "state": 2, "attributes": 1, "moveLength": 96, "openSpeed": 250, "closeSpeed": 250 } ] }
+              ]
+            }
+            """),
+        ($"{ContentDirectory}/content-packs/world/start.json",
+            """
+            { "documentId": "start", "definitionKind": "scenario-start", "entries": [ { "id": "start", "place": "52", "entryPoint": "Party Start" } ] }
+            """),
+    ];
 
     /// <summary>A staged bundle that selects the packs the test declares.</summary>
     internal static (string Path, string Text) Bundle(string bundleId, params string[] packIds) =>

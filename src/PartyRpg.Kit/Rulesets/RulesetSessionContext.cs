@@ -114,6 +114,11 @@ public enum SessionStart
 /// owner of which key presses which control, so it states them here and the session publishes them beside the
 /// controls; without them a screen names each button alone.
 /// </param>
+/// <param name="Interaction">
+/// The product's one interaction selection, when the host keeps one: it outlives every session the host
+/// creates, so what the host registered to inspect the reticle reads the live world's own focus. Without it
+/// each world aims through a selection of its own that nothing outside the session reads.
+/// </param>
 public sealed record RulesetSessionContext(
     IUiProjectionChannel Projection,
     BundleSelection Selection = default,
@@ -131,4 +136,5 @@ public sealed record RulesetSessionContext(
     SkillRaiseIntentNames? Skills = null,
     CastIntentNames? Cast = null,
     MixIntentNames? Mix = null,
-    ControlKeys? Keys = null);
+    ControlKeys? Keys = null,
+    InteractionSelection? Interaction = null);

@@ -1,4 +1,6 @@
+using PartyRpg.Kit;
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Rulesets.MightAndMagic7;
@@ -468,6 +470,10 @@ public sealed class ProductLifecycleTests
         public void ReleaseHold() { Calls.Add(nameof(ReleaseHold)); inner.ReleaseHold(); }
 
         public ProductUpdateResult Update(ProductUpdate update) { Calls.Add(nameof(Update)); return inner.Update(update); }
+
+        public SessionSnapshot Inspect() => inner.Inspect();
+
+        public Refusal? Look(double yawDegrees, double pitchDegrees) { Calls.Add(nameof(Look)); return inner.Look(yawDegrees, pitchDegrees); }
 
         public void Dispose() { Calls.Add(nameof(Dispose)); inner.Dispose(); }
     }

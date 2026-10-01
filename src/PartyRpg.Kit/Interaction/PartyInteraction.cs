@@ -55,7 +55,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
     private readonly ICorpseSource? _corpses;
     private readonly PlaceSpace _space;
     private readonly InteractionTuning _tuning;
-    private readonly WorldInteraction _selection;
+    private readonly InteractionSelection _selection;
     private readonly List<InteractionCandidate> _candidates = [];
     private readonly List<InteractionTarget> _targets = [];
     private readonly List<PlacementDefinition> _bodies = [];
@@ -70,15 +70,20 @@ public sealed class PartyInteraction : IWorldInteractionScene
     /// party's movement walks by, so what the party aims at and what it can walk to are one space.
     /// </param>
     /// <param name="tuning">The aim the reticle acquires and releases targets within.</param>
+    /// <param name="corpses">What a fight left lying in each place, or null for a game whose fights leave nothing.</param>
+    /// <param name="selection">
+    /// The product's one selection, which outlives this mechanism and is what an inspection from outside the
+    /// session reads. Without one the mechanism aims through a selection of its own that nothing else reads.
+    /// </param>
     /// <exception cref="ArgumentNullException">The world or the rule is missing.</exception>
-    public PartyInteraction(IInteractionWorld world, IInteractionRule rule, PlaceSpace space, InteractionTuning tuning, ICorpseSource? corpses = null)
+    public PartyInteraction(IInteractionWorld world, IInteractionRule rule, PlaceSpace space, InteractionTuning tuning, ICorpseSource? corpses = null, InteractionSelection? selection = null)
     {
         _world = world ?? throw new ArgumentNullException(nameof(world));
         _rule = rule ?? throw new ArgumentNullException(nameof(rule));
         _corpses = corpses;
         _space = space;
         _tuning = tuning;
-        _selection = new WorldInteraction(this);
+        _selection = selection ?? new InteractionSelection();
     }
 
     /// <summary>The target the reticle holds, or null when nothing usable is in reach and in sight.</summary>
@@ -114,7 +119,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
     /// <exception cref="ArgumentOutOfRangeException">The cycle direction is not -1, 0, or +1.</exception>
     public void Update(int cycleDirection = 0)
     {
-        _focus = _selection.Update(cycleDirection);
+        _focus = _selection.Claim(this).Update(cycleDirection);
         AdoptFocus();
     }
 
@@ -126,7 +131,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
     public InteractionResult Use()
     {
         _result = null;
-        InteractionUseReceipt receipt = _selection.UseFocused();
+        InteractionUseReceipt receipt = _selection.Claim(this).UseFocused();
         if (_result is not null) return _result;
 
         // A use the engine's own selection refused — nothing focused, out of reach, out of sight, a target
@@ -141,11 +146,17 @@ public sealed class PartyInteraction : IWorldInteractionScene
         // A use changes what the party faces — a door's state, and with it the use the door offers — so the
         // reticle is refreshed from the facts the use just produced. Without this the panel would show what
         // was faced before the use for the rest of the update, which is the one frame a player looks at.
-        _focus = _selection.Update();
+        _focus = _selection.Claim(this).Update();
         AdoptFocus();
         _result = InteractionResult.Refused(FocusedTarget, new Refusal(CodeFor(reason), MessageFor(reason, receipt.Message)));
         return _result;
     }
+
+    /// <summary>
+    /// Gives up the product's selection when the world this mechanism aims in is released, so an inspection
+    /// reads an empty scene rather than a world that no longer exists.
+    /// </summary>
+    public void Release() => _selection.Release(this);
 
     /// <inheritdoc />
     InteractionSceneSnapshot IWorldInteractionScene.ReadInteraction() => Build();
@@ -165,7 +176,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
 
         // The reticle is refreshed after the use so what the mechanism reports as faced is the target as the
         // use left it, rather than the incarnation the use was aimed at.
-        _focus = _selection.Update();
+        _focus = _selection.Claim(this).Update();
         AdoptFocus();
         return new InteractionActionResult(result.IsApplied, result.Message);
     }

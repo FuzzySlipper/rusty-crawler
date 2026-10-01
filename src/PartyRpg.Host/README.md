@@ -13,6 +13,14 @@ Implemented today:
 - `ProductControlKeys` reads, from the keyboard mappings the engine hands the product at creation, which key
   the project file bound each stand-alone control to, and hands those labels to the session through the
   ruleset context; the panel names those keys and no others, so a hint cannot drift from the declaration.
+- `CrawlerProduct` registers the Engine's `PlaytestDebugModule` and `InteractionDebugModule` in the generated
+  debug catalog (`IDebugCommandModuleSource`). `ProductPlaytest` answers `playtest.observe` with the session's
+  own snapshot, `playtest.action <intent>` with each declared keyboard control's physical key (`KeyW`, `Space`),
+  hold or tap, a nominal input window, and whether the session would take it now (the controls block's answer,
+  or the steering rule for movement), and `playtest.look` by turning the party through its facing rule
+  (yaw only). Every query resolves the session held when it is asked, so a restart or an accepted creation
+  never leaves a stale module; `interaction.inspect` reads the host's one `InteractionSelection`, which every
+  session's world aims through. `PlaytestRegistrationTests` drives the generated catalog itself.
 - `ProductIdentity` declares the product id, title, projection stream and contract, and the two
   input names once; the project file declares the same values, and the host suite (`ControlDeclarationTests`,
   which reads the constants by reference and the project file as XML) fails when the two drift.
@@ -30,8 +38,8 @@ Implemented today:
   counter's offer, a topic, a spell and its target, a mix — arrives as a payload action on the `crawler.ui`
   channel, declared beside them. The TypeScript build target is declared there too.
 
-Not declared: a look or aim control and a launcher; `docs/live-checks.md` covers how a check selects content
-instead.
+Not declared: a look or aim control and a launcher (`playtest.look` turns the party for a harness, not a player);
+`docs/live-checks.md` covers how a check selects content instead.
 
 Boundary rules:
 

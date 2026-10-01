@@ -194,8 +194,9 @@ opens the engine's debug surface. **The runtime needs a GPU adapter**: `rusty de
 engine's renderer and refuses to load without one (a software Vulkan driver such as llvmpipe counts).
 **The product draws no world**: the only engine services it uses are UI, spatial, content, random,
 diagnostics and persistence, so the frame the renderer presents is empty and the game is the DOM panel
-over it. A session driven through the agent playtest service's browser takes the player's keys, and the
-panel's Position row is the feedback loop.
+over it. A session driven through the agent playtest service's browser takes the player's keys; with
+`--live-debug` the product's `playtest.observe`, `playtest.action` and `interaction.inspect` commands read the
+place, pose, facing target, hostiles and each control's key and availability without scraping the panel.
 
 The offline importer reads the operator's own installation and never writes to it:
 
@@ -245,8 +246,8 @@ refuses a place whose solid faces cannot be closed enough for a party to stand o
 rules are in [`docs/research/mm7-map-formats.md`](docs/research/mm7-map-formats.md) §8.
 
 Den serves the product through `.den-serve.json` (preferred port 4176, `--live-debug`). The procedure for
-a live check — serving a checkout of its own, staging content and a pose, driving and reading the panel
-through the playtest service, and restoring tracked content afterwards — is in
+a live check — serving a checkout of its own, staging content and a pose, driving the product and reading
+it through the playtest commands and the panel, and restoring tracked content afterwards — is in
 [`docs/live-checks.md`](docs/live-checks.md); published readings are in [`docs/evidence/`](docs/evidence/README.md).
 
 ## Guidance and proof

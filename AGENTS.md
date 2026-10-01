@@ -146,8 +146,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   `docs/magic-coverage.md` (#9007; item-aimed ones #8513; followers #8514).
 - Stone 8, record: an errand's item is protected only from sale (#8687); nothing lowers standing (#9008).
 - Across stones: a saved passage does not survive a fare retune (#9000); projection blocks are written
-  twice (#9001); the product registers no Engine playtest or debug modules, so the panel is the only live
-  feedback (#9004).
+  twice (#9001).
 
 When a stone lands or a residue closes, update this section, `README.md`, and the owning project README
 together.

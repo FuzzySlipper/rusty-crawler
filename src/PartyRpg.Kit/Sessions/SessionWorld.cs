@@ -148,7 +148,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         Mover = mover;
         Creatures = creatures;
         Schedule = schedule ?? PlaceSchedule.Empty;
-        Interaction = interaction is null ? null : new PartyInteraction(this, interaction.Rule, interaction.Space, interaction.Tuning, interaction.Corpses);
+        Interaction = interaction is null ? null : new PartyInteraction(this, interaction.Rule, interaction.Space, interaction.Tuning, interaction.Corpses, interaction.Selection);
         _corpses = interaction?.Corpses;
         // The place the party starts in is entered exactly as any other is, so the scene it walks in is
         // filled from that place's content before the first step rather than one arrival late.
@@ -508,6 +508,10 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         _disposed = true;
         _clockSubscription?.Dispose();
         _population.Dispose();
+
+        // The product's selection outlives this world, so a world being released gives it up: an inspection
+        // made after this reads an empty scene rather than a place nobody stands in.
+        Interaction?.Release();
 
         // The creature mover walks in the party mover's own spatial session, so it is released first and
         // releases nothing of its own beyond the walkers it kept: the scene belongs to the movement.

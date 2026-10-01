@@ -36,6 +36,9 @@ public sealed class PartyPoseOwner
         _pose = Admit(startingPose);
     }
 
+    /// <summary>The facing rule the party's yaw wraps and its pitch clamps by.</summary>
+    public FacingRule Facing => _facing;
+
     /// <summary>The place the party is in.</summary>
     public PlaceId Place => _pose.Place;
 
