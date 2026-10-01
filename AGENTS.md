@@ -139,7 +139,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   place (#8618); rest restores laid-out members (#8662); the panel reaches only buy and sell (#8619); map
   event programs (fountains, obelisks, signs) are not executed (#9006).
 - Stone 6, combat: a fight is not carried in a save, and a save taken with one pending is refused (#8658);
-  an order commands every member rather than a selected one (#8659).
+  an order commands every member rather than a selected one (#8659); base and racial resistances and the
+  master dagger's triple blow are not read (#9026).
 - Stone 7, progression and magic: training takes no game time (#8671); the two counted deeds two ranks need
   have no writer (#8689); a laid-out member can be promoted (#8705); effects marked "not yet" in
   `docs/magic-coverage.md` (#9007; item-aimed ones #8513; followers #8514).
