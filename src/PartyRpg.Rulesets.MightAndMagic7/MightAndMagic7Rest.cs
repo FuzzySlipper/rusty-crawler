@@ -357,6 +357,10 @@ internal sealed class MightAndMagic7Rest : IRestRule
             if (!entity.IsAlive) continue;
             if (!string.Equals(entity.Content.Kind, CreaturePlacementKind, StringComparison.Ordinal)) continue;
             if (CreatureHealth.Find(entity.Actor) is { IsDown: true }) continue;
+
+            // A creature a spell created stands with the party, and the donor's check passes over what is friendly
+            // to it (Actor.cpp:3473-3477).
+            if (MightAndMagic7Summons.IsSummoned(entity.Placement)) continue;
             PlacePose at = entity.Pose;
             double x = at.X - party.X;
             double y = at.Y - party.Y;

@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Journal;
 using PartyRpg.Kit.Knowledge;
@@ -140,15 +141,32 @@ public sealed record SessionSave
         // The schema carries no fight, so a save taken while one has left state behind — a debt of recovery,
         // a creature provoked or wounded, a round in progress — would load with that state silently gone. It is
         // refused by name instead, and a save once the fight is over succeeds.
-        if (session.Combat?.UnsavedFight() is { Count: > 0 } fight)
+        //
+        // What a spell created in the place — a creature called up, a body stood back up — is the same kind of
+        // state: the schema carries no population, so the place would load as content states it and the creature
+        // would be gone. A creature standing with the party is refused by name on the same terms (#8658 holds
+        // carrying a fight and what stands in it); one already brought down is a body, which no save carries.
+        List<SaveProblem> problems = [];
+        if (session.Combat?.UnsavedFight() is { } fight)
         {
-            List<SaveProblem> problems =
-            [
-                .. fight.Select(left => new SaveProblem(
-                    SaveCodes.SaveFightUnsaved,
-                    left.Subject,
-                    $"the fight has {left.Phrase}, which a save cannot carry yet")),
-            ];
+            problems.AddRange(fight.Select(left => new SaveProblem(
+                SaveCodes.SaveFightUnsaved,
+                left.Subject,
+                $"the fight has {left.Phrase}, which a save cannot carry yet")));
+        }
+
+        int summoned = place.Population.Entities.Count(entity =>
+            entity.IsSummoned && entity.IsAlive && CreatureHealth.Find(entity.Actor) is not { IsDown: true });
+        if (summoned > 0)
+        {
+            problems.Add(new SaveProblem(
+                SaveCodes.SaveFightUnsaved,
+                "summoned",
+                $"the place has {summoned} creature(s) a spell created standing in it, which a save cannot carry yet"));
+        }
+
+        if (problems.Count > 0)
+        {
             throw new SessionSaveException($"The session cannot be saved during a fight: {string.Join("; ", problems)}.", problems);
         }
 

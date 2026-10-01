@@ -144,9 +144,9 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 - Stone 6, combat: a fight is not carried in a save, and a save taken with one pending is refused (#8658);
   an order commands every member rather than a selected one (#8659).
 - Stone 7, progression and magic: training takes no game time (#8671); the two counted deeds two ranks need
-  have no writer (#8689); a laid-out member can be promoted (#8705); a creature summoned or raised to
-  fight for the party is "not yet" in `docs/magic-coverage.md` (#9031; item-aimed effects #8513; followers
-  #8514).
+  have no writer (#8689); a laid-out member can be promoted (#8705); item-aimed effects (#8513) and followers
+  (#8514) are "not yet" in `docs/magic-coverage.md`; a dead member cannot be raised as a zombie, and a
+  charmed creature blocks camping (#9037).
 - Stone 8, record: an errand's item is protected only from sale (#8687).
 
 When a stone lands or a residue closes, update this section, `README.md`, and the owning project README

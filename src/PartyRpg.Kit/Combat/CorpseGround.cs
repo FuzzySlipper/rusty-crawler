@@ -81,6 +81,29 @@ public sealed class CorpseGround
         return _held.GetValueOrDefault(body.Serial);
     }
 
+    /// <summary>
+    /// Takes a body off the ground, with whatever its death held, because something stood it back up.
+    /// </summary>
+    /// <remarks>
+    /// A body that got up is not lying there to be searched, and what it held goes with it rather than staying
+    /// behind as a lot nobody can reach: the creature it became is what the place holds now.
+    /// </remarks>
+    /// <param name="body">The body.</param>
+    /// <returns>Whether it was lying there.</returns>
+    public bool Remove(Corpse body)
+    {
+        ArgumentNullException.ThrowIfNull(body);
+        if (!_places.TryGetValue(body.Place, out Dictionary<PlacementContentId, Corpse>? lying) ||
+            !lying.TryGetValue(body.Content, out Corpse? held) || held.Serial != body.Serial)
+        {
+            return false;
+        }
+
+        lying.Remove(body.Content);
+        _held.Remove(body.Serial);
+        return true;
+    }
+
     /// <summary>Holds what a body's death left, once.</summary>
     /// <param name="body">The body.</param>
     /// <param name="loot">What it holds.</param>

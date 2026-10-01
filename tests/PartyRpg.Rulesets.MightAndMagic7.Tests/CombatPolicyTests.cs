@@ -314,6 +314,22 @@ public sealed class CombatPolicyTests
     }
 
     [Fact]
+    public void A_monsters_ageing_touch_leaves_a_year_on_the_character_and_no_condition()
+    {
+        // The donor's ageing attack lands and is saved against as the others are, against endurance, and a character
+        // who fails the save is a year older than their natural age (OpenEnroth src/Engine/Objects/Character.cpp:1351-1360,
+        // 1604-1610). It is the character's own progression, which a save carries.
+        BlowFacts aged = Blow(special: "Age", level: 5, roll: 0);
+        Assert.Equal(1, aged.AgeOffset);
+        Assert.Empty(aged.Active);
+
+        // A save that holds leaves the character as old as they were: every draw at its highest beats the
+        // special attack's own chance before any save is asked for.
+        BlowFacts spared = Blow(special: "Age", level: 5, roll: 10_000);
+        Assert.Equal(0, spared.AgeOffset);
+    }
+
+    [Fact]
     public void A_member_taken_below_empty_is_unconscious_then_dead_and_the_offers_that_bring_them_back_claim_it()
     {
         // A character of twelve hit points and an endurance of fifteen — a bonus of one — against a blow of
@@ -426,7 +442,8 @@ public sealed class CombatPolicyTests
             combat,
             member.Conditions.Active.Select(condition => condition.Condition).ToArray(),
             member.Resources.HitPoints.Current,
-            MightAndMagic7Conditions.Cures(member.Conditions.Active));
+            MightAndMagic7Conditions.Cures(member.Conditions.Active),
+            member.Progression.AgeOffset);
     }
 
     /// <summary>Whether the panel's last order is a creature's own resolved blow against the party.</summary>
@@ -443,7 +460,8 @@ public sealed class CombatPolicyTests
         ProjectedNode Combat,
         IReadOnlyList<ConditionId> Active,
         int HitPoints,
-        IReadOnlyList<ServiceOffer> Cures)
+        IReadOnlyList<ServiceOffer> Cures,
+        int AgeOffset)
     {
         /// <summary>What is acting on the member, as the panel published it.</summary>
         internal string Conditions => Combat.Field("members").Item(0).Field("conditions").AsString();

@@ -77,7 +77,7 @@ internal enum MightAndMagic7SpecialAttackKind
     /// <summary>Steals from the character, which this build does not apply yet.</summary>
     Steal,
 
-    /// <summary>Ages the character, which this build does not apply yet.</summary>
+    /// <summary>Ages the character a year beyond their natural age.</summary>
     Aging,
 
     /// <summary>Drains the character's spell points.</summary>

@@ -221,6 +221,46 @@ public sealed class SpellReadingPolicyTests
     }
 
     [Fact]
+    public void A_divine_intervention_is_cast_three_times_a_day_and_the_count_clears_when_the_day_turns()
+    {
+        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(Readings());
+        using IGameSession session = Casting(context, ui);
+        MightAndMagic7Session live = (MightAndMagic7Session)session;
+        PartyMember caster = live.Party!.Members[0];
+
+        // The donor allows each character three a day (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:2592), and each
+        // one ages its caster ten years (:2603-2607).
+        for (ulong cast = 1; cast <= 3; cast++)
+        {
+            Cast(session, ui, cast, "88", string.Empty);
+            Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
+        }
+
+        Assert.Equal(30, caster.Progression.AgeOffset);
+
+        // A fourth is refused before anything is spent: no points, no years.
+        int points = caster.Resources.SpellPoints.Current;
+        Cast(session, ui, 4, "88", string.Empty);
+        ProjectedNode refused = Magic(ui);
+        Assert.Equal("refused", refused.Field("outcome").AsString());
+        Assert.Equal(MightAndMagic7Codes.SpellDailyLimit, refused.Field("code").AsString());
+        Assert.Equal(points, caster.Resources.SpellPoints.Current);
+        Assert.Equal(30, caster.Progression.AgeOffset);
+
+        // The count is the caster's own, kept in the party's records so a save carries it.
+        Assert.Contains(live.Party.Records.All, record => record.Name.StartsWith("spell.per-day.88.", StringComparison.Ordinal) && record.Count == 3);
+
+        // A whole day of game time crosses the donor's three o'clock once (src/Engine/Engine.cpp:1036-1081): the day
+        // has turned, the caster may cast it again, and the earlier day's count is gone from the record.
+        Advance(session, 24);
+        Cast(session, ui, 200, "88", string.Empty);
+        Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
+        Assert.Equal(40, caster.Progression.AgeOffset);
+        Assert.Single(live.Party.Records.All, record => record.Name.StartsWith("spell.per-day.88.", StringComparison.Ordinal));
+        Assert.Contains(live.Party.Records.All, record => record.Name.StartsWith("spell.per-day.88.", StringComparison.Ordinal) && record.Count == 1);
+    }
+
+    [Fact]
     public void A_pure_potion_raises_its_score_for_good_once_in_a_characters_life()
     {
         (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(Readings());

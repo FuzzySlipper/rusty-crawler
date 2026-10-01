@@ -22,10 +22,11 @@ public sealed class PlacePopulationEntity
 {
     private readonly Actor _actor;
 
-    internal PlacePopulationEntity(Actor actor, PlacementDefinition placement)
+    internal PlacePopulationEntity(Actor actor, PlacementDefinition placement, bool summoned = false)
     {
         _actor = actor;
         Placement = placement;
+        IsSummoned = summoned;
     }
 
     /// <summary>The engine actor for this entity, through which components are attached and read.</summary>
@@ -66,6 +67,15 @@ public sealed class PlacePopulationEntity
 
     /// <summary>Whether the entity is still alive; leaving the place is what ends it.</summary>
     public bool IsAlive => _actor.IsAlive;
+
+    /// <summary>
+    /// Whether something created the entity while the party stood in the place, rather than content placing it.
+    /// </summary>
+    /// <remarks>
+    /// A summoned entity has no placement content states, so a place rebuilt from content never holds it again:
+    /// it lives for the visit that made it, or until what made it lets it go, whichever is first.
+    /// </remarks>
+    public bool IsSummoned { get; }
 }
 
 /// <summary>Where a placed entity stands now, attached by the population when it creates the entity.</summary>

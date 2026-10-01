@@ -298,6 +298,11 @@ internal sealed class MightAndMagic7Loot
     {
         ArgumentNullException.ThrowIfNull(body);
         ArgumentNullException.ThrowIfNull(rolls);
+
+        // A creature a spell created carries nothing to drop: the donor clears a raised body's treasure
+        // (src/Engine/Objects/Actor.cpp:1741-1746) and a summoned elemental's coin (:4173-4174), and the shipped
+        // elementals' own cells drop nothing besides.
+        if (MightAndMagic7Summons.IsSummoned(body)) return LootYield.Nothing;
         string named = body.Source.GetId(MightAndMagic7Combat.MonsterField);
         int? row = int.TryParse(named, NumberStyles.None, CultureInfo.InvariantCulture, out int stated) ? stated : _personRow;
         if (row is not { } id || !_treasure.TryGetValue(id, out TreasureRoll? cell)) return LootYield.Nothing;

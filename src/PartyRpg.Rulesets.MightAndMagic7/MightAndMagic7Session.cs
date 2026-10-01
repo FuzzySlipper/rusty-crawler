@@ -100,7 +100,13 @@ internal sealed class MightAndMagic7Session : IGameSession
         // What a spell leaves on a creature is judged by that creature's own row — what it is immune to, whether it
         // is undead — which the fight policy composed below reads, so the effect path is handed it as a provider.
         MightAndMagic7Combat? composed = null;
-        MightAndMagic7SpellEffects? spellEffects = spells is null ? null : new MightAndMagic7SpellEffects(spells, clock, () => owners.World, () => composed);
+
+        // What the party brings down is kept in one place, and both halves hold it: the fight reports the
+        // creatures it read as down, and the world's interaction answers describe what is lying there. It is
+        // composed here because the ruleset is the one point both halves are composed over, and before the
+        // effect path because a body a spell stands back up is taken off the same ground.
+        CorpseGround corpses = new();
+        MightAndMagic7SpellEffects? spellEffects = spells is null ? null : new MightAndMagic7SpellEffects(spells, clock, () => owners.World, () => composed, corpses);
         // This game's automap is read beside them: how far a walking party sees, what each place's own map
         // squares and features are drawn as, the zoom ladder, and what a detection reveals over it. Both halves
         // are read from the content the product loaded — the maps themselves come from the placed-map document
@@ -258,10 +264,6 @@ internal sealed class MightAndMagic7Session : IGameSession
         // mark in the shipped table rather than each keeping its own reading of the rows.
         MightAndMagic7Knowledge knowledge = new(loot);
 
-        // What the party brings down is kept in one place, and both halves hold it: the fight reports the
-        // creatures it read as down, and the world's interaction answers describe what is lying there. It is
-        // composed here because the ruleset is the one point both halves are composed over.
-        CorpseGround corpses = new();
         MightAndMagic7Corpses corpseAnswers = new(corpses, loot, () => owners.World);
 
         // What a death pays the party is composed beside them: the award is the kit's one path, the worth is

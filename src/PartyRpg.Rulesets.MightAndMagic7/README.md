@@ -40,7 +40,15 @@ Owns:
   five-minute boundary the clock passes while it runs (`GameCalendar.Boundaries`, read in the effect path's own
   clock observation before the ledger ends what came due); light ended by the clock's daylight window, travel as a portal
   through the world's own transition path with a beacon in the party's carried state, and detection over
-  the places and the population the world holds. What each spell does inside its category is its row in
+  the places and the population the world holds. A creature a spell creates (`MightAndMagic7Summons`) is
+  created by the world's own population: a summoned light elemental of the grade the caster's mastery calls,
+  found by the monster table's own internal name the importer carries (`internalName`), up to one, three, or
+  five at once, for five or fifteen minutes a level (`CastSpellInfo.cpp:2410-2445`, `Actor.cpp:4145-4204`), and a
+  body the fight laid stood back up in its place when its row's level is within the caster's reach, with at
+  most ten hit points a level of that reach (`CastSpellInfo.cpp:2613-2662`). Both carry who made them, which
+  the fight reads as the ally side; both are worth no experience and drop nothing; a raised body leaves the
+  corpse ground with what it held; and a save taken while one stands is refused by name, because the schema
+  carries no population (#8658). What each spell does inside its category is its row in
   `MightAndMagic7SpellReadings`, and how far this build expresses each one is reported per spell in
   `docs/magic-coverage.md`, which a test generates and checks against those rows.
 - Items that carry a spell (`MightAndMagic7Spells.Reading`): a scroll read once and used up, and a wand
@@ -133,8 +141,13 @@ Owns:
   `CharacterProgression.AgeOffset`, which a save carries — a divine intervention adds ten to its caster, never past
   a hundred and twenty (`CastSpellInfo.cpp:2603-2607`), and a potion of rejuvenation gives them all back
   (`Character.cpp:3297-3299`). A pure potion raises its score by fifty for good, once in a character's life, kept
-  as a record under the character and the score (`Character.cpp:3282-3295`). A creature's ageing touch is a special
-  attack this build does not apply yet, with breaking and stealing an item (see `ConditionOf`).
+  as a record under the character and the score (`Character.cpp:3282-3295`). A creature's ageing touch lands and
+  is saved against as a condition is, against endurance, and adds a year to the character's `AgeOffset` with no
+  ceiling (`Character.cpp:1351-1360, 1604-1610`); breaking and stealing an item are not applied yet (see
+  `ConditionOf`). A divine intervention may be cast three times a day by each caster
+  (`MightAndMagic7DailyCasts`): the count is a record under the spell, the caster, and the clock's day, which
+  turns at three in the morning as the donor's does (`CastSpellInfo.cpp:2592`, `Engine.cpp:1036-1081`), and a
+  fourth is refused before anything is spent.
 - Time, calendar, rest, fatigue, and travel policy, including service hours.
 - Quest, guild, reputation, and journal policy: the errands the shipped quest table states, what each asks
   and pays, who gives it, and the board a town hall posts.
