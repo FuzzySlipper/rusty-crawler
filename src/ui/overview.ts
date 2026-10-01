@@ -52,6 +52,34 @@ export interface MovementView {
   readonly stepRise: number;
   readonly fallDistance: number;
   readonly fallDamage: number;
+  /** What the ground under the party does to it now. */
+  readonly footing: FootingView;
+}
+
+/** One effect that spares the party, or one member, the harm of the ground it stands on. */
+export interface FootingShelterView {
+  readonly effect: string;
+  /** What the game calls it. */
+  readonly name: string;
+  readonly member: string;
+  readonly memberName: string;
+  /** Whether it spares the whole party; otherwise its carrier alone. */
+  readonly everybody: boolean;
+}
+
+/**
+ * The ground under the party, as the product read it: `ground` is empty while the party stands on nothing, and the
+ * harm fields describe no harm while `harmful` is false.
+ */
+export interface FootingView {
+  /** The ground's name as content states it, or empty. */
+  readonly ground: string;
+  readonly harmful: boolean;
+  /** How often the ground harms the party, in game seconds. */
+  readonly every: number;
+  /** How many game seconds before the next harm lands. */
+  readonly nextHarmIn: number;
+  readonly shelters: readonly FootingShelterView[];
 }
 
 /** Where the game clock stands. `present` is false when the session's ruleset composed no clock. */
@@ -224,6 +252,23 @@ export function readMovement(f: Fields): MovementView {
     stepRise: f.number('stepRise'),
     fallDistance: f.number('fallDistance'),
     fallDamage: f.number('fallDamage'),
+    footing: readFooting(f.object('footing')),
+  };
+}
+
+function readFooting(f: Fields): FootingView {
+  return {
+    ground: f.text('ground'),
+    harmful: f.flag('harmful'),
+    every: f.number('every'),
+    nextHarmIn: f.number('nextHarmIn'),
+    shelters: f.list('shelters', (entry) => ({
+      effect: entry.text('effect'),
+      name: entry.text('name'),
+      member: entry.text('member'),
+      memberName: entry.text('memberName'),
+      everybody: entry.flag('everybody'),
+    })),
   };
 }
 

@@ -343,6 +343,31 @@ public sealed class GameCalendar
         return (toMilliseconds / interval.Milliseconds) - (fromMilliseconds / interval.Milliseconds);
     }
 
+    /// <summary>The first boundary of a stated interval after a date, counted from the calendar's own first day.</summary>
+    /// <remarks>
+    /// This is the boundary <see cref="Boundaries"/> counts next: a span from <paramref name="after"/> crosses it
+    /// exactly when it reaches it, so a rule that acts at these boundaries acts next at this date.
+    /// </remarks>
+    /// <param name="after">The date to look from; a boundary at this very date has already passed.</param>
+    /// <param name="interval">The length of game time between two boundaries.</param>
+    /// <returns>The next boundary.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The calendar does not hold the date, or the interval is no time at all.</exception>
+    /// <exception cref="OverflowException">The boundary lies beyond the game time this kit can count.</exception>
+    public GameDate NextBoundary(GameDate after, GameDuration interval)
+    {
+        RequireValid(after, nameof(after));
+        if (interval.IsNone)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(interval),
+                interval,
+                "A rule that acts every so often acts at boundaries some length of game time apart; an interval of no time has no next boundary.");
+        }
+
+        long index = AbsoluteMilliseconds(after) / interval.Milliseconds;
+        return FromAbsoluteMilliseconds(checked((index + 1) * interval.Milliseconds));
+    }
+
     /// <summary>How much game time lies between two dates.</summary>
     /// <param name="from">The date to measure from.</param>
     /// <param name="to">The date to measure to, which cannot be earlier than the one measured from.</param>

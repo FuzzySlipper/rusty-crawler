@@ -236,8 +236,12 @@ and flight, the engine's flying mode asked for while a game's `IFlightRule` allo
 flight that ends in the air left the party; and a place's named ground, `PlaceSurfaces` read beside its artifact by
 `ContentPlaceGeometry` and looked up at the ground point the engine reports, so the mover's `Footing` says when the
 party stands in water, and a game's `IGroundHazardRule` harms it there once for every interval the clock crosses,
-through `SessionWorld`, while `IRestRule.Stop` may refuse any stop where it stands), the reaches that let a party walk
-into a transition, the movement facts the panel reports, the one combat state
+through `SessionWorld`, while `IRestRule.Stop` may refuse any stop where it stands; `SessionWorld.Ground` reads the
+footing, the hazard's interval, the calendar boundary its next harm lands at (`GameCalendar.NextBoundary`, the one
+`Endure` counts next) and the rule's `GroundShelter`s, which the movement block publishes as `footing`; and
+`IPartyMover.GroundUnder` looks a pose in the party's place up on the same `PlaceSurfaces` at the point it stands on,
+`PlaceSpace.GroundPosition`), the reaches that let a party walk into a transition, the movement facts the panel
+reports, the one combat state
 (`Combat/` — a `CombatState` over the live world and nothing else, with a `Combatant` per party member and
 per creature the ruleset recognizes in the party's place, one `Combatant.Recovery` quantity each advanced
 from the game time the one clock reports and gated before any `AttackOrder` is applied, `Hostility` as a

@@ -53,7 +53,8 @@ game gave it, how large a mark is drawn, the party marker's corners and facing i
 words for what is seen or why nothing is. The panel writes those numbers into SVG shapes and computes no scale, no
 offset, no size, and no position of its own — a reload of the same projection draws the same map.
 
-It reports the last admitted movement step, what the party faces and what using it did, the fight and its pacing,
+It reports the last admitted movement step and the ground under the party — what it stands on, how often and how
+soon that harms it, and what spares whom, each as the product read it — what the party faces and what using it did, the fight and its pacing,
 each counter, conversation, and stop, and the party's records on the same terms: every value is the product's, a
 refusal keeps its own code and sentence, and nothing on screen counts down or ticks on its own — a recovering
 member shows the game time the product published, because a screen that timed recovery itself would show a

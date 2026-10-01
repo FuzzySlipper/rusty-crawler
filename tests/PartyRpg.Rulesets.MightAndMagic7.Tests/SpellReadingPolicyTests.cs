@@ -329,6 +329,12 @@ public sealed class SpellReadingPolicyTests
         Assert.Equal(100, live.World!.Party.PlacePose.Z, 3);
         Assert.Equal("flying", ProjectedNode.Of(ui.Latest().Value).Field("movement").Field("motion").AsString());
 
+        // In the air the party stands on nothing, and the panel names the flight as what keeps everybody off the ground.
+        Assert.Equal(string.Empty, Footing(ui).Field("ground").AsString());
+        Assert.False(Footing(ui).Field("harmful").AsBoolean());
+        Assert.Equal("Fly", Footing(ui).Field("shelters").Item(0).Field("name").AsString());
+        Assert.True(Footing(ui).Field("shelters").Item(0).Field("everybody").AsBoolean());
+
         // Letting go hovers, and an hour in the air is twelve five-minute boundaries the caster pays for.
         Advance(session, 1);
         Assert.Equal(CharacterMovementMode.Flying, spatial.Steps[^1].Command.Movement.Mode);
@@ -342,6 +348,8 @@ public sealed class SpellReadingPolicyTests
         session.Update(RulesetTestContext.Update(201, 1));
         Assert.Equal(CharacterMovementMode.Walking, spatial.Steps[^1].Command.Movement.Mode);
         Assert.Equal("grounded", ProjectedNode.Of(ui.Latest().Value).Field("movement").Field("motion").AsString());
+        Assert.Equal("ordinary", Footing(ui).Field("ground").AsString());
+        Assert.Equal(0, Footing(ui).Field("shelters").Count());
 
         // A caster drained dry holds nobody up: the flight is still carried, and a rise asks for nothing.
         caster.Resources.TrySpendSpellPoints(caster.Resources.SpellPoints.Current);
@@ -414,6 +422,15 @@ public sealed class SpellReadingPolicyTests
         session.Update(RulesetTestContext.Update(1, 1));
         Assert.Equal("water", live.World!.Mover!.Footing?.Id);
 
+        // The panel reads the same footing, that it harms the party every thirty seconds, the boundary the next harm lands
+        // at, and that nothing spares anybody yet.
+        ProjectedNode footing = Footing(ui);
+        Assert.Equal("water", footing.Field("ground").AsString());
+        Assert.True(footing.Field("harmful").AsBoolean());
+        Assert.Equal(30d, footing.Field("every").AsNumber());
+        Assert.InRange(footing.Field("nextHarmIn").AsNumber(), double.Epsilon, 30d);
+        Assert.Equal(0, footing.Field("shelters").Count());
+
         // Two real seconds standing in water are sixty game seconds: every thirty of them each character loses a tenth
         // of what they can take (OpenEnroth src/Engine/Engine.cpp:1083-1099).
         (int Aelina, int Borin) before = (aelina.Resources.HitPoints.Current, borin.Resources.HitPoints.Current);
@@ -440,6 +457,12 @@ public sealed class SpellReadingPolicyTests
         session.Update(RulesetTestContext.Update(5, 120));
         Assert.Equal(before.Borin, borin.Resources.HitPoints.Current);
         Assert.True(aelina.Resources.HitPoints.Current < before.Aelina);
+        footing = Footing(ui);
+        Assert.True(footing.Field("harmful").AsBoolean());
+        Assert.Equal(1, footing.Field("shelters").Count());
+        Assert.Equal("Water Breathing", footing.Field("shelters").Item(0).Field("name").AsString());
+        Assert.Equal("Borin", footing.Field("shelters").Item(0).Field("memberName").AsString());
+        Assert.False(footing.Field("shelters").Item(0).Field("everybody").AsBoolean());
 
         // Aelina, a master, walks the party over the water for an hour a level: nobody drowns, and an hour standing on it
         // costs her a spell point every
@@ -454,7 +477,23 @@ public sealed class SpellReadingPolicyTests
         Assert.Equal(before.Aelina, aelina.Resources.HitPoints.Current);
         Assert.Equal(before.Borin, borin.Resources.HitPoints.Current);
         Assert.Equal(points - 3, aelina.Resources.SpellPoints.Current);
+
+        // The panel says the water harms nobody now, and that Aelina's walk spares everybody beside Borin's breathing.
+        footing = Footing(ui);
+        Assert.Equal("water", footing.Field("ground").AsString());
+        Assert.False(footing.Field("harmful").AsBoolean());
+        Assert.Equal(0d, footing.Field("nextHarmIn").AsNumber());
+        ProjectedNode walk = Enumerable.Range(0, footing.Field("shelters").Count())
+            .Select(index => footing.Field("shelters").Item(index))
+            .Single(shelter => shelter.Field("effect").AsString() == "spell.water-walk");
+        Assert.Equal("Water Walk", walk.Field("name").AsString());
+        Assert.Equal("Aelina", walk.Field("memberName").AsString());
+        Assert.True(walk.Field("everybody").AsBoolean());
     }
+
+    /// <summary>The footing the movement block publishes, from the newest projection.</summary>
+    private static ProjectedNode Footing(RecordingUiService ui) =>
+        ProjectedNode.Of(ui.Latest().Value).Field("movement").Field("footing");
 
     /// <summary>
     /// A region whose whole floor is water, a party of a water-walking sorcerer and a knight with a bottle of water

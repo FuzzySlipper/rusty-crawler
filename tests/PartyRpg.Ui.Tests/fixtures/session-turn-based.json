@@ -62,7 +62,22 @@
     "blocked": "wall",
     "stepRise": 0.5,
     "fallDistance": 0,
-    "fallDamage": 0
+    "fallDamage": 0,
+    "footing": {
+      "ground": "water",
+      "harmful": true,
+      "every": 30,
+      "nextHarmIn": 12.5,
+      "shelters": [
+        {
+          "effect": "spell.water-breathing",
+          "name": "Water Breathing",
+          "member": "2",
+          "memberName": "Aelina",
+          "everybody": false
+        }
+      ]
+    }
   },
   "creation": {
     "active": false,

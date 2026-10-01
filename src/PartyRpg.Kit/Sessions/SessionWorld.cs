@@ -281,6 +281,31 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     }
 
     /// <summary>
+    /// What the ground under the party does to it now: what it stands on, whether and how often that harms it, the
+    /// boundary at which the next harm lands, and what spares whom.
+    /// </summary>
+    /// <remarks>
+    /// The next harm is the calendar boundary <see cref="Endure"/> counts next for the ground the mover reports now,
+    /// so the panel's answer and the harm that lands are one reading of the same interval: a party that is still on
+    /// that ground when the clock reaches it takes the harm then.
+    /// </remarks>
+    /// <returns>The reading, which is <see cref="GroundReading.None"/> for a world with no mover.</returns>
+    public GroundReading Ground()
+    {
+        if (_disposed || Mover is not { } mover) return GroundReading.None;
+        IReadOnlyList<GroundShelter> shelters = _hazards?.Shelters ?? [];
+        if (mover.Footing is not { } ground) return GroundReading.None with { Shelters = shelters };
+        if (_hazards?.IntervalOn(ground) is not { } interval || _clock is not { } clock)
+        {
+            return new GroundReading(ground, null, null, GameDuration.None, shelters);
+        }
+
+        GameDate now = clock.Now;
+        GameDate next = clock.Calendar.NextBoundary(now, interval);
+        return new GroundReading(ground, interval, next, clock.Calendar.Between(now, next), shelters);
+    }
+
+    /// <summary>
     /// Steps the interaction mechanism inside the admitted update: the reticle is refreshed from where the
     /// party now stands and what its place holds, and a use the player asked for is applied to whatever it
     /// holds.

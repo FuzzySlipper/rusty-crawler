@@ -42,6 +42,10 @@ namespace PartyRpg.Kit.Presentation;
 /// answer at the moment of the snapshot rather than a fact of the last step, and the panel's motion word does not
 /// carry it: a harness asking whether those controls would do anything reads it here.
 /// </param>
+/// <param name="Footing">
+/// What the ground under the party does to it now, which is the world's reading at the moment of the snapshot rather
+/// than a fact of the last step; null reads as <see cref="FootingSnapshot.None"/>.
+/// </param>
 public sealed record MovementSnapshot(
     bool Moved,
     bool Grounded,
@@ -50,7 +54,8 @@ public sealed record MovementSnapshot(
     double FallDistance,
     double FallDamage,
     bool Flying = false,
-    bool Flight = false)
+    bool Flight = false,
+    FootingSnapshot? Footing = null)
 {
     /// <summary>No movement to report: no step has been admitted, so every fact is at its quiet value.</summary>
     /// <remarks>
@@ -69,10 +74,11 @@ public sealed record MovementSnapshot(
     /// <summary>Reads the movement facts out of the movement owner's last step.</summary>
     /// <param name="outcome">The last step the movement owner resolved, or null before the first one.</param>
     /// <param name="flight">Whether the party may fly now, as the movement owner answers it.</param>
+    /// <param name="footing">What the ground under the party does to it now, as the world reads it.</param>
     /// <returns>The facts of that step, or <see cref="None"/> when the party has not moved.</returns>
-    public static MovementSnapshot From(MovementOutcome? outcome, bool flight = false)
+    public static MovementSnapshot From(MovementOutcome? outcome, bool flight = false, FootingSnapshot? footing = null)
     {
-        if (outcome is not { } step) return None with { Flight = flight };
+        if (outcome is not { } step) return None with { Flight = flight, Footing = footing };
 
         return new MovementSnapshot(
             Moved: true,
@@ -85,7 +91,8 @@ public sealed record MovementSnapshot(
             FallDistance: step.Fall.Distance,
             FallDamage: step.Fall.Damage,
             Flying: step.Flying,
-            Flight: flight);
+            Flight: flight,
+            Footing: footing);
     }
 
     /// <summary>Writes the movement block.</summary>
@@ -97,5 +104,6 @@ public sealed record MovementSnapshot(
             ("blocked", builder.String(SessionProjection.WireName(Blocked))),
             ("stepRise", builder.Number(StepRise)),
             ("fallDistance", builder.Number(FallDistance)),
-            ("fallDamage", builder.Number(FallDamage)));
+            ("fallDamage", builder.Number(FallDamage)),
+            ("footing", (Footing ?? FootingSnapshot.None).Write(builder)));
 }

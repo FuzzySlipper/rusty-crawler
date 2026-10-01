@@ -55,7 +55,14 @@
     "blocked": "none",
     "stepRise": 0,
     "fallDistance": 0,
-    "fallDamage": 0
+    "fallDamage": 0,
+    "footing": {
+      "ground": "",
+      "harmful": false,
+      "every": 0,
+      "nextHarmIn": 0,
+      "shelters": []
+    }
   },
   "creation": {
     "active": false,

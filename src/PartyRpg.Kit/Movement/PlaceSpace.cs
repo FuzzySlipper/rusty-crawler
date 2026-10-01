@@ -105,6 +105,19 @@ public readonly record struct PlaceSpace
         return new Vector3((float)pose.X, (float)(pose.Z + BodyCentreHeight), (float)-pose.Y);
     }
 
+    /// <summary>The engine world point a pose stands on: its position without the lift to a body's centre.</summary>
+    /// <remarks>
+    /// This is the point a place's named ground is looked up at for something standing there — a body lying where a
+    /// creature fell — as the engine's ground point is for the party.
+    /// </remarks>
+    /// <param name="pose">The pose, whose facing is ignored.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The position is not made of numbers.</exception>
+    public Vector3 GroundPosition(PlacePose pose)
+    {
+        Vector3 centre = Position(pose);
+        return centre with { Y = (float)pose.Z };
+    }
+
     /// <summary>A pose in a place for an engine world position, keeping the place and facing it is given.</summary>
     /// <param name="position">The engine world position to read back.</param>
     /// <param name="facingFrom">The pose whose place, yaw, and pitch the result keeps.</param>

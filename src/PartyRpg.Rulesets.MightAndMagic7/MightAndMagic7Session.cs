@@ -246,7 +246,7 @@ internal sealed class MightAndMagic7Session : IGameSession
         // creatures it read as down, and the world's interaction answers describe what is lying there. It is
         // composed here because the ruleset is the one point both halves are composed over.
         CorpseGround corpses = new();
-        MightAndMagic7Corpses corpseAnswers = new(corpses, loot);
+        MightAndMagic7Corpses corpseAnswers = new(corpses, loot, () => owners.World);
 
         // What a death pays the party is composed beside them: the award is the kit's one path, the worth is
         // the monster row's own experience column, and the owner is the one the session composes over
