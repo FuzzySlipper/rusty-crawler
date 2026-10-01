@@ -229,11 +229,11 @@ own `actor` records — a creature the level is built holding, written with its 
 index in the level's actor array — stands as exactly one `monster` placement, `monster-actor-<index>`, keeping the
 `actors` field and index, at the record's point and facing, and drawing nothing; a record marked `hidden` (the
 donor's `Disabled`, `OpenEnroth/src/Engine/Graphics/Outdoor.cpp:617-618`, revealed only by clearing its bit,
-`src/Engine/Objects/Actor.cpp:124-136`, which no shipped event step does) stands as nothing, and a record naming a
+`OpenEnroth/src/Engine/Objects/Actor.cpp:124-136`, which no shipped event step does) stands as nothing, and a record naming a
 row the monster table lacks is refused at composition, `actor-monster-unknown`; the donor loads that array before
-its spawn records and reloads it on a respawn, `src/Engine/Graphics/Indoor.cpp:310-319,907-922`, so a first visit and
+its spawn records and reloads it on a respawn, `OpenEnroth/src/Engine/Graphics/Indoor.cpp:310-319,907-922`, so a first visit and
 every restore hold it — the record's stored hit points are provenance, the fight reads the row's, as the donor's
-load does, `Actor.cpp:2899-2925`), and what using
+load does, `OpenEnroth/src/Engine/Objects/Actor.cpp:2899-2925`), and what using
 something means here (`MightAndMagic7Interaction` —
 a door from the delta's own stored state with the donor's interaction range, a fixture or a decoration that
 raises an event as a fixture whose use runs the event (`MightAndMagic7Fixtures`, below), a `requires` array on a placement as
