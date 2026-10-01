@@ -281,6 +281,21 @@ internal static class WardFormulas
             _ => grandmaster,
         }));
 
+    /// <summary>
+    /// Minutes per level by mastery, and at grand master a length that outlasts any visit to a place: the donor's
+    /// own "until the player leaves the map", which it writes as a year (<c>CastSpellInfo.cpp:640-643</c>,
+    /// <c>:2742-2745</c>) and which here is a year of this game's own calendar.
+    /// </summary>
+    internal static Func<int, int, GameDuration> MinutesPerLevelThenAVisit(int expert, int master) =>
+        (level, mastery) => mastery >= 4
+            ? GameDuration.FromHours(24 * 28 * 12)
+            : GameDuration.FromMinutes(level * (mastery >= 3 ? master : expert));
+
+    /// <summary>A berserk's own length: five or ten minutes a level by mastery, and an hour at grand master (<c>CastSpellInfo.cpp:2016-2030</c>).</summary>
+    internal static readonly Func<int, int, GameDuration> BerserkLasts = (level, mastery) => mastery >= 4
+        ? GameDuration.FromHours(1)
+        : GameDuration.FromMinutes(level * (mastery >= 3 ? 10 : 5));
+
     /// <summary>A power that is one value for each rung of mastery.</summary>
     internal static Func<int, int, int> ByMastery(int novice, int expert, int master, int grandmaster) =>
         (_, mastery) => mastery switch
@@ -692,6 +707,18 @@ internal static class SpellEffectIds
 
     /// <summary>A creature shrunk, whose magnitude divides the harm it does: <c>ACTOR_BUFF_SHRINK</c>.</summary>
     internal static readonly EffectId CreatureShrunk = new("creature.shrunk");
+
+    /// <summary>A creature charmed, which stands with the party and fights nobody for it: <c>ACTOR_BUFF_CHARM</c>.</summary>
+    internal static readonly EffectId CreatureCharmed = new("creature.charmed");
+
+    /// <summary>A creature driven berserk, which is the enemy of everything: <c>ACTOR_BUFF_BERSERK</c>.</summary>
+    internal static readonly EffectId CreatureBerserk = new("creature.berserk");
+
+    /// <summary>A creature bound to serve, which fights for the party as one of its own: <c>ACTOR_BUFF_ENSLAVED</c>.</summary>
+    internal static readonly EffectId CreatureEnslaved = new("creature.enslaved");
+
+    /// <summary>The three allegiances a spell can leave on a creature, each of which ends the others.</summary>
+    internal static readonly EffectId[] Allegiances = [CreatureCharmed, CreatureBerserk, CreatureEnslaved];
 
     /// <summary>A creature staggered, which leaves nothing that lasts: the stun pushes its recovery back.</summary>
     internal static readonly EffectId CreatureStunned = new("creature.stunned");

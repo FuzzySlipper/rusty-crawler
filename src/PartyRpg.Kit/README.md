@@ -222,7 +222,9 @@ into a transition, the movement facts the panel reports, the one combat state
 (`Combat/` — a `CombatState` over the live world and nothing else, with a `Combatant` per party member and
 per creature the ruleset recognizes in the party's place, one `Combatant.Recovery` quantity each advanced
 from the game time the one clock reports and gated before any `AttackOrder` is applied, `Hostility` as a
-ruleset answer about what a thing is plus the fight's own memory of what the party has done to it, and an
+ruleset answer about what a thing is plus the fight's own memory of what the party has done to it — a creature
+the game answers `Hostility.Allied` for stands on the `Ally` side whatever the party did to it, is driven by the
+`CombatDirector` beside the opposition, and is never the party's target — and an
 `ICombatRule` seam for recovery values, notice ranges, reach, and names, and the one resolution path every
 kind of attack takes — the fight consumes the `AttackInitiation` it published, asks the
 `ICombatResolutionRule` seam for a chance, a kind of harm, dice, and the target's resistance, rolls them

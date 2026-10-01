@@ -102,7 +102,12 @@ Owns:
     (`TurnEngine.cpp:889-892`), and a stun adds the donor's twenty ticks to its recovery through the fight's own
     `Delay` (`Actor.cpp:3179-3188`). A creature immune to the spell's kind of harm is untouched, and which kinds are
     undead is read from the shipped matrix's own column names (`MonsterEnumFunctions.cpp:278-288`). A creature a
-    spell holds still is not down: it can be struck and the place still holds it.
+    spell holds still is not down: it can be struck and the place still holds it. Allegiance is the same state read
+    by `NatureOf` and by `MightAndMagic7MonsterAi`'s enmity in the donor's order (`Actor.cpp:2097-2104`,
+    `:2122-2165`): a charmed or bound creature is the kit's `Hostility.Allied` and stands on the fight's `Ally` side
+    — the party's act does not aim at it, it attacks nobody of the party, a charmed one keeps its quarrels with
+    other kinds and a bound one is read as the party's own kind — and a berserk one is everybody's enemy at the
+    longest band. Each of the three ends the other two.
   A member wearing a bow shoots it at whatever the party's pick finds, where the donor swings at a target in
   melee range and shoots otherwise (`Character.cpp:6367-6397`): the kit asks one kind of attack per actor rather
   than per target (ours). Each sum is a list of terms, so a later owner's term — a buff, an enchantment — is one

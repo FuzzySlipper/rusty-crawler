@@ -410,6 +410,33 @@ public sealed class CombatResolutionTests
         }
     }
 
+    [Fact]
+    public void A_creature_standing_with_the_party_is_on_its_side_whatever_the_party_did_to_it()
+    {
+        Rules rules = new(allied: true);
+        using SessionWorld world = World(rules, out PartyEntity party, creatureAt: 100);
+        using (party)
+        {
+            Arrive(world);
+            CombatState combat = Fight(world, party, rules);
+            combat.Step();
+            Combatant beast = combat.Combatants.First(combatant => !combatant.Subject.IsMember);
+            Combatant member = combat.Combatants.First(combatant => combatant.Subject.IsMember);
+
+            // What made it stand with the party outranks a provocation: it is an ally, nothing is fighting the party,
+            // and an order to turn either of them on the other is refused by name.
+            Assert.True(combat.Provoke(beast.Id));
+            combat.Step();
+            Assert.Equal(CombatSide.Ally, beast.Side);
+            Assert.False(combat.IsEngaged);
+            Assert.Equal(CombatCodes.FriendlyTarget, combat.Order(new AttackOrder(member.Id, AttackKind.Melee, beast.Id)).Refusal!.Code);
+            Assert.Equal(CombatCodes.FriendlyTarget, combat.Order(new AttackOrder(beast.Id, AttackKind.Melee, member.Id)).Refusal!.Code);
+
+            // The party's own act aims at nothing standing with it.
+            Assert.All(combat.Engage(), result => Assert.Null(result.Initiated?.Target));
+        }
+    }
+
     private sealed class Heard(List<CreatureDeath> heard) : ICreatureDeathObserver
     {
         public void Died(CreatureDeath death) => heard.Add(death);
@@ -557,6 +584,7 @@ public sealed class CombatResolutionTests
         private readonly int _face;
         private readonly int _divisor;
         private readonly int _reflect;
+        private readonly bool _allied;
 
         internal Rules(
             IRandomService? random = null,
@@ -569,8 +597,10 @@ public sealed class CombatResolutionTests
             bool incapacitated = false,
             int deathThreshold = 6,
             int divisor = 1,
-            int reflect = 0)
+            int reflect = 0,
+            bool allied = false)
         {
+            _allied = allied;
             _random = random;
             _divisor = divisor;
             _reflect = reflect;
@@ -601,7 +631,7 @@ public sealed class CombatResolutionTests
 
         public Hostility NatureOf(CombatSubject subject) => subject.Member is not null
             ? Hostility.Peaceful
-            : subject.Placement?.Content.Kind == "creature" ? Hostility.Aggressive(500) : Hostility.Inert;
+            : subject.Placement?.Content.Kind == "creature" ? _allied ? Hostility.Allied : Hostility.Aggressive(500) : Hostility.Inert;
 
         public AttackKind AttackKindFor(CombatSubject subject) => AttackKind.Melee;
 

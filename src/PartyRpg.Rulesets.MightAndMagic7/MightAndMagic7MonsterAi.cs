@@ -147,8 +147,7 @@ internal sealed class MightAndMagic7MonsterAi : IMonsterAiPolicy
         if (self.Member is not null || other.Member is not null) return false;
         if (SameGroup(self, other)) return false;
         if (_combat.FactsOf(self) is not { } mine || _combat.FactsOf(other) is not { } theirs) return false;
-
-        return _hostility.IsEnemy(mine.HostilityKind, theirs.HostilityKind);
+        return Band(self, other, mine, theirs) != 0;
     }
 
     /// <inheritdoc />
@@ -344,8 +343,44 @@ internal sealed class MightAndMagic7MonsterAi : IMonsterAiPolicy
     private int Band(CombatSubject self, CombatSubject other)
     {
         if (_combat.FactsOf(self) is not { } mine || _combat.FactsOf(other) is not { } theirs) return 0;
+        return Band(self, other, mine, theirs);
+    }
+
+    /// <summary>
+    /// What one creature thinks of another, with what a spell made either of them read first.
+    /// </summary>
+    /// <remarks>
+    /// The donor's own order (<c>OpenEnroth/src/Engine/Objects/Actor.cpp:2122-2165</c>, <c>GetActorsRelation</c>): a
+    /// berserk creature on either side is an enemy at the longest band; a bound creature is read as one of the
+    /// party's own kind, so it is the enemy of every creature that is the party's enemy and that creature is its;
+    /// a charmed creature is no enemy of the party's own kind and keeps its quarrels with every other; and
+    /// otherwise the shipped matrix answers. The party's own row is the matrix's column zero.
+    /// </remarks>
+    private int Band(CombatSubject self, CombatSubject other, MightAndMagic7Combat.MonsterFacts mine, MightAndMagic7Combat.MonsterFacts theirs)
+    {
+        if (Under(self, SpellEffectIds.CreatureBerserk) || Under(other, SpellEffectIds.CreatureBerserk)) return LongestBand;
+        bool selfBound = Under(self, SpellEffectIds.CreatureEnslaved);
+        bool otherBound = Under(other, SpellEffectIds.CreatureEnslaved);
+        if (selfBound && otherBound) return 0;
+        if ((Under(self, SpellEffectIds.CreatureCharmed) && otherBound) || (Under(other, SpellEffectIds.CreatureCharmed) && selfBound)) return 0;
+        if (selfBound) return PartysEnemy(other, theirs) ? LongestBand : 0;
+        if (otherBound) return PartysEnemy(self, mine) ? LongestBand : 0;
         return _hostility.Band(mine.HostilityKind, theirs.HostilityKind);
     }
+
+    /// <summary>Whether a creature is the party's enemy by what it is: it notices the party, or its kind hates the party's.</summary>
+    private bool PartysEnemy(CombatSubject subject, MightAndMagic7Combat.MonsterFacts facts) =>
+        !Under(subject, SpellEffectIds.CreatureCharmed) &&
+        (facts.NoticeRange > 0 || _hostility.Band(facts.HostilityKind, PartyKind) != 0);
+
+    /// <summary>Whether a spell has left one effect on a creature.</summary>
+    private static bool Under(CombatSubject subject, PartyRpg.Kit.Party.EffectId effect) => MightAndMagic7Combat.OnCreature(subject, effect) > 0;
+
+    /// <summary>The matrix's own column for the party: <c>HostilityTable.h:12-15</c>.</summary>
+    private const int PartyKind = 0;
+
+    /// <summary>The donor's longest band, <c>HOSTILITY_LONG</c>, which a berserk or a bound creature's enmity is read at.</summary>
+    private const int LongestBand = 4;
 
     /// <summary>Whether two actors are placements of the same non-zero group, which makes them allies.</summary>
     private static bool SameGroup(CombatSubject self, CombatSubject other)

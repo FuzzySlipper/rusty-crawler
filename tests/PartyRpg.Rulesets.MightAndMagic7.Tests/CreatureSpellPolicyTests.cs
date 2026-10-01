@@ -147,6 +147,63 @@ public sealed class CreatureSpellPolicyTests
         Assert.Equal(CreatureAction.Retreat, ai.Decide(situation).Action);
     }
 
+    [Fact]
+    public void A_charm_and_a_binding_put_a_creature_on_the_partys_side_and_a_berserk_one_is_everybodys_enemy()
+    {
+        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(Creatures());
+        using IGameSession session = Casting(context, ui);
+        MightAndMagic7Session live = (MightAndMagic7Session)session;
+        Stand(session);
+        MightAndMagic7Combat policy = Fight(context, live.Party!);
+        MightAndMagic7MonsterAi ai = MightAndMagic7MonsterAi.Compose(policy, random: null);
+        Assert.Equal(CombatSide.Opposition, Creature(live, "beast").Side);
+
+        // A grand master's binding puts a living creature on the party's side (OpenEnroth
+        // src/Engine/Spells/CastSpellInfo.cpp:2053-2087): the fight reads it as an ally, the party's own act no longer
+        // aims at it, and it treats what fights the party as its enemy (src/Engine/Objects/Actor.cpp:2135-2160).
+        CastAt(session, 2, "66", Creature(live, "beast"));
+        Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
+        session.Update(RulesetTestContext.Update(3, 1));
+        Combatant bound = Creature(live, "beast");
+        Assert.Equal(CombatSide.Ally, bound.Side);
+        Assert.True(policy.NatureOf(bound.Subject).IsAllied);
+        Assert.True(ai.AreEnemies(bound.Subject, Creature(live, "ghost").Subject));
+        Assert.True(ai.AreEnemies(Creature(live, "ghost").Subject, bound.Subject));
+
+        // An undead creature is not bound by it, and the casting is spent all the same.
+        CastAt(session, 4, "66", Creature(live, "ghost"));
+        Assert.Contains("no creature in reach is one it takes hold of", Magic(ui).Field("message").AsString(), StringComparison.Ordinal);
+
+        // A binding of the dead takes the ghost instead (CastSpellInfo.cpp:2719-2762), and two creatures bound to the
+        // party are not each other's enemies.
+        CastAt(session, 5, "94", Creature(live, "ghost"));
+        Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
+        session.Update(RulesetTestContext.Update(6, 1));
+        Assert.Equal(CombatSide.Ally, Creature(live, "ghost").Side);
+        Assert.False(ai.AreEnemies(Creature(live, "ghost").Subject, Creature(live, "beast").Subject));
+
+        // A berserk creature is everybody's enemy (Actor.cpp:2134, 2142), and it ends the binding the ghost was under.
+        CastAt(session, 7, "62", Creature(live, "ghost"));
+        Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
+        session.Update(RulesetTestContext.Update(8, 1));
+        Combatant raging = Creature(live, "ghost");
+        Assert.Equal(CombatSide.Opposition, raging.Side);
+        Assert.True(ai.AreEnemies(raging.Subject, Creature(live, "beast").Subject));
+        Assert.True(ai.AreEnemies(Creature(live, "far").Subject, raging.Subject));
+
+        // A charm stands a creature with the party and keeps its own quarrels with other kinds (Actor.cpp:2152-2154).
+        CastAt(session, 9, "60", Creature(live, "far"));
+        Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
+        session.Update(RulesetTestContext.Update(10, 1));
+        Assert.Equal(CombatSide.Ally, Creature(live, "far").Side);
+        Assert.False(ai.AreEnemies(Creature(live, "far").Subject, Creature(live, "beast").Subject));
+
+        // The party's own act aims at what fights it, never at a creature standing with it.
+        IReadOnlyList<CombatResult> struck = live.Combat!.Engage();
+        Assert.DoesNotContain(struck, result => result.Initiated?.Target == bound.Id);
+        Assert.DoesNotContain(struck, result => result.Initiated?.Target == Creature(live, "far").Id);
+    }
+
     /// <summary>The creature the session's own fight holds under its placement's own identity.</summary>
     private static Combatant Creature(MightAndMagic7Session live, string name) =>
         live.Combat!.Combatants.FirstOrDefault(combatant => !combatant.Subject.IsMember && combatant.Subject.Placement?.Content.Id == name)
@@ -175,9 +232,13 @@ public sealed class CreatureSpellPolicyTests
                 { "id": "34", "school": "Earth", "level": 1, "name": "Stun", "resist": "Earth" },
                 { "id": "35", "school": "Earth", "level": 2, "name": "Slow", "resist": "Earth" },
                 { "id": "48", "school": "Spirit", "level": 4, "name": "Turn Undead", "resist": "Spirit" },
+                { "id": "60", "school": "Mind", "level": 5, "name": "Charm", "resist": "Mind" },
+                { "id": "62", "school": "Mind", "level": 7, "name": "Berserk", "resist": "Mind" },
                 { "id": "63", "school": "Mind", "level": 8, "name": "Mass Fear", "resist": "Mind" },
+                { "id": "66", "school": "Mind", "level": 11, "name": "Enslave", "resist": "Mind" },
                 { "id": "81", "school": "Light", "level": 6, "name": "Paralyze", "resist": "Light" },
-                { "id": "92", "school": "Dark", "level": 2, "name": "Shrinking Ray", "resist": "Dark" }
+                { "id": "92", "school": "Dark", "level": 2, "name": "Shrinking Ray", "resist": "Dark" },
+                { "id": "94", "school": "Dark", "level": 4, "name": "Control Undead", "resist": "Dark" }
               ]
             }
             """),
@@ -197,10 +258,10 @@ public sealed class CreatureSpellPolicyTests
                                       { "id": "Luck", "value": 13 } ],
                       "skills": [ { "id": "Earth", "level": 3, "tier": 1, "pointsSpent": 1 },
                                   { "id": "Spirit", "level": 3, "tier": 1, "pointsSpent": 1 },
-                                  { "id": "Mind", "level": 4, "tier": 3, "pointsSpent": 1 },
+                                  { "id": "Mind", "level": 4, "tier": 4, "pointsSpent": 1 },
                                   { "id": "Light", "level": 2, "tier": 1, "pointsSpent": 1 },
                                   { "id": "Dark", "level": 4, "tier": 2, "pointsSpent": 1 } ],
-                      "spells": [ "34", "35", "48", "63", "81", "92" ], "conditions": [] },
+                      "spells": [ "34", "35", "48", "60", "62", "63", "66", "81", "92", "94" ], "conditions": [] },
                     { "name": "Borin", "race": "Human", "class": "Knight", "level": 1, "hitPoints": 40, "spellPoints": 0,
                       "attributes": [ { "id": "Might", "value": 13 }, { "id": "Intellect", "value": 9 },
                                       { "id": "Personality", "value": 9 }, { "id": "Endurance", "value": 13 },

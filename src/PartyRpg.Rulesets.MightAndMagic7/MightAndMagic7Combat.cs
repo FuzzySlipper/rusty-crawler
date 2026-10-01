@@ -622,6 +622,17 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         if (subject.Member is not null) return Hostility.Peaceful;
         if (Creature(subject) is { } creature)
         {
+            // What a spell made a creature outranks what it is: a charmed or bound creature stands with the party
+            // (OpenEnroth src/Engine/Objects/Actor.cpp:2097-2104, where the charm and the binding are read before the
+            // creature's own enmity), and a berserk one is the enemy of everything as far as it can see
+            // (Actor.cpp:2134, HOSTILITY_LONG).
+            if (OnCreature(subject, SpellEffectIds.CreatureCharmed) > 0 || OnCreature(subject, SpellEffectIds.CreatureEnslaved) > 0)
+            {
+                return Hostility.Allied;
+            }
+
+            if (OnCreature(subject, SpellEffectIds.CreatureBerserk) > 0) return Hostility.Aggressive(NoticeRanges[^1]);
+
             // An invisible party is not noticed: the donor's own invisibility is what stops a creature from
             // seeing the party at all, so a creature whose hostility is its notice band reads as one that
             // starts no fight (OpenEnroth src/Engine/Objects/Actor.cpp:2080-2090, where the band is tested

@@ -187,7 +187,7 @@ public sealed class CombatDirector
         Align(place);
 
         List<CreatureActivity> decided = [];
-        foreach (Combatant combatant in _combat.Combatants.Where(entry => entry.Side == CombatSide.Opposition).ToList())
+        foreach (Combatant combatant in _combat.Combatants.Where(Driven).ToList())
         {
             CreatureActivity activity = Turn(place, combatant, elapsedSeconds);
             if (!_combat.IsDown(combatant)) decided.Add(activity);
@@ -280,7 +280,7 @@ public sealed class CombatDirector
         _place = place;
 
         HashSet<CombatantId> live = [.. _combat.Combatants
-            .Where(combatant => combatant.Side == CombatSide.Opposition)
+            .Where(Driven)
             .Select(combatant => combatant.Id)];
         foreach (CombatantId gone in _rounds.Keys.Where(id => !live.Contains(id)).ToList())
         {
@@ -424,10 +424,13 @@ public sealed class CombatDirector
         foreach (Combatant other in _combat.Combatants)
         {
             if (ReferenceEquals(other, creature)) continue;
+            // The party is the enemy of what fights it and of nothing standing with it; between two creatures,
+            // the game's own answer decides.
             bool party = other.Side == CombatSide.Party;
+            bool enemy = party ? creature.Side == CombatSide.Opposition : _policy.AreEnemies(creature.Subject, other.Subject);
             candidates.Add(new CreatureCandidate(
                 other,
-                party || _policy.AreEnemies(creature.Subject, other.Subject),
+                enemy,
                 party,
                 self.DistanceTo(Where(other))));
         }
@@ -450,6 +453,13 @@ public sealed class CombatDirector
     /// The party's own pose is the party's; a creature's is its own live position, which starts where content
     /// placed it and moves only with the steps a mover resolves.
     /// </remarks>
+    /// <summary>
+    /// Whether a creature is driven here: what fights the party, and what stands with it — a creature something
+    /// made the party's still fights what it treats as its enemies.
+    /// </summary>
+    private static bool Driven(Combatant combatant) =>
+        combatant.Side is CombatSide.Opposition or CombatSide.Ally;
+
     private PlacePose Where(Combatant combatant) => combatant.Side == CombatSide.Party
         ? _combat.PartyPose
         : combatant.Subject.Entity?.Pose ?? combatant.Subject.Pose;

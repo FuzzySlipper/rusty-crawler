@@ -431,6 +431,7 @@ public static class SessionProjection
         CombatSide.Party => "party",
         CombatSide.Opposition => "opposition",
         CombatSide.Neutral => "neutral",
+        CombatSide.Ally => "ally",
         _ => throw new ArgumentOutOfRangeException(nameof(side), side, "Unknown combat side."),
     };
 

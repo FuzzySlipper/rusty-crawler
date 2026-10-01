@@ -308,10 +308,14 @@ public sealed class CombatState : IGameTimeObserver
                 CombatSubject subject = new(id, world.Place, pose, member: null, entity);
                 if (_rule.NatureOf(subject) is not { IsCreature: true } nature) continue;
 
+                // What made a creature stand with the party outranks what the party did to it; when it ends, the
+                // provocation the fight remembers is what the creature is angry about again.
                 double distance = world.Pose.DistanceTo(pose);
-                CombatSide side = _provoked.Contains(subject.Id) || nature.Notices(distance)
-                    ? CombatSide.Opposition
-                    : CombatSide.Neutral;
+                CombatSide side = nature.IsAllied
+                    ? CombatSide.Ally
+                    : _provoked.Contains(subject.Id) || nature.Notices(distance)
+                        ? CombatSide.Opposition
+                        : CombatSide.Neutral;
                 string name = _rule.NameOf(subject);
                 AttackKind kind = _weapons?.WeaponOf(subject)?.Kind ?? _rule.AttackKindFor(subject);
                 Combatant combatant = Existing(subject.Id) ??
@@ -531,7 +535,7 @@ public sealed class CombatState : IGameTimeObserver
                     new Refusal(CombatCodes.UnknownTarget, $"No combatant '{targetId}' is in this fight, so {actor.Name} attacked nothing.")));
             }
 
-            if (target.Side == CombatSide.Party && actor.Side == CombatSide.Party)
+            if (OnPartysSide(target) && OnPartysSide(actor))
             {
                 return Report(CombatResult.Refused(
                     actor.Id,
@@ -574,8 +578,9 @@ public sealed class CombatState : IGameTimeObserver
         actor.Spend(recovery);
 
         // What the party has done is what puts a creature into the fight: attacking it is remembered, so it
-        // stays an enemy for as long as it stands there, whatever pacing is in force.
-        if (target is not null && target.Side != CombatSide.Party)
+        // stays an enemy for as long as it stands there, whatever pacing is in force. A creature standing with the
+        // party is not provoked by being struck by one of the other side.
+        if (target is not null && !OnPartysSide(target))
         {
             _provoked.Add(target.Id);
             target.Provoke();
@@ -879,6 +884,9 @@ public sealed class CombatState : IGameTimeObserver
     /// <summary>The combatant already in this fight under an identity, or null when none is.</summary>
     private Combatant? Existing(CombatantId id) => _byId.GetValueOrDefault(id);
 
+    /// <summary>Whether an actor is one of the party or a creature standing with it.</summary>
+    private static bool OnPartysSide(Combatant combatant) => combatant.Side is CombatSide.Party or CombatSide.Ally;
+
     /// <summary>
     /// The creature a party member should attack: the nearest one that is not on the party's own side,
     /// within the reach the ruleset gives that member for the attack it makes.
@@ -894,7 +902,7 @@ public sealed class CombatState : IGameTimeObserver
         Combatant? nearest = null;
         foreach (Combatant candidate in _combatants)
         {
-            if (candidate.Side == CombatSide.Party || candidate.Distance > reach) continue;
+            if (OnPartysSide(candidate) || candidate.Distance > reach) continue;
 
             // A body is not a target: an actor this fight has taken down is left where it fell, so the
             // party's next order is spent on what is still standing rather than on what it has already

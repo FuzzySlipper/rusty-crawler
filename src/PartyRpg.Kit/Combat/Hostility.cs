@@ -26,11 +26,12 @@ namespace PartyRpg.Kit.Combat;
 /// </remarks>
 public readonly record struct Hostility
 {
-    private Hostility(bool isCreature, bool attacksOnSight, double noticeRange)
+    private Hostility(bool isCreature, bool attacksOnSight, double noticeRange, bool isAllied = false)
     {
         IsCreature = isCreature;
         AttacksOnSight = attacksOnSight;
         NoticeRange = noticeRange;
+        IsAllied = isAllied;
     }
 
     /// <summary>
@@ -44,6 +45,12 @@ public readonly record struct Hostility
     /// provoked. It can be attacked, and attacking it is what makes it an enemy.
     /// </summary>
     public static Hostility Peaceful { get; } = new(isCreature: true, attacksOnSight: false, noticeRange: 0);
+
+    /// <summary>
+    /// A creature standing with the party for now: something made it so — a charm, a binding — and while it lasts
+    /// the creature is on the party's side whatever the party did to it before.
+    /// </summary>
+    public static Hostility Allied { get; } = new(isCreature: true, attacksOnSight: false, noticeRange: 0, isAllied: true);
 
     /// <summary>
     /// A creature that attacks the party on sight: it becomes an enemy the moment the party is inside
@@ -72,6 +79,9 @@ public readonly record struct Hostility
 
     /// <summary>How far off it notices the party, zero when it does not attack on sight.</summary>
     public double NoticeRange { get; }
+
+    /// <summary>Whether it stands with the party for now, which outranks anything the party did to it.</summary>
+    public bool IsAllied { get; }
 
     /// <summary>Whether the party is inside the distance at which this creature attacks on sight.</summary>
     /// <param name="distance">How far the creature is from the party, in the place's own units.</param>

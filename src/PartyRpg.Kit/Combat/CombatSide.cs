@@ -29,4 +29,12 @@ public enum CombatSide
     /// the party has already done to it.
     /// </summary>
     Opposition,
+
+    /// <summary>
+    /// A creature standing with the party for now — charmed, bound, made to serve — because of what something
+    /// made it, whatever the party did to it before: it does not attack the party, the party's own act does not
+    /// aim at it, and it fights whatever it treats as its enemies. When what made it so ends, what it is and what
+    /// the party did to it decide its side again.
+    /// </summary>
+    Ally,
 }

@@ -36,7 +36,7 @@ export interface FighterView {
 export interface TurnOrderView {
   readonly id: string;
   readonly name: string;
-  /** `party`, `opposition`, or `neutral`, as the fight reads the actor's side. */
+  /** `party`, `opposition`, `neutral`, or `ally`, as the fight reads the actor's side. */
   readonly side: string;
   readonly remainingSeconds: number;
   readonly ready: boolean;
