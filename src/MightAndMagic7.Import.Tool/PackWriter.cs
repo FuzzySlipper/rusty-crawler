@@ -40,6 +40,7 @@ namespace MightAndMagic7.Import.Tool;
 /// What the fixture emission produced: the things whose use raises one of a place's own events, the events
 /// themselves, and the raised events another emitter answers for.
 /// </param>
+/// <param name="Globals">The global program's events, normalized as a place's are, and which of them a topic raises.</param>
 internal sealed record PackWriteResult(
     string OutputRoot,
     InstallProvenance Provenance,
@@ -52,7 +53,8 @@ internal sealed record PackWriteResult(
     PlaceEncounterSummary Encounters,
     PlaceCreatureSummary Creatures,
     PlaceMapSummary Maps,
-    PlaceFixtureSummary Fixtures)
+    PlaceFixtureSummary Fixtures,
+    GlobalEventSummary Globals)
 {
     /// <summary>The pack ids, in the order they were written.</summary>
     internal IReadOnlyList<string> PackIds => [.. Packs.Select(pack => pack.PackId)];
@@ -125,7 +127,11 @@ internal static partial class PackWriter
 
         // The entrances are derived from the same decoded maps the collision is: a place's trigger faces
         // are map data, so an import that decoded no map has none to derive and says so per link.
-        PlaceEntranceSummary entrances = PlaceEntranceEmitter.Emit(graph, maps, programs);
+        PlaceEntranceSummary entrances = PlaceEntranceEmitter.Emit(graph, maps, programs, tables.People);
+
+        // The global program is what a person's topic runs, normalized into the same steps a place's events are; a
+        // topic of an event's number is something its person says even when the topic table names no text for it.
+        GlobalEventSummary globals = GlobalEventEmitter.Emit(programs, tables.People, graph, maps);
 
         // A place's containers are derived from the map faces whose events open them, which is also where
         // its walk-in reaches come from, so an import that decoded no map has neither.
@@ -141,7 +147,7 @@ internal static partial class PackWriter
         // NPC table places in a building stands where that building's door is, and a person a map's actor
         // record places stands where the record says. An import that decoded no map has neither, and says
         // so per person rather than emitting somebody nobody can walk up to.
-        PlacePeopleSummary people = PlacePeopleEmitter.Emit(tables.People, maps, services);
+        PlacePeopleSummary people = PlacePeopleEmitter.Emit(tables.People, maps, services, globals.Numbers);
 
         // The encounters are read from the same decoded spawn records the places document carries, so a
         // spawn point and the encounter it asks for are one reading of one record rather than two.
@@ -179,11 +185,11 @@ internal static partial class PackWriter
             services);
         List<(string, int, int)> packs =
         [
-            WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers, services, people, encounters, creatures, fixtures),
+            WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers, services, people, encounters, creatures, fixtures, globals),
             world,
         ];
         WriteBundleFragment(outputRoot, provenance, packs);
-        return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions), entrances, containers, services, people, encounters, creatures, mapped, fixtures);
+        return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions), entrances, containers, services, people, encounters, creatures, mapped, fixtures, globals);
     }
 
     /// <summary>
@@ -271,16 +277,19 @@ internal static partial class PackWriter
         PlacePeopleSummary people,
         PlaceEncounterSummary encounters,
         PlaceCreatureSummary creatures,
-        PlaceFixtureSummary fixtures)
+        PlaceFixtureSummary fixtures,
+        GlobalEventSummary globals)
     {
         List<(string Path, string DocumentId, string Kind, int Entries)> documents =
         [
             ("places.json", "places", "place", WritePlaces(packDirectory, tables, maps, containers, services, people, encounters, creatures, fixtures)),
             ("place-events.json", "place-events", PlaceEventDefinitionKind, WritePlaceEvents(packDirectory, fixtures)),
+            ("global-events.json", "global-events", GlobalEventDefinitionKind, WriteGlobalEvents(packDirectory, globals)),
             ("discoveries.json", "discoveries", DiscoveryDefinitionKind, WriteDiscoveries(packDirectory, tables)),
             ("history.json", "history", HistoryDefinitionKind, WriteHistory(packDirectory, tables)),
             ("people.json", "people", PlacePeopleEmitter.PersonDefinitionKind, WritePeople(packDirectory, people)),
             ("topics.json", "topics", TopicDefinitionKind, WriteTopics(packDirectory, people)),
+            ("greetings.json", "greetings", GreetingDefinitionKind, WriteGreetings(packDirectory, tables)),
             ("services.json", "services", "service", WriteServices(packDirectory, services)),
             ("classes.json", "classes", "class", WriteClasses(packDirectory, tables)),
             ("skills.json", "skills", "skill", WriteSkills(packDirectory, tables)),

@@ -121,12 +121,14 @@ internal static class InventoryCheck
             Check(failures, "regions", 13, written.Geometry.EmittedOf(MapKind.Outdoor));
             Check(failures, "interiors", 63, written.Geometry.EmittedOf(MapKind.Indoor));
             Check(failures, "collision triangles", 824320, written.Geometry.Triangles);
-            // Every travel link ends with a disposition: a use's, a plate's, a counter's, the world's, or unreachable.
+            // Every travel link ends with a disposition: a use's, a plate's, a counter's, a person's topic's, the world's, or
+            // unreachable.
             Check(failures, "travel links accounted for", 193, written.Entrances.Accounts.Count);
             // Every plate whose event a counter or a container does not answer for is a reach raising its floor trigger.
             Check(failures, "pressure-plate reaches", 1023, written.Entrances.ReachCount);
             Check(failures, "places with a pressure-plate reach", 40, written.Entrances.PlaceCount);
-            Check(failures, "travel links a party takes in play", 186, written.Entrances.TakenCount);
+            Check(failures, "travel links a party takes in play", 191, written.Entrances.TakenCount);
+            Check(failures, "travel links a person's topic raises", 3, written.Entrances.Dispositions.GetValueOrDefault(Packs.PlaceEntranceEmitter.Spoken));
             Check(failures, "travel links reached under a condition", 76, written.Entrances.ConditionalCount);
             Check(failures, "travel links nothing raises", 2, written.Entrances.Dispositions.GetValueOrDefault(Packs.PlaceEntranceEmitter.Unreachable));
             Check(failures, "containers", 357, written.Containers.ContainerCount);
@@ -163,7 +165,8 @@ internal static class InventoryCheck
             Check(failures, "places with a fixture", 76, written.Fixtures.PlaceCount);
             Check(failures, "fixture events", 653, written.Fixtures.FixtureEventCount);
             Check(failures, "timed events carried", 57, written.Fixtures.TriggeredEventCount);
-            Check(failures, "place events carried", 841, written.Fixtures.Events.Count);
+            Check(failures, "place events carried", 888, written.Fixtures.Events.Count);
+            Check(failures, "house events a house's own use runs", 47, written.Fixtures.HousedEventCount);
             Check(failures, "fixture event steps", 3639, written.Fixtures.Events.Where(placeEvent => placeEvent.Raised).Sum(placeEvent => placeEvent.Steps.Count));
             Check(failures, "floor triggers a plate raises", 168, written.Fixtures.Triggers.Count);
             Check(failures, "floor triggers that move the party", 59, written.Fixtures.Events.Count(placeEvent => placeEvent.Stepped && placeEvent.Steps.Any(step => step.Op == "move-to-map")));
@@ -176,8 +179,15 @@ internal static class InventoryCheck
             Check(failures, "discovery notes", 186, tables.Discoveries.Rows.Count);
             Check(failures, "discovery rows without a note", 69, tables.Discoveries.SkippedRows);
             Check(failures, "history lines", 28, tables.History.Rows.Count);
-            Check(failures, "topic rows with an answer", 62, written.People.Topics.Count);
+            // A topic is a person's slot, answered by the topic table's text or by the global program's event of its number;
+            // the global program is carried whole, and the events a topic raises are what a conversation runs.
+            Check(failures, "topic rows with an answer or an event", 446, written.People.Topics.Count);
+            Check(failures, "topics people's slots raise", 416, written.People.TopicCount);
             Check(failures, "people with a dialogue slot", 313, written.People.People.Count(person => person.DialogueEvents > 0));
+            Check(failures, "global events", 446, written.Globals.Events.Count);
+            Check(failures, "greeting rows", 205, tables.People.Greetings.Count);
+            Check(failures, "global events a topic raises", 365, written.Globals.TopicRaised.Count);
+            Check(failures, "global events checking their topic's offer", 68, written.Globals.Events.Count(globalEvent => globalEvent.ChecksOffer && written.Globals.TopicRaised.Contains(globalEvent.EventId)));
 
             MediaManifest media = MediaExtractor.Extract(install, Path.Combine(scratch, "media"));
             Check(failures, "media emitted", 17681, media.EmittedCount);

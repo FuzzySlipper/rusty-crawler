@@ -1,10 +1,13 @@
 using System.Globalization;
 using PartyRpg.Kit.Conversation;
+using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Journal;
+using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Promotion;
 using PartyRpg.Kit.Quests;
 using PartyRpg.Kit.Services;
+using PartyRpg.Kit.World;
 
 namespace PartyRpg.Kit.Sessions;
 
@@ -39,6 +42,9 @@ internal sealed class ConversationHandoffRouter(SessionOwners owners)
                 break;
             case HandoffOwner.ErrandOffer or HandoffOwner.ErrandAccept or HandoffOwner.ErrandTurnIn:
                 Take(handoff, conversations);
+                break;
+            case HandoffOwner.Use:
+                Use(handoff, conversations);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(handoff), handoff.Owner, "No owner routes this handoff.");
@@ -112,6 +118,51 @@ internal sealed class ConversationHandoffRouter(SessionOwners owners)
         }
 
         if (result is { IsApplied: true, Action: QuestAction.TurnIn }) conversations.Close();
+    }
+
+    /// <summary>
+    /// Runs what a topic set going as one use of the speaker's placement, puts what the run said into the conversation
+    /// as the person's answer, and follows where it led.
+    /// </summary>
+    /// <remarks>
+    /// The use is the world's (<see cref="SessionWorld.Answer"/>), so what it gives, pays and teaches is settled as any
+    /// use's is, and what it taught is handed to the knowledge owner here as an aimed use's is. A use that took the
+    /// party somewhere else ends the conversation — the person stayed behind — and one that called somebody over turns
+    /// the conversation to them. A use that could not run is the person's answer too: its refusal is what they say,
+    /// so the party is never left asking with nobody answering.
+    /// </remarks>
+    private void Use(ConversationHandoff handoff, PartyConversations conversations)
+    {
+        if (owners.World is not { } world || conversations.Placement is not { } placement)
+        {
+            conversations.Hear(
+                "There is nothing more to it.",
+                "What was said sets something going that this session holds no world to run it in.");
+            return;
+        }
+
+        PlaceId spokenIn = conversations.Place;
+        if (world.Answer(placement, handoff.Target) is not { } result)
+        {
+            conversations.Hear(
+                "There is nothing more to it.",
+                "What was said sets something going and this world has no interaction to run it with.");
+            return;
+        }
+
+        if (result is { IsApplied: true, Learned.Count: > 0 } && owners.Knowledge is { } knowledge)
+        {
+            foreach (KnowledgeReport report in result.Learned) knowledge.Record(report);
+        }
+
+        conversations.Hear(result.Message, result.IsApplied ? result.Residue : string.Empty);
+        if (world.Party.Place != spokenIn)
+        {
+            conversations.Close();
+            return;
+        }
+
+        if (result is { IsApplied: true, Speaks: { } subject }) conversations.Open(spokenIn, placement, subject);
     }
 
     /// <summary>

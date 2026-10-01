@@ -120,14 +120,20 @@ public sealed record PlaceEventStep(int Step, string Op)
     /// <summary>The place a move to another place arrives at.</summary>
     public int? ToPlace { get; init; }
 
-    /// <summary>What kind of travel a move to another place is: <c>walking</c> between two regions, <c>entrance</c> otherwise.</summary>
+    /// <summary>
+    /// What kind of travel a move to another place is: <c>walking</c> between two regions, <c>entrance</c> otherwise,
+    /// and <c>scripted</c> for a move of the global program, which the world issues from no place.
+    /// </summary>
     public string? Travel { get; init; }
 
     /// <summary>Whether a move stays in the place that issued it, which is a reposition rather than a link.</summary>
     public bool? WithinPlace { get; init; }
 
-    /// <summary>The house a person-moving step moves the person to, zero for none.</summary>
+    /// <summary>The house a person-moving step moves the person to, zero for none; the house a house step opens.</summary>
     public int? House { get; init; }
+
+    /// <summary>The greeting table row a greeting step makes the person greet the party with.</summary>
+    public int? Greeting { get; init; }
 
     /// <summary>Where a move within the place sets the party down along the place's first axis.</summary>
     public int? X { get; init; }
@@ -170,6 +176,12 @@ public sealed record PlaceEvent(int PlaceId, string FileName, int EventId, strin
     /// answers for it.
     /// </summary>
     public bool Stepped { get; init; }
+
+    /// <summary>
+    /// Whether it is a house's own event that does more than open the house — a door that also moves the party, a shop
+    /// a quest bit shuts, the arbiter's door — which the house's own use runs (its placement's <c>sourceEvent</c>).
+    /// </summary>
+    public bool Housed { get; init; }
 
     /// <summary>The event's content identity, which a fixture's placement and the ruleset name it by.</summary>
     public string Id => $"{PlaceId}.{EventId}";
@@ -256,6 +268,8 @@ public sealed record PlaceFixtureSummary(
     /// </summary>
     public IReadOnlyList<PlaceFloorTrigger> Triggers { get; init; } = [];
 
+    /// <summary>How many events a house's own use runs because they do more than open the house.</summary>
+    public int HousedEventCount => Events.Count(placeEvent => placeEvent.Housed);
     /// <summary>How many events a plate raises that a counter or a container answers for, by the owner's word.</summary>
     public IReadOnlyDictionary<string, int> SteppedOwnedElsewhere { get; init; } = new Dictionary<string, int>();
 
@@ -389,6 +403,7 @@ public static class PlaceFixtureEmitter
 
             SortedSet<int> raised = Raised(map);
             HashSet<int> fixtureEvents = [];
+            HashSet<int> housedEvents = [];
             HashSet<int> steppedEvents = [];
             foreach (int eventId in Stepped(map))
             {
@@ -421,6 +436,11 @@ public static class PlaceFixtureEmitter
                 if (Owner(instructions) is { } owner)
                 {
                     owned[owner] = owned.GetValueOrDefault(owner) + 1;
+
+                    // A house's event that does more than open the house is the house's own use to run: the donor runs a
+                    // clicked face's event whatever it holds (OpenEnroth src/Engine/Graphics/Viewport.cpp:300-320), and
+                    // opening the house is one of its steps (src/Engine/Evt/EvtInterpreter.cpp:189-198).
+                    if (owner == EvtOpcodes.Word(EvtOpcodes.SpeakInHouse) && DoesMoreThanOpen(instructions)) housedEvents.Add(eventId);
                     continue;
                 }
 
@@ -431,9 +451,10 @@ public static class PlaceFixtureEmitter
             {
                 bool isFixture = fixtureEvents.Contains(eventId);
                 bool isStepped = steppedEvents.Contains(eventId);
+                bool isHoused = housedEvents.Contains(eventId);
                 bool triggered = instructions.Any(instruction => instruction.Opcode is EvtOpcodes.OnTimer or EvtOpcodes.OnLongTimer);
-                if (!isFixture && !isStepped && !(triggered && Owner(instructions) is null)) continue;
-                events.Add(Normalize(placeId, map, program.Name, eventId, instructions, text, isFixture, triggered, moves, tables) with { Stepped = isStepped });
+                if (!isFixture && !isStepped && !isHoused && !(triggered && Owner(instructions) is null)) continue;
+                events.Add(Normalize(placeId, map, program.Name, eventId, instructions, text, isFixture, triggered, moves, tables) with { Stepped = isStepped, Housed = isHoused });
             }
 
             foreach (PlaceFixturePlacement fixture in Place(placeId, map, fixtureEvents, events)) fixtures.Add(fixture);
@@ -463,6 +484,10 @@ public static class PlaceFixtureEmitter
 
         return stepped;
     }
+
+    /// <summary>Whether a house's event does anything beyond opening the house, leaving it, and its hint and sound.</summary>
+    internal static bool DoesMoreThanOpen(IReadOnlyList<EvtInstruction> instructions) =>
+        instructions.Any(instruction => instruction.Opcode is not (EvtOpcodes.SpeakInHouse or EvtOpcodes.Exit or EvtOpcodes.MouseOver or EvtOpcodes.PlaySound));
 
     /// <summary>
     /// Whether a plate's event is a floor trigger's: every event a plate raises is, unless a counter or a container
@@ -578,7 +603,7 @@ public static class PlaceFixtureEmitter
                 continue;
             }
 
-            PlaceEventStep step = Step(instruction, strings);
+            PlaceEventStep step = Step(instruction, id => strings?.Line(id) ?? string.Empty);
             if (step.Encounter is { } encounter && tables is not null)
             {
                 // A summoning names one of the place's encounter slots the way a spawn record does, so its slot is read
@@ -593,7 +618,12 @@ public static class PlaceFixtureEmitter
     }
 
     /// <summary>One instruction as the step a pack carries.</summary>
-    private static PlaceEventStep Step(EvtInstruction instruction, MapStrings? strings)
+    /// <param name="instruction">The instruction.</param>
+    /// <param name="text">
+    /// The line a text step's number names: a map's own string table for a place's event, the topic text table for
+    /// the global program's (<see cref="GlobalEventEmitter"/>).
+    /// </param>
+    internal static PlaceEventStep Step(EvtInstruction instruction, Func<int, string> text)
     {
         string word = EvtOpcodes.Word(instruction.Opcode);
         PlaceEventStep step = new(instruction.Step, word)
@@ -617,7 +647,7 @@ public static class PlaceFixtureEmitter
 
         if (instruction.TryReadText(out int textId))
         {
-            return step with { TextId = textId, Text = strings?.Line(textId) ?? string.Empty };
+            return step with { TextId = textId, Text = text(textId) };
         }
 
         if (instruction.TryReadJump(out int target)) return step with { Target = target };
@@ -675,7 +705,13 @@ public static class PlaceFixtureEmitter
 
         if (instruction.TryReadSpeakNpc(out int person)) return step with { Person = person };
 
+        if (instruction.TryReadSpeakInHouse(out int building)) return step with { House = building };
+
         if (instruction.TryReadMoveNpc(out int moved, out int house)) return step with { Person = moved, House = house };
+
+        if (instruction.TryReadNpcGreeting(out int greeted, out int greeting)) return step with { Person = greeted, Greeting = greeting };
+
+        if (instruction.TryReadCanShow(out bool shows)) return step with { On = shows };
 
         if (instruction.TryReadNpcTopic(out NpcTopicInstruction topic))
         {
@@ -836,17 +872,22 @@ internal sealed class PlaceMoves
     }
 
     /// <summary>The step with what its move is.</summary>
-    internal PlaceEventStep Describe(PlaceEventStep step, DecodedMap map, string programName, EvtInstruction instruction, MoveToMapInstruction move)
+    /// <param name="step">The step as normalized.</param>
+    /// <param name="map">The map whose program holds the move, or null for the global program, which belongs to no map.</param>
+    /// <param name="programName">The program's entry name.</param>
+    /// <param name="instruction">The move's instruction.</param>
+    /// <param name="move">The move, decoded.</param>
+    internal PlaceEventStep Describe(PlaceEventStep step, DecodedMap? map, string programName, EvtInstruction instruction, MoveToMapInstruction move)
     {
         if (_graph is not null && _links.TryGetValue((programName.ToUpperInvariant(), instruction.EventId, instruction.Step), out int index))
         {
             int destination = _graph.Links[index].DestinationMapId!.Value;
-            bool walking = map.Kind == MapKind.Outdoor && _maps.TryGetValue(destination, out DecodedMap? arrival) && arrival.Kind == MapKind.Outdoor;
+            bool walking = map?.Kind == MapKind.Outdoor && _maps.TryGetValue(destination, out DecodedMap? arrival) && arrival.Kind == MapKind.Outdoor;
             return step with
             {
                 Link = index.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 ToPlace = destination,
-                Travel = walking ? "walking" : "entrance",
+                Travel = map is null ? "scripted" : walking ? "walking" : "entrance",
             };
         }
 

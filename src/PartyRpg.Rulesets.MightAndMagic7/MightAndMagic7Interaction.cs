@@ -246,6 +246,10 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     /// <inheritdoc />
     public InteractionTargetDefinition? Describe(InteractionTargetRequest request)
     {
+        // A person's word is answered before anything the placement itself is: it is the topic the party asked about,
+        // run where the person stands, and the placement is only where.
+        if (request.Raised.Length > 0) return _fixtures.Spoken(request, Reach);
+
         PlacementDefinition placement = request.Placement;
         IReadOnlyList<InteractionRequirement> requires = ReadRequirements(placement);
 
@@ -315,6 +319,11 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
             // report carries the item's own name as this game words it, so the journal never names a thing.
             if (search is { IsApplied: true, Items.Count: > 0 }) Report(search, target, context);
             return search;
+        }
+
+        if (string.Equals(target.Kind.Value, MightAndMagic7Fixtures.SpokenTargetKind, StringComparison.Ordinal))
+        {
+            return _fixtures.Speak(target, context);
         }
 
         if (string.Equals(target.Kind.Value, MightAndMagic7Fixtures.TargetKind, StringComparison.Ordinal))

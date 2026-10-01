@@ -13,8 +13,9 @@ namespace PartyRpg.Kit.Interaction;
 /// </para>
 /// <para>
 /// The kind is the use's statement of what the party did, as it is for every other caller of the transition path.
-/// A fare is a counter's and never a use's, and the world's own scripted moves have no place to be used from, so
-/// neither is a kind a use can take.
+/// A fare is a counter's and never a use's. The world's own scripted moves have no place to be used from, so a use
+/// takes one only as what a person's word set going (<see cref="PartyInteraction.Answer"/>), and only along a
+/// transition the world itself issues.
 /// </para>
 /// </remarks>
 public sealed record InteractionTravel
@@ -23,16 +24,18 @@ public sealed record InteractionTravel
     /// <param name="transition">The transition, which the place the use was made in must issue.</param>
     /// <param name="kind">What kind of travel the journey is.</param>
     /// <exception cref="ArgumentNullException">The transition is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">The kind is a fare or the world's own scripted move.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// The kind is a fare, or a scripted move along a transition a place issues rather than the world.
+    /// </exception>
     public InteractionTravel(PlaceTransition transition, TransitionKind kind)
     {
         ArgumentNullException.ThrowIfNull(transition);
-        if (kind is TransitionKind.PaidService or TransitionKind.Scripted)
+        if (kind is TransitionKind.PaidService || (kind is TransitionKind.Scripted && !transition.IsWorldIssued))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(kind),
                 kind,
-                "A use leads the party from where it stands: a fare is boarded at the counter that sells it and a scripted move is the world's own, so neither is a journey a use can take.");
+                "A use leads the party from where it stands: a fare is boarded at the counter that sells it, and a scripted move is the world's own, taken only along a transition the world issues.");
         }
 
         Transition = transition;

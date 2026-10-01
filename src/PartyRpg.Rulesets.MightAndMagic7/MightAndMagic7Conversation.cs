@@ -55,10 +55,14 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// it charges stay the service mechanism's business, so this adds no second copy of a shop.
 /// </para>
 /// <para>
-/// <b>What this build does not do is run scripts.</b> The original picks a reply's text and its
-/// consequences by running the map's event programs; nothing here executes them, so a person's replies are
-/// the lines the topic table records and an answer says so rather than pretending the errand behind it
-/// happened. That is the residue the conversation publishes beside what was said.
+/// <b>A topic runs the game's own event.</b> A person's topic is the row of one of their slots, and the original
+/// answers it by running the global program's event of that number (OpenEnroth
+/// <c>src/GUI/UI/NPCTopics.cpp:662-666</c>). A topic whose event content carries is offered when the event's own
+/// offer check allows it and is answered by running the event — through this game's one interpretation of event
+/// steps (<see cref="MightAndMagic7Fixtures"/>), handed to the interaction mechanism as a use of the speaker's
+/// placement (<see cref="HandoffOwner.Use"/>) so what it gives, pays, teaches and where it leads are settled as any
+/// use's are — and what the event shows is what the person says. A topic with no event is the line the topic table
+/// records, and the residue says so.
 /// </para>
 /// </remarks>
 internal sealed class MightAndMagic7Conversation : IConversationRule
@@ -86,6 +90,12 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
 
     /// <summary>The field a placement names the people standing there under.</summary>
     internal const string PeopleField = "people";
+
+    /// <summary>The field a house's placement — a counter or a household — names its house by.</summary>
+    internal const string HouseField = "houseId";
+
+    /// <summary>The definition kind a row of the greeting table is declared under.</summary>
+    internal const string GreetingDefinitionKind = "person-greeting";
 
     /// <summary>The identity a counter's own offer carries, which is one of the two topics this game adds.</summary>
     internal const string CounterTopicId = "counter";
@@ -125,8 +135,13 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     private readonly MightAndMagic7Promotions? _promotions;
     private readonly MightAndMagic7Quests? _quests;
     private readonly Func<PartyQuests?>? _journal;
+    private readonly Func<MightAndMagic7Fixtures?> _events;
+    private readonly Func<PartyEntity?> _party;
     private readonly IReadOnlyList<string> _notes;
     private IReadOnlyDictionary<string, TopicFacts> Table { get; init; } = new Dictionary<string, TopicFacts>(StringComparer.Ordinal);
+
+    /// <summary>The greeting table, by row: what is said on a first meeting and on a later one.</summary>
+    private IReadOnlyDictionary<int, (string First, string Again)> Greetings { get; init; } = new Dictionary<int, (string, string)>();
 
     private MightAndMagic7Conversation(
         Dictionary<string, PersonFacts> people,
@@ -135,8 +150,12 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         MightAndMagic7Promotions? promotions,
         MightAndMagic7Quests? quests,
         Func<PartyQuests?>? journal,
+        Func<MightAndMagic7Fixtures?>? events,
+        Func<PartyEntity?>? party,
         IReadOnlyList<string> notes)
     {
+        _events = events ?? (() => null);
+        _party = party ?? (() => null);
         _people = people;
         _present = present;
         _services = services;
@@ -184,6 +203,15 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     /// party stands at the stage before it. It is read through a call for the same reason an award reads its
     /// owner that way — the mechanism is composed before the party that creates one exists.
     /// </param>
+    /// <param name="events">
+    /// This game's one interpretation of event steps, which offers and answers a topic that raises an event: read
+    /// through a call because it is composed after the people it calls over. Without one a topic's event is not run,
+    /// and a topic that has nothing else to say is withheld with the reason.
+    /// </param>
+    /// <param name="party">
+    /// The party being played, or null while there is none: who lives in a house is what the game's own events have left
+    /// on its records (<see cref="MightAndMagic7PersonState"/>), which the people a house's placement holds are read from.
+    /// </param>
     /// <returns>This game's dialogue policy over that content, or null when no content was loaded.</returns>
     /// <exception cref="ContentValidationException">Content declares people that cannot be spoken with; every problem is named.</exception>
     internal static MightAndMagic7Conversation? Read(
@@ -191,7 +219,9 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         MightAndMagic7Services? services,
         MightAndMagic7Promotions? promotions = null,
         MightAndMagic7Quests? quests = null,
-        Func<PartyQuests?>? journal = null)
+        Func<PartyQuests?>? journal = null,
+        Func<MightAndMagic7Fixtures?>? events = null,
+        Func<PartyEntity?>? party = null)
     {
         if (catalog is null) return null;
         List<ContentValidationIssue> issues = [];
@@ -228,11 +258,12 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
                 string id = ContentEntry.ReadId(element, "id");
                 string label = ContentEntry.ReadString(element, "label");
                 string text = ContentEntry.ReadString(element, "text");
-                if (id.Length == 0 || label.Length == 0 || text.Length == 0)
+                int raised = ReadInt(element, "event");
+                if (id.Length == 0 || label.Length == 0 || (text.Length == 0 && raised == 0))
                 {
                     Defect(
                         "person-topic-incomplete",
-                        $"person '{entry.Id}' carries a topic without an identity, a label, or an answer, so choosing it would say nothing.");
+                        $"person '{entry.Id}' carries a topic without an identity, a label, or an answer or an event to give one, so choosing it would say nothing.");
                     continue;
                 }
 
@@ -281,7 +312,10 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
                     label,
                     text,
                     ReadInt(element, "textCount", 1),
-                    conditions));
+                    conditions)
+                {
+                    Event = raised,
+                });
             }
 
             List<int> slots = [];
@@ -318,11 +352,12 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         {
             string label = entry.GetString("label");
             string text = entry.GetString("text");
-            if (entry.Id.Length == 0 || label.Length == 0 || text.Length == 0)
+            int raised = ReadInt(entry, "event");
+            if (entry.Id.Length == 0 || label.Length == 0 || (text.Length == 0 && raised == 0))
             {
                 issues.Add(new ContentValidationIssue(
                     "topic-incomplete",
-                    $"topic '{entry.Id}' carries no identity, label, or answer, so a slot raising it would say nothing.",
+                    $"topic '{entry.Id}' carries no identity, label, or answer or event to give one, so a slot raising it would say nothing.",
                     pack.PackId,
                     document.DocumentId));
                 continue;
@@ -340,10 +375,27 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
                         ConversationConditionKind.Errand,
                         $"{MightAndMagic7Identities.ErrandFlagPrefix}{requires.ToString(CultureInfo.InvariantCulture)}",
                         1,
-                        $"the errand the table calls {requires.ToString(CultureInfo.InvariantCulture)}")]);
+                        $"the errand the table calls {requires.ToString(CultureInfo.InvariantCulture)}")])
+            {
+                Event = raised,
+            };
         }
 
         Dictionary<(string, string), IReadOnlyList<string>> present = ReadPlacements(catalog, people, issues);
+
+        // The greeting table itself, by row, is what a person's greeting a map event changed is read from.
+        Dictionary<int, (string First, string Again)> greetings = [];
+        foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in catalog.Entries(GreetingDefinitionKind))
+        {
+            if (!int.TryParse(entry.Id, NumberStyles.None, CultureInfo.InvariantCulture, out int row) || !greetings.TryAdd(row, (entry.GetString("greeting"), entry.GetString("greetingAgain"))))
+            {
+                issues.Add(new ContentValidationIssue(
+                    "greeting-unreadable",
+                    $"greeting '{entry.Id}' is not a row number the table states once, so a step changing a person's greeting to it would be a coin toss.",
+                    pack.PackId,
+                    document.DocumentId));
+            }
+        }
 
         if (issues.Count > 0)
         {
@@ -376,7 +428,11 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
                 $"{errands} errands are carried, over {quests.ErrandGiverCount} people who give them, at {quests.Definitions.Count} definitions in all."));
         }
 
-        return new MightAndMagic7Conversation(people, present, services, promotions, quests, journal, notes) { Table = table };
+        return new MightAndMagic7Conversation(people, present, services, promotions, quests, journal, events, party, notes)
+        {
+            Table = table,
+            Greetings = greetings,
+        };
     }
 
     /// <inheritdoc />
@@ -389,11 +445,28 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         if (!placed && !house) return null;
 
         List<ConversationPerson> people = [];
+        PartyEntity? party = _party();
+        int? houseId = house ? request.Placement.Source.GetInt32(HouseField) : null;
         if (_present.TryGetValue((request.Place.Value, request.Placement.Content.Id), out IReadOnlyList<string>? named))
         {
             foreach (string id in named)
             {
-                if (_people.TryGetValue(id, out PersonFacts? person)) people.Add(person.Who);
+                if (!_people.TryGetValue(id, out PersonFacts? person)) continue;
+
+                // Somebody a map event moved to another house lives there now, not where content placed them
+                // (OpenEnroth src/GUI/UI/UIHouses.cpp:401 lists the people whose own record names the house).
+                if (houseId is { } here && party is not null && MightAndMagic7PersonState.House(party.Records, id) is { } moved && moved != here) continue;
+                people.Add(person.Who);
+            }
+        }
+
+        // And somebody a map event moved into this house is here.
+        if (houseId is { } home && party is not null)
+        {
+            foreach ((string id, int moved) in MightAndMagic7PersonState.Moved(party.Records))
+            {
+                if (moved != home || !_people.TryGetValue(id, out PersonFacts? person)) continue;
+                if (!people.Any(present => string.Equals(present.Id, id, StringComparison.Ordinal))) people.Add(person.Who);
             }
         }
 
@@ -435,19 +508,24 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         }
 
         bool met = Carries(context, $"{MightAndMagic7Identities.MetFlagPrefix}{person.Id}");
-        string text = met && person.GreetingAgain.Length > 0
-            ? person.GreetingAgain
-            : person.Greeting.Length > 0
-                ? person.Greeting
+
+        // A greeting a map event changed is the greeting table's row it names, and row zero is none (OpenEnroth
+        // src/GUI/UI/UIDialogue.cpp:227-231 reads the row only when the person has one).
+        (string first, string again) = context.Party is { } party && MightAndMagic7PersonState.Greeting(party.Records, person.Id) is { } row
+            ? Greetings.GetValueOrDefault(row, (string.Empty, string.Empty))
+            : (person.Greeting, person.GreetingAgain);
+        string text = met && again.Length > 0
+            ? again
+            : first.Length > 0
+                ? first
                 : KeeperGreeting(context);
 
         return new ConversationAnswer(
             text,
-            // The original scripts what follows a person's replies. Nothing here runs those programs, so a
-            // reply that would hand over an item or set a task does not, and the party is told rather than
-            // left to wonder why nothing changed.
-            person.DialogueEvents > 0
-                ? "Everything this person says from here is a line the game's own table records: the event programs the original runs behind a reply are not executed in this build, so a line that would hand something over or set a task does not."
+            // A topic that raises an event runs it; one that raises none is a line the table records, and where the
+            // original would have scripted something behind it the party is told rather than left to wonder.
+            person.DialogueEvents > 0 && person.Topics.Any(topic => !Runs(topic))
+                ? "A topic of this person's that raises none of the game's own events is a line its table records: the event programs the original would run behind it are not carried, so such a line hands nothing over and sets no task."
                 : string.Empty,
             records: [$"{MightAndMagic7Identities.MetFlagPrefix}{person.Id}"]);
     }
@@ -465,6 +543,17 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
                 {
                     availability = Judge(condition, context);
                     if (!availability.IsMet) break;
+                }
+
+                // A topic that raises an event is offered when the event's own offer check allows it; one whose event
+                // this session cannot run and which has no words of its own has nothing to say.
+                if (availability.IsMet && topic.Event != 0)
+                {
+                    availability = _events() is { } events
+                        ? events.Offers(topic.Event, context.Place, context.Placement, context.Party, context.Clock)
+                        : topic.Text.Length > 0
+                            ? Verdict.Met
+                            : Verdict.Unmet("the event that answers it is not run in this session");
                 }
 
                 if (availability.IsMet && Said(context, topic.Id))
@@ -770,6 +859,16 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
             foreach (TopicFacts candidate in TopicsOf(person, context.Party))
             {
                 if (!string.Equals(candidate.Id, topic.Id, StringComparison.Ordinal)) continue;
+
+                // The event answers: it runs as a use of the speaker's placement, and what it shows is what is said.
+                if (Runs(candidate))
+                {
+                    return new ConversationAnswer(
+                        string.Empty,
+                        records: [$"{MightAndMagic7Identities.HeardFlagPrefix}{candidate.Id}"],
+                        handoff: new ConversationHandoff(HandoffOwner.Use, candidate.Id));
+                }
+
                 return new ConversationAnswer(
                     candidate.Text,
                     candidate.TextCount > 1
@@ -969,7 +1068,26 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         _ => MightAndMagic7ServiceKinds.IsGuild(kind) ? "Ask about the guild" : "Step up to the counter",
     };
 
-    /// <summary>One person's own facts by identity, or null when nobody present has it.</summary>
+    /// <summary>
+    /// The topic a person's word names, with the event it raises, or null when no topic of that identity raises one —
+    /// which is what the one interpretation of event steps runs when a topic is taken
+    /// (<see cref="MightAndMagic7Fixtures.Speak"/>).
+    /// </summary>
+    /// <param name="topic">The topic's identity.</param>
+    internal SpokenTopic? SpokenTopic(string topic)
+    {
+        TopicFacts? facts = Table.GetValueOrDefault(topic) ??
+            _people.Values.SelectMany(person => person.Topics).FirstOrDefault(candidate => string.Equals(candidate.Id, topic, StringComparison.Ordinal));
+        return facts is { Event: not 0 } ? new SpokenTopic(facts.Id, facts.Label, facts.Text, facts.Event) : null;
+    }
+
+    /// <summary>Whether a topic is answered by running its event, which needs the event and a session that runs it.</summary>
+    private bool Runs(TopicFacts topic) => topic.Event != 0 && _events() is not null;
+
+    /// <summary>Whether the greeting table carries a row, which a map event changing a person's greeting names.</summary>
+    /// <param name="row">The row.</param>
+    internal bool HasGreeting(int row) => Greetings.ContainsKey(row);
+
     /// <summary>Who one of the people the table holds is, or null when it holds nobody of that id.</summary>
     /// <param name="person">The person's id, as the table writes it.</param>
     internal ConversationPerson? PersonOf(string person) => Facts(person)?.Who;
@@ -1159,6 +1277,9 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         int TextCount,
         IReadOnlyList<ConversationCondition> Conditions)
     {
+        /// <summary>The global event the topic raises, zero for none.</summary>
+        public int Event { get; init; }
+
         /// <summary>The topic as the conversation mechanism holds it.</summary>
         public ConversationTopic Topic => new(Id, Label, Conditions);
     }

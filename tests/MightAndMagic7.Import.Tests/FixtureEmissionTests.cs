@@ -164,7 +164,7 @@ public sealed class FixtureEmissionTests
     {
         // A shrine (400) clicked by the party compares a quest bit and moves it out only when the bit is set; a plate
         // (401) moves it out unconditionally; a plate (402) moves it within its own place; a door (403) both opens a
-        // building and moves the party, which the building's counter owns.
+        // building and moves the party, which the building's own use runs.
         DecodedMap map = Interior(
             (400, Clickable),
             (401, PressurePlate),
@@ -201,9 +201,15 @@ public sealed class FixtureEmissionTests
         Assert.True(fixtures.Events.Single(placeEvent => placeEvent.EventId == 401).Stepped);
         Assert.True(fixtures.Events.Single(placeEvent => placeEvent.EventId == 402).Steps.Single(step => step.Op == "move-to-map").WithinPlace);
 
-        // The door that opens a building is the counter's, never a fixture's.
-        Assert.DoesNotContain(fixtures.Events, placeEvent => placeEvent.EventId == 403);
+        // The door that opens a building is the house's, never a fixture's; because it does more than open the house,
+        // its event is carried for the house's own use to run, with the house its step opens.
         Assert.Equal(1, fixtures.OwnedElsewhere["speak-in-house"]);
+        PlaceEvent door = fixtures.Events.Single(placeEvent => placeEvent.EventId == 403);
+        Assert.True(door.Housed);
+        Assert.False(door.Raised);
+        Assert.Equal(98, door.Steps.Single(step => step.Op == "speak-in-house").House);
+        Assert.Equal(1, fixtures.HousedEventCount);
+        Assert.DoesNotContain(fixtures.Fixtures, fixture => fixture.EventId == 403);
 
         PlaceEntranceSummary travel = PlaceEntranceEmitter.Emit(graph, maps, programs);
 
@@ -213,8 +219,8 @@ public sealed class FixtureEmissionTests
         Assert.Equal([1], travel.Entrances.First(entrance => entrance.EventId == 401).Links);
         Assert.Empty(travel.Entrances.First(entrance => entrance.EventId == 402).Links);
 
-        // Every link is accounted for: the shrine's is used under its condition, the plate's walked, the door's the
-        // counter's.
+        // Every link is accounted for: the shrine's is used under its condition, the plate's walked, and the door's used
+        // through its house.
         Assert.Equal(3, travel.Accounts.Count);
         PlaceLinkAccount gated = travel.Accounts[0];
         Assert.Equal(PlaceEntranceEmitter.Used, gated.Disposition);
@@ -223,8 +229,9 @@ public sealed class FixtureEmissionTests
         PlaceLinkAccount plate = travel.Accounts[1];
         Assert.Equal(PlaceEntranceEmitter.Walked, plate.Disposition);
         Assert.Equal(string.Empty, plate.Condition);
-        Assert.Equal(PlaceEntranceEmitter.Counter, travel.Accounts[2].Disposition);
-        Assert.Equal(2, travel.TakenCount);
+        Assert.Equal(PlaceEntranceEmitter.Used, travel.Accounts[2].Disposition);
+        Assert.Contains("a house's door", travel.Accounts[2].Trigger, StringComparison.Ordinal);
+        Assert.Equal(3, travel.TakenCount);
         Assert.Equal(1, travel.ConditionalCount);
     }
 

@@ -18,12 +18,15 @@ namespace PartyRpg.Kit.Conversation;
 public sealed record ConversationAnswer
 {
     /// <summary>Creates an answer.</summary>
-    /// <param name="text">What the person says, which must not be blank.</param>
+    /// <param name="text">
+    /// What the person says, which must not be blank — unless the answer hands the party to a use
+    /// (<see cref="HandoffOwner.Use"/>), whose run says it (<see cref="PartyConversations.Hear"/>).
+    /// </param>
     /// <param name="residue">What the answer could not carry out, or empty when it carried all of it.</param>
     /// <param name="records">The party-carried flags the answer records, or empty when it records none.</param>
     /// <param name="handoff">What the answer hands the party to, or null when it hands to nobody.</param>
     /// <param name="speaker">Who speaks afterwards, or empty to keep the speaker the conversation has.</param>
-    /// <exception cref="ArgumentException">The text is blank, so nobody would say anything.</exception>
+    /// <exception cref="ArgumentException">The text is blank and no use will say it, so nobody would say anything.</exception>
     public ConversationAnswer(
         string text,
         string residue = "",
@@ -31,7 +34,8 @@ public sealed record ConversationAnswer
         ConversationHandoff? handoff = null,
         string speaker = "")
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(text);
+        ArgumentNullException.ThrowIfNull(text);
+        if (handoff?.Owner != HandoffOwner.Use) ArgumentException.ThrowIfNullOrWhiteSpace(text);
         Text = text;
         Residue = residue;
         Records = records ?? [];
@@ -39,7 +43,7 @@ public sealed record ConversationAnswer
         Speaker = speaker;
     }
 
-    /// <summary>What the person says.</summary>
+    /// <summary>What the person says, or empty when the use the answer hands to says it.</summary>
     public string Text { get; }
 
     /// <summary>What the answer could not carry out, or empty when it carried all of it.</summary>

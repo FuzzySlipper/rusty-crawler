@@ -233,6 +233,46 @@ public sealed class EngineMovementTests
         other.Dispose();
     }
 
+    [Fact]
+    public void Two_creatures_of_different_paces_cover_different_distances_in_the_same_step()
+    {
+        // The engine walks a body at the ground speeds of the profile its step is solved with; this double does the
+        // same on open ground, so how far each creature goes is the pace its own request handed the engine.
+        ScriptedSpatialService spatial = new() { StepEnds = ScriptedSpatialService.AtProfilePace };
+        CharacterControllerConfig profile = spatial.DefaultCharacterControllerConfig() with
+        {
+            Ground = default(CharacterGroundConfig) with { ForwardSpeed = 300, BackwardSpeed = 270, StrafeSpeed = 300, Acceleration = 3000 },
+        };
+        (EnginePartyMover mover, EngineCreatureMotion creatures) = Movers(spatial, profile);
+        mover.Enter(Place);
+        CombatantId slow = CombatantId.Of(new EntityId(20));
+        CombatantId fast = CombatantId.Of(new EntityId(21));
+        PlacePose target = new(0, 10000, 0, 0, 0);
+        const double Step = 0.5;
+
+        CreatureMoveOutcome walked = creatures.Move(new CreatureMoveRequest(slow, PlacePose.Origin, Party, target, CreatureMovePurpose.Toward, Speed: 100, Step));
+        CharacterControllerConfig slowProfile = spatial.Steps[^1].Config;
+        CreatureMoveOutcome ran = creatures.Move(new CreatureMoveRequest(fast, PlacePose.Origin, Party, target, CreatureMovePurpose.Toward, Speed: 400, Step));
+        CharacterControllerConfig fastProfile = spatial.Steps[^1].Config;
+
+        Assert.Equal(50, walked.MovedBy, precision: 2);
+        Assert.Equal(200, ran.MovedBy, precision: 2);
+
+        // Only the pace is the creature's own: the ground speeds and the acceleration scale together, and the body
+        // and everything else is the profile it was composed with.
+        Assert.Equal(100f, slowProfile.Ground.ForwardSpeed, 3);
+        Assert.Equal(90f, slowProfile.Ground.BackwardSpeed, 3);
+        Assert.Equal(1000f, slowProfile.Ground.Acceleration, 3);
+        Assert.Equal(400f, fastProfile.Ground.ForwardSpeed, 3);
+        Assert.Equal(profile.Shape, fastProfile.Shape);
+        Assert.Equal(profile.Surface, fastProfile.Surface);
+
+        // A creature that states no pace walks at the profile's own rather than standing still.
+        CreatureMoveOutcome unstated = creatures.Move(new CreatureMoveRequest(Creature, PlacePose.Origin, Party, target, CreatureMovePurpose.Toward, Speed: 0, Step));
+        Assert.Equal(150, unstated.MovedBy, precision: 2);
+        mover.Dispose();
+    }
+
     /// <summary>The engine's refusal of a step whose body it could not resolve out of collision, as it is raised.</summary>
     private static EngineCallException Embedded() => new(
         "Spatial",
@@ -246,12 +286,15 @@ public sealed class EngineMovementTests
                 "Spatial"),
         });
 
-    private static (EnginePartyMover Mover, EngineCreatureMotion Creatures) Movers(ScriptedSpatialService spatial)
+    private static (EnginePartyMover Mover, EngineCreatureMotion Creatures) Movers(ScriptedSpatialService spatial) =>
+        Movers(spatial, spatial.DefaultCharacterControllerConfig());
+
+    private static (EnginePartyMover Mover, EngineCreatureMotion Creatures) Movers(ScriptedSpatialService spatial, CharacterControllerConfig profile)
     {
         PartyPoseOwner party = new(new PartyPose(Place, PlacePose.Origin), Facing);
         PartyMovement movement = new(spatial, party, Space, new SpatialSessionConfig(0.5, 16, VoxelSurfaceMode.GreedyCubes));
         EnginePartyMover mover = new(spatial, movement, new ScriptedContentService(), new PlaceNavigationPolicy(0, 16, 4, 512, 1024), new OnePlace());
-        return (mover, new EngineCreatureMotion(spatial, mover, Space, spatial.DefaultCharacterControllerConfig(), SettleReach));
+        return (mover, new EngineCreatureMotion(spatial, mover, Space, profile, SettleReach));
     }
 
     private static CreatureMoveRequest Toward(PlacePose from, PlacePose target) =>

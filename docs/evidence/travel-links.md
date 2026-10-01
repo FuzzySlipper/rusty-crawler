@@ -1,6 +1,6 @@
 # Every travel link, and how a party takes it
 
-> Published copy of a point-in-time record (Den #8713, #8577). It is evidence of what was observed then, not a
+> Published copy of a point-in-time record (Den #8713, #8577; brought up to date by #9042 and #9043). It is evidence of what was observed then, not a
 > statement of current behaviour. No game data is published: the figures and names are read from the packs
 > `mm7import write` produced over the operator's own install; LAN addresses are replaced by `<lan-address>`.
 
@@ -19,6 +19,9 @@ party walks into, and no longer takes "the first move" of an event:
 - a **pressure plate** whose event moves the party is a `place-entrance` reach that *raises* the event's
   `floor-trigger` placement when the party walks onto it (since #9044 every plate is, whatever its event does:
   1,023 plates in 40 places raise 168 floor triggers, of which these travel plates are 310 in 13 places raising 59);
+- a **house's door** whose event also moves the party is the house's own: using the house runs the event (#9043), and a
+  branch that reaches the move takes it instead of opening the house;
+- a **person's topic** raising one of the global program's moves runs it as the world's own scripted move (#9042);
 - either way the ruleset runs the event (`MightAndMagic7Fixtures`), its comparisons and random jumps decide which
   move — if any — the run reaches, and the world takes that journey through `SessionWorld.Travel`, the one
   transition path. A move within the place sets the party down where it names. Nothing travels around that path.
@@ -30,27 +33,51 @@ checks the counts.
 
 | disposition | links | meaning |
 | --- | --- | --- |
-| `used` | 174 | a clicked face group (or decoration) raises the event; using it runs the event |
+| `used` | 176 | a clicked face group (or decoration) raises the event; using it runs the event — for links 38 and 47 the face is a house's door (event 376 of Celeste and of The Pit), and using the house runs it (#9043) |
 | `walked` | 11 | a pressure plate raises the event; walking onto it runs the event (310 plates in 13 places) |
 | `used-or-walked` | 1 | both (link 4, Castle Gloaming's event 501: 2 clicked faces, 26 plates) |
-| `counter` | 2 | links 38 and 47: event 376 of Celeste and of The Pit opens a building as well as moving the party; the building's counter owns the face, and opening it does not run the event's move |
-| `world-issued` | 3 | links 68, 69, 70: the global program's moves, run by a person's topic or the game's scripts, from no place |
+| `spoken` | 3 | links 68, 69, 70: the global program's moves, each raised by a person's topic; choosing it runs the event and the world takes its move as scripted travel (#9042) |
 | `unreachable` | 2 | links 5 and 51: nothing in the source map raises the event (below) |
 
-**76 links are reached only under a condition** the event's own branches state — 74 of the 186 a party takes, and
-the two counters' moves; the table names each, and who sets each quest bit it compares. Conditions this build can meet in play: a map variable
+**76 links are reached only under a condition** the event's own branches state — 76 of the 191 a party takes; the table names each, and who sets each quest bit it compares. Conditions this build can meet in play: a map variable
 the place's own fixtures write (54 barrow doors: variable 0 or 1 below 2, or at least 2), a random pick (Zokarr's
 Tomb, 50/50; Celeste's edge, 1 in 6 per drop — a pick of its step 1, a move within Celeste, falls through into step
 2's drop, as the donor's steps do, so every fall lands in the Bracada Desert), carrying an item (660, both of Castle
 Gryphonheart's gated doors), wearing an item (604, every member, to leave The Lincoln), a place's group of creatures down (the
 Walls of Mist), and quest bits a shipped fixture sets — 246 (the Giants' shrine, event 452, sets it before moving
 the party to Harmondale, which opens Harmondale's shrine, link 139), 196 (Deyja's Watchtower door, event 504, sets it
-itself), 132 (Castle Harmondale's door sets it on the first use, link 140; its `move-npc` step runs on as residue).
-**Conditions this build does not yet raise**: quest bits set only by the global program, which a person's topic runs
-and this build does not — 98 (link 141, `GLOBAL.EVT` event 108), 14 (the first branch of link 180, `GLOBAL.EVT`
-event 19; link 180's plain path is unconditional for a party without it), 109 and 127 (the two `counter` links) — and
-99/100, set only by `OUT02.EVT` event 37, which no face, decoration or timer of Harmondale raises (links 157, 161,
-192).
+itself), 132 (Castle Harmondale's door sets it on the first use, link 140, and moves the butler to house 108, which
+the conversation then finds him in — #9043).
+**Quest bits the global program sets** (#9042): a person's topic now runs the global program's event of its number
+through the same interpretation a fixture's event takes, so a bit such an event sets is set in play when its topic
+is chosen and its own offer check allows it. Each writer in the table below is named with what raises it. What each
+of these bits still waits on:
+
+| bit | gates | set by | raised by | in this build |
+| --- | --- | --- | --- | --- |
+| 109 | link 47 (The Pit's hostel door, event 376) | `GLOBAL.EVT` 155 | Robert the Wise's only topic, offered once bits 114–117 are held | **raised**: Gavin Magnus's topic (event 146) moves Robert into Celeste's hostel, his topic sets the bit, and The Pit's hostel door then takes link 47 (ruleset suite, over the operator's packs) |
+| 127 | link 38 (Celeste's hostel door, event 376) | `GLOBAL.EVT` 165 | Tolberti's only topic, offered once bits 110–113 are held | **raised**, as 109: Archibald's topic (event 168) moves Tolberti into The Pit's hostel, and the bit opens Celeste's door onto link 38 |
+| 98 | link 141 (and closes 140) | `GLOBAL.EVT` 108 | Hothfarr IX's topic once event 107 turns his slot to it | **no raiser in play**: event 108 first asks which of the dwarves the party has hired, a `hireling` comparison refused by name (#8514) |
+| 14 | the first branch of link 180 | `GLOBAL.EVT` 19 | Mr. Malwick's topic once event 18 turns his slot to it | **no raiser in play**: event 19 takes the wand back from Malwick (`npc-set-item`, not interpreted) before it would set the bit; link 180's plain path needs no bit |
+| 99, 100 | links 157, 161, 192 | `OUT02.EVT` 37 | the door of the arbiter's house in Harmondale (house 189), one clicked face | **no raiser in play**: using the arbiter's house runs the event (#9043), and the branches that set the bits are reached only with the good or the evil judge hired (`hireling` 77 or 78, #8514); without one the arbiter's house opens |
+
+All three `spoken` links are taken in play: 69 and 70 when the temples' keepers are asked, and 68, the crossing to
+Harmondale, when William Darvees's topic (event 33) is chosen once Lord Markham's event 4 has turned his slot to it — both
+runs change a person's greeting, which a run follows since #9043 (the ruleset suite counts all three moves).
+
+### How `OUT02.EVT` event 37 is raised
+
+#8577 recorded that nothing in Harmondale raises event 37. That was wrong: one face of Harmondale carries it with
+the clickable attribute (`0x02001208`), and it is the door of the arbiter's house — event 37's own first steps send a
+party holding neither bit to `speak-in-house` 189 (`Arbiter`, the importer's `residence-189`, whose `sourceEvent` is
+37). The importer counted the face as the house's (an event that opens a building is the counter's,
+`PlaceFixtureEmitter.Owner`), so the link accounts did not name it as a raiser; it now carries the event for the
+house's own use to run (#9043). The donor raises it as any clicked
+face's event (`OpenEnroth/src/Engine/Graphics/Viewport.cpp:300-320`): no timer, map-load trigger or other path is
+involved. Bits 99 and 100 are set on the branches a party reaches when it brings the good or the evil judge — a
+hireling the party carries (`compare hireling 77`/`78`) — to the arbiter, which then moves the judges (`move-npc`),
+turns the arbiter's topics and plays the arbiter's movie. The table now names the door as the writer's raiser; what
+it waits on is in the row above.
 
 ### Links 5 and 51: two events nothing raises
 
@@ -154,7 +181,7 @@ by the ruleset suite over the same packs (`FixturePolicyTests.A_travel_event_tak
 | 35 | 47 The Lincoln | 15 Shoals | 501.12 | `used` | 1 clicked face(s) | member 1 wears item 604 and member 2 wears item 604 and member 3 wears item 604 and member 4 wears item 604 |  |
 | 36 | 39 Stone City | 11 The Barrow Downs | 501.0 | `used` | 2 clicked face(s) |  |  |
 | 37 | 39 Stone City | 69 Nighon Tunnels | 502.0 | `used` | 1 clicked face(s) |  |  |
-| 38 | 7 Celeste | 75 The Small House | 376.17 | `counter` | 1 clicked face(s) | quest bit 127 is set | Event 376 also holds 'speak-in-house', so the face is that emitter's target and using it opens what it opens; the event's move (quest bit 127 is set) is not run by it. Quest bit 127 is set by GLOBAL.EVT event 165. |
+| 38 | 7 Celeste | 75 The Small House | 376.17 | `used` | 1 clicked face(s), a house's door | quest bit 127 is set | Event 376 also holds 'speak-in-house': using the house runs the event, and a run that reaches this move takes it instead of opening the house. Quest bit 127 is set by GLOBAL.EVT event 165 (raised by Tolberti's topic (person 87, slot 0)). |
 | 39 | 7 Celeste | 6 The Bracada Desert | 451.2 | `walked` | 166 pressure plate(s) | a random pick lands on step 2 (1 in 6) | 2 ways through the event reach the move; the condition is the shortest one's. |
 | 40 | 7 Celeste | 6 The Bracada Desert | 451.3 | `walked` | 166 pressure plate(s) | a random pick lands on step 3 (1 in 6) |  |
 | 41 | 7 Celeste | 6 The Bracada Desert | 451.4 | `walked` | 166 pressure plate(s) | a random pick lands on step 4 (1 in 6) |  |
@@ -163,7 +190,7 @@ by the ruleset suite over the same packs (`FixturePolicyTests.A_travel_event_tak
 | 44 | 7 Celeste | 6 The Bracada Desert | 501.0 | `walked` | 4 pressure plate(s) |  |  |
 | 45 | 7 Celeste | 31 The Walls of Mist | 502.0 | `used` | 2 clicked face(s) |  |  |
 | 46 | 7 Celeste | 50 Castle Lambent | 503.0 | `used` | 3 clicked face(s) |  |  |
-| 47 | 8 The Pit | 75 The Small House | 376.20 | `counter` | 1 clicked face(s) | quest bit 109 is set | Event 376 also holds 'speak-in-house', so the face is that emitter's target and using it opens what it opens; the event's move (quest bit 109 is set) is not run by it. Quest bit 109 is set by GLOBAL.EVT event 155. |
+| 47 | 8 The Pit | 75 The Small House | 376.20 | `used` | 1 clicked face(s), a house's door | quest bit 109 is set | Event 376 also holds 'speak-in-house': using the house runs the event, and a run that reaches this move takes it instead of opening the house. Quest bit 109 is set by GLOBAL.EVT event 155 (raised by Robert the Wise's topic (person 83, slot 0)). |
 | 48 | 8 The Pit | 27 The Hall of the Pit | 501.0 | `used` | 4 clicked face(s) |  |  |
 | 49 | 8 The Pit | 33 The Breeding Zone | 503.0 | `used` | 1 clicked face(s) |  |  |
 | 50 | 8 The Pit | 51 Castle Gloaming | 504.0 | `used` | 1 clicked face(s) |  |  |
@@ -184,9 +211,9 @@ by the ruleset suite over the same packs (`FixturePolicyTests.A_travel_event_tak
 | 65 | 70 Tunnels to Eeofol | 12 The Land of the Giants | 501.0 | `used` | 1 clicked face(s) |  |  |
 | 66 | 70 Tunnels to Eeofol | 37 Thunderfist Mountain | 502.0 | `walked` | 1 pressure plate(s) |  |  |
 | 67 | 19 The Haunted Mansion | 11 The Barrow Downs | 501.0 | `used` | 1 clicked face(s) |  |  |
-| 68 | — | 2 Harmondale | 33.9 | `world-issued` |  |  | GLOBAL.EVT moves the party from no map: the global program's events are run by a person's topic and the game's own scripts, not by a place, so there is no place a party could take it from. |
-| 69 | — | 32 Temple of the Light | 173.0 | `world-issued` |  |  | GLOBAL.EVT moves the party from no map: the global program's events are run by a person's topic and the game's own scripts, not by a place, so there is no place a party could take it from. |
-| 70 | — | 34 Temple of the Dark | 174.0 | `world-issued` |  |  | GLOBAL.EVT moves the party from no map: the global program's events are run by a person's topic and the game's own scripts, not by a place, so there is no place a party could take it from. |
+| 68 | — | 2 Harmondale | 33.9 | `spoken` | William Darvees's topic once GLOBAL.EVT event 4 changes slot 0 to it |  | GLOBAL.EVT event 33 is raised by William Darvees's topic once GLOBAL.EVT event 4 changes slot 0 to it: choosing the topic runs the event, and its move is the world's own, issued from no place. |
+| 69 | — | 32 Temple of the Light | 173.0 | `spoken` | Temple of Light's topic (person 89, slot 0) |  | GLOBAL.EVT event 173 is raised by Temple of Light's topic (person 89, slot 0): choosing the topic runs the event, and its move is the world's own, issued from no place. |
+| 70 | — | 34 Temple of the Dark | 174.0 | `spoken` | Temple of Dark's topic (person 90, slot 0) |  | GLOBAL.EVT event 174 is raised by Temple of Dark's topic (person 90, slot 0): choosing the topic runs the event, and its move is the world's own, issued from no place. |
 | 71 | 53 Barrow VII | 11 The Barrow Downs | 501.0 | `used` | 1 clicked face(s) |  |  |
 | 72 | 53 Barrow VII | 58 Barrow IX | 502.1 | `used` | 1 clicked face(s) | map-variable 0 is below 2 |  |
 | 73 | 53 Barrow VII | 63 Barrow X | 502.3 | `used` | 1 clicked face(s) | map-variable 0 is at least 2 |  |
@@ -255,9 +282,9 @@ by the ruleset suite over the same packs (`FixturePolicyTests.A_travel_event_tak
 | 136 | 74 The Strange Temple | 2 Harmondale | 501.0 | `used` | 2 clicked face(s) |  |  |
 | 137 | 1 Emerald Island | 20 The Temple of the Moon | 101.0 | `used` | 2 clicked face(s) |  |  |
 | 138 | 1 Emerald Island | 52 The Dragon's Lair | 102.0 | `used` | 1 clicked face(s) |  |  |
-| 139 | 2 Harmondale | 12 The Land of the Giants | 221.3 | `used` | 12 clicked face(s) | quest bit 246 is set | Quest bit 246 is set by OUT12.EVT event 452. |
-| 140 | 2 Harmondale | 21 Castle Harmondale | 301.9 | `used` | 2 clicked face(s) | quest bit 98 is not set and quest bit 132 is set | Quest bit 98 is set by GLOBAL.EVT event 108. Quest bit 132 is set by OUT02.EVT event 301. |
-| 141 | 2 Harmondale | 21 Castle Harmondale | 301.11 | `used` | 2 clicked face(s) | quest bit 98 is set | Quest bit 98 is set by GLOBAL.EVT event 108. |
+| 139 | 2 Harmondale | 12 The Land of the Giants | 221.3 | `used` | 12 clicked face(s) | quest bit 246 is set | Quest bit 246 is set by OUT12.EVT event 452 (raised by 17 clicked face(s)). |
+| 140 | 2 Harmondale | 21 Castle Harmondale | 301.9 | `used` | 2 clicked face(s) | quest bit 98 is not set and quest bit 132 is set | Quest bit 98 is set by GLOBAL.EVT event 108 (raised by Hothfarr IX's topic once GLOBAL.EVT event 107 changes slot 0 to it). Quest bit 132 is set by OUT02.EVT event 301 (raised by 2 clicked face(s)). |
+| 141 | 2 Harmondale | 21 Castle Harmondale | 301.11 | `used` | 2 clicked face(s) | quest bit 98 is set | Quest bit 98 is set by GLOBAL.EVT event 108 (raised by Hothfarr IX's topic once GLOBAL.EVT event 107 changes slot 0 to it). |
 | 142 | 2 Harmondale | 22 White Cliff Cave | 302.0 | `used` | 4 clicked face(s) |  |  |
 | 143 | 3 Erathia | 23 The Erathian Sewers | 501.0 | `used` | 3 clicked face(s) |  |  |
 | 144 | 3 Erathia | 24 Fort Riverstride | 502.0 | `used` | 2 clicked face(s) |  |  |
@@ -270,14 +297,14 @@ by the ruleset suite over the same packs (`FixturePolicyTests.A_travel_event_tak
 | 151 | 3 Erathia | 18 The Bandit Caves | 509.0 | `used` | 1 clicked face(s) |  |  |
 | 152 | 4 The Tularean Forest | 49 Castle Navan | 501.0 | `used` | 2 clicked face(s) |  |  |
 | 153 | 4 The Tularean Forest | 25 The Tularean Caves | 502.0 | `used` | 2 clicked face(s) |  |  |
-| 154 | 4 The Tularean Forest | 26 Clanker's Laboratory | 503.1 | `used` | 2 clicked face(s) | quest bit 198 is not set | Quest bit 198 is set by D25.EVT event 376, D26.EVT event 376. |
+| 154 | 4 The Tularean Forest | 26 Clanker's Laboratory | 503.1 | `used` | 2 clicked face(s) | quest bit 198 is not set | Quest bit 198 is set by D25.EVT event 376 (raised by the door of the house it opens: 1 clicked face(s)), D26.EVT event 376 (raised by the door of the house it opens: 1 clicked face(s)). |
 | 155 | 5 Deyja | 27 The Hall of the Pit | 501.0 | `used` | 2 clicked face(s) |  |  |
 | 156 | 5 Deyja | 28 Watchtower 6 | 502.0 | `used` | 2 clicked face(s) |  |  |
-| 157 | 5 Deyja | 71 William Setag's Tower | 503.3 | `used` | 2 clicked face(s) | quest bit 99 is set | Quest bit 99 is set by OUT02.EVT event 37. |
-| 158 | 5 Deyja | 28 Watchtower 6 | 504.2 | `used` | 1 clicked face(s) | quest bit 196 is set | Quest bit 196 is set by OUT05.EVT event 504. 2 ways through the event reach the move; the condition is the shortest one's. |
+| 157 | 5 Deyja | 71 William Setag's Tower | 503.3 | `used` | 2 clicked face(s) | quest bit 99 is set | Quest bit 99 is set by OUT02.EVT event 37 (raised by the door of the house it opens: 1 clicked face(s)). |
+| 158 | 5 Deyja | 28 Watchtower 6 | 504.2 | `used` | 1 clicked face(s) | quest bit 196 is set | Quest bit 196 is set by OUT05.EVT event 504 (raised by 1 clicked face(s)). 2 ways through the event reach the move; the condition is the shortest one's. |
 | 159 | 6 The Bracada Desert | 29 The School of Sorcery | 501.0 | `used` | 2 clicked face(s) |  |  |
 | 160 | 6 The Bracada Desert | 30 The Red Dwarf Mines | 502.0 | `used` | 1 clicked face(s) |  |  |
-| 161 | 6 The Bracada Desert | 7 Celeste | 503.3 | `walked` | 1 pressure plate(s) | quest bit 99 is set | Quest bit 99 is set by OUT02.EVT event 37. 2 ways through the event reach the move; the condition is the shortest one's. |
+| 161 | 6 The Bracada Desert | 7 Celeste | 503.3 | `walked` | 1 pressure plate(s) | quest bit 99 is set | Quest bit 99 is set by OUT02.EVT event 37 (raised by the door of the house it opens: 1 clicked face(s)). 2 ways through the event reach the move; the condition is the shortest one's. |
 | 162 | 9 Evenmorn Island | 35 Grand Temple of the Moon | 501.0 | `used` | 1 clicked face(s) |  |  |
 | 163 | 9 Evenmorn Island | 36 Grand Temple of the Sun | 502.0 | `used` | 1 clicked face(s) |  |  |
 | 164 | 10 Mount Nighon | 37 Thunderfist Mountain | 501.0 | `used` | 2 clicked face(s) |  |  |
@@ -296,7 +323,7 @@ by the ruleset suite over the same packs (`FixturePolicyTests.A_travel_event_tak
 | 177 | 12 The Land of the Giants | 16 The Dragon Caves | 503.0 | `used` | 3 clicked face(s) |  |  |
 | 178 | 12 The Land of the Giants | 16 The Dragon Caves | 504.0 | `used` | 3 clicked face(s) |  |  |
 | 179 | 13 Tatalia | 43 The Wine Cellar | 501.0 | `used` | 1 clicked face(s) |  |  |
-| 180 | 13 Tatalia | 41 The Mercenary Guild | 502.6 | `used` | 2 clicked face(s) | quest bit 14 is set and quest bit 190 is set | Quest bit 14 is set by GLOBAL.EVT event 19. Quest bit 190 is set by D29.EVT event 378, GLOBAL.EVT event 193, OUT02.EVT event 51. 3 ways through the event reach the move; the condition is the shortest one's. |
+| 180 | 13 Tatalia | 41 The Mercenary Guild | 502.6 | `used` | 2 clicked face(s) | quest bit 14 is set and quest bit 190 is set | Quest bit 14 is set by GLOBAL.EVT event 19 (raised by Mr. Malwick's topic once GLOBAL.EVT event 18 changes slot 0 to it). Quest bit 190 is set by D29.EVT event 378 (raised by the map's own trigger), GLOBAL.EVT event 193 (raised by Niles Stantley's topic once GLOBAL.EVT event 191 changes slot 0 to it; Niles Stantley's topic once GLOBAL.EVT event 192 changes slot 1 to it), OUT02.EVT event 51 (raised by the map's own trigger). 3 ways through the event reach the move; the condition is the shortest one's. |
 | 181 | 13 Tatalia | 42 The Tidewater Caverns | 503.0 | `used` | 1 clicked face(s) |  |  |
 | 182 | 13 Tatalia | 17 Lord Markham's Manor | 504.0 | `used` | 2 clicked face(s) |  |  |
 | 183 | 13 Tatalia | 72 Wromthrax's Cave | 505.0 | `used` | 3 clicked face(s) |  |  |
@@ -308,4 +335,4 @@ by the ruleset suite over the same packs (`FixturePolicyTests.A_travel_event_tak
 | 189 | 34 Temple of the Dark | 8 The Pit | 501.0 | `used` | 2 clicked face(s) |  |  |
 | 190 | 36 Grand Temple of the Sun | 9 Evenmorn Island | 501.0 | `used` | 1 clicked face(s) |  |  |
 | 191 | 27 The Hall of the Pit | 5 Deyja | 501.0 | `used` | 1 clicked face(s) |  |  |
-| 192 | 27 The Hall of the Pit | 8 The Pit | 502.3 | `used` | 1 clicked face(s) | quest bit 99 is set | Quest bit 99 is set by OUT02.EVT event 37. 2 ways through the event reach the move; the condition is the shortest one's. |
+| 192 | 27 The Hall of the Pit | 8 The Pit | 502.3 | `used` | 1 clicked face(s) | quest bit 99 is set | Quest bit 99 is set by OUT02.EVT event 37 (raised by the door of the house it opens: 1 clicked face(s)). 2 ways through the event reach the move; the condition is the shortest one's. |

@@ -66,9 +66,10 @@ internal sealed class SessionActs(SessionOwners owners, SessionControls controls
         if (result is { IsApplied: true, Target: { } target } && owners.Conversations is { } conversations)
         {
             // A use that hands the party to somebody — a fixture whose event calls a person over — opens the
-            // conversation with them; every other use opens one only when somebody stands at the placement.
+            // conversation with them; a use that led the party away, or a door that kept it outside, opens none; every
+            // other use opens one only when somebody stands at the placement.
             if (result.Speaks is { } subject) conversations.Open(target.Id.Place, target.Placement, subject);
-            else conversations.OpenTarget(target.Id.Place, target.Placement);
+            else if (result.Travels is null && !result.KeptOut) conversations.OpenTarget(target.Id.Place, target.Placement);
         }
     }
 

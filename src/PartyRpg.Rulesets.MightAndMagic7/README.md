@@ -437,7 +437,8 @@ shipped topic's conditions are judged in, so the line appears with the standing 
 number it wants — and the words it says are the band's own reading. A town hall's notice is gated the same
 way, as an ordinary offer condition on the errand nobody authors, so the board a hall posts and the line a
 person speaks open together. The shipped data gates nothing on a standing and the ruleset suite counts it: the
-operator's topic table carries 54 topics over 15 people and states no standing condition on any of them (the
+operator's people carry 416 topics over 300 people — one per slot whose row the topic table labels, every one of
+them answered by the global program's event of its number — and state no standing condition on any of them (the
 requirement column it does carry is a quest bit, and the six rows that name one are rows the original never
 gives text or an owner to), and none of the 17 shipped errands states an offer condition at all — so the
 standing gates this game ships are its own two, and they are stated in one table. What a counter does about
@@ -513,7 +514,7 @@ raises it again only when the second reach was not already holding the party: ap
 `MightAndMagic7Fixtures` walks an event's steps against the party and the fixture, writing into an overlay so a
 later comparison reads an earlier write, and applies what it collected only when the run ends without a
 refusal. **Interpreted**: `exit`, `jump`, `compare`, `add`, `subtract` and `set` over the variables below,
-`status-text`, `for-party-member`, `random-go-to` (the engine's keyed draw), `receive-damage`, `check-season`
+`status-text` and `show-message` (the line the party reads, or a person's answer), `for-party-member`, `random-go-to` (the engine's keyed draw), `receive-damage`, `check-season`
 (the donor's season boundaries on this game's calendar), and the timer triggers, which end a use's run and are
 themselves run as the refill of what a fixture reads; `change-door-state` (open, close, or toggle a door at rest,
 `OpenEnroth/src/Engine/Graphics/Indoor.cpp:721-770`: the place's door placement of that id is recorded in the
@@ -539,16 +540,34 @@ it through `SessionWorld.Travel` after the use is recorded — the donor shows a
 confirmation before a move naming a house or a picture and runs on after one that does not
 (`OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:207-252`); this build confirms nothing and runs nothing after the move
 (approximate); `move-to-map` within the place sets the party down at the step's position (`InteractionOutcome.Relocates`)
-and runs on, and one naming no position moves nobody (`:124-134`, `:231-235`: faithful); `move-npc` runs on and states as
-residue that the person's move to another house is not followed, because people stand where content placed them
-(a receiver is still to be routed: Castle Harmondale's door is the one shipped event that reaches it). **Presentation, passed over**: the
+and runs on, and one naming no position moves nobody (`:124-134`, `:231-235`: faithful); `move-npc` moves the person to
+another house (`OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:470-471`) and `set-npc-greeting` gives them another row of
+the greeting table and forgets that they greeted the party (`:541-545`), each a party record
+(`MightAndMagic7PersonState`: `person-house:<person>:<house>` and `person-greeting:<person>:<row>`, the latest
+standing, saved with the party's records and judged on load — somebody the content lacks, or a row the greeting
+table, `person-greeting`, does not carry, is `save-record-unknown`); the conversation reads both: a house's placement
+holds the people content placed there less those moved elsewhere, plus those moved in (`UIHouses.cpp:401` lists the
+people whose record names the house), and a changed greeting is its row's lines (the donor keeps both on the person:
+ours, on the party, the same for one party). **A house's own event** (`house` on the place event, the importer's
+`sourceEvent` of a counter's or a household's placement — 47 over the operator's install: shops a quest bit shuts,
+the arbiter's door, the two hostels whose door also moves the party) is run when the party uses the house
+(`MightAndMagic7Fixtures.House`, through `MightAndMagic7PeopleInteraction`): its `speak-in-house` step opens the house it
+names — the people of that house's placement in the place (`EvtInterpreter.cpp:189-198`) — and the run goes on; a branch
+that reaches a move takes it through the one transition path instead (the hostels of Celeste and The Pit, links 38 and
+47); a run that reaches neither keeps the party outside with what it said (`InteractionOutcome.KeptOut`, a shop closed
+while Harmondale is besieged); and a run refused at a step this game does not read opens the house as before, the
+refusal its residue. **Presentation, passed over**: the
 product draws no world and plays no sound, so `set-texture`, `set-sprite`, `play-sound`, `character-animation`,
-`toggle-indoor-light`, and a `set-faces-bit` that only hides a face group or makes it fluid change nothing and the
+`toggle-indoor-light`, `show-movie` (the three effects the donor's player hangs on a movie's name — the arbiter's
+alignment and the crossing's week of rest, `OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:288-300` — are the
+executable's and are not kept: this build's path is the class a promotion chooses), and a `set-faces-bit` that only hides a face group or makes it fluid change nothing and the
 event's gameplay steps still run — a decision, not a deferral (a fluid face is not water a party drowns in, and its
 footsteps, splash and sinking corpses are not modelled); a `set-faces-bit` that makes a face group passable states
 its residue (#8594) and runs on. The variables, each through its owner: `quest-bit` (the
 party record `errand:<bit>` the conversation already reads), `member-bit` (a party record — the donor's is per
-character), `autonote` (a knowledge report of the discovery row: `stat` and `misc` an effect, `obelisk`,
+character), `award` (a party record `award-bit:<n>`, the donor's award of that number, which is per character and shown
+in its awards book: `OpenEnroth/src/Engine/Objects/Character.cpp:3640-3641`, `:4689-4694`, `:5206-5208`; this build
+shows it nowhere: approximate), `autonote` (a knowledge report of the discovery row: `stat` and `misc` an effect, `obelisk`,
 `teacher` and `seer` a clue, `potion` a recipe), `gold`, `item` (given through the acquisition path,
 taken from the shared pack), `hit-points`, `spell-points`, `full-hit-points` and `full-spell-points` (a member's
 resources), `attribute` (a member's base attribute, for good), `resistance-bonus` (the running effect a ward
@@ -574,7 +593,7 @@ past the fixture**: `set-npc-topic` changes which topic table row one of a perso
 party's records and judged on load (`save-record-unknown` for somebody the content lacks or a seventh slot); the
 conversation reads it, withdrawing the row the slot stated (`topicSlots` on the person, the importer's positional
 `npcdata.txt` columns) and offering the row it raises when the topic table (`person-topic`, every `npctopic.txt`
-row with an answer) carries one — a row with no answer is the original's event program speaking and adds nothing.
+row with an answer or a global event of its number) carries one.
 The donor keeps the slot on the person (ours: on the party, the same for a one-party game); its one side effect of
 a particular change, a guild screen opening, is not kept. `is-actor-killed` counts the place's population
 (`MightAndMagic7Fixtures.ActorsOf`, read only): by `group` (the placement's own group, which person placements now
@@ -613,6 +632,30 @@ daily timer runs a day after it last ran rather than at its hour; a fixture's ha
 not reduced by resistance; and a sign's words are kept as a clue, which the original does not keep. The 20 of
 the 195 map variables two or more fixture events of one place share — mostly an interior's lever puzzles — are
 shared, because the variables are the place's. A fixture's own state word (`used`, `read`) is live-only like a
-door's (#8593), which grows the same ledger capture. Fidelity per system — what matches
+door's (#8593), which grows the same ledger capture.
+
+**A person's topic runs the global program** (`global-event`, the importer's `global.evt`, every event of it, the
+ones a topic raises marked `topic`). A topic is the row of one of a person's slots, labelled by the topic table, and
+the donor answers it by running the global program's event of that number (`OpenEnroth/src/GUI/UI/NPCTopics.cpp:662-666`):
+`MightAndMagic7Conversation` offers it when the event's own offer check allows it and answers it with a
+`HandoffOwner.Use` handoff naming the topic, which the session routes to `SessionWorld.Answer` — one use of the
+speaker's placement, described from the word (`InteractionTargetRequest.Raised`) and run by the same
+`MightAndMagic7Fixtures` run a fixture's event takes (`Speak`), so a topic's quest bits, purse, items, notes,
+history, slot changes and moves are settled by the owners every use settles through, and what its messages show
+(the topic text table's row of each message's number, `EvtInterpreter.cpp:403-423`) is what the person says
+(`PartyConversations.Hear`). A move of the global program is the world's own, issued from no place, and is taken
+as `Scripted` travel along the world-issued transition (links 68, 69 and 70); the party leaving ends the
+conversation. The offer check is the donor's offer mode run by the same run (`Offers`, `EvtInterpreter.cpp:152-181`,
+`:632-655`): each comparison asks every member, `set-can-show-dialog-item` states the answer, and an event that
+states none is offered; a comparison of a variable this game does not interpret withholds the topic and names it.
+A regular run passes over the offer steps, as the donor's does. A run that meets a step this game does not
+interpret settles nothing and the person still says what the run had said (the topic table's own text when it had
+said nothing), with the refusal as the residue. Over the operator's install, a fresh party choosing each of the 365
+topic-raised events once has 342 run — 3 of them taking the party along a world-issued link: the crossing to
+Harmondale (68) and the temples' (69, 70) — and 23 stop at a named step: `hireling` 12 (#8514), `class` 2,
+`bank-gold` 2, `npc-set-item` 2, `reputation` 1, `food` 1, `bounties` 1, `arena-wins-knight` 1, and a creature flag
+`0x10000` 1; the ruleset suite counts it. **What is ours**: the donor offers at most four scripted topics at once (`NPCTopics.cpp:603`), this build
+every one its check allows; a topic said once is withheld for the rest of the conversation, as every topic is.
+Fidelity per system — what matches
 the original, what is approximate, and what is deliberately ours — is fixed in
 [`../../docs/gameplay-design.md`](../../docs/gameplay-design.md).

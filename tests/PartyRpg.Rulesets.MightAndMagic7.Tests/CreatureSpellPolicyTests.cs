@@ -81,6 +81,38 @@ public sealed class CreatureSpellPolicyTests
     }
 
     [Fact]
+    public void A_slowed_creature_covers_half_the_ground_in_the_same_step()
+    {
+        // The engine here walks a body at the pace of the profile each step hands it, on open ground; the composed
+        // world's own creature mover is what hands it the creature's pace.
+        ScriptedSpatialService spatial = new() { StepEnds = ScriptedSpatialService.AtProfilePace };
+        (ProductCreateContext context, RecordingUiService ui) =
+            RulesetTestContext.Create(persistence: null, spatial, new ScriptedContentService(), Creatures());
+        using IGameSession session = Casting(context, ui);
+        MightAndMagic7Session live = (MightAndMagic7Session)session;
+        Stand(session);
+        MightAndMagic7Combat policy = Fight(context, live.Party!);
+        MightAndMagic7MonsterAi ai = MightAndMagic7MonsterAi.Compose(policy, random: null);
+        ICreatureMover mover = live.World!.Creatures!;
+        Combatant beast = Creature(live, "beast");
+        CombatantId party = live.Combat!.Combatants[0].Id;
+        PlacePose target = new(0, 100000, 0, 0, 0);
+
+        // The pace is the row's own speed column, 200, the one the donor moves the creature at (OpenEnroth
+        // src/Engine/Objects/Actor.cpp:2259), and not the party's own walking pace.
+        CreatureMoveOutcome before = mover.Move(new CreatureMoveRequest(beast.Id, PlacePose.Origin, party, target, CreatureMovePurpose.Toward, ai.SpeedOf(beast.Subject), 0.25));
+        Assert.Equal(200 * 0.25, before.MovedBy, precision: 2);
+
+        // A novice slow is worth two, and the pace the mover hands the engine is divided by it (OpenEnroth
+        // src/Engine/Spells/CastSpellInfo.cpp:572-610, src/Engine/Graphics/Indoor.cpp:814-816).
+        CastAt(session, 2, "35", beast);
+        Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
+        mover.Forget(beast.Id);
+        CreatureMoveOutcome after = mover.Move(new CreatureMoveRequest(beast.Id, PlacePose.Origin, party, target, CreatureMovePurpose.Toward, ai.SpeedOf(beast.Subject), 0.25));
+        Assert.Equal(before.MovedBy / 2, after.MovedBy, precision: 2);
+    }
+
+    [Fact]
     public void A_stun_pushes_a_creatures_recovery_back_and_a_shrinking_divides_its_blow()
     {
         (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(Creatures());

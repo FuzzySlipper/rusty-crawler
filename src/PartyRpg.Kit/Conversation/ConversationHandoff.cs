@@ -22,6 +22,12 @@ public enum HandoffOwner
 
     /// <summary>Handing a finished errand back to its giver, which the quest owner pays.</summary>
     ErrandTurnIn,
+
+    /// <summary>
+    /// Something the topic sets going that the ruleset runs as one use of the speaker's placement
+    /// (<see cref="Interaction.PartyInteraction.Answer"/>), whose words are the person's answer.
+    /// </summary>
+    Use,
 }
 
 /// <summary>What taking a topic hands the party over to, and which one of that owner's things it is.</summary>
@@ -52,6 +58,7 @@ public sealed record ConversationHandoff(HandoffOwner Owner, string Target = "")
         HandoffOwner.Rank => "promotion",
         HandoffOwner.ErrandOffer => "quest-offer",
         HandoffOwner.ErrandAccept => "quest-accept",
+        HandoffOwner.Use => "use",
         _ => "quest-turn-in",
     };
 

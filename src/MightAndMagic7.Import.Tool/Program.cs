@@ -315,6 +315,7 @@ internal static class Program
                 creatures = Describe(result.Creatures),
                 loot = Describe(result.Containers, tables),
                 fixtures = Describe(result.Fixtures, tables),
+                globalEvents = Describe(result.Globals),
                 use = "add these pack ids to a bundle under content/partyrpg/bundles to load them",
             },
             Json));
@@ -362,6 +363,7 @@ internal static class Program
         timedEvents = fixtures.TriggeredEventCount,
         floorTriggers = fixtures.Triggers.Count,
         steppedEvents = fixtures.SteppedEventCount,
+        houseEvents = fixtures.HousedEventCount,
         steppedEventsOwnedElsewhere = fixtures.SteppedOwnedElsewhere,
         steppedEventsWithoutInstructions = fixtures.SteppedWithoutInstructions,
         travelEvents = fixtures.TravelEventCount,
@@ -375,6 +377,24 @@ internal static class Program
         discoveryRowsWithoutANote = tables.Discoveries.SkippedRows,
         historyLines = tables.History.Rows.Count,
     };
+
+    /// <summary>
+    /// What the global program's emission produced: how many events it carries, how many a person's topic raises, how
+    /// many of those check whether their topic is offered, and how many steps of each kind the raised ones hold — the
+    /// counts the ruleset's interpretation of a topic is measured against.
+    /// </summary>
+    private static object Describe(Packs.GlobalEventSummary globals)
+    {
+        HashSet<int> raised = [.. globals.TopicRaised];
+        return new
+        {
+            events = globals.Events.Count,
+            topicRaised = globals.TopicRaised.Count,
+            checkingTheirOffer = globals.Events.Count(globalEvent => raised.Contains(globalEvent.EventId) && globalEvent.ChecksOffer),
+            moves = globals.Events.Sum(globalEvent => globalEvent.Steps.Count(step => step.Op == "move-to-map")),
+            stepKinds = globals.StepKinds,
+        };
+    }
 
     /// <summary>
     /// What the encounter reading produced: how many records asked for an actor, how many encounters were

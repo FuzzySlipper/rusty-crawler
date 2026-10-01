@@ -62,21 +62,48 @@ public readonly record struct EvtInstruction(ushort EventId, byte Step, byte Opc
     /// <remarks>
     /// The four share one layout: a 16-bit variable code and a signed 32-bit value, and a comparison carries
     /// the step it jumps to when it holds as one more byte (OpenEnroth
-    /// <c>src/Engine/Evt/EvtInstruction.cpp:979-995</c>).
+    /// <c>src/Engine/Evt/EvtInstruction.cpp:979-995</c>). A topic's offer check compares in the same layout
+    /// (<c>src/Engine/Evt/EvtInstruction.cpp:1135-1140</c>).
     /// </remarks>
     /// <param name="variable">The decoded instruction.</param>
     public bool TryReadVariable(out VariableInstruction variable)
     {
         variable = default;
-        if (Opcode is not (EvtOpcodes.Compare or EvtOpcodes.Add or EvtOpcodes.Subtract or EvtOpcodes.Set)) return false;
+        if (Opcode is not (EvtOpcodes.Compare or EvtOpcodes.CanShowDialogItemCompare or EvtOpcodes.Add or EvtOpcodes.Subtract or EvtOpcodes.Set)) return false;
+        bool compares = Opcode is EvtOpcodes.Compare or EvtOpcodes.CanShowDialogItemCompare;
         ReadOnlySpan<byte> operands = Operands.Span;
-        int required = Opcode == EvtOpcodes.Compare ? 7 : 6;
+        int required = compares ? 7 : 6;
         if (operands.Length < required) return false;
 
         variable = new VariableInstruction(
             BinaryPrimitives.ReadUInt16LittleEndian(operands),
             BinaryPrimitives.ReadInt32LittleEndian(operands[2..]),
-            Opcode == EvtOpcodes.Compare ? operands[6] : null);
+            compares ? operands[6] : null);
+        return true;
+    }
+
+    /// <summary>Reads whether a topic's offer check offers the topic, when this instruction states it.</summary>
+    /// <remarks>One byte, non-zero to offer (OpenEnroth <c>src/Engine/Evt/EvtInstruction.cpp:1145-1148</c>).</remarks>
+    /// <param name="shows">Whether the topic is offered.</param>
+    public bool TryReadCanShow(out bool shows)
+    {
+        shows = false;
+        if (Opcode != EvtOpcodes.SetCanShowDialogItem || Operands.Length < 1) return false;
+        shows = Operands.Span[0] != 0;
+        return true;
+    }
+
+    /// <summary>Reads which person's greeting a greeting step changes and to which row, when this instruction is one.</summary>
+    /// <remarks>A 32-bit person id and a 32-bit greeting row (OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:541-545</c>).</remarks>
+    /// <param name="person">The person's id.</param>
+    /// <param name="greeting">The greeting table row the person greets with afterwards.</param>
+    public bool TryReadNpcGreeting(out int person, out int greeting)
+    {
+        person = 0;
+        greeting = 0;
+        if (Opcode != EvtOpcodes.SetNpcGreeting || Operands.Length < 8) return false;
+        person = BinaryPrimitives.ReadInt32LittleEndian(Operands.Span);
+        greeting = BinaryPrimitives.ReadInt32LittleEndian(Operands.Span[4..]);
         return true;
     }
 
@@ -236,6 +263,17 @@ public readonly record struct EvtInstruction(ushort EventId, byte Step, byte Opc
             BinaryPrimitives.ReadInt32LittleEndian(operands[15..]),
             BinaryPrimitives.ReadInt32LittleEndian(operands[19..]),
             BinaryPrimitives.ReadInt32LittleEndian(operands[23..]));
+        return true;
+    }
+
+    /// <summary>Reads which house a house step opens, when this instruction is one.</summary>
+    /// <remarks>A 32-bit house id (OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:189-198</c>).</remarks>
+    /// <param name="house">The house's id.</param>
+    public bool TryReadSpeakInHouse(out int house)
+    {
+        house = 0;
+        if (Opcode != EvtOpcodes.SpeakInHouse || Operands.Length < 4) return false;
+        house = BinaryPrimitives.ReadInt32LittleEndian(Operands.Span);
         return true;
     }
 

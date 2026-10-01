@@ -697,9 +697,9 @@ internal static class SyntheticInstallation
     {
         StringBuilder text = new("NPC Data (Special)\t\t\tGroup\t\t\tCurrent\tProfession\tGreet\tJoin\tEvent\tEvent\tEvent\tEvent\tEvent\tEvent\t\n");
         text.Append("#\tName\tPic\tA\tB\tC\t2D Location\t 1 - 76\t#\tY / N\t# A\t# B\t# C\t# D\t# E\t# F\tNotes\n");
-        text.Append("1\tTester One\t709\t0\t0\t0\t98\t0\t1\tN\t7\t9\t0\t0\t0\t0\tPlaced in the weapon shop the service fixture places\n");
+        text.Append("1\tTester One\t709\t0\t0\t0\t98\t0\t1\tN\t1\t9\t0\t0\t0\t0\tPlaced in the weapon shop the service fixture places\n");
         text.Append("2\tTester Two\t707\t0\t0\t0\t0\t0\t2\tY\t0\t0\t0\t0\t0\t0\tPlaced nowhere\n");
-        text.Append("3\tTester Three\t162\t0\t0\t0\t999\t0\t3\tN\t0\t0\t0\t0\t0\t0\tPlaced in a building with no door\n");
+        text.Append("3\tTester Three\t162\t0\t0\t0\t999\t0\t3\tN\t3\t0\t0\t0\t0\t0\tPlaced in a building with no door\n");
         return text.ToString();
     }
 

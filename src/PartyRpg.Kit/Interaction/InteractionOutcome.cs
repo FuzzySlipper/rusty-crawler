@@ -192,6 +192,17 @@ public sealed record InteractionOutcome
     public InteractionRelocation? Relocates { get; }
 
     /// <summary>The refusal, or null when the use happened.</summary>
+    /// <summary>
+    /// Whether the use reached somebody's door and the party was kept outside: whoever stands there is not spoken with,
+    /// and the use's message says why — a house whose own event shut it, a door that led elsewhere instead.
+    /// </summary>
+    /// <remarks>
+    /// A use that reaches somebody opens the conversation with them (<c>SessionActs</c>); a ruleset whose answer to a
+    /// door is that nobody answers it states that here rather than leaving the session to open a conversation the
+    /// door never let the party into.
+    /// </remarks>
+    public bool KeptOut { get; init; }
+
     public Refusal? Refusal { get; }
 
     private static readonly IReadOnlyDictionary<string, long> NothingKept = new Dictionary<string, long>();

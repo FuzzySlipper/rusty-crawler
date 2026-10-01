@@ -345,6 +345,26 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     }
 
     /// <summary>
+    /// Runs what a person's word set going as one use of the placement the person stands at, and takes the journey it
+    /// leads to through the one transition path.
+    /// </summary>
+    /// <remarks>
+    /// The use is reported where the party stands before any journey it names moves the party, exactly as an aimed use
+    /// is (<see cref="Interact"/>); see <see cref="PartyInteraction.Answer"/> for what is and is not recorded.
+    /// </remarks>
+    /// <param name="placement">The placement the person speaking stands at.</param>
+    /// <param name="raised">The ruleset's own name for what the word raised.</param>
+    /// <returns>The use's result, or null when the world has no interaction to run it with.</returns>
+    public InteractionResult? Answer(PlacementDefinition placement, string raised)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (Interaction is not { } interaction) return null;
+        InteractionResult result = interaction.Answer(placement, raised);
+        Report(result);
+        return Journey(interaction, result);
+    }
+
+    /// <summary>
     /// Takes the journey a use leads to, through the one transition path, and records what came of it as the use's
     /// own result.
     /// </summary>
@@ -720,6 +740,9 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
 
     /// <summary>The transitions the party's place issues, which a use that leads somewhere names its journey from.</summary>
     IReadOnlyList<PlaceTransition> IInteractionWorld.Transitions => Graph.TransitionsFrom(Party.Place);
+
+    /// <inheritdoc />
+    IReadOnlyList<PlaceTransition> IInteractionWorld.WorldIssued => Graph.WorldIssued;
 
     /// <summary>
     /// Whether nothing solid stands between two points of the place the party is in.

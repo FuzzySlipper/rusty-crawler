@@ -74,6 +74,19 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// once — a coin, a note, a bit — is made once whoever is chosen; the donor makes it once per chosen
 /// character, which pays a whole-party gold step four times, and that is not kept.
 /// </para>
+/// <para>
+/// <b>A person's topic runs the global program through the same run.</b> A topic of a person's slot raises the
+/// global program's event of its number (OpenEnroth <c>src/GUI/UI/NPCTopics.cpp:662-666</c>); it is run here as
+/// one use of the placement the person stands at (<see cref="Speak"/>), with the same steps, the same refusals and
+/// the same settling a fixture's run has, and a message it shows is what the person answers
+/// (<c>src/Engine/Evt/EvtInterpreter.cpp:417-423</c>). Whether the topic is offered at all is the event's own offer
+/// check, run by the same run in the donor's offer mode (<see cref="Offers"/>,
+/// <c>src/Engine/Evt/EvtInterpreter.cpp:152-181</c>, <c>:632-655</c>): every member is asked each comparison, a
+/// <c>set-can-show-dialog-item</c> step states the answer, and an event that states none is offered. A run that
+/// reaches a step this game does not interpret changes nothing and the person still says what the run had said,
+/// with the refusal as the residue. The donor offers at most four scripted topics (<c>NPCTopics.cpp:603</c>); this
+/// build offers every one whose check allows it: ours.
+/// </para>
 /// </remarks>
 internal sealed class MightAndMagic7Fixtures
 {
@@ -83,11 +96,20 @@ internal sealed class MightAndMagic7Fixtures
     /// <summary>The placement field that names the event a fixture or a decoration raises.</summary>
     internal const string EventField = "eventId";
 
+    /// <summary>The placement field that names the event a house's door raises, which a house's own use runs.</summary>
+    internal const string SourceEventField = "sourceEvent";
+
     /// <summary>The placement field a fixture's region model name is written under.</summary>
     internal const string ModelNameField = "sourceModelName";
 
     /// <summary>The target kind a fixture is.</summary>
     internal const string TargetKind = "fixture";
+
+    /// <summary>The target kind a person's word is: the global event a topic raises, run as a use of their placement.</summary>
+    internal const string SpokenTargetKind = "spoken";
+
+    /// <summary>The state word a use a person's word raised reads as, which nothing records.</summary>
+    internal const string SpokenState = "spoken";
 
     /// <summary>The placement kind the importer writes a floor trigger as: the event a place's pressure plates raise.</summary>
     internal const string FloorTriggerPlacementKind = "floor-trigger";
@@ -175,12 +197,19 @@ internal sealed class MightAndMagic7Fixtures
 
     /// <summary>
     /// The steps that change only what a player sees or hears: a texture, a sprite, a sound, a character's
-    /// portrait reacting, an interior light. The product draws no world and plays no sound, so a run passes
+    /// portrait reacting, an interior light, a movie. The product draws no world and plays no sound, so a run passes
     /// over them and the event's other steps still run.
     /// </summary>
+    /// <remarks>
+    /// The donor's player hangs three effects on a movie's name rather than on a step of the program — the alignment
+    /// the party takes when the arbiter's movie plays, and a week's rest and healing after the movie of the crossing
+    /// to Harmondale (OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:288-300</c>). Those are the executable's, not
+    /// the data's: this build's light or dark path is the class a promotion chooses, and the crossing's week is not
+    /// kept. Ours.
+    /// </remarks>
     internal static readonly IReadOnlySet<string> PresentationSteps = new HashSet<string>(StringComparer.Ordinal)
     {
-        "set-texture", "set-sprite", "play-sound", "character-animation", "toggle-indoor-light",
+        "set-texture", "set-sprite", "play-sound", "character-animation", "toggle-indoor-light", "show-movie",
     };
 
     /// <summary>The residue a step that moves geometry leaves, which collision does not follow in this build.</summary>
@@ -198,6 +227,8 @@ internal sealed class MightAndMagic7Fixtures
     private readonly Func<string, ConversationPerson?> _people;
     private readonly Func<PlaceId, IReadOnlyList<PlaceActor>?> _actors;
     private readonly Func<PartyJournal?> _journal;
+    private readonly Func<string, SpokenTopic?> _topics;
+    private readonly Func<int, bool> _greetings;
     private readonly Func<PlaceId, PlacePopulation?> _population;
     private long _summoned;
 
@@ -219,6 +250,11 @@ internal sealed class MightAndMagic7Fixtures
     /// (<see cref="ActorsOf"/>); null for a place it cannot answer for, and absent in a session that keeps none.
     /// </param>
     /// <param name="journal">The party's journal, which a step writing a history line writes into, read through a call.</param>
+    /// <param name="topics">
+    /// What a topic a person's word raised is — its label, its table words and the global event it raises — which the
+    /// conversation answers (<see cref="MightAndMagic7Conversation.SpokenTopic"/>); absent in a session that speaks with nobody.
+    /// </param>
+    /// <param name="greetings">Whether the greeting table carries a row, which a step changing a person's greeting names.</param>
     /// <param name="population">
     /// The live population of a place, which a summoning puts its creatures into; null for a place the party does not
     /// stand in now, and absent in a session that keeps none.
@@ -235,8 +271,12 @@ internal sealed class MightAndMagic7Fixtures
         Func<string, ConversationPerson?>? people = null,
         Func<PlaceId, IReadOnlyList<PlaceActor>?>? actors = null,
         Func<PartyJournal?>? journal = null,
+        Func<string, SpokenTopic?>? topics = null,
+        Func<int, bool>? greetings = null,
         Func<PlaceId, PlacePopulation?>? population = null)
     {
+        _topics = topics ?? (_ => null);
+        _greetings = greetings ?? (_ => false);
         _population = population ?? (_ => null);
         _actors = actors ?? (_ => null);
         _journal = journal ?? (() => null);
@@ -305,7 +345,56 @@ internal sealed class MightAndMagic7Fixtures
         }
 
         Run run = new(this, mapEvent, target, context);
+        if (Execute(run, mapEvent, target, context) is { } refusal) return InteractionOutcome.Refused(refusal);
+        return run.Settle();
+    }
 
+    /// <summary>
+    /// Runs a house's own event when the party uses the house, or answers null when the house's event only opens it and
+    /// the use is the ordinary one of speaking with whoever keeps it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The donor runs a clicked face's event whatever it holds (OpenEnroth <c>src/Engine/Graphics/Viewport.cpp:300-320</c>),
+    /// and a house's door is such a face: its event opens the house with a <c>speak-in-house</c> step and runs on
+    /// (<c>src/Engine/Evt/EvtInterpreter.cpp:189-198</c>). So the house's use runs it — its comparisons decide whether the
+    /// party is let in at all, a branch that reaches a move takes the party there instead (the Small House behind the
+    /// doors of Celeste and The Pit), and its writes are settled like any run's. The step opens the house it names:
+    /// the people of the placement of that house in this place, which is the house used unless the event names another
+    /// (the arbiter's door opens one of three houses by what the party has done).
+    /// </para>
+    /// <para>
+    /// A run that reaches no house step and no move keeps the party outside (<see cref="InteractionOutcome.KeptOut"/>)
+    /// with what the run said. A run that meets a step this game does not interpret settles nothing and the house opens
+    /// as it did before the event was run, with the refusal as the residue: the door is not barred by a step this build
+    /// cannot read.
+    /// </para>
+    /// </remarks>
+    /// <param name="target">The house's keeper, as described.</param>
+    /// <param name="context">The house's placement, the party and the clock.</param>
+    /// <param name="houses">Who stands at the placement of a house of this place, by the house's number, or null.</param>
+    internal InteractionOutcome? House(InteractionTargetDefinition target, InteractionContext context, Func<int, ConversationSubject?> houses)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(houses);
+        if (context.Placement.Source.GetInt32(SourceEventField) is not { } eventId || _events.Find(context.Place, eventId) is not { Housed: true } mapEvent)
+        {
+            return null;
+        }
+
+        Run run = new(this, mapEvent, target, context) { Houses = houses };
+        if (Execute(run, mapEvent, target, context) is { } refusal)
+        {
+            return InteractionOutcome.Applied(SpokenState, $"The party speaks with {target.Name}.", refusal.Message);
+        }
+
+        return run.SettleHouse();
+    }
+
+    /// <summary>Runs an event from its first step, after the timers that keep what it reads; answers with a refusal or null.</summary>
+    private Refusal? Execute(Run run, MapEvent mapEvent, InteractionTargetDefinition target, InteractionContext context)
+    {
         // The timers that keep what this event reads run first, each once when its period has passed since it
         // last ran — and every one of them on the fixture's first use, which is the donor's own reading of a
         // timer on a map the party has not visited (OpenEnroth src/Engine/Evt/Processor.cpp:120-140).
@@ -315,16 +404,84 @@ internal sealed class MightAndMagic7Fixtures
             string key = TimerKey(owner, timer);
             if (Period(timer) is not { } period)
             {
-                return InteractionOutcome.Refused(NotInterpreted(target, owner, timer, $"a timer whose period '{timer.Period}' this game does not read"));
+                return NotInterpreted(target, owner, timer, $"a timer whose period '{timer.Period}' this game does not read");
             }
 
             if (run.Kept(key) is { } last && now - last < period.Milliseconds) continue;
-            if (run.Execute(owner, timer.Step + 1) is { } refused) return InteractionOutcome.Refused(refused);
+            if (run.Execute(owner, timer.Step + 1) is { } refused) return refused;
             run.Keep(key, now);
         }
 
-        if (run.Execute(mapEvent, 0) is { } refusal) return InteractionOutcome.Refused(refusal);
-        return run.Settle();
+        return run.Execute(mapEvent, 0);
+    }
+
+    /// <summary>
+    /// What a person's word raised, as the target the interaction mechanism runs (<see cref="Speak"/>), or null when it
+    /// names no topic this world's people carry an event for.
+    /// </summary>
+    /// <param name="request">The placement the person stands at, and the word.</param>
+    /// <param name="reach">How far from it the party may stand, which an answer does not consult.</param>
+    internal InteractionTargetDefinition? Spoken(InteractionTargetRequest request, double reach)
+    {
+        if (request.Raised.Length == 0 || _topics(request.Raised) is not { } topic || _events.Global(topic.Event) is null) return null;
+        return new InteractionTargetDefinition(
+            new InteractionTargetKind(SpokenTargetKind),
+            topic.Label,
+            InteractionVerb.Talk,
+            reach,
+            SpokenState);
+    }
+
+    /// <summary>
+    /// Runs the global event a person's topic raises and answers with what the person said and what the run did, or
+    /// with the line the run reached and why nothing changed.
+    /// </summary>
+    /// <param name="target">The word, as described.</param>
+    /// <param name="context">The placement the person stands at, the party, the clock, and the word.</param>
+    internal InteractionOutcome Speak(InteractionTargetDefinition target, InteractionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(context);
+        if (_topics(context.Raised) is not { } topic || _events.Global(topic.Event) is not { } spoken)
+        {
+            return InteractionOutcome.Refused(new Refusal(
+                MightAndMagic7Codes.FixtureEventMissing,
+                $"What was said raised '{context.Raised}', and the loaded content carries no global event for it, so there is nothing to run."));
+        }
+
+        Run run = new(this, spoken, target, context);
+        if (run.Execute(spoken, 0) is { } refusal)
+        {
+            // What the person had said before the run met a step this game does not interpret is still what they said;
+            // nothing the run collected is applied, and the refusal says why.
+            return InteractionOutcome.Applied(SpokenState, run.Said(topic.Words), refusal.Message);
+        }
+
+        return run.Settle(topic.Words);
+    }
+
+    /// <summary>
+    /// Whether a topic raising a global event is offered, by the event's own offer check, and why not when it is not.
+    /// </summary>
+    /// <remarks>
+    /// The donor runs the event in its offer mode with every member asked (OpenEnroth
+    /// <c>src/Engine/Evt/EvtInterpreter.cpp:152-181</c>, <c>:632-655</c>): a comparison jumps when any member holds it,
+    /// a <c>set-can-show-dialog-item</c> step states the answer, an end or an exit stops, and every other step is passed
+    /// over. A check that never states an answer offers the topic, as the donor's does. A comparison of a variable this
+    /// game does not interpret withholds the topic and names the variable, rather than offering what might not be.
+    /// </remarks>
+    /// <param name="eventId">The global event the topic raises.</param>
+    /// <param name="place">The place the conversation is in.</param>
+    /// <param name="placement">The placement the person stands at.</param>
+    /// <param name="party">The party, or null when the world holds none.</param>
+    /// <param name="clock">The one clock, or null when the session keeps none.</param>
+    internal Verdict Offers(int eventId, PlaceId place, PlacementDefinition placement, PartyEntity? party, GameClock? clock)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+        if (_events.Global(eventId) is not { ChecksOffer: true } spoken) return Verdict.Met;
+        InteractionTargetDefinition target = new(new InteractionTargetKind(SpokenTargetKind), spoken.Name, InteractionVerb.Talk, double.MaxValue, SpokenState);
+        Run run = new(this, spoken, target, new InteractionContext(place, placement, target, party, clock));
+        return run.Offer(spoken);
     }
 
     /// <summary>Whether a fixture is a sign: a region model the level itself names as one.</summary>
@@ -436,7 +593,7 @@ internal sealed class MightAndMagic7Fixtures
             MightAndMagic7Codes.FixtureStepNotInterpreted,
             string.Create(
                 CultureInfo.InvariantCulture,
-                $"{target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}', and its step {step.Step} is {what}, which this game does not interpret: nothing was changed."));
+                $"{target.Name} runs {mapEvent.Name}, and its step {step.Step} is {what}, which this game does not interpret: nothing was changed."));
 
     /// <summary>The refusal for a variable this game does not interpret.</summary>
     /// <param name="target">The fixture.</param>
@@ -448,7 +605,7 @@ internal sealed class MightAndMagic7Fixtures
             MightAndMagic7Codes.FixtureVariableNotInterpreted,
             string.Create(
                 CultureInfo.InvariantCulture,
-                $"{target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}', and its step {step.Step} {step.Op}s the variable '{Describe(step)}', which this game does not interpret for that instruction{(waits.Length > 0 ? $" ({waits})" : string.Empty)}: nothing was changed."));
+                $"{target.Name} runs {mapEvent.Name}, and its step {step.Step} {step.Op}s the variable '{Describe(step)}', which this game does not interpret for that instruction{(waits.Length > 0 ? $" ({waits})" : string.Empty)}: nothing was changed."));
 
     private static string Describe(MapEventStep step) =>
         step.Which.Length > 0 ? $"{step.Variable} {step.Which}" : step.Variable;
@@ -612,6 +769,13 @@ internal sealed class MightAndMagic7Fixtures
     internal static string MemberBitRecord(int bit) =>
         string.Create(CultureInfo.InvariantCulture, $"member-bit:{bit}");
 
+    /// <summary>
+    /// The record an award bit an event sets is kept as: the donor's award of that number
+    /// (<c>src/Engine/Data/AwardEnums.h</c>), held by the party.
+    /// </summary>
+    internal static string AwardRecord(int award) =>
+        string.Create(CultureInfo.InvariantCulture, $"award-bit:{award}");
+
     /// <summary>The name a place keeps whether its events turned one of its groups hostile under.</summary>
     internal static string HostileGroupKey(int group) =>
         string.Create(CultureInfo.InvariantCulture, $"{HostileGroupPrefix}{group}");
@@ -630,7 +794,8 @@ internal sealed class MightAndMagic7Fixtures
     /// <param name="name">The record's name.</param>
     /// <param name="count">How many times it is on record.</param>
     internal string? JudgeRecord(string name, int count) =>
-        MightAndMagic7TopicSlots.Judge(name, count, person => _people(person) is not null);
+        MightAndMagic7TopicSlots.Judge(name, count, person => _people(person) is not null) ??
+        MightAndMagic7PersonState.Judge(name, count, person => _people(person) is not null, _greetings);
 
     /// <summary>
     /// Every creature and person a place's population holds and whether each is down, as the population and the
@@ -700,6 +865,7 @@ internal sealed class MightAndMagic7Fixtures
         private readonly Dictionary<PlacementContentId, string> _changes = [];
         private readonly List<string> _residue = [];
         private ConversationSubject? _speaks;
+        private bool _opens;
         private InteractionTravel? _travels;
         private InteractionRelocation? _relocates;
         private int _coins;
@@ -712,6 +878,9 @@ internal sealed class MightAndMagic7Fixtures
             _target = target;
             _context = context;
         }
+
+        /// <summary>Who stands at the placement of a house of the place, by its number, when the run is a house's own event.</summary>
+        internal Func<int, ConversationSubject?>? Houses { get; init; }
 
         /// <summary>A value the place keeps as the run has left it so far, or null when nothing has written it.</summary>
         internal long? Kept(string key) =>
@@ -739,7 +908,7 @@ internal sealed class MightAndMagic7Fixtures
                 {
                     return new Refusal(
                         MightAndMagic7Codes.FixtureRunaway,
-                        string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}' past {StepLimit} steps without ending, so nothing was changed."));
+                        string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs {mapEvent.Name} past {StepLimit} steps without ending, so nothing was changed."));
                 }
 
                 int next = step + 1;
@@ -774,8 +943,14 @@ internal sealed class MightAndMagic7Fixtures
                     case "add" or "subtract" or "set":
                         if (Write(mapEvent, current, who) is { } refusedWrite) return refusedWrite;
                         break;
-                    case "status-text":
+                    case "status-text" or "show-message":
+                        // A message a topic's event shows is the person's answer; one a place's event shows is the line
+                        // the party reads (OpenEnroth src/Engine/Evt/EvtInterpreter.cpp:403-423).
                         if (current.Text.Length > 0) _said.Add(current.Text);
+                        break;
+                    case MightAndMagic7MapEvents.OfferCompare or MightAndMagic7MapEvents.OfferSet or MightAndMagic7MapEvents.OfferEnd:
+                        // A topic's offer check is read by Offer; a regular run passes over it, as the donor's does
+                        // (src/Engine/Evt/EvtInterpreter.cpp:184-185, the regular switch has no case for them).
                         break;
                     case "for-party-member":
                         (who, Refusal? chose) = Choose(mapEvent, current);
@@ -787,7 +962,7 @@ internal sealed class MightAndMagic7Fixtures
                         {
                             return new Refusal(
                                 MightAndMagic7Codes.FixtureNothingToRoll,
-                                string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}', whose step {current.Step} chooses at random, and this product has no random service to choose with: nothing was changed."));
+                                string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs {mapEvent.Name}, whose step {current.Step} chooses at random, and this product has no random service to choose with: nothing was changed."));
                         }
 
                         next = current.Targets[rolls.Pick(current.Targets.Count)];
@@ -829,13 +1004,16 @@ internal sealed class MightAndMagic7Fixtures
                     }
 
                     case "move-npc":
-                        // The donor moves the person to another house (OpenEnroth src/Engine/Evt/EvtInterpreter.cpp:470-471).
-                        // This build places people where content stands them and follows no move, so the step is stated as
-                        // what the use could not deliver and the event's other steps — the bits a door's first opening
-                        // sets — still run.
-                        Residue(string.Create(
-                            CultureInfo.InvariantCulture,
-                            $"Person {current.Person} moves to house {current.House} here, which this build does not follow: people stand where content placed them."));
+                        if (MoveNpc(mapEvent, current) is { } refusedMove) return refusedMove;
+                        break;
+                    case "set-npc-greeting":
+                        if (Greet(mapEvent, current) is { } refusedGreeting) return refusedGreeting;
+                        break;
+                    case "speak-in-house" when Houses is { } houses:
+                        // The house opens and the run goes on, as the donor's does (src/Engine/Evt/EvtInterpreter.cpp:189-198).
+                        _opens = true;
+                        if (houses(current.House) is { } inside) _speaks = inside;
+                        else Residue(string.Create(CultureInfo.InvariantCulture, $"House {current.House} is not one this place holds, so nobody answers there."));
                         break;
                     case "set-npc-topic":
                         if (TopicSlot(mapEvent, current) is { } refusedTopic) return refusedTopic;
@@ -876,8 +1054,53 @@ internal sealed class MightAndMagic7Fixtures
             return null;
         }
 
+        /// <summary>What the run has had said so far, or the given words when it said nothing, or the event's name.</summary>
+        /// <param name="words">What the topic's table says, or empty.</param>
+        internal string Said(string words) =>
+            _said.Count > 0 ? string.Join(" ", _said) : words.Length > 0 ? words : $"{_target.Name}: there is nothing more to it.";
+
+        /// <summary>
+        /// Walks a topic's offer check — the donor's offer mode — and answers whether the topic is offered.
+        /// </summary>
+        internal Verdict Offer(MapEvent mapEvent)
+        {
+            List<int> who = Party is { } party ? [.. Enumerable.Range(0, party.Members.Count)] : [];
+            bool stated = false;
+            bool shows = false;
+            int step = 0;
+            int walked = 0;
+            while (mapEvent.At(step) is { } current && ++walked <= StepLimit)
+            {
+                int next = step + 1;
+                if (current.Op == "exit" || current.Op == MightAndMagic7MapEvents.OfferEnd) break;
+                if (current.Op == MightAndMagic7MapEvents.OfferSet)
+                {
+                    stated = true;
+                    shows = current.On;
+                }
+                else if (current.Op == MightAndMagic7MapEvents.OfferCompare)
+                {
+                    stated = true;
+                    (bool holds, Refusal? refused) = Compare(mapEvent, current, who);
+                    if (refused is not null)
+                    {
+                        return Verdict.Unmet(string.Create(
+                            CultureInfo.InvariantCulture,
+                            $"whether this is brought up waits on '{Describe(current)}', which this game does not read ({mapEvent.Name}, step {current.Step})"));
+                    }
+
+                    if (holds) next = current.Target ?? next;
+                }
+
+                step = next;
+            }
+
+            return !stated || shows ? Verdict.Met : Verdict.Unmet("it is not something they bring up yet");
+        }
+
         /// <summary>Applies everything the run collected, and answers with what the use did.</summary>
-        internal InteractionOutcome Settle()
+        /// <param name="words">What a topic's table says, which a run that said nothing answers with; empty for a fixture.</param>
+        internal InteractionOutcome Settle(string words = "")
         {
             foreach (Action effect in _effects) effect();
 
@@ -900,15 +1123,17 @@ internal sealed class MightAndMagic7Fixtures
 
             string message = _said.Count > 0
                 ? string.Join(" ", _said)
-                : _done.Count > 0
-                    ? $"{_target.Name}: {string.Join(" ", _done)}"
-                    : sign
-                        ? $"The sign reads: \"{_event.Label}\"."
-                        : _travels is not null || _relocates is not null
-                            ? $"{_target.Name} leads the party on."
-                            : $"{_target.Name}: nothing comes of it.";
+                : words.Length > 0
+                    ? words
+                    : _done.Count > 0
+                        ? $"{_target.Name}: {string.Join(" ", _done)}"
+                        : sign
+                            ? $"The sign reads: \"{_event.Label}\"."
+                            : _travels is not null || _relocates is not null
+                                ? $"{_target.Name} leads the party on."
+                                : $"{_target.Name}: nothing comes of it.";
             return InteractionOutcome.Applied(
-                sign ? ReadState : UsedState,
+                sign ? ReadState : _target.Kind.Value == SpokenTargetKind ? SpokenState : UsedState,
                 message,
                 string.Join(" ", _residue),
                 items: _items,
@@ -919,6 +1144,63 @@ internal sealed class MightAndMagic7Fixtures
                 speaks: _speaks,
                 travels: _travels,
                 relocates: _travels is null ? _relocates : null);
+        }
+
+        /// <summary>
+        /// Applies a house's own run: the journey a branch reached, the house its step opened, or the party kept outside
+        /// with what the run said.
+        /// </summary>
+        internal InteractionOutcome SettleHouse()
+        {
+            InteractionOutcome settled = Settle($"The party speaks with {_target.Name}.");
+            if (_travels is not null || _opens) return settled;
+            return settled with { KeptOut = true };
+        }
+
+        /// <summary>Collects a person's move to another house, which the party's records keep and the conversation reads.</summary>
+        /// <remarks>The donor writes the house on the person's record (OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:470-471</c>).</remarks>
+        private Refusal? MoveNpc(MapEvent mapEvent, MapEventStep step)
+        {
+            if (Party is not { } party) return NoParty(mapEvent, step);
+            string id = string.Create(CultureInfo.InvariantCulture, $"npc-{step.Person}");
+            if (_rules._people(id) is null)
+            {
+                return new Refusal(
+                    MightAndMagic7Codes.FixturePersonUnknown,
+                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs {mapEvent.Name}, whose step {step.Step} moves person {step.Person}, and the loaded people table holds nobody of that id: nothing was changed."));
+            }
+
+            int house = Math.Max(0, step.House);
+            _effects.Add(() => MightAndMagic7PersonState.Move(party.Records, id, house));
+            return null;
+        }
+
+        /// <summary>Collects a person's change of greeting, which the party's records keep and the conversation reads.</summary>
+        /// <remarks>
+        /// The donor writes the row and forgets that the person greeted the party already (OpenEnroth
+        /// <c>src/Engine/Evt/EvtInterpreter.cpp:541-545</c>), so the row's first line is said next.
+        /// </remarks>
+        private Refusal? Greet(MapEvent mapEvent, MapEventStep step)
+        {
+            if (Party is not { } party) return NoParty(mapEvent, step);
+            string id = string.Create(CultureInfo.InvariantCulture, $"npc-{step.Person}");
+            if (_rules._people(id) is null)
+            {
+                return new Refusal(
+                    MightAndMagic7Codes.FixturePersonUnknown,
+                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs {mapEvent.Name}, whose step {step.Step} changes the greeting of person {step.Person}, and the loaded people table holds nobody of that id: nothing was changed."));
+            }
+
+            int row = Math.Max(0, step.Greeting);
+            if (row != 0 && !_rules._greetings(row))
+            {
+                return new Refusal(
+                    MightAndMagic7Codes.FixturePersonUnknown,
+                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs {mapEvent.Name}, whose step {step.Step} gives person {step.Person} greeting {row}, and the loaded greeting table has no such row: nothing was changed."));
+            }
+
+            _effects.Add(() => MightAndMagic7PersonState.Greet(party.Records, id, row));
+            return null;
         }
 
         /// <summary>Judges a move: the journey it names, which ends the run, or why it cannot be made.</summary>
@@ -940,6 +1222,10 @@ internal sealed class MightAndMagic7Fixtures
             {
                 "walking" => TransitionKind.Walking,
                 "entrance" => TransitionKind.Entrance,
+
+                // The global program's moves are the world's own, issued from no place, and are set going by a person's
+                // word (PartyInteraction.Answer hands the world's transitions to such a run).
+                "scripted" when transition is { IsWorldIssued: true } => TransitionKind.Scripted,
                 _ => null,
             };
             if (step.Link.Length == 0 || transition is null || kind is null)
@@ -948,7 +1234,7 @@ internal sealed class MightAndMagic7Fixtures
                     MightAndMagic7Codes.FixtureTravelUnknown,
                     string.Create(
                         CultureInfo.InvariantCulture,
-                        $"{_target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}', whose step {step.Step} moves the party along travel link '{step.Link}' as '{step.Travel}', and place '{_context.Place}' issues no such transition of a kind a party walks: nothing was changed."));
+                        $"{_target.Name} runs {mapEvent.Name}, whose step {step.Step} moves the party along travel link '{step.Link}' as '{step.Travel}', and place '{_context.Place}' issues no such transition of a kind a party walks: nothing was changed."));
             }
 
             _travels = new InteractionTravel(transition, kind.Value);
@@ -1004,7 +1290,7 @@ internal sealed class MightAndMagic7Fixtures
         private Refusal NoParty(MapEvent mapEvent, MapEventStep step) =>
             new(
                 MightAndMagic7Codes.FixtureNoParty,
-                string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}', whose step {step.Step} reads or changes the party, and this world holds no party."));
+                string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs {mapEvent.Name}, whose step {step.Step} reads or changes the party, and this world holds no party."));
 
         /// <summary>Whether a comparison holds, for any of the members chosen when it is theirs.</summary>
         private (bool Holds, Refusal? Refused) Compare(MapEvent mapEvent, MapEventStep step, List<int> who)
@@ -1017,6 +1303,8 @@ internal sealed class MightAndMagic7Fixtures
                     return (HasRecord(MightAndMagic7Quests.ErrandRecord(step.Value.ToString(CultureInfo.InvariantCulture))), null);
                 case "member-bit":
                     return (HasRecord(MemberBitRecord(step.Value)), null);
+                case "award":
+                    return (HasRecord(AwardRecord(step.Value)), null);
                 case "autonote":
                     return (Knows(step.Value), null);
                 case "gold":
@@ -1120,6 +1408,12 @@ internal sealed class MightAndMagic7Fixtures
                     return null;
                 case ("member-bit", _):
                     Record(MemberBitRecord(step.Value), op != "subtract");
+                    return null;
+                case ("award", _):
+                    // The donor sets or clears one award bit of each chosen character (OpenEnroth
+                    // src/Engine/Objects/Character.cpp:3640-3641, :4689-4694, :5206-5208); this build keeps the
+                    // bit on the party, as it keeps a party bit, and shows it nowhere: approximate.
+                    Record(AwardRecord(step.Value), op != "subtract");
                     return null;
                 case ("autonote", "add" or "set"):
                     return Learn(mapEvent, step);
@@ -1337,7 +1631,7 @@ internal sealed class MightAndMagic7Fixtures
             {
                 return new Refusal(
                     MightAndMagic7Codes.FixtureDiscoveryUnknown,
-                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}', whose step {step.Step} writes note {step.Value}, and the loaded discovery table has no such row: nothing was changed."));
+                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs {mapEvent.Name}, whose step {step.Step} writes note {step.Value}, and the loaded discovery table has no such row: nothing was changed."));
             }
 
             // The row is the fact, wherever it was learned: the donor keeps one bit per row
@@ -1421,7 +1715,7 @@ internal sealed class MightAndMagic7Fixtures
             {
                 return new Refusal(
                     MightAndMagic7Codes.FixtureNothingToRoll,
-                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}', whose step {step.Step} gives an item drawn at treasure level {step.Level}, and this product has no loot table or random service to draw it with: nothing was changed."));
+                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs {mapEvent.Name}, whose step {step.Step} gives an item drawn at treasure level {step.Level}, and this product has no loot table or random service to draw it with: nothing was changed."));
             }
 
             if (loot.Given(step.Level, new LootFilter(step.ItemKind, step.ItemSkill), rolls) is not { } item) return null;
@@ -1445,7 +1739,7 @@ internal sealed class MightAndMagic7Fixtures
             {
                 return new Refusal(
                     MightAndMagic7Codes.FixtureSpellUnknown,
-                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}', whose step {step.Step} casts spell {id}, and the loaded spell table holds no such spell: nothing was changed."));
+                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs {mapEvent.Name}, whose step {step.Step} casts spell {id}, and the loaded spell table holds no such spell: nothing was changed."));
             }
 
             if (spells.Harm(spell) is not { } kind)
@@ -1457,7 +1751,7 @@ internal sealed class MightAndMagic7Fixtures
             {
                 return new Refusal(
                     MightAndMagic7Codes.FixtureNothingToRoll,
-                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}', whose step {step.Step} casts '{spell.Name}', and this product has no random service to roll it with: nothing was changed."));
+                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs {mapEvent.Name}, whose step {step.Step} casts '{spell.Name}', and this product has no random service to roll it with: nothing was changed."));
             }
 
             DamageRoll roll = spells.Damage(spell, step.Rank, Rung(step.Mastery));
@@ -1480,7 +1774,7 @@ internal sealed class MightAndMagic7Fixtures
             {
                 return new Refusal(
                     MightAndMagic7Codes.FixturePersonUnknown,
-                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}', whose step {step.Step} calls over person {step.Person}, and the loaded people table holds nobody of that id: nothing was changed."));
+                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs {mapEvent.Name}, whose step {step.Step} calls over person {step.Person}, and the loaded people table holds nobody of that id: nothing was changed."));
             }
 
             _speaks = new ConversationSubject(id, [person]);
@@ -1521,7 +1815,7 @@ internal sealed class MightAndMagic7Fixtures
             {
                 return new Refusal(
                     MightAndMagic7Codes.FixturePersonUnknown,
-                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}', whose step {step.Step} changes a topic of person {step.Person}, and the loaded people table holds nobody of that id: nothing was changed."));
+                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs {mapEvent.Name}, whose step {step.Step} changes a topic of person {step.Person}, and the loaded people table holds nobody of that id: nothing was changed."));
             }
 
             if (step.Index is < 0 or >= MightAndMagic7TopicSlots.Slots)
@@ -1558,7 +1852,7 @@ internal sealed class MightAndMagic7Fixtures
                 _ => null,
             };
             if (matches is null) return (false, NotInterpreted(_target, mapEvent, step, $"a count of the dead by '{step.Which}'"));
-            if (_rules._actors(mapEvent.Place) is not { } actors)
+            if (_rules._actors(mapEvent.Global ? _context.Place : mapEvent.Place) is not { } actors)
             {
                 return (false, NotInterpreted(_target, mapEvent, step, "a count of the dead in a session that keeps no population to count"));
             }
@@ -1654,7 +1948,7 @@ internal sealed class MightAndMagic7Fixtures
             {
                 return new Refusal(
                     MightAndMagic7Codes.FixtureHistoryUnknown,
-                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}', whose step {step.Step} writes history line {step.Index}, and the loaded history table has no such line: nothing was changed."));
+                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs {mapEvent.Name}, whose step {step.Step} writes history line {step.Index}, and the loaded history table has no such line: nothing was changed."));
             }
 
             if (_rules._journal() is not { } journal || _context.Clock is not { } clock)
@@ -1736,3 +2030,10 @@ internal sealed class MightAndMagic7Fixtures
 /// <param name="Placement">The placement it stands on.</param>
 /// <param name="Down">Whether it is dead or gone.</param>
 internal readonly record struct PlaceActor(PlacementDefinition Placement, bool Down);
+
+/// <summary>A topic a person's word raised, as the conversation states it: what it is called, what the table says, and its event.</summary>
+/// <param name="Id">The topic's identity, which the word names.</param>
+/// <param name="Label">What the topic is called.</param>
+/// <param name="Words">What the topic table says for it, or empty when the event alone speaks.</param>
+/// <param name="Event">The global event it raises, which is the topic's own number.</param>
+internal sealed record SpokenTopic(string Id, string Label, string Words, int Event);

@@ -575,12 +575,12 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
         using PartyEntity party = Party(hitPoints: new ResourcePool(20, 40));
         MightAndMagic7Interaction rule = Rule(catalog);
 
-        // The lever restores hit points and then changes a person's greeting, which this game does not interpret:
+        // The lever restores hit points and then changes a group's news, which this game does not interpret:
         // the run is refused at that step, by name, and the hit points it reached first are not given.
         (InteractionOutcome lever, _) = Use(rule, Fixture(300, "Lever", string.Empty), EmeraldIsle, party, clock);
         Assert.False(lever.IsApplied);
         Assert.Equal(MightAndMagic7Codes.FixtureStepNotInterpreted, lever.Refusal!.Code);
-        Assert.Contains("'set-npc-greeting' instruction", lever.Refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("'set-npc-group-news' instruction", lever.Refusal.Message, StringComparison.Ordinal);
         Assert.Equal(20, party.Members[0].Resources.HitPoints.Current);
 
         // A temporary might bonus is a variable no reading of an attribute adds yet, so it is refused by name too.
@@ -933,7 +933,7 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
             { "id": "1.300", "place": "1", "event": 300, "label": "Lever", "raised": true,
               "steps": [
                 { "step": 0, "op": "add", "variable": "hit-points", "value": 5 },
-                { "step": 1, "op": "set-npc-greeting" },
+                { "step": 1, "op": "set-npc-group-news" },
                 { "step": 2, "op": "exit" } ] },
             { "id": "1.310", "place": "1", "event": 310, "label": "Pull the Lever", "raised": true,
               "steps": [
