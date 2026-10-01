@@ -10,6 +10,12 @@ namespace PartyRpg.Kit.Party;
 /// </remarks>
 public sealed class PartyReputation
 {
+    /// <summary>
+    /// The change stamp this state took when it last changed, or when it was made: a reader that kept what it built
+    /// beside this stamp reads the state again only when the stamp has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     /// <summary>Creates the party's standing.</summary>
     /// <param name="reputation">What the world thinks of the party.</param>
     /// <param name="fame">How widely the party is known.</param>
@@ -28,10 +34,18 @@ public sealed class PartyReputation
     /// <summary>Changes reputation by a delta, which a deed, a quest, or a crime does.</summary>
     /// <param name="delta">How much to change it by, which may be negative.</param>
     /// <exception cref="OverflowException">The change would leave the numbers reputation is described in.</exception>
-    public void ChangeReputation(int delta) => Reputation = checked(Reputation + delta);
+    public void ChangeReputation(int delta)
+    {
+        Reputation = checked(Reputation + delta);
+        Stamp = ChangeStamp.Next();
+    }
 
     /// <summary>Changes fame by a delta.</summary>
     /// <param name="delta">How much to change it by, which may be negative.</param>
     /// <exception cref="OverflowException">The change would leave the numbers fame is described in.</exception>
-    public void ChangeFame(int delta) => Fame = checked(Fame + delta);
+    public void ChangeFame(int delta)
+    {
+        Fame = checked(Fame + delta);
+        Stamp = ChangeStamp.Next();
+    }
 }

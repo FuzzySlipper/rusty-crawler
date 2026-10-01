@@ -138,6 +138,12 @@ public sealed class PartyMaps
     /// <summary>Where each place's own map comes from.</summary>
     public IPlaceMapSource Maps => _maps;
 
+    /// <summary>
+    /// The change stamp this owner took when the maps it keeps last changed, or when it was made: a reader that
+    /// kept what it built beside it reads the owner again only when it has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     /// <summary>Every place the party holds a map of, in the order it first saw each.</summary>
     public IReadOnlyList<MapTerritory> Territories => [.. _order.Select(place => _territories[place])];
 
@@ -186,7 +192,9 @@ public sealed class PartyMaps
         if (territory.IsSeen(here)) return false;
 
         bool changed = territory.Reveal(here);
-        return Sweep(territory, pose) || changed;
+        changed = Sweep(territory, pose) || changed;
+        if (changed) Stamp = ChangeStamp.Next();
+        return changed;
     }
 
     /// <summary>Reads the party's own maps into the product's one current save schema.</summary>
@@ -241,6 +249,7 @@ public sealed class PartyMaps
         _territories[map.Place] = territory;
         _order.Add(map.Place);
         _recent.Add(map.Place);
+        Stamp = ChangeStamp.Next();
 
         // The oldest map falls off, exactly as the oldest note does: a set that only ever grows is the leak
         // the bound exists to prevent, and a place a party has not looked at in the longest time is the one it

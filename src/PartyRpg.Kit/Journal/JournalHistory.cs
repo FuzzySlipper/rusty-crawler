@@ -61,6 +61,12 @@ public sealed class JournalHistory
         Bound();
     }
 
+    /// <summary>
+    /// The change stamp this owner took when the history it keeps last changed, or when it was made: a reader that
+    /// kept what it built beside it reads the owner again only when it has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     /// <summary>Every line the history holds, oldest first, which is the order the party lived them.</summary>
     public IReadOnlyList<JournalEntry> Entries => _entries;
 
@@ -98,6 +104,7 @@ public sealed class JournalHistory
             _clock.Now,
             journalEvent.Place));
         Bound();
+        Stamp = ChangeStamp.Next();
         return true;
     }
 

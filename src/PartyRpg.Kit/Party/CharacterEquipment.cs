@@ -20,6 +20,12 @@ namespace PartyRpg.Kit.Party;
 /// </remarks>
 public sealed class CharacterEquipment
 {
+    /// <summary>
+    /// The change stamp this state took when it last changed, or when it was made: a reader that kept what it built
+    /// beside this stamp reads the state again only when the stamp has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     private readonly List<EquippedItem> _items = [];
 
     internal CharacterEquipment()
@@ -68,6 +74,7 @@ public sealed class CharacterEquipment
         }
 
         _items.Add(new EquippedItem(slot, item));
+        Stamp = ChangeStamp.Next();
     }
 
     /// <summary>Takes whatever a slot holds out of it, or answers null when the slot is empty.</summary>
@@ -78,6 +85,7 @@ public sealed class CharacterEquipment
         if (index < 0) return null;
         ItemInstance item = _items[index].Item;
         _items.RemoveAt(index);
+        Stamp = ChangeStamp.Next();
         return item;
     }
 

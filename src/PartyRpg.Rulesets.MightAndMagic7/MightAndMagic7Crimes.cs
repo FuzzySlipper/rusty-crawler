@@ -6,8 +6,8 @@ using PartyRpg.Kit.World;
 namespace PartyRpg.Rulesets.MightAndMagic7;
 
 /// <summary>
-/// What this game does about a townsperson the party kills: the deed the world hears of, and the fine it
-/// takes.
+/// What this game does about a peaceful person the party kills: the deed the world hears of, and, for a
+/// townsperson, the fine it takes.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -20,6 +20,16 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// <see cref="TownspersonKillSource"/> rather than as an ordinary kill, so the experience lands as it would
 /// and <see cref="MightAndMagic7Standing.ReputationFor"/> reads the word and answers the fall: one point,
 /// through <see cref="PartyProgression.Award"/>, the one entry every deed reaches the world's opinion by.
+/// </para>
+/// <para>
+/// <b>Any peaceful person's death is a deed against the party; only a townsperson's is fined.</b> The donor
+/// moves reputation only beside a peasant's fine. This game widens the fall (ours): a person a place's own
+/// records stand there — whatever row they fight as, a guard's or an adept's — is someone the town knows, so
+/// their death is credited as <see cref="PersonKillSource"/> and lowers the world's opinion by the same one
+/// point. The fine stays the donor's: only a peasant row is fined, as <c>IsPeasant</c> decides
+/// (<c>src/Engine/Objects/MonsterEnumFunctions.h:48-54</c>). A creature the fight reads as peaceful for
+/// another reason — the party unseen, or a band-zero creature that never starts a fight — is not a person,
+/// and its death is an ordinary kill.
 /// </para>
 /// <para>
 /// <b>The fine is the donor's arithmetic, approximated in three stated ways.</b> The donor adds
@@ -63,8 +73,11 @@ internal sealed class MightAndMagic7Crimes : ICreatureDeathObserver
     /// <summary>The source a townsperson's death is credited under, which is what the standing rule reads.</summary>
     internal const string TownspersonKillSource = "townsperson-kill";
 
-    /// <summary>How far one townsperson's death moves the world's opinion, which is the donor's one point.</summary>
-    internal const int TownspersonKillReputation = -1;
+    /// <summary>The source any other peaceful person's death is credited under: a deed with no fine beside it.</summary>
+    internal const string PersonKillSource = "person-kill";
+
+    /// <summary>How far one peaceful person's death moves the world's opinion, which is the donor's one point.</summary>
+    internal const int PersonKillReputation = -1;
 
     /// <summary>How many gold one point of the donor's fine sum is worth, which is the donor's own figure.</summary>
     internal const int FinePerPoint = 100;
@@ -73,31 +86,39 @@ internal sealed class MightAndMagic7Crimes : ICreatureDeathObserver
     internal const int FineCeiling = 4_000_000;
 
     private readonly Func<PlacementDefinition, int?> _townsperson;
+    private readonly Func<PlacementDefinition, bool> _person;
     private readonly Func<PartyEntity?> _party;
     private readonly Func<PartyResourceLedger?> _accounts;
 
     /// <summary>Composes the crime path over the fight's reading of a placement and the party's own accounts.</summary>
     /// <param name="townsperson">The level of the townsperson a placement holds, or null when it is not one.</param>
+    /// <param name="person">Whether a placement holds a peaceful person the place's own records stand there.</param>
     /// <param name="party">The party, read when a death is reported, because a session may create it later.</param>
     /// <param name="accounts">The party's one ledger, read when a death is reported for the same reason.</param>
     internal MightAndMagic7Crimes(
         Func<PlacementDefinition, int?> townsperson,
+        Func<PlacementDefinition, bool> person,
         Func<PartyEntity?> party,
         Func<PartyResourceLedger?> accounts)
     {
         _townsperson = townsperson ?? throw new ArgumentNullException(nameof(townsperson));
+        _person = person ?? throw new ArgumentNullException(nameof(person));
         _party = party ?? throw new ArgumentNullException(nameof(party));
         _accounts = accounts ?? throw new ArgumentNullException(nameof(accounts));
     }
 
-    /// <summary>What a death is credited as: a townsperson's under its own word, anything else as a kill.</summary>
+    /// <summary>
+    /// What a death is credited as: a townsperson's and any other peaceful person's under their own words,
+    /// anything else as a kill.
+    /// </summary>
     /// <param name="death">The death the fight reported.</param>
     /// <returns>The award source.</returns>
     /// <exception cref="ArgumentNullException">No death was supplied.</exception>
     internal string SourceOf(CreatureDeath death)
     {
         ArgumentNullException.ThrowIfNull(death);
-        return _townsperson(death.Placement) is null ? ProgressionAwards.KillSource : TownspersonKillSource;
+        if (_townsperson(death.Placement) is not null) return TownspersonKillSource;
+        return _person(death.Placement) ? PersonKillSource : ProgressionAwards.KillSource;
     }
 
     /// <summary>The donor's fine for one townsperson's death, with the place's base read as zero.</summary>

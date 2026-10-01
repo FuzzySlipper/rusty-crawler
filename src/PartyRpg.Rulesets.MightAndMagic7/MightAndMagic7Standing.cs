@@ -48,7 +48,9 @@ internal readonly record struct ReputationBand(string Word, int Floor, string Re
 /// somebody asked for and saw finished is what a town has an opinion about, and a deed nobody thought worth
 /// much is still a deed. <b>Killing a townsperson lowers it one point</b>, the donor's own step: the death
 /// is credited as <see cref="MightAndMagic7Crimes.TownspersonKillSource"/> and the fine beside it is
-/// <see cref="MightAndMagic7Crimes"/>'s. The donor's other two movers the wrong way have no owner in this
+/// <see cref="MightAndMagic7Crimes"/>'s. Killing any other peaceful person — a guard or an adept a place
+/// stands there — lowers it the same point with no fine (ours), credited as
+/// <see cref="MightAndMagic7Crimes.PersonKillSource"/>. The donor's other two movers the wrong way have no owner in this
 /// build: being caught stealing needs a stealing act, which nothing offers although the Stealing skill can be
 /// learned, and the dark sacrifice the donor charges fifteen points for
 /// (<c>src/Engine/Spells/CastSpellInfo.cpp:2800-2809</c>) needs a follower to give up. See the ruleset's
@@ -194,9 +196,10 @@ internal sealed class MightAndMagic7Standing : IStandingRule
     {
         ArgumentNullException.ThrowIfNull(request);
         if (request.Event != ProgressionEventKind.Award) return 0;
-        if (string.Equals(request.Source, MightAndMagic7Crimes.TownspersonKillSource, StringComparison.Ordinal))
+        if (string.Equals(request.Source, MightAndMagic7Crimes.TownspersonKillSource, StringComparison.Ordinal) ||
+            string.Equals(request.Source, MightAndMagic7Crimes.PersonKillSource, StringComparison.Ordinal))
         {
-            return MightAndMagic7Crimes.TownspersonKillReputation;
+            return MightAndMagic7Crimes.PersonKillReputation;
         }
 
         if (!string.Equals(request.Source, PartyQuests.QuestSource, StringComparison.Ordinal)) return 0;

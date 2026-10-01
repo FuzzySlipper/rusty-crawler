@@ -273,6 +273,13 @@ public sealed class Spellcasting
     /// </remarks>
     public ISpellEffectRule? Effects => _effects;
 
+    /// <summary>
+    /// The change stamp this owner took when the last casting it reports last changed, or when it was made: a
+    /// reader that kept what it built beside this stamp reads the owner again only when the stamp has moved (<see
+    /// cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     /// <summary>What the last casting did, or why it did nothing.</summary>
     public SpellCastResult? Last { get; private set; }
 
@@ -561,6 +568,7 @@ public sealed class Spellcasting
     private SpellCastResult Record(SpellCastResult result)
     {
         Last = result;
+        Stamp = ChangeStamp.Next();
         return result;
     }
 
