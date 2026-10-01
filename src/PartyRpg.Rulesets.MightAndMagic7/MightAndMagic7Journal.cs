@@ -98,6 +98,9 @@ internal sealed class MightAndMagic7Journal : IJournalRule
         JournalEntryKind.QuestFinished => "Finished",
         JournalEntryKind.Rank => "Was raised to",
         JournalEntryKind.Meeting => "Met",
+
+        // A history-book line is the table's own whole line, which a phrase would only interrupt.
+        JournalEntryKind.Chronicle => string.Empty,
         _ => "Found",
     };
 

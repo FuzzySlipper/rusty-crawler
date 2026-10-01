@@ -76,6 +76,15 @@ internal sealed record MapEventStep(
     /// <summary>The bit a flag step sets or clears.</summary>
     internal long Flag { get; init; }
 
+    /// <summary>The event a topic step makes a person's slot raise, zero for none.</summary>
+    internal int Raises { get; init; }
+
+    /// <summary>The group of creatures a flag step names.</summary>
+    internal int Group { get; init; }
+
+    /// <summary>Whether a flag step sets its bit rather than clearing it.</summary>
+    internal bool On { get; init; }
+
     /// <summary>The variable a step reads or writes, as one identity a timer and a fixture can share.</summary>
     /// <remarks>
     /// A numbered family's slot and a family whose value names the thing — a quest bit, a party bit, a note, an
@@ -141,6 +150,15 @@ internal sealed record MapEvent(PlaceId Place, int Id, string Label, IReadOnlyLi
 /// <param name="Category">The table's category word: <c>stat</c>, <c>obelisk</c>, <c>potion</c>, <c>teacher</c>, <c>misc</c>.</param>
 internal readonly record struct Discovery(int Number, string Text, string Category);
 
+/// <summary>One line of the history table: what the party's history book says when an event writes the slot.</summary>
+/// <param name="Slot">The slot a step's <c>history</c> variable names.</param>
+/// <param name="Text">
+/// The line as the importer normalized it: the table's words with <c>{date}</c> where the day it was written
+/// goes and <c>{member:1}</c> to <c>{member:4}</c> where a character's name goes.
+/// </param>
+/// <param name="Title">The page title the table gives it, or empty.</param>
+internal readonly record struct HistoryLine(int Slot, string Text, string Title);
+
 /// <summary>
 /// The map events this game's places carry, the timers that keep what their fixtures give, and the discovery
 /// table their notes are rows of — read once from content.
@@ -167,19 +185,25 @@ internal sealed class MightAndMagic7MapEvents
     /// <summary>The definition kind a row of the discovery table is declared under.</summary>
     internal const string DiscoveryDefinitionKind = "discovery";
 
+    /// <summary>The definition kind a line of the history table is declared under.</summary>
+    internal const string HistoryDefinitionKind = "history-line";
+
     /// <summary>The variable family a place's own persistent counters are named by.</summary>
     internal const string MapVariable = "map-variable";
 
     private readonly Dictionary<(string Place, int Event), MapEvent> _events;
     private readonly Dictionary<string, List<MapEvent>> _timedByPlace;
     private readonly Dictionary<int, Discovery> _discoveries;
+    private readonly Dictionary<int, HistoryLine> _history;
 
     private MightAndMagic7MapEvents(
         Dictionary<(string Place, int Event), MapEvent> events,
-        Dictionary<int, Discovery> discoveries)
+        Dictionary<int, Discovery> discoveries,
+        Dictionary<int, HistoryLine>? history = null)
     {
         _events = events;
         _discoveries = discoveries;
+        _history = history ?? [];
         _timedByPlace = [];
         foreach (MapEvent mapEvent in events.Values.OrderBy(mapEvent => mapEvent.Place.Value, StringComparer.Ordinal).ThenBy(mapEvent => mapEvent.Id))
         {
@@ -223,6 +247,14 @@ internal sealed class MightAndMagic7MapEvents
     /// <param name="number">The note's number.</param>
     internal Discovery? DiscoveryOf(int number) =>
         _discoveries.TryGetValue(number, out Discovery discovery) ? discovery : null;
+
+    /// <summary>The history line a slot names, or null when the table holds none for it.</summary>
+    /// <param name="slot">The slot a step's <c>history</c> variable names.</param>
+    internal HistoryLine? HistoryOf(int slot) =>
+        _history.TryGetValue(slot, out HistoryLine line) ? line : null;
+
+    /// <summary>How many lines the history table holds.</summary>
+    internal int HistoryCount => _history.Count;
 
     /// <summary>
     /// The timers of a place that keep what one of its events reads: every timer whose own steps write a
@@ -316,6 +348,9 @@ internal sealed class MightAndMagic7MapEvents
                     Rank = Whole(element, "rank"),
                     Person = Whole(element, "person"),
                     Flag = ContentEntry.ReadDouble(element, "flag") is { } flag ? (long)flag : 0,
+                    Raises = Whole(element, "raises"),
+                    Group = Whole(element, "group"),
+                    On = element.TryGetProperty("on", out JsonElement on) && on.ValueKind == JsonValueKind.True,
                 });
             }
 
@@ -342,12 +377,28 @@ internal sealed class MightAndMagic7MapEvents
             }
         }
 
+        Dictionary<int, HistoryLine> history = [];
+        foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in catalog.Entries(HistoryDefinitionKind))
+        {
+            string text = entry.GetString("text");
+            if (!int.TryParse(entry.Id, NumberStyles.None, CultureInfo.InvariantCulture, out int slot) || text.Length == 0)
+            {
+                issues.Add(Issue("history-line-unreadable", $"history line '{entry.Id}' is not a numbered slot with a line, so a step writing it would write nothing a party could read.", pack, document));
+                continue;
+            }
+
+            if (!history.TryAdd(slot, new HistoryLine(slot, text, entry.GetString("title"))))
+            {
+                issues.Add(Issue("history-line-duplicated", $"history line {slot} is declared twice, so which line a step writes would be a coin toss.", pack, document));
+            }
+        }
+
         if (issues.Count > 0)
         {
             throw new ContentValidationException($"The places' map events cannot be read: {issues[0].Message}", issues);
         }
 
-        return new MightAndMagic7MapEvents(events, discoveries);
+        return new MightAndMagic7MapEvents(events, discoveries, history);
     }
 
     private static int Whole(JsonElement element, string property) =>

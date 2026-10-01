@@ -126,6 +126,23 @@ public sealed class JournalTests
     }
 
     [Fact]
+    public void Every_kind_of_line_travels_the_save_by_its_own_word()
+    {
+        // A chronicle line — a page of the world's own story the party brought about — is written and read back
+        // under its own word like every other kind, and a document naming a kind this build lacks is refused.
+        foreach (JournalEntryKind kind in Enum.GetValues<JournalEntryKind>())
+        {
+            Assert.Equal(kind, JournalEntrySave.ReadKind(JournalEntrySave.Word(kind)));
+        }
+
+        Assert.Equal("chronicle", JournalEntrySave.Word(JournalEntryKind.Chronicle));
+        GameClock clock = TestClock.Create();
+        PartyJournal journal = new(new TestJournal(), clock);
+        Assert.True(journal.Record(new JournalEvent(JournalEntryKind.Chronicle, "fixture", "history:1", "The bell was rung.")));
+        Assert.Empty(journal.Capture().Problems(clock.Elapsed.Milliseconds, JournalHistory.MaxEntries));
+    }
+
+    [Fact]
     public void The_same_event_reported_twice_is_one_entry()
     {
         GameClock clock = TestClock.Create();

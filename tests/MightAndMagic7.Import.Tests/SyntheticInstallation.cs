@@ -128,6 +128,7 @@ internal static class SyntheticInstallation
                     LodFixture.TextTable("npctopic.txt", Topics()),
                     LodFixture.TextTable("npctext.txt", TopicTexts()),
                     LodFixture.TextTable("AUTONOTE.TXT", Discoveries()),
+                    LodFixture.TextTable("history.txt", History()),
                     .. events,
                 ]));
         if (withMaps)
@@ -720,6 +721,17 @@ internal static class SyntheticInstallation
     /// The discovery table: a note of each category the shipped table uses, a placeholder row whose text is
     /// <c>0</c> and an empty row, which are not notes, and the table's own padding after its last row.
     /// </summary>
+    /// <summary>
+    /// The history table: a header, a line with no code, a line naming the day it was written and two of the party's
+    /// characters with the table's own codes, a numbered row with no line, and the table's own padding.
+    /// </summary>
+    private static string History() =>
+        "Index\tText\tNotes\tTitle\n"
+        + "1\tA forward the historian writes.\t\tForward\n"
+        + "2\t%30  %31 and %34 took the castle.\tnotes\tThe Contest\n"
+        + "3\t\t\t\n"
+        + "\t\t\t\n";
+
     private static string Discoveries() =>
         "Note bit\tAutonote Text\tCategory\t\t\n"
         + "1\tAccepted a wand.\tMisc\t1\t\n"

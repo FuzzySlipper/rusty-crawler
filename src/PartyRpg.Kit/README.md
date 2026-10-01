@@ -69,7 +69,8 @@ Owns:
   reporting them, and one turn-in that pays each reward to its own owner), containers, doors, travel
   between world regions and indoor maps.
 - Journal and history (`Journal/` — one owner of what a party has written down: dated lines reported by
-  the owners of the events themselves, the same event written once, a bounded history that outlives the
+  the owners of the events themselves — a place, an errand, a rank, a meeting, a find, or a `Chronicle` line a
+  game's content writes whole — with the same event written once, a bounded history that outlives the
   places it happened in, and the five books a session reads its record and its world through), and what
   the party has learned (`Knowledge/` — one owner of the facts it can look up again, keyed so learning the
   same fact twice is one fact, dated by the one clock, bounded beside the history, and deliberately kept
@@ -321,7 +322,8 @@ first. Scenario
 flags are the party's own records and travel in its section; what the party did to a place's doors and
 containers is held live by the world's `InteractionLedger` and is not saved yet (#8593); the values each place
 keeps are that ledger's capture, carried in the world section and judged on load by the kit's terms and the
-ruleset's `PlaceValueJudge`. The quests section is
+ruleset's `PlaceValueJudge`; a party record whose name a ruleset gives a shape is judged by its `PartyRecordJudge`
+(`save-record-unknown`). The quests section is
 the one that arrived with its owner: it carries every instance a party holds — the stage, the progress
 recorded against objectives that are moments rather than states, and the place each offer was taken in —
 and no definition at all, because what a quest is means is read from the game's own content when the

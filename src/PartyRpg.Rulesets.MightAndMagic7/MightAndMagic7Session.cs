@@ -225,7 +225,9 @@ internal sealed class MightAndMagic7Session : IGameSession
             loot,
             spells,
             () => owners.Progression,
-            person => conversation?.PersonOf(person));
+            person => conversation?.PersonOf(person),
+            place => owners.World is { } standing ? MightAndMagic7Fixtures.ActorsOf(standing, place) : null,
+            () => owners.Journal);
 
         // This game's journal policy is read once, here, over the loot reading that knows which item rows the
         // shipped table hands out as artifacts and relics: that is the one threshold this game states about
@@ -274,7 +276,17 @@ internal sealed class MightAndMagic7Session : IGameSession
         // What each member wears is read through this game's figure, once: the fight reads its weapons and armour
         // into every sum it prices a character by, and the session's equipment owner offers its slots to the panel.
         MightAndMagic7Figure? figure = MightAndMagic7Figure.Read(Declared(context.Content));
-        composed = MightAndMagic7Combat.Compose(Declared(context.Content), context.Engine?.Random, spells, () => owners.Party, () => spellEffects, figure, clock);
+        // A group of creatures a place's own events turned hostile is world state the place keeps beside its other
+        // event values, so the fight reads it from the same ledger a fixture's use wrote it into.
+        composed = MightAndMagic7Combat.Compose(
+            Declared(context.Content),
+            context.Engine?.Random,
+            spells,
+            () => owners.Party,
+            () => spellEffects,
+            figure,
+            clock,
+            (place, group) => owners.World is IInteractionWorld world && MightAndMagic7Fixtures.IsGroupHostile(world.States.ValuesOf(place), group));
         MightAndMagic7Combat combat = composed;
 
         long Worth(PlacementDefinition placement) =>

@@ -337,6 +337,9 @@ internal static partial class PackWriter
     /// <summary>The definition kind a row of the discovery table is declared under.</summary>
     internal const string DiscoveryDefinitionKind = "discovery";
 
+    /// <summary>The definition kind a line of the history table is declared under.</summary>
+    internal const string HistoryDefinitionKind = "history-line";
+
     /// <summary>
     /// Writes the map events the places' fixtures raise, and the timers that keep what those fixtures give,
     /// each with its normalized steps.
@@ -435,6 +438,22 @@ internal static partial class PackWriter
         }
 
         return WriteDocument(packDirectory, "discoveries.json", "discoveries", DiscoveryDefinitionKind, entries);
+    }
+
+    /// <summary>Writes the history table: every line a party's history book can hold, by the slot a map event writes.</summary>
+    private static int WriteHistory(string packDirectory, Mm7Tables tables)
+    {
+        List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];
+        foreach (HistoryRecord row in tables.History.Rows)
+        {
+            entries.Add((row.Slot.ToString(CultureInfo.InvariantCulture), writer =>
+            {
+                writer.WriteString("text", row.Text);
+                if (row.Title.Length > 0) writer.WriteString("title", row.Title);
+            }));
+        }
+
+        return WriteDocument(packDirectory, "history.json", "history", HistoryDefinitionKind, entries);
     }
 
     private static int WriteQuests(string packDirectory, Mm7Tables tables)

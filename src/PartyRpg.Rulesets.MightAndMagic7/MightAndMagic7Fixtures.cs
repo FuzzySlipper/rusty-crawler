@@ -5,10 +5,12 @@ using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Interaction;
+using PartyRpg.Kit.Journal;
 using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Loot;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Progression;
+using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
 using Rusty.Engine;
@@ -118,11 +120,23 @@ internal sealed class MightAndMagic7Fixtures
     /// <summary>How many event counters there are (OpenEnroth <c>src/Engine/Objects/Character.cpp:3934-3951</c>, ten).</summary>
     internal const int Counters = 10;
 
+    /// <summary>The source field a placement the map's own actor records stand carries, whose index is the actor's.</summary>
+    internal const string ActorSourceField = "actors";
+
     /// <summary>The placement field a door's own id is written under, which a door step names it by.</summary>
     internal const string DoorIdField = "doorId";
 
     /// <summary>The most a stored base resistance reaches, which is a byte's (OpenEnroth <c>src/Engine/Objects/Character.cpp:4788-4817</c>).</summary>
     internal const int ResistanceLimit = 255;
+
+    /// <summary>The prefix of the name a place keeps whether its events turned one of its groups of creatures hostile under.</summary>
+    internal const string HostileGroupPrefix = "hostile-group:";
+
+    /// <summary>
+    /// The creature attribute a group flag step sets to turn a group against the party: the donor's aggressor bit
+    /// (OpenEnroth <c>src/Engine/Objects/ActorEnums.h:109</c>), the only one this game's events toggle.
+    /// </summary>
+    internal const long AggressorFlag = 0x0008_0000;
 
     /// <summary>The face bit that hides a face group, which is all a player would see change (<c>src/Engine/Graphics/FaceEnums.h:21</c>).</summary>
     private const long InvisibleFaceBit = 0x0000_2000;
@@ -160,6 +174,8 @@ internal sealed class MightAndMagic7Fixtures
     private readonly MightAndMagic7Spells? _spells;
     private readonly Func<PartyProgression?> _progression;
     private readonly Func<string, ConversationPerson?> _people;
+    private readonly Func<PlaceId, IReadOnlyList<PlaceActor>?> _actors;
+    private readonly Func<PartyJournal?> _journal;
 
     /// <summary>Creates this game's fixtures over the map events content carries.</summary>
     /// <param name="events">The map events and the discovery table.</param>
@@ -174,6 +190,11 @@ internal sealed class MightAndMagic7Fixtures
     /// <param name="spells">This game's magic, which a spell a fixture casts is rolled by.</param>
     /// <param name="progression">The one writer of experience and skill points, read through a call for the same reason the knowledge owner is.</param>
     /// <param name="people">Who one of the people table's ids is, which a step calling somebody over reads.</param>
+    /// <param name="actors">
+    /// What a place's population holds and whether each is down, which a step counting the dead reads
+    /// (<see cref="ActorsOf"/>); null for a place it cannot answer for, and absent in a session that keeps none.
+    /// </param>
+    /// <param name="journal">The party's journal, which a step writing a history line writes into, read through a call.</param>
     internal MightAndMagic7Fixtures(
         MightAndMagic7MapEvents events,
         Func<PartyKnowledge?>? knowledge = null,
@@ -183,8 +204,12 @@ internal sealed class MightAndMagic7Fixtures
         MightAndMagic7Loot? loot = null,
         MightAndMagic7Spells? spells = null,
         Func<PartyProgression?>? progression = null,
-        Func<string, ConversationPerson?>? people = null)
+        Func<string, ConversationPerson?>? people = null,
+        Func<PlaceId, IReadOnlyList<PlaceActor>?>? actors = null,
+        Func<PartyJournal?>? journal = null)
     {
+        _actors = actors ?? (_ => null);
+        _journal = journal ?? (() => null);
         _events = events ?? throw new ArgumentNullException(nameof(events));
         _knowledge = knowledge ?? (() => null);
         _effects = effects;
@@ -329,6 +354,16 @@ internal sealed class MightAndMagic7Fixtures
             return value < 0 || value > elapsed
                 ? string.Create(CultureInfo.InvariantCulture, $"a timer cannot have last run outside the {elapsed} ms of game time the save had reached")
                 : null;
+        }
+
+        if (key.StartsWith(HostileGroupPrefix, StringComparison.Ordinal))
+        {
+            if (!int.TryParse(key.AsSpan(HostileGroupPrefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out int group) || group == 0)
+            {
+                return "a group a place's events turn hostile is named by its number, which is not zero";
+            }
+
+            return value is 0 or 1 ? null : "a group is hostile (1) or not (0)";
         }
 
         if (key.StartsWith(CounterPrefix, StringComparison.Ordinal))
@@ -544,6 +579,75 @@ internal sealed class MightAndMagic7Fixtures
     internal static string MemberBitRecord(int bit) =>
         string.Create(CultureInfo.InvariantCulture, $"member-bit:{bit}");
 
+    /// <summary>The name a place keeps whether its events turned one of its groups hostile under.</summary>
+    internal static string HostileGroupKey(int group) =>
+        string.Create(CultureInfo.InvariantCulture, $"{HostileGroupPrefix}{group}");
+
+    /// <summary>Whether a place's own events left one of its groups of creatures hostile, read from the values it keeps.</summary>
+    /// <param name="values">The values the place keeps.</param>
+    /// <param name="group">The group, which zero never is.</param>
+    internal static bool IsGroupHostile(IReadOnlyDictionary<string, long> values, int group) =>
+        group != 0 && values.TryGetValue(HostileGroupKey(group), out long hostile) && hostile > 0;
+
+    /// <summary>
+    /// Why a record a save says the party carries is not one this game's fixtures could have written, or null when it
+    /// is or when it is not one of theirs.
+    /// </summary>
+    /// <remarks>A changed topic slot names a person the content carries and one of the person's six slots.</remarks>
+    /// <param name="name">The record's name.</param>
+    /// <param name="count">How many times it is on record.</param>
+    internal string? JudgeRecord(string name, int count) =>
+        MightAndMagic7TopicSlots.Judge(name, count, person => _people(person) is not null);
+
+    /// <summary>
+    /// Every creature and person a place's population holds and whether each is down, as the population and the
+    /// world's per-place state answer it; null when the world has no such place.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The place's placements are what it holds — its creatures as the encounters resolved them and the people its
+    /// own actor records stand — and the live population says which of them are down this visit. A place the party
+    /// cleared populates nobody until the clock restores it, so everything it held reads as down there, which is
+    /// what clearing it was.
+    /// </para>
+    /// <para>
+    /// <b>What is ours.</b> The donor's actors keep their own death in the map's saved delta, one by one
+    /// (OpenEnroth <c>src/Engine/Objects/Actor.cpp:2811-2894</c> counts them); this build rebuilds a place's
+    /// population when the party walks in unless the place was cleared, so a creature killed on an earlier visit
+    /// of a place still holding others reads as standing again. It only reads; nothing here changes the population.
+    /// </para>
+    /// </remarks>
+    /// <param name="world">The session's world.</param>
+    /// <param name="place">The place counted.</param>
+    internal static IReadOnlyList<PlaceActor>? ActorsOf(SessionWorld world, PlaceId place)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        if (world.Graph.Find(place) is null) return null;
+        bool cleared = world.Places.StateOf(place).Cleared;
+        Dictionary<PlacementContentId, bool> down = [];
+        if (!cleared && world.Population.Place == place)
+        {
+            foreach (PlacePopulationEntity entity in world.Population.Entities)
+            {
+                down[entity.Content] = !entity.IsAlive || CreatureHealth.Find(entity.Actor) is { IsDown: true };
+            }
+        }
+
+        List<PlaceActor> actors = [];
+        foreach (PlacementDefinition placement in world.Population.PlacementsOf(place))
+        {
+            if (!IsActor(placement)) continue;
+            actors.Add(new PlaceActor(placement, cleared || down.GetValueOrDefault(placement.Content)));
+        }
+
+        return actors;
+    }
+
+    /// <summary>Whether a placement is one of the actors a count of the dead reads: a creature or a person standing in the place.</summary>
+    internal static bool IsActor(PlacementDefinition placement) =>
+        string.Equals(placement.Content.Kind, MightAndMagic7Combat.CreaturePlacementKind, StringComparison.Ordinal) ||
+        string.Equals(placement.Content.Kind, MightAndMagic7Conversation.PersonPlacementKind, StringComparison.Ordinal);
+
     /// <summary>One use's run: the steps walked, what they would change, and the overlay later steps read.</summary>
     private sealed class Run
     {
@@ -678,11 +782,19 @@ internal sealed class MightAndMagic7Fixtures
                     }
 
                     case "set-npc-topic":
-                        return NotInterpreted(_target, mapEvent, current, "a 'set-npc-topic' instruction (changing which event a person's topic raises needs a saved override the conversation reads; its receiver is #9033)");
+                        if (TopicSlot(mapEvent, current) is { } refusedTopic) return refusedTopic;
+                        break;
                     case "is-actor-killed":
-                        return NotInterpreted(_target, mapEvent, current, "a 'is-actor-killed' instruction (counting a place's dead by group or kind needs the population to answer a fixture; its receiver is #9033)");
+                    {
+                        (bool holds, Refusal? refused) = Killed(mapEvent, current);
+                        if (refused is not null) return refused;
+                        if (holds) next = current.Target ?? next;
+                        break;
+                    }
+
                     case "toggle-actor-group-flag":
-                        return NotInterpreted(_target, mapEvent, current, "a 'toggle-actor-group-flag' instruction (turning a group of a place's creatures hostile needs the fight's provocation reachable from a fixture; its receiver is #9033)");
+                        if (GroupFlag(mapEvent, current) is { } refusedFlag) return refusedFlag;
+                        break;
                     case "check-season":
                     {
                         if (_context.Clock is not { } clock || InSeason(current.Which, clock.Now) is not { } holds)
@@ -937,8 +1049,8 @@ internal sealed class MightAndMagic7Fixtures
                     return null;
                 case ("hireling", _):
                     return VariableNotInterpreted(_target, mapEvent, step, "this build keeps no hirelings, #8514");
-                case ("history", _):
-                    return VariableNotInterpreted(_target, mapEvent, step, "the history book's lines are a table the importer does not read; its receiver is #9033");
+                case ("history", "add" or "set"):
+                    return History(mapEvent, step, party);
                 case ("item", "subtract"):
                 {
                     ItemDefinitionId item = new(step.Value.ToString(CultureInfo.InvariantCulture));
@@ -1281,6 +1393,134 @@ internal sealed class MightAndMagic7Fixtures
             return (false, null);
         }
 
+        /// <summary>Collects a change of which topic one of a person's slots raises, which the party's records keep.</summary>
+        /// <remarks>
+        /// The donor writes the slot on the person's own record (OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:449-468</c>);
+        /// here it is a party record the conversation reads (<see cref="MightAndMagic7TopicSlots"/>). The donor's own
+        /// side effect of one particular change — a guild door opening while a particular person speaks
+        /// (<c>EvtInterpreter.cpp:458-466</c>) — is a house screen this build does not have, and is not kept.
+        /// </remarks>
+        private Refusal? TopicSlot(MapEvent mapEvent, MapEventStep step)
+        {
+            if (Party is not { } party) return NoParty(mapEvent, step);
+            string id = string.Create(CultureInfo.InvariantCulture, $"npc-{step.Person}");
+            if (_rules._people(id) is null)
+            {
+                return new Refusal(
+                    MightAndMagic7Codes.FixturePersonUnknown,
+                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}', whose step {step.Step} changes a topic of person {step.Person}, and the loaded people table holds nobody of that id: nothing was changed."));
+            }
+
+            if (step.Index is < 0 or >= MightAndMagic7TopicSlots.Slots)
+            {
+                return NotInterpreted(_target, mapEvent, step, string.Create(CultureInfo.InvariantCulture, $"a change of topic slot {step.Index}, which a person does not have"));
+            }
+
+            int slot = step.Index;
+            int raises = Math.Max(0, step.Raises);
+            _effects.Add(() => MightAndMagic7TopicSlots.Change(party.Records, id, slot, raises));
+            return null;
+        }
+
+        /// <summary>Whether the dead a step counts are dead: by group, kind, one creature, or all of the place's.</summary>
+        /// <remarks>
+        /// The donor's count (OpenEnroth <c>src/Engine/Objects/Actor.cpp:2811-2834</c>): with a number, at least that
+        /// many of the matching actors are dead; without one, every matching actor is, which a place holding none of
+        /// them answers yes to. A group is the placement's own group, a kind is its monster row, and one creature is
+        /// the map's own actor record by its index — which the donor also numbers the creatures its spawn points add
+        /// after them, at load; those are not numbered here, so a count of one creature reads only the map's own
+        /// actors, which are its people.
+        /// </remarks>
+        private (bool Holds, Refusal? Refused) Killed(MapEvent mapEvent, MapEventStep step)
+        {
+            Func<PlacementDefinition, bool>? matches = step.Which switch
+            {
+                "any" => _ => true,
+                "group" => placement => placement.Source.GetInt32(MightAndMagic7MonsterAi.GroupField) == step.Value,
+                "kind" => placement => string.Equals(
+                    placement.Source.GetId(MightAndMagic7Combat.MonsterField),
+                    step.Value.ToString(CultureInfo.InvariantCulture),
+                    StringComparison.Ordinal),
+                "creature" => placement => string.Equals(placement.SourceField, ActorSourceField, StringComparison.Ordinal) && placement.SourceIndex == step.Value,
+                _ => null,
+            };
+            if (matches is null) return (false, NotInterpreted(_target, mapEvent, step, $"a count of the dead by '{step.Which}'"));
+            if (_rules._actors(mapEvent.Place) is not { } actors)
+            {
+                return (false, NotInterpreted(_target, mapEvent, step, "a count of the dead in a session that keeps no population to count"));
+            }
+
+            int total = 0;
+            int dead = 0;
+            foreach (PlaceActor actor in actors)
+            {
+                if (!matches(actor.Placement)) continue;
+                total++;
+                if (actor.Down) dead++;
+            }
+
+            return (step.Amount > 0 ? dead >= step.Amount : dead == total, null);
+        }
+
+        /// <summary>Collects a group of the place's creatures turned hostile, or made peaceful again, which the place keeps.</summary>
+        /// <remarks>
+        /// The donor sets the aggressor bit on every actor of the group (OpenEnroth <c>src/Engine/Objects/Actor.cpp:3823-3851</c>),
+        /// which makes it the party's enemy at the longest band (<c>Actor.cpp:2155-2156</c>) and is saved with the map.
+        /// Here the place keeps it under <c>hostile-group:</c> and the group, the fight reads it in the creature's own
+        /// nature (<see cref="MightAndMagic7Combat"/>), and the clock's restoring the place forgets it as the donor's
+        /// re-read delta does; a group of zero is the donor's "no group" and changes nothing.
+        /// </remarks>
+        private Refusal? GroupFlag(MapEvent mapEvent, MapEventStep step)
+        {
+            if (step.Flag != AggressorFlag)
+            {
+                return NotInterpreted(_target, mapEvent, step, string.Create(CultureInfo.InvariantCulture, $"a creature flag 0x{step.Flag:X} this game does not read"));
+            }
+
+            if (step.Group == 0) return null;
+            string key = HostileGroupKey(step.Group);
+            bool was = Kept(key) is > 0;
+            Keep(key, step.On ? 1 : 0);
+            if (was != step.On) _done.Add(step.On ? "The creatures here turn on the party." : "The creatures here are calm again.");
+            return null;
+        }
+
+        /// <summary>Collects a history line written into the party's journal, dated now and worded as the table words it.</summary>
+        /// <remarks>
+        /// The donor writes a history slot once, at the time it is first set (OpenEnroth
+        /// <c>src/Engine/Objects/Character.cpp:3995-4002</c>); the journal keeps one line per slot for the same reason.
+        /// The line's marks are filled as the donor's book fills them (<c>src/GUI/GUIWindow.cpp:953-965</c>): the day,
+        /// written as this build writes every day, and the party's characters by position.
+        /// </remarks>
+        private Refusal? History(MapEvent mapEvent, MapEventStep step, PartyEntity party)
+        {
+            if (_rules._events.HistoryOf(step.Index) is not { } line)
+            {
+                return new Refusal(
+                    MightAndMagic7Codes.FixtureHistoryUnknown,
+                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}', whose step {step.Step} writes history line {step.Index}, and the loaded history table has no such line: nothing was changed."));
+            }
+
+            if (_rules._journal() is not { } journal || _context.Clock is not { } clock)
+            {
+                return VariableNotInterpreted(_target, mapEvent, step, "a history line in a session that keeps no journal to write it in");
+            }
+
+            StringBuilder text = new(line.Text.Replace("{date}", clock.Now.DayText, StringComparison.Ordinal));
+            for (int position = 1; position <= 4; position++)
+            {
+                string name = position <= party.Members.Count ? party.Members[position - 1].Profile.Name : string.Empty;
+                text.Replace(string.Create(CultureInfo.InvariantCulture, $"{{member:{position}}}"), name);
+            }
+
+            string written = text.ToString();
+            string subject = string.Create(CultureInfo.InvariantCulture, $"history:{line.Slot}");
+            if (journal.Entries.Any(entry => entry.Kind == JournalEntryKind.Chronicle && string.Equals(entry.Subject, subject, StringComparison.Ordinal))) return null;
+            _effects.Add(() => journal.Record(new JournalEvent(JournalEntryKind.Chronicle, Source, subject, written)));
+            _done.Add(line.Title.Length > 0 ? $"A page is written in the party's history: \"{line.Title}\"." : "A page is written in the party's history.");
+            return null;
+        }
+
         private void Residue(string line)
         {
             if (!_residue.Contains(line, StringComparer.Ordinal)) _residue.Add(line);
@@ -1329,3 +1569,8 @@ internal sealed class MightAndMagic7Fixtures
         }
     }
 }
+
+/// <summary>One creature or person a place holds, and whether it is down, which a step counting the dead reads.</summary>
+/// <param name="Placement">The placement it stands on.</param>
+/// <param name="Down">Whether it is dead or gone.</param>
+internal readonly record struct PlaceActor(PlacementDefinition Placement, bool Down);

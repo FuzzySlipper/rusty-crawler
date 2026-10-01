@@ -452,13 +452,36 @@ fixture of the place reads and writes the same ones, as the donor keeps one arra
 `OpenEnroth/src/Engine/Engine.h:62-65`). When each timer of a place last ran is kept beside them as
 `timer:<event>.<step>`; both travel in the save's world section, a load judges each against the place's slots
 and events (`save-kept-value-unknown`), and a place the clock restores forgets them, as the donor re-reads a
-respawned map's delta with its variables (`OpenEnroth/src/Engine/Graphics/Indoor.cpp:313-319`). **Refused by name** (`fixture-step-not-interpreted`, `fixture-variable-not-interpreted`), each naming the task that would interpret it: `hireling` (#8514); `set-npc-topic`, `is-actor-killed`,
-`toggle-actor-group-flag` (a group of the place's creatures made hostile) and `history` (#9033: a saved topic override the conversation reads, the population answering a fixture, the fight's
-provocation reachable from a fixture, and the history table imported); every other instruction and variable is
-refused by name without one. Over the operator's install a fresh party using each of the 495 fixture events once
-has 488 run and 7 refused, by the first step each run reaches that this game does not interpret:
-`toggle-actor-group-flag` 3, `hireling` 2, `history` 1 and `set-npc-topic` 1 (reached through the bookcase's
-yearly timer); the ruleset suite counts it and holds every refusal to name its receiver. On the first region the town well gives fifty points of fire resistance and its note, the wells east
+respawned map's delta with its variables (`OpenEnroth/src/Engine/Graphics/Indoor.cpp:313-319`). **Steps that reach
+past the fixture**: `set-npc-topic` changes which topic table row one of a person's six slots raises
+(`OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:449-468`) as a party record `topic-slot:<person>.<slot>:<row>`
+(`MightAndMagic7TopicSlots`; a later change of the slot replaces it, row zero raises nothing), saved with the
+party's records and judged on load (`save-record-unknown` for somebody the content lacks or a seventh slot); the
+conversation reads it, withdrawing the row the slot stated (`topicSlots` on the person, the importer's positional
+`npcdata.txt` columns) and offering the row it raises when the topic table (`person-topic`, every `npctopic.txt`
+row with an answer) carries one — a row with no answer is the original's event program speaking and adds nothing.
+The donor keeps the slot on the person (ours: on the party, the same for a one-party game); its one side effect of
+a particular change, a guild screen opening, is not kept. `is-actor-killed` counts the place's population
+(`MightAndMagic7Fixtures.ActorsOf`, read only): by `group` (the placement's own group, which person placements now
+carry), `kind` (the monster row), `creature` (the map's own actor record by index — the donor also numbers the
+creatures its spawn points add, at load, which this build does not, so only the people its actor records stand
+answer) or `any`; with a count, at least that many down, without one every match down
+(`OpenEnroth/src/Engine/Objects/Actor.cpp:2811-2834`). Down is this visit's population (a creature's health spent)
+or a place the party cleared; a creature killed on an earlier visit of a place still holding others stands again,
+because the population is rebuilt on entry (ours). `toggle-actor-group-flag` with the aggressor bit
+(`OpenEnroth/src/Engine/Objects/ActorEnums.h:109`, the only bit the shipped events toggle) keeps
+`hostile-group:<n>` = 1 (or 0 to clear it) in the place's values, and the fight reads it in the creature's — or a
+person's — own nature as hostile at the longest band (`OpenEnroth/src/Engine/Objects/Actor.cpp:2155-2156`); a
+charm or a binding still outranks it and an invisible party is still not noticed; it is saved with the place and forgotten when the clock restores
+it, as the donor's map delta is; any other bit is refused by name. `history` `add`/`set` writes the history table's
+line for the slot (`history-line`, which the importer reads from `history.txt` under the slot an event names,
+with its `%30` and `%31`–`%34` codes written as `{date}` and `{member:1}`–`{member:4}`) into the journal once, as a
+`Chronicle` line with the day written as this build writes days (the donor spells the month,
+`OpenEnroth/src/GUI/GUIWindow.cpp:953-965`: approximate); a slot the table lacks is `fixture-history-unknown`.
+**Refused by name** (`fixture-step-not-interpreted`, `fixture-variable-not-interpreted`), each naming the task that
+would interpret it: `hireling` (#8514); every other instruction and variable is refused by name without one. Over
+the operator's install a fresh party using each of the 495 fixture events once has 493 run and 2 refused, both at
+`hireling`; the ruleset suite counts it and holds every refusal to name its receiver. On the first region the town well gives fifty points of fire resistance and its note, the wells east
 and west of the temple five hit and spell points from thirty charges a day, the western well two points of luck
 for good from eight a month, and the town sign is read; the first obelisk is the second region's (the first
 region has none). **What is ours**: the active character a run starts on is the first member able to act,

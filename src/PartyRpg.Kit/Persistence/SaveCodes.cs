@@ -138,6 +138,9 @@ public static class SaveCodes
     /// <summary>The problem code <c>save-kept-value-unknown</c>: the ruleset keeps no such value, or not that figure.</summary>
     public const string SaveKeptValueUnknown = "save-kept-value-unknown";
 
+    /// <summary>The problem code <c>save-record-unknown</c>: the ruleset writes a record of that name, and not that one.</summary>
+    public const string SaveRecordUnknown = "save-record-unknown";
+
     /// <summary>The problem code <c>save-cursor-zero</c>.</summary>
     public const string SaveCursorZero = "save-cursor-zero";
 

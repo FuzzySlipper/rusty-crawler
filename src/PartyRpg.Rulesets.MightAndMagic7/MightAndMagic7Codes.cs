@@ -55,6 +55,9 @@ public static class MightAndMagic7Codes
     /// <summary>The refusal code <c>fixture-event-missing</c>.</summary>
     public const string FixtureEventMissing = "fixture-event-missing";
 
+    /// <summary>The refusal code <c>fixture-history-unknown</c>: a step writes a history line the history table does not hold.</summary>
+    public const string FixtureHistoryUnknown = "fixture-history-unknown";
+
     /// <summary>The refusal code <c>fixture-no-party</c>.</summary>
     public const string FixtureNoParty = "fixture-no-party";
 

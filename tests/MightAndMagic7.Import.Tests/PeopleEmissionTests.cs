@@ -128,6 +128,14 @@ public sealed class PeopleEmissionTests
         Assert.Equal(98, one.House);
         Assert.Equal(2, one.DialogueEvents);
 
+        // The dialogue slots keep their positions, an empty one as zero, because a map event changes a slot by
+        // where it is.
+        Assert.Equal([7, 9, 0, 0, 0, 0], one.TopicSlots);
+
+        // The topic table travels whole, every row with something to say whoever owns it, because a slot can be
+        // changed to raise a row the owner column gives nobody.
+        Assert.Equal(["topic-1", "topic-2"], people.Topics.Select(row => row.Id));
+
         // What the person can be asked about is the topic table's own rows for them, with the first answer
         // the text table gives and the count of the answers the row named.
         PlacePersonTopic topic = Assert.Single(one.Topics);

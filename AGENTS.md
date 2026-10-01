@@ -139,8 +139,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   container above or below the floor cannot be used (#8697); deadlines (fatigue, wards, light, haste) block
   a save by name instead of being carried (#8617); towns have no house doors and camping is priced per
   place (#8618); rest restores laid-out members (#8662); the panel reaches only buy and sell (#8619); a
-  fixture event refuses at a hireling step (#8514) and at a topic change, a kill count, a creature group
-  turned hostile and a history line (#9033).
+  fixture event refuses only at a hireling step (#8514).
 - Stone 6, combat: a fight is not carried in a save, and a save taken with one pending is refused (#8658);
   an order commands every member rather than a selected one (#8659).
 - Stone 7, progression and magic: training takes no game time (#8671); the two counted deeds two ranks need

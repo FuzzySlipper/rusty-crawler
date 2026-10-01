@@ -33,7 +33,12 @@ Owns:
   level, its random kind read as the same two item tags a treasure cell is (`ItemVocabulary.FilterOfRandomItem`)
   and its item, a cast's spell, mastery and rank, a person call's or topic change's person, and a flag toggle's
   group and bit are among those operands. The discovery table is written beside them as
-  `discovery` entries. No step is interpreted here; the write summary counts the steps of each kind, which is
+  `discovery` entries, and the history table (`history.txt`) as `history-line` entries keyed by the slot an
+  event's `history` variable names (the table's row less one) with its `%30` and `%31`–`%34` codes written as
+  `{date}` and `{member:1}`–`{member:4}` (`HistoryTable`). A person carries their six dialogue slots by position
+  (`topicSlots`), and every topic-table row with an answer is written as a `person-topic` entry whoever owns it,
+  which is what a topic change can make a slot raise; a person placement carries its actor record's `group`.
+  No step is interpreted here; the write summary counts the steps of each kind, which is
   what the ruleset's interpretation is measured against, and the shapes are recorded in
   [`../../docs/research/mm7-data-inventory.md`](../../docs/research/mm7-data-inventory.md) (*Fixtures, map
   events, and the discovery table*).

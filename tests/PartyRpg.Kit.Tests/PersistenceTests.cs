@@ -444,6 +444,29 @@ public sealed class PersistenceTests
     }
 
     [Fact]
+    public void A_save_whose_records_the_ruleset_judges_names_each_one_it_could_not_have_written()
+    {
+        using Played played = new();
+        played.Party.Records.Mark("slot:somebody.1");
+        played.Party.Records.Mark("slot:nobody.1");
+        played.Party.Records.Mark("plain-fact");
+        SessionSave save = played.Session.Capture();
+
+        // Without a judge only the kit's own terms are judged, and every record is named once and held once.
+        Assert.Empty(save.Problems(Graph(), new PartyEntityFactory()));
+
+        // The ruleset's judge answers for the names it writes, and passes over the rest.
+        IReadOnlyList<SaveProblem> problems = save.Problems(
+            Graph(),
+            new PartyEntityFactory(),
+            records: (name, _) => name == "slot:nobody.1" ? "the content carries nobody of that name" : null);
+        SaveProblem problem = Assert.Single(problems);
+        Assert.Equal(SaveCodes.SaveRecordUnknown, problem.Code);
+        Assert.Equal("slot:nobody.1", problem.Subject);
+        Assert.Contains("the content carries nobody of that name", problem.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void A_member_with_no_identity_in_the_saved_bytes_is_refused_by_name()
     {
         using Played played = new();

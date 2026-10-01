@@ -66,6 +66,12 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     /// <summary>The definition kind a person's own entry is declared under.</summary>
     internal const string PersonDefinitionKind = "person";
 
+    /// <summary>The definition kind a row of the topic table is declared under, whoever owns it.</summary>
+    internal const string TopicDefinitionKind = "person-topic";
+
+    /// <summary>The prefix a topic table row's identity carries, before its number.</summary>
+    internal const string TopicIdPrefix = "topic-";
+
     /// <summary>The placement kind somebody standing at a position a map states stands under.</summary>
     internal const string PersonPlacementKind = "person";
 
@@ -120,6 +126,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     private readonly MightAndMagic7Quests? _quests;
     private readonly Func<PartyQuests?>? _journal;
     private readonly IReadOnlyList<string> _notes;
+    private IReadOnlyDictionary<string, TopicFacts> Table { get; init; } = new Dictionary<string, TopicFacts>(StringComparer.Ordinal);
 
     private MightAndMagic7Conversation(
         Dictionary<string, PersonFacts> people,
@@ -277,6 +284,20 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
                     conditions));
             }
 
+            List<int> slots = [];
+            foreach (System.Text.Json.JsonElement slot in entry.GetArray("topicSlots"))
+            {
+                slots.Add(slot.ValueKind == System.Text.Json.JsonValueKind.Number && slot.TryGetInt32(out int raises) ? raises : 0);
+            }
+
+            if (slots.Count > MightAndMagic7TopicSlots.Slots)
+            {
+                Defect(
+                    "person-topic-slots-too-many",
+                    string.Create(CultureInfo.InvariantCulture, $"person '{entry.Id}' states {slots.Count} topic slots, and a person has {MightAndMagic7TopicSlots.Slots}."));
+                continue;
+            }
+
             people[entry.Id] = new PersonFacts(
                 entry.Id,
                 name,
@@ -285,7 +306,41 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
                 entry.GetString("greetingAgain"),
                 ReadInt(entry, "house"),
                 ReadInt(entry, "dialogueEvents"),
-                topics);
+                topics)
+            {
+                Slots = slots,
+            };
+        }
+
+        // The topic table itself, whoever owns each row, is what a slot a map event changed can raise.
+        Dictionary<string, TopicFacts> table = new(StringComparer.Ordinal);
+        foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in catalog.Entries(TopicDefinitionKind))
+        {
+            string label = entry.GetString("label");
+            string text = entry.GetString("text");
+            if (entry.Id.Length == 0 || label.Length == 0 || text.Length == 0)
+            {
+                issues.Add(new ContentValidationIssue(
+                    "topic-incomplete",
+                    $"topic '{entry.Id}' carries no identity, label, or answer, so a slot raising it would say nothing.",
+                    pack.PackId,
+                    document.DocumentId));
+                continue;
+            }
+
+            int requires = ReadInt(entry, "requires");
+            table[entry.Id] = new TopicFacts(
+                entry.Id,
+                label,
+                text,
+                ReadInt(entry, "textCount", 1),
+                requires == 0
+                    ? []
+                    : [new ConversationCondition(
+                        ConversationConditionKind.Errand,
+                        $"{MightAndMagic7Identities.ErrandFlagPrefix}{requires.ToString(CultureInfo.InvariantCulture)}",
+                        1,
+                        $"the errand the table calls {requires.ToString(CultureInfo.InvariantCulture)}")]);
         }
 
         Dictionary<(string, string), IReadOnlyList<string>> present = ReadPlacements(catalog, people, issues);
@@ -321,7 +376,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
                 $"{errands} errands are carried, over {quests.ErrandGiverCount} people who give them, at {quests.Definitions.Count} definitions in all."));
         }
 
-        return new MightAndMagic7Conversation(people, present, services, promotions, quests, journal, notes);
+        return new MightAndMagic7Conversation(people, present, services, promotions, quests, journal, notes) { Table = table };
     }
 
     /// <inheritdoc />
@@ -403,7 +458,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         List<ConversationOffer> offers = [];
         if (Facts(context.Speaker) is { } person)
         {
-            foreach (TopicFacts topic in person.Topics)
+            foreach (TopicFacts topic in TopicsOf(person, context.Party))
             {
                 Verdict availability = Verdict.Met;
                 foreach (ConversationCondition condition in topic.Conditions)
@@ -712,7 +767,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
 
         if (Facts(context.Speaker) is { } person)
         {
-            foreach (TopicFacts candidate in person.Topics)
+            foreach (TopicFacts candidate in TopicsOf(person, context.Party))
             {
                 if (!string.Equals(candidate.Id, topic.Id, StringComparison.Ordinal)) continue;
                 return new ConversationAnswer(
@@ -921,6 +976,40 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
 
     private PersonFacts? Facts(string person) => _people.TryGetValue(person, out PersonFacts? facts) ? facts : null;
 
+    /// <summary>What a person can be asked about as the party has left them: their topics, with every slot a map event changed read in.</summary>
+    /// <remarks>
+    /// A slot the party's records say was changed no longer raises the row the table gave it, so that row is
+    /// withdrawn from what the person offers; the row it raises now is offered in its place when the topic table
+    /// carries something to say for it (<see cref="MightAndMagic7TopicSlots"/>). A row the table carries no answer
+    /// for is the original's event program speaking, which this build does not run, so it adds nothing — the same
+    /// reading the import makes of such a row in a person's own topics.
+    /// </remarks>
+    private IReadOnlyList<TopicFacts> TopicsOf(PersonFacts person, PartyEntity? party)
+    {
+        if (party is null) return person.Topics;
+        List<TopicFacts> topics = [.. person.Topics];
+        for (int slot = 0; slot < MightAndMagic7TopicSlots.Slots; slot++)
+        {
+            if (MightAndMagic7TopicSlots.Raised(party.Records, person.Id, slot) is not { } raises) continue;
+            int stated = slot < person.Slots.Count ? person.Slots[slot] : 0;
+            if (stated == raises) continue;
+            if (stated != 0)
+            {
+                string withdrawn = TopicId(stated);
+                topics.RemoveAll(topic => string.Equals(topic.Id, withdrawn, StringComparison.Ordinal));
+            }
+
+            if (raises != 0 && Table.TryGetValue(TopicId(raises), out TopicFacts? raised) && !topics.Any(topic => string.Equals(topic.Id, raised.Id, StringComparison.Ordinal)))
+            {
+                topics.Add(raised);
+            }
+        }
+
+        return topics;
+    }
+
+    private static string TopicId(int row) => string.Create(CultureInfo.InvariantCulture, $"{TopicIdPrefix}{row}");
+
     /// <summary>Reads every placement that names the people standing there.</summary>
     private static Dictionary<(string, string), IReadOnlyList<string>> ReadPlacements(
         ContentCatalog catalog,
@@ -1057,6 +1146,9 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     {
         /// <summary>How the person reads in a conversation.</summary>
         public ConversationPerson Who => new(Id, Name, Portrait);
+
+        /// <summary>The topic table row each of the person's dialogue slots raises, by position, zero for none.</summary>
+        public IReadOnlyList<int> Slots { get; init; } = [];
     }
 
     /// <summary>One thing a person can be asked about, as this game reads it from content.</summary>

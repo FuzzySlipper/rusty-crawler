@@ -22,5 +22,5 @@ its fewest) to `mostCreatures` (5,458, every one at its most), with `drawnGrades
 whose grade is drawn. `write` states the same counts in its summary so an operator does not have to run
 two commands to see them, and `verify` checks each of them. The summary's `fixtures` block states the fixtures
 written (1,097 in 66 places over 495 events), the raised events another emitter answers for, the discovery
-notes (186), and how many steps of each kind the fixtures' events hold, which is the split the ruleset's
+notes (186), the history lines (28), and how many steps of each kind the fixtures' events hold, which is the split the ruleset's
 interpretation is measured against.

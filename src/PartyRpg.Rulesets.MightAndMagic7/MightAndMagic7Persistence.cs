@@ -95,7 +95,8 @@ internal static class MightAndMagic7Persistence
     /// </param>
     /// <param name="fixtures">
     /// This game's fixtures, when the session composed them: what a place keeps of their uses is judged by
-    /// them, so a map variable outside a place's slots or a timer its events do not hold is refused by name.
+    /// them, so a map variable outside a place's slots or a timer its events do not hold is refused by name, and so
+    /// is a party record of a changed topic slot naming somebody the content does not carry or a slot nobody has.
     /// </param>
     /// <exception cref="SessionSaveException">The save cannot be resumed; the message names every problem found.</exception>
     internal static void RequireLoadable(SessionSave save, ContentCatalog? content, MightAndMagic7Quests? quests = null, MightAndMagic7Fixtures? fixtures = null) =>
@@ -121,7 +122,8 @@ internal static class MightAndMagic7Persistence
             admission: null,
             quests: quests,
             calendar: MightAndMagic7Time.Calendar,
-            kept: (place, key, value) => judge.Judge(place, key, value, save.Clock.ElapsedMilliseconds));
+            kept: (place, key, value) => judge.Judge(place, key, value, save.Clock.ElapsedMilliseconds),
+            records: judge.JudgeRecord);
         if (problems.Count > 0)
         {
             throw new SessionSaveException(

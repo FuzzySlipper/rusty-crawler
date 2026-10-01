@@ -527,6 +527,9 @@ internal static partial class PackWriter
                     // the NPC table places in a building states none, and the ruleset reads the row this
                     // game gives somebody whose own record says nothing.
                     if (person.MonsterId != 0) field.WriteNumber("monster", person.MonsterId);
+
+                    // The record's group, which a map event names when it turns a group hostile or counts its dead.
+                    if (person.Group != 0) field.WriteNumber("group", person.Group);
                     WritePeople(field, [person.PersonId]);
                 }));
         }
@@ -592,7 +595,16 @@ internal static partial class PackWriter
                 if (person.Greeting.Length > 0) writer.WriteString("greeting", person.Greeting);
                 if (person.GreetingAgain.Length > 0) writer.WriteString("greetingAgain", person.GreetingAgain);
                 if (person.House != 0) writer.WriteNumber("house", person.House);
-                if (person.DialogueEvents > 0) writer.WriteNumber("dialogueEvents", person.DialogueEvents);
+                if (person.DialogueEvents > 0)
+                {
+                    writer.WriteNumber("dialogueEvents", person.DialogueEvents);
+
+                    // The slots by position, an empty one as zero, because a map event changes a slot by where it is.
+                    writer.WriteStartArray("topicSlots");
+                    foreach (int slot in person.TopicSlots) writer.WriteNumberValue(slot);
+                    writer.WriteEndArray();
+                }
+
                 if (person.CanJoin) writer.WriteBoolean("canJoin", true);
                 writer.WriteNumber("sourceRow", person.SourceRow);
                 writer.WriteStartArray("topics");
@@ -612,6 +624,30 @@ internal static partial class PackWriter
         }
 
         return WriteDocument(packDirectory, "people.json", "people", PlacePeopleEmitter.PersonDefinitionKind, entries);
+    }
+
+    /// <summary>The definition kind a row of the topic table is declared under, whoever it belongs to.</summary>
+    internal const string TopicDefinitionKind = "person-topic";
+
+    /// <summary>
+    /// Writes the topic table: every row with something to say, by its number, which is what a map event that
+    /// changes a person's slot names.
+    /// </summary>
+    private static int WriteTopics(string packDirectory, PlacePeopleSummary people)
+    {
+        List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];
+        foreach (PlacePersonTopic topic in people.Topics)
+        {
+            entries.Add((topic.Id, writer =>
+            {
+                writer.WriteString("label", topic.Label);
+                writer.WriteString("text", topic.Text);
+                writer.WriteNumber("textCount", topic.TextCount);
+                if (topic.Requires != 0) writer.WriteNumber("requires", topic.Requires);
+            }));
+        }
+
+        return WriteDocument(packDirectory, "topics.json", "topics", TopicDefinitionKind, entries);
     }
 
     /// <summary>

@@ -33,7 +33,11 @@ public sealed record PlacePersonTopic(string Id, string Label, int Requires, str
 /// <param name="Greeting">What the person says when met, empty when the table gives none.</param>
 /// <param name="GreetingAgain">What the person says on later meetings, empty when the table gives none.</param>
 /// <param name="House">The building the table places them in, zero when it places them nowhere.</param>
-/// <param name="DialogueEvents">How many dialogue event numbers the row states, which is what the original scripts behind their replies.</param>
+/// <param name="TopicSlots">
+/// The six dialogue event columns of the row by position, a zero where a slot raises nothing: the event a slot
+/// raises is a topic table row (OpenEnroth <c>src/GUI/UI/NPCTopics.cpp:546-559</c>), and a map event changes
+/// it by the slot's position (<c>src/Engine/Evt/EvtInterpreter.cpp:449-468</c>).
+/// </param>
 /// <param name="CanJoin">Whether the table says this person may join the party.</param>
 /// <param name="Topics">Every topic the person owns, in table order.</param>
 /// <param name="SourceRow">The row's position in the NPC table, so a reader can follow an entry back to it.</param>
@@ -45,10 +49,14 @@ public sealed record PlacePerson(
     string Greeting,
     string GreetingAgain,
     int House,
-    int DialogueEvents,
+    IReadOnlyList<int> TopicSlots,
     bool CanJoin,
     IReadOnlyList<PlacePersonTopic> Topics,
-    int SourceRow);
+    int SourceRow)
+{
+    /// <summary>How many dialogue event numbers the row states, which is what the original scripts behind their replies.</summary>
+    public int DialogueEvents => TopicSlots.Count(slot => slot != 0);
+}
 
 /// <summary>One person standing in a place at a position of their own.</summary>
 /// <remarks>
@@ -69,6 +77,11 @@ public sealed record PlacePerson(
 /// The monster row the record's own monster info names, which is what this person is as far as a fight is
 /// concerned; zero when the record states none.
 /// </param>
+/// <param name="Group">
+/// The actor record's own group, zero when it belongs to none: what a map event that turns a group hostile or
+/// counts a group's dead names it by (OpenEnroth <c>src/Engine/Objects/Actor.cpp:3823-3851</c> and
+/// <c>2849-2863</c>).
+/// </param>
 public sealed record PlacePersonPlacement(
     int PlaceId,
     string PlacementId,
@@ -79,7 +92,8 @@ public sealed record PlacePersonPlacement(
     double Yaw,
     int SourceActorIndex,
     string SourceActorName,
-    int MonsterId);
+    int MonsterId,
+    int Group = 0);
 
 /// <summary>Everybody a building holds, by the NPC table's own placement column.</summary>
 /// <param name="BuildingId">The building's id, which is the row the table places people in.</param>
@@ -107,6 +121,12 @@ public sealed record PlacePeopleSummary(
     IReadOnlyList<PlacePeopleRefusal> Refusals,
     IReadOnlyList<string> Notes)
 {
+    /// <summary>
+    /// Every row of the topic table that has something to say, whoever owns it: what a person's slot can be made to
+    /// raise by a map event, which may be a topic the table gives nobody.
+    /// </summary>
+    public IReadOnlyList<PlacePersonTopic> Topics { get; init; } = [];
+
     /// <summary>An import that derived no people, such as one that read no tables.</summary>
     public static PlacePeopleSummary Empty { get; } = new([], [], [], [], []);
 
@@ -249,7 +269,7 @@ public static class PlacePeopleEmitter
                 greeting?.First ?? string.Empty,
                 greeting?.Again ?? string.Empty,
                 npc.House,
-                npc.DialogueEvents.Count,
+                npc.DialogueSlots,
                 npc.CanJoin,
                 topics,
                 npc.Id);
@@ -283,7 +303,8 @@ public static class PlacePeopleEmitter
                     actor.YawAngle,
                     actor.Index,
                     actor.Name,
-                    actor.MonsterId));
+                    actor.MonsterId,
+                    actor.Group));
             }
         }
 
@@ -318,7 +339,21 @@ public static class PlacePeopleEmitter
             households.Add(new PlaceHousehold(group.Key, placeId, ids, placementId));
         }
 
-        return new PlacePeopleSummary(entries, placements, households, refusals, notes);
+        // The whole topic table, every row with something to say, is what a slot can be changed to raise: a map
+        // event names the row by number, and the row may belong to nobody the owner column names.
+        List<PlacePersonTopic> table = [];
+        foreach (NpcTopicRecord topic in people.Topics)
+        {
+            if (FirstText(people, topic) is not { } text) continue;
+            table.Add(new PlacePersonTopic(
+                $"{TopicIdPrefix}{topic.Id.ToString(CultureInfo.InvariantCulture)}",
+                topic.Label,
+                topic.Requires,
+                text,
+                topic.TextIds.Count));
+        }
+
+        return new PlacePeopleSummary(entries, placements, households, refusals, notes) { Topics = table };
     }
 
     /// <summary>The first line a topic's texts hold, or null when none of them resolves.</summary>
