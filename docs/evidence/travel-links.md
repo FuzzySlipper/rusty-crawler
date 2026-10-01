@@ -17,7 +17,8 @@ party walks into, and no longer takes "the first move" of an event:
 - a **clicked face group** (or decoration) whose event moves the party is a `fixture` the party *uses*, standing
   over its faces at their lowest corner; its event's move step names the link it takes;
 - a **pressure plate** whose event moves the party is a `place-entrance` reach that *raises* the event's
-  `floor-trigger` placement when the party walks onto it;
+  `floor-trigger` placement when the party walks onto it (since #9044 every plate is, whatever its event does:
+  1,023 plates in 40 places raise 168 floor triggers, of which these travel plates are 310 in 13 places raising 59);
 - either way the ruleset runs the event (`MightAndMagic7Fixtures`), its comparisons and random jumps decide which
   move — if any — the run reaches, and the world takes that journey through `SessionWorld.Travel`, the one
   transition path. A move within the place sets the party down where it names. Nothing travels around that path.

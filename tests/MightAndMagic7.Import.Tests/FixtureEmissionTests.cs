@@ -54,9 +54,64 @@ public sealed class FixtureEmissionTests
         Assert.Equal(1, summary.PlaceCount);
         Assert.Equal(1, summary.FixtureEventCount);
 
-        // The timer that refills the well travels with it although nothing raises it.
+        // The timer that refills the well travels with it although nothing raises it, and the plate's event — which
+        // does nothing but end — is a floor trigger all the same: every plate is.
         Assert.Equal(1, summary.TriggeredEventCount);
-        Assert.Equal(["7.300", "7.310"], summary.Events.Select(placeEvent => placeEvent.Id));
+        Assert.Equal(["7.300", "7.302", "7.310"], summary.Events.Select(placeEvent => placeEvent.Id));
+        Assert.Equal(302, Assert.Single(summary.Triggers).EventId);
+    }
+
+    [Fact]
+    public void Every_plate_is_a_floor_trigger_with_a_reach_unless_a_counter_or_a_container_answers_for_its_event()
+    {
+        // A trap (500) that spares an invisible party, harms it and summons ten creatures of the first slot graded A;
+        // a plate that only shuts a door (501), which a door answers for only when it is clicked; a plate that opens a
+        // chest (502), which is the container's; and a plate whose event the program lacks (503).
+        DecodedMap map = Interior(
+            (500, PressurePlate),
+            (500, PressurePlate),
+            (501, PressurePlate),
+            (502, PressurePlate),
+            (503, PressurePlate));
+        IReadOnlyList<EvtProgram> programs = [EvtProgram.Read("d01.evt", TrapProgram())];
+        PlaceGraph graph = PlaceGraph.Build(programs, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["d01"] = 7 });
+        Dictionary<int, DecodedMap> maps = new() { [7] = map };
+
+        PlaceFixtureSummary fixtures = PlaceFixtureEmitter.Emit(
+            maps,
+            programs,
+            new Dictionary<string, MapStrings>(StringComparer.OrdinalIgnoreCase) { ["d01"] = Strings() },
+            graph);
+
+        Assert.Equal([500, 501], fixtures.Triggers.Select(trigger => trigger.EventId));
+        Assert.Equal(2, fixtures.Triggers[0].FaceCount);
+        Assert.Equal(1, fixtures.SteppedOwnedElsewhere["open-chest"]);
+        Assert.Equal(1, fixtures.SteppedWithoutInstructions);
+        Assert.Equal(2, fixtures.SteppedEventCount);
+        Assert.Empty(fixtures.Fixtures);
+
+        // The trap's steps are carried in the donor's words: the invisibility it compares, the harm, and the summoning
+        // with its encounter (slot one plus three times grade one), its count, point, group and unique name. No tables
+        // were read, so the slot itself is not resolved here.
+        PlaceEvent trap = fixtures.Events.Single(placeEvent => placeEvent.EventId == 500);
+        Assert.True(trap.Stepped);
+        Assert.False(trap.Raised);
+        Assert.Equal(
+            [
+                new PlaceEventStep(0, "compare") { Variable = "invisible", Value = 0, Target = 3 },
+                new PlaceEventStep(1, "receive-damage") { Who = "party", Kind = "fire", Amount = 5 },
+                new PlaceEventStep(2, "summon-monsters") { Encounter = 4, Amount = 10, X = 100, Y = -200, Z = 64, Group = 15, UniqueName = 0 },
+                new PlaceEventStep(3, "exit"),
+            ],
+            trap.Steps,
+            new StepComparer());
+        Assert.True(fixtures.Events.Single(placeEvent => placeEvent.EventId == 501).Stepped);
+
+        // Every plate of a carried event is a reach raising its floor trigger, and no other plate is.
+        PlaceEntranceSummary reaches = PlaceEntranceEmitter.Emit(graph, maps, programs);
+        Assert.Equal([500, 500, 501], reaches.Entrances.Select(entrance => entrance.EventId));
+        Assert.All(reaches.Entrances, entrance => Assert.Empty(entrance.Links));
+        Assert.Equal(["trigger-500", "trigger-500", "trigger-501"], reaches.Entrances.Select(entrance => entrance.Raises));
     }
 
     [Fact]
@@ -313,6 +368,21 @@ public sealed class FixtureEmissionTests
         .. Record(402, 0, EvtOpcodes.MoveToMap, Move("0")),
         .. Record(403, 0, EvtOpcodes.SpeakInHouse, I32(98)),
         .. Record(403, 1, EvtOpcodes.MoveToMap, Move("out01.odm")),
+    ];
+
+    /// <summary>
+    /// A trap program: a plate that spares an invisible party, harms it and summons (500), a plate that only shuts a
+    /// door (501), and a plate that opens a chest (502).
+    /// </summary>
+    private static byte[] TrapProgram() =>
+    [
+        .. Record(500, 0, EvtOpcodes.Compare, [.. U16(0x13A), .. I32(0), 3]),
+        .. Record(500, 1, EvtOpcodes.ReceiveDamage, [5, 0, .. I32(5)]),
+        .. Record(500, 2, EvtOpcodes.SummonMonsters, [1, 1, 10, .. I32(100), .. I32(-200), .. I32(64), .. I32(15), .. I32(0)]),
+        .. Record(500, 3, EvtOpcodes.Exit, 0),
+        .. Record(501, 0, EvtOpcodes.ChangeDoorState, 2, 1),
+        .. Record(501, 1, EvtOpcodes.Exit, 0),
+        .. Record(502, 0, EvtOpcodes.OpenChest, 0),
     ];
 
     /// <summary>A move's operands: a position, a facing, no house and no picture, and the destination file.</summary>

@@ -493,9 +493,15 @@ worth keeping.
 other emitter answers for as a `fixture` placement, the event and the timers that keep what it gives as
 `place-event` entries (the donor's own instruction and variable words, the text a step prints resolved from the
 map's own string table), and the discovery table as `discovery` entries — 1,268 fixtures in 76 places over 653
-events, and 186 notes, over the operator's install (`mm7import verify` checks each figure). An event a pressure
-plate raises that moves the party is a `floor-trigger` placement (59), which `Describe` answers as trodden on
-(`InteractionVerb.Tread`): the reticle never offers it, and the plates' `place-entrance` reaches raise it.
+events, and 186 notes, over the operator's install (`mm7import verify` checks each figure). Every event a pressure
+plate raises is a `floor-trigger` placement (168, of which 59 move the party and the rest are traps, ambushes, alarms
+and doors shut behind the party), which `Describe` answers as trodden on (`InteractionVerb.Tread`): the reticle never
+offers it, and the plates' `place-entrance` reaches (1,023 in 40 places) raise it through `PartyInteraction.Raise`,
+the one use workflow. The world raises it on the step that carries the party into a plate's reach, not while it
+stands there; the donor raises it on the step onto a new floor face carrying the attribute
+(`OpenEnroth/src/Engine/Graphics/Indoor.cpp:1488-1494`, `Outdoor.cpp:966-980`), so a reach — the smallest ball
+holding the plate — stands for the face, and walking from one plate face onto an adjacent one of the same event
+raises it again only when the second reach was not already holding the party: approximate.
 `MightAndMagic7Fixtures` walks an event's steps against the party and the fixture, writing into an overlay so a
 later comparison reads an earlier write, and applies what it collected only when the run ends without a
 refusal. **Interpreted**: `exit`, `jump`, `compare`, `add`, `subtract` and `set` over the variables below,
@@ -512,7 +518,13 @@ kind it admits, through the acquisition path, `OpenEnroth/src/Engine/Tables/Item
 (the spell's own roll at the step's rank and mastery landed on the chosen characters — the donor flies a
 projectile from a point at the party, this build flies nothing: approximate); `speak-npc` (the conversation with
 that person opens through the outcome, as using a person does); `check-skill` (a chosen character at the rank and
-exactly the mastery, `OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:517-524`); `move-to-map` to another place ends
+exactly the mastery, `OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:517-524`); `summon-monsters` (the creatures of the
+place's encounter slot the step names, resolved as a spawn record's are — the slot's grade odds and range unless the
+step fixes a grade or states a count — at the step's point within the donor's summoning radius and in its group,
+`OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:77-99`, put into the place's live population through
+`PlacePopulation.Summon` when the run is applied; they stand for the visit, so a save taken while one stands is
+refused as one beside a summoned elemental is, #8658; they face the place's zero rather than the party and carry their
+row's name rather than the unique name the step gives: approximate); `move-to-map` to another place ends
 the run with the journey in the outcome (`InteractionOutcome.Travels`: the transition the step's `link` names, which
 the place must issue or the use is refused as `fixture-travel-unknown`, as `walking` or `entrance`), and the world takes
 it through `SessionWorld.Travel` after the use is recorded — the donor shows an entry picture and waits for a
@@ -569,15 +581,20 @@ because the population is rebuilt on entry (ours). `toggle-actor-group-flag` wit
 `hostile-group:<n>` = 1 (or 0 to clear it) in the place's values, and the fight reads it in the creature's — or a
 person's — own nature as hostile at the longest band (`OpenEnroth/src/Engine/Objects/Actor.cpp:2155-2156`); a
 charm or a binding still outranks it and an invisible party is still not noticed; it is saved with the place and forgotten when the clock restores
-it, as the donor's map delta is; any other bit is refused by name. `history` `add`/`set` writes the history table's
+it, as the donor's map delta is; any other bit is refused by name. `compare` of `invisible` holds while the party
+carries the invisibility spell's party-wide effect, whatever the value (`OpenEnroth/src/Engine/Objects/Character.cpp:3979-3980`:
+faithful) — the alarm plates skip their call to the guards for an invisible party — and of `alert` holds when the
+value is zero: the donor compares the map's alert status for equality (`Character.cpp:3956-3958`), reads it only from
+the map's saved state, where every shipped map states zero, and nothing writes it, so it is zero in play (faithful). `history` `add`/`set` writes the history table's
 line for the slot (`history-line`, which the importer reads from `history.txt` under the slot an event names,
 with its `%30` and `%31`–`%34` codes written as `{date}` and `{member:1}`–`{member:4}`) into the journal once, as a
 `Chronicle` line with the day written as this build writes days (the donor spells the month,
 `OpenEnroth/src/GUI/GUIWindow.cpp:953-965`: approximate); a slot the table lacks is `fixture-history-unknown`.
 **Refused by name** (`fixture-step-not-interpreted`, `fixture-variable-not-interpreted`), each naming the task that
 would interpret it: `hireling` (#8514); every other instruction and variable is refused by name without one. Over
-the operator's install a fresh party using each of the 707 fixture and floor-trigger events once has 705 run — 145 of
-them taking it along a travel link, 54 setting it down elsewhere in its place — and 2 refused, both at `hireling`; the ruleset suite counts it and holds every refusal to name its receiver. On the first region the town well gives fifty points of fire resistance and its note, the wells east
+the operator's install a fresh party using each of the 810 fixture and floor-trigger events once has 808 run — 145 of
+them taking it along a travel link, 54 setting it down elsewhere in its place, and 3 ambush plates putting 80
+creatures on the field — and 2 refused, both at `hireling`; the ruleset suite counts it and holds every refusal to name its receiver. On the first region the town well gives fifty points of fire resistance and its note, the wells east
 and west of the temple five hit and spell points from thirty charges a day, the western well two points of luck
 for good from eight a month, and the town sign is read; the first obelisk is the second region's (the first
 region has none). **What is ours**: the active character a run starts on is the first member able to act,

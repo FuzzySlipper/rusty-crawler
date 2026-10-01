@@ -24,9 +24,11 @@ Owns:
 - Travel: a travel link is one move of a map event, and it is taken the way the donor raises that event. A clicked
   face group is a `fixture` like any other (below), and its event's move step names the link it takes (`link`,
   `toPlace`, and `travel`: `walking` between two regions, `entrance` otherwise) — or `withinPlace` with the
-  position for a move that stays in the place. A pressure plate of an event that moves the party is a
-  `place-entrance` reach — the plate's own centroid and extent, with the model, face, event and attribute it came
-  from — that `raises` the event's `floor-trigger` placement (`trigger-<event>`, at the plates' mean). Nothing
+  position for a move that stays in the place. Every pressure plate is a `place-entrance` reach — the plate's own
+  centroid and extent, with the model, face, event and attribute it came from — that `raises` its event's
+  `floor-trigger` placement (`trigger-<event>`, at the plates' mean), whatever the event does: a move, a trap's spell
+  or harm, an ambush, an alarm, a door shut behind the party. Only an event a counter or a container answers for, or
+  one the program lacks, is left out, and both are counted (none and 9 over the operator's install). Nothing
   here chooses a move: the ruleset runs the event and its branches decide (`PlaceEntranceEmitter`). Every link
   of the place graph ends with a disposition written beside it in `place-graph.json` and in the write summary
   (`used`, `walked`, `used-or-walked`, `counter`, `world-issued`, `unreachable`), with the condition a run must meet
@@ -39,7 +41,10 @@ Owns:
   status step prints read from the map's own string table; a door step's door id and action, an item gift's
   level, its random kind read as the same two item tags a treasure cell is (`ItemVocabulary.FilterOfRandomItem`)
   and its item, a cast's spell, mastery and rank, a person call's or topic change's person, and a flag toggle's
-  group and bit, and a person move's person and house are among those operands. The discovery table is written beside them as
+  group and bit, and a person move's person and house are among those operands. A summoning's encounter (its slot
+  plus three times its grade), count, point, group and unique name are too, and its slot is read from the place's
+  map table row by the reading a spawn record's encounter gets (`PlaceEncounters.Slot`) and written beside it as
+  `summons`, so the ruleset resolves its creatures as it resolves an encounter's. The discovery table is written beside them as
   `discovery` entries, and the history table (`history.txt`) as `history-line` entries keyed by the slot an
   event's `history` variable names (the table's row less one) with its `%30` and `%31`–`%34` codes written as
   `{date}` and `{member:1}`–`{member:4}` (`HistoryTable`). A person carries their six dialogue slots by position

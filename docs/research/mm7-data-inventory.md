@@ -97,9 +97,16 @@ event raises it when clicked (`src/Engine/Graphics/Viewport.cpp:201-213`) **[don
 clicked faces and decorations raise, 478 open a building, 345 open a container, 382 do nothing but move doors, and
 56 are absent from their program; the other **653 are fixtures' events** — the ones that move the party among them —
 standing as **1,268 fixtures in 76 places** (one per region model, or per group of an interior's faces within 256
-units, at the faces' lowest corner), with **3,639 steps** between them. **59 events** that move the party are raised
-by **310 pressure plates in 13 places**, carried as floor triggers. **57 events** hold a timer trigger, which is how a
-well's charges are refilled.
+units, at the faces' lowest corner), with **3,639 steps** between them. Pressure plates raise **177 events**: **168**
+are carried as floor triggers, raised by **1,023 plates in 40 places** — **59** of them move the party, the rest spring
+traps (spells, harm, an ambush), raise alarms, compare an invisible party, or move doors — and **9** are absent from
+their program; no counter or container answers for a plate's event **[data]**. The donor raises a plate's event when
+the party, touching the floor, comes onto a face carrying the attribute that is not the face it stood on before
+(`src/Engine/Graphics/Indoor.cpp:1488-1494`, `src/Engine/Graphics/Outdoor.cpp:966-980`) — once per step onto it, not
+while it stands there **[donor]**. **11 steps summon monsters**: a one-byte encounter slot and grade, a count, a point,
+a group and a unique name (`src/Engine/Evt/EvtInstruction.cpp:997-1007`), which the donor turns into a spawn record of
+its own and spawns as a level's (`src/Engine/Evt/EvtInterpreter.cpp:77-99`) **[donor]**; every one names a slot its map
+table row resolves **[data]**. **57 events** hold a timer trigger, which is how a well's charges are refilled.
 **[data]** Each map's `.str` entry is its string table — NUL-terminated lines, trimmed and unquoted, indexed by the
 number a hint or a status step names (`src/Engine/Engine.cpp:1453-1469`) **[donor]**. `AUTONOTE.TXT` is the
 discovery table: a number, a sentence and a category word (`Stat`, `Obelisk`, `potion`, `teacher`, `Misc`/`misc`)
@@ -113,10 +120,10 @@ row one past its slot (`src/Engine/Objects/Character.cpp:3995-4002`) **[donor]**
 and their only text codes are `%30` (the day the line was written) and `%31`–`%34` (a character's name,
 `src/GUI/GUIWindow.cpp:953-965`) **[donor]**. Of `npctopic.txt`'s rows, **62 name an answer** in `npctext.txt`; a
 person's six dialogue slots (`npcdata.txt` columns 10–15) name topic rows, and **313 people** state at least one
-**[data]**. With every step the ruleset interprets, a fresh party runs **705 of the 707** fixture and floor-trigger
-events — 145 of them taking it along a travel link and 54 setting it down elsewhere in its own place — and is refused
-by name at 2, both hireling steps — a figure the ruleset suite counts over the written packs rather than
-`mm7import verify`.
+**[data]**. With every step the ruleset interprets, a fresh party runs **808 of the 810** fixture and floor-trigger
+events — 145 of them taking it along a travel link, 54 setting it down elsewhere in its own place, and 3 ambushes
+putting 80 creatures on the field — and is refused by name at 2, both hireling steps — a figure the ruleset suite
+counts over the written packs rather than `mm7import verify`.
 
 **Every one of the 193 inter-map links has a disposition** **[data]**: 174 are taken by using a clicked face group
 (`used`), 11 by walking onto a plate (`walked`), 1 by either (`used-or-walked`, Castle Gloaming's event 501), 2 belong

@@ -123,7 +123,9 @@ internal static class InventoryCheck
             Check(failures, "collision triangles", 824320, written.Geometry.Triangles);
             // Every travel link ends with a disposition: a use's, a plate's, a counter's, the world's, or unreachable.
             Check(failures, "travel links accounted for", 193, written.Entrances.Accounts.Count);
-            Check(failures, "pressure-plate reaches", 310, written.Entrances.ReachCount);
+            // Every plate whose event a counter or a container does not answer for is a reach raising its floor trigger.
+            Check(failures, "pressure-plate reaches", 1023, written.Entrances.ReachCount);
+            Check(failures, "places with a pressure-plate reach", 40, written.Entrances.PlaceCount);
             Check(failures, "travel links a party takes in play", 186, written.Entrances.TakenCount);
             Check(failures, "travel links reached under a condition", 76, written.Entrances.ConditionalCount);
             Check(failures, "travel links nothing raises", 2, written.Entrances.Dispositions.GetValueOrDefault(Packs.PlaceEntranceEmitter.Unreachable));
@@ -154,16 +156,21 @@ internal static class InventoryCheck
             Check(failures, "creatures in the Temple of Baa", 35, written.Creatures.PerPlace.GetValueOrDefault(45));
 
             // A fixture is a clicked face group or decoration whose event no other emitter answers for — a travel event
-            // among them — and a floor trigger the event a plate raises that moves the party; its event
+            // among them — and a floor trigger the event a plate raises — a move, a trap, an alarm; its event
             // and the timers that keep what it gives are carried as normalized steps, and the notes those steps
             // write are the discovery table's rows.
             Check(failures, "fixtures", 1268, written.Fixtures.Fixtures.Count);
             Check(failures, "places with a fixture", 76, written.Fixtures.PlaceCount);
             Check(failures, "fixture events", 653, written.Fixtures.FixtureEventCount);
             Check(failures, "timed events carried", 57, written.Fixtures.TriggeredEventCount);
-            Check(failures, "place events carried", 738, written.Fixtures.Events.Count);
+            Check(failures, "place events carried", 841, written.Fixtures.Events.Count);
             Check(failures, "fixture event steps", 3639, written.Fixtures.Events.Where(placeEvent => placeEvent.Raised).Sum(placeEvent => placeEvent.Steps.Count));
-            Check(failures, "floor triggers a plate raises", 59, written.Fixtures.Triggers.Count);
+            Check(failures, "floor triggers a plate raises", 168, written.Fixtures.Triggers.Count);
+            Check(failures, "floor triggers that move the party", 59, written.Fixtures.Events.Count(placeEvent => placeEvent.Stepped && placeEvent.Steps.Any(step => step.Op == "move-to-map")));
+            Check(failures, "plate events a counter or a container answers for", 0, written.Fixtures.SteppedOwnedElsewhere.Values.Sum());
+            Check(failures, "plate events without instructions", 9, written.Fixtures.SteppedWithoutInstructions);
+            Check(failures, "summonings carried", 11, written.Fixtures.Events.Sum(placeEvent => placeEvent.Steps.Count(step => step.Op == "summon-monsters")));
+            Check(failures, "summonings whose slot the map table resolves", 11, written.Fixtures.Events.Sum(placeEvent => placeEvent.Steps.Count(step => step.Summons is not null)));
             Check(failures, "raised events a door answers for", 382, written.Fixtures.OwnedElsewhere.GetValueOrDefault("change-door-state"));
             Check(failures, "raised events without instructions", 56, written.Fixtures.RaisedWithoutInstructions);
             Check(failures, "discovery notes", 186, tables.Discoveries.Rows.Count);

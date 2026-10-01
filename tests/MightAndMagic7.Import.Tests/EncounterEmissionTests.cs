@@ -92,6 +92,36 @@ public sealed class EncounterEmissionTests
     }
 
     [Fact]
+    public void A_summoning_s_encounter_reads_as_the_slot_a_spawn_record_s_does()
+    {
+        string installRoot = SyntheticInstallation.Create(withMaps: true);
+        try
+        {
+            Mm7Tables tables = Mm7Tables.Read(LodInstall.Open(installRoot));
+            int place = tables.Maps.Maps[0].Id;
+
+            // Encounter five is the second slot graded A, whichever reads it: the kind, the range and the variants are
+            // the map table row's, as the spawn record's encounter states them.
+            PlaceEncounterSlot slot = Assert.IsType<PlaceEncounterSlot>(PlaceEncounters.Slot(tables, place, 5, out string reason));
+            Assert.Equal(string.Empty, reason);
+            Assert.Equal(2, slot.Slot);
+            Assert.Equal("A", slot.FixedGrade);
+            Assert.Equal("Monster 2", slot.MonsterKind);
+            Assert.Equal((1, 3), (slot.AppearMin, slot.AppearMax));
+            Assert.Equal([4, 5, 6], slot.Variants.Select(variant => variant.MonsterId));
+
+            // Encounter two leaves the grade to the odds; a number outside the twelve names nothing, and says why.
+            Assert.Null(PlaceEncounters.Slot(tables, place, 2, out _)!.FixedGrade);
+            Assert.Null(PlaceEncounters.Slot(tables, place, 13, out string outside));
+            Assert.Contains("one to twelve", outside, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(installRoot, recursive: true);
+        }
+    }
+
+    [Fact]
     public void An_encounter_states_the_range_of_creatures_it_can_resolve_to_and_not_a_choice()
     {
         string installRoot = SyntheticInstallation.Create(withMaps: true);

@@ -430,6 +430,34 @@ internal static partial class PackWriter
                     WriteOptionalNumber(writer, "y", step.Y);
                     WriteOptionalNumber(writer, "z", step.Z);
                     WriteOptionalNumber(writer, "yaw", step.Yaw);
+                    WriteOptionalNumber(writer, "encounter", step.Encounter);
+                    WriteOptionalNumber(writer, "uniqueName", step.UniqueName);
+                    if (step.Summons is { } summons)
+                    {
+                        // The slot a summoning names, written as an encounter placement states its slot, so the ruleset
+                        // resolves the creatures through the one reading it resolves a spawn record's with.
+                        writer.WriteStartObject("summons");
+                        writer.WriteNumber("encounter", summons.Encounter);
+                        writer.WriteNumber("slot", summons.Slot);
+                        if (summons.FixedGrade is { } grade) writer.WriteString("grade", grade);
+                        writer.WriteString("monsterKind", summons.MonsterKind);
+                        writer.WriteNumber("difficulty", summons.Difficulty);
+                        writer.WriteNumber("appearMin", summons.AppearMin);
+                        writer.WriteNumber("appearMax", summons.AppearMax);
+                        writer.WriteStartArray("variants");
+                        foreach (PlaceEncounterVariant variant in summons.Variants)
+                        {
+                            writer.WriteStartObject();
+                            writer.WriteString("grade", variant.Grade);
+                            writer.WriteNumber("monster", variant.MonsterId);
+                            writer.WriteString("monsterName", variant.MonsterName);
+                            writer.WriteEndObject();
+                        }
+
+                        writer.WriteEndArray();
+                        writer.WriteEndObject();
+                    }
+
                     writer.WriteEndObject();
                 }
 

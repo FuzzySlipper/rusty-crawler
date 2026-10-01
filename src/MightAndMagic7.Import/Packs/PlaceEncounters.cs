@@ -79,6 +79,30 @@ public sealed record PlaceEncounterPlacement(
 /// <param name="Reason">Why nothing was emitted, in terms a person can act on.</param>
 public sealed record PlaceEncounterRefusal(string Code, string Subject, string Reason);
 
+/// <summary>What one of a map's twelve encounter numbers reads as: the slot, the grade it fixes, and the slot's facts.</summary>
+/// <remarks>
+/// A spawn record names one of these numbers, and so does a map event that summons monsters (OpenEnroth
+/// <c>src/Engine/Evt/EvtInterpreter.cpp:77-99</c> builds a spawn record of its own and hands it to the same
+/// <c>SpawnEncounter</c>), so both are read through this one reading.
+/// </remarks>
+/// <param name="Encounter">The number: one to twelve.</param>
+/// <param name="Slot">Which of the map's three encounter slots it reads: one to three.</param>
+/// <param name="FixedGrade">The grade the number fixes, or null when it leaves the grade to the map's odds.</param>
+/// <param name="MonsterKind">The slot's kind, the internal name its graded variants extend.</param>
+/// <param name="Difficulty">The slot's own difficulty column, which the donor reads grade odds at.</param>
+/// <param name="AppearMin">The fewest creatures the slot states, zero when it states no count.</param>
+/// <param name="AppearMax">The most creatures the slot states, zero when it states no count.</param>
+/// <param name="Variants">The graded variants the monster table carries for the kind, in grade order.</param>
+public sealed record PlaceEncounterSlot(
+    int Encounter,
+    int Slot,
+    string? FixedGrade,
+    string MonsterKind,
+    int Difficulty,
+    int AppearMin,
+    int AppearMax,
+    IReadOnlyList<PlaceEncounterVariant> Variants);
+
 /// <summary>What one import's encounter reading produced.</summary>
 /// <param name="Placements">Every encounter emitted, in place and spawn order.</param>
 /// <param name="Refusals">Every record nothing was emitted for, with its reason.</param>
@@ -205,18 +229,7 @@ public static class PlaceEncounters
         ArgumentNullException.ThrowIfNull(tables);
         ArgumentNullException.ThrowIfNull(maps);
 
-        // The internal name is how a slot's kind and a graded variant meet, so the join is built once
-        // from the monster table's own column rather than searched per record. Two rows can share a
-        // trimmed name — the shipped table carries three copies each of four arena beasts — and the
-        // lowest id is taken, which is the first row the table states.
-        Dictionary<string, MonsterRecord> rowsByInternalName = new(StringComparer.OrdinalIgnoreCase);
-        foreach (MonsterRecord monster in tables.Monsters.Monsters)
-        {
-            string internalName = monster.Fields.Count > 2 ? monster.Fields[2].Trim() : string.Empty;
-            if (internalName.Length == 0) continue;
-            if (!rowsByInternalName.ContainsKey(internalName)) rowsByInternalName[internalName] = monster;
-        }
-
+        EncounterSlotReader slots = new(tables);
         List<PlaceEncounterPlacement> placements = [];
         List<PlaceEncounterRefusal> refusals = [];
         List<string> notes = [];
@@ -238,49 +251,10 @@ public static class PlaceEncounters
 
                 actors++;
                 int encounter = spawn.TreasureLevelOrMonsterIndex;
-                if (encounter < 1 || encounter > 12)
+                if (slots.Read(map, encounter) is not { } read)
                 {
-                    refusals.Add(new PlaceEncounterRefusal(
-                        "spawn-encounter-unknown",
-                        Subject(map, spawn),
-                        $"spawn {spawn.Index} names encounter {encounter}, and a level's encounter slots are one to twelve."));
-                    continue;
-                }
-
-                int slotIndex = (encounter - 1) % 3;
-                int gradeIndex = (encounter - 1) / 3;
-                EncounterSlot slot = map.Slots[slotIndex];
-                if (slot.IsEmpty)
-                {
-                    refusals.Add(new PlaceEncounterRefusal(
-                        "spawn-encounter-empty",
-                        Subject(map, spawn),
-                        $"spawn {spawn.Index} names encounter slot {slotIndex + 1} of '{map.Name}', which states no monster."));
-                    continue;
-                }
-
-                string kind = slot.Monster.Trim();
-                string? fixedGrade = gradeIndex == 0 ? null : Grades[gradeIndex - 1];
-                List<PlaceEncounterVariant> variants = [];
-                foreach (string grade in Grades)
-                {
-                    if (rowsByInternalName.TryGetValue($"{kind} {grade}", out MonsterRecord row))
-                    {
-                        variants.Add(new PlaceEncounterVariant(grade, row.Id, row.Name));
-                    }
-                }
-
-                bool resolvable = fixedGrade is null
-                    ? variants.Count > 0
-                    : variants.Any(variant => variant.Grade == fixedGrade);
-                if (!resolvable)
-                {
-                    refusals.Add(new PlaceEncounterRefusal(
-                        "spawn-monster-unknown",
-                        Subject(map, spawn),
-                        fixedGrade is null
-                            ? $"spawn {spawn.Index} names encounter slot {slotIndex + 1} of '{map.Name}', which spawns '{kind}', and the monster table carries none of its graded variants."
-                            : $"spawn {spawn.Index} names encounter slot {slotIndex + 1} of '{map.Name}', which spawns '{kind} {fixedGrade}', and the monster table carries no such row."));
+                    (string code, string reason) = slots.Refusal(map, encounter);
+                    refusals.Add(new PlaceEncounterRefusal(code, Subject(map, spawn), $"spawn {spawn.Index} {reason}"));
                     continue;
                 }
 
@@ -292,16 +266,16 @@ public static class PlaceEncounters
                     spawn.Position.Z,
                     spawn.Index,
                     encounter,
-                    slotIndex + 1,
-                    fixedGrade,
-                    kind,
-                    slot.Difficulty,
-                    slot.Minimum,
-                    slot.Maximum,
+                    read.Slot,
+                    read.FixedGrade,
+                    read.MonsterKind,
+                    read.Difficulty,
+                    read.AppearMin,
+                    read.AppearMax,
                     spawn.Group,
                     spawn.Attributes,
                     spawn.Radius,
-                    [.. variants]));
+                    read.Variants));
             }
         }
 
@@ -326,7 +300,98 @@ public static class PlaceEncounters
         return new PlaceEncounterSummary([.. placements], [.. refusals], spawns, actors, treasures, [.. notes]);
     }
 
+    /// <summary>Reads one of a map's encounter numbers as the slot it names, or null when it names none this data can resolve.</summary>
+    /// <remarks>
+    /// The same reading a spawn record's number gets; a map event that summons monsters names its encounter the same
+    /// way (the slot plus three times the grade, OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:88</c>).
+    /// </remarks>
+    /// <param name="tables">The rule tables, which state each map's encounter slots and each monster row's name.</param>
+    /// <param name="placeId">The place whose map table row states the slots.</param>
+    /// <param name="encounter">The number: one to twelve.</param>
+    /// <param name="reason">Why it names nothing, when it does not; empty otherwise.</param>
+    /// <returns>The slot, or null.</returns>
+    public static PlaceEncounterSlot? Slot(Mm7Tables tables, int placeId, int encounter, out string reason)
+    {
+        ArgumentNullException.ThrowIfNull(tables);
+        EncounterSlotReader slots = new(tables);
+        reason = string.Empty;
+        foreach (MapStatsRecord map in tables.Maps.Maps)
+        {
+            if (map.Id != placeId) continue;
+            if (slots.Read(map, encounter) is { } read) return read;
+            reason = slots.Refusal(map, encounter).Reason;
+            return null;
+        }
+
+        reason = string.Create(CultureInfo.InvariantCulture, $"names encounter {encounter} of place {placeId}, which the map table does not state.");
+        return null;
+    }
+
     /// <summary>What a refusal is about, so an operator can find the record it names.</summary>
     private static string Subject(MapStatsRecord map, MapSpawnPoint spawn) =>
         string.Create(CultureInfo.InvariantCulture, $"place {map.Id} '{map.Name}' spawn {spawn.Index}");
+
+    /// <summary>Reads a map's encounter numbers against the monster table, joined once by internal name.</summary>
+    private sealed class EncounterSlotReader
+    {
+        private readonly Dictionary<string, MonsterRecord> _rows = new(StringComparer.OrdinalIgnoreCase);
+
+        internal EncounterSlotReader(Mm7Tables tables)
+        {
+            // The internal name is how a slot's kind and a graded variant meet, so the join is built once
+            // from the monster table's own column rather than searched per record. Two rows can share a
+            // trimmed name — the shipped table carries three copies each of four arena beasts — and the
+            // lowest id is taken, which is the first row the table states.
+            foreach (MonsterRecord monster in tables.Monsters.Monsters)
+            {
+                string internalName = monster.Fields.Count > 2 ? monster.Fields[2].Trim() : string.Empty;
+                if (internalName.Length == 0) continue;
+                _rows.TryAdd(internalName, monster);
+            }
+        }
+
+        /// <summary>The slot an encounter number reads as, or null when it names none this data resolves.</summary>
+        internal PlaceEncounterSlot? Read(MapStatsRecord map, int encounter)
+        {
+            if (encounter < 1 || encounter > 12) return null;
+            int slotIndex = (encounter - 1) % 3;
+            int gradeIndex = (encounter - 1) / 3;
+            EncounterSlot slot = map.Slots[slotIndex];
+            if (slot.IsEmpty) return null;
+            string kind = slot.Monster.Trim();
+            string? fixedGrade = gradeIndex == 0 ? null : Grades[gradeIndex - 1];
+            List<PlaceEncounterVariant> variants = [];
+            foreach (string grade in Grades)
+            {
+                if (_rows.TryGetValue($"{kind} {grade}", out MonsterRecord row)) variants.Add(new PlaceEncounterVariant(grade, row.Id, row.Name));
+            }
+
+            bool resolvable = fixedGrade is null ? variants.Count > 0 : variants.Any(variant => variant.Grade == fixedGrade);
+            return resolvable
+                ? new PlaceEncounterSlot(encounter, slotIndex + 1, fixedGrade, kind, slot.Difficulty, slot.Minimum, slot.Maximum, [.. variants])
+                : null;
+        }
+
+        /// <summary>Why an encounter number names nothing, as a code and a clause that follows what named it.</summary>
+        internal (string Code, string Reason) Refusal(MapStatsRecord map, int encounter)
+        {
+            if (encounter < 1 || encounter > 12)
+            {
+                return ("spawn-encounter-unknown", $"names encounter {encounter}, and a level's encounter slots are one to twelve.");
+            }
+
+            int slotIndex = (encounter - 1) % 3;
+            int gradeIndex = (encounter - 1) / 3;
+            EncounterSlot slot = map.Slots[slotIndex];
+            if (slot.IsEmpty)
+            {
+                return ("spawn-encounter-empty", $"names encounter slot {slotIndex + 1} of '{map.Name}', which states no monster.");
+            }
+
+            string kind = slot.Monster.Trim();
+            return gradeIndex == 0
+                ? ("spawn-monster-unknown", $"names encounter slot {slotIndex + 1} of '{map.Name}', which spawns '{kind}', and the monster table carries none of its graded variants.")
+                : ("spawn-monster-unknown", $"names encounter slot {slotIndex + 1} of '{map.Name}', which spawns '{kind} {Grades[gradeIndex - 1]}', and the monster table carries no such row.");
+        }
+    }
 }

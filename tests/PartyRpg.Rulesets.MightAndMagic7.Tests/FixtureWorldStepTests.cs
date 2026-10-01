@@ -6,6 +6,8 @@ using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Journal;
+using PartyRpg.Kit.Magic;
+using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Presentation;
@@ -385,6 +387,111 @@ public sealed partial class FixturePolicyTests
         ConversationSubject subject = new("person-3", [conversation.PersonOf("npc-7")!]);
         return new ConversationContext(EmeraldIsle, desk, subject, "npc-7", [], party, clock);
     }
+
+    [Fact]
+    public void A_trap_plate_walked_onto_harms_the_party_and_springs_its_ambush_on_each_step_onto_it()
+    {
+        // A plate whose event harms the party and summons creatures is a floor trigger with a reach raising it, as the
+        // importer writes every plate; walking into the reach runs its event through the one use workflow.
+        ContentCatalog catalog = TrapPlateCatalog();
+        PlaceGraph graph = MightAndMagic7World.Graph(catalog);
+        GameClock clock = TestClock.Create(scale: 1);
+        PartyPoseOwner pose = new(new PartyPose(EmeraldIsle, new PlacePose(0, 0, 0, 0, 0)), MightAndMagic7Movement.Facing);
+        using PartyEntity party = Party(hitPoints: new ResourcePool(40, 40));
+        SessionWorld? world = null;
+        MightAndMagic7Fixtures fixtures = new(
+            MightAndMagic7MapEvents.Read(catalog),
+            random: new KeyedTestRandom(),
+            population: place => world is { } live && live.Population.Place == place ? live.Population : null);
+
+        // Onto the plate, standing on it, off it, onto it again; then, invisible, off and onto it once more.
+        (double, double, double)[] walk = [(100, 0, 0), (100, 0, 0), (0, 0, 0), (-150, 0, 0), (150, 0, 0), (-150, 0, 0), (150, 0, 0)];
+        using SessionWorld built = new(
+            graph,
+            pose,
+            new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()),
+            new FreeTravel(),
+            mover: RecordingMover.Scripted(pose, walk),
+            entrances: PlaceEntranceLoader.Load(catalog, graph),
+            clock: clock,
+            partyEntity: party,
+            interaction: new InteractionPolicy(new MightAndMagic7Interaction(fixtures: fixtures), MightAndMagic7Movement.Space, MightAndMagic7Interaction.Aim));
+        world = built;
+
+        // The place is populated as a session's update populates the party's place: it holds no creature of its own.
+        built.Populate();
+        PlacePopulationEntity[] Creatures() =>
+            [.. built.Population.Entities.Where(entity => entity.Content.Kind == MightAndMagic7Combat.CreaturePlacementKind)];
+        Assert.Empty(Creatures());
+
+        // The first step ends short of the plate's reach, and nothing happens.
+        built.Step(MovementIntent.Still, 1);
+        Assert.Equal(40, party.Members[0].Resources.HitPoints.Current);
+
+        // The step onto it springs the trap: the fire lands on the party and two goblins stand at the event's point.
+        built.Step(MovementIntent.Still, 1);
+        InteractionResult sprung = built.Interaction!.LastResult!;
+        Assert.True(sprung.IsApplied, sprung.Refusal?.Message);
+        Assert.Equal(35, party.Members[0].Resources.HitPoints.Current);
+        Assert.Equal(2, Creatures().Length);
+        Assert.All(Creatures(), goblin =>
+        {
+            Assert.Equal("73", goblin.Placement.Source.GetId(MightAndMagic7Combat.MonsterField));
+            Assert.Equal(3, goblin.Placement.Source.GetInt32(MightAndMagic7MonsterAi.GroupField));
+        });
+        Assert.Contains("2 Goblin appear.", sprung.Message, StringComparison.Ordinal);
+
+        // Standing on it does nothing more: the donor raises a plate's event on the step onto a new floor face, not
+        // on every step on it (OpenEnroth src/Engine/Graphics/Indoor.cpp:1488-1494, Outdoor.cpp:966-980).
+        built.Step(MovementIntent.Still, 1);
+        Assert.Equal(35, party.Members[0].Resources.HitPoints.Current);
+
+        // Off it and back onto it is another step onto it, and the trap springs again.
+        built.Step(MovementIntent.Still, 1);
+        built.Step(MovementIntent.Still, 1);
+        Assert.Equal(30, party.Members[0].Resources.HitPoints.Current);
+        Assert.Equal(4, Creatures().Length);
+
+        // An invisible party walks over it unnoticed: the event's first step compares the party's invisibility.
+        new RunningSpellEffects(party, clock).Start(SpellEffectIds.Invisibility, 1, GameDuration.FromHours(1));
+        built.Step(MovementIntent.Still, 1);
+        built.Step(MovementIntent.Still, 1);
+        Assert.True(built.Interaction.LastResult!.IsApplied);
+        Assert.Equal(30, party.Members[0].Resources.HitPoints.Current);
+        Assert.Equal(4, Creatures().Length);
+    }
+
+    /// <summary>
+    /// A place with one trap plate, staged as the importer writes one: the floor trigger, the reach raising it, and
+    /// its event — shaped as the ambush plates of the operator's install are (event 236 of <c>out02.evt</c>), with a
+    /// harm in place of its spells.
+    /// </summary>
+    private static ContentCatalog TrapPlateCatalog() =>
+        ContentCatalogLoader.Load(
+            new InMemoryContentSource()
+                .Add("packs/world/pack.json", TestPacks.Manifest("world", TestPacks.Places, ("events", "place-event"), ("entrances", "place-entrance")))
+                .Add("packs/world/places.json", TestPacks.Document("places", "place",
+                    """
+                    { "id": "1", "kind": "region", "name": "Emerald Island", "respawnDays": 1,
+                      "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ],
+                      "placements": [
+                        { "id": "trigger-7", "kind": "floor-trigger", "sourceField": "events", "sourceIndex": 7, "x": 200, "y": 0, "z": 0,
+                          "positionSource": "event-face-centroid", "eventId": 7, "faceCount": 1 } ] }
+                    """))
+                .Add("packs/world/entrances.json", TestPacks.Document("entrances", "place-entrance",
+                    """{ "id": "1.7.0", "fromPlace": "1", "raises": "trigger-7", "raisesKind": "floor-trigger", "eventId": 7, "x": 200, "y": 0, "z": 0, "radius": 60 }"""))
+                .Add("packs/world/events.json", TestPacks.Document("events", "place-event",
+                    """
+                    { "id": "1.7", "place": "1", "event": 7, "raised": false, "stepped": true, "timed": false, "mapFile": "test.odm",
+                      "steps": [
+                        { "step": 0, "op": "compare", "variable": "invisible", "value": 0, "target": 3 },
+                        { "step": 1, "op": "receive-damage", "who": "party", "kind": "fire", "amount": 5 },
+                        { "step": 2, "op": "summon-monsters", "amount": 2, "group": 3, "x": 400, "y": 0, "z": 0, "encounter": 4, "uniqueName": 0,
+                          "summons": { "encounter": 4, "slot": 1, "grade": "A", "monsterKind": "Goblin", "difficulty": 3, "appearMin": 2, "appearMax": 5,
+                            "variants": [ { "grade": "A", "monster": 73, "monsterName": "Goblin" }, { "grade": "B", "monster": 74, "monsterName": "Hobgoblin" } ] } },
+                        { "step": 3, "op": "exit" } ] }
+                    """)),
+            new ContentLayout("packs", "imports", "bundles")).RequireValid();
 
     /// <summary>A creature placement as the ruleset resolves an encounter into one.</summary>
     private static PlacementDefinition Creature(string id, int monster, int group)

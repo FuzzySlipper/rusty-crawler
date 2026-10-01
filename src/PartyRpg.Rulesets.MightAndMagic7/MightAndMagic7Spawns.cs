@@ -220,13 +220,111 @@ internal sealed class MightAndMagic7Spawns : IPlacementExpansion
                 continue;
             }
 
-            creatures.Add(Creature(placementId, facts, grade, row, quantity, unit));
+            creatures.Add(Creature(
+                string.Create(CultureInfo.InvariantCulture, $"monster-{facts.Spawn}-{unit}"),
+                placementId,
+                "spawn-record",
+                facts,
+                grade,
+                row,
+                quantity,
+                unit));
         }
 
         IReadOnlyList<PlacementDefinition> resolved = [.. creatures];
         _resolved[(place, placementId)] = resolved;
         return resolved;
     }
+
+    /// <summary>
+    /// The creatures a map event's summoning puts on the field: the slot it names, at its own point, joining its own
+    /// group, as many as it says.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The donor builds a spawn record of its own — the event's point, the event's group, a radius of
+    /// <see cref="SummonRadius"/> — and hands it to the same reading a level's spawn records get, with the event's count
+    /// replacing the slot's own when the event states one (OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:77-99</c>,
+    /// <c>src/Engine/Objects/Actor.cpp:4275</c>). So does this: the slot is read as an encounter placement is, a grade
+    /// the slot leaves open is drawn per creature from the slot's odds, and a count the event leaves open is drawn from
+    /// the slot's range. Faithful, except that the creatures are spread on the circle as an encounter's are and face the
+    /// place's zero rather than the party, and a unique name the event gives them is not shown: their row's name is.
+    /// </para>
+    /// <para>
+    /// Unlike an encounter's, a summoning's draws are not remembered: the donor draws again each time the step runs.
+    /// </para>
+    /// </remarks>
+    /// <param name="id">The identity prefix the creatures take, which no other live creature may share.</param>
+    /// <param name="slot">The slot the summoning names, as content writes it.</param>
+    /// <param name="count">How many the event states, zero for the slot's own range.</param>
+    /// <param name="at">The event's point, in the place's own coordinates.</param>
+    /// <param name="group">The group the creatures join.</param>
+    /// <param name="rolls">The draw, or null when the product has no random service.</param>
+    /// <param name="unresolved">Why nothing could be put on the field, or null when something was.</param>
+    /// <returns>The creature placements, in unit order.</returns>
+    internal static IReadOnlyList<PlacementDefinition> Summoned(
+        string id,
+        JsonElement slot,
+        int count,
+        (int X, int Y, int Z) at,
+        int group,
+        KeyedRolls? rolls,
+        out string? unresolved)
+    {
+        unresolved = null;
+        EncounterFacts stated = Read(slot);
+        EncounterFacts facts = stated with { Group = group, Radius = SummonRadius, X = at.X, Y = at.Y, Z = at.Z, SourceField = "events" };
+        int quantity;
+        if (count > 0)
+        {
+            quantity = count;
+        }
+        else if (!facts.CountDrawn || facts.AppearMin == facts.AppearMax)
+        {
+            quantity = facts.CountDrawn ? facts.AppearMin : 1;
+        }
+        else if (rolls is null)
+        {
+            unresolved = $"it draws its count from {facts.AppearMin} to {facts.AppearMax} and this session has no random service to draw it with";
+            return [];
+        }
+        else
+        {
+            quantity = rolls.Under("count").Between(facts.AppearMin, facts.AppearMax);
+        }
+
+        List<PlacementDefinition> creatures = [];
+        for (int unit = 0; unit < quantity; unit++)
+        {
+            string? grade = facts.FixedGrade ?? DrawGrade(facts.Difficulty, rolls?.Under($"unit-{unit.ToString(CultureInfo.InvariantCulture)}"));
+            if (grade is null)
+            {
+                unresolved = "it draws each creature's grade from the map's odds and this session has no random service to draw it with";
+                return [];
+            }
+
+            if (!facts.Variants.TryGetValue(grade, out (string Monster, string Name) row))
+            {
+                unresolved = $"it drew grade {grade} of '{facts.Kind}' and the content carries no such variant";
+                return [];
+            }
+
+            creatures.Add(Creature(
+                string.Create(CultureInfo.InvariantCulture, $"{id}-{unit}"),
+                id,
+                "summoned-by-event",
+                facts,
+                grade,
+                row,
+                quantity,
+                unit));
+        }
+
+        return creatures;
+    }
+
+    /// <summary>The radius the donor gives the spawn record a summoning builds (OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:86</c>).</summary>
+    internal const int SummonRadius = 32;
 
     /// <summary>
     /// Counts, per place and per monster row, the creatures every encounter content states resolves to and every
@@ -286,7 +384,9 @@ internal sealed class MightAndMagic7Spawns : IPlacementExpansion
     /// can follow it back to the record and see why it is there.
     /// </remarks>
     private static PlacementDefinition Creature(
+        string id,
         string placementId,
+        string positionSource,
         EncounterFacts facts,
         string grade,
         (string Monster, string Name) row,
@@ -294,7 +394,6 @@ internal sealed class MightAndMagic7Spawns : IPlacementExpansion
         int unit)
     {
         (double x, double y) = Spread(facts, quantity, unit);
-        string id = string.Create(CultureInfo.InvariantCulture, $"monster-{facts.Spawn}-{unit}");
         using MemoryStream buffer = new();
         using (Utf8JsonWriter writer = new(buffer))
         {
@@ -310,7 +409,7 @@ internal sealed class MightAndMagic7Spawns : IPlacementExpansion
             // A spawn record states no facing: the donor drops the monster on its point and leaves its heading
             // to the model, so a creature faces the place's own zero until something turns it.
             writer.WriteNumber("yaw", 0);
-            writer.WriteString("positionSource", "spawn-record");
+            writer.WriteString("positionSource", positionSource);
             writer.WriteString(MightAndMagic7Combat.MonsterField, row.Monster);
             writer.WriteString("monsterName", row.Name);
             writer.WriteString("encounterPlacement", placementId);
