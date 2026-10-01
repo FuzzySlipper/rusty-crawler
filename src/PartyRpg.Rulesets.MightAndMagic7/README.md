@@ -228,11 +228,20 @@ the counters content places, every stable reaches every other place that keeps a
 port, one crossing per pair of stops landing at the destination's own start; the counter's offers and the world
 graph's sold crossings are both read from it, through `MightAndMagic7World.Graph`, and content that authors a sold
 crossing of its own is refused by name; ours, simpler than the donor's thirty-five scheduled routes), which creatures a level's spawn records put on the field
-(`MightAndMagic7Spawns` — the importer writes each actor record as an `encounter` placement and chooses nothing;
+(`MightAndMagic7Spawns` — the importer writes each actor spawn record as an `encounter` placement and chooses nothing;
 this game draws a random slot's count from its range and each creature's grade from the donor's odds for the
 slot's difficulty, through the engine's keyed random service under the place and the spawn index, when the
 population reads the place's placements, so every visit and every load see the same creatures, and an errand
-that counts every one of a kind in a place counts that same resolution), and what using
+that counts every one of a kind in a place counts that same resolution; through the same seam, each of a map's
+own `actor` records — a creature the level is built holding, written with its row, group, point, facing and its
+index in the level's actor array — stands as exactly one `monster` placement, `monster-actor-<index>`, keeping the
+`actors` field and index, at the record's point and facing, and drawing nothing; a record marked `hidden` (the
+donor's `Disabled`, `OpenEnroth/src/Engine/Graphics/Outdoor.cpp:617-618`, revealed only by clearing its bit,
+`OpenEnroth/src/Engine/Objects/Actor.cpp:124-136`, which no shipped event step does) stands as nothing, and a record naming a
+row the monster table lacks is refused at composition, `actor-monster-unknown`; the donor loads that array before
+its spawn records and reloads it on a respawn, `OpenEnroth/src/Engine/Graphics/Indoor.cpp:310-319,907-922`, so a first visit and
+every restore hold it — the record's stored hit points are provenance, the fight reads the row's, as the donor's
+load does, `OpenEnroth/src/Engine/Objects/Actor.cpp:2899-2925`), and what using
 something means here (`MightAndMagic7Interaction` —
 a door from the delta's own stored state with the donor's interaction range, a fixture or a decoration that
 raises an event as a fixture whose use runs the event (`MightAndMagic7Fixtures`, below), a `requires` array on a placement as
@@ -525,8 +534,9 @@ The donor keeps the slot on the person (ours: on the party, the same for a one-p
 a particular change, a guild screen opening, is not kept. `is-actor-killed` counts the place's population
 (`MightAndMagic7Fixtures.ActorsOf`, read only): by `group` (the placement's own group, which person placements now
 carry), `kind` (the monster row), `creature` (the map's own actor record by index — the donor also numbers the
-creatures its spawn points add, at load, which this build does not, so only the people its actor records stand
-answer) or `any`; with a count, at least that many down, without one every match down
+creatures its spawn points add, at load, which this build does not, so the people and the creatures its actor
+records stand answer — over the operator's install the Temple of Baa's own leaving event asks for actor 34, its
+named priest, and finds it) or `any`; with a count, at least that many down, without one every match down
 (`OpenEnroth/src/Engine/Objects/Actor.cpp:2811-2834`). Down is this visit's population (a creature's health spent)
 or a place the party cleared; a creature killed on an earlier visit of a place still holding others stands again,
 because the population is rebuilt on entry (ours). `toggle-actor-group-flag` with the aggressor bit

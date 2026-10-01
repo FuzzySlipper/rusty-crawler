@@ -262,10 +262,13 @@ public sealed class PackWriterTests
             // entry point and the placement are two readings of the same decoded record, not two
             // records, and neither is allowed to quietly lose it. The region's delta also carries one
             // sprite object, which is a placement of its own whether or not it holds anything, and the
-            // spawn record puts a creature on the field beside the spawn point it came from.
+            // spawn record puts a creature on the field beside the spawn point it came from. The delta's second
+            // actor is a creature the level is built holding, placed under its own index in the actor array.
             PlacePopulationContent placements = PlacePopulationContent.Read(graph);
             IReadOnlyList<PlacementDefinition> regionPlacements = placements.PlacementsOf(region.Id);
-            Assert.Equal(6, regionPlacements.Count);
+            Assert.Equal(7, regionPlacements.Count);
+            PlacementDefinition actor = Assert.Single(regionPlacements, placement => placement.Content.Kind == "actor");
+            Assert.Equal(("actors", 1), (actor.SourceField, actor.SourceIndex));
             Assert.Equal(3, regionPlacements.Count(placement => placement.Content.Kind == "decoration"));
             Assert.Equal(1, regionPlacements.Count(placement => placement.Content.Kind == "spawn"));
             Assert.Equal(1, regionPlacements.Count(placement => placement.Content.Kind == "encounter"));

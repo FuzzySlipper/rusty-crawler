@@ -646,9 +646,15 @@ public sealed class MapDecoderTests
     /// <param name="withPerson">
     /// Whether the delta's first actor is one of the game's people rather than a nameless creature, which
     /// is what a delta carries when somebody stands in the open. The second actor stays a monster, so a
-    /// reader that placed every actor would be visible.
+    /// reader that placed every actor as a person would be visible.
     /// </param>
-    internal static byte[] OutdoorDeltaPayload(bool withPerson = false)
+    /// <param name="hiddenCreature">
+    /// Whether the second actor is a creature the level holds hidden — the AI state nineteen and the attribute bit
+    /// <c>0x10000</c> — rather than one standing in the open.
+    /// </param>
+    /// <param name="creatureMonster">The monster row the second actor's own monster info names.</param>
+    /// <param name="creatureAiState">The second actor's AI state when it is not hidden.</param>
+    internal static byte[] OutdoorDeltaPayload(bool withPerson = false, bool hiddenCreature = false, short creatureMonster = 4, int creatureAiState = 0)
     {
         MapWriter writer = new();
         writer.Zero(40);                        // header, zero throughout the shipped deltas
@@ -673,7 +679,28 @@ public sealed class MapDecoderTests
             writer.SetU16(person + 0x9A, 512);
         }
 
+        // The second actor is a creature the level is built holding: no NPC identity, monster row four in its own
+        // monster info, a group, and where it stands and faces.
+        int creature = writer.Length;
         writer.Zero(0x344);
+        writer.SetText(creature, "Monster 4", 32);
+        writer.SetI16(creature + 0x28, 30);
+        writer.SetI16(creature + 0x60, creatureMonster);
+        writer.SetI16(creature + 0x8E, -960);
+        writer.SetI16(creature + 0x90, 1280);
+        writer.SetI16(creature + 0x92, 32);
+        writer.SetU16(creature + 0x9A, 1024);
+        writer.SetI32(creature + 0x2E8, 3);
+        if (hiddenCreature)
+        {
+            writer.SetI32(creature + 0x24, 0x10000);
+            writer.SetU16(creature + 0xB0, 19);
+        }
+        else
+        {
+            writer.SetU16(creature + 0xB0, creatureAiState);
+        }
+
         writer.U32(1);                          // sprite objects
         writer.Zero(0x70);
         writer.U32(4);                          // chests

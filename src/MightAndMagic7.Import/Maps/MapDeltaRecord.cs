@@ -41,6 +41,7 @@ internal static class MapDeltaRecord
     private const int ActorPositionOffset = 0x8E;
     private const int ActorYawAngleOffset = 0x9A;
     private const int ActorSectorIdOffset = 0x9E;
+    private const int ActorAiStateOffset = 0xB0;
     private const int ActorGroupOffset = 0x2E8;
     private const int ActorUniqueNameIndexOffset = 0x334;
 
@@ -122,7 +123,8 @@ internal static class MapDeltaRecord
                 MapRecord.UInt16(record, ActorYawAngleOffset),
                 MapRecord.Int16(record, ActorSectorIdOffset),
                 MapRecord.Int32(record, ActorGroupOffset),
-                MapRecord.Int32(record, ActorUniqueNameIndexOffset));
+                MapRecord.Int32(record, ActorUniqueNameIndexOffset),
+                MapRecord.UInt16(record, ActorAiStateOffset));
         }
 
         return actors;

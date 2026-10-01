@@ -57,7 +57,8 @@ internal static class SyntheticInstallation
         bool withContainers = false,
         bool withServices = false,
         bool withPeople = false,
-        bool emptyEncounterSlots = false)
+        bool emptyEncounterSlots = false,
+        bool hiddenCreature = false)
     {
         string root = Path.Combine(Path.GetTempPath(), $"mm7-synthetic-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(root, "DATA"));
@@ -152,7 +153,7 @@ internal static class SyntheticInstallation
             for (int map = 1; map <= MapRows; map++)
             {
                 (string level, string delta, byte[] payload, byte[] deltaPayload) = map <= Regions
-                    ? ($"out{map:D2}.odm", $"out{map:D2}.ddm", RegionPayload(map), MapDecoderTests.OutdoorDeltaPayload(withPeople))
+                    ? ($"out{map:D2}.odm", $"out{map:D2}.ddm", RegionPayload(map), MapDecoderTests.OutdoorDeltaPayload(withPeople, hiddenCreature))
                     : ($"d{map - Regions:D2}.blv", $"d{map - Regions:D2}.dlv", InteriorPayload(map - Regions, interiorEvents), InteriorDeltaPayload(map - Regions, interiorEvents));
 
                 // Both of the compressed wrapper's forms carry maps: every third level is deflated, and every

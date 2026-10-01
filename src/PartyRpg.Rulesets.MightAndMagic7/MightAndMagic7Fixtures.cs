@@ -612,8 +612,8 @@ internal sealed class MightAndMagic7Fixtures
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The place's placements are what it holds — its creatures as the encounters resolved them and the people its
-    /// own actor records stand — and the live population says which of them are down this visit. A place the party
+    /// The place's placements are what it holds — its creatures as the encounters resolved them, and the creatures
+    /// and people its own actor records stand — and the live population says which of them are down this visit. A place the party
     /// cleared populates nobody until the clock restores it, so everything it held reads as down there, which is
     /// what clearing it was.
     /// </para>
@@ -1435,7 +1435,7 @@ internal sealed class MightAndMagic7Fixtures
         /// them answers yes to. A group is the placement's own group, a kind is its monster row, and one creature is
         /// the map's own actor record by its index — which the donor also numbers the creatures its spawn points add
         /// after them, at load; those are not numbered here, so a count of one creature reads only the map's own
-        /// actors, which are its people.
+        /// actors: its people and the creatures the level is built holding, each under the record's own index.
         /// </remarks>
         private (bool Holds, Refusal? Refused) Killed(MapEvent mapEvent, MapEventStep step)
         {
