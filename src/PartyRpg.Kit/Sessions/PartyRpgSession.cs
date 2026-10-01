@@ -638,7 +638,7 @@ public sealed class PartyRpgSession : IGameSession
         InteractionSnapshot.From(LiveWorld?.Interaction),
         ServiceSnapshot.From(Services),
         RestSnapshot.Read(Rest, Clock),
-        ConversationSnapshot.From(Conversations),
+        ConversationSnapshot.From(Conversations, Services),
         CombatSnapshot.From(Combat, _owners.Director),
         ProgressionSnapshot.From(Progression, Services),
         PromotionSnapshot.From(Progression),

@@ -75,6 +75,12 @@ internal sealed class SessionActs(SessionOwners owners, SessionControls controls
         if (owners.Conversations is not { } conversations || _conversation is null) return;
         foreach (ConversationCommand command in _conversation.Read(input))
         {
+            if (command.Kind == ConversationCommandKind.Steal)
+            {
+                StealFrom(conversations, command.Member);
+                continue;
+            }
+
             ConversationResult result = command.Kind switch
             {
                 ConversationCommandKind.Topic => conversations.Choose(command.Target),
@@ -83,6 +89,49 @@ internal sealed class SessionActs(SessionOwners owners, SessionControls controls
             };
 
             if (result is { IsApplied: true, Handoff: { } handoff }) _router.Route(handoff, conversations);
+        }
+    }
+
+    /// <summary>
+    /// Has one member try to lift what the person the party is speaking with carries, through the service
+    /// mechanism's theft, and answers a thief who was seen.
+    /// </summary>
+    /// <remarks>
+    /// A person who caught a hand in their purse does not go on talking: the conversation ends, and the person is put
+    /// into the fight as an attack on them would put them there, so what the party did is what the world now answers.
+    /// A theft that could not be tried at all — nobody here to rob, no member who could — leaves the conversation as
+    /// it was, and the refusal is the service mechanism's last result.
+    /// </remarks>
+    private void StealFrom(PartyConversations conversations, int member)
+    {
+        if (!conversations.IsOpen || conversations.Placement is not { } person) return;
+        if (owners.Services is not { } services)
+        {
+            Report.Refused(
+                "service",
+                "theft-unowned",
+                "A theft from a person was asked for, and this session composes no service mechanism to carry it out.");
+            return;
+        }
+
+        PlaceId place = conversations.Place;
+        ServiceResult result = services.StealFrom(place, person, member);
+        Report.Report(
+            result.IsApplied,
+            "service",
+            result.IsApplied ? "theft-applied" : "theft-refused",
+            result.IsApplied
+                ? $"A member tried to lift from '{person.Content}' in place '{place}': {result.Message}"
+                : $"A theft from '{person.Content}' in place '{place}' was refused ({result.Code}): {result.Message}");
+        if (!result.IsApplied || services.LastTheft is not { Caught: true }) return;
+
+        conversations.Close();
+        if (owners.Combat is { } fight)
+        {
+            foreach (Combatant combatant in fight.Combatants)
+            {
+                if (combatant.Subject.Placement is { } standing && standing.Content == person.Content) fight.Provoke(combatant.Id);
+            }
         }
     }
 

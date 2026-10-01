@@ -106,6 +106,12 @@ public sealed class PartyEntity : IDisposable
     /// <summary>The memberships the party has been granted.</summary>
     public PartyMemberships Memberships => _party.Get<PartyMemberships>();
 
+    /// <summary>What the party owes, account by account.</summary>
+    public PartyDebts Debts => _party.Get<PartyDebts>();
+
+    /// <summary>The counters that will not serve the party, each until a moment of the one clock.</summary>
+    public PartyBans Bans => _party.Get<PartyBans>();
+
     /// <summary>The origin of the party's durable identities, which a save records as a cursor.</summary>
     public PartyIdentitySource Identity => _party.Get<PartyIdentitySource>();
 
@@ -455,7 +461,9 @@ public sealed class PartyEntity : IDisposable
             [.. Records.All],
             [.. Holdings.All],
             [.. Passages.All],
-            [.. Memberships.All]);
+            [.. Memberships.All],
+            [.. Debts.All],
+            [.. Bans.All]);
     }
 
     /// <summary>Disposes the store the party was created in.</summary>

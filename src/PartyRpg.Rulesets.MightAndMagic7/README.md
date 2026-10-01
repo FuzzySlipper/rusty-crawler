@@ -161,7 +161,8 @@ Boundary rules:
   default pay, a bounty's rate, a lesson's base price, a shelf's lines, the two
   fares and how many days each network's journey takes (`fare.coach-days`, two, and
   `fare.boat-days`, three), a night's length, what a night under a roof eats, and how long a well's
-  temporary bonus lasts (`fixture.bonus-hours`, a day — ours: the donor keeps it until the next rest) — each with its
+  temporary bonus lasts (`fixture.bonus-hours`, a day — ours: the donor keeps it until the next rest), and how long a
+  counter that caught a thief stays shut against the party (`theft.ban-hours`, the donor's day) — each with its
   default, range, and meaning. A rule reads them through the `TuningProfile` it
   composes from the selected catalog, so a bundle's tuning pack changes play
   without a rebuild and a value out of range stops composition by name.

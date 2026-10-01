@@ -17,8 +17,9 @@ namespace PartyRpg.Kit.Services;
 /// identification and repair change one instance's own state, a lesson raises a member's skill or puts a
 /// party-wide effect on the band, a cure ends conditions a member suffers, training turns banked experience
 /// into a level, a provision fills the party's larder, a stay spends the party's time and rests it, a
-/// deposit and a withdrawal move coin between the purse and what a counter keeps, and a fare records a
-/// passage the party has bought. Each of those is one step of this one workflow, and a game's kind of
+/// deposit and a withdrawal move coin between the purse and what a counter keeps, a fare records a
+/// passage the party has bought, a theft takes a line without paying and lays what it cost on the party, and a
+/// repayment moves coin from the purse against what the party owes. Each of those is one step of this one workflow, and a game's kind of
 /// building either composes them or adds one — never a class per building.
 /// </para>
 /// </remarks>
@@ -59,6 +60,16 @@ public enum ServiceOperationKind
 
     /// <summary>Pay for a passage to a place, which the party then holds as a ticket.</summary>
     Fare,
+
+    /// <summary>
+    /// Take a line off the shelves without paying, which one member tries and the counter may see: what comes of
+    /// it — the goods, a fine the party then owes, a word against it, a counter shut against it — is drawn by the
+    /// game's theft rule.
+    /// </summary>
+    Steal,
+
+    /// <summary>Pay coin toward what the party owes on an account the counter collects.</summary>
+    Repay,
 
     /// <summary>End the visit. No counter offers it; it is how a party walks away from any of them.</summary>
     Leave,

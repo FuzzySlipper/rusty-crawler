@@ -60,6 +60,8 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
     private ServiceDefinition? _current;
     private ServiceVisit? _visit;
     private ServiceResult? _last;
+    private ServiceTheft? _theft;
+    private string _theftMessage = string.Empty;
 
     /// <summary>Creates the service mechanism over the party it serves and the ruleset that answers for it.</summary>
     /// <param name="rule">This game's answers about services: what a counter is, what it offers, who it serves, and what it charges.</param>
@@ -120,6 +122,16 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
     public ServiceResult? Last => _last;
 
     /// <summary>
+    /// What the last theft came to — at a counter or from a person — or null before anybody has tried one.
+    /// </summary>
+    /// <remarks>
+    /// The result of the command says what happened in words; this is the drawn outcome itself, which is what a
+    /// caller that owns what comes next reads — the session, which ends a conversation with a person who saw the
+    /// party's hand in their purse and puts them into the fight.
+    /// </remarks>
+    public ServiceTheft? LastTheft => _theft;
+
+    /// <summary>
     /// Whether the counter the party last stood at is serving now: <c>open</c>, <c>closed</c> when content's
     /// hours say so, or empty when the party has stood at none. It is recomputed from the clock rather than
     /// remembered, so a shop whose closing hour passed while the party browsed reads closed.
@@ -175,6 +187,13 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
         if (Closed(service) is { } refusal)
         {
             return Record(ServiceResult.Refused("open", refusal, Coins));
+        }
+
+        // A counter that caught the party stealing will not serve it until the ban runs out, which is the party's
+        // own state read against the one clock; a ban that has run out is forgotten here, where it was last read.
+        if (Barred(service) is { } barred)
+        {
+            return Record(ServiceResult.Refused("open", barred, Coins));
         }
 
         _visit = new ServiceVisit(service, ShelfFor(service));
@@ -249,6 +268,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
         // while the party browsed stops serving, and says so, rather than selling on because a screen is
         // open. Locking the door outside hours belongs to the schedule owner that closes doors.
         if (Closed(service) is { } shut) return Refuse(kind, shut);
+        if (Barred(service) is { } barred) return Refuse(kind, barred);
 
         if (Resolve(visit, command, operation, out ServiceSubject subject, out PartyMemberId member) is { } missing) return missing;
         if (operation.Admit?.Invoke(subject) is { } unfit) return Refuse(kind, unfit);
@@ -347,7 +367,8 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
                     item.Definition.Value,
                     price,
                     item.State.Damage,
-                    item.State.IsIdentified));
+                    item.State.IsIdentified,
+                    item.State.IsStolen));
             }
         }
 
@@ -358,7 +379,84 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
             members.Add(new ServiceMemberOffer(index, candidate.Id, candidate.Profile.Name));
         }
 
-        return new ServiceBrowse(service, operations, memberships, stock, lessons, offers, sales, members);
+        // Who could try the counter's shelves without paying is the theft rule's answer about each member, asked
+        // without drawing anything, so a panel offers the act to exactly the members a command would let try.
+        IReadOnlyList<ServiceMemberOffer> thieves = service.Offers(ServiceOperationKind.Steal)
+            ? Thieves(member => new ServiceTheftRequest(_party, member, _clock, service))
+            : [];
+
+        return new ServiceBrowse(service, operations, memberships, stock, lessons, offers, sales, members, thieves);
+    }
+
+    /// <summary>
+    /// The members who could try to lift from a person the party stands with, as the theft rule answers it without
+    /// drawing anything.
+    /// </summary>
+    /// <param name="place">The place the person stands in.</param>
+    /// <param name="person">The person's placement.</param>
+    /// <returns>The members who could try, in the order the party stands in; empty when nobody could.</returns>
+    /// <exception cref="ArgumentNullException">No person was supplied.</exception>
+    public IReadOnlyList<ServiceMemberOffer> ThievesFrom(PlaceId place, PlacementDefinition person)
+    {
+        ArgumentNullException.ThrowIfNull(person);
+        return Thieves(member => new ServiceTheftRequest(_party, member, _clock, Place: place, Person: person));
+    }
+
+    /// <summary>Every member the theft rule would let try, for the request each would make.</summary>
+    private IReadOnlyList<ServiceMemberOffer> Thieves(Func<PartyMemberId, ServiceTheftRequest> request)
+    {
+        List<ServiceMemberOffer> thieves = [];
+        for (int index = 0; index < _party.Members.Count; index++)
+        {
+            PartyMember candidate = _party.Members[index];
+            if (_rule.JudgeTheft(request(candidate.Id)) is null) thieves.Add(new ServiceMemberOffer(index, candidate.Id, candidate.Profile.Name));
+        }
+
+        return thieves;
+    }
+
+    /// <summary>One member tries to lift what a person the party stands with carries, and reports what came of it.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A person is robbed through the same mechanism a counter is.</b> A theft from a person is not a visit — the
+    /// party stands with somebody rather than at a counter — but what it costs and what it yields are carried out by
+    /// the one step a counter's theft takes: the coins come through the party's one ledger, what is lifted goes into
+    /// the shared pack, a fine is added to what the party owes, and the deed reaches the world's opinion through the
+    /// progression owner's one entry. Only what is drawn differs, and that is the theft rule's.
+    /// </para>
+    /// <para>
+    /// The theft is judged before anything is drawn — somebody to rob, a member who could try, the owners that would
+    /// carry out what it yields — and every refusal moves nothing. The result is this mechanism's last result, as a
+    /// counter's command is, so the panel that reports a counter reports a purse lifted the same way.
+    /// </para>
+    /// </remarks>
+    /// <param name="place">The place the person stands in.</param>
+    /// <param name="person">The person's placement.</param>
+    /// <param name="member">The member who tries, counted from zero.</param>
+    /// <returns>What happened, or why nothing did.</returns>
+    /// <exception cref="ArgumentNullException">No person was supplied.</exception>
+    public ServiceResult StealFrom(PlaceId place, PlacementDefinition person, int member)
+    {
+        ArgumentNullException.ThrowIfNull(person);
+        const ServiceOperationKind kind = ServiceOperationKind.Steal;
+        if (member < 0 || member >= _party.Members.Count)
+        {
+            return Refuse(kind, ServiceCodes.ServiceNoSuchMember, $"The party has no member {member + 1}, so there is nobody to try it.");
+        }
+
+        if (TheftOwners() is { } missing) return Refuse(kind, missing);
+        if (_accounts is null)
+        {
+            return Refuse(
+                kind,
+                ServiceCodes.ServiceNoAccounts,
+                "What a person carries is lifted into the party's purse, and this session holds no party accounts to credit it to.");
+        }
+
+        ServiceTheftRequest request = new(_party, _party.Members[member].Id, _clock, Place: place, Person: person);
+        if (Draw(request) is { } refused) return Refuse(kind, refused);
+        string message = CarryOut(_theft!, counter: null);
+        return Record(ServiceResult.Applied(WireName(kind), message, person.Content.Id, earned: _theft!.Coins, coins: Coins));
     }
 
     /// <summary>
@@ -612,6 +710,34 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
                 : null,
             Apply: static (services, t) => services._party.Passages.Hold(new PlaceId(t.Subject.Offer!.Subject), t.Subject.Offer.Route),
             Describe: static (_, t) => $"The party pays {t.Quote.Charge.Coins} coin(s) for a passage to {t.Subject.Offer!.Subject}, which takes {t.Subject.Offer.Amount} day(s)."),
+        [ServiceOperationKind.Steal] = new(
+            "steal",
+            SubjectShape.Lot,
+            ForMember: true,
+            // What comes of a theft is drawn before anything moves, because being seen is chance: the draw is the
+            // judgement, and once it is drawn what it yields and what it costs cannot be refused.
+            Judge: static (services, t) => services.TheftOwners() ?? services.Draw(new ServiceTheftRequest(
+                services._party,
+                t.Member,
+                services._clock,
+                t.Visit.Service,
+                t.Subject)),
+            Apply: static (services, t) => services.ApplySteal(t),
+            Describe: static (services, t) => services._theftMessage),
+        [ServiceOperationKind.Repay] = new(
+            "repay",
+            SubjectShape.Offer,
+            ServiceOfferKind.Debt,
+            NeedsAccounts: true,
+            // A repayment is of something and never of more than is owed: the price rule says what the purse would
+            // hand over, and this guards what the account can take, so no coin is paid against a debt nobody holds.
+            Judge: static (services, t) => t.Quote.Charge.Coins < 1
+                ? new Refusal(ServiceCodes.ServiceCountInvalid, $"A repayment of nothing toward {t.Subject.Offer!.Name} pays nothing off.")
+                : services._party.Debts.OwedOn(Holding(t.Subject)) is var owed && t.Quote.Charge.Coins > owed
+                    ? new Refusal(ServiceCodes.ServiceDebtExceeded, $"The party owes {owed} coin(s) on {t.Subject.Offer!.Name} and the counter was asked to take {t.Quote.Charge.Coins}.")
+                    : null,
+            Apply: static (services, t) => services._party.Debts.Owe(Holding(t.Subject), services._party.Debts.OwedOn(Holding(t.Subject)) - t.Quote.Charge.Coins),
+            Describe: static (services, t) => $"The party pays {t.Quote.Charge.Coins} coin(s) toward {t.Subject.Offer!.Name} at {t.Visit.Service.Name} and owes {services._party.Debts.OwedOn(Holding(t.Subject))}."),
         [ServiceOperationKind.Leave] = new(
             "leave",
             SubjectShape.None,
@@ -685,7 +811,19 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
 
                 if (lot.IsEmpty) return Refuse(kind, ServiceCodes.ServiceOutOfStock, $"{service.Describe()} has sold out of {lot.Label}.");
 
-                int count = lot.IsSale ? lot.Count : command.Count;
+                // A hand reaches for one thing at a time, so a theft takes one of a line whatever the command
+                // counted; a lot the counter bought from the party is one instance and comes away whole.
+                int count = lot.IsSale ? lot.Count : kind == ServiceOperationKind.Steal ? 1 : command.Count;
+                if (operation.ForMember)
+                {
+                    if (command.Member < 0 || command.Member >= _party.Members.Count)
+                    {
+                        return Refuse(kind, ServiceCodes.ServiceNoSuchMember, $"The party has no member {command.Member + 1}, so there is nobody to reach for {lot.Label}.");
+                    }
+
+                    member = _party.Members[command.Member].Id;
+                }
+
                 if (count < 1)
                 {
                     return Refuse(kind, ServiceCodes.ServiceCountInvalid, $"The party asked for {command.Count} × {lot.Label}, and a purchase is of at least one.");
@@ -752,9 +890,9 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
                     member = _party.Members[command.Member].Id;
                 }
 
-                // What a deposit or a withdrawal moves is coin, which the command counts; every other offer acts on
-                // as many of itself as the command asks, at least one.
-                int count = want == ServiceOfferKind.Holding ? command.Count : Math.Max(1, command.Count);
+                // What a deposit, a withdrawal, or a repayment moves is coin, which the command counts; every other
+                // offer acts on as many of itself as the command asks, at least one.
+                int count = want is ServiceOfferKind.Holding or ServiceOfferKind.Debt ? command.Count : Math.Max(1, command.Count);
                 if (count < 1)
                 {
                     return Refuse(kind, ServiceCodes.ServiceCountInvalid, $"The party asked for {count} of {chosen.Name}, and an operation acts on at least one.");
@@ -791,6 +929,119 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
         Require(_party.AcquireItem(instance).Refusal, "a purchase");
         t.Visit.Shelf.Take(lot, t.Subject.Count);
     }
+
+    /// <summary>
+    /// Carries out a theft at the counter: the line comes away when the draw says it did, marked as stolen when the
+    /// draw says so, and what the theft cost the party is laid on it.
+    /// </summary>
+    private void ApplySteal(Transaction t)
+    {
+        ServiceTheft theft = _theft!;
+        if (theft.Taken)
+        {
+            ServiceStockLot lot = t.Subject.Lot!;
+            ItemInstance instance = lot.IsSale ? lot.Instance! : _party.CreateItem(lot.Definition, t.Subject.Count);
+            if (theft.Marked) instance.MarkStolen();
+            Require(_party.AcquireItem(instance).Refusal, "a theft");
+            t.Visit.Shelf.Take(lot, t.Subject.Count);
+        }
+
+        _theftMessage = CarryOut(theft, t.Visit.Service);
+    }
+
+    /// <summary>
+    /// Why a theft could not be carried out by this session's owners, or null when it could: the deed reaches the
+    /// world's opinion through the progression owner, and a counter's ban is read against the one clock.
+    /// </summary>
+    private Refusal? TheftOwners()
+    {
+        if (_progression is null)
+        {
+            return new Refusal(
+                ServiceCodes.ServiceNoProgression,
+                "A theft is a deed the world hears of, and this session holds no progression owner to tell it.");
+        }
+
+        return _clock is null
+            ? new Refusal(ServiceCodes.ServiceNoClock, "A theft can shut a counter against the party until a later hour, and this session keeps no clock to say when.")
+            : null;
+    }
+
+    /// <summary>
+    /// Judges a theft and draws what it came to, or says why it could not be tried; the outcome is held for the step
+    /// that carries it out, which nothing can refuse by then.
+    /// </summary>
+    private Refusal? Draw(ServiceTheftRequest request)
+    {
+        _theft = null;
+        if (_rule.JudgeTheft(request) is { } refused) return refused;
+        ServiceTheft theft = _rule.Steal(request);
+        if (!theft.IsTried) return theft.Refusal;
+        _theft = theft;
+        return null;
+    }
+
+    /// <summary>
+    /// Lays what a theft yields and costs on the party — the one step a counter's theft and a person's share — and
+    /// says what it did: coins through the party's one ledger, what was lifted into the shared pack, the fine onto
+    /// what the party owes, the deed to the world's opinion, and a counter shut against the party.
+    /// </summary>
+    /// <param name="theft">The drawn outcome.</param>
+    /// <param name="counter">The counter stolen from, or null for a person.</param>
+    private string CarryOut(ServiceTheft theft, ServiceDefinition? counter)
+    {
+        List<string> said = [theft.Message];
+        if (theft.Coins > 0) _accounts!.Credit(PartyCost.OfGold(theft.Coins));
+        foreach (ItemDefinitionId lifted in theft.Items)
+        {
+            ItemInstance instance = _party.CreateItem(lifted);
+            if (theft.Marked) instance.MarkStolen();
+            Require(_party.AcquireItem(instance).Refusal, "a theft");
+        }
+
+        if (theft.Fine > 0)
+        {
+            int owed = checked(_party.Debts.OwedOn(theft.Account) + theft.Fine);
+            _party.Debts.Owe(theft.Account, owed);
+            said.Add(string.Create(CultureInfo.InvariantCulture, $"The party is fined {theft.Fine} coin(s) and owes {owed} on {theft.Account}."));
+        }
+
+        if (theft.Deed.Length > 0) _progression!.Deed(theft.Deed);
+
+        if (counter is not null && !theft.Ban.IsNone && _clock is { } clock)
+        {
+            _party.Bans.Bar(counter.Id.Value, clock.Elapsed + theft.Ban);
+            said.Add(string.Create(
+                CultureInfo.InvariantCulture,
+                $"{counter.Describe()} will not serve the party for {Hours(theft.Ban)} hour(s)."));
+
+            // A counter that has shut the party out is not one it is still standing at: the visit ends, and the
+            // counter stays named so the panel can say who turned the party away.
+            _visit = null;
+        }
+
+        return string.Join(" ", said);
+    }
+
+    /// <summary>
+    /// Why the counter will not serve the party now, or null when it will: a ban the party stands under, read against
+    /// the one clock. A ban that has run out is forgotten as it is read.
+    /// </summary>
+    private Refusal? Barred(ServiceDefinition service)
+    {
+        if (_clock is not { } clock) return null;
+        _party.Bans.Lapse(clock.Elapsed);
+        if (_party.Bans.BarredUntil(service.Id.Value, clock.Elapsed) is not { } until) return null;
+        GameDuration left = GameDuration.FromMilliseconds(until.Milliseconds - clock.Elapsed.Milliseconds);
+        return new Refusal(
+            ServiceCodes.ServiceBarred,
+            string.Create(CultureInfo.InvariantCulture, $"{service.Describe()} has barred the party, and will serve it again in {Hours(left)} hour(s)."));
+    }
+
+    /// <summary>A length of game time in whole hours, rounded up, so a ban with minutes left still reads as an hour.</summary>
+    private static long Hours(GameDuration duration) =>
+        (duration.Milliseconds + (GameDuration.SecondsPerHour * GameDuration.MillisecondsPerSecond) - 1)
+        / (GameDuration.SecondsPerHour * GameDuration.MillisecondsPerSecond);
 
     /// <summary>Takes a sold item out of the party and onto the shelf, priced back from what the shop paid.</summary>
     private void ApplySell(Transaction t)

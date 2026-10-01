@@ -10,11 +10,17 @@ public static class ServiceCodes
     /// <summary>The refusal code <c>service-already-identified</c>.</summary>
     public const string ServiceAlreadyIdentified = "service-already-identified";
 
+    /// <summary>The refusal code <c>service-barred</c>.</summary>
+    public const string ServiceBarred = "service-barred";
+
     /// <summary>The refusal code <c>service-closed</c>.</summary>
     public const string ServiceClosed = "service-closed";
 
     /// <summary>The refusal code <c>service-count-invalid</c>.</summary>
     public const string ServiceCountInvalid = "service-count-invalid";
+
+    /// <summary>The refusal code <c>service-debt-exceeded</c>.</summary>
+    public const string ServiceDebtExceeded = "service-debt-exceeded";
 
     /// <summary>The refusal code <c>service-fare-unrouted</c>.</summary>
     public const string ServiceFareUnrouted = "service-fare-unrouted";
@@ -69,4 +75,7 @@ public static class ServiceCodes
 
     /// <summary>The refusal code <c>service-out-of-stock</c>.</summary>
     public const string ServiceOutOfStock = "service-out-of-stock";
+
+    /// <summary>The refusal code <c>service-theft-unanswered</c>.</summary>
+    public const string ServiceTheftUnanswered = "service-theft-unanswered";
 }

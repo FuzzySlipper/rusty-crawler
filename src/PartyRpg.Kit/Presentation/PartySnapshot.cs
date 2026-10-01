@@ -98,6 +98,15 @@ public sealed record PartySnapshot(
     string Standing = "",
     string StandingDetail = "")
 {
+    /// <summary>
+    /// What the party owes, account by account, in the order it was first charged; empty when it owes nothing.
+    /// </summary>
+    /// <remarks>
+    /// A debt is published beside the purse because owing is not paying: a fine the purse could not cover still
+    /// stands, and a panel that showed only the coins would leave a party that owes a town hall looking clear.
+    /// </remarks>
+    public IReadOnlyList<PartyDebt> Debts { get; init; } = [];
+
     /// <summary>The party of a session that holds none.</summary>
     public static PartySnapshot None => new(false, 0, 0, 0, string.Empty, 0, 0, string.Empty, []);
 
@@ -154,7 +163,10 @@ public sealed record PartySnapshot(
             party.Inventory.Count,
             standing is not null,
             reading.Band ?? string.Empty,
-            reading.Reading ?? string.Empty);
+            reading.Reading ?? string.Empty)
+        {
+            Debts = party.Debts.All,
+        };
     }
 
     /// <summary>
@@ -223,5 +235,10 @@ public sealed record PartySnapshot(
             // What the party has accomplished, one row per record the game counts, each in the game's
             // own words: a screen shows them and decides nothing about what a record means. A game that
             // counts nothing publishes the same empty list, and the two are told apart by standingRead.
-            ("awards", builder.Array([.. Awards.Select(award => award.Write(builder))])));
+            ("awards", builder.Array([.. Awards.Select(award => award.Write(builder))])),
+            // What the party owes, one row per account: the account is the game's own word for it, and the coins
+            // are what a counter that collects it would take.
+            ("debts", builder.Array([.. Debts.Select(debt => builder.Object(
+                ("account", builder.String(debt.Account)),
+                ("coins", builder.Number(debt.Coins))))])));
 }

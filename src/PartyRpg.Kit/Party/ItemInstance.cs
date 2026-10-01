@@ -85,6 +85,9 @@ public sealed class ItemInstance
     /// </remarks>
     internal void SpendCharge() => State = State.WithChargeSpent();
 
+    /// <summary>Marks the instance as taken without being paid for, which the service mechanism's theft does.</summary>
+    internal void MarkStolen() => State = State.Stolen();
+
     /// <summary>Records where the party holds the instance. Only the party moves items, so only it calls this.</summary>
     internal void Place(ItemCustody custody) => Custody = custody;
 

@@ -76,6 +76,8 @@ public sealed class PartyEntityFactory
         entity.Add(new PartyHoldings());
         entity.Add(new PartyPassages());
         entity.Add(new PartyMemberships());
+        entity.Add(new PartyDebts());
+        entity.Add(new PartyBans());
 
         PartyEntity party = new(store, entity, _equipmentUse);
         for (int index = 0; index < members.Count; index++)
@@ -120,6 +122,8 @@ public sealed class PartyEntityFactory
         entity.Add(new PartyHoldings(save.Holdings));
         entity.Add(new PartyPassages(save.Passages));
         entity.Add(new PartyMemberships(save.Memberships));
+        entity.Add(new PartyDebts(save.Debts));
+        entity.Add(new PartyBans(save.Bans));
 
         PartyEntity party = new(store, entity, _equipmentUse);
 
@@ -263,6 +267,8 @@ public sealed class PartyEntityFactory
         }
 
         Named(problems, "membership", save.Memberships.Select(membership => (membership, 1)), minimum: 1);
+        Named(problems, "debt", save.Debts.Select(debt => (debt.Account, debt.Coins)), minimum: 1);
+        Named(problems, "ban", save.Bans.Select(ban => (ban.Counter, 0)), minimum: 0);
         return problems;
     }
 

@@ -78,14 +78,16 @@ public sealed record ServiceQuoteRequest(
 /// </summary>
 /// <remarks>
 /// <para>
-/// This is the ruleset's whole contribution to the service mechanism, and it is deliberately six answers
-/// rather than one. <see cref="Describe"/> is content interpretation: a placement names a service, and this
+/// This is the ruleset's whole contribution to the service mechanism, and it is deliberately a handful of
+/// answers rather than one. <see cref="Describe"/> is content interpretation: a placement names a service, and this
 /// turns it into the definition the mechanism serves. <see cref="Stock"/> and <see cref="Lessons"/> are the
 /// stock rule: what the shelves hold and what the counter teaches, which content declares and policy may
 /// narrow. <see cref="Judge"/> is the eligibility rule: whether the party may do this at all, here, now.
 /// <see cref="Quote"/> is the price rule: what the party pays and what it is paid. <see cref="Access"/> is
 /// what the party already carries of what the service requires, so a panel can show it and the same
-/// membership can be checked by both.
+/// membership can be checked by both. <see cref="JudgeTheft"/> and <see cref="Steal"/> are the theft rule:
+/// whether a member could try to take a line off the shelves or lift from a person, and what one attempt came
+/// to — the one answer in this list that draws, because being seen is chance.
 /// </para>
 /// <para>
 /// <b>The numbers are the ruleset's; the arithmetic is the kit's.</b> A rule states the multipliers and the
@@ -154,4 +156,20 @@ public interface IServiceRule
     /// <param name="request">The service, the operation, what it acts on, and the party asking.</param>
     /// <returns>The quote the mechanism settles.</returns>
     ServiceQuote Quote(ServiceQuoteRequest request);
+
+    /// <summary>
+    /// Whether a member could try a theft here at all — somebody to rob, a hand for it, the state to act — and
+    /// the sentence that says why not. It draws nothing, so a panel may ask it to offer the act.
+    /// </summary>
+    /// <param name="request">The counter or the person, the member, and the party.</param>
+    /// <returns>Why the member could not try, or null when they could.</returns>
+    Refusal? JudgeTheft(ServiceTheftRequest request);
+
+    /// <summary>
+    /// Draws what one theft comes to: whether the thief is seen, what comes away, the fine, the deed the world
+    /// hears of, and how long a counter bars the party. It is asked once, when the theft is carried out.
+    /// </summary>
+    /// <param name="request">The counter and the line reached for, or the person, with the member and the party.</param>
+    /// <returns>What the theft came to, or why it could not be tried.</returns>
+    ServiceTheft Steal(ServiceTheftRequest request);
 }

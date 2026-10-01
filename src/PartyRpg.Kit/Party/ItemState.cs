@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 namespace PartyRpg.Kit.Party;
 
 /// <summary>
-/// What is true of one item instance beyond its kind: whether it is identified, how damaged it is, how many charges of it have been spent, and how strong a consumable it is.
+/// What is true of one item instance beyond its kind: whether it is identified, how damaged it is, how many charges of it have been spent, how strong a consumable it is, and whether it was stolen.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -38,6 +38,11 @@ public readonly struct ItemState : IEquatable<ItemState>
     /// potions of one kind are the same drink at two strengths — the game mints them with a drawn strength
     /// and a mixture states its own — and because a save has to bring back the one the party is holding.
     /// </param>
+    /// <param name="isStolen">
+    /// Whether the instance was taken from a counter without being paid for. It belongs to the instance because
+    /// the mark travels with the thing taken: a counter that will not deal in stolen goods reads it from what
+    /// the party offers, whoever carries it and however long ago it was taken.
+    /// </param>
     /// <exception cref="ArgumentOutOfRangeException">The damage or the charges spent are negative, which is not a state an item can be in.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The potency is negative, which is not a strength anything can be read at.</exception>
     /// <remarks>
@@ -49,7 +54,8 @@ public readonly struct ItemState : IEquatable<ItemState>
         bool isIdentified = false,
         int damage = 0,
         int chargesSpent = 0,
-        int potency = 0)
+        int potency = 0,
+        bool isStolen = false)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(damage);
         ArgumentOutOfRangeException.ThrowIfNegative(chargesSpent);
@@ -58,6 +64,7 @@ public readonly struct ItemState : IEquatable<ItemState>
         Damage = damage;
         ChargesSpent = chargesSpent;
         Potency = potency;
+        IsStolen = isStolen;
     }
 
     /// <summary>An item nobody has identified yet, sound, and carrying nothing.</summary>
@@ -96,17 +103,27 @@ public readonly struct ItemState : IEquatable<ItemState>
     /// </remarks>
     public int Potency { get; }
 
+    /// <summary>Whether the instance was taken from a counter without being paid for.</summary>
+    /// <remarks>
+    /// Nothing in the kit reads this beyond carrying it: which counters refuse a stolen thing, and for what, is
+    /// a game's answer about its own services.
+    /// </remarks>
+    public bool IsStolen { get; }
+
+    /// <summary>The same state, marked as taken without being paid for.</summary>
+    public ItemState Stolen() => IsStolen ? this : new ItemState(IsIdentified, Damage, ChargesSpent, Potency, isStolen: true);
+
     /// <summary>The same state, read at the given strength.</summary>
     /// <param name="potency">The strength to record, which cannot be negative.</param>
     /// <exception cref="ArgumentOutOfRangeException">The strength is negative.</exception>
     public ItemState WithPotency(int potency)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(potency);
-        return new ItemState(IsIdentified, Damage, ChargesSpent, potency);
+        return new ItemState(IsIdentified, Damage, ChargesSpent, potency, IsStolen);
     }
 
     /// <summary>The same state, identified.</summary>
-    public ItemState Identified() => IsIdentified ? this : new ItemState(true, Damage, ChargesSpent, Potency);
+    public ItemState Identified() => IsIdentified ? this : new ItemState(true, Damage, ChargesSpent, Potency, IsStolen);
 
     /// <summary>The same state, carrying the given damage rather than its own.</summary>
     /// <param name="damage">The damage to record, which cannot be negative.</param>
@@ -114,12 +131,12 @@ public readonly struct ItemState : IEquatable<ItemState>
     public ItemState WithDamage(int damage)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(damage);
-        return new ItemState(IsIdentified, damage, ChargesSpent, Potency);
+        return new ItemState(IsIdentified, damage, ChargesSpent, Potency, IsStolen);
     }
 
     /// <summary>The same state, with one more charge spent.</summary>
     /// <exception cref="OverflowException">The count would leave the numbers a state is described in.</exception>
-    public ItemState WithChargeSpent() => new(IsIdentified, Damage, checked(ChargesSpent + 1), Potency);
+    public ItemState WithChargeSpent() => new(IsIdentified, Damage, checked(ChargesSpent + 1), Potency, IsStolen);
 
     /// <summary>
     /// The same state, with the given number of charges spent, which is how a recharge gives uses back.
@@ -129,7 +146,7 @@ public readonly struct ItemState : IEquatable<ItemState>
     public ItemState WithChargesSpent(int spent)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(spent);
-        return new ItemState(IsIdentified, Damage, spent, Potency);
+        return new ItemState(IsIdentified, Damage, spent, Potency, IsStolen);
     }
 
     /// <summary>The same state, damaged further.</summary>
@@ -139,7 +156,7 @@ public readonly struct ItemState : IEquatable<ItemState>
     public ItemState Damaged(int amount)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(amount);
-        return new ItemState(IsIdentified, checked(Damage + amount), ChargesSpent, Potency);
+        return new ItemState(IsIdentified, checked(Damage + amount), ChargesSpent, Potency, IsStolen);
     }
 
     /// <summary>The same state, repaired by an amount and never past sound.</summary>
@@ -148,7 +165,7 @@ public readonly struct ItemState : IEquatable<ItemState>
     public ItemState Repaired(int amount)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(amount);
-        return new ItemState(IsIdentified, Math.Max(0, Damage - amount), ChargesSpent, Potency);
+        return new ItemState(IsIdentified, Math.Max(0, Damage - amount), ChargesSpent, Potency, IsStolen);
     }
 
     /// <summary>Whether two states are the same in every respect, which is what lets two stacks merge.</summary>
@@ -157,7 +174,8 @@ public readonly struct ItemState : IEquatable<ItemState>
     {
         // A strength is part of what an instance is, so two potions of one kind at two strengths are two
         // things: merging them would leave one of the two drinks with the other's strength.
-        return IsIdentified == other.IsIdentified && Damage == other.Damage && ChargesSpent == other.ChargesSpent && Potency == other.Potency;
+        return IsIdentified == other.IsIdentified && Damage == other.Damage && ChargesSpent == other.ChargesSpent && Potency == other.Potency
+            && IsStolen == other.IsStolen;
     }
 
     /// <inheritdoc />
@@ -174,6 +192,7 @@ public readonly struct ItemState : IEquatable<ItemState>
         hash.Add(Damage);
         hash.Add(ChargesSpent);
         hash.Add(Potency);
+        hash.Add(IsStolen);
         return hash.ToHashCode();
     }
 
@@ -189,5 +208,5 @@ public readonly struct ItemState : IEquatable<ItemState>
 
     /// <inheritdoc />
     public override string ToString() =>
-        $"{(IsIdentified ? "identified" : "unidentified")}, damage {Damage}, {ChargesSpent} charge(s) spent, potency {Potency}";
+        $"{(IsIdentified ? "identified" : "unidentified")}, damage {Damage}, {ChargesSpent} charge(s) spent, potency {Potency}{(IsStolen ? ", stolen" : string.Empty)}";
 }

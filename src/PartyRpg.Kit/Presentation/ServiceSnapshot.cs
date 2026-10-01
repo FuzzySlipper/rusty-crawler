@@ -79,6 +79,9 @@ public sealed record ServiceSaleSnapshot(
     int Damage,
     bool Identified)
 {
+    /// <summary>Whether the instance carries the stolen mark, which a counter may refuse to deal in.</summary>
+    public bool Stolen { get; init; }
+
     /// <summary>Writes one of the party's items the counter would buy.</summary>
     /// <param name="builder">The projection being built.</param>
     /// <returns>The row's node.</returns>
@@ -89,7 +92,8 @@ public sealed record ServiceSaleSnapshot(
             ("name", builder.String(Name)),
             ("price", builder.Number(Price)),
             ("damage", builder.Number(Damage)),
-            ("identified", builder.Boolean(Identified)));
+            ("identified", builder.Boolean(Identified)),
+            ("stolen", builder.Boolean(Stolen)));
 
     /// <summary>Writes this item as one a counter would work on: which instance, and what it is called.</summary>
     /// <param name="builder">The projection being built.</param>
@@ -131,6 +135,18 @@ public sealed record ServiceOfferSnapshot(
             ("subject", builder.String(Subject)),
             ("name", builder.String(Name)),
             ("amount", builder.Number(Amount)),
+            ("price", builder.Number(Price)));
+
+    /// <summary>Writes this offer as a debt a screen has a repayment command for.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint WriteDebt(UiValueBuilder builder) =>
+        builder.Object(
+            ("subject", builder.String(Subject)),
+            ("name", builder.String(Name)),
+            // What is owed on the account, and what a repayment of all of it would take from the purse now: the
+            // counter takes no more than the purse holds, which is the price rule's answer rather than the screen's.
+            ("owed", builder.Number(Amount)),
             ("price", builder.Number(Price)));
 
     /// <summary>Writes this offer as a passage a screen has a command for.</summary>
@@ -219,6 +235,12 @@ public sealed record ServiceSnapshot(
     int Earned,
     int Coins)
 {
+    /// <summary>
+    /// The members who could try to take a line off the counter's shelves without paying, as the theft rule
+    /// answered for each; empty where nobody could, or where the counter keeps nothing to steal.
+    /// </summary>
+    public IReadOnlyList<ServiceMemberSnapshot> Thieves { get; init; } = [];
+
     /// <summary>No service mechanism: there is no counter to stand at and nothing to browse.</summary>
     public static ServiceSnapshot None => new(
         Available: false,
@@ -292,7 +314,7 @@ public sealed record ServiceSnapshot(
                 offer.Name,
                 offer.Price,
                 offer.Damage,
-                offer.Identified));
+                offer.Identified) { Stolen = offer.Stolen });
         }
 
         List<ServiceMemberSnapshot> members = [];
@@ -323,7 +345,10 @@ public sealed record ServiceSnapshot(
             Message: last?.Message ?? string.Empty,
             Paid: last?.Paid ?? 0,
             Earned: last?.Earned ?? 0,
-            Coins: services.Coins);
+            Coins: services.Coins)
+        {
+            Thieves = [.. (browse?.Thieves ?? []).Select(offer => new ServiceMemberSnapshot(offer.Index, offer.Name))],
+        };
     }
 
     /// <summary>The wire name for what a counter offers besides goods and lessons.</summary>
@@ -341,6 +366,7 @@ public sealed record ServiceSnapshot(
         ServiceOfferKind.Holding => "holding",
         ServiceOfferKind.Fare => "fare",
         ServiceOfferKind.Notice => "notice",
+        ServiceOfferKind.Debt => "debt",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown offer kind."),
     };
 
@@ -374,6 +400,8 @@ public sealed record ServiceSnapshot(
         bool identifies = Takes(ServiceOperationKind.Identify);
         bool repairs = Takes(ServiceOperationKind.Repair);
         bool teaches = Takes(ServiceOperationKind.Teach);
+        bool steals = Takes(ServiceOperationKind.Steal) && Thieves.Count > 0;
+        bool repays = Takes(ServiceOperationKind.Repay);
 
         // What the counter would identify and what it would mend are the party's own items it has a use for:
         // an item already known is not one to identify, and one that is whole is not one to repair.
@@ -384,6 +412,11 @@ public sealed record ServiceSnapshot(
         // published as their own list: which rows a player can press is the product's reading of its own kinds.
         string fare = WireName(ServiceOfferKind.Fare);
         IEnumerable<ServiceOfferSnapshot> fares = Open ? Offers.Where(offer => string.Equals(offer.Kind, fare, StringComparison.Ordinal)) : [];
+
+        // What the party owes on an account this counter collects is the other offer a screen has a command for:
+        // each row is the account, what is owed on it, and what a repayment would take from the purse now.
+        string debt = WireName(ServiceOfferKind.Debt);
+        IEnumerable<ServiceOfferSnapshot> debts = repays ? Offers.Where(offer => string.Equals(offer.Kind, debt, StringComparison.Ordinal)) : [];
 
         return builder.Object(
             ("available", builder.Boolean(Available)),
@@ -404,6 +437,9 @@ public sealed record ServiceSnapshot(
             ("identify", builder.Array([.. identify.Select(offer => offer.WriteHeld(builder))])),
             ("repair", builder.Array([.. repair.Select(offer => offer.WriteHeld(builder))])),
             ("fares", builder.Array([.. fares.Select(offer => offer.WriteFare(builder))])),
+            ("debts", builder.Array([.. debts.Select(offer => offer.WriteDebt(builder))])),
+            ("thieves", builder.Array([.. (steals ? Thieves : Array.Empty<ServiceMemberSnapshot>()).Select(member => member.Write(builder))])),
+            ("canSteal", builder.Boolean(steals)),
             ("canBuy", builder.Boolean(buys)),
             ("canSell", builder.Boolean(sells)),
             ("canTeach", builder.Boolean(teaches)),

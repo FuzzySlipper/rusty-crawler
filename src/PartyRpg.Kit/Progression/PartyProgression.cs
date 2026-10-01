@@ -108,6 +108,9 @@ public sealed class PartyProgression
     /// <summary>What the last rank did, or null before anybody has been promoted.</summary>
     public PromotionResult? LastPromotion { get; private set; }
 
+    /// <summary>What the last deed that paid no experience did, or null before the party has done one.</summary>
+    public ProgressionDeedResult? LastDeed { get; private set; }
+
     /// <summary>How much experience the member must have banked to be trained from the level it stands at.</summary>
     /// <remarks>
     /// This is the curve read for a member rather than for a number, so what a panel shows as "the next
@@ -190,6 +193,36 @@ public sealed class PartyProgression
 
         ProgressionStanding standing = ApplyStanding(ProgressionEventKind.Award, award.Source, award.Amount);
         return Record(new ProgressionAwardResult(award.Source, award.Amount, taken, standing, Refusal: null));
+    }
+
+    /// <summary>
+    /// Tells the world of a deed that pays no experience, through the same standing step an award takes, and
+    /// reports what the world made of it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A deed is an award of nothing that is still news.</b> <see cref="Award"/> refuses an award of nothing,
+    /// because dividing nothing among the party is not an award; but a thief caught at a counter, a sacrifice, or a
+    /// worthless death a game still counts against the party is something the world hears of without anybody
+    /// earning experience for it. This is that entry: nothing is divided and nobody's experience moves, and the
+    /// rule is asked what the deed does to the party's standing exactly as it is asked about an award — under the
+    /// word the caller credits it as, with an amount of nothing — so one rule answers for every deed whether or not
+    /// it paid.
+    /// </para>
+    /// <para>
+    /// A deed the rule makes nothing of is still reported: the world simply did not care, which is an answer.
+    /// </para>
+    /// </remarks>
+    /// <param name="source">The word the deed is credited as, which is what the standing rule reads.</param>
+    /// <returns>What the deed did to the party's standing.</returns>
+    /// <exception cref="ArgumentException">The source is blank, which names no deed.</exception>
+    public ProgressionDeedResult Deed(string source)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(source);
+        ProgressionStanding standing = ApplyStanding(ProgressionEventKind.Deed, source, 0);
+        ProgressionDeedResult result = new(source, standing);
+        LastDeed = result;
+        return result;
     }
 
     /// <summary>Raises one member a level at a counter whose fee the party's accounts have already paid.</summary>
