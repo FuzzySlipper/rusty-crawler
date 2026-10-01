@@ -121,6 +121,11 @@ public sealed class EquipmentPolicyTests
         Wear(session, ui, 6, Shield);
         Assert.Equal(MightAndMagic7Codes.EquipmentHandsFull, Refused(session, ui, 7, Greatsword));
 
+        // A refusal names the items the way the table does, never by their number.
+        string said = Equipment(ui).Field("outcome").Field("message").AsString();
+        Assert.Contains("A greatsword", said, StringComparison.Ordinal);
+        Assert.DoesNotContain("2 takes", said, StringComparison.Ordinal);
+
         // A potion is not something a character wears at all, and the pack's list never offered it.
         ProjectedNode equipment = Equipment(ui);
         Assert.DoesNotContain(Pack(equipment), row => row.Definition == Potion);

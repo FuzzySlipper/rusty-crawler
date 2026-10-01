@@ -38,7 +38,9 @@ public sealed class TurnBasedPolicyTests
 
         // The creature lands its own blow in real time — a wound and the condition its row states — and the
         // party answers it, so the switch below has both sides' state to preserve.
-        fake.RandomService.Answer = request => request.Key.EndsWith("/hit", StringComparison.Ordinal) ? 0 : 1;
+        // The hit lands, and the creature's draw among the members picks the first, whose row the test reads.
+        fake.RandomService.Answer = request =>
+            request.Key.EndsWith("/hit", StringComparison.Ordinal) || request.Key.EndsWith("/victim", StringComparison.Ordinal) ? 0 : 1;
         using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(RulesetTestContext.RulesetContext(context, ui, combat: true));
         session.Start();
         ulong step = 0;

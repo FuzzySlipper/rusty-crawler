@@ -170,7 +170,11 @@ whether it runs and at how many hit points (`Wimp` always, `Normal` at twenty pe
 `Suicidal` never), its `Move` column whether it closes or holds its post, its speed column how fast it
 walks, and its own chance columns which of its ways of attacking it uses in the donor's own order (the
 first spell, the second, the second attack, then the first attack — `Actor.cpp:3644-3657`), with every
-chance drawn from the engine's keyed service so the same fight replays identically; which kinds of monster
+chance drawn from the engine's keyed service so the same fight replays identically; a creature that
+chooses the party strikes a member drawn the same way from those not paralysed, unconscious, dead,
+petrified or eradicated, and the first member only when nobody is left (`Actor.cpp:3259-3287`; the donor's
+attack-preference narrowing by class, sex or race is not read, so every such member is equally likely);
+which kinds of monster
 are each other's enemies is the shipped `hostile.txt` matrix read as content
 (`MightAndMagic7Hostility`), and a spell the imported spell table describes no harm for is one this build
 cannot cast, so a creature keeps it on its row and never chooses it), and what one attack does here is the

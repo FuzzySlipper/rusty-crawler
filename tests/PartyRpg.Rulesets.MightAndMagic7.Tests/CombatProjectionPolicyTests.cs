@@ -120,7 +120,9 @@ public sealed class CombatProjectionPolicyTests
         (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(
             [.. World(monsterAt: 100), MonsterRow(recovery: 100, hitPoints: 400, damage: "1D4+4", special: "Poison2"), PartyDocument()]);
         FakeEngineContext fake = (FakeEngineContext)context.Engine;
-        fake.RandomService.Answer = request => request.Key.EndsWith("/hit", StringComparison.Ordinal) ? 0 : 1;
+        // The hit lands, and the creature's draw among the members picks the first, whose row the test reads.
+        fake.RandomService.Answer = request =>
+            request.Key.EndsWith("/hit", StringComparison.Ordinal) || request.Key.EndsWith("/victim", StringComparison.Ordinal) ? 0 : 1;
 
         using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
             RulesetTestContext.RulesetContext(context, ui, combat: true));

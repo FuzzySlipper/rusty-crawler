@@ -76,17 +76,23 @@ internal sealed class MightAndMagic7EquipmentUse : IEquipmentUseRule
     ];
 
     private readonly Dictionary<ItemDefinitionId, string> _required;
+    private readonly Dictionary<ItemDefinitionId, string> _names;
     private readonly MightAndMagic7Skills? _skills;
 
     private MightAndMagic7EquipmentUse(
         Dictionary<ItemDefinitionId, string> required,
+        Dictionary<ItemDefinitionId, string> names,
         MightAndMagic7Skills? skills,
         MightAndMagic7Figure figure)
     {
         _required = required;
+        _names = names;
         _skills = skills;
         Figure = figure;
     }
+
+    /// <summary>What a refusal calls an item: the table's name, or its id when the table names none.</summary>
+    private string NameOf(ItemDefinitionId definition) => _names.TryGetValue(definition, out string? name) ? name : definition.Value;
 
     /// <summary>This game's figure, which the rule judges a place against.</summary>
     internal MightAndMagic7Figure Figure { get; }
@@ -103,14 +109,16 @@ internal sealed class MightAndMagic7EquipmentUse : IEquipmentUseRule
         if (MightAndMagic7Figure.Read(catalog) is not { } figure) return null;
 
         Dictionary<ItemDefinitionId, string> required = [];
+        Dictionary<ItemDefinitionId, string> names = [];
         foreach ((_, _, ContentEntry entry) in catalog!.Entries(ItemDefinitionKind))
         {
+            if (entry.GetString("name").Trim() is { Length: > 0 } name) names[new ItemDefinitionId(entry.Id)] = name;
             string skill = entry.GetString("skill").Trim();
             if (skill.Length == 0) continue;
             required[new ItemDefinitionId(entry.Id)] = skill;
         }
 
-        return new MightAndMagic7EquipmentUse(required, skills, figure);
+        return new MightAndMagic7EquipmentUse(required, names, skills, figure);
     }
 
     /// <inheritdoc />
@@ -134,7 +142,7 @@ internal sealed class MightAndMagic7EquipmentUse : IEquipmentUseRule
         {
             return new Refusal(
                 MightAndMagic7Codes.EquipmentNotWearable,
-                $"The item table states nothing worn for {item.Definition}, so it cannot go in '{slot}' or anywhere else.");
+                $"The item table states nothing worn for {NameOf(item.Definition)}, so it cannot go in '{slot}' or anywhere else.");
         }
 
         IReadOnlyList<EquipmentSlot> shaped = MightAndMagic7Figure.SlotsFor(worn.Kind);
@@ -142,7 +150,7 @@ internal sealed class MightAndMagic7EquipmentUse : IEquipmentUseRule
         {
             return new Refusal(
                 MightAndMagic7Codes.EquipmentWrongSlot,
-                $"{item.Definition} goes in {string.Join(" or ", shaped.Select(place => $"'{place}'"))}, not in '{slot}'.");
+                $"{NameOf(item.Definition)} goes in {string.Join(" or ", shaped.Select(place => $"'{place}'"))}, not in '{slot}'.");
         }
 
         if (Hands(member, slot, item, worn) is { } full) return full;
@@ -164,7 +172,7 @@ internal sealed class MightAndMagic7EquipmentUse : IEquipmentUseRule
         {
             return new Refusal(
                 MightAndMagic7Codes.EquipmentSkillUnknown,
-                $"The item table gives {item.Definition} the skill '{named}', which this game's skill table does not carry, so nobody can be said to have it.");
+                $"The item table gives {NameOf(item.Definition)} the skill '{named}', which this game's skill table does not carry, so nobody can be said to have it.");
         }
 
         if (member.Skills.LevelOf(skill) > 0) return null;
@@ -173,7 +181,7 @@ internal sealed class MightAndMagic7EquipmentUse : IEquipmentUseRule
             MightAndMagic7Codes.EquipmentSkillMissing,
             string.Create(
                 CultureInfo.InvariantCulture,
-                $"{member.Profile.Name} has not learned {skill}, which is what a {item.Definition} needs before it can be worn or wielded."));
+                $"{member.Profile.Name} has not learned {skill}, which is what a {NameOf(item.Definition)} needs before it can be worn or wielded."));
     }
 
     /// <summary>Whether the member's hands have room for the item in the slot, or why not.</summary>
@@ -186,7 +194,7 @@ internal sealed class MightAndMagic7EquipmentUse : IEquipmentUseRule
         {
             return new Refusal(
                 MightAndMagic7Codes.EquipmentHandsFull,
-                $"{item.Definition} takes both hands, and {member.Profile.Name} holds {held.Definition} in the off hand; take it off first.");
+                $"{NameOf(item.Definition)} takes both hands, and {member.Profile.Name} holds {NameOf(held.Definition)} in the off hand; take it off first.");
         }
 
         if (slot != MightAndMagic7Figure.OffHand) return null;
@@ -199,7 +207,7 @@ internal sealed class MightAndMagic7EquipmentUse : IEquipmentUseRule
             {
                 return new Refusal(
                     MightAndMagic7Codes.EquipmentHandsFull,
-                    $"{member.Profile.Name} holds {main.Definition} in both hands, so nothing goes in the off hand until it comes off.");
+                    $"{member.Profile.Name} holds {NameOf(main.Definition)} in both hands, so nothing goes in the off hand until it comes off.");
             }
         }
 
@@ -212,10 +220,10 @@ internal sealed class MightAndMagic7EquipmentUse : IEquipmentUseRule
         return new Refusal(
             MightAndMagic7Codes.EquipmentOffHandUntrained,
             needed == 0
-                ? $"Only a dagger or a sword goes in the off hand as a second weapon, so {item.Definition} goes in the main hand."
+                ? $"Only a dagger or a sword goes in the off hand as a second weapon, so {NameOf(item.Definition)} goes in the main hand."
                 : string.Create(
                     CultureInfo.InvariantCulture,
-                    $"{member.Profile.Name} needs {worn.Skill} at {(needed == OffHandDaggerTier ? "expert" : "master")} to hold {item.Definition} in the off hand."));
+                    $"{member.Profile.Name} needs {worn.Skill} at {(needed == OffHandDaggerTier ? "expert" : "master")} to hold {NameOf(item.Definition)} in the off hand."));
     }
 
     /// <summary>The rung a member stands at in the skill a word names, or zero when they have not learned it.</summary>

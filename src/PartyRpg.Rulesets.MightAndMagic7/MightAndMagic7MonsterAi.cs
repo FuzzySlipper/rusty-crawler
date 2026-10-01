@@ -272,8 +272,41 @@ internal sealed class MightAndMagic7MonsterAi : IMonsterAiPolicy
             if (nearest is not { } found || candidate.Distance < found.Distance) nearest = candidate;
         }
 
-        return nearest;
+        return nearest is { IsParty: true } ? Victim(situation) : nearest;
     }
+
+    /// <summary>Which member a creature that has chosen the party strikes at.</summary>
+    /// <remarks>
+    /// The donor draws one member at random among those who can still be hit — not paralysed, unconscious,
+    /// dead, petrified or eradicated; a sleeper is still a target — and strikes the first member only when
+    /// nobody is left (<c>OpenEnroth src/Engine/Objects/Actor.cpp:3259-3287</c>, <c>which_player_to_attack</c>).
+    /// Every member stands at the party's own distance, so the draw is over all of them. Approximated: the
+    /// donor first narrows the draw to members matching the creature's attack preference (a class, a sex or
+    /// a race its row names), and this game's creature facts do not read that column, so every member who
+    /// can be hit is equally likely.
+    /// </remarks>
+    private CreatureCandidate Victim(CreatureSituation situation)
+    {
+        List<CreatureCandidate> members = [.. situation.Candidates.Where(candidate => candidate.IsParty)];
+        List<CreatureCandidate> standing = [.. members.Where(candidate => CanBeStruck(candidate.Actor.Subject))];
+        if (standing.Count == 0) return members[0];
+        if (standing.Count == 1 || _random is null) return standing[0];
+        CombatSubject self = situation.Self.Subject;
+        string key = string.Create(CultureInfo.InvariantCulture, $"{self.Place}/{self.Id}/{situation.Round}/victim");
+        long drawn = _random
+            .DrawKeyed(new KeyedRngRequest(AbilityRollSeed, AbilityRollScope, key, 0, standing.Count - 1))
+            .Value;
+        return standing[(int)drawn];
+    }
+
+    /// <summary>Whether a member is one the donor's draw would pick: anyone not laid out past striking.</summary>
+    private static bool CanBeStruck(CombatSubject subject) =>
+        subject.Member is not { } member ||
+        (!member.Conditions.Has(MightAndMagic7Conditions.Paralyzed) &&
+         !member.Conditions.Has(MightAndMagic7Conditions.Unconscious) &&
+         !member.Conditions.Has(MightAndMagic7Conditions.Dead) &&
+         !member.Conditions.Has(MightAndMagic7Conditions.Petrified) &&
+         !member.Conditions.Has(MightAndMagic7Conditions.Eradicated));
 
     /// <summary>Whether a candidate stands inside the distance this creature looks that far.</summary>
     private bool Within(CreatureCandidate candidate, CreatureSituation situation, MightAndMagic7Combat.MonsterFacts facts)

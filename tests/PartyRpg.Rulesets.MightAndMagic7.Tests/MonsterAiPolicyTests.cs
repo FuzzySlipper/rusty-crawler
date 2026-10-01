@@ -1,5 +1,6 @@
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.World;
@@ -124,6 +125,33 @@ public sealed class MonsterAiPolicyTests
         Fixture norandom = Fixture.Of(random: null, engineRoll: 0);
         CombatState still = norandom.Fight();
         Assert.Equal(MightAndMagic7Combat.AbilityAttack1, Decide(norandom, norandom.Ai, still, "caster").Ability);
+    }
+
+    [Fact]
+    public void A_creature_that_chooses_the_party_draws_a_member_who_can_still_be_hit()
+    {
+        // The donor draws among the members not paralysed, unconscious, dead, petrified or eradicated, and
+        // strikes the first member only when nobody is left (OpenEnroth src/Engine/Objects/Actor.cpp:3259-3287).
+        Fixture fixture = Fixture.Of(random: new AlwaysRolls(1), engineRoll: 0);
+        CombatState fight = fixture.Fight();
+        List<Combatant> party = [.. fight.Combatants.Where(combatant => combatant.Side == CombatSide.Party)];
+        Assert.True(party.Count >= 3, $"the fixture's party has {party.Count} members");
+
+        // The draw is the creature's own, and it reaches past the first member.
+        Assert.Equal(party[1].Id, Decide(fixture, fixture.Ai, fight, "brawler").Target);
+
+        // A member laid out is not drawn: the same roll now lands on the next one still standing.
+        party[1].Subject.Member!.Conditions.Apply(new ActiveCondition(MightAndMagic7Conditions.Unconscious));
+        Assert.Equal(party[2].Id, Decide(fixture, fixture.Ai, fight, "brawler").Target);
+
+        // A sleeper is still a target, as in the donor's list.
+        foreach (Combatant member in party.Skip(2)) member.Subject.Member!.Conditions.Apply(new ActiveCondition(MightAndMagic7Conditions.Dead));
+        party[0].Subject.Member!.Conditions.Apply(new ActiveCondition(MightAndMagic7Conditions.Sleep));
+        Assert.Equal(party[0].Id, Decide(fixture, fixture.Ai, fight, "brawler").Target);
+
+        // With nobody left to hit, the first member is struck, which is the donor's own fallback.
+        party[0].Subject.Member!.Conditions.Apply(new ActiveCondition(MightAndMagic7Conditions.Petrified));
+        Assert.Equal(party[0].Id, Decide(fixture, fixture.Ai, fight, "brawler").Target);
     }
 
     [Fact]
@@ -352,6 +380,20 @@ public sealed class MonsterAiPolicyTests
                     { "id": "party", "coins": 200, "food": 6, "reputation": 0, "fame": 0,
                       "members": [
                         { "name": "Roderick", "race": "Human", "class": "Knight", "level": 1,
+                          "hitPoints": 40, "spellPoints": 0, "attributes": [
+                            { "id": "Might", "value": 17 }, { "id": "Accuracy", "value": 15 },
+                            { "id": "Endurance", "value": 15 }, { "id": "Luck", "value": 11 },
+                            { "id": "Speed", "value": 17 }, { "id": "Personality", "value": 11 },
+                            { "id": "Intellect", "value": 11 } ],
+                          "skills": [], "spells": [], "conditions": [] },
+                        { "name": "Aelina", "race": "Human", "class": "Knight", "level": 1,
+                          "hitPoints": 40, "spellPoints": 0, "attributes": [
+                            { "id": "Might", "value": 17 }, { "id": "Accuracy", "value": 15 },
+                            { "id": "Endurance", "value": 15 }, { "id": "Luck", "value": 11 },
+                            { "id": "Speed", "value": 17 }, { "id": "Personality", "value": 11 },
+                            { "id": "Intellect", "value": 11 } ],
+                          "skills": [], "spells": [], "conditions": [] },
+                        { "name": "Borin", "race": "Human", "class": "Knight", "level": 1,
                           "hitPoints": 40, "spellPoints": 0, "attributes": [
                             { "id": "Might", "value": 17 }, { "id": "Accuracy", "value": 15 },
                             { "id": "Endurance", "value": 15 }, { "id": "Luck", "value": 11 },
