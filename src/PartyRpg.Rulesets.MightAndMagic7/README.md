@@ -435,9 +435,10 @@ projectile from a point at the party, this build flies nothing: approximate); `s
 that person opens through the outcome, as using a person does); `check-skill` (a chosen character at the rank and
 exactly the mastery, `OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:517-524`). **Presentation, passed over**: the
 product draws no world and plays no sound, so `set-texture`, `set-sprite`, `play-sound`, `character-animation`,
-`toggle-indoor-light`, and a `set-faces-bit` that only hides a face group change nothing and the event's
-gameplay steps still run — a decision, not a deferral; a `set-faces-bit` that makes a face group passable or
-water states its residue (#8594 for collision, #9030 for water) and runs on. The variables, each through its owner: `quest-bit` (the
+`toggle-indoor-light`, and a `set-faces-bit` that only hides a face group or makes it fluid change nothing and the
+event's gameplay steps still run — a decision, not a deferral (a fluid face is not water a party drowns in, and its
+footsteps, splash and sinking corpses are not modelled); a `set-faces-bit` that makes a face group passable states
+its residue (#8594) and runs on. The variables, each through its owner: `quest-bit` (the
 party record `errand:<bit>` the conversation already reads), `member-bit` (a party record — the donor's is per
 character), `autonote` (a knowledge report of the discovery row: `stat` and `misc` an effect, `obelisk`,
 `teacher` and `seer` a clue, `potion` a recipe), `gold`, `item` (given through the acquisition path,
