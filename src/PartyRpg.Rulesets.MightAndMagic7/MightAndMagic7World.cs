@@ -124,6 +124,10 @@ internal static class MightAndMagic7World
     /// into creatures while it reads the places. Without it an encounter stands as content states it, and no
     /// creature comes from it.
     /// </param>
+    /// <param name="fixtures">
+    /// This game's fixtures, which run the map events a fixture or a decoration raises. Without them a fixture
+    /// is still a target and its use is refused by name.
+    /// </param>
     internal static SessionWorld? Compose(
         ContentCatalog? catalog,
         RulesetSessionContext context,
@@ -138,7 +142,8 @@ internal static class MightAndMagic7World
         MightAndMagic7Quests? quests = null,
         Func<PartyJournal?>? journal = null,
         MightAndMagic7Combat? vitals = null,
-        MightAndMagic7Spawns? spawns = null)
+        MightAndMagic7Spawns? spawns = null,
+        MightAndMagic7Fixtures? fixtures = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(clock);
@@ -214,7 +219,7 @@ internal static class MightAndMagic7World
                 clock,
                 resources,
                 entity,
-                new InteractionPolicy(Interaction(conversation, schedules.Schedule, corpses, loot, journal), MightAndMagic7Movement.Space, MightAndMagic7Interaction.Aim, corpses, context.Interaction),
+                new InteractionPolicy(Interaction(conversation, schedules.Schedule, corpses, loot, journal, fixtures), MightAndMagic7Movement.Space, MightAndMagic7Interaction.Aim, corpses, context.Interaction),
                 schedules.Schedule,
                 creatures,
                 MightAndMagic7Movement.Falls,
@@ -262,9 +267,10 @@ internal static class MightAndMagic7World
         PlaceSchedule schedule,
         MightAndMagic7Corpses? corpses,
         MightAndMagic7Loot? loot,
-        Func<PartyJournal?>? journal)
+        Func<PartyJournal?>? journal,
+        MightAndMagic7Fixtures? fixtures)
     {
-        MightAndMagic7Interaction answers = new(schedule, corpses, loot, journal);
+        MightAndMagic7Interaction answers = new(schedule, corpses, loot, journal, fixtures);
         return conversation is null ? answers : new MightAndMagic7PeopleInteraction(conversation, answers);
     }
 

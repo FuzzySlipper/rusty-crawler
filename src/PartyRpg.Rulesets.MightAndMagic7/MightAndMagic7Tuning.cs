@@ -63,8 +63,16 @@ internal static class MightAndMagic7Tuning
     internal static readonly TuningHandle RoofedRestRations = new("rest.roofed-rations", 2, 0, 100, "the provisions a night under a roof costs");
 
     /// <summary>Every value this game lets a tuning pack adjust.</summary>
+    /// <summary>
+    /// How long a temporary bonus a fixture gives lasts (ours: the donor keeps it until the party next rests,
+    /// OpenEnroth src/Engine/Party.cpp:712, and this build ends a running effect on the clock, so a day — one
+    /// night's rest — is the length chosen).
+    /// </summary>
+    internal static readonly TuningHandle FixtureBonusHours = new("fixture.bonus-hours", 24, 1, 24 * 336, "how many game hours a well's or fountain's temporary bonus lasts");
+
     internal static readonly IReadOnlyList<TuningHandle> Handles =
     [
+        FixtureBonusHours,
         ErrandExperience, ErrandCoins, BountyPerLevel, LessonBasePrice, ShopStockLines, CoachFare, BoatFare, CoachDays, BoatDays, SleepHours, RoofedRestRations,
     ];
 

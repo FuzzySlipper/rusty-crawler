@@ -17,7 +17,8 @@ public sealed class Mm7Tables
         RandomItemsTable randomItems,
         PotionTable potions,
         QuestTable quests,
-        PersonTable people)
+        PersonTable people,
+        DiscoveryTable discoveries)
     {
         Classes = classes;
         Skills = skills;
@@ -31,6 +32,7 @@ public sealed class Mm7Tables
         Potions = potions;
         Quests = quests;
         People = people;
+        Discoveries = discoveries;
     }
 
     /// <summary>Classes and ranks.</summary>
@@ -69,6 +71,9 @@ public sealed class Mm7Tables
     /// <summary>The people the world holds, what they say when met, and what they can be asked about.</summary>
     public PersonTable People { get; }
 
+    /// <summary>The discovery table: the notes a party keeps, by the number a map event sets.</summary>
+    public DiscoveryTable Discoveries { get; }
+
     /// <summary>Reads every typed table from an installation.</summary>
     public static Mm7Tables Read(LodInstall install)
     {
@@ -89,6 +94,7 @@ public sealed class Mm7Tables
             RandomItemsTable.Read(install),
             PotionTable.Read(install, items),
             QuestTable.Read(install),
-            PersonTable.Read(install));
+            PersonTable.Read(install),
+            DiscoveryTable.Read(install));
     }
 }

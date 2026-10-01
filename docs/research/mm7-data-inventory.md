@@ -87,6 +87,23 @@ src_map  src_name              dst_map  dst_name      event_id  step  house_id  
 
 Full data: `travel-edges.tsv` (165 edges), `travel-movetomap.tsv` (all 271 instructions with coordinates), `travel-summary.txt` (per-map in/out counts).
 
+## Fixtures, map events, and the discovery table
+
+A face raises its event when clicked if it carries `FACE_CLICKABLE` (`0x02000000`) and when stepped on if it
+carries `FACE_PRESSURE_PLATE` (`0x04000000`) (`src/Engine/Graphics/FaceEnums.h:34-35`); a decoration with an
+event raises it when clicked (`src/Engine/Graphics/Viewport.cpp:201-213`) **[donor]**. Of the events the places'
+clicked faces and decorations raise, 161 move the party, 476 open a building, 344 open a container, 382 do nothing
+but move doors, and 56 are absent from their program; the other **495 are fixtures' events**, standing as **1,097
+fixtures in 66 places** (one per region model, or per group of an interior's faces within 256 units), with
+**3,271 steps** between them. **56 events** hold a timer trigger, which is how a well's charges are refilled.
+**[data]** Each map's `.str` entry is its string table — NUL-terminated lines, trimmed and unquoted, indexed by the
+number a hint or a status step names (`src/Engine/Engine.cpp:1453-1469`) **[donor]**. `AUTONOTE.TXT` is the
+discovery table: a number, a sentence and a category word (`Stat`, `Obelisk`, `potion`, `teacher`, `Misc`/`misc`)
+per row (`src/Engine/Tables/AutonoteTable.cpp:19-35`) **[donor]**; **186 rows hold a note** and **69 numbered rows
+hold none** (a `0` placeholder or an empty text) **[data]**. The first region holds no obelisk: the fourteen
+obelisk rows name areas 2 to 14 and 39 **[data]**. The ruleset's reading of the steps is in
+`src/PartyRpg.Rulesets.MightAndMagic7/README.md`.
+
 ## Extraction limitations
 
 - **Class → skill availability and mastery gates.** Not in `Events.lod` at all;
@@ -101,16 +118,18 @@ Full data: `travel-edges.tsv` (165 edges), `travel-movetomap.tsv` (all 271 instr
   `dobjlist`, `doverlay`, `dpft`, `dsft`, `dsounds`, `dtft`, `dtile`). Compressed
   binary with no layout documented in the paths I read; `ChestTable.cpp` mentions
   `dchest.bin` but does not give its format.
-- **`.str` files** (76) — binary per-map string/decoration blobs; counted only.
+- **`.str` files** (76) — each map's NUL-separated string table, read for the lines a fixture's hint and
+  status steps name; the decoration names it also holds are not read.
 - **Map geometry** — `.odm`, `.ddm`, `.blv`, `.dlv` are listed with sizes and
   decompress cleanly, but their internal structure was not decoded; byte-exact map
   geometry is explicitly out of scope for the product.
 - **`ICONS.LOD`/`SPRITES.LOD`/`BITMAPS.LOD` pixel data** — storage kinds were sniffed
   and counted and the few text entries decoded, but `LodImageHeader` /
   `LodSpriteHeader` image payloads were not decoded.
-- **`.evt` operands beyond `MoveToMap`** — event id, step and opcode are read, and
-  `MoveToMap` operands are read; other opcodes' operands are not, so opcode
-  *frequencies* are known but opcode *semantics* rest on the donor enum names alone.
+- **`.evt` operands** — every instruction's event id, step and opcode are read and named by the donor's
+  enumeration; operands are read for the moves, container openings, variable comparisons and assignments,
+  text, jumps, character choices, random jumps, damage, season checks and timers a fixture's event uses. The
+  other opcodes' operands are not read, and a fixture step of one of them is written by its word alone.
 - **`MoveToMap` coordinates** are raw `u32`; negative values appear as large unsigned
   numbers (e.g. `4294967295` = −1). The donor parses them the same way, so no
   interpretation was attempted.

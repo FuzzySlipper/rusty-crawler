@@ -331,6 +331,98 @@ internal static partial class PackWriter
             : null;
     }
 
+    /// <summary>The definition kind a place's own map event is declared under.</summary>
+    internal const string PlaceEventDefinitionKind = "place-event";
+
+    /// <summary>The definition kind a row of the discovery table is declared under.</summary>
+    internal const string DiscoveryDefinitionKind = "discovery";
+
+    /// <summary>
+    /// Writes the map events the places' fixtures raise, and the timers that keep what those fixtures give,
+    /// each with its normalized steps.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// An entry's identity is the place and the event number, which is what a fixture placement names: a
+    /// placement says which event its use raises and this document says what the event's steps are, once,
+    /// however many faces raise it. Every step carries the field names <see cref="PlaceEventStep"/> states,
+    /// and only the ones its instruction has, so a reader can tell a step whose operands were read from one
+    /// whose were not.
+    /// </para>
+    /// <para>
+    /// Nothing here says what a step does in play. The words name the donor's own instructions and variables,
+    /// and the ruleset decides which of them it interprets and refuses the rest by name.
+    /// </para>
+    /// </remarks>
+    private static int WritePlaceEvents(string packDirectory, PlaceFixtureSummary fixtures)
+    {
+        List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];
+        foreach (PlaceEvent placeEvent in fixtures.Events)
+        {
+            entries.Add((placeEvent.Id, writer =>
+            {
+                writer.WriteString("place", placeEvent.PlaceId.ToString(CultureInfo.InvariantCulture));
+                writer.WriteNumber("event", placeEvent.EventId);
+                WriteOptionalString(writer, "label", placeEvent.Label);
+                writer.WriteBoolean("raised", placeEvent.Raised);
+                writer.WriteBoolean("timed", placeEvent.Triggered);
+                writer.WriteString("mapFile", placeEvent.FileName);
+                writer.WriteStartArray("steps");
+                foreach (PlaceEventStep step in placeEvent.Steps)
+                {
+                    writer.WriteStartObject();
+                    writer.WriteNumber("step", step.Step);
+                    writer.WriteString("op", step.Op);
+                    WriteOptionalNumber(writer, "opcode", step.Opcode);
+                    WriteOptionalString(writer, "variable", step.Variable);
+                    WriteOptionalString(writer, "which", step.Which);
+                    WriteOptionalNumber(writer, "index", step.Index);
+                    WriteOptionalNumber(writer, "code", step.Code);
+                    WriteOptionalNumber(writer, "value", step.Value);
+                    WriteOptionalNumber(writer, "target", step.Target);
+                    if (step.Targets is { } targets)
+                    {
+                        writer.WriteStartArray("targets");
+                        foreach (int target in targets) writer.WriteNumberValue(target);
+                        writer.WriteEndArray();
+                    }
+
+                    WriteOptionalNumber(writer, "textId", step.TextId);
+                    if (step.Text is { } text) writer.WriteString("text", text);
+                    WriteOptionalString(writer, "who", step.Who);
+                    WriteOptionalNumber(writer, "member", step.Member);
+                    WriteOptionalString(writer, "kind", step.Kind);
+                    WriteOptionalNumber(writer, "amount", step.Amount);
+                    WriteOptionalString(writer, "period", step.Period);
+                    WriteOptionalNumber(writer, "hour", step.Hour);
+                    WriteOptionalNumber(writer, "minute", step.Minute);
+                    WriteOptionalNumber(writer, "halfMinutes", step.HalfMinutes);
+                    writer.WriteEndObject();
+                }
+
+                writer.WriteEndArray();
+            }));
+        }
+
+        return WriteDocument(packDirectory, "place-events.json", "place-events", PlaceEventDefinitionKind, entries);
+    }
+
+    /// <summary>Writes the discovery table: every note a party can keep, by the number a map event sets.</summary>
+    private static int WriteDiscoveries(string packDirectory, Mm7Tables tables)
+    {
+        List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];
+        foreach (DiscoveryRecord row in tables.Discoveries.Rows)
+        {
+            entries.Add((row.Number.ToString(CultureInfo.InvariantCulture), writer =>
+            {
+                writer.WriteString("text", row.Text);
+                writer.WriteString("category", row.Category);
+            }));
+        }
+
+        return WriteDocument(packDirectory, "discoveries.json", "discoveries", DiscoveryDefinitionKind, entries);
+    }
+
     private static int WriteQuests(string packDirectory, Mm7Tables tables)
     {
         List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];

@@ -139,8 +139,9 @@ public sealed record PlaceEntranceSummary(
 /// link rather than rounded to a position: a link the world itself issues, which no place can be walked
 /// into; a link whose event's first move is a different link, which an event's later steps reach only
 /// after its earlier ones have run, so nothing about walking selects it; and a link whose source map
-/// carries no face for its event at all. The last two leave the requirement with the event interpreter
-/// that does not exist yet (#9006), and the summary names every one of them.
+/// carries no face for its event at all. The last two stay with the travel residue (#8577): the ruleset runs
+/// the events of fixtures, which are the raised events no other emitter answers for, and an event that moves
+/// the party is this emitter's rather than a fixture's. The summary names every one of them.
 /// </para>
 /// </remarks>
 public static class PlaceEntranceEmitter

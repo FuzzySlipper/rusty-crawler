@@ -331,7 +331,7 @@ public sealed class KnowledgeTests
         // A refused use changed nothing, so it taught nothing: the fountain and the obelisk of this build are
         // exactly this — a fixture whose event nothing executes, refused by name, with no note written for an
         // event that never ran.
-        InteractionResult refused = InteractionResult.Refused(target, new Refusal("interaction-event-not-executed", "Nothing in this build executes map events."));
+        InteractionResult refused = InteractionResult.Refused(target, new Refusal("fixture-step-not-interpreted", "The event asks for a step this game does not interpret."));
         Assert.False(refused.IsApplied);
         Assert.Empty(refused.Learned);
         Assert.Single(knowledge.Notes);

@@ -235,7 +235,10 @@ Do not build any of these, however convenient they look:
 - a second loop, clock, timer, thread, renderer, or browser authority
 - a class per building type, per spell effect, or per quest
 - state held by UI screens, or UI-side rules evaluation
-- content that carries code, or code that carries content
+- content that carries code, or code that carries content (a place's imported map event is the original's
+  own data — steps in the donor's instruction words — which the ruleset reads by a closed interpretation of
+  the instructions this game's fixtures use and refuses by name for the rest; content cannot add an
+  instruction, and nothing runs a step the ruleset does not name)
 - schema versions, save migrations, or original-format readers
 
 ## 12. What would force a re-plan

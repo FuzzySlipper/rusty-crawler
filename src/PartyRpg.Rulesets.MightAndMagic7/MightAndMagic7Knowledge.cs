@@ -18,20 +18,17 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// words: a <c>stat</c> row is what a landmark gives (<see cref="KnowledgeKind.Effect"/>), an
 /// <c>obelisk</c> row is something written that the party read (<see cref="KnowledgeKind.Clue"/>), a
 /// <c>potion</c> row is a mixture (<see cref="KnowledgeKind.Recipe"/>), and a notable discovery is a
-/// <see cref="KnowledgeKind.Find"/>. A <c>teacher</c>, <c>seer</c>, or <c>misc</c> row is a line about a
-/// person or an event rather than about a place or a thing, and nothing reports one yet: a person's own
-/// lines are the conversation owner's, and neither owner reports discoveries today.
+/// <see cref="KnowledgeKind.Find"/>. A <c>misc</c> row is something a landmark did and is read as an effect, and
+/// a <c>teacher</c> or <c>seer</c> row is something the party was told and is read as a clue
+/// (<see cref="MightAndMagic7Fixtures"/>); a person's own lines are the conversation owner's, which reports
+/// none of them yet.
 /// </para>
 /// <para>
-/// <b>The operator's own data carries both halves of that table's use.</b> The install's rules archive holds
-/// the discovery table itself (207 rows: 39 <c>stat</c>, 14 <c>obelisk</c>, 61 <c>potion</c>, 68
-/// <c>teacher</c>, 13 <c>misc</c>, and 12 empty), and its map event programs set note numbers by the hundred:
-/// 122 instructions across 16 programs add or set a note number, among them one per outdoor region for that
-/// region's obelisk and one for each well or fountain. Neither half is read by this build: the importer reads
-/// no discovery table, and nothing executes a map event, so a fountain cannot be drunk from and an obelisk
-/// cannot be read today — the note a person would see is the row of a table this build does not carry, set by
-/// an instruction nothing runs. What is stated here is therefore the reading the moment those two halves
-/// arrive: the phrase a note of each kind opens with, and the threshold over what is kept.
+/// <b>The operator's own data carries both halves of that table's use.</b> The importer writes the discovery
+/// table as <c>discovery</c> entries (186 rows that hold a note), and the map events that set its rows are run by
+/// the fixture that raises them: a well's step writing note 3 reports that row, and the knowledge owner keeps
+/// it once. What is stated here is the phrase a note of each kind opens with and the threshold over what is
+/// kept.
 /// </para>
 /// <para>
 /// <b>The threshold is this game's, and for a find it is the artifacts and relics.</b> A party that kept a

@@ -231,7 +231,7 @@ public sealed class InteractionTests
     {
         TestRule rule = new();
         rule.Outcomes["lever"] = (_, _) => InteractionOutcome.Refused(
-            new Refusal("interaction-event-not-executed", "A lever raises map event 42, and nothing in this build executes map events."));
+            new Refusal("fixture-step-not-interpreted", "A lever raises event 42, whose step this game does not interpret."));
 
         using Hall hall = Hall.Build(rule, Hall.Facing("lever-0"));
         hall.Interaction.Update();
@@ -239,7 +239,7 @@ public sealed class InteractionTests
 
         // The ruleset's refusal is an outcome like any other: it carries a code, a sentence, and no change.
         Assert.False(refused.IsApplied);
-        Assert.Equal("interaction-event-not-executed", refused.Code);
+        Assert.Equal("fixture-step-not-interpreted", refused.Code);
         Assert.Contains("42", refused.Message, StringComparison.Ordinal);
         Assert.Equal(InteractionVerb.Pull, refused.Verb);
         Assert.Equal(InteractionTargetState.None, hall.Interaction.FocusedTarget!.State);

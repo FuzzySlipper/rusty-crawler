@@ -18,16 +18,15 @@ namespace PartyRpg.Rulesets.MightAndMagic7.Tests;
 /// <summary>
 /// What this game's party learns, through the whole product: the discovery the shipped potion table's own row
 /// records, the finds a search yields and this game judges worth knowing, the notes book that reads them, what
-/// the save carries, and the two discoveries that cannot be made yet — a fountain's effect and an obelisk's
-/// clue, whose words and whose effect are both instructions of a map event nothing executes.
+/// the save carries, and a landmark whose event cannot finish teaching nothing.
 /// </summary>
 /// <remarks>
 /// <para>
 /// The kit's own suite proves the owner with discoveries it states itself. What only this suite can prove is
 /// that this game's readings reach it: the mixture whose row carries a discovery number is reported by the
 /// mixing workflow that made the potion, the artifact a search yields is reported by the search that produced
-/// it, a detection spell writes nothing because it teaches nothing durable, and a landmark whose event nothing
-/// runs teaches nothing at all — refused by name rather than recorded as if the party had drunk from it.
+/// it, a detection spell writes nothing because it teaches nothing durable, and a landmark whose event cannot
+/// finish teaches nothing at all — refused by name rather than recorded as if the party had drunk from it.
 /// </para>
 /// <para>
 /// The composed case is written the way this game's own content is — places, the chests a map records, the
@@ -137,14 +136,15 @@ public sealed class KnowledgePolicyTests
         Assert.Equal(1, ((MightAndMagic7Session)session).Party!.Inventory.TotalOf(new ItemDefinitionId("1")));
         Assert.Equal(1, Book(Notes(ui), "notes").Field("rows").Length());
 
-        // A landmark whose effect and whose note are both instructions of a map event: nothing in this build
-        // executes one, so the use is refused by name and the party learns nothing. This is the fountain and
-        // the obelisk of the operator's own data, and the note is not written for an event that never ran.
+        // A landmark whose effect and whose note are both steps of its map event: the event's run reaches a
+        // step this game does not interpret, so the use is refused by name and the party learns nothing — the
+        // note is not written for an event that never finished, even though the note's own step came first.
         Arrive(session, ui, "3");
         session.Update(RulesetTestContext.Update(4, 1, RulesetTestContext.Digital(Declared.UseIntent)));
         ProjectedNode interaction = ProjectedNode.Of(ui.Latest().Value).Field("interaction");
-        Assert.Equal("interaction-event-not-executed", interaction.Field("code").AsString());
+        Assert.Equal("fixture-step-not-interpreted", interaction.Field("code").AsString());
         Assert.Contains("150", interaction.Field("message").AsString(), StringComparison.Ordinal);
+        Assert.Contains("cast-spell", interaction.Field("message").AsString(), StringComparison.Ordinal);
         Assert.Equal(1, Book(Notes(ui), "notes").Field("rows").Length());
 
         // What the party knows is the save's own section, carried as the game time it was learned and never as
@@ -387,6 +387,8 @@ public sealed class KnowledgePolicyTests
                 { "path": "items.json", "documentId": "items", "definitionKind": "item" },
                 { "path": "potions.json", "documentId": "potions", "definitionKind": "potion" },
                 { "path": "spells.json", "documentId": "spells", "definitionKind": "spell" },
+                { "path": "events.json", "documentId": "events", "definitionKind": "place-event" },
+                { "path": "discoveries.json", "documentId": "discoveries", "definitionKind": "discovery" },
                 { "path": "skills.json", "documentId": "skills", "definitionKind": "skill" },
                 { "path": "start.json", "documentId": "start", "definitionKind": "scenario-start" },
                 { "path": "party.json", "documentId": "party", "definitionKind": "scenario-party" }
@@ -441,6 +443,30 @@ public sealed class KnowledgePolicyTests
                 { "id": "223", "name": "Magic Potion", "description": "Blue Potion", "effect": "Restore 10+skill MP", "kind": "potion", "units": [0, 1, 0], "tier": 0, "mixtures": { "222": "226", "223": "none" } },
                 { "id": "226", "name": "Cure Poison", "description": "Purple Potion", "effect": "Remove Poison 1,2,3 cond", "kind": "potion", "units": [1, 0, 1], "tier": 1, "mixtures": { "222": "none", "223": "none" } }
               ]
+            }
+            """),
+        // The landmark's event writes its note and then reaches a step this game does not interpret — the
+        // shipped language's spell cast — so the run is refused whole and the note is never written.
+        ($"{RulesetTestContext.ContentDirectory}/content-packs/world/events.json",
+            """
+            {
+              "documentId": "events",
+              "definitionKind": "place-event",
+              "entries": [
+                { "id": "3.150", "place": "3", "event": 150, "label": "Drink from the Fountain", "raised": true,
+                  "steps": [
+                    { "step": 0, "op": "add", "variable": "autonote", "value": 2 },
+                    { "step": 1, "op": "cast-spell" },
+                    { "step": 2, "op": "exit" } ] }
+              ]
+            }
+            """),
+        ($"{RulesetTestContext.ContentDirectory}/content-packs/world/discoveries.json",
+            """
+            {
+              "documentId": "discoveries",
+              "definitionKind": "discovery",
+              "entries": [ { "id": "2", "text": "50 points of temporary Fire resistance from the central town well.", "category": "stat" } ]
             }
             """),
         ($"{RulesetTestContext.ContentDirectory}/content-packs/world/spells.json",

@@ -36,7 +36,7 @@ public readonly record struct InteractionItemYield
 /// <para>
 /// The ruleset answers with this and the kit applies it, which is the split the whole mechanism rests on: a
 /// rule says what a door becomes, what a search finds, what a sign says, or that the fixture raises an event
-/// nothing executes; the kit moves the party's own accounts, records the target's state, and reports it.
+/// it will not run; the kit moves the party's own accounts, records the target's state, and reports it.
 /// </para>
 /// <para>
 /// <b>A refusal is an outcome too.</b> A door that already stands open, a fixture whose event nothing can

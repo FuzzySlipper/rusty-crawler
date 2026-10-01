@@ -70,6 +70,9 @@ public static class Mm7TableSources
     /// <summary>What a person answers with, keyed by the number a topic names.</summary>
     public static LodSource TopicTexts { get; } = new("npc-texts", RulesArchive, "npctext.txt");
 
+    /// <summary>The discovery table: the auto notes a party keeps, which map events set by number.</summary>
+    public static LodSource Discoveries { get; } = new("discoveries", RulesArchive, "autonote.txt");
+
     /// <summary>Every declared table source.</summary>
     public static IReadOnlyList<LodSource> All { get; } =
     [
@@ -89,5 +92,6 @@ public static class Mm7TableSources
         Greetings,
         Topics,
         TopicTexts,
+        Discoveries,
     ];
 }

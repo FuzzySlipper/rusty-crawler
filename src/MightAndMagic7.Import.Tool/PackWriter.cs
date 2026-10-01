@@ -31,6 +31,11 @@ namespace MightAndMagic7.Import.Tool;
 /// What the levels' spawn records produced: the encounter each actor spawn asks for, and every record nothing
 /// was emitted for with its reason.
 /// </param>
+/// <param name="Maps">What the places' automaps hold.</param>
+/// <param name="Fixtures">
+/// What the fixture emission produced: the things whose use raises one of a place's own events, the events
+/// themselves, and the raised events another emitter answers for.
+/// </param>
 internal sealed record PackWriteResult(
     string OutputRoot,
     InstallProvenance Provenance,
@@ -41,7 +46,8 @@ internal sealed record PackWriteResult(
     PlaceServiceSummary Services,
     PlacePeopleSummary People,
     PlaceEncounterSummary Encounters,
-    PlaceMapSummary Maps)
+    PlaceMapSummary Maps,
+    PlaceFixtureSummary Fixtures)
 {
     /// <summary>The pack ids, in the order they were written.</summary>
     internal IReadOnlyList<string> PackIds => [.. Packs.Select(pack => pack.PackId)];
@@ -69,7 +75,7 @@ internal static partial class PackWriter
     /// leaving a checker to infer absence from a missing key.
     /// </remarks>
     private static readonly string[] PlacementKinds =
-        ["spawn", "encounter", "decoration", "door", "light", "container", "sprite", "service", "residence", "person"];
+        ["spawn", "encounter", "decoration", "door", "light", "container", "sprite", "service", "residence", "person", "fixture"];
 
     /// <summary>How much of a place's map data an import reads.</summary>
     internal enum MapDetail
@@ -136,6 +142,13 @@ internal static partial class PackWriter
         // spawn point and the encounter it asks for are one reading of one record rather than two.
         PlaceEncounterSummary encounters = PlaceEncounters.Emit(tables, maps);
 
+        // The fixtures are the raised events no other emitter answers for, read from the same decoded faces
+        // and the same programs the reaches, containers and counters are, with the text their steps print
+        // resolved from each map's own string table.
+        PlaceFixtureSummary fixtures = maps.Count == 0
+            ? PlaceFixtureSummary.Empty
+            : PlaceFixtureEmitter.Emit(maps, programs, MapStrings.ReadAll(install));
+
         // Each pack this importer owns is written into an empty directory, so a document an earlier importer
         // wrote and this one does not is not left beside the new ones for the loader to find. Other packs under
         // the same root — a scenario the operator staged — are not this importer's and are left alone.
@@ -157,11 +170,11 @@ internal static partial class PackWriter
             services);
         List<(string, int, int)> packs =
         [
-            WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers, services, people, encounters),
+            WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers, services, people, encounters, fixtures),
             world,
         ];
         WriteBundleFragment(outputRoot, provenance, packs);
-        return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions), entrances, containers, services, people, encounters, mapped);
+        return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions), entrances, containers, services, people, encounters, mapped, fixtures);
     }
 
     /// <summary>
@@ -247,11 +260,14 @@ internal static partial class PackWriter
         PlaceContainerSummary containers,
         PlaceServiceSummary services,
         PlacePeopleSummary people,
-        PlaceEncounterSummary encounters)
+        PlaceEncounterSummary encounters,
+        PlaceFixtureSummary fixtures)
     {
         List<(string Path, string DocumentId, string Kind, int Entries)> documents =
         [
-            ("places.json", "places", "place", WritePlaces(packDirectory, tables, maps, containers, services, people, encounters)),
+            ("places.json", "places", "place", WritePlaces(packDirectory, tables, maps, containers, services, people, encounters, fixtures)),
+            ("place-events.json", "place-events", PlaceEventDefinitionKind, WritePlaceEvents(packDirectory, fixtures)),
+            ("discoveries.json", "discoveries", DiscoveryDefinitionKind, WriteDiscoveries(packDirectory, tables)),
             ("people.json", "people", PlacePeopleEmitter.PersonDefinitionKind, WritePeople(packDirectory, people)),
             ("services.json", "services", "service", WriteServices(packDirectory, services)),
             ("classes.json", "classes", "class", WriteClasses(packDirectory, tables)),
@@ -279,6 +295,13 @@ internal static partial class PackWriter
                 .SelectMany(placement => placement.Variants)
                 .Select(variant => $"monster:{variant.MonsterId.ToString(CultureInfo.InvariantCulture)}").Distinct().Order(StringComparer.Ordinal),
         ];
+        // A place's own events name the place whose program holds them, so the document refers to each: an
+        // event for a place the pack does not carry is then a load defect rather than a program nothing runs.
+        IReadOnlyList<string> eventReferences =
+        [
+            .. fixtures.Events.Select(placeEvent => placeEvent.PlaceId).Distinct().Order()
+                .Select(place => $"place:{place.ToString(CultureInfo.InvariantCulture)}"),
+        ];
         WriteManifest(
             packDirectory,
             "mm7-tables",
@@ -288,7 +311,12 @@ internal static partial class PackWriter
                 document.Path,
                 document.DocumentId,
                 document.Kind,
-                (IReadOnlyList<string>)(string.Equals(document.DocumentId, "places", StringComparison.Ordinal) ? peopleReferences : [])))]);
+                (IReadOnlyList<string>)(document.DocumentId switch
+                {
+                    "places" => peopleReferences,
+                    "place-events" => eventReferences,
+                    _ => [],
+                })))]);
         return ("mm7-tables", documents.Count, documents.Sum(document => document.Entries));
     }
 

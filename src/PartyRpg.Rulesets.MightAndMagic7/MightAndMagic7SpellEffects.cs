@@ -220,6 +220,37 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     /// <returns>The magnitude it acts at, or zero when the character does not carry it.</returns>
     public int MagnitudeOn(PartyMember member, EffectId effect) => _running?.MagnitudeOn(member, effect) ?? 0;
 
+    /// <summary>
+    /// Leaves a temporary resistance on one character that something other than a spell gave them: a well, a
+    /// fountain, an altar.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It is the same carried effect a ward leaves, through the same ledger, because the fight reads one
+    /// resistance per kind from it (<see cref="SpellEffectIds.Resistance"/>) and a second store of resistances
+    /// would be a second answer to that question. The ledger is created over the party here when no casting
+    /// has created it yet, exactly as a first casting does.
+    /// </para>
+    /// <para>
+    /// <b>An adaptation, stated.</b> The donor keeps a well's bonus in a field of its own beside a spell's
+    /// buff and adds the two (OpenEnroth <c>src/Engine/Objects/Character.cpp:2986-2995</c>, which clears the
+    /// bonuses on rest); here the two share one magnitude per kind, so a ward cast afterwards replaces a well's
+    /// bonus rather than adding to it, and the bonus ends on the clock rather than at the next rest.
+    /// </para>
+    /// </remarks>
+    /// <param name="party">The party the character belongs to.</param>
+    /// <param name="member">The character.</param>
+    /// <param name="kind">The kind of harm resisted.</param>
+    /// <param name="magnitude">How much is resisted.</param>
+    /// <param name="lasts">How long it lasts.</param>
+    internal void Resist(PartyEntity party, PartyMember member, DamageKindId kind, int magnitude, GameDuration lasts)
+    {
+        ArgumentNullException.ThrowIfNull(party);
+        ArgumentNullException.ThrowIfNull(member);
+        _running ??= new RunningSpellEffects(party, _clock, carrier => !LaidOut(carrier));
+        _running.StartOn(member, SpellEffectIds.Resistance(kind), magnitude, lasts);
+    }
+
     /// <inheritdoc />
     /// <remarks>
     /// The light is read against the clock's own daylight window, which is the whole of what brightness is in
