@@ -113,7 +113,11 @@ grouped by mechanism: `CombatRules`, `ProgressionRules`, `MagicRules`, `AlchemyR
 the update applies a player's acts through `SessionActs`, drives the fight in either pacing through
 `CombatDriver` and `ActControl`, hands a conversation's offer to its owner through the exhaustive
 `ConversationHandoffRouter` over the closed `HandoffOwner` list, and settles save requests through
-`SaveRequests`. Every reader takes its actions from one `ActionInbox` per update — each payload parsed
+`SaveRequests`. The session answers a playtest harness between updates without stepping anything:
+`IGameSession.Inspect` returns the snapshot its projection is built from (the world read live), and
+`IGameSession.Look` turns the party through its pose owner's facing rule when its turn keys would;
+`PlaytestReadout` writes that snapshot as the compact observation and states, once, whether the movement keys
+would step the party now (`PlaytestReadout.Steering`, refusing with a `PlaytestCodes` code). Every reader takes its actions from one `ActionInbox` per update — each payload parsed
 once, each semantic action's name the kit's own constant beside its reader, a product declaring only keys
 and contracts — and an action on the session's contracts that nothing took is reported as
 `action-unclaimed`; the live
@@ -244,7 +248,9 @@ alike, taking harm into the party's own pool, keeping `CharacterResources.Defici
 it went, and asking the `ICharacterHealthRule` seam which condition the wound leaves and which it moves
 past), and the one interaction mechanism
 (`Interaction/` — an `InteractionTarget` discovered from the place's own placements and the party's pose
-rather than from a list, with the engine's own reticle selection composed over the candidates, one use
+rather than from a list, with the engine's own reticle selection composed over the candidates — the product's
+one `InteractionSelection`, which outlives every world so an inspection registered once reads the focus the
+live world holds, with targeted use off — one use
 workflow that identifies the target, judges each `InteractionRequirement` in the order the ruleset stated
 them, settles what the use costs through the party's one settlement path, asks the ruleset what the use
 produces, applies it against the party's owners, records the `InteractionTargetState` that use left, and

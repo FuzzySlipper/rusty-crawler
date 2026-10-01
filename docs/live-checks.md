@@ -23,8 +23,8 @@ rusty dev --project src/PartyRpg.Host/PartyRpg.Host.csproj \
   Den choosing host and port.
 - **The runtime needs a GPU adapter** (a software Vulkan driver counts); without one the load fails.
 - The product draws no world: the frame is empty and the game is the DOM panel over it. `--live-debug`
-  exposes the Engine's debug surface; the product registers no gameplay debug modules of its own yet, so
-  the panel is the way to read gameplay state.
+  exposes the Engine's debug surface, where the product registers the playtest and interaction commands
+  ([Reading gameplay state](#reading-gameplay-state)): read gameplay state there, not from the panel.
 - Wait for the host to log that the runtime was replaced. A content refusal appears in the same log as the
   product's own sentence (`Rusty Crawler cannot start: <reason>`); a refused start has loaded nothing.
 
@@ -45,10 +45,43 @@ committed.
   `cp -r` copies the link and a write through it edits the other checkout. Copy with
   `cp -rL <pack>/. <variant>/` and check `readlink -f` before writing.
 
+## Reading gameplay state
+
+With `--live-debug` the product answers the Engine's playtest commands from the session it holds at that
+moment. Each is a plain-text `POST` to the host's debug route, with the bound origin; a refused command is
+`422` with the refusal's code and sentence:
+
+```sh
+curl -s -X POST -H 'Content-Type: text/plain; charset=utf-8' -H "Origin: http://<address>:<port>" \
+  --data-binary 'playtest.observe' http://<address>:<port>/__rusty/product/runtime/debug/execute
+```
+
+- **`playtest.observe`** — the session's mode and admitted steps; `steering` (whether a held movement key would
+  step the party now, and why not); `place` and `pose` (the party's feet in the place's own coordinates, yaw and
+  pitch in facing units, 2048 to a turn here, growing to the left); the last movement step (`grounded`,
+  `blocked`); `facing` (what the reticle holds, its verb, state, distance and reason, and the last use's
+  outcome and refusal code); `combat.hostile` (every actor fighting the party with its distance, health and
+  activity) and `combat.members`; and which screen is open. It is the snapshot the panel is built from, read
+  without stepping anything.
+- **`playtest.action <intent>`** — one declared control: its physical key (`KeyW`, `Space`, `Enter`), hold or
+  tap, a nominal input window (not a game timing), and whether the session would take it now with the reason
+  when not. `playtest.help` lists every intent.
+- **`playtest.look <yaw> 0`** — turns the party by degrees (positive right) through its facing rule, between
+  updates and without advancing time; refused while the party could not turn with its keys, and for any pitch.
+- **`interaction.inspect`** — every candidate the reticle considers, which one it holds, and each one's
+  reach, visibility and signed yaw to it: `playtest.look` by that yaw faces it. Targeted `interaction.use` is
+  off; use what is faced with its key (`party.use`).
+
+Input without a page is the Engine's harness claim (`control/claim` with the runtime binding that
+`engine.renderer.presentation` reports, then `input` batches of `{"kind":"key","code":"key-w",...}` facts in the
+`gameplay.default` context, then `control/release`; see the Engine's playtest-inspection guide). A check reads
+`playtest.observe` before and after a press rather than a screenshot or the panel's rows. A reading taken this way is in
+[`evidence/playtest-observe.md`](evidence/playtest-observe.md).
+
 ## Staging a pose
 
-When no scenario entry point stands near what a check needs, stage the pose through a save instead of
-walking there:
+Walk and turn to a nearby spot with the harness input and `playtest.observe` as the feedback loop. When no
+scenario entry point stands near what a check needs, stage the pose through a save instead of walking there:
 
 1. Play to any point, and save (`F`, or the panel's save control). The save is the checkout's persistence
    store, slot `session` (`.runtime/persistence/sessions/session`): the header `RSP2`, a little-endian u64
@@ -80,10 +113,10 @@ service's game list is edited.
 - **`input` holds take virtual-key codes**, not names: W 87, A 65, S 68, D 83, Q 81, E 69, G 71 (use),
   P 80 (pause), F 70 (save), B 66 (act), Enter 13 (pacing), Space 32. The declared keys are listed in
   [`../src/PartyRpg.Host/README.md`](../src/PartyRpg.Host/README.md).
-- Keys are held, not tapped, and the panel's `Position` row is the feedback loop: turn until the bearing is
-  right, walk, re-read. At 60 steps a second a held `W` walks about 382 units a second and a held `Q`/`E`
-  turns about 512 facing units a second (2048 to a turn). The panel cannot tell a blocked direction from an
-  input that never arrived.
+- Keys are held, not tapped, and `playtest.observe` is the feedback loop: turn until the bearing is right
+  (or `playtest.look`), walk, re-read. At 60 steps a second a held `W` walks about 382 units a second and a
+  held `Q`/`E` turns about 512 facing units a second (2048 to a turn). `movement.blocked` tells a blocked
+  direction from an input that never arrived, which the panel cannot.
 - **Read the panel's rows, not a screenshot, for exact words**: `inspect` returns each matched element's
   `innerText`; `.crawler-session dt` / `dd` give the facts in order, `.crawler-use-result` and
   `.crawler-use-residue` the last use's sentence and residue, and the panel's `data-*` attributes and its

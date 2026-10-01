@@ -6,6 +6,7 @@ using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
 using Rusty.Engine;
+using Rusty.Engine.Debugging;
 
 namespace PartyRpg.Host;
 
@@ -30,8 +31,14 @@ namespace PartyRpg.Host;
 /// that reads them. Nothing here saves: the request travels with the admitted input into the session's one
 /// update and reaches the explicit save boundary there.
 /// </para>
+/// <para>
+/// The product registers the Engine's playtest and interaction inspection in the generated debug catalog, which
+/// the Engine creates once for the product's whole life. A session is replaced on restart and a world when
+/// creation is accepted, so every playtest query resolves the session held at the moment it is asked, and the
+/// one interaction selection the inspection reads is the host's, handed to every session it composes.
+/// </para>
 /// </remarks>
-public sealed class CrawlerProduct : IEngineProduct
+public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
 {
     private readonly ProductCreateContext _context;
     private readonly IGameRuleset _ruleset;
@@ -50,6 +57,8 @@ public sealed class CrawlerProduct : IEngineProduct
     private readonly ControlKeys _keys;
     private readonly BundleSelection _selection;
     private readonly ContentCatalog? _content;
+    private readonly InteractionSelection _interaction = new();
+    private readonly IReadOnlyList<ProductPlaytest.Binding> _bindings;
     private IGameSession _session;
     private bool _started;
     private bool _shutdown;
@@ -139,6 +148,7 @@ public sealed class CrawlerProduct : IEngineProduct
         // Which key each control is bound to is the project file's declaration, handed back by the engine: the
         // panel names those keys and no others.
         _keys = ProductControlKeys.Read(context.Input);
+        _bindings = ProductPlaytest.Bindings(context.Input);
         (_selection, _content) = SelectBundle(context, bundleId ?? BuiltInBundles.Default, ruleset.Id);
         _session = CreateSession();
     }
@@ -230,6 +240,31 @@ public sealed class CrawlerProduct : IEngineProduct
     public void Dispose() => Shutdown();
 
     /// <summary>
+    /// Registers the Engine's playtest and interaction inspection over this product's live state.
+    /// </summary>
+    /// <remarks>
+    /// The playtest module answers <c>playtest.observe</c>, <c>playtest.action</c>, and <c>playtest.look</c> from the
+    /// session held when each is asked. The interaction module reads the host's one selection, which the live
+    /// world aims through, so <c>interaction.inspect</c> lists what the party could face and which one it does;
+    /// targeted use is off, because a use reaches the world only through the party's own use control. A module
+    /// the catalog refuses stops the product here by name: a debug surface that silently lacks a command would
+    /// send a live check back to scraping the panel without saying why.
+    /// </remarks>
+    /// <param name="registrar">The generated catalog's registration surface.</param>
+    /// <exception cref="InvalidOperationException">The catalog refused a module.</exception>
+    public void RegisterDebugCommands(IDebugCommandModuleRegistrar registrar)
+    {
+        ArgumentNullException.ThrowIfNull(registrar);
+        Require(registrar.Register(ProductPlaytest.Module(_bindings, () => _session)));
+        Require(registrar.Register(new InteractionDebugModule(_interaction.Interaction)));
+
+        static void Require(DebugCommandRegistrationResult registration)
+        {
+            if (!registration.Succeeded) throw new InvalidOperationException(registration.Message);
+        }
+    }
+
+    /// <summary>
     /// Applies this update's input to the session and then advances it. Input is settled first so a
     /// hold issued in this update is already in force when the session steps, and the projection it
     /// publishes describes the session the player just put it in.
@@ -271,7 +306,8 @@ public sealed class CrawlerProduct : IEngineProduct
                 Skills: _skills,
                 Cast: _cast,
                 Mix: _mix,
-                Keys: _keys);
+                Keys: _keys,
+                Interaction: _interaction);
 
             // The start switch travels with the context and is answered at the ruleset's one composition
             // entry: a resumed run reads the save the slot holds and composes a session from it, and a slot

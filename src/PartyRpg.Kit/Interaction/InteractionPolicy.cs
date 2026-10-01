@@ -21,4 +21,8 @@ namespace PartyRpg.Kit.Interaction;
 /// whose fights leave nothing. It is named here rather than discovered on the rule, so a rule that wraps
 /// another cannot drop it by not forwarding it.
 /// </param>
-public sealed record InteractionPolicy(IInteractionRule Rule, PlaceSpace Space, InteractionTuning Tuning, ICorpseSource? Corpses = null);
+/// <param name="Selection">
+/// The product's one selection, which the world's mechanism aims through so an inspection from outside the
+/// session reads the focus the party actually holds; null when nothing outside the session reads it.
+/// </param>
+public sealed record InteractionPolicy(IInteractionRule Rule, PlaceSpace Space, InteractionTuning Tuning, ICorpseSource? Corpses = null, InteractionSelection? Selection = null);

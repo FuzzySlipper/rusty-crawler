@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Presentation;
 using Rusty.Engine;
 
 namespace PartyRpg.Kit.Sessions;
@@ -28,4 +29,21 @@ public interface IGameSession : IDisposable
 
     /// <summary>Advances the session inside the engine-admitted update and republishes its presentation.</summary>
     ProductUpdateResult Update(ProductUpdate update);
+
+    /// <summary>
+    /// Reads the session's facts as its projection reads them, without stepping or publishing anything.
+    /// </summary>
+    /// <remarks>
+    /// This is what a playtest harness observes between updates. The world is read live rather than from the
+    /// last update's copy, so a look taken since that update is already in the pose it reports.
+    /// </remarks>
+    SessionSnapshot Inspect();
+
+    /// <summary>
+    /// Turns the party's facing by a relative look, between admitted updates and without advancing anything.
+    /// </summary>
+    /// <param name="yawDegrees">How far to turn, in degrees; positive turns right.</param>
+    /// <param name="pitchDegrees">How far to look up, in degrees; positive looks up.</param>
+    /// <returns>Why the look was refused, or null when the party turned.</returns>
+    Refusal? Look(double yawDegrees, double pitchDegrees);
 }

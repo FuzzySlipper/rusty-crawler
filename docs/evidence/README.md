@@ -18,3 +18,4 @@ What is published here is text only: no game data, no screenshots, no saves, and
 | [`turn-based.md`](turn-based.md) | One fight switched between real time and rounds keeps every position, condition and recovery debt. |
 | [`promotions.md`](promotions.md) | A character promoted through both stages from the people who give the ranks, with the light/dark choice closing the opposed school. |
 | [`quests-journal-live.md`](quests-journal-live.md) | An errand heard, taken, done and turned in, and the journal carried through a save, a day and a resume. |
+| [`playtest-observe.md`](playtest-observe.md) | `playtest.observe`, `playtest.action`, `playtest.look` and `interaction.inspect` read the running product's place, pose, hostiles and controls without the panel. |

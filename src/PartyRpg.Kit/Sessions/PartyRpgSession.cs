@@ -280,6 +280,49 @@ public sealed class PartyRpgSession : IGameSession
         return ProductUpdateResult.None;
     }
 
+    /// <inheritdoc />
+    public SessionSnapshot Inspect()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        // The world is read live: a look between updates turns the party, and the update's own copy would still
+        // show the facing it had before.
+        return Snapshot() with { World = LiveWorld?.Snapshot ?? _world };
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// A look turns the party exactly as its turn controls do — through the pose owner's facing rule — and only
+    /// when those controls would: a session that would not step the party for a held turn key does not turn it
+    /// for a look either. The party does not look up or down in play, because no control pitches it, so a look
+    /// with any pitch is refused rather than leaving the party at a pitch play could never reach. What the party
+    /// faces is re-aimed by the next admitted update, as it is after a turn key.
+    /// </remarks>
+    public Refusal? Look(double yawDegrees, double pitchDegrees)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!double.IsFinite(yawDegrees) || !double.IsFinite(pitchDegrees))
+        {
+            return new Refusal(PlaytestCodes.LookNotANumber, "A look must turn by a number of degrees.");
+        }
+
+        if (pitchDegrees != 0)
+        {
+            return new Refusal(
+                PlaytestCodes.LookNoPitch,
+                "The party turns but does not look up or down: no control pitches it in play, so a look is a yaw alone.");
+        }
+
+        if (PlaytestReadout.Steering(Inspect()) is { } refused) return refused;
+        if (LiveWorld is not { } world) return new Refusal(PlaytestCodes.SteerNoWorld, "The session holds no places, so there is nowhere to turn.");
+
+        // A look turns right for a positive yaw; the party's facing grows as it turns left, which is the sign its
+        // own turn-left control drives it by.
+        PartyPoseOwner party = world.Party;
+        party.Turn(-yawDegrees / 360.0 * party.Facing.UnitsPerTurn, 0);
+        return null;
+    }
+
     /// <summary>Applies one admitted update to the session, without publishing anything.</summary>
     /// <returns>Whether the update carried any input at all.</returns>
     private bool Consume(ProductUpdate update)

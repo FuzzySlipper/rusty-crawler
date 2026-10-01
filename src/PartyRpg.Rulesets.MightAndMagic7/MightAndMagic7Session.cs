@@ -1,3 +1,4 @@
+using PartyRpg.Kit;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Input;
@@ -7,6 +8,7 @@ using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
+using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Quests;
 using PartyRpg.Kit.Rulesets;
@@ -563,6 +565,12 @@ internal sealed class MightAndMagic7Session : IGameSession
 
     /// <inheritdoc />
     public ProductUpdateResult Update(ProductUpdate update) => _session.Update(update);
+
+    /// <inheritdoc />
+    public SessionSnapshot Inspect() => _session.Inspect();
+
+    /// <inheritdoc />
+    public Refusal? Look(double yawDegrees, double pitchDegrees) => _session.Look(yawDegrees, pitchDegrees);
 
     /// <inheritdoc />
     public void Dispose() => _session.Dispose();
