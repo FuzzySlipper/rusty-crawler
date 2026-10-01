@@ -108,7 +108,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 - **Combat.** One fight over the live world with two pacings over one recovery quantity, one resolution
   path, conditions up to death, corpses and loot through the container mechanism, and cleared places
   restored by the clock. Creatures come from `encounter` placements the ruleset resolves when a place is
-  populated, and this game's AI orders them through the gate the player's control uses.
+  populated, and this game's AI orders them through the gate the player's control uses. What a spell leaves
+  on a creature is the creature's own state, and a charm or a binding puts it on the party's `Ally` side.
 - **Growth and magic.** `PartyProgression` is the one writer of experience, levels, skill points, ranks and
   promotions (the light/dark choice lives in the character's class and is irreversible). Skills have four
   masteries under this game's ceilings; nine schools and 99 spells share one casting workflow whose eight
@@ -144,8 +145,9 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   an order commands every member rather than a selected one (#8659); base and racial resistances and the
   master dagger's triple blow are not read (#9026).
 - Stone 7, progression and magic: training takes no game time (#8671); the two counted deeds two ranks need
-  have no writer (#8689); a laid-out member can be promoted (#8705); effects marked "not yet" in
-  `docs/magic-coverage.md` (#9007; item-aimed ones #8513; followers #8514).
+  have no writer (#8689); a laid-out member can be promoted (#8705); flight, water walking and breathing, and
+  a creature summoned or raised to fight for the party are "not yet" in `docs/magic-coverage.md` (#9007;
+  item-aimed effects #8513; followers #8514).
 - Stone 8, record: an errand's item is protected only from sale (#8687); stealing, and a fine carried as a
   debt, have no owner (#9025).
 
