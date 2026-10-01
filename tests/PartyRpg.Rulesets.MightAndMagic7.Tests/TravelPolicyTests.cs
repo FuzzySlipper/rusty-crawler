@@ -1,6 +1,7 @@
 using PartyRpg.Kit;
 using System.Text.RegularExpressions;
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Rulesets;
@@ -45,8 +46,15 @@ public sealed class TravelPolicyTests
             fame: 0));
         PartyRpg.Kit.Movement.FallOutcome fall = new(Distance: 600, Excess: 600 - 512, Damage: 0);
 
-        Assert.Equal(9, MightAndMagic7Movement.Falls.DamageTo(party.Members[0], fall));
-        Assert.Equal(21, MightAndMagic7Movement.Falls.DamageTo(party.Members[1], fall));
+        IFallRule falls = MightAndMagic7Movement.Falls(party);
+        Assert.Equal(9, falls.DamageTo(party.Members[0], fall));
+        Assert.Equal(21, falls.DamageTo(party.Members[1], fall));
+
+        // A feather fall the party carries spares every member the landing (OpenEnroth
+        // src/Engine/Graphics/Outdoor.cpp:1426, !partyHasFeatherFall).
+        new PartyRpg.Kit.Magic.RunningSpellEffects(party).Start(SpellEffectIds.FeatherFall, magnitude: 1, lasts: null);
+        Assert.Equal(0, falls.DamageTo(party.Members[0], fall));
+        Assert.Equal(0, falls.DamageTo(party.Members[1], fall));
 
         static MemberCreation Member(string name, int hitPoints) => new(new PartyMemberSeed(
             name,

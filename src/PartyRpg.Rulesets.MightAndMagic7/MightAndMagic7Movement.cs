@@ -190,8 +190,9 @@ internal static class MightAndMagic7Movement
         };
     }
 
-    /// <summary>What a landing past the threshold does to each member, as this game prices it.</summary>
-    internal static IFallRule Falls { get; } = new FallDamage();
+    /// <summary>What a landing past the threshold does to each member of a party, as this game prices it.</summary>
+    /// <param name="party">The party whose carried effects can spare it a fall, or null for a world without one.</param>
+    internal static IFallRule Falls(PartyEntity? party) => new FallDamage(party);
 
     /// <summary>
     /// How this game's places are navigated: artifacts projected into one grid in cubic chunks of sixteen cells
@@ -208,13 +209,16 @@ internal static class MightAndMagic7Movement
     /// <remarks>
     /// Faithful to the arithmetic of OpenEnroth <c>src/Engine/Party.cpp:1028-1037</c> (<c>giveFallDamage</c>),
     /// called for a fall of more than 512 units (<c>src/Engine/Graphics/Outdoor.cpp:1426-1432</c>), which is
-    /// this game's <see cref="FallThreshold"/>. Two parts are not applied: the donor spares a member wearing an
-    /// item of feather falling, and item enchantments do not exist in this build yet; and it sets a recovery
-    /// on each member, which is combat recovery this landing does not charge.
+    /// this game's <see cref="FallThreshold"/>, and never while the party carries a feather fall
+    /// (<c>Outdoor.cpp:1426</c>, <c>!partyHasFeatherFall</c>). Two parts are not applied: the donor spares a member
+    /// wearing an item of feather falling, and item enchantments do not exist in this build yet (#8513); and it
+    /// sets a recovery on each member, which is combat recovery this landing does not charge.
     /// </remarks>
-    private sealed class FallDamage : IFallRule
+    private sealed class FallDamage(PartyEntity? party) : IFallRule
     {
         public int DamageTo(PartyMember member, FallOutcome fall) =>
-            (int)(fall.Distance * (member.Resources.HitPoints.Maximum / 10)) / 256;
+            party?.Effects.Has(SpellEffectIds.FeatherFall) == true
+                ? 0
+                : (int)(fall.Distance * (member.Resources.HitPoints.Maximum / 10)) / 256;
     }
 }

@@ -217,7 +217,8 @@ engine events into session commands, the population owner that fills a place fro
 empties it on leaving (a placement that states a request rather than an answer — an encounter asking for some
 creatures of a kind — is resolved by the game's `IPlacementExpansion` while the placements are read, and what it
 answers stands in its stead for every reader; the game must answer the same on every read, which is why it
-draws under a key naming the place and the placement), the Engine-backed movement owner with its vertical and surface policy, the reaches that let a party walk
+draws under a key naming the place and the placement), the Engine-backed movement owner with its vertical and surface policy (and a leap a game asks of the next step,
+`PartyMotion.Leap` through `IPartyMover.Leap`, the party's own jump at a stated multiple whose landing is not a fall), the reaches that let a party walk
 into a transition, the movement facts the panel reports, the one combat state
 (`Combat/` — a `CombatState` over the live world and nothing else, with a `Combatant` per party member and
 per creature the ruleset recognizes in the party's place, one `Combatant.Recovery` quantity each advanced

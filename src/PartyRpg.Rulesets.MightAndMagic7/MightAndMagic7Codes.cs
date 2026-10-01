@@ -142,6 +142,9 @@ public static class MightAndMagic7Codes
     /// <summary>The refusal code <c>skill-closed-by-unchosen-path</c>.</summary>
     public const string SkillClosedByUnchosenPath = "skill-closed-by-unchosen-path";
 
+    /// <summary>The refusal code <c>spell-airborne</c>: a leap is cast while the party is not standing on anything.</summary>
+    public const string SpellAirborne = "spell-airborne";
+
     /// <summary>The refusal code <c>spell-place-no-arrival</c>: a travel spell names a place that states nowhere to arrive.</summary>
     public const string SpellPlaceNoArrival = "spell-place-no-arrival";
 

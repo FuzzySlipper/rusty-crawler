@@ -169,7 +169,10 @@ Boundary rules:
 Implemented today: `MightAndMagic7Ruleset` (the compiled ruleset and its identity) and
 `MightAndMagic7Session`, which composes the kit's session shell with this game's identity: this game's
 world and movement policy (`MightAndMagic7World`, `MightAndMagic7Movement` — the party's body and walk
-speed, cited from the donor, and the engine's own controller tuning scaled to that body), the one clock
+speed, cited from the donor, and the engine's own controller tuning scaled to that body; the donor's fall harm,
+which a feather fall the party carries spares (`Outdoor.cpp:1426`); and the jump spell's leap, the party's own jump
+at the donor's ratio of a thousand to five times ninety-six (`CastSpellInfo.cpp:1111-1121`, `Outdoor.cpp:1193-1197`),
+whose landing is not a fall — flight and water are not this build's yet, see `docs/magic-coverage.md`), the one clock
 (`MightAndMagic7Time` — the authored calendar, the donor's starting moment, its thirty-to-one rate, and
 the hours it calls daylight), the party its content declares as scenario state (`MightAndMagic7Party`,
 through the same factory creation hands a party to, never a party of its own invention, and what a host

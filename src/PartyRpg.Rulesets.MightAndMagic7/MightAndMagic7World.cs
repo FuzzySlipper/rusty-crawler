@@ -222,7 +222,7 @@ internal static class MightAndMagic7World
                 new InteractionPolicy(Interaction(conversation, schedules.Schedule, corpses, loot, journal, fixtures), MightAndMagic7Movement.Space, MightAndMagic7Interaction.Aim, corpses, context.Interaction),
                 schedules.Schedule,
                 creatures,
-                MightAndMagic7Movement.Falls,
+                MightAndMagic7Movement.Falls(entity),
                 vitals,
                 spawns);
 

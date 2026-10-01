@@ -141,9 +141,10 @@ internal static class MightAndMagic7Potions
         // which is what this build's stone skin ward already carries.
         new(234, SpellEffects.Resistance, SpellTargeting.Caster, Readings.Armour(WardFormulas.Flat(5), WardFormulas.ThirtyMinutesPerPoint).OnOne()),   // Stoneskin
 
-        // Water Breathing: the donor raises its water-walk buff (Character.cpp:3157-3160) and the shipped
-        // description says it prevents drowning. This build's mover neither swims nor drowns.
-        new(235, SpellEffects.Utility, SpellTargeting.Caster, Readings.NotYet("water breathed under rather than walked over", "the party's mover, which walks and falls and does nothing else")),   // Water Breathing
+        // Water Breathing: the donor raises its water-walk buff on the drinker (Character.cpp:3156-3158), which spares
+        // that character the drowning a party standing on water takes (src/Engine/Engine.cpp:1083-1099). This build's
+        // world marks no ground as water, so nothing drowns anybody.
+        new(235, SpellEffects.Utility, SpellTargeting.Caster, Readings.NotYet("water breathed under rather than walked over", Readings.WaterReceiver)),   // Water Breathing
 
         // Harden Item: an item made harder to break, which needs an owner that can aim at an item and a
         // break rule to aim it at. Character.cpp:3222-3245.

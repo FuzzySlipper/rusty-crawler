@@ -44,8 +44,11 @@ internal enum TravelShape
     /// <summary>A party-carried beacon, set where the party stands and recalled to later.</summary>
     Beacon,
 
-    /// <summary>Flight, water-walking, a jump, or a feather fall: a way of moving this build's mover has not.</summary>
+    /// <summary>Flight, water-walking, or water-breathing: a way of moving this build's mover has not.</summary>
     Movement,
+
+    /// <summary>A leap the party's mover takes from where it stands, which is the donor's jump.</summary>
+    Leap,
 }
 
 /// <summary>What a detection spell reports over.</summary>
@@ -305,6 +308,17 @@ internal static class WardFormulas
             3 => master,
             _ => grandmaster,
         };
+
+    /// <summary>
+    /// A feather fall's own length: five minutes a level at novice, ten at expert, and an hour a level at master and
+    /// grand master (OpenEnroth <c>src/Engine/Spells/CastSpellInfo.cpp:1041-1060</c>).
+    /// </summary>
+    internal static readonly Func<int, int, GameDuration> FeatherFallLasts = (level, mastery) => mastery switch
+    {
+        <= 1 => GameDuration.FromMinutes(5 * level),
+        2 => GameDuration.FromMinutes(10 * level),
+        _ => GameDuration.FromHours(level),
+    };
 
     /// <summary>The donor's day of protection at master: four hours per level.</summary>
     internal static readonly Func<int, int, GameDuration> FourHoursPerLevel = (level, _) => GameDuration.FromHours(4 * level);
@@ -567,9 +581,25 @@ internal static class Readings
     /// <summary>A beacon set where the party stands and recalled to later.</summary>
     internal static SpellReading Beacon() => SpellReading.None with { Travel = TravelShape.Beacon };
 
-    /// <summary>A way of moving this build's mover has not, named with the owner that has it.</summary>
-    internal static SpellReading Movement(string missing) =>
-        SpellReading.None with { Travel = TravelShape.Movement, Missing = missing, Receiver = "the party's mover, which walks and falls and does nothing else" };
+    /// <summary>A leap the party's mover takes from where it stands.</summary>
+    internal static SpellReading Leap() => SpellReading.None with { Travel = TravelShape.Leap };
+
+    /// <summary>
+    /// A way of moving this build's mover has not, named with the owner that would have it, and refused before it is
+    /// paid for: a casting that took the points and moved nobody would be the worst of both.
+    /// </summary>
+    /// <param name="missing">What the spell would let the party do.</param>
+    /// <param name="receiver">Which owner would make it possible.</param>
+    internal static SpellReading Movement(string missing, string receiver) =>
+        SpellReading.None with { Travel = TravelShape.Movement, Missing = missing, Receiver = receiver, NotApplied = true };
+
+    /// <summary>Who would make flight possible: the mover's own flying mode and the controls to rise and sink.</summary>
+    internal const string FlightReceiver =
+        "the party's mover, which walks, falls, and leaps: the engine's controller has a flying mode the mover does not ask for yet, and the host declares no controls to rise and sink";
+
+    /// <summary>Who would make water something a party walks over or under: ground the mover can tell is water.</summary>
+    internal const string WaterReceiver =
+        "the world's ground: the importer marks no ground as water and the mover tells no surface apart, so a party walks every floor alike and nothing drowns it";
 
     /// <summary>A report over what the world holds, which the party carries for a while as the original does.</summary>
     /// <remarks>
@@ -692,6 +722,9 @@ internal static class SpellEffectIds
 
     /// <summary>Pain Reflection, which turns the harm a character takes back onto whoever dealt it.</summary>
     internal static readonly EffectId PainReflection = new("spell.pain-reflection");
+
+    /// <summary>Feather fall, which the party carries and which spares every member a fall's harm.</summary>
+    internal static readonly EffectId FeatherFall = new("spell.feather-fall");
 
     /// <summary>Regeneration, whose magnitude is the health a character is given back every five minutes.</summary>
     internal static readonly EffectId Regeneration = new("spell.regeneration");

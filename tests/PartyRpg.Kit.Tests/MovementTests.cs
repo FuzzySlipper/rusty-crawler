@@ -452,6 +452,36 @@ public sealed class PartyMotionTests
     }
 
     [Fact]
+    public void A_leap_is_asked_of_the_next_command_and_its_landing_is_not_a_fall()
+    {
+        PartyPoseOwner party = PartyAt(0, 0, 0);
+        PartyMotion motion = MotionOn(party, new MovementTuning(default, new FallPolicy(threshold: 1, damagePerUnit: 1)));
+
+        // Nothing has stood the party on anything yet, so there is nothing to leap from.
+        Assert.False(motion.Grounded);
+        Assert.False(motion.Leap(2));
+        motion.Admit(Step(from: new Vector3(0, 0, 0), to: new Vector3(0, 0, 0)));
+        Assert.True(motion.Grounded);
+
+        // The leap rides the next command as a jump at the stated multiple, and is spent by the step that took it.
+        Assert.True(motion.Leap(2));
+        Assert.Equal(2d, motion.PendingLeap);
+        Assert.True(motion.Command(MovementIntent.Still, 0.1).JumpPressed);
+        motion.Admit(Step(from: new Vector3(0, 0, 0), to: new Vector3(0, 5, 0), grounded: false, peakHeight: 30));
+        Assert.Null(motion.PendingLeap);
+        Assert.False(motion.Leap(2));
+
+        // It comes down far past the threshold, and that landing is not a fall.
+        MovementOutcome landing = motion.Admit(Step(from: new Vector3(0, 5, 0), to: new Vector3(0, 0, 0), peakHeight: 0));
+        Assert.Equal(FallOutcome.None, landing.Fall);
+
+        // An ordinary drop afterwards is a fall again.
+        motion.Admit(Step(from: new Vector3(0, 30, 0), to: new Vector3(0, 29, 0), grounded: false, peakHeight: 30));
+        MovementOutcome dropped = motion.Admit(Step(from: new Vector3(0, 2, 0), to: new Vector3(0, 2, 0), peakHeight: 2));
+        Assert.True(dropped.Fall.PastThreshold);
+    }
+
+    [Fact]
     public void A_run_that_never_left_the_ground_is_never_a_fall()
     {
         PartyPoseOwner party = PartyAt(0, 0, 40);

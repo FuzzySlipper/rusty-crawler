@@ -1,5 +1,6 @@
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Presentation;
@@ -239,6 +240,43 @@ public sealed class SpellReadingPolicyTests
         Assert.DoesNotContain(live.Party.Items, item => item.Definition.Value == "264");
     }
 
+    [Fact]
+    public void A_jump_leaps_from_where_the_party_stands_and_a_feather_fall_is_carried_by_the_party()
+    {
+        ScriptedSpatialService spatial = new();
+        (ProductCreateContext context, RecordingUiService ui) =
+            RulesetTestContext.Create(persistence: null, spatial, new ScriptedContentService(), Readings());
+        // A session that walks: the party's mover steps every admitted update, which is what takes a leap.
+        using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
+            RulesetTestContext.RulesetContext(context, ui) with
+            {
+                Cast = new CastIntentNames(Declared.UiActionContract),
+                Movement = new MovementIntentNames("forward", "back", "strafe-left", "strafe-right", "turn-left", "turn-right", "jump"),
+            });
+        session.Start();
+        session.Update(RulesetTestContext.Update(1, 1));
+        float jump = spatial.Steps[^1].Config.Vertical.JumpSpeed;
+
+        // The donor's jump spell throws the party up at a thousand where its own jump is five times ninety-six
+        // (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:1111-1121, src/Engine/Graphics/Outdoor.cpp:1193-1197): the
+        // next step the mover takes is a jump at that multiple of the party's own.
+        Cast(session, ui, 2, "16", string.Empty);
+        Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
+        session.Update(RulesetTestContext.Update(3, 1));
+        CharacterStepRequest leapt = spatial.Steps[^1];
+        Assert.True(leapt.Command.JumpPressed);
+        Assert.Equal(jump * 1000f / 480f, leapt.Config.Vertical.JumpSpeed, 3);
+
+        // The step after is the party's own again.
+        session.Update(RulesetTestContext.Update(4, 1));
+        Assert.Equal(jump, spatial.Steps[^1].Config.Vertical.JumpSpeed);
+
+        // A feather fall is carried by the party, which this game's fall rule reads (Outdoor.cpp:1426).
+        Cast(session, ui, 5, "13", string.Empty);
+        Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
+        Assert.Equal(1d, Running(Magic(ui), "spell.feather-fall").Field("magnitude").AsNumber());
+    }
+
     /// <summary>Drinks the first bottle of one potion the party carries, as the panel's own control does.</summary>
     private static void Drink(IGameSession session, ulong step, int potion)
     {
@@ -261,6 +299,8 @@ public sealed class SpellReadingPolicyTests
               "documentId": "spells",
               "definitionKind": "spell",
               "entries": [
+                { "id": "13", "school": "Air", "level": 2, "name": "Feather Fall", "resist": "0" },
+                { "id": "16", "school": "Air", "level": 5, "name": "Jump", "resist": "0" },
                 { "id": "17", "school": "Air", "level": 6, "name": "Shield", "resist": "0" },
                 { "id": "71", "school": "Body", "level": 5, "name": "Regeneration", "resist": "0" },
                 { "id": "83", "school": "Light", "level": 6, "name": "Day of the Gods", "resist": "0" },
@@ -289,7 +329,7 @@ public sealed class SpellReadingPolicyTests
                                   { "id": "Body", "level": 3, "tier": 2, "pointsSpent": 1 },
                                   { "id": "Light", "level": 2, "tier": 4, "pointsSpent": 1 },
                                   { "id": "Dark", "level": 4, "tier": 2, "pointsSpent": 1 } ],
-                      "spells": [ "17", "71", "83", "86", "88", "95" ], "conditions": [] },
+                      "spells": [ "13", "16", "17", "71", "83", "86", "88", "95" ], "conditions": [] },
                     { "name": "Borin", "race": "Human", "class": "Knight", "level": 1, "hitPoints": 400, "spellPoints": 0,
                       "attributes": [ { "id": "Might", "value": 13 }, { "id": "Intellect", "value": 9 },
                                       { "id": "Personality", "value": 9 }, { "id": "Endurance", "value": 13 },

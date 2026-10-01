@@ -330,6 +330,9 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         }
     }
 
+    /// <summary>How many times the party's own jump the donor's jump spell is: a thousand over five times ninety-six.</summary>
+    private const double LeapMultiple = 1000.0 / (5 * 96);
+
     /// <summary>How often a regeneration gives health back: every five minutes of game time, <c>Engine.cpp:1236</c>.</summary>
     private static readonly GameDuration RegenerationInterval = GameDuration.FromMinutes(5);
 
@@ -787,7 +790,21 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     private SpellApplicationOutcome Travel(SpellApplication application)
     {
         SpellReading reading = _spells.ReadingOf(application.Spell);
+
+        // A travel spell that leaves a way of moving on the party — a feather fall — is a carried effect the
+        // movement rules read, landed the way every carried effect is.
+        if (reading.Travel == TravelShape.None && Carries(reading)) return Carry(application, reading);
         if (_world() is not { } world) return Unexpressed(application, "no world to travel through");
+        if (reading.Travel == TravelShape.Leap)
+        {
+            // The donor's jump throws the party up at a thousand where its own jump is five times ninety-six
+            // (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:1111-1121, src/Engine/Graphics/Outdoor.cpp:1193-1197);
+            // the mover takes it as that multiple of the party's own jump.
+            return world.Mover?.Leap(LeapMultiple) == true
+                ? Expressed(application, "the party leaps", [new SpellEffectFact("leap", LeapMultiple.ToString("0.###", CultureInfo.InvariantCulture))])
+                : Unexpressed(application, "the party is not standing on anything to leap from");
+        }
+
         if (reading.Travel == TravelShape.None || reading.Travel == TravelShape.Movement)
         {
             return Unexpressed(application, "a way of moving this build's mover does not have");
@@ -1164,6 +1181,15 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         if (_world() is not { } world)
         {
             return SpellRefusals.NoValidTarget(application.Spell.Name, "no world stands around the party");
+        }
+
+        // A leap needs ground to leap from: the donor refuses a jump while the party is in the air
+        // (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:1113-1117), and so does this, before anything is paid.
+        if (reading.Travel == TravelShape.Leap)
+        {
+            return world.Mover is { CanLeap: true }
+                ? null
+                : new Refusal(MightAndMagic7Codes.SpellAirborne, $"{application.Spell.Name} cannot be cast while the party is not standing on anything.");
         }
 
         if (reading.Travel == TravelShape.Beacon && application.TargetName.Length == 0)

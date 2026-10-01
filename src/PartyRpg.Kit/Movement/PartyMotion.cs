@@ -40,6 +40,8 @@ public sealed class PartyMotion
     private SurfaceEffect _surface = SurfaceEffect.Ordinary;
     private ulong _sequence;
     private int _admitted;
+    private double? _leap;
+    private bool _leaping;
 
     /// <summary>Creates the party's motion over the pose it moves.</summary>
     /// <param name="party">The party's one pose, which this asks to move and never replaces.</param>
@@ -70,6 +72,46 @@ public sealed class PartyMotion
     /// <summary>The party's current position in the engine's world axes, read from the party's own pose.</summary>
     public Vector3 Position => _space.Position(_party.PlacePose);
 
+    /// <summary>Whether the party stands on something, as the last step the engine resolved left it.</summary>
+    public bool Grounded => _admitted > 0 && _continuation.Grounded;
+
+    /// <summary>How many times its own jump the next step leaps, or null when no leap is asked for.</summary>
+    public double? PendingLeap => _leap;
+
+    /// <summary>
+    /// Asks the next step to leap: an ordinary jump of the party's own, at a stated multiple of its strength, which
+    /// the engine's own controller resolves through the scene's collision.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A leap is something a game makes the party do — a spell that throws it into the air — rather than a key it
+    /// held, so it is asked for here and carried by the next command; the controller's own jump does the rest, so
+    /// the leap rises, arcs, and lands under the same gravity and the same walls every jump does.
+    /// </para>
+    /// <para>
+    /// <b>A leap lands without a fall's consequence.</b> What the game threw the party into the air for is not a
+    /// fall, so the landing that ends a leap is reported as no fall at all, however far it came down. A party that
+    /// is already in the air cannot leap.
+    /// </para>
+    /// </remarks>
+    /// <param name="multiple">How many times the party's own jump the leap is, a finite number above nothing.</param>
+    /// <returns>Whether the leap was taken: false when the party is not standing on anything.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The multiple is not a finite number above nothing.</exception>
+    public bool Leap(double multiple)
+    {
+        if (!double.IsFinite(multiple) || multiple <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(multiple),
+                multiple,
+                "A leap is some finite multiple of the party's own jump; nothing, a negative, or an unmeasurable leap is not one.");
+        }
+
+        if (!Grounded) return false;
+        _leap = multiple;
+        return true;
+    }
+
     /// <summary>
     /// Shapes one step's intent into the command the engine solves, turning the party first.
     /// </summary>
@@ -99,7 +141,7 @@ public sealed class PartyMotion
         return new CharacterControllerCommand(
             PlanarIntent: new Vector2((float)intent.Strafe, (float)intent.Forward),
             HeadingYawRadians: (float)_space.FacingRadians(_party.PlacePose.Yaw),
-            JumpPressed: intent.JumpPressed,
+            JumpPressed: intent.JumpPressed || _leap is not null,
             JumpHeld: intent.JumpHeld,
             CrouchRequested: intent.Crouch,
             ExternalVelocity: Vector3.Zero,
@@ -134,6 +176,14 @@ public sealed class PartyMotion
         _surface = surface;
         _admitted++;
 
+        // The step that carried a leap is the one that left the ground; if it did not leave it, nothing was leapt
+        // and no landing is spared.
+        if (_leap is not null)
+        {
+            _leap = null;
+            _leaping = !receipt.Motion.Grounded;
+        }
+
         return new MovementOutcome(
             _party.Capture().Pose,
             receipt.Displacement,
@@ -158,6 +208,13 @@ public sealed class PartyMotion
     private FallOutcome Landed(CharacterStepReceipt receipt)
     {
         if (_admitted == 0 || _continuation.Grounded || !receipt.Motion.Grounded) return FallOutcome.None;
+
+        // The landing that ends a leap the game asked for is not a fall.
+        if (_leaping)
+        {
+            _leaping = false;
+            return FallOutcome.None;
+        }
 
         // Both heights are the engine's capsule centre rather than the party's feet, so their difference
         // is the drop itself and needs no shape of its own to be worked out.

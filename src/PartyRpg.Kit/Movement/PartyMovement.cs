@@ -103,6 +103,13 @@ public sealed class PartyMovement : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
+        // A leap the game asked for is the party's own jump at a stated multiple, for the one step that takes it.
+        CharacterControllerConfig controller = _tuning.ControllerOn(Motion.Surface);
+        if (Motion.PendingLeap is { } leap)
+        {
+            controller = controller with { Vertical = controller.Vertical with { JumpSpeed = controller.Vertical.JumpSpeed * (float)leap } };
+        }
+
         CharacterStepRequest request = new(
             _session,
             Motion.Position,
@@ -110,7 +117,7 @@ public sealed class PartyMovement : IDisposable
             support,
             obstacles,
             movingMeshes,
-            _tuning.ControllerOn(Motion.Surface),
+            controller,
             Motion.Command(intent, elapsedSeconds));
 
         return Motion.Admit(_spatial.ProposeCharacterStep(request));

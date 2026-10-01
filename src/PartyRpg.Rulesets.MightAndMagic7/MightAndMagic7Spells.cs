@@ -209,21 +209,21 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule
         Entry(10, [25, 25, 25, 25], [100, 100, 100, 90], 12, 1, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Inferno
         Entry(11, [30, 30, 30, 30], [90, 90, 90, 90], 15, 15, 4, SpellTargeting.Foe, SpellEffects.Damage),   // Incinerate
         Entry(12, [1, 1, 1, 0], [60, 60, 60, 60], 0, 0, 1, SpellTargeting.Party, SpellEffects.Detection, Readings.Detect(DetectionScope.Places, WardFormulas.HoursPerLevel)),   // Wizard Eye
-        Entry(13, [2, 2, 2, 2], [120, 120, 120, 100], 0, 0, 1, SpellTargeting.Party, SpellEffects.Travel, Readings.Movement("a fall slowed until it cannot hurt")),   // Feather Fall
+        Entry(13, [2, 2, 2, 2], [120, 120, 120, 100], 0, 0, 1, SpellTargeting.Party, SpellEffects.Travel, Readings.Buff(SpellEffectIds.FeatherFall, WardFormulas.Flat(1), WardFormulas.FeatherFallLasts).Says("a feather fall carried by the party, read by this game's fall rule so a landing past the threshold harms nobody, and ended by its own deadline (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:1041-1063, src/Engine/Graphics/Outdoor.cpp:1426-1432)")),   // Feather Fall
         Entry(14, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Air], WardFormulas.MasteryTimesLevel, WardFormulas.HoursPerLevel).OnOne()),   // Air Resistance
         Entry(15, [4, 4, 4, 4], [110, 100, 90, 80], 2, 1, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Sparks
-        Entry(16, [5, 5, 5, 5], [90, 90, 70, 50], 0, 0, 2, SpellTargeting.Caster, SpellEffects.Travel, Readings.Movement("a jump that carries the party over what it could not walk past")),   // Jump
+        Entry(16, [5, 5, 5, 5], [90, 90, 70, 50], 0, 0, 2, SpellTargeting.Caster, SpellEffects.Travel, Readings.Leap().Coarser("a leap the party's mover takes from where it stands, at the donor's own ratio of its jump to an ordinary one, and its landing is not a fall (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:1111-1121, src/Engine/Graphics/Outdoor.cpp:1193-1197, 1429-1431); the donor sets a vertical speed of a thousand where this build multiplies the engine controller's own tuned jump (ours), and a party in the air is refused before anything is paid rather than charged a failed cast")),   // Jump
         Entry(17, [8, 8, 8, 8], [120, 120, 120, 120], 0, 0, 2, SpellTargeting.Caster, SpellEffects.Resistance, Readings.Buff(SpellEffectIds.Shield, WardFormulas.Flat(1), WardFormulas.HourAndMinutesByMastery).OnOne().Says("a shield on the caster, read by the fight's own ranged resolution — a creature's missile does half to them — and ended by its own deadline; the donor shields the whole party (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:904-945, PARTY_BUFF_SHIELD), and this game's own table aims it at the caster")),   // Shield
         Entry(18, [10, 10, 10, 10], [100, 100, 90, 70], 0, 8, 2, SpellTargeting.Foe, SpellEffects.Damage),   // Lightning Bolt
         Entry(19, [15, 15, 15, 15], [200, 200, 200, 200], 0, 0, 3, SpellTargeting.Party, SpellEffects.Utility, Readings.Buff(SpellEffectIds.Invisibility, WardFormulas.LevelPlus(3, 0), WardFormulas.TenMinutesPerLevel)),   // Invisibility
         Entry(20, [20, 20, 20, 20], [100, 100, 100, 90], 10, 10, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Implosion
-        Entry(21, [25, 25, 25, 25], [250, 250, 250, 250], 0, 0, 3, SpellTargeting.Party, SpellEffects.Travel, Readings.Movement("flight over what the party could not walk across")),   // Fly
+        Entry(21, [25, 25, 25, 25], [250, 250, 250, 250], 0, 0, 3, SpellTargeting.Party, SpellEffects.Travel, Readings.Movement("flight over what the party could not walk across", Readings.FlightReceiver)),   // Fly
         Entry(22, [30, 30, 30, 30], [90, 90, 90, 90], 20, 1, 4, SpellTargeting.Foe, SpellEffects.Damage),   // Starburst
         Entry(23, [1, 1, 1, 1], [60, 60, 60, 20], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Condition, Readings.Cure(MightAndMagic7Conditions.Sleep)),   // Awaken
         Entry(24, [2, 2, 2, 2], [110, 100, 90, 70], 2, 2, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Poison Spray
         Entry(25, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Water], WardFormulas.MasteryTimesLevel, WardFormulas.HoursPerLevel).OnOne()),   // Water Resistance
         Entry(26, [4, 4, 4, 4], [110, 100, 90, 80], 0, 4, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Ice Bolt
-        Entry(27, [5, 5, 5, 5], [150, 150, 150, 150], 0, 0, 2, SpellTargeting.Party, SpellEffects.Travel, Readings.Movement("water walked over rather than swum through")),   // Water Walk
+        Entry(27, [5, 5, 5, 5], [150, 150, 150, 150], 0, 0, 2, SpellTargeting.Party, SpellEffects.Travel, Readings.Movement("water walked over rather than swum through", Readings.WaterReceiver)),   // Water Walk
         Entry(28, [8, 8, 8, 8], [200, 200, 200, 200], 0, 0, 2, SpellTargeting.None, SpellEffects.Utility, Readings.Unaimable("an item whose charges are given back", "an item-aim owner: the pack holds the party's items and nothing aims a spell at one")),   // Recharge Item
         Entry(29, [10, 10, 10, 10], [100, 100, 90, 80], 9, 9, 2, SpellTargeting.Foe, SpellEffects.Damage),   // Acid Burst
         Entry(30, [15, 15, 15, 15], [140, 140, 140, 140], 0, 0, 3, SpellTargeting.None, SpellEffects.Utility, Readings.Unaimable("an item to enchant", "an item-aim owner: the pack holds the party's items and nothing aims a spell at one")),   // Enchant Item
@@ -808,6 +808,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule
             SpellEffects.Travel => reading.Travel switch
             {
                 TravelShape.Beacon => "a beacon set in the party's own carried state and recalled through the world's own transition path",
+                TravelShape.Leap => "a leap the party's mover takes from where it stands",
                 _ => "a portal taken through the world's own transition path, charged by the world's own cost rule",
             },
             SpellEffects.Detection => "a report read from the places and the population the world holds",

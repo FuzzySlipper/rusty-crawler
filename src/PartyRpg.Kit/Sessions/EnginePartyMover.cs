@@ -31,6 +31,16 @@ public interface IPartyMover : IDisposable
     /// <returns>Where the party ended up and what the engine and the tuning said about it.</returns>
     MovementOutcome Step(MovementIntent intent, double elapsedSeconds);
 
+    /// <summary>Whether the party stands on something it could leap from now; a mover that cannot leap answers false.</summary>
+    bool CanLeap => false;
+
+    /// <summary>
+    /// Asks the next step to leap at a multiple of the party's own jump; a mover that cannot leap answers false.
+    /// </summary>
+    /// <param name="multiple">How many times the party's own jump the leap is.</param>
+    /// <returns>Whether the leap was taken.</returns>
+    bool Leap(double multiple) => false;
+
     /// <summary>
     /// Whether nothing solid stands between two points of the place the party is in, in the engine's world
     /// axes.
@@ -154,6 +164,16 @@ public sealed class EnginePartyMover : IPartyMover
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         return _movement.Step(intent, elapsedSeconds);
+    }
+
+    /// <inheritdoc />
+    public bool CanLeap => !_disposed && _movement.Motion.Grounded;
+
+    /// <inheritdoc />
+    public bool Leap(double multiple)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return _movement.Motion.Leap(multiple);
     }
 
     /// <inheritdoc />
