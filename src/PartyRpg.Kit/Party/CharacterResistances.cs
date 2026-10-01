@@ -26,6 +26,9 @@ public sealed class CharacterResistances
 {
     private readonly SortedDictionary<string, ResistanceScore> _scores = new(StringComparer.Ordinal);
 
+    /// <summary>The change stamp this owner last took, which a reading kept beside it compares (<see cref="ChangeStamp"/>).</summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     /// <summary>Creates a character's stored resistances.</summary>
     /// <param name="scores">What is stored, or null when nothing is.</param>
     /// <exception cref="ArgumentException">One kind is stored twice, so which figure stands would be a coin toss.</exception>
@@ -54,5 +57,6 @@ public sealed class CharacterResistances
     {
         if (points == 0) _scores.Remove(kind.Value);
         else _scores[kind.Value] = new ResistanceScore(kind, points);
+        Stamp = ChangeStamp.Next();
     }
 }

@@ -151,7 +151,9 @@ durable `ItemInstanceId` and an `ItemState` of identified, damaged, and enchante
 per-character pack is a state these types cannot express; `Capture` writes each instance's identity, state,
 and custody and `Restore` rebuilds them), `PartyPurse`, `PartyFood`,
 `PartyReputation`, the running effects on the party and on each member (`ActiveEffects`,
-written only by `RunningSpellEffects`), `PartyRecords`, `PartyHoldings`, `PartyPassages`, `PartyMemberships`,
+written only by `RunningSpellEffects`), each member's stored base resistances (`CharacterResistances` —
+what a permanent gift added, by kind of harm, carried in the member's seed; a ruleset's racial and class terms
+are read beside it, never stored), `PartyRecords`, `PartyHoldings`, `PartyPassages`, `PartyMemberships`,
 the minting of durable identities in
 `PartyIdentitySource`, and `PartyEntityFactory`, which builds a party from creation or from a `PartySave`
 and is the only code that attaches a party component, with the one item rule it composes arriving as
@@ -169,7 +171,8 @@ one progression owner (`Progression/` — `PartyProgression` is where experience
 point, and a rank move and nowhere else — the years a character was aged beyond their natural age,
 `CharacterProgression.AgeOffset`, are the one exception, written by whatever the game says ages a character or
 gives the years back (`Age`, `Rejuvenate`) and carried in the member's seed: `Award` is the one entry a kill, a quest, or any other source arrives at and
-divides by the ruleset's own rule, `Train` is what a counter's step settles through — the fee charged by
+divides by the ruleset's own rule, `Gift` gives one named member experience or skill points outright — a well's
+gift rather than an earned award, so nothing is divided and standing does not move — `Train` is what a counter's step settles through — the fee charged by
 the party's one ledger, the level's pools grown by the ruleset's class and rank tables, the points granted,
 and both pools filled — and `RaiseSkill` is the only way a skill point is spent: it asks the skill policy
 for the price of the levels and the ceiling the member's class and rank impose, refuses past that ceiling
@@ -282,7 +285,10 @@ them, settles what the use costs through the party's one settlement path, asks t
 produces, applies it against the party's owners, records the `InteractionTargetState` that use left and the
 place values its outcome kept — named whole numbers every target of the place reads through
 `InteractionContext.PlaceValues`, which `InteractionLedger.Capture` carries in the save's world section and a
-restore of the place forgets — and reports an `InteractionResult`; every failure — nothing faced, out of reach, out of sight, a requirement
+restore of the place forgets — and the other targets of the place it changed (`InteractionTargetChange`: a lever
+reads a door through `InteractionContext.PlaceTargets` and `TargetState` and the mechanism records the door's
+new word under the door's own identity), hands the party to a conversation when the outcome names somebody
+(`InteractionOutcome.Speaks`, opened by the session as using a person is), and reports an `InteractionResult`; every failure — nothing faced, out of reach, out of sight, a requirement
 unmet, a charge the party cannot cover, a ruleset's own refusal, a pack with no room for what was found —
 is an outcome with a code and a sentence rather than a silent no-op — and a corpse is a target that
 mechanism discovers: `CorpseGround` keeps what the fight read as down, the ruleset hands it back as the

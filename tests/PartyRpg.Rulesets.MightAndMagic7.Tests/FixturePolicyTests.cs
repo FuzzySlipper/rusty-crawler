@@ -2,11 +2,13 @@ using System.Globalization;
 using System.Text.Json;
 using PartyRpg.Kit;
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Presentation;
+using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
@@ -298,6 +300,190 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void A_lever_moves_the_door_its_event_names_and_passes_over_what_only_a_player_would_see()
+    {
+        ContentCatalog catalog = Catalog();
+        GameClock clock = TestClock.Create(scale: 1);
+        using PartyEntity party = Party();
+        MightAndMagic7Interaction rule = Rule(catalog);
+        InteractionLedger ledger = new();
+        PlacementDefinition lever = Fixture(310, "Pull the Lever", string.Empty);
+        PlacementDefinition gate = Door(7, stored: 2);
+        PlacementDefinition[] placements = [lever, gate];
+
+        // The texture, the sound and a face group hidden are presentation the product does not draw, so the run
+        // passes over them; the toggle moves the closed gate open through the door owner's own word, recorded
+        // under the gate's identity, and says the collision does not follow (#8594).
+        (InteractionOutcome pulled, _) = Use(rule, lever, EmeraldIsle, party, clock, ledger, placements);
+        Assert.True(pulled.IsApplied, pulled.Refusal?.Message);
+        Assert.Equal("The gate moves.", pulled.Message);
+        Assert.Equal(new InteractionTargetChange(gate.Content, MightAndMagic7Interaction.OpenState), Assert.Single(pulled.Changes));
+        Assert.Equal(MightAndMagic7Fixtures.CollisionResidue, pulled.Residue);
+        Assert.Equal(MightAndMagic7Interaction.OpenState, ledger.StateOf(EmeraldIsle, gate.Content).State);
+
+        // The gate's own use reads what the lever left: it already stands open.
+        InteractionTargetDefinition door = rule.Describe(new InteractionTargetRequest(EmeraldIsle, gate, ledger.StateOf(EmeraldIsle, gate.Content).State))!;
+        Assert.Equal(MightAndMagic7Interaction.OpenState, door.State);
+
+        // A second pull toggles the open gate shut again.
+        (InteractionOutcome again, _) = Use(rule, lever, EmeraldIsle, party, clock, ledger, placements);
+        Assert.Equal(new InteractionTargetChange(gate.Content, MightAndMagic7Interaction.ClosedState), Assert.Single(again.Changes));
+
+        // A lever in a place that holds no such door moves nothing, which the donor's own lookup does too, and
+        // says so.
+        (InteractionOutcome nowhere, _) = Use(rule, lever, EmeraldIsle, party, clock, placements: [lever]);
+        Assert.True(nowhere.IsApplied);
+        Assert.Empty(nowhere.Changes);
+        Assert.Contains("Door 7 is not one this place holds", nowhere.Residue, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_item_gift_is_the_named_item_through_the_acquisition_path_and_a_drawn_one_needs_a_loot_table()
+    {
+        ContentCatalog catalog = Catalog();
+        GameClock clock = TestClock.Create(scale: 1);
+        using PartyEntity party = Party();
+        MightAndMagic7Interaction rule = Rule(catalog);
+
+        (InteractionOutcome given, _) = Use(rule, Fixture(311, "Chest", string.Empty), EmeraldIsle, party, clock);
+        Assert.True(given.IsApplied, given.Refusal?.Message);
+        Assert.Equal(new ItemDefinitionId("401"), Assert.Single(given.Items).Definition);
+        Assert.Equal(1, party.Inventory.TotalOf(new ItemDefinitionId("401")));
+
+        // A gift drawn at a treasure level is the loot owner's draw; a product with no loot table and no random
+        // service has nothing to draw it with, and says so rather than giving nothing.
+        (InteractionOutcome drawn, _) = Use(rule, Fixture(315, "Bookcase", string.Empty), EmeraldIsle, party, clock);
+        Assert.Equal(MightAndMagic7Codes.FixtureNothingToRoll, drawn.Refusal!.Code);
+    }
+
+    [Fact]
+    public void An_altar_gives_a_permanent_resistance_and_skill_points_through_their_owners()
+    {
+        ContentCatalog catalog = Catalog();
+        GameClock clock = TestClock.Create(scale: 1);
+        using PartyEntity party = Party();
+        PartyProgression progression = new(MightAndMagic7Progression.Instance, party);
+        MightAndMagic7Interaction rule = new(fixtures: new MightAndMagic7Fixtures(MightAndMagic7MapEvents.Read(catalog), progression: () => progression));
+        PlacementDefinition altar = Fixture(312, "Altar", string.Empty);
+
+        // The stored base resistance is the member's own, kept and saved, and the base resistance the fight
+        // reads adds it to the racial bonus; skill points are a gift through the one writer of them.
+        (InteractionOutcome given, _) = Use(rule, altar, EmeraldIsle, party, clock);
+        Assert.True(given.IsApplied, given.Refusal?.Message);
+        PartyMember zoltan = party.Members[0];
+        Assert.Equal(10, zoltan.Resistances.Of(MightAndMagic7Damage.Fire));
+        Assert.Equal(10, MightAndMagic7BaseResistance.Of(zoltan, MightAndMagic7Damage.Fire));
+        Assert.Equal(2, zoltan.Progression.SkillPoints);
+        Assert.Contains(new ResistanceScore(MightAndMagic7Damage.Fire, 10), party.Capture().Members[0].Seed.Resistances);
+
+        // The altar's first step reads the stored figure, so a character it already raised is not raised again.
+        (InteractionOutcome again, _) = Use(rule, altar, EmeraldIsle, party, clock);
+        Assert.True(again.IsApplied);
+        Assert.Equal(10, zoltan.Resistances.Of(MightAndMagic7Damage.Fire));
+        Assert.Equal(2, zoltan.Progression.SkillPoints);
+    }
+
+    [Fact]
+    public void A_statue_calls_a_person_over_a_well_reads_the_bank_and_a_sundial_keeps_a_counter()
+    {
+        ContentCatalog catalog = Catalog();
+        GameClock clock = TestClock.Create(scale: 1);
+        using PartyEntity party = Party();
+        ConversationPerson guard = new("npc-5", "Guard");
+        MightAndMagic7Interaction rule = new(fixtures: new MightAndMagic7Fixtures(
+            MightAndMagic7MapEvents.Read(catalog),
+            people: id => id == guard.Id ? guard : null));
+
+        // A person the event calls over is handed to the conversation, the way using a person would be.
+        (InteractionOutcome spoken, _) = Use(rule, Fixture(313, "Statue", string.Empty), EmeraldIsle, party, clock);
+        Assert.True(spoken.IsApplied, spoken.Refusal?.Message);
+        Assert.Equal(guard, spoken.Speaks!.First);
+
+        // The well compares the party's one bank balance.
+        PlacementDefinition well = Fixture(314, "Drink from the Well", string.Empty);
+        Assert.Equal("Refreshing!", Use(rule, well, EmeraldIsle, party, clock).Outcome.Message);
+        party.Holdings.Hold(MightAndMagic7Services.BankHolding, 100);
+        Assert.True(Use(rule, well, EmeraldIsle, party, clock).Outcome.IsApplied);
+        Assert.Equal(10, party.Purse.Coins);
+
+        // A counter is set to now, and holds once the stated hours have passed since.
+        InteractionLedger ledger = new();
+        PlacementDefinition sundial = Fixture(316, "Sundial", string.Empty);
+        Assert.Equal("The shadow is marked.", Use(rule, sundial, EmeraldIsle, party, clock, ledger).Outcome.Message);
+        Assert.Equal("The shadow is marked.", Use(rule, sundial, EmeraldIsle, party, clock, ledger).Outcome.Message);
+        clock.Advance(GameDuration.FromHours(25));
+        Assert.Equal("A day has passed.", Use(rule, sundial, EmeraldIsle, party, clock, ledger).Outcome.Message);
+    }
+
+    [Fact]
+    public void A_session_s_shrine_raises_might_and_armour_for_a_while_through_the_running_effects_the_fight_reads()
+    {
+        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(SessionContent(OneFixture(317, "Shrine of Might")));
+        using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
+            RulesetTestContext.RulesetContext(context, ui) with { Use = new UseIntentNames(Declared.UseIntent, Declared.UiActionContract) });
+        session.Start();
+        session.Update(RulesetTestContext.Update(1, 1));
+        session.Update(RulesetTestContext.Update(2, 1, RulesetTestContext.Digital(Declared.UseIntent)));
+
+        PartyMember zoltan = ((MightAndMagic7Session)session).Party!.Members[0];
+        Assert.Equal(5, zoltan.Effects.MagnitudeOf(SpellEffectIds.Attribute(new AttributeId("Might"))));
+        Assert.Equal(20, zoltan.Effects.MagnitudeOf(SpellEffectIds.Armour));
+    }
+
+    [Fact]
+    public void A_permanent_resistance_and_skill_points_an_altar_gave_survive_a_save()
+    {
+        InMemoryPersistenceService persistence = new();
+        (string Path, string Text)[] content = SessionContent(OneFixture(312, "Altar"));
+        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(persistence, content);
+        using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
+            RulesetTestContext.RulesetContext(context, ui) with { Use = new UseIntentNames(Declared.UseIntent, Declared.UiActionContract) });
+        session.Start();
+        session.Update(RulesetTestContext.Update(1, 1));
+        session.Update(RulesetTestContext.Update(2, 1, RulesetTestContext.Digital(Declared.UseIntent)));
+        MightAndMagic7Ruleset.Instance.Save(session);
+
+        (ProductCreateContext resumedContext, RecordingUiService resumedUi) = RulesetTestContext.Create(persistence, content);
+        using IGameSession resumed = MightAndMagic7Ruleset.Instance.ResumeSession(
+            RulesetTestContext.RulesetContext(resumedContext, resumedUi) with { Start = SessionStart.Resume });
+        resumed.Start();
+        PartyMember zoltan = ((MightAndMagic7Session)resumed).Party!.Members[0];
+        Assert.Equal(10, zoltan.Resistances.Of(MightAndMagic7Damage.Fire));
+        Assert.Equal(2, zoltan.Progression.SkillPoints);
+    }
+
+    [ImportedFact("place-events.json")]
+    public void The_operators_fire_trap_casts_its_spell_at_the_party_and_a_bookcase_draws_a_scroll()
+    {
+        ContentCatalog catalog = ImportedContent.Load();
+        MightAndMagic7MapEvents events = MightAndMagic7MapEvents.Read(catalog);
+        MightAndMagic7Spells spells = MightAndMagic7Spells.Read(catalog, MightAndMagic7Skills.Read(catalog, MightAndMagic7Promotions.Read(catalog)))!;
+        KeyedTestRandom random = new();
+        MightAndMagic7Loot loot = MightAndMagic7Loot.Compose(catalog, random);
+        MightAndMagic7Interaction rule = new(fixtures: new MightAndMagic7Fixtures(events, random: random, loot: loot, spells: spells));
+        GameClock clock = TestClock.Create(scale: 1);
+
+        // The second region's fire trap picks one of its casts and lands it on the active character.
+        using PartyEntity party = Party(hitPoints: ResourcePool.Full(400));
+        (InteractionOutcome trap, _) = Use(rule, Fixture(231, "Fire", string.Empty), Harmondale, party, clock);
+        Assert.True(trap.IsApplied, trap.Refusal?.Message);
+        Assert.Contains("strikes Zoltan", trap.Message, StringComparison.Ordinal);
+        Assert.True(party.Members[0].Resources.HitPoints.Current < 400);
+
+        // Every gift drawn at a treasure level that runs gives a spell scroll from the shipped table.
+        int drawn = 0;
+        foreach (MapEvent gift in events.Events.Where(candidate => candidate.Raised && candidate.Steps.Any(step => step.Op == "give-item")))
+        {
+            using PartyEntity reader = Party();
+            (InteractionOutcome outcome, _) = Use(rule, Fixture(gift.Id, gift.Label, string.Empty), gift.Place, reader, clock);
+            if (!outcome.IsApplied) continue;
+            drawn += outcome.Items.Count;
+        }
+
+        Assert.True(drawn > 0, "no shipped gift drew an item");
+    }
+
+    [Fact]
     public void A_run_that_reaches_a_step_or_a_variable_this_game_does_not_interpret_changes_nothing()
     {
         ContentCatalog catalog = Catalog();
@@ -305,12 +491,14 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
         using PartyEntity party = Party(hitPoints: new ResourcePool(20, 40));
         MightAndMagic7Interaction rule = Rule(catalog);
 
-        // The lever restores hit points and then moves a door, which this game does not interpret: the run is
-        // refused at the door's step, by name, and the hit points it reached first are not given.
+        // The lever restores hit points and then turns a group of creatures hostile, which this game does not
+        // interpret: the run is refused at that step, by name and with what it waits on, and the hit points it
+        // reached first are not given.
         (InteractionOutcome lever, _) = Use(rule, Fixture(300, "Lever", string.Empty), EmeraldIsle, party, clock);
         Assert.False(lever.IsApplied);
         Assert.Equal(MightAndMagic7Codes.FixtureStepNotInterpreted, lever.Refusal!.Code);
-        Assert.Contains("change-door-state", lever.Refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("toggle-actor-group-flag", lever.Refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("receiver", lever.Refusal.Message, StringComparison.Ordinal);
         Assert.Equal(20, party.Members[0].Resources.HitPoints.Current);
 
         // A temporary might bonus is a variable no reading of an attribute adds yet, so it is refused by name too.
@@ -403,13 +591,23 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
         // the shipped spell table, so the wells that give one are counted as a session plays them.
         MightAndMagic7Spells spells = MightAndMagic7Spells.Read(catalog, MightAndMagic7Skills.Read(catalog, MightAndMagic7Promotions.Read(catalog)))!;
         KeyedTestRandom random = new();
+        MightAndMagic7Loot loot = MightAndMagic7Loot.Compose(catalog, random);
+        MightAndMagic7Conversation? conversation = MightAndMagic7Conversation.Read(catalog, MightAndMagic7Services.Read(catalog));
         int applied = 0;
         SortedDictionary<string, int> refused = new(StringComparer.Ordinal);
         foreach (MapEvent mapEvent in events.Events.Where(candidate => candidate.Raised))
         {
             // A session's running effects are kept over its one party, so each fresh party has its own.
             using PartyEntity party = Party();
-            MightAndMagic7Interaction rule = new(fixtures: new MightAndMagic7Fixtures(events, effects: new MightAndMagic7SpellEffects(spells, clock), random: random));
+            PartyProgression progression = new(MightAndMagic7Progression.Instance, party);
+            MightAndMagic7Interaction rule = new(fixtures: new MightAndMagic7Fixtures(
+                events,
+                effects: new MightAndMagic7SpellEffects(spells, clock),
+                random: random,
+                loot: loot,
+                spells: spells,
+                progression: () => progression,
+                people: person => conversation?.PersonOf(person)));
             (InteractionOutcome outcome, _) = Use(rule, Fixture(mapEvent.Id, mapEvent.Label, string.Empty), mapEvent.Place, party, clock);
             if (outcome.IsApplied)
             {
@@ -418,6 +616,9 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
             }
 
             Assert.Contains(outcome.Refusal!.Code, new[] { MightAndMagic7Codes.FixtureStepNotInterpreted, MightAndMagic7Codes.FixtureVariableNotInterpreted });
+
+            // Every refusal left over names the task that would interpret it.
+            Assert.Matches(@"#\d{4}", outcome.Refusal.Message);
             string reason = outcome.Refusal.Code == MightAndMagic7Codes.FixtureStepNotInterpreted
                 ? Between(outcome.Refusal.Message, "a '", "' instruction")
                 : Between(outcome.Refusal.Message, "the variable '", "'");
@@ -428,18 +629,10 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
         foreach ((string reason, int count) in refused) output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"refused {reason}: {count}"));
         Assert.Equal(events.Events.Count(candidate => candidate.Raised), applied + refused.Values.Sum());
         // The figures the ruleset README states for the operator's install.
-        Assert.Equal(327, applied);
-        string[] stated =
-        [
-            "armour-class-bonus: 1", "attribute-bonus accuracy: 1", "attribute-bonus endurance: 1",
-            "attribute-bonus might: 3", "attribute-bonus personality: 4", "bank-gold: 6", "cast-spell: 6",
-            "change-door-state: 75", "character-animation: 2", "counter: 1", "give-item: 14", "gold: 1",
-            "hireling: 2", "play-sound: 5", "resistance fire: 1", "resistance mind: 1", "resistance water: 1",
-            "set-faces-bit: 4", "set-npc-topic: 1", "set-sprite: 7", "set-texture: 21", "skill-points: 1",
-            "speak-npc: 5", "toggle-actor-group-flag: 3", "toggle-indoor-light: 1",
-        ];
+        Assert.Equal(488, applied);
+        string[] stated = ["hireling: 2", "history: 1", "set-npc-topic: 1", "toggle-actor-group-flag: 3"];
         Assert.Equal(stated, refused.Select(entry => string.Create(CultureInfo.InvariantCulture, $"{entry.Key}: {entry.Value}")));
-        Assert.Equal(168, refused.Values.Sum());
+        Assert.Equal(7, refused.Values.Sum());
     }
 
     private static string Between(string text, string before, string after)
@@ -464,16 +657,34 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
         PlaceId place,
         PartyEntity party,
         GameClock clock,
-        InteractionLedger? ledger = null)
+        InteractionLedger? ledger = null,
+        IReadOnlyList<PlacementDefinition>? placements = null)
     {
-        ledger ??= new InteractionLedger();
-        string recorded = ledger.StateOf(place, placement.Content).State;
+        InteractionLedger kept = ledger ?? new InteractionLedger();
+        string recorded = kept.StateOf(place, placement.Content).State;
         InteractionTargetDefinition target = rule.Describe(new InteractionTargetRequest(place, placement, recorded))!;
-        InteractionOutcome outcome = rule.Apply(target, new InteractionContext(place, placement, target, party, clock) { PlaceValues = ledger.ValuesOf(place) });
+        InteractionOutcome outcome = rule.Apply(target, new InteractionContext(place, placement, target, party, clock)
+        {
+            PlaceValues = kept.ValuesOf(place),
+            PlaceTargets = placements ?? [placement],
+            TargetState = content => kept.StateOf(place, content).State,
+        });
         if (!outcome.IsApplied) return (outcome, recorded);
         if (outcome.Gain is { IsFree: false } gain) party.Purse.Credit(gain.Coins);
-        ledger.Keep(place, outcome.Kept);
-        return (outcome, ledger.Record(place, placement.Content, outcome.State).State);
+        foreach (InteractionItemYield item in outcome.Items) Assert.True(party.AcquireItem(item.Definition, item.Count).Admitted);
+        kept.Keep(place, outcome.Kept);
+        foreach (InteractionTargetChange change in outcome.Changes) kept.Record(place, change.Target, change.State);
+        return (outcome, kept.Record(place, placement.Content, outcome.State).State);
+    }
+
+    /// <summary>A door placement as the importer writes an interior's door slot.</summary>
+    private static PlacementDefinition Door(int doorId, int stored)
+    {
+        string id = string.Create(CultureInfo.InvariantCulture, $"door-{doorId}");
+        string json = string.Create(
+            CultureInfo.InvariantCulture,
+            $$"""{ "id": "{{id}}", "kind": "door", "sourceField": "doors", "sourceIndex": 0, "x": -900, "y": 0, "z": 0, "doorId": {{doorId}}, "state": {{stored}} }""");
+        return new PlacementDefinition(new PlacementContentId("door", id), "doors", 0, PlacePose.Origin, new ContentEntry(id, JsonDocument.Parse(json).RootElement));
     }
 
     /// <summary>One of a place's map variables as the ledger keeps it; one nothing wrote is zero.</summary>
@@ -598,7 +809,54 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
             { "id": "1.300", "place": "1", "event": 300, "label": "Lever", "raised": true,
               "steps": [
                 { "step": 0, "op": "add", "variable": "hit-points", "value": 5 },
-                { "step": 1, "op": "change-door-state" },
+                { "step": 1, "op": "toggle-actor-group-flag", "group": 5, "flag": 524288, "on": true },
+                { "step": 2, "op": "exit" } ] },
+            { "id": "1.310", "place": "1", "event": 310, "label": "Pull the Lever", "raised": true,
+              "steps": [
+                { "step": 0, "op": "set-texture" },
+                { "step": 1, "op": "play-sound" },
+                { "step": 2, "op": "set-faces-bit", "group": 3, "flag": 8192, "on": true },
+                { "step": 3, "op": "change-door-state", "door": 7, "action": "toggle" },
+                { "step": 4, "op": "status-text", "textId": 3, "text": "The gate moves." },
+                { "step": 5, "op": "exit" } ] },
+            { "id": "1.311", "place": "1", "event": 311, "label": "Chest", "raised": true,
+              "steps": [
+                { "step": 0, "op": "give-item", "level": 3, "itemKind": "", "itemSkill": "", "item": 401 },
+                { "step": 1, "op": "exit" } ] },
+            { "id": "1.312", "place": "1", "event": 312, "label": "Altar", "raised": true,
+              "steps": [
+                { "step": 0, "op": "compare", "variable": "resistance", "which": "fire", "value": 10, "target": 4 },
+                { "step": 1, "op": "for-party-member", "who": "party" },
+                { "step": 2, "op": "add", "variable": "resistance", "which": "fire", "value": 10 },
+                { "step": 3, "op": "add", "variable": "skill-points", "value": 2 },
+                { "step": 4, "op": "exit" } ] },
+            { "id": "1.313", "place": "1", "event": 313, "label": "Statue", "raised": true,
+              "steps": [
+                { "step": 0, "op": "speak-npc", "person": 5 },
+                { "step": 1, "op": "exit" } ] },
+            { "id": "1.314", "place": "1", "event": 314, "label": "Drink from the Well", "raised": true,
+              "steps": [
+                { "step": 0, "op": "compare", "variable": "bank-gold", "value": 99, "target": 3 },
+                { "step": 1, "op": "status-text", "textId": 11, "text": "Refreshing!" },
+                { "step": 2, "op": "exit" },
+                { "step": 3, "op": "add", "variable": "gold", "value": 10 },
+                { "step": 4, "op": "exit" } ] },
+            { "id": "1.315", "place": "1", "event": 315, "label": "Bookcase", "raised": true,
+              "steps": [
+                { "step": 0, "op": "give-item", "level": 5, "itemKind": "spell-scroll" },
+                { "step": 1, "op": "exit" } ] },
+            { "id": "1.316", "place": "1", "event": 316, "label": "Sundial", "raised": true,
+              "steps": [
+                { "step": 0, "op": "compare", "variable": "counter", "index": 3, "value": 24, "target": 4 },
+                { "step": 1, "op": "set", "variable": "counter", "index": 3, "value": 0 },
+                { "step": 2, "op": "status-text", "textId": 1, "text": "The shadow is marked." },
+                { "step": 3, "op": "exit" },
+                { "step": 4, "op": "status-text", "textId": 2, "text": "A day has passed." },
+                { "step": 5, "op": "exit" } ] },
+            { "id": "1.317", "place": "1", "event": 317, "label": "Shrine of Might", "raised": true,
+              "steps": [
+                { "step": 0, "op": "add", "variable": "attribute-bonus", "which": "might", "value": 5 },
+                { "step": 1, "op": "add", "variable": "armour-class-bonus", "value": 20 },
                 { "step": 2, "op": "exit" } ] },
             { "id": "1.301", "place": "1", "event": 301, "label": "Drink from the Fountain", "raised": true,
               "steps": [
@@ -662,6 +920,24 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
               "placements": [
                 { "id": "fixture-110", "kind": "fixture", "sourceField": "events", "sourceIndex": 110, "x": 100, "y": 0, "z": 0,
                   "positionSource": "event-face-centroid", "eventId": 110, "name": "Drink from the Well", "faceCount": 1, "sourceModel": 51, "sourceModelName": "Well_E" } ] },
+            { "id": "2", "kind": "region", "name": "Harmondale", "respawnDays": 1,
+              "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ] }
+          ]
+        }
+        """;
+
+    /// <summary>The two regions, with one fixture raising the given staged event standing where the party starts.</summary>
+    private static string OneFixture(int eventId, string name) =>
+        $$"""
+        {
+          "documentId": "places",
+          "definitionKind": "place",
+          "entries": [
+            { "id": "1", "kind": "region", "name": "Emerald Island", "respawnDays": 1,
+              "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ],
+              "placements": [
+                { "id": "fixture-{{eventId}}", "kind": "fixture", "sourceField": "events", "sourceIndex": {{eventId}}, "x": 100, "y": 0, "z": 0,
+                  "positionSource": "event-face-centroid", "eventId": {{eventId}}, "name": "{{name}}", "faceCount": 1, "sourceModel": 60, "sourceModelName": "Altar" } ] },
             { "id": "2", "kind": "region", "name": "Harmondale", "respawnDays": 1,
               "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ] }
           ]

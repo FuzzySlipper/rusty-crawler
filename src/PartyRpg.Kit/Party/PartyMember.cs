@@ -116,6 +116,7 @@ public sealed class PartyMember
             stamp = Math.Max(stamp, Resources.Stamp);
             stamp = Math.Max(stamp, Equipment.Stamp);
             stamp = Math.Max(stamp, Effects.Stamp);
+            stamp = Math.Max(stamp, Resistances.Stamp);
             foreach (EquippedItem equipped in Equipment.Items) stamp = Math.Max(stamp, equipped.Item.Stamp);
             return stamp;
         }

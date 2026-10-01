@@ -127,6 +127,16 @@ internal sealed class MightAndMagic7Fixtures
     /// <summary>The face bit that hides a face group, which is all a player would see change (<c>src/Engine/Graphics/FaceEnums.h:21</c>).</summary>
     private const long InvisibleFaceBit = 0x0000_2000;
 
+    /// <summary>The face bit that lets a party pass through a face group (<c>src/Engine/Graphics/FaceEnums.h:39</c>).</summary>
+    private const long PassableFaceBit = 0x2000_0000;
+
+    /// <summary>The face bit that makes a face group water (<c>src/Engine/Graphics/FaceEnums.h:12</c>).</summary>
+    private const long FluidFaceBit = 0x0000_0010;
+
+    /// <summary>The residue a step that turns ground into water leaves, which this build marks at import only.</summary>
+    internal const string WaterResidue =
+        "Which ground is water is fixed when the place is imported (#9030), so a face group an event turns to water stays as it was.";
+
     /// <summary>
     /// The steps that change only what a player sees or hears: a texture, a sprite, a sound, a character's
     /// portrait reacting, an interior light. The product draws no world and plays no sound, so a run passes
@@ -361,12 +371,16 @@ internal sealed class MightAndMagic7Fixtures
                 $"{target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}', and its step {step.Step} is {what}, which this game does not interpret: nothing was changed."));
 
     /// <summary>The refusal for a variable this game does not interpret.</summary>
-    private static Refusal VariableNotInterpreted(InteractionTargetDefinition target, MapEvent mapEvent, MapEventStep step) =>
+    /// <param name="target">The fixture.</param>
+    /// <param name="mapEvent">The event it runs.</param>
+    /// <param name="step">The step.</param>
+    /// <param name="waits">What the variable waits on, naming its receiver, or empty when nothing is routed for it.</param>
+    private static Refusal VariableNotInterpreted(InteractionTargetDefinition target, MapEvent mapEvent, MapEventStep step, string waits = "") =>
         new(
             MightAndMagic7Codes.FixtureVariableNotInterpreted,
             string.Create(
                 CultureInfo.InvariantCulture,
-                $"{target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}', and its step {step.Step} {step.Op}s the variable '{Describe(step)}', which this game does not interpret for that instruction: nothing was changed."));
+                $"{target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}', and its step {step.Step} {step.Op}s the variable '{Describe(step)}', which this game does not interpret for that instruction{(waits.Length > 0 ? $" ({waits})" : string.Empty)}: nothing was changed."));
 
     private static string Describe(MapEventStep step) =>
         step.Which.Length > 0 ? $"{step.Variable} {step.Which}" : step.Variable;
@@ -638,7 +652,13 @@ internal sealed class MightAndMagic7Fixtures
                     case "set-faces-bit":
                         // A face group made invisible is presentation; one made passable, or made water, changes the
                         // ground a party walks on, which this build's collision does not follow.
-                        if ((current.Flag & ~InvisibleFaceBit) != 0) Residue(CollisionResidue);
+                        if ((current.Flag & PassableFaceBit) != 0) Residue(CollisionResidue);
+                        if ((current.Flag & FluidFaceBit) != 0) Residue(WaterResidue);
+                        if ((current.Flag & ~(InvisibleFaceBit | PassableFaceBit | FluidFaceBit)) != 0)
+                        {
+                            return NotInterpreted(_target, mapEvent, current, string.Create(CultureInfo.InvariantCulture, $"a face bit 0x{current.Flag:X} this game does not read"));
+                        }
+
                         break;
                     case "give-item":
                         if (Give(mapEvent, current) is { } refusedGift) return refusedGift;
@@ -658,11 +678,11 @@ internal sealed class MightAndMagic7Fixtures
                     }
 
                     case "set-npc-topic":
-                        return NotInterpreted(_target, mapEvent, current, "a 'set-npc-topic' instruction (a person's topics are content's, and changing one in play waits on the story's own owner, #8512)");
+                        return NotInterpreted(_target, mapEvent, current, "a 'set-npc-topic' instruction (changing which event a person's topic raises needs a saved override the conversation reads; its receiver is to be filed from #9028)");
                     case "is-actor-killed":
-                        return NotInterpreted(_target, mapEvent, current, "a 'is-actor-killed' instruction (counting a place's dead by group or kind waits on the population answering it, #8658)");
+                        return NotInterpreted(_target, mapEvent, current, "a 'is-actor-killed' instruction (counting a place's dead by group or kind needs the population to answer a fixture; its receiver is to be filed from #9028)");
                     case "toggle-actor-group-flag":
-                        return NotInterpreted(_target, mapEvent, current, "a 'toggle-actor-group-flag' instruction (turning a group of a place's creatures hostile waits on provocation being carried by the fight, #8658)");
+                        return NotInterpreted(_target, mapEvent, current, "a 'toggle-actor-group-flag' instruction (turning a group of a place's creatures hostile needs the fight's provocation reachable from a fixture; its receiver is to be filed from #9028)");
                     case "check-season":
                     {
                         if (_context.Clock is not { } clock || InSeason(current.Which, clock.Now) is not { } holds)
@@ -807,7 +827,7 @@ internal sealed class MightAndMagic7Fixtures
                 }
 
                 case "hireling":
-                    return (false, NotInterpreted(_target, mapEvent, step, "a comparison of the party's hirelings, which this build has none of (#8514)"));
+                    return (false, VariableNotInterpreted(_target, mapEvent, step, "this build keeps no hirelings, #8514"));
             }
 
             Func<PartyMember, int, int?>? read = step.Variable switch
@@ -916,9 +936,9 @@ internal sealed class MightAndMagic7Fixtures
                     Keep(CounterKey(step.Index), _context.Clock?.Elapsed.Milliseconds ?? 0);
                     return null;
                 case ("hireling", _):
-                    return NotInterpreted(_target, mapEvent, step, "a change to the party's hirelings, which this build has none of (#8514)");
+                    return VariableNotInterpreted(_target, mapEvent, step, "this build keeps no hirelings, #8514");
                 case ("history", _):
-                    return NotInterpreted(_target, mapEvent, step, "a line of the party's history book, whose table the importer does not read (#8512)");
+                    return VariableNotInterpreted(_target, mapEvent, step, "the history book's lines are a table the importer does not read; its receiver is to be filed from #9028");
                 case ("item", "subtract"):
                 {
                     ItemDefinitionId item = new(step.Value.ToString(CultureInfo.InvariantCulture));
