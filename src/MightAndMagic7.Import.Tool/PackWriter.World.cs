@@ -453,6 +453,7 @@ internal static partial class PackWriter
                 field.WriteString("monsterName", creature.MonsterName);
                 field.WriteNumber("group", creature.Group);
                 field.WriteNumber("attributes", creature.Attributes);
+                if (creature.HostilityGroup != 0) field.WriteNumber("hostilityGroup", creature.HostilityGroup);
                 field.WriteNumber("aiState", creature.AiState);
                 field.WriteNumber("hitPoints", creature.HitPoints);
                 field.WriteNumber("sectorId", creature.SectorId);

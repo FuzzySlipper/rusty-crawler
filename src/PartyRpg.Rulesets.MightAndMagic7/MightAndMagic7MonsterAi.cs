@@ -368,16 +368,16 @@ internal sealed class MightAndMagic7MonsterAi : IMonsterAiPolicy
         return _hostility.Band(mine.HostilityKind, theirs.HostilityKind);
     }
 
-    /// <summary>Whether a creature is the party's enemy by what it is: it notices the party, or its kind hates the party's.</summary>
+    /// <summary>
+    /// Whether a creature is the party's enemy by what it is: its own nature toward the party says so (its record,
+    /// its row, or a group a map event turned), or its kind hates the party's.
+    /// </summary>
     private bool PartysEnemy(CombatSubject subject, MightAndMagic7Combat.MonsterFacts facts) =>
         !Under(subject, SpellEffectIds.CreatureCharmed) &&
-        (facts.NoticeRange > 0 || _hostility.Band(facts.HostilityKind, PartyKind) != 0);
+        _combat.AgainstParty(subject, facts);
 
     /// <summary>Whether a spell has left one effect on a creature.</summary>
     private static bool Under(CombatSubject subject, PartyRpg.Kit.Party.EffectId effect) => MightAndMagic7Combat.OnCreature(subject, effect) > 0;
-
-    /// <summary>The matrix's own column for the party: <c>HostilityTable.h:12-15</c>.</summary>
-    private const int PartyKind = 0;
 
     /// <summary>The donor's longest band, <c>HOSTILITY_LONG</c>, which a berserk or a bound creature's enmity is read at.</summary>
     private const int LongestBand = 4;

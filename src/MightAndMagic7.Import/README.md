@@ -83,7 +83,8 @@ Boundary rules:
 - No gameplay choice is made here. A spawn record is written as the `encounter` it asks for — its slot,
   the grade only when the record fixes one, the slot's kind, difficulty and count range, and the variant
   rows — and the ruleset draws the grade and the count when a place is populated; a delta's actor record that
-  names no person is written as the `actor` it is (`PlaceCreatures`) — its monster row, group, attributes, AI
+  names no person is written as the `actor` it is (`PlaceCreatures`) — its monster row, group, attributes, the
+  kind it says it counts as (`hostilityGroup`, written when non-zero; no shipped record names one), AI
   state, point and facing, under the `actors` field and its index in the level's array, with `hidden` set when
   the level holds it hidden (state nineteen or the bit `0x10000`) — and the ruleset stands it, or not; a stable or a dock is
   written as the counter it is — its kind and the placement it stands at — and no passage, destination,

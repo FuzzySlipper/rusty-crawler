@@ -251,7 +251,13 @@ this game's locks, and a refusal that says what it needs), which places are cloc
 (`MightAndMagic7Schedules` — the counters' own hours, or the hours a place states in its own entry, read
 against the one clock so a door outside them is an unmet requirement rather than a menu entry that hides
 itself), what fighting costs here (`MightAndMagic7Combat` — a monster's recovery is the monster table's own
-`Recovery` column, its hostility band is the distance at which it notices the party, and a character is
+`Recovery` column, its hostility band is the distance at which an encounter's creature notices the party —
+a creature a level's own actor record stands is instead the party's enemy only when the record carries the
+aggressor bit `0x80000` (longest band) or its kind hates the party in the shipped matrix (that band), as the
+donor stands every level actor friendly by row and asks `GetActorsRelation` (`Outdoor.cpp:628-629`,
+`Actor.cpp:2097-2166`), so a town's guards and peasants start nothing until the party attacks them, and the
+matrix is read the donor's way round, a kind's own feelings being its column (`HostilityTable.cpp:21`); the
+encounter's row band is ours, the donor reading the matrix for those too (`Actor.cpp:4331-4334`) — and a character is
 paced by the donor's own attack-recovery sum over what they wear (see the figure below); a creature's first recovery is a keyed draw over the actor so a group placed together does not strike in
 lockstep, a creature is recognized by a placement of kind `monster` naming the row it is, and a person a
 map's own record places reads the monster row that record names rather than one peasant row for everybody),

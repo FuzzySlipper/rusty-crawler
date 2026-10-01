@@ -21,6 +21,13 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// table compiled into this ruleset.
 /// </para>
 /// <para>
+/// <b>A cell is what its column's kind thinks of its row's kind.</b> The donor stores the cell at row <c>r</c> and
+/// column <c>c</c> as <c>relations[c][r]</c> (<c>HostilityTable.cpp:21</c>) and reads <c>relations[self][other]</c>
+/// (<c>src/Engine/Objects/Actor.cpp:2165</c>, <c>:2641</c>), so a kind's own feelings are its column and the
+/// party's row says which kinds hate the party. The shipped data agrees: the party's row names the bats, dragons,
+/// goblins and ghosts, and the party's column is friendly from top to bottom.
+/// </para>
+/// <para>
 /// <b>A monster row belongs to a kind, not to itself.</b> The shipped monsters come in groups of three
 /// graded variants of one kind, and the matrix names the kind once. Which kind a row belongs to is stated on
 /// the row itself (<c>hostilityKind</c>), which the importer derives from the table's own grouping; the party's
@@ -125,11 +132,19 @@ internal sealed class MightAndMagic7Hostility
     /// A band the row does not state is friendly, which is the donor's own reading: it fills every
     /// relation with friendly before it reads a cell.
     /// </remarks>
-    /// <param name="self">The kind whose feelings are read.</param>
-    /// <param name="other">The kind it is looking at.</param>
+    /// <param name="self">The kind whose feelings are read: the column.</param>
+    /// <param name="other">The kind it is looking at: the row.</param>
     /// <returns>The band: zero is friendly, one to four are the four degrees of enmity.</returns>
     internal int Band(int self, int other) =>
-        _bands.TryGetValue(self, out IReadOnlyDictionary<int, int>? row) && row.TryGetValue(other, out int band) ? band : 0;
+        _bands.TryGetValue(other, out IReadOnlyDictionary<int, int>? row) && row.TryGetValue(self, out int band) ? band : 0;
+
+    /// <summary>What one kind thinks of the party, which is the party's own row of the matrix.</summary>
+    /// <param name="kind">The kind whose feelings are read.</param>
+    /// <returns>The band: zero is friendly, one to four are the four degrees of enmity.</returns>
+    internal int TowardParty(int kind) => Band(kind, PartyKind);
+
+    /// <summary>The matrix's own index for the party: <c>HostilityTable.h:12-15</c>.</summary>
+    internal const int PartyKind = 0;
 
     /// <summary>Whether one kind treats another as an enemy at all.</summary>
     /// <param name="self">The kind whose feelings are read.</param>

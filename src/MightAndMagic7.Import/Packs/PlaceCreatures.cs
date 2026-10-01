@@ -43,6 +43,10 @@ namespace MightAndMagic7.Import.Packs;
 /// <param name="SectorId">The sector the record names, meaningful indoors and zero outdoors.</param>
 /// <param name="UniqueNameIndex">The record's unique-name index, non-zero when the creature has a name of its own.</param>
 /// <param name="Hidden">Whether the record is one the level holds hidden until something reveals it.</param>
+/// <param name="HostilityGroup">
+/// The kind the record says the creature counts as toward everyone else, as the record stores it: zero is its own
+/// row's kind, 9999 the party's own, anything else a kind's index in the hostility matrix.
+/// </param>
 public sealed record PlaceCreaturePlacement(
     int PlaceId,
     string PlacementId,
@@ -60,7 +64,8 @@ public sealed record PlaceCreaturePlacement(
     int AiState,
     int SectorId,
     int UniqueNameIndex,
-    bool Hidden);
+    bool Hidden,
+    int HostilityGroup = 0);
 
 /// <summary>One actor record the import could place no creature for, with the reason.</summary>
 /// <param name="Code">A short stable code for the kind of refusal.</param>
@@ -211,7 +216,8 @@ public static class PlaceCreatures
                     actor.AiState,
                     actor.SectorId,
                     actor.UniqueNameIndex,
-                    actor.AiState == HiddenAiState || (actor.Attributes & HiddenAttribute) != 0));
+                    actor.AiState == HiddenAiState || (actor.Attributes & HiddenAttribute) != 0,
+                    actor.HostilityGroup));
             }
         }
 

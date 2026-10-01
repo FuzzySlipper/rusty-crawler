@@ -691,6 +691,7 @@ public sealed class MapDecoderTests
         writer.SetI16(creature + 0x92, 32);
         writer.SetU16(creature + 0x9A, 1024);
         writer.SetI32(creature + 0x2E8, 3);
+        writer.SetI32(creature + 0x2EC, 25);   // the kind it counts as toward everyone, the snapshot's hostilityGroup
         if (hiddenCreature)
         {
             writer.SetI32(creature + 0x24, 0x10000);

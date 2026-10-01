@@ -43,6 +43,7 @@ internal static class MapDeltaRecord
     private const int ActorSectorIdOffset = 0x9E;
     private const int ActorAiStateOffset = 0xB0;
     private const int ActorGroupOffset = 0x2E8;
+    private const int ActorHostilityGroupOffset = 0x2EC;
     private const int ActorUniqueNameIndexOffset = 0x334;
 
     // Field offsets inside SpriteObject_MM7.
@@ -124,7 +125,8 @@ internal static class MapDeltaRecord
                 MapRecord.Int16(record, ActorSectorIdOffset),
                 MapRecord.Int32(record, ActorGroupOffset),
                 MapRecord.Int32(record, ActorUniqueNameIndexOffset),
-                MapRecord.UInt16(record, ActorAiStateOffset));
+                MapRecord.UInt16(record, ActorAiStateOffset),
+                MapRecord.Int32(record, ActorHostilityGroupOffset));
         }
 
         return actors;

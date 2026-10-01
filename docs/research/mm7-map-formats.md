@@ -264,7 +264,7 @@ src/Engine/Snapshots/CompositeSnapshots.h:54-67,113-125]**, and the fields this 
 | --- | --- | --- |
 | 0x00 | `char[32] name` | a display name the original does not use — the shipped records spell it with the creature's kind (`"Peasant"`) even when the actor is a named person |
 | 0x20 | `i16 npcId` | **the NPC table row this actor is**, or zero for a monster **[verified: OE:src/Engine/Objects/Actor.cpp:2354-2358]** (`GetDisplayName` prefers `uniqueNameIndex`, then `npcId` through the NPC table, then the monster table) |
-| 0x24 | `u32 attributes` | actor attribute bits |
+| 0x24 | `u32 attributes` | actor attribute bits; `0x80000` is the aggressor bit that makes the actor the party's enemy at the longest band **[verified: OE:src/Engine/Objects/ActorEnums.h:109, Actor.cpp:2155-2156]**, set on no shipped record **[verified: data]** |
 | 0x28 | `i16 hp` | current hit points |
 | 0x86 | `i16 monsterId` | the monster definition, zero on a person |
 | 0x8E | `Vec3s pos` | where the actor stands — **three 16-bit coordinates**, not the 32-bit form a sprite object stores |
@@ -272,6 +272,7 @@ src/Engine/Snapshots/CompositeSnapshots.h:54-67,113-125]**, and the fields this 
 | 0x9E | `i16 sectorId` | the sector, meaningful indoors |
 | 0xB0 | `u16 aiState` | the AI state; 19 (`Disabled`) is a record the level holds hidden **[verified: OE:src/Engine/Objects/ActorEnums.h:56-77]** |
 | 0x2E8 | `u32 group` | the actor's group |
+| 0x2EC | `u32 hostilityGroup` | the kind the actor counts as in the hostility matrix: 0 its own row's kind, 9999 the party's faction **[verified: OE:src/Engine/Snapshots/EntitySnapshots.h:801, EntitySnapshots.cpp:1494-1499]** (MMExtension's `Ally`); zero on every shipped record **[verified: data]** |
 | 0x334 | `i32 uniqueNameIndex` | an index into the placed-monster names, non-zero only for a monster with a name of its own |
 
 **What the shipped data carries [verified: data].** 826 actors over the 76 deltas, of which **123 name an NPC row**
@@ -382,7 +383,10 @@ errand condition and refuses the rows without answers, 118 in all across the 572
   **[verified: OE:src/Engine/Tables/HostilityTable.cpp:17-21]**: 24 of the shipped rows spell their kind differently
   from the column at the same position (`Peasant Human2 MaleC` against the header's `Peasant Human Male 2 C`). The
   import therefore reads a row's kind from its own position, which is what the donor does, and writes each kind's
-  non-zero bands against the column index they were read from.
+  non-zero bands against the column index they were read from. A cell is what its *column's* kind thinks of its
+  *row's* kind: the donor stores row `r`, column `c` as `relations[c][r]` and reads `relations[self][other]`
+  **[verified: OE:src/Engine/Tables/HostilityTable.cpp:21, src/Engine/Objects/Actor.cpp:2165]**, so the party's
+  row lists the kinds that hate the party, and the party's column is zero throughout **[verified: data]**.
 
 ## 5. Minimal viable decode
 

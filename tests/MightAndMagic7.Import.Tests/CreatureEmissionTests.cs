@@ -41,6 +41,7 @@ public sealed class CreatureEmissionTests
             Assert.Equal(4, first.MonsterId);
             Assert.Equal("Monster 4", first.MonsterName);
             Assert.Equal(3, first.Group);
+            Assert.Equal(25, first.HostilityGroup);
             Assert.Equal((-960d, 1280d, 32d), (first.X, first.Y, first.Z));
             Assert.Equal(1024, first.Yaw);
             Assert.Equal(30, first.HitPoints);
