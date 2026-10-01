@@ -68,6 +68,9 @@ public sealed class PlaceSurfaces
                 }
             }
 
+            // Two meshes naming one surface are not a duplicate to refuse: they are one ground written in parts,
+            // and their triangles are pooled under the name. Nothing is found by a mesh — a point is answered
+            // with the name of the triangle it lies on — so no mesh can shadow another.
             names.Add(mesh.Surface);
             for (int index = 0; index < mesh.Triangles.Count; index += 3)
             {

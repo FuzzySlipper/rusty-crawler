@@ -63,7 +63,7 @@ internal sealed class MightAndMagic7FareNetwork : IFareNetwork
     /// would otherwise sell every journey twice.
     /// </remarks>
     /// <param name="catalog">The validated content, or null when none was loaded.</param>
-    /// <exception cref="ContentValidationException">Content authors a sold crossing of its own.</exception>
+    /// <exception cref="ContentValidationException">Content authors a sold crossing of its own, or stands one passage counter in two places.</exception>
     internal static MightAndMagic7FareNetwork Read(ContentCatalog? catalog)
     {
         if (catalog is null) return Empty;
@@ -89,17 +89,40 @@ internal sealed class MightAndMagic7FareNetwork : IFareNetwork
             if (MightAndMagic7FareDays.RouteOf(service.GetString("kind")) is { } route) routes[service.Id] = route;
         }
 
+        // A counter is found by its identity (a party at the counter asks what it sells), and what it sells is
+        // every other stop from the place it stands in. One counter placed twice in its own place is one
+        // counter with two doors; one standing in two places would sell from whichever was read first, so it is
+        // refused by name.
         Dictionary<string, string> names = new(StringComparer.Ordinal);
+        Dictionary<string, Counter> standing = new(StringComparer.Ordinal);
         List<Counter> counters = [];
-        foreach ((_, _, ContentEntry place) in catalog.Entries(PlaceGraphLoader.PlaceDefinitionKind))
+        foreach ((LoadedPack pack, ContentDocument document, ContentEntry place) in catalog.Entries(PlaceGraphLoader.PlaceDefinitionKind))
         {
             names[place.Id] = place.GetString("name") is { Length: > 0 } name ? name : place.Id;
             foreach (JsonElement placement in place.GetArray(PlacePopulationContent.PlacementsField))
             {
                 if (!string.Equals(ContentEntry.ReadString(placement, PlacePopulationContent.KindField), MightAndMagic7Services.PlacementKind, StringComparison.Ordinal)) continue;
-                string counter = ContentEntry.ReadId(placement, CounterField);
-                if (routes.TryGetValue(counter, out string? route)) counters.Add(new Counter(counter, new PlaceId(place.Id), route));
+                string id = ContentEntry.ReadId(placement, CounterField);
+                if (!routes.TryGetValue(id, out string? route)) continue;
+                Counter counter = new(id, new PlaceId(place.Id), route);
+                if (!standing.TryAdd(id, counter))
+                {
+                    if (standing[id].Place == counter.Place) continue;
+                    issues.Add(new ContentValidationIssue(
+                        "fare-counter-placed-twice",
+                        $"the counter '{id}' that sells passages on route '{route}' stands in place '{standing[id].Place}' and in place '{place.Id}', so where a passage bought at it leaves from could not be told.",
+                        pack.PackId,
+                        document.DocumentId));
+                    continue;
+                }
+
+                counters.Add(counter);
             }
+        }
+
+        if (issues.Count > 0)
+        {
+            throw new ContentValidationException($"This game's fare network cannot be read: {issues[0].Message}", issues);
         }
 
         // Counters are walked in the order their ids state, which is the building table's own order, so the
@@ -123,6 +146,7 @@ internal sealed class MightAndMagic7FareNetwork : IFareNetwork
     /// <summary>The passages one counter sells: where each goes, what the place is called, and the route it runs on.</summary>
     /// <param name="service">The counter's identity.</param>
     /// <returns>Every destination, in the network's order; none when the counter sells no passage or stands nowhere.</returns>
+    /// <remarks>The network holds each counter once — one standing in two places is refused when it is read — so the lookup never chooses.</remarks>
     internal IReadOnlyList<Passage> SoldBy(string service)
     {
         if (_counters.FirstOrDefault(counter => string.Equals(counter.Service, service, StringComparison.Ordinal)) is not { } sold) return [];

@@ -131,9 +131,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 
 **Open residue and its receivers** (Den task ids; Den owns their status):
 
-- Stone 3, world: every travel link accounted for (#8577); duplicate arrival ids refused (#8707); the only
-  region-to-region reach cannot be walked (#8713); creatures cannot path around a wall because places carry
-  no navigation cells (#8665).
+- Stone 3, world: every travel link accounted for (#8577); the only region-to-region reach cannot be walked
+  (#8713); creatures cannot path around a wall because places carry no navigation cells (#8665).
 - Stone 4, party: a scenario cannot choose between creation and its own party (#8589); both creation paths
   proved to compose the same owners (#8688).
 - Stone 5, interaction and services: opened doors and emptied containers are not saved (#8593), and a
