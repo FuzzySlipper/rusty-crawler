@@ -60,13 +60,13 @@ public sealed class InteractionPolicyTests
     }
 
     [Fact]
-    public void A_decoration_that_raises_an_event_is_a_fixture_whose_use_names_the_event()
+    public void A_decoration_that_raises_an_event_is_a_fixture_whose_use_names_the_event_when_none_is_loaded()
     {
         MightAndMagic7Interaction rule = new();
 
         // The original reaches decorations that raise an event and ignores the rest, so only those are
-        // targets here; a fixture's use raises its event, and nothing in this build executes map events, so
-        // the use is refused with the event and the place named.
+        // targets here; a fixture's use runs its event, and a rule composed over no content carries no event
+        // to run, so the use is refused with the event and the place named rather than doing nothing.
         InteractionTargetDefinition fixture = Describe(rule, Decoration(name: "dec32", eventId: 150))!;
         Assert.Equal("fixture", fixture.Kind.Value);
         Assert.Equal("A fixture (dec32)", fixture.Name);
@@ -74,7 +74,7 @@ public sealed class InteractionPolicyTests
 
         InteractionOutcome refused = rule.Apply(fixture, Context(fixture, Decoration(name: "dec32", eventId: 150)));
         Assert.False(refused.IsApplied);
-        Assert.Equal(MightAndMagic7Codes.InteractionEventNotExecuted, refused.Refusal!.Code);
+        Assert.Equal(MightAndMagic7Codes.FixtureEventMissing, refused.Refusal!.Code);
         Assert.Contains("150", refused.Refusal.Message, StringComparison.Ordinal);
         Assert.Contains("'7'", refused.Refusal.Message, StringComparison.Ordinal);
 

@@ -225,7 +225,8 @@ public sealed class ContainerDecoderTests
     /// <summary>The indoor payload the fixture holds, with one face per event it is given.</summary>
     /// <param name="faceEventIds">The event each face raises, in face order.</param>
     /// <param name="spacing">How far apart the faces stand along the level's first axis.</param>
-    internal static byte[] ContainerIndoorPayload(IReadOnlyList<int> faceEventIds, int spacing = 100)
+    /// <param name="faceAttributes">Each face's attribute word, in face order, or none for faces that carry none.</param>
+    internal static byte[] ContainerIndoorPayload(IReadOnlyList<int> faceEventIds, int spacing = 100, IReadOnlyList<uint>? faceAttributes = null)
     {
         DeltaWriter writer = new();
         writer.U32(1);
@@ -257,6 +258,7 @@ public sealed class ContainerDecoderTests
             writer.SetI16(record + 0x4E, 0);
             writer.SetU8(record + 0x5C, 3);                 // floor
             writer.SetU8(record + 0x5D, 3);                 // three corners
+            if (faceAttributes is not null) writer.SetU32(record + 0x2C, faceAttributes[index]);
         }
 
         // The shared face data pool: six arrays of three values and a closing slot, per face in face order.

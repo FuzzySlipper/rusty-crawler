@@ -313,6 +313,7 @@ internal static class Program
                 people = Describe(result.People),
                 encounters = Describe(result.Encounters),
                 loot = Describe(result.Containers, tables),
+                fixtures = Describe(result.Fixtures, tables),
                 use = "add these pack ids to a bundle under content/partyrpg/bundles to load them",
             },
             Json));
@@ -339,6 +340,33 @@ internal static class Program
         containersTrapped = containers.TrappedCount,
         itemReferences = containers.ItemReferenceCount,
         randomItemReferences = containers.RandomItemReferenceCount,
+    };
+
+    /// <summary>
+    /// What the fixture derivation produced: the things whose use raises one of a place's own events, the events
+    /// carried, the raised events another emitter answers for, and how many steps of each kind the fixtures'
+    /// events hold.
+    /// </summary>
+    /// <remarks>
+    /// The step kinds are stated because "the fixtures run their events" is a claim about the operator's own
+    /// data: the ruleset interprets some kinds and refuses the rest by name, and these are the counts its
+    /// README measures that split against. The discovery table is stated beside them because it is what the
+    /// steps that write a note name.
+    /// </remarks>
+    private static object Describe(Packs.PlaceFixtureSummary fixtures, Tables.Mm7Tables tables) => new
+    {
+        fixtures = fixtures.Fixtures.Count,
+        places = fixtures.PlaceCount,
+        fixtureEvents = fixtures.FixtureEventCount,
+        timedEvents = fixtures.TriggeredEventCount,
+        eventsCarried = fixtures.Events.Count,
+        raisedEventsOwnedElsewhere = fixtures.OwnedElsewhere,
+        raisedEventsWithoutInstructions = fixtures.RaisedWithoutInstructions,
+        placesWithoutProgram = fixtures.PlacesWithoutProgram,
+        fixtureSteps = fixtures.Events.Where(placeEvent => placeEvent.Raised).Sum(placeEvent => placeEvent.Steps.Count),
+        stepKinds = fixtures.StepKinds,
+        discoveries = tables.Discoveries.Rows.Count,
+        discoveryRowsWithoutANote = tables.Discoveries.SkippedRows,
     };
 
     /// <summary>

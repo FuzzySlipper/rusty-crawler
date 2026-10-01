@@ -208,6 +208,18 @@ internal sealed class MightAndMagic7Session : IGameSession
         // to, which the world's interaction answers read. One loot owner means one table read and one seed.
         MightAndMagic7Loot loot = MightAndMagic7Loot.Compose(Declared(context.Content), context.Engine?.Random);
 
+        // This game's fixtures are read once, here, over the map events and the discovery table content carries:
+        // what a well gives, what an obelisk says, and what a sign reads are steps of the place's own events, run
+        // through the owners that keep what each step names. The knowledge owner is read through a call because
+        // the session composes it after the world, and a temporary resistance a well leaves is the same running
+        // effect a ward is, so it goes into the ledger the fight reads resistances from.
+        MightAndMagic7Fixtures fixtures = new(
+            MightAndMagic7MapEvents.Read(Declared(context.Content)),
+            () => owners.Knowledge,
+            spellEffects,
+            context.Engine?.Random,
+            MightAndMagic7Tuning.Read(Declared(context.Content)));
+
         // This game's journal policy is read once, here, over the loot reading that knows which item rows the
         // shipped table hands out as artifacts and relics: that is the one threshold this game states about
         // what is worth writing down, and the words for its five books are stated beside it rather than in a
@@ -340,7 +352,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                 save.Clock.ApplyTo(clock);
                 party = Capacity(MightAndMagic7Party.Restore(save.Party, Declared(context.Content)), spells)!;
                 PartyResourceLedger ledger = Ledger(party);
-                world = MightAndMagic7World.Compose(context.Content, context, clock, ledger, party, save, services, conversation, corpseAnswers, loot, quests, () => owners.Journal, combat, spawns);
+                world = MightAndMagic7World.Compose(context.Content, context, clock, ledger, party, save, services, conversation, corpseAnswers, loot, quests, () => owners.Journal, combat, spawns, fixtures);
                 start = new SessionParty.Playing(world, party, ledger, new SessionRecords(save.Quests, save.Journal, save.Knowledge, save.Maps));
             }
             else if (context.Creation is not null)
@@ -353,7 +365,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                 start = new SessionParty.Creating(new SessionCreation(
                     MightAndMagic7Creation.Start(declared),
                     description => Capacity(MightAndMagic7Party.Factory(declared).Create(description), spells, fill: true)!,
-                    created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created), created, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot, journal: () => owners.Journal, vitals: combat, spawns: spawns)));
+                    created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created), created, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot, journal: () => owners.Journal, vitals: combat, spawns: spawns, fixtures: fixtures)));
             }
             else
             {
@@ -375,7 +387,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                 }
 
                 PartyResourceLedger? accounts = party is null ? null : Ledger(party);
-                world = MightAndMagic7World.Compose(context.Content, context, clock, accounts, party, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot, journal: () => owners.Journal, vitals: combat, spawns: spawns);
+                world = MightAndMagic7World.Compose(context.Content, context, clock, accounts, party, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot, journal: () => owners.Journal, vitals: combat, spawns: spawns, fixtures: fixtures);
                 if (parties is not null) throw parties;
                 start = new SessionParty.Playing(world, party, accounts);
             }

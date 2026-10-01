@@ -61,8 +61,11 @@ Owns:
 - Discovery policy (`MightAndMagic7Knowledge`): how a note about each kind of discovery reads, and which
   discoveries this game keeps — a find when the shipped item table marks it an artifact or a relic, a recipe
   when the potion table's own cell records one, and a landmark's effect or a line read when the event that
-  gave it runs. The shipped discovery table and the map events that set its rows are both read by nobody in
-  this build yet (#9006), which is why a fountain cannot be drunk from and an obelisk cannot be read.
+  gave it runs — the shipped discovery table's own row, which a fixture's event names by number.
+- Fixture policy (`MightAndMagic7Fixtures`, over `MightAndMagic7MapEvents`): what using a well, a fountain,
+  an obelisk, a sign or a shrine does — the steps of the map event it raises, interpreted for the instructions
+  this game's fixtures use as changes through the owners that keep what each step names, and every other
+  instruction refused by name before anything changes. The split is stated below.
 - Content interpretation and presentation meaning: what an imported region,
   map, sprite, or sound means to this ruleset.
 - Session composition: assembling the kit's named services with Might and Magic
@@ -81,7 +84,8 @@ Boundary rules:
 - Adjustable values are the handles `MightAndMagic7Tuning` declares — an errand's
   default pay, a bounty's rate, a lesson's base price, a shelf's lines, the two
   fares and how many days each network's journey takes (`fare.coach-days`, two, and
-  `fare.boat-days`, three), a night's length, and what a night under a roof eats — each with its
+  `fare.boat-days`, three), a night's length, what a night under a roof eats, and how long a well's
+  temporary bonus lasts (`fixture.bonus-hours`, a day — ours: the donor keeps it until the next rest) — each with its
   default, range, and meaning. A rule reads them through the `TuningProfile` it
   composes from the selected catalog, so a bundle's tuning pack changes play
   without a rebuild and a value out of range stops composition by name.
@@ -113,8 +117,8 @@ slot's difficulty, through the engine's keyed random service under the place and
 population reads the place's placements, so every visit and every load see the same creatures, and an errand
 that counts every one of a kind in a place counts that same resolution), and what using
 something means here (`MightAndMagic7Interaction` —
-a door from the delta's own stored state with the donor's interaction range, a decoration that raises an
-event as a fixture whose use names the event nothing executes yet (#9006), a `requires` array on a placement as
+a door from the delta's own stored state with the donor's interaction range, a fixture or a decoration that
+raises an event as a fixture whose use runs the event (`MightAndMagic7Fixtures`, below), a `requires` array on a placement as
 this game's locks, and a refusal that says what it needs), which places are clocked
 (`MightAndMagic7Schedules` — the counters' own hours, or the hours a place states in its own entry, read
 against the one clock so a door outside them is an unmet requirement rather than a menu entry that hides
@@ -306,13 +310,46 @@ the residue that says what the original performs with an event program and this 
 test over the operator's own packs checks that every objective resolved and that a count taken from a
 place's placements is that place's own. What a party discovers is landed beside the journal: the knowledge
 owner keeps the facts it can look up again — a mixture the potion table states a discovery for, a find the
-shipped table marks an artifact or a relic, and, once a map event is executed, a fountain's effect or an
-obelisk's clue — and `MightAndMagic7Knowledge` states the words a note about each kind reads with and what
-this game counts as worth keeping. The operator's own data carries both halves of what is still missing: the
-install's discovery table holds 207 rows (39 what a well or fountain gives, 14 the obelisks' own messages,
-61 potion recipes, and the rest instructors, seers, and odd events), and the map event programs set those
-numbers 122 times across 16 programs. The importer reads no discovery table and nothing executes a map
-event (#9006), so a fixture's use is refused with the event named and nothing is claimed to have been
-learned from it. Fidelity per system — what matches
+shipped table marks an artifact or a relic, a fountain's effect, an obelisk's clue, and a sign's words — and
+`MightAndMagic7Knowledge` states the words a note about each kind reads with and what this game counts as
+worth keeping.
+
+**Fixtures run their map events.** The importer writes every clicked face group and decoration whose event no
+other emitter answers for as a `fixture` placement, the event and the timers that keep what it gives as
+`place-event` entries (the donor's own instruction and variable words, the text a step prints resolved from the
+map's own string table), and the discovery table as `discovery` entries — 1,097 fixtures in 66 places over 495
+events, and 186 notes, over the operator's install (`mm7import verify` checks each figure).
+`MightAndMagic7Fixtures` walks an event's steps against the party and the fixture, writing into an overlay so a
+later comparison reads an earlier write, and applies what it collected only when the run ends without a
+refusal. **Interpreted**: `exit`, `jump`, `compare`, `add`, `subtract` and `set` over the variables below,
+`status-text`, `for-party-member`, `random-go-to` (the engine's keyed draw), `receive-damage`, `check-season`
+(the donor's season boundaries on this game's calendar), and the timer triggers, which end a use's run and are
+themselves run as the refill of what a fixture reads. The variables, each through its owner: `quest-bit` (the
+party record `errand:<bit>` the conversation already reads), `member-bit` (a party record — the donor's is per
+character), `autonote` (a knowledge report of the discovery row: `stat` and `misc` an effect, `obelisk`,
+`teacher` and `seer` a clue, `potion` a recipe), `gold`, `item` (given through the acquisition path,
+taken from the shared pack), `hit-points`, `spell-points`, `full-hit-points` and `full-spell-points` (a member's
+resources), `attribute` (a member's base attribute, for good), `resistance-bonus` (the running effect a ward
+leaves, `fixture.bonus-hours` long), `condition` (a member's conditions), and `map-variable` (the fixture's
+own counter). **Refused by name** (`fixture-step-not-interpreted`, `fixture-variable-not-interpreted`): every
+other instruction and variable. Over the operator's install a fresh party using each of the 495 fixture events
+once has 327 run and 168 refused, by the first step each run reaches that this game does not interpret:
+`change-door-state` 75 (a lever moving a door, #8594), `set-texture` 21, `give-item` 14, `set-sprite` 7,
+`bank-gold` 6, `cast-spell` 6, `play-sound` 5, `speak-npc` 5, `set-faces-bit` 4, `attribute-bonus` 9 (might 3,
+personality 4, accuracy 1, endurance 1), `toggle-actor-group-flag` 3, `resistance` 3 (fire, mind, water — a
+permanent resistance, which no owner keeps), `character-animation` 2, `hireling` 2, and `armour-class-bonus`,
+`counter`, `gold` (a `set`), `set-npc-topic`, `skill-points` and `toggle-indoor-light` 1 each; the ruleset suite
+counts it. On the first region the town well gives fifty points of fire resistance and its note, the wells east
+and west of the temple five hit and spell points from thirty charges a day, the western well two points of luck
+for good from eight a month, and the town sign is read; the first obelisk is the second region's (the first
+region has none). **What is ours**: the active character a run starts on is the first member able to act,
+because this build selects none (#8659); a write to something the party holds once — coin, a note, a bit — is
+made once, where the donor makes it once per chosen character; a timer runs when a fixture that reads what it
+keeps is used, every one of them on the fixture's first use (the donor's reading of an unvisited map), and a
+daily timer runs a day after it last ran rather than at its hour; a fixture's harm is the record's own figure,
+not reduced by resistance; a sign's words are kept as a clue, which the original does not keep; and a
+fixture's map variables and timer times are its own state word in the interaction ledger, so the 20 of the 195
+map variables two or more fixture events of one place share — mostly an interior's lever puzzles — are kept once
+per fixture rather than once per place, and like a door's state they are not saved yet (#8593). Fidelity per system — what matches
 the original, what is approximate, and what is deliberately ours — is fixed in
 [`../../docs/gameplay-design.md`](../../docs/gameplay-design.md).

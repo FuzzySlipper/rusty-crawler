@@ -12,7 +12,7 @@ namespace PartyRpg.Kit.Interaction;
 /// </para>
 /// <para>
 /// A refusal is never silence. It carries the code a caller branches on — the requirement the party does not
-/// meet, the charge it cannot pay, the event nothing executes — and the sentence a person reads, which is
+/// meet, the charge it cannot pay, the event the ruleset will not run — and the sentence a person reads, which is
 /// what makes a locked door say what it needs rather than doing nothing.
 /// </para>
 /// </remarks>

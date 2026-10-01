@@ -186,8 +186,15 @@ internal static partial class PackWriter
         PlaceContainerSummary containers,
         PlaceServiceSummary services,
         PlacePeopleSummary people,
-        PlaceEncounterSummary encounters)
+        PlaceEncounterSummary encounters,
+        PlaceFixtureSummary fixtures)
     {
+        // A place's fixtures stand where the faces raising their event are, so they are grouped by place and
+        // written into that place's own placements beside its containers.
+        Dictionary<int, IReadOnlyList<PlaceFixturePlacement>> fixturesByPlace = fixtures.Fixtures
+            .GroupBy(fixture => fixture.PlaceId)
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<PlaceFixturePlacement>)[.. group]);
+
         // A place's counters and households are emitted into its placements, which is where the interaction
         // mechanism reads them from: a service placement is a target the party talks to, and nothing about
         // the population's shape differs between a counter and a chest.
@@ -268,6 +275,7 @@ internal static partial class PackWriter
                         objectsByPlace.GetValueOrDefault(map.Id, []),
                         countersByPlace.GetValueOrDefault(map.Id, []),
                         peopleByPlace.GetValueOrDefault(map.Id, []),
+                        fixturesByPlace.GetValueOrDefault(map.Id, []),
                         residentsByBuilding);
                 }
             }));
@@ -321,6 +329,7 @@ internal static partial class PackWriter
         IReadOnlyList<PlaceSpriteObjectPlacement> spriteObjects,
         IReadOnlyList<PlaceServicePlacement> counters,
         IReadOnlyList<PlacePersonPlacement> people,
+        IReadOnlyList<PlaceFixturePlacement> fixtures,
         IReadOnlyDictionary<int, IReadOnlyList<string>> residentsByBuilding)
     {
         List<Placement> placements = [];
@@ -440,6 +449,20 @@ internal static partial class PackWriter
 
                 field.WriteEndArray();
             }));
+        }
+
+        // A fixture names the event its use raises; the event itself is the place-event document's entry
+        // under the same place and number, so what it does is written once rather than per face group.
+        foreach (PlaceFixturePlacement fixture in fixtures)
+        {
+            placements.Add(new Placement("fixture", fixture.EventId, "events", new PlacementPoint(fixture.X, fixture.Y, fixture.Z), null, "event-face-centroid", field =>
+            {
+                field.WriteNumber("eventId", fixture.EventId);
+                if (fixture.Label.Length > 0) field.WriteString("name", fixture.Label);
+                field.WriteNumber("faceCount", fixture.FaceCount);
+                if (fixture.ModelIndex is { } model) field.WriteNumber("sourceModel", model);
+                if (fixture.ModelName.Length > 0) field.WriteString("sourceModelName", fixture.ModelName);
+            }, fixture.PlacementId));
         }
 
         foreach (PlaceSpriteObjectPlacement held in spriteObjects)

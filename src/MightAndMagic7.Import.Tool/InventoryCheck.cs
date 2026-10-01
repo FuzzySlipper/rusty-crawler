@@ -60,7 +60,7 @@ internal static class InventoryCheck
         Check(failures, "exit instructions", 1552, graph.ExitInstructionCount);
         Check(failures, "programs without a map", 1, graph.ProgramsWithoutAMap.Count);
 
-        CheckImport(failures, install);
+        CheckImport(failures, install, tables);
 
         // The older table set from the previous game in the family shares these names with the rules
         // archive; the check exists so the trap cannot disappear unnoticed.
@@ -98,7 +98,7 @@ internal static class InventoryCheck
     private static int _checks;
 
     /// <summary>What decoding every map and writing every pack yields, against the figures the documents state.</summary>
-    private static void CheckImport(List<string> failures, LodInstall install)
+    private static void CheckImport(List<string> failures, LodInstall install, Mm7Tables tables)
     {
         MapDecodeReport maps = MapDecoder.DecodeAll(install);
         List<DecodedMap> decoded = [.. maps.Decoded.Select(outcome => outcome.Decoded).OfType<DecodedMap>()];
@@ -140,6 +140,20 @@ internal static class InventoryCheck
             Check(failures, "encounters with a drawn grade", 1775, written.Encounters.DrawnGrades);
             Check(failures, "fewest creatures the encounters resolve to", 1900, written.Encounters.FewestCreatures);
             Check(failures, "most creatures the encounters resolve to", 5458, written.Encounters.MostCreatures);
+
+            // A fixture is a clicked face group or decoration whose event no other emitter answers for; its event
+            // and the timers that keep what it gives are carried as normalized steps, and the notes those steps
+            // write are the discovery table's rows.
+            Check(failures, "fixtures", 1097, written.Fixtures.Fixtures.Count);
+            Check(failures, "places with a fixture", 66, written.Fixtures.PlaceCount);
+            Check(failures, "fixture events", 495, written.Fixtures.FixtureEventCount);
+            Check(failures, "timed events carried", 56, written.Fixtures.TriggeredEventCount);
+            Check(failures, "place events carried", 525, written.Fixtures.Events.Count);
+            Check(failures, "fixture event steps", 3271, written.Fixtures.Events.Where(placeEvent => placeEvent.Raised).Sum(placeEvent => placeEvent.Steps.Count));
+            Check(failures, "raised events a door answers for", 382, written.Fixtures.OwnedElsewhere.GetValueOrDefault("change-door-state"));
+            Check(failures, "raised events without instructions", 56, written.Fixtures.RaisedWithoutInstructions);
+            Check(failures, "discovery notes", 186, tables.Discoveries.Rows.Count);
+            Check(failures, "discovery rows without a note", 69, tables.Discoveries.SkippedRows);
 
             MediaManifest media = MediaExtractor.Extract(install, Path.Combine(scratch, "media"));
             Check(failures, "media emitted", 17681, media.EmittedCount);

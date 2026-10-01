@@ -100,7 +100,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   item instances, per-member equipment, purse and larder, reputation and fame, running effects, records,
   holdings, passages and memberships. Every charge is judged and settled through one ledger. Creation is a
   session mode with its own flow, and the scenario path builds a party through the same factory.
-- **Interaction and services.** One use workflow serves doors, containers, people and fixtures. One service
+- **Interaction and services.** One use workflow serves doors, containers, people and fixtures; a fixture runs
+  the steps of its imported map event this game interprets and refuses the rest by name. One service
   mechanism, an operation table judged before anything is settled, serves every shipped service kind; towns
   keep hours on the one clock; rest, camp and wait are distinct; conversations recompute their topics from
   party state and hand off to counters.
@@ -137,8 +138,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   searched chest can be looted twice (#8696); a door's collision does not move when it opens (#8594); a
   container above or below the floor cannot be used (#8697); deadlines (fatigue, wards, light, haste) block
   a save by name instead of being carried (#8617); towns have no house doors and camping is priced per
-  place (#8618); rest restores laid-out members (#8662); the panel reaches only buy and sell (#8619); map
-  event programs (fountains, obelisks, signs) are not executed (#9006).
+  place (#8618); rest restores laid-out members (#8662); the panel reaches only buy and sell (#8619).
 - Stone 6, combat: a fight is not carried in a save, and a save taken with one pending is refused (#8658);
   an order commands every member rather than a selected one (#8659).
 - Stone 7, progression and magic: training takes no game time (#8671); the two counted deeds two ranks need

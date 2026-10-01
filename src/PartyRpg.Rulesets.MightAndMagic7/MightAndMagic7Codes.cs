@@ -34,8 +34,26 @@ public static class MightAndMagic7Codes
     /// <summary>The refusal code <c>equipment-skill-unknown</c>.</summary>
     public const string EquipmentSkillUnknown = "equipment-skill-unknown";
 
-    /// <summary>The refusal code <c>interaction-event-not-executed</c>.</summary>
-    public const string InteractionEventNotExecuted = "interaction-event-not-executed";
+    /// <summary>The refusal code <c>fixture-discovery-unknown</c>.</summary>
+    public const string FixtureDiscoveryUnknown = "fixture-discovery-unknown";
+
+    /// <summary>The refusal code <c>fixture-event-missing</c>.</summary>
+    public const string FixtureEventMissing = "fixture-event-missing";
+
+    /// <summary>The refusal code <c>fixture-no-party</c>.</summary>
+    public const string FixtureNoParty = "fixture-no-party";
+
+    /// <summary>The refusal code <c>fixture-nothing-to-roll</c>.</summary>
+    public const string FixtureNothingToRoll = "fixture-nothing-to-roll";
+
+    /// <summary>The refusal code <c>fixture-runaway</c>.</summary>
+    public const string FixtureRunaway = "fixture-runaway";
+
+    /// <summary>The refusal code <c>fixture-step-not-interpreted</c>.</summary>
+    public const string FixtureStepNotInterpreted = "fixture-step-not-interpreted";
+
+    /// <summary>The refusal code <c>fixture-variable-not-interpreted</c>.</summary>
+    public const string FixtureVariableNotInterpreted = "fixture-variable-not-interpreted";
 
     /// <summary>The refusal code <c>mixture-cannot-act</c>.</summary>
     public const string MixtureCannotAct = "mixture-cannot-act";

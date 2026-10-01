@@ -646,7 +646,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// The panel shows the last answer and nothing else, so a use that left no report would be
     /// indistinguishable from a key that never arrived. The report names the target, the verb, and the
     /// refusal's own code, which is what makes an opened door, a door that was already open, and a fixture
-    /// whose event nothing executes readable from the product's own account of itself.
+    /// whose event the ruleset refused to run readable from the product's own account of itself.
     /// </remarks>
     private void Report(InteractionResult result)
     {

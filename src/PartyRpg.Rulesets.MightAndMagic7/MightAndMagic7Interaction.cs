@@ -19,20 +19,20 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// <para>
 /// <b>What the imported data supports.</b> A place's doors arrive as placements carrying the delta's own
 /// door state and attributes, its containers as placements carrying the delta's chest records, its loose
-/// items as the sprite objects holding them, and an interior's decorations as the event each one raises.
-/// This ruleset turns the first into a door the party opens, the second and third into containers it
-/// searches, and the last into a fixture whose use is refused with the event named, because nothing in
-/// this build executes map events. Everything else a place holds — spawn points, lights, decorations that
-/// raise nothing, sprite objects holding nothing — is not a target, which is the same filter the original
-/// applies when it picks what the interaction key can reach (OpenEnroth
+/// items as the sprite objects holding them, and its fixtures — the faces and decorations whose use raises
+/// one of the place's own map events — as the event each one raises. This ruleset turns the first into a
+/// door the party opens, the second and third into containers it searches, and the last into a fixture whose
+/// use runs its event (<see cref="MightAndMagic7Fixtures"/>). Everything else a place holds — spawn points,
+/// lights, decorations that raise nothing, sprite objects holding nothing — is not a target, which is the same
+/// filter the original applies when it picks what the interaction key can reach (OpenEnroth
 /// <c>src/Engine/Graphics/Vis.cpp:31-34</c>, the door and event-decoration filters).
 /// </para>
 /// <para>
 /// <b>What content adds.</b> A placement may state what using it requires — an item, a skill, a flag, a part
 /// of the day — in a <c>requires</c> array, and that is where a lock comes from. The imported packs state
-/// none, because the original's locked doors are map events rather than door records; an authored pack, and
-/// the tests, are what exercise the vocabulary until the map-event interpreter can read the original's own
-/// locks.
+/// none, because the original's locked doors are map events rather than door records, and the events that
+/// move a door are the door's (<c>MightAndMagic7.Import.Packs.PlaceFixtureEmitter</c>); an authored pack, and the
+/// tests, are what exercise the vocabulary.
 /// </para>
 /// <para>
 /// <b>A place's hours lock its doors.</b> When the place the door stands in keeps hours — its counters'
@@ -51,15 +51,10 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// <para>
 /// <b>What this game cannot deliver yet, stated rather than hidden.</b> Opening a door records its state and
 /// reports it, and leaves the door's polygons standing as collision, because door geometry does not move in
-/// this build; that is the residue the outcome carries. A fixture's use raises an event nothing executes, so
-/// it is a refusal with the event named rather than a success that did nothing — and because a landmark's
-/// effect and its note are both instructions of that event, a fountain cannot be drunk from and an obelisk
-/// cannot be read until a map event interpreter exists. The operator's own data says how much is waiting
-/// there: the install's discovery table holds 207 rows, of which 39 are what a well or fountain gives, 14
-/// are the obelisks' own messages (one per outdoor region), and 61 are potion recipes, and the map event
-/// programs set them 122 times across 16 programs. Nothing here fakes that interpreter: what it will report
-/// is already stated — an outcome carries the discoveries a use made, and the session hands them to the
-/// knowledge owner — so the interpreter lands as the half that fills them.
+/// this build; that is the residue the outcome carries. A fixture's use runs the steps of its event this game
+/// interprets, and a run that reaches one it does not is refused by name before anything changes; what a run
+/// teaches — a well's effect, an obelisk's message, a sign's words — travels on the outcome, and the session
+/// hands it to the knowledge owner.
 /// </para>
 /// </remarks>
 internal sealed class MightAndMagic7Interaction : IInteractionRule
@@ -73,9 +68,6 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     /// <summary>The target kind a door is.</summary>
     internal const string DoorTargetKind = "door";
 
-    /// <summary>The target kind a decoration raising an event is.</summary>
-    internal const string FixtureTargetKind = "fixture";
-
     /// <summary>The state word a door the party has opened holds.</summary>
     internal const string OpenState = "open";
 
@@ -84,9 +76,6 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
 
     /// <summary>The state word a door standing in the way holds.</summary>
     internal const string ClosedState = "closed";
-
-    /// <summary>The placement field that names the event a decoration raises.</summary>
-    internal const string EventField = "eventId";
 
     /// <summary>The placement field that names what using a placement requires.</summary>
     internal const string RequiresField = "requires";
@@ -128,6 +117,7 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     private readonly MightAndMagic7Corpses? _corpses;
     private readonly MightAndMagic7Loot? _loot;
     private readonly Func<PartyJournal?>? _journal;
+    private readonly MightAndMagic7Fixtures _fixtures;
 
     /// <summary>Creates this game's interaction answers.</summary>
     /// <param name="schedule">
@@ -148,16 +138,22 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     /// owner that keeps the record — and a product that creates its party has no party at all until the player
     /// accepts one — so a mechanism holding the owner it was built with would report finds to nobody.
     /// </param>
+    /// <param name="fixtures">
+    /// This game's fixtures, which run the map events content carries. Without one a fixture is still a target
+    /// and its use is refused by name, because no event is loaded for it to run.
+    /// </param>
     internal MightAndMagic7Interaction(
         PlaceSchedule? schedule = null,
         MightAndMagic7Corpses? corpses = null,
         MightAndMagic7Loot? loot = null,
-        Func<PartyJournal?>? journal = null)
+        Func<PartyJournal?>? journal = null,
+        MightAndMagic7Fixtures? fixtures = null)
     {
         _schedule = schedule;
         _corpses = corpses;
         _loot = loot;
         _journal = journal;
+        _fixtures = fixtures ?? new MightAndMagic7Fixtures(MightAndMagic7MapEvents.None);
     }
 
     /// <summary>The door state the delta stores for a door at rest, which the donor calls open.</summary>
@@ -265,18 +261,7 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
             return container;
         }
 
-        if (string.Equals(placement.Content.Kind, DecorationPlacementKind, StringComparison.Ordinal) &&
-            placement.Source.GetInt32(EventField) is { } eventId && eventId != 0)
-        {
-            string name = placement.Source.GetString(DecorationNameField);
-            return new InteractionTargetDefinition(
-                new InteractionTargetKind(FixtureTargetKind),
-                name.Length == 0 ? "A fixture" : $"A fixture ({name})",
-                InteractionVerb.Pull,
-                Reach);
-        }
-
-        return null;
+        return _fixtures.Describe(request, Reach);
     }
 
     /// <inheritdoc />
@@ -315,17 +300,12 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
             return search;
         }
 
-        if (string.Equals(target.Kind.Value, FixtureTargetKind, StringComparison.Ordinal))
+        if (string.Equals(target.Kind.Value, MightAndMagic7Fixtures.TargetKind, StringComparison.Ordinal))
         {
-            // What a landmark teaches is part of the event it raises, so a use nothing executes teaches
-            // nothing either: the refusal names the event and says that what it would have given and told the
-            // party is not learned. The recording path is already in place behind this — an interpreted event
-            // returns the discoveries it made on its outcome, and the session hands them to the knowledge
-            // owner — so the interpreter is the whole of what is missing rather than this half being absent
-            // too. Nothing here fabricates an event to fill the gap.
-            int eventId = context.Placement.Source.GetInt32(EventField) ?? 0;
-            return InteractionOutcome.Refused(
-                new Refusal(MightAndMagic7Codes.InteractionEventNotExecuted, $"{target.Name} raises map event {eventId} of place '{context.Place}', and nothing in this build executes map events: the event interpreter that will is not built, so neither what the event gives nor what it teaches is learned."));
+            // What a landmark gives and what it teaches are both steps of the event it raises, so the run
+            // answers with both: the changes it made through the party's owners, and the notes it reports for
+            // the knowledge owner to judge.
+            return _fixtures.Use(target, context);
         }
 
         return Door(target, context);

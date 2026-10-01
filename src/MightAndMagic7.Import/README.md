@@ -25,6 +25,15 @@ Owns:
   face gives the party to walk into — the face's own centroid and extent, with the model, face, event and
   attribute it came from — and, per link, the reason when there is none (an event no face raises, a later
   instruction of an event whose first move is another link, or a move the world itself issues).
+- Fixtures and their events: every clicked face group and decoration whose event no other emitter answers for
+  (a move, a building, a container, a door) as a `fixture` placement where its faces stand, and every such event
+  — with the timers that refill what it gives — as a `place-event` entry of normalized steps: the donor's own
+  instruction word, the operands the instruction carries, the variable named by family and slot, and the line a
+  status step prints read from the map's own string table. The discovery table is written beside them as
+  `discovery` entries. No step is interpreted here; the write summary counts the steps of each kind, which is
+  what the ruleset's interpretation is measured against, and the shapes are recorded in
+  [`../../docs/research/mm7-data-inventory.md`](../../docs/research/mm7-data-inventory.md) (*Fixtures, map
+  events, and the discovery table*).
 - The automap raster: one `place-map` entry per place — a region on its own terrain grid at its own
   512-unit pitch with one height band per square, an interior on this importer's own 128-unit grid with a
   square marked wherever one of the level's own minimap outlines passes through it — which is what the
@@ -56,7 +65,8 @@ Boundary rules:
   route or days: which places it sells passages to is the ruleset's fare network and how long they take is
   its tuned fare rule.
 
-Implemented: every container decodes, the rule tables, event programs, place graph,
+Implemented: every container decodes, the rule tables, the discovery table, event programs and each map's
+string table, the fixtures and their normalized events, place graph,
 the treasure rules the tables carry (a monster row's own cell read into a drop chance, coin dice, a
 treasure level and the kind of thing asked for, and the random-item table's 618 weighed rows carried onto
 the items they weigh, so the packs state numbers rather than a string every reader would spell again),

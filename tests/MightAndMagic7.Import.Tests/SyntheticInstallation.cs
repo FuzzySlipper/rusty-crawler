@@ -127,6 +127,7 @@ internal static class SyntheticInstallation
                     LodFixture.TextTable("npcgreet.txt", Greetings()),
                     LodFixture.TextTable("npctopic.txt", Topics()),
                     LodFixture.TextTable("npctext.txt", TopicTexts()),
+                    LodFixture.TextTable("AUTONOTE.TXT", Discoveries()),
                     .. events,
                 ]));
         if (withMaps)
@@ -714,4 +715,18 @@ internal static class SyntheticInstallation
 
         return text.ToString();
     }
+
+    /// <summary>
+    /// The discovery table: a note of each category the shipped table uses, a placeholder row whose text is
+    /// <c>0</c> and an empty row, which are not notes, and the table's own padding after its last row.
+    /// </summary>
+    private static string Discoveries() =>
+        "Note bit\tAutonote Text\tCategory\t\t\n"
+        + "1\tAccepted a wand.\tMisc\t1\t\n"
+        + "2\t50 points of temporary Fire resistance from the town well.\tStat\t1\tStat\n"
+        + "3\t0\tStat\t\n"
+        + "4\tObelisk message #1: abc\tObelisk\tArea 2\n"
+        + "5\t\"Cure Wounds (Red) = Widoweeps Berries + Empty Bottle.\"\tpotion\n"
+        + "6\t \t\n"
+        + "\t\t\n";
 }
