@@ -26,6 +26,7 @@ public sealed class EngineMovementTests
     private static readonly PlaceId Place = new("1");
     private static readonly CombatantId Creature = CombatantId.Of(new EntityId(7));
     private static readonly CombatantId Party = CombatantId.Of(new EntityId(8));
+    private const double SettleReach = 1000;
 
     [Fact]
     public void A_place_s_geometry_the_party_s_steps_and_a_creature_s_steps_all_go_to_the_one_scene()
@@ -115,12 +116,142 @@ public sealed class EngineMovementTests
         mover.Dispose();
     }
 
+    [Fact]
+    public void A_creature_content_stood_under_the_ground_is_stood_on_it_and_steps_from_there()
+    {
+        // The engine refuses a step whose body starts below a surface at height 96 — a record at height zero under
+        // a hillside, as Harmondale's goblin spawns are — and the ground over the creature's feet is that surface.
+        const float Ground = 96;
+        List<SpatialRaycastRequest> rays = [];
+        ScriptedSpatialService spatial = new()
+        {
+            Answer = (request, receipt) => request.Position.Y < Ground ? throw Embedded() : receipt,
+            Rays = request =>
+            {
+                rays.Add(request);
+                return default(SpatialHit) with { Present = true, Point = request.Origin with { Y = Ground } };
+            },
+        };
+        (EnginePartyMover mover, EngineCreatureMotion creatures) = Movers(spatial);
+        mover.Enter(Place);
+
+        CreatureMoveOutcome outcome = creatures.Move(Toward(new PlacePose(100, 0, 0, 0, 0), new PlacePose(100, 100, 0, 0, 0)));
+
+        // The ray is the engine's, cast up the creature's own column from its feet in the scene it is stepped in.
+        SpatialRaycastRequest ray = Assert.Single(rays);
+        Assert.Same(mover.Session, ray.Session);
+        Assert.Equal(new Vector3(100, 0, 0), ray.Origin);
+        Assert.Equal(Vector3.UnitY, ray.Direction);
+        Assert.Equal(SettleReach, ray.MaxDistance);
+
+        // It stands on that ground, has moved to get there, and its next step carries on from it.
+        Assert.False(outcome.IsHeld);
+        Assert.True(outcome.Moved);
+        Assert.Equal(Ground, outcome.Pose.Z, precision: 3);
+        Assert.Equal(2, spatial.Steps.Count);
+        Assert.Equal(default(CharacterMotion), spatial.Steps[1].Motion);
+        Assert.Empty(creatures.Held);
+
+        creatures.Move(Toward(outcome.Pose, new PlacePose(100, 100, 0, 0, 0)));
+        Assert.Equal(3, spatial.Steps.Count);
+        Assert.Single(rays);
+        mover.Dispose();
+    }
+
+    [Fact]
+    public void A_creature_the_engine_cannot_step_and_no_ground_stands_clear_is_held_by_name_not_a_fault()
+    {
+        // The engine refuses every step, and the ray up the creature's column meets nothing: there is no ground
+        // over its feet to stand it on. The creature is held where it stands, by name, and the session goes on.
+        int rays = 0;
+        ScriptedSpatialService spatial = new()
+        {
+            Answer = (_, _) => throw Embedded(),
+            Rays = _ =>
+            {
+                rays++;
+                return default;
+            },
+        };
+        (EnginePartyMover mover, EngineCreatureMotion creatures) = Movers(spatial);
+        mover.Enter(Place);
+        PlacePose start = new(100, 0, -40, 0, 0);
+
+        CreatureMoveOutcome outcome = creatures.Move(Toward(start, new PlacePose(100, 100, 0, 0, 0)));
+
+        Assert.True(outcome.IsHeld);
+        Assert.False(outcome.Moved);
+        Assert.Equal(start, outcome.Pose);
+        Assert.Equal(CreatureMoveCodes.Embedded, outcome.Refusal!.Code);
+        Assert.Contains("unresolved-character-controller-penetration", outcome.Refusal.Message, StringComparison.Ordinal);
+        Assert.Same(outcome.Refusal, creatures.Held[Creature]);
+
+        // Held is held: the engine is not asked again for an answer that can only be the same refusal.
+        int steps = spatial.Steps.Count;
+        Assert.True(creatures.Move(Toward(start, new PlacePose(100, 100, 0, 0, 0))).IsHeld);
+        Assert.Equal(steps, spatial.Steps.Count);
+        Assert.Equal(1, rays);
+
+        // A creature that leaves the field is forgotten with its hold, and is asked again when it comes back.
+        creatures.Forget(Creature);
+        Assert.Empty(creatures.Held);
+        creatures.Move(Toward(start, new PlacePose(100, 100, 0, 0, 0)));
+        Assert.Equal(steps + 1, spatial.Steps.Count);
+        mover.Dispose();
+    }
+
+    [Fact]
+    public void A_creature_stood_on_ground_that_still_cannot_step_is_held_and_any_other_engine_failure_is_not_swallowed()
+    {
+        // The ground over the feet is found but the body still does not fit there: held, with the engine's sentence.
+        ScriptedSpatialService spatial = new()
+        {
+            Answer = (_, _) => throw Embedded(),
+            Rays = request => default(SpatialHit) with { Present = true, Point = request.Origin with { Y = 50 } },
+        };
+        (EnginePartyMover mover, EngineCreatureMotion creatures) = Movers(spatial);
+        mover.Enter(Place);
+
+        CreatureMoveOutcome outcome = creatures.Move(Toward(new PlacePose(100, 0, 0, 0, 0), new PlacePose(100, 100, 0, 0, 0)));
+        Assert.True(outcome.IsHeld);
+        Assert.Equal(0, outcome.Pose.Z);
+        Assert.Equal(2, spatial.Steps.Count);
+        mover.Dispose();
+
+        // A refusal that is not about where the body stands is not a creature's to absorb: it still surfaces.
+        ScriptedSpatialService broken = new()
+        {
+            Answer = (_, _) => throw new EngineCallException(
+                "Spatial",
+                "ProposeCharacterStep",
+                0,
+                new[] { new EngineDiagnostic("invalid-character-controller-config", "the profile is not valid", "Spatial") }),
+        };
+        (EnginePartyMover other, EngineCreatureMotion stepping) = Movers(broken);
+        other.Enter(Place);
+        Assert.Throws<EngineCallException>(() => stepping.Move(Toward(new PlacePose(100, 0, 0, 0, 0), new PlacePose(100, 100, 0, 0, 0))));
+        other.Dispose();
+    }
+
+    /// <summary>The engine's refusal of a step whose body it could not resolve out of collision, as it is raised.</summary>
+    private static EngineCallException Embedded() => new(
+        "Spatial",
+        "ProposeCharacterStep",
+        0,
+        new[]
+        {
+            new EngineDiagnostic(
+                "unresolved-character-controller-penetration",
+                "unresolved-character-controller-penetration: UnresolvedPenetration { depth: 45.22667 }",
+                "Spatial"),
+        });
+
     private static (EnginePartyMover Mover, EngineCreatureMotion Creatures) Movers(ScriptedSpatialService spatial)
     {
         PartyPoseOwner party = new(new PartyPose(Place, PlacePose.Origin), Facing);
         PartyMovement movement = new(spatial, party, Space, new SpatialSessionConfig(0.5, 16, VoxelSurfaceMode.GreedyCubes));
         EnginePartyMover mover = new(spatial, movement, new ScriptedContentService(), new PlaceNavigationPolicy(0, 16, 4, 512, 1024), new OnePlace());
-        return (mover, new EngineCreatureMotion(spatial, mover, Space, spatial.DefaultCharacterControllerConfig()));
+        return (mover, new EngineCreatureMotion(spatial, mover, Space, spatial.DefaultCharacterControllerConfig(), SettleReach));
     }
 
     private static CreatureMoveRequest Toward(PlacePose from, PlacePose target) =>

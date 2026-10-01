@@ -134,8 +134,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 
 **Open residue and its receivers** (Den task ids; Den owns their status):
 
-- Stone 3, world: creatures cannot path around a wall because places carry no navigation cells (#8665); a
-  creature step can fault the runtime in Harmondale (#9041); the global event program (topics) is not run, so
+- Stone 3, world: creatures cannot path around a wall because places carry no navigation cells (#8665); the
+  global event program (topics) is not run, so
   some quest-gated links have no raiser (#9042); a person moving house and a counter door's own move are not
   followed (#9043); plates whose events do not move the party are not emitted (#9044).
 - Stone 5, interaction and services: opened doors and emptied containers are not saved (#8593), and a

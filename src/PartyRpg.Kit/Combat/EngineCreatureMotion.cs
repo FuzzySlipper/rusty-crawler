@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Numerics;
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Sessions;
@@ -14,9 +15,17 @@ namespace PartyRpg.Kit.Combat;
 /// <b>It is the same service and the same scene the party walks in.</b> A step is handed to the engine's
 /// spatial session with the creature's own position and the continuation the engine gave back last time,
 /// and the displacement the engine resolved is what moves it — walls slide it, a step-up carries it, a
-/// slope holds it, and a drop lands it. Nothing here casts a ray, sweeps a body, or decides whether a
-/// creature fits anywhere: a second opinion about that would disagree with the first the moment a slope
-/// fell between them.
+/// slope holds it, and a drop lands it. Nothing here sweeps a body or decides whether a creature fits
+/// anywhere: a second opinion about that would disagree with the first the moment a slope fell between them.
+/// </para>
+/// <para>
+/// <b>A creature content stood inside the ground stands on it, or is held by name.</b> The engine refuses a step
+/// whose body starts deeper inside collision than its controller recovers, and leaves what happens to that actor
+/// to the product. A creature content placed below a hillside — a record whose height is nominal — is stood on
+/// the first surface the engine's own ray meets straight above its feet, within the settling reach the ruleset
+/// states, and steps from there; one with no such surface, or one the engine still cannot step once stood on it,
+/// is held where it stands with a <see cref="CreatureMoveCodes.Embedded"/> refusal and is not asked again until it
+/// leaves the field. Either way the session goes on: a creature that cannot be placed is never a fault.
 /// </para>
 /// <para>
 /// <b>Each creature owns its own continuation.</b> The engine's continuation — velocity, timers, support —
@@ -34,11 +43,16 @@ namespace PartyRpg.Kit.Combat;
 /// </remarks>
 public sealed class EngineCreatureMotion : ICreatureMover
 {
+    /// <summary>The engine's code for a step refused because the body could not be resolved out of collision.</summary>
+    private const string UnresolvedPenetration = "unresolved-character-controller-penetration";
+
     private readonly ISpatialService _spatial;
     private readonly EnginePartyMover _scene;
     private readonly PlaceSpace _space;
     private readonly CharacterControllerConfig _controller;
+    private readonly double _settleReach;
     private readonly Dictionary<CombatantId, Walker> _walkers = [];
+    private readonly Dictionary<CombatantId, Refusal> _held = [];
     private ulong _sequence;
     private bool _disposed;
 
@@ -54,21 +68,40 @@ public sealed class EngineCreatureMotion : ICreatureMover
     /// The engine controller profile a creature is swept with, which is the party's profile scaled per
     /// creature by its own speed. It states the body, the acceleration, the slopes, and the step-up.
     /// </param>
+    /// <param name="settleReach">
+    /// How far above its feet, in place units, the ground over a creature content stood inside it may lie and the
+    /// creature still be stood on it: the ruleset's statement of how deep its content can bury a record. Zero
+    /// stands nobody up, and a creature the engine cannot step is then held where it stands.
+    /// </param>
     /// <exception cref="ArgumentNullException">A required collaborator is missing.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The settling reach is negative or not a number.</exception>
     public EngineCreatureMotion(
         ISpatialService spatial,
         EnginePartyMover scene,
         PlaceSpace space,
-        CharacterControllerConfig controller)
+        CharacterControllerConfig controller,
+        double settleReach)
     {
         _spatial = spatial ?? throw new ArgumentNullException(nameof(spatial));
         _scene = scene ?? throw new ArgumentNullException(nameof(scene));
+        if (!double.IsFinite(settleReach) || settleReach < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(settleReach),
+                settleReach,
+                "A settling reach is a distance, zero or more; a creature cannot be stood on ground an unstated distance away.");
+        }
+
         _space = space;
         _controller = controller;
+        _settleReach = settleReach;
     }
 
     /// <summary>How many creatures this mover has moved at least once.</summary>
     public int Walkers => _walkers.Count;
+
+    /// <summary>The creatures the engine could not step, each with why it is held.</summary>
+    public IReadOnlyDictionary<CombatantId, Refusal> Held => _held;
 
     /// <inheritdoc />
     /// <exception cref="ObjectDisposedException">The mover has been disposed.</exception>
@@ -83,6 +116,9 @@ public sealed class EngineCreatureMotion : ICreatureMover
                 request.ElapsedSeconds,
                 "A creature's step must cover a finite, positive interval; the engine rejects a step that covers no time.");
         }
+
+        // A creature the engine could not place stays held: asking again would only be refused again.
+        if (_held.TryGetValue(request.Creature, out Refusal? held)) return CreatureMoveOutcome.Held(request.From, held);
 
         // Where the creature stands is its own live position, which the caller read from the creature; what
         // this mover keeps between steps is only the engine's motion state and the heading it last faced.
@@ -125,21 +161,119 @@ public sealed class EngineCreatureMotion : ICreatureMover
             StepSeconds: (float)request.ElapsedSeconds,
             Sequence: ++_sequence);
 
-        CharacterStepReceipt receipt = _spatial.ProposeCharacterStep(new CharacterStepRequest(
-            _scene.Session,
-            position,
-            walker.Motion,
-            default,
-            ReadOnlyMemory<CharacterObstacle>.Empty,
-            ReadOnlyMemory<CharacterMeshInstance>.Empty,
-            _controller,
-            command));
+        PlacePose from = request.From;
+        if (Propose(position, walker.Motion, command, out string? embedded) is not { } receipt)
+        {
+            // The engine could not resolve the body out of the collision it starts in. A creature whose content
+            // stood it below the ground — a record that states a nominal height under a hillside — stands on the
+            // ground over its feet, as the engine's own ray finds it, and takes its step from there with a fresh
+            // continuation. One that has no such ground, or that the engine still cannot step once stood on it,
+            // is held where it stands, by name, and not asked again until it leaves the field.
+            if (Settle(from) is not { } settled ||
+                Propose(_space.Position(settled), default, command, out embedded) is not { } resettled)
+            {
+                Refusal refusal = Embedded(from, embedded!);
+                _held[request.Creature] = refusal;
+                _walkers.Remove(request.Creature);
+                return CreatureMoveOutcome.Held(from, refusal);
+            }
 
-        PlacePose pose = _space.Position(receipt.Transform.Translation, request.From);
+            from = settled;
+            receipt = resettled;
+        }
+
+        // How far it moved is measured from where it stood, so a creature stood up out of the ground has moved.
+        PlacePose pose = _space.Position(receipt.Transform.Translation, from);
         double moved = (receipt.Transform.Translation - position).Length();
         _walkers[request.Creature] = new Walker(receipt.Motion, heading);
         return new CreatureMoveOutcome(moved > 0, pose, moved, receipt.Motion.Grounded);
     }
+
+    /// <summary>
+    /// Asks the engine for one step, or says why the engine could not place the body to take it.
+    /// </summary>
+    /// <remarks>
+    /// The engine's controller recovers a body that starts a little inside collision, within a bounded distance
+    /// per step, and refuses one it cannot recover with <c>unresolved-character-controller-penetration</c>
+    /// (the engine's C# lifecycle guide leaves what then happens to the actor to the product). That refusal is
+    /// the one answered here; any other engine failure is not a fact about where a creature stands and is not
+    /// caught.
+    /// </remarks>
+    /// <param name="position">Where the body's centre starts, in the engine's world.</param>
+    /// <param name="motion">The continuation the step carries on from.</param>
+    /// <param name="command">What the creature is trying to do.</param>
+    /// <param name="embedded">The engine's own sentence when it could not place the body; null otherwise.</param>
+    /// <returns>The engine's receipt, or null when it could not place the body.</returns>
+    private CharacterStepReceipt? Propose(Vector3 position, CharacterMotion motion, CharacterControllerCommand command, out string? embedded)
+    {
+        embedded = null;
+        try
+        {
+            return _spatial.ProposeCharacterStep(new CharacterStepRequest(
+                _scene.Session,
+                position,
+                motion,
+                default,
+                ReadOnlyMemory<CharacterObstacle>.Empty,
+                ReadOnlyMemory<CharacterMeshInstance>.Empty,
+                _controller,
+                command));
+        }
+        catch (EngineCallException error) when (Unresolved(error) is { } sentence)
+        {
+            embedded = sentence;
+            return null;
+        }
+    }
+
+    /// <summary>The engine's sentence when a step was refused because the body could not be resolved out of collision.</summary>
+    private static string? Unresolved(EngineCallException error)
+    {
+        foreach (EngineDiagnostic diagnostic in error.Diagnostics.Span)
+        {
+            if (string.Equals(diagnostic.Code, UnresolvedPenetration, StringComparison.Ordinal))
+            {
+                return string.IsNullOrWhiteSpace(diagnostic.Message) ? diagnostic.Code : diagnostic.Message;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Where a creature stands when the ground is over its feet: on the first surface the engine's collision holds
+    /// straight above them, within the settling reach; null when there is none.
+    /// </summary>
+    /// <remarks>
+    /// The ray is the engine's own query over the same scene the step is resolved in, cast up the creature's own
+    /// column from its feet, so the surface it meets is the underside of whatever buries it. Nothing here decides
+    /// whether a body fits there: the step that follows is the engine's answer to that.
+    /// </remarks>
+    /// <param name="from">Where content or the last step stood the creature.</param>
+    private PlacePose? Settle(PlacePose from)
+    {
+        if (_settleReach <= 0) return null;
+        SpatialHit hit = _spatial.CastRay(new SpatialRaycastRequest(
+            _scene.Session,
+            _space.GroundPosition(from),
+            Vector3.UnitY,
+            _settleReach,
+            new SpatialQueryFilter(0, 0),
+            ReadOnlyMemory<SpatialEntityCollider>.Empty,
+            ReadOnlyMemory<ulong>.Empty,
+            ReadOnlyMemory<SpatialEntityCollider>.Empty));
+        if (!hit.Present || !float.IsFinite(hit.Point.Y)) return null;
+        double ground = hit.Point.Y;
+        PlacePose stood = from;
+        return ground > stood.Z ? stood with { Z = ground } : null;
+    }
+
+    /// <summary>The refusal a creature the engine cannot place is held with.</summary>
+    private Refusal Embedded(PlacePose from, string engine) => new(
+        CreatureMoveCodes.Embedded,
+        string.Create(
+            CultureInfo.InvariantCulture,
+            $"The creature at ({from.X:0.#}, {from.Y:0.#}, {from.Z:0.#}) stands inside collision the engine cannot step it out of ({engine}), and no ground over its feet within {_settleReach:0.#} units stands it clear; it is held where it stands."));
 
     /// <inheritdoc />
     /// <exception cref="ObjectDisposedException">The mover has been disposed.</exception>
@@ -147,6 +281,7 @@ public sealed class EngineCreatureMotion : ICreatureMover
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         _walkers.Remove(creature);
+        _held.Remove(creature);
     }
 
     /// <inheritdoc />
@@ -155,6 +290,7 @@ public sealed class EngineCreatureMotion : ICreatureMover
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         _walkers.Clear();
+        _held.Clear();
     }
 
     /// <summary>Releases the walkers; the collision scene is the party's own and is not this mover's to free.</summary>
@@ -163,6 +299,7 @@ public sealed class EngineCreatureMotion : ICreatureMover
         if (_disposed) return;
         _disposed = true;
         _walkers.Clear();
+        _held.Clear();
     }
 
     /// <summary>

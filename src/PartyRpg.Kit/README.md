@@ -315,7 +315,11 @@ step through the `ICreatureMover` seam, reports what every creature is doing, an
 opposition is all down as cleared through the world's own per-place state; `EngineCreatureMotion` is the
 engine-backed mover — built over the party's own `EnginePartyMover`, so every creature's character step goes
 to the one scene the place's collision was admitted to, steered at the engine's waypoint only when the place's
-admission carried navigation cells and the engine reports the path reached, and no C# collision anywhere), one damage entry for a character's
+admission carried navigation cells and the engine reports the path reached, and no C# collision anywhere; a
+creature whose body starts deeper in collision than the engine's controller recovers, which the engine refuses
+with `unresolved-character-controller-penetration`, is stood on the first surface the engine's own ray meets
+straight above its feet within the ruleset's settling reach, and one with no such ground, or still refused there,
+is held where it stands with a `creature-embedded` refusal the driver reports as `stuck`, never a fault), one damage entry for a character's
 own health
 (`Party/` — `PartyMember.TakeDamage` is where every wound arrives, a creature's bite and a sprung trap
 alike, taking harm into the party's own pool, keeping `CharacterResources.Deficit` for how far past empty

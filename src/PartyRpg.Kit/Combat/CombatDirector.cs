@@ -17,12 +17,14 @@ namespace PartyRpg.Kit.Combat;
 /// <param name="Action">What it decided.</param>
 /// <param name="Target">What the decision was about, empty when it was about nobody.</param>
 /// <param name="Applied">Whether the fight or the engine took it, false when the actor could not act.</param>
+/// <param name="Refusal">Why a creature that is <see cref="CreatureActivityKind.Stuck"/> is held; null otherwise.</param>
 public readonly record struct CreatureActivity(
     CombatantId Creature,
     string Name,
     CreatureActivityKind Action,
     string Target,
-    bool Applied);
+    bool Applied,
+    Refusal? Refusal = null);
 
 /// <summary>What a creature is doing, as a closed set the driver chooses from.</summary>
 public enum CreatureActivityKind
@@ -47,6 +49,12 @@ public enum CreatureActivityKind
 
     /// <summary>It is down, which is not acting.</summary>
     Down,
+
+    /// <summary>
+    /// It would move, but the engine cannot step it from where it stands, so it is held there; the activity's
+    /// <see cref="CreatureActivity.Refusal"/> says why.
+    /// </summary>
+    Stuck,
 }
 
 /// <summary>The words a creature's activity is spelled with on the wire and in a report.</summary>
@@ -65,6 +73,7 @@ public static class CreatureActivityKinds
         CreatureActivityKind.Closing => "closing",
         CreatureActivityKind.BackingAway => "backing away",
         CreatureActivityKind.Down => "down",
+        CreatureActivityKind.Stuck => "stuck",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown creature activity."),
     };
 }
@@ -402,6 +411,13 @@ public sealed class CombatDirector
         // reader of it — the fight's distances, a body laid where it falls — reads one position.
         if (creature.Subject.Entity is { IsAlive: true } walked) walked.MoveTo(outcome.Pose);
 
+        // A creature the engine cannot step stays where it stands, and says so by name rather than by faulting
+        // the update every creature shares.
+        if (outcome.Refusal is { } held)
+        {
+            return new CreatureActivity(creature.Id, creature.Name, CreatureActivityKind.Stuck, targetName, Applied: false, held);
+        }
+
         return new CreatureActivity(
             creature.Id,
             creature.Name,
@@ -468,6 +484,18 @@ public sealed class CombatDirector
     /// <summary>Reports one creature's decision, with the place it happened in.</summary>
     private void Report(PlaceId place, CreatureActivity activity)
     {
+        if (activity.Refusal is { } refusal)
+        {
+            _diagnostics?.Publish(new DiagnosticsPublishRequest(
+                DiagnosticsSeverity.Warning,
+                DiagnosticsDisposition.RejectedRecoverable,
+                Source: "combat-ai",
+                Code: refusal.Code,
+                Message: string.Create(CultureInfo.InvariantCulture, $"In place '{place}', {activity.Name}: {refusal.Message}"),
+                Correlation: string.Empty));
+            return;
+        }
+
         _diagnostics?.Publish(new DiagnosticsPublishRequest(
             DiagnosticsSeverity.Info,
             DiagnosticsDisposition.Accepted,

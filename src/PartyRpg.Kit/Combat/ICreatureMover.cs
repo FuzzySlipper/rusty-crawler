@@ -49,16 +49,43 @@ public readonly record struct CreatureMoveRequest(
 /// standing in a place whose collision was never admitted, and a creature told to close on somebody who is
 /// already at arm's length all end where they began, and the caller learns that from
 /// <see cref="Moved"/> and <see cref="MovedBy"/> rather than by comparing positions itself.
+/// <para>
+/// A creature the engine cannot step at all — its body starts inside collision deeper than the engine resolves,
+/// and no ground over its feet stands it clear — is held where it stands, and <see cref="Refusal"/> says why
+/// with a code from <see cref="CreatureMoveCodes"/>. That is a creature that stays put by name, never a fault
+/// that stops the session.
+/// </para>
 /// </remarks>
 /// <param name="Moved">Whether the engine's step carried the creature anywhere.</param>
 /// <param name="Pose">Where the creature stands after the step, which is where it began when nothing moved it.</param>
 /// <param name="MovedBy">How far it moved, in place units.</param>
 /// <param name="Grounded">Whether the engine found ground under it at the end of the step.</param>
-public readonly record struct CreatureMoveOutcome(bool Moved, PlacePose Pose, double MovedBy, bool Grounded)
+/// <param name="Refusal">Why the creature is held rather than stepped; null when the engine took the step.</param>
+public readonly record struct CreatureMoveOutcome(bool Moved, PlacePose Pose, double MovedBy, bool Grounded, Refusal? Refusal = null)
 {
     /// <summary>Nothing moved: the creature stands where it stood.</summary>
     /// <param name="pose">Where it stands.</param>
     public static CreatureMoveOutcome Still(PlacePose pose) => new(false, pose, 0, false);
+
+    /// <summary>The creature cannot be stepped, and stands where it stood for the stated reason.</summary>
+    /// <param name="pose">Where it stands.</param>
+    /// <param name="refusal">Why it is held.</param>
+    /// <exception cref="ArgumentNullException">No reason was given.</exception>
+    public static CreatureMoveOutcome Held(PlacePose pose, Refusal refusal) =>
+        new(false, pose, 0, false, refusal ?? throw new ArgumentNullException(nameof(refusal)));
+
+    /// <summary>Whether the creature is held rather than stepped.</summary>
+    public bool IsHeld => Refusal is not null;
+}
+
+/// <summary>The codes a creature's step is refused with.</summary>
+public static class CreatureMoveCodes
+{
+    /// <summary>
+    /// The refusal code <c>creature-embedded</c>: the creature's body stands inside collision the engine cannot
+    /// resolve it out of, and no ground over its feet stands it clear.
+    /// </summary>
+    public const string Embedded = "creature-embedded";
 }
 
 /// <summary>

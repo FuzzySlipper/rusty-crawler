@@ -14,6 +14,7 @@ What is published here is text only: no game data, no screenshots, no saves, and
 | [`walk-playtest.md`](walk-playtest.md) | Held keys walk, turn and jump the party on Emerald Island; a released key stops it; no transition could yet be walked into. |
 | [`walk-transition.md`](walk-transition.md) | Walking into an entrance's reach changes the place: Emerald Island's cave mouth and The Dragon's Lair's exit, both ways. |
 | [`travel-links.md`](travel-links.md) | Every one of the 193 travel links with its disposition and condition, the two links nothing raises, and a clicked barrow exit used in play taking the link its map variable picks. |
+| [`creature-settling.md`](creature-settling.md) | A Harmondale creature whose record stands it under the ground faulted the runtime; with the change it is stood on the ground the engine's ray finds, and the place runs thirteen minutes with the party moving and no fault. |
 | [`travel-cost.md`](travel-cost.md) | A walked crossing charges the one clock a day and the larder a ration, once each, and arriving short weakens the party. |
 | [`creation-and-crossing.md`](creation-and-crossing.md) | A party made on the creation screen with each illegal choice refused by its rule, accepted, walked across two transitions that each charge a day and a ration, and saved with its portraits. |
 | [`save-resume.md`](save-resume.md) | A party created in the product crosses, saves, and a restarted host told to resume plays the same party, place, clock and pose. |
