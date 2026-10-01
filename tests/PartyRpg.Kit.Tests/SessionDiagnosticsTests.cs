@@ -594,5 +594,11 @@ public sealed class SessionDiagnosticsTests
         public ServiceEligibility Judge(ServiceEligibilityRequest request) => ServiceEligibility.Allowed;
 
         public ServiceQuote Quote(ServiceQuoteRequest request) => ServiceQuote.Free;
+
+        /// <summary>No member steals here: this suite's counters keep nothing a thief is tried for.</summary>
+        public Refusal? JudgeTheft(ServiceTheftRequest request) => new("test-no-theft", "This suite's counters keep nothing a thief is tried for.");
+
+        /// <summary>No theft is drawn here, for the same reason.</summary>
+        public ServiceTheft Steal(ServiceTheftRequest request) => ServiceTheft.Refused(JudgeTheft(request)!);
     }
 }

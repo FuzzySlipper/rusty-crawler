@@ -73,20 +73,21 @@ internal static class MightAndMagic7ServiceKinds
     /// <summary>Which operations a kind's counter offers.</summary>
     /// <remarks>
     /// The donor is the source of each set: a shop sells, identifies, and repairs, and an alchemist does not
-    /// repair (OpenEnroth <c>src/GUI/UI/Houses/Shops.cpp:264-275</c>); a temple heals and teaches
+    /// repair (OpenEnroth <c>src/GUI/UI/Houses/Shops.cpp:264-275</c>), and each of the four keeps a shelf a
+    /// thief can reach for (<c>Shops.cpp:1100-1137</c>); a temple heals and teaches
     /// (<c>Temple.cpp:145-152</c>); a tavern rents rooms, sells food, and teaches (<c>Tavern.cpp:182-190</c>);
     /// a training hall trains and teaches (<c>Training.cpp:143-148</c>); a guild sells spell books and
-    /// teaches its school (<c>MagicGuild.cpp:120-140,250-262</c>); a town hall posts a bounty and takes a
-    /// fine (<c>TownHall.cpp:30-45</c>), and its bounty is a surface rather than an operation, because
-    /// claiming one needs the kill this build has no combat for.
+    /// teaches its school (<c>MagicGuild.cpp:120-140,250-262</c>), and its books are sold by a screen with no
+    /// theft; a town hall posts a bounty and takes a fine (<c>TownHall.cpp:30-45</c>) — the fine is a
+    /// repayment of what the party owes, and the bounty is a surface rather than an operation.
     /// </remarks>
     /// <param name="kind">The kind's name, as the building table states it.</param>
     internal static IReadOnlyList<ServiceOperationKind> Operations(string kind) => kind switch
     {
         WeaponShop or ArmorShop or MagicShop =>
-            [ServiceOperationKind.Buy, ServiceOperationKind.Sell, ServiceOperationKind.Identify, ServiceOperationKind.Repair, ServiceOperationKind.Teach],
+            [ServiceOperationKind.Buy, ServiceOperationKind.Sell, ServiceOperationKind.Identify, ServiceOperationKind.Repair, ServiceOperationKind.Teach, ServiceOperationKind.Steal],
         Alchemist =>
-            [ServiceOperationKind.Buy, ServiceOperationKind.Sell, ServiceOperationKind.Identify, ServiceOperationKind.Teach],
+            [ServiceOperationKind.Buy, ServiceOperationKind.Sell, ServiceOperationKind.Identify, ServiceOperationKind.Teach, ServiceOperationKind.Steal],
         _ when IsGuild(kind) =>
             [ServiceOperationKind.Buy, ServiceOperationKind.Teach],
         Tavern =>
@@ -99,7 +100,7 @@ internal static class MightAndMagic7ServiceKinds
             [ServiceOperationKind.Deposit, ServiceOperationKind.Withdraw],
         Stables or Boats =>
             [ServiceOperationKind.Fare],
-        TownHall => [],
+        TownHall => [ServiceOperationKind.Repay],
         _ => [],
     };
 

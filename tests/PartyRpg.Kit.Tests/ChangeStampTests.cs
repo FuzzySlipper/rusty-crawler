@@ -31,8 +31,10 @@ public sealed class ChangeStampTests
         [typeof(PartyHoldings)] = (["Hold"], ["BalanceOf"]),
         [typeof(PartyPassages)] = (["Hold", "Spend"], ["Holds", "RouteTo", "IndexOf"]),
         [typeof(PartyMemberships)] = (["Grant"], ["Holds"]),
+        [typeof(PartyDebts)] = (["Owe"], ["OwedOn"]),
+        [typeof(PartyBans)] = (["Bar", "Lapse"], ["BarredUntil", "IndexOf"]),
         [typeof(PartyInventory)] = (["Append", "Remove"], ["Contains", "Find", "TotalOf"]),
-        [typeof(ItemInstance)] = (["Identify", "TakeDamage", "Repair", "SpendCharge", "Place", "RemoveFromStack"], ["ToString"]),
+        [typeof(ItemInstance)] = (["Identify", "TakeDamage", "Repair", "SpendCharge", "MarkStolen", "Place", "RemoveFromStack"], ["ToString"]),
         [typeof(ActiveEffects)] = (["Apply", "Remove"], ["Has", "MagnitudeOf", "IndexOf"]),
         [typeof(CharacterProfile)] = (["Rename", "ChangeClass"], []),
         [typeof(CharacterAttributes)] = (["Set", "Change"], ["TryGet", "IndexOf"]),
@@ -50,6 +52,7 @@ public sealed class ChangeStampTests
     [
         "purse credit", "purse debit", "food credit", "food spend", "food debit", "reputation", "fame",
         "record mark", "record set", "record remove", "holding", "passage hold", "passage spend", "membership",
+        "debt owed", "debt paid", "ban laid", "ban lapsed", "mark stolen",
         "acquire", "release", "consume", "acquire part of a stack", "identify", "damage item", "repair item", "spend a charge",
         "party effect start", "party effect end", "member effect start",
         "rename", "change class", "attribute set", "attribute change",
@@ -114,6 +117,21 @@ public sealed class ChangeStampTests
             "passage hold" => () => party.Passages.Hold(new PlaceId("island"), "boat"),
             "passage spend" => () => Assert.True(party.Passages.Spend(new PlaceId("harbour"))),
             "membership" => () => party.Memberships.Grant("guild"),
+            "debt owed" => () => party.Debts.Owe("fine", 30),
+            "debt paid" => () =>
+            {
+                party.Debts.Owe("fine", 30);
+                before = party.Stamp;
+                party.Debts.Owe("fine", 0);
+            },
+            "ban laid" => () => party.Bans.Bar("shop", GameDuration.FromHours(24)),
+            "ban lapsed" => () =>
+            {
+                party.Bans.Bar("shop", GameDuration.FromHours(1));
+                before = party.Stamp;
+                party.Bans.Lapse(GameDuration.FromHours(2));
+            },
+            "mark stolen" => () => coat.MarkStolen(),
             "acquire" => () => Assert.True(party.AcquireItem(new ItemDefinitionId("rope")).Admitted),
             "release" => () => Assert.NotNull(party.ReleaseItem(coat.Id)),
             "consume" => () => Assert.NotNull(party.ConsumeItem(coat.Id)),

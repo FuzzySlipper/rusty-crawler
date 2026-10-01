@@ -16,7 +16,9 @@ namespace PartyRpg.Kit.Progression;
 /// <para>
 /// <b>A death is reported once, so it pays once.</b> The fight tells this about a death at the blow that
 /// caused it and never again, so nothing here remembers which deaths were paid for, and a death worth nothing
-/// pays nothing.
+/// pays nothing. It is still news: a death worth no experience is told to the world as a deed under the word it
+/// is credited as (<see cref="PartyProgression.Deed"/>), so a game that counts a worthless person's death against
+/// the party answers it the same way it answers a worthy one.
 /// </para>
 /// <para>
 /// <b>Why the owner is read through a call rather than held.</b> A session composes its fight policy before
@@ -64,6 +66,8 @@ public sealed class ProgressionAwards : ICreatureDeathObserver
         ArgumentNullException.ThrowIfNull(death);
         if (_progression() is not { } progression) return;
         long worth = _worth(death.Placement);
-        if (worth > 0) progression.Award(new PartyExperienceAward(_source?.Invoke(death) ?? KillSource, worth));
+        string source = _source?.Invoke(death) ?? KillSource;
+        if (worth > 0) progression.Award(new PartyExperienceAward(source, worth));
+        else progression.Deed(source);
     }
 }

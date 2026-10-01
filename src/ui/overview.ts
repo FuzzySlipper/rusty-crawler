@@ -109,6 +109,14 @@ export interface AwardView {
   readonly detail: string;
 }
 
+/** What the party owes on one account. */
+export interface DebtView {
+  /** The game's word for the account. */
+  readonly account: string;
+  /** What is owed on it. */
+  readonly coins: number;
+}
+
 /** The party's own accounts and standing. `present` is false when the session holds no party. */
 export interface PartyView {
   readonly present: boolean;
@@ -128,6 +136,8 @@ export interface PartyView {
   /** What that band means for how the party is treated, empty when nothing is read. */
   readonly standingDetail: string;
   readonly awards: readonly AwardView[];
+  /** What the party owes, account by account; empty when it owes nothing. */
+  readonly debts: readonly DebtView[];
   /** The conditions acting on the party, empty when none act. */
   readonly conditions: string;
   readonly hitPoints: number;
@@ -301,6 +311,7 @@ export function readParty(f: Fields): PartyView {
       label: award.text('label'),
       detail: award.text('detail'),
     })),
+    debts: f.list('debts', (debt) => ({ account: debt.text('account'), coins: debt.number('coins') })),
     conditions: f.text('conditions'),
     hitPoints: f.number('hitPoints'),
     hitPointsMax: f.number('hitPointsMax'),

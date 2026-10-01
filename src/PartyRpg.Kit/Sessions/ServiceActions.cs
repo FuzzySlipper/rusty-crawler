@@ -96,6 +96,21 @@ public static class ServiceActions
     /// </remarks>
     public const string Train = "service.train";
 
+    /// <summary>Tries to take a line off the shelves without paying, carrying the lot and the member who tries.</summary>
+    /// <remarks>
+    /// The member is carried because a theft is one character's hand, and how good at stealing that character is
+    /// decides what the counter sees; the screen offers the act to the members the product published as able to
+    /// try, and the mechanism judges and draws the rest.
+    /// </remarks>
+    public const string Steal = "service.steal";
+
+    /// <summary>Pays toward what the party owes on an account the counter collects, carrying the account and the coins.</summary>
+    /// <remarks>
+    /// The coins are what the screen asks to pay; the counter takes no more than the purse holds and no more than is
+    /// owed, which is the product's answer rather than the screen's.
+    /// </remarks>
+    public const string Repay = "service.repay";
+
     /// <summary>Leaves the counter, ending the visit.</summary>
     public const string Leave = "service.leave";
 }
@@ -106,7 +121,8 @@ public sealed class ServiceInput
     private static readonly HashSet<string> Known = new(StringComparer.Ordinal)
     {
         ServiceActions.Buy, ServiceActions.Sell, ServiceActions.Identify, ServiceActions.Repair,
-        ServiceActions.Teach, ServiceActions.Train, ServiceActions.Fare, ServiceActions.Leave,
+        ServiceActions.Teach, ServiceActions.Train, ServiceActions.Fare, ServiceActions.Steal, ServiceActions.Repay,
+        ServiceActions.Leave,
     };
 
     private readonly byte[] _leave;
@@ -152,6 +168,8 @@ public sealed class ServiceInput
                 Tier: action.Int("tier") is { } tier && tier > 0 ? tier : 1),
             ServiceActions.Train => new ServiceCommand(ServiceOperationKind.Train, Member: action.Int("member") ?? 0),
             ServiceActions.Fare => new ServiceCommand(ServiceOperationKind.Fare, target),
+            ServiceActions.Steal => new ServiceCommand(ServiceOperationKind.Steal, target, action.Int("member") ?? 0),
+            ServiceActions.Repay => new ServiceCommand(ServiceOperationKind.Repay, target, Count: action.Int("count") ?? 0),
             ServiceActions.Leave => ServiceCommand.Of(ServiceOperationKind.Leave),
             _ => null,
         };

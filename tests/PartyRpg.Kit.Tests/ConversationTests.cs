@@ -7,6 +7,7 @@ using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Presentation;
+using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Services;
 using PartyRpg.Kit.Sessions;
@@ -378,6 +379,68 @@ public sealed class ConversationTests
             report => string.Equals(report.Code, "promotion-unavailable", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void A_hand_in_the_purse_of_somebody_spoken_with_is_the_service_mechanism_s_theft_and_being_seen_ends_the_talk()
+    {
+        using PartyEntity party = Party();
+        using Hall hall = Hall.Build(new TestRule(), party, interactive: true);
+        using RecordingUiProjectionChannel channel = new();
+        PartyMemberId seen = party.Members[1].Id;
+        TestServiceRule services = new()
+        {
+            // The first member's hand goes unseen and lifts seven coins; the second's is seen and fined.
+            Theft = request => request.Member == seen
+                ? ServiceTheft.Tried(true, false, 0, null, false, 40, "fine", "seen", GameDuration.None, "Simon is seen.")
+                : ServiceTheft.Tried(false, false, 7, null, false, 0, "fine", "lifted", GameDuration.None, "Mira lifts seven coins."),
+        };
+        using PartyRpgSession session = new(
+            new SessionComposition(new RulesetId("test.ruleset"), "Test"),
+            channel,
+            new SessionOwners(hall.Clock, hall.Diagnostics),
+            new SessionParty.Playing(World: hall.World, Party: party, Accounts: new PartyResourceLedger(party)),
+            rules: new SessionRules
+            {
+                Service = services,
+                Conversation = hall.Rule,
+                Progression = new ProgressionRules(new Shrugs()),
+            },
+            controls: new SessionControls
+            {
+                Use = UseControls,
+                Service = ServiceControls,
+                Conversation = ConversationControls,
+            });
+        session.Start();
+        session.Update(Admitted.Update(1, 1));
+        session.Update(Admitted.Update(2, 1, Admitted.Digital("test.use", InputEdge.Pressed)));
+
+        // Who could try is the service mechanism's theft rule, published on the conversation the party stands in.
+        ProjectedNode talking = channel.Latest().Field(SessionProjection.ConversationField);
+        Assert.True(talking.Field("open").AsBoolean());
+        Assert.Equal(2, talking.Field("thieves").Length());
+        Assert.Equal("Simon", talking.Field("thieves").Item(1).Field("name").AsString());
+
+        // An unseen hand credits the purse through the one ledger and the person goes on talking.
+        session.Update(Admitted.Update(3, 1, Payload("{\"action\":\"conversation.steal\",\"member\":0}")));
+        Assert.True(session.Services!.Last!.IsApplied, session.Services.Last.Message);
+        Assert.Equal(127, party.Purse.Coins);
+        Assert.True(session.Conversations!.IsOpen);
+        ProjectedNode lifted = channel.Latest().Field(SessionProjection.ServiceField);
+        Assert.Equal("steal", lifted.Field("action").AsString());
+        Assert.Equal("applied", lifted.Field("outcome").AsString());
+        Assert.Equal(7, lifted.Field("earned").AsNumber());
+
+        // A hand that is seen lays the fine on the party as a debt, and the person stops talking.
+        session.Update(Admitted.Update(4, 1, Payload("{\"action\":\"conversation.steal\",\"member\":1}")));
+        Assert.Equal(40, party.Debts.OwedOn("fine"));
+        Assert.Equal(127, party.Purse.Coins);
+        Assert.False(session.Conversations.IsOpen);
+        Assert.Equal(40, channel.Latest().Field(SessionProjection.PartyField).Field("debts").Item(0).Field("coins").AsNumber());
+        Assert.Equal(
+            ["theft-applied", "theft-applied"],
+            hall.Diagnostics.Published.Where(report => report.Source == "service").Select(report => report.Code));
+    }
+
     /// <summary>One payload action on this suite's contract, as the companion sends it.</summary>
     private static ProductInputEvent Payload(string json) => Admitted.Payload(ConversationControls.ActionContract, json);
 
@@ -557,6 +620,31 @@ public sealed class ConversationTests
         public ServiceEligibility Judge(ServiceEligibilityRequest request) => ServiceEligibility.Allowed;
 
         public ServiceQuote Quote(ServiceQuoteRequest request) => ServiceQuote.Free;
+
+        /// <summary>What a hand in a person's purse comes to, or null when nobody here can be robbed.</summary>
+        internal Func<ServiceTheftRequest, ServiceTheft>? Theft { get; init; }
+
+        /// <summary>Anybody standing here can be robbed when a test says what a theft comes to; no counter can.</summary>
+        public Refusal? JudgeTheft(ServiceTheftRequest request) =>
+            Theft is not null && request.Person is not null
+                ? null
+                : new Refusal("test-no-theft", "Nobody here keeps anything a thief is tried for.");
+
+        /// <summary>What the test says a theft comes to.</summary>
+        public ServiceTheft Steal(ServiceTheftRequest request) =>
+            JudgeTheft(request) is { } refused ? ServiceTheft.Refused(refused) : Theft!(request);
+    }
+
+    /// <summary>A progression policy under which every deed is news the world shrugs at.</summary>
+    private sealed class Shrugs : IProgressionRule
+    {
+        public long ExperienceForLevel(int level) => 1000;
+
+        public IReadOnlyList<ProgressionShare> Divide(ProgressionDivision division) => [];
+
+        public ProgressionGrowth Growth(ProgressionGrowthRequest request) => ProgressionGrowth.None;
+
+        public ProgressionStanding Standing(ProgressionStandingRequest request) => ProgressionStanding.None;
     }
 
     /// <summary>

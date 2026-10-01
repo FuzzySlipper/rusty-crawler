@@ -138,7 +138,7 @@ public sealed class StandingPolicyTests
 
     [Fact]
     [Trait(Pins.Trait, Pins.Tuning)]
-    public void A_townsperson_killed_lowers_the_world_s_opinion_through_the_one_award_and_is_fined()
+    public void A_townsperson_killed_lowers_the_world_s_opinion_through_the_one_award_and_is_fined_as_a_debt()
     {
         // The fight's own reading of whose death it was: a person whose record names no row fights as the
         // shipped peasant, a creature placed as a peasant row is one too, and a person whose record names a
@@ -155,22 +155,25 @@ public sealed class StandingPolicyTests
         Assert.Null(combat.TownspersonLevel(beast));
 
         // The session's own two observers, in the session's own order: the fine reads the standing the deed
-        // is about to lower, and the award carries the deed under its own word to the one entry.
+        // is about to lower, and the award carries the deed under its own word to the one entry. The place's base
+        // fine is the map table's column as the place carries it: nothing at the first place, fifteen at the other.
         using PartyEntity party = PartyOf(reputation: 0);
         PartyProgression progression = new(MightAndMagic7Progression.Instance, party);
-        PartyResourceLedger accounts = new(party);
-        MightAndMagic7Crimes crimes = new(combat.TownspersonLevel, MightAndMagic7Combat.IsPerson, () => party, () => accounts);
+        PlaceId town = new("1");
+        PlaceId city = new("2");
+        MightAndMagic7Crimes crimes = new(combat.TownspersonLevel, MightAndMagic7Combat.IsPerson, () => party, place => place == city ? 15 : 0);
         ProgressionAwards awards = new(combat.ExperienceOf, () => progression, crimes.SourceOf);
-        void Dies(PlacementDefinition placement)
+        void Dies(PlacementDefinition placement, PlaceId? where = null)
         {
-            CreatureDeath death = new(new PlaceId("1"), placement, placement.Content.Id);
+            CreatureDeath death = new(where ?? town, placement, placement.Content.Id);
             crimes.Died(death);
             awards.Died(death);
         }
 
         // A bystander's death pays its row's experience as any death does, lowers the world's opinion by the
-        // donor's one point, and takes the donor's fine: a hundred gold per point of the row's level plus the
-        // party's standing in the donor's sign, which for a neutral party is the level alone.
+        // donor's one point, and lays the donor's fine on the party as a debt: a hundred gold per point of the
+        // place's base, the row's level, and the party's standing in the donor's sign, which for a neutral party
+        // at a place with no base is the level alone. The purse is not touched: a fine is owed, and paid at a hall.
         Dies(bystander);
         ProgressionAwardResult deed = progression.LastAward!;
         Assert.True(deed.IsAwarded);
@@ -178,12 +181,13 @@ public sealed class StandingPolicyTests
         Assert.Equal(11, deed.Amount);
         Assert.Equal(-1, deed.Standing.Reputation);
         Assert.Equal(-1, party.Reputation.Reputation);
-        Assert.Equal(400, party.Purse.Coins);
+        Assert.Equal(100, party.Debts.OwedOn(MightAndMagic7Theft.FineAccount));
+        Assert.Equal(500, party.Purse.Coins);
 
         // The next costs more, because the town now dislikes the party by a point: level two, plus one.
         Dies(wanderer);
         Assert.Equal(-2, party.Reputation.Reputation);
-        Assert.Equal(100, party.Purse.Coins);
+        Assert.Equal(400, party.Debts.OwedOn(MightAndMagic7Theft.FineAccount));
 
         // A guard is a peaceful person too: the death pays its experience and lowers the world's opinion the
         // same point (ours), and is not fined, because only a peasant row is (the donor's IsPeasant).
@@ -191,26 +195,31 @@ public sealed class StandingPolicyTests
         Assert.Equal(MightAndMagic7Crimes.PersonKillSource, progression.LastAward!.Source);
         Assert.Equal(-1, progression.LastAward!.Standing.Reputation);
         Assert.Equal(-3, party.Reputation.Reputation);
-        Assert.Equal(100, party.Purse.Coins);
+        Assert.Equal(400, party.Debts.OwedOn(MightAndMagic7Theft.FineAccount));
 
         // A beast is a kill like any other: experience, no word against the party, no fine.
         Dies(beast);
         Assert.Equal(ProgressionAwards.KillSource, progression.LastAward!.Source);
         Assert.Equal(-3, party.Reputation.Reputation);
-        Assert.Equal(100, party.Purse.Coins);
+        Assert.Equal(400, party.Debts.OwedOn(MightAndMagic7Theft.FineAccount));
 
-        // A fine the purse cannot cover takes what it holds (ours: the donor carries the rest as a debt a
-        // town hall collects), and the deed still lands.
-        Dies(bystander);
-        Assert.Equal(0, party.Purse.Coins);
+        // Where the place states a base fine, it is the donor's first term: fifteen, the level's one, and the
+        // standing's three come to nineteen hundred more owed.
+        Dies(bystander, city);
         Assert.Equal(-4, party.Reputation.Reputation);
+        Assert.Equal(2300, party.Debts.OwedOn(MightAndMagic7Theft.FineAccount));
+
+        // The whole owed is kept as the donor keeps it, never past its ceiling, and the deed still lands.
+        party.Debts.Owe(MightAndMagic7Theft.FineAccount, MightAndMagic7Crimes.FineCeiling - 50);
         Dies(bystander);
-        Assert.Equal(0, party.Purse.Coins);
+        Assert.Equal(MightAndMagic7Crimes.FineCeiling, party.Debts.OwedOn(MightAndMagic7Theft.FineAccount));
         Assert.Equal(-5, party.Reputation.Reputation);
+        Assert.Equal(500, party.Purse.Coins);
 
         // The donor's sum, clamped as the donor clamps it: a party the town likes well enough pays nothing.
         Assert.Equal(0, MightAndMagic7Crimes.FineFor(level: 1, reputation: 30));
         Assert.Equal(700, MightAndMagic7Crimes.FineFor(level: 2, reputation: -5));
+        Assert.Equal(1600, MightAndMagic7Crimes.FineFor(level: 1, reputation: 0, baseFine: 15));
         Assert.Equal(MightAndMagic7Crimes.FineCeiling, MightAndMagic7Crimes.FineFor(level: 1, reputation: int.MinValue));
     }
 

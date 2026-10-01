@@ -142,6 +142,15 @@ public static class MightAndMagic7Codes
     /// <summary>The refusal code <c>service-passage-held</c>.</summary>
     public const string ServicePassageHeld = "service-passage-held";
 
+    /// <summary>The refusal code <c>service-item-stolen</c>: a counter will not buy, identify, or repair a stolen thing.</summary>
+    public const string ServiceItemStolen = "service-item-stolen";
+
+    /// <summary>The refusal code <c>service-nothing-owed</c>: a repayment toward an account the party owes nothing on.</summary>
+    public const string ServiceNothingOwed = "service-nothing-owed";
+
+    /// <summary>The refusal code <c>service-nothing-to-pay-with</c>: a repayment from an empty purse.</summary>
+    public const string ServiceNothingToPayWith = "service-nothing-to-pay-with";
+
     /// <summary>The refusal code <c>service-training-capped</c>.</summary>
     public const string ServiceTrainingCapped = "service-training-capped";
 
@@ -162,6 +171,21 @@ public static class MightAndMagic7Codes
 
     /// <summary>The refusal code <c>spell-place-unvisited</c>: a travel spell names a place the party has never been to.</summary>
     public const string SpellPlaceUnvisited = "spell-place-unvisited";
+
+    /// <summary>The refusal code <c>theft-cannot-act</c>: the member who would try is in no state to act.</summary>
+    public const string TheftCannotAct = "theft-cannot-act";
+
+    /// <summary>The refusal code <c>theft-chance-unavailable</c>: this product has no random service to draw a theft with.</summary>
+    public const string TheftChanceUnavailable = "theft-chance-unavailable";
+
+    /// <summary>The refusal code <c>theft-no-skill</c>: the member who would try has not learned to steal.</summary>
+    public const string TheftNoSkill = "theft-no-skill";
+
+    /// <summary>The refusal code <c>theft-nobody-to-rob</c>: what the party stands with is not a person who carries anything.</summary>
+    public const string TheftNobodyToRob = "theft-nobody-to-rob";
+
+    /// <summary>The refusal code <c>theft-not-a-shop</c>: the counter keeps nothing on a shelf a hand could reach.</summary>
+    public const string TheftNotAShop = "theft-not-a-shop";
 
     /// <summary>The refusal code <c>travel-fare-unpaid</c>.</summary>
     public const string TravelFareUnpaid = "travel-fare-unpaid";

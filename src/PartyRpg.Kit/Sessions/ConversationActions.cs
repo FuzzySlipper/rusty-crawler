@@ -60,14 +60,25 @@ public static class ConversationActions
     /// <summary>Turns to another of the people present, carrying the person's identity.</summary>
     public const string Person = "conversation.person";
 
+    /// <summary>
+    /// Tries to lift what the person spoken with carries, carrying the member who tries.
+    /// </summary>
+    /// <remarks>
+    /// It is read here because the conversation is where the party stands with somebody, but it is the service
+    /// mechanism's theft that carries it out: the person is robbed through the one step a counter is, and the
+    /// conversation only says who is being robbed.
+    /// </remarks>
+    public const string Steal = "conversation.steal";
+
     /// <summary>Ends the conversation.</summary>
     public const string Leave = "conversation.leave";
 }
 
 /// <summary>What one conversation command asks for.</summary>
-/// <param name="Kind">Whether the command takes a topic, turns to a person, or leaves.</param>
+/// <param name="Kind">Whether the command takes a topic, turns to a person, steals from them, or leaves.</param>
 /// <param name="Target">The topic's or the person's identity, or empty for a command that names neither.</param>
-public readonly record struct ConversationCommand(ConversationCommandKind Kind, string Target = "")
+/// <param name="Member">The member who tries a theft, counted from zero; zero for every other command.</param>
+public readonly record struct ConversationCommand(ConversationCommandKind Kind, string Target = "", int Member = 0)
 {
     /// <summary>Leaves the conversation, which is the one command that names nothing.</summary>
     public static ConversationCommand Leave { get; } = new(ConversationCommandKind.Leave);
@@ -81,6 +92,9 @@ public enum ConversationCommandKind
 
     /// <summary>Turn to the person the command names.</summary>
     Person,
+
+    /// <summary>Try to lift what the person spoken with carries.</summary>
+    Steal,
 
     /// <summary>End the conversation.</summary>
     Leave,
@@ -110,12 +124,13 @@ public sealed class ConversationInput
         if (inbox.Activated(_leave)) commands.Add(ConversationCommand.Leave);
         foreach (UiAction action in inbox.Take(
             _actionContract,
-            name => name is ConversationActions.Topic or ConversationActions.Person or ConversationActions.Leave))
+            name => name is ConversationActions.Topic or ConversationActions.Person or ConversationActions.Steal or ConversationActions.Leave))
         {
             commands.Add(action.Name switch
             {
                 ConversationActions.Topic => new ConversationCommand(ConversationCommandKind.Topic, action.Text("target")),
                 ConversationActions.Person => new ConversationCommand(ConversationCommandKind.Person, action.Text("target")),
+                ConversationActions.Steal => new ConversationCommand(ConversationCommandKind.Steal, Member: action.Int("member") ?? 0),
                 _ => ConversationCommand.Leave,
             });
         }

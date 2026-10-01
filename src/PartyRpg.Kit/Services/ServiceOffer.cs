@@ -43,6 +43,12 @@ public enum ServiceOfferKind
 
     /// <summary>A line the counter posts or tells, which is a rumour or a bounty notice. It costs nothing.</summary>
     Notice,
+
+    /// <summary>
+    /// Names a debt account the counter collects, which is what a hall that takes a fine offers: the subject is
+    /// the account and the amount is what the party owes on it.
+    /// </summary>
+    Debt,
 }
 
 /// <summary>One thing a counter offers, as content and policy answer for it.</summary>

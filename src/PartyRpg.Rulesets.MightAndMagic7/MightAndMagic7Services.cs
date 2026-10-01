@@ -142,6 +142,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
     private readonly IReadOnlyList<ItemFacts> _catalogue;
     private readonly MightAndMagic7Skills? _skills;
     private readonly MightAndMagic7Spells? _magic;
+    private readonly MightAndMagic7Theft _theft;
 
     private readonly TuningProfile _tuning;
 
@@ -157,9 +158,11 @@ internal sealed class MightAndMagic7Services : IServiceRule
         MightAndMagic7Spells? magic,
         MightAndMagic7Quests? quests,
         Func<PartyQuests?>? journal,
-        TuningProfile tuning)
+        TuningProfile tuning,
+        MightAndMagic7Theft theft)
     {
         _tuning = tuning;
+        _theft = theft;
         _services = services;
         _facts = facts;
         _items = items;
@@ -230,6 +233,14 @@ internal sealed class MightAndMagic7Services : IServiceRule
     /// problem at once while the session is being composed rather than at the moment a player walks in.
     /// </remarks>
     /// <param name="catalog">The validated content the product loaded, when it loaded any.</param>
+    /// <param name="skillPolicy">This game's skill policy, or null to read one here.</param>
+    /// <param name="spellPolicy">This game's magic, or null to read it here.</param>
+    /// <param name="quests">This game's quests, or null when its ruleset stated none.</param>
+    /// <param name="journal">The party's quests, read when a sale is judged.</param>
+    /// <param name="theft">
+    /// This game's theft rule, which the session composes over the engine's random service and what people carry;
+    /// a caller that composed none gets one read here, which judges a thief and draws nothing.
+    /// </param>
     /// <returns>This game's service policy over that content, or null when no content was loaded.</returns>
     /// <exception cref="ContentValidationException">Content declares a service that cannot be served; every problem is named.</exception>
     internal static MightAndMagic7Services? Read(
@@ -237,7 +248,8 @@ internal sealed class MightAndMagic7Services : IServiceRule
         MightAndMagic7Skills? skillPolicy = null,
         MightAndMagic7Spells? spellPolicy = null,
         MightAndMagic7Quests? quests = null,
-        Func<PartyQuests?>? journal = null)
+        Func<PartyQuests?>? journal = null,
+        MightAndMagic7Theft? theft = null)
     {
         if (catalog is null) return null;
         List<ContentValidationIssue> issues = [];
@@ -317,7 +329,8 @@ internal sealed class MightAndMagic7Services : IServiceRule
             spellPolicy ?? MightAndMagic7Spells.Read(catalog, skillPolicy),
             quests,
             journal,
-            MightAndMagic7Tuning.Read(catalog));
+            MightAndMagic7Tuning.Read(catalog),
+            theft ?? MightAndMagic7Theft.Read(catalog));
     }
 
     /// <inheritdoc />
@@ -574,8 +587,48 @@ internal sealed class MightAndMagic7Services : IServiceRule
             ServiceOperationKind.Withdraw => JudgeWithdrawal(request),
             ServiceOperationKind.Fare => JudgeFare(request),
             ServiceOperationKind.Sell => JudgeSale(request),
+            ServiceOperationKind.Identify or ServiceOperationKind.Repair => JudgeStolen(request),
+            ServiceOperationKind.Repay => JudgeRepayment(request),
             _ => ServiceEligibility.Allowed,
         };
+    }
+
+    /// <summary>Whether a counter will work on an item, which it will not when the item was stolen.</summary>
+    /// <remarks>
+    /// The donor's counters will not buy, identify, or repair a stolen thing (OpenEnroth
+    /// <c>src/Engine/Objects/Item.cpp:684-686</c>, <c>canSellRepairIdentifyAt</c>): the mark a theft from a shelf
+    /// leaves travels with the instance, whoever carries it.
+    /// </remarks>
+    private static ServiceEligibility JudgeStolen(ServiceEligibilityRequest request) =>
+        request.Subject.Item is { State.IsStolen: true } stolen
+            ? ServiceEligibility.Refused(new Refusal(
+                MightAndMagic7Codes.ServiceItemStolen,
+                $"{request.Service.Describe()} will not deal in {stolen.Definition}: it was stolen, and the counter knows it."))
+            : ServiceEligibility.Allowed;
+
+    /// <summary>Whether a hall may take coin toward the party's fine: there must be a fine, and coin to pay it with.</summary>
+    /// <remarks>
+    /// The donor's hall offers to take a fine only while the party owes one and takes what the party can pay up to
+    /// what it owes (OpenEnroth <c>src/GUI/UI/Houses/TownHall.cpp:30-45</c> and <c>:71-91</c>); a repayment of
+    /// nothing, or from an empty purse, is refused here rather than charged as nothing.
+    /// </remarks>
+    private static ServiceEligibility JudgeRepayment(ServiceEligibilityRequest request)
+    {
+        if (request.Subject.Offer is not { } debt) return ServiceEligibility.Allowed;
+        string account = debt.Subject.Length > 0 ? debt.Subject : debt.Name;
+        if (request.Party.Debts.OwedOn(account) < 1)
+        {
+            return ServiceEligibility.Refused(new Refusal(MightAndMagic7Codes.ServiceNothingOwed, $"The party owes nothing on {debt.Name}."));
+        }
+
+        if (request.Subject.Count < 1)
+        {
+            return ServiceEligibility.Refused(new Refusal(ServiceCodes.ServiceCountInvalid, $"A repayment of {request.Subject.Count} coin(s) toward {debt.Name} pays nothing off."));
+        }
+
+        return request.Party.Purse.Coins < 1
+            ? ServiceEligibility.Refused(new Refusal(MightAndMagic7Codes.ServiceNothingToPayWith, $"The party's purse is empty, so nothing can be paid toward {debt.Name}."))
+            : ServiceEligibility.Allowed;
     }
 
 
@@ -661,6 +714,20 @@ internal sealed class MightAndMagic7Services : IServiceRule
         if (string.Equals(service.Kind.Value, MightAndMagic7ServiceKinds.TownHall, StringComparison.Ordinal))
         {
             if (Bounty(facts.MapId, Now(request)) is { } bounty) offers.Add(bounty);
+
+            // A hall takes the party's fine while the party owes one, which is the donor's own condition for
+            // offering it (OpenEnroth src/GUI/UI/Houses/TownHall.cpp:38-40): the account is the one every fine
+            // this game lays is owed on, and the amount is what is owed now.
+            int owed = request.Party.Debts.OwedOn(MightAndMagic7Theft.FineAccount);
+            if (owed > 0)
+            {
+                offers.Add(new ServiceOffer(
+                    ServiceOfferKind.Debt,
+                    MightAndMagic7Theft.FineLabel,
+                    Subject: MightAndMagic7Theft.FineAccount,
+                    Value: 0,
+                    Amount: owed));
+            }
         }
 
         // What travellers say belongs to the tavern, which is where a party asks; a town hall posts its own
@@ -770,6 +837,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
     private ServiceEligibility JudgeSale(ServiceEligibilityRequest request)
     {
         if (request.Subject.Item is not { } item) return ServiceEligibility.Allowed;
+        if (JudgeStolen(request) is { IsAllowed: false } stolen) return stolen;
         if (_journal?.Invoke()?.Needs(item.Definition) is not { } needed) return ServiceEligibility.Allowed;
         return ServiceEligibility.Refused(
             new Refusal(MightAndMagic7Codes.ServiceItemNeededByQuest, $"{needed.Statement} is not done yet, so {item.Definition} stays with the party until that errand is finished."));
@@ -968,6 +1036,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
             ServiceOperationKind.Stay => Charge(merchant, request.Subject.Value),
             ServiceOperationKind.Deposit => ServiceQuote.Charging(request.Subject.Count, request.Subject.Count),
             ServiceOperationKind.Withdraw => ServiceQuote.Paying(request.Subject.Count, request.Subject.Count),
+            ServiceOperationKind.Repay => Repayment(request),
             _ => FarePrice(service, request.Subject, merchant),
         };
     }
@@ -1145,6 +1214,48 @@ internal sealed class MightAndMagic7Services : IServiceRule
         int price = ServicePricing.Percent(ServicePricing.Coins(basePrice, service.PriceMultiplier), merchant);
         int floor = Math.Max(1, basePrice / 3);
         return ServiceQuote.Charging(ServicePricing.AtLeast(price, floor), basePrice);
+    }
+
+    /// <summary>What a repayment takes from the purse: what was asked, no more than is owed, no more than the purse holds.</summary>
+    /// <remarks>
+    /// The donor's hall clamps what the party offers to what it holds and then to what it owes, and takes that
+    /// (OpenEnroth <c>src/GUI/UI/Houses/TownHall.cpp:71-88</c>); a fine is not discounted by a merchant.
+    /// </remarks>
+    private static ServiceQuote Repayment(ServiceQuoteRequest request)
+    {
+        if (request.Subject.Offer is not { } debt) return ServiceQuote.Free;
+        string account = debt.Subject.Length > 0 ? debt.Subject : debt.Name;
+        int owed = request.Party.Debts.OwedOn(account);
+        int paid = Math.Max(0, Math.Min(request.Subject.Count, Math.Min(owed, request.Party.Purse.Coins)));
+        return ServiceQuote.Charging(paid, owed);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Who may try is <see cref="MightAndMagic7Theft"/>'s answer, over the counter's own operations: a counter
+    /// steals from only where its kind offers a shelf to a thief.
+    /// </remarks>
+    public Refusal? JudgeTheft(ServiceTheftRequest request) => _theft.Judge(request);
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// A line of a counter's shelves is worth to a thief what the item table says it is worth, three times over for a
+    /// weapon (OpenEnroth <c>src/Engine/Objects/Character.cpp:1168-1171</c>), and the counter's place decides the base
+    /// fine; a person is <see cref="MightAndMagic7Theft"/>'s to read whole.
+    /// </remarks>
+    public ServiceTheft Steal(ServiceTheftRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.Service is not { } counter) return _theft.FromPerson(request);
+        int worth = 0;
+        if (request.Subject?.Lot is { } lot && _items.TryGetValue(lot.Definition, out ItemFacts facts))
+        {
+            bool weapon = MightAndMagic7ServiceKinds.StockEquipStats(MightAndMagic7ServiceKinds.WeaponShop).Contains(facts.EquipStat, StringComparer.Ordinal);
+            worth = weapon ? checked(facts.Value * 3) : facts.Value;
+        }
+
+        int mapId = _facts.TryGetValue(counter.Id, out ServiceFacts? known) ? known.MapId : 0;
+        return _theft.AtCounter(request, worth, new PlaceId(mapId.ToString(CultureInfo.InvariantCulture)));
     }
 
     /// <summary>What an item is worth, as the imported item table states it.</summary>
@@ -1658,6 +1769,8 @@ internal sealed class MightAndMagic7Services : IServiceRule
         "deposit" => ServiceOperationKind.Deposit,
         "withdraw" => ServiceOperationKind.Withdraw,
         "fare" => ServiceOperationKind.Fare,
+        "steal" => ServiceOperationKind.Steal,
+        "repay" => ServiceOperationKind.Repay,
         _ => null,
     };
 
