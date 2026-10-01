@@ -353,6 +353,23 @@ internal sealed class MightAndMagic7Loot
         return new LootYield(items, coins);
     }
 
+    /// <summary>One item of a treasure level a map event gives, narrowed to what the event asks for.</summary>
+    /// <remarks>
+    /// The donor's gift draws at the level the event states, from the things the event's kind admits, and the
+    /// level six chance of an artifact stands only for a gift that admits anything (OpenEnroth
+    /// <c>src/Engine/Tables/ItemTable.cpp:316-360</c>); the crude longsword stands in when the level offers
+    /// nothing, as it does there.
+    /// </remarks>
+    /// <param name="level">The treasure level, one to six; a figure outside is held to the nearest.</param>
+    /// <param name="filter">What the gift admits.</param>
+    /// <param name="rolls">The rolls the gift is drawn under.</param>
+    /// <returns>The item, or null when the table holds nothing to give.</returns>
+    internal LootItem? Given(int level, LootFilter filter, KeyedRolls rolls)
+    {
+        ArgumentNullException.ThrowIfNull(rolls);
+        return ItemAt(Math.Clamp(level, 1, TreasureRoll.HighestLevel - 1), filter, rolls);
+    }
+
     /// <summary>One item of a treasure level, for the request that asked for it.</summary>
     /// <remarks>
     /// The fallback is the donor's: a level that offers nothing the request asked for hands over a crude

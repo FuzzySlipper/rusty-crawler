@@ -52,4 +52,23 @@ public sealed record InteractionContext(
     PlacementDefinition Placement,
     InteractionTargetDefinition Target,
     PartyEntity? Party,
-    GameClock? Clock);
+    GameClock? Clock)
+{
+    /// <summary>
+    /// The values the target's place keeps, by the ruleset's own names; empty when the place keeps none.
+    /// </summary>
+    /// <remarks>
+    /// Every target of a place reads the same values, which is what lets two of them share one: a use that
+    /// changes one states it in its outcome (<see cref="InteractionOutcome.Kept"/>), and the mechanism writes
+    /// it into the ledger only when the use is applied.
+    /// </remarks>
+    public IReadOnlyDictionary<string, long> PlaceValues { get; init; } = new Dictionary<string, long>();
+
+    /// <summary>What the target's place holds, in content order, which a use that changes another target reads.</summary>
+    public IReadOnlyList<PlacementDefinition> PlaceTargets { get; init; } = [];
+
+    /// <summary>
+    /// The state word the party has left another target of the place in, or empty when nothing has happened to it.
+    /// </summary>
+    public Func<PlacementContentId, string> TargetState { get; init; } = static _ => string.Empty;
+}

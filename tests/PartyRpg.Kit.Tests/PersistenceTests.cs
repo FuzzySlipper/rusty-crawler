@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Presentation;
@@ -380,6 +381,66 @@ public sealed class PersistenceTests
         Assert.Contains(problems, problem => problem.Code == SaveCodes.SavePoseOutside && problem.Subject == Cave.Value);
         Assert.Contains(problems, problem => problem.Code == SaveCodes.SavePlaceTwice && problem.Subject == current);
         Assert.Contains(problems, problem => problem.Code == SaveCodes.SavePlaceRestoredFuture && problem.Subject == current);
+    }
+
+    [Fact]
+    public void What_a_place_keeps_is_shared_by_its_targets_forgotten_on_restore_and_round_trips_through_the_bytes()
+    {
+        // Two targets of one place read the same values: what one use kept is what the next use reads, whichever
+        // target it was, and another place keeps nothing of it.
+        InteractionLedger ledger = new();
+        ledger.Keep(Home, new Dictionary<string, long> { ["count"] = 1, ["timer"] = 5_000 });
+        ledger.Keep(Home, new Dictionary<string, long> { ["count"] = 2 });
+        Assert.Equal(2, ledger.ValuesOf(Home)["count"]);
+        Assert.Equal(5_000, ledger.ValuesOf(Home)["timer"]);
+        Assert.Empty(ledger.ValuesOf(Cave));
+
+        // The capture is the ledger's one durable reading, and a ledger rebuilt from it reads the same.
+        ledger.Keep(Cave, new Dictionary<string, long> { ["count"] = 7 });
+        InteractionLedgerSnapshot captured = ledger.Capture();
+        Assert.Equal([Home, Cave], captured.Places.Select(place => place.Place));
+        InteractionLedger rebuilt = new(captured);
+        Assert.Equal(2, rebuilt.ValuesOf(Home)["count"]);
+        Assert.Equal(7, rebuilt.ValuesOf(Cave)["count"]);
+
+        // A restored place forgets what it kept, so the capture taken after it carries nothing of that place.
+        rebuilt.Forget(Cave);
+        Assert.Equal([Home], rebuilt.Capture().Places.Select(place => place.Place));
+
+        // The world section carries the capture through the saved bytes, value for value.
+        using Played played = new();
+        SessionSave sound = played.Session.Capture();
+        SessionSave kept = new(sound.Party, sound.Clock, new WorldSave(sound.World.Pose, sound.World.Places, captured));
+        SessionSave loaded = Decode(Encode(kept));
+        Assert.Equal(
+            captured.Places.SelectMany(place => place.Values.Select(value => $"{place.Place}/{value.Key}={value.Value}")),
+            loaded.World.Interaction.Places.SelectMany(place => place.Values.Select(value => $"{place.Place}/{value.Key}={value.Value}")));
+        Assert.Empty(loaded.Problems(Graph(), new PartyEntityFactory()));
+    }
+
+    [Fact]
+    public void A_save_whose_kept_values_contradict_the_world_names_each_contradiction()
+    {
+        using Played played = new();
+        SessionSave sound = played.Session.Capture();
+        InteractionLedgerSnapshot broken = new(
+        [
+            new PlaceInteractionSnapshot(new PlaceId("nowhere"), [new PlaceValue("count", 1)]),
+            new PlaceInteractionSnapshot(Home, [new PlaceValue(" ", 1), new PlaceValue("count", 1), new PlaceValue("count", 2), new PlaceValue("odd", 9)]),
+            new PlaceInteractionSnapshot(Home, [new PlaceValue("count", 3)]),
+        ]);
+        SessionSave save = new(sound.Party, sound.Clock, new WorldSave(sound.World.Pose, sound.World.Places, broken));
+
+        // The kit judges its own terms, and the ruleset's judge says which names and figures its rules write.
+        IReadOnlyList<SaveProblem> problems = save.Problems(
+            Graph(),
+            new PartyEntityFactory(),
+            kept: (_, key, _) => key == "odd" ? "nothing writes a value of that name" : null);
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveKeptPlaceUnknown && problem.Subject == "nowhere");
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveKeptValueUnnamed && problem.Subject == Home.Value);
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveKeptValueTwice && problem.Text.Contains("'count'", StringComparison.Ordinal));
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveKeptValueUnknown && problem.Text.Contains("'odd' = 9", StringComparison.Ordinal));
+        Assert.Contains(problems, problem => problem.Code == SaveCodes.SaveKeptPlaceTwice && problem.Subject == Home.Value);
     }
 
     [Fact]

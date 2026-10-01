@@ -180,6 +180,142 @@ public readonly record struct EvtInstruction(ushort EventId, byte Step, byte Opc
         return true;
     }
 
+    /// <summary>Reads which door a door step moves and how, when this instruction is one.</summary>
+    /// <remarks>
+    /// A one-byte door id — the id the interior's door record carries, not its index — and a one-byte action:
+    /// open, close, or toggle a door at rest (OpenEnroth <c>src/Engine/Evt/EvtInstruction.cpp:985-988</c>; the
+    /// actions are <c>src/Engine/Graphics/FaceEnums.h:70-74</c>).
+    /// </remarks>
+    /// <param name="door">The door's id.</param>
+    /// <param name="action">The action byte.</param>
+    public bool TryReadDoor(out int door, out int action)
+    {
+        door = 0;
+        action = 0;
+        if (Opcode != EvtOpcodes.ChangeDoorState || Operands.Length < 2) return false;
+        door = Operands.Span[0];
+        action = Operands.Span[1];
+        return true;
+    }
+
+    /// <summary>Reads what an item gift gives, when this instruction is one.</summary>
+    /// <remarks>
+    /// A one-byte treasure level, a one-byte kind of random item, and a 32-bit item id that, when it is not
+    /// zero, replaces whatever the level and kind drew (OpenEnroth <c>src/Engine/Evt/EvtInstruction.cpp:1118-1122</c>,
+    /// run as <c>src/Engine/Evt/EvtInterpreter.cpp:489-498</c>).
+    /// </remarks>
+    /// <param name="gift">The decoded instruction.</param>
+    public bool TryReadGiveItem(out GiveItemInstruction gift)
+    {
+        gift = default;
+        if (Opcode != EvtOpcodes.GiveItem || Operands.Length < 6) return false;
+        ReadOnlySpan<byte> operands = Operands.Span;
+        gift = new GiveItemInstruction(operands[0], operands[1], BinaryPrimitives.ReadInt32LittleEndian(operands[2..]));
+        return true;
+    }
+
+    /// <summary>Reads what a cast step casts, when this instruction is one.</summary>
+    /// <remarks>
+    /// A one-byte spell id, a one-byte mastery the donor reads one above what is stored, a one-byte skill rank,
+    /// and the six 32-bit coordinates the spell flies from and to (OpenEnroth
+    /// <c>src/Engine/Evt/EvtInstruction.cpp:1008-1018</c>).
+    /// </remarks>
+    /// <param name="cast">The decoded instruction.</param>
+    public bool TryReadCastSpell(out CastSpellInstruction cast)
+    {
+        cast = default;
+        if (Opcode != EvtOpcodes.CastSpell || Operands.Length < 27) return false;
+        ReadOnlySpan<byte> operands = Operands.Span;
+        cast = new CastSpellInstruction(
+            operands[0],
+            operands[1] + 1,
+            operands[2],
+            BinaryPrimitives.ReadInt32LittleEndian(operands[3..]),
+            BinaryPrimitives.ReadInt32LittleEndian(operands[7..]),
+            BinaryPrimitives.ReadInt32LittleEndian(operands[11..]),
+            BinaryPrimitives.ReadInt32LittleEndian(operands[15..]),
+            BinaryPrimitives.ReadInt32LittleEndian(operands[19..]),
+            BinaryPrimitives.ReadInt32LittleEndian(operands[23..]));
+        return true;
+    }
+
+    /// <summary>Reads which person a conversation step opens, when this instruction is one.</summary>
+    /// <remarks>A 32-bit person id (OpenEnroth <c>src/Engine/Evt/EvtInstruction.cpp:1020-1022</c>).</remarks>
+    /// <param name="person">The person's id.</param>
+    public bool TryReadSpeakNpc(out int person)
+    {
+        person = 0;
+        if (Opcode != EvtOpcodes.SpeakNpc || Operands.Length < 4) return false;
+        person = BinaryPrimitives.ReadInt32LittleEndian(Operands.Span);
+        return true;
+    }
+
+    /// <summary>Reads which topic of which person a topic step changes, when this instruction is one.</summary>
+    /// <remarks>
+    /// A 32-bit person id, the one-byte slot of the topic, and the 32-bit event the slot raises afterwards
+    /// (OpenEnroth <c>src/Engine/Evt/EvtInstruction.cpp:1107-1111</c>).
+    /// </remarks>
+    /// <param name="topic">The decoded instruction.</param>
+    public bool TryReadNpcTopic(out NpcTopicInstruction topic)
+    {
+        topic = default;
+        if (Opcode != EvtOpcodes.SetNpcTopic || Operands.Length < 9) return false;
+        ReadOnlySpan<byte> operands = Operands.Span;
+        topic = new NpcTopicInstruction(
+            BinaryPrimitives.ReadInt32LittleEndian(operands),
+            operands[4],
+            BinaryPrimitives.ReadInt32LittleEndian(operands[5..]));
+        return true;
+    }
+
+    /// <summary>Reads which skill, at what rank and mastery, a skill jump waits for, when this instruction is one.</summary>
+    /// <remarks>
+    /// A one-byte skill, a one-byte mastery stored as the donor's own number, a 32-bit rank and the one-byte step
+    /// (OpenEnroth <c>src/Engine/Evt/EvtInstruction.cpp:1128-1133</c>).
+    /// </remarks>
+    /// <param name="check">The decoded instruction.</param>
+    public bool TryReadCheckSkill(out CheckSkillInstruction check)
+    {
+        check = default;
+        if (Opcode != EvtOpcodes.CheckSkill || Operands.Length < 7) return false;
+        ReadOnlySpan<byte> operands = Operands.Span;
+        check = new CheckSkillInstruction(operands[0], operands[1], BinaryPrimitives.ReadInt32LittleEndian(operands[2..]), operands[6]);
+        return true;
+    }
+
+    /// <summary>Reads which creatures a kill jump counts, when this instruction is one.</summary>
+    /// <remarks>
+    /// A one-byte policy — any creature, a group, a kind, a single creature — its 32-bit parameter, a one-byte
+    /// count and the one-byte step (OpenEnroth <c>src/Engine/Evt/EvtInstruction.cpp:1169-1175</c>).
+    /// </remarks>
+    /// <param name="check">The decoded instruction.</param>
+    public bool TryReadIsActorKilled(out ActorKilledInstruction check)
+    {
+        check = default;
+        if (Opcode != EvtOpcodes.IsActorKilled || Operands.Length < 7) return false;
+        ReadOnlySpan<byte> operands = Operands.Span;
+        check = new ActorKilledInstruction(operands[0], BinaryPrimitives.ReadInt32LittleEndian(operands[1..]), operands[5], operands[6]);
+        return true;
+    }
+
+    /// <summary>Reads which bit of which group a flag step sets or clears, when this instruction is one.</summary>
+    /// <remarks>
+    /// The faces' and the creatures' flag steps share one layout: a 32-bit group, a 32-bit attribute bit and a
+    /// one-byte on or off (OpenEnroth <c>src/Engine/Evt/EvtInstruction.cpp:1024-1028</c> and <c>1198-1202</c>).
+    /// </remarks>
+    /// <param name="toggle">The decoded instruction.</param>
+    public bool TryReadFlagToggle(out FlagToggleInstruction toggle)
+    {
+        toggle = default;
+        if (Opcode is not (EvtOpcodes.SetFacesBit or EvtOpcodes.ToggleActorGroupFlag) || Operands.Length < 9) return false;
+        ReadOnlySpan<byte> operands = Operands.Span;
+        toggle = new FlagToggleInstruction(
+            BinaryPrimitives.ReadInt32LittleEndian(operands),
+            BinaryPrimitives.ReadUInt32LittleEndian(operands[4..]),
+            operands[8] != 0);
+        return true;
+    }
+
     /// <summary>Reads a timer trigger's period, when this instruction is one.</summary>
     /// <remarks>
     /// Three one-byte flags — yearly, monthly, weekly — then the hour, minute and second of a daily timer and
@@ -216,6 +352,50 @@ public readonly record struct VariableInstruction(ushort Variable, int Value, in
 /// <param name="Kind">The donor's damage kind.</param>
 /// <param name="Amount">How much harm.</param>
 public readonly record struct DamageInstruction(byte Who, byte Kind, int Amount);
+
+/// <summary>A decoded item gift.</summary>
+/// <param name="Level">The treasure level an item is drawn at, one to six (OpenEnroth <c>src/Engine/Objects/ItemEnums.h</c>, <c>ItemTreasureLevel</c>).</param>
+/// <param name="Kind">The kind of random item drawn (<c>RandomItemType</c>, <c>src/Engine/Objects/ItemEnums.h:1084-1121</c>).</param>
+/// <param name="Item">The item id given outright, or zero when the draw stands.</param>
+public readonly record struct GiveItemInstruction(int Level, int Kind, int Item);
+
+/// <summary>A decoded spell cast from the map.</summary>
+/// <param name="Spell">The spell id.</param>
+/// <param name="Mastery">The mastery, as the donor reads it: one novice, four grand master.</param>
+/// <param name="Rank">The skill rank the spell is cast at.</param>
+/// <param name="FromX">Where the spell flies from, X.</param>
+/// <param name="FromY">Where the spell flies from, Y.</param>
+/// <param name="FromZ">Where the spell flies from, Z.</param>
+/// <param name="ToX">Where it flies to, X.</param>
+/// <param name="ToY">Where it flies to, Y.</param>
+/// <param name="ToZ">Where it flies to, Z.</param>
+public readonly record struct CastSpellInstruction(int Spell, int Mastery, int Rank, int FromX, int FromY, int FromZ, int ToX, int ToY, int ToZ);
+
+/// <summary>A decoded change of a person's topic.</summary>
+/// <param name="Person">The person's id.</param>
+/// <param name="Slot">Which of the person's topics, counting from zero.</param>
+/// <param name="Event">The event the topic raises afterwards.</param>
+public readonly record struct NpcTopicInstruction(int Person, int Slot, int Event);
+
+/// <summary>A decoded skill jump.</summary>
+/// <param name="Skill">The donor's skill number.</param>
+/// <param name="Mastery">The donor's mastery number.</param>
+/// <param name="Rank">The rank the skill must reach.</param>
+/// <param name="Target">The step it jumps to.</param>
+public readonly record struct CheckSkillInstruction(int Skill, int Mastery, int Rank, int Target);
+
+/// <summary>A decoded kill jump.</summary>
+/// <param name="Policy">Which creatures are counted.</param>
+/// <param name="Parameter">The group, kind or creature the policy names.</param>
+/// <param name="Count">How many must be dead.</param>
+/// <param name="Target">The step it jumps to.</param>
+public readonly record struct ActorKilledInstruction(int Policy, int Parameter, int Count, int Target);
+
+/// <summary>A decoded flag toggle over a group of faces or creatures.</summary>
+/// <param name="Group">The face group or creature group.</param>
+/// <param name="Flag">The attribute bit.</param>
+/// <param name="On">Whether the bit is set rather than cleared.</param>
+public readonly record struct FlagToggleInstruction(int Group, uint Flag, bool On);
 
 /// <summary>A decoded timer trigger.</summary>
 /// <param name="Yearly">Fires once a year.</param>

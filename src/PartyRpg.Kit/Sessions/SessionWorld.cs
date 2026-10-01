@@ -36,7 +36,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     private readonly PlacePopulation _population;
     private readonly IDiagnosticsService? _diagnostics;
     private readonly Dictionary<PlaceId, PlaceEntrance[]> _entrances;
-    private readonly InteractionLedger _interactions = new();
+    private readonly InteractionLedger _interactions;
     private MovementDiagnostics _movement = MovementDiagnostics.None;
     private bool _disposed;
 
@@ -105,6 +105,10 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// asks for some creatures of a kind — which the population resolves while it reads the places. Without
     /// one every placement stands as content states it.
     /// </param>
+    /// <param name="interactions">
+    /// What each place kept of the party's uses when the session was saved, for a world a load rebuilds.
+    /// Without it the world starts with nothing done to any target, which is a new game's world.
+    /// </param>
     /// <param name="hazards">
     /// What standing on a kind of ground does to the party while time passes. Without one no ground harms anybody.
     /// </param>
@@ -127,9 +131,11 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         IFallRule? falls = null,
         ICreatureVitals? vitals = null,
         IPlacementExpansion? expansion = null,
+        InteractionLedgerSnapshot? interactions = null,
         IGroundHazardRule? hazards = null)
     {
         ArgumentNullException.ThrowIfNull(graph);
+        _interactions = interactions is null ? new InteractionLedger() : new InteractionLedger(interactions);
         ArgumentNullException.ThrowIfNull(party);
         ArgumentNullException.ThrowIfNull(places);
         _transitions = new TransitionExecutive(costRule);
@@ -535,17 +541,19 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     }
 
     /// <summary>
-    /// Captures the world's durable state: where the party stands, and what each place remembers.
+    /// Captures the world's durable state: where the party stands, what each place remembers, and what each
+    /// place keeps of the party's uses.
     /// </summary>
     /// <remarks>
     /// The graph, the entrances, the mover's collision scene, the movement observations, the population's
-    /// entities, and what the party has done to each place's targets are absent on purpose. The graph and the
-    /// entrances are loaded content, the scene is refilled from the place the party resumes in, movement
-    /// observations belong to the steps that produced them, the entities are rebuilt from placements, and
-    /// interaction state is live state the persistence owner does not carry yet (#8593) — each of them a runtime
-    /// shape that a load composes again rather than one a save carries.
+    /// entities, and each target's own state word are absent on purpose. The graph and the entrances are
+    /// loaded content, the scene is refilled from the place the party resumes in, movement observations belong
+    /// to the steps that produced them, the entities are rebuilt from placements, and a target's word is live
+    /// state the interaction ledger's capture does not carry yet (#8593) — each of them a runtime shape that a
+    /// load composes again rather than one a save carries. The values a place keeps are carried, through the
+    /// same ledger capture a target's word will join.
     /// </remarks>
-    public WorldSave Capture() => new(Party.Capture(), Places.Capture());
+    public WorldSave Capture() => new(Party.Capture(), Places.Capture(), _interactions.Capture());
 
     /// <summary>Releases the entities the population owns and the engine's collision scene with the movement.</summary>
     public void Dispose()

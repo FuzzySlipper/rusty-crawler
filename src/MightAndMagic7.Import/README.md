@@ -29,7 +29,10 @@ Owns:
   (a move, a building, a container, a door) as a `fixture` placement where its faces stand, and every such event
   — with the timers that refill what it gives — as a `place-event` entry of normalized steps: the donor's own
   instruction word, the operands the instruction carries, the variable named by family and slot, and the line a
-  status step prints read from the map's own string table. The discovery table is written beside them as
+  status step prints read from the map's own string table; a door step's door id and action, an item gift's
+  level, its random kind read as the same two item tags a treasure cell is (`ItemVocabulary.FilterOfRandomItem`)
+  and its item, a cast's spell, mastery and rank, a person call's or topic change's person, and a flag toggle's
+  group and bit are among those operands. The discovery table is written beside them as
   `discovery` entries. No step is interpreted here; the write summary counts the steps of each kind, which is
   what the ruleset's interpretation is measured against, and the shapes are recorded in
   [`../../docs/research/mm7-data-inventory.md`](../../docs/research/mm7-data-inventory.md) (*Fixtures, map

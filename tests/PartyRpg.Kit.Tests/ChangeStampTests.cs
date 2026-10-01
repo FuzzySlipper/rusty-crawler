@@ -42,6 +42,7 @@ public sealed class ChangeStampTests
         [typeof(CharacterConditions)] = (["Apply", "Clear", "ClearAll"], ["Has", "SeverityOf", "IndexOf"]),
         [typeof(CharacterResources)] = (["TakeDamage", "RestoreHitPoints", "SetMaximumHitPoints", "TrySpendSpellPoints", "RestoreSpellPoints", "SetMaximumSpellPoints", "RestoreAll"], []),
         [typeof(CharacterEquipment)] = (["Attach", "Detach"], ["Has", "TryGet", "ItemIn", "IndexOf"]),
+        [typeof(CharacterResistances)] = (["Set"], ["Of"]),
     };
 
     /// <summary>Each way the party's state changes, through the owners' own doors.</summary>
@@ -53,7 +54,7 @@ public sealed class ChangeStampTests
         "party effect start", "party effect end", "member effect start",
         "rename", "change class", "attribute set", "attribute change",
         "skill learn", "skill raise", "skill tier", "spell learn", "quick spell", "spell forget",
-        "age", "rejuvenate", "experience award", "teach",
+        "age", "rejuvenate", "experience award", "teach", "gift", "stored resistance",
         "condition apply", "condition clear", "conditions clear all",
         "take damage", "restore hit points", "maximum hit points", "spend spell points", "restore spell points",
         "maximum spell points", "restore all", "equip", "unequip",
@@ -138,6 +139,8 @@ public sealed class ChangeStampTests
             "rejuvenate" => () => ann.Progression.Rejuvenate(),
             "experience award" => () => Assert.True(progression.Award(new PartyExperienceAward("deed", 40)).IsAwarded),
             "teach" => () => progression.Teach(ann.Id, new SkillId("lore"), new SkillTier(1), 1),
+            "gift" => () => progression.Gift(ann.Id, 10, 2),
+            "stored resistance" => () => ann.Resistances.Set(new PartyRpg.Kit.Combat.DamageKindId("fire"), 10),
             "condition apply" => () => ann.Conditions.Apply(new ActiveCondition(new ConditionId("cursed"))),
             "condition clear" => () => Assert.True(ann.Conditions.Clear(new ConditionId("weak"))),
             "conditions clear all" => () => ann.Conditions.ClearAll(),

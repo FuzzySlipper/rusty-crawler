@@ -4,6 +4,7 @@ using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
@@ -243,6 +244,38 @@ public sealed class InteractionTests
         Assert.Contains("42", refused.Message, StringComparison.Ordinal);
         Assert.Equal(InteractionVerb.Pull, refused.Verb);
         Assert.Equal(InteractionTargetState.None, hall.Interaction.FocusedTarget!.State);
+    }
+
+    [Fact]
+    public void A_lever_that_moves_a_door_records_the_door_and_the_place_value_it_read()
+    {
+        // The lever reads the door's word and the place's count through its context, and states what it makes
+        // of the door and the count in its outcome: the mechanism records both only because the use applied.
+        TestRule rule = new();
+        rule.Outcomes["lever"] = (_, context) =>
+        {
+            PlacementDefinition door = context.PlaceTargets.First(placement => placement.Content.Kind == "door");
+            long pulls = context.PlaceValues.GetValueOrDefault("pulls");
+            return InteractionOutcome.Applied(
+                "pulled",
+                $"The lever clanks down; the door was '{context.TargetState(door.Content)}'.",
+                kept: new Dictionary<string, long> { ["pulls"] = pulls + 1 },
+                changes: [new InteractionTargetChange(door.Content, "open")]);
+        };
+
+        using Hall hall = Hall.Build(rule, Hall.Facing("lever-0"));
+        hall.Interaction.Update();
+        InteractionResult pulled = hall.Interaction.Use();
+        Assert.True(pulled.IsApplied, pulled.Message);
+        Assert.Equal("The lever clanks down; the door was ''.", pulled.Message);
+
+        WorldSave saved = hall.World.Capture();
+        Assert.Equal(new PlaceValue("pulls", 1), Assert.Single(Assert.Single(saved.Interaction.Places).Values));
+
+        // The door now reads as the lever left it, under its own identity and incarnation.
+        IInteractionWorld world = hall.World;
+        PlacementDefinition doorPlacement = world.Placements.First(placement => placement.Content.Kind == "door");
+        Assert.Equal(new InteractionTargetState("open", 1), world.States.StateOf(world.Place, doorPlacement.Content));
     }
 
     [Fact]
