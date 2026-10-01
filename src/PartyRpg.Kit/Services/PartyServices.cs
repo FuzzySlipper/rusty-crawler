@@ -106,6 +106,9 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
     /// <summary>This game's answers about services.</summary>
     public IServiceRule Rule => _rule;
 
+    /// <summary>The party every counter serves.</summary>
+    public PartyEntity Party => _party;
+
     /// <summary>The service being visited, or null when the party stands at no counter.</summary>
     public ServiceVisit? Visit => _visit;
 

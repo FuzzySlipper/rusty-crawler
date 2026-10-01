@@ -511,7 +511,7 @@ public sealed class CreationModeTests
     private static SessionCreation Creation(PartyCreationFlow? flow = null) => new(
         flow ?? new PartyCreationFlow(Options),
         creation => new PartyEntityFactory().Create(creation),
-        party => World(party));
+        party => new SessionParty.Playing(World(party), party));
 
     /// <summary>A world over the party, composed the way the ruleset composes its own.</summary>
     private static SessionWorld World(PartyEntity party)
@@ -662,7 +662,7 @@ public sealed class CreationModeTests
                 Composition,
                 Projections,
                 new SessionOwners(Clock),
-                new SessionParty.Creating(new SessionCreation(flow, Build, Compose)),
+                new SessionParty.Creating(new SessionCreation(flow, Build, party => new SessionParty.Playing(Compose(party), party))),
                 rules,
                 new SessionControls
                 {

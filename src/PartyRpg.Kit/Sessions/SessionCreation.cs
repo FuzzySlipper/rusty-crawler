@@ -29,23 +29,26 @@ public sealed class SessionCreation
     /// <summary>States the creation a session holds.</summary>
     /// <param name="flow">The flow that owns the party being assembled and refuses every illegal choice.</param>
     /// <param name="buildParty">Builds the party a finished flow describes, through the product's one factory.</param>
-    /// <param name="composeWorld">
-    /// Composes the world the accepted party walks into. It is asked once, with the created party, so the
-    /// accounts a journey charges are the party's own; it may answer null, which is what content that
-    /// declares no places gets.
+    /// <param name="play">
+    /// Composes what the accepted party plays: the world it walks into and the accounts it settles through. It is
+    /// asked once, with the created party, and it is meant to be the same composition a session handed its party
+    /// runs — the answer is the very <see cref="SessionParty.Playing"/> such a session starts from, and the session
+    /// takes it through the one entry both paths share (<see cref="SessionOwners"/>), so a created party can never
+    /// end up with fewer owners than a scenario's. Its world may be null, which is what content that declares no
+    /// places gets; its party must be the one it was handed.
     /// </param>
     /// <exception cref="ArgumentNullException">The flow or one of the factories is missing.</exception>
     public SessionCreation(
         PartyCreationFlow flow,
         Func<PartyCreation, PartyEntity> buildParty,
-        Func<PartyEntity, SessionWorld?> composeWorld)
+        Func<PartyEntity, SessionParty.Playing> play)
     {
         ArgumentNullException.ThrowIfNull(flow);
         ArgumentNullException.ThrowIfNull(buildParty);
-        ArgumentNullException.ThrowIfNull(composeWorld);
+        ArgumentNullException.ThrowIfNull(play);
         Flow = flow;
         BuildParty = buildParty;
-        ComposeWorld = composeWorld;
+        Play = play;
     }
 
     /// <summary>The flow that owns the party being assembled.</summary>
@@ -54,8 +57,8 @@ public sealed class SessionCreation
     /// <summary>Builds the party a finished flow describes.</summary>
     public Func<PartyCreation, PartyEntity> BuildParty { get; }
 
-    /// <summary>Composes the world the accepted party walks into.</summary>
-    public Func<PartyEntity, SessionWorld?> ComposeWorld { get; }
+    /// <summary>Composes what the accepted party plays: its world and its accounts.</summary>
+    public Func<PartyEntity, SessionParty.Playing> Play { get; }
 }
 
 /// <summary>
@@ -77,8 +80,8 @@ internal sealed class CreationDriver(SessionCreation creation, CreationIntentNam
     /// <summary>The last choice the flow refused, or null when the last choice was accepted.</summary>
     public Refusal? Refusal { get; private set; }
 
-    /// <summary>Applies this update's commands, and returns the party and its world once one is accepted.</summary>
-    public (PartyEntity Party, SessionWorld? World)? Drive(ActionInbox input)
+    /// <summary>Applies this update's commands, and returns what the accepted party plays once one is accepted.</summary>
+    public SessionParty.Playing? Drive(ActionInbox input)
     {
         foreach (CreationCommand command in _input.Read(input))
         {
@@ -103,7 +106,7 @@ internal sealed class CreationDriver(SessionCreation creation, CreationIntentNam
     /// the world refuses to be composed over — rather than leaving a half-created party behind or an exception
     /// inside an admitted update.
     /// </remarks>
-    private (PartyEntity Party, SessionWorld? World)? Accept()
+    private SessionParty.Playing? Accept()
     {
         if (!creation.Flow.IsComplete)
         {
@@ -115,10 +118,17 @@ internal sealed class CreationDriver(SessionCreation creation, CreationIntentNam
 
         PartyEntity? party = null;
         SessionWorld? world = null;
+        SessionParty.Playing playing;
         try
         {
             party = creation.BuildParty(creation.Flow.ToCreation());
-            world = creation.ComposeWorld(party);
+            playing = creation.Play(party);
+            world = playing.World;
+            if (!ReferenceEquals(playing.Party, party) || playing.Resumed is not null)
+            {
+                throw new ArgumentException(
+                    "What a created party plays must be composed over that party, as a new session: a different party, or one resumed from a save, would be a second band for one expedition.");
+            }
         }
         catch (Exception error) when (error is ArgumentException or ContentValidationException)
         {
@@ -131,7 +141,7 @@ internal sealed class CreationDriver(SessionCreation creation, CreationIntentNam
         }
 
         Refusal = null;
-        return (party, world);
+        return playing;
     }
 
     /// <summary>Makes one creation command on the flow and returns the rule it broke, when it broke one.</summary>

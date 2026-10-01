@@ -108,11 +108,21 @@ public sealed class PartyRpgSession : IGameSession
                 nameof(controls));
         }
 
-        _composition = composition;
+        SessionRecords? records = (party as SessionParty.Playing)?.Resumed;
+        // Which start the party took is the start this session was handed, so the panel's word for it can never
+        // disagree with the path the composition actually ran.
+        _composition = composition with
+        {
+            PartyStart = party switch
+            {
+                SessionParty.Creating => SessionPartyStart.Creation,
+                _ when records is not null => SessionPartyStart.Resumed,
+                _ => SessionPartyStart.Scenario,
+            },
+        };
         _projection = projection ?? throw new ArgumentNullException(nameof(projection));
         _owners = owners;
         _movement = controls.Movement;
-        SessionRecords? records = (party as SessionParty.Playing)?.Resumed;
         _resumed = records is not null;
         _saves = new SaveRequests(composition.Title, saving, controls.Save, _resumed);
         owners.Bind(rules ?? SessionRules.None, records);
@@ -349,7 +359,9 @@ public sealed class PartyRpgSession : IGameSession
             {
                 _creation = null;
                 _accepted = true;
-                _owners.Take(accepted.Party, accepted.World, accounts: null);
+                // The same entry a session handed its party at composition takes: one sequence composes every
+                // owner over whichever party the session ends up playing.
+                _owners.Take(accepted.Party, accepted.World, accepted.Accounts);
                 _world = _owners.World?.Snapshot ?? WorldSnapshot.Empty;
                 ResolveMode();
             }

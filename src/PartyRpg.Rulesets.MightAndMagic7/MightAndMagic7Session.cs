@@ -32,14 +32,15 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// releases them with itself.
 /// </para>
 /// <para>
-/// <b>A new session is created when the host declares a creation screen; otherwise it plays what its
-/// scenario fixes.</b> This game's creation screen is the player-facing path a new game takes, so a host that
-/// declared its controls gets a session holding this game's creation flow, starting in creation: its party
-/// and the world that party walks into are composed when the player accepts them, which is what makes the
-/// ledger the world charges the created party's own accounts. A host that declared none offers no creation
-/// screen, and its session plays the party its content fixes — the scripted path a live check, a test, or a
-/// product without creation takes, composed through the same factory creation ends at. A session resuming
-/// from a save already holds both and creates nothing.
+/// <b>A new session takes the start its scenario states: creation, or the scenario's own party.</b> The
+/// selected scenario start's <c>party</c> word decides (<see cref="NewPartyStart"/>), with creation — the
+/// player-facing path — the default wherever the host declared a creation screen. A creating session holds
+/// this game's creation flow, starting in creation: its party and the world that party walks into are composed
+/// when the player accepts them, which is what makes the ledger the world charges the created party's own
+/// accounts. A session on the scenario's start plays the party its content fixes, composed through the same
+/// factory creation ends at — the path a scenario with a fixed party, a live check, a test, or a host without
+/// creation takes. A session resuming from a save already holds both and creates nothing. The projection's
+/// composition block names which start the session took.
 /// </para>
 /// <para>
 /// Anything this composition creates and then fails to hand over is released here, so a session that
@@ -364,6 +365,37 @@ internal sealed class MightAndMagic7Session : IGameSession
             Equipment = figure,
         };
 
+        Owners = owners;
+
+        // What a party plays — its accounts and the world it walks in, composed over that party with every answer
+        // the world needs — is composed here and only here, for the scenario's party, a created one, and a resumed
+        // one alike. A world argument left off one path and not another is how a mechanism used to exist where a
+        // test looked and be missing where a player went; with one composition there is no second list to forget.
+        SessionParty.Playing Play(PartyEntity? walker, SessionSave? from = null)
+        {
+            PartyResourceLedger? accounts = walker is null ? null : Ledger(walker);
+            SessionWorld? walked = MightAndMagic7World.Compose(
+                Declared(context.Content),
+                context,
+                clock,
+                accounts,
+                walker,
+                from,
+                services,
+                conversation,
+                corpseAnswers,
+                loot,
+                () => owners.Journal,
+                combat,
+                spawns,
+                fixtures);
+            return new SessionParty.Playing(
+                walked,
+                walker,
+                accounts,
+                from is null ? null : new SessionRecords(from.Quests, from.Journal, from.Knowledge, from.Maps));
+        }
+
         EngineSessionSaveStore? store = MightAndMagic7Persistence.Store(context.Engine);
         try
         {
@@ -402,26 +434,27 @@ internal sealed class MightAndMagic7Session : IGameSession
                 // already crossed.
                 save.Clock.ApplyTo(clock);
                 party = Capacity(MightAndMagic7Party.Restore(save.Party, Declared(context.Content)), spells)!;
-                PartyResourceLedger ledger = Ledger(party);
-                world = MightAndMagic7World.Compose(context.Content, context, clock, ledger, party, save, services, conversation, corpseAnswers, loot, quests, () => owners.Journal, combat, spawns, fixtures);
-                start = new SessionParty.Playing(world, party, ledger, new SessionRecords(save.Quests, save.Journal, save.Knowledge, save.Maps));
+                SessionParty.Playing resumed = Play(party, save);
+                world = resumed.World;
+                start = resumed;
             }
-            else if (context.Creation is not null)
+            else if (NewPartyStart(context) == SessionPartyStart.Creation)
             {
-                // The host declared a creation screen, so a new session creates its party. The flow is this
-                // game's, the factory is the one every party comes from, and the world is composed with the
-                // created party so the provisions a road costs come out of the larder the player's own
-                // characters filled.
+                // The session creates its party. The flow is this game's, the factory is the one every party
+                // comes from, and what the accepted party plays is composed by the same entry the scenario's party
+                // goes through, so the provisions a road costs come out of the larder the player's own characters
+                // filled and no owner can be composed for one path and not the other.
                 ContentCatalog? declared = Declared(context.Content);
                 start = new SessionParty.Creating(new SessionCreation(
                     MightAndMagic7Creation.Start(declared),
                     description => Capacity(MightAndMagic7Party.Factory(declared).Create(description), spells, fill: true)!,
-                    created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created), created, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot, journal: () => owners.Journal, vitals: combat, spawns: spawns, fixtures: fixtures)));
+                    created => Play(created)));
             }
             else
             {
-                // No creation screen was declared, so this session plays the party its scenario fixes: the
-                // scripted path — a live check, a test, or a product that offers no creation.
+                // The scenario fixes the party — it said so, or the host offers no creation screen — so this
+                // session plays it: the scripted path a scenario, a live check, a test, or a product that offers
+                // no creation takes.
                 //
                 // The scenario is read in the order it plays: which place the party begins in is the world's
                 // own start rule, and who the party is is the party rule, so a selection wrong about both hears
@@ -437,14 +470,28 @@ internal sealed class MightAndMagic7Session : IGameSession
                     parties = refusal;
                 }
 
-                PartyResourceLedger? accounts = party is null ? null : Ledger(party);
-                world = MightAndMagic7World.Compose(context.Content, context, clock, accounts, party, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot, journal: () => owners.Journal, vitals: combat, spawns: spawns, fixtures: fixtures);
+                SessionParty.Playing scenario = Play(party);
+                world = scenario.World;
                 if (parties is not null) throw parties;
-                start = new SessionParty.Playing(world, party, accounts);
+
+                // A start that asked for the scenario's party and a selection that fixes none would begin a game
+                // with nobody in it, which is the scenario contradicting itself rather than an empty product.
+                if (party is null && MightAndMagic7World.StatedPartyStart(Declared(context.Content)) is { Start: SessionPartyStart.Scenario } asked)
+                {
+                    throw new ContentValidationException(
+                        $"The scenario start '{asked.Entry}' in pack '{asked.Pack}' says the session plays the scenario's party, and the selection states no '{MightAndMagic7Party.DefinitionKind}' entry to build one from.",
+                        [new ContentValidationIssue(
+                            "scenario-start-party-missing",
+                            $"start '{asked.Entry}' asks for the scenario's party, and the selection states none.",
+                            asked.Pack)]);
+                }
+
+                start = scenario;
             }
 
-            // One session, composed one way: the resumed, created, and scenario paths differ only in how the
-            // session starts, so every mechanism is composed over each of them by the same sequence.
+            // One session, composed one way: the resumed, created, and scenario paths differ only in where the
+            // party comes from. What it plays is composed by Play on every path, and every owner over it by the
+            // kit's one sequence (SessionOwners.Take), so a mechanism cannot exist on one path and not another.
             _session = new PartyRpgSession(
                 composition,
                 context.Projection,
@@ -464,6 +511,44 @@ internal sealed class MightAndMagic7Session : IGameSession
             store?.Dispose();
             throw;
         }
+    }
+
+    /// <summary>
+    /// Which of the two starts a new session's party takes: creation, or the party the scenario fixes.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The scenario says, and the host's screen is what makes creation possible.</b> The selected scenario's
+    /// start states it (<see cref="MightAndMagic7World.StatedPartyStart"/>), so a scenario that ships a fixed
+    /// party plays it in the product rather than the product's screen silently replacing it. A start that does
+    /// not say takes the player-facing default, creation, wherever the host declared a creation screen; a host
+    /// that declared none — a live check's scripted host, a test — has nowhere to create a party, so it plays
+    /// the scenario's.
+    /// </para>
+    /// <para>
+    /// A start that explicitly asks for creation from a host with no creation screen is refused by name rather
+    /// than quietly played as the scenario's party: the scenario said the player chooses, and a session that
+    /// chose for them would be a game nobody asked for.
+    /// </para>
+    /// </remarks>
+    /// <param name="context">What the host handed the ruleset: the content, and whether it declared a creation screen.</param>
+    /// <returns>The one start this session composes.</returns>
+    /// <exception cref="ContentValidationException">The start asks for creation and the host offers no creation screen.</exception>
+    private static SessionPartyStart NewPartyStart(RulesetSessionContext context)
+    {
+        (SessionPartyStart Start, string Entry, string Pack)? stated = MightAndMagic7World.StatedPartyStart(Declared(context.Content));
+        if (stated is not { } said) return context.Creation is null ? SessionPartyStart.Scenario : SessionPartyStart.Creation;
+        if (said.Start == SessionPartyStart.Creation && context.Creation is null)
+        {
+            throw new ContentValidationException(
+                $"The scenario start '{said.Entry}' in pack '{said.Pack}' says the player creates the party, and this host declared no creation screen to create it in.",
+                [new ContentValidationIssue(
+                    "scenario-start-creation-unoffered",
+                    $"start '{said.Entry}' asks for creation, and the host declared no creation controls.",
+                    said.Pack)]);
+        }
+
+        return said.Start;
     }
 
     /// <summary>
@@ -540,6 +625,15 @@ internal sealed class MightAndMagic7Session : IGameSession
     /// </remarks>
     private static ContentCatalog? Declared(ContentCatalog? content) =>
         content is { Packs.Count: > 0 } ? content : null;
+
+    /// <summary>
+    /// Every owner this session composed, as the kit's one composition sequence holds them.
+    /// </summary>
+    /// <remarks>
+    /// It is the same object the session was composed over, read one layer out so a suite can ask each owner to
+    /// answer on every path a party comes into being by; nothing outside the session composes through it.
+    /// </remarks>
+    internal SessionOwners Owners { get; }
 
     /// <inheritdoc />
     public SessionMode Mode => _session.Mode;

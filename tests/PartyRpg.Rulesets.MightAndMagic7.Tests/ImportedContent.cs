@@ -41,6 +41,31 @@ internal static class ImportedContent
             new FileContentSource(Root ?? throw new InvalidOperationException($"{Variable} is not set.")),
             Layout);
 
+    /// <summary>
+    /// The packs the import itself wrote, selected the way a bundle selects them: the ones the import's own
+    /// bundle fragment names, and nothing else under the root.
+    /// </summary>
+    /// <remarks>
+    /// A root an operator has used for live checks also holds the scenario packs they staged there, and a
+    /// session composed over the whole root would read every one of their starts — a selection no bundle
+    /// makes, refused as ambiguous. The fragment is the import's own statement of what it wrote, so a case
+    /// that composes a session over it composes what a bundle naming the import would play.
+    /// </remarks>
+    /// <param name="catalog">The whole imported root, as <see cref="Load"/> read it.</param>
+    internal static ContentCatalog Written(ContentCatalog catalog)
+    {
+        string fragment = Path.Combine(Root ?? throw new InvalidOperationException($"{Variable} is not set."), "partyrpg", "imports", "imported-bundle.json");
+        using System.Text.Json.JsonDocument bundle = System.Text.Json.JsonDocument.Parse(File.ReadAllText(fragment));
+        List<LoadedPack> written = [];
+        foreach (System.Text.Json.JsonElement packId in bundle.RootElement.GetProperty("contentPacks").EnumerateArray())
+        {
+            string id = packId.GetString() ?? string.Empty;
+            written.Add(catalog.Find(id) ?? throw new InvalidOperationException($"{fragment} names pack '{id}', which the imported root does not hold."));
+        }
+
+        return catalog.Selected(written);
+    }
+
     /// <summary>Why a case that reads the given table cannot run here, or null when it can.</summary>
     /// <param name="document">The document's file name inside the tables pack.</param>
     internal static string? Unavailable(string document)

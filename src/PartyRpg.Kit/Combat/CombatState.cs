@@ -111,6 +111,9 @@ public sealed class CombatState : IGameTimeObserver
     /// </remarks>
     public CombatPacing Pacing { get; private set; } = CombatPacing.RealTime;
 
+    /// <summary>The party this fight is fought by.</summary>
+    public PartyEntity Party => _party;
+
     /// <summary>The turn-based pacing of this same fight: the order, the round, and the two phases.</summary>
     /// <remarks>
     /// It is always present and always reads this state; it holds nothing while the pacing is real time,

@@ -117,9 +117,15 @@ supplies, and where new code goes — is in
 
 Implemented today: the session shell (`PartyRpgSession`, `SessionMode`, `IGameSession`), composed one way
 from `SessionOwners` (the mechanisms it composes, created empty before the session so a game's answers can
-read them when an act arrives, and composed by one sequence per party), `SessionRules` (a game's answers
+read them when an act arrives, and composed by one sequence per party: a party handed to the session and a
+party accepted from creation both reach the owners through the same `SessionOwners.Take`, because
+`SessionCreation` answers an accepted party with the very `SessionParty.Playing` a handed party starts from —
+both paths must go through that one composition, and the ruleset suite's `SessionCompositionParityTests` fails
+naming the owner and the path when one does not), `SessionRules` (a game's answers
 grouped by mechanism: `CombatRules`, `ProgressionRules`, `MagicRules`, `AlchemyRules`, `MapRules`),
-`SessionControls`, `SessionSaving`, and a `SessionParty` that is either `Playing` a party or `Creating` one;
+`SessionControls`, `SessionSaving`, and a `SessionParty` that is either `Playing` a party or `Creating` one
+(the session states which start that was as `SessionComposition.PartyStart` — creation, scenario, or resumed —
+and the composition block publishes it as `partyStart`; which start a new session takes is the ruleset's);
 the update applies a player's acts through `SessionActs`, drives the fight in either pacing through
 `CombatDriver` and `ActControl`, hands a conversation's offer to its owner through the exhaustive
 `ConversationHandoffRouter` over the closed `HandoffOwner` list, and settles save requests through
@@ -141,7 +147,8 @@ holding the debt of sleep as a deadline the clock brings due; a completed night 
 rule's `IRestRule.Rested` what each keeps) — the compiled ruleset and session contracts, the pack envelope with its
 catalog loader, validator and bundle resolution (`ContentCatalog.Selected` is the one place a bundle's
 selection becomes the content a session reads: the packs it named contribute, and the packs it did not
-are not loaded at all; the loader refuses the whole root by name when two packs claim one id, or an entry
+are not loaded at all, though a broken one still refuses the start with its issue marked `NotSelected` and the
+directory it was read from; the loader refuses the whole root by name when two packs claim one id, or an entry
 id or a document id is declared twice, so a reader that looks an entry up by id finds the only one there
 is), the world (`PlaceGraph`, `PlaceGraphLoader`, which refuses by name what nesting hides from the catalog's
 check — a place declaring one arrival-point id twice, ids differing only in case counting as one because that is
