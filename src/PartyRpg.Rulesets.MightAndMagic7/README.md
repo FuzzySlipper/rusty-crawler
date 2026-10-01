@@ -49,8 +49,8 @@ Owns:
   the fight reads as the ally side; both are worth no experience and drop nothing; a raised body leaves the
   corpse ground with what it held; and a save taken while one stands is refused by name, because the schema
   carries no population (#8658). The same reanimation aimed at a dead member (the row's aim names an actor of
-  either side) raises them as a zombie (`MightAndMagic7Undeath`, `CastSpellInfo.cpp:2632-2640`,
-  `Character.cpp:485-505`): the member's own `Zombie` condition, which a save carries with the rest, every other
+  either side) raises them as a zombie (`MightAndMagic7Undeath`, `OpenEnroth/src/Engine/Spells/CastSpellInfo.cpp:2632-2640`,
+  `OpenEnroth/src/Engine/Objects/Character.cpp:485-505`): the member's own `Zombie` condition, which a save carries with the rest, every other
   condition ended, health filled and spell points emptied; the zombie acts, a heal stops at half its maximum
   (`Character.cpp:1283-1297`), every five minutes of game time its health falls by one toward half and its spell
   points by one toward none (`Engine.cpp:1425-1429`), a night leaves it no spell points and half its health
