@@ -1,6 +1,7 @@
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Sessions;
+using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
 using Rusty.Engine;
 
@@ -117,6 +118,28 @@ internal static class MightAndMagic7Movement
     /// <param name="spatial">The engine service whose default controller profile this game's profile is scaled from.</param>
     internal static MovementTuning Tuning(ISpatialService spatial) =>
         new(Controller(spatial), new FallPolicy(FallThreshold, damagePerUnit: 0), flight: Flight());
+
+    /// <summary>The ground the importer writes a region's water squares under, which this game drowns a party on.</summary>
+    /// <remarks>
+    /// Water here is ground, not a volume: the donor's party stands on its water squares and drowns there, and never
+    /// swims (OpenEnroth <c>src/Engine/Graphics/Outdoor.cpp:1389-1395</c>), so the party's mover walks on water as on any
+    /// floor and the engine's swimming mode — buoyancy and drag inside a water box the product names each step — is not
+    /// asked for. It stays available should a place ever want water a party sinks into.
+    /// </remarks>
+    internal const string WaterSurface = "water";
+
+    /// <summary>How often water drowns a party standing in it: thirty game seconds.</summary>
+    /// <remarks>
+    /// OpenEnroth sets its water timer 128 ticks ahead each time it drowns the party (<c>src/Engine/Engine.cpp:1085-1086</c>),
+    /// and 128 ticks are one real second (<c>src/Core/Time/Duration.h:28</c>) of a clock that runs thirty times real time
+    /// (<c>:29</c>). Faithful in length; the intervals are counted on the calendar's own boundaries rather than from
+    /// the moment the party stepped in, so the first comes up to thirty seconds early or late.
+    /// </remarks>
+    internal static readonly GameDuration DrowningInterval = GameDuration.FromSeconds(30);
+
+    /// <summary>What standing on this game's ground does to the party: water drowns it.</summary>
+    /// <param name="party">The party whose carried effects can spare it, or null for a world without one.</param>
+    internal static IGroundHazardRule Hazards(PartyEntity? party) => new Drowning(party);
 
     /// <summary>How many times the walk a flying party moves: the donor's rise, sink, and running flight.</summary>
     /// <remarks>
@@ -276,6 +299,42 @@ internal static class MightAndMagic7Movement
                 return false;
             }
         }
+    }
+
+    /// <summary>
+    /// The donor's drowning: every thirty game seconds a party stands on water, each character not spared loses a tenth
+    /// of what they can take.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Faithful to the arithmetic of OpenEnroth <c>src/Engine/Engine.cpp:1083-1099</c>: a character takes
+    /// <c>GetMaxHealth() * 0.1</c>, unless they carry the water-walk buff the water breathing potion raises on its
+    /// drinker. The donor sets its water damage only on a water square of the terrain, never on a model's or a
+    /// dungeon's fluid face (<c>src/Engine/Graphics/Outdoor.cpp:1321-1335</c>, <c>:1389-1395</c>; indoors it is cleared,
+    /// <c>src/Engine/Graphics/Indoor.cpp:1708</c>), and never while the party's water walk runs (<c>Outdoor.cpp:1351-1360</c>),
+    /// so this drowns only on <see cref="WaterSurface"/> and only without a water walk.
+    /// </para>
+    /// <para>
+    /// <b>Three adaptations, stated.</b> The donor's harm is typed as fire and so meets a character's fire resistance; here
+    /// it is plain harm. The donor also spares a character wearing an item of water walking or a relic, and item
+    /// enchantments do not exist in this build yet (#8513). And the donor's party cannot walk from land into water
+    /// without a water walk at all — it is stopped at the edge and drowns only where it fell in — where here water is
+    /// ground a party may walk into.
+    /// </para>
+    /// </remarks>
+    private sealed class Drowning(PartyEntity? party) : IGroundHazardRule
+    {
+        public GameDuration? IntervalOn(SurfaceEffect ground) =>
+            ground.Id == WaterSurface && !WalksOnWater() ? DrowningInterval : null;
+
+        public int DamageTo(PartyMember member, SurfaceEffect ground) =>
+            MightAndMagic7SpellEffects.LaidOut(member) || member.Effects.Has(SpellEffectIds.WaterBreathing)
+                ? 0
+                : member.Resources.HitPoints.Maximum / 10;
+
+        /// <summary>Whether somebody standing keeps the party walking over the water.</summary>
+        private bool WalksOnWater() =>
+            party?.Members.Any(member => member.Effects.Has(SpellEffectIds.WaterWalk) && !MightAndMagic7SpellEffects.LaidOut(member)) == true;
     }
 
     /// <summary>

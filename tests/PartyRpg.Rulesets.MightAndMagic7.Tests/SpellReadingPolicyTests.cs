@@ -380,6 +380,161 @@ public sealed class SpellReadingPolicyTests
         Assert.False(caster.Effects.Has(new EffectId("spell.fly")));
     }
 
+    [Fact]
+    public void Water_ground_drowns_the_party_standing_in_it_and_water_breathing_or_a_water_walk_spares_it()
+    {
+        // The double reports the ground under the party at its feet, on the staged water square, whose corners the place's
+        // geometry names as water exactly as the importer writes it.
+        ScriptedSpatialService spatial = new()
+        {
+            Answer = (request, receipt) => receipt with
+            {
+                Ground = default(CharacterGround) with { Present = true, Point = new Vector3(receipt.Transform.Translation.X, 0, receipt.Transform.Translation.Z) },
+            },
+        };
+        (ProductCreateContext context, RecordingUiService ui) =
+            RulesetTestContext.Create(persistence: null, spatial, new ScriptedContentService(), Waters());
+        using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
+            RulesetTestContext.RulesetContext(context, ui) with
+            {
+                Cast = new CastIntentNames(Declared.UiActionContract),
+                Movement = new MovementIntentNames("forward", "back", "strafe-left", "strafe-right", "turn-left", "turn-right", "jump"),
+                Rest = new RestIntentNames(
+                    Declared.RestIntent,
+                    Declared.CampIntent,
+                    Declared.WaitUntilDawnIntent,
+                    Declared.WaitAnHourIntent,
+                    Declared.WaitFiveMinutesIntent,
+                    Declared.UiActionContract),
+            });
+        session.Start();
+        MightAndMagic7Session live = (MightAndMagic7Session)session;
+        PartyMember aelina = live.Party!.Members[0];
+        PartyMember borin = live.Party.Members[1];
+        session.Update(RulesetTestContext.Update(1, 1));
+        Assert.Equal("water", live.World!.Mover!.Footing?.Id);
+
+        // Two real seconds standing in water are sixty game seconds: every thirty of them each character loses a tenth
+        // of what they can take (OpenEnroth src/Engine/Engine.cpp:1083-1099).
+        (int Aelina, int Borin) before = (aelina.Resources.HitPoints.Current, borin.Resources.HitPoints.Current);
+        session.Update(RulesetTestContext.Update(2, 120));
+        int times = (before.Borin - borin.Resources.HitPoints.Current) / (borin.Resources.HitPoints.Maximum / 10);
+        Assert.InRange(times, 1, 3);
+        Assert.Equal(before.Borin - (times * (borin.Resources.HitPoints.Maximum / 10)), borin.Resources.HitPoints.Current);
+        Assert.Equal(before.Aelina - (times * (aelina.Resources.HitPoints.Maximum / 10)), aelina.Resources.HitPoints.Current);
+
+        // Nobody stops in water: a wait is refused by name.
+        session.Update(RulesetTestContext.Update(3, 1, RulesetTestContext.Digital(Declared.WaitAnHourIntent)));
+        Assert.Equal("refused", ProjectedNode.Of(ui.Latest().Value).Field("rest").Field("outcome").AsString());
+        Assert.Equal(MightAndMagic7Codes.RestInWater, ProjectedNode.Of(ui.Latest().Value).Field("rest").Field("code").AsString());
+
+        // Borin drinks water breathing: the water no longer harms him, and still harms Aelina.
+        ItemInstance bottle = live.Party.Items.First(item => item.Definition.Value == "235");
+        session.Update(RulesetTestContext.Update(
+            4,
+            1,
+            RulesetTestContext.Payload($$"""{"action":"party.cast","member":1,"spell":"{{MightAndMagic7Potions.EffectId(235).Value}}","target":"","item":{{bottle.Id}}}""")));
+        Assert.True(borin.Effects.Has(new EffectId("spell.water-breathing")));
+        aelina.Resources.RestoreHitPoints(aelina.Resources.HitPoints.Maximum);
+        before = (aelina.Resources.HitPoints.Current, borin.Resources.HitPoints.Current);
+        session.Update(RulesetTestContext.Update(5, 120));
+        Assert.Equal(before.Borin, borin.Resources.HitPoints.Current);
+        Assert.True(aelina.Resources.HitPoints.Current < before.Aelina);
+
+        // Aelina, a master, walks the party over the water for an hour a level: nobody drowns, and an hour standing on it
+        // costs her a spell point every
+        // twenty minutes (src/Engine/Engine.cpp:1297-1309, src/Application/GameConfig.h:248-250).
+        aelina.Resources.RestoreHitPoints(aelina.Resources.HitPoints.Maximum);
+        Cast(session, ui, 6, "27", string.Empty);
+        Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
+        Assert.Equal(1, aelina.Effects.MagnitudeOf(new EffectId("spell.water-walk")));
+        before = (aelina.Resources.HitPoints.Current, borin.Resources.HitPoints.Current);
+        int points = aelina.Resources.SpellPoints.Current;
+        Advance(session, 1);
+        Assert.Equal(before.Aelina, aelina.Resources.HitPoints.Current);
+        Assert.Equal(before.Borin, borin.Resources.HitPoints.Current);
+        Assert.Equal(points - 3, aelina.Resources.SpellPoints.Current);
+    }
+
+    /// <summary>
+    /// A region whose whole floor is water, a party of a water-walking sorcerer and a knight with a bottle of water
+    /// breathing, and the rows those name.
+    /// </summary>
+    private static (string Path, string Text)[] Waters() => Content(
+        spells: ($"{RulesetTestContext.ContentDirectory}/content-packs/world/spells.json",
+            """
+            {
+              "documentId": "spells",
+              "definitionKind": "spell",
+              "entries": [ { "id": "27", "school": "Water", "level": 5, "name": "Water Walk", "resist": "0" } ]
+            }
+            """),
+        party: ($"{RulesetTestContext.ContentDirectory}/content-packs/world/party.json",
+            """
+            {
+              "documentId": "party",
+              "definitionKind": "scenario-party",
+              "entries": [
+                {
+                  "id": "party", "coins": 0, "food": 30, "reputation": 0, "fame": 0,
+                  "pack": [ { "item": "235", "count": 1 } ],
+                  "members": [
+                    { "name": "Aelina", "race": "Elf", "class": "Sorcerer", "level": 30, "hitPoints": 40, "spellPoints": 0,
+                      "attributes": [ { "id": "Might", "value": 9 }, { "id": "Intellect", "value": 50 },
+                                      { "id": "Personality", "value": 15 }, { "id": "Endurance", "value": 30 },
+                                      { "id": "Accuracy", "value": 30 }, { "id": "Speed", "value": 25 },
+                                      { "id": "Luck", "value": 13 } ],
+                      "skills": [ { "id": "Water", "level": 3, "tier": 3, "pointsSpent": 1 } ],
+                      "spells": [ "27" ], "conditions": [] },
+                    { "name": "Borin", "race": "Human", "class": "Knight", "level": 1, "hitPoints": 400, "spellPoints": 0,
+                      "attributes": [ { "id": "Might", "value": 13 }, { "id": "Intellect", "value": 9 },
+                                      { "id": "Personality", "value": 9 }, { "id": "Endurance", "value": 13 },
+                                      { "id": "Accuracy", "value": 13 }, { "id": "Speed", "value": 9 },
+                                      { "id": "Luck", "value": 9 } ],
+                      "skills": [], "spells": [], "conditions": [] }
+                  ]
+                }
+              ]
+            }
+            """),
+        extra:
+        [
+            ($"{RulesetTestContext.ContentDirectory}/content-packs/world/place-geometry.json",
+                """
+                {
+                  "documentId": "place-geometry",
+                  "definitionKind": "place-geometry",
+                  "entries": [ { "id": "1", "artifact": { "stated": "by the scripted engine, which reads nothing" },
+                                 "surfaces": [ { "surface": "water",
+                                                 "positions": [ [-4096, 0, -4096], [4096, 0, -4096], [4096, 0, 4096], [-4096, 0, 4096] ],
+                                                 "triangles": [ [0, 1, 2], [0, 2, 3] ] } ] } ]
+                }
+                """,
+                """{ "path": "place-geometry.json", "documentId": "place-geometry", "definitionKind": "place-geometry" }"""),
+            ($"{RulesetTestContext.ContentDirectory}/content-packs/world/items.json",
+                """
+                {
+                  "documentId": "items",
+                  "definitionKind": "item",
+                  "entries": [
+                    { "id": "235", "name": "Water Breathing", "value": 300, "equipStat": "Bottle", "type": "potion", "skillGroup": "Misc", "skill": "misc", "damageDice": "0", "damageModifier": "1" }
+                  ]
+                }
+                """,
+                """{ "path": "items.json", "documentId": "items", "definitionKind": "item" }"""),
+            ($"{RulesetTestContext.ContentDirectory}/content-packs/world/potions.json",
+                """
+                {
+                  "documentId": "potions",
+                  "definitionKind": "potion",
+                  "entries": [
+                    { "id": "235", "name": "Water Breathing", "description": "Green Potion", "effect": "Water Breathing", "kind": "potion", "units": [1, 1, 0], "tier": 2, "mixtures": { "235": "none" } }
+                  ]
+                }
+                """,
+                """{ "path": "potions.json", "documentId": "potions", "definitionKind": "potion" }"""),
+        ]);
+
     /// <summary>Drinks the first bottle of one potion the party carries, as the panel's own control does.</summary>
     private static void Drink(IGameSession session, ulong step, int potion)
     {

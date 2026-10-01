@@ -141,10 +141,10 @@ internal static class MightAndMagic7Potions
         // which is what this build's stone skin ward already carries.
         new(234, SpellEffects.Resistance, SpellTargeting.Caster, Readings.Armour(WardFormulas.Flat(5), WardFormulas.ThirtyMinutesPerPoint).OnOne()),   // Stoneskin
 
-        // Water Breathing: the donor raises its water-walk buff on the drinker (Character.cpp:3156-3158), which spares
-        // that character the drowning a party standing on water takes (src/Engine/Engine.cpp:1083-1099). This build's
-        // world marks no ground as water, so nothing drowns anybody.
-        new(235, SpellEffects.Utility, SpellTargeting.Caster, Readings.NotYet("water breathed under rather than walked over", Readings.WaterReceiver)),   // Water Breathing
+        // Water Breathing: the donor raises its water-walk buff on the drinker (Character.cpp:3156-3158) for thirty
+        // minutes a point (:3089), which spares that character the drowning a party standing on water takes
+        // (src/Engine/Engine.cpp:1083-1099). Here it is the drinker's own water breathing, which this game's drowning reads.
+        new(235, SpellEffects.Utility, SpellTargeting.Caster, Readings.Buff(SpellEffectIds.WaterBreathing, WardFormulas.Flat(1), WardFormulas.ThirtyMinutesPerPoint).OnOne().Says("water breathing carried by the character drinking it, which this game's drowning reads so the water the party stands in harms nobody who carries it, with a deadline on the one clock (OpenEnroth src/Engine/Objects/Character.cpp:3089, 3156-3158, src/Engine/Engine.cpp:1083-1099)")),   // Water Breathing
 
         // Harden Item: an item made harder to break, which needs an owner that can aim at an item and a
         // break rule to aim it at. Character.cpp:3222-3245.

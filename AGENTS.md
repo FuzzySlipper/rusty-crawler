@@ -94,7 +94,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 - **World and time.** Places, arrival points and transitions load from packs; walking into a reach,
   boarding a fare the party bought, and a travel spell all take one transition path that charges the clock
   and the larder once. Movement and collision are the Engine's (the character step over each place's
-  spatial artifact); a fall past the threshold harms members through the ruleset's fall rule. `GameClock`
+  spatial artifact, flying mode under a flight, and the water a place's packs name beside it); a fall past the
+  threshold and standing in water harm members through the ruleset's rules. `GameClock`
   over an authored calendar is the only time, and every advance reaches every owner registered with it.
 - **Party.** `PartyEntity` is one entity with its components: roster and members, one shared inventory of
   item instances, per-member equipment, purse and larder, reputation and fame, running effects, records,
@@ -145,9 +146,9 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   an order commands every member rather than a selected one (#8659); base and racial resistances and the
   master dagger's triple blow are not read (#9026).
 - Stone 7, progression and magic: training takes no game time (#8671); the two counted deeds two ranks need
-  have no writer (#8689); a laid-out member can be promoted (#8705); water walking and breathing, and
-  a creature summoned or raised to fight for the party are "not yet" in `docs/magic-coverage.md` (#9030,
-  #9031; item-aimed effects #8513; followers #8514).
+  have no writer (#8689); a laid-out member can be promoted (#8705); a creature summoned or raised to
+  fight for the party is "not yet" in `docs/magic-coverage.md` (#9031; item-aimed effects #8513; followers
+  #8514).
 - Stone 8, record: an errand's item is protected only from sale (#8687); stealing, and a fine carried as a
   debt, have no owner (#9025).
 

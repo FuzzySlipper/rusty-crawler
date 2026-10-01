@@ -510,6 +510,51 @@ public sealed class ContentPlaceGeometryTests
         Assert.Throws<ArgumentException>(() => new PlaceGeometry(" ", Encoding.UTF8.GetBytes(Artifact)));
     }
 
+    [Fact]
+    public void A_places_named_ground_travels_beside_its_artifact_and_a_malformed_list_is_refused()
+    {
+        // One water square of two triangles at height zero, in the engine's axes, written as the importer writes it.
+        const string water = """
+            "surfaces": [ { "surface": "water",
+                            "positions": [ [0, 0, 0], [512, 0, 0], [512, 0, 512], [0, 0, 512] ],
+                            "triangles": [ [0, 1, 2], [0, 2, 3] ] } ]
+            """;
+        PlaceGeometry geometry = SurfaceSource($$"""{ "id": "1", "artifact": {{Artifact}}, {{water}} }""").For(new PlaceId("1"))!;
+
+        Assert.Equal(["water"], geometry.Surfaces.Names);
+        Assert.Equal(2, geometry.Surfaces.TriangleCount);
+        Assert.True(geometry.Surfaces.Classify(new Vector3(100, 0, 300), out string surface));
+        Assert.Equal("water", surface);
+
+        // An entry that names no ground has none, and a list that is not one is refused rather than read in part.
+        Assert.Equal(0, SurfaceSource($$"""{ "id": "1", "artifact": {{Artifact}} }""").For(new PlaceId("1"))!.Surfaces.TriangleCount);
+        Assert.Throws<InvalidOperationException>(() =>
+            SurfaceSource($$"""{ "id": "1", "artifact": {{Artifact}}, "surfaces": [ { "surface": "water", "positions": [ [0, 0] ], "triangles": [] } ] }""").For(new PlaceId("1")));
+        Assert.Throws<InvalidOperationException>(() =>
+            SurfaceSource($$"""{ "id": "1", "artifact": {{Artifact}}, "surfaces": [ { "surface": "water", "positions": [ [0, 0, 0] ], "triangles": [ [0, 1, 2] ] } ] }""").For(new PlaceId("1")));
+    }
+
+    private static ContentPlaceGeometry SurfaceSource(string geometry)
+    {
+        ContentCatalog catalog = ContentCatalogLoader.Load(
+            new InMemoryContentSource()
+                .Add("packs/world/pack.json",
+                    """
+                    {
+                      "schemaVersion": 1,
+                      "packId": "world",
+                      "kind": "definitions",
+                      "provenance": { "description": "test content" },
+                      "documents": [ { "path": "geometry.json", "documentId": "geometry", "definitionKind": "place-geometry" } ]
+                    }
+                    """)
+                .Add("packs/world/geometry.json",
+                    $$"""{ "documentId": "geometry", "definitionKind": "place-geometry", "entries": [ {{geometry}} ] }"""),
+            new ContentLayout("packs", "imports", "bundles")).RequireValid();
+
+        return new ContentPlaceGeometry(catalog, "place-geometry", "artifact", "surfaces");
+    }
+
     private static ContentPlaceGeometry Source(bool withArtifact, bool emptyArtifact = false)
     {
         string geometry = withArtifact

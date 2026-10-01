@@ -70,6 +70,21 @@ public sealed class MovementTuning
             : SurfaceEffect.Ordinary;
 
     /// <summary>
+    /// The effect of a named surface, keeping the surface's name when this profile does not price it.
+    /// </summary>
+    /// <remarks>
+    /// A surface content names and the tuning does not price moves the party as ordinary ground does, and it is still
+    /// that surface: a rule that asks whether the party stands in water must hear "water" whether or not water slows
+    /// anybody down.
+    /// </remarks>
+    /// <param name="surfaceId">The surface's name, as a classifier reported it.</param>
+    public SurfaceEffect Named(string surfaceId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(surfaceId);
+        return _surfaces.TryGetValue(surfaceId, out SurfaceEffect effect) ? effect : new SurfaceEffect(surfaceId, 1, 1);
+    }
+
+    /// <summary>
     /// The controller configuration to step the party with while it stands on a surface.
     /// </summary>
     /// <remarks>

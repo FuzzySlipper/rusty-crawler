@@ -222,7 +222,10 @@ draws under a key naming the place and the placement), the Engine-backed movemen
 and flight, the engine's flying mode asked for while a game's `IFlightRule` allows it and the party has risen —
 `MovementIntent.Vertical` from the optional rise and sink controls of `MovementIntentNames`, a `FlightTuning` on the
 `MovementTuning` with its speed and ceiling, a landing when a sink meets the ground, and a fall measured from where a
-flight that ends in the air left the party), the reaches that let a party walk
+flight that ends in the air left the party; and a place's named ground, `PlaceSurfaces` read beside its artifact by
+`ContentPlaceGeometry` and looked up at the ground point the engine reports, so the mover's `Footing` says when the
+party stands in water, and a game's `IGroundHazardRule` harms it there once for every interval the clock crosses,
+through `SessionWorld`, while `IRestRule.Stop` may refuse any stop where it stands), the reaches that let a party walk
 into a transition, the movement facts the panel reports, the one combat state
 (`Combat/` — a `CombatState` over the live world and nothing else, with a `Combatant` per party member and
 per creature the ruleset recognizes in the party's place, one `Combatant.Recovery` quantity each advanced

@@ -44,14 +44,14 @@ internal enum TravelShape
     /// <summary>A party-carried beacon, set where the party stands and recalled to later.</summary>
     Beacon,
 
-    /// <summary>Water-walking or water-breathing: a way of moving this build's mover has not.</summary>
-    Movement,
-
     /// <summary>A leap the party's mover takes from where it stands, which is the donor's jump.</summary>
     Leap,
 
     /// <summary>A flight the caster holds the party in, which the party's mover asks the engine's flying mode for.</summary>
     Flight,
+
+    /// <summary>A walk over water the caster holds the party on, which this game's drowning reads.</summary>
+    WaterWalk,
 }
 
 /// <summary>What a detection spell reports over.</summary>
@@ -590,18 +590,9 @@ internal static class Readings
     /// <summary>A flight the caster holds the party in, outdoors, for as long as it lasts and the caster can keep it up.</summary>
     internal static SpellReading Flight() => SpellReading.None with { Travel = TravelShape.Flight };
 
-    /// <summary>
-    /// A way of moving this build's mover has not, named with the owner that would have it, and refused before it is
-    /// paid for: a casting that took the points and moved nobody would be the worst of both.
-    /// </summary>
-    /// <param name="missing">What the spell would let the party do.</param>
-    /// <param name="receiver">Which owner would make it possible.</param>
-    internal static SpellReading Movement(string missing, string receiver) =>
-        SpellReading.None with { Travel = TravelShape.Movement, Missing = missing, Receiver = receiver, NotApplied = true };
+    /// <summary>A walk over water the caster holds the party on, for as long as it lasts.</summary>
+    internal static SpellReading WaterWalk() => SpellReading.None with { Travel = TravelShape.WaterWalk };
 
-    /// <summary>Who would make water something a party walks over or under: ground the mover can tell is water.</summary>
-    internal const string WaterReceiver =
-        "the world's ground: the importer marks no ground as water and the mover tells no surface apart, so a party walks every floor alike and nothing drowns it";
 
     /// <summary>A report over what the world holds, which the party carries for a while as the original does.</summary>
     /// <remarks>
@@ -730,6 +721,16 @@ internal static class SpellEffectIds
     /// spell points that character pays for every five minutes the party spends in the air.
     /// </summary>
     internal static readonly EffectId Fly = new("spell.fly");
+
+    /// <summary>
+    /// Water walking, carried by the character who cast it: while anybody carries it the party walks over water rather
+    /// than drowning in it, and its magnitude is the spell points that character pays for every twenty minutes the
+    /// party stands on water.
+    /// </summary>
+    internal static readonly EffectId WaterWalk = new("spell.water-walk");
+
+    /// <summary>Water breathing, carried by one character: water the party stands in does not drown them.</summary>
+    internal static readonly EffectId WaterBreathing = new("spell.water-breathing");
 
     /// <summary>Feather fall, which the party carries and which spares every member a fall's harm.</summary>
     internal static readonly EffectId FeatherFall = new("spell.feather-fall");

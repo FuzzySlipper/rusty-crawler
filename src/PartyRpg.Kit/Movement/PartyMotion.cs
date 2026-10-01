@@ -84,6 +84,12 @@ public sealed class PartyMotion
     /// <summary>Whether the party stands on something, as the last step the engine resolved left it.</summary>
     public bool Grounded => _admitted > 0 && _continuation.Grounded;
 
+    /// <summary>
+    /// The named ground of the place the party is in, which the engine's ground points are looked up in when no
+    /// classifier was given. Whoever enters the party into a place sets it with that place's collision.
+    /// </summary>
+    public PlaceSurfaces Ground { get; set; } = PlaceSurfaces.None;
+
     /// <summary>Whether the party may fly now: the tuning has a flight profile and the game's rule allows it.</summary>
     public bool MayFly => _tuning.Flight is not null && _flight?.MayFly == true;
 
@@ -293,12 +299,15 @@ public sealed class PartyMotion
     /// <remarks>
     /// A party in the air is over the ground it left, so keeping that surface is what makes a jump across
     /// water land in water and a jump from a road keep the road's speeds. Ground the classifier does not
-    /// recognise is ordinary ground and not an error: content may name a surface before the tuning prices
-    /// it, and movement must not stop for a table that has not caught up.
+    /// recognise is ordinary ground and not an error, and a surface the tuning does not price moves the party as
+    /// ordinary ground and keeps its name: content may name a surface before the tuning prices it, and movement must
+    /// not stop for a table that has not caught up. Without a classifier the place's own named ground answers.
     /// </remarks>
     private SurfaceEffect Recognise(CharacterGround ground)
     {
-        if (_classify is null || !ground.Present) return _surface;
-        return _classify(ground, out string surfaceId) ? _tuning.Surface(surfaceId) : SurfaceEffect.Ordinary;
+        if (!ground.Present) return _surface;
+        string surfaceId;
+        bool named = _classify is not null ? _classify(ground, out surfaceId) : Ground.Classify(ground.Point, out surfaceId);
+        return named ? _tuning.Named(surfaceId) : SurfaceEffect.Ordinary;
     }
 }

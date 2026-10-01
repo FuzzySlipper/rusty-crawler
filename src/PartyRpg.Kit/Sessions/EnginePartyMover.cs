@@ -48,6 +48,12 @@ public interface IPartyMover : IDisposable
     bool Flying => false;
 
     /// <summary>
+    /// The ground the party stands on now, or null when it stands on nothing — in the air, flying, or before its first
+    /// step. A mover that tells no ground apart answers null.
+    /// </summary>
+    SurfaceEffect? Footing => null;
+
+    /// <summary>
     /// Whether nothing solid stands between two points of the place the party is in, in the engine's world
     /// axes.
     /// </summary>
@@ -135,11 +141,16 @@ public sealed class EnginePartyMover : IPartyMover
             // anything, and telling the engine to clear a scene it holds nothing in would be work that
             // changes nothing.
             if (_filled) Release();
+            _movement.Motion.Ground = PlaceSurfaces.None;
             Current = PlaceGeometryAdmission.Empty(place);
             return Current;
         }
 
         if (_filled) Release();
+
+        // The place's named ground is the place's, like its collision: what the party stood on in the last place names
+        // nothing here.
+        _movement.Motion.Ground = geometry.Surfaces;
 
         // The reference is released as soon as the engine has resolved and copied the document: the
         // scene retains its own collision, so nothing downstream depends on the artifact staying
@@ -187,6 +198,9 @@ public sealed class EnginePartyMover : IPartyMover
 
     /// <inheritdoc />
     public bool Flying => !_disposed && _movement.Motion.Flying;
+
+    /// <inheritdoc />
+    public SurfaceEffect? Footing => !_disposed && _movement.Motion.Grounded && !_movement.Motion.Flying ? _movement.Motion.Surface : null;
 
     /// <inheritdoc />
     /// <exception cref="ObjectDisposedException">The mover has been disposed.</exception>

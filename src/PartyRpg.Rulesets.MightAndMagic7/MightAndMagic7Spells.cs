@@ -223,7 +223,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule
         Entry(24, [2, 2, 2, 2], [110, 100, 90, 70], 2, 2, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Poison Spray
         Entry(25, [3, 3, 3, 3], [120, 120, 120, 120], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Resistance, Readings.Ward([MightAndMagic7Damage.Water], WardFormulas.MasteryTimesLevel, WardFormulas.HoursPerLevel).OnOne()),   // Water Resistance
         Entry(26, [4, 4, 4, 4], [110, 100, 90, 80], 0, 4, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Ice Bolt
-        Entry(27, [5, 5, 5, 5], [150, 150, 150, 150], 0, 0, 2, SpellTargeting.Party, SpellEffects.Travel, Readings.Movement("water walked over rather than swum through", Readings.WaterReceiver)),   // Water Walk
+        Entry(27, [5, 5, 5, 5], [150, 150, 150, 150], 0, 0, 2, SpellTargeting.Party, SpellEffects.Travel, Readings.WaterWalk().Coarser("a walk over water carried by its caster: while it runs the party stands on the world's water without drowning, for ten minutes a level at expert and an hour a level above (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:1302-1331, src/Engine/Engine.cpp:1083-1099), and below grand master the caster pays a spell point for every twenty minutes the party stands on water, the interval the spell's own description states and the donor's fixed drain takes (src/Engine/Engine.cpp:1297-1309, src/Application/GameConfig.h:248-250) where the original took five; the donor also stops a party without it at the water's edge, and here the water is ground a party may walk into and drown in; a second casting replaces the first's caster as the donor's one buff does")),   // Water Walk
         Entry(28, [8, 8, 8, 8], [200, 200, 200, 200], 0, 0, 2, SpellTargeting.None, SpellEffects.Utility, Readings.Unaimable("an item whose charges are given back", "an item-aim owner: the pack holds the party's items and nothing aims a spell at one")),   // Recharge Item
         Entry(29, [10, 10, 10, 10], [100, 100, 90, 80], 9, 9, 2, SpellTargeting.Foe, SpellEffects.Damage),   // Acid Burst
         Entry(30, [15, 15, 15, 15], [140, 140, 140, 140], 0, 0, 3, SpellTargeting.None, SpellEffects.Utility, Readings.Unaimable("an item to enchant", "an item-aim owner: the pack holds the party's items and nothing aims a spell at one")),   // Enchant Item
@@ -810,6 +810,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule
                 TravelShape.Beacon => "a beacon set in the party's own carried state and recalled through the world's own transition path",
                 TravelShape.Leap => "a leap the party's mover takes from where it stands",
                 TravelShape.Flight => "a flight carried by its caster, which the party's mover flies by while it runs",
+                TravelShape.WaterWalk => "a walk over water carried by its caster, which this game's drowning reads while it runs",
                 _ => "a portal taken through the world's own transition path, charged by the world's own cost rule",
             },
             SpellEffects.Detection => "a report read from the places and the population the world holds",

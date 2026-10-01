@@ -16,6 +16,9 @@ public static class MightAndMagic7Codes
     /// <summary>The refusal code <c>camp-under-a-roof</c>.</summary>
     public const string CampUnderARoof = "camp-under-a-roof";
 
+    /// <summary>The refusal code <c>rest-in-water</c>: the party is asked to stop while it stands in water.</summary>
+    public const string RestInWater = "rest-in-water";
+
     /// <summary>The refusal code <c>container-contents-unresolved</c>.</summary>
     public const string ContainerContentsUnresolved = "container-contents-unresolved";
 

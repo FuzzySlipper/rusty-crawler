@@ -292,6 +292,7 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         ArgumentNullException.ThrowIfNull(advance);
         Regenerate(advance);
         DrainFlight(advance);
+        DrainWaterWalk(advance);
         _running?.Observe(advance);
     }
 
@@ -346,21 +347,46 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     /// </remarks>
     private void DrainFlight(ClockAdvance advance)
     {
-        if (_running is not { } running || _clock is not { } clock || !advance.Moved) return;
         if (_world()?.Mover is not { Flying: true }) return;
+        Drain(advance, SpellEffectIds.Fly, FlightDrainInterval);
+    }
+
+    /// <summary>
+    /// Takes one spell point from whoever keeps the party on its feet over water for every twenty minutes the advance
+    /// passed while the party stood on water.
+    /// </summary>
+    /// <remarks>
+    /// The donor drains a water walk's caster only while the party stands on water, never at grand master, every twenty
+    /// minutes with its drain fixed to what the spell's own description says and every five without
+    /// (<c>OpenEnroth/src/Engine/Engine.cpp:1297-1309</c>, <c>src/Application/GameConfig.h:248-250</c>). This takes the
+    /// twenty the description states.
+    /// </remarks>
+    private void DrainWaterWalk(ClockAdvance advance)
+    {
+        if (_world()?.Mover?.Footing is not { Id: MightAndMagic7Movement.WaterSurface }) return;
+        Drain(advance, SpellEffectIds.WaterWalk, WaterWalkDrainInterval);
+    }
+
+    /// <summary>Takes a caster-carried effect's magnitude in spell points for every interval the advance crossed while it ran.</summary>
+    private void Drain(ClockAdvance advance, EffectId carried, GameDuration interval)
+    {
+        if (_running is not { } running || _clock is not { } clock || !advance.Moved) return;
         foreach (RunningSpellEffect effect in running.RunningOnMembers)
         {
-            if (effect.Effect != SpellEffectIds.Fly || effect.Magnitude <= 0 || effect.Member is not { } id) continue;
+            if (effect.Effect != carried || effect.Magnitude <= 0 || effect.Member is not { } id) continue;
             if (!running.Party.TryMember(id, out PartyMember? caster) || caster is null) continue;
 
-            long ticks = clock.Calendar.Boundaries(advance.From, advance.To, FlightDrainInterval);
-            if (effect.EndsAt is { } ends) ticks = Math.Min(ticks, clock.Calendar.Boundaries(advance.From, ends, FlightDrainInterval));
+            long ticks = clock.Calendar.Boundaries(advance.From, advance.To, interval);
+            if (effect.EndsAt is { } ends) ticks = Math.Min(ticks, clock.Calendar.Boundaries(advance.From, ends, interval));
             if (ticks <= 0) continue;
 
             int drained = (int)Math.Min(caster.Resources.SpellPoints.Current, ticks * effect.Magnitude);
             caster.Resources.TrySpendSpellPoints(drained);
         }
     }
+
+    /// <summary>How often standing on water costs a water walk's caster: every twenty minutes, <c>GameConfig.h:248-250</c>.</summary>
+    private static readonly GameDuration WaterWalkDrainInterval = GameDuration.FromMinutes(20);
 
     /// <summary>
     /// Leaves a flight on its caster, ending any other flight the party carries.
@@ -381,25 +407,62 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     /// </remarks>
     private SpellApplicationOutcome Fly(SpellApplication application, SessionWorld world)
     {
-        if (Ledger is not { } running) return Unexpressed(application, "no party to carry a flight");
-        foreach (PartyMember member in application.Party.Members)
-        {
-            if (member.Id != application.Caster.Id) running.EndOn(member.Id, SpellEffectIds.Fly);
-        }
+        int level = _spells.LevelOf(application);
+        return OnCaster(
+            application,
+            SpellEffectIds.Fly,
+            GameDuration.FromHours(level),
+            $"can hold the party in the air over {world.Graph.Require(world.Place).Name}",
+            "every five minutes in the air");
+    }
 
+    /// <summary>
+    /// Leaves a walk over water on its caster, ending any other the party carries.
+    /// </summary>
+    /// <remarks>
+    /// The donor's water walk is one party buff naming its caster, lasting ten minutes a level at expert and an hour a
+    /// level at master and grand master, and free of its drain at grand master
+    /// (<c>OpenEnroth/src/Engine/Spells/CastSpellInfo.cpp:1302-1331</c>). Here the caster carries it, as a flight is
+    /// carried, and its magnitude is what twenty minutes standing on water costs them.
+    /// </remarks>
+    private SpellApplicationOutcome WalkOnWater(SpellApplication application)
+    {
         int level = _spells.LevelOf(application);
         int mastery = MightAndMagic7Spells.MasteryOf(application.Caster, application.Spell);
+        return OnCaster(
+            application,
+            SpellEffectIds.WaterWalk,
+            WardFormulas.FeatherFallLasts(level, mastery),
+            "can keep the party on its feet over water",
+            "every twenty minutes on water");
+    }
+
+    /// <summary>
+    /// Leaves a way of moving on its caster, ending it on everybody else: the party carries one, and one caster pays.
+    /// </summary>
+    /// <remarks>
+    /// Its magnitude is the spell points each interval it is used costs the caster: one below grand master and nothing
+    /// at it, which is the donor's own exemption for both flight and water walking (<c>Engine.cpp:1286-1309</c>).
+    /// </remarks>
+    private SpellApplicationOutcome OnCaster(SpellApplication application, EffectId effect, GameDuration lasts, string does, string paidFor)
+    {
+        if (Ledger is not { } running) return Unexpressed(application, "no party to carry it");
+        foreach (PartyMember member in application.Party.Members)
+        {
+            if (member.Id != application.Caster.Id) running.EndOn(member.Id, effect);
+        }
+
+        int mastery = MightAndMagic7Spells.MasteryOf(application.Caster, application.Spell);
         int drain = mastery >= 4 ? 0 : 1;
-        GameDuration lasts = GameDuration.FromHours(level);
-        running.StartOn(application.Caster, SpellEffectIds.Fly, drain, lasts);
+        running.StartOn(application.Caster, effect, drain, lasts);
         string cost = drain == 0
             ? "for nothing"
-            : string.Create(CultureInfo.InvariantCulture, $"for {drain} spell point every five minutes in the air");
+            : string.Create(CultureInfo.InvariantCulture, $"for {drain} spell point {paidFor}");
         return Expressed(
             application,
-            $"{application.Caster.Profile.Name} can hold the party in the air over {world.Graph.Require(world.Place).Name} {cost}, until the clock reaches the end of {Describe(lasts)}",
+            $"{application.Caster.Profile.Name} {does} {cost}, until the clock reaches the end of {Describe(lasts)}",
             [
-                new SpellEffectFact("effect", SpellEffectIds.Fly.Value),
+                new SpellEffectFact("effect", effect.Value),
                 new SpellEffectFact("carried", application.Caster.Profile.Name),
                 new SpellEffectFact("drain", drain.ToString(CultureInfo.InvariantCulture)),
                 new SpellEffectFact("until", Moment(application, lasts)),
@@ -885,11 +948,8 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         }
 
         if (reading.Travel == TravelShape.Flight) return Fly(application, world);
-
-        if (reading.Travel == TravelShape.None || reading.Travel == TravelShape.Movement)
-        {
-            return Unexpressed(application, "a way of moving this build's mover does not have");
-        }
+        if (reading.Travel == TravelShape.WaterWalk) return WalkOnWater(application);
+        if (reading.Travel == TravelShape.None) return Unexpressed(application, "a way of moving this build's mover does not have");
 
         if (reading.Travel == TravelShape.Beacon && application.TargetName.Length == 0)
         {
@@ -1258,7 +1318,7 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     private Refusal? TravelRefusalOf(SpellApplication application)
     {
         SpellReading reading = _spells.ReadingOf(application.Spell);
-        if (reading.Travel is TravelShape.None or TravelShape.Movement) return null;
+        if (reading.Travel is TravelShape.None or TravelShape.WaterWalk) return null;
         if (_world() is not { } world)
         {
             return SpellRefusals.NoValidTarget(application.Spell.Name, "no world stands around the party");

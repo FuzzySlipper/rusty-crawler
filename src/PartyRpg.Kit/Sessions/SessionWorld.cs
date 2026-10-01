@@ -27,6 +27,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     private readonly TransitionExecutive _transitions;
     private readonly IDisposable? _clockSubscription;
     private readonly IFallRule? _falls;
+    private readonly IGroundHazardRule? _hazards;
     private readonly ICorpseSource? _corpses;
     private readonly IWorldTimeSource? _time;
     private readonly GameClock? _clock;
@@ -104,6 +105,9 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// asks for some creatures of a kind — which the population resolves while it reads the places. Without
     /// one every placement stands as content states it.
     /// </param>
+    /// <param name="hazards">
+    /// What standing on a kind of ground does to the party while time passes. Without one no ground harms anybody.
+    /// </param>
     /// <exception cref="ArgumentNullException">A required collaborator is missing.</exception>
     public SessionWorld(
         PlaceGraph graph,
@@ -122,7 +126,8 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         ICreatureMover? creatures = null,
         IFallRule? falls = null,
         ICreatureVitals? vitals = null,
-        IPlacementExpansion? expansion = null)
+        IPlacementExpansion? expansion = null,
+        IGroundHazardRule? hazards = null)
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(party);
@@ -138,6 +143,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         _resources = resources;
         _entity = partyEntity;
         _falls = falls;
+        _hazards = hazards;
         _diagnostics = diagnostics;
         Graph = graph;
         Party = party;
@@ -226,7 +232,46 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     public void Observe(ClockAdvance advance)
     {
         ArgumentNullException.ThrowIfNull(advance);
+        Endure(advance);
         if (advance.Crossings.Days > 0) AdvanceTime();
+    }
+
+    /// <summary>
+    /// Lands what the ground the party stands on does to it over an advance of the clock: once for every interval the
+    /// game states for that ground that the advance crossed.
+    /// </summary>
+    /// <remarks>
+    /// The intervals are the calendar's own boundaries, so the same stretch of time on the same ground harms the party
+    /// the same number of times whether it passed in one long wait or a thousand updates. The ground is what the mover
+    /// reports now, at the end of the advance; a party that walked out of water in the update that crossed a boundary
+    /// was still in it for that update, and the difference is one interval at most.
+    /// </remarks>
+    private void Endure(ClockAdvance advance)
+    {
+        if (_hazards is not { } rule || _entity is not { } party || _clock is not { } clock || !advance.Moved) return;
+        if (Mover?.Footing is not { } ground || rule.IntervalOn(ground) is not { } interval) return;
+
+        long times = clock.Calendar.Boundaries(advance.From, advance.To, interval);
+        if (times <= 0) return;
+
+        int harmed = 0;
+        long total = 0;
+        foreach (PartyMember member in party.Members)
+        {
+            int damage = Math.Max(0, rule.DamageTo(member, ground));
+            if (damage == 0) continue;
+            for (long time = 0; time < times; time++) member.TakeDamage(damage);
+            harmed++;
+            total += damage * times;
+        }
+
+        _diagnostics?.Publish(new DiagnosticsPublishRequest(
+            DiagnosticsSeverity.Info,
+            DiagnosticsDisposition.Accepted,
+            Source: "movement",
+            Code: "ground-hazard",
+            Message: $"The party stood on '{ground.Id}' in place '{Party.Place}' for {times} interval(s) of {interval}; {harmed} member(s) took {total} harm.",
+            Correlation: string.Empty));
     }
 
     /// <summary>
@@ -619,6 +664,9 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// shopkeeper are content's words, and the ruleset answers for them.
     /// </remarks>
     IReadOnlyList<PlacePopulationEntity> IRestSite.Population => _population.Entities;
+
+    /// <summary>The ground the party stands on, as its mover reports it.</summary>
+    SurfaceEffect? IRestSite.Footing => Mover?.Footing;
 
     /// <summary>
     /// The place a fight happens in, which is the place the party already stands in: a fight is over the

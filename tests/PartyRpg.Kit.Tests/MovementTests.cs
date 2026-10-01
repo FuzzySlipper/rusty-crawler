@@ -271,6 +271,45 @@ public sealed class MovementTuningTests
 }
 
 /// <summary>
+/// Which named ground a point the engine reported lies on: the plan of a named triangle and its height both have to
+/// agree, so a bridge over water is the bridge.
+/// </summary>
+public sealed class PlaceSurfacesTests
+{
+    private static readonly PlaceSurfaces Pond = new(
+    [
+        new SurfaceMesh("water", [new(0, 0, 0), new(512, 0, 0), new(512, 0, 512), new(0, 0, 512)], [0, 1, 2, 0, 2, 3]),
+        new SurfaceMesh("road", [new(512, 32, 0), new(1024, 32, 0), new(1024, 32, 512)], [0, 1, 2]),
+    ]);
+
+    [Fact]
+    public void A_point_on_a_named_triangle_is_that_ground_and_one_beside_or_above_it_is_not()
+    {
+        Assert.True(Pond.Classify(new Vector3(100, 0, 400), out string pond));
+        Assert.Equal("water", pond);
+
+        // On the shared edge, the slack keeps a point from falling between two triangles of the same ground.
+        Assert.True(Pond.Classify(new Vector3(256, 0, 256), out _));
+
+        Assert.True(Pond.Classify(new Vector3(900, 32, 100), out string road));
+        Assert.Equal("road", road);
+
+        // A bridge a hundred units over the water is not the water, and nothing is named past the pond's edge.
+        Assert.False(Pond.Classify(new Vector3(100, 100, 400), out _));
+        Assert.False(Pond.Classify(new Vector3(-50, 0, 400), out _));
+        Assert.False(PlaceSurfaces.None.Classify(Vector3.Zero, out _));
+    }
+
+    [Fact]
+    public void Ground_that_cannot_be_measured_is_refused()
+    {
+        Assert.Throws<ArgumentException>(() => new PlaceSurfaces([new SurfaceMesh("water", [Vector3.Zero], [0, 1, 2])]));
+        Assert.Throws<ArgumentException>(() => new PlaceSurfaces([new SurfaceMesh(" ", [Vector3.Zero, Vector3.UnitX, Vector3.UnitZ], [0, 1, 2])]));
+        Assert.Throws<ArgumentException>(() => new PlaceSurfaces([new SurfaceMesh("water", [new(float.NaN, 0, 0), Vector3.UnitX, Vector3.UnitZ], [0, 1, 2])]));
+    }
+}
+
+/// <summary>
 /// What one engine-resolved step does to the party: where the party ends up, what a blocked step does,
 /// when a step-up is reported, and what a landing costs.
 /// </summary>
@@ -732,6 +771,22 @@ public sealed class PartyMotionTests
         PartyMotion grounded = new(PartyAt(0, 0, 0), Space, new MovementTuning(default, new FallPolicy(10, 1)), flight: rule);
         Assert.False(grounded.MayFly);
         Assert.Equal(CharacterMovementMode.Walking, grounded.Command(new MovementIntent(0, 0, vertical: 1), 0.1).Movement.Mode);
+    }
+
+    [Fact]
+    public void Without_a_classifier_the_places_named_ground_names_the_ground_the_engine_reported()
+    {
+        PartyMotion motion = MotionOn(PartyAt(0, 0, 0));
+        motion.Ground = new PlaceSurfaces([new SurfaceMesh("water", [new(0, 0, 0), new(10, 0, 0), new(10, 0, 10), new(0, 0, 10)], [0, 1, 2, 0, 2, 3])]);
+
+        // Ground on the named triangles is that ground, and keeps its name though the tuning prices no water.
+        MovementOutcome wading = motion.Admit(Step(from: new Vector3(4, 1, 4), to: new Vector3(4, 1, 4), ground: GroundOn(entity: 0, point: new Vector3(4, 0, 4))));
+        Assert.Equal("water", wading.Surface.Id);
+        Assert.Equal(1d, wading.Surface.SpeedMultiplier);
+
+        // Ground beside it is ordinary.
+        MovementOutcome ashore = motion.Admit(Step(from: new Vector3(40, 1, 4), to: new Vector3(40, 1, 4), ground: GroundOn(entity: 0, point: new Vector3(40, 0, 4))));
+        Assert.Equal(SurfaceEffect.Ordinary, ashore.Surface);
     }
 
     [Fact]
