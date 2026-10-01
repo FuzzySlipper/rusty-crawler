@@ -12,7 +12,9 @@ namespace PartyRpg.Kit.World;
 /// the fields it owns — identity, destination, arrival, whether a counter sells the crossing as a passage,
 /// and the route a sold crossing runs on — and leaves every other field to the ruleset, which is why a place
 /// entry's encounter settings or map reference never appear in this assembly. How long a sold crossing
-/// takes is not content at all: it is the game's <see cref="IFareDurationRule"/>, asked here per route.
+/// takes is not content at all: it is the game's <see cref="IFareDurationRule"/>, asked here per route. A
+/// game whose counters' destinations are a rule rather than authored links states them through its
+/// <see cref="IFareNetwork"/>, whose crossings are timed and checked here exactly like authored ones.
 /// </remarks>
 public static class PlaceGraphLoader
 {
@@ -35,7 +37,11 @@ public static class PlaceGraphLoader
     /// state walked crossings, and a crossing it sells as a passage is a defect named at load: nothing could
     /// say how long the journey takes.
     /// </param>
-    public static PlaceGraph Load(ContentCatalog catalog, IFareDurationRule? fares = null)
+    /// <param name="network">
+    /// Which crossings the game's counters sell, as the game's policy decides over the places read, or null
+    /// when every sold crossing is one content authors.
+    /// </param>
+    public static PlaceGraph Load(ContentCatalog catalog, IFareDurationRule? fares = null, IFareNetwork? network = null)
     {
         ArgumentNullException.ThrowIfNull(catalog);
         List<ContentValidationIssue> issues = [];
@@ -63,6 +69,14 @@ public static class PlaceGraphLoader
         {
             PlaceTransition? transition = ReadTransition(pack, document, entry, known, fares, issues);
             if (transition is not null) transitions.Add(transition);
+        }
+
+        if (network is not null)
+        {
+            foreach (PlaceTransition journey in network.Journeys(places))
+            {
+                if (Sold(journey, known, fares, issues) is { } sold) transitions.Add(sold);
+            }
         }
 
         if (issues.Count > 0)
@@ -196,11 +210,11 @@ public static class PlaceGraphLoader
                 entry.GetDouble("z") ?? 0));
 
         // A transition a counter sells runs on a route, and the game's rule says how many days that route
-        // takes: the ticket the counter writes carries that number, and the number and the destination
-        // together are what tell one counter's journey from another counter's journey to the same place. A
-        // crossing that states no fare is walked; a fare on no route, or on a route the rule does not time, is
-        // a defect rather than a journey nobody can name.
-        int? fareDays = null;
+        // takes: the ticket the counter writes carries the route, and the route and the destination together
+        // are what tell one counter's journey from another counter's journey to the same place. A crossing
+        // that states no fare is walked; a fare on no route, or on a route the rule does not time, is a defect
+        // rather than a journey nobody can name.
+        PlaceTransition transition = new(from, to, arrival, entry.Id);
         if (entry.GetBoolean(FareField) is true)
         {
             string route = entry.GetString(FareRouteField);
@@ -214,23 +228,66 @@ public static class PlaceGraphLoader
                 return null;
             }
 
-            if (fares?.DaysOf(from, to, route) is not { } days || days < 1)
+            if (Timed(transition, route, fares) is not { } days)
             {
-                issues.Add(new ContentValidationIssue(
-                    "transition-fare-days-unstated",
-                    fares is null
-                        ? $"transition '{entry.Id}' is sold as a passage on route '{route}' and this world was built with no rule for how long a sold journey takes, so no ticket could name it."
-                        : $"transition '{entry.Id}' is sold as a passage on route '{route}', which the game's rule states no positive whole number of days for, so no ticket could name it.",
-                    pack.PackId,
-                    document.DocumentId));
+                issues.Add(Untimed(transition, route, fares, pack.PackId, document.DocumentId));
                 return null;
             }
 
-            fareDays = days;
+            transition = transition.AsFare(route, days);
         }
 
-        return new PlaceTransition(from, to, arrival, entry.Id) { FareDays = fareDays };
+        return transition;
     }
+
+    /// <summary>Checks and times one crossing the game's fare network sells, or names why it cannot be sold.</summary>
+    /// <remarks>
+    /// A network's crossing is held to what an authored fare is held to — known places, a route, and a length
+    /// the rule states — and to the two things only a network could get wrong: it leaves a place, because a
+    /// counter stands somewhere, and it states no days, because the duration rule is their one owner.
+    /// </remarks>
+    private static PlaceTransition? Sold(
+        PlaceTransition journey,
+        HashSet<PlaceId> knownPlaces,
+        IFareDurationRule? fares,
+        List<ContentValidationIssue> issues)
+    {
+        string? problem =
+            journey.From is not { } from ? $"fare '{journey.Source}' is sold by no place, and a counter stands somewhere."
+            : !knownPlaces.Contains(from) ? $"fare '{journey.Source}' leaves place '{from}', which no pack declares."
+            : !knownPlaces.Contains(journey.To) ? $"fare '{journey.Source}' goes to place '{journey.To}', which no pack declares."
+            : string.IsNullOrWhiteSpace(journey.FareRoute) ? $"fare '{journey.Source}' names no route, so nothing could say how long the journey takes."
+            : journey.FareDays is not null ? $"fare '{journey.Source}' states its own days, and how long a route takes is the duration rule's answer alone."
+            : null;
+        if (problem is not null)
+        {
+            issues.Add(new ContentValidationIssue("transition-fare-invalid", problem, journey.Source));
+            return null;
+        }
+
+        string route = journey.FareRoute!;
+        if (Timed(journey, route, fares) is not { } days)
+        {
+            issues.Add(Untimed(journey, route, fares, journey.Source, documentId: null));
+            return null;
+        }
+
+        return journey.AsFare(route, days);
+    }
+
+    /// <summary>How many days the rule states a sold crossing takes, or null when it states no positive number.</summary>
+    private static int? Timed(PlaceTransition transition, string route, IFareDurationRule? fares) =>
+        fares?.DaysOf(transition.From, transition.To, route) is { } days && days >= 1 ? days : null;
+
+    /// <summary>The defect a sold crossing nobody can time is named by.</summary>
+    private static ContentValidationIssue Untimed(PlaceTransition transition, string route, IFareDurationRule? fares, string packId, string? documentId) =>
+        new(
+            "transition-fare-days-unstated",
+            fares is null
+                ? $"transition '{transition.Source}' is sold as a passage on route '{route}' and this world was built with no rule for how long a sold journey takes, so no ticket could name it."
+                : $"transition '{transition.Source}' is sold as a passage on route '{route}', which the game's rule states no positive whole number of days for, so no ticket could name it.",
+            packId,
+            documentId);
 
     private static void ValidateArrivals(PlaceGraph graph, List<ContentValidationIssue> issues)
     {

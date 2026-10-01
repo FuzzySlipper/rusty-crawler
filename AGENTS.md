@@ -145,9 +145,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   have no writer (#8689); a laid-out member can be promoted (#8705); effects marked "not yet" in
   `docs/magic-coverage.md` (#9007; item-aimed ones #8513; followers #8514).
 - Stone 8, record: an errand's item is protected only from sale (#8687); nothing lowers standing (#9008).
-- Across stones: a saved passage does not survive a fare retune (#9000); projection blocks are written
-  twice (#9001); the product registers no Engine playtest or debug modules, so the panel is the only live
-  feedback (#9004).
+- Across stones: projection blocks are written twice (#9001); the product registers no Engine playtest or
+  debug modules, so the panel is the only live feedback (#9004).
 
 When a stone lands or a residue closes, update this section, `README.md`, and the owning project README
 together.

@@ -396,7 +396,7 @@ public sealed class PartyEntityTests
         original.Records.Set("errand:seal", 1);
         original.Records.Set("deeds:won", 3);
         original.Holdings.Hold("vault", 300);
-        original.Passages.Hold(new PlaceId("town"), 2);
+        original.Passages.Hold(new PlaceId("town"), "coach");
         original.Memberships.Grant("guild.fire");
         RunningSpellEffects running = new(original);
         running.StartOn(original.Members[1], Warded, 4, lasts: null);
@@ -407,7 +407,7 @@ public sealed class PartyEntityTests
         // Each family comes back in its own home, and an effect on one character stays that character's.
         Assert.Equal([new PartyRecord("errand:seal", 1), new PartyRecord("deeds:won", 3)], restored.Records.All);
         Assert.Equal(300, restored.Holdings.BalanceOf("vault"));
-        Assert.Equal(2, restored.Passages.DaysTo(new PlaceId("town")));
+        Assert.Equal("coach", restored.Passages.RouteTo(new PlaceId("town")));
         Assert.True(restored.Memberships.Holds("guild.fire"));
         Assert.Empty(restored.Effects.Active);
         Assert.Equal(4, restored.Members[1].Effects.MagnitudeOf(Warded));

@@ -183,7 +183,7 @@ public sealed class PackWriterTests
             ContentBootstrapResult bootstrap = ContentBootstrap.Load(new FileContentSource(root), Layout, "imported");
             Assert.True(bootstrap.IsValid, string.Join("; ", bootstrap.Issues.Select(issue => issue.ToString())));
 
-            PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog, RouteDays.Instance);
+            PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog);
 
             // Thirteen rows named the outdoor payload and sixty-three the indoor one, so the graph has
             // both kinds and the arrival points the maps actually declare.
@@ -343,7 +343,7 @@ public sealed class PackWriterTests
             WriteBundle(root, ["mm7-tables", "mm7-world"]);
             ContentBootstrapResult bootstrap = ContentBootstrap.Load(new FileContentSource(root), Layout, "imported");
             Assert.True(bootstrap.IsValid, string.Join("; ", bootstrap.Issues.Select(issue => issue.ToString())));
-            PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog, RouteDays.Instance);
+            PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog);
             PlacePopulationContent content = PlacePopulationContent.Read(graph);
             PlaceDefinition interior = graph.Places.First(place => place.Kind == PlaceKind.Interior);
             // An interior's lights are its own shape's, so the place's total is its four single placements
@@ -433,7 +433,7 @@ public sealed class PackWriterTests
             WriteBundle(root, ["mm7-tables", "mm7-world"]);
             ContentBootstrapResult bootstrap = ContentBootstrap.Load(new FileContentSource(root), Layout, "imported");
             Assert.True(bootstrap.IsValid, string.Join("; ", bootstrap.Issues.Select(issue => issue.ToString())));
-            PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog, RouteDays.Instance);
+            PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog);
             ContentPlaceGeometry source = new(bootstrap.Catalog, "place-geometry", "artifact");
 
             PlaceDefinition region = graph.Places.First(place => place.Kind == PlaceKind.Region);
@@ -545,7 +545,7 @@ public sealed class PackWriterTests
             WriteBundle(root, written.PackIds);
             ContentBootstrapResult bootstrap = ContentBootstrap.Load(new FileContentSource(root), Layout, "imported");
             Assert.True(bootstrap.IsValid, string.Join("; ", bootstrap.Issues.Select(issue => issue.ToString())));
-            PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog, RouteDays.Instance);
+            PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog);
             Assert.Empty(PlaceEntranceLoader.Load(bootstrap.Catalog, graph));
         }
         finally
@@ -722,7 +722,7 @@ public sealed class PackWriterTests
         WriteBundle(import.Root, ["mm7-tables", "mm7-world"]);
         ContentBootstrapResult bootstrap = ContentBootstrap.Load(new FileContentSource(import.Root), Layout, "imported");
         Assert.True(bootstrap.IsValid, string.Join("; ", bootstrap.Issues.Select(issue => issue.ToString())));
-        PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog, RouteDays.Instance);
+        PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog);
         PlacePopulationContent content = PlacePopulationContent.Read(graph);
         PlaceDefinition interior = graph.Places.First(place => place.Kind == PlaceKind.Interior);
         Assert.Equal(3, content.PlacementsOf(interior.Id).Count);
@@ -794,24 +794,6 @@ public sealed class PackWriterTests
             Directory.Delete(_installRoot, recursive: true);
             if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
         }
-    }
-
-    /// <summary>
-    /// A length for each route the importer names a fare's network by, so the kit can build the graph the packs
-    /// describe.
-    /// </summary>
-    /// <remarks>
-    /// How long a journey takes is the ruleset's rule and not the importer's, so these suites, which read what
-    /// the importer wrote through the kit alone, state a length for each route the importer writes rather than
-    /// reaching into the game's tuning. A route the importer does not name has no length, which is what makes a
-    /// renamed route fail here.
-    /// </remarks>
-    private sealed class RouteDays : IFareDurationRule
-    {
-        internal static readonly RouteDays Instance = new();
-
-        public int? DaysOf(PlaceId? from, PlaceId to, string route) =>
-            route == PlaceServiceEmitter.CoachRoute || route == PlaceServiceEmitter.BoatRoute ? 1 : null;
     }
 
     /// <summary>Reads a payload as the decoder is handed one, without a container around it.</summary>

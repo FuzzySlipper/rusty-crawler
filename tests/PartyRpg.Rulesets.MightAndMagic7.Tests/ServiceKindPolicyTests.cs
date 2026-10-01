@@ -321,28 +321,30 @@ public sealed class ServiceKindPolicyTests
     {
         using Fixture fixture = Fixture.Build();
         PartyServices stable = fixture.Open("54");
-        PlaceGraph graph = PlaceGraphLoader.Load(fixture.Catalog, MightAndMagic7FareDays.Read(fixture.Catalog));
-        PlaceTransition road = Assert.Single(graph.Transitions, transition => transition.Source == "fare-54-2");
+        PlaceGraph graph = MightAndMagic7World.Graph(fixture.Catalog);
+        PlaceTransition road = Assert.Single(graph.Transitions, transition => transition.Source == "fare-coach-1-2");
 
-        // The passages a stable sells are the routes its own entry names, each with the days the journey
-        // takes.
+        // The passages a stable sells are this game's network over the counters content places — here the one
+        // other town that keeps a stable — each on the coach route with the days the coach takes.
         ServiceOffer fare = Assert.Single(
             fixture.Rule.Offers(new ServiceOfferRequest(stable.Current!, fixture.Party, fixture.Clock)),
             offer => offer.Kind == ServiceOfferKind.Fare);
         Assert.Equal("2", fare.Subject);
         Assert.Equal(2, fare.Amount);
+        Assert.Equal(MightAndMagic7FareDays.CoachRoute, fare.Route);
 
         // Without a passage the paid transition is refused by name, and nothing about the party changes.
         TransitionRequest request = new(graph, road, TransitionKind.PaidService, new PlaceId("1"), PlacePose.Origin);
         MightAndMagic7TravelCostRule rule = new(fixture.Party);
         Assert.Equal("travel-fare-unpaid", rule.Quote(request).Refusal!.Code);
 
-        // Buying the fare puts the passage on the party, and the road then quotes the journey the counter
-        // sold: the days are the route's own and the fare already paid for the board.
+        // Buying the fare puts the passage on the party, naming the route it was sold on, and the road then
+        // quotes the journey the counter sold: the days are the route's own and the fare already paid for the
+        // board.
         ServiceResult bought = stable.Transact(new ServiceCommand(ServiceOperationKind.Fare, "2"));
         Assert.True(bought.IsApplied);
         Assert.Equal(50, bought.Paid);
-        Assert.Equal(2, fixture.Party.Passages.DaysTo(new PlaceId("2")));
+        Assert.Equal(MightAndMagic7FareDays.CoachRoute, fixture.Party.Passages.RouteTo(new PlaceId("2")));
 
         TravelCostQuote boarded = rule.Quote(request);
         Assert.Null(boarded.Refusal);
@@ -350,20 +352,20 @@ public sealed class ServiceKindPolicyTests
         Assert.True(boarded.Cost.Food.IsNone);
 
         // The ticket is torn by the boarding, so the same fare does not pay for a second journey.
-        Assert.Equal(0, fixture.Party.Passages.DaysTo(new PlaceId("2")));
+        Assert.False(fixture.Party.Passages.Holds(new PlaceId("2")));
         Assert.Equal("travel-fare-unpaid", rule.Quote(request).Refusal!.Code);
     }
 
     [Fact]
     public void A_retuned_coach_changes_the_ticket_the_road_and_the_journey_with_the_same_content()
     {
-        // The same content — the stable's entry and the crossing, both naming the coach route and no days — under
-        // a tuning pack stating a five-day coach: nothing was imported again, and the counter's offer, the world's
-        // crossing, and the journey the road charges all read the one tuned value.
+        // The same content — the stables and where they stand, naming no route and no days — under a tuning pack
+        // stating a five-day coach: nothing was imported again, and the counter's offer, the world's crossing, and
+        // the journey the road charges all read the one tuned value, while the ticket names only the route.
         using Fixture fixture = Fixture.Build(coachDays: 5);
         PartyServices stable = fixture.Open("54");
-        PlaceGraph graph = PlaceGraphLoader.Load(fixture.Catalog, MightAndMagic7FareDays.Read(fixture.Catalog));
-        PlaceTransition road = Assert.Single(graph.Transitions, transition => transition.Source == "fare-54-2");
+        PlaceGraph graph = MightAndMagic7World.Graph(fixture.Catalog);
+        PlaceTransition road = Assert.Single(graph.Transitions, transition => transition.Source == "fare-coach-1-2");
         Assert.Equal(5, road.FareDays);
 
         ServiceOffer fare = Assert.Single(
@@ -372,7 +374,7 @@ public sealed class ServiceKindPolicyTests
         Assert.Equal(5, fare.Amount);
 
         Assert.True(stable.Transact(new ServiceCommand(ServiceOperationKind.Fare, "2")).IsApplied);
-        Assert.Equal(5, fixture.Party.Passages.DaysTo(new PlaceId("2")));
+        Assert.Equal(MightAndMagic7FareDays.CoachRoute, fixture.Party.Passages.RouteTo(new PlaceId("2")));
         TravelCostQuote boarded = new MightAndMagic7TravelCostRule(fixture.Party).Quote(
             new TransitionRequest(graph, road, TransitionKind.PaidService, new PlaceId("1"), PlacePose.Origin));
         Assert.Equal(new TravelTime(5, TravelTimeUnit.Days), boarded.Cost.Time);
@@ -381,8 +383,8 @@ public sealed class ServiceKindPolicyTests
         using Fixture untuned = Fixture.Build();
         Assert.Equal(
             (int)MightAndMagic7Tuning.CoachDays.Default,
-            PlaceGraphLoader.Load(untuned.Catalog, MightAndMagic7FareDays.Read(untuned.Catalog))
-                .Transitions.Single(transition => transition.Source == "fare-54-2").FareDays);
+            MightAndMagic7World.Graph(untuned.Catalog)
+                .Transitions.Single(transition => transition.Source == "fare-coach-1-2").FareDays);
     }
 
     [Fact]
@@ -606,7 +608,8 @@ public sealed class ServiceKindPolicyTests
                     { "id": "residence-7", "kind": "residence", "houseId": 7, "name": "House of Ash", "proprietor": "Mira", "fixture": "House R7", "x": 1200, "y": 0, "z": 0 }
                   ] },
                 { "id": "2", "kind": "region", "name": "Harmondale", "respawnDays": 7,
-                  "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ] }
+                  "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ],
+                  "placements": [ { "id": "service-55", "kind": "service", "houseId": 55, "x": 100, "y": 0, "z": 0 } ] }
               ]
             }
             """;
@@ -630,7 +633,8 @@ public sealed class ServiceKindPolicyTests
                 { "id": "99", "kind": "Training", "name": "Applied Instruction", "proprietor": "Master Vohn", "mapId": 10, "openHour": 6, "closedHour": 18, "priceMultiplier": 50, "skillPriceMultiplier": 1, "trainingCapText": "No Max" },
                 { "id": "107", "kind": "Tavern", "name": "Two Palms Tavern", "proprietor": "Aaron", "mapId": 1, "openHour": 5, "closedHour": 2, "priceMultiplier": 6, "skillPriceMultiplier": 1 },
                 { "id": "128", "kind": "Bank", "name": "Halls of Gold", "proprietor": "Coinvale", "mapId": 1, "openHour": 6, "closedHour": 18, "priceMultiplier": 1, "skillPriceMultiplier": 1 },
-                { "id": "54", "kind": "Stables", "name": "The J.V.C Corral", "proprietor": "Christian", "mapId": 1, "openHour": 6, "closedHour": 18, "priceMultiplier": 2, "skillPriceMultiplier": 1, "fares": [ { "toPlace": 2, "place": "2", "name": "Harmondale", "route": "coach", "link": "fare-54-2" } ] },
+                { "id": "54", "kind": "Stables", "name": "The J.V.C Corral", "proprietor": "Christian", "mapId": 1, "openHour": 6, "closedHour": 18, "priceMultiplier": 2, "skillPriceMultiplier": 1 },
+                { "id": "55", "kind": "Stables", "name": "Royal Steeds", "proprietor": "Arthur", "mapId": 2, "openHour": 6, "closedHour": 18, "priceMultiplier": 3, "skillPriceMultiplier": 1 },
                 { "id": "131", "kind": "Town Hall", "name": "The Town Hall", "proprietor": "Clerk Alden", "mapId": 1, "openHour": 6, "closedHour": 18, "priceMultiplier": 1, "skillPriceMultiplier": 1 }
               ]
             }
@@ -704,7 +708,6 @@ public sealed class ServiceKindPolicyTests
               "documentId": "roads",
               "definitionKind": "travel-link",
               "entries": [
-                { "id": "fare-54-2", "fromPlace": 1, "fromName": "Erathia", "toPlace": 2, "toName": "Harmondale", "entryPoint": "Party Start", "houseId": 54, "fare": true, "route": "coach" },
                 { "id": "road-1-2", "fromPlace": 1, "fromName": "Erathia", "toPlace": 2, "toName": "Harmondale", "entryPoint": "Party Start", "houseId": 0, "fare": false }
               ]
             }

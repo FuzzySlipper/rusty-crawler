@@ -256,7 +256,12 @@ public sealed class PartyEntityFactory
 
         Named(problems, "record", save.Records.Select(record => (record.Name, record.Count)), minimum: 1);
         Named(problems, "account", save.Holdings.Select(holding => (holding.Account, holding.Coins)), minimum: 1);
-        Named(problems, "passage", save.Passages.Select(passage => (passage.Destination.Value, passage.Days)), minimum: 1);
+        Named(problems, "passage", save.Passages.Select(passage => (passage.Destination.Value, 0)), minimum: 0);
+        foreach (PartyPassage passage in save.Passages.Where(passage => string.IsNullOrWhiteSpace(passage.Route)))
+        {
+            problems.Add(new SaveProblem(SaveCodes.SaveEntryUnnamed, passage.Destination.Value, $"the passage to '{passage.Destination}' is recorded on no route"));
+        }
+
         Named(problems, "membership", save.Memberships.Select(membership => (membership, 1)), minimum: 1);
         return problems;
     }

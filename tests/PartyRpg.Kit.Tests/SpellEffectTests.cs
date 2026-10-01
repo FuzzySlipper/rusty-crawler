@@ -118,14 +118,14 @@ public sealed class SpellEffectTests
 
         // Something a counter sold is carried on the party too, in a home of its own: a dispelling that took a
         // player's ticket rather than their magic would be ending state the running-effect owner does not hold.
-        party.Passages.Hold(new PlaceId("2"), 3);
+        party.Passages.Hold(new PlaceId("2"), "coach");
 
         IReadOnlyList<RunningSpellEffect> ended = running.EndAll();
 
         Assert.Equal(2, ended.Count);
         Assert.False(party.Effects.Has(Ward));
         Assert.False(party.Effects.Has(Light));
-        Assert.Equal(3, party.Passages.DaysTo(new PlaceId("2")));
+        Assert.Equal("coach", party.Passages.RouteTo(new PlaceId("2")));
     }
 
     [Fact]

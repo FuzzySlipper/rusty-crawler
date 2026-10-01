@@ -12,10 +12,15 @@ public readonly record struct PartyRecord(string Name, int Count);
 /// <param name="Coins">What it holds.</param>
 public readonly record struct PartyHolding(string Account, int Coins);
 
-/// <summary>A passage the party holds: the place it reaches, and how many days the journey takes.</summary>
+/// <summary>A passage the party holds: the place it reaches, and the route the counter sold it on.</summary>
+/// <remarks>
+/// The ticket carries what was bought — a seat on one route to one place — and not how long the journey takes:
+/// the length is the game's rule for the route, read when the ticket is honoured, so a save taken before a
+/// retune still names a journey the world sells.
+/// </remarks>
 /// <param name="Destination">The place the passage reaches.</param>
-/// <param name="Days">How long the journey takes, which tells one counter's journey from another's.</param>
-public readonly record struct PartyPassage(PlaceId Destination, int Days);
+/// <param name="Route">The route the passage runs on, which tells one counter's journey from another's.</param>
+public readonly record struct PartyPassage(PlaceId Destination, string Route);
 
 /// <summary>
 /// What the party has on record: the marks an errand, a conversation, and a rank leave, and the deeds a rank
@@ -122,33 +127,61 @@ public sealed class PartyHoldings
 /// </remarks>
 public sealed class PartyPassages
 {
-    private readonly Tally _passages;
+    private readonly List<PartyPassage> _passages = [];
 
     /// <summary>Creates the party's passages.</summary>
     /// <param name="passages">The passages already held.</param>
-    /// <exception cref="ArgumentException">A destination is listed twice or a passage takes no days.</exception>
+    /// <exception cref="ArgumentException">A destination is listed twice or a passage names no route.</exception>
     public PartyPassages(IEnumerable<PartyPassage>? passages = null)
     {
-        _passages = new Tally("passage", minimum: 1);
-        foreach (PartyPassage passage in passages ?? []) _passages.Add(passage.Destination.Value, passage.Days, nameof(passages));
+        foreach (PartyPassage passage in passages ?? [])
+        {
+            if (Holds(passage.Destination))
+            {
+                throw new ArgumentException($"The passage '{passage.Destination}' is listed more than once, so which is meant would be ambiguous.", nameof(passages));
+            }
+
+            Hold(passage.Destination, passage.Route);
+        }
     }
 
     /// <summary>Every passage held, in the order it was bought.</summary>
-    public IReadOnlyList<PartyPassage> All => [.. _passages.Entries.Select(entry => new PartyPassage(new PlaceId(entry.Name), entry.Value))];
+    public IReadOnlyList<PartyPassage> All => [.. _passages];
 
-    /// <summary>How many days the passage to a place takes, or zero when the party holds none.</summary>
+    /// <summary>Whether the party holds a passage to a place.</summary>
     /// <param name="destination">The place the passage reaches.</param>
-    public int DaysTo(PlaceId destination) => _passages.ValueOf(destination.Value);
+    public bool Holds(PlaceId destination) => IndexOf(destination) >= 0;
+
+    /// <summary>The route the passage to a place runs on, or null when the party holds none.</summary>
+    /// <param name="destination">The place the passage reaches.</param>
+    public string? RouteTo(PlaceId destination) => IndexOf(destination) is var index and >= 0 ? _passages[index].Route : null;
 
     /// <summary>Holds a passage to a place, replacing any passage there already was.</summary>
     /// <param name="destination">The place the passage reaches.</param>
-    /// <param name="days">How many days the journey takes, which must be at least one.</param>
-    public void Hold(PlaceId destination, int days) => _passages.Set(destination.Value, days);
+    /// <param name="route">The route the passage runs on.</param>
+    /// <exception cref="ArgumentException">The destination or the route is blank.</exception>
+    public void Hold(PlaceId destination, string route)
+    {
+        if (string.IsNullOrWhiteSpace(destination.Value)) throw new ArgumentException("A passage must name the place it reaches.", nameof(destination));
+        if (string.IsNullOrWhiteSpace(route)) throw new ArgumentException($"The passage to '{destination}' must name the route it runs on.", nameof(route));
+        int index = IndexOf(destination);
+        if (index >= 0) _passages[index] = new PartyPassage(destination, route);
+        else _passages.Add(new PartyPassage(destination, route));
+    }
 
     /// <summary>Spends the passage to a place.</summary>
     /// <param name="destination">The place the passage reaches.</param>
     /// <returns>Whether the party held one.</returns>
-    public bool Spend(PlaceId destination) => _passages.Remove(destination.Value);
+    public bool Spend(PlaceId destination)
+    {
+        int index = IndexOf(destination);
+        if (index < 0) return false;
+        _passages.RemoveAt(index);
+        return true;
+    }
+
+    private int IndexOf(PlaceId destination) =>
+        _passages.FindIndex(passage => string.Equals(passage.Destination.Value, destination.Value, StringComparison.Ordinal));
 }
 
 /// <summary>The memberships the party has been granted: the guilds and orders whose counters serve it.</summary>

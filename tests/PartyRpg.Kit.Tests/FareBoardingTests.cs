@@ -16,8 +16,8 @@ namespace PartyRpg.Kit.Tests;
 /// <para>
 /// A fare is content's own fact about a crossing — that a counter sells it, and which route it runs on — the
 /// game's rule's fact about the route — how many days its journey takes — and the party's own fact about a
-/// journey — a passage naming a place and a length. These tests write the content in the shape the importer
-/// writes it, so the routing is exercised without the operator's data, and they hold no ruleset: how long a
+/// journey — a passage naming a place and a route. These tests author the crossings as content and as a
+/// game's fare network, so the routing is exercised without the operator's data, and they hold no ruleset: how long a
 /// route takes is this suite's own fare rule, what boarding costs is the cost rule's answer, and this suite's
 /// cost rule answers only whether it was asked, for what, and how often.
 /// </para>
@@ -49,7 +49,7 @@ public sealed class FareBoardingTests
         RecordingDiagnosticsService diagnostics = new();
         using PartyEntity party = Party();
         using SessionWorld world = World(party, rule, diagnostics);
-        party.Passages.Hold(Town, 2);
+        party.Passages.Hold(Town, "coach");
 
         TransitionResult boarded = world.Board(Town);
 
@@ -74,36 +74,36 @@ public sealed class FareBoardingTests
     }
 
     [Fact]
-    public void Two_counters_journeys_to_one_place_are_told_apart_by_the_days_the_ticket_names()
+    public void Two_counters_journeys_to_one_place_are_told_apart_by_the_route_the_ticket_names()
     {
         RecordingCostRule rule = new();
         using PartyEntity party = Party();
         using SessionWorld world = World(party, rule);
 
         // Both counters reach Town from Home and the road does too, so the place alone does not name the
-        // journey: the ticket's own length does, and the road the party could have walked is never it.
-        party.Passages.Hold(Town, 2);
+        // journey: the ticket's own route does, and the road the party could have walked is never it.
+        party.Passages.Hold(Town, "coach");
         Assert.True(world.Board(Town).Arrived);
         Assert.Equal("coach", rule.Asked[^1].Transition.Source);
 
         // Back to Home, and the other counter's passage is the other journey.
         world.ArriveAt(Home, PlacePose.Origin);
-        party.Passages.Hold(Town, 3);
+        party.Passages.Hold(Town, "caravan");
         Assert.True(world.Board(Town).Arrived);
         Assert.Equal("caravan", rule.Asked[^1].Transition.Source);
     }
 
     [Fact]
-    public void A_ticket_whose_days_no_journey_states_is_refused_rather_than_guessed_at()
+    public void A_ticket_on_a_route_no_journey_runs_is_refused_rather_than_guessed_at()
     {
         RecordingCostRule rule = new();
         using PartyEntity party = Party();
         using SessionWorld world = World(party, rule);
-        party.Passages.Hold(Town, 5);
+        party.Passages.Hold(Town, "balloon");
 
         TransitionResult refused = world.Board(Town);
 
-        // Nothing moved and nothing was asked: a ticket naming a journey content does not state is a defect
+        // Nothing moved and nothing was asked: a ticket naming a journey the world does not sell is a defect
         // to report, not a licence to take whichever journey is nearest.
         Assert.False(refused.Arrived);
         Assert.Equal("travel-fare-unstated", refused.Refusal!.Code);
@@ -117,7 +117,7 @@ public sealed class FareBoardingTests
         RecordingCostRule rule = new();
         using PartyEntity party = Party();
         using SessionWorld world = World(party, rule);
-        party.Passages.Hold(Nowhere, 2);
+        party.Passages.Hold(Nowhere, "coach");
 
         TransitionResult refused = world.Board(Nowhere);
 
@@ -210,6 +210,74 @@ public sealed class FareBoardingTests
         Assert.Equal(2, PlaceGraphLoader.Load(catalog, Routes.Instance).Transitions.Single(transition => transition.Source == "coach").FareDays);
     }
 
+    [Fact]
+    public void A_ticket_bought_under_one_length_boards_the_same_journey_under_another()
+    {
+        // The ticket names the route, not the days: a world rebuilt under a rule that times the coach at six days
+        // still sells the journey the ticket names, and the crossing the cost rule is handed is timed by today's
+        // rule rather than by the length quoted when the passage was bought.
+        RecordingCostRule rule = new();
+        using PartyEntity party = Party();
+        party.Passages.Hold(Town, "coach");
+        using SessionWorld world = World(party, rule, fares: new Routes(coach: 6));
+
+        Assert.True(world.Board(Town).Arrived);
+        TransitionRequest asked = Assert.Single(rule.Asked);
+        Assert.Equal("coach", asked.Transition.FareRoute);
+        Assert.Equal(6, asked.Transition.FareDays);
+    }
+
+    [Fact]
+    public void A_fare_network_s_crossings_are_timed_checked_and_boarded_like_authored_ones()
+    {
+        // The game's network sells a boat from Home to Nowhere, which no content link states: the graph times
+        // it by the same rule, and a passage on its route boards it through the same path.
+        Network network = new(new PlaceTransition(Home, Nowhere, PlaceArrival.AtEntryPoint("Party Start"), "ferry") { FareRoute = "boat" });
+        PlaceGraph graph = PlaceGraphLoader.Load(Catalog(), Routes.Instance, network);
+        PlaceTransition ferry = graph.Transitions.Single(transition => transition.Source == "ferry");
+        Assert.True(ferry.IsFare);
+        Assert.Equal(3, ferry.FareDays);
+        Assert.Equal(Home, Assert.Single(network.AskedWith).Single(place => place.Id == Home).Id);
+
+        RecordingCostRule rule = new();
+        using PartyEntity party = Party();
+        party.Passages.Hold(Nowhere, "boat");
+        using SessionWorld world = World(party, rule, network: network);
+        Assert.True(world.Board(Nowhere).Arrived);
+        Assert.Equal("ferry", Assert.Single(rule.Asked).Transition.Source);
+    }
+
+    [Fact]
+    public void A_fare_network_crossing_that_states_its_own_days_or_leaves_no_place_is_a_defect()
+    {
+        // How long a route takes has one owner, and a counter stands somewhere: a network that states days, or
+        // sells a crossing from nowhere, is refused where the world is built rather than trusted.
+        PlaceArrival arrival = PlaceArrival.AtEntryPoint("Party Start");
+        ContentValidationException error = Assert.Throws<ContentValidationException>(() => PlaceGraphLoader.Load(
+            Catalog(),
+            Routes.Instance,
+            new Network(
+                new PlaceTransition(Home, Town, arrival, "timed") { FareRoute = "coach", FareDays = 9 },
+                new PlaceTransition(null, Town, arrival, "nowhere") { FareRoute = "coach" },
+                new PlaceTransition(Home, new PlaceId("99"), arrival, "unknown") { FareRoute = "coach" },
+                new PlaceTransition(Home, Port, arrival, "balloon") { FareRoute = "balloon" })));
+
+        Assert.Equal(3, error.Issues.Count(issue => issue.Code == "transition-fare-invalid"));
+        Assert.Contains(error.Issues, issue => issue.Code == "transition-fare-days-unstated" && issue.Message.Contains("balloon", StringComparison.Ordinal));
+    }
+
+    /// <summary>The test's own fare network: the crossings it was given, and the places it was asked over.</summary>
+    private sealed class Network(params PlaceTransition[] journeys) : IFareNetwork
+    {
+        internal List<IReadOnlyList<PlaceDefinition>> AskedWith { get; } = [];
+
+        public IReadOnlyList<PlaceTransition> Journeys(IReadOnlyList<PlaceDefinition> places)
+        {
+            AskedWith.Add(places);
+            return journeys;
+        }
+    }
+
     /// <summary>The test's own fare rule: a length for each route this suite's content names.</summary>
     private sealed class Routes(int coach = 2) : IFareDurationRule
     {
@@ -275,9 +343,11 @@ public sealed class FareBoardingTests
     private static SessionWorld World(
         PartyEntity party,
         ITravelCostRule rule,
-        IDiagnosticsService? diagnostics = null)
+        IDiagnosticsService? diagnostics = null,
+        IFareDurationRule? fares = null,
+        IFareNetwork? network = null)
     {
-        PlaceGraph graph = PlaceGraphLoader.Load(Catalog(), Routes.Instance);
+        PlaceGraph graph = PlaceGraphLoader.Load(Catalog(), fares ?? Routes.Instance, network);
         PartyPoseOwner owner = new(
             new PartyPose(Home, PlacePose.Origin),
             new FacingRule(unitsPerTurn: 2048, minimumPitch: -512, maximumPitch: 512));

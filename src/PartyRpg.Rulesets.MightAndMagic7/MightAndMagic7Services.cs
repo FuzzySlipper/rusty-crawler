@@ -249,9 +249,12 @@ internal sealed class MightAndMagic7Services : IServiceRule
         HashSet<string> skills = [.. catalog.Entries(SkillDefinitionKind).Select(entry => entry.Entry.Id)];
         IReadOnlyList<ItemFacts> catalogue = [.. items.Values.OrderBy(item => item.Id)];
 
-        // How long a passage takes is this game's travel rule over the same tuning the world graph is built
-        // with, so the days a counter writes on a ticket are the days the world matches the boarding by.
+        // Which passages a stable or a dock sells is this game's fare network over the counters content places,
+        // and how long each takes is its fare rule over the same tuning the world graph is built with, so the
+        // journeys a counter offers are the crossings the world sells and the days it quotes are the days the
+        // road charges.
         MightAndMagic7FareDays fareDays = MightAndMagic7FareDays.Read(catalog);
+        MightAndMagic7FareNetwork network = MightAndMagic7FareNetwork.Read(catalog);
 
         // A guild's rung is its position among the guilds of its own school in the order the table states
         // them, which is what the shipped names spell out (initiate, adept, master, paramount) and what this
@@ -284,7 +287,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
                 continue;
             }
 
-            if (Definition(entry, id, items, catalogue, skills, guildRungs, facts, fareDays, Defect) is { } service) services[id] = service;
+            if (Definition(entry, id, items, catalogue, skills, guildRungs, facts, Fares(id, network, fareDays), Defect) is { } service) services[id] = service;
         }
 
         Dictionary<(string Place, string Placement), ServiceHousehold> households = ValidatePlacements(catalog, services, issues);
@@ -650,7 +653,8 @@ internal sealed class MightAndMagic7Services : IServiceRule
                     $"A passage to {fare.Name}",
                     Subject: fare.Place,
                     Value: FareBase(service.Kind.Value),
-                    Amount: fare.Days));
+                    Amount: fare.Days,
+                    Route: fare.Route));
             }
         }
 
@@ -924,7 +928,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
     private static ServiceEligibility JudgeFare(ServiceEligibilityRequest request)
     {
         if (request.Subject.Offer is not { } fare) return ServiceEligibility.Allowed;
-        return request.Party.Passages.DaysTo(new PlaceId(fare.Subject)) > 0
+        return request.Party.Passages.Holds(new PlaceId(fare.Subject))
             ? ServiceEligibility.Refused(
                 new Refusal(MightAndMagic7Codes.ServicePassageHeld, $"The party already holds a passage to {fare.Name}, so there is no second one to sell."))
             : ServiceEligibility.Allowed;
@@ -1169,7 +1173,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
         HashSet<string> skills,
         Dictionary<string, int> guildRungs,
         Dictionary<ServiceId, ServiceFacts> facts,
-        MightAndMagic7FareDays fareDays,
+        List<ServiceFare> fares,
         Action<string, string> defect)
     {
         string kind = entry.GetString("kind");
@@ -1262,7 +1266,6 @@ internal sealed class MightAndMagic7Services : IServiceRule
         List<ServiceLesson> lessons = Lessons(entry, id, defect);
         string membership = entry.GetString("membership");
         int mapId = entry.GetInt32("mapId") ?? 0;
-        List<ServiceFare> fares = Fares(entry, id, fareDays, defect);
 
         // A guild's membership and its rung are this game's answers about the kind, so they are supplied
         // when content states neither: the effect the access check reads and the lessons sell, and the rung
@@ -1464,38 +1467,20 @@ internal sealed class MightAndMagic7Services : IServiceRule
         return lessons;
     }
 
-    /// <summary>Reads the passages a counter sells, which the import wrote from the routes it derived.</summary>
+    /// <summary>The passages a counter sells, from this game's fare network, each timed by its fare rule.</summary>
     /// <remarks>
-    /// Content states where a passage goes and which network it runs on; how many days it takes is this game's
-    /// travel rule's answer for that network, so a retune changes the ticket without an import.
+    /// Content states only that a counter is a stable or a dock and where it stands; where its passages go is
+    /// the network's answer and how long each takes is the fare rule's, so a retune changes the quote without an
+    /// import and the ticket the party buys names the route rather than the days.
     /// </remarks>
-    private static List<ServiceFare> Fares(ContentEntry entry, ServiceId id, MightAndMagic7FareDays fareDays, Action<string, string> defect)
-    {
-        List<ServiceFare> fares = [];
-        foreach (JsonElement element in entry.GetArray("fares"))
-        {
-            string place = ContentEntry.ReadId(element, "place");
-            string name = ContentEntry.ReadString(element, "name");
-            string route = ContentEntry.ReadString(element, PlaceGraphLoader.FareRouteField);
-            if (place.Length == 0)
-            {
-                defect("service-fare-destination-missing", $"a passage of service '{id}' names no destination place, so there is nowhere it could take the party.");
-                continue;
-            }
-
-            if (fareDays.DaysOf(route) is not { } days)
-            {
-                defect(
-                    "service-fare-route-unknown",
-                    $"a passage of service '{id}' to '{place}' runs on route '{route}', which is neither '{MightAndMagic7FareDays.CoachRoute}' nor '{MightAndMagic7FareDays.BoatRoute}', so nothing states how long the journey takes.");
-                continue;
-            }
-
-            fares.Add(new ServiceFare(place, name.Length == 0 ? place : name, days));
-        }
-
-        return fares;
-    }
+    private static List<ServiceFare> Fares(ServiceId id, MightAndMagic7FareNetwork network, MightAndMagic7FareDays fareDays) =>
+    [
+        .. network.SoldBy(id.Value).Select(passage => new ServiceFare(
+            passage.Place.Value,
+            passage.Name,
+            passage.Route,
+            fareDays.DaysOf(passage.Route) ?? throw new InvalidOperationException($"The fare network sells on route '{passage.Route}', which this game's fare rule does not time."))),
+    ];
 
     /// <summary>Reads the item table's values, which a shelf line's worth and a sale are priced from.</summary>
     private static Dictionary<ItemDefinitionId, ItemFacts> ReadItems(ContentCatalog catalog)
@@ -1692,11 +1677,12 @@ internal sealed class MightAndMagic7Services : IServiceRule
     /// <summary>What the imported spell table says about one spell.</summary>
     private readonly record struct SpellFacts(string School, int Level);
 
-    /// <summary>What a passage a counter sells reaches, and how long it takes.</summary>
+    /// <summary>What a passage a counter sells reaches, the route it runs on, and how long it takes.</summary>
     /// <param name="Place">The destination place's identity.</param>
     /// <param name="Name">What the destination is called.</param>
-    /// <param name="Days">How many game days the journey takes.</param>
-    internal readonly record struct ServiceFare(string Place, string Name, int Days);
+    /// <param name="Route">The route the passage runs on, which the ticket carries.</param>
+    /// <param name="Days">How many game days the journey takes under the tuning loaded, which the counter quotes.</param>
+    internal readonly record struct ServiceFare(string Place, string Name, string Route, int Days);
 
     /// <summary>What this game knows about one counter besides the definition the mechanism serves.</summary>
     private sealed record ServiceFacts(

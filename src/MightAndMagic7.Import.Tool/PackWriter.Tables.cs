@@ -364,9 +364,6 @@ internal static partial class PackWriter
     /// </remarks>
     private static int WriteServices(string packDirectory, PlaceServiceSummary services)
     {
-        Dictionary<int, IReadOnlyList<PlaceFare>> faresByService = services.Fares
-            .GroupBy(fare => fare.ServiceId)
-            .ToDictionary(group => group.Key, group => (IReadOnlyList<PlaceFare>)[.. group]);
         List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];
         foreach (PlaceServiceDefinition service in services.Services)
         {
@@ -386,26 +383,6 @@ internal static partial class PackWriter
                 WriteOptionalNumber(writer, "stockIntervalDays", service.StockIntervalDays);
                 if (service.TrainingCap is int cap) writer.WriteNumber("trainingCap", cap);
                 if (service.TrainingCapText.Length > 0) writer.WriteString("trainingCapText", service.TrainingCapText);
-                if (faresByService.TryGetValue(service.BuildingId, out IReadOnlyList<PlaceFare>? fares))
-                {
-                    // The passages this counter sells, written with the very link that takes them: the
-                    // counter's offer and the world's transition are one emission rather than two that
-                    // could disagree about where a fare goes.
-                    writer.WriteStartArray("fares");
-                    foreach (PlaceFare fare in fares)
-                    {
-                        writer.WriteStartObject();
-                        writer.WriteNumber("toPlace", fare.ToPlace);
-                        writer.WriteString("place", fare.ToPlace.ToString(CultureInfo.InvariantCulture));
-                        writer.WriteString("name", fare.DestinationName);
-                        writer.WriteString("route", fare.Route);
-                        writer.WriteString("link", fare.LinkId);
-                        writer.WriteEndObject();
-                    }
-
-                    writer.WriteEndArray();
-                }
-
                 writer.WriteString("source", "2DEvents.txt");
                 writer.WriteNumber("sourceRow", service.SourceRow);
             }));

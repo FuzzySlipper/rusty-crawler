@@ -2,6 +2,8 @@ using PartyRpg.Kit;
 using System.Text.RegularExpressions;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Persistence;
+using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Services;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
@@ -95,9 +97,9 @@ public sealed class TravelPolicyTests
     [Fact]
     public void A_fare_is_bought_at_a_counter_and_the_road_honours_exactly_what_it_reaches()
     {
-        ContentCatalog catalog = Catalog(World(PartyDocument(food: 6)));
-        PlaceGraph graph = PlaceGraphLoader.Load(catalog, MightAndMagic7FareDays.Read(catalog));
-        PlaceTransition road = Assert.Single(graph.TransitionsFrom(Home));
+        ContentCatalog catalog = Catalog(Stabled(PartyDocument(food: 6)));
+        PlaceGraph graph = MightAndMagic7World.Graph(catalog);
+        PlaceTransition road = Assert.Single(graph.TransitionsFrom(Home), transition => transition.IsFare);
         using PartyEntity party = MightAndMagic7Party.Compose(catalog)
             ?? throw new InvalidOperationException("The scenario declares a party, so composing it must produce one.");
         MightAndMagic7TravelCostRule rule = new(party);
@@ -109,33 +111,40 @@ public sealed class TravelPolicyTests
         Assert.Contains($"{road.To}", unpaid.Message, StringComparison.Ordinal);
 
         // A passage to somewhere else does not pay for this journey: a ticket names the place it reaches.
-        party.Passages.Hold(new PlaceId("99"), 2);
+        party.Passages.Hold(new PlaceId("99"), MightAndMagic7FareDays.CoachRoute);
         Assert.Equal(
             "travel-fare-unpaid",
             rule.Quote(new TransitionRequest(graph, road, TransitionKind.PaidService, Home, PlacePose.Origin)).Refusal!.Code);
 
-        // The passage to the place the road reaches is what pays, and boarding spends it: the journey quotes
-        // the days the counter sold, eats no provisions because the fare included them, and leaves the party
-        // holding no ticket for the journey back.
-        party.Passages.Hold(road.To, 2);
+        // Nor does a boat ticket to the right place pay for the coach: a ticket names the route it was sold on.
+        party.Passages.Hold(road.To, MightAndMagic7FareDays.BoatRoute);
+        Assert.Equal(
+            "travel-fare-unpaid",
+            rule.Quote(new TransitionRequest(graph, road, TransitionKind.PaidService, Home, PlacePose.Origin)).Refusal!.Code);
+
+        // The passage on the coach to the place the road reaches is what pays, and boarding spends it: the
+        // journey quotes the coach's days under the tuning loaded, eats no provisions because the fare included
+        // them, and leaves the party holding no ticket for the journey back.
+        party.Passages.Hold(road.To, MightAndMagic7FareDays.CoachRoute);
         TravelCostQuote boarded = rule.Quote(new TransitionRequest(graph, road, TransitionKind.PaidService, Home, PlacePose.Origin));
         Assert.Null(boarded.Refusal);
-        Assert.Equal(new TravelTime(2, TravelTimeUnit.Days), boarded.Cost.Time);
+        Assert.Equal(new TravelTime((int)MightAndMagic7Tuning.CoachDays.Default, TravelTimeUnit.Days), boarded.Cost.Time);
         Assert.True(boarded.Cost.Food.IsNone);
-        Assert.Equal(0, party.Passages.DaysTo(road.To));
+        Assert.False(party.Passages.Holds(road.To));
+
+        // A crossing no counter sells is not a bought journey at all, whatever kind of travel names it.
+        PlaceTransition walked = Assert.Single(graph.TransitionsFrom(Home), transition => !transition.IsFare);
+        Assert.Equal(
+            TravelCodes.TravelFareUnstated,
+            rule.Quote(new TransitionRequest(graph, walked, TransitionKind.PaidService, Home, PlacePose.Origin)).Refusal!.Code);
     }
 
     [Fact]
-    public void A_passage_is_boarded_at_the_world_and_charges_the_days_the_ticket_names_exactly_once()
+    public void A_passage_is_boarded_at_the_world_and_charges_the_routes_days_exactly_once()
     {
-        // The world's own roads, restated with a crossing a stable sells beside the one the party walks: a
-        // root holds one document per id, so the fare replaces the links the world declares rather than
-        // sitting beside them.
-        (string Path, string Text)[] staged = [.. World(PartyDocument(food: 6))];
-        ContentCatalog catalog = Catalog(
-            [.. staged.Where(file => !file.Path.EndsWith("links.json", StringComparison.Ordinal)), Fare()]);
-        PlaceGraph graph = PlaceGraphLoader.Load(catalog, MightAndMagic7FareDays.Read(catalog));
-        PlaceTransition coach = graph.Transitions.Single(transition => transition.Source == "coach");
+        ContentCatalog catalog = Catalog(Stabled(PartyDocument(food: 6)));
+        PlaceGraph graph = MightAndMagic7World.Graph(catalog);
+        PlaceTransition coach = graph.Transitions.Single(transition => transition.Source == "fare-coach-1-2");
         Assert.True(coach.IsFare);
 
         using PartyEntity party = MightAndMagic7Party.Compose(catalog)
@@ -155,16 +164,17 @@ public sealed class TravelPolicyTests
             resources: accounts,
             partyEntity: party);
 
-        // The counter sells a journey of two days; boarding it moves the party to the town the passage
-        // reaches, charges the ticket's own days on the one clock, and tears the ticket.
-        party.Passages.Hold(new PlaceId("2"), 2);
+        // The stable sells the coach; boarding it moves the party to the place the passage reaches, charges
+        // the coach's days on the one clock, and tears the ticket.
+        party.Passages.Hold(new PlaceId("2"), MightAndMagic7FareDays.CoachRoute);
         TransitionResult boarded = world.Board(new PlaceId("2"));
 
+        int days = (int)MightAndMagic7Tuning.CoachDays.Default;
         Assert.True(boarded.Arrived);
         Assert.Equal(new PlaceId("2"), world.Place);
         Assert.Equal(new PlacePose(1, 2, 3, 0, 0), world.Party.PlacePose);
-        Assert.Equal(2, clock.ElapsedGameDays);
-        Assert.Equal(0, party.Passages.DaysTo(new PlaceId("2")));
+        Assert.Equal(days, clock.ElapsedGameDays);
+        Assert.False(party.Passages.Holds(new PlaceId("2")));
 
         // The larder is untouched: a fare includes the journey's board, which is the donor's own reading of
         // a coach journey.
@@ -177,8 +187,96 @@ public sealed class TravelPolicyTests
 
         Assert.False(again.Arrived);
         Assert.Equal("travel-fare-unpaid", again.Refusal!.Code);
-        Assert.Equal(2, clock.ElapsedGameDays);
+        Assert.Equal(days, clock.ElapsedGameDays);
         Assert.Equal(Home, world.Place);
+    }
+
+    [Fact]
+    public void A_passage_saved_under_one_tuning_is_boarded_under_another_at_the_new_length()
+    {
+        // A ticket is bought and saved while the coach takes this game's default two days, and the session is
+        // resumed over the same content under a tuning pack that makes it five. The ticket carries the route,
+        // not the days, so the resumed world still sells the journey it names and charges today's five.
+        InMemoryPersistenceService persistence = new();
+        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(persistence, Stabled(PartyDocument(food: 6)));
+        using (IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(RulesetTestContext.RulesetContext(context, ui)))
+        {
+            session.Start();
+            PartyEntity party = ((MightAndMagic7Session)session).Party!;
+            party.Passages.Hold(new PlaceId("2"), MightAndMagic7FareDays.CoachRoute);
+            SessionSave saved = MightAndMagic7Ruleset.Instance.Save(session);
+            Assert.Equal(new PartyPassage(new PlaceId("2"), MightAndMagic7FareDays.CoachRoute), Assert.Single(saved.Party.Passages));
+        }
+
+        const int Retuned = 5;
+        Assert.NotEqual(Retuned, (int)MightAndMagic7Tuning.CoachDays.Default);
+        (ProductCreateContext resumedContext, RecordingUiService resumedUi) = RulesetTestContext.Create(
+            persistence,
+            [.. Stabled(PartyDocument(food: 6)).Where(file => !file.Path.EndsWith("bundle.json", StringComparison.Ordinal)), .. CoachTuning(Retuned)]);
+        using IGameSession resumed = MightAndMagic7Ruleset.Instance.ResumeSession(
+            RulesetTestContext.RulesetContext(resumedContext, resumedUi) with { Start = SessionStart.Resume });
+        resumed.Start();
+
+        SessionWorld world = ((MightAndMagic7Session)resumed).World!;
+        PartyEntity carried = ((MightAndMagic7Session)resumed).Party!;
+        Assert.Equal(MightAndMagic7FareDays.CoachRoute, carried.Passages.RouteTo(new PlaceId("2")));
+        TransitionResult boarded = world.Board(new PlaceId("2"));
+
+        Assert.True(boarded.Arrived, boarded.Refusal?.ToString());
+        Assert.Equal(new TravelTime(Retuned, TravelTimeUnit.Days), boarded.ChargedCost.Time);
+        Assert.Equal(new PlaceId("2"), world.Place);
+        Assert.False(carried.Passages.Holds(new PlaceId("2")));
+    }
+
+    [Fact]
+    public void The_fare_network_is_the_rulesets_over_the_counters_content_places()
+    {
+        // Content places a stable in each of three towns, a dock in two of them, and a stable a place does not
+        // stand; it states no destination anywhere. The network is this game's policy over those counters: each
+        // stable reaches every other town that keeps a stable and each dock every other port, one crossing per
+        // pair of stops on each route, landing at the destination's own start.
+        ContentCatalog catalog = Catalog(Network());
+        MightAndMagic7FareNetwork network = MightAndMagic7FareNetwork.Read(catalog);
+        PlaceGraph graph = MightAndMagic7World.Graph(catalog);
+
+        string[] sold = [.. graph.Transitions.Where(transition => transition.IsFare).Select(transition => $"{transition.FareRoute}:{transition.From}->{transition.To}")];
+        Assert.Equal(
+            new[]
+            {
+                "coach:1->2", "coach:1->3", "coach:2->1", "coach:2->3", "coach:3->1", "coach:3->2",
+                "boat:1->3", "boat:3->1",
+            },
+            sold);
+        Assert.All(graph.Transitions.Where(transition => transition.IsFare), transition => Assert.Equal(
+            transition.FareRoute == MightAndMagic7FareDays.CoachRoute ? (int)MightAndMagic7Tuning.CoachDays.Default : (int)MightAndMagic7Tuning.BoatDays.Default,
+            transition.FareDays));
+
+        // Where a passage lands is the destination's own data: its start when it states one, its first arrival
+        // point when it states no start.
+        Assert.Equal(PlaceArrival.AtEntryPoint("Party Start"), graph.Transitions.Single(transition => transition.Source == "fare-coach-2-1").Arrival);
+        Assert.Equal(PlaceArrival.AtEntryPoint("North Start"), graph.Transitions.Single(transition => transition.Source == "fare-coach-1-3").Arrival);
+
+        // A counter's offers are the same reading: the stable in town 1 sells the coach to towns 2 and 3, the
+        // dock there the boat to town 3, and the stable nobody placed sells nothing.
+        Assert.Equal(new[] { "2:Town:coach", "3:Port:coach" }, network.SoldBy("54").Select(Describe));
+        Assert.Equal(new[] { "3:Port:boat" }, network.SoldBy("63").Select(Describe));
+        Assert.Empty(network.SoldBy("57"));
+
+        static string Describe(MightAndMagic7FareNetwork.Passage passage) => $"{passage.Place}:{passage.Name}:{passage.Route}";
+    }
+
+    [Fact]
+    public void Content_that_authors_its_own_sold_crossing_is_refused_by_name()
+    {
+        // This game's passages are its network's: a pack that still states a sold crossing — one written when the
+        // importer derived the network — would sell every journey twice, so it is refused where it is read.
+        ContentCatalog catalog = Catalog(
+        [
+            .. World(PartyDocument(food: 6)).Where(file => !file.Path.EndsWith("links.json", StringComparison.Ordinal)),
+            AuthoredFare(),
+        ]);
+        ContentValidationException error = Assert.Throws<ContentValidationException>(() => MightAndMagic7World.Graph(catalog));
+        Assert.Contains(error.Issues, issue => issue.Code == "fare-link-authored" && issue.Message.Contains("'coach'", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -335,7 +433,9 @@ public sealed class TravelPolicyTests
     private static (string Path, string Text)[] World(params (string Path, string Text)[] extra) =>
     [
         RulesetTestContext.Bundle("partyrpg-default", "world"),
-        ($"{RulesetTestContext.ContentDirectory}/content-packs/world/pack.json", Manifest(extra.Length > 0)),
+        ($"{RulesetTestContext.ContentDirectory}/content-packs/world/pack.json", Manifest(
+            party: extra.Any(file => file.Path.EndsWith("party.json", StringComparison.Ordinal)),
+            services: extra.Any(file => file.Path.EndsWith("services.json", StringComparison.Ordinal)))),
         ($"{RulesetTestContext.ContentDirectory}/content-packs/world/places.json",
             """
             {
@@ -364,15 +464,8 @@ public sealed class TravelPolicyTests
         .. extra,
     ];
 
-    /// <summary>
-    /// The world's own roads, restated with a crossing a stable sells beside the one the party can walk.
-    /// </summary>
-    /// <remarks>
-    /// It replaces the world's links document rather than adding a second one, because a root has one
-    /// document per id: the two crossings from Home to Cave — one walked and one bought — are what the test
-    /// needs to tell a fare from a road between the same places.
-    /// </remarks>
-    private static (string Path, string Text) Fare() =>
+    /// <summary>A crossing content authors as sold, which this game refuses because its passages are its network's.</summary>
+    private static (string Path, string Text) AuthoredFare() =>
         ($"{RulesetTestContext.ContentDirectory}/content-packs/world/links.json",
             """
             {
@@ -384,6 +477,120 @@ public sealed class TravelPolicyTests
               ]
             }
             """);
+
+    /// <summary>
+    /// The world of two places with a stable standing in each, written the way the importer writes counters:
+    /// the building's kind and where it stands, and nothing about where it sells passages to.
+    /// </summary>
+    /// <remarks>
+    /// It replaces the world's places document rather than adding a second one, because a root has one
+    /// document per id: the places are the same two, now each carrying its stable's placement.
+    /// </remarks>
+    private static (string Path, string Text)[] Stabled(params (string Path, string Text)[] extra) =>
+    [
+        .. World(
+        [
+            .. extra,
+            ($"{RulesetTestContext.ContentDirectory}/content-packs/world/services.json",
+                """
+                {
+                  "documentId": "services",
+                  "definitionKind": "service",
+                  "entries": [
+                    { "id": "54", "kind": "Stables", "name": "Home Corral", "mapId": 1, "place": "1", "priceMultiplier": 2 },
+                    { "id": "55", "kind": "Stables", "name": "Cave Corral", "mapId": 2, "place": "2", "priceMultiplier": 2 }
+                  ]
+                }
+                """),
+        ]).Where(file => !file.Path.EndsWith("places.json", StringComparison.Ordinal)),
+        ($"{RulesetTestContext.ContentDirectory}/content-packs/world/places.json",
+            """
+            {
+              "documentId": "places",
+              "definitionKind": "place",
+              "entries": [
+                { "id": "1", "kind": "region", "name": "Home", "respawnDays": 1,
+                  "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 512 } ],
+                  "placements": [ { "id": "service-54", "kind": "service", "houseId": 54, "x": 100, "y": 0, "z": 0 } ] },
+                { "id": "2", "kind": "interior", "name": "Cave", "respawnDays": 1,
+                  "entryPoints": [ { "id": "Party Start", "x": 1, "y": 2, "z": 3, "yaw": 0 } ],
+                  "placements": [ { "id": "service-55", "kind": "service", "houseId": 55, "x": 100, "y": 0, "z": 0 } ] }
+              ]
+            }
+            """),
+    ];
+
+    /// <summary>Three towns' counters and no destinations: what the fare network is read over.</summary>
+    private static (string Path, string Text)[] Network() =>
+    [
+        .. World(
+            ($"{RulesetTestContext.ContentDirectory}/content-packs/world/services.json",
+                """
+                {
+                  "documentId": "services",
+                  "definitionKind": "service",
+                  "entries": [
+                    { "id": "54", "kind": "Stables", "name": "Corral", "mapId": 1, "place": "1" },
+                    { "id": "55", "kind": "Stables", "name": "Corral", "mapId": 2, "place": "2" },
+                    { "id": "56", "kind": "Stables", "name": "Corral", "mapId": 3, "place": "3" },
+                    { "id": "57", "kind": "Stables", "name": "Unplaced Corral", "mapId": 3, "place": "3" },
+                    { "id": "63", "kind": "Boats", "name": "Dock", "mapId": 1, "place": "1" },
+                    { "id": "64", "kind": "Boats", "name": "Dock", "mapId": 3, "place": "3" }
+                  ]
+                }
+                """))
+            .Where(file => !file.Path.EndsWith("places.json", StringComparison.Ordinal)),
+        ($"{RulesetTestContext.ContentDirectory}/content-packs/world/places.json",
+            """
+            {
+              "documentId": "places",
+              "definitionKind": "place",
+              "entries": [
+                { "id": "1", "kind": "region", "name": "Home", "respawnDays": 1,
+                  "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 512 } ],
+                  "placements": [
+                    { "id": "service-54", "kind": "service", "houseId": 54, "x": 100, "y": 0, "z": 0 },
+                    { "id": "service-63", "kind": "service", "houseId": 63, "x": 200, "y": 0, "z": 0 } ] },
+                { "id": "2", "kind": "region", "name": "Town", "respawnDays": 1,
+                  "entryPoints": [ { "id": "Party Start", "x": 1, "y": 2, "z": 3, "yaw": 0 } ],
+                  "placements": [ { "id": "service-55", "kind": "service", "houseId": 55, "x": 100, "y": 0, "z": 0 } ] },
+                { "id": "3", "kind": "region", "name": "Port", "respawnDays": 1,
+                  "entryPoints": [ { "id": "North Start", "x": 4, "y": 5, "z": 6, "yaw": 0 }, { "id": "South Start", "x": 7, "y": 8, "z": 9, "yaw": 0 } ],
+                  "placements": [
+                    { "id": "service-56", "kind": "service", "houseId": 56, "x": 100, "y": 0, "z": 0 },
+                    { "id": "service-64", "kind": "service", "houseId": 64, "x": 200, "y": 0, "z": 0 } ] }
+              ]
+            }
+            """),
+    ];
+
+    /// <summary>A bundle naming a tuning pack that states how many days a coach journey takes.</summary>
+    private static (string Path, string Text)[] CoachTuning(int days) =>
+    [
+        ($"{RulesetTestContext.ContentDirectory}/bundles/{RulesetTestContext.BundleId}/bundle.json",
+            $$"""
+            {
+              "schemaVersion": 1,
+              "bundleId": "{{RulesetTestContext.BundleId}}",
+              "ruleset": "mightandmagic7",
+              "contentPacks": [ "world" ],
+              "tuningPack": "tuning",
+              "description": "test bundle"
+            }
+            """),
+        ($"{RulesetTestContext.ContentDirectory}/content-packs/tuning/pack.json",
+            """
+            {
+              "schemaVersion": 1,
+              "packId": "tuning",
+              "kind": "tuning",
+              "provenance": { "description": "authored for a test" },
+              "documents": [ { "path": "tuning.json", "documentId": "tuning", "definitionKind": "tuning" } ]
+            }
+            """),
+        ($"{RulesetTestContext.ContentDirectory}/content-packs/tuning/tuning.json",
+            $$"""{ "documentId": "tuning", "definitionKind": "tuning", "entries": [ { "id": "{{MightAndMagic7Tuning.CoachDays.Id}}", "value": {{days}} } ] }"""),
+    ];
 
     /// <summary>A scenario's party: as many members as a test asks for, and what the purse and larder start with.</summary>
     private static (string Path, string Text) PartyDocument(int food, int members = 2, string name = "Roderick") =>
@@ -423,19 +630,24 @@ public sealed class TravelPolicyTests
         }
         """;
 
-    private static string Manifest(bool party) =>
-        $$"""
-        {
-          "schemaVersion": 1,
-          "packId": "world",
-          "kind": "definitions",
-          "provenance": { "description": "authored for a test" },
-          "documents": [
-            { "path": "places.json", "documentId": "places", "definitionKind": "place" },
-            { "path": "links.json", "documentId": "links", "definitionKind": "travel-link" },
-            { "path": "start.json", "documentId": "start", "definitionKind": "scenario-start" }{{(party ? "," : string.Empty)}}
-            {{(party ? """{ "path": "party.json", "documentId": "party", "definitionKind": "scenario-party" }""" : string.Empty)}}
-          ]
-        }
-        """;
+    private static string Manifest(bool party, bool services)
+    {
+        List<string> documents =
+        [
+            """{ "path": "places.json", "documentId": "places", "definitionKind": "place" }""",
+            """{ "path": "links.json", "documentId": "links", "definitionKind": "travel-link" }""",
+            """{ "path": "start.json", "documentId": "start", "definitionKind": "scenario-start" }""",
+        ];
+        if (party) documents.Add("""{ "path": "party.json", "documentId": "party", "definitionKind": "scenario-party" }""");
+        if (services) documents.Add("""{ "path": "services.json", "documentId": "services", "definitionKind": "service" }""");
+        return $$"""
+            {
+              "schemaVersion": 1,
+              "packId": "world",
+              "kind": "definitions",
+              "provenance": { "description": "authored for a test" },
+              "documents": [ {{string.Join(", ", documents)}} ]
+            }
+            """;
+    }
 }

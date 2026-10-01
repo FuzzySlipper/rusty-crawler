@@ -499,7 +499,7 @@ internal static class Program
         placed = services.CounterCount,
         residences = services.ResidenceCount,
         places = services.PlaceCount,
-        fares = services.FareCount,
+        fareCounters = services.FareCounterCount,
         unplaced = services.RefusalCount,
         byKind = services.Services
             .GroupBy(service => service.Kind)

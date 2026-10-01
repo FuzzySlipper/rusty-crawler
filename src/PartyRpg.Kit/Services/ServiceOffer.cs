@@ -78,6 +78,10 @@ public enum ServiceOfferKind
 /// none.
 /// </param>
 /// <param name="Clears">The conditions a cure or a stay ends, in the order they are cleared.</param>
+/// <param name="Route">
+/// The route a fare's passage runs on, which the ticket carries so the journey it names survives a retune of
+/// how long that route takes; empty for every other kind of offer.
+/// </param>
 /// <exception cref="ArgumentException">The name or a subject is blank, which offers nothing.</exception>
 /// <exception cref="ArgumentOutOfRangeException">The value or the amount is negative.</exception>
 public sealed record ServiceOffer(
@@ -87,7 +91,8 @@ public sealed record ServiceOffer(
     int Value = 0,
     int Amount = 1,
     int Limit = 0,
-    IReadOnlyList<ConditionId>? Clears = null)
+    IReadOnlyList<ConditionId>? Clears = null,
+    string Route = "")
 {
     /// <summary>The conditions this offer ends, which is empty when it ends none.</summary>
     public IReadOnlyList<ConditionId> Conditions => Clears ?? [];

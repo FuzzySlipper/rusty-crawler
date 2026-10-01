@@ -336,12 +336,12 @@ public sealed class ServiceTests
     {
         using OpenCounter counter = new();
 
-        // A passage is what a fare buys: the party holds the ticket and the journey's length, and the counter's own
-        // account of it is what the road reads.
+        // A passage is what a fare buys: the party holds the ticket and the route it was sold on, and the road
+        // reads the route and times it by the game's rule rather than by a length written on the ticket.
         ServiceResult fare = counter.Services.Transact(new ServiceCommand(ServiceOperationKind.Fare, "9"));
         Assert.True(fare.IsApplied);
         Assert.Equal(25, fare.Paid);
-        Assert.Equal(3, counter.Party.Passages.DaysTo(new PlaceId("9")));
+        Assert.Equal("coach", counter.Party.Passages.RouteTo(new PlaceId("9")));
 
         // The result says what the fare was about, which is how the session that owns the road learns which journey
         // the counter sold without keeping its own copy of the screen's request.
@@ -399,7 +399,7 @@ public sealed class ServiceTests
                     new ServiceOffer(ServiceOfferKind.Provision, "Food and drink", Value: 8, Amount: 6),
                     new ServiceOffer(ServiceOfferKind.Stay, "A room for the night", Value: 12, Amount: 8, Clears: [new ConditionId("Tired")]),
                     new ServiceOffer(ServiceOfferKind.Holding, "The counter's keeping", "vault", Value: 0),
-                    new ServiceOffer(ServiceOfferKind.Fare, "A passage to Elsewhere", "9", Value: 25, Amount: 3),
+                    new ServiceOffer(ServiceOfferKind.Fare, "A passage to Elsewhere", "9", Value: 25, Amount: 3, Route: "coach"),
                     new ServiceOffer(ServiceOfferKind.Notice, "Travellers speak of the roads to Elsewhere."),
                 ],
             };
@@ -432,8 +432,8 @@ public sealed class ServiceTests
         {
             Offerings =
             [
-                new ServiceOffer(ServiceOfferKind.Fare, "A passage north", "8", Value: 25, Amount: 2),
-                new ServiceOffer(ServiceOfferKind.Fare, "A passage south", "9", Value: 25, Amount: 3),
+                new ServiceOffer(ServiceOfferKind.Fare, "A passage north", "8", Value: 25, Amount: 2, Route: "coach"),
+                new ServiceOffer(ServiceOfferKind.Fare, "A passage south", "9", Value: 25, Amount: 3, Route: "boat"),
             ],
         };
 
@@ -443,9 +443,26 @@ public sealed class ServiceTests
 
         // Naming one takes that one, and the ticket says which journey it is.
         Assert.True(services.Transact(new ServiceCommand(ServiceOperationKind.Fare, "9")).IsApplied);
-        Assert.Equal(3, party.Passages.DaysTo(new PlaceId("9")));
-        Assert.Equal(0, party.Passages.DaysTo(new PlaceId("8")));
+        Assert.Equal("boat", party.Passages.RouteTo(new PlaceId("9")));
+        Assert.False(party.Passages.Holds(new PlaceId("8")));
         Assert.Equal(75, party.Purse.Coins);
+    }
+
+    /// <summary>A fare offered on no route is refused before anything is settled, because no ticket could name it.</summary>
+    [Fact]
+    public void A_fare_offered_on_no_route_is_refused_and_charges_nothing()
+    {
+        using PartyEntity party = Party(coins: 100);
+        ShopRule rule = new(Shop() with { Operations = [ServiceOperationKind.Fare] })
+        {
+            Offerings = [new ServiceOffer(ServiceOfferKind.Fare, "A passage north", "8", Value: 25, Amount: 2)],
+        };
+
+        PartyServices services = new(rule, party, new PartyResourceLedger(party), Clock());
+        Assert.True(services.Open(rule.Service).IsApplied);
+        Assert.Equal(ServiceCodes.ServiceFareUnrouted, services.Transact(new ServiceCommand(ServiceOperationKind.Fare, "8")).Code);
+        Assert.False(party.Passages.Holds(new PlaceId("8")));
+        Assert.Equal(100, party.Purse.Coins);
     }
 
     [Fact]
@@ -721,7 +738,7 @@ public sealed class ServiceTests
         session.Start();
 
         // The counter sells one passage, to the town the world's own fare reaches.
-        counter.Rule.Offerings = [new ServiceOffer(ServiceOfferKind.Fare, "A passage to Elsewhere", "2", Value: 25, Amount: 3)];
+        counter.Rule.Offerings = [new ServiceOffer(ServiceOfferKind.Fare, "A passage to Elsewhere", "2", Value: 25, Amount: 3, Route: "coach")];
 
         // Walk in through the person who keeps the counter, exactly as the product reaches one.
         session.Update(Admitted.Update(1, 1));

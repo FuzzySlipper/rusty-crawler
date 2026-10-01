@@ -102,7 +102,7 @@ public sealed class SessionWorldDiagnosticsTests
             Catalog(links: ["""{ "id": "coach", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start", "fare": true, "route": "coach" }"""]),
             new Routes());
         using SessionWorld world = FareWorld(graph, party, new FaresRefusedTravel(), diagnostics);
-        party.Passages.Hold(Cave, 2);
+        party.Passages.Hold(Cave, "coach");
 
         TransitionResult refused = world.Board(Cave);
 
@@ -115,21 +115,21 @@ public sealed class SessionWorldDiagnosticsTests
     }
 
     [Fact]
-    public void Two_counters_journeys_of_the_length_the_ticket_names_are_refused_as_travel_fare_ambiguous()
+    public void Two_counters_journeys_on_the_route_the_ticket_names_are_refused_as_travel_fare_ambiguous()
     {
         using PartyEntity party = TestParty.OfFour();
         PlaceGraph graph = PlaceGraphLoader.Load(
             Catalog(links:
             [
                 """{ "id": "coach", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start", "fare": true, "route": "coach" }""",
-                """{ "id": "caravan", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start", "fare": true, "route": "caravan" }""",
+                """{ "id": "second-coach", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start", "fare": true, "route": "coach" }""",
             ]),
             new Routes());
         using SessionWorld world = FareWorld(graph, party, new FreeTravel(), diagnostics: null);
 
-        // Both counters' journeys reach the cave in the two days the passage names, so which was bought cannot be
+        // Both counters' journeys reach the cave on the route the passage names, so which was bought cannot be
         // told from the ticket: the world refuses by name rather than choosing one.
-        party.Passages.Hold(Cave, 2);
+        party.Passages.Hold(Cave, "coach");
         TransitionResult refused = world.Board(Cave);
 
         Assert.False(refused.Arrived);

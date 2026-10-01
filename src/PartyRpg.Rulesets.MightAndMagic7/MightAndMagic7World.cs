@@ -54,6 +54,16 @@ internal static class MightAndMagic7World
     /// </remarks>
     internal const string EntranceDefinitionKind = "place-entrance";
 
+    /// <summary>The world graph this game reads from content: its places, its links, and the passages its counters sell.</summary>
+    /// <remarks>
+    /// The sold crossings are this game's fare network over the counters content places, timed by this game's
+    /// fare rule over the catalog's tuning, so every reader of the world — the session, a save being judged, a
+    /// test — sees the same journeys a counter offers.
+    /// </remarks>
+    /// <param name="catalog">The validated content.</param>
+    internal static PlaceGraph Graph(ContentCatalog catalog) =>
+        PlaceGraphLoader.Load(catalog, MightAndMagic7FareDays.Read(catalog), MightAndMagic7FareNetwork.Read(catalog));
+
     /// <summary>Composes the world, or null when the content does not place the party anywhere.</summary>
     /// <param name="catalog">The validated content the product loaded, when it loaded any.</param>
     /// <param name="context">What the host handed the ruleset, which carries the engine the world moves in.</param>
@@ -133,7 +143,7 @@ internal static class MightAndMagic7World
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(clock);
         if (catalog is null) return null;
-        PlaceGraph graph = PlaceGraphLoader.Load(catalog, MightAndMagic7FareDays.Read(catalog));
+        PlaceGraph graph = Graph(catalog);
         if (graph.Places.Count == 0) return null;
 
         // What content says about interaction is read once, here, with the world: a requirement that names a

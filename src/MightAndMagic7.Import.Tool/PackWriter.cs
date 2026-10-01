@@ -290,17 +290,13 @@ internal static partial class PackWriter
         PlaceEntranceSummary entrances,
         PlaceServiceSummary services)
     {
-        int links = WritePlaceGraph(packDirectory, graph, tables, maps, services);
+        int links = WritePlaceGraph(packDirectory, graph, tables, maps);
         int places = WritePlaceGeometry(packDirectory, collisions);
         int reachCount = WritePlaceEntrances(packDirectory, entrances);
         PlaceMapSummary mapped = WritePlaceMaps(packDirectory, maps);
-        // Every place is referenced by the graph, and a fare's link leaves the place its counter stands in,
-        // so the references state both.
+        // Every place is referenced by the graph.
         IReadOnlyList<string> graphReferences =
-        [
-            .. tables.Maps.Maps.Select(map => $"place:{map.Id.ToString(CultureInfo.InvariantCulture)}"),
-            .. services.Fares.Select(fare => $"service:{fare.ServiceId.ToString(CultureInfo.InvariantCulture)}").Distinct(),
-        ];
+            [.. tables.Maps.Maps.Select(map => $"place:{map.Id.ToString(CultureInfo.InvariantCulture)}")];
         IReadOnlyList<string> geometryReferences =
             [.. collisions.Where(place => place.Emitted).Select(place => $"place:{place.PlaceId.ToString(CultureInfo.InvariantCulture)}")];
 

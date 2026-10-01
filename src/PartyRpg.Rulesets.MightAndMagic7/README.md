@@ -99,9 +99,14 @@ policy (`MightAndMagic7Provisions` — one ration a day, and the weak condition 
 on every member), and what a crossing costs (`MightAndMagic7TravelCostRule` — a day on the road and the
 rations it eats; a fare is honoured by the passage the party bought, and a portal — a crossing the caster
 issues rather than a place — is free of road time because the spell already paid for it), how long a journey a
-counter sells takes (`MightAndMagic7FareDays` — content names a fare's route, `coach` or `boat`, and the days are
-the tuned length of that network, the one answer the counter writes on the ticket, the world matches a boarding
-by, and the road charges the clock), which creatures a level's spawn records put on the field
+counter sells takes (`MightAndMagic7FareDays` — a stable sells on the `coach` route and a dock on the `boat`
+route, and the days are the tuned length of that network, the one answer the counter quotes and the road charges
+the clock; the ticket the party holds and a save carries names the route and not the days, so a retune never
+strands a passage), where those counters sell passages to (`MightAndMagic7FareNetwork`, an `IFareNetwork` — over
+the counters content places, every stable reaches every other place that keeps a stable and every dock every other
+port, one crossing per pair of stops landing at the destination's own start; the counter's offers and the world
+graph's sold crossings are both read from it, through `MightAndMagic7World.Graph`, and content that authors a sold
+crossing of its own is refused by name; ours, simpler than the donor's thirty-five scheduled routes), which creatures a level's spawn records put on the field
 (`MightAndMagic7Spawns` — the importer writes each actor record as an `encounter` placement and chooses nothing;
 this game draws a random slot's count from its range and each creature's grade from the donor's odds for the
 slot's difficulty, through the engine's keyed random service under the place and the spawn index, when the
