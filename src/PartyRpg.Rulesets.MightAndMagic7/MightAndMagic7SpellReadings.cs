@@ -300,6 +300,10 @@ internal readonly record struct BuffReading(
 /// What the coverage report says the spell does where the category's own sentence would not say it, empty when
 /// the category's sentence is the whole truth.
 /// </param>
+/// <param name="AgesCaster">How many years older than their natural age the casting leaves its caster, zero for none.</param>
+/// <param name="Rejuvenates">Whether the casting gives back every year its carrier was aged beyond their natural age.</param>
+/// <param name="ForGood">The score the casting raises for good, once for each character, or null for none.</param>
+/// <param name="ForGoodBy">How much that score is raised by.</param>
 internal readonly record struct SpellReading(
     HealingMode Healing,
     int HealBase,
@@ -326,7 +330,11 @@ internal readonly record struct SpellReading(
     string Receiver,
     bool NotApplied = false,
     BuffReading[]? Buffs = null,
-    string Expresses = "")
+    string Expresses = "",
+    int AgesCaster = 0,
+    bool Rejuvenates = false,
+    AttributeId? ForGood = null,
+    int ForGoodBy = 0)
 {
     /// <summary>The reading of a spell whose category this field does not describe.</summary>
     internal static readonly SpellReading None = new(
@@ -438,6 +446,20 @@ internal static class Readings
     /// <summary>A carried effect the donor withholds while a character it would land on is weak, which is its haste.</summary>
     internal static SpellReading WithheldFromTheWeak(this SpellReading reading) =>
         reading.Buff is { } buff ? reading with { Buff = buff with { SparesTheWeak = true } } : reading;
+
+    /// <summary>A casting that leaves its caster older than their natural age, which is the donor's divine intervention.</summary>
+    /// <param name="reading">The reading the spell otherwise has.</param>
+    /// <param name="years">How many years it adds.</param>
+    internal static SpellReading AgesTheCaster(this SpellReading reading, int years) => reading with { AgesCaster = years };
+
+    /// <summary>Every year a character was aged beyond their natural age given back, which is the donor's rejuvenation.</summary>
+    internal static SpellReading Rejuvenation() => SpellReading.None with { Rejuvenates = true };
+
+    /// <summary>A score raised for good, once for each character, which is the donor's pure potions.</summary>
+    /// <param name="attribute">The score raised.</param>
+    /// <param name="by">How much it is raised by.</param>
+    internal static SpellReading RaisesForGood(AttributeId attribute, int by) =>
+        SpellReading.None with { ForGood = attribute, ForGoodBy = by };
 
     /// <summary>What the coverage report says a spell does, where its category's own sentence would not say it.</summary>
     internal static SpellReading Says(this SpellReading reading, string expresses) => reading with { Expresses = expresses };
@@ -617,6 +639,16 @@ internal static class SpellEffectIds
     /// <summary>The record the party keeps for the beacon it set, at the place it was set in.</summary>
     /// <param name="place">The place the beacon stands in.</param>
     internal static string Beacon(PlaceId place) => new BeaconIdentity(place).Record;
+
+    /// <summary>
+    /// The record the party keeps that one character has had the potion that raises one score for good, which the
+    /// donor keeps per character and per score (<c>OpenEnroth/src/Engine/Objects/Character.cpp:3282-3295</c>,
+    /// <c>_pureStatPotionUsed</c>).
+    /// </summary>
+    /// <param name="member">The character.</param>
+    /// <param name="attribute">The score.</param>
+    internal static string ForGood(PartyMemberId member, AttributeId attribute) =>
+        string.Concat("potion.for-good.", member.ToString(), ".", attribute.Value);
 
     /// <summary>The place a beacon record stands for, or null when the record is not a beacon's.</summary>
     /// <param name="record">The record's name.</param>

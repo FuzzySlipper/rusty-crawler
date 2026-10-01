@@ -430,7 +430,8 @@ public sealed class PartyEntity : IDisposable
                 member.Resources.HitPoints,
                 member.Resources.SpellPoints,
                 member.Profile.Portrait,
-                member.Spells.QuickSpell),
+                member.Spells.QuickSpell,
+                member.Progression.AgeOffset),
                 [.. member.Effects.Active]));
         }
 

@@ -232,20 +232,23 @@ internal static class MightAndMagic7Potions
         // Character.cpp:3378-3382.
         new(263, SpellEffects.Utility, SpellTargeting.None, Readings.Unaimable("a weapon made deadly to dragons", "an item-aim owner: the pack holds the party's items and nothing aims a potion at one")),   // Slaying Potion
 
-        // The seven pure potions: fifty to a score, for good, once each. Character.cpp:3384-3400, where the
+        // The seven pure potions: fifty to a score, for good, once each. Character.cpp:3282-3295, where the
         // donor records that the character has already had that one. A permanent score change is
-        // progression's business rather than an effect's.
-        new(264, SpellEffects.Utility, SpellTargeting.Caster, Readings.NotYet("Luck raised for good", "progression, which owns a character's attributes and their growth")),   // Pure Luck
-        new(265, SpellEffects.Utility, SpellTargeting.Caster, Readings.NotYet("Speed raised for good", "progression, which owns a character's attributes and their growth")),   // Pure Speed
-        new(266, SpellEffects.Utility, SpellTargeting.Caster, Readings.NotYet("Intellect raised for good", "progression, which owns a character's attributes and their growth")),   // Pure Intellect
-        new(267, SpellEffects.Utility, SpellTargeting.Caster, Readings.NotYet("Endurance raised for good", "progression, which owns a character's attributes and their growth")),   // Pure Endurance
-        new(268, SpellEffects.Utility, SpellTargeting.Caster, Readings.NotYet("Personality raised for good", "progression, which owns a character's attributes and their growth")),   // Pure Personality
-        new(269, SpellEffects.Utility, SpellTargeting.Caster, Readings.NotYet("Accuracy raised for good", "progression, which owns a character's attributes and their growth")),   // Pure Accuracy
-        new(270, SpellEffects.Utility, SpellTargeting.Caster, Readings.NotYet("Might raised for good", "progression, which owns a character's attributes and their growth")),   // Pure Might
+        // progression's state, written on the character the potion is drunk by.
+        new(264, SpellEffects.Utility, SpellTargeting.Caster, Readings.RaisesForGood(MightAndMagic7Combat.LuckAttribute, PureScorePoints).OnOne().Says("Luck raised by fifty for good through the character's own scores, once in their life: a second bottle is drunk and changes nothing")),   // Pure Luck
+        new(265, SpellEffects.Utility, SpellTargeting.Caster, Readings.RaisesForGood(MightAndMagic7Combat.SpeedAttribute, PureScorePoints).OnOne().Says("Speed raised by fifty for good through the character's own scores, once in their life: a second bottle is drunk and changes nothing")),   // Pure Speed
+        new(266, SpellEffects.Utility, SpellTargeting.Caster, Readings.RaisesForGood(MightAndMagic7Combat.IntellectAttribute, PureScorePoints).OnOne().Says("Intellect raised by fifty for good through the character's own scores, once in their life: a second bottle is drunk and changes nothing")),   // Pure Intellect
+        new(267, SpellEffects.Utility, SpellTargeting.Caster, Readings.RaisesForGood(MightAndMagic7Health.EnduranceAttribute, PureScorePoints).OnOne().Says("Endurance raised by fifty for good through the character's own scores, once in their life: a second bottle is drunk and changes nothing")),   // Pure Endurance
+        new(268, SpellEffects.Utility, SpellTargeting.Caster, Readings.RaisesForGood(MightAndMagic7Combat.PersonalityAttribute, PureScorePoints).OnOne().Says("Personality raised by fifty for good through the character's own scores, once in their life: a second bottle is drunk and changes nothing")),   // Pure Personality
+        new(269, SpellEffects.Utility, SpellTargeting.Caster, Readings.RaisesForGood(MightAndMagic7Combat.AccuracyAttribute, PureScorePoints).OnOne().Says("Accuracy raised by fifty for good through the character's own scores, once in their life: a second bottle is drunk and changes nothing")),   // Pure Accuracy
+        new(270, SpellEffects.Utility, SpellTargeting.Caster, Readings.RaisesForGood(MightAndMagic7Combat.MightAttribute, PureScorePoints).OnOne().Says("Might raised by fifty for good through the character's own scores, once in their life: a second bottle is drunk and changes nothing")),   // Pure Might
 
-        // Rejuvenation: the age modifier set to zero. Character.cpp:3402-3404.
-        new(271, SpellEffects.Utility, SpellTargeting.Caster, Readings.NotYet("unnatural ageing undone", "progression, which owns a character's age")),   // Rejuvenation
+        // Rejuvenation: the age modifier set to zero. Character.cpp:3297-3299.
+        new(271, SpellEffects.Utility, SpellTargeting.Caster, Readings.Rejuvenation().OnOne().Says("every year the character was aged beyond their natural age given back, through the age progression keeps for them")),   // Rejuvenation
     ];
+
+    /// <summary>What a pure potion adds to its score, once: fifty (<c>OpenEnroth/src/Engine/Objects/Character.cpp:3282-3295</c>).</summary>
+    private const int PureScorePoints = 50;
 
     /// <summary>Every potion effect this game states, in the shipped table's own id order.</summary>
     internal static IReadOnlyList<PotionEffect> Effects => Table;

@@ -81,11 +81,11 @@ Owns:
     leather level to fire, air, water and earth, beside the wards spells leave. Faithful for those terms; the
     character's own base and racial terms are not stated by this game's members, followers are #8514, and
     enchantments #8513.
-  - **the scores every sum reads** (`Character.cpp:729-765`, `GetActualStat`): the score the character carries,
-    plus a potion's boost of that score on them and the party's day of the gods, which adds to all seven
-    (`:2360-2387`). Faithful for those terms; the ageing and conditions multipliers, item bonuses (#8513) and a
-    follower's luck (#8514) are not invented. The pools are set by progression and are not re-read while a boost
-    runs (ours).
+  - **the scores every sum reads** (`Character.cpp:729-765`, `GetActualStat`): the score the character carries
+    at the share their age leaves of it (`MightAndMagic7Ageing`, the donor's table at `:222-232`), plus a potion's
+    boost of that score on them and the party's day of the gods, which adds to all seven (`:2360-2387`). Faithful
+    for those terms; the conditions multiplier, item bonuses (#8513) and a follower's luck (#8514) are not
+    invented. The pools are set by progression and are not re-read while a boost runs (ours).
   - **what a spell adds** (`Character.cpp:2322-2395`, `GetMagicalBonus`): every buff is read as the character's
     own plus the party's of the same name, so a potion on one member and a spell on the band are one reading —
     a haste takes the donor's flat twenty-five ticks whichever carries it (`:1723-1728`), and nothing the party
@@ -104,7 +104,14 @@ Owns:
 - Combat, damage, resistance, conditions, recovery, reward, and experience formulas.
 - Progression policy: the experience curve, how a party's award divides, what a
   level gives each class and rank, the skill points a level grants, and what the
-  world makes of a party's deeds.
+  world makes of a party's deeds. Age (`MightAndMagic7Ageing`): a character's natural age is twenty-one at the
+  clock's first year and a year more for every year it runs (ours: the donor draws a birth year up to five years
+  earlier, `Character.cpp:2891`), and the years something aged them beyond it are the character's own
+  `CharacterProgression.AgeOffset`, which a save carries — a divine intervention adds ten to its caster, never past
+  a hundred and twenty (`CastSpellInfo.cpp:2603-2607`), and a potion of rejuvenation gives them all back
+  (`Character.cpp:3297-3299`). A pure potion raises its score by fifty for good, once in a character's life, kept
+  as a record under the character and the score (`Character.cpp:3282-3295`). A creature's ageing touch is a special
+  attack this build does not apply yet, with breaking and stealing an item (see `ConditionOf`).
 - Time, calendar, rest, fatigue, and travel policy, including service hours.
 - Quest, guild, reputation, and journal policy: the errands the shipped quest table states, what each asks
   and pays, who gives it, and the board a town hall posts.

@@ -166,7 +166,9 @@ every shortfall named rather than overdrawing the purse — credits the same two
 travelling or camping day as a `ProvisionDay`, priced by a ruleset's `IProvisionDayRule`, with `ResourceSettlement` as the
 outcome), the
 one progression owner (`Progression/` — `PartyProgression` is where experience, a level, a skill
-point, and a rank move and nowhere else: `Award` is the one entry a kill, a quest, or any other source arrives at and
+point, and a rank move and nowhere else — the years a character was aged beyond their natural age,
+`CharacterProgression.AgeOffset`, are the one exception, written by whatever the game says ages a character or
+gives the years back (`Age`, `Rejuvenate`) and carried in the member's seed: `Award` is the one entry a kill, a quest, or any other source arrives at and
 divides by the ruleset's own rule, `Train` is what a counter's step settles through — the fee charged by
 the party's one ledger, the level's pools grown by the ruleset's class and rank tables, the points granted,
 and both pools filled — and `RaiseSkill` is the only way a skill point is spent: it asks the skill policy

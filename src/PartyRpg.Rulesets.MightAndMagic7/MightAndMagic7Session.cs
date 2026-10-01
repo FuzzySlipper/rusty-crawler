@@ -268,7 +268,7 @@ internal sealed class MightAndMagic7Session : IGameSession
         // What each member wears is read through this game's figure, once: the fight reads its weapons and armour
         // into every sum it prices a character by, and the session's equipment owner offers its slots to the panel.
         MightAndMagic7Figure? figure = MightAndMagic7Figure.Read(Declared(context.Content));
-        composed = MightAndMagic7Combat.Compose(Declared(context.Content), context.Engine?.Random, spells, () => owners.Party, () => spellEffects, figure);
+        composed = MightAndMagic7Combat.Compose(Declared(context.Content), context.Engine?.Random, spells, () => owners.Party, () => spellEffects, figure, clock);
         MightAndMagic7Combat combat = composed;
 
         long Worth(PlacementDefinition placement) =>

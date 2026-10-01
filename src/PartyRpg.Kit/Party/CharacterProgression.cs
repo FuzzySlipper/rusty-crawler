@@ -28,8 +28,10 @@ public sealed class CharacterProgression
     /// <param name="skillPoints">Skill points not yet spent, which cannot be negative.</param>
     /// <param name="classRank">The character's rank in its class ladder, which is at least one.</param>
     /// <exception cref="ArgumentOutOfRangeException">A value is outside what it can mean.</exception>
-    public CharacterProgression(long experience = 0, int level = 1, int skillPoints = 0, int classRank = 1)
+    public CharacterProgression(long experience = 0, int level = 1, int skillPoints = 0, int classRank = 1, int ageOffset = 0)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(ageOffset);
+        AgeOffset = ageOffset;
         ArgumentOutOfRangeException.ThrowIfNegative(experience);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(level);
         ArgumentOutOfRangeException.ThrowIfNegative(skillPoints);
@@ -51,6 +53,48 @@ public sealed class CharacterProgression
 
     /// <summary>The character's rank in its class ladder, where one is the starting rank.</summary>
     public int ClassRank { get; private set; }
+
+    /// <summary>
+    /// How many years older than their natural age the character has been made, zero when nothing has aged them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A character's natural age is a game's own reading of when they were born and what the clock says now; what
+    /// is kept here is only what something did to them on top of that — a creature's withering touch, a spell
+    /// whose price is years — because that is the part a save must carry and a remedy can undo. How old the
+    /// character therefore is, and what age does to them, is the game's answer.
+    /// </para>
+    /// <para>
+    /// Unlike the rest of this component, which only progression moves, these years are written by whatever the
+    /// game says ages a character or gives the years back, through <see cref="Age"/> and <see cref="Rejuvenate"/>.
+    /// </para>
+    /// </remarks>
+    public int AgeOffset { get; private set; }
+
+    /// <summary>Makes the character older than their natural age by a number of years, never past a stated ceiling.</summary>
+    /// <param name="years">How many years are added, which cannot be negative.</param>
+    /// <param name="ceiling">The most the years added can come to, which a game may state; null when nothing caps them.</param>
+    /// <returns>How many years were actually added.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The years or the ceiling are negative.</exception>
+    public int Age(int years, int? ceiling = null)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(years);
+        if (ceiling is { } cap) ArgumentOutOfRangeException.ThrowIfNegative(cap);
+        long aged = (long)AgeOffset + years;
+        int next = (int)Math.Min(ceiling is { } most ? Math.Max(most, AgeOffset) : int.MaxValue, aged);
+        int added = next - AgeOffset;
+        AgeOffset = next;
+        return added;
+    }
+
+    /// <summary>Gives back every year the character was aged beyond their natural age.</summary>
+    /// <returns>How many years were given back.</returns>
+    public int Rejuvenate()
+    {
+        int years = AgeOffset;
+        AgeOffset = 0;
+        return years;
+    }
 
     /// <summary>Awards experience. Whether it is enough to advance a level is the ruleset's decision, made after this.</summary>
     /// <param name="amount">How much experience to award, which cannot be negative.</param>

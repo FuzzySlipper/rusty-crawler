@@ -117,18 +117,18 @@ public sealed class SpellReadingPolicyTests
         DamageRoll bare = policy.PlanOf(borin, beast, AttackKind.Melee).Damage;
         Assert.Equal(13, policy.ActualAttribute(knight, MightAndMagic7Combat.MightAttribute));
 
-        // Master light at two levels: four a level plus ten, to all seven scores, for four hours a level
+        // Grand master light at two levels: five a level plus ten, to all seven scores, for five hours a level
         // (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:2450-2475, read at Character.cpp:2360-2387).
         Cast(session, ui, 1, "83", string.Empty);
         Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
-        Assert.Equal(18d, Running(Magic(ui), "spell.day-of-the-gods").Field("magnitude").AsNumber());
-        Assert.Equal(13 + 18, policy.ActualAttribute(knight, MightAndMagic7Combat.MightAttribute));
-        Assert.Equal(9 + 18, policy.ActualAttribute(knight, MightAndMagic7Combat.LuckAttribute));
+        Assert.Equal(20d, Running(Magic(ui), "spell.day-of-the-gods").Field("magnitude").AsNumber());
+        Assert.Equal(13 + 20, policy.ActualAttribute(knight, MightAndMagic7Combat.MightAttribute));
+        Assert.Equal(9 + 20, policy.ActualAttribute(knight, MightAndMagic7Combat.LuckAttribute));
 
-        // Might is what a blow adds, by the donor's own table: thirteen is worth nothing and thirty-one is worth five.
+        // Might is what a blow adds, by the donor's own table.
         DamageRoll raised = policy.PlanOf(borin, beast, AttackKind.Melee).Damage;
         Assert.Equal(
-            MightAndMagic7AttributeBonus.Of(31) - MightAndMagic7AttributeBonus.Of(13),
+            MightAndMagic7AttributeBonus.Of(33) - MightAndMagic7AttributeBonus.Of(13),
             raised.Bonus - bare.Bonus);
     }
 
@@ -188,6 +188,57 @@ public sealed class SpellReadingPolicyTests
         Assert.Equal(2, policy.PlanOf(beast, aelina, AttackKind.Ranged).Divisor);
     }
 
+    [Fact]
+    public void A_divine_intervention_ages_its_caster_and_age_is_read_into_the_scores_and_given_back_by_a_potion()
+    {
+        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(Readings());
+        using IGameSession session = Casting(context, ui);
+        MightAndMagic7Session live = (MightAndMagic7Session)session;
+        MightAndMagic7Combat policy = Fight(context, live.Party!);
+        PartyMember caster = live.Party!.Members[0];
+        PartyMember knight = live.Party.Members[1];
+
+        // The donor's price for a divine intervention is ten years on the caster (OpenEnroth
+        // src/Engine/Spells/CastSpellInfo.cpp:2603-2607), which the save carries as the caster's own age.
+        Cast(session, ui, 1, "88", string.Empty);
+        Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
+        Assert.Equal(10, caster.Progression.AgeOffset);
+        Assert.Equal(MightAndMagic7Ageing.StartingAge + 10, MightAndMagic7Ageing.AgeOf(caster, clock: null));
+
+        // Past a hundred, the donor's ageing table takes a quarter off might and adds half to intellect
+        // (OpenEnroth src/Engine/Objects/Character.cpp:222-232, 729-765).
+        knight.Progression.Age(80);
+        Assert.Equal(13 * 75 / 100, policy.ActualAttribute(knight, MightAndMagic7Combat.MightAttribute));
+        Assert.Equal(9 * 150 / 100, policy.ActualAttribute(knight, MightAndMagic7Combat.IntellectAttribute));
+        Assert.Equal(9, policy.ActualAttribute(knight, MightAndMagic7Combat.LuckAttribute));
+
+        // A potion of rejuvenation gives the drinker back every year something aged them (Character.cpp:3297-3299).
+        Drink(session, 2, 271);
+        Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
+        Assert.Equal(0, caster.Progression.AgeOffset);
+    }
+
+    [Fact]
+    public void A_pure_potion_raises_its_score_for_good_once_in_a_characters_life()
+    {
+        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(Readings());
+        using IGameSession session = Casting(context, ui);
+        MightAndMagic7Session live = (MightAndMagic7Session)session;
+        PartyMember drinker = live.Party!.Members[0];
+
+        // Fifty to the score, once (OpenEnroth src/Engine/Objects/Character.cpp:3282-3295).
+        Drink(session, 1, 264);
+        Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
+        Assert.Equal(13 + 50, drinker.Attributes[MightAndMagic7Combat.LuckAttribute]);
+
+        // A second bottle is drunk and does nothing, which the donor's own record of that potion decides.
+        Drink(session, 2, 264);
+        Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
+        Assert.Contains("already", Magic(ui).Field("message").AsString(), StringComparison.Ordinal);
+        Assert.Equal(13 + 50, drinker.Attributes[MightAndMagic7Combat.LuckAttribute]);
+        Assert.DoesNotContain(live.Party.Items, item => item.Definition.Value == "264");
+    }
+
     /// <summary>Drinks the first bottle of one potion the party carries, as the panel's own control does.</summary>
     private static void Drink(IGameSession session, ulong step, int potion)
     {
@@ -214,6 +265,7 @@ public sealed class SpellReadingPolicyTests
                 { "id": "71", "school": "Body", "level": 5, "name": "Regeneration", "resist": "0" },
                 { "id": "83", "school": "Light", "level": 6, "name": "Day of the Gods", "resist": "0" },
                 { "id": "86", "school": "Light", "level": 9, "name": "Hour of Power", "resist": "0" },
+                { "id": "88", "school": "Light", "level": 11, "name": "Divine Intervention", "resist": "0" },
                 { "id": "95", "school": "Dark", "level": 7, "name": "Pain Reflection", "resist": "0" }
               ]
             }
@@ -226,7 +278,7 @@ public sealed class SpellReadingPolicyTests
               "entries": [
                 {
                   "id": "party", "coins": 5000, "food": 30, "reputation": 0, "fame": 0,
-                  "pack": [ { "item": "232", "count": 1 }, { "item": "240", "count": 1 } ],
+                  "pack": [ { "item": "232", "count": 1 }, { "item": "240", "count": 1 }, { "item": "264", "count": 2 }, { "item": "271", "count": 1 } ],
                   "members": [
                     { "name": "Aelina", "race": "Elf", "class": "Sorcerer", "level": 30, "hitPoints": 40, "spellPoints": 0,
                       "attributes": [ { "id": "Might", "value": 9 }, { "id": "Intellect", "value": 50 },
@@ -235,9 +287,9 @@ public sealed class SpellReadingPolicyTests
                                       { "id": "Luck", "value": 13 } ],
                       "skills": [ { "id": "Air", "level": 3, "tier": 2, "pointsSpent": 1 },
                                   { "id": "Body", "level": 3, "tier": 2, "pointsSpent": 1 },
-                                  { "id": "Light", "level": 2, "tier": 3, "pointsSpent": 1 },
+                                  { "id": "Light", "level": 2, "tier": 4, "pointsSpent": 1 },
                                   { "id": "Dark", "level": 4, "tier": 2, "pointsSpent": 1 } ],
-                      "spells": [ "17", "71", "83", "86", "95" ], "conditions": [] },
+                      "spells": [ "17", "71", "83", "86", "88", "95" ], "conditions": [] },
                     { "name": "Borin", "race": "Human", "class": "Knight", "level": 1, "hitPoints": 400, "spellPoints": 0,
                       "attributes": [ { "id": "Might", "value": 13 }, { "id": "Intellect", "value": 9 },
                                       { "id": "Personality", "value": 9 }, { "id": "Endurance", "value": 13 },
@@ -269,7 +321,9 @@ public sealed class SpellReadingPolicyTests
                   "definitionKind": "item",
                   "entries": [
                     { "id": "232", "name": "Shield", "value": 300, "equipStat": "Bottle", "type": "potion", "skillGroup": "Misc", "skill": "misc", "damageDice": "0", "damageModifier": "1" },
-                    { "id": "240", "name": "Might Boost", "value": 300, "equipStat": "Bottle", "type": "potion", "skillGroup": "Misc", "skill": "misc", "damageDice": "0", "damageModifier": "1" }
+                    { "id": "240", "name": "Might Boost", "value": 300, "equipStat": "Bottle", "type": "potion", "skillGroup": "Misc", "skill": "misc", "damageDice": "0", "damageModifier": "1" },
+                    { "id": "264", "name": "Pure Luck", "value": 5000, "equipStat": "Bottle", "type": "potion", "skillGroup": "Misc", "skill": "misc", "damageDice": "0", "damageModifier": "1" },
+                    { "id": "271", "name": "Rejuvenation", "value": 5000, "equipStat": "Bottle", "type": "potion", "skillGroup": "Misc", "skill": "misc", "damageDice": "0", "damageModifier": "1" }
                   ]
                 }
                 """,
@@ -281,7 +335,9 @@ public sealed class SpellReadingPolicyTests
                   "definitionKind": "potion",
                   "entries": [
                     { "id": "232", "name": "Shield", "description": "Purple Potion", "effect": "Cast Shield", "kind": "potion", "units": [1, 0, 1], "tier": 2, "mixtures": { "232": "none" } },
-                    { "id": "240", "name": "Might Boost", "description": "Yellow Potion", "effect": "+3 Might", "kind": "potion", "units": [0, 0, 1], "tier": 2, "mixtures": { "240": "none" } }
+                    { "id": "240", "name": "Might Boost", "description": "Yellow Potion", "effect": "+3 Might", "kind": "potion", "units": [0, 0, 1], "tier": 2, "mixtures": { "240": "none" } },
+                    { "id": "264", "name": "Pure Luck", "description": "White Potion", "effect": "+50 Luck", "kind": "potion", "units": [2, 2, 2], "tier": 4, "mixtures": { "264": "none" } },
+                    { "id": "271", "name": "Rejuvenation", "description": "White Potion", "effect": "Removes Unnatural Aging", "kind": "potion", "units": [3, 3, 3], "tier": 4, "mixtures": { "271": "none" } }
                   ]
                 }
                 """,

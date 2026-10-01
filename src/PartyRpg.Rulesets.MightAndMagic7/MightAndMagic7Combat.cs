@@ -384,6 +384,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     private readonly Func<PartyEntity?> _party;
     private readonly Func<IMemberSpellEffects?> _memberEffects;
     private readonly MightAndMagic7Figure? _figure;
+    private readonly GameClock? _clock;
 
     private MightAndMagic7Combat(
         Dictionary<int, MonsterFacts> monsters,
@@ -393,8 +394,10 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         MightAndMagic7Spells? spells,
         Func<PartyEntity?>? party,
         Func<IMemberSpellEffects?>? memberEffects,
-        MightAndMagic7Figure? figure)
+        MightAndMagic7Figure? figure,
+        GameClock? clock)
     {
+        _clock = clock;
         _monsters = monsters;
         _people = people;
         _person = person;
@@ -448,14 +451,15 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// <remarks>
     /// <para>
     /// The donor's <c>GetActualStat</c> (<c>OpenEnroth/src/Engine/Objects/Character.cpp:729-765</c>) is a sum of
-    /// terms, and this states the ones this build carries, in its order: the score itself, then the magical bonus —
-    /// the character's own boost of that score (a potion's, <c>CHARACTER_BUFF_STRENGTH</c> and its siblings) and the
-    /// party's day of the gods, which adds to all seven (<c>:2360-2387</c>). Faithful for those terms.
+    /// terms, and this states the ones this build carries, in its order: the score itself at the share the character's
+    /// age leaves of it (<see cref="MightAndMagic7Ageing"/>), then the magical bonus — the character's own boost of that
+    /// score (a potion's, <c>CHARACTER_BUFF_STRENGTH</c> and its siblings) and the party's day of the gods, which adds
+    /// to all seven (<c>:2360-2387</c>). Faithful for those terms.
     /// </para>
     /// <para>
-    /// The others are not invented: the ageing multiplier and the conditions' multiplier wait for a character's
-    /// own age and for this game's condition table, item bonuses wait for enchantments (#8513), and a follower's
-    /// luck for followers (#8514). Each is one more line here when its owner lands.
+    /// The others are not invented: the conditions' multiplier waits for this game's condition table, item bonuses
+    /// wait for enchantments (#8513), and a follower's luck for followers (#8514). Each is one more line here when its
+    /// owner lands.
     /// </para>
     /// </remarks>
     /// <param name="member">The character.</param>
@@ -466,7 +470,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     {
         ArgumentNullException.ThrowIfNull(member);
         int score = member.Attributes.TryGet(attribute, out int carried)
-            ? carried
+            ? MightAndMagic7Ageing.Aged(attribute, carried, MightAndMagic7Ageing.AgeOf(member, _clock))
             : throw new InvalidOperationException(
                 $"{member.Profile.Name} has no '{attribute}' attribute, so this game cannot price what their fights are worth.");
         score += MemberWard(member, SpellEffectIds.Attribute(attribute));
@@ -509,6 +513,10 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// This game's figure, which says what each worn item is: a caller that composed one passes it so the session
     /// reads the item table once, and one read here otherwise.
     /// </param>
+    /// <param name="clock">
+    /// The session's one clock, which a character's natural age is read from; without one every character is the
+    /// age they started at.
+    /// </param>
     /// <returns>This game's combat policy.</returns>
     /// <exception cref="ContentValidationException">Content declares a monster or a creature this game cannot fight; every problem is named.</exception>
     internal static MightAndMagic7Combat Compose(
@@ -517,9 +525,10 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         MightAndMagic7Spells? spells = null,
         Func<PartyEntity?>? party = null,
         Func<IMemberSpellEffects?>? memberEffects = null,
-        MightAndMagic7Figure? figure = null)
+        MightAndMagic7Figure? figure = null,
+        GameClock? clock = null)
     {
-        if (catalog is null) return new MightAndMagic7Combat([], [], null, random, spells, party, memberEffects, figure: null);
+        if (catalog is null) return new MightAndMagic7Combat([], [], null, random, spells, party, memberEffects, figure: null, clock);
         List<ContentValidationIssue> issues = [];
         Dictionary<int, MonsterFacts> monsters = ReadMonsters(catalog, spells ?? MightAndMagic7Spells.Read(catalog), issues);
         Dictionary<string, string> people = ReadPeople(catalog);
@@ -542,7 +551,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             .OrderBy(row => row.Id)
             .FirstOrDefault();
 
-        return new MightAndMagic7Combat(monsters, people, person, random, spells ?? MightAndMagic7Spells.Read(catalog), party, memberEffects, figure ?? MightAndMagic7Figure.Read(catalog));
+        return new MightAndMagic7Combat(monsters, people, person, random, spells ?? MightAndMagic7Spells.Read(catalog), party, memberEffects, figure ?? MightAndMagic7Figure.Read(catalog), clock);
     }
 
     /// <summary>How many monster rows this policy can fight.</summary>

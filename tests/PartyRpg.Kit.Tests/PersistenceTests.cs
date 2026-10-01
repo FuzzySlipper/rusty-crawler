@@ -139,6 +139,27 @@ public sealed class PersistenceTests
     }
 
     [Fact]
+    public void The_years_a_character_was_aged_survive_the_saved_bytes_and_can_be_given_back()
+    {
+        using PartyEntity party = TestParty.OfFour();
+        PartyMember withered = party.Members[2];
+
+        // Ageing adds years beyond a character's natural age, never past a ceiling a game states.
+        Assert.Equal(7, withered.Progression.Age(7));
+        Assert.Equal(3, withered.Progression.Age(10, ceiling: 10));
+        Assert.Equal(10, withered.Progression.AgeOffset);
+
+        SessionSave save = new(party.Capture(), new ClockSave(0), new WorldSave(new PartyPose(Home, PlacePose.Origin), new PlaceStateLedgerSnapshot(0, [])));
+        using PartyEntity restored = new PartyEntityFactory().Restore(Decode(Encode(save)).Party);
+        Assert.Equal(10, restored.Members[2].Progression.AgeOffset);
+        Assert.Equal(0, restored.Members[0].Progression.AgeOffset);
+
+        // A remedy gives every one of those years back.
+        Assert.Equal(10, restored.Members[2].Progression.Rejuvenate());
+        Assert.Equal(0, restored.Members[2].Progression.AgeOffset);
+    }
+
+    [Fact]
     public void Empty_equipment_and_an_empty_spellbook_round_trip_as_empty()
     {
         // A created party starts with nothing worn and no spells: the manual itemises no starting kit and

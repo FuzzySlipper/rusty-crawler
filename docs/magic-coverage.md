@@ -112,14 +112,14 @@ the shipped `POTION.TXT` states what each potion is for in words and no numbers 
 | 261 | resistance | caster | implemented | a resistance carried by the character and read by the fight's own resistance sum, with a deadline on the one clock |  |
 | 262 | condition | caster | implemented | the conditions the potion names lifted from the drinker's own condition state |  |
 | 263 | utility | none | not yet | a weapon made deadly to dragons | an item-aim owner: the pack holds the party's items and nothing aims a potion at one |
-| 264 | utility | caster | not yet | Luck raised for good | progression, which owns a character's attributes and their growth |
-| 265 | utility | caster | not yet | Speed raised for good | progression, which owns a character's attributes and their growth |
-| 266 | utility | caster | not yet | Intellect raised for good | progression, which owns a character's attributes and their growth |
-| 267 | utility | caster | not yet | Endurance raised for good | progression, which owns a character's attributes and their growth |
-| 268 | utility | caster | not yet | Personality raised for good | progression, which owns a character's attributes and their growth |
-| 269 | utility | caster | not yet | Accuracy raised for good | progression, which owns a character's attributes and their growth |
-| 270 | utility | caster | not yet | Might raised for good | progression, which owns a character's attributes and their growth |
-| 271 | utility | caster | not yet | unnatural ageing undone | progression, which owns a character's age |
+| 264 | utility | caster | implemented | Luck raised by fifty for good through the character's own scores, once in their life: a second bottle is drunk and changes nothing |  |
+| 265 | utility | caster | implemented | Speed raised by fifty for good through the character's own scores, once in their life: a second bottle is drunk and changes nothing |  |
+| 266 | utility | caster | implemented | Intellect raised by fifty for good through the character's own scores, once in their life: a second bottle is drunk and changes nothing |  |
+| 267 | utility | caster | implemented | Endurance raised by fifty for good through the character's own scores, once in their life: a second bottle is drunk and changes nothing |  |
+| 268 | utility | caster | implemented | Personality raised by fifty for good through the character's own scores, once in their life: a second bottle is drunk and changes nothing |  |
+| 269 | utility | caster | implemented | Accuracy raised by fifty for good through the character's own scores, once in their life: a second bottle is drunk and changes nothing |  |
+| 270 | utility | caster | implemented | Might raised by fifty for good through the character's own scores, once in their life: a second bottle is drunk and changes nothing |  |
+| 271 | utility | caster | implemented | every year the character was aged beyond their natural age given back, through the age progression keeps for them |  |
 
 ## Counts
 
@@ -229,7 +229,7 @@ master, and four grand master.
 | 85 | resistance | 3 | party | implemented | a ward carried by the party and read by the fight's own resistance |  |
 | 86 | utility | 3 | party | implemented | a blessing on every character, and heroism, a shield, stone skin, and a haste carried by the party, each read where the fight reads that effect and ended by its own deadline; the haste is withheld while a character is weak (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:2530-2592) |  |
 | 87 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
-| 88 | healing | 4 | party | approximated | the donor allows three castings a day and ages the caster by ten; neither a daily count nor ageing exists in this build (receiver: a per-day cast count and progression's ageing) |  |
+| 88 | healing | 4 | party | approximated | the donor allows three castings a day; no daily count of a spell's castings exists in this build (receiver: a per-day cast count). The caster is aged ten years, never past a modifier of a hundred and twenty, as the donor ages them (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:2603-2607) |  |
 | 89 | utility | 1 | foe | not yet | a corpse raised to fight for the party | the world's bodies and the fight's allegiance state |
 | 90 | damage | 1 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 91 | utility | 1 | ally | not yet | a weapon to bear | an item-aim owner: the pack holds the party's items and nothing aims a spell at one |

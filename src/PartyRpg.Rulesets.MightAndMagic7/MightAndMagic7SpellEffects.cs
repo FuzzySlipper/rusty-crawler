@@ -429,6 +429,16 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
                 }
 
                 lines.Add("every pool is filled and every condition is lifted");
+
+                // The donor's price for a divine intervention is years: the caster is aged ten, never past a
+                // modifier of a hundred and twenty (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:2603-2607).
+                if (reading.AgesCaster > 0)
+                {
+                    int aged = application.Caster.Progression.Age(reading.AgesCaster, MightAndMagic7Ageing.MostUnnaturalYears);
+                    lines.Add(string.Create(CultureInfo.InvariantCulture, $"{application.Caster.Profile.Name} is aged {aged} year(s) for it"));
+                    facts.Add(new SpellEffectFact("aged", aged.ToString(CultureInfo.InvariantCulture)));
+                }
+
                 break;
             }
 
@@ -869,6 +879,11 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
                     [.. ended.Select(effect => new SpellEffectFact("dispelled", effect.Effect.Value))]);
         }
 
+        // Years given back and a score raised for good are a character's own progression, written on the
+        // character the table aims the casting at.
+        if (reading.Rejuvenates) return Rejuvenate(application, reading);
+        if (reading.ForGood is { } attribute) return RaiseForGood(application, reading, attribute);
+
         // Spell points given back: a potion's own shape, restored through each carrier's pool, which is the
         // same owner a casting spends from. The pool stops at its own maximum, so an over-full drink is the
         // same clamp the donor's own potion makes.
@@ -887,6 +902,63 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         }
 
         return Carry(application, reading);
+    }
+
+    /// <summary>Every year a character was aged beyond their natural age given back.</summary>
+    /// <remarks>
+    /// The donor's rejuvenation sets the character's age modifier to nothing
+    /// (<c>OpenEnroth/src/Engine/Objects/Character.cpp:3297-3299</c>); the natural years the clock has run are not
+    /// touched, because nothing unnatural made them. Faithful.
+    /// </remarks>
+    private static SpellApplicationOutcome Rejuvenate(SpellApplication application, SpellReading reading)
+    {
+        IReadOnlyList<PartyMember> carries = reading.OnMember ? Carriers(application) : Members(application);
+        if (carries.Count == 0) carries = Carriers(application);
+        List<SpellEffectFact> facts = [];
+        List<string> lines = [];
+        foreach (PartyMember member in carries)
+        {
+            int years = member.Progression.Rejuvenate();
+            facts.Add(new SpellEffectFact("rejuvenated", string.Create(CultureInfo.InvariantCulture, $"{member.Profile.Name} {years}")));
+            lines.Add(years == 0
+                ? $"{member.Profile.Name} had been aged by nothing, and nothing changes"
+                : string.Create(CultureInfo.InvariantCulture, $"{member.Profile.Name} is given back {years} year(s)"));
+        }
+
+        return Expressed(application, string.Join("; ", lines), facts);
+    }
+
+    /// <summary>A score raised for good, once for each character and score.</summary>
+    /// <remarks>
+    /// The donor adds fifty to the score a pure potion names, once in a character's life, and a second bottle of the
+    /// same one does nothing — it is still drunk (<c>OpenEnroth/src/Engine/Objects/Character.cpp:3282-3295</c>). The
+    /// once is kept in the party's records under the character and the score, which a save carries. Faithful.
+    /// </remarks>
+    private static SpellApplicationOutcome RaiseForGood(SpellApplication application, SpellReading reading, AttributeId attribute)
+    {
+        IReadOnlyList<PartyMember> carries = Carriers(application);
+        if (carries.Count == 0) carries = Members(application);
+        List<SpellEffectFact> facts = [];
+        List<string> lines = [];
+        foreach (PartyMember member in carries)
+        {
+            string once = SpellEffectIds.ForGood(member.Id, attribute);
+            if (application.Party.Records.Has(once) || !member.Attributes.TryGet(attribute, out _))
+            {
+                lines.Add($"{member.Profile.Name} has had this one already, and nothing changes");
+                facts.Add(new SpellEffectFact("already", member.Profile.Name));
+                continue;
+            }
+
+            member.Attributes.Change(attribute, reading.ForGoodBy);
+            application.Party.Records.Mark(once);
+            lines.Add(string.Create(
+                CultureInfo.InvariantCulture,
+                $"{member.Profile.Name}'s {attribute} is raised by {reading.ForGoodBy} for good, to {member.Attributes[attribute]}"));
+            facts.Add(new SpellEffectFact(attribute.Value, member.Attributes[attribute].ToString(CultureInfo.InvariantCulture)));
+        }
+
+        return Expressed(application, string.Join("; ", lines), facts);
     }
 
     /// <summary>Whether a reading leaves a carried effect at all.</summary>

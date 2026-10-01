@@ -52,8 +52,10 @@ public sealed record PartyMemberSeed
         ResourcePool hitPoints,
         ResourcePool spellPoints,
         PortraitId? portrait = null,
-        SpellId? quickSpell = null)
+        SpellId? quickSpell = null,
+        int ageOffset = 0)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(ageOffset);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(attributes);
         ArgumentNullException.ThrowIfNull(skills);
@@ -74,6 +76,7 @@ public sealed record PartyMemberSeed
         SpellPoints = spellPoints;
         Portrait = portrait;
         QuickSpell = quickSpell;
+        AgeOffset = ageOffset;
     }
 
     /// <summary>The name a player reads.</summary>
@@ -130,4 +133,7 @@ public sealed record PartyMemberSeed
     /// player keeps in the slot is their choice and not something a spellbook can work out.
     /// </remarks>
     public SpellId? QuickSpell { get; }
+
+    /// <summary>How many years older than their natural age the character has been made.</summary>
+    public int AgeOffset { get; }
 }
