@@ -111,7 +111,7 @@ public sealed class ScriptedSpatialService : ISpatialService
     public NavigationReplaceReceipt ReplaceVoxelNavigation(NavigationVoxelReplaceRequest request) => throw Unsupported();
 
     /// <inheritdoc />
-    public NavigationReplaceReceipt ReplaceCollisionNavigation(CollisionNavigationReplaceRequest request) => throw Unsupported();
+    public CollisionNavigationReplaceReceipt ReplaceCollisionNavigation(CollisionNavigationReplaceRequest request) => throw Unsupported();
 
     /// <inheritdoc />
     public NavigationTraversalReplaceReceipt ReplaceNavigationTraversal(NavigationTraversalReplaceRequest request) => throw Unsupported();
