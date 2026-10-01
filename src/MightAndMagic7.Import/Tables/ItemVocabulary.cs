@@ -124,6 +124,21 @@ public static class ItemVocabulary
         ["gem"] = ("gem", string.Empty),
     };
 
+    /// <summary>The treasure word each kind of random item an event gift names reads as.</summary>
+    /// <remarks>
+    /// OpenEnroth <c>src/Engine/Objects/ItemEnums.h:1084-1121</c> (<c>RandomItemType</c>) with
+    /// <c>src/Engine/Objects/ItemEnumFunctions.h:279-315</c> for what each asks a level for. Potions and reagents
+    /// have no treasure-cell word and are named by their kind directly.
+    /// </remarks>
+    private static readonly Dictionary<int, string> TreasureWordsByRandomKind = new()
+    {
+        [20] = "weapon", [21] = "armor", [22] = "misc", [23] = "sword", [24] = "dagger", [25] = "axe",
+        [26] = "spear", [27] = "bow", [28] = "mace", [29] = "club", [30] = "staff", [31] = "leather",
+        [32] = "chain", [33] = "plate", [34] = "shield", [35] = "helm", [36] = "belt", [37] = "cape",
+        [38] = "gauntlets", [39] = "boots", [40] = "ring", [41] = "amulet", [42] = "wand", [43] = "scroll",
+        [46] = "gem",
+    };
+
     /// <summary>What kind of thing an item is, as the product's own tag.</summary>
     /// <param name="equipStat">The row's own equipment word.</param>
     /// <returns>The tag, or <see cref="Misc"/> when the donor has no kind for the word.</returns>
@@ -139,7 +154,19 @@ public static class ItemVocabulary
     /// <summary>What a treasure request that names a kind of thing asks a level for.</summary>
     /// <param name="treasureWord">The word the request stated, which may be empty.</param>
     /// <returns>The two tags, both empty when the request asks for anything at all.</returns>
-    public static (string Kind, string Skill) FilterOf(string treasureWord) =>
+    public static (string Kind, string Skill) FilterOf(string treasureWord) => FilterOfWord(treasureWord);
+
+    /// <summary>What an event gift's kind of random item asks a level for.</summary>
+    /// <param name="randomKind">The donor's random item kind; zero, or a number outside its table, asks for anything.</param>
+    /// <returns>The two tags, both empty when the gift asks for anything at all.</returns>
+    public static (string Kind, string Skill) FilterOfRandomItem(int randomKind) => randomKind switch
+    {
+        44 => ("potion", string.Empty),
+        45 => ("reagent", string.Empty),
+        _ => TreasureWordsByRandomKind.TryGetValue(randomKind, out string? word) ? FilterOfWord(word) : (string.Empty, string.Empty),
+    };
+
+    private static (string Kind, string Skill) FilterOfWord(string treasureWord) =>
         FiltersByTreasureWord.TryGetValue(treasureWord.Trim(), out (string Kind, string Skill) filter)
             ? filter
             : (string.Empty, string.Empty);

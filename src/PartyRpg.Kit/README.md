@@ -151,7 +151,9 @@ durable `ItemInstanceId` and an `ItemState` of identified, damaged, and enchante
 per-character pack is a state these types cannot express; `Capture` writes each instance's identity, state,
 and custody and `Restore` rebuilds them), `PartyPurse`, `PartyFood`,
 `PartyReputation`, the running effects on the party and on each member (`ActiveEffects`,
-written only by `RunningSpellEffects`), `PartyRecords`, `PartyHoldings`, `PartyPassages`, `PartyMemberships`,
+written only by `RunningSpellEffects`), each member's stored base resistances (`CharacterResistances` —
+what a permanent gift added, by kind of harm, carried in the member's seed; a ruleset's racial and class terms
+are read beside it, never stored), `PartyRecords`, `PartyHoldings`, `PartyPassages`, `PartyMemberships`,
 the minting of durable identities in
 `PartyIdentitySource`, and `PartyEntityFactory`, which builds a party from creation or from a `PartySave`
 and is the only code that attaches a party component, with the one item rule it composes arriving as
@@ -169,7 +171,8 @@ one progression owner (`Progression/` — `PartyProgression` is where experience
 point, and a rank move and nowhere else — the years a character was aged beyond their natural age,
 `CharacterProgression.AgeOffset`, are the one exception, written by whatever the game says ages a character or
 gives the years back (`Age`, `Rejuvenate`) and carried in the member's seed: `Award` is the one entry a kill, a quest, or any other source arrives at and
-divides by the ruleset's own rule, `Train` is what a counter's step settles through — the fee charged by
+divides by the ruleset's own rule, `Gift` gives one named member experience or skill points outright — a well's
+gift rather than an earned award, so nothing is divided and standing does not move — `Train` is what a counter's step settles through — the fee charged by
 the party's one ledger, the level's pools grown by the ruleset's class and rank tables, the points granted,
 and both pools filled — and `RaiseSkill` is the only way a skill point is spent: it asks the skill policy
 for the price of the levels and the ceiling the member's class and rank impose, refuses past that ceiling
@@ -230,7 +233,14 @@ creature a spell calls up or stands back up — is created by the same owner, `P
 placement the game states, in the same store and through the same composer, marked `IsSummoned`, ended by
 `Dismiss`, by a length the one clock counts down through `SessionWorld`'s own clock observation (`Elapse`), or
 by the visit ending, and never rebuilt from content), the Engine-backed movement owner with its vertical and surface policy (and a leap a game asks of the next step,
-`PartyMotion.Leap` through `IPartyMover.Leap`, the party's own jump at a stated multiple whose landing is not a fall), the reaches that let a party walk
+`PartyMotion.Leap` through `IPartyMover.Leap`, the party's own jump at a stated multiple whose landing is not a fall;
+and flight, the engine's flying mode asked for while a game's `IFlightRule` allows it and the party has risen —
+`MovementIntent.Vertical` from the optional rise and sink controls of `MovementIntentNames`, a `FlightTuning` on the
+`MovementTuning` with its speed and ceiling, a landing when a sink meets the ground, and a fall measured from where a
+flight that ends in the air left the party; and a place's named ground, `PlaceSurfaces` read beside its artifact by
+`ContentPlaceGeometry` and looked up at the ground point the engine reports, so the mover's `Footing` says when the
+party stands in water, and a game's `IGroundHazardRule` harms it there once for every interval the clock crosses,
+through `SessionWorld`, while `IRestRule.Stop` may refuse any stop where it stands), the reaches that let a party walk
 into a transition, the movement facts the panel reports, the one combat state
 (`Combat/` — a `CombatState` over the live world and nothing else, with a `Combatant` per party member and
 per creature the ruleset recognizes in the party's place, one `Combatant.Recovery` quantity each advanced
@@ -283,8 +293,13 @@ one `InteractionSelection`, which outlives every world so an inspection register
 live world holds, with targeted use off — one use
 workflow that identifies the target, judges each `InteractionRequirement` in the order the ruleset stated
 them, settles what the use costs through the party's one settlement path, asks the ruleset what the use
-produces, applies it against the party's owners, records the `InteractionTargetState` that use left, and
-reports an `InteractionResult`; every failure — nothing faced, out of reach, out of sight, a requirement
+produces, applies it against the party's owners, records the `InteractionTargetState` that use left and the
+place values its outcome kept — named whole numbers every target of the place reads through
+`InteractionContext.PlaceValues`, which `InteractionLedger.Capture` carries in the save's world section and a
+restore of the place forgets — and the other targets of the place it changed (`InteractionTargetChange`: a lever
+reads a door through `InteractionContext.PlaceTargets` and `TargetState` and the mechanism records the door's
+new word under the door's own identity), hands the party to a conversation when the outcome names somebody
+(`InteractionOutcome.Speaks`, opened by the session as using a person is), and reports an `InteractionResult`; every failure — nothing faced, out of reach, out of sight, a requirement
 unmet, a charge the party cannot cover, a ruleset's own refusal, a pack with no room for what was found —
 is an outcome with a code and a sentence rather than a silent no-op — and a corpse is a target that
 mechanism discovers: `CorpseGround` keeps what the fight read as down, the ruleset hands it back as the
@@ -317,7 +332,9 @@ compose again, so a save taken while one stands is refused by name, as a pending
 document wrong in several places is refused with every problem named at once, never only the
 first. Scenario
 flags are the party's own records and travel in its section; what the party did to a place's doors and
-containers is held live by the world's `InteractionLedger` and is not saved yet (#8593). The quests section is
+containers is held live by the world's `InteractionLedger` and is not saved yet (#8593); the values each place
+keeps are that ledger's capture, carried in the world section and judged on load by the kit's terms and the
+ruleset's `PlaceValueJudge`. The quests section is
 the one that arrived with its owner: it carries every instance a party holds — the stage, the progress
 recorded against objectives that are moments rather than states, and the place each offer was taken in —
 and no definition at all, because what a quest is means is read from the game's own content when the

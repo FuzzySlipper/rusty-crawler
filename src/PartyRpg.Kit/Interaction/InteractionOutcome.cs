@@ -1,5 +1,7 @@
+using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.World;
 
 namespace PartyRpg.Kit.Interaction;
 
@@ -30,6 +32,16 @@ public readonly record struct InteractionItemYield
     /// <summary>How many of it.</summary>
     public int Count { get; }
 }
+
+/// <summary>What one use made of another target of the same place.</summary>
+/// <remarks>
+/// A lever that opens a door is a use of the lever whose outcome changes the door: the door's state is the
+/// ruleset's word, recorded by the mechanism under the door's own identity exactly as a use of the door would
+/// record it, so the door afterwards reads as what the lever left it.
+/// </remarks>
+/// <param name="Target">The other target's placement in the same place.</param>
+/// <param name="State">The word its state becomes, which must not be blank.</param>
+public readonly record struct InteractionTargetChange(PlacementContentId Target, string State);
 
 /// <summary>What a use the party is allowed to make produces: either what happened, or why it did not.</summary>
 /// <remarks>
@@ -66,8 +78,14 @@ public sealed record InteractionOutcome
         IReadOnlyList<InteractionItemYield> items,
         PartyCost gain,
         IReadOnlyList<KnowledgeReport> learned,
+        IReadOnlyDictionary<string, long> kept,
+        IReadOnlyList<InteractionTargetChange> changes,
+        ConversationSubject? speaks,
         Refusal? refusal)
     {
+        Kept = kept;
+        Changes = changes;
+        Speaks = speaks;
         State = state;
         Message = message;
         Residue = residue;
@@ -84,19 +102,26 @@ public sealed record InteractionOutcome
     /// <param name="items">The items the use gives the party, or empty when it gives none.</param>
     /// <param name="gain">What the use puts into the party's accounts, or nothing when it puts nothing there.</param>
     /// <param name="learned">What the use taught the party, or empty when it taught nothing.</param>
+    /// <param name="kept">The values of the target's place the use changed, by name, or empty when it changed none.</param>
+    /// <param name="changes">What the use made of other targets of the same place, or empty when it touched none.</param>
+    /// <param name="speaks">Whom the use hands the party to speak with, or null when it hands it to nobody.</param>
     /// <returns>The outcome.</returns>
-    /// <exception cref="ArgumentException">The state or the message is blank.</exception>
+    /// <exception cref="ArgumentException">The state or the message is blank, or a change states no word.</exception>
     public static InteractionOutcome Applied(
         string state,
         string message,
         string residue = "",
         IReadOnlyList<InteractionItemYield>? items = null,
         PartyCost? gain = null,
-        IReadOnlyList<KnowledgeReport>? learned = null)
+        IReadOnlyList<KnowledgeReport>? learned = null,
+        IReadOnlyDictionary<string, long>? kept = null,
+        IReadOnlyList<InteractionTargetChange>? changes = null,
+        ConversationSubject? speaks = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(state);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        return new InteractionOutcome(state, message, residue, items ?? [], gain ?? PartyCost.Free, learned ?? [], null);
+        foreach (InteractionTargetChange change in changes ?? []) ArgumentException.ThrowIfNullOrWhiteSpace(change.State, nameof(changes));
+        return new InteractionOutcome(state, message, residue, items ?? [], gain ?? PartyCost.Free, learned ?? [], kept ?? NothingKept, changes ?? [], speaks, null);
     }
 
     /// <summary>The use happened and changed nothing, and this is why — a refusal with a stated consequence.</summary>
@@ -104,7 +129,7 @@ public sealed record InteractionOutcome
     /// <returns>The outcome.</returns>
     /// <exception cref="ArgumentNullException">No refusal was given.</exception>
     public static InteractionOutcome Refused(Refusal refusal) =>
-        new(string.Empty, (refusal ?? throw new ArgumentNullException(nameof(refusal))).Message, string.Empty, [], PartyCost.Free, [], refusal);
+        new(string.Empty, (refusal ?? throw new ArgumentNullException(nameof(refusal))).Message, string.Empty, [], PartyCost.Free, [], NothingKept, [], null, refusal);
 
     /// <summary>Whether the use happened. A refused outcome changed nothing at all.</summary>
     public bool IsApplied => Refusal is null;
@@ -127,6 +152,26 @@ public sealed record InteractionOutcome
     /// <summary>What the use taught the party, in the reporting owner's own words for each fact.</summary>
     public IReadOnlyList<KnowledgeReport> Learned { get; }
 
+    /// <summary>
+    /// The values of the target's place the use changed, by the ruleset's own names; the mechanism writes them
+    /// into the place's ledger beside the target's state, and a refused use changes none.
+    /// </summary>
+    public IReadOnlyDictionary<string, long> Kept { get; }
+
+    /// <summary>
+    /// What the use made of other targets of the same place, which the mechanism records under each target's
+    /// own identity when the use is applied; a refused use changes none.
+    /// </summary>
+    public IReadOnlyList<InteractionTargetChange> Changes { get; }
+
+    /// <summary>
+    /// Whom the use hands the party to speak with, or null: a fixture whose event calls somebody over opens the
+    /// conversation with them the way using a person would.
+    /// </summary>
+    public ConversationSubject? Speaks { get; }
+
     /// <summary>The refusal, or null when the use happened.</summary>
     public Refusal? Refusal { get; }
+
+    private static readonly IReadOnlyDictionary<string, long> NothingKept = new Dictionary<string, long>();
 }

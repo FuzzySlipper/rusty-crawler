@@ -1,4 +1,5 @@
 using PartyRpg.Kit.Combat;
+using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Journal;
 using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Maps;
@@ -39,7 +40,9 @@ namespace PartyRpg.Kit.Persistence;
 /// ground rather than a fact about a thing, so it records the grid the cells were seen on and the cells, and
 /// a place the world restores touches none of it.
 /// Scenario flags are the party's own records and travel in its section. What the party did to a place's
-/// doors and containers is held live by the world's interaction ledger and is not carried yet (#8593).
+/// doors and containers is held live by the world's interaction ledger and is not carried yet (#8593); what
+/// each place keeps of the party's uses — the values every target of the place shares — is that ledger's
+/// capture, carried in the world section.
 /// </para>
 /// <para>
 /// <b>What is deliberately absent is as decided as what is here.</b> In-flight movement outcomes, cached
@@ -210,6 +213,11 @@ public sealed record SessionSave
     /// The calendar the recorded game time is counted in, which is what the world's recorded day is checked
     /// against. Without it the two day counts are not compared.
     /// </param>
+    /// <param name="kept">
+    /// The ruleset's judge of the values a place keeps, which is what says whether a name is one its rules
+    /// write and whether the figure is one they could have left. Without it only the kit's own terms are
+    /// judged: the place exists, and every value is named once.
+    /// </param>
     /// <returns>Every problem found, in the order the document records them.</returns>
     /// <exception cref="ArgumentNullException">The world's places or the party factory are null.</exception>
     public IReadOnlyList<SaveProblem> Problems(
@@ -217,7 +225,8 @@ public sealed record SessionSave
         PartyEntityFactory parties,
         PlacePoseAdmission? admission = null,
         IQuestRule? quests = null,
-        GameCalendar? calendar = null)
+        GameCalendar? calendar = null,
+        PlaceValueJudge? kept = null)
     {
         ArgumentNullException.ThrowIfNull(places);
         ArgumentNullException.ThrowIfNull(parties);
@@ -277,6 +286,7 @@ public sealed record SessionSave
         }
 
         problems.AddRange(PoseProblems(places, admission));
+        problems.AddRange(KeptProblems(places, kept));
         problems.AddRange(QuestProblems(places, quests));
 
         // The journal is judged against the clock the save itself recorded, which is the one thing that says
@@ -359,6 +369,52 @@ public sealed record SessionSave
                     SaveCodes.SaveQuestNoGiver,
                     $"{instance.Quest}",
                     $"the quest '{instance.Quest}' records no giver, so nothing says who offered it or who it is finished with");
+            }
+        }
+    }
+
+    /// <summary>Every problem with the values the save says each place keeps.</summary>
+    /// <remarks>
+    /// A place the world does not have, a place recorded twice, a value with no name, and a name recorded twice
+    /// in one place are contradictions in the kit's own terms; whether a name is one the ruleset writes, and
+    /// whether its figure is one its rules could leave, is the ruleset's judge's answer.
+    /// </remarks>
+    private IEnumerable<SaveProblem> KeptProblems(PlaceGraph places, PlaceValueJudge? kept)
+    {
+        HashSet<PlaceId> recorded = [];
+        foreach (PlaceInteractionSnapshot place in World.Interaction.Places)
+        {
+            if (places.Find(place.Place) is null)
+            {
+                yield return new SaveProblem(SaveCodes.SaveKeptPlaceUnknown, $"{place.Place}", $"place '{place.Place}' is recorded as keeping values, and the world has no such place");
+                continue;
+            }
+
+            if (!recorded.Add(place.Place))
+            {
+                yield return new SaveProblem(SaveCodes.SaveKeptPlaceTwice, $"{place.Place}", $"the values place '{place.Place}' keeps are recorded twice");
+                continue;
+            }
+
+            HashSet<string> names = new(StringComparer.Ordinal);
+            foreach (PlaceValue value in place.Values)
+            {
+                if (string.IsNullOrWhiteSpace(value.Key))
+                {
+                    yield return new SaveProblem(SaveCodes.SaveKeptValueUnnamed, $"{place.Place}", $"place '{place.Place}' keeps a value with no name, so nothing could read it back");
+                    continue;
+                }
+
+                if (!names.Add(value.Key))
+                {
+                    yield return new SaveProblem(SaveCodes.SaveKeptValueTwice, $"{place.Place}", $"place '{place.Place}' keeps the value '{value.Key}' twice");
+                    continue;
+                }
+
+                if (kept?.Invoke(place.Place, value.Key, value.Value) is { Length: > 0 } reason)
+                {
+                    yield return new SaveProblem(SaveCodes.SaveKeptValueUnknown, $"{place.Place}", $"place '{place.Place}' keeps '{value.Key}' = {value.Value}, and {reason}");
+                }
             }
         }
     }

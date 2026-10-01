@@ -250,6 +250,56 @@ public sealed class CollisionTests
         Assert.Equal(1, refused.CountOf(CollisionSource.InteriorFace).Faces);
     }
 
+    [Fact]
+    public void A_regions_water_squares_are_the_ones_its_tile_table_flags_as_water()
+    {
+        // The fixture's first row of squares is the water tileset's base tile but for its last, a shore tile, and the
+        // tile table flags the base and not the shore (OpenEnroth src/Engine/Data/TileEnums.h:9, :15).
+        TerrainTileTable tiles = TerrainTileTable.Read(SyntheticInstallation.TileTable());
+        OutdoorMap region = MapDecoder.DecodeOutdoor(LodFixture.Stored("out01.odm", MapDecoderTests.OutdoorPayload(waterRow: true)));
+        bool[] water = tiles.WaterSquares(region);
+
+        Assert.Equal(126, water.Count(wet => wet));
+        Assert.All(Enumerable.Range(0, 126), column => Assert.True(water[column]));
+        Assert.False(water[126]);
+        Assert.False(water[127]);
+
+        // The water squares travel beside the collision as their own surface, two triangles a square, and the
+        // collision itself is exactly what it was without them.
+        PlaceCollision wet = PlaceCollisionEmitter.Emit(1, "Out01.odm", region, tiles);
+        PlaceCollision dry = PlaceCollisionEmitter.Emit(1, "Out01.odm", region);
+        Assert.Equal(126, wet.WaterSquares);
+        PlaceSurface surface = Assert.Single(wet.Surfaces);
+        Assert.Equal(PlaceCollisionEmitter.WaterSurface, surface.Surface);
+        Assert.Equal(126 * 2, surface.Mesh.TriangleCount);
+        Assert.Equal(dry.Artifact, wet.Artifact);
+        Assert.Empty(dry.Surfaces);
+        Assert.Empty(wet.Facts.Surfaces);
+    }
+
+    [Fact]
+    public void A_tile_table_that_is_not_its_count_of_records_is_refused()
+    {
+        byte[] table = SyntheticInstallation.TileTable();
+        Assert.Throws<LodFormatException>(() => TerrainTileTable.Read(table[..^1]));
+        Assert.Throws<LodFormatException>(() => TerrainTileTable.Read([1, 0]));
+        Assert.Equal(4, TerrainTileTable.Read(table).Count);
+    }
+
+    [Fact]
+    public void A_solid_face_the_level_marks_fluid_is_ground_and_is_named_fluid_beside_it()
+    {
+        // FACE_IsFluid, 0x10 (OpenEnroth src/Engine/Graphics/FaceEnums.h:12), on a floor and on a portal.
+        CollisionMesh mesh = new();
+        CollisionMesh fluid = new();
+        CollisionSourceCounts added = PlaceCollisionEmitter.AddSolidFaces(mesh, [Quad(0x10, 0), Quad(0, 0), Quad(0x11, 0)], fluid);
+
+        Assert.Equal(2, added.Faces);
+        Assert.Equal(2, fluid.TriangleCount);
+        Assert.True(PlaceCollisionEmitter.IsFluid(Quad(0x10, 0)));
+        Assert.False(PlaceCollisionEmitter.IsFluid(Quad(0x11, 0)));
+    }
+
     /// <summary>Corners a test states, as the points a polygon is made of.</summary>
     private static List<MapPoint> Points(params (int X, int Y, int Z)[] corners) =>
         [.. corners.Select(corner => new MapPoint(corner.X, corner.Y, corner.Z))];

@@ -36,25 +36,34 @@ public sealed class PartyMotion
     private readonly PlaceSpace _space;
     private readonly MovementTuning _tuning;
     private readonly SurfaceClassifier? _classify;
+    private readonly IFlightRule? _flight;
     private CharacterMotion _continuation;
     private SurfaceEffect _surface = SurfaceEffect.Ordinary;
     private ulong _sequence;
     private int _admitted;
     private double? _leap;
     private bool _leaping;
+    private bool _flying;
+    private bool _commandedFlight;
+    private double _commandedVertical;
 
     /// <summary>Creates the party's motion over the pose it moves.</summary>
     /// <param name="party">The party's one pose, which this asks to move and never replaces.</param>
     /// <param name="space">How a place's own coordinates and facing unit become the engine's world.</param>
     /// <param name="tuning">The vertical and terrain profile the party moves by.</param>
     /// <param name="surfaces">The rule that names the ground the engine reports. Without one every surface is ordinary.</param>
+    /// <param name="flight">
+    /// The game's answer to whether the party may fly now. Without one, or without a flight profile in the tuning,
+    /// the party never leaves the ground except by jumping.
+    /// </param>
     /// <exception cref="ArgumentNullException">A required collaborator is missing.</exception>
-    public PartyMotion(PartyPoseOwner party, PlaceSpace space, MovementTuning tuning, SurfaceClassifier? surfaces = null)
+    public PartyMotion(PartyPoseOwner party, PlaceSpace space, MovementTuning tuning, SurfaceClassifier? surfaces = null, IFlightRule? flight = null)
     {
         _party = party ?? throw new ArgumentNullException(nameof(party));
         _space = space;
         _tuning = tuning ?? throw new ArgumentNullException(nameof(tuning));
         _classify = surfaces;
+        _flight = flight;
     }
 
     /// <summary>
@@ -74,6 +83,25 @@ public sealed class PartyMotion
 
     /// <summary>Whether the party stands on something, as the last step the engine resolved left it.</summary>
     public bool Grounded => _admitted > 0 && _continuation.Grounded;
+
+    /// <summary>
+    /// The named ground of the place the party is in, which the engine's ground points are looked up in when no
+    /// classifier was given. Whoever enters the party into a place sets it with that place's collision.
+    /// </summary>
+    public PlaceSurfaces Ground { get; set; } = PlaceSurfaces.None;
+
+    /// <summary>Whether the party may fly now: the tuning has a flight profile and the game's rule allows it.</summary>
+    public bool MayFly => _tuning.Flight is not null && _flight?.MayFly == true;
+
+    /// <summary>
+    /// Whether the party is flying: it rose or sank on a flight the game allowed and has not landed or lost it since.
+    /// </summary>
+    /// <remarks>
+    /// A party that may fly and stands on the ground is not flying: it walks until it asks to rise, or to sink while
+    /// nothing holds it up, and touching the ground while it is not rising ends the flight. Flight is something the
+    /// party does, not something it is, so being allowed to fly changes nothing until the party uses it.
+    /// </remarks>
+    public bool Flying => _flying;
 
     /// <summary>How many times its own jump the next step leaps, or null when no leap is asked for.</summary>
     public double? PendingLeap => _leap;
@@ -138,10 +166,40 @@ public sealed class PartyMotion
 
         if (intent.TurnRate != 0) _party.Turn(intent.TurnRate * elapsedSeconds, 0);
 
+        // Flight is asked for every step, because whether the party may fly is the game's answer now rather than what
+        // it was when the party took off: a flight that ends in the air hands the party back to gravity at this step.
+        // A party that may fly takes off when it asks to rise, or to sink while nothing holds it up; standing on the
+        // ground it walks.
+        FlightTuning? flight = MayFly ? _tuning.Flight : null;
+        if (flight is null) _flying = false;
+        else if (!_flying && (intent.Vertical > 0 || (intent.Vertical < 0 && !Grounded))) _flying = true;
+
+        CharacterMovementRequest movement = default;
+        double vertical = 0;
+        if (_flying && flight is not null)
+        {
+            // A rise at or above the ceiling asks for nothing more; the party may still sink or fly level.
+            vertical = intent.Vertical > 0 && _party.PlacePose.Z >= flight.Ceiling ? 0 : intent.Vertical;
+            movement = new CharacterMovementRequest(
+                CharacterMovementMode.Flying,
+                (float)vertical,
+                (float)flight.Speed,
+                (float)flight.Acceleration,
+                (float)flight.Drag,
+                Vector3.Zero,
+                Vector3.Zero,
+                GravityScale: 0,
+                Buoyancy: 0,
+                ClimbReach: 0);
+        }
+
+        _commandedFlight = _flying;
+        _commandedVertical = vertical;
         return new CharacterControllerCommand(
+            Movement: movement,
             PlanarIntent: new Vector2((float)intent.Strafe, (float)intent.Forward),
             HeadingYawRadians: (float)_space.FacingRadians(_party.PlacePose.Yaw),
-            JumpPressed: intent.JumpPressed || _leap is not null,
+            JumpPressed: !_flying && (intent.JumpPressed || _leap is not null),
             JumpHeld: intent.JumpHeld,
             CrouchRequested: intent.Crouch,
             ExternalVelocity: Vector3.Zero,
@@ -176,6 +234,19 @@ public sealed class PartyMotion
         _surface = surface;
         _admitted++;
 
+        if (_commandedFlight)
+        {
+            // While the party flies it is held where it is, so a fall that follows begins here rather than at the
+            // highest point of the flight: the engine keeps the highest point since the party was last supported, and a
+            // flying party is never supported, so the product says where its fall would start. A flight that ends in the
+            // air falls from the height it ended at, and a flight that sinks to the ground lands from nothing.
+            float height = receipt.Transform.Translation.Y;
+            _continuation = _continuation with { PeakY = height, FallOriginY = height };
+
+            // A flying party that meets the ground while it is not rising has landed and walks again.
+            if (_commandedVertical <= 0 && receipt.Contact is { Present: true, Kind: CharacterContactKind.Ground }) _flying = false;
+        }
+
         // The step that carried a leap is the one that left the ground; if it did not leave it, nothing was leapt
         // and no landing is spared.
         if (_leap is not null)
@@ -192,7 +263,8 @@ public sealed class PartyMotion
             receipt.BlockFlags,
             receipt.Stance,
             surface,
-            fall);
+            fall,
+            _flying);
     }
 
     /// <summary>
@@ -227,12 +299,15 @@ public sealed class PartyMotion
     /// <remarks>
     /// A party in the air is over the ground it left, so keeping that surface is what makes a jump across
     /// water land in water and a jump from a road keep the road's speeds. Ground the classifier does not
-    /// recognise is ordinary ground and not an error: content may name a surface before the tuning prices
-    /// it, and movement must not stop for a table that has not caught up.
+    /// recognise is ordinary ground and not an error, and a surface the tuning does not price moves the party as
+    /// ordinary ground and keeps its name: content may name a surface before the tuning prices it, and movement must
+    /// not stop for a table that has not caught up. Without a classifier the place's own named ground answers.
     /// </remarks>
     private SurfaceEffect Recognise(CharacterGround ground)
     {
-        if (_classify is null || !ground.Present) return _surface;
-        return _classify(ground, out string surfaceId) ? _tuning.Surface(surfaceId) : SurfaceEffect.Ordinary;
+        if (!ground.Present) return _surface;
+        string surfaceId;
+        bool named = _classify is not null ? _classify(ground, out surfaceId) : Ground.Classify(ground.Point, out surfaceId);
+        return named ? _tuning.Named(surfaceId) : SurfaceEffect.Ordinary;
     }
 }

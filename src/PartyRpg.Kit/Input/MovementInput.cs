@@ -24,7 +24,14 @@ public sealed record MovementIntentNames
     /// <param name="turnLeft">The intent a turn to the party's left arrives on.</param>
     /// <param name="turnRight">The intent a turn to the party's right arrives on.</param>
     /// <param name="jump">The intent a jump arrives on.</param>
-    /// <exception cref="ArgumentException">A control has no name, so nothing could ever claim it.</exception>
+    /// <param name="ascend">
+    /// The intent a rise arrives on, or null for a product that declares no flight. A rise and a sink are declared
+    /// together or not at all: a party that can climb into the air and has no control to come down is stuck there.
+    /// </param>
+    /// <param name="descend">The intent a sink arrives on, or null when <paramref name="ascend"/> is.</param>
+    /// <exception cref="ArgumentException">
+    /// A control has no name, so nothing could ever claim it, or only one of the two vertical controls is named.
+    /// </exception>
     public MovementIntentNames(
         string forward,
         string back,
@@ -32,7 +39,9 @@ public sealed record MovementIntentNames
         string strafeRight,
         string turnLeft,
         string turnRight,
-        string jump)
+        string jump,
+        string? ascend = null,
+        string? descend = null)
     {
         Forward = Require(forward, nameof(forward));
         Back = Require(back, nameof(back));
@@ -41,6 +50,15 @@ public sealed record MovementIntentNames
         TurnLeft = Require(turnLeft, nameof(turnLeft));
         TurnRight = Require(turnRight, nameof(turnRight));
         Jump = Require(jump, nameof(jump));
+        if ((ascend is null) != (descend is null))
+        {
+            throw new ArgumentException(
+                "A rise and a sink are declared together: a party that can rise with no control to come down, or sink with none to climb, is a control set nobody can fly with.",
+                ascend is null ? nameof(ascend) : nameof(descend));
+        }
+
+        Ascend = ascend is null ? null : Require(ascend, nameof(ascend));
+        Descend = descend is null ? null : Require(descend, nameof(descend));
     }
 
     /// <summary>The intent a full forward walk arrives on.</summary>
@@ -63,6 +81,12 @@ public sealed record MovementIntentNames
 
     /// <summary>The intent a jump arrives on.</summary>
     public string Jump { get; }
+
+    /// <summary>The intent a rise arrives on, or null when the product declares no flight.</summary>
+    public string? Ascend { get; }
+
+    /// <summary>The intent a sink arrives on, or null when the product declares no flight.</summary>
+    public string? Descend { get; }
 
     private static string Require(string name, string parameterName) =>
         !string.IsNullOrWhiteSpace(name)
@@ -104,6 +128,8 @@ public sealed class MovementInput
     private readonly byte[] _turnLeft;
     private readonly byte[] _turnRight;
     private readonly byte[] _jump;
+    private readonly byte[]? _ascend;
+    private readonly byte[]? _descend;
     private readonly double _turnRate;
     private Controls _held;
     private Controls _stateDriven;
@@ -135,6 +161,8 @@ public sealed class MovementInput
         _turnLeft = Encoding.UTF8.GetBytes(names.TurnLeft);
         _turnRight = Encoding.UTF8.GetBytes(names.TurnRight);
         _jump = Encoding.UTF8.GetBytes(names.Jump);
+        _ascend = names.Ascend is null ? null : Encoding.UTF8.GetBytes(names.Ascend);
+        _descend = names.Descend is null ? null : Encoding.UTF8.GetBytes(names.Descend);
         _turnRate = turnRatePerSecond;
     }
 
@@ -217,7 +245,8 @@ public sealed class MovementInput
             strafe: Direction(held, Controls.StrafeRight, Controls.StrafeLeft),
             turnRate: Direction(held, Controls.TurnLeft, Controls.TurnRight) * _turnRate,
             jumpPressed: jumpStarted,
-            jumpHeld: (held & Controls.Jump) != 0);
+            jumpHeld: (held & Controls.Jump) != 0,
+            vertical: Direction(held, Controls.Ascend, Controls.Descend));
     }
 
     /// <summary>The control an event's intent names, or none when this reader does not claim it.</summary>
@@ -230,6 +259,8 @@ public sealed class MovementInput
         if (intent.SequenceEqual(_turnLeft)) return Controls.TurnLeft;
         if (intent.SequenceEqual(_turnRight)) return Controls.TurnRight;
         if (intent.SequenceEqual(_jump)) return Controls.Jump;
+        if (_ascend is not null && intent.SequenceEqual(_ascend)) return Controls.Ascend;
+        if (_descend is not null && intent.SequenceEqual(_descend)) return Controls.Descend;
         return Controls.None;
     }
 
@@ -238,7 +269,7 @@ public sealed class MovementInput
 
     /// <summary>One movement control, as the flag that remembers whether the player holds it.</summary>
     [Flags]
-    private enum Controls : byte
+    private enum Controls : ushort
     {
         None = 0,
         Forward = 1,
@@ -248,5 +279,7 @@ public sealed class MovementInput
         TurnLeft = 16,
         TurnRight = 32,
         Jump = 64,
+        Ascend = 128,
+        Descend = 256,
     }
 }

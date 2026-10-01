@@ -915,6 +915,10 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     };
 
     /// <summary>One person's own facts by identity, or null when nobody present has it.</summary>
+    /// <summary>Who one of the people the table holds is, or null when it holds nobody of that id.</summary>
+    /// <param name="person">The person's id, as the table writes it.</param>
+    internal ConversationPerson? PersonOf(string person) => Facts(person)?.Who;
+
     private PersonFacts? Facts(string person) => _people.TryGetValue(person, out PersonFacts? facts) ? facts : null;
 
     /// <summary>Reads every placement that names the people standing there.</summary>

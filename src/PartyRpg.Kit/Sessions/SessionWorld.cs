@@ -27,6 +27,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     private readonly TransitionExecutive _transitions;
     private readonly IDisposable? _clockSubscription;
     private readonly IFallRule? _falls;
+    private readonly IGroundHazardRule? _hazards;
     private readonly ICorpseSource? _corpses;
     private readonly IWorldTimeSource? _time;
     private readonly GameClock? _clock;
@@ -35,7 +36,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     private readonly PlacePopulation _population;
     private readonly IDiagnosticsService? _diagnostics;
     private readonly Dictionary<PlaceId, PlaceEntrance[]> _entrances;
-    private readonly InteractionLedger _interactions = new();
+    private readonly InteractionLedger _interactions;
     private MovementDiagnostics _movement = MovementDiagnostics.None;
     private bool _disposed;
 
@@ -104,6 +105,13 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// asks for some creatures of a kind — which the population resolves while it reads the places. Without
     /// one every placement stands as content states it.
     /// </param>
+    /// <param name="interactions">
+    /// What each place kept of the party's uses when the session was saved, for a world a load rebuilds.
+    /// Without it the world starts with nothing done to any target, which is a new game's world.
+    /// </param>
+    /// <param name="hazards">
+    /// What standing on a kind of ground does to the party while time passes. Without one no ground harms anybody.
+    /// </param>
     /// <exception cref="ArgumentNullException">A required collaborator is missing.</exception>
     public SessionWorld(
         PlaceGraph graph,
@@ -122,9 +130,12 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         ICreatureMover? creatures = null,
         IFallRule? falls = null,
         ICreatureVitals? vitals = null,
-        IPlacementExpansion? expansion = null)
+        IPlacementExpansion? expansion = null,
+        InteractionLedgerSnapshot? interactions = null,
+        IGroundHazardRule? hazards = null)
     {
         ArgumentNullException.ThrowIfNull(graph);
+        _interactions = interactions is null ? new InteractionLedger() : new InteractionLedger(interactions);
         ArgumentNullException.ThrowIfNull(party);
         ArgumentNullException.ThrowIfNull(places);
         _transitions = new TransitionExecutive(costRule);
@@ -138,6 +149,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         _resources = resources;
         _entity = partyEntity;
         _falls = falls;
+        _hazards = hazards;
         _diagnostics = diagnostics;
         Graph = graph;
         Party = party;
@@ -233,7 +245,46 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     {
         ArgumentNullException.ThrowIfNull(advance);
         if (advance.Moved) _population.Elapse(advance.Elapsed);
+        Endure(advance);
         if (advance.Crossings.Days > 0) AdvanceTime();
+    }
+
+    /// <summary>
+    /// Lands what the ground the party stands on does to it over an advance of the clock: once for every interval the
+    /// game states for that ground that the advance crossed.
+    /// </summary>
+    /// <remarks>
+    /// The intervals are the calendar's own boundaries, so the same stretch of time on the same ground harms the party
+    /// the same number of times whether it passed in one long wait or a thousand updates. The ground is what the mover
+    /// reports now, at the end of the advance; a party that walked out of water in the update that crossed a boundary
+    /// was still in it for that update, and the difference is one interval at most.
+    /// </remarks>
+    private void Endure(ClockAdvance advance)
+    {
+        if (_hazards is not { } rule || _entity is not { } party || _clock is not { } clock || !advance.Moved) return;
+        if (Mover?.Footing is not { } ground || rule.IntervalOn(ground) is not { } interval) return;
+
+        long times = clock.Calendar.Boundaries(advance.From, advance.To, interval);
+        if (times <= 0) return;
+
+        int harmed = 0;
+        long total = 0;
+        foreach (PartyMember member in party.Members)
+        {
+            int damage = Math.Max(0, rule.DamageTo(member, ground));
+            if (damage == 0) continue;
+            for (long time = 0; time < times; time++) member.TakeDamage(damage);
+            harmed++;
+            total += damage * times;
+        }
+
+        _diagnostics?.Publish(new DiagnosticsPublishRequest(
+            DiagnosticsSeverity.Info,
+            DiagnosticsDisposition.Accepted,
+            Source: "movement",
+            Code: "ground-hazard",
+            Message: $"The party stood on '{ground.Id}' in place '{Party.Place}' for {times} interval(s) of {interval}; {harmed} member(s) took {total} harm.",
+            Correlation: string.Empty));
     }
 
     /// <summary>
@@ -497,17 +548,19 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     }
 
     /// <summary>
-    /// Captures the world's durable state: where the party stands, and what each place remembers.
+    /// Captures the world's durable state: where the party stands, what each place remembers, and what each
+    /// place keeps of the party's uses.
     /// </summary>
     /// <remarks>
     /// The graph, the entrances, the mover's collision scene, the movement observations, the population's
-    /// entities, and what the party has done to each place's targets are absent on purpose. The graph and the
-    /// entrances are loaded content, the scene is refilled from the place the party resumes in, movement
-    /// observations belong to the steps that produced them, the entities are rebuilt from placements, and
-    /// interaction state is live state the persistence owner does not carry yet (#8593) — each of them a runtime
-    /// shape that a load composes again rather than one a save carries.
+    /// entities, and each target's own state word are absent on purpose. The graph and the entrances are
+    /// loaded content, the scene is refilled from the place the party resumes in, movement observations belong
+    /// to the steps that produced them, the entities are rebuilt from placements, and a target's word is live
+    /// state the interaction ledger's capture does not carry yet (#8593) — each of them a runtime shape that a
+    /// load composes again rather than one a save carries. The values a place keeps are carried, through the
+    /// same ledger capture a target's word will join.
     /// </remarks>
-    public WorldSave Capture() => new(Party.Capture(), Places.Capture());
+    public WorldSave Capture() => new(Party.Capture(), Places.Capture(), _interactions.Capture());
 
     /// <summary>Releases the entities the population owns and the engine's collision scene with the movement.</summary>
     public void Dispose()
@@ -626,6 +679,9 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// shopkeeper are content's words, and the ruleset answers for them.
     /// </remarks>
     IReadOnlyList<PlacePopulationEntity> IRestSite.Population => _population.Entities;
+
+    /// <summary>The ground the party stands on, as its mover reports it.</summary>
+    SurfaceEffect? IRestSite.Footing => Mover?.Footing;
 
     /// <summary>
     /// The place a fight happens in, which is the place the party already stands in: a fight is over the

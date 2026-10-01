@@ -192,6 +192,67 @@ public sealed class TravelCostWiringTests
             party.Members.Select(member => member.Resources.HitPoints.Current));
     }
 
+    [Fact]
+    public void Ground_that_harms_the_party_harms_it_once_for_every_interval_the_clock_crosses_while_it_stands_there()
+    {
+        GameClock clock = TestClock.Create();
+        using PartyEntity party = Party(foodPortions: 6, memberCount: 2);
+        PartyPoseOwner pose = Pose();
+        PlaceGraph graph = Graph();
+        StandingMover mover = new(pose) { Footing = new SurfaceEffect("deep", 1, 1) };
+        using SessionWorld world = new(
+            graph,
+            pose,
+            new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()),
+            new PricedTravel(),
+            clock: clock,
+            mover: mover,
+            partyEntity: party,
+            hazards: new DeepGround());
+        int[] before = [.. party.Members.Select(member => member.Resources.HitPoints.Current)];
+
+        // Ninety seconds on the dangerous ground cross three of its thirty-second intervals, and each member who is not
+        // spared loses a tenth of what they can take each time.
+        clock.Advance(GameDuration.FromSeconds(90));
+        Assert.Equal(
+            before.Zip(party.Members, (was, member) => member.Profile.Name == "Member 2" ? was : was - (3 * (member.Resources.HitPoints.Maximum / 10))),
+            party.Members.Select(member => member.Resources.HitPoints.Current));
+
+        // Ordinary ground, or no ground at all, harms nobody however long the party stands there.
+        int[] after = [.. party.Members.Select(member => member.Resources.HitPoints.Current)];
+        mover.Footing = SurfaceEffect.Ordinary;
+        clock.Advance(GameDuration.FromMinutes(5));
+        mover.Footing = null;
+        clock.Advance(GameDuration.FromMinutes(5));
+        Assert.Equal(after, party.Members.Select(member => member.Resources.HitPoints.Current));
+    }
+
+    /// <summary>Ground named <c>deep</c> harms every thirty seconds, sparing the second member.</summary>
+    private sealed class DeepGround : IGroundHazardRule
+    {
+        public GameDuration? IntervalOn(SurfaceEffect ground) => ground.Id == "deep" ? GameDuration.FromSeconds(30) : null;
+
+        public int DamageTo(PartyMember member, SurfaceEffect ground) =>
+            member.Profile.Name == "Member 2" ? 0 : member.Resources.HitPoints.Maximum / 10;
+    }
+
+    /// <summary>A mover that stands where a test puts it, on the ground the test says.</summary>
+    private sealed class StandingMover(PartyPoseOwner party) : IPartyMover
+    {
+        public SurfaceEffect? Footing { get; set; }
+
+        public bool InSight(Vector3 from, Vector3 to) => true;
+
+        public PlaceGeometryAdmission Enter(PlaceId place) => PlaceGeometryAdmission.Empty(place);
+
+        public MovementOutcome Step(MovementIntent intent, double elapsedSeconds) =>
+            new(party.Capture().Pose, Vector3.Zero, Grounded: true, default, CharacterBlockFlags.None, default, Footing ?? SurfaceEffect.Ordinary, FallOutcome.None);
+
+        public void Dispose()
+        {
+        }
+    }
+
     /// <summary>A fall rule that takes a tenth of what each member can take.</summary>
     private sealed class TenthOfEveryone : IFallRule
     {

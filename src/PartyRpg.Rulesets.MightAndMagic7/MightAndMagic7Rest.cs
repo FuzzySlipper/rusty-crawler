@@ -205,6 +205,21 @@ internal sealed class MightAndMagic7Rest : IRestRule
     public GameDuration SleepInterval => GameDuration.FromHours(24);
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Nobody stops in water, to sleep or to wait: the donor will not open its rest screen for a party standing on
+    /// water (OpenEnroth <c>src/Application/Game.cpp:1088-1089</c>), and a stop there would be hours of drowning.
+    /// </remarks>
+    public Refusal? Stop(RestRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return request.Site.Footing is { Id: MightAndMagic7Movement.WaterSurface }
+            ? new Refusal(
+                MightAndMagic7Codes.RestInWater,
+                $"The party stands in water in {request.Site.Place.Name}: it cannot stop here until it reaches dry ground.")
+            : null;
+    }
+
+    /// <inheritdoc />
     public RestQuote Quote(RestRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);

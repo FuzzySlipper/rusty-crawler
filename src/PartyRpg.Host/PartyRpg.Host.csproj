@@ -61,6 +61,13 @@
     <!-- The engine names the space bar `space`; `key-space` is refused at load, and the product refuses to
          start on an unsupported mapping rather than starting with a control that does nothing. -->
     <RustyEngineProductInputMapping Include="party.jump.key-space" Intent="party.jump" Trigger="key:space:pressed" />
+    <!-- Flight's two controls, held like walking: the original rises on Page Up and sinks on Insert, and the
+         engine's keyboard controls carry neither, so the arrows no other control claims take them. They move the
+         party only while it may fly; otherwise the party walks and they ask for nothing. -->
+    <RustyEngineProductInputIntent Include="party.ascend" Value="digital" />
+    <RustyEngineProductInputMapping Include="party.ascend.key-arrow-up" Intent="party.ascend" Trigger="key:arrow-up:held" />
+    <RustyEngineProductInputIntent Include="party.descend" Value="digital" />
+    <RustyEngineProductInputMapping Include="party.descend.key-arrow-down" Intent="party.descend" Trigger="key:arrow-down:held" />
     <!-- The creation screen's two value-free controls: a keyboard can confirm the step being made and
          accept the finished party, while every choice that names a portrait, a class, a skill, an
          attribute, a member, or a name arrives as a payload action on the `crawler.ui` channel below.

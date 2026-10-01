@@ -88,6 +88,30 @@ public static class EvtOpcodes
     /// <summary>Jumps when the calendar stands in a season.</summary>
     public const byte CheckSeason = 56;
 
+    /// <summary>Casts a spell from one point of the map at another.</summary>
+    public const byte CastSpell = 21;
+
+    /// <summary>Opens a conversation with one of the game's people.</summary>
+    public const byte SpeakNpc = 22;
+
+    /// <summary>Sets or clears an attribute bit on every face of one face group.</summary>
+    public const byte SetFacesBit = 23;
+
+    /// <summary>Changes which event one of a person's topics raises.</summary>
+    public const byte SetNpcTopic = 39;
+
+    /// <summary>Puts an item, named or drawn from a treasure level, in the party's hands.</summary>
+    public const byte GiveItem = 41;
+
+    /// <summary>Jumps when a character holds a skill at a rank and mastery.</summary>
+    public const byte CheckSkill = 43;
+
+    /// <summary>Jumps when enough of a set of creatures are dead.</summary>
+    public const byte IsActorKilled = 51;
+
+    /// <summary>Sets or clears an attribute bit on every creature of one group.</summary>
+    public const byte ToggleActorGroupFlag = 57;
+
     /// <summary>The word each opcode is written with, from the donor's enumeration.</summary>
     private static readonly Dictionary<byte, string> Words = new()
     {

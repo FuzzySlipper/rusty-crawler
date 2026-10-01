@@ -128,6 +128,7 @@ internal static class SyntheticInstallation
                     LodFixture.TextTable("npctopic.txt", Topics()),
                     LodFixture.TextTable("npctext.txt", TopicTexts()),
                     LodFixture.TextTable("AUTONOTE.TXT", Discoveries()),
+                    ("dtile.bin", LodFixture.Compressed(TileTable())),
                     .. events,
                 ]));
         if (withMaps)
@@ -201,7 +202,35 @@ internal static class SyntheticInstallation
     private static byte[] RegionPayload(int region)
     {
         RegionShape shape = Region(region);
-        return MapDecoderTests.OutdoorPayload(shape.ExtraVertices, shape.PeakHeight);
+        return MapDecoderTests.OutdoorPayload(shape.ExtraVertices, shape.PeakHeight, waterRow: true);
+    }
+
+    /// <summary>
+    /// A terrain tile table in the game's own layout: nothing at zero, a dirt base, a water base flagged as water, and
+    /// the shore tile after it flagged as shore — which is enough for the fixture's water row to be water but its last
+    /// square.
+    /// </summary>
+    internal static byte[] TileTable()
+    {
+        (string Name, ushort Tileset, ushort Variant, ushort Flags)[] records =
+        [
+            ("pending", 255, 255, 0x40),
+            ("dirttyl", 4, 0, 0),
+            ("wtrtyl", 5, 0, 0x2),
+            ("wtrdrNE", 5, 12, 0x300),
+        ];
+        byte[] bytes = new byte[4 + (records.Length * 26)];
+        BitConverter.TryWriteBytes(bytes.AsSpan(0, 4), records.Length);
+        for (int index = 0; index < records.Length; index++)
+        {
+            Span<byte> record = bytes.AsSpan(4 + (index * 26), 26);
+            System.Text.Encoding.ASCII.GetBytes(records[index].Name).CopyTo(record);
+            BitConverter.TryWriteBytes(record[20..], records[index].Tileset);
+            BitConverter.TryWriteBytes(record[22..], records[index].Variant);
+            BitConverter.TryWriteBytes(record[24..], records[index].Flags);
+        }
+
+        return bytes;
     }
 
     private static byte[] InteriorPayload(int interior, IReadOnlyList<int> events)

@@ -83,7 +83,7 @@ the shipped `POTION.TXT` states what each potion is for in words and no numbers 
 | 232 | resistance | caster | implemented | a shield on the character drinking it, read by the fight's own ranged resolution — a creature's missile does half to them — with a deadline on the one clock |  |
 | 233 | utility | none | not yet | an item whose charges are given back | an item-aim owner: the pack holds the party's items and nothing aims a potion at one |
 | 234 | resistance | caster | implemented | armour class carried by the character and read by the fight's own armour class, with a deadline on the one clock |  |
-| 235 | utility | caster | not yet | water breathed under rather than walked over | the world's ground: the importer marks no ground as water and the mover tells no surface apart, so a party walks every floor alike and nothing drowns it |
+| 235 | utility | caster | implemented | water breathing carried by the character drinking it, which this game's drowning reads so the water the party stands in harms nobody who carries it, with a deadline on the one clock (OpenEnroth src/Engine/Objects/Character.cpp:3089, 3156-3158, src/Engine/Engine.cpp:1083-1099) |  |
 | 236 | utility | none | not yet | an item made harder to break | an item-aim owner: the pack holds the party's items and nothing aims a potion at one |
 | 237 | condition | caster | implemented | the conditions the potion names lifted from the drinker's own condition state |  |
 | 238 | condition | caster | implemented | the conditions the potion names lifted from the drinker's own condition state |  |
@@ -130,10 +130,10 @@ the shipped `POTION.TXT` states what each potion is for in words and no numbers 
 | resistance | 9 | 1 | 0 | 10 |
 | condition | 17 | 2 | 0 | 19 |
 | light | 1 | 0 | 0 | 1 |
-| travel | 3 | 1 | 2 | 6 |
+| travel | 3 | 3 | 0 | 6 |
 | detection | 3 | 0 | 0 | 3 |
 | utility | 8 | 4 | 7 | 19 |
-| **all** | **80** | **10** | **9** | **99** |
+| **all** | **80** | **12** | **7** | **99** |
 
 ## Every spell
 
@@ -162,13 +162,13 @@ master, and four grand master.
 | 18 | damage | 2 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 19 | utility | 3 | party | implemented | a party-carried effect read by the fight's own resolution |  |
 | 20 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
-| 21 | travel | 3 | party | not yet | flight over what the party could not walk across | the party's mover, which walks, falls, and leaps: the engine's controller has a flying mode the mover does not ask for yet, and the host declares no controls to rise and sink |
+| 21 | travel | 3 | party | approximated | a flight carried by its caster: while it runs the party's mover asks the engine's flying mode whenever the party rises, or sinks off the ground, and walks again when it lands (OpenEnroth src/Engine/Graphics/Outdoor.cpp:950-953, 998-1018, 1212-1228), at four times the walk, the donor's rise, sink and running flight (:1013, :1119, :1223), up to the donor's ceiling of 4000 (src/Application/GameConfig.h:214), for an hour a level, and refused indoors before it is paid for (src/Engine/Spells/CastSpellInfo.cpp:1154-1171); below grand master the caster pays a spell point for every five minutes the party spends in the air (src/Engine/Engine.cpp:1286-1296), and a flight that ends or runs dry in the air drops the party under this game's fall rule from the height it ended at (Outdoor.cpp:1250); the donor keeps a party hovering over an empty caster until a flight key is pressed and bobs it in the air, neither of which is kept, a second casting replaces the first's caster as the donor's one buff does, and how fast the party reaches its flight speed is ours |  |
 | 22 | damage | 4 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 23 | condition | 1 | ally | implemented | the named conditions lifted through the member's own condition state |  |
 | 24 | damage | 1 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 25 | resistance | 1 | ally | implemented | a ward on the character the casting named, read by the fight's own resistance for that character and ended by its own deadline; the donor gives several of these to the whole party at once (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:767-801, pPartyBuffs[PARTY_BUFF_RESIST_*]), and this game's own table aims each one at a single character |  |
 | 26 | damage | 1 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
-| 27 | travel | 2 | party | not yet | water walked over rather than swum through | the world's ground: the importer marks no ground as water and the mover tells no surface apart, so a party walks every floor alike and nothing drowns it |
+| 27 | travel | 2 | party | approximated | a walk over water carried by its caster: while it runs the party stands on the world's water without drowning, for ten minutes a level at expert and an hour a level above (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:1302-1331, src/Engine/Engine.cpp:1083-1099), and below grand master the caster pays a spell point for every twenty minutes the party stands on water, the interval the spell's own description states and the donor's fixed drain takes (src/Engine/Engine.cpp:1297-1309, src/Application/GameConfig.h:248-250) where the original took five; the donor also stops a party without it at the water's edge, and here the water is ground a party may walk into and drown in; a second casting replaces the first's caster as the donor's one buff does |  |
 | 28 | utility | 2 | none | not yet | an item whose charges are given back | an item-aim owner: the pack holds the party's items and nothing aims a spell at one |
 | 29 | damage | 2 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 30 | utility | 3 | none | not yet | an item to enchant | an item-aim owner: the pack holds the party's items and nothing aims a spell at one |

@@ -17,7 +17,7 @@ Implemented today:
   debug catalog (`IDebugCommandModuleSource`). `ProductPlaytest` answers `playtest.observe` with the session's
   own snapshot, `playtest.action <intent>` with each declared keyboard control's physical key (`KeyW`, `Space`),
   hold or tap, a nominal input window, and whether the session would take it now (the controls block's answer,
-  or the steering rule for movement), and `playtest.look` by turning the party through its facing rule
+  or the steering rule for movement, and that rule with the party's flight for rising and sinking), and `playtest.look` by turning the party through its facing rule
   (yaw only). Every query resolves the session held when it is asked, so a restart or an accepted creation
   never leaves a stale module; `interaction.inspect` reads the host's one `InteractionSelection`, which every
   session's world aims through. `PlaytestRegistrationTests` drives the generated catalog itself.
@@ -27,8 +27,10 @@ Implemented today:
 - `BuiltInBundles` is the compiled list of bundles the product will start from, and `ProductStart` reads
   whether a start is fresh or resumed from `RUSTY_CRAWLER_START` (a resume with nothing saved is refused by
   name rather than starting fresh).
-- The project file declares the product metadata and 23 input intents, each digital with its key: pause
-  (`session.pause-toggle`, P) and save (`session.save`, F); the movement intents (W/S/A/D, Q/E, Space); use
+- The project file declares the product metadata and 25 input intents, each digital with its key: pause
+  (`session.pause-toggle`, P) and save (`session.save`, F); the movement intents (W/S/A/D, Q/E, Space, and
+  flight's `party.ascend` and `party.descend` on the up and down arrows, held — the original's Page Up and Insert
+  are not keys the engine carries); use
   (`party.use`, G); the ways out of a counter and a conversation (`service.leave`, X; `conversation.leave`,
   Escape); the stops (`rest.rest` R, `rest.camp` C, `rest.wait-dawn` T, `rest.wait-hour` H,
   `rest.wait-five-minutes` M); the act control (`party.attack`, B, held, so a held key keeps attacking as each

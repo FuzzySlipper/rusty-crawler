@@ -123,6 +123,21 @@ public static class SaveCodes
     /// <summary>The problem code <c>save-map-cells-not-hex</c>.</summary>
     public const string SaveMapCellsNotHex = "save-map-cells-not-hex";
 
+    /// <summary>The problem code <c>save-kept-place-unknown</c>: a place keeps values and the world has no such place.</summary>
+    public const string SaveKeptPlaceUnknown = "save-kept-place-unknown";
+
+    /// <summary>The problem code <c>save-kept-place-twice</c>: one place's kept values are recorded twice.</summary>
+    public const string SaveKeptPlaceTwice = "save-kept-place-twice";
+
+    /// <summary>The problem code <c>save-kept-value-unnamed</c>: a kept value has no name.</summary>
+    public const string SaveKeptValueUnnamed = "save-kept-value-unnamed";
+
+    /// <summary>The problem code <c>save-kept-value-twice</c>: one name is recorded twice in one place.</summary>
+    public const string SaveKeptValueTwice = "save-kept-value-twice";
+
+    /// <summary>The problem code <c>save-kept-value-unknown</c>: the ruleset keeps no such value, or not that figure.</summary>
+    public const string SaveKeptValueUnknown = "save-kept-value-unknown";
+
     /// <summary>The problem code <c>save-cursor-zero</c>.</summary>
     public const string SaveCursorZero = "save-cursor-zero";
 

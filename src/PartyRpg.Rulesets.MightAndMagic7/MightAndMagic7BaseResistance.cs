@@ -27,11 +27,13 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// raises it is a map event's permanent resistance (<c>:4788-4817</c>), the genie lamp used in the last month of the
 /// year (<c>:3474-3512</c>), and
 /// becoming a Lich, which lifts the four elements to at least twenty and sets mind and body to two hundred
-/// (<c>:4025-4042</c>). This build keeps no stored base: the map event's permanent resistance is refused by name
-/// in <see cref="MightAndMagic7Fixtures"/> and this build's item use grants nothing for the lamp, so every member's stored
-/// base is the donor's starting nothing, and a Lich's is therefore exactly the floor its promotion sets — which is
-/// what this reads from the character's class. Faithful while nothing else writes the base; a writer would add a
-/// stored term here and keep the Lich's floor as a floor.
+/// (<c>:4025-4042</c>). This build stores the base on the member (<see cref="CharacterResistances"/>, carried in
+/// the save): a map event's permanent resistance writes it (<see cref="MightAndMagic7Fixtures"/>); this build's
+/// item use grants nothing for the lamp (#8513). A Lich's stored base is read with its promotion's figures as a
+/// floor — the four elements at least twenty, mind, body and spirit at least two hundred — rather than as values
+/// the promotion wrote once, because the class is what this build keeps of having become one. Faithful for every
+/// character the donor would leave at its stored figures; a Lich's gift below the floor is lost in the floor, which
+/// the donor would add on top of it — an approximation.
 /// </para>
 /// </remarks>
 internal static class MightAndMagic7BaseResistance
@@ -77,7 +79,9 @@ internal static class MightAndMagic7BaseResistance
     {
         ArgumentNullException.ThrowIfNull(member);
         bool lich = IsLich(member);
-        int points = Stored(lich, kind) + RacialBonus(member.Profile.Race, kind);
+        // Spirit reads body's stored figure, as it reads body's racial bonus (Character.cpp:1927-1931).
+        DamageKindId stored = kind == MightAndMagic7Damage.Spirit ? MightAndMagic7Damage.Body : kind;
+        int points = Stored(lich, kind, member.Resistances.Of(stored)) + RacialBonus(member.Profile.Race, kind);
         return lich ? Math.Min(points, LichCeiling) : points;
     }
 
@@ -93,19 +97,19 @@ internal static class MightAndMagic7BaseResistance
         return 0;
     }
 
-    /// <summary>The stored base: the donor's starting nothing, or the floor becoming a Lich sets.</summary>
-    private static int Stored(bool lich, DamageKindId kind)
+    /// <summary>The stored base: what the member keeps, lifted to the floor becoming a Lich sets.</summary>
+    private static int Stored(bool lich, DamageKindId kind, int stored)
     {
-        if (!lich) return 0;
+        if (!lich) return stored;
         if (kind == MightAndMagic7Damage.Fire || kind == MightAndMagic7Damage.Air ||
             kind == MightAndMagic7Damage.Water || kind == MightAndMagic7Damage.Earth)
         {
-            return LichElementFloor;
+            return Math.Max(stored, LichElementFloor);
         }
 
         // Spirit reads body's stored base in the donor (Character.cpp:1927-1931).
         return kind == MightAndMagic7Damage.Mind || kind == MightAndMagic7Damage.Body || kind == MightAndMagic7Damage.Spirit
-            ? LichMindAndBody
-            : 0;
+            ? Math.Max(stored, LichMindAndBody)
+            : stored;
     }
 }

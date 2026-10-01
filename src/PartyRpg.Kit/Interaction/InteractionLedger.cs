@@ -18,15 +18,47 @@ namespace PartyRpg.Kit.Interaction;
 /// what makes a respawn mean the party finds the place as it was, rather than a ruin it left behind.
 /// </para>
 /// <para>
-/// <b>This is live state and not durable state.</b> A save records the party, the clock, and what each place
-/// remembers about being visited and cleared; where a target's state belongs in that document is the
-/// persistence owner's decision, and until it carries one a resumed session finds every door as content
-/// says it was.
+/// <b>A place keeps values of its own.</b> Beside each target's word, a place holds named whole numbers that
+/// belong to the place rather than to any one target: a counter two levers of one room both read, or when a
+/// timer of the place last ran. Every target of the place reads the same values and a use writes them through
+/// its outcome, so one lever's pull is what the other lever finds. The names and what they mean are the
+/// ruleset's; the kit keeps them, forgets them with the place, and hands them to a save.
+/// </para>
+/// <para>
+/// <b>What a save carries.</b> The ledger is the one owner of per-place interaction state, and
+/// <see cref="Capture"/> is its one durable reading. It carries each place's values today; each target's
+/// word is still live-only and a resumed session finds every door and container as content says it was
+/// (#8593), which grows the same snapshot rather than a second one.
 /// </para>
 /// </remarks>
 public sealed class InteractionLedger
 {
     private readonly Dictionary<PlaceId, Dictionary<PlacementContentId, InteractionTargetState>> _places = [];
+    private readonly Dictionary<PlaceId, SortedDictionary<string, long>> _values = [];
+
+    /// <summary>Creates an empty ledger: nothing has happened to any target of any place.</summary>
+    public InteractionLedger()
+    {
+    }
+
+    /// <summary>Rebuilds a ledger from what a save carried.</summary>
+    /// <remarks>
+    /// The snapshot is taken as the save states it: whether every place and value in it belongs to the world
+    /// is judged before a load composes anything (<c>SessionSave.Problems</c>), so this does not judge again.
+    /// </remarks>
+    /// <param name="snapshot">The captured ledger.</param>
+    /// <exception cref="ArgumentNullException">The snapshot is null.</exception>
+    public InteractionLedger(InteractionLedgerSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        foreach (PlaceInteractionSnapshot place in snapshot.Places)
+        {
+            if (place.Values.Count == 0) continue;
+            SortedDictionary<string, long> values = new(StringComparer.Ordinal);
+            foreach (PlaceValue value in place.Values) values[value.Key] = value.Value;
+            _values[place.Place] = values;
+        }
+    }
 
     /// <summary>
     /// What has happened to one target, or the unchanged state when nothing has, which is the honest answer
@@ -65,7 +97,49 @@ public sealed class InteractionLedger
         return next;
     }
 
-    /// <summary>Forgets everything the party did to a place's targets, which is what a restore does to it.</summary>
+    /// <summary>The values a place keeps, by name; empty for a place that keeps none.</summary>
+    /// <param name="place">The place.</param>
+    public IReadOnlyDictionary<string, long> ValuesOf(PlaceId place) =>
+        _values.TryGetValue(place, out SortedDictionary<string, long>? values) ? values : Empty;
+
+    /// <summary>Writes values a use left in a place, each replacing the one it names.</summary>
+    /// <param name="place">The place the values belong to.</param>
+    /// <param name="values">The values, by name.</param>
+    /// <exception cref="ArgumentNullException">The values are null.</exception>
+    /// <exception cref="ArgumentException">A name is blank, so nothing could read the value back.</exception>
+    public void Keep(PlaceId place, IReadOnlyDictionary<string, long> values)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+        if (values.Count == 0) return;
+        foreach (string key in values.Keys) ArgumentException.ThrowIfNullOrWhiteSpace(key, nameof(values));
+        if (!_values.TryGetValue(place, out SortedDictionary<string, long>? kept))
+        {
+            kept = new SortedDictionary<string, long>(StringComparer.Ordinal);
+            _values[place] = kept;
+        }
+
+        foreach ((string key, long value) in values) kept[key] = value;
+    }
+
+    /// <summary>
+    /// Forgets everything the party did to a place's targets and every value the place kept, which is what a
+    /// restore does to it.
+    /// </summary>
     /// <param name="place">The place being restored.</param>
-    public void Forget(PlaceId place) => _places.Remove(place);
+    public void Forget(PlaceId place)
+    {
+        _places.Remove(place);
+        _values.Remove(place);
+    }
+
+    /// <summary>The ledger's durable reading, every place in identity order and its values by name.</summary>
+    public InteractionLedgerSnapshot Capture() =>
+        new([
+            .. _values
+                .Where(entry => entry.Value.Count > 0)
+                .OrderBy(entry => entry.Key.Value, StringComparer.Ordinal)
+                .Select(entry => new PlaceInteractionSnapshot(entry.Key, [.. entry.Value.Select(value => new PlaceValue(value.Key, value.Value))])),
+        ]);
+
+    private static readonly IReadOnlyDictionary<string, long> Empty = new Dictionary<string, long>();
 }

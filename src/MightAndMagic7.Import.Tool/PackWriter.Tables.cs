@@ -403,6 +403,20 @@ internal static partial class PackWriter
                     WriteOptionalNumber(writer, "hour", step.Hour);
                     WriteOptionalNumber(writer, "minute", step.Minute);
                     WriteOptionalNumber(writer, "halfMinutes", step.HalfMinutes);
+                    WriteOptionalNumber(writer, "door", step.Door);
+                    WriteOptionalString(writer, "action", step.Action);
+                    WriteOptionalNumber(writer, "level", step.Level);
+                    WriteOptionalString(writer, "itemKind", step.ItemKind);
+                    WriteOptionalString(writer, "itemSkill", step.ItemSkill);
+                    WriteOptionalNumber(writer, "item", step.Item);
+                    WriteOptionalNumber(writer, "spell", step.Spell);
+                    WriteOptionalString(writer, "mastery", step.Mastery);
+                    WriteOptionalNumber(writer, "rank", step.Rank);
+                    WriteOptionalNumber(writer, "person", step.Person);
+                    WriteOptionalNumber(writer, "raises", step.Raises);
+                    WriteOptionalNumber(writer, "group", step.Group);
+                    WriteOptionalNumber(writer, "flag", step.Flag);
+                    if (step.On is { } on) writer.WriteBoolean("on", on);
                     writer.WriteEndObject();
                 }
 
