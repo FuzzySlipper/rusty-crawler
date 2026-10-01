@@ -21,11 +21,14 @@ public sealed class ImportedSessionTests
         ContentCatalog catalog = ImportedContent.Load();
         Assert.True(catalog.IsValid, string.Join("; ", catalog.Issues.Select(issue => issue.ToString())));
 
+        // The session reads what a bundle naming the import would select, not the whole root: an operator's root
+        // also holds the scenario packs their live checks staged, and no bundle selects all of those at once.
+        ContentCatalog written = ImportedContent.Written(catalog);
         (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create();
         using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(new RulesetSessionContext(
             new EngineUiProjectionChannel(ui, new UiStreamRequest(Declared.UiStream, Declared.UiContract)),
-            new BundleSelection("imported", catalog.Packs.Count),
-            catalog.Selected(catalog.Packs),
+            new BundleSelection("imported", written.Packs.Count),
+            written,
             Engine: context.Engine));
         session.Start();
         session.Update(RulesetTestContext.Update(1, 1));

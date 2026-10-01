@@ -179,6 +179,48 @@ public sealed class BundleSelectionTests
     }
 
     [Fact]
+    public void A_broken_pack_the_bundle_does_not_name_is_refused_as_not_selected_with_where_it_was_read_from()
+    {
+        InMemoryContentSource source = new InMemoryContentSource()
+            .Add("packs/places/pack.json", Pack("places", "definitions", "places", "place"))
+            .Add("packs/places/places.json", """{ "documentId": "places", "definitionKind": "place", "entries": [ { "id": "1" } ] }""")
+            .Add("packs/leftover/pack.json", Pack("leftover", "definitions", "leftover", "scenario-start"))
+            .Add("packs/leftover/leftover.json", "{ this is not json")
+            .Add("bundles/default/bundle.json", Bundle("default", "partyrpg", """["places"]"""));
+
+        ContentBootstrapResult result = ContentBootstrap.Load(source, Layout, "default");
+
+        // The whole root is judged, so the start is refused — but the refusal says the broken pack is not part
+        // of the game the bundle chose, why, and the directory it came from, rather than reading as a defect in
+        // the selection.
+        Assert.False(result.IsValid);
+        Assert.All(result.Issues, each => Assert.NotNull(each.NotSelected));
+        ContentValidationIssue issue = Assert.Single(result.Issues, each => each.Code == "document-not-json");
+        Assert.Equal("leftover", issue.PackId);
+        Assert.NotNull(issue.NotSelected);
+        Assert.Contains("bundle 'default' does not name it", issue.NotSelected, StringComparison.Ordinal);
+        Assert.Contains("'packs/leftover'", issue.NotSelected, StringComparison.Ordinal);
+        Assert.Contains(issue.NotSelected, issue.ToString(), StringComparison.Ordinal);
+        // The selection is still exactly what the bundle named.
+        Assert.Equal("places", Assert.Single(result.Catalog.Packs).PackId);
+    }
+
+    [Fact]
+    public void A_broken_pack_the_bundle_names_is_refused_without_a_not_selected_mark()
+    {
+        InMemoryContentSource source = new InMemoryContentSource()
+            .Add("packs/places/pack.json", Pack("places", "definitions", "places", "place"))
+            .Add("packs/places/places.json", "{ this is not json")
+            .Add("bundles/default/bundle.json", Bundle("default", "partyrpg", """["places"]"""));
+
+        ContentBootstrapResult result = ContentBootstrap.Load(source, Layout, "default");
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Issues, issue => issue.Code == "document-not-json");
+        Assert.All(result.Issues, issue => Assert.Null(issue.NotSelected));
+    }
+
+    [Fact]
     public void An_unselected_root_reports_no_bundle_rather_than_a_name()
     {
         InMemoryContentSource source = new InMemoryContentSource();

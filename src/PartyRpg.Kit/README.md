@@ -141,7 +141,8 @@ holding the debt of sleep as a deadline the clock brings due; a completed night 
 rule's `IRestRule.Rested` what each keeps) — the compiled ruleset and session contracts, the pack envelope with its
 catalog loader, validator and bundle resolution (`ContentCatalog.Selected` is the one place a bundle's
 selection becomes the content a session reads: the packs it named contribute, and the packs it did not
-are not loaded at all; the loader refuses the whole root by name when two packs claim one id, or an entry
+are not loaded at all, though a broken one still refuses the start with its issue marked `NotSelected` and the
+directory it was read from; the loader refuses the whole root by name when two packs claim one id, or an entry
 id or a document id is declared twice, so a reader that looks an entry up by id finds the only one there
 is), the world (`PlaceGraph`, `PlaceGraphLoader`,
 `PlaceStateLedger`, `TransitionExecutive` with its required cost contract, and the entrances a walking

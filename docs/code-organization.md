@@ -149,7 +149,10 @@ named, so every mechanism that reads content — definitions, placements, the sc
 scenario's party — reads the selection and nothing else. A pack nobody named contributes nothing
 however much of it sits under the content root, and no mechanism has to ask whether what it is looking
 at was selected. The whole root is still read and validated, which is what keeps a broken pack on disk
-a failure worth naming rather than a defect a narrower read would hide. A scenario fact the selection
+a failure worth naming rather than a defect a narrower read would hide; the loader judges identity across
+the whole root, so a broken pack beside the selection is a contradiction in content the product holds. Such
+a refusal is marked as the unselected pack's (`ContentValidationIssue.NotSelected`): it says the pack is
+not selected, why, and the directory it was read from, so it never reads as a defect in the chosen game. A scenario fact the selection
 must state once is resolved as a set and never as a sequence: the starting place and the party are each
 refused by name when the selection states two, because two would leave which one plays to the order the
 packs happened to load in, and a start that names no place or a party that names no member is refused
