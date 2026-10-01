@@ -10,6 +10,12 @@ namespace PartyRpg.Kit.Party;
 /// </remarks>
 public sealed class CharacterAttributes
 {
+    /// <summary>
+    /// The change stamp this state took when it last changed, or when it was made: a reader that kept what it built
+    /// beside this stamp reads the state again only when the stamp has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     private readonly List<AttributeScore> _scores;
 
     /// <summary>Creates a character's attribute scores.</summary>
@@ -76,6 +82,7 @@ public sealed class CharacterAttributes
         }
 
         _scores[index] = new AttributeScore(attribute, value);
+        Stamp = ChangeStamp.Next();
     }
 
     /// <summary>Changes one attribute by a delta, which may be negative.</summary>
@@ -94,6 +101,7 @@ public sealed class CharacterAttributes
         }
 
         _scores[index] = new AttributeScore(attribute, checked(_scores[index].Value + delta));
+        Stamp = ChangeStamp.Next();
     }
 
     private int IndexOf(AttributeId attribute)

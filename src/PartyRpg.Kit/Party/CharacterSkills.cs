@@ -16,6 +16,12 @@ namespace PartyRpg.Kit.Party;
 /// </remarks>
 public sealed class CharacterSkills
 {
+    /// <summary>
+    /// The change stamp this state took when it last changed, or when it was made: a reader that kept what it built
+    /// beside this stamp reads the state again only when the stamp has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     private readonly List<SkillEntry> _entries;
 
     /// <summary>Creates a character's skills.</summary>
@@ -104,13 +110,9 @@ public sealed class CharacterSkills
     public void Learn(SkillId skill, SkillTier tier)
     {
         int index = IndexOf(skill);
-        if (index < 0)
-        {
-            _entries.Add(new SkillEntry(skill, 1, tier, 0));
-            return;
-        }
-
-        _entries[index] = _entries[index] with { Tier = tier };
+        if (index < 0) _entries.Add(new SkillEntry(skill, 1, tier, 0));
+        else _entries[index] = _entries[index] with { Tier = tier };
+        Stamp = ChangeStamp.Next();
     }
 
     /// <summary>Raises a learned skill's level and records the points the caller charged for it.</summary>
@@ -136,6 +138,7 @@ public sealed class CharacterSkills
             Level = checked(entry.Level + levels),
             PointsSpent = checked(entry.PointsSpent + points),
         };
+        Stamp = ChangeStamp.Next();
     }
 
     /// <summary>Moves a learned skill to a new tier without disturbing its level.</summary>
@@ -152,6 +155,7 @@ public sealed class CharacterSkills
         }
 
         _entries[index] = _entries[index] with { Tier = tier };
+        Stamp = ChangeStamp.Next();
     }
 
     private int IndexOf(SkillId skill)

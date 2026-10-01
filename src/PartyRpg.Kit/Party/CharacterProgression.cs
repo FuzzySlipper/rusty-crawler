@@ -22,6 +22,12 @@ namespace PartyRpg.Kit.Party;
 /// </remarks>
 public sealed class CharacterProgression
 {
+    /// <summary>
+    /// The change stamp this state took when it last changed, or when it was made: a reader that kept what it built
+    /// beside this stamp reads the state again only when the stamp has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     /// <summary>Creates a character's progression.</summary>
     /// <param name="experience">Total experience earned, which cannot be negative.</param>
     /// <param name="level">The character's current level, which is at least one.</param>
@@ -84,6 +90,7 @@ public sealed class CharacterProgression
         int next = (int)Math.Min(ceiling is { } most ? Math.Max(most, AgeOffset) : int.MaxValue, aged);
         int added = next - AgeOffset;
         AgeOffset = next;
+        Stamp = ChangeStamp.Next();
         return added;
     }
 
@@ -93,6 +100,7 @@ public sealed class CharacterProgression
     {
         int years = AgeOffset;
         AgeOffset = 0;
+        Stamp = ChangeStamp.Next();
         return years;
     }
 
@@ -104,6 +112,7 @@ public sealed class CharacterProgression
     {
         ArgumentOutOfRangeException.ThrowIfNegative(amount);
         Experience = checked(Experience + amount);
+        Stamp = ChangeStamp.Next();
     }
 
     /// <summary>Records the level the ruleset advanced the character to.</summary>
@@ -113,6 +122,7 @@ public sealed class CharacterProgression
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(level);
         Level = level;
+        Stamp = ChangeStamp.Next();
     }
 
     /// <summary>Grants skill points, which a level-up or a reward does.</summary>
@@ -123,6 +133,7 @@ public sealed class CharacterProgression
     {
         ArgumentOutOfRangeException.ThrowIfNegative(points);
         SkillPoints = checked(SkillPoints + points);
+        Stamp = ChangeStamp.Next();
     }
 
     /// <summary>Spends skill points from the pool.</summary>
@@ -134,6 +145,7 @@ public sealed class CharacterProgression
         ArgumentOutOfRangeException.ThrowIfNegative(points);
         if (points > SkillPoints) return false;
         SkillPoints -= points;
+        Stamp = ChangeStamp.Next();
         return true;
     }
 
@@ -144,5 +156,6 @@ public sealed class CharacterProgression
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(rank);
         ClassRank = rank;
+        Stamp = ChangeStamp.Next();
     }
 }

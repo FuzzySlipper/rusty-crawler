@@ -72,6 +72,9 @@ public sealed class PartyRpgSession : IGameSession
     private UiValue? _published;
     private bool _updating;
 
+    // The blocks the projection keeps between readings, each beside the owner stamps it was read under.
+    private readonly ProjectionReadings _readings = new();
+
     /// <summary>Creates a session for a compiled ruleset over the mechanisms the kit supplies.</summary>
     /// <param name="composition">The identity the session presents.</param>
     /// <param name="projection">Where it publishes its presentation.</param>
@@ -596,8 +599,9 @@ public sealed class PartyRpgSession : IGameSession
     /// </summary>
     /// <remarks>
     /// A session that is held and hears nothing changes nothing, so it sends nothing: the panel already shows
-    /// what it holds. The comparison is of the whole value, so no block can be left stale by a rule about which
-    /// owner might have moved.
+    /// what it holds. The comparison is of the whole value written from the snapshot, whose expensive blocks are
+    /// read again only when an owner they read has changed (<see cref="Snapshot"/>), so a running update that only
+    /// moved the clock reads again the blocks that show the clock and writes the rest as they were last read.
     /// </remarks>
     private void Publish()
     {
@@ -620,36 +624,49 @@ public sealed class PartyRpgSession : IGameSession
     /// mechanism, one that has not used it yet, and one whose last act was refused are different facts each
     /// block can tell apart, and nothing here works a number out.
     /// </summary>
-    private SessionSnapshot Snapshot() => new(
-        _composition,
-        _mode,
-        _simulationSeconds,
-        _admittedSteps,
-        _world,
-        MovementSnapshot.From(LiveWorld?.Movement.Last),
-        ClockSnapshot.From(Clock),
-        PartySnapshot.From(Party, _owners.Rules.Standing),
-        // While a party is being made the flow is the screen's subject; once one is played, the members shown
-        // are the party's own, whether it was created in this run or resumed.
-        _creation is { } creation
-            ? CreationSnapshot.From(creation.Flow, creation.Refusal)
-            : _accepted || _resumed ? CreationSnapshot.OfParty(Party) : CreationSnapshot.None,
-        _saves.State,
-        InteractionSnapshot.From(LiveWorld?.Interaction),
-        ServiceSnapshot.From(Services),
-        RestSnapshot.Read(Rest, Clock),
-        ConversationSnapshot.From(Conversations),
-        CombatSnapshot.From(Combat, _owners.Director),
-        ProgressionSnapshot.From(Progression, Services),
-        PromotionSnapshot.From(Progression),
-        SkillsSnapshot.From(Progression, _owners.Rules.Names),
-        MagicSnapshot.From(_owners.Casting),
-        AlchemySnapshot.From(_owners.Mixing, _owners.Rules.Alchemy?.Kinds),
-        QuestSnapshot.From(Quests),
-        JournalSnapshot.From(Journal, Quests, LiveWorld, Clock, Knowledge, Maps),
-        MapSnapshot.From(Maps, LiveWorld, _owners.Rules.Magic?.Running),
-        _keys,
-        EquipmentSnapshot.From(_owners.Outfitting));
+    /// <remarks>
+    /// The blocks whose owners change when somebody acts or the clock delivers something, rather than on every
+    /// update — the party, the members a played party was made with, skills, promotion, magic, alchemy, quests,
+    /// journal, automap and equipment — are handed back as they were last read while every owner they read carries
+    /// the same change stamp and the few live facts each shows are unchanged (<see cref="ProjectionReadings"/>); the
+    /// party's stamp is read once for all of them. The rest move with the update, or are a handful of fields, and are
+    /// read every time. The progression block is one of those: the fee each row shows is the open counter's, which
+    /// opens and closes with the clock.
+    /// </remarks>
+    private SessionSnapshot Snapshot()
+    {
+        long party = Party?.Stamp ?? 0;
+        return new(
+            _composition,
+            _mode,
+            _simulationSeconds,
+            _admittedSteps,
+            _world,
+            MovementSnapshot.From(LiveWorld?.Movement.Last),
+            ClockSnapshot.From(Clock),
+            _readings.Party(Party, party, _owners.Rules.Standing),
+            // While a party is being made the flow is the screen's subject; once one is played, the members shown
+            // are the party's own, whether it was created in this run or resumed.
+            _creation is { } creation
+                ? CreationSnapshot.From(creation.Flow, creation.Refusal)
+                : _accepted || _resumed ? _readings.Members(Party, party) : CreationSnapshot.None,
+            _saves.State,
+            InteractionSnapshot.From(LiveWorld?.Interaction),
+            ServiceSnapshot.From(Services),
+            RestSnapshot.Read(Rest, Clock),
+            ConversationSnapshot.From(Conversations),
+            CombatSnapshot.From(Combat, _owners.Director),
+            ProgressionSnapshot.From(Progression, Services),
+            _readings.Promotion(Progression, party),
+            _readings.Skills(Progression, party, _owners.Rules.Names),
+            _readings.Magic(_owners.Casting, party, _world),
+            _readings.Alchemy(_owners.Mixing, party, _owners.Rules.Alchemy?.Kinds),
+            _readings.Quests(Quests, party, Clock),
+            _readings.Journal(Journal, Quests, LiveWorld, Clock, Knowledge, Maps),
+            _readings.Map(Maps, LiveWorld, _owners.Rules.Magic?.Running),
+            _keys,
+            _readings.Equipment(_owners.Outfitting, party));
+    }
 
     /// <summary>Reads this session into the product's one current save schema, without writing anything.</summary>
     /// <returns>The session as a save records it.</returns>

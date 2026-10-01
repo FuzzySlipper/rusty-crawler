@@ -9,6 +9,12 @@ namespace PartyRpg.Kit.Party;
 /// </remarks>
 public sealed class CharacterConditions
 {
+    /// <summary>
+    /// The change stamp this state took when it last changed, or when it was made: a reader that kept what it built
+    /// beside this stamp reads the state again only when the stamp has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     private readonly List<ActiveCondition> _active = [];
 
     /// <summary>Creates a character's conditions.</summary>
@@ -55,13 +61,9 @@ public sealed class CharacterConditions
     public void Apply(ActiveCondition condition)
     {
         int index = IndexOf(condition.Condition);
-        if (index < 0)
-        {
-            _active.Add(condition);
-            return;
-        }
-
-        _active[index] = condition;
+        if (index < 0) _active.Add(condition);
+        else _active[index] = condition;
+        Stamp = ChangeStamp.Next();
     }
 
     /// <summary>Ends one condition.</summary>
@@ -72,11 +74,16 @@ public sealed class CharacterConditions
         int index = IndexOf(condition);
         if (index < 0) return false;
         _active.RemoveAt(index);
+        Stamp = ChangeStamp.Next();
         return true;
     }
 
     /// <summary>Ends every condition, which is what a complete recovery does.</summary>
-    public void ClearAll() => _active.Clear();
+    public void ClearAll()
+    {
+        _active.Clear();
+        Stamp = ChangeStamp.Next();
+    }
 
     private int IndexOf(ConditionId condition)
     {
