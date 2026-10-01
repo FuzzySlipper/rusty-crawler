@@ -217,7 +217,7 @@ through the same factory creation hands a party to, never a party of its own inv
 that declared no creation screen plays — one party per selection, refused by name with every candidate
 when the selection states two, exactly as the scenario's starting place is), the larder's
 policy (`MightAndMagic7Provisions` — one ration a day, and the weak condition a larder left short puts
-on every member), and what a crossing costs (`MightAndMagic7TravelCostRule` — a day on the road and the
+on every member, which a rest ends and a meal does not, as in the donor), and what a crossing costs (`MightAndMagic7TravelCostRule` — a day on the road and the
 rations it eats; a fare is honoured by the passage the party bought, and a portal — a crossing the caster
 issues rather than a place — is free of road time because the spell already paid for it), how long a journey a
 counter sells takes (`MightAndMagic7FareDays` — a stable sells on the `coach` route and a dock on the `boat`

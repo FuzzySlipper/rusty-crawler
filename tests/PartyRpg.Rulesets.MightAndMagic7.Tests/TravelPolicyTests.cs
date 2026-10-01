@@ -157,7 +157,7 @@ public sealed class TravelPolicyTests
 
         using PartyEntity party = MightAndMagic7Party.Compose(catalog)
             ?? throw new InvalidOperationException("The scenario declares a party, so composing it must produce one.");
-        PartyResourceLedger accounts = new(party, provisioning: new MightAndMagic7Provisions(party));
+        PartyResourceLedger accounts = new(party, provisioning: new MightAndMagic7Provisions());
         GameClock clock = TestClock.Create();
         PartyPoseOwner owner = new(
             new PartyPose(Home, PlacePose.Origin),
@@ -336,12 +336,12 @@ public sealed class TravelPolicyTests
     }
 
     [Fact]
-    public void A_day_eats_one_ration_and_an_empty_larder_weakens_the_party_until_it_is_fed()
+    public void A_day_eats_one_ration_and_an_empty_larder_weakens_the_party_until_it_rests()
     {
         ContentCatalog catalog = Catalog(World(PartyDocument(food: 2)));
         using PartyEntity party = MightAndMagic7Party.Compose(catalog)
             ?? throw new InvalidOperationException("The scenario declares a party, so composing it must produce one.");
-        PartyResourceLedger ledger = new(party, provisioning: new MightAndMagic7Provisions(party));
+        PartyResourceLedger ledger = new(party, provisioning: new MightAndMagic7Provisions());
 
         // The donor's day takes one unit, and one unit only: the charge does not scale with the two members
         // the scenario declares, because the donor's food store is the party's own single number.
@@ -361,14 +361,15 @@ public sealed class TravelPolicyTests
         Assert.Equal(MightAndMagic7Provisions.Weakness, hungry.Shortage!.Value.Condition);
         Assert.All(party.Members, member => Assert.Equal(1, member.Conditions.SeverityOf(MightAndMagic7Provisions.Weakness)));
 
-        // Provisions arriving through the party's own path, and the next day the larder covers, is what
-        // ends the hunger: the rule states both ends of it.
+        // A fed day is no new shortage, but it does not end the weakness: the donor clears the weak condition
+        // only on a full rest (OpenEnroth src/Engine/Party.cpp:698-721), and the same condition may be the
+        // fatigue rule's, which a meal must not end. A completed sleep clears it (RestAndScheduleTests).
         ledger.Credit(PartyCost.OfFood(new Provisions(2, ProvisionUnit.Portions)));
         ProvisionDay fed = ledger.SpendDay();
 
         Assert.Null(fed.Shortage);
         Assert.Equal(1, party.Food.Portions);
-        Assert.All(party.Members, member => Assert.False(member.Conditions.Has(MightAndMagic7Provisions.Weakness)));
+        Assert.All(party.Members, member => Assert.Equal(1, member.Conditions.SeverityOf(MightAndMagic7Provisions.Weakness)));
     }
 
     [Fact]

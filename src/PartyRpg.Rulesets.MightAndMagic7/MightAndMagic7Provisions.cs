@@ -29,17 +29,14 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// doing one thing and reporting another.
 /// </para>
 /// <para>
-/// <b>A fed day ends the hunger.</b> The rule is stated here because this is where hunger starts: the
-/// ledger asks this rule what a larder at the level it was left at does to the party, and a larder that
-/// still covers a day's rations means the party ate. The donor has no such rule: it clears the weak condition
-/// only on a full rest (<c>src/Engine/Party.cpp:698-721</c>, <c>Party::restAndHeal</c>, which the same
-/// travel message runs for a party that set out with food) and through cures, so this end is ours rather
-/// than its number. The donor's end is kept as well: a completed sleep in <see cref="MightAndMagic7Rest"/>
-/// clears the same condition.
+/// <b>Eating does not end it; rest does.</b> The donor clears the weak condition only on a full rest
+/// (<c>src/Engine/Party.cpp:698-721</c>, <c>Party::restAndHeal</c>) and through cures, and this game keeps
+/// that end: a completed sleep in <see cref="MightAndMagic7Rest"/> clears it. A fed day clears nothing,
+/// because the weak condition is one condition whoever set it — hunger here, or the fatigue rule
+/// <see cref="MightAndMagic7Rest"/> owns — and a meal that ended it would end tiredness without rest.
 /// </para>
 /// <para>
-/// The party is held because hunger is the party's state and this rule is what both applies and ends it;
-/// the rule owns no count of its own, so the larder remains the only place food is stored.
+/// The rule owns no count of its own, so the larder remains the only place food is stored.
 /// </para>
 /// </remarks>
 internal sealed class MightAndMagic7Provisions : IProvisionDayRule
@@ -56,14 +53,6 @@ internal sealed class MightAndMagic7Provisions : IProvisionDayRule
     /// <summary>The condition hunger puts on a member, as this game names it.</summary>
     internal static readonly ConditionId Weakness = new("weak");
 
-    private readonly PartyEntity _party;
-
-    /// <summary>Creates the rule over the party whose hunger it speaks for.</summary>
-    /// <param name="party">The party that owns the larder this rule prices and the members it weakens.</param>
-    /// <exception cref="ArgumentNullException">No party was supplied.</exception>
-    internal MightAndMagic7Provisions(PartyEntity party) =>
-        _party = party ?? throw new ArgumentNullException(nameof(party));
-
     /// <summary>The provisions one day's rations are, which the travel cost is stated in as well.</summary>
     internal static Provisions DayRations => new(RationsPerDay, ProvisionUnit.Portions);
 
@@ -74,14 +63,8 @@ internal sealed class MightAndMagic7Provisions : IProvisionDayRule
     /// <exception cref="ArgumentOutOfRangeException">The party's state cannot be changed; the count is never negative.</exception>
     public ActiveCondition? Consequence(int portionsAfter, int members)
     {
-        if (portionsAfter >= RationsPerDay)
-        {
-            // The larder still covers a day, so nobody goes hungry: a member who was weakened by an earlier
-            // short day is fed again and the condition ends here.
-            foreach (PartyMember member in _party.Members) member.Conditions.Clear(Weakness);
-            return null;
-        }
-
-        return new ActiveCondition(Weakness, 1);
+        // The larder still covering a day means nobody goes hungry today; a member an earlier short day
+        // weakened stays weak until a rest ends it, as the donor's does.
+        return portionsAfter >= RationsPerDay ? null : new ActiveCondition(Weakness, 1);
     }
 }

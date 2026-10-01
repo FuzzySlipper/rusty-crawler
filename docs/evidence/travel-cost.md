@@ -73,6 +73,6 @@ Read off the panel:
 
 Not exercised live: the recovery half of the hunger rule. It needs a day the larder covers, and the
 shipped product has no shop, no provision find, and no rest owner yet, so the only way to feed this party
-would be content that starts it with food it did not spend. The kit and host suites prove that a fed day
-clears the condition (`TravelCostWiringTests.A_party_that_arrives_short_is_weakened_and_a_day_it_covers_ends_it`,
-`TravelPolicyTests.A_day_eats_one_ration_and_an_empty_larder_weakens_the_party_until_it_is_fed`).
+would be content that starts it with food it did not spend. Since this reading the rule changed: a fed
+day no longer clears the condition, and a completed rest does, as the donor's full rest does
+(`TravelPolicyTests.A_day_eats_one_ration_and_an_empty_larder_weakens_the_party_until_it_rests`).

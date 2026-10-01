@@ -512,7 +512,7 @@ internal sealed class MightAndMagic7Session : IGameSession
     /// charge the same accounts through the same rule.
     /// </remarks>
     private static PartyResourceLedger Ledger(PartyEntity party) =>
-        new(party, provisioning: new MightAndMagic7Provisions(party));
+        new(party, provisioning: new MightAndMagic7Provisions());
 
     /// <summary>
     /// The reader for the movement controls the host declared, when it declared any.
