@@ -34,17 +34,30 @@ namespace PartyRpg.Kit.Combat;
 /// pose is what the fight and the panel read.
 /// </para>
 /// <para>
-/// <b>What is approximated is stated.</b> Every creature is swept with the party's own body profile, scaled
-/// by the speed its own ruleset answer gives it, and creatures do not collide with one another or with the
-/// party: the population submits no colliders to the scene yet, which is the same limit the party's own
-/// line of sight states. A creature therefore walks through a body rather than around it, and stands
-/// wherever the ground admits it.
+/// <b>Each creature walks at its own pace, and the engine is what holds it to it.</b> The pace a request states is
+/// put into the controller profile that request hands the engine — the profile's ground speeds become the
+/// creature's, and its ground acceleration is scaled with them so a slow creature and a fast one each reach their
+/// own pace in the time the profile states — so how far a step carries a creature is the engine's answer to its
+/// own pace, not a correction made to the engine's displacement afterwards.
+/// </para>
+/// <para>
+/// <b>What is approximated is stated.</b> Every creature is swept with the party's own body — its shape, slopes,
+/// step-up and braking — and only its pace is its own. Creatures do not collide with one another or with the
+/// party: the population submits no colliders to the scene yet, which is the same limit the party's own line of
+/// sight states. A creature therefore walks through a body rather than around it, and stands wherever the ground
+/// admits it.
 /// </para>
 /// </remarks>
 public sealed class EngineCreatureMotion : ICreatureMover
 {
     /// <summary>The engine's code for a step refused because the body could not be resolved out of collision.</summary>
     private const string UnresolvedPenetration = "unresolved-character-controller-penetration";
+
+    /// <summary>The slowest a creature's pace may be, as a share of the profile's own.</summary>
+    private const double MinimumPaceScale = 0.05;
+
+    /// <summary>The fastest a creature's pace may be, as a multiple of the profile's own.</summary>
+    private const double MaximumPaceScale = 4;
 
     private readonly ISpatialService _spatial;
     private readonly EnginePartyMover _scene;
@@ -65,8 +78,8 @@ public sealed class EngineCreatureMotion : ICreatureMover
     /// </param>
     /// <param name="space">How a place's own coordinates and facing unit become the engine's world.</param>
     /// <param name="controller">
-    /// The engine controller profile a creature is swept with, which is the party's profile scaled per
-    /// creature by its own speed. It states the body, the acceleration, the slopes, and the step-up.
+    /// The engine controller profile a creature is swept with: the party's own. It states the body, the slopes,
+    /// and the step-up; each step hands the engine a copy whose ground pace is the creature's own.
     /// </param>
     /// <param name="settleReach">
     /// How far above its feet, in place units, the ground over a creature content stood inside it may lie and the
@@ -128,13 +141,7 @@ public sealed class EngineCreatureMotion : ICreatureMover
 
         Vector3 position = _space.Position(request.From);
         Vector3 target = _space.Position(request.TargetPose);
-        float speed = (float)SpeedScale(request.Speed);
-        if (speed <= 0)
-        {
-            // A creature whose own answer is that it does not move stays where it stands, and the engine is
-            // not asked to resolve a step that nothing asked for.
-            return CreatureMoveOutcome.Still(request.From);
-        }
+        CharacterControllerConfig controller = Paced(request.Speed);
 
         // Where to walk is the engine's own answer when it has one: a creature steers at the next walkable
         // point along the way to its target, so a corridor bend or a wall is walked around rather than
@@ -162,7 +169,7 @@ public sealed class EngineCreatureMotion : ICreatureMover
             Sequence: ++_sequence);
 
         PlacePose from = request.From;
-        if (Propose(position, walker.Motion, command, out string? embedded) is not { } receipt)
+        if (Propose(position, walker.Motion, controller, command, out string? embedded) is not { } receipt)
         {
             // The engine could not resolve the body out of the collision it starts in. A creature whose content
             // stood it below the ground — a record that states a nominal height under a hillside — stands on the
@@ -170,7 +177,7 @@ public sealed class EngineCreatureMotion : ICreatureMover
             // continuation. One that has no such ground, or that the engine still cannot step once stood on it,
             // is held where it stands, by name, and not asked again until it leaves the field.
             if (Settle(from) is not { } settled ||
-                Propose(_space.Position(settled), default, command, out embedded) is not { } resettled)
+                Propose(_space.Position(settled), default, controller, command, out embedded) is not { } resettled)
             {
                 Refusal refusal = Embedded(from, embedded!);
                 _held[request.Creature] = refusal;
@@ -201,10 +208,16 @@ public sealed class EngineCreatureMotion : ICreatureMover
     /// </remarks>
     /// <param name="position">Where the body's centre starts, in the engine's world.</param>
     /// <param name="motion">The continuation the step carries on from.</param>
+    /// <param name="controller">The profile the step is solved with, at the creature's own pace.</param>
     /// <param name="command">What the creature is trying to do.</param>
     /// <param name="embedded">The engine's own sentence when it could not place the body; null otherwise.</param>
     /// <returns>The engine's receipt, or null when it could not place the body.</returns>
-    private CharacterStepReceipt? Propose(Vector3 position, CharacterMotion motion, CharacterControllerCommand command, out string? embedded)
+    private CharacterStepReceipt? Propose(
+        Vector3 position,
+        CharacterMotion motion,
+        CharacterControllerConfig controller,
+        CharacterControllerCommand command,
+        out string? embedded)
     {
         embedded = null;
         try
@@ -216,7 +229,7 @@ public sealed class EngineCreatureMotion : ICreatureMover
                 default,
                 ReadOnlyMemory<CharacterObstacle>.Empty,
                 ReadOnlyMemory<CharacterMeshInstance>.Empty,
-                _controller,
+                controller,
                 command));
         }
         catch (EngineCallException error) when (Unresolved(error) is { } sentence)
@@ -328,21 +341,34 @@ public sealed class EngineCreatureMotion : ICreatureMover
     }
 
     /// <summary>
-    /// How the party's own controller profile is scaled for a creature of a stated speed.
+    /// The party's own controller profile at a creature's stated pace: the profile the engine solves that
+    /// creature's step with.
     /// </summary>
     /// <remarks>
-    /// The profile is the party's — the body, the acceleration, the slopes, the step-up — and only the
-    /// creature's own pace changes: a creature moves at the speed its own content states, which is a
-    /// property of the creature rather than of the geometry it walks on, and the ruleset that reads its
-    /// row is where that number comes from. A creature that states no speed, or one whose speed the
-    /// profile cannot express, keeps the profile's own; the scale is capped so a row stating an absurd
-    /// speed cannot ask the engine for a step it cannot solve.
+    /// The body, the slopes, the step-up and the braking are the profile's; the ground speeds — forward, back and
+    /// sideways, which are what the engine's controller walks a body at — become the creature's own pace, and the
+    /// ground acceleration is scaled by the same ratio so every creature reaches its own pace in the time the
+    /// profile reaches the party's. A creature that states no pace, or a profile with no pace to scale, keeps the
+    /// profile's own; the ratio is bounded so a row stating an absurd pace cannot ask the engine for a step it
+    /// cannot solve, nor one so slow it never visibly moves.
     /// </remarks>
-    private double SpeedScale(double speed)
+    /// <param name="speed">The creature's own pace, in place units per second.</param>
+    private CharacterControllerConfig Paced(double speed)
     {
-        double reference = _controller.Ground.ForwardSpeed;
-        if (!double.IsFinite(speed) || speed <= 0 || reference <= 0) return 1;
-        return Math.Clamp(speed / reference, 0.05, 4);
+        CharacterGroundConfig ground = _controller.Ground;
+        double reference = ground.ForwardSpeed;
+        if (!double.IsFinite(speed) || speed <= 0 || !(reference > 0)) return _controller;
+        float scale = (float)Math.Clamp(speed / reference, MinimumPaceScale, MaximumPaceScale);
+        return _controller with
+        {
+            Ground = ground with
+            {
+                ForwardSpeed = ground.ForwardSpeed * scale,
+                BackwardSpeed = ground.BackwardSpeed * scale,
+                StrafeSpeed = ground.StrafeSpeed * scale,
+                Acceleration = ground.Acceleration * scale,
+            },
+        };
     }
 
     /// <summary>One creature's place in the stream of steps: what the engine gave back for its next one.</summary>

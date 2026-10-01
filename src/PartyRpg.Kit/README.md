@@ -315,7 +315,10 @@ step through the `ICreatureMover` seam, reports what every creature is doing, an
 opposition is all down as cleared through the world's own per-place state; `EngineCreatureMotion` is the
 engine-backed mover — built over the party's own `EnginePartyMover`, so every creature's character step goes
 to the one scene the place's collision was admitted to, steered at the engine's waypoint only when the place's
-admission carried navigation cells and the engine reports the path reached, and no C# collision anywhere; a
+admission carried navigation cells and the engine reports the path reached, and no C# collision anywhere; each
+step hands the engine the party's controller profile with its ground speeds and acceleration scaled to the pace
+the request states (the policy's `SpeedOf`, bounded to a twentieth to four times the profile's), so how far a
+creature goes is the engine's answer to its own pace; a
 creature whose body starts deeper in collision than the engine's controller recovers, which the engine refuses
 with `unresolved-character-controller-penetration`, is stood on the first surface the engine's own ray meets
 straight above its feet within the ruleset's settling reach, and one with no such ground, or still refused there,

@@ -155,7 +155,16 @@ internal sealed class MightAndMagic7MonsterAi : IMonsterAiPolicy
     /// The monster table's own speed column, which is the pace the donor moves a creature at
     /// (<c>OpenEnroth src/Engine/Objects/Actor.cpp:2259</c>, <c>moveSpeed</c>) — the one place a creature's
     /// pace is stated, so a slow kind and a fast one differ here and nowhere else. A row that states no speed
-    /// leaves the engine's own profile in place rather than freezing the creature.
+    /// leaves the engine's own profile in place rather than freezing the creature. The creature mover puts this
+    /// pace into the controller profile each step hands the engine, read as place units per second.
+    /// <para>
+    /// <b>Fidelity.</b> The row's number and the slow's division by the spell's power (two at novice and expert,
+    /// so a halving) are the donor's indoor reading. Approximated: the donor doubles the pace of a creature
+    /// pursuing or fleeing and caps it at 1000 (<c>src/Engine/Graphics/Indoor.cpp:820-827</c>), and outdoors halves
+    /// a slowed creature whatever the power (<c>src/Engine/Graphics/Outdoor.cpp:1625-1626</c>); neither is
+    /// applied here, and that the donor's speed unit is a place unit per second is assumed, not checked against its
+    /// timing.
+    /// </para>
     /// </remarks>
     public double SpeedOf(CombatSubject subject)
     {
