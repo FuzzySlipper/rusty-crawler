@@ -94,6 +94,9 @@ internal sealed record MapEventStep(
     /// <summary>The house a person-moving step moves the person to, zero for none.</summary>
     internal int House { get; init; }
 
+    /// <summary>The greeting table row a greeting step makes the person greet the party with.</summary>
+    internal int Greeting { get; init; }
+
     /// <summary>Whether a move stays in the place that issued it.</summary>
     internal bool WithinPlace { get; init; }
 
@@ -128,6 +131,23 @@ internal sealed record MapEvent(PlaceId Place, int Id, string Label, IReadOnlyLi
 {
     /// <summary>Whether a pressure plate of the place raises it when the party walks onto one.</summary>
     internal bool Stepped { get; init; }
+
+    /// <summary>
+    /// Whether the event is one of the global program's, which a person's topic raises and which belongs to no place:
+    /// its <see cref="Place"/> is empty, and a step that reads the place it runs in reads the place the party is in.
+    /// </summary>
+    internal bool Global { get; init; }
+
+    /// <summary>Whether a person's topic raises the global event: a slot the people table states, or one a topic change names.</summary>
+    internal bool Topic { get; init; }
+
+    /// <summary>The event as a refusal names it.</summary>
+    internal string Name => Global
+        ? string.Create(CultureInfo.InvariantCulture, $"global event {Id}")
+        : string.Create(CultureInfo.InvariantCulture, $"map event {Id} of place '{Place}'");
+
+    /// <summary>Whether the event checks whether the topic raising it is offered (<c>set-can-show-dialog-item</c>).</summary>
+    internal bool ChecksOffer => Steps.Any(step => step.Op is MightAndMagic7MapEvents.OfferCompare or MightAndMagic7MapEvents.OfferSet);
 
     /// <summary>The first step with a number, which is the one the donor runs (OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:140-146</c>).</summary>
     /// <param name="step">The step's number.</param>
@@ -209,20 +229,35 @@ internal sealed class MightAndMagic7MapEvents
     /// <summary>The definition kind a line of the history table is declared under.</summary>
     internal const string HistoryDefinitionKind = "history-line";
 
+    /// <summary>The definition kind an event of the global program is declared under.</summary>
+    internal const string GlobalEventDefinitionKind = "global-event";
+
     /// <summary>The variable family a place's own persistent counters are named by.</summary>
     internal const string MapVariable = "map-variable";
+
+    /// <summary>The step of a topic's offer check that compares a variable and jumps.</summary>
+    internal const string OfferCompare = "can-show-dialog-item-compare";
+
+    /// <summary>The step of a topic's offer check that states whether the topic is offered.</summary>
+    internal const string OfferSet = "set-can-show-dialog-item";
+
+    /// <summary>The step that ends a topic's offer check.</summary>
+    internal const string OfferEnd = "end-can-show-dialog-item";
 
     private readonly Dictionary<(string Place, int Event), MapEvent> _events;
     private readonly Dictionary<string, List<MapEvent>> _timedByPlace;
     private readonly Dictionary<int, Discovery> _discoveries;
     private readonly Dictionary<int, HistoryLine> _history;
+    private readonly Dictionary<int, MapEvent> _global;
 
     private MightAndMagic7MapEvents(
         Dictionary<(string Place, int Event), MapEvent> events,
         Dictionary<int, Discovery> discoveries,
-        Dictionary<int, HistoryLine>? history = null)
+        Dictionary<int, HistoryLine>? history = null,
+        Dictionary<int, MapEvent>? global = null)
     {
         _events = events;
+        _global = global ?? [];
         _discoveries = discoveries;
         _history = history ?? [];
         _timedByPlace = [];
@@ -263,6 +298,16 @@ internal sealed class MightAndMagic7MapEvents
     /// <param name="eventId">The event's number.</param>
     internal MapEvent? Find(PlaceId place, int eventId) =>
         _events.GetValueOrDefault((place.Value, eventId));
+
+    /// <summary>The global program's event of a number, or null when the content carries none.</summary>
+    /// <param name="eventId">The event's number, which is also the topic that raises it.</param>
+    internal MapEvent? Global(int eventId) => _global.GetValueOrDefault(eventId);
+
+    /// <summary>How many events of the global program the content carries.</summary>
+    internal int GlobalCount => _global.Count;
+
+    /// <summary>Every event of the global program the content carries.</summary>
+    internal IEnumerable<MapEvent> GlobalEvents => _global.Values;
 
     /// <summary>The discovery a number names, or null when the table holds none.</summary>
     /// <param name="number">The note's number.</param>
@@ -331,56 +376,7 @@ internal sealed class MightAndMagic7MapEvents
                 continue;
             }
 
-            List<MapEventStep> steps = [];
-            foreach (JsonElement element in entry.GetArray("steps"))
-            {
-                string op = ContentEntry.ReadString(element, "op");
-                if (op.Length == 0 || ContentEntry.ReadDouble(element, "step") is not { } stepNumber)
-                {
-                    issues.Add(Issue("map-event-step-unnamed", $"map event '{entry.Id}' holds a step with no number or no instruction word, so a run could not say what it does.", pack, document));
-                    continue;
-                }
-
-                steps.Add(new MapEventStep(
-                    (int)stepNumber,
-                    op,
-                    ContentEntry.ReadString(element, "variable"),
-                    ContentEntry.ReadString(element, "which"),
-                    Whole(element, "index"),
-                    Whole(element, "value"),
-                    ContentEntry.ReadDouble(element, "target") is { } target ? (int)target : null,
-                    Targets(element),
-                    ContentEntry.ReadString(element, "text"),
-                    ContentEntry.ReadString(element, "who"),
-                    Whole(element, "member"),
-                    ContentEntry.ReadString(element, "kind"),
-                    Whole(element, "amount"),
-                    ContentEntry.ReadString(element, "period"),
-                    Whole(element, "halfMinutes"))
-                {
-                    Door = Whole(element, "door"),
-                    Action = ContentEntry.ReadString(element, "action"),
-                    Level = Whole(element, "level"),
-                    ItemKind = ContentEntry.ReadString(element, "itemKind"),
-                    ItemSkill = ContentEntry.ReadString(element, "itemSkill"),
-                    Item = Whole(element, "item"),
-                    Spell = Whole(element, "spell"),
-                    Mastery = ContentEntry.ReadString(element, "mastery"),
-                    Rank = Whole(element, "rank"),
-                    Person = Whole(element, "person"),
-                    Flag = ContentEntry.ReadDouble(element, "flag") is { } flag ? (long)flag : 0,
-                    Raises = Whole(element, "raises"),
-                    Group = Whole(element, "group"),
-                    On = element.TryGetProperty("on", out JsonElement on) && on.ValueKind == JsonValueKind.True,
-                    Link = ContentEntry.ReadId(element, "link"),
-                    Travel = ContentEntry.ReadString(element, "travel"),
-                    WithinPlace = element.TryGetProperty("withinPlace", out JsonElement within) && within.ValueKind == JsonValueKind.True,
-                    Position = (Whole(element, "x"), Whole(element, "y"), Whole(element, "z")),
-                    House = Whole(element, "house"),
-                    Yaw = ContentEntry.ReadDouble(element, "yaw") is { } yaw ? (int)yaw : -1,
-                });
-            }
-
+            List<MapEventStep> steps = Steps(entry, pack, document, issues);
             MapEvent mapEvent = new(new PlaceId(place), eventId, entry.GetString("label"), steps, entry.GetBoolean("raised") ?? false)
             {
                 Stepped = entry.GetBoolean("stepped") ?? false,
@@ -388,6 +384,27 @@ internal sealed class MightAndMagic7MapEvents
             if (!events.TryAdd((place, eventId), mapEvent))
             {
                 issues.Add(Issue("map-event-duplicated", $"place '{place}' carries event {eventId} twice, so which steps a fixture raising it runs would be a coin toss.", pack, document));
+            }
+        }
+
+        // The global program's events are what a person's topic runs; they belong to no place.
+        Dictionary<int, MapEvent> global = [];
+        foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in catalog.Entries(GlobalEventDefinitionKind))
+        {
+            if (entry.GetInt32("event") is not { } eventId)
+            {
+                issues.Add(Issue("global-event-unnumbered", $"global event '{entry.Id}' names no event number, so no topic could raise it.", pack, document));
+                continue;
+            }
+
+            MapEvent globalEvent = new(new PlaceId(string.Empty), eventId, string.Empty, Steps(entry, pack, document, issues), false)
+            {
+                Global = true,
+                Topic = entry.GetBoolean("topic") ?? false,
+            };
+            if (!global.TryAdd(eventId, globalEvent))
+            {
+                issues.Add(Issue("global-event-duplicated", $"the global program is carried with event {eventId} twice, so which steps a topic raising it runs would be a coin toss.", pack, document));
             }
         }
 
@@ -428,7 +445,64 @@ internal sealed class MightAndMagic7MapEvents
             throw new ContentValidationException($"The places' map events cannot be read: {issues[0].Message}", issues);
         }
 
-        return new MightAndMagic7MapEvents(events, discoveries, history);
+        return new MightAndMagic7MapEvents(events, discoveries, history, global);
+    }
+
+    /// <summary>An event entry's steps, with every step that names no number or no word reported as a defect.</summary>
+    private static List<MapEventStep> Steps(ContentEntry entry, LoadedPack pack, ContentDocument document, List<ContentValidationIssue> issues)
+    {
+        List<MapEventStep> steps = [];
+        foreach (JsonElement element in entry.GetArray("steps"))
+        {
+            string op = ContentEntry.ReadString(element, "op");
+            if (op.Length == 0 || ContentEntry.ReadDouble(element, "step") is not { } stepNumber)
+            {
+                issues.Add(Issue("map-event-step-unnamed", $"map event '{entry.Id}' holds a step with no number or no instruction word, so a run could not say what it does.", pack, document));
+                continue;
+            }
+
+            steps.Add(new MapEventStep(
+                (int)stepNumber,
+                op,
+                ContentEntry.ReadString(element, "variable"),
+                ContentEntry.ReadString(element, "which"),
+                Whole(element, "index"),
+                Whole(element, "value"),
+                ContentEntry.ReadDouble(element, "target") is { } target ? (int)target : null,
+                Targets(element),
+                ContentEntry.ReadString(element, "text"),
+                ContentEntry.ReadString(element, "who"),
+                Whole(element, "member"),
+                ContentEntry.ReadString(element, "kind"),
+                Whole(element, "amount"),
+                ContentEntry.ReadString(element, "period"),
+                Whole(element, "halfMinutes"))
+            {
+                Door = Whole(element, "door"),
+                Action = ContentEntry.ReadString(element, "action"),
+                Level = Whole(element, "level"),
+                ItemKind = ContentEntry.ReadString(element, "itemKind"),
+                ItemSkill = ContentEntry.ReadString(element, "itemSkill"),
+                Item = Whole(element, "item"),
+                Spell = Whole(element, "spell"),
+                Mastery = ContentEntry.ReadString(element, "mastery"),
+                Rank = Whole(element, "rank"),
+                Person = Whole(element, "person"),
+                Flag = ContentEntry.ReadDouble(element, "flag") is { } flag ? (long)flag : 0,
+                Raises = Whole(element, "raises"),
+                Group = Whole(element, "group"),
+                On = element.TryGetProperty("on", out JsonElement on) && on.ValueKind == JsonValueKind.True,
+                Link = ContentEntry.ReadId(element, "link"),
+                Travel = ContentEntry.ReadString(element, "travel"),
+                WithinPlace = element.TryGetProperty("withinPlace", out JsonElement within) && within.ValueKind == JsonValueKind.True,
+                Position = (Whole(element, "x"), Whole(element, "y"), Whole(element, "z")),
+                House = Whole(element, "house"),
+                Greeting = Whole(element, "greeting"),
+                Yaw = ContentEntry.ReadDouble(element, "yaw") is { } yaw ? (int)yaw : -1,
+            });
+        }
+
+        return steps;
     }
 
     private static int Whole(JsonElement element, string property) =>

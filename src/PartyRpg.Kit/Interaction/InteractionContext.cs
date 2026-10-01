@@ -18,7 +18,19 @@ namespace PartyRpg.Kit.Interaction;
 /// What the party has already done to this target, as the word the ruleset last recorded for it; empty when
 /// nothing has happened to it yet, which is also when content's own state is what the target is.
 /// </param>
-public readonly record struct InteractionTargetRequest(PlaceId Place, PlacementDefinition Placement, string State);
+public readonly record struct InteractionTargetRequest(PlaceId Place, PlacementDefinition Placement, string State)
+{
+    /// <summary>
+    /// What a person's word raised at the placement, as the ruleset's own name for it, or empty for a use the party
+    /// made itself (<see cref="PartyInteraction.Answer"/>).
+    /// </summary>
+    /// <remarks>
+    /// A person's word can set something going that the party never aimed at — the ruleset's answer to the topic it
+    /// was asked — and it is run as one use of the placement the person stands at, so what it changes is settled by the
+    /// owners every other use settles through. The word is the ruleset's, carried back to it unread.
+    /// </remarks>
+    public string Raised { get; init; } = string.Empty;
+}
 
 /// <summary>What one granted use is resolved against: the target, its state, and the party that uses it.</summary>
 /// <remarks>
@@ -81,4 +93,10 @@ public sealed record InteractionContext(
     /// settled: a use whose way the place does not issue is refused rather than settled and then left standing.
     /// </remarks>
     public IReadOnlyList<PlaceTransition> PlaceTransitions { get; init; } = [];
+
+    /// <summary>
+    /// What a person's word raised, when the use is one (<see cref="PartyInteraction.Answer"/>), or empty for a use the
+    /// party made itself: the same word the target was described from (<see cref="InteractionTargetRequest.Raised"/>).
+    /// </summary>
+    public string Raised { get; init; } = string.Empty;
 }

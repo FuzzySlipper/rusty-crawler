@@ -1,6 +1,7 @@
 using System.Globalization;
 using MightAndMagic7.Import.Events;
 using MightAndMagic7.Import.Maps;
+using MightAndMagic7.Import.Tables;
 using MightAndMagic7.Import.World;
 
 namespace MightAndMagic7.Import.Packs;
@@ -53,8 +54,9 @@ public sealed record PlaceEntrancePlacement(
 /// <param name="Disposition">
 /// How the link is taken: <c>used</c> (a clicked face group or a decoration raises the event, and using it runs the
 /// event), <c>walked</c> (a pressure plate raises it, and walking onto the plate runs it), <c>used-or-walked</c>
-/// (both), <c>counter</c> (the event opens a building, whose counter owns the face), <c>world-issued</c> (the
-/// global program moves the party from no place), or <c>unreachable</c>.
+/// (both), <c>counter</c> (the event opens a building, whose counter owns the face), <c>spoken</c> (the global
+/// program's move, which a person's topic raises), <c>world-issued</c> (the global program moves the party from no
+/// place and no topic raises it), or <c>unreachable</c>.
 /// </param>
 /// <param name="Trigger">What raises the event in the source place, in words; empty for a link the world issues.</param>
 /// <param name="Condition">What must hold for a run of the event to reach this move, empty when every run does.</param>
@@ -100,7 +102,7 @@ public sealed record PlaceEntranceSummary(
     public int ConditionalCount => Accounts.Count(account => account.IsConditional);
 
     /// <summary>How many links a party can take in play by using or treading on what raises them.</summary>
-    public int TakenCount => Accounts.Count(account => account.Disposition is PlaceEntranceEmitter.Used or PlaceEntranceEmitter.Walked or PlaceEntranceEmitter.UsedOrWalked);
+    public int TakenCount => Accounts.Count(account => account.Disposition is PlaceEntranceEmitter.Used or PlaceEntranceEmitter.Walked or PlaceEntranceEmitter.UsedOrWalked or PlaceEntranceEmitter.Spoken);
 }
 
 /// <summary>
@@ -145,7 +147,13 @@ public static class PlaceEntranceEmitter
     /// <summary>The disposition of a link whose event opens a building, whose counter owns the face.</summary>
     public const string Counter = "counter";
 
-    /// <summary>The disposition of a link the world issues from no place.</summary>
+    /// <summary>
+    /// The disposition of a link of the global program whose event a person's topic raises: choosing the topic runs the
+    /// event, and its move is the world's own (OpenEnroth <c>src/GUI/UI/NPCTopics.cpp:662-666</c>).
+    /// </summary>
+    public const string Spoken = "spoken";
+
+    /// <summary>The disposition of a link the world issues from no place and no person's topic raises.</summary>
     public const string WorldIssued = "world-issued";
 
     /// <summary>The disposition of a link nothing in its source place raises.</summary>
@@ -155,8 +163,12 @@ public static class PlaceEntranceEmitter
     /// <param name="graph">The links the places were read from.</param>
     /// <param name="maps">The decoded maps, keyed by the place id the map table gives them.</param>
     /// <param name="programs">Every event program the installation carries, which the links' events are read from.</param>
+    /// <param name="people">
+    /// The people tables, which say whose topic raises an event of the global program that sets a quest bit a link's
+    /// condition compares; without them that is not stated.
+    /// </param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public static PlaceEntranceSummary Emit(PlaceGraph graph, IReadOnlyDictionary<int, DecodedMap> maps, IReadOnlyList<EvtProgram> programs)
+    public static PlaceEntranceSummary Emit(PlaceGraph graph, IReadOnlyDictionary<int, DecodedMap> maps, IReadOnlyList<EvtProgram> programs, PersonTable? people = null)
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(maps);
@@ -176,7 +188,7 @@ public static class PlaceEntranceEmitter
             events[program.Name] = byEvent;
         }
 
-        Writers writers = new(programs);
+        Writers writers = new(programs, events, maps, people);
         List<PlaceLinkAccount> accounts = [];
         List<PlaceEntrancePlacement> entrances = [];
         for (int index = 0; index < graph.Links.Count; index++)
@@ -191,7 +203,10 @@ public static class PlaceEntranceEmitter
 
             if (link.SourceMapId is not int from)
             {
-                accounts.Add(Account(index, link, WorldIssued, string.Empty, condition, $"{link.SourceEvtName} moves the party from no map: the global program's events are run by a person's topic and the game's own scripts, not by a place, so there is no place a party could take it from."));
+                string topics = people is null ? string.Empty : GlobalEventEmitter.Raisers(link.EventId, programs, people);
+                accounts.Add(topics.Length > 0
+                    ? Account(index, link, Spoken, topics, condition, $"{link.SourceEvtName} event {link.EventId} is raised by {topics}: choosing the topic runs the event, and its move is the world's own, issued from no place.{conditionDetail}")
+                    : Account(index, link, WorldIssued, string.Empty, condition, $"{link.SourceEvtName} moves the party from no map, and no person's topic raises event {link.EventId}: the global program's events are run by a person's topic, not by a place, so there is no place a party could take it from."));
                 continue;
             }
 
@@ -334,13 +349,29 @@ public static class PlaceEntranceEmitter
         return new PlaceEntrancePlacement(from, eventId, links, x, y, z, radius, faceIndex, modelIndex, modelName, face.Attributes);
     }
 
-    /// <summary>Which events of which programs write each quest bit, which is what says whether a condition can be met.</summary>
+    /// <summary>
+    /// Which events of which programs write each quest bit, and what raises each of those events, which is what says
+    /// whether a condition can be met.
+    /// </summary>
+    /// <remarks>
+    /// A place's event is raised by what its map holds — a clicked face, a plate, a decoration — and an event a house
+    /// answers for is raised by the house's own door (<see cref="PlaceFixtureEmitter.Owner"/>); an event of the global
+    /// program is raised by a person's topic (<see cref="GlobalEventEmitter.Raisers"/>). Each writer is named with what
+    /// raises it, or with the statement that nothing does, so the account of a gated link names the writer a party has
+    /// no way to reach.
+    /// </remarks>
     private sealed class Writers
     {
         private readonly Dictionary<int, List<string>> _bits = [];
 
-        internal Writers(IReadOnlyList<EvtProgram> programs)
+        internal Writers(
+            IReadOnlyList<EvtProgram> programs,
+            Dictionary<string, Dictionary<int, List<EvtInstruction>>> events,
+            IReadOnlyDictionary<int, DecodedMap> maps,
+            PersonTable? people)
         {
+            Dictionary<string, DecodedMap> byStem = new(StringComparer.OrdinalIgnoreCase);
+            foreach (DecodedMap map in maps.Values) byStem.TryAdd(Path.GetFileNameWithoutExtension(map.FileName), map);
             foreach (EvtProgram program in programs)
             {
                 foreach (EvtInstruction instruction in program.Instructions)
@@ -349,10 +380,40 @@ public static class PlaceEntranceEmitter
                     if (!instruction.TryReadVariable(out VariableInstruction variable)) continue;
                     if (EvtVariables.Name(variable.Variable).Word != "quest-bit") continue;
                     if (!_bits.TryGetValue(variable.Value, out List<string>? list)) _bits[variable.Value] = list = [];
-                    string writer = string.Create(CultureInfo.InvariantCulture, $"{program.Name} event {instruction.EventId}");
+                    string raisedBy = RaisedBy(program, instruction.EventId, programs, events, byStem, people);
+                    string writer = string.Create(CultureInfo.InvariantCulture, $"{program.Name} event {instruction.EventId}{raisedBy}");
                     if (!list.Contains(writer, StringComparer.Ordinal)) list.Add(writer);
                 }
             }
+        }
+
+        /// <summary>What raises one writing event, as a parenthesis; empty when it cannot be said.</summary>
+        private static string RaisedBy(
+            EvtProgram program,
+            int eventId,
+            IReadOnlyList<EvtProgram> programs,
+            Dictionary<string, Dictionary<int, List<EvtInstruction>>> events,
+            Dictionary<string, DecodedMap> maps,
+            PersonTable? people)
+        {
+            if (string.Equals(program.Name, GlobalEventEmitter.ProgramName, StringComparison.OrdinalIgnoreCase))
+            {
+                if (people is null) return string.Empty;
+                string topics = GlobalEventEmitter.Raisers(eventId, programs, people);
+                return topics.Length == 0 ? " (no person's topic raises it)" : $" (raised by {topics})";
+            }
+
+            if (!maps.TryGetValue(Path.GetFileNameWithoutExtension(program.Name), out DecodedMap? map)) return string.Empty;
+            (int clicked, int plates, int decorations) = Raisers(map, eventId);
+            bool timed = events.TryGetValue(program.Name, out Dictionary<int, List<EvtInstruction>>? byEvent) &&
+                byEvent.TryGetValue(eventId, out List<EvtInstruction>? instructions) &&
+                instructions.Any(instruction => EvtOpcodes.IsTrigger(instruction.Opcode));
+            string? owner = byEvent is not null && byEvent.TryGetValue(eventId, out List<EvtInstruction>? owned) ? PlaceFixtureEmitter.Owner(owned) : null;
+            List<string> parts = [];
+            if (clicked + plates + decorations > 0) parts.Add(Trigger(clicked, plates, decorations));
+            if (timed) parts.Add("the map's own trigger");
+            if (owner == EvtOpcodes.Word(EvtOpcodes.SpeakInHouse) && clicked + decorations > 0) return $" (raised by the door of the house it opens: {string.Join(", ", parts)})";
+            return parts.Count == 0 ? " (nothing in its map raises it)" : $" (raised by {string.Join(", ", parts)})";
         }
 
         /// <summary>Who sets each quest bit a path compares, as a sentence; empty when the path compares none.</summary>

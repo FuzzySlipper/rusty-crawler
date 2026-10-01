@@ -713,6 +713,7 @@ internal static partial class PackWriter
                     writer.WriteString("text", topic.Text);
                     writer.WriteNumber("textCount", topic.TextCount);
                     if (topic.Requires != 0) writer.WriteNumber("requires", topic.Requires);
+                    if (topic.Event is { } raised) writer.WriteNumber("event", raised);
                     writer.WriteEndObject();
                 }
 
@@ -741,6 +742,7 @@ internal static partial class PackWriter
                 writer.WriteString("text", topic.Text);
                 writer.WriteNumber("textCount", topic.TextCount);
                 if (topic.Requires != 0) writer.WriteNumber("requires", topic.Requires);
+                if (topic.Event is { } raised) writer.WriteNumber("event", raised);
             }));
         }
 

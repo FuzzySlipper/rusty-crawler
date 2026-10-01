@@ -130,7 +130,7 @@ public sealed class PeopleEmissionTests
 
         // The dialogue slots keep their positions, an empty one as zero, because a map event changes a slot by
         // where it is.
-        Assert.Equal([7, 9, 0, 0, 0, 0], one.TopicSlots);
+        Assert.Equal([1, 9, 0, 0, 0, 0], one.TopicSlots);
 
         // The topic table travels whole, every row with something to say whoever owns it, because a slot can be
         // changed to raise a row the owner column gives nobody.

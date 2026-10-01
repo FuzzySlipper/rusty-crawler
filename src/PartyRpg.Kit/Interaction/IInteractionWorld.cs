@@ -50,6 +50,12 @@ public interface IInteractionWorld
     IReadOnlyList<PlaceTransition> Transitions { get; }
 
     /// <summary>
+    /// The transitions the world issues from no place — the game's own scripted moves — which a use a person's word
+    /// raised may lead the party along (<see cref="PartyInteraction.Answer"/>); empty when the world issues none.
+    /// </summary>
+    IReadOnlyList<PlaceTransition> WorldIssued { get; }
+
+    /// <summary>
     /// Whether nothing solid stands between two points of the place the party is in, in the engine's world
     /// axes.
     /// </summary>

@@ -14,9 +14,19 @@ namespace MightAndMagic7.Import.Packs;
 /// <param name="Id">The topic's identity in content, which a conversation command names.</param>
 /// <param name="Label">The topic as a person reads it.</param>
 /// <param name="Requires">The table's own requirement column; zero when the topic requires nothing.</param>
-/// <param name="Text">The first line the topic's texts hold, which is what the person says.</param>
+/// <param name="Text">
+/// The first line the topic's texts hold, which is what the person says; empty when the table names none and the
+/// global program's event of the topic's number speaks instead.
+/// </param>
 /// <param name="TextCount">How many lines the topic table names for this topic.</param>
-public sealed record PlacePersonTopic(string Id, string Label, int Requires, string Text, int TextCount);
+public sealed record PlacePersonTopic(string Id, string Label, int Requires, string Text, int TextCount)
+{
+    /// <summary>
+    /// The global program's event the topic raises when it is chosen — the event of the topic's own number
+    /// (OpenEnroth <c>src/GUI/UI/NPCTopics.cpp:546-559</c>, <c>:662-666</c>) — or null when the program holds none.
+    /// </summary>
+    public int? Event { get; init; }
+}
 
 /// <summary>One person the content carries: who they are and everything they can say.</summary>
 /// <remarks>
@@ -216,15 +226,23 @@ public static class PlacePeopleEmitter
     /// <param name="people">The tables the game's people are read from.</param>
     /// <param name="maps">The decoded maps, keyed by the place id the map table gives them.</param>
     /// <param name="services">What the building table's own emission produced, which is where a building's placement is.</param>
+    /// <param name="globalEvents">
+    /// The numbers of the global program's events (<see cref="GlobalEventEmitter"/>): a topic of such a number raises
+    /// the event when chosen, so it is something the person says even when the topic table names no text for it.
+    /// </param>
     /// <exception cref="ArgumentNullException">A required input is null.</exception>
     public static PlacePeopleSummary Emit(
         PersonTable people,
         IReadOnlyDictionary<int, DecodedMap> maps,
-        PlaceServiceSummary services)
+        PlaceServiceSummary services,
+        IReadOnlySet<int>? globalEvents = null)
     {
         ArgumentNullException.ThrowIfNull(people);
         ArgumentNullException.ThrowIfNull(maps);
         ArgumentNullException.ThrowIfNull(services);
+        IReadOnlySet<int> events = globalEvents ?? new HashSet<int>();
+        Dictionary<int, NpcTopicRecord> rows = [];
+        foreach (NpcTopicRecord row in people.Topics) rows.TryAdd(row.Id, row);
 
         List<PlacePeopleRefusal> refusals = [];
         List<string> notes = [.. people.Notes];
@@ -240,25 +258,33 @@ public static class PlacePeopleEmitter
                 notes.Add($"npcdata row {npc.Id} ('{npc.Name}') uses greeting {npc.GreetingIndex}, which npcgreet does not carry, so they are greeted with this game's own words.");
             }
 
+            // What a person can be asked about is what their slots raise: the row of each slot's number is offered under
+            // its label and its event runs when it is chosen (OpenEnroth src/GUI/UI/NPCTopics.cpp:546-559, :593-619,
+            // :662-666). A row the topic table's owner column gives the person and no slot names is not offered until a
+            // map event changes a slot to it, which the conversation reads from the whole table written below.
             List<PlacePersonTopic> topics = [];
-            foreach (NpcTopicRecord topic in people.TopicsOf(npc.Id))
+            foreach (int slot in npc.DialogueSlots)
             {
-                string? text = FirstText(people, topic);
-                if (text is null)
+                if (slot == 0 || topics.Any(topic => topic.Id == TopicId(slot))) continue;
+                if (!rows.TryGetValue(slot, out NpcTopicRecord? row))
                 {
                     refusals.Add(new PlacePeopleRefusal(
-                        "topic-without-text",
-                        $"npctopic row {topic.Id} ('{topic.Label}') for {npc.Name}",
-                        "The topic's text column names no text this import read, so it is something the original raises rather than something this person says."));
+                        "slot-without-a-topic",
+                        string.Create(CultureInfo.InvariantCulture, $"npcdata row {npc.Id} ('{npc.Name}') slot raising {slot}"),
+                        "The topic table has no row of the slot's number, so there is no label to offer it under."));
                     continue;
                 }
 
-                topics.Add(new PlacePersonTopic(
-                    $"{TopicIdPrefix}{topic.Id.ToString(CultureInfo.InvariantCulture)}",
-                    topic.Label,
-                    topic.Requires,
-                    text,
-                    topic.TextIds.Count));
+                if (Topic(people, row, events) is not { } said)
+                {
+                    refusals.Add(new PlacePeopleRefusal(
+                        "topic-without-text",
+                        $"npctopic row {row.Id} ('{row.Label}') for {npc.Name}",
+                        "The topic's text column names no text this import read and the global program holds no event of its number, so there is nothing this person says to it."));
+                    continue;
+                }
+
+                topics.Add(said);
             }
 
             PlacePerson person = new(
@@ -344,16 +370,28 @@ public static class PlacePeopleEmitter
         List<PlacePersonTopic> table = [];
         foreach (NpcTopicRecord topic in people.Topics)
         {
-            if (FirstText(people, topic) is not { } text) continue;
-            table.Add(new PlacePersonTopic(
-                $"{TopicIdPrefix}{topic.Id.ToString(CultureInfo.InvariantCulture)}",
-                topic.Label,
-                topic.Requires,
-                text,
-                topic.TextIds.Count));
+            if (Topic(people, topic, events) is { } said) table.Add(said);
         }
 
         return new PlacePeopleSummary(entries, placements, households, refusals, notes) { Topics = table };
+    }
+
+    /// <summary>The identity a topic of a row's number carries.</summary>
+    private static string TopicId(int row) => $"{TopicIdPrefix}{row.ToString(CultureInfo.InvariantCulture)}";
+
+    /// <summary>
+    /// A topic row as somebody says it: with its first text, and with the global event of its number when the program
+    /// holds one; null when it has neither, which is a row nothing could answer.
+    /// </summary>
+    private static PlacePersonTopic? Topic(PersonTable people, NpcTopicRecord topic, IReadOnlySet<int> events)
+    {
+        string? text = FirstText(people, topic);
+        bool raises = events.Contains(topic.Id);
+        if (text is null && !raises) return null;
+        return new PlacePersonTopic(TopicId(topic.Id), topic.Label, topic.Requires, text ?? string.Empty, topic.TextIds.Count)
+        {
+            Event = raises ? topic.Id : null,
+        };
     }
 
     /// <summary>The first line a topic's texts hold, or null when none of them resolves.</summary>

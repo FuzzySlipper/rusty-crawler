@@ -109,6 +109,21 @@ public static class EvtOpcodes
     /// <summary>Jumps when a character holds a skill at a rank and mastery.</summary>
     public const byte CheckSkill = 43;
 
+    /// <summary>
+    /// Jumps, in a person's topic's offer check, when a character's variable holds (OpenEnroth
+    /// <c>src/Engine/Evt/EvtInterpreter.cpp:156-163</c>); a regular run passes over it.
+    /// </summary>
+    public const byte CanShowDialogItemCompare = 44;
+
+    /// <summary>Ends a person's topic's offer check (OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:164-165</c>).</summary>
+    public const byte EndCanShowDialogItem = 45;
+
+    /// <summary>States, in a person's topic's offer check, whether the topic is offered (OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:166-169</c>).</summary>
+    public const byte SetCanShowDialogItem = 46;
+
+    /// <summary>Changes the greeting row a person greets the party with (OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:541-545</c>).</summary>
+    public const byte SetNpcGreeting = 50;
+
     /// <summary>Jumps when enough of a set of creatures are dead.</summary>
     public const byte IsActorKilled = 51;
 
@@ -158,13 +173,13 @@ public static class EvtOpcodes
         [41] = "give-item",
         [42] = "change-event",
         [43] = "check-skill",
-        [44] = "can-show-dialog-item-compare",
-        [45] = "end-can-show-dialog-item",
-        [46] = "set-can-show-dialog-item",
+        [CanShowDialogItemCompare] = "can-show-dialog-item-compare",
+        [EndCanShowDialogItem] = "end-can-show-dialog-item",
+        [SetCanShowDialogItem] = "set-can-show-dialog-item",
         [47] = "set-npc-group-news",
         [48] = "set-actor-group",
         [49] = "npc-set-item",
-        [50] = "set-npc-greeting",
+        [SetNpcGreeting] = "set-npc-greeting",
         [51] = "is-actor-killed",
         [52] = "can-show-topic-is-actor-killed",
         [53] = "on-map-leave",

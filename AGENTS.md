@@ -108,7 +108,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   the steps of its imported map event this game interprets and refuses the rest by name. One service
   mechanism, an operation table judged before anything is settled, serves every shipped service kind; towns
   keep hours on the one clock; rest, camp and wait are distinct; conversations recompute their topics from
-  party state and hand off to counters.
+  party state and hand off to counters, and a topic runs its global event as a use of the speaker's placement.
 - **Combat.** One fight over the live world with two pacings over one recovery quantity, one resolution
   path, conditions up to death, corpses and loot through the container mechanism, and cleared places
   restored by the clock. Creatures come from `encounter` placements the ruleset resolves and from the maps'
@@ -135,9 +135,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 **Open residue and its receivers** (Den task ids; Den owns their status):
 
 - Stone 3, world: creatures cannot path around a wall because places carry no navigation cells (#8665); a
-  creature step can fault the runtime in Harmondale (#9041); the global event program (topics) is not run, so
-  some quest-gated links have no raiser (#9042); a person moving house and a counter door's own move are not
-  followed (#9043); plates whose events do not move the party are not emitted (#9044).
+  creature step can fault the runtime in Harmondale (#9041); a person moving house and a counter door's own move
+  are not followed (#9043); plates whose events do not move the party are not emitted (#9044).
 - Stone 5, interaction and services: opened doors and emptied containers are not saved (#8593), and a
   searched chest can be looted twice (#8696); a door's collision, and a face group an event makes passable,
   do not move (#8594); a container above or below the floor cannot be used (#8697); deadlines (fatigue, wards, light, haste) block

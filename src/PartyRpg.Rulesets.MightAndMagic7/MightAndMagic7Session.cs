@@ -102,6 +102,10 @@ internal sealed class MightAndMagic7Session : IGameSession
         // is undead — which the fight policy composed below reads, so the effect path is handed it as a provider.
         MightAndMagic7Combat? composed = null;
 
+        // This game's one interpretation of event steps is composed after the people it calls over, and the people's
+        // topics are answered by it, so each reads the other through a call.
+        MightAndMagic7Fixtures? events = null;
+
         // What the party brings down is kept in one place, and both halves hold it: the fight reports the
         // creatures it read as down, and the world's interaction answers describe what is lying there. It is
         // composed here because the ruleset is the one point both halves are composed over, and before the
@@ -179,7 +183,8 @@ internal sealed class MightAndMagic7Session : IGameSession
             services,
             promotions,
             quests,
-            () => owners.Quests);
+            () => owners.Quests,
+            () => events);
         if (conversation is not null)
         {
             // What reading the people tables noticed is reported where the other composition notes are: a
@@ -260,7 +265,9 @@ internal sealed class MightAndMagic7Session : IGameSession
             () => owners.Progression,
             person => conversation?.PersonOf(person),
             place => owners.World is { } standing ? MightAndMagic7Fixtures.ActorsOf(standing, place) : null,
-            () => owners.Journal);
+            () => owners.Journal,
+            topic => conversation?.SpokenTopic(topic));
+        events = fixtures;
 
         // This game's journal policy is read once, here, over the loot reading that knows which item rows the
         // shipped table hands out as artifacts and relics: that is the one threshold this game states about

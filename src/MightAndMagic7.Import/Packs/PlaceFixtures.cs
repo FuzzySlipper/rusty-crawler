@@ -120,7 +120,10 @@ public sealed record PlaceEventStep(int Step, string Op)
     /// <summary>The place a move to another place arrives at.</summary>
     public int? ToPlace { get; init; }
 
-    /// <summary>What kind of travel a move to another place is: <c>walking</c> between two regions, <c>entrance</c> otherwise.</summary>
+    /// <summary>
+    /// What kind of travel a move to another place is: <c>walking</c> between two regions, <c>entrance</c> otherwise,
+    /// and <c>scripted</c> for a move of the global program, which the world issues from no place.
+    /// </summary>
     public string? Travel { get; init; }
 
     /// <summary>Whether a move stays in the place that issued it, which is a reposition rather than a link.</summary>
@@ -128,6 +131,9 @@ public sealed record PlaceEventStep(int Step, string Op)
 
     /// <summary>The house a person-moving step moves the person to, zero for none.</summary>
     public int? House { get; init; }
+
+    /// <summary>The greeting table row a greeting step makes the person greet the party with.</summary>
+    public int? Greeting { get; init; }
 
     /// <summary>Where a move within the place sets the party down along the place's first axis.</summary>
     public int? X { get; init; }
@@ -524,7 +530,7 @@ public static class PlaceFixtureEmitter
                 continue;
             }
 
-            PlaceEventStep step = Step(instruction, strings);
+            PlaceEventStep step = Step(instruction, id => strings?.Line(id) ?? string.Empty);
             steps.Add(instruction.TryReadMoveToMap(out MoveToMapInstruction move) ? moves.Describe(step, map, programName, instruction, move) : step);
         }
 
@@ -532,7 +538,12 @@ public static class PlaceFixtureEmitter
     }
 
     /// <summary>One instruction as the step a pack carries.</summary>
-    private static PlaceEventStep Step(EvtInstruction instruction, MapStrings? strings)
+    /// <param name="instruction">The instruction.</param>
+    /// <param name="text">
+    /// The line a text step's number names: a map's own string table for a place's event, the topic text table for
+    /// the global program's (<see cref="GlobalEventEmitter"/>).
+    /// </param>
+    internal static PlaceEventStep Step(EvtInstruction instruction, Func<int, string> text)
     {
         string word = EvtOpcodes.Word(instruction.Opcode);
         PlaceEventStep step = new(instruction.Step, word)
@@ -556,7 +567,7 @@ public static class PlaceFixtureEmitter
 
         if (instruction.TryReadText(out int textId))
         {
-            return step with { TextId = textId, Text = strings?.Line(textId) ?? string.Empty };
+            return step with { TextId = textId, Text = text(textId) };
         }
 
         if (instruction.TryReadJump(out int target)) return step with { Target = target };
@@ -599,6 +610,10 @@ public static class PlaceFixtureEmitter
         if (instruction.TryReadSpeakNpc(out int person)) return step with { Person = person };
 
         if (instruction.TryReadMoveNpc(out int moved, out int house)) return step with { Person = moved, House = house };
+
+        if (instruction.TryReadNpcGreeting(out int greeted, out int greeting)) return step with { Person = greeted, Greeting = greeting };
+
+        if (instruction.TryReadCanShow(out bool shows)) return step with { On = shows };
 
         if (instruction.TryReadNpcTopic(out NpcTopicInstruction topic))
         {
@@ -759,17 +774,22 @@ internal sealed class PlaceMoves
     }
 
     /// <summary>The step with what its move is.</summary>
-    internal PlaceEventStep Describe(PlaceEventStep step, DecodedMap map, string programName, EvtInstruction instruction, MoveToMapInstruction move)
+    /// <param name="step">The step as normalized.</param>
+    /// <param name="map">The map whose program holds the move, or null for the global program, which belongs to no map.</param>
+    /// <param name="programName">The program's entry name.</param>
+    /// <param name="instruction">The move's instruction.</param>
+    /// <param name="move">The move, decoded.</param>
+    internal PlaceEventStep Describe(PlaceEventStep step, DecodedMap? map, string programName, EvtInstruction instruction, MoveToMapInstruction move)
     {
         if (_graph is not null && _links.TryGetValue((programName.ToUpperInvariant(), instruction.EventId, instruction.Step), out int index))
         {
             int destination = _graph.Links[index].DestinationMapId!.Value;
-            bool walking = map.Kind == MapKind.Outdoor && _maps.TryGetValue(destination, out DecodedMap? arrival) && arrival.Kind == MapKind.Outdoor;
+            bool walking = map?.Kind == MapKind.Outdoor && _maps.TryGetValue(destination, out DecodedMap? arrival) && arrival.Kind == MapKind.Outdoor;
             return step with
             {
                 Link = index.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 ToPlace = destination,
-                Travel = walking ? "walking" : "entrance",
+                Travel = map is null ? "scripted" : walking ? "walking" : "entrance",
             };
         }
 

@@ -29,8 +29,10 @@ Owns:
   from — that `raises` the event's `floor-trigger` placement (`trigger-<event>`, at the plates' mean). Nothing
   here chooses a move: the ruleset runs the event and its branches decide (`PlaceEntranceEmitter`). Every link
   of the place graph ends with a disposition written beside it in `place-graph.json` and in the write summary
-  (`used`, `walked`, `used-or-walked`, `counter`, `world-issued`, `unreachable`), with the condition a run must meet
-  to reach its move read from the event's branches (`PlaceEventPaths`) and who sets each quest bit it compares;
+  (`used`, `walked`, `used-or-walked`, `counter`, `spoken` — a global program's move a person's topic raises —,
+  `world-issued`, `unreachable`), with the condition a run must meet to reach its move read from the event's branches
+  (`PlaceEventPaths`) and who sets each quest bit it compares, with what raises each of those writers: the faces,
+  plates, decorations or house door of its map, its map's own trigger, or the person whose topic raises it;
   the table over the operator's install is [`../../docs/evidence/travel-links.md`](../../docs/evidence/travel-links.md).
 - Fixtures and their events: every clicked face group and decoration whose event no other emitter answers for
   (a building, a container, a door) as a `fixture` placement over its faces at their lowest corner, and every such event
@@ -43,12 +45,20 @@ Owns:
   `discovery` entries, and the history table (`history.txt`) as `history-line` entries keyed by the slot an
   event's `history` variable names (the table's row less one) with its `%30` and `%31`–`%34` codes written as
   `{date}` and `{member:1}`–`{member:4}` (`HistoryTable`). A person carries their six dialogue slots by position
-  (`topicSlots`), and every topic-table row with an answer is written as a `person-topic` entry whoever owns it,
+  (`topicSlots`), and every topic-table row with an answer or a global event of its number is written as a `person-topic` entry whoever owns it,
   which is what a topic change can make a slot raise; a person placement carries its actor record's `group`.
   No step is interpreted here; the write summary counts the steps of each kind, which is
   what the ruleset's interpretation is measured against, and the shapes are recorded in
   [`../../docs/research/mm7-data-inventory.md`](../../docs/research/mm7-data-inventory.md) (*Fixtures, map
   events, and the discovery table*).
+- The global program (`GlobalEventEmitter`): every event of `global.evt` as a `global-event` entry, in the steps a
+  place's events are written in, with whether a person's topic raises it (`topic`: a slot `npcdata.txt` states, or one
+  a `set-npc-topic` step of any program names). A message's line is the topic text table's row of its number, the
+  program having no string table of its own; a topic's offer check (`can-show-dialog-item-compare`,
+  `set-can-show-dialog-item` with `on`, `end-can-show-dialog-item`) is written like any step, as is a greeting change
+  (`set-npc-greeting`, its person and `greeting` row); a move is a link the world issues, `scripted`. A person's topics
+  are their slots — the topic table's row of each slot's number, with its first text and its `event` when the program
+  holds one — and a row with neither, or a slot naming no row, is refused with its reason.
 - The automap raster: one `place-map` entry per place — a region on its own terrain grid at its own
   512-unit pitch with one height band per square, an interior on this importer's own 128-unit grid with a
   square marked wherever one of the level's own minimap outlines passes through it — which is what the

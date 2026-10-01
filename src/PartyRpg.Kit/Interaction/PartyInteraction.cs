@@ -203,6 +203,48 @@ public sealed class PartyInteraction : IWorldInteractionScene
         return _result;
     }
 
+    /// <summary>
+    /// Runs what a person's word set going, as one use of the placement the person stands at.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A conversation can hand the party to something the ruleset runs rather than to an owner of its own — the
+    /// game's own event behind a topic — and that is a use like any other: the ruleset describes it from the
+    /// placement and the word, its requirements are judged, and its outcome is applied through the one workflow, so
+    /// what it gives, pays, teaches and where it leads are settled exactly as a lever's are. Neither the reticle nor
+    /// a distance is consulted, because the party is already speaking with whoever stands there.
+    /// </para>
+    /// <para>
+    /// The placement's own state is not rewritten: a word spoken does not change what a person reads as when the
+    /// party next walks up to them. The journey such a use names may be one the world issues from no place
+    /// (<see cref="IInteractionWorld.WorldIssued"/>), because a person's word is how the game's own scripted moves
+    /// are set going.
+    /// </para>
+    /// </remarks>
+    /// <param name="placement">The placement the person speaking stands at.</param>
+    /// <param name="raised">The ruleset's own name for what the word raised, handed back to it unread.</param>
+    /// <returns>The use's result.</returns>
+    /// <exception cref="ArgumentNullException">The placement is null.</exception>
+    /// <exception cref="ArgumentException">The word names nothing.</exception>
+    public InteractionResult Answer(PlacementDefinition placement, string raised)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+        ArgumentException.ThrowIfNullOrWhiteSpace(raised);
+        PlaceId place = _world.Place;
+        InteractionTargetState state = _world.States.StateOf(place, placement.Content);
+        if (_rule.Describe(new InteractionTargetRequest(place, placement, state.State) { Raised = raised }) is not { } definition)
+        {
+            _result = InteractionResult.Refused(null, new Refusal(
+                InteractionCodes.InteractionUnavailable,
+                $"What was said at placement '{placement.Content}' of place '{place}' raised '{raised}', which is nothing this world runs."));
+            return _result;
+        }
+
+        InteractionTarget target = new(new InteractionTargetId(place, placement.Content), ulong.MaxValue, placement, definition, state);
+        _result = Resolve(target, recordsState: false, transitions: [.. _world.Transitions, .. _world.WorldIssued], raised: raised);
+        return _result;
+    }
+
     /// <summary>Records what a use's journey came to as the last result, which is what the panel shows.</summary>
     /// <param name="result">The use, with the journey the world took for it.</param>
     internal void Conclude(InteractionResult result) => _result = result ?? throw new ArgumentNullException(nameof(result));
@@ -330,14 +372,19 @@ public sealed class PartyInteraction : IWorldInteractionScene
     }
 
     /// <summary>Runs the one use workflow over a target, and answers with what came of it.</summary>
-    private InteractionResult Resolve(InteractionTarget target)
+    /// <param name="target">The target.</param>
+    /// <param name="recordsState">Whether the target's own state is recorded, which a person's word does not do.</param>
+    /// <param name="transitions">The ways a use may lead, or null for the ones the party's place issues.</param>
+    /// <param name="raised">What a person's word raised, or empty for a use the party made itself.</param>
+    private InteractionResult Resolve(InteractionTarget target, bool recordsState = true, IReadOnlyList<PlaceTransition>? transitions = null, string raised = "")
     {
         InteractionContext context = new(_world.Place, target.Placement, target.Definition, _world.Party, _world.Clock)
         {
             PlaceValues = _world.States.ValuesOf(_world.Place),
             PlaceTargets = _world.Placements,
             TargetState = content => _world.States.StateOf(_world.Place, content).State,
-            PlaceTransitions = _world.Transitions,
+            PlaceTransitions = transitions ?? _world.Transitions,
+            Raised = raised,
         };
 
         // Requirements first, in the order the ruleset stated them: the first one the party does not meet is
@@ -383,8 +430,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
             _world.States.Record(_world.Place, change.Target, change.State);
         }
 
-        InteractionTargetState state = _world.States.Record(_world.Place, target.Id.Content, outcome.State);
-        InteractionTarget used = target with { State = state };
+        InteractionTarget used = recordsState ? target with { State = _world.States.Record(_world.Place, target.Id.Content, outcome.State) } : target;
         return InteractionResult.Applied(used, outcome, taken.Length == 0 ? outcome.Message : $"{outcome.Message} {taken}");
     }
 

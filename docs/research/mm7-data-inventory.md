@@ -113,7 +113,16 @@ row one past its slot (`src/Engine/Objects/Character.cpp:3995-4002`) **[donor]**
 and their only text codes are `%30` (the day the line was written) and `%31`–`%34` (a character's name,
 `src/GUI/GUIWindow.cpp:953-965`) **[donor]**. Of `npctopic.txt`'s rows, **62 name an answer** in `npctext.txt`; a
 person's six dialogue slots (`npcdata.txt` columns 10–15) name topic rows, and **313 people** state at least one
-**[data]**. With every step the ruleset interprets, a fresh party runs **705 of the 707** fixture and floor-trigger
+**[data]**. A slot is offered under the row of its number and choosing it runs the **global program**'s event of that
+number (`global.evt`, `src/GUI/UI/NPCTopics.cpp:546-559`, `:662-666`), whose messages show `npctext.txt` row *n* for
+text number *n* (`src/Engine/Evt/EvtInterpreter.cpp:403-423`, `src/Engine/Tables/NPCTable.cpp:26-33`), and whose
+`can-show-dialog-item` steps decide whether the topic is offered at all (`src/Engine/Evt/EvtInterpreter.cpp:152-181`,
+`:632-655`) **[donor]**. The program holds **446 events**; **365 are raised by a topic** (a slot the table states, or
+one a `set-npc-topic` step of any program names), **68 of those check their offer**, and **3 move the party** — the
+world's own links 68 (raised by William Darvees once event 4 changes his slot), 69 and 70 (the temples' keepers)
+**[data]**. Written as `global-event` entries in the steps a place's events are written in; a person carries a
+topic for each slot whose row the table labels, **416 topics over 300 people**, and the topic table carries the
+**446 rows** with an answer or an event **[data]**. With every step the ruleset interprets, a fresh party runs **705 of the 707** fixture and floor-trigger
 events — 145 of them taking it along a travel link and 54 setting it down elsewhere in its own place — and is refused
 by name at 2, both hireling steps — a figure the ruleset suite counts over the written packs rather than
 `mm7import verify`.
@@ -121,7 +130,7 @@ by name at 2, both hireling steps — a figure the ruleset suite counts over the
 **Every one of the 193 inter-map links has a disposition** **[data]**: 174 are taken by using a clicked face group
 (`used`), 11 by walking onto a plate (`walked`), 1 by either (`used-or-walked`, Castle Gloaming's event 501), 2 belong
 to a building's door whose event also moves the party (`counter`, event 376 of Celeste and The Pit), 3 are the global
-program's (`world-issued`), and 2 are raised by nothing in their map (`unreachable`: Castle Gloaming's event 502 and
+program's, each raised by a person's topic (`spoken`), and 2 are raised by nothing in their map (`unreachable`: Castle Gloaming's event 502 and
 The Pit's event 505, whose faces, face extras and decorations carry no such event while The Pit's own faces raise its
 event 502 instead). 76 of the taken links are reached only under a condition the event's branches state. The
 per-link table is [`../evidence/travel-links.md`](../evidence/travel-links.md). The ruleset's reading of the steps is in `src/PartyRpg.Rulesets.MightAndMagic7/README.md`.

@@ -128,7 +128,10 @@ grouped by mechanism: `CombatRules`, `ProgressionRules`, `MagicRules`, `AlchemyR
 and the composition block publishes it as `partyStart`; which start a new session takes is the ruleset's);
 the update applies a player's acts through `SessionActs`, drives the fight in either pacing through
 `CombatDriver` and `ActControl`, hands a conversation's offer to its owner through the exhaustive
-`ConversationHandoffRouter` over the closed `HandoffOwner` list, and settles save requests through
+`ConversationHandoffRouter` over the closed `HandoffOwner` list (`HandoffOwner.Use` runs what a topic set going as
+one use of the speaker's placement through `SessionWorld.Answer`, hands what it taught to the knowledge owner, puts
+what it said into the conversation as the person's answer through `PartyConversations.Hear` — an answer handing to
+a use may leave its own words blank — and ends the conversation when the use took the party away), and settles save requests through
 `SaveRequests`. The session answers a playtest harness between updates without stepping anything:
 `IGameSession.Inspect` returns the snapshot its projection is built from (the world read live), and
 `IGameSession.Look` turns the party through its pose owner's facing rule when its turn keys would;
@@ -336,7 +339,9 @@ new word under the door's own identity), hands the party to a conversation when 
 (`InteractionOutcome.Speaks`, opened by the session as using a person is), takes the party on the journey the outcome
 names after recording the use where it was made (`InteractionOutcome.Travels`: an `InteractionTravel` over a transition
 the place issues, read by the rule from `InteractionContext.PlaceTransitions` and taken by `SessionWorld.Travel` — a
-refused journey is the use's residue) or sets it down elsewhere in its own place (`InteractionOutcome.Relocates`,
+refused journey is the use's residue; a use a person's word raised, `PartyInteraction.Answer` with the word in
+`InteractionTargetRequest.Raised` and `InteractionContext.Raised`, records no state on the person's placement and may
+also take a transition the world issues from no place, `IInteractionWorld.WorldIssued`, as `Scripted` travel) or sets it down elsewhere in its own place (`InteractionOutcome.Relocates`,
 asserted through `PartyPoseOwner.Enter`, nothing crossed or charged), and reports an `InteractionResult`; every failure — nothing faced, out of reach, out of sight, a requirement
 unmet, a charge the party cannot cover, a ruleset's own refusal, a pack with no room for what was found —
 is an outcome with a code and a sentence rather than a silent no-op — and a corpse is a target that

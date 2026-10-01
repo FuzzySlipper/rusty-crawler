@@ -72,6 +72,7 @@ public sealed class PartyConversations
     private ConversationSubject? _subject;
     private ConversationPerson? _speaker;
     private string _topic = string.Empty;
+    private string _awaiting = string.Empty;
     private ConversationResult? _last;
 
     /// <summary>Creates the mechanism over the party it speaks for and the ruleset that answers for it.</summary>
@@ -191,6 +192,7 @@ public sealed class PartyConversations
         _speaker = subject.First;
         _said.Clear();
         _topic = string.Empty;
+        _awaiting = string.Empty;
         return Greet("open");
     }
 
@@ -296,6 +298,23 @@ public sealed class PartyConversations
             _speaker = next;
         }
 
+        // An answer whose words are a use's has nothing to put in the transcript yet: the use runs where the session
+        // routes the handoff, and what it says arrives through Hear under this topic.
+        if (answer.Text.Length == 0)
+        {
+            _awaiting = found.Topic.Id;
+            foreach (string flag in answer.Records) _party?.Records.Set(flag, 1);
+            return Record(ConversationResult.Applied(
+                "say",
+                $"{_speaker?.Name ?? "Whoever is here"} is asked about {found.Label}.",
+                _speaker?.Name ?? string.Empty,
+                topic,
+                string.Empty,
+                answer.Residue,
+                answer.Handoff,
+                OnOffer.Count));
+        }
+
         _topic = found.Topic.Id;
         string residue = Say(answer);
         _topic = string.Empty;
@@ -310,6 +329,47 @@ public sealed class PartyConversations
             OnOffer.Count));
     }
 
+    /// <summary>
+    /// Puts what a use an answer handed to said into the conversation as the speaker's answer to the topic that set it
+    /// going, and reports it.
+    /// </summary>
+    /// <remarks>
+    /// An answer that hands the party to a use (<see cref="HandoffOwner.Use"/>) says nothing itself: what the person
+    /// says is what the use's run produced, which only the use knows. The session routes the handoff and hands the words
+    /// back here, so the transcript holds one line for the topic — the run's — rather than a placeholder and then the
+    /// line. Words that arrive with no such topic waiting, or when the conversation has closed, are refused by name.
+    /// </remarks>
+    /// <param name="text">What the person says, which must not be blank.</param>
+    /// <param name="residue">What the use could not carry out, or empty.</param>
+    /// <returns>What hearing it did, or why it did nothing.</returns>
+    /// <exception cref="ArgumentException">The text is blank.</exception>
+    public ConversationResult Hear(string text, string residue = "")
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(text);
+        if (_subject is null) return NotOpen("say");
+        if (_awaiting.Length == 0)
+        {
+            return Record(ConversationResult.Refused(
+                "say",
+                new Refusal(ConversationCodes.ConversationTopicUnknown, "Nothing the party asked is waiting for an answer, so there is nobody these words answer."),
+                _speaker?.Name ?? string.Empty));
+        }
+
+        string topic = _awaiting;
+        _awaiting = string.Empty;
+        _topic = topic;
+        string kept = Say(new ConversationAnswer(text, residue));
+        _topic = string.Empty;
+        return Record(ConversationResult.Applied(
+            "say",
+            $"{_speaker?.Name ?? "Whoever is here"}: {text}",
+            _speaker?.Name ?? string.Empty,
+            topic,
+            text,
+            kept,
+            offers: OnOffer.Count));
+    }
+
     /// <summary>Ends the conversation, which is what a player walking away or closing the screen does.</summary>
     /// <returns>What leaving did, or why it did nothing.</returns>
     public ConversationResult Close()
@@ -320,6 +380,7 @@ public sealed class PartyConversations
         _speaker = null;
         _placement = null;
         _place = default;
+        _awaiting = string.Empty;
         _said.Clear();
         return Record(ConversationResult.Applied("leave", $"The party takes its leave of {who}."));
     }

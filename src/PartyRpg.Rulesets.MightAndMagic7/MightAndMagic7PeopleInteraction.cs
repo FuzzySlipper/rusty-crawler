@@ -68,6 +68,9 @@ internal sealed class MightAndMagic7PeopleInteraction : IInteractionRule
     /// <inheritdoc />
     public InteractionTargetDefinition? Describe(InteractionTargetRequest request)
     {
+        // What a person's word raised is run by the answers about events, wherever the person stands.
+        if (request.Raised.Length > 0) return _inner.Describe(request);
+
         if (_conversation.Describe(new ConversationTargetRequest(request.Place, request.Placement)) is not { } subject)
         {
             return _inner.Describe(request);

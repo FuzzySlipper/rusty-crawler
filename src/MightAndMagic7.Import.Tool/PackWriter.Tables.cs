@@ -377,67 +377,102 @@ internal static partial class PackWriter
                 if (placeEvent.Stepped) writer.WriteBoolean("stepped", true);
                 writer.WriteBoolean("timed", placeEvent.Triggered);
                 writer.WriteString("mapFile", placeEvent.FileName);
-                writer.WriteStartArray("steps");
-                foreach (PlaceEventStep step in placeEvent.Steps)
-                {
-                    writer.WriteStartObject();
-                    writer.WriteNumber("step", step.Step);
-                    writer.WriteString("op", step.Op);
-                    WriteOptionalNumber(writer, "opcode", step.Opcode);
-                    WriteOptionalString(writer, "variable", step.Variable);
-                    WriteOptionalString(writer, "which", step.Which);
-                    WriteOptionalNumber(writer, "index", step.Index);
-                    WriteOptionalNumber(writer, "code", step.Code);
-                    WriteOptionalNumber(writer, "value", step.Value);
-                    WriteOptionalNumber(writer, "target", step.Target);
-                    if (step.Targets is { } targets)
-                    {
-                        writer.WriteStartArray("targets");
-                        foreach (int target in targets) writer.WriteNumberValue(target);
-                        writer.WriteEndArray();
-                    }
-
-                    WriteOptionalNumber(writer, "textId", step.TextId);
-                    if (step.Text is { } text) writer.WriteString("text", text);
-                    WriteOptionalString(writer, "who", step.Who);
-                    WriteOptionalNumber(writer, "member", step.Member);
-                    WriteOptionalString(writer, "kind", step.Kind);
-                    WriteOptionalNumber(writer, "amount", step.Amount);
-                    WriteOptionalString(writer, "period", step.Period);
-                    WriteOptionalNumber(writer, "hour", step.Hour);
-                    WriteOptionalNumber(writer, "minute", step.Minute);
-                    WriteOptionalNumber(writer, "halfMinutes", step.HalfMinutes);
-                    WriteOptionalNumber(writer, "door", step.Door);
-                    WriteOptionalString(writer, "action", step.Action);
-                    WriteOptionalNumber(writer, "level", step.Level);
-                    WriteOptionalString(writer, "itemKind", step.ItemKind);
-                    WriteOptionalString(writer, "itemSkill", step.ItemSkill);
-                    WriteOptionalNumber(writer, "item", step.Item);
-                    WriteOptionalNumber(writer, "spell", step.Spell);
-                    WriteOptionalString(writer, "mastery", step.Mastery);
-                    WriteOptionalNumber(writer, "rank", step.Rank);
-                    WriteOptionalNumber(writer, "person", step.Person);
-                    WriteOptionalNumber(writer, "raises", step.Raises);
-                    WriteOptionalNumber(writer, "house", step.House);
-                    WriteOptionalNumber(writer, "group", step.Group);
-                    WriteOptionalNumber(writer, "flag", step.Flag);
-                    if (step.On is { } on) writer.WriteBoolean("on", on);
-                    WriteOptionalString(writer, "link", step.Link);
-                    WriteOptionalNumber(writer, "toPlace", step.ToPlace);
-                    WriteOptionalString(writer, "travel", step.Travel);
-                    if (step.WithinPlace is true) writer.WriteBoolean("withinPlace", true);
-                    WriteOptionalNumber(writer, "x", step.X);
-                    WriteOptionalNumber(writer, "y", step.Y);
-                    WriteOptionalNumber(writer, "z", step.Z);
-                    WriteOptionalNumber(writer, "yaw", step.Yaw);
-                    writer.WriteEndObject();
-                }
-
-                writer.WriteEndArray();
+                WriteSteps(writer, placeEvent.Steps);
             }));
         }
 
         return WriteDocument(packDirectory, "place-events.json", "place-events", PlaceEventDefinitionKind, entries);
+    }
+
+    /// <summary>The definition kind an event of the global program is declared under.</summary>
+    internal const string GlobalEventDefinitionKind = "global-event";
+
+    /// <summary>
+    /// Writes the global program's events — what a person's topic runs — in the steps a place's events are written in.
+    /// </summary>
+    /// <remarks>
+    /// An entry's identity is the event's number, which is also the number of the topic that raises it; whether a
+    /// topic raises it is written beside it (<c>topic</c>), and every other event is carried too, because a topic
+    /// change of any program can make a slot raise it later.
+    /// </remarks>
+    private static int WriteGlobalEvents(string packDirectory, GlobalEventSummary globals)
+    {
+        HashSet<int> raised = [.. globals.TopicRaised];
+        List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];
+        foreach (GlobalEvent globalEvent in globals.Events)
+        {
+            entries.Add((globalEvent.Id, writer =>
+            {
+                writer.WriteNumber("event", globalEvent.EventId);
+                writer.WriteBoolean("topic", raised.Contains(globalEvent.EventId));
+                WriteSteps(writer, globalEvent.Steps);
+            }));
+        }
+
+        return WriteDocument(packDirectory, "global-events.json", "global-events", GlobalEventDefinitionKind, entries);
+    }
+
+    /// <summary>Writes an event's normalized steps, each with only the fields its instruction carries.</summary>
+    private static void WriteSteps(Utf8JsonWriter writer, IReadOnlyList<PlaceEventStep> steps)
+    {
+        writer.WriteStartArray("steps");
+        foreach (PlaceEventStep step in steps)
+        {
+            writer.WriteStartObject();
+            writer.WriteNumber("step", step.Step);
+            writer.WriteString("op", step.Op);
+            WriteOptionalNumber(writer, "opcode", step.Opcode);
+            WriteOptionalString(writer, "variable", step.Variable);
+            WriteOptionalString(writer, "which", step.Which);
+            WriteOptionalNumber(writer, "index", step.Index);
+            WriteOptionalNumber(writer, "code", step.Code);
+            WriteOptionalNumber(writer, "value", step.Value);
+            WriteOptionalNumber(writer, "target", step.Target);
+            if (step.Targets is { } targets)
+            {
+                writer.WriteStartArray("targets");
+                foreach (int target in targets) writer.WriteNumberValue(target);
+                writer.WriteEndArray();
+            }
+
+            WriteOptionalNumber(writer, "textId", step.TextId);
+            if (step.Text is { } text) writer.WriteString("text", text);
+            WriteOptionalString(writer, "who", step.Who);
+            WriteOptionalNumber(writer, "member", step.Member);
+            WriteOptionalString(writer, "kind", step.Kind);
+            WriteOptionalNumber(writer, "amount", step.Amount);
+            WriteOptionalString(writer, "period", step.Period);
+            WriteOptionalNumber(writer, "hour", step.Hour);
+            WriteOptionalNumber(writer, "minute", step.Minute);
+            WriteOptionalNumber(writer, "halfMinutes", step.HalfMinutes);
+            WriteOptionalNumber(writer, "door", step.Door);
+            WriteOptionalString(writer, "action", step.Action);
+            WriteOptionalNumber(writer, "level", step.Level);
+            WriteOptionalString(writer, "itemKind", step.ItemKind);
+            WriteOptionalString(writer, "itemSkill", step.ItemSkill);
+            WriteOptionalNumber(writer, "item", step.Item);
+            WriteOptionalNumber(writer, "spell", step.Spell);
+            WriteOptionalString(writer, "mastery", step.Mastery);
+            WriteOptionalNumber(writer, "rank", step.Rank);
+            WriteOptionalNumber(writer, "person", step.Person);
+            WriteOptionalNumber(writer, "raises", step.Raises);
+            WriteOptionalNumber(writer, "house", step.House);
+            WriteOptionalNumber(writer, "greeting", step.Greeting);
+            WriteOptionalNumber(writer, "group", step.Group);
+            WriteOptionalNumber(writer, "flag", step.Flag);
+            if (step.On is { } on) writer.WriteBoolean("on", on);
+            WriteOptionalString(writer, "link", step.Link);
+            WriteOptionalNumber(writer, "toPlace", step.ToPlace);
+            WriteOptionalString(writer, "travel", step.Travel);
+            if (step.WithinPlace is true) writer.WriteBoolean("withinPlace", true);
+            WriteOptionalNumber(writer, "x", step.X);
+            WriteOptionalNumber(writer, "y", step.Y);
+            WriteOptionalNumber(writer, "z", step.Z);
+            WriteOptionalNumber(writer, "yaw", step.Yaw);
+            writer.WriteEndObject();
+        }
+
+        writer.WriteEndArray();
     }
 
     /// <summary>Writes the discovery table: every note a party can keep, by the number a map event sets.</summary>
