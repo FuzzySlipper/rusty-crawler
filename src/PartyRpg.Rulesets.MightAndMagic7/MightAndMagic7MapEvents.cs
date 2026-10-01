@@ -133,6 +133,12 @@ internal sealed record MapEvent(PlaceId Place, int Id, string Label, IReadOnlyLi
     internal bool Stepped { get; init; }
 
     /// <summary>
+    /// Whether it is a house's own event that does more than open the house, which the house's use runs
+    /// (<see cref="MightAndMagic7Fixtures.House"/>).
+    /// </summary>
+    internal bool Housed { get; init; }
+
+    /// <summary>
     /// Whether the event is one of the global program's, which a person's topic raises and which belongs to no place:
     /// its <see cref="Place"/> is empty, and a step that reads the place it runs in reads the place the party is in.
     /// </summary>
@@ -380,6 +386,7 @@ internal sealed class MightAndMagic7MapEvents
             MapEvent mapEvent = new(new PlaceId(place), eventId, entry.GetString("label"), steps, entry.GetBoolean("raised") ?? false)
             {
                 Stepped = entry.GetBoolean("stepped") ?? false,
+                Housed = entry.GetBoolean("house") ?? false,
             };
             if (!events.TryAdd((place, eventId), mapEvent))
             {

@@ -63,7 +63,10 @@ public sealed record InteractionResult
                 nameof(outcome));
         }
 
-        return new InteractionResult(target, target.Definition.Verb, outcome.State, message, outcome.Residue, outcome.Learned, null, outcome.Speaks, outcome.Travels, null, outcome.Relocates);
+        return new InteractionResult(target, target.Definition.Verb, outcome.State, message, outcome.Residue, outcome.Learned, null, outcome.Speaks, outcome.Travels, null, outcome.Relocates)
+        {
+            KeptOut = outcome.KeptOut,
+        };
     }
 
     /// <summary>The use did nothing, and this is why.</summary>
@@ -114,6 +117,9 @@ public sealed record InteractionResult
     /// <summary>The journey the use takes the party on, or null when it takes none.</summary>
     public InteractionTravel? Travels { get; }
 
+    /// <summary>Whether the use reached somebody's door and the party was kept outside (<see cref="InteractionOutcome.KeptOut"/>).</summary>
+    public bool KeptOut { get; init; }
+
     /// <summary>Where in its own place the use sets the party down, or null when it moves it nowhere.</summary>
     public InteractionRelocation? Relocates { get; }
 
@@ -144,7 +150,7 @@ public sealed record InteractionResult
         string residue = journey.Arrived
             ? Residue
             : string.Join(" ", new[] { Residue, $"The way on was refused: {journey.Refusal?.Message}" }.Where(part => part.Length > 0));
-        return new InteractionResult(Target, Verb, State, message, residue, Learned, null, Speaks, Travels, journey, Relocates);
+        return new InteractionResult(Target, Verb, State, message, residue, Learned, null, Speaks, Travels, journey, Relocates) { KeptOut = KeptOut };
     }
 
     /// <summary>The refusal's code, or empty when the use happened.</summary>

@@ -278,7 +278,7 @@ internal static class MightAndMagic7World
         MightAndMagic7Fixtures? fixtures)
     {
         MightAndMagic7Interaction answers = new(schedule, corpses, loot, journal, fixtures);
-        return conversation is null ? answers : new MightAndMagic7PeopleInteraction(conversation, answers);
+        return conversation is null ? answers : new MightAndMagic7PeopleInteraction(conversation, answers, fixtures);
     }
 
     /// <summary>

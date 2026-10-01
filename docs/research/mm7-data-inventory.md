@@ -99,7 +99,10 @@ clicked faces and decorations raise, 478 open a building, 345 open a container, 
 standing as **1,268 fixtures in 76 places** (one per region model, or per group of an interior's faces within 256
 units, at the faces' lowest corner), with **3,639 steps** between them. **59 events** that move the party are raised
 by **310 pressure plates in 13 places**, carried as floor triggers. **57 events** hold a timer trigger, which is how a
-well's charges are refilled.
+well's charges are refilled. Of the 478 events that open a building, **47 do more than open it** — a quest bit that shuts a
+shop, the arbiter's door, the hostels of Celeste and The Pit whose door also moves the party — and are carried for the
+house's own use to run; their placement names them as `sourceEvent`. `npcgreet.txt` holds **205 greeting rows**
+**[data]**, which a `set-npc-greeting` step names (`src/Engine/Evt/EvtInterpreter.cpp:541-545`) **[donor]**.
 **[data]** Each map's `.str` entry is its string table — NUL-terminated lines, trimmed and unquoted, indexed by the
 number a hint or a status step names (`src/Engine/Engine.cpp:1453-1469`) **[donor]**. `AUTONOTE.TXT` is the
 discovery table: a number, a sentence and a category word (`Stat`, `Obelisk`, `potion`, `teacher`, `Misc`/`misc`)
@@ -128,9 +131,9 @@ by name at 2, both hireling steps — a figure the ruleset suite counts over the
 `mm7import verify`.
 
 **Every one of the 193 inter-map links has a disposition** **[data]**: 174 are taken by using a clicked face group
-(`used`), 11 by walking onto a plate (`walked`), 1 by either (`used-or-walked`, Castle Gloaming's event 501), 2 belong
-to a building's door whose event also moves the party (`counter`, event 376 of Celeste and The Pit), 3 are the global
-program's, each raised by a person's topic (`spoken`), and 2 are raised by nothing in their map (`unreachable`: Castle Gloaming's event 502 and
+(`used`, 2 of them a building's door whose event also moves the party — event 376 of Celeste and The Pit — whose
+house's own use runs it), 11 by walking onto a plate (`walked`), 1 by either (`used-or-walked`, Castle Gloaming's event
+501), 3 are the global program's, each raised by a person's topic (`spoken`), and 2 are raised by nothing in their map (`unreachable`: Castle Gloaming's event 502 and
 The Pit's event 505, whose faces, face extras and decorations carry no such event while The Pit's own faces raise its
 event 502 instead). 76 of the taken links are reached only under a condition the event's branches state. The
 per-link table is [`../evidence/travel-links.md`](../evidence/travel-links.md). The ruleset's reading of the steps is in `src/PartyRpg.Rulesets.MightAndMagic7/README.md`.

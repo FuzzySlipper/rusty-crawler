@@ -375,6 +375,7 @@ internal static partial class PackWriter
                 WriteOptionalString(writer, "label", placeEvent.Label);
                 writer.WriteBoolean("raised", placeEvent.Raised);
                 if (placeEvent.Stepped) writer.WriteBoolean("stepped", true);
+                if (placeEvent.Housed) writer.WriteBoolean("house", true);
                 writer.WriteBoolean("timed", placeEvent.Triggered);
                 writer.WriteString("mapFile", placeEvent.FileName);
                 WriteSteps(writer, placeEvent.Steps);

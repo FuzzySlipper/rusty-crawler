@@ -29,8 +29,8 @@ Owns:
   from — that `raises` the event's `floor-trigger` placement (`trigger-<event>`, at the plates' mean). Nothing
   here chooses a move: the ruleset runs the event and its branches decide (`PlaceEntranceEmitter`). Every link
   of the place graph ends with a disposition written beside it in `place-graph.json` and in the write summary
-  (`used`, `walked`, `used-or-walked`, `counter`, `spoken` — a global program's move a person's topic raises —,
-  `world-issued`, `unreachable`), with the condition a run must meet to reach its move read from the event's branches
+  (`used` — a house's door whose event also moves the party among them —, `walked`, `used-or-walked`, `spoken` — a
+  global program's move a person's topic raises —, `world-issued`, `unreachable`), with the condition a run must meet to reach its move read from the event's branches
   (`PlaceEventPaths`) and who sets each quest bit it compares, with what raises each of those writers: the faces,
   plates, decorations or house door of its map, its map's own trigger, or the person whose topic raises it;
   the table over the operator's install is [`../../docs/evidence/travel-links.md`](../../docs/evidence/travel-links.md).
@@ -41,7 +41,11 @@ Owns:
   status step prints read from the map's own string table; a door step's door id and action, an item gift's
   level, its random kind read as the same two item tags a treasure cell is (`ItemVocabulary.FilterOfRandomItem`)
   and its item, a cast's spell, mastery and rank, a person call's or topic change's person, and a flag toggle's
-  group and bit, and a person move's person and house are among those operands. The discovery table is written beside them as
+  group and bit, a person move's person and house, a greeting change's person and row, and a house step's house are
+  among those operands. A house's own event that does more than open the house (`PlaceFixtureEmitter.DoesMoreThanOpen`:
+  a door that also moves the party, a shop a quest bit shuts, the arbiter's door) is carried too, marked `house`, for the
+  house's own use to run — its placement names it as `sourceEvent` — and is never a fixture. The greeting table
+  (`npcgreet.txt`) is written as `person-greeting` entries by row, which a greeting change names. The discovery table is written beside them as
   `discovery` entries, and the history table (`history.txt`) as `history-line` entries keyed by the slot an
   event's `history` variable names (the table's row less one) with its `%30` and `%31`–`%34` codes written as
   `{date}` and `{member:1}`–`{member:4}` (`HistoryTable`). A person carries their six dialogue slots by position

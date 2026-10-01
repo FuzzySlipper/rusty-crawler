@@ -342,7 +342,9 @@ the place issues, read by the rule from `InteractionContext.PlaceTransitions` an
 refused journey is the use's residue; a use a person's word raised, `PartyInteraction.Answer` with the word in
 `InteractionTargetRequest.Raised` and `InteractionContext.Raised`, records no state on the person's placement and may
 also take a transition the world issues from no place, `IInteractionWorld.WorldIssued`, as `Scripted` travel) or sets it down elsewhere in its own place (`InteractionOutcome.Relocates`,
-asserted through `PartyPoseOwner.Enter`, nothing crossed or charged), and reports an `InteractionResult`; every failure — nothing faced, out of reach, out of sight, a requirement
+asserted through `PartyPoseOwner.Enter`, nothing crossed or charged); a use that reached somebody's door and kept the
+party outside says so (`InteractionOutcome.KeptOut`), and the session opens no conversation for it nor for a use that led
+the party away, and reports an `InteractionResult`; every failure — nothing faced, out of reach, out of sight, a requirement
 unmet, a charge the party cannot cover, a ruleset's own refusal, a pack with no room for what was found —
 is an outcome with a code and a sentence rather than a silent no-op — and a corpse is a target that
 mechanism discovers: `CorpseGround` keeps what the fight read as down, the ruleset hands it back as the

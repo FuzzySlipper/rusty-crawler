@@ -266,6 +266,17 @@ public readonly record struct EvtInstruction(ushort EventId, byte Step, byte Opc
         return true;
     }
 
+    /// <summary>Reads which house a house step opens, when this instruction is one.</summary>
+    /// <remarks>A 32-bit house id (OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:189-198</c>).</remarks>
+    /// <param name="house">The house's id.</param>
+    public bool TryReadSpeakInHouse(out int house)
+    {
+        house = 0;
+        if (Opcode != EvtOpcodes.SpeakInHouse || Operands.Length < 4) return false;
+        house = BinaryPrimitives.ReadInt32LittleEndian(Operands.Span);
+        return true;
+    }
+
     /// <summary>Reads which person a conversation step opens, when this instruction is one.</summary>
     /// <remarks>A 32-bit person id (OpenEnroth <c>src/Engine/Evt/EvtInstruction.cpp:1020-1022</c>).</remarks>
     /// <param name="person">The person's id.</param>

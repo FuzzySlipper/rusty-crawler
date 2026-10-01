@@ -749,6 +749,28 @@ internal static partial class PackWriter
         return WriteDocument(packDirectory, "topics.json", "topics", TopicDefinitionKind, entries);
     }
 
+    /// <summary>The definition kind a row of the greeting table is declared under.</summary>
+    internal const string GreetingDefinitionKind = "person-greeting";
+
+    /// <summary>
+    /// Writes the greeting table: every row by its number, with what is said on a first meeting and on a later one,
+    /// which is what a map event that changes a person's greeting names.
+    /// </summary>
+    private static int WriteGreetings(string packDirectory, Mm7Tables tables)
+    {
+        List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];
+        foreach (NpcGreeting greeting in tables.People.Greetings)
+        {
+            entries.Add((greeting.Index.ToString(CultureInfo.InvariantCulture), writer =>
+            {
+                writer.WriteString("greeting", greeting.First);
+                writer.WriteString("greetingAgain", greeting.Again);
+            }));
+        }
+
+        return WriteDocument(packDirectory, "greetings.json", "greetings", GreetingDefinitionKind, entries);
+    }
+
     /// <summary>
     /// The middle of the vertices a door moves, which is where the door stands.
     /// </summary>

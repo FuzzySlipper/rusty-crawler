@@ -520,9 +520,23 @@ it through `SessionWorld.Travel` after the use is recorded — the donor shows a
 confirmation before a move naming a house or a picture and runs on after one that does not
 (`OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:207-252`); this build confirms nothing and runs nothing after the move
 (approximate); `move-to-map` within the place sets the party down at the step's position (`InteractionOutcome.Relocates`)
-and runs on, and one naming no position moves nobody (`:124-134`, `:231-235`: faithful); `move-npc` runs on and states as
-residue that the person's move to another house is not followed, because people stand where content placed them
-(a receiver is still to be routed: Castle Harmondale's door is the one shipped event that reaches it). **Presentation, passed over**: the
+and runs on, and one naming no position moves nobody (`:124-134`, `:231-235`: faithful); `move-npc` moves the person to
+another house (`OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:470-471`) and `set-npc-greeting` gives them another row of
+the greeting table and forgets that they greeted the party (`:541-545`), each a party record
+(`MightAndMagic7PersonState`: `person-house:<person>:<house>` and `person-greeting:<person>:<row>`, the latest
+standing, saved with the party's records and judged on load — somebody the content lacks, or a row the greeting
+table, `person-greeting`, does not carry, is `save-record-unknown`); the conversation reads both: a house's placement
+holds the people content placed there less those moved elsewhere, plus those moved in (`UIHouses.cpp:401` lists the
+people whose record names the house), and a changed greeting is its row's lines (the donor keeps both on the person:
+ours, on the party, the same for one party). **A house's own event** (`house` on the place event, the importer's
+`sourceEvent` of a counter's or a household's placement — 47 over the operator's install: shops a quest bit shuts,
+the arbiter's door, the two hostels whose door also moves the party) is run when the party uses the house
+(`MightAndMagic7Fixtures.House`, through `MightAndMagic7PeopleInteraction`): its `speak-in-house` step opens the house it
+names — the people of that house's placement in the place (`EvtInterpreter.cpp:189-198`) — and the run goes on; a branch
+that reaches a move takes it through the one transition path instead (the hostels of Celeste and The Pit, links 38 and
+47); a run that reaches neither keeps the party outside with what it said (`InteractionOutcome.KeptOut`, a shop closed
+while Harmondale is besieged); and a run refused at a step this game does not read opens the house as before, the
+refusal its residue. **Presentation, passed over**: the
 product draws no world and plays no sound, so `set-texture`, `set-sprite`, `play-sound`, `character-animation`,
 `toggle-indoor-light`, `show-movie` (the three effects the donor's player hangs on a movie's name — the arbiter's
 alignment and the crossing's week of rest, `OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:288-300` — are the
@@ -531,7 +545,9 @@ event's gameplay steps still run — a decision, not a deferral (a fluid face is
 footsteps, splash and sinking corpses are not modelled); a `set-faces-bit` that makes a face group passable states
 its residue (#8594) and runs on. The variables, each through its owner: `quest-bit` (the
 party record `errand:<bit>` the conversation already reads), `member-bit` (a party record — the donor's is per
-character), `autonote` (a knowledge report of the discovery row: `stat` and `misc` an effect, `obelisk`,
+character), `award` (a party record `award-bit:<n>`, the donor's award of that number, which is per character and shown
+in its awards book: `OpenEnroth/src/Engine/Objects/Character.cpp:3640-3641`, `:4689-4694`, `:5206-5208`; this build
+shows it nowhere: approximate), `autonote` (a knowledge report of the discovery row: `stat` and `misc` an effect, `obelisk`,
 `teacher` and `seer` a clue, `potion` a recipe), `gold`, `item` (given through the acquisition path,
 taken from the shared pack), `hit-points`, `spell-points`, `full-hit-points` and `full-spell-points` (a member's
 resources), `attribute` (a member's base attribute, for good), `resistance-bonus` (the running effect a ward
@@ -610,10 +626,10 @@ states none is offered; a comparison of a variable this game does not interpret 
 A regular run passes over the offer steps, as the donor's does. A run that meets a step this game does not
 interpret settles nothing and the person still says what the run had said (the topic table's own text when it had
 said nothing), with the refusal as the residue. Over the operator's install, a fresh party choosing each of the 365
-topic-raised events once has 321 run — 2 of them taking the party along a world-issued link, the temples' — and 44
-stop at a named step: `award` 20, `hireling` 11 (#8514), `set-npc-greeting` 3, `class` 2, `bank-gold` 2,
-`npc-set-item` 2, `food` 1, `bounties` 1, `arena-wins-knight` 1, and a creature flag `0x10000` 1; the ruleset suite
-counts it. **What is ours**: the donor offers at most four scripted topics at once (`NPCTopics.cpp:603`), this build
+topic-raised events once has 342 run — 3 of them taking the party along a world-issued link: the crossing to
+Harmondale (68) and the temples' (69, 70) — and 23 stop at a named step: `hireling` 12 (#8514), `class` 2,
+`bank-gold` 2, `npc-set-item` 2, `reputation` 1, `food` 1, `bounties` 1, `arena-wins-knight` 1, and a creature flag
+`0x10000` 1; the ruleset suite counts it. **What is ours**: the donor offers at most four scripted topics at once (`NPCTopics.cpp:603`), this build
 every one its check allows; a topic said once is withheld for the rest of the conversation, as every topic is.
 Fidelity per system — what matches
 the original, what is approximate, and what is deliberately ours — is fixed in

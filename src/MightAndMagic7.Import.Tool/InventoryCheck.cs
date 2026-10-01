@@ -125,7 +125,7 @@ internal static class InventoryCheck
             // unreachable.
             Check(failures, "travel links accounted for", 193, written.Entrances.Accounts.Count);
             Check(failures, "pressure-plate reaches", 310, written.Entrances.ReachCount);
-            Check(failures, "travel links a party takes in play", 189, written.Entrances.TakenCount);
+            Check(failures, "travel links a party takes in play", 191, written.Entrances.TakenCount);
             Check(failures, "travel links a person's topic raises", 3, written.Entrances.Dispositions.GetValueOrDefault(Packs.PlaceEntranceEmitter.Spoken));
             Check(failures, "travel links reached under a condition", 76, written.Entrances.ConditionalCount);
             Check(failures, "travel links nothing raises", 2, written.Entrances.Dispositions.GetValueOrDefault(Packs.PlaceEntranceEmitter.Unreachable));
@@ -163,7 +163,8 @@ internal static class InventoryCheck
             Check(failures, "places with a fixture", 76, written.Fixtures.PlaceCount);
             Check(failures, "fixture events", 653, written.Fixtures.FixtureEventCount);
             Check(failures, "timed events carried", 57, written.Fixtures.TriggeredEventCount);
-            Check(failures, "place events carried", 738, written.Fixtures.Events.Count);
+            Check(failures, "place events carried", 785, written.Fixtures.Events.Count);
+            Check(failures, "house events a house's own use runs", 47, written.Fixtures.HousedEventCount);
             Check(failures, "fixture event steps", 3639, written.Fixtures.Events.Where(placeEvent => placeEvent.Raised).Sum(placeEvent => placeEvent.Steps.Count));
             Check(failures, "floor triggers a plate raises", 59, written.Fixtures.Triggers.Count);
             Check(failures, "raised events a door answers for", 382, written.Fixtures.OwnedElsewhere.GetValueOrDefault("change-door-state"));
@@ -177,6 +178,7 @@ internal static class InventoryCheck
             Check(failures, "topics people's slots raise", 416, written.People.TopicCount);
             Check(failures, "people with a dialogue slot", 313, written.People.People.Count(person => person.DialogueEvents > 0));
             Check(failures, "global events", 446, written.Globals.Events.Count);
+            Check(failures, "greeting rows", 205, tables.People.Greetings.Count);
             Check(failures, "global events a topic raises", 365, written.Globals.TopicRaised.Count);
             Check(failures, "global events checking their topic's offer", 68, written.Globals.Events.Count(globalEvent => globalEvent.ChecksOffer && written.Globals.TopicRaised.Contains(globalEvent.EventId)));
 

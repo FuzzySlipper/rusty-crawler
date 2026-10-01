@@ -105,7 +105,8 @@ public sealed partial class FixturePolicyTests
                 people: conversation.PersonOf,
                 actors: _ => [],
                 journal: () => journal,
-                topics: conversation.SpokenTopic);
+                topics: conversation.SpokenTopic,
+                greetings: conversation.HasGreeting);
             MightAndMagic7Interaction rule = new(fixtures: fixtures);
             string topic = string.Create(CultureInfo.InvariantCulture, $"topic-{spoken.Id}");
             Assert.NotNull(conversation.SpokenTopic(topic));
@@ -134,21 +135,20 @@ public sealed partial class FixturePolicyTests
         Assert.Equal(events.GlobalEvents.Count(candidate => candidate.Topic), applied + refused.Values.Sum());
 
         // The figures the ruleset README states for the operator's install: what a fresh party's choice of each topic
-        // reaches. The two moves are the temples' (links 69 and 70).
-        Assert.Equal(321, applied);
-        Assert.Equal(2, travelled);
+        // reaches. The three moves are the world's own: the crossing to Harmondale (link 68) and the temples' (69, 70).
+        Assert.Equal(342, applied);
+        Assert.Equal(3, travelled);
         string[] stated =
         [
             "a creature flag 0x10000 this game does not read: 1",
             "arena-wins-knight: 1",
-            "award: 20",
             "bank-gold: 2",
             "bounties: 1",
             "class: 2",
             "food: 1",
-            "hireling: 11",
+            "hireling: 12",
             "npc-set-item: 2",
-            "set-npc-greeting: 3",
+            "reputation: 1",
         ];
         Assert.Equal(stated, refused.Select(entry => string.Create(CultureInfo.InvariantCulture, $"{entry.Key}: {entry.Value}")));
     }
@@ -266,13 +266,13 @@ public sealed partial class FixturePolicyTests
     {
         MightAndMagic7Fixtures? fixtures = null;
         MightAndMagic7Conversation conversation = MightAndMagic7Conversation.Read(catalog, MightAndMagic7Services.Read(catalog), events: () => fixtures)!;
-        fixtures = new MightAndMagic7Fixtures(events, random: new KeyedTestRandom(), people: conversation.PersonOf, topics: conversation.SpokenTopic);
+        fixtures = new MightAndMagic7Fixtures(events, random: new KeyedTestRandom(), people: conversation.PersonOf, topics: conversation.SpokenTopic, greetings: conversation.HasGreeting);
         return (conversation, new MightAndMagic7Interaction(fixtures: fixtures));
     }
 
     /// <summary>Runs what a person's word raised as the interaction mechanism's answer does, answering with the state it reads as.</summary>
     private static (InteractionOutcome Outcome, string State) Answer(
-        MightAndMagic7Interaction rule,
+        IInteractionRule rule,
         PlacementDefinition placement,
         PlaceId place,
         PartyEntity party,

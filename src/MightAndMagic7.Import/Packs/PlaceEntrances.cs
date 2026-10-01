@@ -54,7 +54,8 @@ public sealed record PlaceEntrancePlacement(
 /// <param name="Disposition">
 /// How the link is taken: <c>used</c> (a clicked face group or a decoration raises the event, and using it runs the
 /// event), <c>walked</c> (a pressure plate raises it, and walking onto the plate runs it), <c>used-or-walked</c>
-/// (both), <c>counter</c> (the event opens a building, whose counter owns the face), <c>spoken</c> (the global
+/// (both; a house's door whose event also moves the party is <c>used</c> too, its house's own use running the event),
+/// <c>spoken</c> (the global
 /// program's move, which a person's topic raises), <c>world-issued</c> (the global program moves the party from no
 /// place and no topic raises it), or <c>unreachable</c>.
 /// </param>
@@ -122,8 +123,9 @@ public sealed record PlaceEntranceSummary(
 /// </para>
 /// <para>
 /// <b>What each link is.</b> Every link ends with one disposition: taken by use, by treading, or both, with the
-/// condition a run must meet to reach its move (<see cref="PlaceEventPaths"/>); a counter's, when the event opens a
-/// building and the counter owns the face; world-issued, when the global program moves the party from no place; or
+/// condition a run must meet to reach its move (<see cref="PlaceEventPaths"/>) — a house's door among them, whose
+/// own use runs its event; spoken, when a person's topic raises the global program's move; world-issued, when the
+/// global program moves the party from no place and no topic raises it; or
 /// unreachable, with the evidence — no face, plate or decoration of the source place raises the event at all.
 /// </para>
 /// </remarks>
@@ -143,9 +145,6 @@ public static class PlaceEntranceEmitter
 
     /// <summary>The disposition of a link whose event both a use and a plate raise.</summary>
     public const string UsedOrWalked = "used-or-walked";
-
-    /// <summary>The disposition of a link whose event opens a building, whose counter owns the face.</summary>
-    public const string Counter = "counter";
 
     /// <summary>
     /// The disposition of a link of the global program whose event a person's topic raises: choosing the topic runs the
@@ -223,9 +222,11 @@ public static class PlaceEntranceEmitter
             }
 
             (int clicked, int plates, int decorations) = Raisers(map, link.EventId);
-            if (PlaceFixtureEmitter.Owner(instructions) is { } owner)
+            if (PlaceFixtureEmitter.Owner(instructions) is { } owner && clicked + decorations > 0)
             {
-                accounts.Add(Account(index, link, Counter, Trigger(clicked, plates, decorations), condition, $"Event {link.EventId} also holds '{owner}', so the face is that emitter's target and using it opens what it opens; the event's move{(condition.Length > 0 ? $" ({condition})" : string.Empty)} is not run by it.{conditionDetail}"));
+                // A house's door that also moves the party: the house's own use runs the event (its placement's
+                // sourceEvent), and the branch that reaches the move takes it rather than opening the house.
+                accounts.Add(Account(index, link, Used, $"{Trigger(clicked, plates, decorations)}, a house's door", condition, $"Event {link.EventId} also holds '{owner}': using the house runs the event, and a run that reaches this move takes it instead of opening the house.{conditionDetail}"));
                 continue;
             }
 

@@ -50,6 +50,7 @@ internal sealed class MightAndMagic7PeopleInteraction : IInteractionRule
 
     private readonly MightAndMagic7Conversation _conversation;
     private readonly IInteractionRule _inner;
+    private readonly MightAndMagic7Fixtures? _events;
 
     /// <summary>Wraps this game's own interaction answers with the people its content places.</summary>
     /// <param name="conversation">
@@ -58,11 +59,16 @@ internal sealed class MightAndMagic7PeopleInteraction : IInteractionRule
     /// own answers about its own tables.
     /// </param>
     /// <param name="inner">The answers about everything else a place holds.</param>
+    /// <param name="events">
+    /// This game's one interpretation of event steps, which runs a house's own event when the party uses the house; without
+    /// one a house only opens.
+    /// </param>
     /// <exception cref="ArgumentNullException">Either answer is missing.</exception>
-    internal MightAndMagic7PeopleInteraction(MightAndMagic7Conversation conversation, IInteractionRule inner)
+    internal MightAndMagic7PeopleInteraction(MightAndMagic7Conversation conversation, IInteractionRule inner, MightAndMagic7Fixtures? events = null)
     {
         _conversation = conversation ?? throw new ArgumentNullException(nameof(conversation));
         _inner = inner ?? throw new ArgumentNullException(nameof(inner));
+        _events = events;
     }
 
     /// <inheritdoc />
@@ -100,6 +106,21 @@ internal sealed class MightAndMagic7PeopleInteraction : IInteractionRule
             return _inner.Apply(target, context);
         }
 
+        // A house whose own event does more than open it runs that event: the event decides whether the party is let in,
+        // and a branch of it may lead the party elsewhere instead.
+        if (_events?.House(target, context, house => House(context, house)) is { } housed) return housed;
         return InteractionOutcome.Applied(SpokenState, $"The party speaks with {target.Name}.");
+    }
+
+    /// <summary>Who stands at the placement of a house of the use's place, by the house's number, or null when it holds none.</summary>
+    private ConversationSubject? House(InteractionContext context, int house)
+    {
+        foreach (PlacementDefinition placement in context.PlaceTargets)
+        {
+            if (placement.Source.GetInt32(MightAndMagic7Conversation.HouseField) != house) continue;
+            if (_conversation.Describe(new ConversationTargetRequest(context.Place, placement)) is { } subject) return subject;
+        }
+
+        return null;
     }
 }

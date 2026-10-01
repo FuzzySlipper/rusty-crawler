@@ -129,7 +129,7 @@ public sealed record PlaceEventStep(int Step, string Op)
     /// <summary>Whether a move stays in the place that issued it, which is a reposition rather than a link.</summary>
     public bool? WithinPlace { get; init; }
 
-    /// <summary>The house a person-moving step moves the person to, zero for none.</summary>
+    /// <summary>The house a person-moving step moves the person to, zero for none; the house a house step opens.</summary>
     public int? House { get; init; }
 
     /// <summary>The greeting table row a greeting step makes the person greet the party with.</summary>
@@ -163,6 +163,12 @@ public sealed record PlaceEvent(int PlaceId, string FileName, int EventId, strin
     /// off by walking onto the plate. Only events that move the party are carried this way.
     /// </summary>
     public bool Stepped { get; init; }
+
+    /// <summary>
+    /// Whether it is a house's own event that does more than open the house — a door that also moves the party, a shop
+    /// a quest bit shuts, the arbiter's door — which the house's own use runs (its placement's <c>sourceEvent</c>).
+    /// </summary>
+    public bool Housed { get; init; }
 
     /// <summary>The event's content identity, which a fixture's placement and the ruleset name it by.</summary>
     public string Id => $"{PlaceId}.{EventId}";
@@ -245,6 +251,9 @@ public sealed record PlaceFixtureSummary(
 
     /// <summary>Every floor trigger: the events pressure plates raise that move the party, one per event and place.</summary>
     public IReadOnlyList<PlaceFloorTrigger> Triggers { get; init; } = [];
+
+    /// <summary>How many events a house's own use runs because they do more than open the house.</summary>
+    public int HousedEventCount => Events.Count(placeEvent => placeEvent.Housed);
 
     /// <summary>How many events a floor trigger raises.</summary>
     public int SteppedEventCount => Events.Count(placeEvent => placeEvent.Stepped);
@@ -366,6 +375,7 @@ public static class PlaceFixtureEmitter
 
             SortedSet<int> raised = Raised(map);
             HashSet<int> fixtureEvents = [];
+            HashSet<int> housedEvents = [];
             HashSet<int> steppedEvents = [];
             foreach (int eventId in Stepped(map))
             {
@@ -388,6 +398,11 @@ public static class PlaceFixtureEmitter
                 if (Owner(instructions) is { } owner)
                 {
                     owned[owner] = owned.GetValueOrDefault(owner) + 1;
+
+                    // A house's event that does more than open the house is the house's own use to run: the donor runs a
+                    // clicked face's event whatever it holds (OpenEnroth src/Engine/Graphics/Viewport.cpp:300-320), and
+                    // opening the house is one of its steps (src/Engine/Evt/EvtInterpreter.cpp:189-198).
+                    if (owner == EvtOpcodes.Word(EvtOpcodes.SpeakInHouse) && DoesMoreThanOpen(instructions)) housedEvents.Add(eventId);
                     continue;
                 }
 
@@ -398,9 +413,10 @@ public static class PlaceFixtureEmitter
             {
                 bool isFixture = fixtureEvents.Contains(eventId);
                 bool isStepped = steppedEvents.Contains(eventId);
+                bool isHoused = housedEvents.Contains(eventId);
                 bool triggered = instructions.Any(instruction => instruction.Opcode is EvtOpcodes.OnTimer or EvtOpcodes.OnLongTimer);
-                if (!isFixture && !isStepped && !(triggered && Owner(instructions) is null)) continue;
-                events.Add(Normalize(placeId, map, program.Name, eventId, instructions, text, isFixture, triggered, moves) with { Stepped = isStepped });
+                if (!isFixture && !isStepped && !isHoused && !(triggered && Owner(instructions) is null)) continue;
+                events.Add(Normalize(placeId, map, program.Name, eventId, instructions, text, isFixture, triggered, moves) with { Stepped = isStepped, Housed = isHoused });
             }
 
             foreach (PlaceFixturePlacement fixture in Place(placeId, map, fixtureEvents, events)) fixtures.Add(fixture);
@@ -425,6 +441,10 @@ public static class PlaceFixtureEmitter
 
         return stepped;
     }
+
+    /// <summary>Whether a house's event does anything beyond opening the house, leaving it, and its hint and sound.</summary>
+    internal static bool DoesMoreThanOpen(IReadOnlyList<EvtInstruction> instructions) =>
+        instructions.Any(instruction => instruction.Opcode is not (EvtOpcodes.SpeakInHouse or EvtOpcodes.Exit or EvtOpcodes.MouseOver or EvtOpcodes.PlaySound));
 
     /// <summary>Whether an event moves the party, to another place or within its own.</summary>
     internal static bool IsTravel(IReadOnlyList<EvtInstruction> instructions) =>
@@ -608,6 +628,8 @@ public static class PlaceFixtureEmitter
         }
 
         if (instruction.TryReadSpeakNpc(out int person)) return step with { Person = person };
+
+        if (instruction.TryReadSpeakInHouse(out int building)) return step with { House = building };
 
         if (instruction.TryReadMoveNpc(out int moved, out int house)) return step with { Person = moved, House = house };
 

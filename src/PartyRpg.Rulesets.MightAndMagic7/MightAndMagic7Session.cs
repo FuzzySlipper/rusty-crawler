@@ -184,7 +184,8 @@ internal sealed class MightAndMagic7Session : IGameSession
             promotions,
             quests,
             () => owners.Quests,
-            () => events);
+            () => events,
+            () => owners.Party);
         if (conversation is not null)
         {
             // What reading the people tables noticed is reported where the other composition notes are: a
@@ -266,7 +267,8 @@ internal sealed class MightAndMagic7Session : IGameSession
             person => conversation?.PersonOf(person),
             place => owners.World is { } standing ? MightAndMagic7Fixtures.ActorsOf(standing, place) : null,
             () => owners.Journal,
-            topic => conversation?.SpokenTopic(topic));
+            topic => conversation?.SpokenTopic(topic),
+            row => conversation?.HasGreeting(row) == true);
         events = fixtures;
 
         // This game's journal policy is read once, here, over the loot reading that knows which item rows the

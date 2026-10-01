@@ -104,8 +104,9 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   session mode with its own flow, and the scenario path builds a party through the same factory and the
   same owner composition (a parity suite proves every owner answers on both); the
   scenario start's `party` word picks one (creation by default) and the projection names it.
-- **Interaction and services.** One use workflow serves doors, containers, people and fixtures; a fixture runs
-  the steps of its imported map event this game interprets and refuses the rest by name. One service
+- **Interaction and services.** One use workflow serves doors, containers, people and fixtures; a fixture, and a
+  house whose own event does more than open it, runs the steps of its imported map event this game interprets and
+  refuses the rest by name; a person's house and greeting are what those events left on the party's records. One service
   mechanism, an operation table judged before anything is settled, serves every shipped service kind; towns
   keep hours on the one clock; rest, camp and wait are distinct; conversations recompute their topics from
   party state and hand off to counters, and a topic runs its global event as a use of the speaker's placement.
@@ -135,8 +136,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 **Open residue and its receivers** (Den task ids; Den owns their status):
 
 - Stone 3, world: creatures cannot path around a wall because places carry no navigation cells (#8665); a
-  creature step can fault the runtime in Harmondale (#9041); a person moving house and a counter door's own move
-  are not followed (#9043); plates whose events do not move the party are not emitted (#9044).
+  creature step can fault the runtime in Harmondale (#9041); plates whose events do not move the party are not
+  emitted (#9044).
 - Stone 5, interaction and services: opened doors and emptied containers are not saved (#8593), and a
   searched chest can be looted twice (#8696); a door's collision, and a face group an event makes passable,
   do not move (#8594); a container above or below the floor cannot be used (#8697); deadlines (fatigue, wards, light, haste) block

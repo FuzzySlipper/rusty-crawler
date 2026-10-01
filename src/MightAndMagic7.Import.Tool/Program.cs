@@ -363,6 +363,7 @@ internal static class Program
         timedEvents = fixtures.TriggeredEventCount,
         floorTriggers = fixtures.Triggers.Count,
         steppedEvents = fixtures.SteppedEventCount,
+        houseEvents = fixtures.HousedEventCount,
         travelEvents = fixtures.TravelEventCount,
         eventsCarried = fixtures.Events.Count,
         raisedEventsOwnedElsewhere = fixtures.OwnedElsewhere,

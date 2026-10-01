@@ -144,7 +144,7 @@ public sealed class KnowledgePolicyTests
         ProjectedNode interaction = ProjectedNode.Of(ui.Latest().Value).Field("interaction");
         Assert.Equal("fixture-step-not-interpreted", interaction.Field("code").AsString());
         Assert.Contains("150", interaction.Field("message").AsString(), StringComparison.Ordinal);
-        Assert.Contains("set-npc-greeting", interaction.Field("message").AsString(), StringComparison.Ordinal);
+        Assert.Contains("set-npc-group-news", interaction.Field("message").AsString(), StringComparison.Ordinal);
         Assert.Equal(1, Book(Notes(ui), "notes").Field("rows").Length());
 
         // What the party knows is the save's own section, carried as the game time it was learned and never as
@@ -456,7 +456,7 @@ public sealed class KnowledgePolicyTests
                 { "id": "3.150", "place": "3", "event": 150, "label": "Drink from the Fountain", "raised": true,
                   "steps": [
                     { "step": 0, "op": "add", "variable": "autonote", "value": 2 },
-                    { "step": 1, "op": "set-npc-greeting" },
+                    { "step": 1, "op": "set-npc-group-news" },
                     { "step": 2, "op": "exit" } ] }
               ]
             }

@@ -289,6 +289,7 @@ internal static partial class PackWriter
             ("history.json", "history", HistoryDefinitionKind, WriteHistory(packDirectory, tables)),
             ("people.json", "people", PlacePeopleEmitter.PersonDefinitionKind, WritePeople(packDirectory, people)),
             ("topics.json", "topics", TopicDefinitionKind, WriteTopics(packDirectory, people)),
+            ("greetings.json", "greetings", GreetingDefinitionKind, WriteGreetings(packDirectory, tables)),
             ("services.json", "services", "service", WriteServices(packDirectory, services)),
             ("classes.json", "classes", "class", WriteClasses(packDirectory, tables)),
             ("skills.json", "skills", "skill", WriteSkills(packDirectory, tables)),
