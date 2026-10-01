@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Input;
@@ -134,6 +135,123 @@ public sealed class StandingPolicyTests
         Assert.Equal(9, party.Reputation.Reputation);
         Assert.Equal("Friendly", MightAndMagic7Standing.BandOf(party.Reputation.Reputation).Word);
     }
+
+    [Fact]
+    [Trait(Pins.Trait, Pins.Tuning)]
+    public void A_townsperson_killed_lowers_the_world_s_opinion_through_the_one_award_and_is_fined()
+    {
+        // The fight's own reading of whose death it was: a person whose record names no row fights as the
+        // shipped peasant, a creature placed as a peasant row is one too, and a person whose record names a
+        // guard's row is not — the donor's IsPeasant (OpenEnroth src/Engine/Objects/MonsterEnumFunctions.h:48-54).
+        ContentCatalog catalog = TownCatalog();
+        MightAndMagic7Combat combat = MightAndMagic7Combat.Compose(catalog, random: null);
+        PlacementDefinition bystander = Placement("person", "bystander", "");
+        PlacementDefinition wanderer = Placement("monster", "wanderer", "116");
+        PlacementDefinition guard = Placement("person", "guard", "13");
+        PlacementDefinition beast = Placement("monster", "beast", "7");
+        Assert.Equal(1, combat.TownspersonLevel(bystander));
+        Assert.Equal(2, combat.TownspersonLevel(wanderer));
+        Assert.Null(combat.TownspersonLevel(guard));
+        Assert.Null(combat.TownspersonLevel(beast));
+
+        // The session's own two observers, in the session's own order: the fine reads the standing the deed
+        // is about to lower, and the award carries the deed under its own word to the one entry.
+        using PartyEntity party = PartyOf(reputation: 0);
+        PartyProgression progression = new(MightAndMagic7Progression.Instance, party);
+        PartyResourceLedger accounts = new(party);
+        MightAndMagic7Crimes crimes = new(combat.TownspersonLevel, () => party, () => accounts);
+        ProgressionAwards awards = new(combat.ExperienceOf, () => progression, crimes.SourceOf);
+        void Dies(PlacementDefinition placement)
+        {
+            CreatureDeath death = new(new PlaceId("1"), placement, placement.Content.Id);
+            crimes.Died(death);
+            awards.Died(death);
+        }
+
+        // A bystander's death pays its row's experience as any death does, lowers the world's opinion by the
+        // donor's one point, and takes the donor's fine: a hundred gold per point of the row's level plus the
+        // party's standing in the donor's sign, which for a neutral party is the level alone.
+        Dies(bystander);
+        ProgressionAwardResult deed = progression.LastAward!;
+        Assert.True(deed.IsAwarded);
+        Assert.Equal(MightAndMagic7Crimes.TownspersonKillSource, deed.Source);
+        Assert.Equal(11, deed.Amount);
+        Assert.Equal(-1, deed.Standing.Reputation);
+        Assert.Equal(-1, party.Reputation.Reputation);
+        Assert.Equal(400, party.Purse.Coins);
+
+        // The next costs more, because the town now dislikes the party by a point: level two, plus one.
+        Dies(wanderer);
+        Assert.Equal(-2, party.Reputation.Reputation);
+        Assert.Equal(100, party.Purse.Coins);
+
+        // A guard and a beast are kills like any other: experience, no word against the party, no fine.
+        Dies(guard);
+        Assert.Equal(ProgressionAwards.KillSource, progression.LastAward!.Source);
+        Dies(beast);
+        Assert.Equal(ProgressionAwards.KillSource, progression.LastAward!.Source);
+        Assert.Equal(-2, party.Reputation.Reputation);
+        Assert.Equal(100, party.Purse.Coins);
+
+        // A fine the purse cannot cover takes what it holds (ours: the donor carries the rest as a debt a
+        // town hall collects), and the deed still lands.
+        Dies(bystander);
+        Assert.Equal(0, party.Purse.Coins);
+        Assert.Equal(-3, party.Reputation.Reputation);
+        Dies(bystander);
+        Assert.Equal(0, party.Purse.Coins);
+        Assert.Equal(-4, party.Reputation.Reputation);
+
+        // The donor's sum, clamped as the donor clamps it: a party the town likes well enough pays nothing.
+        Assert.Equal(0, MightAndMagic7Crimes.FineFor(level: 1, reputation: 30));
+        Assert.Equal(700, MightAndMagic7Crimes.FineFor(level: 2, reputation: -5));
+        Assert.Equal(MightAndMagic7Crimes.FineCeiling, MightAndMagic7Crimes.FineFor(level: 1, reputation: int.MinValue));
+    }
+
+    /// <summary>A monster table with a peasant row at two levels, a guard's row, and a beast.</summary>
+    private static ContentCatalog TownCatalog()
+    {
+        (ProductCreateContext context, _) = RulesetTestContext.Create(
+        [
+            RulesetTestContext.Bundle(RulesetTestContext.BundleId, "town"),
+            ($"{RulesetTestContext.ContentDirectory}/content-packs/town/pack.json",
+                """
+                {
+                  "schemaVersion": 1,
+                  "packId": "town",
+                  "kind": "definitions",
+                  "provenance": { "description": "authored for a test" },
+                  "documents": [ { "path": "monsters.json", "documentId": "monsters", "definitionKind": "monster" } ]
+                }
+                """),
+            ($"{RulesetTestContext.ContentDirectory}/content-packs/town/monsters.json",
+                """
+                {
+                  "documentId": "monsters",
+                  "definitionKind": "monster",
+                  "entries": [
+                    { "id": "7", "name": "A beast", "level": 4, "experience": 50, "hostility": 2, "recovery": 100 },
+                    { "id": "13", "name": "Guard", "level": 5, "experience": 60, "hostility": 0, "recovery": 100 },
+                    { "id": "115", "name": "Peasant", "level": 1, "experience": 11, "hostility": 0, "recovery": 100 },
+                    { "id": "116", "name": "Peasant", "level": 2, "experience": 24, "hostility": 0, "recovery": 100 }
+                  ]
+                }
+                """),
+        ]);
+        return ContentCatalogLoader.Load(
+            RulesetTestContext.Content(context),
+            ContentLayout.Under(RulesetTestContext.ContentDirectory)).RequireValid();
+    }
+
+    /// <summary>One placement as a place states it, naming the row it fights as when it names one.</summary>
+    private static PlacementDefinition Placement(string kind, string id, string monster) => new(
+        new PlacementContentId(kind, id),
+        "placements",
+        0,
+        PlacePose.Origin,
+        new ContentEntry(id, JsonDocument.Parse(monster.Length > 0
+            ? $$"""{ "id": "{{id}}", "kind": "{{kind}}", "monster": "{{monster}}" }"""
+            : $$"""{ "id": "{{id}}", "kind": "{{kind}}" }""").RootElement));
 
     [Fact]
     public void A_person_says_what_the_town_thinks_once_the_party_is_worth_an_opinion()

@@ -1568,6 +1568,30 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         return facts?.Experience ?? 0;
     }
 
+    /// <summary>
+    /// The level of the townsperson a placement holds, or null when what stands there is not one.
+    /// </summary>
+    /// <remarks>
+    /// A townsperson is whoever fights as one of the shipped peasant rows, which is the donor's own test for
+    /// whose death is a crime (OpenEnroth <c>src/Engine/Objects/Actor.cpp:1219-1221</c>, <c>IsPeasant</c>,
+    /// over the peasant monster types of <c>src/Engine/Objects/MonsterEnumFunctions.h:48-54</c>). That is
+    /// every person standing in the world whose own record names no row — this game reads them as the
+    /// shipped peasant — and any creature placed as a peasant row; a person whose record names a guard's or
+    /// an adept's row is a person the town does not fine the party for, as in the donor. The level is the
+    /// row's own, which is what the donor's fine is priced from.
+    /// </remarks>
+    /// <param name="placement">The placement the actor was created from.</param>
+    /// <returns>The row's level when the placement is a townsperson, otherwise null.</returns>
+    /// <exception cref="ArgumentNullException">No placement was supplied.</exception>
+    internal int? TownspersonLevel(PlacementDefinition placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+        MonsterFacts? facts = Creature(placement) ?? PersonFacts(placement);
+        return facts is { } row && string.Equals(row.Name, PersonRowName, StringComparison.OrdinalIgnoreCase)
+            ? row.Level
+            : null;
+    }
+
     /// <summary>The name of the person a placement holds, or null when nothing here names one.</summary>
     /// <remarks>
     /// A person placement names the people standing there by the identity their own entry was imported

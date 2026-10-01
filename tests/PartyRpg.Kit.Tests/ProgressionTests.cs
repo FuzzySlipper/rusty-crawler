@@ -77,6 +77,28 @@ public sealed class ProgressionTests
     }
 
     [Fact]
+    public void A_death_the_game_names_is_credited_under_its_word_through_the_same_entry()
+    {
+        using PartyEntity party = PartyOfTwo();
+        PartyProgression progression = new(new TestRule(), party);
+
+        // The game names what a death is credited as; the kit does not interpret the word, it carries it to
+        // the one entry, where the division and the standing rule read it as they read any award's source.
+        ProgressionAwards awards = new(
+            placement => Worth(placement),
+            () => progression,
+            death => death.Placement.Content.Kind == "person" ? "person-struck-down" : ProgressionAwards.KillSource);
+
+        awards.Died(new CreatureDeath(Here, Placement("person", "someone", 40), "Someone"));
+        Assert.Equal("person-struck-down", progression.LastAward!.Source);
+        Assert.Equal(20, party.Members[0].Progression.Experience);
+
+        awards.Died(Death("beast-1", 100));
+        Assert.Equal(ProgressionAwards.KillSource, progression.LastAward!.Source);
+        Assert.Equal(70, party.Members[0].Progression.Experience);
+    }
+
+    [Fact]
     public void An_award_nobody_can_take_and_an_award_of_nothing_are_refused_by_name()
     {
         using PartyEntity party = PartyOfTwo();

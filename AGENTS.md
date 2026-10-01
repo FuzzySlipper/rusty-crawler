@@ -144,7 +144,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 - Stone 7, progression and magic: training takes no game time (#8671); the two counted deeds two ranks need
   have no writer (#8689); a laid-out member can be promoted (#8705); effects marked "not yet" in
   `docs/magic-coverage.md` (#9007; item-aimed ones #8513; followers #8514).
-- Stone 8, record: an errand's item is protected only from sale (#8687); nothing lowers standing (#9008).
+- Stone 8, record: an errand's item is protected only from sale (#8687).
 - Across stones: a saved passage does not survive a fare retune (#9000); projection blocks are written
   twice (#9001); the product registers no Engine playtest or debug modules, so the panel is the only live
   feedback (#9004).

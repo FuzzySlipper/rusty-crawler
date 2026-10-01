@@ -46,10 +46,13 @@ internal readonly record struct ReputationBand(string Word, int Floor, string Re
 /// its own: <b>a finished errand moves the world's opinion by one point for every thousand experience it
 /// paid, and by at least one</b> — ours, in the donor's own unit of a thousand to the point, because a deed
 /// somebody asked for and saw finished is what a town has an opinion about, and a deed nobody thought worth
-/// much is still a deed. Nothing in this build lowers the world's opinion yet: killing a townsperson, being caught stealing, and the dark
-/// sacrifice the donor charges fifteen points for (<c>src/Engine/Spells/CastSpellInfo.cpp:2800-2809</c>)
-/// belong to owners this build does not have — there is no crime, no theft, and no such effect — so the
-/// descent is stated and routed rather than faked. See the ruleset's README for where it is routed to.
+/// much is still a deed. <b>Killing a townsperson lowers it one point</b>, the donor's own step: the death
+/// is credited as <see cref="MightAndMagic7Crimes.TownspersonKillSource"/> and the fine beside it is
+/// <see cref="MightAndMagic7Crimes"/>'s. The donor's other two movers the wrong way have no owner in this
+/// build: being caught stealing needs a stealing act, which nothing offers although the Stealing skill can be
+/// learned, and the dark sacrifice the donor charges fifteen points for
+/// (<c>src/Engine/Spells/CastSpellInfo.cpp:2800-2809</c>) needs a follower to give up. See the ruleset's
+/// README for where each is routed.
 /// </para>
 /// <para>
 /// <b>The bands do three things, and the third is the donor's own arithmetic.</b> They word what a person
@@ -168,7 +171,13 @@ internal sealed class MightAndMagic7Standing : IStandingRule
 
     /// <summary>What the world's opinion of a deed is worth, as this game reads the event that carried it.</summary>
     /// <remarks>
-    /// Only a finished errand moves it, and what it moves is one point per thousand experience the errand
+    /// <para>
+    /// Two deeds move it. A townsperson's death lowers it by one point, the donor's own step
+    /// (<c>src/Engine/Objects/Actor.cpp:1101-1102</c>, a location's sign-flipped <c>reputation++</c>), whatever
+    /// the person was worth in experience. A finished errand raises it.
+    /// </para>
+    /// <para>
+    /// A finished errand moves it by one point per thousand experience the errand
     /// paid, never less than one. The unit is the donor's: it reads a party's <em>fame</em> from the party's
     /// total experience at a thousand to the point (<c>src/Engine/Party.cpp:371-379</c>), and this game reads
     /// a town's opinion of one deed from the same figure, so an errand worth a great deal is one more people
@@ -176,6 +185,7 @@ internal sealed class MightAndMagic7Standing : IStandingRule
     /// moves a location's reputation one point per donation whatever was given
     /// (<c>src/GUI/UI/Houses/Temple.cpp:82-84</c>), so a deed worth little is still a deed. A creature killed
     /// in the wild is not a deed a town has an opinion about, which is the donor's own reading of it.
+    /// </para>
     /// </remarks>
     /// <param name="request">The party the event happened to, which kind of event it was, and what it was worth.</param>
     /// <returns>How much the world's opinion of the party moves, zero when it moves not at all.</returns>
@@ -184,6 +194,11 @@ internal sealed class MightAndMagic7Standing : IStandingRule
     {
         ArgumentNullException.ThrowIfNull(request);
         if (request.Event != ProgressionEventKind.Award) return 0;
+        if (string.Equals(request.Source, MightAndMagic7Crimes.TownspersonKillSource, StringComparison.Ordinal))
+        {
+            return MightAndMagic7Crimes.TownspersonKillReputation;
+        }
+
         if (!string.Equals(request.Source, PartyQuests.QuestSource, StringComparison.Ordinal)) return 0;
         return (int)Math.Max(1, request.Amount / ExperiencePerPoint);
     }
