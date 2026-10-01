@@ -38,7 +38,7 @@ namespace PartyRpg.Kit.Tests;
 /// </remarks>
 public sealed class AutomapTests
 {
-    private static readonly PlaceId Region = new("1");
+    internal static readonly PlaceId Region = new("1");
     private static readonly PlaceId Interior = new("2");
     private static readonly ContentLayout Layout = new("packs", "imports", "bundles");
 
@@ -460,7 +460,7 @@ public sealed class AutomapTests
         new(new TestRule { Sight = sight }, new TestMaps(places));
 
     /// <summary>The world the party stands in, which the drawing and the reset read.</summary>
-    private static SessionWorld World(GameClock clock)
+    internal static SessionWorld World(GameClock clock)
     {
         ContentCatalog catalog = ContentCatalogLoader.Load(
             new InMemoryContentSource()
@@ -504,7 +504,7 @@ public sealed class AutomapTests
         []);
 
     /// <summary>The places' own maps this suite states: eight by eight squares, one in seven of them water.</summary>
-    private sealed class TestMaps : IPlaceMapSource
+    internal sealed class TestMaps : IPlaceMapSource
     {
         private readonly Dictionary<PlaceId, PlaceMap> _maps = [];
 
@@ -528,7 +528,7 @@ public sealed class AutomapTests
     }
 
     /// <summary>This suite's reading of its own maps: two kinds, a radius, a sweep bound, and one rung.</summary>
-    private sealed class TestRule : IMapRule
+    internal sealed class TestRule : IMapRule
     {
         internal Func<PlacePose, PlacePose, bool>? Sight { get; init; }
 
@@ -613,7 +613,7 @@ public sealed class AutomapTests
     }
 
     /// <summary>This suite's journal policy, which only has to name its books.</summary>
-    private sealed class TestJournal : IJournalRule
+    internal sealed class TestJournal : IJournalRule
     {
         public IReadOnlyList<JournalBookKind> Books { get; } =
             [JournalBookKind.Quests, JournalBookKind.Notes, JournalBookKind.Maps, JournalBookKind.Calendar, JournalBookKind.History];
@@ -629,7 +629,7 @@ public sealed class AutomapTests
     }
 
     /// <summary>This suite's knowledge policy, which nothing here reports a discovery to.</summary>
-    private sealed class TestKnowledge : IKnowledgeRule
+    internal sealed class TestKnowledge : IKnowledgeRule
     {
         public string Phrase(KnowledgeKind kind) => kind.ToString();
 

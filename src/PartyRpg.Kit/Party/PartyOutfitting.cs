@@ -83,6 +83,13 @@ public sealed class PartyOutfitting
     /// <summary>The game's figure.</summary>
     public IEquipmentFigure Figure { get; }
 
+    /// <summary>
+    /// The change stamp this owner took when the last change of figure it reports last changed, or when it was
+    /// made: a reader that kept what it built beside this stamp reads the owner again only when the stamp has moved
+    /// (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     /// <summary>What the last request did, or null when nothing has been asked.</summary>
     public OutfittingResult? Last { get; private set; }
 
@@ -208,6 +215,7 @@ public sealed class PartyOutfitting
     private OutfittingResult Record(OutfittingResult result)
     {
         Last = result;
+        Stamp = ChangeStamp.Next();
         return result;
     }
 }

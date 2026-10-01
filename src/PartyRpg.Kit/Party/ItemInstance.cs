@@ -18,6 +18,12 @@ namespace PartyRpg.Kit.Party;
 /// </remarks>
 public sealed class ItemInstance
 {
+    /// <summary>
+    /// The change stamp this state took when it last changed, or when it was made: a reader that kept what it built
+    /// beside this stamp reads the state again only when the stamp has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     /// <summary>Creates an item instance.</summary>
     /// <param name="id">The instance's durable identity, which a save round-trips.</param>
     /// <param name="definition">The content definition this is a copy of.</param>
@@ -63,17 +69,29 @@ public sealed class ItemInstance
     public bool IsHeld => !Custody.IsDetached;
 
     /// <summary>Records that the party knows what this item is.</summary>
-    public void Identify() => State = State.Identified();
+    public void Identify()
+    {
+        State = State.Identified();
+        Stamp = ChangeStamp.Next();
+    }
 
     /// <summary>Damages the instance further. When damage breaks an item is the ruleset's policy, not this layer's.</summary>
     /// <param name="amount">How much damage to add, which cannot be negative.</param>
     /// <exception cref="ArgumentOutOfRangeException">The amount is negative.</exception>
-    public void TakeDamage(int amount) => State = State.Damaged(amount);
+    public void TakeDamage(int amount)
+    {
+        State = State.Damaged(amount);
+        Stamp = ChangeStamp.Next();
+    }
 
     /// <summary>Repairs the instance, never past sound.</summary>
     /// <param name="amount">How much damage to repair, which cannot be negative.</param>
     /// <exception cref="ArgumentOutOfRangeException">The amount is negative.</exception>
-    public void Repair(int amount) => State = State.Repaired(amount);
+    public void Repair(int amount)
+    {
+        State = State.Repaired(amount);
+        Stamp = ChangeStamp.Next();
+    }
 
     /// <summary>
     /// Spends one of the instance's charges.
@@ -83,13 +101,25 @@ public sealed class ItemInstance
     /// what is left is the game's own reading of the item's row less what the instance records as spent, and
     /// a second writer of that count would be a second answer to how full the item is.
     /// </remarks>
-    internal void SpendCharge() => State = State.WithChargeSpent();
+    internal void SpendCharge()
+    {
+        State = State.WithChargeSpent();
+        Stamp = ChangeStamp.Next();
+    }
 
     /// <summary>Marks the instance as taken without being paid for, which the service mechanism's theft does.</summary>
-    internal void MarkStolen() => State = State.Stolen();
+    public void MarkStolen()
+    {
+        State = State.Stolen();
+        Stamp = ChangeStamp.Next();
+    }
 
     /// <summary>Records where the party holds the instance. Only the party moves items, so only it calls this.</summary>
-    internal void Place(ItemCustody custody) => Custody = custody;
+    internal void Place(ItemCustody custody)
+    {
+        Custody = custody;
+        Stamp = ChangeStamp.Next();
+    }
 
     /// <summary>Takes items out of this instance's stack, which a merge in the shared pack does.</summary>
     /// <param name="count">How many to take, which must leave at least one behind.</param>
@@ -104,6 +134,7 @@ public sealed class ItemInstance
         }
 
         StackCount -= count;
+        Stamp = ChangeStamp.Next();
     }
 
     /// <inheritdoc />

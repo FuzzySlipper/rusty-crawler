@@ -115,6 +115,37 @@ public sealed class PartyEntity : IDisposable
     /// <summary>The origin of the party's durable identities, which a save records as a cursor.</summary>
     public PartyIdentitySource Identity => _party.Get<PartyIdentitySource>();
 
+    /// <summary>
+    /// The latest change stamp any of the party's state carries: its pack and every item in it, purse, larder,
+    /// standing, running effects, records, holdings, passages, memberships, debts and bans, and every member's own
+    /// state.
+    /// </summary>
+    /// <remarks>
+    /// Each of those owners takes a new stamp whenever it changes (<see cref="ChangeStamp"/>), so this moves
+    /// whenever anything a reader of the party could see has changed, and stays put while nothing has: a reader
+    /// that kept what it built beside it — the session's projection blocks — reads the party again only then. The
+    /// identity cursor is left out, because minting an identity changes nothing anybody reads.
+    /// </remarks>
+    public long Stamp
+    {
+        get
+        {
+            long stamp = Math.Max(Inventory.Stamp, Purse.Stamp);
+            stamp = Math.Max(stamp, Food.Stamp);
+            stamp = Math.Max(stamp, Reputation.Stamp);
+            stamp = Math.Max(stamp, Effects.Stamp);
+            stamp = Math.Max(stamp, Records.Stamp);
+            stamp = Math.Max(stamp, Holdings.Stamp);
+            stamp = Math.Max(stamp, Passages.Stamp);
+            stamp = Math.Max(stamp, Memberships.Stamp);
+            stamp = Math.Max(stamp, Debts.Stamp);
+            stamp = Math.Max(stamp, Bans.Stamp);
+            foreach (ItemInstance item in Inventory.Items) stamp = Math.Max(stamp, item.Stamp);
+            foreach (PartyMember member in Roster.Members) stamp = Math.Max(stamp, member.Stamp);
+            return stamp;
+        }
+    }
+
     /// <summary>Every item instance the party holds: the loose ones, then each member's equipped figure.</summary>
     public IReadOnlyList<ItemInstance> Items
     {

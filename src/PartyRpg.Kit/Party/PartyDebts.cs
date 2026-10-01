@@ -34,6 +34,12 @@ public sealed class PartyDebts
 {
     private readonly Tally _accounts;
 
+    /// <summary>
+    /// The change stamp this state took when it last changed, or when it was made: a reader that kept what it built
+    /// beside this stamp reads the state again only when the stamp has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp => _accounts.Stamp;
+
     /// <summary>Creates the party's debts.</summary>
     /// <param name="debts">What is already owed, account by account.</param>
     /// <exception cref="ArgumentException">An account is listed twice, is unnamed, or owes nothing.</exception>
@@ -80,6 +86,12 @@ public sealed class PartyBans
 {
     private readonly List<PartyBan> _bans = [];
 
+    /// <summary>
+    /// The change stamp this state took when it last changed, or when it was made: a reader that kept what it built
+    /// beside this stamp reads the state again only when the stamp has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     /// <summary>Creates the party's bans.</summary>
     /// <param name="bans">The bans already standing.</param>
     /// <exception cref="ArgumentException">A counter is listed twice or is unnamed.</exception>
@@ -121,11 +133,15 @@ public sealed class PartyBans
         PartyBan ban = new(counter, until.Milliseconds);
         if (index >= 0) _bans[index] = ban;
         else _bans.Add(ban);
+        Stamp = ChangeStamp.Next();
     }
 
     /// <summary>Forgets every ban that has run out by the given moment, so a save carries only what still bars.</summary>
     /// <param name="now">The clock's elapsed game time now.</param>
-    public void Lapse(GameDuration now) => _bans.RemoveAll(ban => ban.UntilMilliseconds <= now.Milliseconds);
+    public void Lapse(GameDuration now)
+    {
+        if (_bans.RemoveAll(ban => ban.UntilMilliseconds <= now.Milliseconds) > 0) Stamp = ChangeStamp.Next();
+    }
 
     private int IndexOf(string counter) =>
         _bans.FindIndex(ban => string.Equals(ban.Counter, counter, StringComparison.Ordinal));

@@ -13,6 +13,12 @@ namespace PartyRpg.Kit.Combat;
 /// a roll against; <see cref="Roll"/> draws one uniform value per die from the rolls one attack was given,
 /// so the same seed and the same attack produce the same damage.
 /// </para>
+/// <para>
+/// <b>A part may count again.</b> <see cref="WithMultiplier"/> adds a <see cref="DamageMultiplier"/>: a run of
+/// the roll's dice and a share of its bonus that counts several times when a draw of its own lands. Each
+/// multiplier draws once per roll under its own purpose, so two of them are two independent chances, and a
+/// roll that states none draws exactly what it always drew.
+/// </para>
 /// </remarks>
 public readonly record struct DamageRoll
 {
@@ -56,11 +62,76 @@ public readonly record struct DamageRoll
     /// </remarks>
     public int Floor { get; }
 
+    private readonly DamageMultiplier[]? _multipliers;
+
+    /// <summary>The parts of this roll that may count again, in the order they draw.</summary>
+    public IReadOnlyList<DamageMultiplier> Multipliers => _multipliers ?? [];
+
     /// <summary>The least this roll can produce.</summary>
-    public int Minimum => Math.Max(Floor, Dice + Bonus);
+    /// <remarks>A part that is certain to count again counts at its least; one that may not is left out when it would only lower the roll.</remarks>
+    public int Minimum
+    {
+        get
+        {
+            int least = Dice + Bonus;
+            foreach (DamageMultiplier multiplier in Multipliers)
+            {
+                int extra = (multiplier.Factor - 1) * (multiplier.Dice + multiplier.Bonus);
+                least += Extreme(multiplier, extra, Math.Min);
+            }
+
+            return Math.Max(Floor, least);
+        }
+    }
 
     /// <summary>The most this roll can produce.</summary>
-    public int Maximum => Math.Max(Minimum, (Dice * Sides) + Bonus);
+    public int Maximum
+    {
+        get
+        {
+            int most = (Dice * Sides) + Bonus;
+            foreach (DamageMultiplier multiplier in Multipliers)
+            {
+                int extra = (multiplier.Factor - 1) * ((multiplier.Dice * Sides) + multiplier.Bonus);
+                most += Extreme(multiplier, extra, Math.Max);
+            }
+
+            return Math.Max(Minimum, most);
+        }
+    }
+
+    /// <summary>States this roll with one more part that may count again.</summary>
+    /// <param name="multiplier">The part, whose dice must be dice this roll has.</param>
+    /// <returns>The roll with the part added after any it already states.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The part names dice this roll does not roll.</exception>
+    public DamageRoll WithMultiplier(DamageMultiplier multiplier)
+    {
+        if (multiplier.FirstDie + multiplier.Dice > Dice)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(multiplier),
+                multiplier,
+                $"The part covers dice {multiplier.FirstDie} to {multiplier.FirstDie + multiplier.Dice - 1} of a roll of {Dice}, so it would count dice nobody rolled.");
+        }
+
+        DamageMultiplier[] parts = [.. Multipliers, multiplier];
+        return new DamageRoll(this, parts);
+    }
+
+    private DamageRoll(DamageRoll roll, DamageMultiplier[] multipliers)
+    {
+        Dice = roll.Dice;
+        Sides = roll.Sides;
+        Bonus = roll.Bonus;
+        Floor = roll.Floor;
+        _multipliers = multipliers;
+    }
+
+    /// <summary>What a part may add at an extreme: all of it when certain, none when impossible, either otherwise.</summary>
+    private static int Extreme(DamageMultiplier multiplier, int extra, Func<int, int, int> pick) =>
+        multiplier.Chance.BasisPoints >= HitChance.Certain ? extra
+        : multiplier.Chance.BasisPoints <= 0 ? 0
+        : pick(0, extra);
 
     /// <summary>A roll that is certain: no dice, and this much damage.</summary>
     /// <param name="amount">The damage, which cannot be negative.</param>
@@ -80,18 +151,58 @@ public readonly record struct DamageRoll
         ArgumentException.ThrowIfNullOrWhiteSpace(purpose);
 
         int total = Bonus;
+        int[]? faces = _multipliers is null ? null : new int[Dice];
         for (int die = 0; die < Dice; die++)
         {
-            total += rolls.Roll($"{purpose}/{die}", 1, Sides);
+            int face = rolls.Roll($"{purpose}/{die}", 1, Sides);
+            if (faces is not null) faces[die] = face;
+            total += face;
+        }
+
+        if (faces is not null)
+        {
+            for (int index = 0; index < _multipliers!.Length; index++)
+            {
+                DamageMultiplier multiplier = _multipliers[index];
+                int draw = rolls.Roll($"{purpose}/multiplier/{index}", 0, HitChance.Certain - 1);
+                if (!multiplier.Chance.Hits(draw)) continue;
+                int part = multiplier.Bonus;
+                for (int die = multiplier.FirstDie; die < multiplier.FirstDie + multiplier.Dice; die++) part += faces[die];
+                total += (multiplier.Factor - 1) * part;
+            }
         }
 
         return Math.Max(Floor, total);
     }
 
+    /// <summary>Whether another roll states the same dice, bonus, floor and parts.</summary>
+    /// <param name="other">The other roll.</param>
+    /// <returns>Whether the two are the same statement.</returns>
+    public bool Equals(DamageRoll other) =>
+        Dice == other.Dice && Sides == other.Sides && Bonus == other.Bonus && Floor == other.Floor &&
+        Multipliers.SequenceEqual(other.Multipliers);
+
     /// <inheritdoc />
-    public override string ToString() => Dice == 0
-        ? Bonus.ToString(System.Globalization.CultureInfo.InvariantCulture)
-        : Floor > 0
-            ? $"{Dice}d{Sides}{Bonus:+#;-#;+0} (at least {Floor})"
-            : $"{Dice}d{Sides}{Bonus:+#;-#;+0}";
+    public override int GetHashCode()
+    {
+        HashCode hash = new();
+        hash.Add(Dice);
+        hash.Add(Sides);
+        hash.Add(Bonus);
+        hash.Add(Floor);
+        foreach (DamageMultiplier multiplier in Multipliers) hash.Add(multiplier);
+        return hash.ToHashCode();
+    }
+
+    /// <inheritdoc />
+    public override string ToString()
+    {
+        string roll = Dice == 0
+            ? Bonus.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            : Floor > 0
+                ? $"{Dice}d{Sides}{Bonus:+#;-#;+0} (at least {Floor})"
+                : $"{Dice}d{Sides}{Bonus:+#;-#;+0}";
+        foreach (DamageMultiplier multiplier in Multipliers) roll += $", {multiplier}";
+        return roll;
+    }
 }

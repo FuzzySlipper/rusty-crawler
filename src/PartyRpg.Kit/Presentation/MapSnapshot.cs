@@ -244,12 +244,7 @@ public sealed record MapSnapshot(
 
         // What a detection reveals is read here, from the same state the rest of the projection is built from,
         // and it is deliberately read before the drawing is filled so its marks can be marked as revealed.
-        MapReveal? reveal = rule.Reveal(new MapDetectionView(
-            world.Place,
-            pose,
-            world.Population.PlacementsOf(world.Place),
-            world.Population.Entities,
-            running?.Running ?? []));
+        MapReveal? reveal = rule.Reveal(DetectionView(world, running));
 
         MapDrawingSnapshot? drawing = partyX is { } x && partyY is { } y && double.IsFinite(facing)
             ? new MapDrawingSnapshot(
@@ -288,6 +283,30 @@ public sealed record MapSnapshot(
             reveal?.EndsAt is { } ends ? Date(ends) : string.Empty,
             drawing);
     }
+
+    /// <summary>Whether a detection is marking anything on the place the party stands in now.</summary>
+    /// <remarks>
+    /// A detection marks what lives here wherever it has walked to, so a drawing that carries one is a reading of
+    /// this moment rather than of the map: a reader that keeps a drawing between publishes asks this first, and
+    /// keeps nothing while it is true. The answer is the game's own <see cref="IMapRule.Reveal"/>, asked of the
+    /// same view the drawing asks it of.
+    /// </remarks>
+    /// <param name="maps">The party's maps.</param>
+    /// <param name="world">The live world, when the session has one.</param>
+    /// <param name="running">What spells have left running, when the game reports it.</param>
+    internal static bool Detecting(PartyMaps? maps, SessionWorld? world, IRunningSpellEffects? running) =>
+        maps is not null &&
+        world is not null &&
+        maps.Maps.For(world.Place) is not null &&
+        maps.Rule.Reveal(DetectionView(world, running)) is not null;
+
+    /// <summary>What a detection over the party's place is asked of: where it stands and what stands there.</summary>
+    private static MapDetectionView DetectionView(SessionWorld world, IRunningSpellEffects? running) => new(
+        world.Place,
+        world.Party.PlacePose,
+        world.Population.PlacementsOf(world.Place),
+        world.Population.Entities,
+        running?.Running ?? []);
 
     /// <summary>
     /// Where one of the party's own coordinates falls across or down the drawing, or null when it has no place

@@ -96,6 +96,13 @@ public sealed class PartyProgression
     /// <summary>This game's ranks, or null when its ruleset stated no ladder.</summary>
     public IPromotionRule? Promotions => _promotions;
 
+    /// <summary>
+    /// The change stamp this owner took when the last award, deed, training, raise or promotion it reports last changed,
+    /// or when it was made: a reader that kept what it built beside this stamp reads the owner again only when the
+    /// stamp has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     /// <summary>What the last award did, or null before the party has earned experience.</summary>
     public ProgressionAwardResult? LastAward { get; private set; }
 
@@ -222,6 +229,7 @@ public sealed class PartyProgression
         ProgressionStanding standing = ApplyStanding(ProgressionEventKind.Deed, source, 0);
         ProgressionDeedResult result = new(source, standing);
         LastDeed = result;
+        Stamp = ChangeStamp.Next();
         return result;
     }
 
@@ -721,6 +729,7 @@ public sealed class PartyProgression
     private ProgressionAwardResult Record(ProgressionAwardResult result)
     {
         LastAward = result;
+        Stamp = ChangeStamp.Next();
         return result;
     }
 
@@ -728,6 +737,7 @@ public sealed class PartyProgression
     private ProgressionTrainingResult RecordTraining(ProgressionTrainingResult result)
     {
         LastTraining = result;
+        Stamp = ChangeStamp.Next();
         return result;
     }
 
@@ -735,6 +745,7 @@ public sealed class PartyProgression
     private SkillRaiseResult RecordRaise(SkillRaiseResult result)
     {
         LastRaise = result;
+        Stamp = ChangeStamp.Next();
         return result;
     }
 
@@ -742,6 +753,7 @@ public sealed class PartyProgression
     private PromotionResult RecordPromotion(PromotionResult result)
     {
         LastPromotion = result;
+        Stamp = ChangeStamp.Next();
         return result;
     }
 

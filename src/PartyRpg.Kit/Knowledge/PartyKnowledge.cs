@@ -76,6 +76,12 @@ public sealed class PartyKnowledge
     /// <summary>What this game calls its discoveries and what it counts as worth keeping.</summary>
     public IKnowledgeRule Rule => _rule;
 
+    /// <summary>
+    /// The change stamp this owner took when the notes it keeps last changed, or when it was made: a reader that
+    /// kept what it built beside it reads the owner again only when it has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     /// <summary>Every fact the party knows, oldest first, which is the order it learned them in.</summary>
     public IReadOnlyList<KnowledgeNote> Notes => _notes;
 
@@ -122,6 +128,7 @@ public sealed class PartyKnowledge
             _clock.Now,
             report.Place));
         Bound();
+        Stamp = ChangeStamp.Next();
         return true;
     }
 

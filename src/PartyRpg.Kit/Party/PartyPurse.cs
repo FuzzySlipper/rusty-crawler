@@ -9,6 +9,12 @@ namespace PartyRpg.Kit.Party;
 /// </remarks>
 public sealed class PartyPurse
 {
+    /// <summary>
+    /// The change stamp this state took when it last changed, or when it was made: a reader that kept what it built
+    /// beside this stamp reads the state again only when the stamp has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     /// <summary>Creates the party's purse.</summary>
     /// <param name="coins">What the party starts with, which cannot be negative.</param>
     /// <exception cref="ArgumentOutOfRangeException">The starting balance is negative.</exception>
@@ -29,6 +35,7 @@ public sealed class PartyPurse
     {
         ArgumentOutOfRangeException.ThrowIfNegative(amount);
         Coins = checked(Coins + amount);
+        Stamp = ChangeStamp.Next();
     }
 
     /// <summary>Whether the party can pay a price.</summary>
@@ -49,6 +56,7 @@ public sealed class PartyPurse
         ArgumentOutOfRangeException.ThrowIfNegative(amount);
         if (amount > Coins) return false;
         Coins -= amount;
+        Stamp = ChangeStamp.Next();
         return true;
     }
 }

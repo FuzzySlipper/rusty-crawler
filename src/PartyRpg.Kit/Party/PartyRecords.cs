@@ -40,6 +40,12 @@ public readonly record struct PartyPassage(PlaceId Destination, string Route);
 /// </remarks>
 public sealed class PartyRecords
 {
+    /// <summary>
+    /// The change stamp this state took when it last changed, or when it was made: a reader that kept what it built
+    /// beside this stamp reads the state again only when the stamp has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp => _records.Stamp;
+
     private readonly Tally _records;
 
     /// <summary>Creates the party's records.</summary>
@@ -89,6 +95,12 @@ public sealed class PartyRecords
 /// </remarks>
 public sealed class PartyHoldings
 {
+    /// <summary>
+    /// The change stamp this state took when it last changed, or when it was made: a reader that kept what it built
+    /// beside this stamp reads the state again only when the stamp has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp => _accounts.Stamp;
+
     private readonly Tally _accounts;
 
     /// <summary>Creates the party's holdings.</summary>
@@ -127,6 +139,12 @@ public sealed class PartyHoldings
 /// </remarks>
 public sealed class PartyPassages
 {
+    /// <summary>
+    /// The change stamp this state took when it last changed, or when it was made: a reader that kept what it built
+    /// beside this stamp reads the state again only when the stamp has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     private readonly List<PartyPassage> _passages = [];
 
     /// <summary>Creates the party's passages.</summary>
@@ -167,6 +185,7 @@ public sealed class PartyPassages
         int index = IndexOf(destination);
         if (index >= 0) _passages[index] = new PartyPassage(destination, route);
         else _passages.Add(new PartyPassage(destination, route));
+        Stamp = ChangeStamp.Next();
     }
 
     /// <summary>Spends the passage to a place.</summary>
@@ -177,6 +196,7 @@ public sealed class PartyPassages
         int index = IndexOf(destination);
         if (index < 0) return false;
         _passages.RemoveAt(index);
+        Stamp = ChangeStamp.Next();
         return true;
     }
 
@@ -191,6 +211,12 @@ public sealed class PartyPassages
 /// </remarks>
 public sealed class PartyMemberships
 {
+    /// <summary>
+    /// The change stamp this state took when it last changed, or when it was made: a reader that kept what it built
+    /// beside this stamp reads the state again only when the stamp has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp => _memberships.Stamp;
+
     private readonly Tally _memberships;
 
     /// <summary>Creates the party's memberships.</summary>
@@ -220,6 +246,12 @@ public sealed class PartyMemberships
 /// <summary>Names and whole numbers in the order they were first stated, which each party-carried family keeps.</summary>
 internal sealed class Tally(string what, int minimum)
 {
+    /// <summary>
+    /// The change stamp this state took when it last changed, or when it was made: a reader that kept what it built
+    /// beside this stamp reads the state again only when the stamp has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     private readonly List<(string Name, int Value)> _entries = [];
 
     public IReadOnlyList<(string Name, int Value)> Entries => _entries;
@@ -253,6 +285,7 @@ internal sealed class Tally(string what, int minimum)
         int index = IndexOf(name);
         if (index >= 0) _entries[index] = (name, value);
         else _entries.Add((name, value));
+        Stamp = ChangeStamp.Next();
     }
 
     public bool Remove(string name)
@@ -260,6 +293,7 @@ internal sealed class Tally(string what, int minimum)
         int index = IndexOf(name);
         if (index < 0) return false;
         _entries.RemoveAt(index);
+        Stamp = ChangeStamp.Next();
         return true;
     }
 
