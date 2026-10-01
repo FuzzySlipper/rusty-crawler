@@ -18,7 +18,8 @@ public sealed class Mm7Tables
         PotionTable potions,
         QuestTable quests,
         PersonTable people,
-        DiscoveryTable discoveries)
+        DiscoveryTable discoveries,
+        HistoryTable history)
     {
         Classes = classes;
         Skills = skills;
@@ -33,6 +34,7 @@ public sealed class Mm7Tables
         Quests = quests;
         People = people;
         Discoveries = discoveries;
+        History = history;
     }
 
     /// <summary>Classes and ranks.</summary>
@@ -74,6 +76,9 @@ public sealed class Mm7Tables
     /// <summary>The discovery table: the notes a party keeps, by the number a map event sets.</summary>
     public DiscoveryTable Discoveries { get; }
 
+    /// <summary>The history table: the lines a party's history book holds, by the slot a map event writes.</summary>
+    public HistoryTable History { get; }
+
     /// <summary>Reads every typed table from an installation.</summary>
     public static Mm7Tables Read(LodInstall install)
     {
@@ -95,6 +100,7 @@ public sealed class Mm7Tables
             PotionTable.Read(install, items),
             QuestTable.Read(install),
             PersonTable.Read(install),
-            DiscoveryTable.Read(install));
+            DiscoveryTable.Read(install),
+            HistoryTable.Read(install));
     }
 }

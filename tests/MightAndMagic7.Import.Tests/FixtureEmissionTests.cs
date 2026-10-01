@@ -139,6 +139,31 @@ public sealed class FixtureEmissionTests
         }
     }
 
+    [Fact]
+    public void The_history_table_reads_each_line_under_the_slot_an_event_writes_with_its_codes_as_named_marks()
+    {
+        string root = SyntheticInstallation.Create();
+        try
+        {
+            HistoryTable table = Mm7Tables.Read(LodInstall.Open(root)).History;
+
+            // Row one is slot zero: an event's history variable names the slot and the donor reads the row past it.
+            Assert.Equal([0, 1], table.Rows.Select(row => row.Slot));
+            Assert.Equal(["Forward", "The Contest"], table.Rows.Select(row => row.Title));
+
+            // The day and the characters the table writes as its own codes are named marks the ruleset fills.
+            Assert.Equal("{date}  {member:1} and {member:4} took the castle.", table.Rows[1].Text);
+            Assert.DoesNotContain('%', table.Rows[1].Text);
+
+            // The numbered row with no line is counted, and the padding after the last row is not a row.
+            Assert.Equal(1, table.SkippedRows);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     /// <summary>An interior with one face per (event, attributes) pair, four hundred units apart.</summary>
     private static DecodedMap Interior(params (int Event, uint Attributes)[] faces) =>
         MapDecoder.DecodeIndoor(

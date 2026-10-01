@@ -544,6 +544,11 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// The session's one clock, which a character's natural age is read from; without one every character is the
     /// age they started at.
     /// </param>
+    /// <param name="hostileGroups">
+    /// Whether a place's own events have turned one of its groups of creatures hostile, which is the world's
+    /// per-place state a fixture writes (<see cref="MightAndMagic7Fixtures.IsGroupHostile"/>); without it no group
+    /// is.
+    /// </param>
     /// <returns>This game's combat policy.</returns>
     /// <exception cref="ContentValidationException">Content declares a monster or a creature this game cannot fight; every problem is named.</exception>
     internal static MightAndMagic7Combat Compose(
@@ -553,9 +558,10 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         Func<PartyEntity?>? party = null,
         Func<IMemberSpellEffects?>? memberEffects = null,
         MightAndMagic7Figure? figure = null,
-        GameClock? clock = null)
+        GameClock? clock = null,
+        Func<PlaceId, int, bool>? hostileGroups = null)
     {
-        if (catalog is null) return new MightAndMagic7Combat([], [], null, random, spells, party, memberEffects, figure: null, clock, MightAndMagic7Hostility.Empty);
+        if (catalog is null) return new MightAndMagic7Combat([], [], null, random, spells, party, memberEffects, figure: null, clock, MightAndMagic7Hostility.Empty) { HostileGroups = hostileGroups };
         List<ContentValidationIssue> issues = [];
         Dictionary<int, MonsterFacts> monsters = ReadMonsters(catalog, spells ?? MightAndMagic7Spells.Read(catalog), issues);
         Dictionary<string, string> people = ReadPeople(catalog);
@@ -589,8 +595,14 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             figure ?? MightAndMagic7Figure.Read(catalog),
             clock,
             MightAndMagic7Hostility.Read(catalog),
-            ReadInternalNames(catalog, monsters));
+            ReadInternalNames(catalog, monsters))
+        {
+            HostileGroups = hostileGroups,
+        };
     }
+
+    /// <summary>Whether a place's own events have turned one of its groups of creatures hostile, or null when nothing says.</summary>
+    private Func<PlaceId, int, bool>? HostileGroups { get; init; }
 
     /// <summary>
     /// The rows each internal name the monster table states finds, the lowest-numbered where two rows share one.
@@ -709,6 +721,10 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             // because that is the fight's own memory of what the party did rather than of what it looks like.
             if (SpellWard(SpellEffectIds.Invisibility) > 0) return Hostility.Peaceful;
 
+            // A creature whose group a map event turned hostile is the party's enemy at the longest band, whatever
+            // its row says (the donor's aggressor bit, OpenEnroth src/Engine/Objects/Actor.cpp:2155-2156).
+            if (InHostileGroup(subject)) return Hostility.Aggressive(NoticeRanges[^1]);
+
             // Band zero is the donor's friendly creature: something that walks the world and never starts a
             // fight, which the party can still attack.
             return creature.NoticeRange <= 0
@@ -716,10 +732,20 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
                 : Hostility.Aggressive(creature.NoticeRange);
         }
 
-        return string.Equals(subject.Placement?.Content.Kind, PersonPlacementKind, StringComparison.Ordinal)
-            ? Hostility.Peaceful
-            : Hostility.Inert;
+        if (!string.Equals(subject.Placement?.Content.Kind, PersonPlacementKind, StringComparison.Ordinal)) return Hostility.Inert;
+
+        // A person whose group a map event turned hostile — the guards of a place the party broke into — is an
+        // enemy the same way, unless the party cannot be seen.
+        return InHostileGroup(subject) && SpellWard(SpellEffectIds.Invisibility) <= 0
+            ? Hostility.Aggressive(NoticeRanges[^1])
+            : Hostility.Peaceful;
     }
+
+    /// <summary>Whether the actor stands in a group its place's own events turned hostile.</summary>
+    private bool InHostileGroup(CombatSubject subject) =>
+        HostileGroups is { } hostile &&
+        subject.Placement?.Source.GetInt32(MightAndMagic7MonsterAi.GroupField) is { } group and not 0 &&
+        hostile(subject.Place, group);
 
     /// <inheritdoc />
     /// <remarks>

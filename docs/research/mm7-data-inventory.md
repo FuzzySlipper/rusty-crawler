@@ -103,10 +103,15 @@ per row (`src/Engine/Tables/AutonoteTable.cpp:19-35`) **[donor]**; **186 rows ho
 hold none** (a `0` placeholder or an empty text) **[data]**. The first region holds no obelisk: the fourteen
 obelisk rows name areas 2 to 14 and 39 **[data]**. A map variable belongs to the map, not to the event that
 writes it (`src/Engine/Engine.h:62-65`) **[donor]**, and the fixtures' lever puzzles share theirs between events,
-which is why the ruleset keeps them per place. With every step the ruleset interprets, a fresh party runs **488 of
-the 495** fixture events and is refused by name at 7 — a figure the ruleset suite counts over the written packs
-rather than `mm7import verify`. The ruleset's reading of the steps is in
-`src/PartyRpg.Rulesets.MightAndMagic7/README.md`.
+which is why the ruleset keeps them per place. `history.txt` is the history book: a row number, the line, a notes
+column and a page title (`src/Engine/Tables/HistoryTable.cpp:14-27`), and an event's `history` variable writes the
+row one past its slot (`src/Engine/Objects/Character.cpp:3995-4002`) **[donor]**; **28 rows hold a line** **[data]**,
+and their only text codes are `%30` (the day the line was written) and `%31`–`%34` (a character's name,
+`src/GUI/GUIWindow.cpp:953-965`) **[donor]**. Of `npctopic.txt`'s rows, **62 name an answer** in `npctext.txt`; a
+person's six dialogue slots (`npcdata.txt` columns 10–15) name topic rows, and **313 people** state at least one
+**[data]**. With every step the ruleset interprets, a fresh party runs **493 of the 495** fixture events and is refused
+by name at 2, both hireling steps — a figure the ruleset suite counts over the written packs rather than
+`mm7import verify`. The ruleset's reading of the steps is in `src/PartyRpg.Rulesets.MightAndMagic7/README.md`.
 
 ## Extraction limitations
 

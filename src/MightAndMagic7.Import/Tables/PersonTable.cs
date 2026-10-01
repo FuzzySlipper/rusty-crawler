@@ -20,7 +20,11 @@ namespace MightAndMagic7.Import.Tables;
 /// <param name="Profession">The hireling profession, zero when the row is not one.</param>
 /// <param name="GreetingIndex">The greeting row this person uses, zero when the row names none.</param>
 /// <param name="CanJoin">Whether the table says this person may join the party.</param>
-/// <param name="DialogueEvents">The dialogue event numbers the row states, in column order.</param>
+/// <param name="DialogueSlots">
+/// The six dialogue event columns as the row states them, a zero where a slot raises nothing: the slot is a
+/// position, because a map event changes the event one slot raises by its position (OpenEnroth
+/// <c>src/Engine/Evt/EvtInterpreter.cpp:449-468</c>).
+/// </param>
 /// <param name="Notes">The row's own notes column, kept as the table wrote it.</param>
 public sealed record NpcRecord(
     int Id,
@@ -31,8 +35,12 @@ public sealed record NpcRecord(
     int Profession,
     int GreetingIndex,
     bool CanJoin,
-    IReadOnlyList<int> DialogueEvents,
-    string Notes);
+    IReadOnlyList<int> DialogueSlots,
+    string Notes)
+{
+    /// <summary>The dialogue event numbers the row states, in column order, the empty slots left out.</summary>
+    public IReadOnlyList<int> DialogueEvents => [.. DialogueSlots.Where(evt => evt != 0)];
+}
 
 /// <summary>One row of the greeting table: what a person says when met, and when met again.</summary>
 /// <remarks>
@@ -259,7 +267,7 @@ public sealed class PersonTable
                 Number(row.Field(7), out int profession) ? profession : 0,
                 Number(row.Field(8), out int greeting) ? greeting : 0,
                 string.Equals(row.Field(9).Trim(), "y", StringComparison.OrdinalIgnoreCase),
-                [.. Enumerable.Range(10, 6).Select(column => Number(row.Field(column), out int evt) ? evt : 0).Where(evt => evt != 0)],
+                [.. Enumerable.Range(10, 6).Select(column => Number(row.Field(column), out int evt) ? evt : 0)],
                 TableValue.Text(row, 16)));
         }
 

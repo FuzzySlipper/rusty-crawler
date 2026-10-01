@@ -40,6 +40,12 @@ public enum JournalEntryKind
 
     /// <summary>Something notable the party found.</summary>
     Find,
+
+    /// <summary>
+    /// A line of the world's own story the party lived through, as the game words it: something its content
+    /// writes into the party's history when the party brings it about, whose words are the game's whole line.
+    /// </summary>
+    Chronicle,
 }
 
 /// <summary>

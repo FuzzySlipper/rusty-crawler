@@ -218,6 +218,11 @@ public sealed record SessionSave
     /// write and whether the figure is one they could have left. Without it only the kit's own terms are
     /// judged: the place exists, and every value is named once.
     /// </param>
+    /// <param name="records">
+    /// The ruleset's judge of the records the party carries, which is what says whether a record whose name has
+    /// a shape — somebody's slot, a row of a table — names something the content still has. Without it only the
+    /// kit's own terms are judged: every record is named once and held at least once.
+    /// </param>
     /// <returns>Every problem found, in the order the document records them.</returns>
     /// <exception cref="ArgumentNullException">The world's places or the party factory are null.</exception>
     public IReadOnlyList<SaveProblem> Problems(
@@ -226,12 +231,21 @@ public sealed record SessionSave
         PlacePoseAdmission? admission = null,
         IQuestRule? quests = null,
         GameCalendar? calendar = null,
-        PlaceValueJudge? kept = null)
+        PlaceValueJudge? kept = null,
+        PartyRecordJudge? records = null)
     {
         ArgumentNullException.ThrowIfNull(places);
         ArgumentNullException.ThrowIfNull(parties);
 
         List<SaveProblem> problems = [.. parties.Problems(Party)];
+        foreach (PartyRecord record in Party.Records)
+        {
+            if (records?.Invoke(record.Name, record.Count) is { Length: > 0 } reason)
+            {
+                problems.Add(new SaveProblem(SaveCodes.SaveRecordUnknown, record.Name, $"the party carries the record '{record.Name}' {record.Count} time(s), and {reason}"));
+            }
+        }
+
         if (World.Places.ElapsedGameDays < 0)
         {
             problems.Add(new SaveProblem(

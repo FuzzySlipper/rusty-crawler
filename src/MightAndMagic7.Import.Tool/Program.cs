@@ -367,6 +367,7 @@ internal static class Program
         stepKinds = fixtures.StepKinds,
         discoveries = tables.Discoveries.Rows.Count,
         discoveryRowsWithoutANote = tables.Discoveries.SkippedRows,
+        historyLines = tables.History.Rows.Count,
     };
 
     /// <summary>

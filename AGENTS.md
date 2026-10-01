@@ -132,7 +132,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 
 - Stone 3, world: every travel link accounted for (#8577); duplicate arrival ids refused (#8707); the only
   region-to-region reach cannot be walked (#8713); creatures cannot path around a wall because places carry
-  no navigation cells (#8665).
+  no navigation cells (#8665); the maps' own pre-placed creatures are not imported (#9036).
 - Stone 4, party: a scenario cannot choose between creation and its own party (#8589); both creation paths
   proved to compose the same owners (#8688).
 - Stone 5, interaction and services: opened doors and emptied containers are not saved (#8593), and a
@@ -140,8 +140,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   container above or below the floor cannot be used (#8697); deadlines (fatigue, wards, light, haste) block
   a save by name instead of being carried (#8617); towns have no house doors and camping is priced per
   place (#8618); rest restores laid-out members (#8662); the panel reaches only buy and sell (#8619); a
-  fixture event refuses at a hireling step (#8514) and at a topic change, a kill count, a creature group
-  turned hostile and a history line (#9033).
+  fixture event refuses only at a hireling step (#8514).
 - Stone 6, combat: a fight is not carried in a save, and a save taken with one pending is refused (#8658);
   an order commands every member rather than a selected one (#8659).
 - Stone 7, progression and magic: training takes no game time (#8671); the two counted deeds two ranks need

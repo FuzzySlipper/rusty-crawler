@@ -4,6 +4,7 @@ using PartyRpg.Kit;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Interaction;
+using PartyRpg.Kit.Journal;
 using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
@@ -39,7 +40,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7.Tests;
 /// counted over the shipped programs rather than asserted over a sample.
 /// </para>
 /// </remarks>
-public sealed class FixturePolicyTests(ITestOutputHelper output)
+public sealed partial class FixturePolicyTests(ITestOutputHelper output)
 {
     private static readonly PlaceId EmeraldIsle = new("1");
 
@@ -491,14 +492,12 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
         using PartyEntity party = Party(hitPoints: new ResourcePool(20, 40));
         MightAndMagic7Interaction rule = Rule(catalog);
 
-        // The lever restores hit points and then turns a group of creatures hostile, which this game does not
-        // interpret: the run is refused at that step, by name and with what it waits on, and the hit points it
-        // reached first are not given.
+        // The lever restores hit points and then changes a person's greeting, which this game does not interpret:
+        // the run is refused at that step, by name, and the hit points it reached first are not given.
         (InteractionOutcome lever, _) = Use(rule, Fixture(300, "Lever", string.Empty), EmeraldIsle, party, clock);
         Assert.False(lever.IsApplied);
         Assert.Equal(MightAndMagic7Codes.FixtureStepNotInterpreted, lever.Refusal!.Code);
-        Assert.Contains("toggle-actor-group-flag", lever.Refusal.Message, StringComparison.Ordinal);
-        Assert.Contains("receiver", lever.Refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("'set-npc-greeting' instruction", lever.Refusal.Message, StringComparison.Ordinal);
         Assert.Equal(20, party.Members[0].Resources.HitPoints.Current);
 
         // A temporary might bonus is a variable no reading of an attribute adds yet, so it is refused by name too.
@@ -593,6 +592,10 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
         KeyedTestRandom random = new();
         MightAndMagic7Loot loot = MightAndMagic7Loot.Compose(catalog, random);
         MightAndMagic7Conversation? conversation = MightAndMagic7Conversation.Read(catalog, MightAndMagic7Services.Read(catalog));
+
+        // A count of the dead reads what each place holds as a session populates it — its creatures as the
+        // encounters resolve them and the people its actor records stand — none of them down on a first visit.
+        PlacePopulationContent placed = PlacePopulationContent.Read(MightAndMagic7World.Graph(catalog), MightAndMagic7Spawns.Compose(catalog, random));
         int applied = 0;
         SortedDictionary<string, int> refused = new(StringComparer.Ordinal);
         foreach (MapEvent mapEvent in events.Events.Where(candidate => candidate.Raised))
@@ -600,6 +603,7 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
             // A session's running effects are kept over its one party, so each fresh party has its own.
             using PartyEntity party = Party();
             PartyProgression progression = new(MightAndMagic7Progression.Instance, party);
+            PartyJournal journal = new(new MightAndMagic7Journal(loot), clock);
             MightAndMagic7Interaction rule = new(fixtures: new MightAndMagic7Fixtures(
                 events,
                 effects: new MightAndMagic7SpellEffects(spells, clock),
@@ -607,7 +611,9 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
                 loot: loot,
                 spells: spells,
                 progression: () => progression,
-                people: person => conversation?.PersonOf(person)));
+                people: person => conversation?.PersonOf(person),
+                actors: place => [.. placed.PlacementsOf(place).Where(MightAndMagic7Fixtures.IsActor).Select(placement => new PlaceActor(placement, Down: false))],
+                journal: () => journal));
             (InteractionOutcome outcome, _) = Use(rule, Fixture(mapEvent.Id, mapEvent.Label, string.Empty), mapEvent.Place, party, clock);
             if (outcome.IsApplied)
             {
@@ -629,10 +635,10 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
         foreach ((string reason, int count) in refused) output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"refused {reason}: {count}"));
         Assert.Equal(events.Events.Count(candidate => candidate.Raised), applied + refused.Values.Sum());
         // The figures the ruleset README states for the operator's install.
-        Assert.Equal(488, applied);
-        string[] stated = ["hireling: 2", "history: 1", "set-npc-topic: 1", "toggle-actor-group-flag: 3"];
+        Assert.Equal(493, applied);
+        string[] stated = ["hireling: 2"];
         Assert.Equal(stated, refused.Select(entry => string.Create(CultureInfo.InvariantCulture, $"{entry.Key}: {entry.Value}")));
-        Assert.Equal(7, refused.Values.Sum());
+        Assert.Equal(2, refused.Values.Sum());
     }
 
     private static string Between(string text, string before, string after)
@@ -809,7 +815,7 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
             { "id": "1.300", "place": "1", "event": 300, "label": "Lever", "raised": true,
               "steps": [
                 { "step": 0, "op": "add", "variable": "hit-points", "value": 5 },
-                { "step": 1, "op": "toggle-actor-group-flag", "group": 5, "flag": 524288, "on": true },
+                { "step": 1, "op": "set-npc-greeting" },
                 { "step": 2, "op": "exit" } ] },
             { "id": "1.310", "place": "1", "event": 310, "label": "Pull the Lever", "raised": true,
               "steps": [

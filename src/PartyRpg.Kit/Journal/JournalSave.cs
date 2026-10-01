@@ -90,6 +90,7 @@ public sealed record JournalEntrySave(
         JournalEntryKind.QuestFinished => "quest-finished",
         JournalEntryKind.Rank => "rank",
         JournalEntryKind.Meeting => "meeting",
+        JournalEntryKind.Chronicle => "chronicle",
         _ => "find",
     };
 
@@ -106,6 +107,7 @@ public sealed record JournalEntrySave(
         "rank" => JournalEntryKind.Rank,
         "meeting" => JournalEntryKind.Meeting,
         "find" => JournalEntryKind.Find,
+        "chronicle" => JournalEntryKind.Chronicle,
         _ => throw new ArgumentException(
             $"A journal entry is recorded as '{word}', which is not a kind this build has.",
             nameof(word)),
@@ -175,7 +177,7 @@ public sealed record JournalSave(IReadOnlyList<JournalEntrySave>? Entries = null
         HashSet<string> seen = new(StringComparer.Ordinal);
         foreach (JournalEntrySave entry in Entries)
         {
-            if (entry.Kind is not ("place" or "quest-offered" or "quest-taken" or "quest-finished" or "rank" or "meeting" or "find"))
+            if (entry.Kind is not ("place" or "quest-offered" or "quest-taken" or "quest-finished" or "rank" or "meeting" or "find" or "chronicle"))
             {
                 problems.Add(new SaveProblem(SaveCodes.SaveJournalKindUnknown, entry.Text ?? string.Empty, $"a journal entry is recorded as '{entry.Kind}', which is not a kind this build has"));
             }

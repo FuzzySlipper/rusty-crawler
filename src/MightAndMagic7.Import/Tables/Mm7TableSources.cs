@@ -73,6 +73,9 @@ public static class Mm7TableSources
     /// <summary>The discovery table: the auto notes a party keeps, which map events set by number.</summary>
     public static LodSource Discoveries { get; } = new("discoveries", RulesArchive, "autonote.txt");
 
+    /// <summary>The history table: the lines a party's history book holds, which map events write by slot.</summary>
+    public static LodSource History { get; } = new("history", RulesArchive, "history.txt");
+
     /// <summary>Every declared table source.</summary>
     public static IReadOnlyList<LodSource> All { get; } =
     [
@@ -93,5 +96,6 @@ public static class Mm7TableSources
         Topics,
         TopicTexts,
         Discoveries,
+        History,
     ];
 }

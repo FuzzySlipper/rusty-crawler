@@ -154,6 +154,9 @@ internal static class InventoryCheck
             Check(failures, "raised events without instructions", 56, written.Fixtures.RaisedWithoutInstructions);
             Check(failures, "discovery notes", 186, tables.Discoveries.Rows.Count);
             Check(failures, "discovery rows without a note", 69, tables.Discoveries.SkippedRows);
+            Check(failures, "history lines", 28, tables.History.Rows.Count);
+            Check(failures, "topic rows with an answer", 62, written.People.Topics.Count);
+            Check(failures, "people with a dialogue slot", 313, written.People.People.Count(person => person.DialogueEvents > 0));
 
             MediaManifest media = MediaExtractor.Extract(install, Path.Combine(scratch, "media"));
             Check(failures, "media emitted", 17681, media.EmittedCount);
