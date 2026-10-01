@@ -636,6 +636,10 @@ internal sealed class MightAndMagic7Quests : IQuestRule
     {
         ArgumentNullException.ThrowIfNull(request);
         if (request.Objective.Kind != QuestObjectiveKind.Kill) return 0;
+
+        // A creature a spell created is not one the place held: an elemental the party called up is not a kill an
+        // errand asked for, and a body stood back up was counted when it fell the first time (ours).
+        if (MightAndMagic7Summons.IsSummoned(request.Body)) return 0;
         string row = request.Body.Source.GetId(MonsterField);
         return row.Length > 0 && string.Equals(row, request.Objective.Target, StringComparison.Ordinal) ? 1 : 0;
     }

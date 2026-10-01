@@ -145,11 +145,23 @@ public static class MightAndMagic7Codes
     /// <summary>The refusal code <c>spell-airborne</c>: a leap is cast while the party is not standing on anything.</summary>
     public const string SpellAirborne = "spell-airborne";
 
+    /// <summary>The refusal code <c>spell-daily-limit</c>: a caster has cast a spell as often today as the spell allows.</summary>
+    public const string SpellDailyLimit = "spell-daily-limit";
+
+    /// <summary>The refusal code <c>spell-not-a-body</c>: a spell that raises the dead is aimed at something that is not lying dead.</summary>
+    public const string SpellNotABody = "spell-not-a-body";
+
     /// <summary>The refusal code <c>spell-place-no-arrival</c>: a travel spell names a place that states nowhere to arrive.</summary>
     public const string SpellPlaceNoArrival = "spell-place-no-arrival";
 
     /// <summary>The refusal code <c>spell-place-unvisited</c>: a travel spell names a place the party has never been to.</summary>
     public const string SpellPlaceUnvisited = "spell-place-unvisited";
+
+    /// <summary>The refusal code <c>spell-summon-limit</c>: a caster already has as many creatures called up as their mastery allows.</summary>
+    public const string SpellSummonLimit = "spell-summon-limit";
+
+    /// <summary>The refusal code <c>spell-summon-nowhere</c>: there is no place to call a creature into, or no row for what is called.</summary>
+    public const string SpellSummonNowhere = "spell-summon-nowhere";
 
     /// <summary>The refusal code <c>travel-fare-unpaid</c>.</summary>
     public const string TravelFareUnpaid = "travel-fare-unpaid";

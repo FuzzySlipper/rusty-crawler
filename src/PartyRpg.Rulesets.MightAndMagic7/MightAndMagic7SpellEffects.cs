@@ -41,6 +41,7 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     private readonly GameClock? _clock;
     private readonly Func<SessionWorld?> _world;
     private readonly Func<MightAndMagic7Combat?> _combat;
+    private readonly MightAndMagic7Summons _summons;
     private RunningSpellEffects? _running;
 
     /// <summary>Creates this game's effect path over its own spell table.</summary>
@@ -58,17 +59,23 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     /// This game's fight policy, read when a spell takes hold of a creature: what the creature is immune to and
     /// whether it is undead are its own row's answers. A provider for the same reason the world is one.
     /// </param>
+    /// <param name="corpses">
+    /// The ground the fight lays the bodies it brings down on, which a body a spell stands back up leaves. Without
+    /// one there is no body to raise.
+    /// </param>
     /// <exception cref="ArgumentNullException">No spell table was supplied.</exception>
     internal MightAndMagic7SpellEffects(
         MightAndMagic7Spells spells,
         GameClock? clock = null,
         Func<SessionWorld?>? world = null,
-        Func<MightAndMagic7Combat?>? combat = null)
+        Func<MightAndMagic7Combat?>? combat = null,
+        CorpseGround? corpses = null)
     {
         _spells = spells ?? throw new ArgumentNullException(nameof(spells));
         _clock = clock;
         _world = world ?? (() => null);
         _combat = combat ?? (() => null);
+        _summons = new MightAndMagic7Summons(_world, _combat, corpses);
     }
 
     /// <summary>The effects spells have left running, once a caster has left one.</summary>
@@ -130,6 +137,31 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
             return SpellRefusals.NotApplied(application.Spell.Name, reading.Missing, reading.Receiver);
         }
 
+        // A spell the game limits by the day is refused before anything is spent once the caster has cast it as
+        // often as the day allows, which is the donor's own refusal of a fourth divine intervention
+        // (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:2592-2596).
+        if (reading.PerDay > 0 &&
+            MightAndMagic7DailyCasts.CastsToday(application.Party, application.Caster, application.Spell, _clock) is var today &&
+            today >= reading.PerDay)
+        {
+            return new Refusal(
+                MightAndMagic7Codes.SpellDailyLimit,
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{application.Caster.Profile.Name} has cast {application.Spell.Name} {today} time(s) today, which is as often as a day allows; the count clears when the day turns."));
+        }
+
+        // A creature called up and a body stood back up are judged where they would be created, before anything
+        // is spent: a caster at the most their mastery holds, a place with nowhere to stand one, and a casting
+        // aimed at something that is not lying dead are refused by name.
+        if (reading.Summons is { } summon &&
+            _summons.Judge(application, summon, MightAndMagic7Spells.MasteryOf(application.Caster, application.Spell)) is { } crowded)
+        {
+            return crowded;
+        }
+
+        if (reading.Reanimates is not null && _summons.JudgeReanimation(application) is { } notABody) return notABody;
+
         // A travel spell is judged where it is aimed, before a point is spent: a portal needs a place the
         // world holds and the party has been to, and a beacon needs one it has set. The same judgement is what
         // a refusal names, so a player who typed a place that is not there is told so for the price of a cast
@@ -152,7 +184,7 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         // has laid out carries nothing a spell left, so their effects end where the ledger next reads or
         // advances rather than standing over a body.
         _running ??= new RunningSpellEffects(application.Party, _clock, member => !LaidOut(member));
-        return application.Spell.Effect switch
+        SpellApplicationOutcome outcome = application.Spell.Effect switch
         {
             SpellEffects.Damage => Harm(application),
             SpellEffects.Healing => Heal(application),
@@ -166,6 +198,14 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
                 application.Spell.Effect,
                 $"{application.Spell.Name} was cast, and this game has no category named '{application.Spell.Effect}', so nothing in the world changed."),
         };
+
+        // A casting the game limits by the day is counted once it has done what it does, against the caster.
+        if (outcome.IsExpressed && _spells.ReadingOf(application.Spell).PerDay > 0)
+        {
+            MightAndMagic7DailyCasts.Count(application.Party, application.Caster, application.Spell, _clock);
+        }
+
+        return outcome;
     }
 
     /// <inheritdoc />
@@ -990,6 +1030,17 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
                     application.Spell.Effect,
                     $"{application.Spell.Name}: the magic acting on the party ends ({string.Join(", ", ended.Select(effect => effect.Effect.Value))}).",
                     [.. ended.Select(effect => new SpellEffectFact("dispelled", effect.Effect.Value))]);
+        }
+
+        // A creature called up and a body stood back up are created by the world's own population.
+        if (reading.Summons is { } summon)
+        {
+            return _summons.Summon(application, summon, _spells.LevelOf(application), MightAndMagic7Spells.MasteryOf(application.Caster, application.Spell));
+        }
+
+        if (reading.Reanimates is { } reanimate)
+        {
+            return _summons.Reanimate(application, reanimate, _spells.LevelOf(application), MightAndMagic7Spells.MasteryOf(application.Caster, application.Spell));
         }
 
         // Years given back and a score raised for good are a character's own progression, written on the

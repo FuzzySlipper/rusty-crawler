@@ -115,6 +115,20 @@ internal readonly record struct CreatureReading(
     int DelayTicks = 0,
     EffectId[]? Ends = null);
 
+/// <summary>A creature a spell calls up to stand with the party: which row, how many at once, and for how long.</summary>
+/// <param name="Rows">
+/// The monster table's own internal name of the row called up at each rung of mastery, novice first; a rung the
+/// spell cannot be cast at names the row of the lowest rung it can.
+/// </param>
+/// <param name="Most">How many a caster may have standing at once, at each rung of mastery, novice first.</param>
+/// <param name="Lasts">How long one stays, at the caster's school level and mastery.</param>
+internal readonly record struct SummonReading(string[] Rows, int[] Most, Func<int, int, GameDuration> Lasts);
+
+/// <summary>A body a spell stands back up to fight for the party: how strong a body it can raise, and what it is left with.</summary>
+/// <param name="MostLevel">The highest monster level it raises, at the caster's school level and mastery.</param>
+/// <param name="HitPointsPerLevel">The most hit points the raised creature is left with, per level it could raise.</param>
+internal readonly record struct ReanimateReading(Func<int, int, int> MostLevel, int HitPointsPerLevel);
+
 /// <summary>A ward's strength and length, as the donor's own formulas over the caster's school.</summary>
 /// <remarks>
 /// The power and the duration are functions of the caster's level in the spell's school and its mastery rung
@@ -410,6 +424,9 @@ internal readonly record struct BuffReading(
 /// <param name="ForGood">The score the casting raises for good, once for each character, or null for none.</param>
 /// <param name="ForGoodBy">How much that score is raised by.</param>
 /// <param name="OnCreature">What the spell leaves on the creatures it takes hold of, or null when it touches none.</param>
+/// <param name="Summons">The creature the spell calls up to stand with the party, or null when it calls none.</param>
+/// <param name="Reanimates">The body the spell stands back up to fight for the party, or null when it raises none.</param>
+/// <param name="PerDay">How many times a day one caster may cast it, zero when the game sets no daily limit.</param>
 internal readonly record struct SpellReading(
     HealingMode Healing,
     int HealBase,
@@ -441,7 +458,10 @@ internal readonly record struct SpellReading(
     bool Rejuvenates = false,
     AttributeId? ForGood = null,
     int ForGoodBy = 0,
-    CreatureReading? OnCreature = null)
+    CreatureReading? OnCreature = null,
+    SummonReading? Summons = null,
+    ReanimateReading? Reanimates = null,
+    int PerDay = 0)
 {
     /// <summary>The reading of a spell whose category this field does not describe.</summary>
     internal static readonly SpellReading None = new(
@@ -557,6 +577,17 @@ internal static class Readings
     /// <summary>A spell that leaves an effect on the creatures it takes hold of.</summary>
     /// <param name="creature">What it leaves, on whom, and for how long.</param>
     internal static SpellReading OnCreatures(CreatureReading creature) => SpellReading.None with { OnCreature = creature };
+
+    /// <summary>A creature called up to stand with the party, which is the donor's summoned elemental.</summary>
+    internal static SpellReading Summon(SummonReading summon) => SpellReading.None with { Summons = summon };
+
+    /// <summary>A body stood back up to fight for the party, which is the donor's reanimation.</summary>
+    internal static SpellReading Reanimate(ReanimateReading reanimate) => SpellReading.None with { Reanimates = reanimate };
+
+    /// <summary>A spell one caster may cast only so many times a day, which is the donor's divine intervention.</summary>
+    /// <param name="reading">The spell's reading.</param>
+    /// <param name="times">How many castings a day one caster has.</param>
+    internal static SpellReading PerDay(this SpellReading reading, int times) => reading with { PerDay = times };
 
     /// <summary>A casting that leaves its caster older than their natural age, which is the donor's divine intervention.</summary>
     /// <param name="reading">The reading the spell otherwise has.</param>

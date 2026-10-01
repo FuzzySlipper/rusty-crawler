@@ -1,4 +1,5 @@
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
 using Rusty.Engine.Entities;
 using Xunit;
@@ -296,6 +297,74 @@ public sealed class PlacePopulationTests
         Assert.Contains(error.Issues, issue => issue.Code == "place-unknown" && issue.PackId == "99");
         Assert.Equal(Home, population.Place);
         Assert.Equal(standing.Select(entity => entity.Id), population.Entities.Select(entity => entity.Id));
+    }
+
+    [Fact]
+    public void Something_summoned_into_the_visit_is_one_of_its_entities_until_its_length_runs_or_the_visit_ends()
+    {
+        (PlaceGraph graph, PlaceStateLedger ledger) = World();
+        using PlacePopulation population = new(graph, ledger);
+        PlacementDefinition called = Placement("summoned-1", 30, 40);
+
+        // Nothing can be created before a place is populated: there is nowhere for it to stand.
+        Assert.Throws<InvalidOperationException>(() => population.Summon(called));
+
+        population.Step(Home, []);
+        PlacePopulationEntity entity = population.Summon(called, GameDuration.FromMinutes(10));
+
+        // It is an entity of the visit like any other — the same store, its placement attached, standing where the
+        // placement put it — and it says it was summoned rather than placed.
+        Assert.True(entity.IsSummoned);
+        Assert.False(population.Entities[0].IsSummoned);
+        Assert.Contains(entity, population.Entities);
+        Assert.Equal(5, population.Diagnostics.EntityCount);
+        Assert.Equal(new PlacePose(30, 40, 0, 0, 0), entity.Pose);
+        Assert.Same(called, entity.Actor.Get<PlacementDefinition>());
+
+        // A second entity under one identity would make every reader ambiguous, so it is refused.
+        Assert.Throws<InvalidOperationException>(() => population.Summon(called));
+
+        // The clock counts its length down; when it has run, the entity is gone.
+        Assert.Empty(population.Elapse(GameDuration.FromMinutes(4)));
+        Assert.Equal(GameDuration.FromMinutes(6), population.RemainingOf(entity));
+        Assert.Equal([entity], population.Elapse(GameDuration.FromMinutes(6)));
+        Assert.False(entity.IsAlive);
+        Assert.DoesNotContain(entity, population.Entities);
+        Assert.Equal(4, population.Diagnostics.EntityCount);
+
+        // Without a length it stays for the visit, and leaving ends it with everything else the visit made.
+        PlacePopulationEntity staying = population.Summon(Placement("summoned-2", 1, 1));
+        Assert.Null(population.RemainingOf(staying));
+        Assert.Empty(population.Elapse(GameDuration.FromHours(100)));
+        Assert.True(staying.IsAlive);
+        population.Step(Cave, []);
+        Assert.False(staying.IsAlive);
+
+        // Re-entry is rebuilt from content, which never holds what was summoned.
+        population.Step(Home, []);
+        Assert.DoesNotContain(population.Entities, live => live.IsSummoned);
+    }
+
+    [Fact]
+    public void An_entity_of_the_visit_can_be_dismissed_and_only_once()
+    {
+        (PlaceGraph graph, PlaceStateLedger ledger) = World();
+        using PlacePopulation population = new(graph, ledger);
+        PlacePopulationEntity door = population.Step(Home, [])[3];
+
+        Assert.True(population.Dismiss(door));
+        Assert.False(door.IsAlive);
+        Assert.DoesNotContain(door, population.Entities);
+        Assert.Equal(3, population.Diagnostics.EntityCount);
+        Assert.False(population.Dismiss(door));
+    }
+
+    /// <summary>A placement a game states for something it creates, rather than one content declares.</summary>
+    private static PlacementDefinition Placement(string id, double x, double y)
+    {
+        using System.Text.Json.JsonDocument document = System.Text.Json.JsonDocument.Parse(
+            $$"""{ "id": "{{id}}", "kind": "creature", "x": {{x}}, "y": {{y}}, "z": 0 }""");
+        return PlacePopulationContent.Definition(new PlacementContentId("creature", id), document.RootElement.Clone());
     }
 
     /// <summary>The world these tests populate: three places, two of which content fills.</summary>

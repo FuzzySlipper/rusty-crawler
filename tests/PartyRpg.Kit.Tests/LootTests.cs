@@ -182,6 +182,28 @@ public sealed class LootTests
     }
 
     [Fact]
+    public void A_body_taken_off_the_ground_takes_what_its_death_held_with_it()
+    {
+        CorpseGround ground = new();
+        PlacementDefinition placement = PlacePopulationContent.Definition(
+            new PlacementContentId("creature", "beast"),
+            System.Text.Json.JsonDocument.Parse("""{ "id": "beast", "kind": "creature", "x": 1, "y": 2, "z": 0 }""").RootElement.Clone());
+        Corpse body = ground.Lay(new CreatureDeath(new PlaceId("1"), placement, "A beast"));
+        Assert.True(ground.Hold(body, new LootYield([], 12)));
+
+        // Something stood it back up: the body is not lying there to be searched, and what it held is gone with it.
+        Assert.True(ground.Remove(body));
+        Assert.Null(ground.At(body.Place, body.Content));
+        Assert.Null(ground.Held(body));
+        Assert.False(ground.Remove(body));
+
+        // A later death at the same placement is a different body, which an earlier one's removal never names.
+        Corpse again = ground.Lay(new CreatureDeath(new PlaceId("1"), placement, "A beast"));
+        Assert.False(ground.Remove(body));
+        Assert.Same(again, ground.At(again.Place, again.Content));
+    }
+
+    [Fact]
     public void A_treasure_level_draws_by_content_weight_and_only_what_the_request_accepts()
     {
         // The table is content's own pool: an item no level weighs is never drawn, a request that names a

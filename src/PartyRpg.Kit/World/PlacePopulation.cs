@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Time;
 using Rusty.Engine.Entities;
 
 namespace PartyRpg.Kit.World;
@@ -28,6 +29,13 @@ namespace PartyRpg.Kit.World;
 /// two of anything. A place the party has emptied stays empty until the world restores it, and a restore
 /// of the place the party stands in rebuilds the population exactly once.
 /// </para>
+/// <para>
+/// <b>Something may be created while the party stands there.</b> A creature a spell calls up or a body a spell
+/// stands back up is created here, by <see cref="Summon"/>, in the same store and composed by the same composer
+/// as everything content placed — the one way an entity comes to exist. It belongs to the visit like every
+/// other entity: leaving or a rebuild ends it, and a length it was given ends it sooner, counted down by the
+/// advances of the session's one clock (<see cref="Elapse"/>) rather than by a timer of its own.
+/// </para>
 /// </remarks>
 public sealed class PlacePopulation : IDisposable
 {
@@ -36,6 +44,7 @@ public sealed class PlacePopulation : IDisposable
     private readonly PlaceStateLedger _places;
     private readonly IPlacementComposer? _composer;
     private PlacePopulationEntity[] _live = [];
+    private readonly Dictionary<EntityId, long> _lasting = [];
     private bool _disposed;
 
     /// <summary>Creates the population of a world, reading the placements its places declare.</summary>
@@ -138,6 +147,105 @@ public sealed class PlacePopulation : IDisposable
         return _live;
     }
 
+    /// <summary>
+    /// Creates an entity in the place the party stands in now, which no placement content states.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The placement is the game's own statement of what is created — the row it fights as, where it stands —
+    /// and it is attached and composed exactly as a placement content states is, so every reader of an entity
+    /// reads a summoned one the same way. Its identity must not be one a live entity already answers for:
+    /// two entities under one content identity would make a body, a target, and a report ambiguous.
+    /// </para>
+    /// <para>
+    /// A length is how long the entity stays: the clock's advances count it down and the entity is destroyed
+    /// when it has run (<see cref="Elapse"/>). Without one it stays for the visit.
+    /// </para>
+    /// </remarks>
+    /// <param name="placement">What is created and where it stands.</param>
+    /// <param name="lasts">How long it stays, or null for the rest of the visit.</param>
+    /// <returns>The entity, live from now.</returns>
+    /// <exception cref="ArgumentNullException">No placement was supplied.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The length is no time at all.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// No place has been populated, so there is nowhere to create it; or a live entity already answers for the
+    /// placement's identity.
+    /// </exception>
+    public PlacePopulationEntity Summon(PlacementDefinition placement, GameDuration? lasts = null)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(placement);
+        if (lasts is { IsNone: true })
+        {
+            throw new ArgumentOutOfRangeException(nameof(lasts), lasts, "An entity that stays no time at all would be gone in the advance that made it; a length is some game time.");
+        }
+
+        if (Place is not { } place)
+        {
+            throw new InvalidOperationException($"Nothing can be created for '{placement.Content}' before a place is populated: there is nowhere for it to stand.");
+        }
+
+        if (_live.Any(entity => entity.Content == placement.Content))
+        {
+            throw new InvalidOperationException($"An entity already answers for '{placement.Content}' in place '{place}', so a second one under that identity cannot be created.");
+        }
+
+        EntityId id = _entities.Create(new EntityTypeId(placement.Content.Kind), EntityLifecycle.Active);
+        Actor actor = new(_entities, id);
+        actor.Add(placement);
+        actor.Add(new StandingPose(placement.Pose));
+        PlacePopulationEntity entity = new(actor, placement, summoned: true);
+        _composer?.Compose(entity, place);
+        _live = [.. _live, entity];
+        if (lasts is { } length) _lasting[id] = length.Milliseconds;
+        return entity;
+    }
+
+    /// <summary>Destroys one live entity of this visit, which is how something leaves a place the party is still in.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <returns>Whether it was live here and is now gone.</returns>
+    /// <exception cref="ArgumentNullException">No entity was supplied.</exception>
+    public bool Dismiss(PlacePopulationEntity entity)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(entity);
+        if (!_live.Contains(entity)) return false;
+        _entities.Destroy(entity.Id);
+        _lasting.Remove(entity.Id);
+        _live = [.. _live.Where(live => live != entity)];
+        return true;
+    }
+
+    /// <summary>How much game time a summoned entity has left, or null when it stays for the visit or is not one.</summary>
+    /// <param name="entity">The entity.</param>
+    public GameDuration? RemainingOf(PlacePopulationEntity entity)
+    {
+        ArgumentNullException.ThrowIfNull(entity);
+        return _lasting.TryGetValue(entity.Id, out long left) ? GameDuration.FromMilliseconds(left) : null;
+    }
+
+    /// <summary>
+    /// Counts down what was summoned for a length by game time that passed, destroying what has run out.
+    /// </summary>
+    /// <param name="elapsed">The game time the session's one clock moved by.</param>
+    /// <returns>The entities that ran out, now gone, in the order they were live.</returns>
+    public IReadOnlyList<PlacePopulationEntity> Elapse(GameDuration elapsed)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (elapsed.IsNone || _lasting.Count == 0) return [];
+        List<PlacePopulationEntity> ended = [];
+        foreach (PlacePopulationEntity entity in _live)
+        {
+            if (!_lasting.TryGetValue(entity.Id, out long left)) continue;
+            long remaining = left - elapsed.Milliseconds;
+            if (remaining > 0) _lasting[entity.Id] = remaining;
+            else ended.Add(entity);
+        }
+
+        foreach (PlacePopulationEntity entity in ended) Dismiss(entity);
+        return ended;
+    }
+
     /// <summary>Destroys every entity and releases the store they lived in.</summary>
     public void Dispose()
     {
@@ -191,6 +299,7 @@ public sealed class PlacePopulation : IDisposable
         }
 
         _live = [];
+        _lasting.Clear();
         Place = null;
     }
 }

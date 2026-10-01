@@ -163,6 +163,10 @@ public sealed class TreasureTableTests
             // writes are all there: nothing, coin alone, a chance with coin and a kind, and a certainty.
             JsonElement nothing = Row(rows, 4);
             Assert.Equal("0", nothing.GetProperty("treasure").GetString());
+
+            // The table's own internal name travels beside the name a person reads, because it is what the game
+            // finds a row by when it creates a creature no map places (a summoned elemental).
+            Assert.Equal("Monster 2 A", nothing.GetProperty("internalName").GetString());
             Assert.Equal(0, nothing.GetProperty("treasureRoll").GetProperty("chance").GetInt32());
             Assert.Equal(0, nothing.GetProperty("treasureRoll").GetProperty("level").GetInt32());
 

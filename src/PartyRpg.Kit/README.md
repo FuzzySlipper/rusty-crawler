@@ -217,7 +217,11 @@ engine events into session commands, the population owner that fills a place fro
 empties it on leaving (a placement that states a request rather than an answer — an encounter asking for some
 creatures of a kind — is resolved by the game's `IPlacementExpansion` while the placements are read, and what it
 answers stands in its stead for every reader; the game must answer the same on every read, which is why it
-draws under a key naming the place and the placement), the Engine-backed movement owner with its vertical and surface policy (and a leap a game asks of the next step,
+draws under a key naming the place and the placement; something a game creates while the party stands there — a
+creature a spell calls up or stands back up — is created by the same owner, `PlacePopulation.Summon`, from a
+placement the game states, in the same store and through the same composer, marked `IsSummoned`, ended by
+`Dismiss`, by a length the one clock counts down through `SessionWorld`'s own clock observation (`Elapse`), or
+by the visit ending, and never rebuilt from content), the Engine-backed movement owner with its vertical and surface policy (and a leap a game asks of the next step,
 `PartyMotion.Leap` through `IPartyMover.Leap`, the party's own jump at a stated multiple whose landing is not a fall), the reaches that let a party walk
 into a transition, the movement facts the panel reports, the one combat state
 (`Combat/` — a `CombatState` over the live world and nothing else, with a `Combatant` per party member and
@@ -299,7 +303,9 @@ A save happens only where the product asks for one: `SessionSaveBoundary` is the
 `PartyRpgSession.Save` is the one call, and no admitted update, mode change, or release writes anything. What
 a save leaves out is as decided as what it carries — in-flight movement outcomes, cached projections, the
 population's runtime entities, engine handles, and every store-local entity identity are composed again on
-load — and a document wrong in several places is refused with every problem named at once, never only the
+load; a creature summoned into the place and still standing is the one population state a load could not
+compose again, so a save taken while one stands is refused by name, as a pending fight is (#8658) — and a
+document wrong in several places is refused with every problem named at once, never only the
 first. Scenario
 flags are the party's own records and travel in its section; what the party did to a place's doors and
 containers is held live by the world's `InteractionLedger` and is not saved yet (#8593). The quests section is

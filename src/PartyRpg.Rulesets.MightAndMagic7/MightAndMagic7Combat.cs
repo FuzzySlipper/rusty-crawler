@@ -75,6 +75,15 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// <summary>The monster row field that states its name.</summary>
     internal const string NameField = "name";
 
+    /// <summary>How many years an ageing blow adds: one (OpenEnroth <c>src/Engine/Objects/Character.cpp:1606</c>).</summary>
+    private const int AgeingBlowYears = 1;
+
+    /// <summary>
+    /// The monster row field that states the table's own internal name, which is what the game finds a row by when
+    /// it creates a creature no map places (OpenEnroth <c>src/Engine/Objects/Monsters.cpp:560-566</c>).
+    /// </summary>
+    internal const string InternalNameField = "internalName";
+
     /// <summary>The monster row field that states its AI class, which is what decides whether it runs.</summary>
     internal const string AiTypeField = "aiType";
 
@@ -386,6 +395,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     private readonly MightAndMagic7Figure? _figure;
     private readonly GameClock? _clock;
     private readonly MightAndMagic7Hostility _hostility;
+    private readonly Dictionary<string, int> _internalNames;
 
     private MightAndMagic7Combat(
         Dictionary<int, MonsterFacts> monsters,
@@ -397,8 +407,10 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         Func<IMemberSpellEffects?>? memberEffects,
         MightAndMagic7Figure? figure,
         GameClock? clock,
-        MightAndMagic7Hostility hostility)
+        MightAndMagic7Hostility hostility,
+        Dictionary<string, int>? internalNames = null)
     {
+        _internalNames = internalNames ?? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         _clock = clock;
         _hostility = hostility;
         _monsters = monsters;
@@ -564,8 +576,44 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             memberEffects,
             figure ?? MightAndMagic7Figure.Read(catalog),
             clock,
-            MightAndMagic7Hostility.Read(catalog));
+            MightAndMagic7Hostility.Read(catalog),
+            ReadInternalNames(catalog, monsters));
     }
+
+    /// <summary>
+    /// The rows each internal name the monster table states finds, the lowest-numbered where two rows share one.
+    /// </summary>
+    /// <remarks>
+    /// The shipped table carries a few internal names more than once (three copies each of four arena beasts), and
+    /// the donor's own lookup takes the first row that matches (OpenEnroth <c>src/Engine/Objects/Monsters.cpp:560-566</c>),
+    /// which is the lowest-numbered one.
+    /// </remarks>
+    private static Dictionary<string, int> ReadInternalNames(ContentCatalog catalog, Dictionary<int, MonsterFacts> monsters)
+    {
+        Dictionary<string, int> named = new(StringComparer.OrdinalIgnoreCase);
+        foreach ((_, _, ContentEntry entry) in catalog.Entries(MonsterDefinitionKind))
+        {
+            string internalName = entry.GetString(InternalNameField).Trim();
+            if (internalName.Length == 0) continue;
+            if (!int.TryParse(entry.Id, NumberStyles.None, CultureInfo.InvariantCulture, out int id) || !monsters.ContainsKey(id)) continue;
+            if (!named.TryGetValue(internalName, out int known) || id < known) named[internalName] = id;
+        }
+
+        return named;
+    }
+
+    /// <summary>The monster row the table's own internal name finds, or null when content states no row by that name.</summary>
+    /// <param name="internalName">The internal name, matched without regard to case as the donor matches it.</param>
+    internal int? RowNamed(string internalName) =>
+        _internalNames.TryGetValue(internalName, out int id) ? id : null;
+
+    /// <summary>What a monster row is called, or null when content states no such row.</summary>
+    /// <param name="row">The row.</param>
+    internal string? NameOfRow(int row) => _monsters.TryGetValue(row, out MonsterFacts? facts) ? facts.Name : null;
+
+    /// <summary>The level a creature's own row states, zero when the subject is not a creature of a row.</summary>
+    /// <param name="subject">The creature.</param>
+    internal int LevelOf(CombatSubject subject) => Facts(subject)?.Level ?? 0;
 
     /// <summary>How many monster rows this policy can fight.</summary>
     internal int MonsterCount => _monsters.Count;
@@ -627,6 +675,15 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             // creature's own enmity), and a berserk one is the enemy of everything as far as it can see
             // (Actor.cpp:2134, HOSTILITY_LONG).
             if (OnCreature(subject, SpellEffectIds.CreatureCharmed) > 0 || OnCreature(subject, SpellEffectIds.CreatureEnslaved) > 0)
+            {
+                return Hostility.Allied;
+            }
+
+            // A creature a spell called up or stood back up is the party's own for as long as it stands: the donor
+            // makes it friendly and of no kind but the party's (src/Engine/Objects/Actor.cpp:4184-4186 for a summoned
+            // elemental, :1740-1748 for a raised body). A berserk spell is the one thing read before it, as it is
+            // read before a charm.
+            if (MightAndMagic7Summons.IsSummoned(subject.Placement) && OnCreature(subject, SpellEffectIds.CreatureBerserk) <= 0)
             {
                 return Hostility.Allied;
             }
@@ -1112,8 +1169,15 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// running effects, so nothing here invents a condition store for the world.
     /// </para>
     /// <para>
-    /// The special attacks that leave something other than a condition are named and not invented: breaking
-    /// an item, stealing one, and aging are not applied yet, and a drained spell point is not a condition at
+    /// <b>An ageing blow leaves years, not a condition.</b> It lands and is saved against exactly as the rest
+    /// do, against endurance (<c>Character.cpp:1351-1360</c>), and a character who fails the save is a year
+    /// older than their natural age, written on the character's own progression, which a save carries
+    /// (<c>Character.cpp:1604-1610</c>, <c>++sAgeModifier</c>). The donor sets no ceiling on it, and neither
+    /// does this. Faithful. Nothing is reported as a condition, because none was left.
+    /// </para>
+    /// <para>
+    /// The special attacks that leave something other than a condition or years are named and not invented:
+    /// breaking an item and stealing one are not applied yet, and a drained spell point is not a condition at
     /// all.
     /// </para>
     /// </remarks>
@@ -1125,7 +1189,9 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
 
         if (target.Member is not { } member) return null;
         if (Facts(attacker) is not { } facts || facts.Special.Kind == MightAndMagic7SpecialAttackKind.None) return null;
-        if (MightAndMagic7SpecialAttacks.Condition(facts.Special) is not { } condition) return null;
+        ConditionId? condition = MightAndMagic7SpecialAttacks.Condition(facts.Special);
+        bool ages = facts.Special.Kind == MightAndMagic7SpecialAttackKind.Aging;
+        if (condition is null && !ages) return null;
 
         int chance = facts.Level * facts.Special.Level;
         if (chance <= 0 || rolls.Roll("special", 0, 99) >= chance) return null;
@@ -1133,7 +1199,13 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         int save = Bonus(member, LuckAttribute) + SaveBonus(member, facts.Special.Kind) + ResistanceThreshold;
         if (rolls.Roll("save", 0, save - 1) >= ResistanceThreshold) return null;
 
-        return new CombatCondition(condition, 1, string.Create(CultureInfo.InvariantCulture, $"{NameOf(attacker)}'s attack"));
+        if (ages)
+        {
+            member.Progression.Age(AgeingBlowYears);
+            return null;
+        }
+
+        return new CombatCondition(condition!.Value, 1, string.Create(CultureInfo.InvariantCulture, $"{NameOf(attacker)}'s attack"));
     }
 
     /// <inheritdoc />
@@ -2120,6 +2192,11 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     internal long ExperienceOf(PlacementDefinition placement)
     {
         ArgumentNullException.ThrowIfNull(placement);
+
+        // A creature a spell created is worth nothing to the party that created it: the donor zeroes a summoned
+        // elemental's experience (src/Engine/Objects/Actor.cpp:4175), and a raised body's worth was already paid
+        // when it fell the first time — that second half is ours.
+        if (MightAndMagic7Summons.IsSummoned(placement)) return 0;
         MonsterFacts? facts = Creature(placement) ?? PersonFacts(placement);
         return facts?.Experience ?? 0;
     }

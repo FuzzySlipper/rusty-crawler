@@ -80,6 +80,12 @@ internal static partial class PackWriter
             entries.Add((monster.Id.ToString(CultureInfo.InvariantCulture), writer =>
             {
                 writer.WriteString("name", monster.Name);
+
+                // The table's own internal name is what the game itself finds a row by when it creates a
+                // creature no map places — a summoned elemental is asked for as "Elemental Light A" (OpenEnroth
+                // src/Engine/Objects/Actor.cpp:4145-4156) — so it is carried beside the name a person reads.
+                string internalName = monster.Fields.Count > 2 ? monster.Fields[2].Trim() : string.Empty;
+                if (internalName.Length > 0) writer.WriteString("internalName", internalName);
                 writer.WriteNumber("level", monster.Level);
                 writer.WriteNumber("hitPoints", monster.HitPoints);
                 writer.WriteNumber("armorClass", monster.ArmorClass);

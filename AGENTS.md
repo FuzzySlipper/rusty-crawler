@@ -145,9 +145,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   an order commands every member rather than a selected one (#8659); base and racial resistances and the
   master dagger's triple blow are not read (#9026).
 - Stone 7, progression and magic: training takes no game time (#8671); the two counted deeds two ranks need
-  have no writer (#8689); a laid-out member can be promoted (#8705); flight, water walking and breathing, and
-  a creature summoned or raised to fight for the party are "not yet" in `docs/magic-coverage.md` (#9029,
-  #9030, #9031; item-aimed effects #8513; followers #8514).
+  have no writer (#8689); a laid-out member can be promoted (#8705); flight, water walking and breathing are
+  "not yet" in `docs/magic-coverage.md` (#9029, #9030; item-aimed effects #8513; followers #8514).
 - Stone 8, record: an errand's item is protected only from sale (#8687); stealing, and a fine carried as a
   debt, have no owner (#9025).
 

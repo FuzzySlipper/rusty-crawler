@@ -217,15 +217,22 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// Lives through the days an advance of the one clock crossed, whoever moved it.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A journey, a rest, a wait, and a night at an inn all move the clock inside an update, and a place's
     /// population is restored against the day the clock now stands on in that same advance rather than at
     /// whatever update happens to come next. The world registers itself with the clock it is composed over and
     /// releases that registration when it is disposed.
+    /// </para>
+    /// <para>
+    /// What was summoned into the party's place for a length is counted down by the same advance, so a creature a
+    /// spell called up for an hour is gone when an hour of game time has passed, however it passed.
+    /// </para>
     /// </remarks>
     /// <param name="advance">Where the clock was, where it went, and what it crossed.</param>
     public void Observe(ClockAdvance advance)
     {
         ArgumentNullException.ThrowIfNull(advance);
+        if (advance.Moved) _population.Elapse(advance.Elapsed);
         if (advance.Crossings.Days > 0) AdvanceTime();
     }
 
