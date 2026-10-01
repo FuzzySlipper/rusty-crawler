@@ -374,6 +374,7 @@ internal static partial class PackWriter
                 writer.WriteNumber("event", placeEvent.EventId);
                 WriteOptionalString(writer, "label", placeEvent.Label);
                 writer.WriteBoolean("raised", placeEvent.Raised);
+                if (placeEvent.Stepped) writer.WriteBoolean("stepped", true);
                 writer.WriteBoolean("timed", placeEvent.Triggered);
                 writer.WriteString("mapFile", placeEvent.FileName);
                 writer.WriteStartArray("steps");
@@ -417,9 +418,18 @@ internal static partial class PackWriter
                     WriteOptionalNumber(writer, "rank", step.Rank);
                     WriteOptionalNumber(writer, "person", step.Person);
                     WriteOptionalNumber(writer, "raises", step.Raises);
+                    WriteOptionalNumber(writer, "house", step.House);
                     WriteOptionalNumber(writer, "group", step.Group);
                     WriteOptionalNumber(writer, "flag", step.Flag);
                     if (step.On is { } on) writer.WriteBoolean("on", on);
+                    WriteOptionalString(writer, "link", step.Link);
+                    WriteOptionalNumber(writer, "toPlace", step.ToPlace);
+                    WriteOptionalString(writer, "travel", step.Travel);
+                    if (step.WithinPlace is true) writer.WriteBoolean("withinPlace", true);
+                    WriteOptionalNumber(writer, "x", step.X);
+                    WriteOptionalNumber(writer, "y", step.Y);
+                    WriteOptionalNumber(writer, "z", step.Z);
+                    WriteOptionalNumber(writer, "yaw", step.Yaw);
                     writer.WriteEndObject();
                 }
 

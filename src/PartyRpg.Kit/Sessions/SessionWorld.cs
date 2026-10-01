@@ -156,7 +156,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         Places = places;
         Places.MarkVisited(party.Place);
         _population = new PlacePopulation(graph, places, vitals is null ? null : new CreatureComposer(vitals), expansion);
-        _entrances = Index(graph, entrances);
+        _entrances = Index(graph, _population, entrances);
         Mover = mover;
         Creatures = creatures;
         Schedule = schedule ?? PlaceSchedule.Empty;
@@ -338,9 +338,55 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         interaction.Update();
         if (!use) return null;
 
+        // The use is reported where it was made, before any journey it leads to moves the party.
         InteractionResult result = interaction.Use();
         Report(result);
-        return result;
+        return Journey(interaction, result);
+    }
+
+    /// <summary>
+    /// Takes the journey a use leads to, through the one transition path, and records what came of it as the use's
+    /// own result.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A face that leads into a cave, a shrine that carries the party to another region, and a plate in the floor
+    /// that drops it below are uses whose outcome is a journey. The use is recorded in the place it was made in —
+    /// its state, the values it kept — before the party leaves, and the journey is then taken by
+    /// <see cref="Travel"/> exactly as a walk-in or a boarded fare is: priced by the cost rule, charged once on
+    /// arrival, and refused with the party left where it stood.
+    /// </para>
+    /// <para>
+    /// A refused journey does not unsettle the use: what the rule settled happened, and the refusal is stated as
+    /// the use's residue so the panel says why the party is still standing here.
+    /// </para>
+    /// </remarks>
+    private InteractionResult Journey(PartyInteraction interaction, InteractionResult result)
+    {
+        if (result is { IsApplied: true, Travels: null, Relocates: { } relocation })
+        {
+            Relocate(result, relocation);
+            return result;
+        }
+
+        if (result is not { IsApplied: true, Travels: { } travel }) return result;
+
+        PlaceId from = Party.Place;
+        TransitionResult journey = Travel(travel.Transition, travel.Kind);
+        InteractionResult travelled = result.Travelled(
+            journey,
+            journey.Arrived ? $"The party arrives in {Graph.Require(journey.Place).Name}." : string.Empty);
+        interaction.Conclude(travelled);
+        _diagnostics?.Publish(new DiagnosticsPublishRequest(
+            DiagnosticsSeverity.Info,
+            DiagnosticsDisposition.Accepted,
+            Source: "travel",
+            Code: journey.Arrived ? "use-travelled" : "use-travel-refused",
+            Message: journey.Arrived
+                ? $"Using {result.TargetName} in place '{from}' took transition '{travel.Transition.Source}' and the party arrived in place '{journey.Place}' at {journey.Pose}."
+                : $"Using {result.TargetName} in place '{from}' led to transition '{travel.Transition.Source}', which was refused: {journey.Refusal}",
+            Correlation: string.Empty));
+        return travelled;
     }
 
     /// <summary>
@@ -671,6 +717,9 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// <summary>What the party has already done to the targets of every place it has been in.</summary>
     InteractionLedger IInteractionWorld.States => _interactions;
 
+    /// <summary>The transitions the party's place issues, which a use that leads somewhere names its journey from.</summary>
+    IReadOnlyList<PlaceTransition> IInteractionWorld.Transitions => Graph.TransitionsFrom(Party.Place);
+
     /// <summary>
     /// Whether nothing solid stands between two points of the place the party is in.
     /// </summary>
@@ -840,7 +889,16 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         foreach (PlaceEntrance entrance in entrances)
         {
             if (!entrance.Contains(now) || entrance.Contains(before)) continue;
-            TransitionResult result = Travel(entrance.Transition, entrance.Kind);
+            if (entrance.Raises is { } raises)
+            {
+                // A reach that raises a use is trodden on: the use is the one workflow, and the journey it leads to,
+                // if any, is taken through the one transition path. Once the party is elsewhere the rest of the
+                // place's entrances no longer apply to this step.
+                if (Tread(entrance, raises)) return;
+                continue;
+            }
+
+            TransitionResult result = Travel(entrance.Transition!, entrance.Kind!.Value);
             if (result.Arrived)
             {
                 // The party is somewhere else now, so the entrances of the place it left cannot apply to
@@ -852,6 +910,51 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
 
             Report(entrance, result.Refusal!);
         }
+    }
+
+    /// <summary>Sets the party down where a use put it in the place it stands in, and reports it.</summary>
+    /// <remarks>
+    /// Nothing is crossed and nothing is charged: the pose is asserted as a script asserts it, through the party's own
+    /// pose owner, and the movement walks on from there. A pose the place refuses leaves the party where it stood and
+    /// is reported rather than thrown out of the admitted update.
+    /// </remarks>
+    private void Relocate(InteractionResult result, InteractionRelocation relocation)
+    {
+        PlacePose from = Party.PlacePose;
+        PlacePose to = new(relocation.X, relocation.Y, relocation.Z, relocation.Yaw ?? from.Yaw, from.Pitch);
+        try
+        {
+            Party.Enter(Party.Place, to);
+            Report("use-relocated", $"Using {result.TargetName} in place '{Party.Place}' set the party down at {to}, from {from}.");
+        }
+        catch (ArgumentException error)
+        {
+            Report("use-relocation-refused", $"Using {result.TargetName} in place '{Party.Place}' would set the party down at {to}, which the place refused, so it stayed at {from}: {error.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Raises the use of what an entrance's reach stands for, and answers whether the party left the place.
+    /// </summary>
+    /// <remarks>
+    /// The use is reported like every other, as the last thing the party did; a world composed without an
+    /// interaction has nothing to raise it with and says so rather than leaving the plate silent.
+    /// </remarks>
+    private bool Tread(PlaceEntrance entrance, PlacementContentId raises)
+    {
+        if (Interaction is not { } interaction)
+        {
+            Report(
+                "entrance-unraised",
+                $"The party walked into the entrance '{entrance.Source}' in place '{entrance.Place}', which raises '{raises}', and this world composes no interaction to raise it with.");
+            return false;
+        }
+
+        PlaceId from = Party.Place;
+        InteractionResult result = interaction.Raise(raises);
+        Report(result);
+        Journey(interaction, result);
+        return Party.Place != from;
     }
 
     /// <summary>Reports the crossing a walk-in took, which nothing else states as a fact.</summary>
@@ -879,7 +982,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
             DiagnosticsDisposition.Accepted,
             Source: "travel",
             Code: "entrance-refused",
-            Message: $"The party walked into the entrance '{entrance.Source}' in place '{Party.Place}' and the transition to '{entrance.Transition.To}' was refused: {refusal}",
+            Message: $"The party walked into the entrance '{entrance.Source}' in place '{Party.Place}' and the transition to '{entrance.Transition?.To}' was refused: {refusal}",
             Correlation: string.Empty));
     }
 
@@ -891,15 +994,26 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// walking into it would fail inside an admitted update, where a failure is far harder to attribute
     /// than at the moment the world was built.
     /// </remarks>
-    private static Dictionary<PlaceId, PlaceEntrance[]> Index(PlaceGraph graph, IReadOnlyList<PlaceEntrance>? entrances)
+    private static Dictionary<PlaceId, PlaceEntrance[]> Index(PlaceGraph graph, PlacePopulation population, IReadOnlyList<PlaceEntrance>? entrances)
     {
         Dictionary<PlaceId, List<PlaceEntrance>> byPlace = [];
         foreach (PlaceEntrance entrance in entrances ?? [])
         {
-            if (!graph.Transitions.Contains(entrance.Transition))
+            if (entrance.Raises is { } raises)
+            {
+                // A reach that raises a placement the place does not hold would be a plate that does nothing, and
+                // the moment it is attributable is when the world is built over the place's own content.
+                if (!population.PlacementsOf(entrance.Place).Any(placement => placement.Content == raises))
+                {
+                    throw new ArgumentException(
+                        $"The entrance '{entrance.Source}' raises '{raises}', which place '{entrance.Place}' does not hold, so walking into it could never set anything off.",
+                        nameof(entrances));
+                }
+            }
+            else if (!graph.Transitions.Contains(entrance.Transition!))
             {
                 throw new ArgumentException(
-                    $"The entrance '{entrance.Source}' takes transition '{entrance.Transition.Source}', which place '{entrance.Place}' does not issue, so walking into it could never be taken.",
+                    $"The entrance '{entrance.Source}' takes transition '{entrance.Transition!.Source}', which place '{entrance.Place}' does not issue, so walking into it could never be taken.",
                     nameof(entrances));
             }
 

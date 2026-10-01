@@ -1,6 +1,7 @@
 using MightAndMagic7.Import.Events;
 using MightAndMagic7.Import.Maps;
 using MightAndMagic7.Import.Tables;
+using MightAndMagic7.Import.World;
 
 namespace MightAndMagic7.Import.Packs;
 
@@ -109,6 +110,36 @@ public sealed record PlaceEventStep(int Step, string Op)
 
     /// <summary>Whether a flag step sets its bit rather than clearing it.</summary>
     public bool? On { get; init; }
+
+    /// <summary>
+    /// The travel link a move to another place takes, by its entry id in the place graph, which names the
+    /// transition the product takes it through.
+    /// </summary>
+    public string? Link { get; init; }
+
+    /// <summary>The place a move to another place arrives at.</summary>
+    public int? ToPlace { get; init; }
+
+    /// <summary>What kind of travel a move to another place is: <c>walking</c> between two regions, <c>entrance</c> otherwise.</summary>
+    public string? Travel { get; init; }
+
+    /// <summary>Whether a move stays in the place that issued it, which is a reposition rather than a link.</summary>
+    public bool? WithinPlace { get; init; }
+
+    /// <summary>The house a person-moving step moves the person to, zero for none.</summary>
+    public int? House { get; init; }
+
+    /// <summary>Where a move within the place sets the party down along the place's first axis.</summary>
+    public int? X { get; init; }
+
+    /// <summary>Where along the second axis.</summary>
+    public int? Y { get; init; }
+
+    /// <summary>Where in height.</summary>
+    public int? Z { get; init; }
+
+    /// <summary>The facing it sets the party down with, in the donor's units; -1 keeps the party's own.</summary>
+    public int? Yaw { get; init; }
 }
 
 /// <summary>One map event a place's content carries, with its normalized steps.</summary>
@@ -121,6 +152,12 @@ public sealed record PlaceEventStep(int Step, string Op)
 /// <param name="Triggered">Whether it holds a timer, whose steps the map runs rather than a use.</param>
 public sealed record PlaceEvent(int PlaceId, string FileName, int EventId, string Label, IReadOnlyList<PlaceEventStep> Steps, bool Raised, bool Triggered)
 {
+    /// <summary>
+    /// Whether a pressure plate of the place raises it, which is what makes it a floor trigger's: the party sets it
+    /// off by walking onto the plate. Only events that move the party are carried this way.
+    /// </summary>
+    public bool Stepped { get; init; }
+
     /// <summary>The event's content identity, which a fixture's placement and the ruleset name it by.</summary>
     public string Id => $"{PlaceId}.{EventId}";
 }
@@ -131,7 +168,7 @@ public sealed record PlaceEvent(int PlaceId, string FileName, int EventId, strin
 /// <param name="Cluster">Which group of the event's faces it is, counting from zero, when the event's faces stand apart.</param>
 /// <param name="X">The mean of its faces' box centres along the place's first axis.</param>
 /// <param name="Y">The mean along the second axis.</param>
-/// <param name="Z">The mean in height.</param>
+/// <param name="Z">The lowest corner of those faces, which is where a party stands to use it.</param>
 /// <param name="FaceCount">How many faces raise the event here.</param>
 /// <param name="ModelIndex">The region model the faces belong to, or null in an interior.</param>
 /// <param name="ModelName">The region model's own name, or empty in an interior.</param>
@@ -152,12 +189,41 @@ public sealed record PlaceFixturePlacement(
     public string PlacementId => Cluster == 0 ? $"fixture-{EventId}" : $"fixture-{EventId}-{Cluster}";
 }
 
+/// <summary>
+/// One floor trigger a place holds: the event its pressure plates raise when the party walks onto one, standing at
+/// the mean of the plates' own box centres.
+/// </summary>
+/// <remarks>
+/// The plates themselves are the reaches a party walks into (<see cref="PlaceEntranceEmitter"/>), each raising this
+/// one placement; the placement is what the ruleset describes and runs, so a plate that moves the party is used
+/// through the same workflow as a clicked face.
+/// </remarks>
+/// <param name="PlaceId">The place it stands in.</param>
+/// <param name="EventId">The event its plates raise.</param>
+/// <param name="X">The mean of the plates' box centres along the place's first axis.</param>
+/// <param name="Y">The mean along the second axis.</param>
+/// <param name="Z">The mean in height.</param>
+/// <param name="FaceCount">How many plates raise the event.</param>
+/// <param name="Label">The event's hint, which is what the trigger is called.</param>
+public sealed record PlaceFloorTrigger(int PlaceId, int EventId, double X, double Y, double Z, int FaceCount, string Label)
+{
+    /// <summary>The placement kind a floor trigger is written as.</summary>
+    public const string PlacementKind = "floor-trigger";
+
+    /// <summary>The placement's identity in its place, which the plates' reaches name.</summary>
+    public string PlacementId => PlacementIdOf(EventId);
+
+    /// <summary>The placement identity of the floor trigger raising an event.</summary>
+    /// <param name="eventId">The event.</param>
+    public static string PlacementIdOf(int eventId) => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"trigger-{eventId}");
+}
+
 /// <summary>What an import's fixture derivation produced, over every map it decoded.</summary>
 /// <param name="Fixtures">Every fixture placement, in place, event and cluster order.</param>
 /// <param name="Events">Every event the places' content carries, in place and event order.</param>
 /// <param name="OwnedElsewhere">
-/// How many raised events another emitter answers for, by its word: <c>move-to-map</c> (a transition's reach),
-/// <c>speak-in-house</c> (a counter), <c>open-chest</c> (a container).
+/// How many raised events another emitter answers for, by its word: <c>speak-in-house</c> (a counter),
+/// <c>open-chest</c> (a container), <c>change-door-state</c> (a door).
 /// </param>
 /// <param name="RaisedWithoutInstructions">How many events a face or decoration raises that the place's program does not hold.</param>
 /// <param name="PlacesWithoutProgram">How many decoded places have no event program named after their map.</param>
@@ -170,6 +236,15 @@ public sealed record PlaceFixtureSummary(
 {
     /// <summary>An import that derived nothing, such as one that decoded no maps.</summary>
     public static PlaceFixtureSummary Empty { get; } = new([], [], new Dictionary<string, int>(), 0, 0);
+
+    /// <summary>Every floor trigger: the events pressure plates raise that move the party, one per event and place.</summary>
+    public IReadOnlyList<PlaceFloorTrigger> Triggers { get; init; } = [];
+
+    /// <summary>How many events a floor trigger raises.</summary>
+    public int SteppedEventCount => Events.Count(placeEvent => placeEvent.Stepped);
+
+    /// <summary>How many raised events move the party, which a fixture or a floor trigger now answers for.</summary>
+    public int TravelEventCount => Events.Count(placeEvent => (placeEvent.Raised || placeEvent.Stepped) && placeEvent.Steps.Any(step => step.Op == "move-to-map"));
 
     /// <summary>How many events a fixture raises.</summary>
     public int FixtureEventCount => Events.Count(placeEvent => placeEvent.Raised);
@@ -212,9 +287,10 @@ public sealed record PlaceFixtureSummary(
 /// obelisk, a sign, a lever, a crate.
 /// </para>
 /// <para>
-/// <b>Where a fixture stands.</b> Like a container, a fixture has no position of its own, so it stands at the
+/// <b>Where a fixture stands.</b> Like a container, a fixture has no position of its own, so it stands over the
 /// mean of the bounding-box centres of the faces that raise its event (the donor's own reading of a face,
-/// <c>src/Engine/Objects/Chest.cpp:396-402</c>). One event raised by faces in two places — the same signpost
+/// <c>src/Engine/Objects/Chest.cpp:396-402</c>), at the height of their lowest corner: a party uses a cave mouth or
+/// a shrine standing at its foot, as it reaches a counter standing on the street (ours). One event raised by faces in two places — the same signpost
 /// text on two posts across a region — is two fixtures, not one between them: in a region the faces are
 /// grouped by the model they belong to, and in an interior by distance, a face joining the first group whose
 /// first face stands within <see cref="PlaceContainerEmitter.FaceSpreadLimit"/> of it.
@@ -239,16 +315,23 @@ public static class PlaceFixtureEmitter
     /// <param name="maps">The decoded maps, keyed by the place id the map table gives them.</param>
     /// <param name="programs">Every event program the installation carries.</param>
     /// <param name="strings">Every map's string table, by the map file stem.</param>
+    /// <param name="graph">
+    /// The travel links the programs' moves were read into, which a move step names its link by; without one a move
+    /// step carries no link and the ruleset refuses it by name.
+    /// </param>
     /// <returns>What was derived.</returns>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     public static PlaceFixtureSummary Emit(
         IReadOnlyDictionary<int, DecodedMap> maps,
         IReadOnlyList<EvtProgram> programs,
-        IReadOnlyDictionary<string, MapStrings> strings)
+        IReadOnlyDictionary<string, MapStrings> strings,
+        PlaceGraph? graph = null)
     {
         ArgumentNullException.ThrowIfNull(maps);
         ArgumentNullException.ThrowIfNull(programs);
         ArgumentNullException.ThrowIfNull(strings);
+        PlaceMoves moves = new(graph, maps);
+        List<PlaceFloorTrigger> triggers = [];
 
         Dictionary<string, EvtProgram> byStem = new(StringComparer.OrdinalIgnoreCase);
         foreach (EvtProgram program in programs) byStem.TryAdd(Path.GetFileNameWithoutExtension(program.Name), program);
@@ -277,6 +360,17 @@ public static class PlaceFixtureEmitter
 
             SortedSet<int> raised = Raised(map);
             HashSet<int> fixtureEvents = [];
+            HashSet<int> steppedEvents = [];
+            foreach (int eventId in Stepped(map))
+            {
+                // A plate raises an event when the party walks onto it; the ones carried are the ones that move the
+                // party, which a floor trigger answers for — the rest of what plates raise stays outside this import.
+                if (byEvent.TryGetValue(eventId, out List<EvtInstruction>? stepped) && IsTravel(stepped) && Owner(stepped) is null)
+                {
+                    steppedEvents.Add(eventId);
+                }
+            }
+
             foreach (int eventId in raised)
             {
                 if (!byEvent.TryGetValue(eventId, out List<EvtInstruction>? instructions))
@@ -297,15 +391,65 @@ public static class PlaceFixtureEmitter
             foreach ((int eventId, List<EvtInstruction> instructions) in byEvent.OrderBy(entry => entry.Key))
             {
                 bool isFixture = fixtureEvents.Contains(eventId);
+                bool isStepped = steppedEvents.Contains(eventId);
                 bool triggered = instructions.Any(instruction => instruction.Opcode is EvtOpcodes.OnTimer or EvtOpcodes.OnLongTimer);
-                if (!isFixture && !(triggered && Owner(instructions) is null)) continue;
-                events.Add(Normalize(placeId, map.FileName, eventId, instructions, text, isFixture, triggered));
+                if (!isFixture && !isStepped && !(triggered && Owner(instructions) is null)) continue;
+                events.Add(Normalize(placeId, map, program.Name, eventId, instructions, text, isFixture, triggered, moves) with { Stepped = isStepped });
             }
 
             foreach (PlaceFixturePlacement fixture in Place(placeId, map, fixtureEvents, events)) fixtures.Add(fixture);
+            triggers.AddRange(Triggers(placeId, map, steppedEvents, events));
         }
 
-        return new PlaceFixtureSummary(fixtures, events, owned, withoutInstructions, withoutProgram);
+        return new PlaceFixtureSummary(fixtures, events, owned, withoutInstructions, withoutProgram) { Triggers = triggers };
+    }
+
+    /// <summary>Every event a party raises by walking onto a pressure plate of a map.</summary>
+    /// <remarks>
+    /// The donor raises a face's event when the party steps on a face carrying the pressure-plate attribute
+    /// (OpenEnroth <c>src/Engine/Graphics/Outdoor.cpp:966-980</c>, <c>src/Engine/Graphics/Indoor.cpp:1491</c>).
+    /// </remarks>
+    internal static SortedSet<int> Stepped(DecodedMap map)
+    {
+        SortedSet<int> stepped = [];
+        foreach ((int _, MapFace face, int _, string _) in MapFaceList.Flatten(map))
+        {
+            if (face.EventId != 0 && (face.Attributes & PlaceEntranceEmitter.PressurePlateAttribute) != 0) stepped.Add(face.EventId);
+        }
+
+        return stepped;
+    }
+
+    /// <summary>Whether an event moves the party, to another place or within its own.</summary>
+    internal static bool IsTravel(IReadOnlyList<EvtInstruction> instructions) =>
+        instructions.Any(instruction => instruction.Opcode == EvtOpcodes.MoveToMap);
+
+    /// <summary>Where each of a place's floor-trigger events stands: the mean of its plates' box centres.</summary>
+    private static IEnumerable<PlaceFloorTrigger> Triggers(int placeId, DecodedMap map, HashSet<int> steppedEvents, List<PlaceEvent> events)
+    {
+        if (steppedEvents.Count == 0) yield break;
+        Dictionary<int, string> labels = events
+            .Where(placeEvent => placeEvent.PlaceId == placeId)
+            .ToDictionary(placeEvent => placeEvent.EventId, placeEvent => placeEvent.Label);
+        Dictionary<int, List<(double X, double Y, double Z)>> plates = [];
+        foreach ((int _, MapFace face, int _, string _) in MapFaceList.Flatten(map))
+        {
+            if (!steppedEvents.Contains(face.EventId) || (face.Attributes & PlaceEntranceEmitter.PressurePlateAttribute) == 0) continue;
+            if (!plates.TryGetValue(face.EventId, out List<(double X, double Y, double Z)>? list)) plates[face.EventId] = list = [];
+            list.Add(MapFaceList.BoxCentre(face));
+        }
+
+        foreach ((int eventId, List<(double X, double Y, double Z)> points) in plates.OrderBy(entry => entry.Key))
+        {
+            yield return new PlaceFloorTrigger(
+                placeId,
+                eventId,
+                points.Sum(point => point.X) / points.Count,
+                points.Sum(point => point.Y) / points.Count,
+                points.Sum(point => point.Z) / points.Count,
+                points.Count,
+                labels.GetValueOrDefault(eventId, string.Empty));
+        }
     }
 
     /// <summary>Every event a party raises by using a face or a decoration of a map.</summary>
@@ -334,12 +478,14 @@ public static class PlaceFixtureEmitter
 
     /// <summary>The emitter that answers for an event, by the word of the instruction it answers for, or null.</summary>
     /// <remarks>
-    /// A move is checked first because a transition's event often prints a line or checks a bit before it
-    /// moves the party, and the move is what the event is for; a building's and a container's come after.
+    /// A move is not an owner: an event that moves the party is a fixture's when a face or a decoration raises it
+    /// and a floor trigger's when a plate does, and its run decides whether — and which — move is taken. A
+    /// building's and a container's events are their emitters', because opening the house or the chest is what the
+    /// party uses the face for; an event that does both is the house's (<see cref="PlaceEntranceEmitter"/> states
+    /// the move it carries as a counter's link).
     /// </remarks>
-    private static string? Owner(List<EvtInstruction> instructions)
+    internal static string? Owner(IReadOnlyList<EvtInstruction> instructions)
     {
-        if (instructions.Any(instruction => instruction.Opcode == EvtOpcodes.MoveToMap)) return EvtOpcodes.Word(EvtOpcodes.MoveToMap);
         if (instructions.Any(instruction => instruction.Opcode == EvtOpcodes.SpeakInHouse)) return EvtOpcodes.Word(EvtOpcodes.SpeakInHouse);
         if (instructions.Any(instruction => instruction.Opcode == EvtOpcodes.OpenChest)) return EvtOpcodes.Word(EvtOpcodes.OpenChest);
 
@@ -359,12 +505,14 @@ public static class PlaceFixtureEmitter
     /// <summary>One event, normalized.</summary>
     private static PlaceEvent Normalize(
         int placeId,
-        string fileName,
+        DecodedMap map,
+        string programName,
         int eventId,
         List<EvtInstruction> instructions,
         MapStrings? strings,
         bool raised,
-        bool triggered)
+        bool triggered,
+        PlaceMoves moves)
     {
         string label = string.Empty;
         List<PlaceEventStep> steps = [];
@@ -376,10 +524,11 @@ public static class PlaceFixtureEmitter
                 continue;
             }
 
-            steps.Add(Step(instruction, strings));
+            PlaceEventStep step = Step(instruction, strings);
+            steps.Add(instruction.TryReadMoveToMap(out MoveToMapInstruction move) ? moves.Describe(step, map, programName, instruction, move) : step);
         }
 
-        return new PlaceEvent(placeId, fileName, eventId, label, steps, raised, triggered);
+        return new PlaceEvent(placeId, map.FileName, eventId, label, steps, raised, triggered);
     }
 
     /// <summary>One instruction as the step a pack carries.</summary>
@@ -448,6 +597,8 @@ public static class PlaceFixtureEmitter
         }
 
         if (instruction.TryReadSpeakNpc(out int person)) return step with { Person = person };
+
+        if (instruction.TryReadMoveNpc(out int moved, out int house)) return step with { Person = moved, House = house };
 
         if (instruction.TryReadNpcTopic(out NpcTopicInstruction topic))
         {
@@ -522,6 +673,7 @@ public static class PlaceFixtureEmitter
             }
 
             joined.Points.Add(centre);
+            joined.Lowest = Math.Min(joined.Lowest, face.Vertices.Count == 0 ? centre.Z : face.Vertices.Min(vertex => (double)vertex.Z));
         }
 
         foreach ((int eventId, List<Group> list) in groups.OrderBy(entry => entry.Key))
@@ -531,7 +683,11 @@ public static class PlaceFixtureEmitter
                 Group group = list[cluster];
                 double x = group.Points.Sum(point => point.X) / group.Points.Count;
                 double y = group.Points.Sum(point => point.Y) / group.Points.Count;
-                double z = group.Points.Sum(point => point.Z) / group.Points.Count;
+                // The height is the faces' lowest corner rather than their middle, for the reason a counter stands
+                // on the ground: a party reaches a cave mouth, a door or a shrine standing at its foot, and the
+                // middle of a door face is half a door up — further above the party's eye than the use's aim
+                // admits within its reach.
+                double z = group.Lowest;
                 yield return new PlaceFixturePlacement(
                     placeId,
                     eventId,
@@ -569,5 +725,58 @@ public static class PlaceFixtureEmitter
         public (double X, double Y, double Z) First { get; } = first;
 
         public List<(double X, double Y, double Z)> Points { get; } = [];
+
+        /// <summary>The lowest corner of the group's faces.</summary>
+        public double Lowest { get; set; } = double.MaxValue;
+    }
+}
+
+/// <summary>
+/// What a move step of an event is in the product's terms: the travel link it takes and the kind of travel that is,
+/// or a reposition within its own place.
+/// </summary>
+/// <remarks>
+/// The link is the place graph's own entry for the instruction — the same program, event and step — so a fixture's
+/// move and the transition the product takes are one reading of one instruction. The kind is the one the reaches
+/// were always given: between two regions a party walks, and anything else is an entrance.
+/// </remarks>
+internal sealed class PlaceMoves
+{
+    private readonly Dictionary<(string Program, int Event, int Step), int> _links = [];
+    private readonly PlaceGraph? _graph;
+    private readonly IReadOnlyDictionary<int, DecodedMap> _maps;
+
+    internal PlaceMoves(PlaceGraph? graph, IReadOnlyDictionary<int, DecodedMap> maps)
+    {
+        _graph = graph;
+        _maps = maps;
+        if (graph is null) return;
+        for (int index = 0; index < graph.Links.Count; index++)
+        {
+            PlaceLink link = graph.Links[index];
+            _links.TryAdd((link.SourceEvtName.ToUpperInvariant(), link.EventId, link.Step), index);
+        }
+    }
+
+    /// <summary>The step with what its move is.</summary>
+    internal PlaceEventStep Describe(PlaceEventStep step, DecodedMap map, string programName, EvtInstruction instruction, MoveToMapInstruction move)
+    {
+        if (_graph is not null && _links.TryGetValue((programName.ToUpperInvariant(), instruction.EventId, instruction.Step), out int index))
+        {
+            int destination = _graph.Links[index].DestinationMapId!.Value;
+            bool walking = map.Kind == MapKind.Outdoor && _maps.TryGetValue(destination, out DecodedMap? arrival) && arrival.Kind == MapKind.Outdoor;
+            return step with
+            {
+                Link = index.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ToPlace = destination,
+                Travel = walking ? "walking" : "entrance",
+            };
+        }
+
+        // The graph holds every move between two places, so a move it has no link for — with a graph to ask — stays
+        // in its own place, as one naming no map or its own map does.
+        return _graph is not null || PlaceGraph.IsWithinMap(move.DestinationMapFile)
+            ? step with { WithinPlace = true, X = move.X, Y = move.Y, Z = move.Z, Yaw = move.Yaw }
+            : step;
     }
 }

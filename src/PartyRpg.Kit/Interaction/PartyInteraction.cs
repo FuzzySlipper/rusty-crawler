@@ -153,6 +153,61 @@ public sealed class PartyInteraction : IWorldInteractionScene
     }
 
     /// <summary>
+    /// Uses what the party set off by walking onto it: a target of the party's place that is raised by an
+    /// entrance's reach rather than by aim.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The step that carried the party into the reach is the whole of the approach, so neither the reticle nor a
+    /// distance is consulted: what is judged is the one workflow every use takes — the requirements the ruleset
+    /// states, the trap the target holds, the outcome, the settlement — over the placement the entrance names.
+    /// </para>
+    /// <para>
+    /// A placement the place does not hold, or one the ruleset does not describe as something walked onto, is
+    /// refused by name: an entrance that raised it would otherwise be a plate that does nothing for a reason
+    /// nobody could see.
+    /// </para>
+    /// </remarks>
+    /// <param name="content">The placement the entrance raises, in the party's place.</param>
+    /// <returns>The use's result.</returns>
+    public InteractionResult Raise(PlacementContentId content)
+    {
+        PlaceId place = _world.Place;
+        PlacementDefinition? placement = null;
+        foreach (PlacementDefinition candidate in _world.Placements)
+        {
+            if (candidate.Content != content) continue;
+            placement = candidate;
+            break;
+        }
+
+        if (placement is null)
+        {
+            _result = InteractionResult.Refused(null, new Refusal(
+                InteractionCodes.InteractionTargetGone,
+                $"Place '{place}' holds no placement '{content}' for the party to set off by walking onto it."));
+            return _result;
+        }
+
+        InteractionTargetState state = _world.States.StateOf(place, content);
+        if (_rule.Describe(new InteractionTargetRequest(place, placement, state.State)) is not { Verb: InteractionVerb.Tread } definition)
+        {
+            _result = InteractionResult.Refused(null, new Refusal(
+                InteractionCodes.InteractionUnavailable,
+                $"Placement '{content}' of place '{place}' is not something the party sets off by walking onto it, so walking into its reach does nothing."));
+            return _result;
+        }
+
+        InteractionTarget target = new(new InteractionTargetId(place, content), ulong.MaxValue, placement, definition, state);
+        _result = Resolve(target);
+        return _result;
+    }
+
+    /// <summary>Records what a use's journey came to as the last result, which is what the panel shows.</summary>
+    /// <param name="result">The use, with the journey the world took for it.</param>
+    internal void Conclude(InteractionResult result) => _result = result ?? throw new ArgumentNullException(nameof(result));
+
+    /// <summary>
     /// Gives up the product's selection when the world this mechanism aims in is released, so an inspection
     /// reads an empty scene rather than a world that no longer exists.
     /// </summary>
@@ -232,6 +287,10 @@ public sealed class PartyInteraction : IWorldInteractionScene
             InteractionTargetState state = _world.States.StateOf(place, placement.Content);
             if (_rule.Describe(new InteractionTargetRequest(place, placement, state.State)) is not { } definition) continue;
 
+            // What the party sets off by walking onto it is never aimed at: an entrance raises it (Raise), and a
+            // reticle that offered a plate in the floor would offer a use the party makes with its feet.
+            if (definition.Verb == InteractionVerb.Tread) continue;
+
             Vector3 point = _space.Position(placement.Pose);
             double distance = Vector3.Distance(point, eye);
 
@@ -278,6 +337,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
             PlaceValues = _world.States.ValuesOf(_world.Place),
             PlaceTargets = _world.Placements,
             TargetState = content => _world.States.StateOf(_world.Place, content).State,
+            PlaceTransitions = _world.Transitions,
         };
 
         // Requirements first, in the order the ruleset stated them: the first one the party does not meet is

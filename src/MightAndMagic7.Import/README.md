@@ -21,18 +21,25 @@ Owns:
   import bug is caught offline rather than in gameplay.
 - Normalization: emitting the packs that runtime code consumes, in the shapes
   [`../../docs/code-organization.md`](../../docs/code-organization.md) fixes.
-- Walk-in entrances: for every travel link whose event the source map raises on a face, the reach that
-  face gives the party to walk into — the face's own centroid and extent, with the model, face, event and
-  attribute it came from — and, per link, the reason when there is none (an event no face raises, a later
-  instruction of an event whose first move is another link, or a move the world itself issues).
+- Travel: a travel link is one move of a map event, and it is taken the way the donor raises that event. A clicked
+  face group is a `fixture` like any other (below), and its event's move step names the link it takes (`link`,
+  `toPlace`, and `travel`: `walking` between two regions, `entrance` otherwise) — or `withinPlace` with the
+  position for a move that stays in the place. A pressure plate of an event that moves the party is a
+  `place-entrance` reach — the plate's own centroid and extent, with the model, face, event and attribute it came
+  from — that `raises` the event's `floor-trigger` placement (`trigger-<event>`, at the plates' mean). Nothing
+  here chooses a move: the ruleset runs the event and its branches decide (`PlaceEntranceEmitter`). Every link
+  of the place graph ends with a disposition written beside it in `place-graph.json` and in the write summary
+  (`used`, `walked`, `used-or-walked`, `counter`, `world-issued`, `unreachable`), with the condition a run must meet
+  to reach its move read from the event's branches (`PlaceEventPaths`) and who sets each quest bit it compares;
+  the table over the operator's install is [`../../docs/evidence/travel-links.md`](../../docs/evidence/travel-links.md).
 - Fixtures and their events: every clicked face group and decoration whose event no other emitter answers for
-  (a move, a building, a container, a door) as a `fixture` placement where its faces stand, and every such event
+  (a building, a container, a door) as a `fixture` placement over its faces at their lowest corner, and every such event
   — with the timers that refill what it gives — as a `place-event` entry of normalized steps: the donor's own
   instruction word, the operands the instruction carries, the variable named by family and slot, and the line a
   status step prints read from the map's own string table; a door step's door id and action, an item gift's
   level, its random kind read as the same two item tags a treasure cell is (`ItemVocabulary.FilterOfRandomItem`)
   and its item, a cast's spell, mastery and rank, a person call's or topic change's person, and a flag toggle's
-  group and bit are among those operands. The discovery table is written beside them as
+  group and bit, and a person move's person and house are among those operands. The discovery table is written beside them as
   `discovery` entries, and the history table (`history.txt`) as `history-line` entries keyed by the slot an
   event's `history` variable names (the table's row less one) with its `%30` and `%31`–`%34` codes written as
   `{date}` and `{member:1}`–`{member:4}` (`HistoryTable`). A person carries their six dialogue slots by position
@@ -85,7 +92,7 @@ treasure level and the kind of thing asked for, and the random-item table's 618 
 the items they weigh, so the packs state numbers rather than a string every reader would spell again),
 and all 76 map payloads reproduce the recorded inventory, media extraction writes its
 manifest, and `write` emits the content packs — each place's collision artifact and
-the reaches a walking party can take its transitions through included. The source-format shapes are recorded in
+the plates a party treads on to travel and every travel link's disposition included. The source-format shapes are recorded in
 [`../../docs/research/mm7-data-inventory.md`](../../docs/research/mm7-data-inventory.md),
 [`mm7-map-formats.md`](../../docs/research/mm7-map-formats.md), and
 [`mm7-media-formats.md`](../../docs/research/mm7-media-formats.md). The Python

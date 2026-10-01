@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using PartyRpg.Kit;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Conversation;
@@ -454,6 +455,88 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
     }
 
     [ImportedFact("place-events.json")]
+    public void A_travel_event_takes_the_move_its_branches_reach_and_only_when_the_condition_holds()
+    {
+        ContentCatalog catalog = ImportedContent.Load();
+        MightAndMagic7MapEvents events = MightAndMagic7MapEvents.Read(catalog);
+        PlaceGraph graph = MightAndMagic7World.Graph(catalog);
+        KeyedTestRandom random = new();
+        MightAndMagic7Interaction rule = new(fixtures: new MightAndMagic7Fixtures(events, random: random));
+        GameClock clock = TestClock.Create(scale: 1);
+        PlaceId giants = new("12");
+
+        // Harmondale's shrine to the Land of the Giants compares quest bit 246 (OUT02.EVT event 221): a party
+        // without it reads the shrine's line and stays, and nothing leads it anywhere.
+        using PartyEntity party = Party();
+        (InteractionOutcome closed, _) = Use(rule, Fixture(221, "Shrine", string.Empty), Harmondale, party, clock, transitions: graph.TransitionsFrom(Harmondale));
+        Assert.True(closed.IsApplied, closed.Refusal?.Message);
+        Assert.Null(closed.Travels);
+
+        // The Giants' side of the shrine sets the bit and leads to Harmondale (OUT12.EVT event 452, link 174).
+        (InteractionOutcome back, _) = Use(rule, Fixture(452, "Shrine", string.Empty), giants, party, clock, transitions: graph.TransitionsFrom(giants));
+        Assert.True(back.IsApplied, back.Refusal?.Message);
+        Assert.Equal("174", back.Travels?.Transition.Source);
+        Assert.Equal(Harmondale, back.Travels?.Transition.To);
+        Assert.Equal(TransitionKind.Walking, back.Travels?.Kind);
+        Assert.True(party.Records.Has(MightAndMagic7Quests.ErrandRecord("246")));
+
+        // With the bit held, Harmondale's shrine takes its move — link 139, a walk between two regions.
+        (InteractionOutcome open, _) = Use(rule, Fixture(221, "Shrine", string.Empty), Harmondale, party, clock, transitions: graph.TransitionsFrom(Harmondale));
+        Assert.Equal("139", open.Travels?.Transition.Source);
+        Assert.Equal(giants, open.Travels?.Transition.To);
+
+        // A barrow's door compares map variable 0 and leads to one barrow or the other (MDK01.EVT event 502).
+        PlaceId barrow = new("53");
+        InteractionLedger ledger = new();
+        (InteractionOutcome first, _) = Use(rule, Fixture(502, "Door", string.Empty), barrow, party, clock, ledger, transitions: graph.TransitionsFrom(barrow));
+        Assert.Equal("72", first.Travels?.Transition.Source);
+        ledger.Keep(barrow, new Dictionary<string, long> { [MightAndMagic7Fixtures.VariableKey(0)] = 2 });
+        (InteractionOutcome second, _) = Use(rule, Fixture(502, "Door", string.Empty), barrow, party, clock, ledger, transitions: graph.TransitionsFrom(barrow));
+        Assert.Equal("73", second.Travels?.Transition.Source);
+
+        // A move whose link the place does not issue is refused by name before anything is settled.
+        (InteractionOutcome unissued, _) = Use(rule, Fixture(221, "Shrine", string.Empty), Harmondale, party, clock);
+        Assert.Equal(MightAndMagic7Codes.FixtureTravelUnknown, unissued.Refusal?.Code);
+    }
+
+    [ImportedFact("place-events.json")]
+    public void A_floor_trigger_is_trodden_on_and_a_move_within_the_place_sets_the_party_down_there()
+    {
+        ContentCatalog catalog = ImportedContent.Load();
+        MightAndMagic7MapEvents events = MightAndMagic7MapEvents.Read(catalog);
+        PlaceGraph graph = MightAndMagic7World.Graph(catalog);
+        MightAndMagic7Interaction rule = new(fixtures: new MightAndMagic7Fixtures(events, random: new KeyedTestRandom()));
+        GameClock clock = TestClock.Create(scale: 1);
+        PlaceId celeste = new("7");
+
+        // Celeste's edge (D25.EVT event 451) is a floor trigger: trodden on, never aimed at.
+        PlacementDefinition edge = Fixture(451, "Edge", string.Empty, FloorTrigger);
+        Assert.Equal(InteractionVerb.Tread, rule.Describe(new InteractionTargetRequest(celeste, edge, string.Empty))?.Verb);
+
+        // Its random pick either names a drop to the desert or falls through a move within Celeste into the next
+        // step's drop, as the donor's steps do: every run leads to the Bracada Desert.
+        for (int draw = 0; draw < 12; draw++)
+        {
+            using PartyEntity party = Party();
+            (InteractionOutcome fell, _) = Use(rule, edge, celeste, party, clock, transitions: graph.TransitionsFrom(celeste));
+            Assert.True(fell.IsApplied, fell.Refusal?.Message);
+            Assert.Equal(new PlaceId("6"), fell.Travels?.Transition.To);
+        }
+
+        // A teleport within a place sets the party down where it names and crosses nothing.
+        MapEvent pad = events.Events.First(candidate =>
+            candidate.Steps.Any(step => step.Op == "move-to-map" && step.WithinPlace) &&
+            candidate.Steps.All(step => step.Op is "move-to-map" or "exit" or "play-sound") &&
+            candidate.Steps.First(step => step.Op == "move-to-map").Position != (0, 0, 0));
+        using PartyEntity walker = Party();
+        (InteractionOutcome moved, _) = Use(rule, Fixture(pad.Id, pad.Label, string.Empty, pad.Stepped && !pad.Raised ? FloorTrigger : "fixture"), pad.Place, walker, clock, transitions: graph.TransitionsFrom(pad.Place));
+        Assert.True(moved.IsApplied, moved.Refusal?.Message);
+        Assert.Null(moved.Travels);
+        MapEventStep teleport = pad.Steps.First(step => step.Op == "move-to-map");
+        Assert.Equal(new InteractionRelocation(teleport.Position.X, teleport.Position.Y, teleport.Position.Z, teleport.Yaw == -1 ? null : teleport.Yaw), moved.Relocates);
+    }
+
+    [ImportedFact("place-events.json")]
     public void The_operators_fire_trap_casts_its_spell_at_the_party_and_a_bookcase_draws_a_scroll()
     {
         ContentCatalog catalog = ImportedContent.Load();
@@ -595,10 +678,16 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
 
         // A count of the dead reads what each place holds as a session populates it — its creatures as the
         // encounters resolve them and the people its actor records stand — none of them down on a first visit.
-        PlacePopulationContent placed = PlacePopulationContent.Read(MightAndMagic7World.Graph(catalog), MightAndMagic7Spawns.Compose(catalog, random));
+        PlaceGraph graph = MightAndMagic7World.Graph(catalog);
+        PlacePopulationContent placed = PlacePopulationContent.Read(graph, MightAndMagic7Spawns.Compose(catalog, random));
         int applied = 0;
+        int travelled = 0;
+        int relocated = 0;
         SortedDictionary<string, int> refused = new(StringComparer.Ordinal);
-        foreach (MapEvent mapEvent in events.Events.Where(candidate => candidate.Raised))
+        List<string> unrouted = [];
+
+        // A floor trigger's event is run the same way: treading on a plate is a use of the trigger.
+        foreach (MapEvent mapEvent in events.Events.Where(candidate => candidate.Raised || candidate.Stepped))
         {
             // A session's running effects are kept over its one party, so each fresh party has its own.
             using PartyEntity party = Party();
@@ -614,28 +703,38 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
                 people: person => conversation?.PersonOf(person),
                 actors: place => [.. placed.PlacementsOf(place).Where(MightAndMagic7Fixtures.IsActor).Select(placement => new PlaceActor(placement, Down: false))],
                 journal: () => journal));
-            (InteractionOutcome outcome, _) = Use(rule, Fixture(mapEvent.Id, mapEvent.Label, string.Empty), mapEvent.Place, party, clock);
+            (InteractionOutcome outcome, _) = Use(rule, Fixture(mapEvent.Id, mapEvent.Label, string.Empty), mapEvent.Place, party, clock, transitions: graph.TransitionsFrom(mapEvent.Place));
             if (outcome.IsApplied)
             {
                 applied++;
+                if (outcome.Travels is not null) travelled++;
+                if (outcome.Relocates is not null) relocated++;
                 continue;
             }
 
             Assert.Contains(outcome.Refusal!.Code, new[] { MightAndMagic7Codes.FixtureStepNotInterpreted, MightAndMagic7Codes.FixtureVariableNotInterpreted });
 
-            // Every refusal left over names the task that would interpret it.
-            Assert.Matches(@"#\d{4}", outcome.Refusal.Message);
             string reason = outcome.Refusal.Code == MightAndMagic7Codes.FixtureStepNotInterpreted
                 ? Between(outcome.Refusal.Message, "a '", "' instruction")
                 : Between(outcome.Refusal.Message, "the variable '", "'");
             refused[reason] = refused.GetValueOrDefault(reason) + 1;
+
+            // Every refusal left over names the task that would interpret it.
+            if (!Regex.IsMatch(outcome.Refusal.Message, @"#\d{4}")) unrouted.Add($"{mapEvent.Place}.{mapEvent.Id}: {outcome.Refusal.Message}");
         }
 
-        output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"applied {applied}"));
+        output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"applied {applied}, travelled {travelled}, relocated {relocated}"));
         foreach ((string reason, int count) in refused) output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"refused {reason}: {count}"));
-        Assert.Equal(events.Events.Count(candidate => candidate.Raised), applied + refused.Values.Sum());
+        foreach (string missing in unrouted) output.WriteLine($"unrouted {missing}");
+        Assert.Empty(unrouted);
+        Assert.Equal(events.Events.Count(candidate => candidate.Raised || candidate.Stepped), applied + refused.Values.Sum());
         // The figures the ruleset README states for the operator's install.
-        Assert.Equal(493, applied);
+        Assert.Equal(705, applied);
+
+        // Of those, a fresh party's use of a travel event takes it along a link 145 times — the rest stop at a
+        // condition it does not meet — and sets it down elsewhere in its own place 54 times.
+        Assert.Equal(145, travelled);
+        Assert.Equal(54, relocated);
         string[] stated = ["hireling: 2"];
         Assert.Equal(stated, refused.Select(entry => string.Create(CultureInfo.InvariantCulture, $"{entry.Key}: {entry.Value}")));
         Assert.Equal(2, refused.Values.Sum());
@@ -664,7 +763,8 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
         PartyEntity party,
         GameClock clock,
         InteractionLedger? ledger = null,
-        IReadOnlyList<PlacementDefinition>? placements = null)
+        IReadOnlyList<PlacementDefinition>? placements = null,
+        IReadOnlyList<PlaceTransition>? transitions = null)
     {
         InteractionLedger kept = ledger ?? new InteractionLedger();
         string recorded = kept.StateOf(place, placement.Content).State;
@@ -674,6 +774,7 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
             PlaceValues = kept.ValuesOf(place),
             PlaceTargets = placements ?? [placement],
             TargetState = content => kept.StateOf(place, content).State,
+            PlaceTransitions = transitions ?? [],
         });
         if (!outcome.IsApplied) return (outcome, recorded);
         if (outcome.Gain is { IsFree: false } gain) party.Purse.Credit(gain.Coins);
@@ -697,14 +798,17 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
     private static long Variable(InteractionLedger ledger, PlaceId place, int slot) =>
         ledger.ValuesOf(place).GetValueOrDefault(string.Create(CultureInfo.InvariantCulture, $"map-variable:{slot}"));
 
-    /// <summary>A fixture placement as the importer writes one.</summary>
-    private static PlacementDefinition Fixture(int eventId, string name, string model)
+    /// <summary>The placement kind the importer writes a floor trigger as.</summary>
+    private const string FloorTrigger = "floor-trigger";
+
+    /// <summary>A fixture placement as the importer writes one, or a floor trigger when the kind says so.</summary>
+    private static PlacementDefinition Fixture(int eventId, string name, string model, string kind = "fixture")
     {
-        string id = string.Create(CultureInfo.InvariantCulture, $"fixture-{eventId}");
+        string id = string.Create(CultureInfo.InvariantCulture, $"{(kind == FloorTrigger ? "trigger" : "fixture")}-{eventId}");
         string json = string.Create(
             CultureInfo.InvariantCulture,
-            $$"""{ "id": "{{id}}", "kind": "fixture", "sourceField": "events", "sourceIndex": {{eventId}}, "x": 100, "y": 0, "z": 0, "positionSource": "event-face-centroid", "eventId": {{eventId}}, "name": {{JsonSerializer.Serialize(name)}}, "faceCount": 1, "sourceModelName": {{JsonSerializer.Serialize(model)}} }""");
-        return new PlacementDefinition(new PlacementContentId("fixture", id), "events", eventId, PlacePose.Origin, new ContentEntry(id, JsonDocument.Parse(json).RootElement));
+            $$"""{ "id": "{{id}}", "kind": "{{kind}}", "sourceField": "events", "sourceIndex": {{eventId}}, "x": 100, "y": 0, "z": 0, "positionSource": "event-face-centroid", "eventId": {{eventId}}, "name": {{JsonSerializer.Serialize(name)}}, "faceCount": 1, "sourceModelName": {{JsonSerializer.Serialize(model)}} }""");
+        return new PlacementDefinition(new PlacementContentId(kind, id), "events", eventId, PlacePose.Origin, new ContentEntry(id, JsonDocument.Parse(json).RootElement));
     }
 
     private static PlacementDefinition Placed(PlacePopulationContent population, PlaceId place, string id) =>

@@ -121,8 +121,12 @@ internal static class InventoryCheck
             Check(failures, "regions", 13, written.Geometry.EmittedOf(MapKind.Outdoor));
             Check(failures, "interiors", 63, written.Geometry.EmittedOf(MapKind.Indoor));
             Check(failures, "collision triangles", 824320, written.Geometry.Triangles);
-            Check(failures, "transition reaches", 532, written.Entrances.ReachCount);
-            Check(failures, "links with a reach", 155, written.Entrances.LinkCount);
+            // Every travel link ends with a disposition: a use's, a plate's, a counter's, the world's, or unreachable.
+            Check(failures, "travel links accounted for", 193, written.Entrances.Accounts.Count);
+            Check(failures, "pressure-plate reaches", 310, written.Entrances.ReachCount);
+            Check(failures, "travel links a party takes in play", 186, written.Entrances.TakenCount);
+            Check(failures, "travel links reached under a condition", 76, written.Entrances.ConditionalCount);
+            Check(failures, "travel links nothing raises", 2, written.Entrances.Dispositions.GetValueOrDefault(Packs.PlaceEntranceEmitter.Unreachable));
             Check(failures, "containers", 357, written.Containers.ContainerCount);
             Check(failures, "places with a container", 57, written.Containers.PlaceCount);
             Check(failures, "enterable services", 136, written.Services.CounterCount);
@@ -149,15 +153,17 @@ internal static class InventoryCheck
             Check(failures, "places holding their own creatures", 36, written.Creatures.PopulatedPlaces);
             Check(failures, "creatures in the Temple of Baa", 35, written.Creatures.PerPlace.GetValueOrDefault(45));
 
-            // A fixture is a clicked face group or decoration whose event no other emitter answers for; its event
+            // A fixture is a clicked face group or decoration whose event no other emitter answers for — a travel event
+            // among them — and a floor trigger the event a plate raises that moves the party; its event
             // and the timers that keep what it gives are carried as normalized steps, and the notes those steps
             // write are the discovery table's rows.
-            Check(failures, "fixtures", 1097, written.Fixtures.Fixtures.Count);
-            Check(failures, "places with a fixture", 66, written.Fixtures.PlaceCount);
-            Check(failures, "fixture events", 495, written.Fixtures.FixtureEventCount);
-            Check(failures, "timed events carried", 56, written.Fixtures.TriggeredEventCount);
-            Check(failures, "place events carried", 525, written.Fixtures.Events.Count);
-            Check(failures, "fixture event steps", 3271, written.Fixtures.Events.Where(placeEvent => placeEvent.Raised).Sum(placeEvent => placeEvent.Steps.Count));
+            Check(failures, "fixtures", 1268, written.Fixtures.Fixtures.Count);
+            Check(failures, "places with a fixture", 76, written.Fixtures.PlaceCount);
+            Check(failures, "fixture events", 653, written.Fixtures.FixtureEventCount);
+            Check(failures, "timed events carried", 57, written.Fixtures.TriggeredEventCount);
+            Check(failures, "place events carried", 738, written.Fixtures.Events.Count);
+            Check(failures, "fixture event steps", 3639, written.Fixtures.Events.Where(placeEvent => placeEvent.Raised).Sum(placeEvent => placeEvent.Steps.Count));
+            Check(failures, "floor triggers a plate raises", 59, written.Fixtures.Triggers.Count);
             Check(failures, "raised events a door answers for", 382, written.Fixtures.OwnedElsewhere.GetValueOrDefault("change-door-state"));
             Check(failures, "raised events without instructions", 56, written.Fixtures.RaisedWithoutInstructions);
             Check(failures, "discovery notes", 186, tables.Discoveries.Rows.Count);

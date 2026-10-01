@@ -512,55 +512,37 @@ public sealed class PackWriterTests
     }
 
     [Fact]
-    public void Walking_into_a_places_transition_comes_from_the_event_face_the_map_carries()
+    public void A_link_whose_event_only_an_inert_face_carries_is_accounted_for_as_unreachable_with_the_face_named()
     {
-        // The fixture's interior face raises event 11, so a program whose move belongs to event 11 is a
-        // road that face is the trigger for. The reach the emitter derives is the face's own geometry,
-        // which is what the assertions recompute independently rather than take on trust.
+        // The fixture's interior face carries event 11 with neither the clickable nor the pressure-plate attribute,
+        // so the donor raises it neither by a click nor by a step: the link is accounted for as unreachable, with
+        // the evidence, rather than turned into a reach the party walks into.
         IndoorMap indoor = Assert.IsType<IndoorMap>(MapDecoder.DecodeIndoor(
             LodFixture.Stored("d01.blv", MapDecoderTests.IndoorPayload()),
             LodFixture.Stored("d01.dlv", MapDecoderTests.IndoorDeltaPayload())));
         OutdoorMap outdoor = Assert.IsType<OutdoorMap>(MapDecoder.DecodeOutdoor(LodFixture.Stored("out01.odm", MapDecoderTests.OutdoorPayload())));
+        IReadOnlyList<EvtProgram> programs = [EvtProgram.Read("D01.EVT", SyntheticInstallation.EvtProgram(11, "Out01.odm"))];
         ImportedPlaceGraph graph = ImportedPlaceGraph.Build(
-            [EvtProgram.Read("D01.EVT", SyntheticInstallation.EvtProgram(11, "Out01.odm"))],
+            programs,
             new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["d01"] = 14, ["out01"] = 1 });
         IReadOnlyDictionary<int, DecodedMap> maps = new Dictionary<int, DecodedMap> { [14] = indoor, [1] = outdoor };
+        Assert.Equal(11, indoor.Faces[0].EventId);
+        Assert.Equal(0u, indoor.Faces[0].Attributes & (PlaceEntranceEmitter.ClickableAttribute | PlaceEntranceEmitter.PressurePlateAttribute));
 
-        PlaceEntranceSummary summary = PlaceEntranceEmitter.Emit(graph, maps);
+        PlaceEntranceSummary summary = PlaceEntranceEmitter.Emit(graph, maps, programs);
 
-        PlaceEntrancePlacement entrance = Assert.Single(summary.Entrances);
-
-        // The entrance takes the one link the program declares, stands in the map the program belongs to,
-        // and reaches the whole face: an interior has no models, so the face index is the level's own.
-        Assert.Equal(0, entrance.LinkIndex);
-        Assert.Equal(14, entrance.FromPlace);
-        Assert.Equal(1, entrance.ToPlace);
-        Assert.Equal(11, entrance.EventId);
-        Assert.Equal(PlaceEntranceKind.Entrance, entrance.Kind);
-        Assert.Equal(0, entrance.SourceFaceIndex);
-        Assert.Equal(-1, entrance.SourceModelIndex);
-        Assert.Equal(string.Empty, entrance.SourceModelName);
-        Assert.Equal(indoor.Faces[0].Attributes, entrance.Attributes);
-
-        // The position and the radius are the trigger face's own: its corners' mean, and the farthest
-        // corner from it. Nothing here is read from the destination the link names.
-        MapFace face = indoor.Faces[0];
-        Assert.Equal(face.Vertices.Average(vertex => (double)vertex.X), entrance.X, 6);
-        Assert.Equal(face.Vertices.Average(vertex => (double)vertex.Y), entrance.Y, 6);
-        Assert.Equal(face.Vertices.Average(vertex => (double)vertex.Z), entrance.Z, 6);
-        Assert.Equal(
-            face.Vertices.Max(vertex => Math.Sqrt(Math.Pow(vertex.X - entrance.X, 2) + Math.Pow(vertex.Y - entrance.Y, 2) + Math.Pow(vertex.Z - entrance.Z, 2))),
-            entrance.Radius,
-            6);
-
-        // Every link was either reachable or refused by name, never dropped in silence.
-        Assert.Empty(summary.Refusals);
-        Assert.Equal(1, summary.LinkCount);
-        Assert.Equal(1, summary.ReachCount);
+        Assert.Empty(summary.Entrances);
+        PlaceLinkAccount account = Assert.Single(summary.Accounts);
+        Assert.Equal(0, account.LinkIndex);
+        Assert.Equal(14, account.FromPlace);
+        Assert.Equal(1, account.ToPlace);
+        Assert.Equal(PlaceEntranceEmitter.Unreachable, account.Disposition);
+        Assert.Contains("1 face(s) carrying it have neither the clickable nor the pressure-plate attribute", account.Detail, StringComparison.Ordinal);
+        Assert.Equal(0, summary.TakenCount);
     }
 
     [Fact]
-    public void A_pack_says_where_a_transition_can_be_walked_into_and_which_links_nothing_can()
+    public void A_pack_accounts_for_every_travel_link_and_writes_no_reach_nothing_raises()
     {
         string installRoot = SyntheticInstallation.Create(withMaps: true);
         string root = Path.Combine(Path.GetTempPath(), $"mm7-entrances-{Guid.NewGuid():N}");
@@ -569,13 +551,12 @@ public sealed class PackWriterTests
             string imports = Path.Combine(root, "imports");
             PackWriteResult written = PackWriter.Write(LodInstall.Open(installRoot), imports);
 
-            // The fixture's two links hang their events on numbers no face in its maps raises, so they are
-            // reported per link rather than rounded to a position: nothing in that installation can be
-            // walked into a transition, and the pack says so instead of inventing a trigger.
+            // The fixture's two links hang their events on numbers no face in its maps raises, so each is accounted
+            // for as unreachable with its evidence rather than rounded to a position: nothing in that installation
+            // can be used or trodden on to travel, and the pack says so instead of inventing a trigger.
             Assert.Empty(written.Entrances.Entrances);
-            Assert.Equal(2, written.Entrances.UntriggerableCount);
-            Assert.All(written.Entrances.Refusals, refusal => Assert.Equal("no-event-face", refusal.Code));
-            Assert.Equal([0, 1], written.Entrances.Refusals.Select(refusal => refusal.LinkIndex));
+            Assert.Equal([0, 1], written.Entrances.Accounts.Select(account => account.LinkIndex));
+            Assert.All(written.Entrances.Accounts, account => Assert.Equal(PlaceEntranceEmitter.Unreachable, account.Disposition));
 
             using (JsonDocument document = JsonDocument.Parse(File.ReadAllText(Path.Combine(imports, "mm7-world", "place-entrances.json"))))
             {
@@ -583,6 +564,14 @@ public sealed class PackWriterTests
                 Assert.Equal("place-entrances", root_.GetProperty("documentId").GetString());
                 Assert.Equal("place-entrance", root_.GetProperty("definitionKind").GetString());
                 Assert.Empty(root_.GetProperty("entries").EnumerateArray());
+            }
+
+            // The graph states each link's disposition beside it.
+            using (JsonDocument document = JsonDocument.Parse(File.ReadAllText(Path.Combine(imports, "mm7-world", "place-graph.json"))))
+            {
+                Assert.All(
+                    document.RootElement.GetProperty("entries").EnumerateArray(),
+                    entry => Assert.Equal(PlaceEntranceEmitter.Unreachable, entry.GetProperty("disposition").GetString()));
             }
 
             string manifest = File.ReadAllText(Path.Combine(imports, "mm7-world", "pack.json"));

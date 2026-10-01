@@ -1,8 +1,8 @@
 namespace PartyRpg.Kit.World;
 
 /// <summary>
-/// One way out of a place that the party takes by walking into it: the transition it takes, the reach it
-/// must come inside, and what kind of travel the walk-in is.
+/// One reach in a place that the party sets something off by walking into: either a transition it takes, or a
+/// target of the place whose use the step raises.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -12,16 +12,23 @@ namespace PartyRpg.Kit.World;
 /// two mechanisms, and there is no second path between places for either of them.
 /// </para>
 /// <para>
+/// <b>Some reaches raise a use instead.</b> A plate in the floor whose program decides where — or whether —
+/// the party goes is not one transition: what it does is the use of a target the place holds, judged by the
+/// ruleset like any other use, and the journey that use leads to is taken through the same transition path.
+/// Such an entrance names the placement it raises (<see cref="Raises"/>) and no transition, and a step into its
+/// reach is the party treading on it. Content states which form a reach is; the kit takes each as stated.
+/// </para>
+/// <para>
 /// The reach is a ball in the place's own coordinates, and it is content's to state: only content knows
 /// what its trigger geometry is. The kit never derives a reach from a transition's destination, because a
 /// destination says where the party arrives and nothing about where it left from — a party standing at
 /// the arrival point of the road back is not standing at the entrance it walks into.
 /// </para>
 /// <para>
-/// Walking in is an <em>entry</em>: the world takes the transition on the step that carries the party
-/// from outside the reach to inside it. A party that is already inside — because the reach covers where
-/// a transition put it, or because it has not stepped out yet — is not entering, which is what stops a
-/// door the party arrives at from throwing it straight back.
+/// Walking in is an <em>entry</em>: the world acts on the step that carries the party from outside the reach
+/// to inside it. A party that is already inside — because the reach covers where a transition put it, or
+/// because it has not stepped out yet — is not entering, which is what stops a door the party arrives at
+/// from throwing it straight back.
 /// </para>
 /// </remarks>
 public sealed record PlaceEntrance
@@ -86,11 +93,62 @@ public sealed record PlaceEntrance
         Place = from;
     }
 
-    /// <summary>The transition walking into this entrance takes.</summary>
-    public PlaceTransition Transition { get; }
+    /// <summary>Creates an entrance whose step raises the use of a target the place holds.</summary>
+    /// <param name="place">The place the entrance stands in, which is the place that holds the target.</param>
+    /// <param name="raises">The placement whose use walking into the reach raises.</param>
+    /// <param name="x">The reach's centre along the place's first axis.</param>
+    /// <param name="y">The reach's centre along the place's second axis.</param>
+    /// <param name="z">The reach's centre in height.</param>
+    /// <param name="radius">How far from the centre the party counts as inside the entrance.</param>
+    /// <param name="source">What declared the entrance, so a refusal or a report can name it.</param>
+    /// <exception cref="ArgumentException">The placement or the entrance has no name.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A coordinate is not a number, or the reach has no positive radius.</exception>
+    public PlaceEntrance(
+        PlaceId place,
+        PlacementContentId raises,
+        double x,
+        double y,
+        double z,
+        double radius,
+        string source)
+    {
+        if (string.IsNullOrWhiteSpace(raises.Kind) || string.IsNullOrWhiteSpace(raises.Id))
+        {
+            throw new ArgumentException("An entrance that raises a use names the placement it raises by kind and id.", nameof(raises));
+        }
 
-    /// <summary>What kind of travel the walk-in is, which the transition path asks the cost rule about.</summary>
-    public TransitionKind Kind { get; }
+        RequireNumber(x, nameof(x), "The reach's centre must be a number on every axis, or no step could ever be inside it.");
+        RequireNumber(y, nameof(y), "The reach's centre must be a number on every axis, or no step could ever be inside it.");
+        RequireNumber(z, nameof(z), "The reach's centre must be a number on every axis, or no step could ever be inside it.");
+        if (!double.IsFinite(radius) || radius <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(radius),
+                radius,
+                "An entrance's reach must be a positive, finite distance; an entrance nobody can be inside is not an entrance.");
+        }
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(source);
+        Raises = raises;
+        X = x;
+        Y = y;
+        Z = z;
+        Radius = radius;
+        Source = source;
+        Place = place;
+    }
+
+    /// <summary>The transition walking into this entrance takes, or null when the entrance raises a use instead.</summary>
+    public PlaceTransition? Transition { get; }
+
+    /// <summary>
+    /// What kind of travel the walk-in is, which the transition path asks the cost rule about; null when the
+    /// entrance raises a use, whose journey states its own kind.
+    /// </summary>
+    public TransitionKind? Kind { get; }
+
+    /// <summary>The placement whose use walking into the reach raises, or null when the entrance takes a transition.</summary>
+    public PlacementContentId? Raises { get; }
 
     /// <summary>The place the entrance stands in, which is the place the transition leaves.</summary>
     public PlaceId Place { get; }
@@ -121,7 +179,8 @@ public sealed record PlaceEntrance
     }
 
     /// <inheritdoc />
-    public override string ToString() => $"{Source} in {Place} -> {Transition.To}";
+    public override string ToString() =>
+        Transition is { } transition ? $"{Source} in {Place} -> {transition.To}" : $"{Source} in {Place} raises {Raises}";
 
     /// <summary>Fails when a reach coordinate is not a number, naming what the loss would be.</summary>
     private static void RequireNumber(double value, string name, string message)

@@ -81,8 +81,12 @@ public sealed record InteractionOutcome
         IReadOnlyDictionary<string, long> kept,
         IReadOnlyList<InteractionTargetChange> changes,
         ConversationSubject? speaks,
+        InteractionTravel? travels,
+        InteractionRelocation? relocates,
         Refusal? refusal)
     {
+        Travels = travels;
+        Relocates = relocates;
         Kept = kept;
         Changes = changes;
         Speaks = speaks;
@@ -105,6 +109,8 @@ public sealed record InteractionOutcome
     /// <param name="kept">The values of the target's place the use changed, by name, or empty when it changed none.</param>
     /// <param name="changes">What the use made of other targets of the same place, or empty when it touched none.</param>
     /// <param name="speaks">Whom the use hands the party to speak with, or null when it hands it to nobody.</param>
+    /// <param name="travels">The journey the use takes the party on, or null when it takes none.</param>
+    /// <param name="relocates">Where in its own place the use sets the party down, or null when it moves it nowhere.</param>
     /// <returns>The outcome.</returns>
     /// <exception cref="ArgumentException">The state or the message is blank, or a change states no word.</exception>
     public static InteractionOutcome Applied(
@@ -116,12 +122,14 @@ public sealed record InteractionOutcome
         IReadOnlyList<KnowledgeReport>? learned = null,
         IReadOnlyDictionary<string, long>? kept = null,
         IReadOnlyList<InteractionTargetChange>? changes = null,
-        ConversationSubject? speaks = null)
+        ConversationSubject? speaks = null,
+        InteractionTravel? travels = null,
+        InteractionRelocation? relocates = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(state);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         foreach (InteractionTargetChange change in changes ?? []) ArgumentException.ThrowIfNullOrWhiteSpace(change.State, nameof(changes));
-        return new InteractionOutcome(state, message, residue, items ?? [], gain ?? PartyCost.Free, learned ?? [], kept ?? NothingKept, changes ?? [], speaks, null);
+        return new InteractionOutcome(state, message, residue, items ?? [], gain ?? PartyCost.Free, learned ?? [], kept ?? NothingKept, changes ?? [], speaks, travels, relocates, null);
     }
 
     /// <summary>The use happened and changed nothing, and this is why — a refusal with a stated consequence.</summary>
@@ -129,7 +137,7 @@ public sealed record InteractionOutcome
     /// <returns>The outcome.</returns>
     /// <exception cref="ArgumentNullException">No refusal was given.</exception>
     public static InteractionOutcome Refused(Refusal refusal) =>
-        new(string.Empty, (refusal ?? throw new ArgumentNullException(nameof(refusal))).Message, string.Empty, [], PartyCost.Free, [], NothingKept, [], null, refusal);
+        new(string.Empty, (refusal ?? throw new ArgumentNullException(nameof(refusal))).Message, string.Empty, [], PartyCost.Free, [], NothingKept, [], null, null, null, refusal);
 
     /// <summary>Whether the use happened. A refused outcome changed nothing at all.</summary>
     public bool IsApplied => Refusal is null;
@@ -169,6 +177,19 @@ public sealed record InteractionOutcome
     /// conversation with them the way using a person would.
     /// </summary>
     public ConversationSubject? Speaks { get; }
+
+    /// <summary>
+    /// The journey the use takes the party on, or null: a face that leads into a cave, a shrine that carries the
+    /// party to another region. The mechanism records the use in the place it was made in first, and the world
+    /// then takes the journey through its one transition path.
+    /// </summary>
+    public InteractionTravel? Travels { get; }
+
+    /// <summary>
+    /// Where in the place it stands in the use sets the party down, or null: a teleport pad. A use that also takes a
+    /// journey leaves the place, and the journey is what is taken.
+    /// </summary>
+    public InteractionRelocation? Relocates { get; }
 
     /// <summary>The refusal, or null when the use happened.</summary>
     public Refusal? Refusal { get; }

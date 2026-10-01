@@ -36,6 +36,12 @@ public static class PlaceEntranceLoader
     /// <summary>The field naming what kind of travel the walk-in is.</summary>
     public const string KindField = "kind";
 
+    /// <summary>The field naming the placement an entrance that raises a use raises, by its id.</summary>
+    public const string RaisesField = "raises";
+
+    /// <summary>The field naming the kind of the placement an entrance raises.</summary>
+    public const string RaisesKindField = "raisesKind";
+
     /// <summary>Loads every entrance, failing with every problem found rather than the first.</summary>
     /// <param name="catalog">The validated content catalog to read.</param>
     /// <param name="graph">The graph the entrances' transitions must belong to.</param>
@@ -58,7 +64,7 @@ public static class PlaceEntranceLoader
         List<PlaceEntrance> entrances = [];
         foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in catalog.Entries(DefinitionKind))
         {
-            PlaceEntrance? entrance = Read(pack, document, entry, transitions, issues);
+            PlaceEntrance? entrance = Read(pack, document, entry, graph, transitions, issues);
             if (entrance is not null) entrances.Add(entrance);
         }
 
@@ -76,6 +82,7 @@ public static class PlaceEntranceLoader
         LoadedPack pack,
         ContentDocument document,
         ContentEntry entry,
+        PlaceGraph graph,
         Dictionary<string, PlaceTransition> transitions,
         List<ContentValidationIssue> issues)
     {
@@ -83,11 +90,22 @@ public static class PlaceEntranceLoader
             issues.Add(new ContentValidationIssue(code, message, pack.PackId, document.DocumentId));
 
         string transitionId = entry.GetId(TransitionField);
+        string raises = entry.GetId(RaisesField);
+        if (transitionId.Length > 0 && raises.Length > 0)
+        {
+            Defect(
+                "entrance-form-ambiguous",
+                $"entrance '{entry.Id}' names both a transition and a placement to raise, so whether walking into it travels or sets the placement off cannot be told.");
+            return null;
+        }
+
+        if (raises.Length > 0) return ReadRaising(entry, graph, raises, Defect);
+
         if (transitionId.Length == 0)
         {
             Defect(
                 "entrance-transition-missing",
-                $"entrance '{entry.Id}' names no transition, so there is nothing for walking into it to take.");
+                $"entrance '{entry.Id}' names no transition and no placement to raise, so there is nothing for walking into it to do.");
             return null;
         }
 
@@ -130,6 +148,50 @@ public static class PlaceEntranceLoader
 
         if (transition.From is not { } place) return null;
         return new PlaceEntrance(transition, kind, x, y, z, radius, entry.Id);
+    }
+
+    /// <summary>Reads an entrance whose step raises the use of a placement of its place.</summary>
+    /// <remarks>
+    /// The place must be one the world holds; whether the place holds the placement is the world's to judge when
+    /// it is built over the place's population, because placements are read with the places rather than here.
+    /// </remarks>
+    private static PlaceEntrance? ReadRaising(ContentEntry entry, PlaceGraph graph, string raises, Action<string, string> defect)
+    {
+        string place = entry.GetId(PlaceField);
+        if (place.Length == 0 || graph.Find(new PlaceId(place)) is null)
+        {
+            defect(
+                "entrance-place-unknown",
+                $"entrance '{entry.Id}' raises '{raises}' in place '{place}', which the world does not hold.");
+            return null;
+        }
+
+        string kind = entry.GetString(RaisesKindField);
+        if (kind.Length == 0)
+        {
+            defect(
+                "entrance-raises-kind-missing",
+                $"entrance '{entry.Id}' raises '{raises}' without naming the kind of placement it is, so which placement of the place it means cannot be told.");
+            return null;
+        }
+
+        if (entry.GetDouble("x") is not { } x || entry.GetDouble("y") is not { } y || entry.GetDouble("z") is not { } z)
+        {
+            defect(
+                "entrance-reach-missing",
+                $"entrance '{entry.Id}' does not state a position for its reach, so no step could be inside it.");
+            return null;
+        }
+
+        if (entry.GetDouble("radius") is not { } radius || !double.IsFinite(radius) || radius <= 0)
+        {
+            defect(
+                "entrance-reach-invalid",
+                $"entrance '{entry.Id}' does not state a positive, finite radius for its reach, so an entrance nobody can be inside is not one.");
+            return null;
+        }
+
+        return new PlaceEntrance(new PlaceId(place), new PlacementContentId(kind, raises), x, y, z, radius, entry.Id);
     }
 
     /// <summary>Reads what kind of travel a walk-in takes, naming the two kinds walking can be.</summary>

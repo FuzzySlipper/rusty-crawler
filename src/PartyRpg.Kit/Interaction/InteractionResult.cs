@@ -1,6 +1,7 @@
 using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.World;
 
 namespace PartyRpg.Kit.Interaction;
 
@@ -27,8 +28,14 @@ public sealed record InteractionResult
         string residue,
         IReadOnlyList<KnowledgeReport> learned,
         Refusal? refusal,
-        ConversationSubject? speaks = null)
+        ConversationSubject? speaks = null,
+        InteractionTravel? travels = null,
+        TransitionResult? journey = null,
+        InteractionRelocation? relocates = null)
     {
+        Relocates = relocates;
+        Travels = travels;
+        Journey = journey;
         Speaks = speaks;
         Target = target;
         Verb = verb;
@@ -56,7 +63,7 @@ public sealed record InteractionResult
                 nameof(outcome));
         }
 
-        return new InteractionResult(target, target.Definition.Verb, outcome.State, message, outcome.Residue, outcome.Learned, null, outcome.Speaks);
+        return new InteractionResult(target, target.Definition.Verb, outcome.State, message, outcome.Residue, outcome.Learned, null, outcome.Speaks, outcome.Travels, null, outcome.Relocates);
     }
 
     /// <summary>The use did nothing, and this is why.</summary>
@@ -103,6 +110,42 @@ public sealed record InteractionResult
 
     /// <summary>Whom the use handed the party to speak with, or null when it handed it to nobody.</summary>
     public ConversationSubject? Speaks { get; }
+
+    /// <summary>The journey the use takes the party on, or null when it takes none.</summary>
+    public InteractionTravel? Travels { get; }
+
+    /// <summary>Where in its own place the use sets the party down, or null when it moves it nowhere.</summary>
+    public InteractionRelocation? Relocates { get; }
+
+    /// <summary>
+    /// What came of the journey once the world took it — the arrival, or the transition path's refusal — or null
+    /// while it has not been taken or when the use takes none.
+    /// </summary>
+    public TransitionResult? Journey { get; }
+
+    /// <summary>
+    /// This use with the journey it led to: the arrival is stated in the message, and a journey the transition path
+    /// refused is stated as residue, because the use itself happened and what it settled stays settled.
+    /// </summary>
+    /// <param name="journey">What the transition path made of the use's journey.</param>
+    /// <param name="arrival">How the arrival reads, naming the place the party reached.</param>
+    /// <returns>The result, with the journey.</returns>
+    /// <exception cref="ArgumentNullException">The journey is null.</exception>
+    /// <exception cref="InvalidOperationException">The use was refused or took no journey.</exception>
+    public InteractionResult Travelled(TransitionResult journey, string arrival)
+    {
+        ArgumentNullException.ThrowIfNull(journey);
+        if (!IsApplied || Travels is null)
+        {
+            throw new InvalidOperationException("Only a use that happened and leads somewhere can be said to have travelled.");
+        }
+
+        string message = journey.Arrived ? $"{Message} {arrival}" : Message;
+        string residue = journey.Arrived
+            ? Residue
+            : string.Join(" ", new[] { Residue, $"The way on was refused: {journey.Refusal?.Message}" }.Where(part => part.Length > 0));
+        return new InteractionResult(Target, Verb, State, message, residue, Learned, null, Speaks, Travels, journey, Relocates);
+    }
 
     /// <summary>The refusal's code, or empty when the use happened.</summary>
     public string Code => Refusal?.Code ?? string.Empty;

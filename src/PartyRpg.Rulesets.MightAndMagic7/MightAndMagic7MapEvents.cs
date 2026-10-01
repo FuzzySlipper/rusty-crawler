@@ -85,6 +85,24 @@ internal sealed record MapEventStep(
     /// <summary>Whether a flag step sets its bit rather than clearing it.</summary>
     internal bool On { get; init; }
 
+    /// <summary>The travel link a move to another place takes, by its entry id in the place graph, or empty.</summary>
+    internal string Link { get; init; } = string.Empty;
+
+    /// <summary>What kind of travel a move to another place is: <c>walking</c> or <c>entrance</c>, or empty.</summary>
+    internal string Travel { get; init; } = string.Empty;
+
+    /// <summary>The house a person-moving step moves the person to, zero for none.</summary>
+    internal int House { get; init; }
+
+    /// <summary>Whether a move stays in the place that issued it.</summary>
+    internal bool WithinPlace { get; init; }
+
+    /// <summary>Where a move within the place sets the party down: the place's own coordinates.</summary>
+    internal (int X, int Y, int Z) Position { get; init; }
+
+    /// <summary>The facing a move within the place sets the party down with, in the donor's units; -1 keeps the party's own.</summary>
+    internal int Yaw { get; init; } = -1;
+
     /// <summary>The variable a step reads or writes, as one identity a timer and a fixture can share.</summary>
     /// <remarks>
     /// A numbered family's slot and a family whose value names the thing — a quest bit, a party bit, a note, an
@@ -108,6 +126,9 @@ internal sealed record MapEventStep(
 /// <param name="Raised">Whether something in the place raises it when used.</param>
 internal sealed record MapEvent(PlaceId Place, int Id, string Label, IReadOnlyList<MapEventStep> Steps, bool Raised)
 {
+    /// <summary>Whether a pressure plate of the place raises it when the party walks onto one.</summary>
+    internal bool Stepped { get; init; }
+
     /// <summary>The first step with a number, which is the one the donor runs (OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:140-146</c>).</summary>
     /// <param name="step">The step's number.</param>
     /// <returns>The step, or null when the event has none with that number, which ends a run.</returns>
@@ -351,10 +372,19 @@ internal sealed class MightAndMagic7MapEvents
                     Raises = Whole(element, "raises"),
                     Group = Whole(element, "group"),
                     On = element.TryGetProperty("on", out JsonElement on) && on.ValueKind == JsonValueKind.True,
+                    Link = ContentEntry.ReadId(element, "link"),
+                    Travel = ContentEntry.ReadString(element, "travel"),
+                    WithinPlace = element.TryGetProperty("withinPlace", out JsonElement within) && within.ValueKind == JsonValueKind.True,
+                    Position = (Whole(element, "x"), Whole(element, "y"), Whole(element, "z")),
+                    House = Whole(element, "house"),
+                    Yaw = ContentEntry.ReadDouble(element, "yaw") is { } yaw ? (int)yaw : -1,
                 });
             }
 
-            MapEvent mapEvent = new(new PlaceId(place), eventId, entry.GetString("label"), steps, entry.GetBoolean("raised") ?? false);
+            MapEvent mapEvent = new(new PlaceId(place), eventId, entry.GetString("label"), steps, entry.GetBoolean("raised") ?? false)
+            {
+                Stepped = entry.GetBoolean("stepped") ?? false,
+            };
             if (!events.TryAdd((place, eventId), mapEvent))
             {
                 issues.Add(Issue("map-event-duplicated", $"place '{place}' carries event {eventId} twice, so which steps a fixture raising it runs would be a coin toss.", pack, document));

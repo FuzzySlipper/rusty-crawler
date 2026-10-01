@@ -41,4 +41,11 @@ public enum InteractionVerb
 
     /// <summary>Read what something says: a sign, a plaque, a book.</summary>
     Read,
+
+    /// <summary>
+    /// Set something off by walking onto it: a plate in the floor, a threshold. The party never aims at such a
+    /// target, so the reticle never offers it; an entrance raises it on the step that carries the party into
+    /// its reach (<see cref="World.PlaceEntrance"/>), and the use is then the one workflow every other use is.
+    /// </summary>
+    Tread,
 }

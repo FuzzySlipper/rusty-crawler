@@ -478,6 +478,7 @@ public static class SessionProjection
         InteractionVerb.Pull => "pull",
         InteractionVerb.Talk => "talk",
         InteractionVerb.Read => "read",
+        InteractionVerb.Tread => "tread",
         _ => throw new ArgumentOutOfRangeException(nameof(verb), verb, "Unknown interaction verb."),
     };
 

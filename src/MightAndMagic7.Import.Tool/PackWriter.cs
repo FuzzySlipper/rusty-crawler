@@ -125,7 +125,7 @@ internal static partial class PackWriter
 
         // The entrances are derived from the same decoded maps the collision is: a place's trigger faces
         // are map data, so an import that decoded no map has none to derive and says so per link.
-        PlaceEntranceSummary entrances = PlaceEntranceEmitter.Emit(graph, maps);
+        PlaceEntranceSummary entrances = PlaceEntranceEmitter.Emit(graph, maps, programs);
 
         // A place's containers are derived from the map faces whose events open them, which is also where
         // its walk-in reaches come from, so an import that decoded no map has neither.
@@ -156,7 +156,7 @@ internal static partial class PackWriter
         // resolved from each map's own string table.
         PlaceFixtureSummary fixtures = maps.Count == 0
             ? PlaceFixtureSummary.Empty
-            : PlaceFixtureEmitter.Emit(maps, programs, MapStrings.ReadAll(install));
+            : PlaceFixtureEmitter.Emit(maps, programs, MapStrings.ReadAll(install), graph);
 
         // Each pack this importer owns is written into an empty directory, so a document an earlier importer
         // wrote and this one does not is not left beside the new ones for the loader to find. Other packs under
@@ -342,7 +342,7 @@ internal static partial class PackWriter
         PlaceEntranceSummary entrances,
         PlaceServiceSummary services)
     {
-        int links = WritePlaceGraph(packDirectory, graph, tables, maps);
+        int links = WritePlaceGraph(packDirectory, graph, tables, maps, entrances);
         int places = WritePlaceGeometry(packDirectory, collisions);
         int reachCount = WritePlaceEntrances(packDirectory, entrances);
         PlaceMapSummary mapped = WritePlaceMaps(packDirectory, maps);
@@ -357,14 +357,13 @@ internal static partial class PackWriter
         IReadOnlyList<string> mapReferences =
             [.. maps.Keys.Order().Select(place => $"place:{place.ToString(CultureInfo.InvariantCulture)}")];
 
-        // An entrance refers to the transition it takes and to both places that transition joins, so a
-        // reader that resolves every reference is told the entrance belongs to a road the world holds
-        // rather than to one it does not.
+        // A plate refers to the travel links its event's moves take and to the place it lies in, so a reader
+        // that resolves every reference is told the plate belongs to roads the world holds.
         IReadOnlyList<string> entranceReferences =
         [
-            .. entrances.Entrances.Select(entrance => entrance.LinkIndex).Distinct().Order()
+            .. entrances.Entrances.SelectMany(entrance => entrance.Links).Distinct().Order()
                 .Select(index => $"travel-link:{LinkId(index)}"),
-            .. entrances.Entrances.SelectMany(entrance => new[] { entrance.FromPlace, entrance.ToPlace }).Distinct().Order()
+            .. entrances.Entrances.Select(entrance => entrance.FromPlace).Distinct().Order()
                 .Select(place => $"place:{place.ToString(CultureInfo.InvariantCulture)}"),
         ];
         WriteManifest(

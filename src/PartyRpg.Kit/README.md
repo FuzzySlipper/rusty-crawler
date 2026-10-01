@@ -146,7 +146,10 @@ id or a document id is declared twice, so a reader that looks an entry up by id 
 is), the world (`PlaceGraph`, `PlaceGraphLoader`,
 `PlaceStateLedger`, `TransitionExecutive` with its required cost contract, and the entrances a walking
 party takes — `PlaceEntrance` with its loader, consulted inside the movement step so a step that
-carries the party into an entrance's reach travels through that one transition path; a crossing taken
+carries the party into an entrance's reach travels through that one transition path, or, for an entrance that
+`raises` a placement instead of naming a transition (a plate in the floor whose event decides where the party
+goes), uses that placement through the one interaction workflow (`PartyInteraction.Raise`, a target whose verb is
+`InteractionVerb.Tread` and which the reticle never offers) and takes the journey its outcome names; a crossing taken
 that way is charged on arrival, its quoted time to the session's one clock and its quoted provisions
 to the party's larder through the ledger's one path, exactly once, and a refused transition is charged
 nothing; a crossing a counter sells names only the `route` it runs on — authored as a travel link, or
@@ -318,7 +321,11 @@ place values its outcome kept — named whole numbers every target of the place 
 restore of the place forgets — and the other targets of the place it changed (`InteractionTargetChange`: a lever
 reads a door through `InteractionContext.PlaceTargets` and `TargetState` and the mechanism records the door's
 new word under the door's own identity), hands the party to a conversation when the outcome names somebody
-(`InteractionOutcome.Speaks`, opened by the session as using a person is), and reports an `InteractionResult`; every failure — nothing faced, out of reach, out of sight, a requirement
+(`InteractionOutcome.Speaks`, opened by the session as using a person is), takes the party on the journey the outcome
+names after recording the use where it was made (`InteractionOutcome.Travels`: an `InteractionTravel` over a transition
+the place issues, read by the rule from `InteractionContext.PlaceTransitions` and taken by `SessionWorld.Travel` — a
+refused journey is the use's residue) or sets it down elsewhere in its own place (`InteractionOutcome.Relocates`,
+asserted through `PartyPoseOwner.Enter`, nothing crossed or charged), and reports an `InteractionResult`; every failure — nothing faced, out of reach, out of sight, a requirement
 unmet, a charge the party cannot cover, a ruleset's own refusal, a pack with no room for what was found —
 is an outcome with a code and a sentence rather than a silent no-op — and a corpse is a target that
 mechanism discovers: `CorpseGround` keeps what the fight read as down, the ruleset hands it back as the

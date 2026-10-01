@@ -481,8 +481,10 @@ worth keeping.
 **Fixtures run their map events.** The importer writes every clicked face group and decoration whose event no
 other emitter answers for as a `fixture` placement, the event and the timers that keep what it gives as
 `place-event` entries (the donor's own instruction and variable words, the text a step prints resolved from the
-map's own string table), and the discovery table as `discovery` entries — 1,097 fixtures in 66 places over 495
-events, and 186 notes, over the operator's install (`mm7import verify` checks each figure).
+map's own string table), and the discovery table as `discovery` entries — 1,268 fixtures in 76 places over 653
+events, and 186 notes, over the operator's install (`mm7import verify` checks each figure). An event a pressure
+plate raises that moves the party is a `floor-trigger` placement (59), which `Describe` answers as trodden on
+(`InteractionVerb.Tread`): the reticle never offers it, and the plates' `place-entrance` reaches raise it.
 `MightAndMagic7Fixtures` walks an event's steps against the party and the fixture, writing into an overlay so a
 later comparison reads an earlier write, and applies what it collected only when the run ends without a
 refusal. **Interpreted**: `exit`, `jump`, `compare`, `add`, `subtract` and `set` over the variables below,
@@ -497,7 +499,16 @@ kind it admits, through the acquisition path, `OpenEnroth/src/Engine/Tables/Item
 (the spell's own roll at the step's rank and mastery landed on the chosen characters — the donor flies a
 projectile from a point at the party, this build flies nothing: approximate); `speak-npc` (the conversation with
 that person opens through the outcome, as using a person does); `check-skill` (a chosen character at the rank and
-exactly the mastery, `OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:517-524`). **Presentation, passed over**: the
+exactly the mastery, `OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:517-524`); `move-to-map` to another place ends
+the run with the journey in the outcome (`InteractionOutcome.Travels`: the transition the step's `link` names, which
+the place must issue or the use is refused as `fixture-travel-unknown`, as `walking` or `entrance`), and the world takes
+it through `SessionWorld.Travel` after the use is recorded — the donor shows an entry picture and waits for a
+confirmation before a move naming a house or a picture and runs on after one that does not
+(`OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:207-252`); this build confirms nothing and runs nothing after the move
+(approximate); `move-to-map` within the place sets the party down at the step's position (`InteractionOutcome.Relocates`)
+and runs on, and one naming no position moves nobody (`:124-134`, `:231-235`: faithful); `move-npc` runs on and states as
+residue that the person's move to another house is not followed, because people stand where content placed them
+(a receiver is still to be routed: Castle Harmondale's door is the one shipped event that reaches it). **Presentation, passed over**: the
 product draws no world and plays no sound, so `set-texture`, `set-sprite`, `play-sound`, `character-animation`,
 `toggle-indoor-light`, and a `set-faces-bit` that only hides a face group or makes it fluid change nothing and the
 event's gameplay steps still run — a decision, not a deferral (a fluid face is not water a party drowns in, and its
@@ -511,6 +522,7 @@ resources), `attribute` (a member's base attribute, for good), `resistance-bonus
 leaves, `fixture.bonus-hours` long), `attribute-bonus` and `armour-class-bonus` (the running effects a spell
 raising the attribute and a stone skin leave, which the attribute's and the armour class's own sums read, for
 `fixture.bonus-hours` — the donor keeps them until a rest), `resistance` (the member's stored base, for good),
+`item-equipped` (whether a chosen character wears the item, `OpenEnroth/src/Engine/Objects/Character.cpp:3981-3982`),
 `skill-points` and `experience` (a gift to the chosen character through `PartyProgression.Gift`), `bank-gold`
 (compared with the party's one bank holding), `counter` (set to now and compared by hours since,
 `OpenEnroth/src/Engine/Objects/Character.cpp:3934-3951` — the donor's ten are the party's, this build keeps them
@@ -551,8 +563,8 @@ with its `%30` and `%31`–`%34` codes written as `{date}` and `{member:1}`–`{
 `OpenEnroth/src/GUI/GUIWindow.cpp:953-965`: approximate); a slot the table lacks is `fixture-history-unknown`.
 **Refused by name** (`fixture-step-not-interpreted`, `fixture-variable-not-interpreted`), each naming the task that
 would interpret it: `hireling` (#8514); every other instruction and variable is refused by name without one. Over
-the operator's install a fresh party using each of the 495 fixture events once has 493 run and 2 refused, both at
-`hireling`; the ruleset suite counts it and holds every refusal to name its receiver. On the first region the town well gives fifty points of fire resistance and its note, the wells east
+the operator's install a fresh party using each of the 707 fixture and floor-trigger events once has 705 run — 145 of
+them taking it along a travel link, 54 setting it down elsewhere in its place — and 2 refused, both at `hireling`; the ruleset suite counts it and holds every refusal to name its receiver. On the first region the town well gives fifty points of fire resistance and its note, the wells east
 and west of the temple five hit and spell points from thirty charges a day, the western well two points of luck
 for good from eight a month, and the town sign is read; the first obelisk is the second region's (the first
 region has none). **What is ours**: the active character a run starts on is the first member able to act,

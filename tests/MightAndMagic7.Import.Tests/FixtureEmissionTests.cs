@@ -4,6 +4,7 @@ using MightAndMagic7.Import.Lod;
 using MightAndMagic7.Import.Maps;
 using MightAndMagic7.Import.Packs;
 using MightAndMagic7.Import.Tables;
+using MightAndMagic7.Import.World;
 using Xunit;
 
 namespace MightAndMagic7.Import.Tests;
@@ -101,6 +102,91 @@ public sealed class FixtureEmissionTests
         Assert.True(timer.Triggered);
         Assert.Equal("daily", timer.Steps[0].Period);
         Assert.Equal(new PlaceEventStep(1, "set") { Variable = "map-variable", Index = 0, Value = 30 }, timer.Steps[1], new StepComparer());
+    }
+
+    [Fact]
+    public void A_travel_event_is_a_fixture_when_clicked_and_a_floor_trigger_when_trodden_and_every_link_states_how_it_is_taken()
+    {
+        // A shrine (400) clicked by the party compares a quest bit and moves it out only when the bit is set; a plate
+        // (401) moves it out unconditionally; a plate (402) moves it within its own place; a door (403) both opens a
+        // building and moves the party, which the building's counter owns.
+        DecodedMap map = Interior(
+            (400, Clickable),
+            (401, PressurePlate),
+            (401, PressurePlate),
+            (402, PressurePlate),
+            (403, Clickable));
+        IReadOnlyList<EvtProgram> programs = [EvtProgram.Read("d01.evt", TravelProgram())];
+        PlaceGraph graph = PlaceGraph.Build(programs, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["d01"] = 7, ["out01"] = 1 });
+        Dictionary<int, DecodedMap> maps = new() { [7] = map };
+
+        PlaceFixtureSummary fixtures = PlaceFixtureEmitter.Emit(
+            maps,
+            programs,
+            new Dictionary<string, MapStrings>(StringComparer.OrdinalIgnoreCase) { ["d01"] = Strings() },
+            graph);
+
+        // The clicked shrine is a fixture the party uses, and its move names the link the graph read it as.
+        PlaceFixturePlacement shrine = Assert.Single(fixtures.Fixtures);
+        Assert.Equal(400, shrine.EventId);
+        PlaceEvent shrineEvent = fixtures.Events.Single(placeEvent => placeEvent.EventId == 400);
+        Assert.True(shrineEvent.Raised);
+        Assert.False(shrineEvent.Stepped);
+        PlaceEventStep move = shrineEvent.Steps.Single(step => step.Op == "move-to-map");
+        Assert.Equal("0", move.Link);
+        Assert.Equal(1, move.ToPlace);
+        Assert.Equal("entrance", move.Travel);
+        Assert.Null(move.WithinPlace);
+
+        // The plates' events are floor triggers, one placement per event at the plates' mean; the within-place move
+        // is carried as one, named so the ruleset can refuse it by name.
+        Assert.Equal([401, 402], fixtures.Triggers.Select(trigger => trigger.EventId));
+        Assert.Equal(["trigger-401", "trigger-402"], fixtures.Triggers.Select(trigger => trigger.PlacementId));
+        Assert.Equal(2, fixtures.Triggers[0].FaceCount);
+        Assert.True(fixtures.Events.Single(placeEvent => placeEvent.EventId == 401).Stepped);
+        Assert.True(fixtures.Events.Single(placeEvent => placeEvent.EventId == 402).Steps.Single(step => step.Op == "move-to-map").WithinPlace);
+
+        // The door that opens a building is the counter's, never a fixture's.
+        Assert.DoesNotContain(fixtures.Events, placeEvent => placeEvent.EventId == 403);
+        Assert.Equal(1, fixtures.OwnedElsewhere["speak-in-house"]);
+
+        PlaceEntranceSummary travel = PlaceEntranceEmitter.Emit(graph, maps, programs);
+
+        // Every plate of a travel event is a reach raising its floor trigger; a clicked face is never one.
+        Assert.Equal(3, travel.ReachCount);
+        Assert.All(travel.Entrances, entrance => Assert.StartsWith("trigger-", entrance.Raises, StringComparison.Ordinal));
+        Assert.Equal([1], travel.Entrances.First(entrance => entrance.EventId == 401).Links);
+        Assert.Empty(travel.Entrances.First(entrance => entrance.EventId == 402).Links);
+
+        // Every link is accounted for: the shrine's is used under its condition, the plate's walked, the door's the
+        // counter's.
+        Assert.Equal(3, travel.Accounts.Count);
+        PlaceLinkAccount gated = travel.Accounts[0];
+        Assert.Equal(PlaceEntranceEmitter.Used, gated.Disposition);
+        Assert.Equal("quest bit 246 is set", gated.Condition);
+        Assert.Equal(3, gated.Step);
+        PlaceLinkAccount plate = travel.Accounts[1];
+        Assert.Equal(PlaceEntranceEmitter.Walked, plate.Disposition);
+        Assert.Equal(string.Empty, plate.Condition);
+        Assert.Equal(PlaceEntranceEmitter.Counter, travel.Accounts[2].Disposition);
+        Assert.Equal(2, travel.TakenCount);
+        Assert.Equal(1, travel.ConditionalCount);
+    }
+
+    [Fact]
+    public void An_event_s_paths_name_the_condition_each_step_is_reached_under()
+    {
+        IReadOnlyList<EvtInstruction> instructions = EvtProgram.Read("d01.evt", TravelProgram()).Instructions
+            .Where(instruction => instruction.EventId == 400)
+            .ToList();
+
+        IReadOnlyDictionary<int, PlaceEventPath> paths = PlaceEventPaths.Of(instructions);
+
+        // The comparison holds to step 3; it fails into the status line and the exit, and nothing runs past the exit.
+        Assert.True(paths[0].IsUnconditional);
+        Assert.Equal("quest bit 246 is not set", paths[1].Condition);
+        Assert.Equal("quest bit 246 is set", paths[3].Condition);
+        Assert.Equal(1, paths[3].Ways);
     }
 
     [Fact]
@@ -211,6 +297,27 @@ public sealed class FixtureEmissionTests
         .. Record(303, 1, EvtOpcodes.Exit, 0),
         .. Record(302, 0, EvtOpcodes.Exit, 0),
     ];
+
+    /// <summary>
+    /// A travel program: a shrine gated on quest bit 246 (400), a plate's plain move (401), a plate's move within its
+    /// own place (402), and a building's door that also moves the party (403).
+    /// </summary>
+    private static byte[] TravelProgram() =>
+    [
+        .. Record(400, 0, EvtOpcodes.MouseOver, 4),
+        .. Record(400, 0, EvtOpcodes.Compare, [.. U16(0x10), .. I32(246), 3]),
+        .. Record(400, 1, EvtOpcodes.StatusText, I32(11)),
+        .. Record(400, 2, EvtOpcodes.Exit, 0),
+        .. Record(400, 3, EvtOpcodes.MoveToMap, Move("out01.odm")),
+        .. Record(401, 0, EvtOpcodes.MoveToMap, Move("Out01.odm")),
+        .. Record(402, 0, EvtOpcodes.MoveToMap, Move("0")),
+        .. Record(403, 0, EvtOpcodes.SpeakInHouse, I32(98)),
+        .. Record(403, 1, EvtOpcodes.MoveToMap, Move("out01.odm")),
+    ];
+
+    /// <summary>A move's operands: a position, a facing, no house and no picture, and the destination file.</summary>
+    private static byte[] Move(string destination) =>
+        [.. I32(100), .. I32(200), .. I32(0), .. I32(0), .. I32(0), .. I32(0), 0, 0, .. Encoding.Latin1.GetBytes(destination), 0];
 
     /// <summary>One event record: the size byte, the event, the step, the opcode, and its operands.</summary>
     private static byte[] Record(int eventId, int step, byte opcode, params byte[] operands) =>

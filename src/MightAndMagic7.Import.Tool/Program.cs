@@ -360,6 +360,9 @@ internal static class Program
         places = fixtures.PlaceCount,
         fixtureEvents = fixtures.FixtureEventCount,
         timedEvents = fixtures.TriggeredEventCount,
+        floorTriggers = fixtures.Triggers.Count,
+        steppedEvents = fixtures.SteppedEventCount,
+        travelEvents = fixtures.TravelEventCount,
         eventsCarried = fixtures.Events.Count,
         raisedEventsOwnedElsewhere = fixtures.OwnedElsewhere,
         raisedEventsWithoutInstructions = fixtures.RaisedWithoutInstructions,
@@ -511,31 +514,33 @@ internal static class Program
     }
 
     /// <summary>
-    /// What the entrance derivation produced: the reaches a walking party can take, and every link it
-    /// cannot.
+    /// What the travel derivation produced: the plates a party treads on, and every travel link's disposition.
     /// </summary>
     /// <remarks>
-    /// The untriggerable links are reported one by one with their reason rather than only counted: a link
-    /// nothing can walk into is a journey the product cannot make, and the operator needs to see which
-    /// ones those are — and why — without reading the pack or the maps back.
+    /// Every link is listed with its disposition, what raises its event, the condition a run must meet to reach its
+    /// move, and the evidence, rather than only counted: a link the product cannot take is a journey a player
+    /// cannot make, and the operator needs to see which ones those are — and why — without reading the pack or the
+    /// maps back. The per-link table in <c>docs/evidence/travel-links.md</c> is this list.
     /// </remarks>
     private static object Describe(Packs.PlaceEntranceSummary entrances) => new
     {
-        places = entrances.PlaceCount,
-        links = entrances.LinkCount,
-        reaches = entrances.ReachCount,
-        pressurePlates = entrances.PressurePlateCount,
-        clickable = entrances.ClickableCount,
-        untriggerable = entrances.UntriggerableCount,
-        refusals = entrances.Refusals.Select(refusal => new
+        plates = entrances.ReachCount,
+        placesWithPlates = entrances.PlaceCount,
+        links = entrances.Accounts.Count,
+        taken = entrances.TakenCount,
+        conditional = entrances.ConditionalCount,
+        dispositions = entrances.Dispositions,
+        accounts = entrances.Accounts.Select(account => new
         {
-            link = refusal.LinkIndex,
-            from = refusal.FromPlace,
-            to = refusal.ToPlace,
-            refusal.EventId,
-            refusal.Step,
-            reason = refusal.Code,
-            detail = refusal.Reason,
+            link = account.LinkIndex,
+            from = account.FromPlace,
+            to = account.ToPlace,
+            account.EventId,
+            account.Step,
+            disposition = account.Disposition,
+            trigger = account.Trigger,
+            condition = account.Condition,
+            detail = account.Detail,
         }),
     };
 

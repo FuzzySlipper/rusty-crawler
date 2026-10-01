@@ -100,6 +100,9 @@ public static class EvtOpcodes
     /// <summary>Changes which event one of a person's topics raises.</summary>
     public const byte SetNpcTopic = 39;
 
+    /// <summary>Moves a person to another house (OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:470-471</c>).</summary>
+    public const byte MoveNpc = 40;
+
     /// <summary>Puts an item, named or drawn from a treasure level, in the party's hands.</summary>
     public const byte GiveItem = 41;
 
@@ -151,7 +154,7 @@ public static class EvtOpcodes
         [OnMapReload] = "on-map-reload",
         [OnLongTimer] = "on-long-timer",
         [39] = "set-npc-topic",
-        [40] = "move-npc",
+        [MoveNpc] = "move-npc",
         [41] = "give-item",
         [42] = "change-event",
         [43] = "check-skill",

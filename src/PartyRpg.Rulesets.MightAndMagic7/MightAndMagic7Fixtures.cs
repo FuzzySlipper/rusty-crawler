@@ -55,6 +55,18 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// state word is only what its last use left: <c>used</c>, or <c>read</c> for a sign.
 /// </para>
 /// <para>
+/// <b>A move leads the party away.</b> A step that moves the party to another place names the travel link the
+/// importer read it as, and the run ends there with that journey in its outcome: the kit records the use where it was
+/// made and the world takes the journey through its one transition path, so a cave mouth, a shrine and a plate in the
+/// floor travel exactly as a walk-in does. The move reached is whichever the run's own branches reach — a barrow's
+/// door compares a map variable, a shrine a quest bit — so a move behind a condition is taken only when it holds. The
+/// donor shows an entry picture and waits for a confirmation before a move that names a house or a picture, and runs
+/// on after a move that does not (OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:207-252</c>); this build asks for
+/// no confirmation and runs nothing after the move, because the party has left: approximate. A move within the place
+/// sets the party down where it names and the run goes on, as the donor's does; a move that names no position moves
+/// nobody, as the donor's (<c>:124-134</c>).
+/// </para>
+/// <para>
 /// <b>Who a step acts on.</b> The donor starts a use's run on the active character
 /// (<c>src/Engine/Evt/EvtInterpreter.cpp:623</c>) and lets a step choose one by position, the whole party, or
 /// one at random (<c>src/Engine/Evt/EvtInterpreter.cpp:101-115</c>). This build selects no active character
@@ -76,6 +88,9 @@ internal sealed class MightAndMagic7Fixtures
 
     /// <summary>The target kind a fixture is.</summary>
     internal const string TargetKind = "fixture";
+
+    /// <summary>The placement kind the importer writes a floor trigger as: the event a place's pressure plates raise.</summary>
+    internal const string FloorTriggerPlacementKind = "floor-trigger";
 
     /// <summary>Which owner a note a fixture taught is attributed to.</summary>
     internal const string Source = "fixture";
@@ -246,7 +261,8 @@ internal sealed class MightAndMagic7Fixtures
         PlacementDefinition placement = request.Placement;
         bool fixture = string.Equals(placement.Content.Kind, FixturePlacementKind, StringComparison.Ordinal);
         bool decoration = string.Equals(placement.Content.Kind, MightAndMagic7Interaction.DecorationPlacementKind, StringComparison.Ordinal);
-        if (!fixture && !decoration) return null;
+        bool trigger = string.Equals(placement.Content.Kind, FloorTriggerPlacementKind, StringComparison.Ordinal);
+        if (!fixture && !decoration && !trigger) return null;
         if (placement.Source.GetInt32(EventField) is not { } eventId || eventId == 0) return null;
 
         string label = _events.Find(request.Place, eventId)?.Label ?? string.Empty;
@@ -255,10 +271,12 @@ internal sealed class MightAndMagic7Fixtures
             : placement.Source.GetString(MightAndMagic7Interaction.DecorationNameField) is { Length: > 0 } decorationName
                 ? $"A fixture ({decorationName})"
                 : "A fixture";
+        // A floor trigger is trodden on rather than aimed at: the plates' reaches raise it, and the reticle never
+        // offers it.
         return new InteractionTargetDefinition(
             new InteractionTargetKind(TargetKind),
             name,
-            IsSign(placement) ? InteractionVerb.Read : InteractionVerb.Pull,
+            trigger ? InteractionVerb.Tread : IsSign(placement) ? InteractionVerb.Read : InteractionVerb.Pull,
             reach,
             request.State);
     }
@@ -674,6 +692,8 @@ internal sealed class MightAndMagic7Fixtures
         private readonly Dictionary<PlacementContentId, string> _changes = [];
         private readonly List<string> _residue = [];
         private ConversationSubject? _speaks;
+        private InteractionTravel? _travels;
+        private InteractionRelocation? _relocates;
         private int _coins;
         private int _draws;
 
@@ -719,6 +739,19 @@ internal sealed class MightAndMagic7Fixtures
                 {
                     case "exit":
                         return null;
+                    case "move-to-map" when current.WithinPlace:
+                        // A move within the place sets the party down elsewhere in it and the run goes on, as the
+                        // donor's does (OpenEnroth src/Engine/Evt/EvtInterpreter.cpp:231-235); a move naming no position
+                        // moves nobody.
+                        if (current.Position != (0, 0, 0))
+                        {
+                            _relocates = new InteractionRelocation(current.Position.X, current.Position.Y, current.Position.Z, current.Yaw == -1 ? null : current.Yaw);
+                        }
+
+                        break;
+                    case "move-to-map":
+                        // The party leaves: what follows a move is not run, and the journey is the outcome's.
+                        return Move(mapEvent, current);
                     case "jump":
                         next = current.Target ?? next;
                         break;
@@ -787,6 +820,15 @@ internal sealed class MightAndMagic7Fixtures
                         break;
                     }
 
+                    case "move-npc":
+                        // The donor moves the person to another house (OpenEnroth src/Engine/Evt/EvtInterpreter.cpp:470-471).
+                        // This build places people where content stands them and follows no move, so the step is stated as
+                        // what the use could not deliver and the event's other steps — the bits a door's first opening
+                        // sets — still run.
+                        Residue(string.Create(
+                            CultureInfo.InvariantCulture,
+                            $"Person {current.Person} moves to house {current.House} here, which this build does not follow: people stand where content placed them."));
+                        break;
                     case "set-npc-topic":
                         if (TopicSlot(mapEvent, current) is { } refusedTopic) return refusedTopic;
                         break;
@@ -851,7 +893,9 @@ internal sealed class MightAndMagic7Fixtures
                     ? $"{_target.Name}: {string.Join(" ", _done)}"
                     : sign
                         ? $"The sign reads: \"{_event.Label}\"."
-                        : $"{_target.Name}: nothing comes of it.";
+                        : _travels is not null || _relocates is not null
+                            ? $"{_target.Name} leads the party on."
+                            : $"{_target.Name}: nothing comes of it.";
             return InteractionOutcome.Applied(
                 sign ? ReadState : UsedState,
                 message,
@@ -861,7 +905,43 @@ internal sealed class MightAndMagic7Fixtures
                 learned: _learned,
                 kept: _kept,
                 changes: [.. _changes.Select(change => new InteractionTargetChange(change.Key, change.Value))],
-                speaks: _speaks);
+                speaks: _speaks,
+                travels: _travels,
+                relocates: _travels is null ? _relocates : null);
+        }
+
+        /// <summary>Judges a move: the journey it names, which ends the run, or why it cannot be made.</summary>
+        /// <remarks>
+        /// The link is the importer's reading of the instruction — the place graph's own entry for it — and the place
+        /// must issue it, which is judged here, before anything the run collected is settled.
+        /// </remarks>
+        private Refusal? Move(MapEvent mapEvent, MapEventStep step)
+        {
+            PlaceTransition? transition = null;
+            foreach (PlaceTransition candidate in _context.PlaceTransitions)
+            {
+                if (!string.Equals(candidate.Source, step.Link, StringComparison.Ordinal)) continue;
+                transition = candidate;
+                break;
+            }
+
+            TransitionKind? kind = step.Travel switch
+            {
+                "walking" => TransitionKind.Walking,
+                "entrance" => TransitionKind.Entrance,
+                _ => null,
+            };
+            if (step.Link.Length == 0 || transition is null || kind is null)
+            {
+                return new Refusal(
+                    MightAndMagic7Codes.FixtureTravelUnknown,
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"{_target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}', whose step {step.Step} moves the party along travel link '{step.Link}' as '{step.Travel}', and place '{_context.Place}' issues no such transition of a kind a party walks: nothing was changed."));
+            }
+
+            _travels = new InteractionTravel(transition, kind.Value);
+            return null;
         }
 
         /// <summary>The members a run starts on: the active one, which this build reads as the first able to act.</summary>
@@ -971,6 +1051,9 @@ internal sealed class MightAndMagic7Fixtures
                 "experience" => (member, index) => (int)Math.Min(int.MaxValue, member.Progression.Experience + Member(index, "experience", 0)),
                 "condition" when Condition(step.Which) is { } condition =>
                     (member, index) => Member(index, $"condition:{step.Which}", member.Conditions.Has(condition) ? 1 : 0),
+
+                // Whether the character wears the item, in any slot (OpenEnroth src/Engine/Objects/Character.cpp:3981-3982).
+                "item-equipped" => (member, _) => Wears(member, step.Value) ? 1 : 0,
                 _ => null,
             };
             if (read is null) return (false, VariableNotInterpreted(_target, mapEvent, step));
@@ -981,7 +1064,7 @@ internal sealed class MightAndMagic7Fixtures
 
                 // A condition compares whether it is held rather than how much of it: the donor's comparison
                 // of one is a test of the bit (OpenEnroth src/Engine/Objects/Character.cpp:3826-3859).
-                bool holds = step.Variable == "condition" ? value > 0 : value >= step.Value;
+                bool holds = step.Variable is "condition" or "item-equipped" ? value > 0 : value >= step.Value;
                 if (holds) return (true, null);
             }
 
@@ -1557,6 +1640,12 @@ internal sealed class MightAndMagic7Fixtures
             if (_records.TryGetValue(DiscoverySubject(number), out bool pending)) return pending;
             if (_rules._events.DiscoveryOf(number) is not { } discovery || _rules._knowledge() is not { } knowledge) return false;
             return knowledge.Knows(new KnowledgeReport(KindOf(discovery.Category), Source, DiscoverySubject(number), discovery.Text));
+        }
+
+        private static bool Wears(PartyMember member, int item)
+        {
+            string id = item.ToString(CultureInfo.InvariantCulture);
+            return member.Equipment.Items.Any(equipped => string.Equals(equipped.Item.Definition.Value, id, StringComparison.Ordinal));
         }
 
         private int Carried(PartyEntity party, int item)

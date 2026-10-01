@@ -73,6 +73,12 @@ public static class MightAndMagic7Codes
     /// <summary>The refusal code <c>fixture-spell-unknown</c>: a step casts a spell the spell table does not hold.</summary>
     public const string FixtureSpellUnknown = "fixture-spell-unknown";
 
+    /// <summary>
+    /// The refusal code <c>fixture-travel-unknown</c>: a step moves the party along a travel link the place does not
+    /// issue, or names no link at all.
+    /// </summary>
+    public const string FixtureTravelUnknown = "fixture-travel-unknown";
+
     /// <summary>The refusal code <c>fixture-runaway</c>.</summary>
     public const string FixtureRunaway = "fixture-runaway";
 

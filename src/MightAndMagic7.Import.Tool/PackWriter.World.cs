@@ -199,22 +199,24 @@ internal static partial class PackWriter
         List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];
         foreach (PlaceEntrancePlacement entrance in summary.Entrances)
         {
-            entries.Add(($"{LinkId(entrance.LinkIndex)}.{entrance.SourceFaceIndex.ToString(CultureInfo.InvariantCulture)}", writer =>
+            entries.Add((string.Create(CultureInfo.InvariantCulture, $"{entrance.FromPlace}.{entrance.EventId}.{entrance.SourceFaceIndex}"), writer =>
             {
-                writer.WriteString("link", LinkId(entrance.LinkIndex));
                 writer.WriteNumber("fromPlace", entrance.FromPlace);
-                writer.WriteNumber("toPlace", entrance.ToPlace);
-                writer.WriteString("kind", entrance.Kind == PlaceEntranceKind.Walking ? "walking" : "entrance");
+                writer.WriteString("raises", entrance.Raises);
+                writer.WriteString("raisesKind", PlaceFloorTrigger.PlacementKind);
+                writer.WriteNumber("eventId", entrance.EventId);
+                writer.WriteStartArray("links");
+                foreach (int link in entrance.Links) writer.WriteStringValue(LinkId(link));
+                writer.WriteEndArray();
                 writer.WriteNumber("x", entrance.X);
                 writer.WriteNumber("y", entrance.Y);
                 writer.WriteNumber("z", entrance.Z);
                 writer.WriteNumber("radius", entrance.Radius);
-                writer.WriteNumber("eventId", entrance.EventId);
                 writer.WriteNumber("faceIndex", entrance.SourceFaceIndex);
                 writer.WriteNumber("modelIndex", entrance.SourceModelIndex);
                 WriteOptionalString(writer, "modelName", entrance.SourceModelName);
                 writer.WriteNumber("attributes", entrance.Attributes);
-                writer.WriteString("trigger", entrance.IsPressurePlate ? "pressurePlate" : entrance.IsClickable ? "clickable" : "other");
+                writer.WriteString("trigger", "pressurePlate");
                 writer.WriteString("positionSource", "event-face-centroid");
                 writer.WriteString("radiusSource", "event-face-extent");
             }));
@@ -239,6 +241,9 @@ internal static partial class PackWriter
         Dictionary<int, IReadOnlyList<PlaceFixturePlacement>> fixturesByPlace = fixtures.Fixtures
             .GroupBy(fixture => fixture.PlaceId)
             .ToDictionary(group => group.Key, group => (IReadOnlyList<PlaceFixturePlacement>)[.. group]);
+        Dictionary<int, IReadOnlyList<PlaceFloorTrigger>> triggersByPlace = fixtures.Triggers
+            .GroupBy(trigger => trigger.PlaceId)
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<PlaceFloorTrigger>)[.. group]);
 
         // A place's counters and households are emitted into its placements, which is where the interaction
         // mechanism reads them from: a service placement is a target the party talks to, and nothing about
@@ -331,6 +336,7 @@ internal static partial class PackWriter
                         countersByPlace.GetValueOrDefault(map.Id, []),
                         peopleByPlace.GetValueOrDefault(map.Id, []),
                         fixturesByPlace.GetValueOrDefault(map.Id, []),
+                        triggersByPlace.GetValueOrDefault(map.Id, []),
                         residentsByBuilding);
                 }
             }));
@@ -386,6 +392,7 @@ internal static partial class PackWriter
         IReadOnlyList<PlaceServicePlacement> counters,
         IReadOnlyList<PlacePersonPlacement> people,
         IReadOnlyList<PlaceFixturePlacement> fixtures,
+        IReadOnlyList<PlaceFloorTrigger> triggers,
         IReadOnlyDictionary<int, IReadOnlyList<string>> residentsByBuilding)
     {
         List<Placement> placements = [];
@@ -534,11 +541,25 @@ internal static partial class PackWriter
             placements.Add(new Placement("fixture", fixture.EventId, "events", new PlacementPoint(fixture.X, fixture.Y, fixture.Z), null, "event-face-centroid", field =>
             {
                 field.WriteNumber("eventId", fixture.EventId);
+                field.WriteString("heightSource", "event-faces-bottom");
                 if (fixture.Label.Length > 0) field.WriteString("name", fixture.Label);
                 field.WriteNumber("faceCount", fixture.FaceCount);
                 if (fixture.ModelIndex is { } model) field.WriteNumber("sourceModel", model);
                 if (fixture.ModelName.Length > 0) field.WriteString("sourceModelName", fixture.ModelName);
             }, fixture.PlacementId));
+        }
+
+        // A floor trigger is the event a place's pressure plates raise when the party walks onto one; the plates
+        // are the reaches in the place-entrance document, each naming this placement, and the event is the
+        // place-event entry under the same place and number.
+        foreach (PlaceFloorTrigger trigger in triggers)
+        {
+            placements.Add(new Placement(PlaceFloorTrigger.PlacementKind, trigger.EventId, "events", new PlacementPoint(trigger.X, trigger.Y, trigger.Z), null, "event-face-centroid", field =>
+            {
+                field.WriteNumber("eventId", trigger.EventId);
+                if (trigger.Label.Length > 0) field.WriteString("name", trigger.Label);
+                field.WriteNumber("faceCount", trigger.FaceCount);
+            }, trigger.PlacementId));
         }
 
         foreach (PlaceSpriteObjectPlacement held in spriteObjects)
@@ -795,13 +816,16 @@ internal static partial class PackWriter
         string packDirectory,
         PlaceGraph graph,
         Mm7Tables tables,
-        IReadOnlyDictionary<int, DecodedMap> maps)
+        IReadOnlyDictionary<int, DecodedMap> maps,
+        PlaceEntranceSummary entrances)
     {
+        Dictionary<int, PlaceLinkAccount> accounts = entrances.Accounts.ToDictionary(account => account.LinkIndex);
         Dictionary<int, string> names = tables.Maps.Maps.ToDictionary(map => map.Id, map => map.Name);
         List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];
         int index = 0;
         foreach (PlaceLink link in graph.Links)
         {
+            int linkIndex = index;
             entries.Add((index.ToString(CultureInfo.InvariantCulture), writer =>
             {
                 WriteOptionalNumber(writer, "fromPlace", link.SourceMapId);
@@ -837,6 +861,15 @@ internal static partial class PackWriter
                 writer.WriteNumber("eventId", link.EventId);
                 writer.WriteNumber("step", link.Step);
                 writer.WriteString("program", link.SourceEvtName);
+
+                // How a party takes the link is stated beside it, so a reader of the graph sees which links are a
+                // use's, a plate's, a counter's or the world's, and under what condition, without a second document.
+                if (accounts.TryGetValue(linkIndex, out PlaceLinkAccount? account))
+                {
+                    writer.WriteString("disposition", account.Disposition);
+                    WriteOptionalString(writer, "trigger", account.Trigger);
+                    WriteOptionalString(writer, "condition", account.Condition);
+                }
             }));
             index++;
         }

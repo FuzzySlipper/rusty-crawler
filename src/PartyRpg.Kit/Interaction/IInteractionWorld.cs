@@ -46,6 +46,9 @@ public interface IInteractionWorld
     /// <summary>What the party has already done to the targets of every place it has been in.</summary>
     InteractionLedger States { get; }
 
+    /// <summary>The transitions the party's place issues, which a use that leads somewhere names its journey from.</summary>
+    IReadOnlyList<PlaceTransition> Transitions { get; }
+
     /// <summary>
     /// Whether nothing solid stands between two points of the place the party is in, in the engine's world
     /// axes.

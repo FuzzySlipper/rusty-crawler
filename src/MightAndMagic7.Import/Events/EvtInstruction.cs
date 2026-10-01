@@ -250,6 +250,20 @@ public readonly record struct EvtInstruction(ushort EventId, byte Step, byte Opc
         return true;
     }
 
+    /// <summary>Reads which person a move step moves and to which house, when this instruction is one.</summary>
+    /// <remarks>A 32-bit person id and a 32-bit house id, zero for none (OpenEnroth <c>src/Engine/Evt/EvtInstruction.cpp:1113-1117</c>).</remarks>
+    /// <param name="person">The person's id.</param>
+    /// <param name="house">The house the person moves to, zero for none.</param>
+    public bool TryReadMoveNpc(out int person, out int house)
+    {
+        person = 0;
+        house = 0;
+        if (Opcode != EvtOpcodes.MoveNpc || Operands.Length < 8) return false;
+        person = BinaryPrimitives.ReadInt32LittleEndian(Operands.Span);
+        house = BinaryPrimitives.ReadInt32LittleEndian(Operands.Span[4..]);
+        return true;
+    }
+
     /// <summary>Reads which topic of which person a topic step changes, when this instruction is one.</summary>
     /// <remarks>
     /// A 32-bit person id, the one-byte slot of the topic, and the 32-bit event the slot raises afterwards

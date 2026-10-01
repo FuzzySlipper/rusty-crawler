@@ -71,4 +71,14 @@ public sealed record InteractionContext(
     /// The state word the party has left another target of the place in, or empty when nothing has happened to it.
     /// </summary>
     public Func<PlacementContentId, string> TargetState { get; init; } = static _ => string.Empty;
+
+    /// <summary>
+    /// The transitions the place issues, which a use that leads somewhere names its journey from; empty when the
+    /// world issues none from here.
+    /// </summary>
+    /// <remarks>
+    /// A rule names the way a use leads by the transition content declared, and judges it before anything is
+    /// settled: a use whose way the place does not issue is refused rather than settled and then left standing.
+    /// </remarks>
+    public IReadOnlyList<PlaceTransition> PlaceTransitions { get; init; } = [];
 }
