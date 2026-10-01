@@ -328,7 +328,10 @@ point**, the donor's own step (`Actor.cpp:1083-1105`, `ApplyFineForKillingPeasan
 peasant rows — the donor's `IsPeasant` (`MonsterEnumFunctions.h:48-54`), so every person whose record names
 no row of their own, and not a guard or an adept — and credits its experience under `townsperson-kill`
 rather than `kill`, so the deed reaches the world's opinion through `PartyProgression.Award`'s one entry as
-every other deed does. The fine beside it is the donor's sum, `100 × (base + the row's level + the party's
+every other deed does. **Any other peaceful person's death lowers it the same point** (ours: the donor moves
+reputation only beside a peasant's fine) — a guard or an adept a place's own records stand there is credited
+under `person-kill`, with no fine; a creature the fight reads as peaceful for another reason (the party
+unseen, a band-zero creature) is not a person and is an ordinary kill. The fine beside a townsperson's death is the donor's sum, `100 × (base + the row's level + the party's
 reputation in the donor's sign)` clamped to `0..4,000,000`, read before the deed moves the standing as the
 donor's order has it, and approximated three ways that are ours: the map table's per-place base fine is read
 as zero (the importer does not carry that column; zero is Emerald Isle's own value), the fine is taken from

@@ -2170,6 +2170,16 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         return facts?.Experience ?? 0;
     }
 
+    /// <summary>Whether a placement holds a person a place's own records stand there, whom the fight reads as peaceful.</summary>
+    /// <param name="placement">The placement the actor was created from.</param>
+    /// <returns>True for a person placement, whatever row the person fights as.</returns>
+    /// <exception cref="ArgumentNullException">No placement was supplied.</exception>
+    internal static bool IsPerson(PlacementDefinition placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+        return string.Equals(placement.Content.Kind, PersonPlacementKind, StringComparison.Ordinal);
+    }
+
     /// <summary>
     /// The level of the townsperson a placement holds, or null when what stands there is not one.
     /// </summary>
