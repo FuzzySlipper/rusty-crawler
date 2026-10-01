@@ -678,11 +678,11 @@ internal sealed class MightAndMagic7Fixtures
                     }
 
                     case "set-npc-topic":
-                        return NotInterpreted(_target, mapEvent, current, "a 'set-npc-topic' instruction (changing which event a person's topic raises needs a saved override the conversation reads; its receiver is to be filed from #9028)");
+                        return NotInterpreted(_target, mapEvent, current, "a 'set-npc-topic' instruction (changing which event a person's topic raises needs a saved override the conversation reads; its receiver is #9033)");
                     case "is-actor-killed":
-                        return NotInterpreted(_target, mapEvent, current, "a 'is-actor-killed' instruction (counting a place's dead by group or kind needs the population to answer a fixture; its receiver is to be filed from #9028)");
+                        return NotInterpreted(_target, mapEvent, current, "a 'is-actor-killed' instruction (counting a place's dead by group or kind needs the population to answer a fixture; its receiver is #9033)");
                     case "toggle-actor-group-flag":
-                        return NotInterpreted(_target, mapEvent, current, "a 'toggle-actor-group-flag' instruction (turning a group of a place's creatures hostile needs the fight's provocation reachable from a fixture; its receiver is to be filed from #9028)");
+                        return NotInterpreted(_target, mapEvent, current, "a 'toggle-actor-group-flag' instruction (turning a group of a place's creatures hostile needs the fight's provocation reachable from a fixture; its receiver is #9033)");
                     case "check-season":
                     {
                         if (_context.Clock is not { } clock || InSeason(current.Which, clock.Now) is not { } holds)
@@ -938,7 +938,7 @@ internal sealed class MightAndMagic7Fixtures
                 case ("hireling", _):
                     return VariableNotInterpreted(_target, mapEvent, step, "this build keeps no hirelings, #8514");
                 case ("history", _):
-                    return VariableNotInterpreted(_target, mapEvent, step, "the history book's lines are a table the importer does not read; its receiver is to be filed from #9028");
+                    return VariableNotInterpreted(_target, mapEvent, step, "the history book's lines are a table the importer does not read; its receiver is #9033");
                 case ("item", "subtract"):
                 {
                     ItemDefinitionId item = new(step.Value.ToString(CultureInfo.InvariantCulture));

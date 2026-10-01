@@ -453,8 +453,7 @@ fixture of the place reads and writes the same ones, as the donor keeps one arra
 `timer:<event>.<step>`; both travel in the save's world section, a load judges each against the place's slots
 and events (`save-kept-value-unknown`), and a place the clock restores forgets them, as the donor re-reads a
 respawned map's delta with its variables (`OpenEnroth/src/Engine/Graphics/Indoor.cpp:313-319`). **Refused by name** (`fixture-step-not-interpreted`, `fixture-variable-not-interpreted`), each naming the task that would interpret it: `hireling` (#8514); `set-npc-topic`, `is-actor-killed`,
-`toggle-actor-group-flag` (a group of the place's creatures made hostile) and `history` (receivers to be filed
-from #9028: a saved topic override the conversation reads, the population answering a fixture, the fight's
+`toggle-actor-group-flag` (a group of the place's creatures made hostile) and `history` (#9033: a saved topic override the conversation reads, the population answering a fixture, the fight's
 provocation reachable from a fixture, and the history table imported); every other instruction and variable is
 refused by name without one. Over the operator's install a fresh party using each of the 495 fixture events once
 has 488 run and 7 refused, by the first step each run reaches that this game does not interpret:
