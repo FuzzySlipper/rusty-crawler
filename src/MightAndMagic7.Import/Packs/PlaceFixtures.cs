@@ -1,5 +1,6 @@
 using MightAndMagic7.Import.Events;
 using MightAndMagic7.Import.Maps;
+using MightAndMagic7.Import.Tables;
 
 namespace MightAndMagic7.Import.Packs;
 
@@ -66,6 +67,48 @@ public sealed record PlaceEventStep(int Step, string Op)
 
     /// <summary>An interval timer's period in half minutes.</summary>
     public int? HalfMinutes { get; init; }
+
+    /// <summary>The id of the door a door step moves, which is the id the place's door placement carries.</summary>
+    public int? Door { get; init; }
+
+    /// <summary>What a door step does: <c>open</c>, <c>close</c>, or <c>toggle</c> a door at rest.</summary>
+    public string? Action { get; init; }
+
+    /// <summary>The treasure level an item gift draws at.</summary>
+    public int? Level { get; init; }
+
+    /// <summary>The item tag a gift's draw is narrowed to by what a thing is, empty for any.</summary>
+    public string? ItemKind { get; init; }
+
+    /// <summary>The item tag a gift's draw is narrowed to by the skill it is used with, empty for any.</summary>
+    public string? ItemSkill { get; init; }
+
+    /// <summary>The item a gift gives outright, replacing the draw; absent when the draw stands.</summary>
+    public int? Item { get; init; }
+
+    /// <summary>The spell a cast step casts.</summary>
+    public int? Spell { get; init; }
+
+    /// <summary>The mastery a cast step casts at, or a skill jump waits for: <c>novice</c> to <c>grandmaster</c>.</summary>
+    public string? Mastery { get; init; }
+
+    /// <summary>The skill rank a cast step casts at, or a skill jump waits for.</summary>
+    public int? Rank { get; init; }
+
+    /// <summary>The person a conversation or topic step names.</summary>
+    public int? Person { get; init; }
+
+    /// <summary>The event a topic step makes the person's topic raise.</summary>
+    public int? Raises { get; init; }
+
+    /// <summary>The face group or creature group a flag step names.</summary>
+    public int? Group { get; init; }
+
+    /// <summary>The attribute bit a flag step sets or clears.</summary>
+    public long? Flag { get; init; }
+
+    /// <summary>Whether a flag step sets its bit rather than clearing it.</summary>
+    public bool? On { get; init; }
 }
 
 /// <summary>One map event a place's content carries, with its normalized steps.</summary>
@@ -386,6 +429,56 @@ public static class PlaceFixtureEmitter
         {
             (string choice, int? member) = EvtVariables.Who(damage.Who);
             return step with { Who = choice, Member = member, Kind = EvtVariables.DamageKind(damage.Kind), Amount = damage.Amount };
+        }
+
+        if (instruction.TryReadDoor(out int door, out int action))
+        {
+            return step with { Door = door, Action = EvtVariables.DoorAction(action) };
+        }
+
+        if (instruction.TryReadGiveItem(out GiveItemInstruction gift))
+        {
+            (string kind, string skill) = ItemVocabulary.FilterOfRandomItem(gift.Kind);
+            return step with { Level = gift.Level, ItemKind = kind, ItemSkill = skill, Item = gift.Item != 0 ? gift.Item : null };
+        }
+
+        if (instruction.TryReadCastSpell(out CastSpellInstruction cast))
+        {
+            return step with { Spell = cast.Spell, Mastery = EvtVariables.Mastery(cast.Mastery), Rank = cast.Rank };
+        }
+
+        if (instruction.TryReadSpeakNpc(out int person)) return step with { Person = person };
+
+        if (instruction.TryReadNpcTopic(out NpcTopicInstruction topic))
+        {
+            return step with { Person = topic.Person, Index = topic.Slot, Raises = topic.Event };
+        }
+
+        if (instruction.TryReadCheckSkill(out CheckSkillInstruction skillJump))
+        {
+            return step with
+            {
+                Which = EvtVariables.Skill(skillJump.Skill),
+                Mastery = EvtVariables.Mastery(skillJump.Mastery),
+                Rank = skillJump.Rank,
+                Target = skillJump.Target,
+            };
+        }
+
+        if (instruction.TryReadIsActorKilled(out ActorKilledInstruction killed))
+        {
+            return step with
+            {
+                Which = EvtVariables.KillPolicy(killed.Policy),
+                Value = killed.Parameter,
+                Amount = killed.Count,
+                Target = killed.Target,
+            };
+        }
+
+        if (instruction.TryReadFlagToggle(out FlagToggleInstruction toggle))
+        {
+            return step with { Group = toggle.Group, Flag = toggle.Flag, On = toggle.On };
         }
 
         if (instruction.TryReadTimer(out TimerInstruction timer))

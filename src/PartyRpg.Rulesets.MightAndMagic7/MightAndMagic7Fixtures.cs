@@ -3,9 +3,12 @@ using System.Text;
 using PartyRpg.Kit;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Knowledge;
+using PartyRpg.Kit.Loot;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
 using Rusty.Engine;
@@ -109,11 +112,44 @@ internal sealed class MightAndMagic7Fixtures
     /// <summary>The prefix of the name a place keeps when one of its timers last ran under.</summary>
     internal const string TimerPrefix = "timer:";
 
+    /// <summary>The prefix of the name a place keeps when one of the event counters was last set under.</summary>
+    internal const string CounterPrefix = "counter:";
+
+    /// <summary>How many event counters there are (OpenEnroth <c>src/Engine/Objects/Character.cpp:3934-3951</c>, ten).</summary>
+    internal const int Counters = 10;
+
+    /// <summary>The placement field a door's own id is written under, which a door step names it by.</summary>
+    internal const string DoorIdField = "doorId";
+
+    /// <summary>The most a stored base resistance reaches, which is a byte's (OpenEnroth <c>src/Engine/Objects/Character.cpp:4788-4817</c>).</summary>
+    internal const int ResistanceLimit = 255;
+
+    /// <summary>The face bit that hides a face group, which is all a player would see change (<c>src/Engine/Graphics/FaceEnums.h:21</c>).</summary>
+    private const long InvisibleFaceBit = 0x0000_2000;
+
+    /// <summary>
+    /// The steps that change only what a player sees or hears: a texture, a sprite, a sound, a character's
+    /// portrait reacting, an interior light. The product draws no world and plays no sound, so a run passes
+    /// over them and the event's other steps still run.
+    /// </summary>
+    internal static readonly IReadOnlySet<string> PresentationSteps = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "set-texture", "set-sprite", "play-sound", "character-animation", "toggle-indoor-light",
+    };
+
+    /// <summary>The residue a step that moves geometry leaves, which collision does not follow in this build.</summary>
+    internal const string CollisionResidue =
+        "Collision does not move in this build: a door's polygons and a face group's solidity stay where the place was admitted, so the way it opens cannot be walked yet (#8594).";
+
     private readonly MightAndMagic7MapEvents _events;
     private readonly Func<PartyKnowledge?> _knowledge;
     private readonly MightAndMagic7SpellEffects? _effects;
     private readonly IRandomService? _random;
     private readonly GameDuration _bonusLasts;
+    private readonly MightAndMagic7Loot? _loot;
+    private readonly MightAndMagic7Spells? _spells;
+    private readonly Func<PartyProgression?> _progression;
+    private readonly Func<string, ConversationPerson?> _people;
 
     /// <summary>Creates this game's fixtures over the map events content carries.</summary>
     /// <param name="events">The map events and the discovery table.</param>
@@ -124,17 +160,29 @@ internal sealed class MightAndMagic7Fixtures
     /// <param name="effects">The running effects a temporary resistance is left in, or null when this session keeps none.</param>
     /// <param name="random">The engine's random service a random jump draws from, or null when the product has none.</param>
     /// <param name="tuning">This game's tuning, which states how long a fixture's temporary bonus lasts.</param>
+    /// <param name="loot">This game's loot, which an item gift drawn at a treasure level is drawn from.</param>
+    /// <param name="spells">This game's magic, which a spell a fixture casts is rolled by.</param>
+    /// <param name="progression">The one writer of experience and skill points, read through a call for the same reason the knowledge owner is.</param>
+    /// <param name="people">Who one of the people table's ids is, which a step calling somebody over reads.</param>
     internal MightAndMagic7Fixtures(
         MightAndMagic7MapEvents events,
         Func<PartyKnowledge?>? knowledge = null,
         MightAndMagic7SpellEffects? effects = null,
         IRandomService? random = null,
-        TuningProfile? tuning = null)
+        TuningProfile? tuning = null,
+        MightAndMagic7Loot? loot = null,
+        MightAndMagic7Spells? spells = null,
+        Func<PartyProgression?>? progression = null,
+        Func<string, ConversationPerson?>? people = null)
     {
         _events = events ?? throw new ArgumentNullException(nameof(events));
         _knowledge = knowledge ?? (() => null);
         _effects = effects;
         _random = random;
+        _loot = loot;
+        _spells = spells;
+        _progression = progression ?? (() => null);
+        _people = people ?? (_ => null);
         TuningProfile read = tuning ?? MightAndMagic7Tuning.Read(null);
         _bonusLasts = GameDuration.FromHours(read.Whole(MightAndMagic7Tuning.FixtureBonusHours));
     }
@@ -273,6 +321,18 @@ internal sealed class MightAndMagic7Fixtures
                 : null;
         }
 
+        if (key.StartsWith(CounterPrefix, StringComparison.Ordinal))
+        {
+            if (!int.TryParse(key.AsSpan(CounterPrefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out int counter) || counter >= Counters)
+            {
+                return string.Create(CultureInfo.InvariantCulture, $"there are event counters 0 to {Counters - 1} only");
+            }
+
+            return value < 0 || value > elapsed
+                ? string.Create(CultureInfo.InvariantCulture, $"a counter cannot have been set outside the {elapsed} ms of game time the save had reached")
+                : null;
+        }
+
         return "no fixture of this game keeps a value of that name";
     }
 
@@ -405,6 +465,63 @@ internal sealed class MightAndMagic7Fixtures
         _ => KnowledgeKind.Effect,
     };
 
+    /// <summary>The name a place keeps when one of the event counters was last set under.</summary>
+    internal static string CounterKey(int counter) =>
+        string.Create(CultureInfo.InvariantCulture, $"{CounterPrefix}{counter}");
+
+    /// <summary>The rung a mastery word names, one novice to four grand master, or zero for none.</summary>
+    private static int Rung(string mastery) => mastery switch
+    {
+        "novice" => 1,
+        "expert" => 2,
+        "master" => 3,
+        "grandmaster" => 4,
+        _ => 0,
+    };
+
+    /// <summary>The skill a step's skill word names, as this game's content calls it.</summary>
+    private static SkillId? SkillOf(string word) => word switch
+    {
+        "staff" => new SkillId("Staff"),
+        "sword" => new SkillId("Sword"),
+        "dagger" => new SkillId("Dagger"),
+        "axe" => new SkillId("Axe"),
+        "spear" => new SkillId("Spear"),
+        "bow" => new SkillId("Bow"),
+        "mace" => new SkillId("Mace"),
+        "blaster" => new SkillId("Blaster"),
+        "shield" => new SkillId("Shield"),
+        "leather" => new SkillId("Leather"),
+        "chain" => new SkillId("Chain"),
+        "plate" => new SkillId("Plate"),
+        "fire" => new SkillId("Fire"),
+        "air" => new SkillId("Air"),
+        "water" => new SkillId("Water"),
+        "earth" => new SkillId("Earth"),
+        "spirit" => new SkillId("Spirit"),
+        "mind" => new SkillId("Mind"),
+        "body" => new SkillId("Body"),
+        "light" => new SkillId("Light"),
+        "dark" => new SkillId("Dark"),
+        "identify-item" => new SkillId("Identify Item"),
+        "merchant" => new SkillId("Merchant"),
+        "repair" => new SkillId("Repair"),
+        "bodybuilding" => new SkillId("Bodybuilding"),
+        "meditation" => new SkillId("Meditation"),
+        "perception" => new SkillId("Perception"),
+        "diplomacy" => new SkillId("Diplomacy"),
+        "thievery" => new SkillId("Thievery"),
+        "disarm-trap" => new SkillId("Disarm Traps"),
+        "dodge" => new SkillId("Dodging"),
+        "unarmed" => new SkillId("Unarmed"),
+        "identify-monster" => new SkillId("Identify Monster"),
+        "armsmaster" => new SkillId("Armsmaster"),
+        "stealing" => new SkillId("Stealing"),
+        "alchemy" => new SkillId("Alchemy"),
+        "learning" => new SkillId("Learning"),
+        _ => null,
+    };
+
     /// <summary>The subject a discovery row's note is kept under, which is the row's own number.</summary>
     internal static string DiscoverySubject(int number) =>
         string.Create(CultureInfo.InvariantCulture, $"discovery:{number}");
@@ -429,6 +546,9 @@ internal sealed class MightAndMagic7Fixtures
         private readonly Dictionary<string, int> _members = new(StringComparer.Ordinal);
         private readonly Dictionary<string, int> _carried = new(StringComparer.Ordinal);
         private readonly SortedDictionary<string, long> _kept = new(StringComparer.Ordinal);
+        private readonly Dictionary<PlacementContentId, string> _changes = [];
+        private readonly List<string> _residue = [];
+        private ConversationSubject? _speaks;
         private int _coins;
         private int _draws;
 
@@ -509,6 +629,40 @@ internal sealed class MightAndMagic7Fixtures
                     case "receive-damage":
                         if (Harm(mapEvent, current) is { } refusedHarm) return refusedHarm;
                         break;
+                    case "change-door-state":
+                        if (Door(mapEvent, current) is { } refusedDoor) return refusedDoor;
+                        break;
+                    case var presentation when PresentationSteps.Contains(presentation):
+                        // What a player would see or hear is not drawn here; the event's gameplay runs on.
+                        break;
+                    case "set-faces-bit":
+                        // A face group made invisible is presentation; one made passable, or made water, changes the
+                        // ground a party walks on, which this build's collision does not follow.
+                        if ((current.Flag & ~InvisibleFaceBit) != 0) Residue(CollisionResidue);
+                        break;
+                    case "give-item":
+                        if (Give(mapEvent, current) is { } refusedGift) return refusedGift;
+                        break;
+                    case "cast-spell":
+                        if (Cast(mapEvent, current, who) is { } refusedCast) return refusedCast;
+                        break;
+                    case "speak-npc":
+                        if (Speak(mapEvent, current) is { } refusedSpeech) return refusedSpeech;
+                        break;
+                    case "check-skill":
+                    {
+                        (bool holds, Refusal? refused) = CheckSkill(mapEvent, current, who);
+                        if (refused is not null) return refused;
+                        if (holds) next = current.Target ?? next;
+                        break;
+                    }
+
+                    case "set-npc-topic":
+                        return NotInterpreted(_target, mapEvent, current, "a 'set-npc-topic' instruction (a person's topics are content's, and changing one in play waits on the story's own owner, #8512)");
+                    case "is-actor-killed":
+                        return NotInterpreted(_target, mapEvent, current, "a 'is-actor-killed' instruction (counting a place's dead by group or kind waits on the population answering it, #8658)");
+                    case "toggle-actor-group-flag":
+                        return NotInterpreted(_target, mapEvent, current, "a 'toggle-actor-group-flag' instruction (turning a group of a place's creatures hostile waits on provocation being carried by the fight, #8658)");
                     case "check-season":
                     {
                         if (_context.Clock is not { } clock || InSeason(current.Which, clock.Now) is not { } holds)
@@ -563,10 +717,13 @@ internal sealed class MightAndMagic7Fixtures
             return InteractionOutcome.Applied(
                 sign ? ReadState : UsedState,
                 message,
+                string.Join(" ", _residue),
                 items: _items,
                 gain: _coins > 0 ? PartyCost.OfGold(_coins) : null,
                 learned: _learned,
-                kept: _kept);
+                kept: _kept,
+                changes: [.. _changes.Select(change => new InteractionTargetChange(change.Key, change.Value))],
+                speaks: _speaks);
         }
 
         /// <summary>The members a run starts on: the active one, which this build reads as the first able to act.</summary>
@@ -637,6 +794,20 @@ internal sealed class MightAndMagic7Fixtures
                     return (party.Purse.Coins + _coins >= step.Value, null);
                 case "item":
                     return (Carried(party, step.Value) > 0, null);
+                case "bank-gold":
+                    // The party's one balance, which every bank keeps (MightAndMagic7Services.BankHolding).
+                    return (party.Holdings.BalanceOf(MightAndMagic7Services.BankHolding) >= step.Value, null);
+                case "counter":
+                {
+                    // A counter holds when it was set and the stated hours have passed since (OpenEnroth
+                    // src/Engine/Objects/Character.cpp:3934-3951).
+                    if (step.Index is < 0 or >= Counters) return (false, VariableNotInterpreted(_target, mapEvent, step));
+                    long now = _context.Clock?.Elapsed.Milliseconds ?? 0;
+                    return (Kept(CounterKey(step.Index)) is { } set && now - set >= GameDuration.FromHours(step.Value).Milliseconds, null);
+                }
+
+                case "hireling":
+                    return (false, NotInterpreted(_target, mapEvent, step, "a comparison of the party's hirelings, which this build has none of (#8514)"));
             }
 
             Func<PartyMember, int, int?>? read = step.Variable switch
@@ -654,6 +825,12 @@ internal sealed class MightAndMagic7Fixtures
                     (member, index) => member.Attributes.TryGet(attribute, out int value) ? Member(index, $"attribute:{step.Which}", value) : null,
                 "resistance-bonus" when DamageKind(step.Which) is { } kind && _rules._effects is { } effects =>
                     (member, index) => Member(index, $"resistance:{step.Which}", effects.MagnitudeOn(member, SpellEffectIds.Resistance(kind))),
+                "resistance" when DamageKind(step.Which) is { } kind =>
+                    (member, index) => Member(index, $"stored:{step.Which}", member.Resistances.Of(kind)),
+                "attribute-bonus" when Attribute(step.Which) is { } attribute && _rules._effects is { } effects =>
+                    (member, index) => Member(index, $"bonus:{step.Which}", effects.MagnitudeOn(member, SpellEffectIds.Attribute(attribute))),
+                "skill-points" => (member, index) => Member(index, "skill-points", member.Progression.SkillPoints),
+                "experience" => (member, index) => (int)Math.Min(int.MaxValue, member.Progression.Experience + Member(index, "experience", 0)),
                 "condition" when Condition(step.Which) is { } condition =>
                     (member, index) => Member(index, $"condition:{step.Which}", member.Conditions.Has(condition) ? 1 : 0),
                 _ => null,
@@ -723,6 +900,25 @@ internal sealed class MightAndMagic7Fixtures
                     return null;
                 }
 
+                case ("gold", "set"):
+                {
+                    // Setting the purse is a payment or a find of the difference, through the same net figure.
+                    int held = party.Purse.Coins + _coins;
+                    _coins += Math.Max(0, step.Value) - held;
+                    return null;
+                }
+
+                case ("bank-gold", _):
+                    return VariableNotInterpreted(_target, mapEvent, step);
+                case ("counter", _):
+                    // Any write to a counter sets it to now (OpenEnroth src/Engine/Objects/Character.cpp:4365-4376).
+                    if (step.Index is < 0 or >= Counters) return VariableNotInterpreted(_target, mapEvent, step);
+                    Keep(CounterKey(step.Index), _context.Clock?.Elapsed.Milliseconds ?? 0);
+                    return null;
+                case ("hireling", _):
+                    return NotInterpreted(_target, mapEvent, step, "a change to the party's hirelings, which this build has none of (#8514)");
+                case ("history", _):
+                    return NotInterpreted(_target, mapEvent, step, "a line of the party's history book, whose table the importer does not read (#8512)");
                 case ("item", "subtract"):
                 {
                     ItemDefinitionId item = new(step.Value.ToString(CultureInfo.InvariantCulture));
@@ -811,6 +1007,67 @@ internal sealed class MightAndMagic7Fixtures
                     _effects.Add(() => effects.Resist(party, member, kind, after, lasts));
                     _done.Add(string.Create(CultureInfo.InvariantCulture, $"{member.Profile.Name} resists {step.Which} by {after}."));
                 },
+                ("resistance", "add" or "set") when DamageKind(step.Which) is { } kind => (member, index) =>
+                {
+                    // A permanent gift to what the character resists by nature, kept on the character and
+                    // capped at a byte (OpenEnroth src/Engine/Objects/Character.cpp:4788-4817).
+                    int now = Member(index, $"stored:{step.Which}", member.Resistances.Of(kind));
+                    int after = Math.Min(ResistanceLimit, op == "add" ? now + step.Value : step.Value);
+                    _members[$"{index}:stored:{step.Which}"] = after;
+                    _effects.Add(() => member.Resistances.Set(kind, after));
+                    _done.Add(string.Create(CultureInfo.InvariantCulture, $"{member.Profile.Name} resists {step.Which} by {after} for good."));
+                },
+                ("attribute-bonus", _) when Attribute(step.Which) is { } attribute && _rules._effects is { } effects => (member, index) =>
+                {
+                    // A temporary bonus is the running effect a spell raising the attribute leaves, which the fight
+                    // reads in the attribute's own sum; it lasts fixture.bonus-hours.
+                    int now = Member(index, $"bonus:{step.Which}", effects.MagnitudeOn(member, SpellEffectIds.Attribute(attribute)));
+                    int after = op switch { "add" => now + step.Value, "subtract" => now - step.Value, _ => step.Value };
+                    _members[$"{index}:bonus:{step.Which}"] = after;
+                    GameDuration lasts = _rules._bonusLasts;
+                    _effects.Add(() => effects.Leave(party, member, SpellEffectIds.Attribute(attribute), after, lasts));
+                    _done.Add(string.Create(CultureInfo.InvariantCulture, $"{member.Profile.Name}'s {attribute} is raised by {after} for a while."));
+                },
+                ("armour-class-bonus", _) when _rules._effects is { } effects => (member, index) =>
+                {
+                    // The armour a stone skin leaves on the character, which the armour class's own sum reads.
+                    int now = Member(index, "armour-bonus", effects.MagnitudeOn(member, SpellEffectIds.Armour));
+                    int after = op switch { "add" => now + step.Value, "subtract" => now - step.Value, _ => step.Value };
+                    _members[$"{index}:armour-bonus"] = after;
+                    GameDuration lasts = _rules._bonusLasts;
+                    _effects.Add(() => effects.Leave(party, member, SpellEffectIds.Armour, after, lasts));
+                    _done.Add(string.Create(CultureInfo.InvariantCulture, $"{member.Profile.Name}'s armour class is changed by {after} for a while."));
+                },
+                ("skill-points", "add") when _rules._progression() is { } progression => (member, _) =>
+                {
+                    _effects.Add(() => progression.Gift(member.Id, 0, step.Value));
+                    _done.Add(string.Create(CultureInfo.InvariantCulture, $"{member.Profile.Name} gains {step.Value} skill points."));
+                },
+                ("experience", "add") when _rules._progression() is { } progression => (member, index) =>
+                {
+                    Member(index, "experience", 0, step.Value);
+                    _effects.Add(() => progression.Gift(member.Id, step.Value, 0));
+                    _done.Add(string.Create(CultureInfo.InvariantCulture, $"{member.Profile.Name} gains {step.Value} experience."));
+                },
+                ("age", "set" or "add") => (member, _) =>
+                {
+                    // The donor's age modifier: a set restores it, an addition ages the character (OpenEnroth
+                    // src/Engine/Objects/Character.cpp:4084-4086 and 4686-4688). This build's offset counts
+                    // years only upward, so a set to anything restores youth and then ages by the figure.
+                    int years = Math.Max(0, step.Value);
+                    _effects.Add(() =>
+                    {
+                        if (op == "set") member.Progression.Rejuvenate();
+                        if (years > 0) member.Progression.Age(years);
+                    });
+                    _done.Add(op == "set" && years == 0 ? $"{member.Profile.Name} is young again." : $"{member.Profile.Name} ages.");
+                },
+                ("major-condition", "set") => (member, _) =>
+                {
+                    // Setting the worst condition clears every condition (OpenEnroth src/Engine/Objects/Character.cpp:4346-4349).
+                    _effects.Add(() => member.Conditions.ClearAll());
+                    _done.Add($"{member.Profile.Name} is cured of everything.");
+                },
                 ("condition", "add" or "set") when Condition(step.Which) is { } condition => (member, index) =>
                 {
                     _members[$"{index}:condition:{step.Which}"] = 1;
@@ -865,6 +1122,148 @@ internal sealed class MightAndMagic7Fixtures
             }
 
             return null;
+        }
+
+        /// <summary>Collects a door step: the door the place holds under the step's id, and the state it leaves it in.</summary>
+        /// <remarks>
+        /// The door is the door owner's target (<see cref="MightAndMagic7Interaction"/>), read in the word its
+        /// own use reads and recorded under its own identity, so a door a lever opened reads as open when the
+        /// party walks up to it. Open and close move a door to that end; toggle moves a door at rest to the
+        /// other (OpenEnroth <c>src/Engine/Graphics/Indoor.cpp:721-770</c>). A door id the place does not hold
+        /// moves nothing, as the donor's own lookup does.
+        /// </remarks>
+        private Refusal? Door(MapEvent mapEvent, MapEventStep step)
+        {
+            if (step.Action is not ("open" or "close" or "toggle"))
+            {
+                return NotInterpreted(_target, mapEvent, step, $"a door step whose action '{step.Action}' this game does not read");
+            }
+
+            PlacementDefinition? door = _context.PlaceTargets.FirstOrDefault(placement =>
+                string.Equals(placement.Content.Kind, MightAndMagic7Interaction.DoorPlacementKind, StringComparison.Ordinal) &&
+                placement.Source.GetInt32(DoorIdField) == step.Door);
+            if (door is null)
+            {
+                Residue(string.Create(CultureInfo.InvariantCulture, $"Door {step.Door} is not one this place holds, so nothing moved there."));
+                return null;
+            }
+
+            string now = _changes.TryGetValue(door.Content, out string? changed)
+                ? changed
+                : MightAndMagic7Interaction.DoorState(door, _context.TargetState(door.Content));
+            bool open = string.Equals(now, MightAndMagic7Interaction.OpenState, StringComparison.Ordinal);
+            bool opens = step.Action switch { "open" => true, "close" => false, _ => !open };
+            if (opens == open) return null;
+            _changes[door.Content] = opens ? MightAndMagic7Interaction.OpenState : MightAndMagic7Interaction.ClosedState;
+            _done.Add(opens ? "A door opens." : "A door closes.");
+            Residue(CollisionResidue);
+            return null;
+        }
+
+        /// <summary>Collects an item gift: the item the step names, or one drawn at its treasure level.</summary>
+        private Refusal? Give(MapEvent mapEvent, MapEventStep step)
+        {
+            if (Party is null) return NoParty(mapEvent, step);
+            if (step.Item != 0)
+            {
+                ItemDefinitionId named = new(step.Item.ToString(CultureInfo.InvariantCulture));
+                _carried[named.Value] = _carried.GetValueOrDefault(named.Value) + 1;
+                _items.Add(new InteractionItemYield(named));
+                return null;
+            }
+
+            if (_rules._loot is not { } loot || Rolls(mapEvent) is not { } rolls)
+            {
+                return new Refusal(
+                    MightAndMagic7Codes.FixtureNothingToRoll,
+                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}', whose step {step.Step} gives an item drawn at treasure level {step.Level}, and this product has no loot table or random service to draw it with: nothing was changed."));
+            }
+
+            if (loot.Given(step.Level, new LootFilter(step.ItemKind, step.ItemSkill), rolls) is not { } item) return null;
+            _carried[item.Definition.Value] = _carried.GetValueOrDefault(item.Definition.Value) + item.Count;
+            _items.Add(new InteractionItemYield(item.Definition, item.Count));
+            return null;
+        }
+
+        /// <summary>Collects a spell a fixture casts at the party: the spell's own roll at the step's rank and mastery.</summary>
+        /// <remarks>
+        /// The donor launches the spell from a point of the map at the party and lets it fly (OpenEnroth
+        /// <c>src/Engine/Spells/Spells.cpp:548-600</c>); this build flies nothing, so the spell lands on the
+        /// characters the run has chosen — the active one unless a step chose others — at the roll its own row
+        /// states, unreduced like a fixture's other harm. An approximation of where a bolt or a blast lands.
+        /// </remarks>
+        private Refusal? Cast(MapEvent mapEvent, MapEventStep step, List<int> who)
+        {
+            if (Party is not { } party) return NoParty(mapEvent, step);
+            string id = step.Spell.ToString(CultureInfo.InvariantCulture);
+            if (_rules._spells is not { } spells || spells.Spell(id) is not { } spell)
+            {
+                return new Refusal(
+                    MightAndMagic7Codes.FixtureSpellUnknown,
+                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}', whose step {step.Step} casts spell {id}, and the loaded spell table holds no such spell: nothing was changed."));
+            }
+
+            if (spells.Harm(spell) is not { } kind)
+            {
+                return NotInterpreted(_target, mapEvent, step, $"a cast of '{spell.Name}', which does no harm this game reads");
+            }
+
+            if (Rolls(mapEvent) is not { } rolls)
+            {
+                return new Refusal(
+                    MightAndMagic7Codes.FixtureNothingToRoll,
+                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}', whose step {step.Step} casts '{spell.Name}', and this product has no random service to roll it with: nothing was changed."));
+            }
+
+            DamageRoll roll = spells.Damage(spell, step.Rank, Rung(step.Mastery));
+            foreach (int index in who)
+            {
+                PartyMember member = party.Members[index];
+                int harm = roll.Roll(rolls.Under(string.Create(CultureInfo.InvariantCulture, $"cast/{step.Step}/{index}")), "harm");
+                _effects.Add(() => member.TakeDamage(harm));
+                _done.Add(string.Create(CultureInfo.InvariantCulture, $"{spell.Name} strikes {member.Profile.Name} for {harm} {kind} damage."));
+            }
+
+            return null;
+        }
+
+        /// <summary>Collects a call to one of the people: the conversation the use opens with them.</summary>
+        private Refusal? Speak(MapEvent mapEvent, MapEventStep step)
+        {
+            string id = string.Create(CultureInfo.InvariantCulture, $"npc-{step.Person}");
+            if (_rules._people(id) is not { } person)
+            {
+                return new Refusal(
+                    MightAndMagic7Codes.FixturePersonUnknown,
+                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs map event {mapEvent.Id} of place '{mapEvent.Place}', whose step {step.Step} calls over person {step.Person}, and the loaded people table holds nobody of that id: nothing was changed."));
+            }
+
+            _speaks = new ConversationSubject(id, [person]);
+            return null;
+        }
+
+        /// <summary>Whether any chosen character holds a skill at the step's rank and exactly its mastery.</summary>
+        /// <remarks>OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:517-524</c>: the rank at least, the mastery exactly.</remarks>
+        private (bool Holds, Refusal? Refused) CheckSkill(MapEvent mapEvent, MapEventStep step, List<int> who)
+        {
+            if (Party is not { } party) return (false, NoParty(mapEvent, step));
+            if (SkillOf(step.Which) is not { } skill || Rung(step.Mastery) == 0)
+            {
+                return (false, NotInterpreted(_target, mapEvent, step, $"a jump on the skill '{step.Which}' at '{step.Mastery}'"));
+            }
+
+            foreach (int index in who)
+            {
+                PartyMember member = party.Members[index];
+                if (member.Skills.TryGet(skill, out SkillEntry entry) && entry.Level >= step.Rank && entry.Tier.Value == Rung(step.Mastery)) return (true, null);
+            }
+
+            return (false, null);
+        }
+
+        private void Residue(string line)
+        {
+            if (!_residue.Contains(line, StringComparer.Ordinal)) _residue.Add(line);
         }
 
         private bool HasRecord(string name) =>

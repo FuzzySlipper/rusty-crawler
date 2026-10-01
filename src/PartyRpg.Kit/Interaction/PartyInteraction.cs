@@ -276,6 +276,8 @@ public sealed class PartyInteraction : IWorldInteractionScene
         InteractionContext context = new(_world.Place, target.Placement, target.Definition, _world.Party, _world.Clock)
         {
             PlaceValues = _world.States.ValuesOf(_world.Place),
+            PlaceTargets = _world.Placements,
+            TargetState = content => _world.States.StateOf(_world.Place, content).State,
         };
 
         // Requirements first, in the order the ruleset stated them: the first one the party does not meet is
@@ -314,6 +316,13 @@ public sealed class PartyInteraction : IWorldInteractionScene
 
         string taken = HandOver(target, outcome);
         _world.States.Keep(_world.Place, outcome.Kept);
+        foreach (InteractionTargetChange change in outcome.Changes)
+        {
+            // Another target the use moved is recorded as its own use would record it, so its incarnation
+            // advances too and a selection made before the lever was pulled cannot use the door it changed.
+            _world.States.Record(_world.Place, change.Target, change.State);
+        }
+
         InteractionTargetState state = _world.States.Record(_world.Place, target.Id.Content, outcome.State);
         InteractionTarget used = target with { State = state };
         return InteractionResult.Applied(used, outcome, taken.Length == 0 ? outcome.Message : $"{outcome.Message} {taken}");

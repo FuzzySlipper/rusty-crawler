@@ -61,6 +61,12 @@ public static class MightAndMagic7Codes
     /// <summary>The refusal code <c>fixture-nothing-to-roll</c>.</summary>
     public const string FixtureNothingToRoll = "fixture-nothing-to-roll";
 
+    /// <summary>The refusal code <c>fixture-person-unknown</c>: a step calls over somebody the people table does not hold.</summary>
+    public const string FixturePersonUnknown = "fixture-person-unknown";
+
+    /// <summary>The refusal code <c>fixture-spell-unknown</c>: a step casts a spell the spell table does not hold.</summary>
+    public const string FixtureSpellUnknown = "fixture-spell-unknown";
+
     /// <summary>The refusal code <c>fixture-runaway</c>.</summary>
     public const string FixtureRunaway = "fixture-runaway";
 

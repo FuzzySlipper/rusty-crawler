@@ -63,4 +63,12 @@ public sealed record InteractionContext(
     /// it into the ledger only when the use is applied.
     /// </remarks>
     public IReadOnlyDictionary<string, long> PlaceValues { get; init; } = new Dictionary<string, long>();
+
+    /// <summary>What the target's place holds, in content order, which a use that changes another target reads.</summary>
+    public IReadOnlyList<PlacementDefinition> PlaceTargets { get; init; } = [];
+
+    /// <summary>
+    /// The state word the party has left another target of the place in, or empty when nothing has happened to it.
+    /// </summary>
+    public Func<PlacementContentId, string> TargetState { get; init; } = static _ => string.Empty;
 }

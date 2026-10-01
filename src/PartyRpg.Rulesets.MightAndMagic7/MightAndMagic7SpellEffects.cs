@@ -253,12 +253,28 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     /// <param name="kind">The kind of harm resisted.</param>
     /// <param name="magnitude">How much is resisted.</param>
     /// <param name="lasts">How long it lasts.</param>
-    internal void Resist(PartyEntity party, PartyMember member, DamageKindId kind, int magnitude, GameDuration lasts)
+    internal void Resist(PartyEntity party, PartyMember member, DamageKindId kind, int magnitude, GameDuration lasts) =>
+        Leave(party, member, SpellEffectIds.Resistance(kind), magnitude, lasts);
+
+    /// <summary>
+    /// Leaves a temporary effect on one character that something other than a spell gave them — a resistance,
+    /// an attribute's bonus, armour — in the running effect the spell of that name leaves.
+    /// </summary>
+    /// <remarks>
+    /// The same adaptation <see cref="Resist"/> states: one magnitude per effect, so a well's bonus and a spell's
+    /// share it, and it ends on the clock rather than at the next rest.
+    /// </remarks>
+    /// <param name="party">The party the character belongs to.</param>
+    /// <param name="member">The character.</param>
+    /// <param name="effect">The effect, which a rule of the fight reads.</param>
+    /// <param name="magnitude">The magnitude it acts at.</param>
+    /// <param name="lasts">How long it lasts.</param>
+    internal void Leave(PartyEntity party, PartyMember member, EffectId effect, int magnitude, GameDuration lasts)
     {
         ArgumentNullException.ThrowIfNull(party);
         ArgumentNullException.ThrowIfNull(member);
         _running ??= new RunningSpellEffects(party, _clock, carrier => !LaidOut(carrier));
-        _running.StartOn(member, SpellEffectIds.Resistance(kind), magnitude, lasts);
+        _running.StartOn(member, effect, magnitude, lasts);
     }
 
     /// <inheritdoc />

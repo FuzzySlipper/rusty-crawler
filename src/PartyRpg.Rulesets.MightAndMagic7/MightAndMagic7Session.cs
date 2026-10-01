@@ -221,7 +221,11 @@ internal sealed class MightAndMagic7Session : IGameSession
             () => owners.Knowledge,
             spellEffects,
             context.Engine?.Random,
-            MightAndMagic7Tuning.Read(Declared(context.Content)));
+            MightAndMagic7Tuning.Read(Declared(context.Content)),
+            loot,
+            spells,
+            () => owners.Progression,
+            person => conversation?.PersonOf(person));
 
         // This game's journal policy is read once, here, over the loot reading that knows which item rows the
         // shipped table hands out as artifacts and relics: that is the one threshold this game states about
