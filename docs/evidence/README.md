@@ -14,6 +14,7 @@ What is published here is text only: no game data, no screenshots, no saves, and
 | [`walk-playtest.md`](walk-playtest.md) | Held keys walk, turn and jump the party on Emerald Island; a released key stops it; no transition could yet be walked into. |
 | [`walk-transition.md`](walk-transition.md) | Walking into an entrance's reach changes the place: Emerald Island's cave mouth and The Dragon's Lair's exit, both ways. |
 | [`travel-cost.md`](travel-cost.md) | A walked crossing charges the one clock a day and the larder a ration, once each, and arriving short weakens the party. |
+| [`creation-and-crossing.md`](creation-and-crossing.md) | A party made on the creation screen with each illegal choice refused by its rule, accepted, walked across two transitions that each charge a day and a ration, and saved with its portraits. |
 | [`save-resume.md`](save-resume.md) | A party created in the product crosses, saves, and a restarted host told to resume plays the same party, place, clock and pose. |
 | [`turn-based.md`](turn-based.md) | One fight switched between real time and rounds keeps every position, condition and recovery debt. |
 | [`promotions.md`](promotions.md) | A character promoted through both stages from the people who give the ranks, with the light/dark choice closing the opposed school. |

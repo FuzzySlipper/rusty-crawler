@@ -18,19 +18,24 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// deliberately unused: multiplying by them would be a rule no donor states.
 /// </para>
 /// <para>
-/// <b>An empty larder weakens every member.</b> That is the donor's starving case (OpenEnroth
-/// <c>src/Engine/Engine.cpp:1053-1058</c> puts the weak condition on every character and, with no food
-/// left, starts dividing health), and it is applied through the condition every member carries rather than
-/// by losing food the party does not have. The donor's health loss is not repeated here: health is spent
-/// through a character's own resource owner, and a rule that quietly reached into hit points while
-/// reporting a condition would be doing one thing and reporting another.
+/// <b>An empty larder weakens every member.</b> That is the donor's short arrival: a journey on foot whose
+/// days the larder cannot cover puts the weak condition on every character, and one begun with no food at
+/// all does the same (OpenEnroth <c>src/Application/Game.cpp:763-777</c>, the travel-by-foot message). Its
+/// day tick also divides health once the larder is empty (<c>src/Engine/Engine.cpp:1051-1058</c>; the weak
+/// condition set just above it, <c>1047-1049</c>, is its fatigue rule, which <see cref="MightAndMagic7Rest"/>
+/// owns). The condition is applied through the condition every member carries rather than by losing food the
+/// party does not have. The donor's health loss is not repeated here: health is spent through a character's
+/// own resource owner, and a rule that quietly reached into hit points while reporting a condition would be
+/// doing one thing and reporting another.
 /// </para>
 /// <para>
 /// <b>A fed day ends the hunger.</b> The rule is stated here because this is where hunger starts: the
 /// ledger asks this rule what a larder at the level it was left at does to the party, and a larder that
-/// still covers a day's rations means the party ate. The donor clears conditions through rest and cures
-/// rather than through eating, so this is our rule rather than its number — and it is stated where a
-/// recovery owner will read it when rest and temples arrive.
+/// still covers a day's rations means the party ate. The donor has no such rule: it clears the weak condition
+/// only on a full rest (<c>src/Engine/Party.cpp:698-721</c>, <c>Party::restAndHeal</c>, which the same
+/// travel message runs for a party that set out with food) and through cures, so this end is ours rather
+/// than its number. The donor's end is kept as well: a completed sleep in <see cref="MightAndMagic7Rest"/>
+/// clears the same condition.
 /// </para>
 /// <para>
 /// The party is held because hunger is the party's state and this rule is what both applies and ends it;
