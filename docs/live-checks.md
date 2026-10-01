@@ -40,6 +40,9 @@ committed.
 - **A scenario says which start it takes.** Its `scenario-start` entry's `"party": "scenario"` plays the party
   its `scenario-party` document fixes, with no creation screen; `"creation"`, or leaving the word out, opens
   creation. `playtest.observe`'s `composition.partyStart` and the panel's `Start` row name the start taken.
+- **Pick a start nothing will kill at once.** Places now hold the maps' own pre-placed creatures, so a start in
+  a lair puts a fresh party beside its keeper: a Red Dragon in Dragon's Lair killed a default party with one
+  ranged blow within two seconds of acceptance. Older readings that started there predate those creatures.
 - **Only the bundle's packs play.** A scenario pack the bundle does not name contributes nothing, but it is
   still validated: a broken one stops the start with a refusal that says it is not selected and the directory
   it was read from. A reading of both is in
