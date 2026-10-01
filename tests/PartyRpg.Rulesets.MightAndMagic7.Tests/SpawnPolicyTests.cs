@@ -115,6 +115,62 @@ public sealed class SpawnPolicyTests
         Assert.Contains(error.Issues, issue => issue.Code == "encounter-monster-unknown" && issue.Message.Contains("'99'", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void A_levels_own_creature_record_stands_as_one_creature_under_its_own_index_and_a_hidden_one_stands_as_nothing()
+    {
+        ContentCatalog catalog = Catalog(actorMonster: "6");
+        PlaceGraph graph = PlaceGraphLoader.Load(catalog);
+
+        // The record is the answer, not a request: without any random service it stands, through the same seam
+        // and the same population the encounters resolve through.
+        MightAndMagic7Spawns spawns = MightAndMagic7Spawns.Compose(catalog, random: null);
+        using PlacePopulation population = new(graph, new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()), composer: null, spawns);
+        IReadOnlyList<PlacePopulationEntity> held = population.Step(Home, []);
+        PlacePopulationEntity own = Assert.Single(held, entity => entity.Placement.SourceField == "actors");
+
+        // One creature of the fight's own kind, at the record's point and facing, keeping the actor array's field and
+        // index — the number a map event counting one creature's dead names it by — with its row and group.
+        Assert.Equal(new PlacementContentId("monster", "monster-actor-7"), own.Content);
+        Assert.Equal(7, own.Placement.SourceIndex);
+        Assert.Equal(new PlacePose(500, -500, 32, 1024, 0), own.Pose);
+        Assert.Equal("6", own.Placement.Source.GetId("monster"));
+        Assert.Equal(9, own.Placement.Source.GetInt32("group"));
+        Assert.Equal("actor-7", own.Placement.Source.GetString("actorPlacement"));
+        Assert.True(MightAndMagic7Fixtures.IsActor(own.Placement));
+
+        // The hidden record — the donor's Disabled state — stands as nothing, and neither placement is a thing in
+        // the world of its own.
+        Assert.DoesNotContain(held, entity => entity.Placement.SourceField == "actors" && entity.Placement.SourceIndex == 8);
+        Assert.DoesNotContain(population.Entities, entity => entity.Content.Kind == MightAndMagic7Spawns.ActorPlacementKind);
+        PlacementDefinition hidden = PlacePopulationContent.Read(graph).PlacementsOf(Home).Single(placement => placement.Content.Id == "actor-8");
+        Assert.Empty(MightAndMagic7Spawns.Stand(hidden.Source.Payload));
+
+        // An errand's count of a kind in a place counts the level's own creature beside the encounters' ones.
+        Dictionary<string, int> counted = MightAndMagic7Spawns.Compose(catalog, new KeyedTestRandom()).Count(catalog)[Home.Value];
+        using PlacePopulation drawn = new(graph, new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()), composer: null, MightAndMagic7Spawns.Compose(catalog, new KeyedTestRandom()));
+        Assert.Equal(
+            drawn.Step(Home, [])
+                .Where(entity => entity.Content.Kind == "monster")
+                .GroupBy(entity => entity.Placement.Source.GetId("monster"))
+                .ToDictionary(group => group.Key, group => group.Count()),
+            counted);
+        int drawnOfRow = drawn.Entities.Count(entity => entity.Placement.SourceField == "spawnPoints" && entity.Placement.Source.GetId("monster") == "6");
+        Assert.Equal(drawnOfRow + 1, counted["6"]);
+    }
+
+    [Fact]
+    public void A_levels_own_creature_naming_a_row_the_monster_table_does_not_carry_is_refused_at_composition()
+    {
+        ContentCatalog catalog = Catalog(actorMonster: "77");
+
+        ContentValidationException error = Assert.Throws<ContentValidationException>(
+            () => MightAndMagic7Spawns.Compose(catalog, new KeyedTestRandom()));
+        ContentValidationIssue issue = Assert.Single(error.Issues);
+        Assert.Equal("actor-monster-unknown", issue.Code);
+        Assert.Contains("actor-7", issue.Message, StringComparison.Ordinal);
+        Assert.Contains("'77'", issue.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>Every creature a population over the place holds, as the fields a save and a fight would read.</summary>
     private static IReadOnlyList<string> Populate(PlaceGraph graph, MightAndMagic7Spawns spawns)
     {
@@ -127,8 +183,26 @@ public sealed class SpawnPolicyTests
         ];
     }
 
-    /// <summary>A place holding one random encounter and one graded one, over three variant rows.</summary>
-    private static ContentCatalog Catalog(string variantC = "6") => ContentCatalogLoader.Load(
+    /// <summary>
+    /// Two of the level's own creature records as the importer writes them: one standing, and one the level holds
+    /// hidden; <c>{actorMonster}</c> is the standing one's row.
+    /// </summary>
+    private const string OwnCreatures =
+        """
+        ,
+                      { "id": "actor-7", "kind": "actor", "sourceField": "actors", "sourceIndex": 7, "x": 500, "y": -500, "z": 32, "yaw": 1024,
+                        "positionSource": "actor-record", "actorName": "Beast", "monster": {actorMonster}, "monsterName": "Beast C",
+                        "group": 9, "attributes": 0, "aiState": 0, "hitPoints": 40, "sectorId": 0, "uniqueNameIndex": 2 },
+                      { "id": "actor-8", "kind": "actor", "sourceField": "actors", "sourceIndex": 8, "x": 0, "y": 900, "z": 0, "yaw": 0,
+                        "positionSource": "actor-record", "actorName": "Beast", "monster": 4, "monsterName": "Beast A",
+                        "group": 0, "attributes": 65536, "aiState": 19, "hitPoints": 10, "sectorId": 0, "hidden": true }
+        """;
+
+    /// <summary>
+    /// A place holding one random encounter and one graded one, over three variant rows, and — when a row is given for
+    /// it — two of the level's own creature records (<see cref="OwnCreatures"/>).
+    /// </summary>
+    private static ContentCatalog Catalog(string variantC = "6", string? actorMonster = null) => ContentCatalogLoader.Load(
         new PolicyContentSource()
             .Add(
                 "packs/world/pack.json",
@@ -165,7 +239,7 @@ public sealed class SpawnPolicyTests
                         "variants": [
                           { "grade": "A", "monster": 4, "monsterName": "Beast A" },
                           { "grade": "B", "monster": 5, "monsterName": "Beast B" },
-                          { "grade": "C", "monster": {{variantC}}, "monsterName": "Beast C" } ] } ] } ] }
+                          { "grade": "C", "monster": {{variantC}}, "monsterName": "Beast C" } ] }{{(actorMonster is null ? string.Empty : OwnCreatures.Replace("{actorMonster}", actorMonster, StringComparison.Ordinal))}} ] } ] }
                 """)
             .Add(
                 "packs/world/monsters.json",

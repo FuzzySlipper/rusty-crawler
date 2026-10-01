@@ -41,6 +41,11 @@ namespace MightAndMagic7.Import.Maps;
 /// The unique-name index the record carries, which the donor reads from its placed-monster names before it
 /// reads the NPC table; non-zero means the actor has a name of its own.
 /// </param>
+/// <param name="AiState">
+/// The record's AI state as the record stores it (OpenEnroth <c>src/Engine/Objects/ActorEnums.h:56-77</c>), which
+/// says whether the actor is standing in the level at all: a record whose state is dying, dead or removed is a
+/// creature the level no longer holds.
+/// </param>
 public sealed record MapActor(
     int Index,
     string Name,
@@ -52,7 +57,8 @@ public sealed record MapActor(
     int YawAngle,
     int SectorId,
     int Group,
-    int UniqueNameIndex)
+    int UniqueNameIndex,
+    int AiState = 0)
 {
     /// <summary>Whether the actor is somebody in the game's NPC table rather than a monster.</summary>
     public bool IsPerson => NpcId != 0;

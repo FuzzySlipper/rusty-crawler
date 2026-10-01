@@ -44,6 +44,18 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// creatures that cannot be told apart; the spread is ours.
 /// </para>
 /// <para>
+/// <b>A level's own creatures are placed through the same seam.</b> The importer also writes one placement of kind
+/// <c>actor</c> per actor record a map's delta carries that names no person: the monster row it is, where it stands
+/// and faces, its group and attributes, and its index in the level's own actor array. The donor loads that array
+/// before its spawn records add theirs (OpenEnroth <c>src/Engine/Graphics/Indoor.cpp:907-922</c>), and reloads it
+/// when a place respawns (<c>Indoor.cpp:310-319</c>), so it is what a first visit and every restore hold. Such a
+/// placement stands as exactly one creature, at the record's point and facing, keeping the actor array's own field
+/// and index — the number a map event counting one creature's dead names it by (<c>Actor.cpp:2811-2834</c>) — and
+/// draws nothing. A record the level holds hidden (<c>"hidden": true</c>, the donor's <c>Disabled</c> state) stands
+/// as nothing: the donor neither shows nor runs it until something clears its bit (<c>Actor.cpp:124-136</c>), and no
+/// shipped event step does.
+/// </para>
+/// <para>
 /// <b>A product that cannot draw resolves only what needs no draw.</b> Without the engine's random service a
 /// graded record still puts its one creature on the field, and a random one puts nothing, which is reported
 /// rather than filled from an invented source. A resolution is remembered per placement, so the population and
@@ -54,6 +66,12 @@ internal sealed class MightAndMagic7Spawns : IPlacementExpansion
 {
     /// <summary>The placement kind a spawn record's encounter is written under.</summary>
     internal const string EncounterPlacementKind = "encounter";
+
+    /// <summary>The placement kind a level's own creature record is written under.</summary>
+    internal const string ActorPlacementKind = "actor";
+
+    /// <summary>The field that marks a level's own creature record as one the level holds hidden.</summary>
+    internal const string HiddenField = "hidden";
 
     /// <summary>The seed every draw of this game's spawns is made under.</summary>
     /// <remarks>The engine's random service takes an explicit seed and reads no wall clock, so the product states one.</remarks>
@@ -106,9 +124,56 @@ internal sealed class MightAndMagic7Spawns : IPlacementExpansion
     public IReadOnlyList<PlacementDefinition>? Expand(PlaceId place, PlacementDefinition placement)
     {
         ArgumentNullException.ThrowIfNull(placement);
+        if (string.Equals(placement.Content.Kind, ActorPlacementKind, StringComparison.Ordinal)) return Stand(placement.Source.Payload);
         if (!string.Equals(placement.Content.Kind, EncounterPlacementKind, StringComparison.Ordinal)) return null;
         return Resolve(place, placement.Content.Id, placement.Source.Payload);
     }
+
+    /// <summary>The creature a level's own actor record stands as: itself, or nothing when the level holds it hidden.</summary>
+    /// <remarks>
+    /// The record is the answer rather than a request, so nothing is drawn and nothing is remembered: the same
+    /// content stands the same creature on every read. It keeps the record's field and index, so a count of one
+    /// creature's dead finds it by the number the level gives it, and the creature's own identity is that number
+    /// too, which no encounter's creature can share.
+    /// </remarks>
+    /// <param name="actor">The actor placement as content states it.</param>
+    /// <returns>The one creature placement, or none for a hidden record.</returns>
+    internal static IReadOnlyList<PlacementDefinition> Stand(JsonElement actor)
+    {
+        if (Hidden(actor)) return [];
+        string index = ContentEntry.ReadId(actor, "sourceIndex");
+        string id = $"monster-actor-{index}";
+        using MemoryStream buffer = new();
+        using (Utf8JsonWriter writer = new(buffer))
+        {
+            writer.WriteStartObject();
+            writer.WriteString(PlacePopulationContent.IdField, id);
+            writer.WriteString(PlacePopulationContent.KindField, MightAndMagic7Combat.CreaturePlacementKind);
+
+            // Every field the record states travels as it is — its field and index, its point and facing, its row
+            // and group — and the actor placement it came from is named beside them, so the creature reads exactly
+            // as the record wrote it and a report can follow it back.
+            foreach (JsonProperty property in actor.EnumerateObject())
+            {
+                if (property.NameEquals(PlacePopulationContent.IdField) || property.NameEquals(PlacePopulationContent.KindField)) continue;
+                property.WriteTo(writer);
+            }
+
+            writer.WriteString("actorPlacement", ContentEntry.ReadId(actor, PlacePopulationContent.IdField));
+            writer.WriteEndObject();
+        }
+
+        using JsonDocument document = JsonDocument.Parse(buffer.ToArray());
+        return [PlacePopulationContent.Definition(
+            new PlacementContentId(MightAndMagic7Combat.CreaturePlacementKind, id),
+            document.RootElement.Clone())];
+    }
+
+    /// <summary>Whether a level's own creature record is one the level holds hidden.</summary>
+    private static bool Hidden(JsonElement actor) =>
+        actor.ValueKind == JsonValueKind.Object &&
+        actor.TryGetProperty(HiddenField, out JsonElement hidden) &&
+        hidden.ValueKind == JsonValueKind.True;
 
     /// <summary>The creatures one encounter placement resolves to, the same on every call.</summary>
     /// <param name="place">The place the encounter stands in.</param>
@@ -163,7 +228,10 @@ internal sealed class MightAndMagic7Spawns : IPlacementExpansion
         return resolved;
     }
 
-    /// <summary>Counts, per place and per monster row, the creatures every encounter content states resolves to.</summary>
+    /// <summary>
+    /// Counts, per place and per monster row, the creatures every encounter content states resolves to and every
+    /// level's own creature record stands as.
+    /// </summary>
     /// <remarks>
     /// This is the same resolution the population makes — remembered per placement — so an errand that asks for
     /// every creature of a kind in a place counts exactly the creatures the party will find there.
@@ -178,10 +246,12 @@ internal sealed class MightAndMagic7Spawns : IPlacementExpansion
         {
             foreach (JsonElement placement in place.GetArray(PlacePopulationContent.PlacementsField))
             {
-                if (!string.Equals(ContentEntry.ReadString(placement, PlacePopulationContent.KindField), EncounterPlacementKind, StringComparison.Ordinal)) continue;
+                string kind = ContentEntry.ReadString(placement, PlacePopulationContent.KindField);
+                bool own = string.Equals(kind, ActorPlacementKind, StringComparison.Ordinal);
+                if (!own && !string.Equals(kind, EncounterPlacementKind, StringComparison.Ordinal)) continue;
                 string id = ContentEntry.ReadId(placement, PlacePopulationContent.IdField);
                 if (id.Length == 0) continue;
-                foreach (PlacementDefinition creature in Resolve(new PlaceId(place.Id), id, placement))
+                foreach (PlacementDefinition creature in own ? Stand(placement) : Resolve(new PlaceId(place.Id), id, placement))
                 {
                     string row = creature.Source.GetId(MightAndMagic7Combat.MonsterField);
                     if (!placed.TryGetValue(place.Id, out Dictionary<string, int>? byRow)) placed[place.Id] = byRow = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -323,8 +393,36 @@ internal sealed class MightAndMagic7Spawns : IPlacementExpansion
         {
             foreach (JsonElement placement in place.GetArray(PlacePopulationContent.PlacementsField))
             {
-                if (!string.Equals(ContentEntry.ReadString(placement, PlacePopulationContent.KindField), EncounterPlacementKind, StringComparison.Ordinal)) continue;
+                string kind = ContentEntry.ReadString(placement, PlacePopulationContent.KindField);
                 string id = ContentEntry.ReadId(placement, PlacePopulationContent.IdField);
+                if (string.Equals(kind, ActorPlacementKind, StringComparison.Ordinal))
+                {
+                    // A level's own creature names its row and its index in the level's actor array, which is its
+                    // identity as a creature; one that names neither could stand as nothing the fight or a count
+                    // of the dead could read.
+                    string row = ContentEntry.ReadId(placement, MightAndMagic7Combat.MonsterField);
+                    if (!monsters.Contains(row))
+                    {
+                        issues.Add(new ContentValidationIssue(
+                            "actor-monster-unknown",
+                            $"place '{place.Id}' actor '{id}' names monster '{row}', which no monster row in this content describes.",
+                            pack.PackId,
+                            document.DocumentId));
+                    }
+
+                    if (ContentEntry.ReadId(placement, "sourceIndex").Length == 0)
+                    {
+                        issues.Add(new ContentValidationIssue(
+                            "actor-index-missing",
+                            $"place '{place.Id}' actor '{id}' states no 'sourceIndex', which is the number its level gives it and the creature's own identity.",
+                            pack.PackId,
+                            document.DocumentId));
+                    }
+
+                    continue;
+                }
+
+                if (!string.Equals(kind, EncounterPlacementKind, StringComparison.Ordinal)) continue;
                 EncounterFacts facts = Read(placement);
                 if (facts.FixedGrade is { } grade && !Grades.Contains(grade, StringComparer.Ordinal))
                 {
@@ -358,7 +456,7 @@ internal sealed class MightAndMagic7Spawns : IPlacementExpansion
 
         if (issues.Count > 0)
         {
-            throw new ContentValidationException($"This game's encounters cannot be resolved: {issues[0].Message}", issues);
+            throw new ContentValidationException($"This game's encounters and placed creatures cannot be resolved: {issues[0].Message}", issues);
         }
     }
 

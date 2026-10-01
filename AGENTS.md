@@ -108,8 +108,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   party state and hand off to counters.
 - **Combat.** One fight over the live world with two pacings over one recovery quantity, one resolution
   path, conditions up to death, corpses and loot through the container mechanism, and cleared places
-  restored by the clock. Creatures come from `encounter` placements the ruleset resolves when a place is
-  populated, and this game's AI orders them through the gate the player's control uses. What a spell leaves
+  restored by the clock. Creatures come from `encounter` placements the ruleset resolves and from the maps'
+  own `actor` records, both when a place is populated, and this game's AI orders them through the gate the player's control uses. What a spell leaves
   on a creature is the creature's own state, and a charm or a binding puts it on the party's `Ally` side.
 - **Growth and magic.** `PartyProgression` is the one writer of experience, levels, skill points, ranks and
   promotions (the light/dark choice lives in the character's class and is irreversible). Skills have four
@@ -132,7 +132,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 
 - Stone 3, world: every travel link accounted for (#8577); duplicate arrival ids refused (#8707); the only
   region-to-region reach cannot be walked (#8713); creatures cannot path around a wall because places carry
-  no navigation cells (#8665); the maps' own pre-placed creatures are not imported (#9036).
+  no navigation cells (#8665).
 - Stone 4, party: a scenario cannot choose between creation and its own party (#8589); both creation paths
   proved to compose the same owners (#8688).
 - Stone 5, interaction and services: opened doors and emptied containers are not saved (#8593), and a

@@ -31,6 +31,10 @@ namespace MightAndMagic7.Import.Tool;
 /// What the levels' spawn records produced: the encounter each actor spawn asks for, and every record nothing
 /// was emitted for with its reason.
 /// </param>
+/// <param name="Creatures">
+/// What the maps' own actor records that are not people produced: the creatures each level is built holding,
+/// numbered as the level numbers them, and every record nothing was placed for with its reason.
+/// </param>
 /// <param name="Maps">What the places' automaps hold.</param>
 /// <param name="Fixtures">
 /// What the fixture emission produced: the things whose use raises one of a place's own events, the events
@@ -46,6 +50,7 @@ internal sealed record PackWriteResult(
     PlaceServiceSummary Services,
     PlacePeopleSummary People,
     PlaceEncounterSummary Encounters,
+    PlaceCreatureSummary Creatures,
     PlaceMapSummary Maps,
     PlaceFixtureSummary Fixtures)
 {
@@ -75,7 +80,7 @@ internal static partial class PackWriter
     /// leaving a checker to infer absence from a missing key.
     /// </remarks>
     private static readonly string[] PlacementKinds =
-        ["spawn", "encounter", "decoration", "door", "light", "container", "sprite", "service", "residence", "person", "fixture"];
+        ["spawn", "encounter", "actor", "decoration", "door", "light", "container", "sprite", "service", "residence", "person", "fixture"];
 
     /// <summary>How much of a place's map data an import reads.</summary>
     internal enum MapDetail
@@ -142,6 +147,10 @@ internal static partial class PackWriter
         // spawn point and the encounter it asks for are one reading of one record rather than two.
         PlaceEncounterSummary encounters = PlaceEncounters.Emit(tables, maps);
 
+        // The creatures a level is built holding are the same delta's actor records the people are read from,
+        // every one that names no NPC row, placed under the index the level numbers it by.
+        PlaceCreatureSummary creatures = PlaceCreatures.Emit(tables, maps);
+
         // The fixtures are the raised events no other emitter answers for, read from the same decoded faces
         // and the same programs the reaches, containers and counters are, with the text their steps print
         // resolved from each map's own string table.
@@ -170,11 +179,11 @@ internal static partial class PackWriter
             services);
         List<(string, int, int)> packs =
         [
-            WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers, services, people, encounters, fixtures),
+            WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers, services, people, encounters, creatures, fixtures),
             world,
         ];
         WriteBundleFragment(outputRoot, provenance, packs);
-        return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions), entrances, containers, services, people, encounters, mapped, fixtures);
+        return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions), entrances, containers, services, people, encounters, creatures, mapped, fixtures);
     }
 
     /// <summary>
@@ -261,11 +270,12 @@ internal static partial class PackWriter
         PlaceServiceSummary services,
         PlacePeopleSummary people,
         PlaceEncounterSummary encounters,
+        PlaceCreatureSummary creatures,
         PlaceFixtureSummary fixtures)
     {
         List<(string Path, string DocumentId, string Kind, int Entries)> documents =
         [
-            ("places.json", "places", "place", WritePlaces(packDirectory, tables, maps, containers, services, people, encounters, fixtures)),
+            ("places.json", "places", "place", WritePlaces(packDirectory, tables, maps, containers, services, people, encounters, creatures, fixtures)),
             ("place-events.json", "place-events", PlaceEventDefinitionKind, WritePlaceEvents(packDirectory, fixtures)),
             ("discoveries.json", "discoveries", DiscoveryDefinitionKind, WriteDiscoveries(packDirectory, tables)),
             ("history.json", "history", HistoryDefinitionKind, WriteHistory(packDirectory, tables)),

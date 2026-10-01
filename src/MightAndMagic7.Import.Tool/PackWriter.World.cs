@@ -231,6 +231,7 @@ internal static partial class PackWriter
         PlaceServiceSummary services,
         PlacePeopleSummary people,
         PlaceEncounterSummary encounters,
+        PlaceCreatureSummary creatures,
         PlaceFixtureSummary fixtures)
     {
         // A place's fixtures stand where the faces raising their event are, so they are grouped by place and
@@ -267,6 +268,12 @@ internal static partial class PackWriter
         Dictionary<int, IReadOnlyList<PlaceEncounterPlacement>> encountersByPlace = encounters.Placements
             .GroupBy(placement => placement.PlaceId)
             .ToDictionary(group => group.Key, group => (IReadOnlyList<PlaceEncounterPlacement>)[.. group]);
+
+        // A level's own creatures stand where their actor records put them, grouped by place like the people
+        // the same records are.
+        Dictionary<int, IReadOnlyList<PlaceCreaturePlacement>> creaturesByPlace = creatures.Placements
+            .GroupBy(placement => placement.PlaceId)
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<PlaceCreaturePlacement>)[.. group]);
         List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];
         foreach (MapStatsRecord map in tables.Maps.Maps)
         {
@@ -318,6 +325,7 @@ internal static partial class PackWriter
                         writer,
                         decoded,
                         encountersByPlace.GetValueOrDefault(map.Id, []),
+                        creaturesByPlace.GetValueOrDefault(map.Id, []),
                         containersByPlace.GetValueOrDefault(map.Id, []),
                         objectsByPlace.GetValueOrDefault(map.Id, []),
                         countersByPlace.GetValueOrDefault(map.Id, []),
@@ -372,6 +380,7 @@ internal static partial class PackWriter
         Utf8JsonWriter writer,
         DecodedMap map,
         IReadOnlyList<PlaceEncounterPlacement> encounters,
+        IReadOnlyList<PlaceCreaturePlacement> creatures,
         IReadOnlyList<PlaceChestPlacement> containers,
         IReadOnlyList<PlaceSpriteObjectPlacement> spriteObjects,
         IReadOnlyList<PlaceServicePlacement> counters,
@@ -423,6 +432,26 @@ internal static partial class PackWriter
 
                 field.WriteEndArray();
             }, encounter.PlacementId));
+        }
+
+        // A creature the level's own actor record stands is written as the record states it, under the actor
+        // array's own field and index — the number a map event counting one creature's death names it by — and
+        // nothing about it is chosen: whether a hidden one stands is the ruleset's reading.
+        foreach (PlaceCreaturePlacement creature in creatures)
+        {
+            placements.Add(new Placement(PlaceCreatures.PlacementKind, creature.SourceActorIndex, "actors", new PlacementPoint(creature.X, creature.Y, creature.Z), creature.Yaw, "actor-record", field =>
+            {
+                field.WriteString("actorName", creature.SourceActorName);
+                field.WriteNumber("monster", creature.MonsterId);
+                field.WriteString("monsterName", creature.MonsterName);
+                field.WriteNumber("group", creature.Group);
+                field.WriteNumber("attributes", creature.Attributes);
+                field.WriteNumber("aiState", creature.AiState);
+                field.WriteNumber("hitPoints", creature.HitPoints);
+                field.WriteNumber("sectorId", creature.SectorId);
+                if (creature.UniqueNameIndex != 0) field.WriteNumber("uniqueNameIndex", creature.UniqueNameIndex);
+                if (creature.Hidden) field.WriteBoolean("hidden", true);
+            }, creature.PlacementId));
         }
 
         foreach (MapDecoration decoration in map.Decorations)

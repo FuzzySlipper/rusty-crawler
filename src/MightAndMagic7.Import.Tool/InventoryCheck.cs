@@ -141,6 +141,14 @@ internal static class InventoryCheck
             Check(failures, "fewest creatures the encounters resolve to", 1900, written.Encounters.FewestCreatures);
             Check(failures, "most creatures the encounters resolve to", 5458, written.Encounters.MostCreatures);
 
+            // The creatures a level is built holding are its own actor records that name no person, placed under
+            // the index the level numbers them by; the hidden ones are placed and do not stand.
+            Check(failures, "creatures the maps' own records place", 703, written.Creatures.CreatureCount);
+            Check(failures, "actor records refused as creatures", 0, written.Creatures.Refusals.Count);
+            Check(failures, "creatures the maps hold hidden", 181, written.Creatures.HiddenCount);
+            Check(failures, "places holding their own creatures", 36, written.Creatures.PopulatedPlaces);
+            Check(failures, "creatures in the Temple of Baa", 35, written.Creatures.PerPlace.GetValueOrDefault(45));
+
             // A fixture is a clicked face group or decoration whose event no other emitter answers for; its event
             // and the timers that keep what it gives are carried as normalized steps, and the notes those steps
             // write are the discovery table's rows.

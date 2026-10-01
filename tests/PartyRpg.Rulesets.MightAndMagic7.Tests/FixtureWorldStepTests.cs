@@ -276,6 +276,99 @@ public sealed partial class FixturePolicyTests
         Assert.Equal("Nobody answers the gong.", ProjectedNode.Of(resumedUi.Latest().Value).Field("interaction").Field("message").AsString());
     }
 
+    [Fact]
+    public void A_session_counts_the_dead_of_a_levels_own_creature_by_the_index_its_level_gives_it()
+    {
+        (string Path, string Text)[] content = SpellEffectPolicyTests.Content(
+            places: ($"{RulesetTestContext.ContentDirectory}/content-packs/world/places.json", AltarPlaces),
+            extra:
+            [
+                ($"{RulesetTestContext.ContentDirectory}/content-packs/world/events.json", AltarEvents, """{ "path": "events.json", "documentId": "events", "definitionKind": "place-event" }"""),
+            ]);
+        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(new InMemoryPersistenceService(), content);
+        using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
+            RulesetTestContext.RulesetContext(context, ui) with { Use = new UseIntentNames(Declared.UseIntent, Declared.UiActionContract) });
+        session.Start();
+        session.Update(RulesetTestContext.Update(1, 1));
+        MightAndMagic7Session live = (MightAndMagic7Session)session;
+
+        // The place's own actor records are populated through the same seam as its encounters: the standing one is a
+        // creature the fight holds, under the index the level gives it, and the hidden one stands as nothing.
+        IReadOnlyList<PlaceActor> actors = MightAndMagic7Fixtures.ActorsOf(live.World!, EmeraldIsle)!;
+        PlaceActor priest = Assert.Single(actors, actor => actor.Placement.SourceField == MightAndMagic7Fixtures.ActorSourceField);
+        Assert.Equal(34, priest.Placement.SourceIndex);
+        Assert.Equal("monster-actor-34", priest.Placement.Content.Id);
+        Assert.False(priest.Down);
+        Combatant standing = live.Combat!.Combatants.Single(combatant => combatant.Subject.Placement?.Content.Id == "monster-actor-34");
+
+        // The altar asks whether actor 34 is dead, as the Temple of Baa's own leaving event asks (event 2 of
+        // d04.evt, step 1): it is not, until the creature falls.
+        session.Update(RulesetTestContext.Update(2, 1, RulesetTestContext.Digital(Declared.UseIntent)));
+        Assert.Equal("The priest still stands.", ProjectedNode.Of(ui.Latest().Value).Field("interaction").Field("message").AsString());
+
+        Assert.True(CreatureHealth.Find(standing.Subject.Entity!.Actor)!.Wound(100_000));
+        session.Update(RulesetTestContext.Update(3, 1));
+        Assert.True(Assert.Single(MightAndMagic7Fixtures.ActorsOf(live.World!, EmeraldIsle)!, actor => actor.Placement.SourceIndex == 34).Down);
+        session.Update(RulesetTestContext.Update(4, 1, RulesetTestContext.Digital(Declared.UseIntent)));
+        Assert.Equal("The priest is dead.", ProjectedNode.Of(ui.Latest().Value).Field("interaction").Field("message").AsString());
+    }
+
+    [ImportedFact("place-events.json")]
+    public void The_operators_Temple_of_Baa_holds_its_own_creatures_and_its_actor_34_check_reads_the_priests_death()
+    {
+        ContentCatalog catalog = ImportedContent.Load();
+        PlaceId temple = new("45");
+        PlacePopulationContent placed = PlacePopulationContent.Read(MightAndMagic7World.Graph(catalog), MightAndMagic7Spawns.Compose(catalog, new KeyedTestRandom()));
+
+        // The dungeon holds the 35 creatures its own actor records stand, beside what its spawn records resolve to,
+        // each under the index the level gives it; actor 34 is a priest of the moon (row 18) with a name of its own.
+        List<PlacementDefinition> own = [.. placed.PlacementsOf(temple).Where(placement => placement.SourceField == MightAndMagic7Fixtures.ActorSourceField)];
+        Assert.Equal(35, own.Count);
+        Assert.All(own, placement => Assert.Equal(MightAndMagic7Combat.CreaturePlacementKind, placement.Content.Kind));
+        Assert.Equal(Enumerable.Range(0, 35), own.Select(placement => placement.SourceIndex ?? -1).Order());
+        PlacementDefinition priest = Assert.Single(own, placement => placement.SourceIndex == 34);
+        Assert.Equal("18", priest.Source.GetId(MightAndMagic7Combat.MonsterField));
+        Assert.Equal(3, priest.Source.GetInt32("uniqueNameIndex"));
+
+        // The temple's own leaving event asks whether actor 34 is dead (event 2 of d04.evt, step 1). That event is
+        // raised on leaving the map, which no fixture runs, so its step is run as the one step of an altar here.
+        MapEventStep check = MightAndMagic7MapEvents.Read(catalog).Find(temple, 2)!.Steps.Single(step => step.Op == "is-actor-killed");
+        Assert.Equal(("creature", 34, 1), (check.Which, check.Value, check.Amount));
+        string events = string.Create(
+            CultureInfo.InvariantCulture,
+            $$"""
+            { "documentId": "events", "definitionKind": "place-event", "entries": [
+              { "id": "45.351", "place": "45", "event": 351, "label": "Altar", "raised": true,
+                "steps": [
+                  { "step": 0, "op": "is-actor-killed", "which": "{{check.Which}}", "value": {{check.Value}}, "target": 3, "amount": {{check.Amount}} },
+                  { "step": 1, "op": "status-text", "text": "Standing." }, { "step": 2, "op": "exit" },
+                  { "step": 3, "op": "status-text", "text": "Dead." } ] } ] }
+            """);
+        ContentCatalog altar = ContentCatalogLoader.Load(
+            new InMemoryContentSource()
+                .Add(
+                    "packs/world/pack.json",
+                    """
+                    { "schemaVersion": 1, "packId": "world", "kind": "definitions", "provenance": { "description": "test content" },
+                      "documents": [ { "path": "events.json", "documentId": "events", "definitionKind": "place-event" } ] }
+                    """)
+                .Add("packs/world/events.json", events),
+            new ContentLayout("packs", "imports", "bundles")).RequireValid();
+
+        // Read as the session's count of the dead reads the place: the imported population, the priest down or not.
+        bool priestDown = false;
+        MightAndMagic7Interaction rule = new(fixtures: new MightAndMagic7Fixtures(
+            MightAndMagic7MapEvents.Read(altar),
+            actors: place => [.. placed.PlacementsOf(place)
+                .Where(MightAndMagic7Fixtures.IsActor)
+                .Select(placement => new PlaceActor(placement, Down: priestDown && placement == priest))]));
+        GameClock clock = TestClock.Create(scale: 1);
+        using PartyEntity party = Party();
+        Assert.Equal("Standing.", Use(rule, Fixture(351, "Altar", string.Empty), temple, party, clock).Outcome.Message);
+        priestDown = true;
+        Assert.Equal("Dead.", Use(rule, Fixture(351, "Altar", string.Empty), temple, party, clock).Outcome.Message);
+    }
+
     /// <summary>The side the session's fight puts a creature on, by its placement.</summary>
     private static CombatSide Side(MightAndMagic7Session live, string placement) =>
         live.Combat!.Combatants.Single(combatant => combatant.Subject.Placement?.Content.Id == placement).Side;
@@ -436,6 +529,51 @@ public sealed partial class FixturePolicyTests
                   "monster": 7, "group": 5, "people": [ "npc-7" ] } ] },
             { "id": "2", "kind": "interior", "name": "Cave", "respawnDays": 1,
               "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ] }
+          ]
+        }
+        """;
+
+    /// <summary>
+    /// A region with an altar where the party starts, and two of the level's own creature records as the importer
+    /// writes them: a priest standing far off as actor 34, and one the level holds hidden as actor 35.
+    /// </summary>
+    private const string AltarPlaces =
+        """
+        {
+          "documentId": "places",
+          "definitionKind": "place",
+          "entries": [
+            { "id": "1", "kind": "region", "name": "The Temple", "respawnDays": 1,
+              "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ],
+              "placements": [
+                { "id": "fixture-351", "kind": "fixture", "sourceField": "events", "sourceIndex": 351, "x": 100, "y": 0, "z": 0,
+                  "positionSource": "event-face-centroid", "eventId": 351, "name": "Altar", "faceCount": 1, "sourceModel": 61, "sourceModelName": "Altar" },
+                { "id": "actor-34", "kind": "actor", "sourceField": "actors", "sourceIndex": 34, "x": 0, "y": 4000, "z": 0, "yaw": 512,
+                  "positionSource": "actor-record", "actorName": "Priest", "monster": 7, "monsterName": "Priest",
+                  "group": 0, "attributes": 0, "aiState": 0, "hitPoints": 180, "sectorId": 0, "uniqueNameIndex": 3 },
+                { "id": "actor-35", "kind": "actor", "sourceField": "actors", "sourceIndex": 35, "x": 0, "y": -4000, "z": 0, "yaw": 0,
+                  "positionSource": "actor-record", "actorName": "Priest", "monster": 7, "monsterName": "Priest",
+                  "group": 0, "attributes": 65536, "aiState": 19, "hitPoints": 180, "sectorId": 0, "hidden": true } ] },
+            { "id": "2", "kind": "interior", "name": "Cave", "respawnDays": 1,
+              "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ] }
+          ]
+        }
+        """;
+
+    /// <summary>The altar: it asks whether the level's actor 34 is dead, with the count the Temple of Baa's event states.</summary>
+    private const string AltarEvents =
+        """
+        {
+          "documentId": "events",
+          "definitionKind": "place-event",
+          "entries": [
+            { "id": "1.351", "place": "1", "event": 351, "label": "Altar", "raised": true,
+              "steps": [
+                { "step": 0, "op": "is-actor-killed", "which": "creature", "value": 34, "target": 3, "amount": 1 },
+                { "step": 1, "op": "status-text", "text": "The priest still stands." },
+                { "step": 2, "op": "exit" },
+                { "step": 3, "op": "status-text", "text": "The priest is dead." },
+                { "step": 4, "op": "exit" } ] }
           ]
         }
         """;

@@ -224,7 +224,10 @@ encounters emitted into 72 places, and 43 records refused by name because the en
 one their map leaves empty. The importer chooses no grade and no count: 1,775 encounters leave both to the
 ruleset, which draws them through the engine's keyed random service under the place and the spawn record
 when the place is populated, so the creatures are reported as the range the slots allow — 1,900 at the
-fewest and 5,458 at the most. `write` states the same counts in its summary.
+fewest and 5,458 at the most. `write` states the same counts in its summary, beside the creatures the
+levels are built holding: the 703 actor records that name no person, written as `actor` placements in 36 places
+under the index the level gives them (181 of them held hidden), which the ruleset stands through the same
+population seam as the encounters.
 
 `write` produces the content packs the product loads, and proves its own reproducibility:
 

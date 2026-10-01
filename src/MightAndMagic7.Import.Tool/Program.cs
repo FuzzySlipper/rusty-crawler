@@ -312,6 +312,7 @@ internal static class Program
                 services = Describe(result.Services),
                 people = Describe(result.People),
                 encounters = Describe(result.Encounters),
+                creatures = Describe(result.Creatures),
                 loot = Describe(result.Containers, tables),
                 fixtures = Describe(result.Fixtures, tables),
                 use = "add these pack ids to a bundle under content/partyrpg/bundles to load them",
@@ -401,6 +402,31 @@ internal static class Program
             detail = refusal.Reason,
         }),
         notes = encounters.Notes,
+    };
+
+    /// <summary>
+    /// What the maps' own creatures produced: how many actor records name no person, how many creatures were
+    /// placed where, how many of them the level holds hidden, and every record nothing was placed for.
+    /// </summary>
+    /// <remarks>
+    /// The counts are stated because "a dungeon holds the monsters it was built with" is a claim about the
+    /// operator's own data, and a hidden creature is counted apart because it is placed but does not stand.
+    /// </remarks>
+    private static object Describe(Packs.PlaceCreatureSummary creatures) => new
+    {
+        actorRecords = creatures.ActorRecords,
+        placed = creatures.CreatureCount,
+        standing = creatures.StandingCount,
+        hidden = creatures.HiddenCount,
+        named = creatures.NamedCount,
+        places = creatures.PopulatedPlaces,
+        refusals = creatures.Refusals.Select(refusal => new
+        {
+            subject = refusal.Subject,
+            reason = refusal.Code,
+            detail = refusal.Reason,
+        }),
+        notes = creatures.Notes,
     };
 
     /// <summary>

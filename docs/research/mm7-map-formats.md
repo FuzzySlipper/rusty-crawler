@@ -270,6 +270,7 @@ src/Engine/Snapshots/CompositeSnapshots.h:54-67,113-125]**, and the fields this 
 | 0x8E | `Vec3s pos` | where the actor stands — **three 16-bit coordinates**, not the 32-bit form a sprite object stores |
 | 0x9A | `u16 yawAngle` | facing, 2048 units to a turn |
 | 0x9E | `i16 sectorId` | the sector, meaningful indoors |
+| 0xB0 | `u16 aiState` | the AI state; 19 (`Disabled`) is a record the level holds hidden **[verified: OE:src/Engine/Objects/ActorEnums.h:56-77]** |
 | 0x2E8 | `u32 group` | the actor's group |
 | 0x334 | `i32 uniqueNameIndex` | an index into the placed-monster names, non-zero only for a monster with a name of its own |
 
@@ -357,10 +358,20 @@ errand condition and refuses the rows without answers, 118 in all across the 572
   `countSource`, `quantity`, `unit`, and the encounter's own fields).
 * **The `.dlv` also carries the level's own actor array** — 703 monster records and 123 people over the operator's
   install, each with its own monster row, hit points, and position **[verified: data; OE:
-  src/Engine/Snapshots/EntitySnapshots.h:764-809]**. That array is the *saved* runtime population of a played game,
-  so this import emits the encounters a first visit resolves from the spawn records above and leaves the array as the
-  other source it does not read; a person's own record still states the monster row that person fights as, which is
-  what gives a guard, an adept, and a peasant their own hit points.
+  src/Engine/Snapshots/EntitySnapshots.h:764-809]**. The shipped array is what a first visit loads before the spawn
+  records add theirs, and a respawn reloads it **[verified: OE:src/Engine/Graphics/Indoor.cpp:310-319,907-922]**, so
+  the import emits it beside the encounters: a person as a `person` placement, and every other record as an `actor`
+  placement carrying its monster row, group, attributes, AI state (offset `0xB0`), point and facing under the
+  `actors` field and its index — the number a map event counting one creature's death names it by
+  **[verified: OE:src/Engine/Objects/Actor.cpp:2811-2834]**. All 703 are placed, in 36 places (35 in the Temple of
+  Baa, whose actor 34 is the named priest its leaving event asks about) **[verified: data]**. **181 are held hidden**:
+  90 interior records at AI state 19 (`Disabled`) with the bit `0x10000`, and 91 records of the second region carrying
+  the bit at state 0, which a region's load turns `Disabled` **[verified: OE:src/Engine/Graphics/Outdoor.cpp:617-618]**;
+  only clearing the bit stands such a record **[verified: OE:src/Engine/Objects/Actor.cpp:124-136,3823-3851]**, none
+  carries a group, and no shipped event step clears the bit, so they stay hidden. A record's stored hit points are
+  provenance — the donor resets a creature that can act to its row's on load
+  **[verified: OE:src/Engine/Objects/Actor.cpp:2899-2925]** — and a person's own record states the monster row that
+  person fights as, which is what gives a guard, an adept, and a peasant their own hit points.
 * **`hostile.txt` is the monster-hostility matrix** (1,740 bytes in `Events.lod`) **[verified: data; OE:
   src/Engine/Tables/HostilityTable.cpp:15-22]**: one header row naming every kind — the party's own first — then one
   row per kind beginning with its name and carrying one band per column. A band of zero is friendly and one to four
