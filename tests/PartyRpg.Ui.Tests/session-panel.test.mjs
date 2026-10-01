@@ -86,6 +86,19 @@ function movement(overrides = {}) {
     stepRise: 0,
     fallDistance: 0,
     fallDamage: 0,
+    footing: footing(),
+    ...overrides,
+  };
+}
+
+/** The ground under the party as the product publishes it: ordinary ground that harms nobody and spares nobody. */
+function footing(overrides = {}) {
+  return {
+    ground: 'ordinary',
+    harmful: false,
+    every: 0,
+    nextHarmIn: 0,
+    shelters: [],
     ...overrides,
   };
 }
@@ -1516,7 +1529,7 @@ test('renders nothing until the product publishes, then renders what it publishe
       title: '',
       button: 'Starting…',
       disabled: true,
-      values: Array(34).fill('—'),
+      values: Array(36).fill('—'),
       place: '',
     });
 
@@ -1534,7 +1547,7 @@ test('renders nothing until the product publishes, then renders what it publishe
         // standing, what the standing means, and the conditions, then what the party has left to lose and to
         // cast with: a projection that carries no party block shows all thirteen as not known.
         '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—',
-        '1', '—', '1234, 5678, 0 @ 512', '1 / 76', 'grounded', '—', '—', '—',
+        '1', '—', '1234, 5678, 0 @ 512', '1 / 76', 'grounded', '—', '—', '—', 'ordinary', '—',
         '—', '—', '—',
         // A projection that carries no save block is a session this companion cannot read as saveable, and
         // the panel says so on the Save row rather than offering a save it cannot make. A projection that
@@ -1643,7 +1656,7 @@ test('the companion holds no state and starts no timer', () => {
     assert.deepEqual(readPanel(h).values, [
       'running', '3.0 s', '180', '2',
       '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—',
-      '1', '—', '1234, 5678, 0 @ 512', '1 / 76', '—', '—', '—', '—',
+      '1', '—', '1234, 5678, 0 @ 512', '1 / 76', '—', '—', '—', '—', '—', '—',
       '—', '—', '—',
       'unavailable', 'fresh', '—', '—', '—', '—',
     ]);
@@ -1682,6 +1695,57 @@ test('the panel reports what the last movement step did', () => {
     // A landing in the air, with the drop and what the tuning priced it at.
     h.emit(snapshot('running', 4, 240, 243, movement({ motion: 'airborne', fallDistance: 28, fallDamage: 27 })));
     assert.deepEqual(movementRows(h), { motion: 'airborne', blocked: '—', step: '—', fall: '28 · 27 damage' });
+
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the panel prints the ground under the party, when it next harms the party, and what spares whom', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+
+    // Water that harms the party, with one member spared by what they drank: the panel prints the interval and the
+    // time before the next harm exactly as the product published them, and names who is spared.
+    h.emit(snapshot('running', 1, 60, 60, movement({
+      footing: footing({
+        ground: 'water',
+        harmful: true,
+        every: 30,
+        nextHarmIn: 12.5,
+        shelters: [{ effect: 'spell.water-breathing', name: 'Water Breathing', member: '2', memberName: 'Aelina', everybody: false }],
+      }),
+    })));
+    assert.deepEqual(rows(h, 'Footing', 'Spared by'), {
+      Footing: 'water · harms every 30 s · next in 13 s',
+      'Spared by': 'Water Breathing (Aelina)',
+    });
+    assert.equal(h.panel().getAttribute('data-footing'), 'water');
+    assert.equal(h.panel().getAttribute('data-harm'), 'harmful');
+
+    // A walk over the water spares everybody, and the product says the water harms nobody now: the panel prints the
+    // ground alone rather than a harm it was not handed.
+    h.emit(snapshot('running', 2, 120, 121, movement({
+      footing: footing({
+        ground: 'water',
+        shelters: [{ effect: 'spell.water-walk', name: 'Water Walk', member: '1', memberName: 'Roderick', everybody: true }],
+      }),
+    })));
+    assert.deepEqual(rows(h, 'Footing', 'Spared by'), { Footing: 'water', 'Spared by': 'Water Walk (Roderick, everybody)' });
+    assert.equal(h.panel().getAttribute('data-harm'), 'none');
+
+    // In the air the party stands on nothing, and the flight is what spares it.
+    h.emit(snapshot('running', 3, 180, 182, movement({
+      motion: 'flying',
+      footing: footing({
+        ground: '',
+        shelters: [{ effect: 'spell.fly', name: 'Fly', member: '1', memberName: 'Roderick', everybody: true }],
+      }),
+    })));
+    assert.deepEqual(rows(h, 'Footing', 'Spared by'), { Footing: '—', 'Spared by': 'Fly (Roderick, everybody)' });
+    assert.equal(h.panel().getAttribute('data-footing'), 'none');
 
     ui.dispose();
   } finally {

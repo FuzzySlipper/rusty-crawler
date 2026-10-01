@@ -262,7 +262,7 @@ internal sealed class MightAndMagic7Session : IGameSession
         // mark in the shipped table rather than each keeping its own reading of the rows.
         MightAndMagic7Knowledge knowledge = new(loot);
 
-        MightAndMagic7Corpses corpseAnswers = new(corpses, loot);
+        MightAndMagic7Corpses corpseAnswers = new(corpses, loot, () => owners.World);
 
         // What a death pays the party is composed beside them: the award is the kit's one path, the worth is
         // the monster row's own experience column, and the owner is the one the session composes over

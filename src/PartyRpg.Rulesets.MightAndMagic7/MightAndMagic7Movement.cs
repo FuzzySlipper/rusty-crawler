@@ -139,7 +139,18 @@ internal static class MightAndMagic7Movement
 
     /// <summary>What standing on this game's ground does to the party: water drowns it.</summary>
     /// <param name="party">The party whose carried effects can spare it, or null for a world without one.</param>
-    internal static IGroundHazardRule Hazards(PartyEntity? party) => new Drowning(party);
+    /// <param name="mover">The party's mover, which says whether a flight is holding it above the water now.</param>
+    internal static IGroundHazardRule Hazards(PartyEntity? party, IPartyMover? mover = null) => new Drowning(party, mover);
+
+    /// <summary>What this game calls the effects that spare a party its water, which is what the panel reads.</summary>
+    /// <remarks>Ours: the spells' and the potion's own names, written once where the shelters are read.</remarks>
+    private const string WaterWalkName = "Water Walk";
+
+    /// <inheritdoc cref="WaterWalkName"/>
+    private const string WaterBreathingName = "Water Breathing";
+
+    /// <inheritdoc cref="WaterWalkName"/>
+    private const string FlyName = "Fly";
 
     /// <summary>How many times the walk a flying party moves: the donor's rise, sink, and running flight.</summary>
     /// <remarks>
@@ -315,6 +326,11 @@ internal static class MightAndMagic7Movement
     /// so this drowns only on <see cref="WaterSurface"/> and only without a water walk.
     /// </para>
     /// <para>
+    /// <b>What spares whom, published.</b> The shelters this reads are the same facts it judges by: a water walk somebody
+    /// standing carries spares everybody, a water breathing spares its drinker, and a flight spares everybody while it
+    /// holds the party above the water — the mover reports no footing in the air, so nothing is asked of the ground.
+    /// </para>
+    /// <para>
     /// <b>Three adaptations, stated.</b> The donor's harm is typed as fire and so meets a character's fire resistance; here
     /// it is plain harm. The donor also spares a character wearing an item of water walking or a relic, and item
     /// enchantments do not exist in this build yet (#8513). And the donor's party cannot walk from land into water
@@ -322,7 +338,7 @@ internal static class MightAndMagic7Movement
     /// ground a party may walk into.
     /// </para>
     /// </remarks>
-    private sealed class Drowning(PartyEntity? party) : IGroundHazardRule
+    private sealed class Drowning(PartyEntity? party, IPartyMover? mover) : IGroundHazardRule
     {
         public GameDuration? IntervalOn(SurfaceEffect ground) =>
             ground.Id == WaterSurface && !WalksOnWater() ? DrowningInterval : null;
@@ -331,6 +347,28 @@ internal static class MightAndMagic7Movement
             MightAndMagic7SpellEffects.LaidOut(member) || member.Effects.Has(SpellEffectIds.WaterBreathing)
                 ? 0
                 : member.Resources.HitPoints.Maximum / 10;
+
+        public IReadOnlyList<GroundShelter> Shelters
+        {
+            get
+            {
+                if (party is null) return [];
+                List<GroundShelter> shelters = [];
+                bool flying = mover?.Flying == true;
+                foreach (PartyMember member in party.Members)
+                {
+                    if (MightAndMagic7SpellEffects.LaidOut(member)) continue;
+                    if (flying && member.Effects.Has(SpellEffectIds.Fly)) shelters.Add(new GroundShelter(SpellEffectIds.Fly, FlyName, member.Id, Everybody: true));
+                    if (member.Effects.Has(SpellEffectIds.WaterWalk)) shelters.Add(new GroundShelter(SpellEffectIds.WaterWalk, WaterWalkName, member.Id, Everybody: true));
+                    if (member.Effects.Has(SpellEffectIds.WaterBreathing))
+                    {
+                        shelters.Add(new GroundShelter(SpellEffectIds.WaterBreathing, WaterBreathingName, member.Id, Everybody: false));
+                    }
+                }
+
+                return shelters;
+            }
+        }
 
         /// <summary>Whether somebody standing keeps the party walking over the water.</summary>
         private bool WalksOnWater() =>

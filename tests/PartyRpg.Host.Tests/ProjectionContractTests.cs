@@ -277,7 +277,13 @@ public sealed class ProjectionContractTests
         12.5,
         750,
         new WorldSnapshot("1", "Emerald Island", "region", new PlacePose(12552, 800, 193, 512, 0), 2, 76, Open: true, Hours: "06:00–18:00", NextChange: "1168-01-02 18:00"),
-        new MovementSnapshot(Moved: true, Grounded: true, CharacterBlockFlags.Wall, StepRise: 0.5, FallDistance: 0, FallDamage: 0),
+        new MovementSnapshot(
+            Moved: true, Grounded: true, CharacterBlockFlags.Wall, StepRise: 0.5, FallDistance: 0, FallDamage: 0,
+            Footing: new FootingSnapshot(
+                "water", Harmful: true, Every: 30, NextHarmIn: 12.5,
+                [
+                    new FootingShelterSnapshot("spell.water-breathing", "Water Breathing", "2", "Aelina", Everybody: false),
+                ])),
         new ClockSnapshot(true, "1168-01-02", "09:30", "day", 1),
         new PartySnapshot(
             true, 4, 200, 6, "portions", 12, 3, "weak (1)",

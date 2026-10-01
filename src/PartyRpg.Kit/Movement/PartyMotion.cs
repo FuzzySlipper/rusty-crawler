@@ -90,6 +90,15 @@ public sealed class PartyMotion
     /// </summary>
     public PlaceSurfaces Ground { get; set; } = PlaceSurfaces.None;
 
+    /// <summary>The named ground a pose in the party's place stands on, or null when it stands on ordinary ground.</summary>
+    /// <remarks>
+    /// This is the same lookup the party's own footing takes, at the point the pose stands on rather than at the
+    /// engine's ground point: whatever lies where a creature fell is looked up on the ground it fell on.
+    /// </remarks>
+    /// <param name="pose">A pose in the place the party is in.</param>
+    public string? GroundUnder(PlacePose pose) =>
+        Ground.Classify(_space.GroundPosition(pose), out string surfaceId) ? surfaceId : null;
+
     /// <summary>Whether the party may fly now: the tuning has a flight profile and the game's rule allows it.</summary>
     public bool MayFly => _tuning.Flight is not null && _flight?.MayFly == true;
 

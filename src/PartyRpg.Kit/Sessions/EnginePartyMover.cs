@@ -54,6 +54,14 @@ public interface IPartyMover : IDisposable
     SurfaceEffect? Footing => null;
 
     /// <summary>
+    /// The named ground a pose in a place stands on — the water a body fell in — or null when it stands on ordinary
+    /// ground, or the place is not the one the mover holds geometry for. A mover that tells no ground apart answers null.
+    /// </summary>
+    /// <param name="place">The place the pose is in.</param>
+    /// <param name="pose">The pose, whose height is where it stands.</param>
+    string? GroundUnder(PlaceId place, PlacePose pose) => null;
+
+    /// <summary>
     /// Whether nothing solid stands between two points of the place the party is in, in the engine's world
     /// axes.
     /// </summary>
@@ -201,6 +209,10 @@ public sealed class EnginePartyMover : IPartyMover
 
     /// <inheritdoc />
     public SurfaceEffect? Footing => !_disposed && _movement.Motion.Grounded && !_movement.Motion.Flying ? _movement.Motion.Surface : null;
+
+    /// <inheritdoc />
+    public string? GroundUnder(PlaceId place, PlacePose pose) =>
+        !_disposed && Current?.Place == place ? _movement.Motion.GroundUnder(pose) : null;
 
     /// <inheritdoc />
     /// <exception cref="ObjectDisposedException">The mover has been disposed.</exception>

@@ -201,7 +201,8 @@ air below grand master (`Engine.cpp:1286-1296`), at four times the walk up to th
 and drowning, a tenth of each character's health every thirty game seconds the party stands on a region's water
 (`Engine.cpp:1083-1099`), spared by a water walk its caster carries and pays for every twenty minutes on water, and
 for one character by water breathing, with no stop allowed in water (`Game.cpp:1088-1089`); fluid faces are named
-and drown nobody, as in the donor), the one clock
+and drown nobody, as in the donor; the drowning rule names what spares whom — a water walk and a flight that holds
+the party up spare everybody, water breathing its drinker — for the panel's footing row), the one clock
 (`MightAndMagic7Time` — the authored calendar, the donor's starting moment, its thirty-to-one rate, and
 the hours it calls daylight), the party its content declares as scenario state (`MightAndMagic7Party`,
 through the same factory creation hands a party to, never a party of its own invention, and what a host
@@ -267,8 +268,10 @@ names the kinds, `MightAndMagic7SpecialAttacks` is the vocabulary of the table's
 (matched whole, with the strength and count the importer read), and
 `MightAndMagic7Health` is what a wound leaves on a character: unconscious while their health plus base
 endurance is at least one, dead below that (`Character.cpp:1310-1316`)), what a kill leaves
-(`MightAndMagic7Corpses` — the fight reports what it read as down and this game generates each death's
-loot once, under a key that names the place, the creature, and which death it was, and holds it on the
+(`MightAndMagic7Corpses` — a creature that dies on a region's water sinks and leaves no body, so what it carried
+is lost, as the donor removes it (`Outdoor.cpp:1596-1619`) and loots only a dead body (`Viewport.cpp:239-241`),
+read through the party's mover at the place's named ground under the body; otherwise the fight reports what it read
+as down and this game generates each death's loot once, under a key that names the place, the creature, and which death it was, and holds it on the
 body: the monster table's own treasure cell, read by the importer into a chance, coin dice, a treasure
 level and the kind of thing asked for (`Monsters.cpp:440-490`), with the coin rolled and the item drawn
 from the item table's own weights by level (`ItemTable.cpp:316-374`) and the donor's fallback when a level
