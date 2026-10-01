@@ -98,7 +98,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   over an authored calendar is the only time, and every advance reaches every owner registered with it.
 - **Party.** `PartyEntity` is one entity with its components: roster and members, one shared inventory of
   item instances, per-member equipment, purse and larder, reputation and fame, running effects, records,
-  holdings, passages and memberships. Every charge is judged and settled through one ledger. Creation is a
+  holdings, passages, memberships, debts and bans. Every charge is judged and settled through one ledger. Creation is a
   session mode with its own flow, and the scenario path builds a party through the same factory.
 - **Interaction and services.** One use workflow serves doors, containers, people and fixtures; a fixture runs
   the steps of its imported map event this game interprets and refuses the rest by name. One service
@@ -147,8 +147,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   have no writer (#8689); a laid-out member can be promoted (#8705); flight, water walking and breathing, and
   a creature summoned or raised to fight for the party are "not yet" in `docs/magic-coverage.md` (#9029,
   #9030, #9031; item-aimed effects #8513; followers #8514).
-- Stone 8, record: an errand's item is protected only from sale (#8687); stealing, and a fine carried as a
-  debt, have no owner (#9025).
+- Stone 8, record: an errand's item is protected only from sale (#8687).
 
 When a stone lands or a residue closes, update this section, `README.md`, and the owning project README
 together.

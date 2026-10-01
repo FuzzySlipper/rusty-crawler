@@ -1036,8 +1036,6 @@ internal sealed class MightAndMagic7Services : IServiceRule
             ServiceOperationKind.Stay => Charge(merchant, request.Subject.Value),
             ServiceOperationKind.Deposit => ServiceQuote.Charging(request.Subject.Count, request.Subject.Count),
             ServiceOperationKind.Withdraw => ServiceQuote.Paying(request.Subject.Count, request.Subject.Count),
-            // A theft is not bought: what it costs is drawn by the theft rule and laid on the party as a debt.
-            ServiceOperationKind.Steal => ServiceQuote.Free,
             ServiceOperationKind.Repay => Repayment(request),
             _ => FarePrice(service, request.Subject, merchant),
         };

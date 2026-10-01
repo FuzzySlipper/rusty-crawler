@@ -20,8 +20,9 @@ public sealed record ServiceStockSnapshot(
     /// <summary>Writes one lot on the shelves.</summary>
     /// <param name="builder">The projection being built.</param>
     /// <param name="buys">Whether the counter the party stands at takes a purchase at all.</param>
+    /// <param name="steals">Whether the counter keeps a shelf a member of the party could try without paying.</param>
     /// <returns>The row's node.</returns>
-    internal uint Write(UiValueBuilder builder, bool buys) =>
+    internal uint Write(UiValueBuilder builder, bool buys, bool steals) =>
         builder.Object(
             ("lot", builder.String(Lot)),
             ("item", builder.String(Item)),
@@ -30,7 +31,9 @@ public sealed record ServiceStockSnapshot(
             ("price", builder.Number(Price)),
             ("sale", builder.Boolean(IsSale)),
             // A lot the counter has sold out of is still a row, and one a purchase would be refused on.
-            ("canBuy", builder.Boolean(buys && Count > 0)));
+            ("canBuy", builder.Boolean(buys && Count > 0)),
+            // A line nothing is left of is no more to be stolen than bought.
+            ("canSteal", builder.Boolean(steals && Count > 0)));
 }
 
 /// <summary>One lesson a service teaches, as the panel shows it.</summary>
@@ -147,7 +150,9 @@ public sealed record ServiceOfferSnapshot(
             // What is owed on the account, and what a repayment of all of it would take from the purse now: the
             // counter takes no more than the purse holds, which is the price rule's answer rather than the screen's.
             ("owed", builder.Number(Amount)),
-            ("price", builder.Number(Price)));
+            ("price", builder.Number(Price)),
+            // A purse with nothing in it pays nothing toward the debt, which the price rule answered as nothing.
+            ("canRepay", builder.Boolean(Price > 0)));
 
     /// <summary>Writes this offer as a passage a screen has a command for.</summary>
     /// <param name="builder">The projection being built.</param>
@@ -429,7 +434,7 @@ public sealed record ServiceSnapshot(
             ("hours", builder.String(Hours)),
             ("operations", builder.Array([.. Operations.Select(builder.String)])),
             ("memberships", builder.Array([.. Memberships.Select(builder.String)])),
-            ("stock", builder.Array([.. Stock.Select(offer => offer.Write(builder, buys))])),
+            ("stock", builder.Array([.. Stock.Select(offer => offer.Write(builder, buys, steals))])),
             ("lessons", builder.Array([.. Lessons.Select(offer => offer.Write(builder))])),
             ("offers", builder.Array([.. Offers.Select(offer => offer.Write(builder))])),
             ("sales", builder.Array([.. Sales.Select(offer => offer.Write(builder))])),

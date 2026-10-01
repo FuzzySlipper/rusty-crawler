@@ -64,7 +64,13 @@ Owns:
   treasure level (`LootTable`, `LootCandidate`, `LootFilter`), the shape of a treasure request
   (`TreasureRoll`), and what one generation produced (`LootYield`). Which numbers a game's tables
   carry and what its levels mean stay the ruleset's.
-- World interaction: NPC conversation, services, quests (`Quests/` — one owner of what a party has been
+- World interaction: NPC conversation, services (`Services/` — one `PartyServices` operation table judged before
+  anything is settled; a theft is one of its operations — `Steal` takes one line off a shelf without pricing it,
+  and `StealFrom` lifts from a person the party stands with — drawn by a game's `IServiceRule.Steal` as a
+  `ServiceTheft` and carried out by one step whichever kind it was: coin through the ledger, goods into the pack
+  with the stolen mark when the draw says so, the fine onto `PartyDebts`, the deed to `PartyProgression.Deed`, and a
+  counter's ban onto `PartyBans`; `Repay` pays coin toward what the party owes on an account a counter collects),
+  quests (`Quests/` — one owner of what a party has been
   offered, taken, and finished, with definitions a game states, objectives that read the owners already
   reporting them, and one turn-in that pays each reward to its own owner), containers, doors, travel
   between world regions and indoor maps.
@@ -146,12 +152,14 @@ matches it on both, so a retune changes the journey without content being writte
 held or saved ticket), the party's pose and derived view (`PartyPoseOwner`, `FacingRule`, `PartyView`), the party
 entity and its attached components (`PartyEntity` over the engine's own entity store, with `PartyRoster` and `PartyMember`, the one shared
 `PartyInventory` of `ItemInstance`s beside each member's `CharacterEquipment` — every instance carrying a
-durable `ItemInstanceId` and an `ItemState` of identified, damaged, and enchanted, and reporting one
+durable `ItemInstanceId` and an `ItemState` of identified, damaged, enchanted, and stolen, and reporting one
 `ItemCustody` that is detached, the shared pack, or a single member's slot and nothing else, so a
 per-character pack is a state these types cannot express; `Capture` writes each instance's identity, state,
 and custody and `Restore` rebuilds them), `PartyPurse`, `PartyFood`,
 `PartyReputation`, the running effects on the party and on each member (`ActiveEffects`,
 written only by `RunningSpellEffects`), `PartyRecords`, `PartyHoldings`, `PartyPassages`, `PartyMemberships`,
+`PartyDebts` (what the party owes, account by account, written by a game's crimes and the service mechanism's theft
+and repayment), `PartyBans` (the counters shut against the party until a moment of the one clock),
 the minting of durable identities in
 `PartyIdentitySource`, and `PartyEntityFactory`, which builds a party from creation or from a `PartySave`
 and is the only code that attaches a party component, with the one item rule it composes arriving as
@@ -169,7 +177,8 @@ one progression owner (`Progression/` — `PartyProgression` is where experience
 point, and a rank move and nowhere else — the years a character was aged beyond their natural age,
 `CharacterProgression.AgeOffset`, are the one exception, written by whatever the game says ages a character or
 gives the years back (`Age`, `Rejuvenate`) and carried in the member's seed: `Award` is the one entry a kill, a quest, or any other source arrives at and
-divides by the ruleset's own rule, `Train` is what a counter's step settles through — the fee charged by
+divides by the ruleset's own rule, `Deed` is the entry a deed that pays no experience — a theft, a sacrifice, a
+worthless death a game still counts — reaches the world's opinion by, through the same standing step, `Train` is what a counter's step settles through — the fee charged by
 the party's one ledger, the level's pools grown by the ruleset's class and rank tables, the points granted,
 and both pools filled — and `RaiseSkill` is the only way a skill point is spent: it asks the skill policy
 for the price of the levels and the ceiling the member's class and rank impose, refuses past that ceiling

@@ -48,7 +48,8 @@
     "standingRead": false,
     "standing": "",
     "standingDetail": "",
-    "awards": []
+    "awards": [],
+    "debts": []
   },
   "movement": {
     "motion": "none",
@@ -369,6 +370,9 @@
     "identify": [],
     "repair": [],
     "fares": [],
+    "debts": [],
+    "thieves": [],
+    "canSteal": false,
     "canBuy": false,
     "canSell": false,
     "canTeach": false,
@@ -417,7 +421,8 @@
     "message": "",
     "residue": "",
     "handoff": "",
-    "topic": ""
+    "topic": "",
+    "thieves": []
   },
   "combat": {
     "available": false,

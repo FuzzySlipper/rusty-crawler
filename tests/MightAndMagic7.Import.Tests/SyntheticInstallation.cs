@@ -298,7 +298,7 @@ internal static class SyntheticInstallation
             // its picture and its name column, states the difficulty its grade odds are read at, and the
             // range of creatures it puts on the field. The slots name the graded groups the monster
             // fixture's rows carry, so a spawn record resolves to a row.
-            text.Append($"{map}\tMap {map}\t{file}\t0\t0\t0\t672\t7\t0\t{(map % 20) + 1}\t{(map % 10) + 1}\t1\t0\t10\t100\t0\tMonster 1\tMonster 1\t{(map % 5) + 1}\t 2-5\t{second}\t{third}\t20\tFOREST\tDesigner\tNotes for map {map}\n");
+            text.Append($"{map}\tMap {map}\t{file}\t0\t0\t0\t672\t7\t{map % 16}\t{(map % 20) + 1}\t{(map % 10) + 1}\t1\t0\t10\t100\t0\tMonster 1\tMonster 1\t{(map % 5) + 1}\t 2-5\t{second}\t{third}\t20\tFOREST\tDesigner\tNotes for map {map}\n");
         }
 
         return text.ToString();

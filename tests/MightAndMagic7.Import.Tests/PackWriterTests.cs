@@ -223,6 +223,11 @@ public sealed class PackWriterTests
             Assert.Equal(63, graph.Places.Count(place => place.Kind == PlaceKind.Interior));
             PlaceDefinition region = graph.Places.First(place => place.Kind == PlaceKind.Region);
             Assert.Contains(region.EntryPoints, point => point.Id == "Party Start");
+
+            // Every place carries the map table's base fine — its "Perm" column (OpenEnroth
+            // src/Engine/Tables/MapTable.cpp:73) — which the fixture states as the row's id modulo sixteen, so the
+            // game's theft rule reads it off the place rather than off a table the runtime never sees.
+            Assert.All(graph.Places, place => Assert.Equal(int.Parse(place.Id.Value, System.Globalization.CultureInfo.InvariantCulture) % 16, place.Source.GetInt32("stealFine")));
             Assert.Contains(region.EntryPoints, point => point.Id == "North Start");
 
             // Every place carries the automap raster the product draws from, and the document is what the

@@ -360,6 +360,172 @@ public sealed class ServiceTests
         Assert.Equal(purse, counter.Party.Purse.Coins);
     }
 
+    [Fact]
+    public void A_theft_at_a_counter_is_drawn_by_the_rule_and_laid_on_the_party_through_the_owners_it_reaches()
+    {
+        using PartyEntity party = Party(coins: 50);
+        PartyResourceLedger accounts = new(party);
+        GameClock clock = Clock();
+        ShopRule rule = new(Shop() with { Operations = [ServiceOperationKind.Buy, ServiceOperationKind.Steal] });
+        PartyProgression progression = new(new DeedStanding(), party);
+        PartyServices services = new(rule, party, accounts, clock, progression);
+        Assert.True(services.Open(rule.Service).IsApplied);
+
+        // A counter whose rule answers no theft offers nobody the act; one whose rule does offers it to each member
+        // the rule lets try, which is what a panel draws its rows from.
+        Assert.Empty(services.Browse()!.Thieves);
+        rule.Theft = _ => ServiceTheft.Tried(
+            caught: true,
+            taken: true,
+            coins: 0,
+            items: null,
+            marked: true,
+            fine: 300,
+            account: "fine",
+            deed: "seen",
+            ban: GameDuration.FromHours(24),
+            message: "Tester gets away with a sword, but is seen.");
+        Assert.Equal("Tester", services.Browse()!.Thieves.Single().Name);
+
+        // One sword comes away whatever the command counted, marked as stolen; nothing is charged; the fine is owed
+        // rather than taken; the deed reaches the world's opinion; and the counter shuts against the party.
+        ServiceResult stolen = services.Transact(new ServiceCommand(ServiceOperationKind.Steal, "stock:sword", Member: 0, Count: 5));
+        Assert.True(stolen.IsApplied, stolen.Message);
+        Assert.Equal("steal", stolen.Action);
+        Assert.Equal(0, stolen.Paid);
+        Assert.Equal(50, party.Purse.Coins);
+        ItemInstance sword = party.Inventory.Items.Single();
+        Assert.True(sword.State.IsStolen);
+        Assert.Equal(300, party.Debts.OwedOn("fine"));
+        Assert.Equal("seen", progression.LastDeed!.Source);
+        Assert.Equal(-2, party.Reputation.Reputation);
+        Assert.Contains("owes 300 on fine", stolen.Message, StringComparison.Ordinal);
+        Assert.Contains("will not serve the party for 24 hour(s)", stolen.Message, StringComparison.Ordinal);
+        Assert.True(services.LastTheft!.Caught);
+        Assert.False(services.IsOpen);
+        Assert.Equal("The Sword and Shield", services.Current!.Name);
+
+        // The ban is the party's own state on the one clock: the counter refuses the party by name until it runs
+        // out, and serves it again from that moment, with one sword fewer on the shelf.
+        ServiceResult barred = services.Open(rule.Service);
+        Assert.Equal("service-barred", barred.Code);
+        Assert.Contains("24 hour(s)", barred.Message, StringComparison.Ordinal);
+        clock.Advance(GameDuration.FromHours(23));
+        Assert.Equal("service-barred", services.Open(rule.Service).Code);
+        clock.Advance(GameDuration.FromHours(1));
+        Assert.True(services.Open(rule.Service).IsApplied);
+        Assert.Equal(1, rule.StockOf(services, "stock:sword"));
+        Assert.Empty(party.Bans.All);
+
+        // A theft the rule refuses moves nothing.
+        rule.Thieves = _ => new Refusal("test-no-hand", "Tester has not learned to steal.");
+        ServiceResult refused = services.Transact(new ServiceCommand(ServiceOperationKind.Steal, "stock:sword", Member: 0));
+        Assert.Equal("test-no-hand", refused.Code);
+        Assert.Equal(1, rule.StockOf(services, "stock:sword"));
+        Assert.Equal(300, party.Debts.OwedOn("fine"));
+        Assert.Equal("service-no-such-member", services.Transact(new ServiceCommand(ServiceOperationKind.Steal, "stock:sword", Member: 3)).Code);
+    }
+
+    [Fact]
+    public void A_repayment_takes_what_the_rule_quotes_off_what_the_party_owes_and_never_more()
+    {
+        using PartyEntity party = Party(coins: 100);
+        party.Debts.Owe("fine", 250);
+        PartyResourceLedger accounts = new(party);
+        ShopRule rule = new(Shop() with { Operations = [ServiceOperationKind.Repay] })
+        {
+            Offerings = [new ServiceOffer(ServiceOfferKind.Debt, "The fine", "fine", Amount: 250)],
+            // The rule's quote is what the purse would hand over toward the debt: no more than it holds.
+            Price = request => ServiceQuote.Charging(Math.Min(request.Subject.Count, request.Party.Purse.Coins)),
+        };
+        PartyServices services = new(rule, party, accounts, Clock());
+        Assert.True(services.Open(rule.Service).IsApplied);
+        Assert.Equal(100, services.Browse()!.Offers.Single().Price);
+
+        ServiceResult paid = services.Transact(new ServiceCommand(ServiceOperationKind.Repay, "fine", Count: 250));
+        Assert.True(paid.IsApplied, paid.Message);
+        Assert.Equal(100, paid.Paid);
+        Assert.Equal(0, party.Purse.Coins);
+        Assert.Equal(150, party.Debts.OwedOn("fine"));
+
+        // A repayment of nothing pays nothing off, and one the quote makes larger than what is owed is refused whole.
+        Assert.Equal("service-count-invalid", services.Transact(new ServiceCommand(ServiceOperationKind.Repay, "fine", Count: 0)).Code);
+        party.Purse.Credit(500);
+        ServiceResult over = services.Transact(new ServiceCommand(ServiceOperationKind.Repay, "fine", Count: 400));
+        Assert.Equal("service-debt-exceeded", over.Code);
+        Assert.Equal(500, party.Purse.Coins);
+        Assert.Equal(150, party.Debts.OwedOn("fine"));
+
+        ServiceResult cleared = services.Transact(new ServiceCommand(ServiceOperationKind.Repay, "fine", Count: 150));
+        Assert.True(cleared.IsApplied);
+        Assert.Equal(0, party.Debts.OwedOn("fine"));
+        Assert.Empty(party.Debts.All);
+    }
+
+    [Fact]
+    public void A_theft_from_a_person_is_carried_out_by_the_same_step_a_counter_s_is()
+    {
+        using PartyEntity party = Party(coins: 10);
+        PartyResourceLedger accounts = new(party);
+        ShopRule rule = new(Shop())
+        {
+            Theft = request => request.Person is null
+                ? ServiceTheft.Refused(new Refusal("test-not-a-person", "Nobody is here."))
+                : ServiceTheft.Tried(
+                    caught: false,
+                    taken: false,
+                    coins: 12,
+                    items: [new ItemDefinitionId("ring")],
+                    marked: false,
+                    fine: 0,
+                    account: "fine",
+                    deed: "lifted",
+                    ban: GameDuration.None,
+                    message: "Tester lifts a purse unseen."),
+        };
+        PartyProgression progression = new(new DeedStanding(), party);
+        PartyServices services = new(rule, party, accounts, Clock(), progression);
+        PlacementDefinition stranger = new(
+            new PlacementContentId("person", "stranger"),
+            "placements",
+            0,
+            PlacePose.Origin,
+            new ContentEntry("stranger", JsonDocument.Parse("""{ "id": "stranger", "kind": "person" }""").RootElement));
+
+        Assert.Single(services.ThievesFrom(CounterPlace, stranger));
+
+        // No counter is open, and none is needed: the coins come through the one ledger, the thing lifted goes into
+        // the shared pack, and the deed reaches the world's opinion as a counter's theft does.
+        ServiceResult lifted = services.StealFrom(CounterPlace, stranger, 0);
+        Assert.True(lifted.IsApplied, lifted.Message);
+        Assert.Equal(12, lifted.Earned);
+        Assert.Equal(22, party.Purse.Coins);
+        Assert.False(party.Inventory.Items.Single().State.IsStolen);
+        Assert.Equal("lifted", progression.LastDeed!.Source);
+        Assert.Same(lifted, services.Last);
+        Assert.False(services.IsOpen);
+
+        Assert.Equal("service-no-such-member", services.StealFrom(CounterPlace, stranger, 2).Code);
+
+        // A session with no progression owner could not tell the world of the deed, so it is refused before anything is drawn.
+        PartyServices untold = new(rule, party, accounts, Clock());
+        Assert.Equal("service-no-progression", untold.StealFrom(CounterPlace, stranger, 0).Code);
+        Assert.Equal(22, party.Purse.Coins);
+    }
+
+    /// <summary>A standing rule under which every deed lowers the world's opinion by two.</summary>
+    private sealed class DeedStanding : IProgressionRule
+    {
+        public long ExperienceForLevel(int level) => 0;
+
+        public IReadOnlyList<ProgressionShare> Divide(ProgressionDivision division) => [];
+
+        public ProgressionGrowth Growth(ProgressionGrowthRequest request) => ProgressionGrowth.None;
+
+        public ProgressionStanding Standing(ProgressionStandingRequest request) =>
+            request.Event == ProgressionEventKind.Deed ? new ProgressionStanding(-2, 0) : ProgressionStanding.None;
+    }
+
     /// <summary>
     /// A counter that offers one of every kind the mechanism serves, open to a wounded, cursed, and poisoned party
     /// with a thousand coins, over the session's one clock and rest.
@@ -995,6 +1161,20 @@ public sealed class ServiceTests
             ServiceOperationKind.Withdraw => ServiceQuote.Paying(request.Subject.Count, request.Subject.Count),
             _ => ServiceQuote.Charging(request.Subject.Value, request.Subject.Value),
         };
+
+        /// <summary>What a theft here comes to, or null when this counter keeps nothing a thief is tried for.</summary>
+        internal Func<ServiceTheftRequest, ServiceTheft>? Theft { get; set; }
+
+        /// <summary>Which members may try, or every member when a test states nothing.</summary>
+        internal Func<ServiceTheftRequest, Refusal?>? Thieves { get; set; }
+
+        public Refusal? JudgeTheft(ServiceTheftRequest request) =>
+            Theft is null
+                ? new Refusal("test-no-theft", "This counter keeps nothing a thief is tried for.")
+                : Thieves?.Invoke(request);
+
+        public ServiceTheft Steal(ServiceTheftRequest request) =>
+            Theft?.Invoke(request) ?? ServiceTheft.Refused(JudgeTheft(request)!);
 
         /// <summary>What one lot of an open counter holds, or null when the shelves hold none of it.</summary>
         internal int? StockOf(PartyServices services, string lot) =>

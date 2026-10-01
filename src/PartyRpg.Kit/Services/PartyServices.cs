@@ -276,7 +276,11 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
         ServiceEligibility eligibility = _rule.Judge(new ServiceEligibilityRequest(service, kind, subject, member, _party, _clock));
         if (eligibility.Refusal is { } refused) return Refuse(kind, refused);
 
-        ServiceQuote quote = _rule.Quote(new ServiceQuoteRequest(service, kind, subject, member, _party, _clock));
+        // A theft is not bought, so it is not priced: what it costs is drawn by the theft rule and laid on the party
+        // as a debt, never charged at the counter.
+        ServiceQuote quote = operation.Unpriced
+            ? ServiceQuote.Free
+            : _rule.Quote(new ServiceQuoteRequest(service, kind, subject, member, _party, _clock));
         if ((!quote.Charge.IsFree || !quote.Payment.IsFree || operation.NeedsAccounts) && _accounts is null)
         {
             return Refuse(
@@ -714,6 +718,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
             "steal",
             SubjectShape.Lot,
             ForMember: true,
+            Unpriced: true,
             // What comes of a theft is drawn before anything moves, because being seen is chance: the draw is the
             // judgement, and once it is drawn what it yields and what it costs cannot be refused.
             Judge: static (services, t) => services.TheftOwners() ?? services.Draw(new ServiceTheftRequest(
@@ -770,6 +775,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
     /// <param name="Offer">The kind of offer it takes, when it takes one.</param>
     /// <param name="ForMember">Whether it acts on one member, which the command names.</param>
     /// <param name="NeedsAccounts">Whether it moves the party's accounts even when nothing is charged.</param>
+    /// <param name="Unpriced">Whether it is never priced, so the price rule is not asked and nothing is charged.</param>
     /// <param name="Admit">What it asks of the subject before anything else is judged.</param>
     /// <param name="Judge">What it asks of the owner it reaches before the charge is settled.</param>
     /// <param name="Apply">What it changes, which nothing can refuse by then.</param>
@@ -780,6 +786,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
         ServiceOfferKind? Offer = null,
         bool ForMember = false,
         bool NeedsAccounts = false,
+        bool Unpriced = false,
         Func<ServiceSubject, Refusal?>? Admit = null,
         Func<PartyServices, Transaction, Refusal?>? Judge = null,
         Action<PartyServices, Transaction> Apply = null!,
