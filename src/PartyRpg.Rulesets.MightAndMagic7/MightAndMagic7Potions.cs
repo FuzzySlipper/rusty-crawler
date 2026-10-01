@@ -114,7 +114,7 @@ internal static class MightAndMagic7Potions
 
         // Haste: the haste buff at mastery master, power five, for thirty minutes a point of strength.
         // Character.cpp:3124-3128.
-        new(228, SpellEffects.Utility, SpellTargeting.Caster, Readings.Buff(SpellEffectIds.Haste, WardFormulas.Flat(5), WardFormulas.ThirtyMinutesPerPoint).OnOne()),   // Haste
+        new(228, SpellEffects.Utility, SpellTargeting.Caster, Readings.Buff(SpellEffectIds.Haste, WardFormulas.Flat(5), WardFormulas.ThirtyMinutesPerPoint).OnOne().WithheldFromTheWeak()),   // Haste
 
         // Heroism: the same shape. Character.cpp:3130-3132.
         new(229, SpellEffects.Utility, SpellTargeting.Caster, Readings.Buff(SpellEffectIds.Heroism, WardFormulas.Flat(5), WardFormulas.ThirtyMinutesPerPoint).OnOne()),   // Heroism
@@ -131,7 +131,7 @@ internal static class MightAndMagic7Potions
         // Shield: armour class at three times the strength, which is the same reading the donor's own cast
         // states (Character.cpp:3144-3149). Unlike the spell of the same name, which this build refuses as a
         // missile shield it cannot resolve, the potion's own buff is armour class and is applied.
-        new(232, SpellEffects.Resistance, SpellTargeting.Caster, Readings.Armour(WardFormulas.ThreePerPoint, WardFormulas.ThirtyMinutesPerPoint).OnOne()),   // Shield
+        new(232, SpellEffects.Resistance, SpellTargeting.Caster, Readings.Buff(SpellEffectIds.Shield, WardFormulas.ThreePerPoint, WardFormulas.ThirtyMinutesPerPoint).OnOne().Says("a shield on the character drinking it, read by the fight's own ranged resolution — a creature's missile does half to them — with a deadline on the one clock")),   // Shield
 
         // Recharge Item: an item's charges given back, which needs an owner that can aim at an item.
         // Character.cpp:3214-3220.
@@ -162,12 +162,12 @@ internal static class MightAndMagic7Potions
         // cases (Character.cpp:3174-3212) raise a score on the character rather than on the party, and this
         // build's fights read scores from a character's own attributes, which no effect can raise yet — the
         // same gap the shipped Hour of Power and Day of the Gods carry, with the same receiver.
-        new(240, SpellEffects.Utility, SpellTargeting.Caster, Readings.NotYet("Might raised for a while", "the attribute readings a fight is priced by")),   // Might Boost
-        new(241, SpellEffects.Utility, SpellTargeting.Caster, Readings.NotYet("Intellect raised for a while", "the attribute readings a fight is priced by")),   // Intellect Boost
-        new(242, SpellEffects.Utility, SpellTargeting.Caster, Readings.NotYet("Personality raised for a while", "the attribute readings a fight is priced by")),   // Personality Boost
-        new(243, SpellEffects.Utility, SpellTargeting.Caster, Readings.NotYet("Endurance raised for a while", "the attribute readings a fight is priced by")),   // Endurance Boost
-        new(244, SpellEffects.Utility, SpellTargeting.Caster, Readings.NotYet("Speed raised for a while", "the attribute readings a fight is priced by")),   // Speed Boost
-        new(245, SpellEffects.Utility, SpellTargeting.Caster, Readings.NotYet("Accuracy raised for a while", "the attribute readings a fight is priced by")),   // Accuracy Boost
+        new(240, SpellEffects.Utility, SpellTargeting.Caster, Readings.Buff(SpellEffectIds.Attribute(MightAndMagic7Combat.MightAttribute), WardFormulas.ThreePerPoint, WardFormulas.ThirtyMinutesPerPoint).OnOne().Says("Might raised on the character drinking it, read wherever a fight reads the score, with a deadline on the one clock")),   // Might Boost
+        new(241, SpellEffects.Utility, SpellTargeting.Caster, Readings.Buff(SpellEffectIds.Attribute(MightAndMagic7Combat.IntellectAttribute), WardFormulas.ThreePerPoint, WardFormulas.ThirtyMinutesPerPoint).OnOne().Coarser("Intellect is raised wherever a fight reads it; the pool a raised intellect would deepen is set by progression and is not re-read while it runs (ours)")),   // Intellect Boost
+        new(242, SpellEffects.Utility, SpellTargeting.Caster, Readings.Buff(SpellEffectIds.Attribute(MightAndMagic7Combat.PersonalityAttribute), WardFormulas.ThreePerPoint, WardFormulas.ThirtyMinutesPerPoint).OnOne().Coarser("Personality is raised wherever a fight reads it; the pool a raised personality would deepen is set by progression and is not re-read while it runs (ours)")),   // Personality Boost
+        new(243, SpellEffects.Utility, SpellTargeting.Caster, Readings.Buff(SpellEffectIds.Attribute(MightAndMagic7Health.EnduranceAttribute), WardFormulas.ThreePerPoint, WardFormulas.ThirtyMinutesPerPoint).OnOne().Coarser("Endurance is raised wherever a fight reads it; the pool a raised endurance would deepen is set by progression and is not re-read while it runs (ours)")),   // Endurance Boost
+        new(244, SpellEffects.Utility, SpellTargeting.Caster, Readings.Buff(SpellEffectIds.Attribute(MightAndMagic7Combat.SpeedAttribute), WardFormulas.ThreePerPoint, WardFormulas.ThirtyMinutesPerPoint).OnOne().Says("Speed raised on the character drinking it, read wherever a fight reads the score, with a deadline on the one clock")),   // Speed Boost
+        new(245, SpellEffects.Utility, SpellTargeting.Caster, Readings.Buff(SpellEffectIds.Attribute(MightAndMagic7Combat.AccuracyAttribute), WardFormulas.ThreePerPoint, WardFormulas.ThirtyMinutesPerPoint).OnOne().Says("Accuracy raised on the character drinking it, read wherever a fight reads the score, with a deadline on the one clock")),   // Accuracy Boost
 
         // The weapon potions: a property added to a weapon for a while. Character.cpp:3247-3290, where each is
         // a temporary enchantment on the item in hand — the owner that would apply them is the item-aim owner
@@ -281,6 +281,7 @@ internal static class MightAndMagic7Potions
     private static string Expressed(PotionEffect effect)
     {
         SpellReading reading = effect.Reading;
+        if (reading.Expresses.Length > 0) return reading.Expresses;
         if (reading.Leaves is { } leaves)
         {
             return $"a condition left on the character drinking it through their own condition state ({leaves})";

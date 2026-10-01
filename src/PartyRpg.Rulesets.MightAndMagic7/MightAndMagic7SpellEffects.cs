@@ -272,11 +272,56 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     /// <summary>Hands one advance of the session's clock to the effects it ends.</summary>
     /// <param name="advance">Where the clock was, where it went, and what it brought due.</param>
     /// <exception cref="ArgumentNullException">No advance was supplied.</exception>
+    /// <remarks>
+    /// What a running effect does while time passes is read here, before the ledger ends what the advance brought
+    /// due: a regeneration gives back what the stretch of time it was still running for is worth, and not a moment
+    /// more, whether the clock got there in one long rest or a thousand updates.
+    /// </remarks>
     public void Observe(ClockAdvance advance)
     {
         ArgumentNullException.ThrowIfNull(advance);
+        Regenerate(advance);
         _running?.Observe(advance);
     }
+
+    /// <summary>
+    /// Gives health back to every character a regeneration runs on, once for every five minutes of game time the
+    /// advance passed while it ran.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The donor counts the five-minute boundaries between the last time it regenerated and now, and gives each
+    /// character with the buff five times its power for every one of them, never past what the character can hold
+    /// (<c>OpenEnroth/src/Engine/Engine.cpp:1236</c>, <c>:1398-1401</c>, and <c>Character.cpp:6495-6519</c>); a
+    /// character whose health is above nothing again is no longer unconscious (<c>Engine.cpp:1438-1440</c>). This
+    /// is that, counted on the calendar's own boundaries so the same stretch of time is worth the same health
+    /// however it was cut. The regeneration stops counting at its own deadline. Faithful.
+    /// </para>
+    /// <para>
+    /// A character the game has laid out carries nothing, so the dead are not regenerated: the ledger reports no
+    /// effect on them.
+    /// </para>
+    /// </remarks>
+    private void Regenerate(ClockAdvance advance)
+    {
+        if (_running is not { } running || _clock is not { } clock || !advance.Moved) return;
+        foreach (RunningSpellEffect effect in running.RunningOnMembers)
+        {
+            if (effect.Effect != SpellEffectIds.Regeneration || effect.Member is not { } id) continue;
+            if (!running.Party.TryMember(id, out PartyMember? member) || member is null) continue;
+
+            long ticks = clock.Calendar.Boundaries(advance.From, advance.To, RegenerationInterval);
+            if (effect.EndsAt is { } ends) ticks = Math.Min(ticks, clock.Calendar.Boundaries(advance.From, ends, RegenerationInterval));
+            if (ticks <= 0) continue;
+
+            long given = Math.Min(int.MaxValue, ticks * effect.Magnitude);
+            member.Resources.RestoreHitPoints((int)given);
+            if (member.Resources.HitPoints.Current > 0) member.Conditions.Clear(MightAndMagic7Conditions.Unconscious);
+        }
+    }
+
+    /// <summary>How often a regeneration gives health back: every five minutes of game time, <c>Engine.cpp:1236</c>.</summary>
+    private static readonly GameDuration RegenerationInterval = GameDuration.FromMinutes(5);
 
     /// <inheritdoc />
     public bool Holds(DeadlineId deadline) => _running?.Holds(deadline) ?? false;
@@ -330,6 +375,10 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     private SpellApplicationOutcome Heal(SpellApplication application)
     {
         SpellReading reading = _spells.ReadingOf(application.Spell);
+
+        // A healing spell that gives health back over a duration is a carried effect rather than an amount: it is
+        // landed the way every other carried effect is, and the clock's own advances read it.
+        if (reading.Healing == HealingMode.None && Carries(reading)) return Carry(application, reading);
         IReadOnlyList<PartyMember> members = Members(application);
         if (reading.Healing == HealingMode.None || members.Count == 0)
         {
@@ -444,6 +493,10 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     private SpellApplicationOutcome Ward(SpellApplication application)
     {
         SpellReading reading = _spells.ReadingOf(application.Spell);
+
+        // A protection that is not a resistance or armour — a shield against missiles — is a carried effect of its
+        // own identity, landed the way a utility's is.
+        if (reading.Ward is null && Carries(reading)) return Carry(application, reading);
         if (reading.Ward is not { } ward || Ledger is not { } running)
         {
             return Unexpressed(application, "no ward this build can raise");
@@ -833,37 +886,76 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
                 [.. restored.Select(member => new SpellEffectFact("spellPoints", member.Resources.SpellPoints.Current.ToString(CultureInfo.InvariantCulture)))]);
         }
 
-        if (reading.Buff is not { } buff || Ledger is not { } running)
-        {
-            return Unexpressed(application, "a utility this build cannot apply to that target");
-        }
+        return Carry(application, reading);
+    }
 
-        (int power, GameDuration lasts) = Worth(application, buff.Power, buff.Lasts);
+    /// <summary>Whether a reading leaves a carried effect at all.</summary>
+    private static bool Carries(SpellReading reading) => reading.Buff is not null || reading.Buffs is { Length: > 0 };
+
+    /// <summary>
+    /// Lands every carried effect a reading states, each on its own carrier and with its own deadline.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A buff is the same shape as a ward — a carried effect with a deadline, on one character or on the band as the
+    /// table's own aim states, or on every character under their own entry where the donor gives each of them one
+    /// (an hour of power's blessing) — and what reads it is a fight's own answer.
+    /// </para>
+    /// <para>
+    /// <b>A haste is withheld from the weak.</b> The donor gives no haste while a character it would land on is
+    /// weak — the spell is spent and nothing runs (<c>OpenEnroth/src/Engine/Spells/CastSpellInfo.cpp:826-838</c>, and
+    /// <c>:2560-2590</c> for an hour of power; the potion at <c>src/Engine/Objects/Character.cpp:3124-3128</c>) — so
+    /// a reading marked so is skipped and the outcome says why.
+    /// </para>
+    /// </remarks>
+    private SpellApplicationOutcome Carry(SpellApplication application, SpellReading reading)
+    {
+        if (Ledger is not { } running) return Unexpressed(application, "a utility this build cannot apply to that target");
+        List<BuffReading> buffs = [];
+        if (reading.Buff is { } single) buffs.Add(single);
+        if (reading.Buffs is { } several) buffs.AddRange(several);
+        if (buffs.Count == 0) return Unexpressed(application, "a utility this build cannot apply to that target");
+
         IReadOnlyList<PartyMember> carries = reading.OnMember ? Carriers(application) : [];
         if (reading.OnMember && carries.Count == 0)
         {
             return Unexpressed(application, "no character to carry an effect the table aims at one");
         }
 
-        if (carries.Count == 0)
+        List<SpellEffectFact> facts = [];
+        List<string> lines = [];
+        int landed = 0;
+        foreach (BuffReading buff in buffs)
         {
-            running.Start(buff.Effect, power, lasts);
-        }
-        else
-        {
-            foreach (PartyMember member in carries) running.StartOn(member, buff.Effect, power, lasts);
+            IReadOnlyList<PartyMember> on = buff.OnEach
+                ? [.. application.Party.Members.Where(member => !LaidOut(member))]
+                : carries;
+            IReadOnlyList<PartyMember> judged = on.Count > 0 ? on : application.Party.Members;
+            if (buff.SparesTheWeak && judged.Any(member => member.Conditions.Has(MightAndMagic7Conditions.Weak)))
+            {
+                lines.Add($"{buff.Effect} is withheld, because a character it would land on is weak");
+                facts.Add(new SpellEffectFact("withheld", buff.Effect.Value));
+                continue;
+            }
+
+            (int power, GameDuration lasts) = Worth(application, buff.Power, buff.Lasts);
+            if (on.Count == 0) running.Start(buff.Effect, power, lasts);
+            else foreach (PartyMember member in on) running.StartOn(member, buff.Effect, power, lasts);
+
+            string who = on.Count == 1 ? on[0].Profile.Name : buff.OnEach ? "every character" : "the party";
+            lines.Add(buffs.Count == 1
+                ? $"{who} carries it at {power} until the clock reaches the end of {Describe(lasts)}"
+                : $"{who} carries {buff.Effect} at {power} until the clock reaches the end of {Describe(lasts)}");
+            facts.Add(new SpellEffectFact("effect", buff.Effect.Value));
+            facts.Add(new SpellEffectFact("power", power.ToString(CultureInfo.InvariantCulture)));
+            facts.Add(new SpellEffectFact("until", Moment(application, lasts)));
+            facts.AddRange(on.Select(member => new SpellEffectFact("carried", member.Profile.Name)));
+            landed++;
         }
 
-        string who = carries.Count == 1 ? carries[0].Profile.Name : "the party";
-        return Expressed(
-            application,
-            $"{who} carries it at {power} until the clock reaches the end of {Describe(lasts)}",
-            [
-                new SpellEffectFact("effect", buff.Effect.Value),
-                new SpellEffectFact("power", power.ToString(CultureInfo.InvariantCulture)),
-                new SpellEffectFact("until", Moment(application, lasts)),
-                .. carries.Select(member => new SpellEffectFact("carried", member.Profile.Name)),
-            ]);
+        return landed == 0
+            ? Unexpressed(application, string.Join("; ", lines))
+            : Expressed(application, string.Join("; ", lines), facts);
     }
 
     /// <summary>What a spell's target resolves to, which is the named member or the whole band.</summary>

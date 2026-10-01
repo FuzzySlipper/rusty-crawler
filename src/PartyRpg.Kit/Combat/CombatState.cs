@@ -46,6 +46,7 @@ public sealed class CombatState : IGameTimeObserver
     private readonly ICombatResolutionRule? _resolution;
     private readonly ICombatAbilityResolutionRule? _abilities;
     private readonly ICombatWeaponRule? _weapons;
+    private readonly ICombatReflectionRule? _reflection;
     private readonly IReadOnlyList<ICreatureDeathObserver> _deaths;
     private readonly PartyEntity _party;
     private readonly ICombatWorld? _world;
@@ -93,6 +94,7 @@ public sealed class CombatState : IGameTimeObserver
         _resolution = rules.Resolution;
         _abilities = rules.Abilities;
         _weapons = rules.Weapons;
+        _reflection = rules.Reflection;
         _deaths = rules.Deaths ?? [];
         _party = party ?? throw new ArgumentNullException(nameof(party));
         _world = world;
@@ -695,12 +697,17 @@ public sealed class CombatState : IGameTimeObserver
                 maximum);
         }
 
+        // What a defence turns aside is taken off what the dice rolled before the target's resistance has its
+        // say, which is the order the plan states: the divisor is part of this blow against this target, and
+        // the resistance is the target's own answer about whatever got through.
         int rolled = plan.Damage.Roll(rolls, "damage");
+        int through = rolled / plan.Divisor;
         int damage = plan.Resistance.IsImmune
             ? 0
-            : Math.Max(0, resolution.DamageAfterResistance(target.Subject, plan.Kind, rolled, rolls));
+            : Math.Max(0, resolution.DamageAfterResistance(target.Subject, plan.Kind, through, rolls));
         CombatCondition? condition = resolution.ConditionOf(actor.Subject, target.Subject, plan.Kind, rolls);
         bool down = Wound(target, damage, condition);
+        (int reflected, bool actorDown) = Reflect(actor, target, plan.Kind, damage, rolls);
         (current, maximum) = Vitals(target);
         return CombatResolution.Landed(
             actor.Id,
@@ -717,7 +724,27 @@ public sealed class CombatState : IGameTimeObserver
             condition,
             down,
             current,
-            maximum);
+            maximum,
+            plan.Divisor,
+            reflected,
+            actorDown);
+    }
+
+    /// <summary>
+    /// Turns what a landed wound sends back onto the actor that dealt it, through that actor's own health.
+    /// </summary>
+    /// <remarks>
+    /// The ruleset answers how much comes back after the attacker's own defences; the fight lands it the same way
+    /// a blow lands, so a reflection that empties a creature is a death its observers hear and one that lands on a
+    /// member goes through the party's own damage entry. Nothing comes back from a wound that took nothing, and an
+    /// actor cannot be turned against itself.
+    /// </remarks>
+    private (int Reflected, bool Down) Reflect(Combatant actor, Combatant target, DamageKindId kind, int damage, IAttackRolls rolls)
+    {
+        if (_reflection is not { } reflection || damage <= 0 || actor.Id == target.Id || IsDown(actor)) return (0, false);
+        int reflected = Math.Max(0, reflection.ReflectedOnto(actor.Subject, target.Subject, kind, damage, rolls));
+        if (reflected == 0) return (0, false);
+        return (reflected, Wound(actor, reflected, condition: null));
     }
 
     /// <summary>

@@ -172,7 +172,7 @@ public sealed class SpellEffectPolicyTests
     }
 
     /// <summary>The fight's own subject for one named member, read from the live party.</summary>
-    private static CombatSubject SubjectOf(MightAndMagic7Session live, ICombatRule rule, string name)
+    internal static CombatSubject SubjectOf(MightAndMagic7Session live, ICombatRule rule, string name)
     {
         CombatState fight = FightOf(live, rule);
         return fight.Combatants.First(
@@ -329,14 +329,14 @@ public sealed class SpellEffectPolicyTests
         MightAndMagic7Session live = (MightAndMagic7Session)session;
         int before = live.Party!.Members[0].Resources.SpellPoints.Current;
 
-        // Shield turns a missile aside, and nothing in this build resolves a missile the spell could turn: the
-        // casting is refused where it is judged, naming what it would do and whose it would be, and no spell
-        // point is spent on a casting that would change nothing.
-        Cast(session, ui, 1, "17", string.Empty);
+        // Preservation protects the party's gear from harm, and nothing in this build carries what it would
+        // protect: the casting is refused where it is judged, naming what it would do and whose it would be,
+        // and no spell point is spent on a casting that would change nothing.
+        Cast(session, ui, 1, "50", string.Empty);
         ProjectedNode refused = Magic(ui);
         Assert.Equal("refused", refused.Field("outcome").AsString());
         Assert.Equal(SpellCodes.SpellNotApplied, refused.Field("code").AsString());
-        Assert.Contains(ReceiverOf(17), refused.Field("message").AsString(), StringComparison.Ordinal);
+        Assert.Contains(ReceiverOf(50), refused.Field("message").AsString(), StringComparison.Ordinal);
         Assert.Equal(before, live.Party.Members[0].Resources.SpellPoints.Current);
     }
 
@@ -368,9 +368,9 @@ public sealed class SpellEffectPolicyTests
     }
 
     /// <summary>A roll that always comes in high, which is what a resistance check has to beat.</summary>
-    private static IAttackRolls Rolls { get; } = new AlwaysHigh();
+    internal static IAttackRolls Rolls { get; } = new AlwaysHigh();
 
-    private static IGameSession Casting(ProductCreateContext context, RecordingUiService ui)
+    internal static IGameSession Casting(ProductCreateContext context, RecordingUiService ui)
     {
         IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
             RulesetTestContext.RulesetContext(context, ui) with { Cast = CastControls });
@@ -379,7 +379,7 @@ public sealed class SpellEffectPolicyTests
     }
 
     /// <summary>The ruleset's own fight policy over the party the session plays, for reading a blow's worth.</summary>
-    private static MightAndMagic7Combat Fight(ProductCreateContext context, PartyEntity party)
+    internal static MightAndMagic7Combat Fight(ProductCreateContext context, PartyEntity party, IRandomService? random = null)
     {
         ContentCatalog catalog = ContentCatalogLoader.Load(
             RulesetTestContext.Content(context),
@@ -391,17 +391,17 @@ public sealed class SpellEffectPolicyTests
         // the same party reads the same ward the session's cast wrote: the ledger that applied it is only what
         // holds when it ends, and a fight composed without one still reads the ward the party carries.
         RunningSpellEffects effects = new(party, clock: null, StillCarries);
-        return MightAndMagic7Combat.Compose(catalog, random: null, spells, () => party, () => effects);
+        return MightAndMagic7Combat.Compose(catalog, random, spells, () => party, () => effects);
     }
 
     /// <summary>Whether a character still carries what a spell left on them, as this game answers it.</summary>
-    private static bool StillCarries(PartyMember member) =>
+    internal static bool StillCarries(PartyMember member) =>
         !member.Conditions.Has(MightAndMagic7Conditions.Dead) &&
         !member.Conditions.Has(MightAndMagic7Conditions.Petrified) &&
         !member.Conditions.Has(MightAndMagic7Conditions.Eradicated);
 
     /// <summary>A fight over the session's own world, read once, so its subjects are the live ones.</summary>
-    private static CombatState FightOf(MightAndMagic7Session live, ICombatRule rule)
+    internal static CombatState FightOf(MightAndMagic7Session live, ICombatRule rule)
     {
         CombatState fight = new(Capabilities.Combat(rule), live.Party!, live.World);
         fight.Step();
@@ -409,25 +409,25 @@ public sealed class SpellEffectPolicyTests
     }
 
     /// <summary>The party member a blow lands on, as the fight itself knows it.</summary>
-    private static CombatSubject Defender(MightAndMagic7Session live, ICombatRule rule)
+    internal static CombatSubject Defender(MightAndMagic7Session live, ICombatRule rule)
     {
         CombatState fight = FightOf(live, rule);
         return fight.Combatants.First(combatant => combatant.Subject.IsMember).Subject;
     }
 
     /// <summary>The creature a blow comes from, as the fight itself knows it.</summary>
-    private static CombatSubject Attacker(MightAndMagic7Session live, ICombatRule rule)
+    internal static CombatSubject Attacker(MightAndMagic7Session live, ICombatRule rule)
     {
         CombatState fight = FightOf(live, rule);
         return fight.Combatants.First(combatant => !combatant.Subject.IsMember).Subject;
     }
 
     /// <summary>Who this game's own spell table says owns what a spell's effect is missing.</summary>
-    private static string ReceiverOf(int spell) =>
+    internal static string ReceiverOf(int spell) =>
         MightAndMagic7Spells.Rows.Single(row => row.Id == spell).Coverage.Receiver;
 
     /// <summary>Casts one spell, as the panel's own control does, and lets the session apply it.</summary>
-    private static void Cast(IGameSession session, RecordingUiService ui, ulong step, string spell, string target)
+    internal static void Cast(IGameSession session, RecordingUiService ui, ulong step, string spell, string target)
     {
         session.Update(RulesetTestContext.Update(
             step,
@@ -442,17 +442,17 @@ public sealed class SpellEffectPolicyTests
     /// of game time is an hour of it however many steps carry it. Advancing in one update is what keeps a case
     /// from depending on how many updates a stretch of time was cut into.
     /// </remarks>
-    private static void Advance(IGameSession session, int hours)
+    internal static void Advance(IGameSession session, int hours)
     {
         ulong step = 100 + (ulong)hours;
         session.Update(RulesetTestContext.Update(step, (uint)(hours * 3600 / GameSecondsPerRealSecond * 60)));
     }
 
     /// <summary>The identity the party's own projection publishes for one member.</summary>
-    private static string Target(PartyMember member) => CombatantId.Of(member.Id).ToString();
+    internal static string Target(PartyMember member) => CombatantId.Of(member.Id).ToString();
 
     /// <summary>The magic block the panel is showing.</summary>
-    private static ProjectedNode Magic(RecordingUiService ui) => ProjectedNode.Of(ui.Latest().Value).Field("magic");
+    internal static ProjectedNode Magic(RecordingUiService ui) => ProjectedNode.Of(ui.Latest().Value).Field("magic");
 
     /// <summary>The position of a spell in the first member's own spellbook, as the panel lists it.</summary>
     private static int AimIndex(RecordingUiService ui, string spell)
@@ -467,7 +467,7 @@ public sealed class SpellEffectPolicyTests
     }
 
     /// <summary>One effect the panel published running on one member under an identity.</summary>
-    private static ProjectedNode MemberRunning(ProjectedNode magic, string member, string effect)
+    internal static ProjectedNode MemberRunning(ProjectedNode magic, string member, string effect)
     {
         ProjectedNode running = magic.Field("memberRunning");
         for (int index = 0; index < running.Length(); index++)
@@ -484,7 +484,7 @@ public sealed class SpellEffectPolicyTests
     }
 
     /// <summary>One running effect the panel published under an identity.</summary>
-    private static ProjectedNode Running(ProjectedNode magic, string effect)
+    internal static ProjectedNode Running(ProjectedNode magic, string effect)
     {
         ProjectedNode running = magic.Field("running");
         for (int index = 0; index < running.Length(); index++)
@@ -496,7 +496,7 @@ public sealed class SpellEffectPolicyTests
     }
 
     /// <summary>What one reading a cast left behind says, empty when the cast published none of it.</summary>
-    private static string Fact(ProjectedNode magic, string name)
+    internal static string Fact(ProjectedNode magic, string name)
     {
         ProjectedNode facts = magic.Field("facts");
         for (int index = 0; index < facts.Length(); index++)
@@ -508,7 +508,7 @@ public sealed class SpellEffectPolicyTests
     }
 
     /// <summary>Asserts one reading a cast left behind, and says what was published when it is not there.</summary>
-    private static void AssertFact(ProjectedNode magic, string name, string value) =>
+    internal static void AssertFact(ProjectedNode magic, string name, string value) =>
         Assert.Equal(value, Fact(magic, name));
 
     /// <summary>How much real time one game second passes in, which is this game's own rate.</summary>
@@ -518,7 +518,7 @@ public sealed class SpellEffectPolicyTests
         Declared.UiActionContract);
 
     /// <summary>Every roll comes in at its highest, which beats every resistance threshold there is.</summary>
-    private sealed class AlwaysHigh : IAttackRolls
+    internal sealed class AlwaysHigh : IAttackRolls
     {
         /// <inheritdoc />
         public int Roll(string purpose, int minimum, int maximum)
@@ -530,11 +530,19 @@ public sealed class SpellEffectPolicyTests
     }
 
     /// <summary>A world of two places, one creature in the first, and a party that knows what a case casts.</summary>
-    private static (string Path, string Text)[] Content() =>
+    /// <param name="spells">The spell rows a suite casts, or null for this suite's own.</param>
+    /// <param name="party">The scenario party a suite plays, or null for this suite's own.</param>
+    /// <param name="monster">The creature row a suite fights, or null for this suite's own.</param>
+    /// <param name="extra">Further documents a suite's own pack declares, each with its manifest line.</param>
+    internal static (string Path, string Text)[] Content(
+        (string Path, string Text)? spells = null,
+        (string Path, string Text)? party = null,
+        (string Path, string Text)? monster = null,
+        params (string Path, string Text, string Manifest)[] extra) =>
     [
         RulesetTestContext.Bundle("partyrpg-default", "world"),
         ($"{RulesetTestContext.ContentDirectory}/content-packs/world/pack.json",
-            """
+            $$"""
             {
               "schemaVersion": 1,
               "packId": "world",
@@ -547,7 +555,7 @@ public sealed class SpellEffectPolicyTests
                 { "path": "party.json", "documentId": "party", "definitionKind": "scenario-party" },
                 { "path": "spells.json", "documentId": "spells", "definitionKind": "spell" },
                 { "path": "skills.json", "documentId": "skills", "definitionKind": "skill" },
-                { "path": "monsters.json", "documentId": "monsters", "definitionKind": "monster" }
+                { "path": "monsters.json", "documentId": "monsters", "definitionKind": "monster" }{{Manifest(extra)}}
               ]
             }
             """),
@@ -577,11 +585,16 @@ public sealed class SpellEffectPolicyTests
             """
             { "documentId": "start", "definitionKind": "scenario-start", "entries": [ { "id": "start", "place": "1", "entryPoint": "Party Start" } ] }
             """),
-        Spells(),
+        spells ?? Spells(),
         Skills(),
-        Monster(),
-        Party(),
+        monster ?? Monster(),
+        party ?? Party(),
+        .. extra.Select(document => (document.Path, document.Text)),
     ];
+
+    /// <summary>The manifest lines further documents add to the pack, each led by the separator the list needs.</summary>
+    private static string Manifest((string Path, string Text, string Manifest)[] extra) =>
+        string.Concat(extra.Select(document => ",\n                " + document.Manifest));
 
     /// <summary>The shipped spell rows these cases cast, by their own global ids.</summary>
     private static (string Path, string Text) Spells() =>
@@ -598,6 +611,7 @@ public sealed class SpellEffectPolicyTests
                 { "id": "17", "school": "Air", "level": 6, "name": "Shield", "resist": "0" },
                 { "id": "31", "school": "Water", "level": 9, "name": "Town Portal", "resist": "0" },
                 { "id": "42", "school": "Earth", "level": 9, "name": "Telekinesis", "resist": "0" },
+                { "id": "50", "school": "Spirit", "level": 6, "name": "Preservation", "resist": "0" },
                 { "id": "53", "school": "Spirit", "level": 9, "name": "Raise Dead", "resist": "0" },
                 { "id": "61", "school": "Mind", "level": 6, "name": "Cure Paralysis", "resist": "0" },
                 { "id": "68", "school": "Body", "level": 2, "name": "Heal", "resist": "0" },
@@ -679,7 +693,7 @@ public sealed class SpellEffectPolicyTests
                                   { "id": "Spirit", "level": 4, "tier": 3, "pointsSpent": 1 },
                                   { "id": "Body", "level": 2, "tier": 1, "pointsSpent": 1 },
                                   { "id": "Light", "level": 2, "tier": 1, "pointsSpent": 1 } ],
-                      "spells": [ "1", "3", "5", "12", "17", "31", "42", "53", "61", "68", "80" ], "conditions": [] },
+                      "spells": [ "1", "3", "5", "12", "17", "31", "42", "50", "53", "61", "68", "80" ], "conditions": [] },
                     { "name": "Borin", "race": "Human", "class": "Knight", "level": 1, "hitPoints": 40,
                       "spellPoints": 0,
                       "attributes": [ { "id": "Might", "value": 13 }, { "id": "Intellect", "value": 9 },

@@ -38,7 +38,10 @@ public sealed record CombatResolution
         CombatCondition? condition,
         bool targetDown,
         int targetHitPoints,
-        int targetHitPointsMax)
+        int targetHitPointsMax,
+        int divisor = 1,
+        int reflected = 0,
+        bool actorDown = false)
     {
         Actor = actor;
         ActorName = actorName;
@@ -56,6 +59,9 @@ public sealed record CombatResolution
         TargetDown = targetDown;
         TargetHitPoints = targetHitPoints;
         TargetHitPointsMax = targetHitPointsMax;
+        Divisor = divisor;
+        Reflected = reflected;
+        ActorDown = actorDown;
         Message = Describe();
     }
 
@@ -106,6 +112,15 @@ public sealed record CombatResolution
 
     /// <summary>What the target had to lose before anything was taken off it.</summary>
     public int TargetHitPointsMax { get; }
+
+    /// <summary>What a defence divided the rolled harm by before resistance, one when nothing did.</summary>
+    public int Divisor { get; }
+
+    /// <summary>How much of the harm the target took was turned back onto the actor that dealt it.</summary>
+    public int Reflected { get; }
+
+    /// <summary>Whether what was turned back is what took the actor down.</summary>
+    public bool ActorDown { get; }
 
     /// <summary>What happened, in a sentence a person reads.</summary>
     public string Message { get; }
@@ -193,6 +208,9 @@ public sealed record CombatResolution
     /// <param name="targetDown">Whether this hit took the target down.</param>
     /// <param name="targetHitPoints">What the target has left.</param>
     /// <param name="targetHitPointsMax">What the target had.</param>
+    /// <param name="divisor">What a defence divided the rolled harm by before resistance, one when nothing did.</param>
+    /// <param name="reflected">How much harm was turned back onto the actor, zero when none was.</param>
+    /// <param name="actorDown">Whether what was turned back took the actor down.</param>
     /// <returns>The resolution.</returns>
     public static CombatResolution Landed(
         CombatantId actor,
@@ -209,7 +227,10 @@ public sealed record CombatResolution
         CombatCondition? condition,
         bool targetDown,
         int targetHitPoints,
-        int targetHitPointsMax) => new(
+        int targetHitPointsMax,
+        int divisor = 1,
+        int reflected = 0,
+        bool actorDown = false) => new(
         actor,
         actorName,
         target,
@@ -225,7 +246,10 @@ public sealed record CombatResolution
         condition,
         targetDown,
         targetHitPoints,
-        targetHitPointsMax);
+        targetHitPointsMax,
+        divisor,
+        reflected,
+        actorDown);
 
     /// <summary>Writes what happened in one sentence, with the numbers that explain it.</summary>
     private string Describe()
@@ -244,11 +268,14 @@ public sealed record CombatResolution
                 $"{ActorName} attacks {TargetName} ({AttackKinds.WireName(Kind)}) and misses: the hit roll was {HitRoll} against a {Chance} chance.");
         }
 
+        string turned = Divisor > 1
+            ? string.Create(CultureInfo.InvariantCulture, $" (a defence divided the {Rolled} rolled by {Divisor})")
+            : string.Empty;
         string harm = Resistance.IsImmune
             ? string.Create(CultureInfo.InvariantCulture, $"{TargetName} is immune to {DamageKind}, so the {Rolled} rolled lands for nothing")
             : Resistance.Points > 0
-                ? string.Create(CultureInfo.InvariantCulture, $"{Rolled} {DamageKind} damage rolled, {Damage} landed through {Resistance.Points} resistance")
-                : string.Create(CultureInfo.InvariantCulture, $"{Damage} {DamageKind} damage landed");
+                ? string.Create(CultureInfo.InvariantCulture, $"{Rolled} {DamageKind} damage rolled, {Damage} landed through {Resistance.Points} resistance{turned}")
+                : string.Create(CultureInfo.InvariantCulture, $"{Damage} {DamageKind} damage landed{turned}");
 
         string standing = TargetHitPointsMax > 0
             ? string.Create(CultureInfo.InvariantCulture, $"{TargetName} is at {TargetHitPoints}/{TargetHitPointsMax}")
@@ -258,9 +285,14 @@ public sealed record CombatResolution
             ? string.Create(CultureInfo.InvariantCulture, $" and is left {left.Condition} ({left.Source})")
             : string.Empty;
         string down = TargetDown ? ", and is down" : string.Empty;
+        string back = Reflected > 0
+            ? string.Create(
+                CultureInfo.InvariantCulture,
+                $"; {Reflected} is turned back onto {ActorName}{(ActorDown ? ", which takes them down" : string.Empty)}")
+            : string.Empty;
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"{ActorName} hits {TargetName} ({AttackKinds.WireName(Kind)}): {harm}; {standing}{condition}{down}.");
+            $"{ActorName} hits {TargetName} ({AttackKinds.WireName(Kind)}): {harm}; {standing}{condition}{down}{back}.");
     }
 
     /// <inheritdoc />

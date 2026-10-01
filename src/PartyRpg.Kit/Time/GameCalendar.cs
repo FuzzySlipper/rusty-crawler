@@ -311,6 +311,38 @@ public sealed class GameCalendar
         return FromAbsoluteMilliseconds(checked(AbsoluteMilliseconds(from) + elapsed.Milliseconds));
     }
 
+    /// <summary>
+    /// How many boundaries of a stated interval lie between two dates, counted from the calendar's own first day.
+    /// </summary>
+    /// <remarks>
+    /// This is <see cref="Crossed"/> for an interval of the caller's own length: a boundary belongs to the span when
+    /// it lies after the first date and no later than the second, so a rule that does something every so often —
+    /// health given back every five minutes — does it once per boundary however the clock's advances were cut,
+    /// and a span that ends before it begins crosses nothing.
+    /// </remarks>
+    /// <param name="from">The date the span begins at.</param>
+    /// <param name="to">The date the span ends at.</param>
+    /// <param name="interval">The length of game time between two boundaries.</param>
+    /// <returns>The boundaries the span passed, zero when it ends no later than it begins.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The calendar does not hold a date, or the interval is no time at all.</exception>
+    public long Boundaries(GameDate from, GameDate to, GameDuration interval)
+    {
+        RequireValid(from, nameof(from));
+        RequireValid(to, nameof(to));
+        if (interval.IsNone)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(interval),
+                interval,
+                "A rule that acts every so often acts at boundaries some length of game time apart; an interval of no time would put a boundary at every instant.");
+        }
+
+        long fromMilliseconds = AbsoluteMilliseconds(from);
+        long toMilliseconds = AbsoluteMilliseconds(to);
+        if (toMilliseconds <= fromMilliseconds) return 0;
+        return (toMilliseconds / interval.Milliseconds) - (fromMilliseconds / interval.Milliseconds);
+    }
+
     /// <summary>How much game time lies between two dates.</summary>
     /// <param name="from">The date to measure from.</param>
     /// <param name="to">The date to measure to, which cannot be earlier than the one measured from.</param>

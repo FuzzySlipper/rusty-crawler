@@ -80,7 +80,7 @@ the shipped `POTION.TXT` states what each potion is for in words and no numbers 
 | 229 | utility | caster | implemented | a carried effect of its own identity (spell.heroism) on that character, read where it applies and ended by a deadline on the one clock |  |
 | 230 | utility | caster | implemented | a carried effect of its own identity (spell.bless) on that character, read where it applies and ended by a deadline on the one clock |  |
 | 231 | utility | caster | not yet | the party's gear protected from harm | item state, which carries what a spell would protect |
-| 232 | resistance | caster | implemented | armour class carried by the character and read by the fight's own armour class, with a deadline on the one clock |  |
+| 232 | resistance | caster | implemented | a shield on the character drinking it, read by the fight's own ranged resolution — a creature's missile does half to them — with a deadline on the one clock |  |
 | 233 | utility | none | not yet | an item whose charges are given back | an item-aim owner: the pack holds the party's items and nothing aims a potion at one |
 | 234 | resistance | caster | implemented | armour class carried by the character and read by the fight's own armour class, with a deadline on the one clock |  |
 | 235 | utility | caster | not yet | water breathed under rather than walked over | the party's mover, which walks and falls and does nothing else |
@@ -88,12 +88,12 @@ the shipped `POTION.TXT` states what each potion is for in words and no numbers 
 | 237 | condition | caster | implemented | the conditions the potion names lifted from the drinker's own condition state |  |
 | 238 | condition | caster | implemented | the conditions the potion names lifted from the drinker's own condition state |  |
 | 239 | condition | caster | implemented | the conditions the potion names lifted from the drinker's own condition state |  |
-| 240 | utility | caster | not yet | Might raised for a while | the attribute readings a fight is priced by |
-| 241 | utility | caster | not yet | Intellect raised for a while | the attribute readings a fight is priced by |
-| 242 | utility | caster | not yet | Personality raised for a while | the attribute readings a fight is priced by |
-| 243 | utility | caster | not yet | Endurance raised for a while | the attribute readings a fight is priced by |
-| 244 | utility | caster | not yet | Speed raised for a while | the attribute readings a fight is priced by |
-| 245 | utility | caster | not yet | Accuracy raised for a while | the attribute readings a fight is priced by |
+| 240 | utility | caster | implemented | Might raised on the character drinking it, read wherever a fight reads the score, with a deadline on the one clock |  |
+| 241 | utility | caster | approximated | Intellect is raised wherever a fight reads it; the pool a raised intellect would deepen is set by progression and is not re-read while it runs (ours) |  |
+| 242 | utility | caster | approximated | Personality is raised wherever a fight reads it; the pool a raised personality would deepen is set by progression and is not re-read while it runs (ours) |  |
+| 243 | utility | caster | approximated | Endurance is raised wherever a fight reads it; the pool a raised endurance would deepen is set by progression and is not re-read while it runs (ours) |  |
+| 244 | utility | caster | implemented | Speed raised on the character drinking it, read wherever a fight reads the score, with a deadline on the one clock |  |
+| 245 | utility | caster | implemented | Accuracy raised on the character drinking it, read wherever a fight reads the score, with a deadline on the one clock |  |
 | 246 | utility | none | not yet | a weapon given the property of flame | an item-aim owner: the pack holds the party's items and nothing aims a potion at one |
 | 247 | utility | none | not yet | a weapon given the property of frost | an item-aim owner: the pack holds the party's items and nothing aims a potion at one |
 | 248 | utility | none | not yet | a weapon given the property of poison | an item-aim owner: the pack holds the party's items and nothing aims a potion at one |
@@ -126,14 +126,14 @@ the shipped `POTION.TXT` states what each potion is for in words and no numbers 
 | category | implemented | approximated | not yet | spells |
 | --- | --- | --- | --- | --- |
 | damage | 33 | 1 | 0 | 34 |
-| healing | 5 | 1 | 1 | 7 |
-| resistance | 8 | 1 | 1 | 10 |
+| healing | 6 | 1 | 0 | 7 |
+| resistance | 9 | 1 | 0 | 10 |
 | condition | 9 | 0 | 10 | 19 |
 | light | 1 | 0 | 0 | 1 |
 | travel | 2 | 0 | 4 | 6 |
 | detection | 3 | 0 | 0 | 3 |
-| utility | 6 | 1 | 12 | 19 |
-| **all** | **67** | **4** | **28** | **99** |
+| utility | 8 | 2 | 9 | 19 |
+| **all** | **71** | **5** | **23** | **99** |
 
 ## Every spell
 
@@ -158,7 +158,7 @@ master, and four grand master.
 | 14 | resistance | 1 | ally | implemented | a ward on the character the casting named, read by the fight's own resistance for that character and ended by its own deadline; the donor gives several of these to the whole party at once (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:767-801, pPartyBuffs[PARTY_BUFF_RESIST_*]), and this game's own table aims each one at a single character |  |
 | 15 | damage | 1 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 16 | travel | 2 | caster | not yet | a jump that carries the party over what it could not walk past | the party's mover, which walks and falls and does nothing else |
-| 17 | resistance | 2 | caster | not yet | a shield that turns a missile aside | the fight's own ranged resolution |
+| 17 | resistance | 2 | caster | implemented | a shield on the caster, read by the fight's own ranged resolution — a creature's missile does half to them — and ended by its own deadline; the donor shields the whole party (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:904-945, PARTY_BUFF_SHIELD), and this game's own table aims it at the caster |  |
 | 18 | damage | 2 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 19 | utility | 3 | party | implemented | a party-carried effect read by the fight's own resolution |  |
 | 20 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
@@ -212,7 +212,7 @@ master, and four grand master.
 | 68 | healing | 1 | ally | implemented | hit points restored through the member's own pool |  |
 | 69 | resistance | 1 | ally | implemented | a ward on the character the casting named, read by the fight's own resistance for that character and ended by its own deadline; the donor gives several of these to the whole party at once (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:767-801, pPartyBuffs[PARTY_BUFF_RESIST_*]), and this game's own table aims each one at a single character |  |
 | 70 | damage | 1 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
-| 71 | healing | 2 | ally | not yet | health given back over a duration | this effect path's own clock observation: the running-effect ledger hears every advance |
+| 71 | healing | 2 | ally | implemented | health given back to the character the casting named every five minutes of game time the clock passes, through their own pool, until its own deadline (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:744-766, src/Engine/Engine.cpp:1236, 1398-1401) |  |
 | 72 | condition | 2 | ally | implemented | the named conditions lifted through the member's own condition state |  |
 | 73 | utility | 2 | caster | implemented | an effect on the character the casting named, read by the fight's own resolution for that character and ended by its own deadline; the donor rewards a blessing, a fate, and hammerhands to one character below the rungs where it widens them to the party (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:846-880, :1631-1656, :2364-2384), and this game's own table aims each one at a single character |  |
 | 74 | condition | 3 | ally | implemented | the named conditions lifted through the member's own condition state |  |
@@ -224,10 +224,10 @@ master, and four grand master.
 | 80 | utility | 1 | none | approximated | the donor dispels the buffs of the creature it is cast on; this build's spell effects are the party's, so the casting ends what spells have left running on the party (receiver: an actor-buff owner for world actors) |  |
 | 81 | condition | 1 | foe | not yet | a condition on a world actor | the fight's own condition model, which is the party's |
 | 82 | utility | 2 | caster | not yet | a creature summoned to stand with the party | the world's population, which places what content declares |
-| 83 | utility | 2 | party | not yet | six attributes raised for a day | the attribute readings a fight is priced by |
+| 83 | utility | 2 | party | approximated | every score a fight reads is raised for every member; the pools a raised endurance, intellect, or personality would deepen are set by progression and are not re-read while it runs (ours) |  |
 | 84 | damage | 2 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 85 | resistance | 3 | party | implemented | a ward carried by the party and read by the fight's own resistance |  |
-| 86 | utility | 3 | party | not yet | every attribute and resistance raised for an hour | the attribute and resistance readings a fight is priced by |
+| 86 | utility | 3 | party | implemented | a blessing on every character, and heroism, a shield, stone skin, and a haste carried by the party, each read where the fight reads that effect and ended by its own deadline; the haste is withheld while a character is weak (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:2530-2592) |  |
 | 87 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 88 | healing | 4 | party | approximated | the donor allows three castings a day and ages the caster by ten; neither a daily count nor ageing exists in this build (receiver: a per-day cast count and progression's ageing) |  |
 | 89 | utility | 1 | foe | not yet | a corpse raised to fight for the party | the world's bodies and the fight's allegiance state |
@@ -236,7 +236,7 @@ master, and four grand master.
 | 92 | condition | 1 | foe | not yet | a creature shrunk | the fight's own actor state, which is not the party's condition model |
 | 93 | damage | 2 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 94 | condition | 2 | foe | not yet | an undead creature made to fight for the party | the fight's allegiance state, which is a side rather than a loyalty |
-| 95 | utility | 2 | caster | not yet | harm reflected onto whoever struck the party | the fight's damage application |
+| 95 | utility | 2 | caster | implemented | pain reflection on the caster: the harm a creature's blow or missile does them is turned back onto that creature through its own resistance by the fight's damage application, until its own deadline; the donor gives it to every character at master and above (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:2813-2840), and this game's own table aims it at the caster |  |
 | 96 | utility | 3 | none | not yet | a follower to give up | a follower owner: the party keeps no followers until hirelings and story companions land |
 | 97 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 98 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |

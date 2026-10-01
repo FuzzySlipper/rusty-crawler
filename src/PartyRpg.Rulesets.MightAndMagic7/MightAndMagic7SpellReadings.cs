@@ -156,6 +156,65 @@ internal static class WardFormulas
         _ => 6,
     };
 
+    /// <summary>
+    /// A day of the gods' own power: three, four, or five a level by mastery, plus ten.
+    /// </summary>
+    /// <remarks>
+    /// OpenEnroth <c>src/Engine/Spells/CastSpellInfo.cpp:2450-2475</c>: expert adds <c>3 * level + 10</c>, master
+    /// <c>4 * level + 10</c>, and grand master <c>5 * level + 10</c> to every one of the seven attributes, which
+    /// the donor reads in <c>GetMagicalBonus</c> (<c>src/Engine/Objects/Character.cpp:2360-2387</c>).
+    /// </remarks>
+    internal static readonly Func<int, int, int> DayOfTheGodsPower = (level, mastery) => (Math.Clamp(mastery + 1, 3, 5) * level) + 10;
+
+    /// <summary>A day of the gods' own length: three, four, or five hours a level by mastery.</summary>
+    /// <remarks>OpenEnroth <c>src/Engine/Spells/CastSpellInfo.cpp:2458-2470</c>.</remarks>
+    internal static readonly Func<int, int, GameDuration> DayOfTheGodsLasts = (level, mastery) => GameDuration.FromHours(Math.Clamp(mastery + 1, 3, 5) * level);
+
+    /// <summary>
+    /// What an hour of power's own buffs are worth: the school's level plus five, which is what the single
+    /// spells of the same names give.
+    /// </summary>
+    /// <remarks>OpenEnroth <c>src/Engine/Spells/CastSpellInfo.cpp:2530-2536</c> (<c>target_skill_level = spell_level + 5</c>).</remarks>
+    internal static readonly Func<int, int, int> HourOfPowerPower = LevelPlus(perLevel: 1, flat: 5);
+
+    /// <summary>
+    /// How long an hour of power's buffs other than haste last: an hour plus fifteen minutes for every point of
+    /// four times the level at master, five times at grand master.
+    /// </summary>
+    /// <remarks>OpenEnroth <c>src/Engine/Spells/CastSpellInfo.cpp:2538-2556</c>.</remarks>
+    internal static readonly Func<int, int, GameDuration> HourOfPowerLasts = (level, mastery) =>
+        GameDuration.FromHours(1) + GameDuration.FromMinutes(15 * level * (mastery >= 4 ? 5 : 4));
+
+    /// <summary>How long an hour of power's haste lasts: an hour plus three minutes a point at master, four at grand master.</summary>
+    /// <remarks>OpenEnroth <c>src/Engine/Spells/CastSpellInfo.cpp:2538-2556</c>.</remarks>
+    internal static readonly Func<int, int, GameDuration> HourOfPowerHasteLasts = (level, mastery) =>
+        mastery >= 4
+            ? GameDuration.FromHours(1) + GameDuration.FromMinutes(4 * 5 * level)
+            : GameDuration.FromHours(1) + GameDuration.FromMinutes(3 * 4 * level);
+
+    /// <summary>
+    /// What a regeneration gives back every five minutes: five times its power, which is one at novice and expert,
+    /// three at master, and ten at grand master.
+    /// </summary>
+    /// <remarks>
+    /// OpenEnroth <c>src/Engine/Spells/CastSpellInfo.cpp:744-766</c> states the power by mastery, and
+    /// <c>src/Engine/Engine.cpp:1398-1401</c> turns it into <c>5 * power</c> hit points for every five minutes of
+    /// game time that pass (<c>:1236</c>, <c>ticksBetween(oldTime, newTime, 5 minutes)</c>).
+    /// </remarks>
+    internal static readonly Func<int, int, int> RegenerationPower = (_, mastery) => 5 * mastery switch
+    {
+        <= 2 => 1,
+        3 => 3,
+        _ => 10,
+    };
+
+    /// <summary>
+    /// Pain reflection's own length: an hour plus five minutes a level at expert and master, fifteen at grand master.
+    /// </summary>
+    /// <remarks>OpenEnroth <c>src/Engine/Spells/CastSpellInfo.cpp:2813-2828</c>.</remarks>
+    internal static readonly Func<int, int, GameDuration> PainReflectionLasts = (level, mastery) =>
+        GameDuration.FromHours(1) + GameDuration.FromMinutes((mastery >= 4 ? 15 : 5) * level);
+
     /// <summary>The donor's day of protection at master: four hours per level.</summary>
     internal static readonly Func<int, int, GameDuration> FourHoursPerLevel = (level, _) => GameDuration.FromHours(4 * level);
 
@@ -178,7 +237,21 @@ internal readonly record struct WardReading(
 /// <param name="Effect">The state the spell leaves, which the reading that honours it also names.</param>
 /// <param name="Power">What the effect is worth at the caster's school level and mastery.</param>
 /// <param name="Lasts">How long it lasts at the caster's school level and mastery.</param>
-internal readonly record struct BuffReading(EffectId Effect, Func<int, int, int> Power, Func<int, int, GameDuration> Lasts);
+/// <param name="OnEach">
+/// Whether the effect lands on every member under their own entry rather than on the party, which is the donor's
+/// own shape where one casting gives each character a buff of their own (an hour of power's blessing).
+/// </param>
+/// <param name="SparesTheWeak">
+/// Whether a party with a weak member is given nothing of this effect, which is the donor's own haste: a weak
+/// character cannot be hastened, and the party's haste is withheld from all of them
+/// (<c>OpenEnroth/src/Engine/Spells/CastSpellInfo.cpp:826-838</c>, and <c>:2560-2590</c> for an hour of power).
+/// </param>
+internal readonly record struct BuffReading(
+    EffectId Effect,
+    Func<int, int, int> Power,
+    Func<int, int, GameDuration> Lasts,
+    bool OnEach = false,
+    bool SparesTheWeak = false);
 
 /// <summary>Everything a spell does besides harming, as its own row states it.</summary>
 /// <remarks>
@@ -219,6 +292,14 @@ internal readonly record struct BuffReading(EffectId Effect, Func<int, int, int>
 /// <param name="Missing">What this build cannot apply for the spell, empty when it applies all of it.</param>
 /// <param name="Receiver">Who owns what is missing, empty when nothing is.</param>
 /// <param name="NotApplied">Whether this build applies nothing of the spell, so a casting is refused before it is paid for.</param>
+/// <param name="Buffs">
+/// Further effects one casting leaves beside <paramref name="Buff"/>, each with its own power, length, and
+/// carrier, which is what a spell the donor states as several buffs at once is (an hour of power).
+/// </param>
+/// <param name="Expresses">
+/// What the coverage report says the spell does where the category's own sentence would not say it, empty when
+/// the category's sentence is the whole truth.
+/// </param>
 internal readonly record struct SpellReading(
     HealingMode Healing,
     int HealBase,
@@ -243,7 +324,9 @@ internal readonly record struct SpellReading(
     string Divergence,
     string Missing,
     string Receiver,
-    bool NotApplied = false)
+    bool NotApplied = false,
+    BuffReading[]? Buffs = null,
+    string Expresses = "")
 {
     /// <summary>The reading of a spell whose category this field does not describe.</summary>
     internal static readonly SpellReading None = new(
@@ -347,6 +430,17 @@ internal static class Readings
     /// <summary>A party-carried effect the spell leaves, with its power and its length.</summary>
     internal static SpellReading Buff(EffectId effect, Func<int, int, int> power, Func<int, int, GameDuration> lasts) =>
         SpellReading.None with { Buff = new BuffReading(effect, power, lasts) };
+
+    /// <summary>Several effects one casting leaves at once, each with its own carrier, power, and length.</summary>
+    /// <param name="buffs">The effects, in the order the donor's own case applies them.</param>
+    internal static SpellReading Bundle(params BuffReading[] buffs) => SpellReading.None with { Buffs = buffs };
+
+    /// <summary>A carried effect the donor withholds while a character it would land on is weak, which is its haste.</summary>
+    internal static SpellReading WithheldFromTheWeak(this SpellReading reading) =>
+        reading.Buff is { } buff ? reading with { Buff = buff with { SparesTheWeak = true } } : reading;
+
+    /// <summary>What the coverage report says a spell does, where its category's own sentence would not say it.</summary>
+    internal static SpellReading Says(this SpellReading reading, string expresses) => reading with { Expresses = expresses };
 
     /// <summary>A portal to a place the party names, taken through the world's own transition path.</summary>
     internal static SpellReading Portal() => SpellReading.None with { Travel = TravelShape.Portal };
@@ -461,6 +555,27 @@ internal static class SpellEffectIds
 
     /// <summary>Fate, whose magnitude is added to the luck a resistance check and a saving throw read.</summary>
     internal static readonly EffectId Fate = new("spell.fate");
+
+    /// <summary>A score raised for a while, whose magnitude is added to that score wherever a fight reads it.</summary>
+    /// <remarks>
+    /// The donor keeps one character buff per score (<c>CHARACTER_BUFF_STRENGTH</c> and its siblings) and adds its
+    /// power in <c>GetMagicalBonus</c> (<c>OpenEnroth/src/Engine/Objects/Character.cpp:2360-2387</c>); the identity is
+    /// derived from the score so every boost is the same arithmetic.
+    /// </remarks>
+    /// <param name="attribute">The score raised.</param>
+    internal static EffectId Attribute(AttributeId attribute) => new(string.Concat("spell.attribute.", attribute.Value));
+
+    /// <summary>Day of the Gods, whose magnitude the party carries and every member adds to all seven scores.</summary>
+    internal static readonly EffectId DayOfTheGods = new("spell.day-of-the-gods");
+
+    /// <summary>Shield, which halves what a missile does to whoever carries it; a fact rather than a magnitude.</summary>
+    internal static readonly EffectId Shield = new("spell.shield");
+
+    /// <summary>Pain Reflection, which turns the harm a character takes back onto whoever dealt it.</summary>
+    internal static readonly EffectId PainReflection = new("spell.pain-reflection");
+
+    /// <summary>Regeneration, whose magnitude is the health a character is given back every five minutes.</summary>
+    internal static readonly EffectId Regeneration = new("spell.regeneration");
 
     /// <summary>Invisibility, which is carried as a fact rather than as a magnitude.</summary>
     internal static readonly EffectId Invisibility = new("spell.invisibility");

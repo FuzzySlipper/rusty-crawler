@@ -341,6 +341,39 @@ public sealed class CombatResolutionTests
     }
 
     /// <summary>Records every death a fight reports, in the order it reports them.</summary>
+    [Fact]
+    public void A_defence_divides_a_blow_and_a_reflection_turns_harm_back_onto_the_attacker()
+    {
+        // A creature swings at a member who carries a defence the ruleset states as a halving and a reflection of
+        // three: the fight divides what the dice rolled before resistance and lands what comes back on the
+        // creature's own health.
+        Rules rules = new(damage: new DamageRoll(dice: 1, sides: 8), face: 8, divisor: 2, reflect: 3);
+        CombatResolution struck = MemberResolve(rules, out SessionWorld world, out PartyEntity party, out PartyMember victim);
+        using (world)
+        using (party)
+        {
+            Assert.Equal(8, struck.Rolled);
+            Assert.Equal(2, struck.Divisor);
+            Assert.Equal(4, struck.Damage);
+            Assert.Equal(16, victim.Resources.HitPoints.Current);
+            Assert.Equal(3, struck.Reflected);
+            Assert.False(struck.ActorDown);
+            Assert.Contains("divided the 8 rolled by 2", struck.Message, StringComparison.Ordinal);
+            Assert.Contains("3 is turned back onto a test creature", struck.Message, StringComparison.Ordinal);
+            Assert.Equal(1, CreatureHealth.Find(world.Population.Entities[0].Actor)!.Current);
+        }
+
+        // A reflection that empties the creature takes it down, and the fight says so.
+        Rules sharper = new(damage: new DamageRoll(dice: 1, sides: 8), face: 8, reflect: 4);
+        CombatResolution felled = MemberResolve(sharper, out SessionWorld again, out PartyEntity band, out _);
+        using (again)
+        using (band)
+        {
+            Assert.True(felled.ActorDown);
+            Assert.True(CreatureHealth.Find(again.Population.Entities[0].Actor)!.IsDown);
+        }
+    }
+
     private sealed class Heard(List<CreatureDeath> heard) : ICreatureDeathObserver
     {
         public void Died(CreatureDeath death) => heard.Add(death);
@@ -481,11 +514,13 @@ public sealed class CombatResolutionTests
     /// The numbers and readings this suite's fights are resolved with: a chance, dice, a resistance, what a
     /// hit leaves, who may act, what a target can take, and the thresholds a wound is judged against.
     /// </summary>
-    private sealed class Rules : ICombatRule, ICombatResolutionRule
+    private sealed class Rules : ICombatRule, ICombatResolutionRule, ICombatReflectionRule
     {
         private readonly IRandomService? _random;
         private readonly int _roll;
         private readonly int _face;
+        private readonly int _divisor;
+        private readonly int _reflect;
 
         internal Rules(
             IRandomService? random = null,
@@ -496,9 +531,13 @@ public sealed class CombatResolutionTests
             Resistance? resist = null,
             ConditionId? condition = null,
             bool incapacitated = false,
-            int deathThreshold = 6)
+            int deathThreshold = 6,
+            int divisor = 1,
+            int reflect = 0)
         {
             _random = random;
+            _divisor = divisor;
+            _reflect = reflect;
             _roll = roll;
             _face = face;
             HitChance = hitChance ?? HitChance.Always;
@@ -545,7 +584,12 @@ public sealed class CombatResolutionTests
             HitChance,
             Steel,
             Damage,
-            Resist);
+            Resist,
+            target.Member is not null ? _divisor : 1);
+
+        /// <summary>This suite's reflection: a member turns a stated amount back onto a creature that hurt them.</summary>
+        public int ReflectedOnto(CombatSubject attacker, CombatSubject target, DamageKindId kind, int harm, IAttackRolls rolls) =>
+            target.Member is not null && attacker.Member is null ? _reflect : 0;
 
         /// <summary>This suite's own resistance arithmetic: immunity takes all, resistance halves once.</summary>
         public int DamageAfterResistance(CombatSubject target, DamageKindId kind, int damage, IAttackRolls rolls) =>

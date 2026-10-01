@@ -227,7 +227,10 @@ kind of attack takes — the fight consumes the `AttackInitiation` it published,
 through keyed `KeyedRolls` under a key that names the attack, applies what is left to whoever owns the
 target's health, applies the `CombatCondition` a landed hit leaves, records a `CombatResolution`, and
 reports it, with `DamageKindId`, `DamageRoll` (dice, a bonus, and a floor), `Resistance` (a weight or full
-immunity), `HitChance` in ten-thousandths, and `AttackPlan` as the vocabulary; `CreatureHealth` is a
+immunity), `HitChance` in ten-thousandths, and `AttackPlan` as the vocabulary — a plan may also state a
+`Divisor` a defence turns part of the rolled harm aside by before resistance, and a wound that landed may be
+turned back onto the attacker through the optional `ICombatReflectionRule` `CombatRules` names, landed on the
+attacker's own health and reported as the resolution's `Reflected`; `CreatureHealth` is a
 creature's own health, a component attached by the population's `IPlacementComposer` when the creature is
 placed (`CreatureHealthComposer` over the game's `ICreatureVitals`), so a fight keeps no tally of its own beside
 it; where a placed entity stands is its own too (`PlacePopulationEntity.Pose`, moved only by `MoveTo`); a death
@@ -275,7 +278,8 @@ report of the hour, day, week, month, and year boundaries it crossed and the `De
 brought due once each, delivered by the clock itself to every `IGameTimeObserver` registered with it
 (`GameClock.Observe`) whoever moved it, so a journey, a rest, a wait and a night at an inn reach the same
 owners an admitted update does and no caller forwards an advance by hand, `GameDuration` and `GameDate` values, the `DeadlineId` handles travel, rest,
-training, and spell durations register against, day and night from a `DaylightWindow`, and the
+training, and spell durations register against, `GameCalendar.Boundaries` for a rule that acts every
+interval of its own length (a regeneration's five minutes) however the advances were cut, day and night from a `DaylightWindow`, and the
 `IWorldTimeSource` day count the world's respawn reads).
 Of the owner map, only followers (#8514) and item enchantments (#8513) have no producer yet.
 

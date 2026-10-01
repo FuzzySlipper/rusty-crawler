@@ -31,10 +31,14 @@ Owns:
   health through the member's own pool in the donor's four shapes, conditions through the member's own
   condition state, a ward or a buff the table aims at one character landed on that character with its own
   deadline and read where it applies for them (the six elemental and body protections, blessing, fate,
-  heroism, and hammerhands), a ward or a buff aimed at the band carried by the party, all of them read by the
-  fight's own answers (resistance, armour class, recovery, the chance to land, what a blow is worth, the
-  luck a save reads, whether a creature notices the party) and ended by the clock, by a dispelling, or by
-  the character no longer carrying anything; light ended by the clock's daylight window, travel as a portal
+  heroism, hammerhands, a shield, pain reflection, regeneration, and a potion's boost of one score), a ward or
+  a buff aimed at the band carried by the party (a day of the gods, an hour of power's five buffs with its
+  blessing on every character), all of them read by the fight's own answers (resistance, armour class,
+  recovery, the chance to land, what a blow is worth, the scores every sum reads, the luck a save reads, a
+  missile turned aside, a blow turned back, whether a creature notices the party) and ended by the clock, by a
+  dispelling, or by the character no longer carrying anything; a regeneration gives health back for every
+  five-minute boundary the clock passes while it runs (`GameCalendar.Boundaries`, read in the effect path's own
+  clock observation before the ledger ends what came due); light ended by the clock's daylight window, travel as a portal
   through the world's own transition path with a beacon in the party's carried state, and detection over
   the places and the population the world holds. What each spell does inside its category is its row in
   `MightAndMagic7SpellReadings`, and how far this build expresses each one is reported per spell in
@@ -77,6 +81,20 @@ Owns:
     leather level to fire, air, water and earth, beside the wards spells leave. Faithful for those terms; the
     character's own base and racial terms are not stated by this game's members, followers are #8514, and
     enchantments #8513.
+  - **the scores every sum reads** (`Character.cpp:729-765`, `GetActualStat`): the score the character carries,
+    plus a potion's boost of that score on them and the party's day of the gods, which adds to all seven
+    (`:2360-2387`). Faithful for those terms; the ageing and conditions multipliers, item bonuses (#8513) and a
+    follower's luck (#8514) are not invented. The pools are set by progression and are not re-read while a boost
+    runs (ours).
+  - **what a spell adds** (`Character.cpp:2322-2395`, `GetMagicalBonus`): every buff is read as the character's
+    own plus the party's of the same name, so a potion on one member and a spell on the band are one reading —
+    a haste takes the donor's flat twenty-five ticks whichever carries it (`:1723-1728`), and nothing the party
+    carries hastens a person in the world.
+  - **missiles and reflection**: a creature's missile is halved against a character carrying a shield, the
+    spell's or the potion's (`Character.cpp:5987-6009`), stated as the fight's plan divisor; and a character
+    carrying pain reflection turns the harm a creature's blow or missile did them back onto that creature through
+    its own resistance (`:5875-5900`, `:6042-6062`), through the kit's `ICombatReflectionRule`. Faithful; the items
+    that shield their wearer wait for #8513.
   A member wearing a bow shoots it at whatever the party's pick finds, where the donor swings at a target in
   melee range and shoots otherwise (`Character.cpp:6367-6397`): the kit asks one kind of attack per actor rather
   than per target (ours). Each sum is a list of terms, so a later owner's term — a buff, an enchantment — is one
