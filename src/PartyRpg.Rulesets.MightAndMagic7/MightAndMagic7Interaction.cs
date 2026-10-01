@@ -1,3 +1,4 @@
+using System.Globalization;
 using PartyRpg.Kit;
 using System.Text.Json;
 using PartyRpg.Kit.Combat;
@@ -191,8 +192,24 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
         List<ContentValidationIssue> issues = [];
         foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in catalog.Entries(PlaceGraphLoader.PlaceDefinitionKind))
         {
+            HashSet<double> doors = [];
             foreach (JsonElement placement in entry.GetArray(PlacePopulationContent.PlacementsField))
             {
+                // A map event moves a door by the number the map gives it, not by its placement, so two doors of
+                // one place under one number would leave a lever moving whichever was placed first and the other
+                // never (the donor's own lookup takes the first too: OpenEnroth
+                // src/Engine/Graphics/Indoor.cpp:721-726). It is refused while the world is built instead.
+                if (string.Equals(ContentEntry.ReadString(placement, PlacePopulationContent.KindField), DoorPlacementKind, StringComparison.Ordinal)
+                    && ContentEntry.ReadDouble(placement, MightAndMagic7Fixtures.DoorIdField) is { } door
+                    && !doors.Add(door))
+                {
+                    issues.Add(new ContentValidationIssue(
+                        "interaction-door-number-reused",
+                        $"place '{entry.Id}' places more than one door numbered {door.ToString(CultureInfo.InvariantCulture)}, so a map event moving that door would move only the first.",
+                        pack.PackId,
+                        document.DocumentId));
+                }
+
                 foreach (JsonElement requirement in MightAndMagic7Containers.ReadArray(placement, RequiresField))
                 {
                     if (ReadKind(ContentEntry.ReadString(requirement, "kind")) is null)

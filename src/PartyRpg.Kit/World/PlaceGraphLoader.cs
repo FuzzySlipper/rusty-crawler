@@ -64,18 +64,50 @@ public static class PlaceGraphLoader
             places.Add(place);
         }
 
+        // A transition is found by its id (an entrance names the one it takes) and a sold crossing by where it
+        // leaves, where it goes and its route (a ticket names those), so each is held once. Two authored links
+        // sharing an id are already refused by the catalog (entry-id-reused, per kind); what reaches here is a
+        // crossing the game's fare network states under an id another transition holds, or two sold crossings
+        // a ticket could not tell apart.
         List<PlaceTransition> transitions = [];
+        HashSet<string> sources = new(StringComparer.Ordinal);
+        HashSet<(PlaceId? From, PlaceId To, string Route)> sold = [];
+        void Admit(PlaceTransition transition, string packId, string? documentId)
+        {
+            if (!sources.Add(transition.Source))
+            {
+                issues.Add(new ContentValidationIssue(
+                    "transition-id-reused",
+                    $"transition '{transition.Source}' is declared more than once.",
+                    packId,
+                    documentId));
+                return;
+            }
+
+            if (transition.FareRoute is { } route && !sold.Add((transition.From, transition.To, route)))
+            {
+                issues.Add(new ContentValidationIssue(
+                    "transition-fare-reused",
+                    $"transition '{transition.Source}' sells a passage from place '{transition.From}' to place '{transition.To}' on route '{route}', which another sold crossing already sells, so a ticket naming that place and route could not say which was bought.",
+                    packId,
+                    documentId));
+                return;
+            }
+
+            transitions.Add(transition);
+        }
+
         foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in catalog.Entries(TransitionDefinitionKind))
         {
             PlaceTransition? transition = ReadTransition(pack, document, entry, known, fares, issues);
-            if (transition is not null) transitions.Add(transition);
+            if (transition is not null) Admit(transition, pack.PackId, document.DocumentId);
         }
 
         if (network is not null)
         {
             foreach (PlaceTransition journey in network.Journeys(places))
             {
-                if (Sold(journey, known, fares, issues) is { } sold) transitions.Add(sold);
+                if (Sold(journey, known, fares, issues) is { } crossing) Admit(crossing, crossing.Source, documentId: null);
             }
         }
 
@@ -124,7 +156,12 @@ public static class PlaceGraphLoader
             return null;
         }
 
+        // An arrival point is found by its id — a start, a transition and a sold crossing all name one — so a
+        // place declaring one id twice would answer every one of them with whichever came first, and the
+        // author's other point would be dead. It is refused by name, as a place declared twice is. Ids that
+        // differ only in case are one id, because that is how a point is looked up.
         List<PlaceEntryPoint> entryPoints = [];
+        Dictionary<string, string> declared = new(PlaceDefinition.EntryPointIds);
         foreach (JsonElement point in entry.GetArray("entryPoints"))
         {
             string id = ContentEntry.ReadId(point, "id");
@@ -133,6 +170,19 @@ public static class PlaceGraphLoader
                 issues.Add(new ContentValidationIssue(
                     "entry-point-id-missing",
                     $"place '{entry.Id}' declares an arrival point with no id.",
+                    pack.PackId,
+                    document.DocumentId));
+                continue;
+            }
+
+            if (!declared.TryAdd(id, id))
+            {
+                string spelled = string.Equals(declared[id], id, StringComparison.Ordinal)
+                    ? string.Empty
+                    : $" (as '{declared[id]}' and as '{id}', which name one point because arrival points are looked up without regard to case)";
+                issues.Add(new ContentValidationIssue(
+                    "entry-point-id-reused",
+                    $"place '{entry.Id}' declares arrival point '{id}' more than once{spelled}.",
                     pack.PackId,
                     document.DocumentId));
                 continue;

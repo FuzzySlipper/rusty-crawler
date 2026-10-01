@@ -50,4 +50,22 @@ public sealed class ImportedSessionTests
         Assert.All(sold, transition => Assert.True(transition.FareDays >= 1));
         Assert.Equal(42, sold.Count(transition => transition.FareRoute == MightAndMagic7FareDays.CoachRoute));
     }
+
+    [ImportedFact("places.json")]
+    public void The_imported_places_hold_each_arrival_point_once_and_every_named_arrival_resolves()
+    {
+        // The graph refuses a place declaring one arrival-point id twice (entry-point-id-reused); the release's
+        // own maps carry seventy-six places and eighty-three arrival points, every one under its own name, so the
+        // import loads unchanged and every transition naming a point lands at exactly one.
+        ContentCatalog catalog = ImportedContent.Load();
+        Assert.True(catalog.IsValid, string.Join("; ", catalog.Issues.Select(issue => issue.ToString())));
+        PartyRpg.Kit.World.PlaceGraph graph = MightAndMagic7World.Graph(catalog);
+
+        Assert.Equal(76, graph.Places.Count);
+        Assert.Equal(83, graph.Places.Sum(place => place.EntryPoints.Count));
+        Assert.All(graph.Places, place => Assert.Equal(
+            place.EntryPoints.Count,
+            place.EntryPoints.Select(point => point.Id).Distinct(PartyRpg.Kit.World.PlaceDefinition.EntryPointIds).Count()));
+        Assert.All(graph.Transitions.Where(transition => transition.Arrival.IsEntryPoint), transition => graph.ResolveArrival(transition));
+    }
 }

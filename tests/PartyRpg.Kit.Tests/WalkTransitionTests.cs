@@ -176,6 +176,22 @@ public sealed class WalkTransitionTests
         Assert.Contains(error.Issues, issue => issue.Code == "entrance-place-mismatch");
     }
 
+    [Fact]
+    public void Entrances_over_a_world_holding_one_transition_id_twice_are_refused_rather_than_given_either()
+    {
+        // A loaded graph holds each transition id once; one a caller assembled from parts is not trusted to, so
+        // an entrance naming an id the world holds twice is refused by name rather than handed the first.
+        ContentCatalog catalog = Catalog();
+        PlaceGraph loaded = PlaceGraphLoader.Load(catalog);
+        PlaceTransition edge = loaded.Transitions.Single(transition => transition.Source == "edge");
+        PlaceGraph assembled = PlaceGraph.From(loaded.Places, [.. loaded.Transitions, edge with { To = edge.From!.Value }]);
+
+        ContentValidationException error = Assert.Throws<ContentValidationException>(() => PlaceEntranceLoader.Load(catalog, assembled));
+        ContentValidationIssue reused = Assert.Single(error.Issues);
+        Assert.Equal("transition-id-reused", reused.Code);
+        Assert.Contains("'edge'", reused.Message, StringComparison.Ordinal);
+    }
+
     private static PartyPoseOwner Party() =>
         new(new PartyPose(new PlaceId("1"), Start), new FacingRule(unitsPerTurn: 2048, minimumPitch: -512, maximumPitch: 512));
 
@@ -198,20 +214,7 @@ public sealed class WalkTransitionTests
         string entranceLink = "edge",
         string entrancePlace = "1")
     {
-        ContentCatalog catalog = ContentCatalogLoader.Load(
-            new InMemoryContentSource()
-                .Add("packs/world/pack.json", Manifest(entrances))
-                .Add("packs/world/places.json", TestPacks.Document("places", "place",
-                    """{ "id": "1", "kind": "region", "name": "Home", "respawnDays": 7, "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 512 } ] }""",
-                    """{ "id": "2", "kind": "interior", "name": "Cave", "respawnDays": 7, "entryPoints": [ { "id": "Party Start", "x": 5, "y": 6, "z": 7, "yaw": 0 } ] }"""))
-                .Add("packs/world/links.json", TestPacks.Document("links", "travel-link",
-                    """{ "id": "edge", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start" }""",
-                    """{ "id": "back", "fromPlace": "2", "toPlace": "1", "x": 10, "y": 20, "z": 0, "yaw": 512 }"""))
-                .Add("packs/world/entrances.json", TestPacks.Document("entrances", "place-entrance",
-                    $$"""{ "id": "in-cave", "link": "{{entranceLink}}", "fromPlace": "{{entrancePlace}}", "kind": "{{entranceKind}}", "x": {{ReachX}}, "y": 0, "z": 0, "radius": {{ReachRadius}} }""",
-                    """{ "id": "out-cave", "link": "back", "fromPlace": "2", "kind": "entrance", "x": 5, "y": 6, "z": 7, "radius": 40 }""")),
-            Layout).RequireValid();
-
+        ContentCatalog catalog = Catalog(entrances, entranceKind, entranceLink, entrancePlace);
         PlaceGraph graph = PlaceGraphLoader.Load(catalog);
         PartyPoseOwner party = Party();
         return new SessionWorld(
@@ -226,6 +229,26 @@ public sealed class WalkTransitionTests
             diagnostics,
             entrances ? PlaceEntranceLoader.Load(catalog, graph) : null);
     }
+
+    /// <summary>The two places, their roads, and the roads' reaches content declares.</summary>
+    private static ContentCatalog Catalog(
+        bool entrances = true,
+        string entranceKind = "entrance",
+        string entranceLink = "edge",
+        string entrancePlace = "1") =>
+        ContentCatalogLoader.Load(
+            new InMemoryContentSource()
+                .Add("packs/world/pack.json", Manifest(entrances))
+                .Add("packs/world/places.json", TestPacks.Document("places", "place",
+                    """{ "id": "1", "kind": "region", "name": "Home", "respawnDays": 7, "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 512 } ] }""",
+                    """{ "id": "2", "kind": "interior", "name": "Cave", "respawnDays": 7, "entryPoints": [ { "id": "Party Start", "x": 5, "y": 6, "z": 7, "yaw": 0 } ] }"""))
+                .Add("packs/world/links.json", TestPacks.Document("links", "travel-link",
+                    """{ "id": "edge", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start" }""",
+                    """{ "id": "back", "fromPlace": "2", "toPlace": "1", "x": 10, "y": 20, "z": 0, "yaw": 512 }"""))
+                .Add("packs/world/entrances.json", TestPacks.Document("entrances", "place-entrance",
+                    $$"""{ "id": "in-cave", "link": "{{entranceLink}}", "fromPlace": "{{entrancePlace}}", "kind": "{{entranceKind}}", "x": {{ReachX}}, "y": 0, "z": 0, "radius": {{ReachRadius}} }""",
+                    """{ "id": "out-cave", "link": "back", "fromPlace": "2", "kind": "entrance", "x": 5, "y": 6, "z": 7, "radius": 40 }""")),
+            Layout).RequireValid();
 
     /// <summary>The mover the world was built with, which is where a test reads what it entered.</summary>
     private static RecordingMover Mover(SessionWorld world) => Assert.IsType<RecordingMover>(world.Mover);
