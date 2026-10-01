@@ -210,7 +210,15 @@ where the flow stands, every choice it offers, and the rule the last illegal cho
 structured UI value builder, the Engine-backed projection channel and the session projection (each block is a sealed
 `*Snapshot` record read from its owner that writes its own keys, so a block's wire shape is spelled once; `SessionSnapshot`
 requires every block, a session without a mechanism passing that block's `None`, so no unread block reaches
-`SessionProjection.Build`, which only composes the writers in order; with its controls block,
+`SessionProjection.Build`, which only composes the writers in order; the session reads the projection on every
+running update but keeps the blocks whose owners move only when somebody acts or the clock delivers something —
+party, skills, promotion, magic, alchemy, quests, journal, automap, equipment — in `ProjectionReadings`, each
+read again only when its own key moves: the `ChangeStamp` of each owner it reads (`PartyEntity.Stamp`, the latest
+over every party component, member component and held item, each of which takes a stamp in every mutator; the
+quest, journal, knowledge, map, progression, casting, mixing and outfitting owners' own), and the few live facts it
+shows besides — the clock's hour for an errand's condition, its minute for the calendar book, the party's pose for
+the drawing, the running effects and the fight's sides for the spellbook, and no keeping at all while a detection
+marks the map; with its controls block,
 `ControlsSnapshot`: each stand-alone control's action, whether the session would take it now, and the key the host bound it
 to as `ControlKeys` — so the panel prints every verdict and works none out), the admitted-input router that turns
 engine events into session commands, the population owner that fills a place from its placements and
@@ -235,7 +243,8 @@ kind of attack takes — the fight consumes the `AttackInitiation` it published,
 `ICombatResolutionRule` seam for a chance, a kind of harm, dice, and the target's resistance, rolls them
 through keyed `KeyedRolls` under a key that names the attack, applies what is left to whoever owns the
 target's health, applies the `CombatCondition` a landed hit leaves, records a `CombatResolution`, and
-reports it, with `DamageKindId`, `DamageRoll` (dice, a bonus, and a floor), `Resistance` (a weight or full
+reports it, with `DamageKindId`, `DamageRoll` (dice, a bonus, a floor, and any `DamageMultiplier` — a run of its dice and a share of its bonus
+that counts again by a factor when a draw of its own lands), `Resistance` (a weight or full
 immunity), `HitChance` in ten-thousandths, and `AttackPlan` as the vocabulary — a plan may also state a
 `Divisor` a defence turns part of the rolled harm aside by before resistance, and a wound that landed may be
 turned back onto the attacker through the optional `ICombatReflectionRule` `CombatRules` names, landed on the

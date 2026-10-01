@@ -91,6 +91,13 @@ public sealed class PartyQuests
     /// <summary>The party whose journal this keeps.</summary>
     public PartyEntity Party => _party;
 
+    /// <summary>
+    /// The change stamp this owner took when the errands it holds or the last outcome it reports last changed, or
+    /// when it was made: a reader that kept what it built beside it reads the owner again only when it has moved
+    /// (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     /// <summary>What the last operation did, or null before any has been asked for.</summary>
     public QuestResult? Last { get; private set; }
 
@@ -192,6 +199,7 @@ public sealed class PartyQuests
         }
 
         _instances.Add(new QuestInstance(quest, QuestStage.Offered, definition.Giver, place.Value));
+        Stamp = ChangeStamp.Next();
         return Record(QuestResult.Applied(QuestAction.Offer, quest, QuestStage.Offered));
     }
 
@@ -209,6 +217,7 @@ public sealed class PartyQuests
         }
 
         _instances[_instances.IndexOf(instance)] = instance with { Stage = QuestStage.Accepted };
+        Stamp = ChangeStamp.Next();
         return Record(QuestResult.Applied(QuestAction.Accept, quest, QuestStage.Accepted));
     }
 
@@ -314,6 +323,7 @@ public sealed class PartyQuests
         }
 
         _instances[_instances.IndexOf(instance)] = instance with { Stage = QuestStage.TurnedIn };
+        Stamp = ChangeStamp.Next();
         return Record(QuestResult.Applied(
             QuestAction.TurnIn,
             quest,
@@ -350,7 +360,9 @@ public sealed class PartyQuests
                 current = current.Record(objective.Id, objective.Count);
             }
 
-            if (!ReferenceEquals(current, instance)) _instances[index] = current;
+            if (ReferenceEquals(current, instance)) continue;
+            _instances[index] = current;
+            Stamp = ChangeStamp.Next();
         }
     }
 
@@ -386,7 +398,9 @@ public sealed class PartyQuests
                 if (counted > 0) current = current.Record(objective.Id, Math.Min(objective.Count, current.Recorded(objective.Id) + counted));
             }
 
-            if (!ReferenceEquals(current, instance)) _instances[index] = current;
+            if (ReferenceEquals(current, instance)) continue;
+            _instances[index] = current;
+            Stamp = ChangeStamp.Next();
         }
     }
 
@@ -516,6 +530,7 @@ public sealed class PartyQuests
     private QuestResult Record(QuestResult result)
     {
         Last = result;
+        Stamp = ChangeStamp.Next();
         return result;
     }
 }

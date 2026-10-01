@@ -18,6 +18,12 @@ namespace PartyRpg.Kit.Party;
 /// </remarks>
 public sealed class ActiveEffects
 {
+    /// <summary>
+    /// The change stamp this state took when it last changed, or when it was made: a reader that kept what it built
+    /// beside this stamp reads the state again only when the stamp has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     private readonly List<PartyEffect> _active = [];
 
     /// <summary>Creates a set of running effects.</summary>
@@ -64,13 +70,9 @@ public sealed class ActiveEffects
     internal void Apply(PartyEffect effect)
     {
         int index = IndexOf(effect.Effect);
-        if (index < 0)
-        {
-            _active.Add(effect);
-            return;
-        }
-
-        _active[index] = effect;
+        if (index < 0) _active.Add(effect);
+        else _active[index] = effect;
+        Stamp = ChangeStamp.Next();
     }
 
     /// <summary>Ends one effect, which is what a deadline passing or a dispelling does.</summary>
@@ -81,6 +83,7 @@ public sealed class ActiveEffects
         int index = IndexOf(effect);
         if (index < 0) return false;
         _active.RemoveAt(index);
+        Stamp = ChangeStamp.Next();
         return true;
     }
 

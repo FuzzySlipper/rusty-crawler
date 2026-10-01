@@ -13,6 +13,12 @@ namespace PartyRpg.Kit.Party;
 /// </remarks>
 public sealed class CharacterProfile
 {
+    /// <summary>
+    /// The change stamp this state took when it last changed, or when it was made: a reader that kept what it built
+    /// beside this stamp reads the state again only when the stamp has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     /// <summary>Creates a character's identity.</summary>
     /// <param name="id">The member's durable identity, minted once and kept for the character's whole life.</param>
     /// <param name="name">The name a player reads, which must not be blank.</param>
@@ -64,6 +70,7 @@ public sealed class CharacterProfile
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         Name = name;
+        Stamp = ChangeStamp.Next();
     }
 
     /// <summary>
@@ -71,5 +78,9 @@ public sealed class CharacterProfile
     /// earned, and what the new class may do, is the ruleset's policy; this records where it landed.
     /// </summary>
     /// <param name="promotedClass">The class definition the character now belongs to.</param>
-    public void ChangeClass(ClassId promotedClass) => Class = promotedClass;
+    public void ChangeClass(ClassId promotedClass)
+    {
+        Class = promotedClass;
+        Stamp = ChangeStamp.Next();
+    }
 }

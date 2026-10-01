@@ -159,7 +159,7 @@ public sealed class StandingPolicyTests
         using PartyEntity party = PartyOf(reputation: 0);
         PartyProgression progression = new(MightAndMagic7Progression.Instance, party);
         PartyResourceLedger accounts = new(party);
-        MightAndMagic7Crimes crimes = new(combat.TownspersonLevel, () => party, () => accounts);
+        MightAndMagic7Crimes crimes = new(combat.TownspersonLevel, MightAndMagic7Combat.IsPerson, () => party, () => accounts);
         ProgressionAwards awards = new(combat.ExperienceOf, () => progression, crimes.SourceOf);
         void Dies(PlacementDefinition placement)
         {
@@ -185,22 +185,28 @@ public sealed class StandingPolicyTests
         Assert.Equal(-2, party.Reputation.Reputation);
         Assert.Equal(100, party.Purse.Coins);
 
-        // A guard and a beast are kills like any other: experience, no word against the party, no fine.
+        // A guard is a peaceful person too: the death pays its experience and lowers the world's opinion the
+        // same point (ours), and is not fined, because only a peasant row is (the donor's IsPeasant).
         Dies(guard);
-        Assert.Equal(ProgressionAwards.KillSource, progression.LastAward!.Source);
+        Assert.Equal(MightAndMagic7Crimes.PersonKillSource, progression.LastAward!.Source);
+        Assert.Equal(-1, progression.LastAward!.Standing.Reputation);
+        Assert.Equal(-3, party.Reputation.Reputation);
+        Assert.Equal(100, party.Purse.Coins);
+
+        // A beast is a kill like any other: experience, no word against the party, no fine.
         Dies(beast);
         Assert.Equal(ProgressionAwards.KillSource, progression.LastAward!.Source);
-        Assert.Equal(-2, party.Reputation.Reputation);
+        Assert.Equal(-3, party.Reputation.Reputation);
         Assert.Equal(100, party.Purse.Coins);
 
         // A fine the purse cannot cover takes what it holds (ours: the donor carries the rest as a debt a
         // town hall collects), and the deed still lands.
         Dies(bystander);
         Assert.Equal(0, party.Purse.Coins);
-        Assert.Equal(-3, party.Reputation.Reputation);
+        Assert.Equal(-4, party.Reputation.Reputation);
         Dies(bystander);
         Assert.Equal(0, party.Purse.Coins);
-        Assert.Equal(-4, party.Reputation.Reputation);
+        Assert.Equal(-5, party.Reputation.Reputation);
 
         // The donor's sum, clamped as the donor clamps it: a party the town likes well enough pays nothing.
         Assert.Equal(0, MightAndMagic7Crimes.FineFor(level: 1, reputation: 30));

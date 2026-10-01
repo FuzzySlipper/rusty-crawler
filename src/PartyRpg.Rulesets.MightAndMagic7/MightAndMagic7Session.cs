@@ -257,11 +257,11 @@ internal sealed class MightAndMagic7Session : IGameSession
         // captured when the policy was composed. What a ward on one character is worth is that character's own
         // reading, which is why the ledger travels beside the party rather than the party's effects alone.
         // A death is reported once, at the blow that caused it, to each of four observers named here in order:
-        // the body is laid and its loot rolled, the errands a party has taken count it, a townsperson's death is
-        // fined, and what it was worth is awarded under the word the crime path names for it — one report of
+        // the body is laid and its loot rolled, the errands a party has taken count it, a peaceful person's death is
+        // a deed against the party (and a townsperson's is fined), and what it was worth is awarded under the word the crime path names for it — one report of
         // one death rather than four readings of the place. The fine is told before the award because it reads
         // the standing the deed is about to lower, which is the donor's own order.
-        MightAndMagic7Crimes crimes = new(Townsperson, () => owners.Party, () => owners.Accounts);
+        MightAndMagic7Crimes crimes = new(Townsperson, MightAndMagic7Combat.IsPerson, () => owners.Party, () => owners.Accounts);
         ICreatureDeathObserver[] deaths =
         [
             corpseAnswers,
