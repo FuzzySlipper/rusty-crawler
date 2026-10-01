@@ -132,61 +132,22 @@ public sealed record PlaceServiceRefusal(
     string Code,
     string Reason);
 
-/// <summary>One passage a counter sells: where it goes, which network it runs on, and the link that takes it.</summary>
-/// <remarks>
-/// The destinations are the places that keep a counter of the same kind, which is a rule this importer
-/// states rather than a table the operator's data carries: the original keeps its coach and boat routes in
-/// the executable, and the donor records them as tables keyed by house (OpenEnroth
-/// <c>src/GUI/UI/Houses/Transport.cpp:38-78</c>, thirty-five routes of one to seven days). This import
-/// states the simpler network the shipped world supports — every coach reaches every town that keeps a
-/// coach, every boat every port that keeps a boat — and takes the arrival from this import's own data
-/// rather than copying the donor's route table. How long a journey takes is not stated here at all: it is the
-/// ruleset's travel rule, read from the route, so a retune changes it without an import. Where the fare
-/// arrives is the destination place's own arrival point, so an arrival is the map's data and not a number
-/// chosen here.
-/// </remarks>
-/// <param name="ServiceId">The counter that sells the passage.</param>
-/// <param name="FromPlace">The place the passage leaves.</param>
-/// <param name="ToPlace">The place the passage arrives at.</param>
-/// <param name="DestinationName">What the destination is called, for a report and a panel.</param>
-/// <param name="Route">
-/// The network the passage runs on — <see cref="PlaceServiceEmitter.CoachRoute"/> for a stable's,
-/// <see cref="PlaceServiceEmitter.BoatRoute"/> for a dock's — which the ruleset times.
-/// </param>
-/// <param name="ArrivalPoint">The destination's own arrival point the passage lands at, empty when it lands at a stored pose.</param>
-/// <param name="X">The stored arrival position along the destination's first axis, unused when an arrival point is named.</param>
-/// <param name="Y">The stored arrival position along the destination's second axis.</param>
-/// <param name="Z">The stored arrival position in height.</param>
-/// <param name="Yaw">The stored arrival facing.</param>
-/// <param name="Pitch">The stored arrival pitch.</param>
-/// <param name="LinkId">The travel link's own entry id, which is what the world's transition is named by.</param>
-public sealed record PlaceFare(
-    int ServiceId,
-    int FromPlace,
-    int ToPlace,
-    string DestinationName,
-    string Route,
-    string ArrivalPoint,
-    double X,
-    double Y,
-    double Z,
-    double Yaw,
-    double Pitch,
-    string LinkId);
-
 /// <summary>What one import's service derivation produced, over every building row.</summary>
 /// <param name="Services">Every enterable counter, in building order.</param>
 /// <param name="Placements">Every placement emitted, in building order.</param>
 /// <param name="Refusals">Every building row nothing was placed for, with its reason.</param>
-/// <param name="Fares">Every passage a stable or a dock sells, in counter and destination order.</param>
+/// <remarks>
+/// No passage is derived here. A stable or a dock is emitted as the counter it is — its kind and where it
+/// stands — and which destinations it sells, and how long they take, are the ruleset's fare network and fare
+/// rule over those counters, so a change to the network is a ruleset change rather than an import.
+/// </remarks>
 public sealed record PlaceServiceSummary(
     IReadOnlyList<PlaceServiceDefinition> Services,
     IReadOnlyList<PlaceServicePlacement> Placements,
-    IReadOnlyList<PlaceServiceRefusal> Refusals,
-    IReadOnlyList<PlaceFare> Fares)
+    IReadOnlyList<PlaceServiceRefusal> Refusals)
 {
     /// <summary>An import that derived no services, such as one that decoded no maps.</summary>
-    public static PlaceServiceSummary Empty { get; } = new([], [], [], []);
+    public static PlaceServiceSummary Empty { get; } = new([], [], []);
 
     /// <summary>How many counters the writer emits.</summary>
     public int ServiceCount => Services.Count;
@@ -203,11 +164,11 @@ public sealed record PlaceServiceSummary(
     /// <summary>How many building rows nothing was placed for.</summary>
     public int RefusalCount => Refusals.Count;
 
-    /// <summary>How many passages are on sale.</summary>
-    public int FareCount => Fares.Count;
-
     /// <summary>How many places carry a counter.</summary>
     public int PlaceCount => Placements.Select(placement => placement.PlaceId).Distinct().Count();
+
+    /// <summary>How many placed counters sell passages: the stables and the docks the ruleset's fare network runs over.</summary>
+    public int FareCounterCount => CountKind(PlaceServiceEmitter.StableKind) + CountKind(PlaceServiceEmitter.BoatKind);
 
     /// <summary>How many counters of one kind the writer emits.</summary>
     /// <param name="kind">The table's own type string.</param>
@@ -216,7 +177,7 @@ public sealed record PlaceServiceSummary(
 }
 
 /// <summary>
-/// Turns the building table into the counters a place holds and the passages a stable or a dock sells.
+/// Turns the building table into the counters a place holds.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -262,22 +223,13 @@ public static class PlaceServiceEmitter
     /// <summary>The height source of a counter in an interior, whose point takes the chosen face's bottom.</summary>
     public const string FaceHeightSource = "chosen-face-bottom";
 
-    /// <summary>The route a stable's passage runs on: the coach network, which the ruleset times.</summary>
-    public const string CoachRoute = "coach";
-
-    /// <summary>The route a dock's passage runs on: the sea network, which the ruleset times.</summary>
-    public const string BoatRoute = "boat";
-
     /// <summary>
     /// The donor's instruction that opens a house, whose operand is the house id
     /// (OpenEnroth <c>src/Engine/Evt/EvtEnums.h:9</c>, <c>EVENT_SpeakInHouse = 2</c>).
     /// </summary>
     public const byte SpeakInHouseOpcode = 2;
 
-    /// <summary>The arrival point a fare prefers, which is the one a map states for the party's own start.</summary>
-    public const string PartyStartPoint = "Party Start";
-
-    /// <summary>Derives every counter, household, and passage from the building table and the maps.</summary>
+    /// <summary>Derives every counter and household from the building table and the maps.</summary>
     /// <param name="services">The building table, read from the installation.</param>
     /// <param name="tables">Every table the import read, which is where map names come from.</param>
     /// <param name="programs">Every event program the installation carries, which is where a house's event is.</param>
@@ -401,8 +353,7 @@ public static class PlaceServiceEmitter
                 sourceRows[building.Id]));
         }
 
-        IReadOnlyList<PlaceFare> fares = Fares(definitions, placements, placeNames, maps);
-        return new PlaceServiceSummary(definitions, placements, refusals, fares);
+        return new PlaceServiceSummary(definitions, placements, refusals);
     }
 
     /// <summary>
@@ -562,72 +513,6 @@ public static class PlaceServiceEmitter
     /// <summary>Whether a face's texture is this game's own door texture.</summary>
     private static bool LooksLikeDoor(string texture) =>
         texture.Length > 1 && (texture.EndsWith('d') || texture.EndsWith('D'));
-
-    /// <summary>Every passage the stables and docks of the world sell, in counter and destination order.</summary>
-    private static IReadOnlyList<PlaceFare> Fares(
-        IReadOnlyList<PlaceServiceDefinition> services,
-        IReadOnlyList<PlaceServicePlacement> placements,
-        IReadOnlyDictionary<int, string> placeNames,
-        IReadOnlyDictionary<int, DecodedMap> maps)
-    {
-        Dictionary<int, int> placeOf = [];
-        foreach (PlaceServicePlacement placement in placements)
-        {
-            placeOf[placement.BuildingId] = placement.PlaceId;
-        }
-
-        List<PlaceFare> fares = [];
-        foreach (string kind in new[] { StableKind, BoatKind })
-        {
-            string route = string.Equals(kind, StableKind, StringComparison.Ordinal) ? CoachRoute : BoatRoute;
-            List<PlaceServiceDefinition> network = [.. services.Where(service => string.Equals(service.Kind, kind, StringComparison.OrdinalIgnoreCase) && placeOf.ContainsKey(service.BuildingId))];
-            foreach (PlaceServiceDefinition service in network)
-            {
-                int from = placeOf[service.BuildingId];
-                HashSet<int> seen = [];
-                foreach (PlaceServiceDefinition destination in network)
-                {
-                    int to = placeOf[destination.BuildingId];
-                    if (to == from || !seen.Add(to)) continue;
-                    if (!maps.TryGetValue(to, out DecodedMap? map)) continue;
-                    (string point, double x, double y, double z, double yaw, double pitch) = Arrival(map);
-                    fares.Add(new PlaceFare(
-                        service.BuildingId,
-                        from,
-                        to,
-                        placeNames.TryGetValue(to, out string? name) ? name : to.ToString(CultureInfo.InvariantCulture),
-                        route,
-                        point,
-                        x,
-                        y,
-                        z,
-                        yaw,
-                        pitch,
-                        string.Create(CultureInfo.InvariantCulture, $"fare-{service.BuildingId}-{to}")));
-                }
-            }
-        }
-
-        return fares;
-    }
-
-    /// <summary>
-    /// Where a passage arrives: the destination's own arrival point, or its stored start point.
-    /// </summary>
-    /// <remarks>
-    /// A fare lands where the destination's own data says a party arrives rather than at a coordinate this
-    /// importer chose. The point named for a party's own start is preferred, and a place that names none
-    /// hands over its first arrival point, which is still the map's own data; a place that names none at
-    /// all arrives at its origin, and the fare's arrival is then reported as stored rather than named.
-    /// </remarks>
-    private static (string Point, double X, double Y, double Z, double Yaw, double Pitch) Arrival(DecodedMap map)
-    {
-        MapEntryPoint? start = map.EntryPoints.FirstOrDefault(point => string.Equals(point.Name, PartyStartPoint, StringComparison.OrdinalIgnoreCase))
-            ?? map.EntryPoints.FirstOrDefault();
-        return start is null
-            ? (string.Empty, 0, 0, 0, 0, 0)
-            : (start.Name, start.Position.X, start.Position.Y, start.Position.Z, start.YawAngle, 0);
-    }
 
     private static PlaceServiceRefusal Refuse(ServiceRecord building, string code, string reason) =>
         new(building.Id, building.Type, building.Name, building.MapId, code, reason);

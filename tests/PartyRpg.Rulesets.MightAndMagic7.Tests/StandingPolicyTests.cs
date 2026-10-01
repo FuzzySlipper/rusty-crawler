@@ -367,7 +367,7 @@ public sealed class StandingPolicyTests
         // A record that is none of this game's award families is not an accomplishment: the flag a line left is
         // state, not something the party did, and a passage bought is not a record at all.
         fixture.Party.Records.Set("heard:rumour", 1);
-        fixture.Party.Passages.Hold(new PlaceId("somewhere"), 1);
+        fixture.Party.Passages.Hold(new PlaceId("somewhere"), MightAndMagic7FareDays.CoachRoute);
         Assert.Single(standing.Awards(fixture.Party));
     }
 

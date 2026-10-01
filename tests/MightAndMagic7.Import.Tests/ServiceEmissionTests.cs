@@ -8,7 +8,7 @@ namespace MightAndMagic7.Import.Tests;
 
 /// <summary>
 /// The building table's emission: the counters a party can walk up to, the households it can speak to, the
-/// rows nothing was placed for, and the passages a stable sells.
+/// rows nothing was placed for, and the stables whose passages the ruleset decides.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -25,7 +25,7 @@ namespace MightAndMagic7.Import.Tests;
 public sealed class ServiceEmissionTests
 {
     [Fact]
-    public void The_building_table_becomes_counters_households_and_passages()
+    public void The_building_table_becomes_counters_and_households_and_no_passages()
     {
         string installRoot = SyntheticInstallation.Create(withMaps: true, withServices: true);
         string root = Path.Combine(Path.GetTempPath(), $"mm7-services-{Guid.NewGuid():N}");
@@ -75,21 +75,14 @@ public sealed class ServiceEmissionTests
             Assert.All(services.Refusals, refusal => Assert.Equal("no-signing-face", refusal.Code));
             Assert.Equal(525, services.ServiceCount + services.ResidenceCount + services.Refusals.Count);
 
-            // The stable sells a passage to the other place in the network, and the link that takes it is
-            // in the world's graph with the destination's own arrival point.
+            // Both stables are emitted as what the table says they are — a counter of the stable kind standing in
+            // its own place — and nothing more: which destinations a stable sells and how long they take are the
+            // ruleset's fare network and fare rule, so the import derives no passage and writes no route.
             PlaceServiceDefinition stable = services.Services.Single(service => service.BuildingId == 99);
             PlaceServiceDefinition other = services.Services.Single(service => service.BuildingId == 198);
-
-            // Two places keep a coach, so each sells a passage to the other: one fare each way, arriving at
-            // the destination's own arrival point, and the link that takes it is named for the counter that
-            // sold it.
-            Assert.Equal(2, services.FareCount);
-            Assert.All(services.Fares, fare => Assert.Equal(SyntheticInstallation.ServiceMap(stable.BuildingId) == fare.FromPlace ? stable.BuildingId : other.BuildingId, fare.ServiceId));
-            PlaceFare fare = Assert.Single(services.Fares, item => item.ServiceId == stable.BuildingId);
-            Assert.Equal(SyntheticInstallation.ServiceMap(stable.BuildingId), fare.FromPlace);
-            Assert.Equal(SyntheticInstallation.ServiceMap(other.BuildingId), fare.ToPlace);
-            Assert.Equal(PlaceServiceEmitter.CoachRoute, fare.Route);
-            Assert.StartsWith("fare-", fare.LinkId, StringComparison.Ordinal);
+            Assert.Equal(2, services.FareCounterCount);
+            Assert.Equal(SyntheticInstallation.ServiceMap(stable.BuildingId), Assert.Single(services.Placements, item => item.BuildingId == stable.BuildingId).PlaceId);
+            Assert.Equal(SyntheticInstallation.ServiceMap(other.BuildingId), Assert.Single(services.Placements, item => item.BuildingId == other.BuildingId).PlaceId);
 
             string places = File.ReadAllText(Path.Combine(root, "mm7-tables", "places.json"));
             Assert.Contains($"\"service-{shop.BuildingId}\"", places, StringComparison.Ordinal);
@@ -97,21 +90,22 @@ public sealed class ServiceEmissionTests
             Assert.Contains("\"positionSource\": \"", places, StringComparison.Ordinal);
 
             string graph = File.ReadAllText(Path.Combine(root, "mm7-world", "place-graph.json"));
-            Assert.Contains(fare.LinkId, graph, StringComparison.Ordinal);
-            Assert.Contains("\"fare\": true", graph, StringComparison.Ordinal);
+            Assert.DoesNotContain("\"fare\"", graph, StringComparison.Ordinal);
+            Assert.DoesNotContain("\"route\"", graph, StringComparison.Ordinal);
 
             string definitions = File.ReadAllText(Path.Combine(root, "mm7-tables", "services.json"));
             Assert.Contains("\"definitionKind\": \"service\"", definitions, StringComparison.Ordinal);
             Assert.Contains($"\"kind\": \"{shop.Kind}\"", definitions, StringComparison.Ordinal);
             Assert.Contains("\"source\": \"2DEvents.txt\"", definitions, StringComparison.Ordinal);
 
-            // The passages a stable sells are written into its own definition, so the counter's offer and
-            // the world's transition come from one emission.
+            // The stable's definition is the table's row and where it stands, with no destinations of its own.
             using JsonDocument document = JsonDocument.Parse(definitions);
             JsonElement stableEntry = document.RootElement.GetProperty("entries")
                 .EnumerateArray()
                 .Single(entry => entry.GetProperty("id").GetString() == stable.BuildingId.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            Assert.Equal(1, stableEntry.GetProperty("fares").GetArrayLength());
+            Assert.Equal("Stables", stableEntry.GetProperty("kind").GetString());
+            Assert.Equal(SyntheticInstallation.ServiceMap(stable.BuildingId).ToString(System.Globalization.CultureInfo.InvariantCulture), stableEntry.GetProperty("place").GetString());
+            Assert.False(stableEntry.TryGetProperty("fares", out _));
         }
         finally
         {
@@ -133,8 +127,8 @@ public sealed class ServiceEmissionTests
             PackWriter.Write(install, second);
 
             // A counter's position is a face of a map and its shelves are the item table's own goods, so
-            // two runs over one installation must agree on both: the definitions, the placements, and the
-            // fares are compared as bytes rather than as shapes.
+            // two runs over one installation must agree on both: the definitions and the placements are
+            // compared as bytes rather than as shapes.
             Assert.True(PackWriter.AreIdentical(first, second));
             Assert.Equal(left.Services.ServiceCount, PackWriter.Write(install, second).Services.ServiceCount);
         }

@@ -154,7 +154,7 @@ public sealed class AwardTests
         // records it carries that this game counts.
         progression.Award(new PartyExperienceAward(PartyQuests.QuestSource, 6000));
         party.Records.Set(ErrandRecord, 1);
-        party.Passages.Hold(new PlaceId("somewhere"), 1);
+        party.Passages.Hold(new PlaceId("somewhere"), "coach");
 
         PartySnapshot snapshot = PartySnapshot.From(party, standing);
         Assert.True(snapshot.Present);

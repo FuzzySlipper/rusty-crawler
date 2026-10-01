@@ -148,7 +148,7 @@ public sealed class ItemMagicTests
             RunningSpellEffects effects = new(party, TestClock.Create(), member => !LaidOut(member));
             effects.StartOn(party.Members[0], Ward, magnitude: 9, GameDuration.FromHours(2));
             effects.Start(Haste, magnitude: 25, GameDuration.FromHours(2));
-            party.Passages.Hold(new PlaceId("2"), 3);
+            party.Passages.Hold(new PlaceId("2"), "coach");
             party.Holdings.Hold("vault", 300);
             party.Records.Set("errand:seal", 1);
 
@@ -159,7 +159,7 @@ public sealed class ItemMagicTests
             Assert.Empty(effects.Running);
             Assert.Empty(party.Effects.Active);
             Assert.Empty(party.Members[0].Effects.Active);
-            Assert.Equal(3, party.Passages.DaysTo(new PlaceId("2")));
+            Assert.Equal("coach", party.Passages.RouteTo(new PlaceId("2")));
             Assert.Equal(300, party.Holdings.BalanceOf("vault"));
             Assert.True(party.Records.Has("errand:seal"));
         }

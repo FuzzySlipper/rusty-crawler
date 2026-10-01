@@ -31,4 +31,23 @@ public sealed class ImportedSessionTests
         session.Update(RulesetTestContext.Update(1, 1));
         Assert.NotEmpty(ui.Projections);
     }
+
+    [ImportedFact("services.json")]
+    public void This_games_fare_network_over_the_imported_counters_sells_every_stop_to_every_other()
+    {
+        // The import states seven stables and seven docks and where each stands, and no destination: the network
+        // is this game's policy over them — each of the seven coach towns reaches the six others and each of the
+        // seven ports the six others, eighty-four sold crossings in all, every one timed by its route's tuning.
+        ContentCatalog catalog = ImportedContent.Load();
+        Assert.True(catalog.IsValid, string.Join("; ", catalog.Issues.Select(issue => issue.ToString())));
+        PartyRpg.Kit.World.PlaceGraph graph = MightAndMagic7World.Graph(catalog);
+        MightAndMagic7FareNetwork network = MightAndMagic7FareNetwork.Read(catalog);
+
+        Assert.Equal(7, network.Stops(MightAndMagic7FareDays.CoachRoute).Count);
+        Assert.Equal(7, network.Stops(MightAndMagic7FareDays.BoatRoute).Count);
+        List<PartyRpg.Kit.World.PlaceTransition> sold = [.. graph.Transitions.Where(transition => transition.IsFare)];
+        Assert.Equal(84, sold.Count);
+        Assert.All(sold, transition => Assert.True(transition.FareDays >= 1));
+        Assert.Equal(42, sold.Count(transition => transition.FareRoute == MightAndMagic7FareDays.CoachRoute));
+    }
 }

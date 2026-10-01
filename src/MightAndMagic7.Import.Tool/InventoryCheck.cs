@@ -127,7 +127,7 @@ internal static class InventoryCheck
             Check(failures, "places with a container", 57, written.Containers.PlaceCount);
             Check(failures, "enterable services", 136, written.Services.CounterCount);
             Check(failures, "service placements", 358, written.Services.PlacementCount);
-            Check(failures, "fares", 84, written.Services.FareCount);
+            Check(failures, "stables and docks", 14, written.Services.FareCounterCount);
             Check(failures, "people inside buildings", 247, written.People.ResidentCount);
             Check(failures, "buildings with people", 195, written.People.HouseholdCount);
             Check(failures, "unreachable residents", 2, written.People.UnreachableResidentCount);

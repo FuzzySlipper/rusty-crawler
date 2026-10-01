@@ -370,11 +370,12 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// </para>
     /// <para>
     /// <b>Which journey is taken is the ticket's own statement.</b> A passage names the place it reaches and
-    /// how many days the journey takes, and the graph's fares from the place the party stands in are matched
-    /// on both: a region may keep a coach and a boat that both reach the same town, and the days the counter
-    /// wrote on the ticket are what tell one journey from the other. Content that states two counters'
-    /// journeys alike in both is refused by name rather than guessed between, and a party that holds no
-    /// passage is handed to the cost rule, which owns that refusal and names the counter that sells one.
+    /// the route it was sold on, and the graph's fares from the place the party stands in are matched on both:
+    /// a region may keep a coach and a boat that both reach the same town, and the route on the ticket is what
+    /// tells one journey from the other. The ticket carries no days, so a retune since it was bought changes
+    /// how long the journey takes and never which journey it names. A world that sells two journeys alike in
+    /// both is refused by name rather than guessed between, and a party that holds no passage is handed to the
+    /// cost rule, which owns that refusal and names the counter that sells one.
     /// </para>
     /// </remarks>
     /// <param name="destination">The place the passage reaches, which is what the counter sold.</param>
@@ -396,22 +397,22 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         // The ticket is the party's own state, and a world with no party entity holds none: a journey is
         // then handed to the cost rule, which refuses it by name rather than travelling on a ticket nobody
         // could have bought.
-        int days = _entity is { } party ? party.Passages.DaysTo(destination) : 0;
-        if (days > 0)
+        string? route = _entity is { } party ? party.Passages.RouteTo(destination) : null;
+        if (route is not null)
         {
-            List<PlaceTransition> matching = [.. journeys.Where(journey => journey.FareDays == days)];
+            List<PlaceTransition> matching = [.. journeys.Where(journey => string.Equals(journey.FareRoute, route, StringComparison.Ordinal))];
             if (matching.Count == 0)
             {
                 return TransitionResult.Refused(TransitionKind.PaidService, Party.Place, Party.PlacePose, new Refusal(
                     TravelCodes.TravelFareUnstated,
-                    $"The party's passage to {Graph.Require(destination).Name} takes {days} day(s) and none of the {journeys.Count} counters' journeys from {Graph.Require(Party.Place).Name} takes that long, so the journey the ticket names is not one content states."));
+                    $"The party's passage to {Graph.Require(destination).Name} runs on route '{route}' and none of the {journeys.Count} journeys sold from {Graph.Require(Party.Place).Name} to it runs on that route, so the journey the ticket names is not one this world sells from here."));
             }
 
             if (matching.Count > 1)
             {
                 return TransitionResult.Refused(TransitionKind.PaidService, Party.Place, Party.PlacePose, new Refusal(
                     TravelCodes.TravelFareAmbiguous,
-                    $"{matching.Count} counters' journeys from {Graph.Require(Party.Place).Name} to {Graph.Require(destination).Name} take the {days} day(s) the party's passage names, so which of them was bought cannot be told from the ticket."));
+                    $"{matching.Count} journeys sold from {Graph.Require(Party.Place).Name} to {Graph.Require(destination).Name} run on the route '{route}' the party's passage names, so which of them was bought cannot be told from the ticket."));
             }
 
             journeys = matching;

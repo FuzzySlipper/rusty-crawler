@@ -660,8 +660,7 @@ internal static partial class PackWriter
         string packDirectory,
         PlaceGraph graph,
         Mm7Tables tables,
-        IReadOnlyDictionary<int, DecodedMap> maps,
-        PlaceServiceSummary services)
+        IReadOnlyDictionary<int, DecodedMap> maps)
     {
         Dictionary<int, string> names = tables.Maps.Maps.ToDictionary(map => map.Id, map => map.Name);
         List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];
@@ -705,42 +704,6 @@ internal static partial class PackWriter
                 writer.WriteString("program", link.SourceEvtName);
             }));
             index++;
-        }
-
-        // A passage a stable or a dock sells is a transition like any other: the party that holds the fare
-        // takes it, and the world prices it by the same path every other crossing goes through. Its link is
-        // named for the counter that sells it rather than numbered with the map's own links, so a reader can
-        // tell a bought journey from one the map's events issue, and it arrives at the destination's own
-        // arrival point rather than at a coordinate this importer chose.
-        foreach (PlaceFare fare in services.Fares)
-        {
-            entries.Add((fare.LinkId, writer =>
-            {
-                writer.WriteNumber("fromPlace", fare.FromPlace);
-                WriteOptionalString(writer, "fromName", names.GetValueOrDefault(fare.FromPlace));
-                writer.WriteNumber("toPlace", fare.ToPlace);
-                WriteOptionalString(writer, "toName", names.GetValueOrDefault(fare.ToPlace));
-                if (fare.ArrivalPoint.Length > 0)
-                {
-                    writer.WriteString("entryPoint", fare.ArrivalPoint);
-                }
-                else
-                {
-                    writer.WriteNumber("x", fare.X);
-                    writer.WriteNumber("y", fare.Y);
-                    writer.WriteNumber("z", fare.Z);
-                    writer.WriteNumber("yaw", fare.Yaw);
-                    writer.WriteNumber("pitch", fare.Pitch);
-                }
-
-                writer.WriteNumber("houseId", fare.ServiceId);
-                writer.WriteNumber("exitPicture", 0);
-                writer.WriteNumber("eventId", 0);
-                writer.WriteNumber("step", 0);
-                writer.WriteString("program", "2DEvents.txt");
-                writer.WriteBoolean("fare", true);
-                writer.WriteString("route", fare.Route);
-            }));
         }
 
         return WriteDocument(packDirectory, "place-graph.json", "place-graph", "travel-link", entries);

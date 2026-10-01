@@ -51,8 +51,10 @@ Boundary rules:
   translate donor code (see the licensing posture in `AGENTS.md`).
 - No gameplay choice is made here. A spawn record is written as the `encounter` it asks for — its slot,
   the grade only when the record fixes one, the slot's kind, difficulty and count range, and the variant
-  rows — and the ruleset draws the grade and the count when a place is populated; a fare is written with
-  the route it runs on (`coach` or `boat`) and no days, which are the ruleset's tuned travel rule.
+  rows — and the ruleset draws the grade and the count when a place is populated; a stable or a dock is
+  written as the counter it is — its kind and the placement it stands at — and no passage, destination,
+  route or days: which places it sells passages to is the ruleset's fare network and how long they take is
+  its tuned fare rule.
 
 Implemented: every container decodes, the rule tables, event programs, place graph,
 the treasure rules the tables carry (a monster row's own cell read into a drop chance, coin dice, a

@@ -20,8 +20,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// </para>
 /// <para>
 /// <b>Paid travel is a fare the party has bought.</b> A coach and a boat are sold at a counter, and what a
-/// counter sells is a passage: party-carried state naming the place it reaches and how many days the
-/// journey takes. Taking a paid transition is boarding, and the ticket is torn as the party boards, so a
+/// counter sells is a passage: party-carried state naming the place it reaches and the route it was sold on. Taking a paid transition is boarding, and the ticket is torn as the party boards, so a
 /// fare bought once pays for one journey rather than for every later one. A paid transition the party holds
 /// no passage for is refused by name, naming the counter that sells one — a journey is not made cheaper by
 /// being unaffordable.
@@ -94,11 +93,12 @@ internal sealed class MightAndMagic7TravelCostRule : ITravelCostRule
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The passage names the place it reaches, so a ticket to one town does not pay for a journey to
-    /// another: a party that holds the wrong one is refused with the place it named. The days the journey
-    /// takes are the ticket's own, which the counter that sold it wrote from the route it sells, so the
-    /// price of the journey and the journey itself come from one route rather than from two tables that
-    /// could drift.
+    /// The passage names the place it reaches and the route it was sold on, so a ticket to one town does not
+    /// pay for a journey to another, nor a coach ticket for the boat: a party that holds no passage on this
+    /// crossing's route to its place is refused with the place named. The days the journey takes are not the
+    /// ticket's: they are this game's rule for the route (<see cref="MightAndMagic7FareDays"/>), which timed the
+    /// crossing when the world was built over the tuning the session loaded, so a ticket bought before a retune
+    /// is honoured at today's length rather than refused for naming an old one.
     /// </para>
     /// <para>
     /// <b>The ticket is torn when the journey is quoted.</b> A transition path quotes exactly once per
@@ -117,12 +117,18 @@ internal sealed class MightAndMagic7TravelCostRule : ITravelCostRule
                 "A fare is bought by a party and this session holds none, so there is nobody to board."));
         }
 
-        int days = _party.Passages.DaysTo(destination);
-        if (days <= 0)
+        if (request.Transition.FareRoute is not { } route || request.Transition.FareDays is not { } days)
+        {
+            return TravelCostQuote.Refused(new Refusal(
+                TravelCodes.TravelFareUnstated,
+                $"The crossing '{request.Transition.Source}' to {destination} is taken as a bought journey and no counter sells it, so there is no route a passage could name."));
+        }
+
+        if (!string.Equals(_party.Passages.RouteTo(destination), route, StringComparison.Ordinal))
         {
             return TravelCostQuote.Refused(new Refusal(
                 MightAndMagic7Codes.TravelFareUnpaid,
-                $"A seat to {destination} is bought at a stable or a dock and the party holds no passage to it; buying one at the counter is what pays for the journey."));
+                $"A seat to {destination} by {route} is bought at a stable or a dock and the party holds no such passage; buying one at the counter is what pays for the journey."));
         }
 
         _party.Passages.Spend(destination);
@@ -135,11 +141,12 @@ internal sealed class MightAndMagic7TravelCostRule : ITravelCostRule
 /// <summary>How long a journey a counter sells takes in this game: one length per network, as tuned.</summary>
 /// <remarks>
 /// <para>
-/// A passage runs on one of two networks — a stable's coaches and a dock's boats — and content states only
-/// which. How many days a network's journey takes is this game's number (<see cref="MightAndMagic7Tuning.CoachDays"/>
-/// and <see cref="MightAndMagic7Tuning.BoatDays"/>), read from the tuning of the catalog the session loaded, so the
-/// days the counter writes on the ticket, the days the world matches a boarding by, and the days the road charges
-/// the clock are one answer, and a retune changes all three without importing anything.
+/// A passage runs on one of two networks — a stable's coaches and a dock's boats — and which a counter sells on
+/// follows from its kind (<see cref="RouteOf"/>). How many days a network's journey takes is this game's number
+/// (<see cref="MightAndMagic7Tuning.CoachDays"/> and <see cref="MightAndMagic7Tuning.BoatDays"/>), read from the
+/// tuning of the catalog the session loaded, so the days the counter quotes and the days the road charges the
+/// clock are one answer, and a retune changes both without importing anything. The ticket carries the route and
+/// not the days, so a retune never strands a passage the party already holds.
 /// </para>
 /// <para>
 /// The donor times each of its thirty-five routes separately, one to seven days (OpenEnroth
@@ -149,10 +156,10 @@ internal sealed class MightAndMagic7TravelCostRule : ITravelCostRule
 /// </remarks>
 internal sealed class MightAndMagic7FareDays : IFareDurationRule
 {
-    /// <summary>The route a stable's passage runs on, as the importer names it.</summary>
+    /// <summary>The route a stable's passage runs on.</summary>
     internal const string CoachRoute = "coach";
 
-    /// <summary>The route a dock's passage runs on, as the importer names it.</summary>
+    /// <summary>The route a dock's passage runs on.</summary>
     internal const string BoatRoute = "boat";
 
     private readonly TuningProfile _tuning;

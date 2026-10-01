@@ -604,9 +604,13 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
             "fare",
             SubjectShape.Offer,
             ServiceOfferKind.Fare,
-            // The days the journey takes are the offer's own amount, which the travel policy reads to price the
-            // boarding, so the counter that sold the ticket and the road that takes it agree about the journey.
-            Apply: static (services, t) => services._party.Passages.Hold(new PlaceId(t.Subject.Offer!.Subject), t.Subject.Offer.Amount < 1 ? 1 : t.Subject.Offer.Amount),
+            // The ticket carries the route the offer is sold on and not the days it quotes: the route is what
+            // tells this counter's journey from another's, and how long it takes is the game's rule when the
+            // road honours it, so a retune never leaves a held ticket naming a journey nobody sells.
+            Judge: static (_, t) => t.Subject.Offer!.Route.Length == 0
+                ? new Refusal(ServiceCodes.ServiceFareUnrouted, $"{t.Visit.Service.Describe()} offers a passage to {t.Subject.Offer.Subject} on no route, so no ticket could name the journey.")
+                : null,
+            Apply: static (services, t) => services._party.Passages.Hold(new PlaceId(t.Subject.Offer!.Subject), t.Subject.Offer.Route),
             Describe: static (_, t) => $"The party pays {t.Quote.Charge.Coins} coin(s) for a passage to {t.Subject.Offer!.Subject}, which takes {t.Subject.Offer.Amount} day(s)."),
         [ServiceOperationKind.Leave] = new(
             "leave",

@@ -16,6 +16,9 @@ public static class ServiceCodes
     /// <summary>The refusal code <c>service-count-invalid</c>.</summary>
     public const string ServiceCountInvalid = "service-count-invalid";
 
+    /// <summary>The refusal code <c>service-fare-unrouted</c>.</summary>
+    public const string ServiceFareUnrouted = "service-fare-unrouted";
+
     /// <summary>The refusal code <c>service-holding-short</c>.</summary>
     public const string ServiceHoldingShort = "service-holding-short";
 

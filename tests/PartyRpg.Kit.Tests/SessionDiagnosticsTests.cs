@@ -263,7 +263,7 @@ public sealed class SessionDiagnosticsTests
 
         // The counter sold the passage and wrote it on the party; there is no world to board it into, so nothing
         // was boarded and the visit is still open.
-        Assert.Equal(2, party.Passages.DaysTo(new PlaceId("2")));
+        Assert.Equal("coach", party.Passages.RouteTo(new PlaceId("2")));
         DiagnosticsPublishRequest refused = Assert.Single(diagnostics.Published, report => report.Source == "travel");
         Assert.Equal("fare-no-world", refused.Code);
         Assert.Equal(DiagnosticsSeverity.Warning, refused.Severity);
@@ -587,7 +587,7 @@ public sealed class SessionDiagnosticsTests
         public IReadOnlyList<ServiceLesson> Lessons(ServiceLessonRequest request) => [];
 
         public IReadOnlyList<ServiceOffer> Offers(ServiceOfferRequest request) =>
-            [new ServiceOffer(ServiceOfferKind.Fare, "A passage to the cave", "2", Value: 0, Amount: 2)];
+            [new ServiceOffer(ServiceOfferKind.Fare, "A passage to the cave", "2", Value: 0, Amount: 2, Route: "coach")];
 
         public IReadOnlyList<string> Access(ServiceAccessRequest request) => [];
 
