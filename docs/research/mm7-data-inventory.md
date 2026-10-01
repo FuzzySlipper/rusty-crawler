@@ -94,10 +94,12 @@ Full data: `travel-edges.tsv` (165 edges), `travel-movetomap.tsv` (all 271 instr
 A face raises its event when clicked if it carries `FACE_CLICKABLE` (`0x02000000`) and when stepped on if it
 carries `FACE_PRESSURE_PLATE` (`0x04000000`) (`src/Engine/Graphics/FaceEnums.h:34-35`); a decoration with an
 event raises it when clicked (`src/Engine/Graphics/Viewport.cpp:201-213`) **[donor]**. Of the events the places'
-clicked faces and decorations raise, 161 move the party, 476 open a building, 344 open a container, 382 do nothing
-but move doors, and 56 are absent from their program; the other **495 are fixtures' events**, standing as **1,097
-fixtures in 66 places** (one per region model, or per group of an interior's faces within 256 units), with
-**3,271 steps** between them. **56 events** hold a timer trigger, which is how a well's charges are refilled.
+clicked faces and decorations raise, 478 open a building, 345 open a container, 382 do nothing but move doors, and
+56 are absent from their program; the other **653 are fixtures' events** — the ones that move the party among them —
+standing as **1,268 fixtures in 76 places** (one per region model, or per group of an interior's faces within 256
+units, at the faces' lowest corner), with **3,639 steps** between them. **59 events** that move the party are raised
+by **310 pressure plates in 13 places**, carried as floor triggers. **57 events** hold a timer trigger, which is how a
+well's charges are refilled.
 **[data]** Each map's `.str` entry is its string table — NUL-terminated lines, trimmed and unquoted, indexed by the
 number a hint or a status step names (`src/Engine/Engine.cpp:1453-1469`) **[donor]**. `AUTONOTE.TXT` is the
 discovery table: a number, a sentence and a category word (`Stat`, `Obelisk`, `potion`, `teacher`, `Misc`/`misc`)
@@ -111,9 +113,18 @@ row one past its slot (`src/Engine/Objects/Character.cpp:3995-4002`) **[donor]**
 and their only text codes are `%30` (the day the line was written) and `%31`–`%34` (a character's name,
 `src/GUI/GUIWindow.cpp:953-965`) **[donor]**. Of `npctopic.txt`'s rows, **62 name an answer** in `npctext.txt`; a
 person's six dialogue slots (`npcdata.txt` columns 10–15) name topic rows, and **313 people** state at least one
-**[data]**. With every step the ruleset interprets, a fresh party runs **493 of the 495** fixture events and is refused
+**[data]**. With every step the ruleset interprets, a fresh party runs **705 of the 707** fixture and floor-trigger
+events — 145 of them taking it along a travel link and 54 setting it down elsewhere in its own place — and is refused
 by name at 2, both hireling steps — a figure the ruleset suite counts over the written packs rather than
-`mm7import verify`. The ruleset's reading of the steps is in `src/PartyRpg.Rulesets.MightAndMagic7/README.md`.
+`mm7import verify`.
+
+**Every one of the 193 inter-map links has a disposition** **[data]**: 174 are taken by using a clicked face group
+(`used`), 11 by walking onto a plate (`walked`), 1 by either (`used-or-walked`, Castle Gloaming's event 501), 2 belong
+to a building's door whose event also moves the party (`counter`, event 376 of Celeste and The Pit), 3 are the global
+program's (`world-issued`), and 2 are raised by nothing in their map (`unreachable`: Castle Gloaming's event 502 and
+The Pit's event 505, whose faces, face extras and decorations carry no such event while The Pit's own faces raise its
+event 502 instead). 76 of the taken links are reached only under a condition the event's branches state. The
+per-link table is [`../evidence/travel-links.md`](../evidence/travel-links.md). The ruleset's reading of the steps is in `src/PartyRpg.Rulesets.MightAndMagic7/README.md`.
 
 ## Extraction limitations
 

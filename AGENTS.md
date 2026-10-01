@@ -91,8 +91,9 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   data is committed, and every count the documents quote is checked by `mm7import verify`. The kit validates
   the whole content root at start and loads exactly what the bundle selects. The shipped bundle selects no
   packs, so a product without imported content reports no world and no party.
-- **World and time.** Places, arrival points and transitions load from packs; walking into a reach,
-  boarding a fare the party bought, and a travel spell all take one transition path that charges the clock
+- **World and time.** Places, arrival points and transitions load from packs; using a clicked exit or treading
+  on a plate (a map event whose branches pick the move), boarding a fare the party bought, and a travel spell all
+  take one transition path that charges the clock
   and the larder once. Movement and collision are the Engine's (the character step over each place's
   spatial artifact, flying mode under a flight, and the water a place's packs name beside it); a fall past the
   threshold and standing in water harm members through the ruleset's rules. `GameClock`
@@ -131,9 +132,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 
 **Open residue and its receivers** (Den task ids; Den owns their status):
 
-- Stone 3, world: every travel link accounted for (#8577); duplicate arrival ids refused (#8707); the only
-  region-to-region reach cannot be walked (#8713); creatures cannot path around a wall because places carry
-  no navigation cells (#8665).
+- Stone 3, world: duplicate arrival ids refused (#8707); creatures cannot path around a wall because places
+  carry no navigation cells (#8665).
 - Stone 4, party: a scenario cannot choose between creation and its own party (#8589); both creation paths
   proved to compose the same owners (#8688).
 - Stone 5, interaction and services: opened doors and emptied containers are not saved (#8593), and a

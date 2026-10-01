@@ -13,6 +13,7 @@ What is published here is text only: no game data, no screenshots, no saves, and
 | --- | --- |
 | [`walk-playtest.md`](walk-playtest.md) | Held keys walk, turn and jump the party on Emerald Island; a released key stops it; no transition could yet be walked into. |
 | [`walk-transition.md`](walk-transition.md) | Walking into an entrance's reach changes the place: Emerald Island's cave mouth and The Dragon's Lair's exit, both ways. |
+| [`travel-links.md`](travel-links.md) | Every one of the 193 travel links with its disposition and condition, the two links nothing raises, and a clicked barrow exit used in play taking the link its map variable picks. |
 | [`travel-cost.md`](travel-cost.md) | A walked crossing charges the one clock a day and the larder a ration, once each, and arriving short weakens the party. |
 | [`save-resume.md`](save-resume.md) | A party created in the product crosses, saves, and a restarted host told to resume plays the same party, place, clock and pose. |
 | [`turn-based.md`](turn-based.md) | One fight switched between real time and rounds keeps every position, condition and recovery debt. |
