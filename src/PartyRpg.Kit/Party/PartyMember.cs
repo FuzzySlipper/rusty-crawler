@@ -100,6 +100,28 @@ public sealed class PartyMember
     public CharacterResistances Resistances => _actor.Get<CharacterResistances>();
 
     /// <summary>
+    /// The latest change stamp any of this character's own state carries — who they are, their scores, skills,
+    /// spells, progression, conditions, pools, what they wear and the items in it, and what is running on them — so
+    /// a reader that kept what it built from the character beside this stamp reads them again only when it moves.
+    /// </summary>
+    public long Stamp
+    {
+        get
+        {
+            long stamp = Math.Max(Profile.Stamp, Attributes.Stamp);
+            stamp = Math.Max(stamp, Skills.Stamp);
+            stamp = Math.Max(stamp, Spells.Stamp);
+            stamp = Math.Max(stamp, Progression.Stamp);
+            stamp = Math.Max(stamp, Conditions.Stamp);
+            stamp = Math.Max(stamp, Resources.Stamp);
+            stamp = Math.Max(stamp, Equipment.Stamp);
+            stamp = Math.Max(stamp, Effects.Stamp);
+            foreach (EquippedItem equipped in Equipment.Items) stamp = Math.Max(stamp, equipped.Item.Stamp);
+            return stamp;
+        }
+    }
+
+    /// <summary>
     /// Takes harm, and whatever this game's own answer makes of the wound.
     /// </summary>
     /// <remarks>

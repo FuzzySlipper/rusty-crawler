@@ -47,6 +47,12 @@ public sealed class PartyJournal
     /// <summary>What this game calls its books and what it counts as worth writing down.</summary>
     public IJournalRule Rule => _rule;
 
+    /// <summary>
+    /// The change stamp this owner took when the history it keeps last changed, or when it was made: a reader that
+    /// kept what it built beside it reads the owner again only when it has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp => _history.Stamp;
+
     /// <summary>Every line the party has written down, oldest first.</summary>
     public IReadOnlyList<JournalEntry> Entries => _history.Entries;
 

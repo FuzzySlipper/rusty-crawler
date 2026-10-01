@@ -323,6 +323,13 @@ public sealed class PotionMixing
     /// <summary>What this game calls a rung and an item, which a result and a panel name them by.</summary>
     public IGameNames? Names => _names;
 
+    /// <summary>
+    /// The change stamp this owner took when the last mixture it reports last changed, or when it was made: a
+    /// reader that kept what it built beside this stamp reads the owner again only when the stamp has moved (<see
+    /// cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     /// <summary>What the last attempt did, or why it did nothing.</summary>
     public MixingResult? Last { get; private set; }
 
@@ -568,6 +575,7 @@ public sealed class PotionMixing
     private MixingResult Record(MixingResult result)
     {
         Last = result;
+        Stamp = ChangeStamp.Next();
         return result;
     }
 }

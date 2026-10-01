@@ -20,6 +20,12 @@ namespace PartyRpg.Kit.Party;
 /// </remarks>
 public sealed class PartyFood
 {
+    /// <summary>
+    /// The change stamp this state took when it last changed, or when it was made: a reader that kept what it built
+    /// beside this stamp reads the state again only when the stamp has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     /// <summary>Creates the party's larder.</summary>
     /// <param name="portions">What the party starts with, which cannot be negative.</param>
     /// <param name="unit">The unit the amount is stated in.</param>
@@ -48,6 +54,7 @@ public sealed class PartyFood
     {
         ArgumentOutOfRangeException.ThrowIfNegative(provisions);
         Portions = checked(Portions + provisions);
+        Stamp = ChangeStamp.Next();
     }
 
     /// <summary>Whether the larder covers a charge, judged in the unit the charge is stated in.</summary>
@@ -84,6 +91,7 @@ public sealed class PartyFood
         ArgumentOutOfRangeException.ThrowIfNegative(provisions);
         if (provisions > Portions) return false;
         Portions -= provisions;
+        Stamp = ChangeStamp.Next();
         return true;
     }
 

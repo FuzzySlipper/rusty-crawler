@@ -9,6 +9,12 @@ namespace PartyRpg.Kit.Party;
 /// </remarks>
 public sealed class CharacterSpells
 {
+    /// <summary>
+    /// The change stamp this state took when it last changed, or when it was made: a reader that kept what it built
+    /// beside this stamp reads the state again only when the stamp has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     private readonly List<SpellId> _known;
 
     /// <summary>Creates a character's spellbook.</summary>
@@ -85,6 +91,7 @@ public sealed class CharacterSpells
 
         if (QuickSpell == spell) return false;
         QuickSpell = spell;
+        Stamp = ChangeStamp.Next();
         return true;
     }
 
@@ -95,6 +102,7 @@ public sealed class CharacterSpells
     {
         if (_known.Contains(spell)) return false;
         _known.Add(spell);
+        Stamp = ChangeStamp.Next();
         return true;
     }
 
@@ -105,7 +113,9 @@ public sealed class CharacterSpells
     {
         // What is forgotten cannot stay in the quick slot: the slot is a spell the character can cast, and a
         // forgotten one would leave a key that refuses every press.
+        if (!_known.Remove(spell)) return false;
         if (QuickSpell == spell) QuickSpell = null;
-        return _known.Remove(spell);
+        Stamp = ChangeStamp.Next();
+        return true;
     }
 }

@@ -23,6 +23,12 @@ namespace PartyRpg.Kit.Party;
 /// </remarks>
 public sealed class CharacterResources
 {
+    /// <summary>
+    /// The change stamp this state took when it last changed, or when it was made: a reader that kept what it built
+    /// beside this stamp reads the state again only when the stamp has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     /// <summary>Creates a character's resource pools.</summary>
     /// <param name="hitPoints">What the character has to lose.</param>
     /// <param name="spellPoints">What the character has to cast with.</param>
@@ -57,6 +63,7 @@ public sealed class CharacterResources
         ArgumentOutOfRangeException.ThrowIfNegative(amount);
         Deficit = (int)Math.Min(int.MaxValue, Deficit + Math.Max(0, (long)amount - HitPoints.Current));
         HitPoints = HitPoints.Spent(amount);
+        Stamp = ChangeStamp.Next();
     }
 
     /// <summary>Restores hit points, never past the pool's capacity.</summary>
@@ -67,6 +74,7 @@ public sealed class CharacterResources
         ArgumentOutOfRangeException.ThrowIfNegative(amount);
         HitPoints = HitPoints.Restored(amount);
         if (HitPoints.Current > 0) Deficit = 0;
+        Stamp = ChangeStamp.Next();
     }
 
     /// <summary>Records a new hit point capacity, which a level-up or a lost level does.</summary>
@@ -77,6 +85,7 @@ public sealed class CharacterResources
         ArgumentOutOfRangeException.ThrowIfNegative(maximum);
         HitPoints = HitPoints.WithMaximum(maximum);
         if (HitPoints.Current > 0) Deficit = 0;
+        Stamp = ChangeStamp.Next();
     }
 
     /// <summary>Spends spell points for a casting.</summary>
@@ -88,6 +97,7 @@ public sealed class CharacterResources
         ArgumentOutOfRangeException.ThrowIfNegative(amount);
         if (amount > SpellPoints.Current) return false;
         SpellPoints = SpellPoints.Spent(amount);
+        Stamp = ChangeStamp.Next();
         return true;
     }
 
@@ -98,6 +108,7 @@ public sealed class CharacterResources
     {
         ArgumentOutOfRangeException.ThrowIfNegative(amount);
         SpellPoints = SpellPoints.Restored(amount);
+        Stamp = ChangeStamp.Next();
     }
 
     /// <summary>Records a new spell point capacity.</summary>
@@ -107,6 +118,7 @@ public sealed class CharacterResources
     {
         ArgumentOutOfRangeException.ThrowIfNegative(maximum);
         SpellPoints = SpellPoints.WithMaximum(maximum);
+        Stamp = ChangeStamp.Next();
     }
 
     /// <summary>Fills both pools, which is what a completed rest does once the ruleset has decided it.</summary>
@@ -115,5 +127,6 @@ public sealed class CharacterResources
         HitPoints = HitPoints.Filled();
         SpellPoints = SpellPoints.Filled();
         Deficit = 0;
+        Stamp = ChangeStamp.Next();
     }
 }

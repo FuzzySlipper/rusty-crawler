@@ -17,6 +17,12 @@ namespace PartyRpg.Kit.Party;
 /// </remarks>
 public sealed class PartyInventory
 {
+    /// <summary>
+    /// The change stamp this state took when it last changed, or when it was made: a reader that kept what it built
+    /// beside this stamp reads the state again only when the stamp has moved (<see cref="ChangeStamp"/>).
+    /// </summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     private readonly List<ItemInstance> _items = [];
     internal PartyInventory()
     {
@@ -74,6 +80,7 @@ public sealed class PartyInventory
     {
         _items.Add(item);
         item.Place(ItemCustody.InSharedInventory);
+        Stamp = ChangeStamp.Next();
     }
 
     /// <summary>Takes an instance out of the pack, or answers null when the pack does not hold it.</summary>
@@ -84,6 +91,7 @@ public sealed class PartyInventory
             if (_items[index].Id != id) continue;
             ItemInstance item = _items[index];
             _items.RemoveAt(index);
+            Stamp = ChangeStamp.Next();
             return item;
         }
 
@@ -91,5 +99,8 @@ public sealed class PartyInventory
     }
 
     /// <summary>Removes an instance that has become empty, which a merge leaves behind.</summary>
-    internal void Remove(ItemInstance item) => _items.Remove(item);
+    internal void Remove(ItemInstance item)
+    {
+        if (_items.Remove(item)) Stamp = ChangeStamp.Next();
+    }
 }
