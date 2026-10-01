@@ -42,7 +42,8 @@ committed.
   creation. `playtest.observe`'s `composition.partyStart` and the panel's `Start` row name the start taken.
 - **Only the bundle's packs play.** A scenario pack the bundle does not name contributes nothing, but it is
   still validated: a broken one stops the start with a refusal that says it is not selected and the directory
-  it was read from.
+  it was read from. A reading of both is in
+  [`evidence/bundle-selection-and-party-start.md`](evidence/bundle-selection-and-party-start.md).
 - **One root, one pack per document id.** Every pack directory under `content/partyrpg/imports` is read and
   validated whether or not the bundle names it, so a variant *replaces* the pack it varies in that root: two
   packs declaring the same document id stop the product with both named. Move the untouched pack one
