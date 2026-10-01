@@ -227,7 +227,7 @@ strands a passage), where those counters sell passages to (`MightAndMagic7FareNe
 the counters content places, every stable reaches every other place that keeps a stable and every dock every other
 port, one crossing per pair of stops landing at the destination's own start; the counter's offers and the world
 graph's sold crossings are both read from it, through `MightAndMagic7World.Graph`, and content that authors a sold
-crossing of its own is refused by name; ours, simpler than the donor's thirty-five scheduled routes), which creatures a level's spawn records put on the field
+crossing of its own, or stands one passage counter in two places, is refused by name; ours, simpler than the donor's thirty-five scheduled routes), which creatures a level's spawn records put on the field
 (`MightAndMagic7Spawns` — the importer writes each actor spawn record as an `encounter` placement and chooses nothing;
 this game draws a random slot's count from its range and each creature's grade from the donor's odds for the
 slot's difficulty, through the engine's keyed random service under the place and the spawn index, when the
@@ -502,7 +502,9 @@ refusal. **Interpreted**: `exit`, `jump`, `compare`, `add`, `subtract` and `set`
 themselves run as the refill of what a fixture reads; `change-door-state` (open, close, or toggle a door at rest,
 `OpenEnroth/src/Engine/Graphics/Indoor.cpp:721-770`: the place's door placement of that id is recorded in the
 door owner's own word under its own identity through the outcome's target changes, so a lever-opened door reads
-open; a door id the place does not hold moves nothing, as the donor's lookup; the collision does not move, #8594,
+open; a door id the place does not hold moves nothing, as the donor's lookup, and a place holding two doors under
+one id is refused while the world is built (`interaction-door-number-reused`) rather than moving the first as the
+donor's lookup would; the collision does not move, #8594,
 stated as residue); `give-item` (the named item, or one the loot owner draws at the step's treasure level from the
 kind it admits, through the acquisition path, `OpenEnroth/src/Engine/Tables/ItemTable.cpp:316-360`); `cast-spell`
 (the spell's own roll at the step's rank and mastery landed on the chosen characters — the donor flies a

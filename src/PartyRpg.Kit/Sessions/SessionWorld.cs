@@ -457,7 +457,8 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// a region may keep a coach and a boat that both reach the same town, and the route on the ticket is what
     /// tells one journey from the other. The ticket carries no days, so a retune since it was bought changes
     /// how long the journey takes and never which journey it names. A world that sells two journeys alike in
-    /// both is refused by name rather than guessed between, and a party that holds no passage is handed to the
+    /// both is refused by name rather than guessed between — at load for a graph content built
+    /// (<c>transition-fare-reused</c>), and here for one a caller assembled from parts — and a party that holds no passage is handed to the
     /// cost rule, which owns that refusal and names the counter that sells one.
     /// </para>
     /// </remarks>

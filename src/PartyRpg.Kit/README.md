@@ -150,7 +150,12 @@ selection becomes the content a session reads: the packs it named contribute, an
 are not loaded at all, though a broken one still refuses the start with its issue marked `NotSelected` and the
 directory it was read from; the loader refuses the whole root by name when two packs claim one id, or an entry
 id or a document id is declared twice, so a reader that looks an entry up by id finds the only one there
-is), the world (`PlaceGraph`, `PlaceGraphLoader`,
+is), the world (`PlaceGraph`, `PlaceGraphLoader`, which refuses by name what nesting hides from the catalog's
+check — a place declaring one arrival-point id twice, ids differing only in case counting as one because that is
+how `PlaceDefinition.FindEntryPoint` looks a point up (and that lookup refuses rather than choose on a definition
+built some other way), a fare-network crossing under an id another transition holds, and two sold crossings alike
+in origin, destination and route, which a ticket could not tell apart; placements are held to one identity each
+by `PlacePopulationContent`, and an entrance's loader refuses a world holding one transition id twice,
 `PlaceStateLedger`, `TransitionExecutive` with its required cost contract, and the entrances a walking
 party takes — `PlaceEntrance` with its loader, consulted inside the movement step so a step that
 carries the party into an entrance's reach travels through that one transition path; a crossing taken

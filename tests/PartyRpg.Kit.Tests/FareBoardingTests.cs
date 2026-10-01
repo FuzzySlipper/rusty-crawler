@@ -266,6 +266,34 @@ public sealed class FareBoardingTests
         Assert.Contains(error.Issues, issue => issue.Code == "transition-fare-days-unstated" && issue.Message.Contains("balloon", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void Two_sold_crossings_a_ticket_could_not_tell_apart_or_a_network_id_already_held_are_refused_at_load()
+    {
+        // A ticket names the place and the route, so two crossings alike in both — whether content authored them
+        // or the network states one beside a link — could never be told apart; and an entrance finds a crossing by
+        // its id, so a network crossing under an id a link already holds is a second door to the same name.
+        ContentValidationException alike = Assert.Throws<ContentValidationException>(() => PlaceGraphLoader.Load(
+            Load(
+                """{ "id": "coach", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start", "fare": true, "route": "coach" }""",
+                """{ "id": "second-coach", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start", "fare": true, "route": "coach" }"""),
+            Routes.Instance));
+        ContentValidationIssue reused = Assert.Single(alike.Issues);
+        Assert.Equal("transition-fare-reused", reused.Code);
+        Assert.Contains("'second-coach'", reused.Message, StringComparison.Ordinal);
+
+        PlaceArrival arrival = PlaceArrival.AtEntryPoint("Party Start");
+        ContentValidationException held = Assert.Throws<ContentValidationException>(() => PlaceGraphLoader.Load(
+            Catalog(),
+            Routes.Instance,
+            new Network(
+                new PlaceTransition(Home, Nowhere, arrival, "road") { FareRoute = "boat" },
+                new PlaceTransition(Home, Town, arrival, "network-coach") { FareRoute = "coach" })));
+        Assert.Equal(
+            new[] { "transition-id-reused", "transition-fare-reused" },
+            held.Issues.Select(issue => issue.Code));
+        Assert.Contains("'road'", held.Issues[0].Message, StringComparison.Ordinal);
+    }
+
     /// <summary>The test's own fare network: the crossings it was given, and the places it was asked over.</summary>
     private sealed class Network(params PlaceTransition[] journeys) : IFareNetwork
     {

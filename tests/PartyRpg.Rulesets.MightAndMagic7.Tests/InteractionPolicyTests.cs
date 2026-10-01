@@ -141,6 +141,34 @@ public sealed class InteractionPolicyTests
     }
 
     [Fact]
+    public void Two_doors_of_one_place_under_one_number_stop_the_world_being_built()
+    {
+        // A map event moves a door by its number, so two doors sharing one would leave a lever moving only the
+        // first: the place is refused by name with the number, and doors numbered apart load.
+        ContentValidationException error = Assert.Throws<ContentValidationException>(
+            () => MightAndMagic7Interaction.Validate(Catalog(
+                """
+                { "id": "7", "kind": "interior", "name": "Hall", "respawnDays": 7,
+                  "placements": [
+                    { "id": "door-0", "kind": "door", "doorId": 3, "x": 0, "y": 0, "z": 0, "state": 2 },
+                    { "id": "door-1", "kind": "door", "doorId": 3, "x": 10, "y": 0, "z": 0, "state": 2 } ] }
+                """)));
+
+        ContentValidationIssue issue = Assert.Single(error.Issues);
+        Assert.Equal("interaction-door-number-reused", issue.Code);
+        Assert.Contains("place '7'", issue.Message, StringComparison.Ordinal);
+        Assert.Contains("numbered 3", issue.Message, StringComparison.Ordinal);
+
+        MightAndMagic7Interaction.Validate(Catalog(
+            """
+            { "id": "7", "kind": "interior", "name": "Hall", "respawnDays": 7,
+              "placements": [
+                { "id": "door-0", "kind": "door", "doorId": 3, "x": 0, "y": 0, "z": 0, "state": 2 },
+                { "id": "door-1", "kind": "door", "doorId": 4, "x": 10, "y": 0, "z": 0, "state": 2 } ] }
+            """));
+    }
+
+    [Fact]
     public void A_requirement_this_game_has_no_kind_for_stops_the_world_being_built()
     {
         // Requirements are judged inside an admitted update, where a content defect cannot be reported

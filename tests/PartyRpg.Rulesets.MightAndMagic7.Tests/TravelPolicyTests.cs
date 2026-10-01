@@ -288,6 +288,37 @@ public sealed class TravelPolicyTests
     }
 
     [Fact]
+    public void A_passage_counter_standing_in_two_places_is_refused_and_one_with_two_doors_is_one_counter()
+    {
+        // The counter is what a party asks for its passages, and those leave from where it stands: one counter
+        // in two towns would sell from whichever was read first, so it is refused by name, both places named.
+        (string Path, string Text)[] twoTowns = Rewrite(
+            """{ "id": "service-55", "kind": "service", "houseId": 55, "x": 100, "y": 0, "z": 0 }""",
+            """{ "id": "service-54", "kind": "service", "houseId": 54, "x": 50, "y": 0, "z": 0 }, { "id": "service-55", "kind": "service", "houseId": 55, "x": 100, "y": 0, "z": 0 }""");
+        ContentValidationException error = Assert.Throws<ContentValidationException>(() => MightAndMagic7FareNetwork.Read(Catalog(twoTowns)));
+        ContentValidationIssue issue = Assert.Single(error.Issues);
+        Assert.Equal("fare-counter-placed-twice", issue.Code);
+        Assert.Contains("'54'", issue.Message, StringComparison.Ordinal);
+        Assert.Contains("place '1'", issue.Message, StringComparison.Ordinal);
+        Assert.Contains("place '2'", issue.Message, StringComparison.Ordinal);
+
+        // The same counter placed twice where it stands is one counter with two doors, and sells what it sold.
+        (string Path, string Text)[] twoDoors = Rewrite(
+            """{ "id": "service-63", "kind": "service", "houseId": 63, "x": 200, "y": 0, "z": 0 }""",
+            """{ "id": "service-63", "kind": "service", "houseId": 63, "x": 200, "y": 0, "z": 0 }, { "id": "service-54-back", "kind": "service", "houseId": 54, "x": 300, "y": 0, "z": 0 }""");
+        Assert.Equal(
+            new[] { "2", "3" },
+            MightAndMagic7FareNetwork.Read(Catalog(twoDoors)).SoldBy("54").Select(passage => passage.Place.Value));
+
+        static (string Path, string Text)[] Rewrite(string from, string to)
+        {
+            (string Path, string Text)[] files = Network();
+            Assert.Single(files, file => file.Text.Contains(from, StringComparison.Ordinal));
+            return [.. files.Select(file => (file.Path, file.Text.Replace(from, to, StringComparison.Ordinal)))];
+        }
+    }
+
+    [Fact]
     public void Magical_travel_costs_no_road_because_the_spell_already_paid_for_it()
     {
         ContentCatalog catalog = Catalog(World());

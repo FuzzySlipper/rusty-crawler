@@ -118,13 +118,13 @@ public sealed class SessionWorldDiagnosticsTests
     public void Two_counters_journeys_on_the_route_the_ticket_names_are_refused_as_travel_fare_ambiguous()
     {
         using PartyEntity party = TestParty.OfFour();
-        PlaceGraph graph = PlaceGraphLoader.Load(
-            Catalog(links:
-            [
-                """{ "id": "coach", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start", "fare": true, "route": "coach" }""",
-                """{ "id": "second-coach", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start", "fare": true, "route": "coach" }""",
-            ]),
+        // The graph's load refuses two sold crossings alike in place and route (transition-fare-reused), so the
+        // world here is one a caller built from parts: boarding still refuses rather than choosing one.
+        PlaceGraph loaded = PlaceGraphLoader.Load(
+            Catalog(links: ["""{ "id": "coach", "fromPlace": "1", "toPlace": "2", "entryPoint": "Party Start", "fare": true, "route": "coach" }"""]),
             new Routes());
+        PlaceTransition coach = Assert.Single(loaded.Transitions);
+        PlaceGraph graph = PlaceGraph.From(loaded.Places, [coach, coach with { Source = "second-coach" }]);
         using SessionWorld world = FareWorld(graph, party, new FreeTravel(), diagnostics: null);
 
         // Both counters' journeys reach the cave on the route the passage names, so which was bought cannot be
