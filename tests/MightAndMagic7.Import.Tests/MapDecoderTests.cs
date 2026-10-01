@@ -560,17 +560,28 @@ public sealed class MapDecoderTests
     /// changing its face, so the walk past it is sized by the header's own count.
     /// </param>
     /// <param name="peakHeight">The height byte at the terrain's centre cell.</param>
-    internal static byte[] OutdoorPayload(int extraVertices = 0, byte peakHeight = 5)
+    /// <param name="waterRow">
+    /// Whether the terrain's first row of squares is the second tileset's base tile, which the fixture's tile table makes
+    /// water — and the row's last stored byte the tile after it, a shore.
+    /// </param>
+    internal static byte[] OutdoorPayload(int extraVertices = 0, byte peakHeight = 5, bool waterRow = false)
     {
         const int terrainCells = 128 * 128;
         MapWriter writer = new();
         writer.Text("blank", 32).Text("default.odm", 32).Text("MM6 Outdoor v7.00", 32).Text(string.Empty, 32).Text("grastyl", 32);
-        writer.U16(1).U16(90).U16(2).U16(126).U16(3).U16(162).U16(4).U16(198);
+        writer.U16(1).U16(90).U16(5).U16(126).U16(3).U16(162).U16(4).U16(198);
 
         byte[] heights = new byte[terrainCells];
         heights[(63 * 128) + 64] = peakHeight;
         writer.Raw(heights);
-        writer.Zero(terrainCells);              // tile map
+        byte[] tiles = new byte[terrainCells];
+        if (waterRow)
+        {
+            for (int column = 0; column < 126; column++) tiles[column] = 126;
+            tiles[126] = 127;
+        }
+
+        writer.Raw(tiles);                      // tile map
         writer.Zero(terrainCells);              // attribute map
         writer.U32(0);                          // normal count
         writer.Zero(terrainCells * 2 * 4);      // per-cell normal distances

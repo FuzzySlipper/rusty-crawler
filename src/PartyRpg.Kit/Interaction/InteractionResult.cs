@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Party;
 
@@ -25,8 +26,10 @@ public sealed record InteractionResult
         string message,
         string residue,
         IReadOnlyList<KnowledgeReport> learned,
-        Refusal? refusal)
+        Refusal? refusal,
+        ConversationSubject? speaks = null)
     {
+        Speaks = speaks;
         Target = target;
         Verb = verb;
         State = state;
@@ -53,7 +56,7 @@ public sealed record InteractionResult
                 nameof(outcome));
         }
 
-        return new InteractionResult(target, target.Definition.Verb, outcome.State, message, outcome.Residue, outcome.Learned, null);
+        return new InteractionResult(target, target.Definition.Verb, outcome.State, message, outcome.Residue, outcome.Learned, null, outcome.Speaks);
     }
 
     /// <summary>The use did nothing, and this is why.</summary>
@@ -97,6 +100,9 @@ public sealed record InteractionResult
 
     /// <summary>The refusal, or null when the use happened.</summary>
     public Refusal? Refusal { get; }
+
+    /// <summary>Whom the use handed the party to speak with, or null when it handed it to nobody.</summary>
+    public ConversationSubject? Speaks { get; }
 
     /// <summary>The refusal's code, or empty when the use happened.</summary>
     public string Code => Refusal?.Code ?? string.Empty;

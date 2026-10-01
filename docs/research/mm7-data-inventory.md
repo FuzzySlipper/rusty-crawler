@@ -101,7 +101,11 @@ number a hint or a status step names (`src/Engine/Engine.cpp:1453-1469`) **[dono
 discovery table: a number, a sentence and a category word (`Stat`, `Obelisk`, `potion`, `teacher`, `Misc`/`misc`)
 per row (`src/Engine/Tables/AutonoteTable.cpp:19-35`) **[donor]**; **186 rows hold a note** and **69 numbered rows
 hold none** (a `0` placeholder or an empty text) **[data]**. The first region holds no obelisk: the fourteen
-obelisk rows name areas 2 to 14 and 39 **[data]**. The ruleset's reading of the steps is in
+obelisk rows name areas 2 to 14 and 39 **[data]**. A map variable belongs to the map, not to the event that
+writes it (`src/Engine/Engine.h:62-65`) **[donor]**, and the fixtures' lever puzzles share theirs between events,
+which is why the ruleset keeps them per place. With every step the ruleset interprets, a fresh party runs **488 of
+the 495** fixture events and is refused by name at 7 — a figure the ruleset suite counts over the written packs
+rather than `mm7import verify`. The ruleset's reading of the steps is in
 `src/PartyRpg.Rulesets.MightAndMagic7/README.md`.
 
 ## Extraction limitations
@@ -116,8 +120,8 @@ obelisk rows name areas 2 to 14 and 39 **[data]**. The ruleset's reading of the 
   engine/localization data, not tables.
 - **`.bin` tables** — 11 in `Events.lod` (`dchest`, `ddeclist`, `dift`, `dmonlist`,
   `dobjlist`, `doverlay`, `dpft`, `dsft`, `dsounds`, `dtft`, `dtile`). Compressed
-  binary with no layout documented in the paths I read; `ChestTable.cpp` mentions
-  `dchest.bin` but does not give its format.
+  binary; `ChestTable.cpp` mentions `dchest.bin` but does not give its format. Only `dtile.bin` is read,
+  for which terrain squares are water; its layout is in `mm7-map-formats.md` §8.5.
 - **`.str` files** (76) — each map's NUL-separated string table, read for the lines a fixture's hint and
   status steps name; the decoration names it also holds are not read.
 - **Map geometry** — `.odm`, `.ddm`, `.blv`, `.dlv` are listed with sizes and
@@ -128,8 +132,12 @@ obelisk rows name areas 2 to 14 and 39 **[data]**. The ruleset's reading of the 
   `LodSpriteHeader` image payloads were not decoded.
 - **`.evt` operands** — every instruction's event id, step and opcode are read and named by the donor's
   enumeration; operands are read for the moves, container openings, variable comparisons and assignments,
-  text, jumps, character choices, random jumps, damage, season checks and timers a fixture's event uses. The
-  other opcodes' operands are not read, and a fixture step of one of them is written by its word alone.
+  text, jumps, character choices, random jumps, damage, season checks and timers a fixture's event uses, and for
+  door changes (door id and open/close/toggle), item gifts (treasure level, random item kind read as the item
+  tags, item id), spell casts (spell, mastery, rank), person calls and topic changes, skill and kill jumps, and
+  face and creature-group flag toggles (`src/Engine/Evt/EvtInstruction.cpp:985-1209`) **[donor]**. The texture,
+  sprite, sound, light and portrait steps' operands are not read — the product draws none of them — and a step of
+  any other unread opcode is written by its word alone.
 - **`MoveToMap` coordinates** are raw `u32`; negative values appear as large unsigned
   numbers (e.g. `4294967295` = −1). The donor parses them the same way, so no
   interpretation was attempted.

@@ -42,6 +42,9 @@ internal static class MightAndMagic7World
     /// <summary>The property of a geometry entry that holds the engine's canonical collision artifact.</summary>
     internal const string GeometryArtifactProperty = "artifact";
 
+    /// <summary>The property of a place's geometry entry that names its ground: its water and its fluid faces.</summary>
+    internal const string GeometrySurfacesProperty = "surfaces";
+
     /// <summary>
     /// The definition kind that carries the reaches a walking party takes this game's transitions
     /// through, one entry per trigger face, keyed by the link it takes and the face it came from.
@@ -200,7 +203,7 @@ internal static class MightAndMagic7World
 
         // One pair of movers over one spatial session: the party and the place's creatures walk in the same
         // scene, and whatever the world is not handed is released here rather than left holding a session.
-        (IPartyMover? mover, ICreatureMover? creatures) = Movers(party, context);
+        (IPartyMover? mover, ICreatureMover? creatures) = Movers(party, context, MightAndMagic7Movement.FlightRule(entity, graph, party));
         try
         {
             SessionWorld world = new SessionWorld(
@@ -224,7 +227,12 @@ internal static class MightAndMagic7World
                 creatures,
                 MightAndMagic7Movement.Falls(entity),
                 vitals,
-                spawns);
+                spawns,
+
+                // What each place kept of the party's uses — a well's charges, a puzzle's count, when a timer
+                // last ran — is rebuilt from the save, judged with the rest of it before anything was composed.
+                resume?.World.Interaction,
+                MightAndMagic7Movement.Hazards(entity));
 
             // What the population could not resolve — an encounter that needs a draw in a product with no
             // random service, a drawn grade the content carries no variant for — is reported where the other
@@ -293,7 +301,8 @@ internal static class MightAndMagic7World
     /// </remarks>
     /// <param name="party">The party's own pose, which its movement asks to move.</param>
     /// <param name="context">What the host handed the ruleset, which carries the engine the world moves in.</param>
-    private static (IPartyMover? Mover, ICreatureMover? Creatures) Movers(PartyPoseOwner party, RulesetSessionContext context)
+    /// <param name="flight">This game's answer to whether the party may fly now.</param>
+    private static (IPartyMover? Mover, ICreatureMover? Creatures) Movers(PartyPoseOwner party, RulesetSessionContext context, IFlightRule flight)
     {
         if (context.Engine is not { } engine) return (null, null);
 
@@ -308,12 +317,13 @@ internal static class MightAndMagic7World
             party,
             MightAndMagic7Movement.Space,
             MightAndMagic7Movement.Session,
-            tuning);
+            tuning,
+            flight: flight);
 
         // A place's geometry comes from the catalog when content carries any. Without a catalog there is no
         // world either, but the mover is composed here where both are still in hand.
         IPlaceGeometrySource? geometry = context.Content is { } catalog
-            ? new ContentPlaceGeometry(catalog, GeometryDefinitionKind, GeometryArtifactProperty)
+            ? new ContentPlaceGeometry(catalog, GeometryDefinitionKind, GeometryArtifactProperty, GeometrySurfacesProperty)
             : null;
 
         EnginePartyMover mover = new(spatial, movement, engine.Content, MightAndMagic7Movement.Navigation, geometry);

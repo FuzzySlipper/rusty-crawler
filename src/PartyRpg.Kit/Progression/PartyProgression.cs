@@ -344,6 +344,28 @@ public sealed class PartyProgression
         if (held < level) recipient.Skills.RaiseLevel(skill, level - held, 0);
     }
 
+    /// <summary>
+    /// Gives one member experience and skill points outright, as a gift the world makes to that character —
+    /// a well, a shrine — rather than an award the party divides.
+    /// </summary>
+    /// <remarks>
+    /// An award earned by the party is divided by the ruleset and moves the party's standing (<see cref="Award"/>);
+    /// a gift names the character it lands on and is theirs alone, so neither happens here. It is still this
+    /// owner's, because experience and skill points have one writer.
+    /// </remarks>
+    /// <param name="member">The member the gift lands on.</param>
+    /// <param name="experience">The experience given, which must not be negative.</param>
+    /// <param name="skillPoints">The skill points given, which must not be negative.</param>
+    /// <exception cref="ArgumentOutOfRangeException">A figure is negative.</exception>
+    public void Gift(PartyMemberId member, long experience, int skillPoints)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(experience);
+        ArgumentOutOfRangeException.ThrowIfNegative(skillPoints);
+        PartyMember recipient = _party.Member(member);
+        if (experience > 0) recipient.Progression.AwardExperience(experience);
+        if (skillPoints > 0) recipient.Progression.GrantSkillPoints(skillPoints);
+    }
+
     /// <summary>Reads what raising a member's skill would cost and how far it would reach, without spending.</summary>
     /// <remarks>
     /// <para>

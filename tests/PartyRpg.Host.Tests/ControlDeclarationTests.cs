@@ -73,6 +73,9 @@ public sealed class ControlDeclarationTests
     [InlineData(ProductIdentity.TurnRightIntent, "key:key-e:held", "E")]
     // The engine names the space bar `space`; `key-space` is refused at load.
     [InlineData(ProductIdentity.JumpIntent, "key:space:pressed", "Space")]
+    // The original rises on Page Up and sinks on Insert; the engine carries neither, so flight takes the arrows, held.
+    [InlineData(ProductIdentity.AscendIntent, "key:arrow-up:held", "Arrow Up")]
+    [InlineData(ProductIdentity.DescendIntent, "key:arrow-down:held", "Arrow Down")]
     [InlineData(ProductIdentity.CreationAdvanceIntent, "key:enter:pressed", "Enter")]
     [InlineData(ProductIdentity.CreationAcceptIntent, "key:space:pressed", "Space")]
     // The engine's keyboard controls carry no function keys, so the save control is a letter rather than F5.

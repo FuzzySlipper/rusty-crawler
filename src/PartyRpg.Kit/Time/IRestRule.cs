@@ -150,12 +150,18 @@ public sealed record RestInterruption
 /// ledger, and recover what the rule names — and reports it.
 /// </para>
 /// <para>
-/// Nothing here is asked about a wait. A wait is the mechanism's own shape: it passes time and restores
-/// nothing, and a rule that could refuse it would be inventing a reason the game never states.
+/// A wait is the mechanism's own shape: it passes time and restores nothing, so nothing here prices one. The
+/// one question a wait is asked is <see cref="Stop"/>, whether the party may stop where it stands at all, because a
+/// game can state places where nobody stops — standing in water, say — whatever the stop is for.
 /// </para>
 /// </remarks>
 public interface IRestRule
 {
+    /// <summary>Why the party may not stop where it stands at all — to sleep or to wait — or null when it may.</summary>
+    /// <param name="request">What the party asked for, where it stands, and the one clock.</param>
+    /// <returns>The refusal, or null for a game that refuses no stop for where the party stands.</returns>
+    Refusal? Stop(RestRequest request) => null;
+
     /// <summary>What a sleep of this kind is here, or why the party will not take it.</summary>
     /// <param name="request">What the party asked for, where it stands, and the one clock.</param>
     /// <returns>The period and its charge, or the refusal that stands in their place.</returns>

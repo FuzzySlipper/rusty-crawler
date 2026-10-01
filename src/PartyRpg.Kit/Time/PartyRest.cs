@@ -228,6 +228,7 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
         }
 
         RestRequest request = new(kind, site, _party, clock);
+        if (_rule.Stop(request) is { } halted) return RestResult.Refused(kind, at, halted);
         bool sleeps = RestKinds.Sleeps(kind);
 
         // What the period is and what it costs: a sleep is the ruleset's answer about this place, and a wait

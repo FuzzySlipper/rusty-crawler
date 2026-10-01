@@ -455,6 +455,12 @@ public sealed class PackWriterTests
                     Assert.Equal(entry.GetProperty("triangles").GetInt32(), artifact.GetProperty("collision").GetProperty("triangles").GetArrayLength());
                     Assert.Equal(127 * 127, entry.GetProperty("geometryCounts").GetProperty("terrain").GetProperty("faces").GetInt32());
                     Assert.Empty(artifact.GetProperty("navigation").GetProperty("cells").EnumerateArray());
+
+                    // Each region's water row is written beside the artifact as its own named ground.
+                    Assert.Equal(126, entry.GetProperty("waterSquares").GetInt32());
+                    JsonElement surface = Assert.Single(entry.GetProperty("surfaces").EnumerateArray());
+                    Assert.Equal("water", surface.GetProperty("surface").GetString());
+                    Assert.Equal(126 * 2, surface.GetProperty("triangles").GetArrayLength());
                 }
             }
 
@@ -470,11 +476,15 @@ public sealed class PackWriterTests
             ContentBootstrapResult bootstrap = ContentBootstrap.Load(new FileContentSource(root), Layout, "imported");
             Assert.True(bootstrap.IsValid, string.Join("; ", bootstrap.Issues.Select(issue => issue.ToString())));
             PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog);
-            ContentPlaceGeometry source = new(bootstrap.Catalog, "place-geometry", "artifact");
+            ContentPlaceGeometry source = new(bootstrap.Catalog, "place-geometry", "artifact", "surfaces");
 
             PlaceDefinition region = graph.Places.First(place => place.Kind == PlaceKind.Region);
             PlaceGeometry? collision = source.For(region.Id);
             Assert.NotNull(collision);
+
+            // The product reads the water the importer wrote as the place's named ground.
+            Assert.Equal(["water"], collision.Surfaces.Names);
+            Assert.Equal(126 * 2, collision.Surfaces.TriangleCount);
             Assert.Equal($"mm7-world/place-geometry/{region.Id.Value}.json", collision.Path);
             Assert.True(collision.Artifact.Length > 0);
 

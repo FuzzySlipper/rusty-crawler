@@ -55,6 +55,22 @@ public static class PlaytestReadout
             $"The session is {SessionProjection.WireName(snapshot.Mode)}, so nothing it holds is stepped."),
     };
 
+    /// <summary>
+    /// Why the session's controls to rise and sink would not move the party now, or null when they would.
+    /// </summary>
+    /// <remarks>
+    /// They are movement controls first, so whatever stops a walk stops them; past that they act only while the party
+    /// may fly, which is the movement owner's own answer and not a guess from what the party carries.
+    /// </remarks>
+    /// <param name="snapshot">The session as its projection reads it.</param>
+    /// <returns>The refusal, or null when a held rise or sink would move the party.</returns>
+    public static Refusal? Rising(SessionSnapshot snapshot) =>
+        Steering(snapshot) ?? (snapshot.Movement.Flight
+            ? null
+            : new Refusal(
+                PlaytestCodes.SteerNoFlight,
+                "The party may not fly here now, so rising and sinking ask for nothing: it walks."));
+
     /// <summary>Writes the session's gameplay facts as one compact JSON object.</summary>
     /// <param name="snapshot">The session as its projection reads it.</param>
     /// <returns>The observation, as JSON text.</returns>

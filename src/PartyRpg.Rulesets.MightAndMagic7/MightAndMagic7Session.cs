@@ -235,7 +235,11 @@ internal sealed class MightAndMagic7Session : IGameSession
             () => owners.Knowledge,
             spellEffects,
             context.Engine?.Random,
-            MightAndMagic7Tuning.Read(Declared(context.Content)));
+            MightAndMagic7Tuning.Read(Declared(context.Content)),
+            loot,
+            spells,
+            () => owners.Progression,
+            person => conversation?.PersonOf(person));
 
         // This game's journal policy is read once, here, over the loot reading that knows which item rows the
         // shipped table hands out as artifacts and relics: that is the one threshold this game states about
@@ -364,7 +368,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             {
                 // The whole document is judged before anything moves, so every problem is named at once and a
                 // defective save leaves no clock moved and no party restored behind it.
-                MightAndMagic7Persistence.RequireLoadable(save, context.Content, quests);
+                MightAndMagic7Persistence.RequireLoadable(save, context.Content, quests, fixtures);
 
                 // The clock takes the recorded game time before the world is composed, because the world's
                 // places are read against the day the session stands on: a resumed session that restored its

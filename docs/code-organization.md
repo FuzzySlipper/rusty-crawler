@@ -215,7 +215,9 @@ advance by hand, so none can forward it to the wrong audience.
 A save is a snapshot of the session: the party (members with skills, spells,
 progression, and path; the shared inventory; each member's equipment; its records,
 which hold the scenario flags), the clock's elapsed game time, current place and
-pose, per-place world state, quests, journal, knowledge, and the automap. Transient
+pose, per-place world state (visits and restorations, and the values each place keeps of the party's uses —
+a well's charges, a puzzle's count, when a timer last ran — through the interaction ledger's one capture),
+quests, journal, knowledge, and the automap. Transient
 things — movement outcomes, projections, open screens, target selections, AI
 intentions, runtime entities — are deliberately dropped and rebuilt on load. What a
 save should carry and does not yet is residue with a receiver in

@@ -313,6 +313,7 @@ public sealed class PartyEntityFactory
         entity.Add(new CharacterResources(seed.HitPoints, seed.SpellPoints));
         entity.Add(new CharacterEquipment());
         entity.Add(new ActiveEffects(effects));
+        entity.Add(new CharacterResistances(seed.Resistances));
         return new PartyMember(entity, health);
     }
 

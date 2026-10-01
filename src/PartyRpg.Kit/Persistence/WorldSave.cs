@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.World;
 
@@ -18,18 +19,26 @@ namespace PartyRpg.Kit.Persistence;
 /// (visited, cleared, and the day it was last restored) and never the entities themselves — whose runtime
 /// identities belong to the visit that created them.
 /// </para>
+/// <para>
+/// What each place keeps of the party's uses — the values every target of the place shares, such as a
+/// counter two levers read or when a well's timer last ran — is the interaction ledger's capture, carried
+/// here beside the places it belongs to. A place the clock restored is absent from it, because the ledger
+/// forgot that place in the update that restored it.
+/// </para>
 /// </remarks>
 public sealed record WorldSave
 {
     /// <summary>Records the world's durable state.</summary>
     /// <param name="pose">The place the party is in and the pose it holds there.</param>
     /// <param name="places">What every place the party has touched remembers.</param>
+    /// <param name="interaction">What each place keeps of the party's uses, or null when it keeps nothing.</param>
     /// <exception cref="ArgumentNullException">The per-place state is null.</exception>
-    public WorldSave(PartyPose pose, PlaceStateLedgerSnapshot places)
+    public WorldSave(PartyPose pose, PlaceStateLedgerSnapshot places, InteractionLedgerSnapshot? interaction = null)
     {
         ArgumentNullException.ThrowIfNull(places);
         Pose = pose;
         Places = places;
+        Interaction = interaction ?? InteractionLedgerSnapshot.None;
     }
 
     /// <summary>The place the party is in and the pose it holds there.</summary>
@@ -37,4 +46,7 @@ public sealed record WorldSave
 
     /// <summary>What every place the party has touched remembers, and the game day the world had reached.</summary>
     public PlaceStateLedgerSnapshot Places { get; }
+
+    /// <summary>What each place keeps of the party's uses, which is empty when no use kept anything.</summary>
+    public InteractionLedgerSnapshot Interaction { get; }
 }

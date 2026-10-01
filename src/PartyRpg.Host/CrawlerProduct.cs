@@ -94,7 +94,9 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
             ProductIdentity.StrafeRightIntent,
             ProductIdentity.TurnLeftIntent,
             ProductIdentity.TurnRightIntent,
-            ProductIdentity.JumpIntent);
+            ProductIdentity.JumpIntent,
+            ProductIdentity.AscendIntent,
+            ProductIdentity.DescendIntent);
         _creation = new CreationIntentNames(
             ProductIdentity.CreationAdvanceIntent,
             ProductIdentity.CreationAcceptIntent,

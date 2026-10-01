@@ -155,6 +155,50 @@ public static class EvtVariables
         _ => (UnknownWord, null),
     };
 
+    /// <summary>The word a skill number is written with, in the donor's own order.</summary>
+    /// <remarks>OpenEnroth <c>src/Engine/Objects/CharacterEnums.h:210-250</c>, <c>Skill</c>; the same order as the skill variables.</remarks>
+    /// <param name="skill">The skill's number.</param>
+    /// <returns>The word.</returns>
+    public static string Skill(int skill) => skill >= 0 && skill < Skills.Length ? Skills[skill] : UnknownWord;
+
+    /// <summary>The word a mastery number is written with.</summary>
+    /// <remarks>OpenEnroth <c>src/Engine/Objects/CharacterEnums.h</c>, <c>Mastery</c>: one novice to four grand master.</remarks>
+    /// <param name="mastery">The mastery's number.</param>
+    /// <returns>The word.</returns>
+    public static string Mastery(int mastery) => mastery switch
+    {
+        1 => "novice",
+        2 => "expert",
+        3 => "master",
+        4 => "grandmaster",
+        _ => UnknownWord,
+    };
+
+    /// <summary>The word a door action is written with.</summary>
+    /// <remarks>OpenEnroth <c>src/Engine/Graphics/FaceEnums.h:70-74</c>, <c>DoorAction</c>.</remarks>
+    /// <param name="action">The action byte.</param>
+    /// <returns>The word.</returns>
+    public static string DoorAction(int action) => action switch
+    {
+        0 => "open",
+        1 => "close",
+        2 => "toggle",
+        _ => UnknownWord,
+    };
+
+    /// <summary>The word a kill jump's policy is written with.</summary>
+    /// <remarks>OpenEnroth <c>src/Engine/Objects/ActorEnums.h:7-12</c>, <c>ActorKillCheckPolicy</c>.</remarks>
+    /// <param name="policy">The policy byte.</param>
+    /// <returns>The word.</returns>
+    public static string KillPolicy(int policy) => policy switch
+    {
+        0 => "any",
+        1 => "group",
+        2 => "kind",
+        3 => "creature",
+        _ => UnknownWord,
+    };
+
     /// <summary>The word a season is written with.</summary>
     /// <remarks>OpenEnroth <c>src/Engine/Evt/EvtEnums.h:252-258</c>, <c>Season</c>.</remarks>
     /// <param name="season">The season's number.</param>

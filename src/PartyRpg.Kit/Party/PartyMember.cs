@@ -96,6 +96,9 @@ public sealed class PartyMember
     /// <summary>What a spell or a potion left running on this character alone, until its time ends.</summary>
     public ActiveEffects Effects => _actor.Get<ActiveEffects>();
 
+    /// <summary>The member's stored base resistances: what a permanent gift has added, kept and saved.</summary>
+    public CharacterResistances Resistances => _actor.Get<CharacterResistances>();
+
     /// <summary>
     /// The latest change stamp any of this character's own state carries — who they are, their scores, skills,
     /// spells, progression, conditions, pools, what they wear and the items in it, and what is running on them — so
@@ -113,6 +116,7 @@ public sealed class PartyMember
             stamp = Math.Max(stamp, Resources.Stamp);
             stamp = Math.Max(stamp, Equipment.Stamp);
             stamp = Math.Max(stamp, Effects.Stamp);
+            stamp = Math.Max(stamp, Resistances.Stamp);
             foreach (EquippedItem equipped in Equipment.Items) stamp = Math.Max(stamp, equipped.Item.Stamp);
             return stamp;
         }

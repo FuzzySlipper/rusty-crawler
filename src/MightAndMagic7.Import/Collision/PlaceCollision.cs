@@ -13,6 +13,11 @@ namespace MightAndMagic7.Import.Collision;
 /// <param name="DroppedTriangles">How many fan triangles enclosed no area.</param>
 /// <param name="Artifact">The engine's document, or null when the place was refused.</param>
 /// <param name="Refusal">Why the place was refused, or null when it was emitted.</param>
+/// <remarks>
+/// <see cref="Surfaces"/> are the parts of the place's ground that are not ordinary ground — its water squares and its
+/// fluid faces — each as a mesh of its own over the same corners the collision has, in the engine's axes. They are
+/// beside the artifact rather than in it, because the engine parses the artifact and refuses a field it does not know.
+/// </remarks>
 public sealed record PlaceCollision(
     int PlaceId,
     string FileName,
@@ -28,14 +33,31 @@ public sealed record PlaceCollision(
     /// <summary>Whether a place's geometry was emitted, which is the same as its artifact existing.</summary>
     public bool Emitted { get; init; } = Artifact is not null;
 
-    /// <summary>The same outcome with the document dropped, for a report that only states facts.</summary>
-    public PlaceCollision Facts => this with { Artifact = null };
+    /// <summary>The named ground surfaces the place's collision carries, each a mesh in the engine's axes.</summary>
+    public IReadOnlyList<PlaceSurface> Surfaces { get; init; } = [];
+
+    /// <summary>How many of the place's terrain squares are water.</summary>
+    public int WaterSquares { get; init; }
+
+    /// <summary>How many of the place's solid faces are fluid.</summary>
+    public int FluidFaces { get; init; }
+
+    /// <summary>The same outcome with the documents dropped, for a report that only states facts.</summary>
+    public PlaceCollision Facts => this with { Artifact = null, Surfaces = [] };
 
     /// <summary>What one source contributed.</summary>
     /// <param name="source">The source to report.</param>
     public CollisionSourceCounts CountOf(CollisionSource source) =>
         Counts.TryGetValue(source, out CollisionSourceCounts counts) ? counts : CollisionSourceCounts.None;
 }
+
+/// <summary>One named kind of ground in a place, and the triangles that are it.</summary>
+/// <param name="Surface">
+/// The ground's name as the pack writes it: <see cref="PlaceCollisionEmitter.WaterSurface"/> for the terrain's water
+/// squares, <see cref="PlaceCollisionEmitter.FluidSurface"/> for faces the level marks fluid.
+/// </param>
+/// <param name="Mesh">The triangles of that ground, in the engine's axes, the same triangles the collision carries.</param>
+public sealed record PlaceSurface(string Surface, CollisionMesh Mesh);
 
 /// <summary>What one import's collision emission did, over every place it read.</summary>
 /// <param name="Places">Every place, in place-id order, emitted or refused.</param>
@@ -94,9 +116,27 @@ public sealed record CollisionSummary(IReadOnlyList<PlaceCollision> Places)
 /// (<c>src/Engine/Graphics/Indoor.cpp:1499</c>), and the floor under water is still a floor — dropping it
 /// would drop a room's own floor.
 /// </para>
+/// <para>
+/// <b>Which ground is water.</b> The place's water is named beside its collision as two surfaces. The terrain's water
+/// squares are the ones whose tile the game's tile table flags as water (<see cref="TerrainTileTable"/>), which is the
+/// donor's own test for water under a party outdoors (OpenEnroth <c>src/Engine/Graphics/OutdoorTerrain.cpp:114-120</c>,
+/// read at <c>src/Engine/Graphics/Outdoor.cpp:1321-1323</c>). A face the level marks fluid (<c>FACE_IsFluid</c>, 0x10,
+/// <c>src/Engine/Graphics/FaceEnums.h:12</c>) is a second surface, because the donor treats it differently: a party on
+/// one is "on water" (<c>src/Engine/Graphics/Indoor.cpp:1499</c>, <c>Outdoor.cpp:854</c>) for its footsteps, and is
+/// never drowned there. What either surface does is the ruleset's; the importer only says where they are.
+/// </para>
 /// </remarks>
 public static class PlaceCollisionEmitter
 {
+    /// <summary>The surface the terrain's water squares are written under.</summary>
+    public const string WaterSurface = "water";
+
+    /// <summary>The surface faces the level marks fluid are written under.</summary>
+    public const string FluidSurface = "fluid";
+
+    /// <summary>The donor's fluid attribute, <c>FACE_IsFluid</c>.</summary>
+    private const uint FluidAttribute = 0x00000010;
+
     /// <summary>The donor's portal attribute, <c>FACE_IsPortal</c>.</summary>
     private const uint PortalAttribute = 0x00000001;
 
@@ -114,18 +154,29 @@ public static class PlaceCollisionEmitter
     /// <param name="placeId">The place's own id.</param>
     /// <param name="fileName">The container entry the place's map was decoded from.</param>
     /// <param name="map">The decoded map whose geometry the place's collision comes from.</param>
-    public static PlaceCollision Emit(int placeId, string fileName, DecodedMap map)
+    /// <param name="tiles">
+    /// The game's terrain tile table, which says which of a region's squares are water. Without one no square is
+    /// marked water; a place's fluid faces are marked either way.
+    /// </param>
+    public static PlaceCollision Emit(int placeId, string fileName, DecodedMap map, TerrainTileTable? tiles = null)
     {
         ArgumentNullException.ThrowIfNull(map);
 
         CollisionMesh mesh = new();
+        CollisionMesh water = new();
+        CollisionMesh fluid = new();
         Dictionary<CollisionSource, CollisionSourceCounts> counts = [];
-        if (map is IndoorMap indoor) AddIndoorFaces(mesh, counts, indoor);
+        int waterSquares = 0;
+        if (map is IndoorMap indoor) AddIndoorFaces(mesh, counts, indoor, fluid);
         if (map is OutdoorMap outdoor)
         {
-            AddTerrain(mesh, counts, outdoor);
-            AddModelFaces(mesh, counts, outdoor);
+            waterSquares = AddTerrain(mesh, counts, outdoor, tiles?.WaterSquares(outdoor), water);
+            AddModelFaces(mesh, counts, outdoor, fluid);
         }
+
+        List<PlaceSurface> surfaces = [];
+        if (water.TriangleCount > 0) surfaces.Add(new PlaceSurface(WaterSurface, water));
+        if (fluid.TriangleCount > 0) surfaces.Add(new PlaceSurface(FluidSurface, fluid));
 
         CollisionRefusal? refusal = CollisionArtifact.Validate(mesh, map.EntryPoints);
         return new PlaceCollision(
@@ -138,16 +189,34 @@ public static class PlaceCollisionEmitter
             mesh.DroppedFaces,
             mesh.DroppedTriangles,
             refusal is null ? CollisionArtifact.Write(placeId, mesh) : null,
-            refusal);
+            refusal)
+        {
+            Surfaces = refusal is null ? surfaces : [],
+            WaterSquares = waterSquares,
+            FluidFaces = FluidFacesOf(map),
+        };
     }
+
+    /// <summary>How many of a map's solid faces the level marks fluid.</summary>
+    private static int FluidFacesOf(DecodedMap map) => map switch
+    {
+        IndoorMap indoor => indoor.Faces.Count(IsFluid),
+        OutdoorMap outdoor => outdoor.Models.SelectMany(model => model.Faces).Count(IsFluid),
+        _ => 0,
+    };
+
+    /// <summary>Whether a face is solid and marked fluid, which is the ground a party walks on as water.</summary>
+    /// <param name="face">The face to judge.</param>
+    public static bool IsFluid(MapFace face) => IsSolid(face) && (face.Attributes & FluidAttribute) != 0;
 
     /// <summary>Adds an interior's solid faces.</summary>
     private static void AddIndoorFaces(
         CollisionMesh mesh,
         Dictionary<CollisionSource, CollisionSourceCounts> counts,
-        IndoorMap map)
+        IndoorMap map,
+        CollisionMesh fluid)
     {
-        CollisionSourceCounts added = AddSolidFaces(mesh, map.Faces);
+        CollisionSourceCounts added = AddSolidFaces(mesh, map.Faces, fluid);
         if (added.Faces > 0) counts[CollisionSource.InteriorFace] = added;
     }
 
@@ -159,7 +228,8 @@ public static class PlaceCollisionEmitter
     /// </remarks>
     /// <param name="mesh">The mesh to add to.</param>
     /// <param name="faces">The faces to read.</param>
-    public static CollisionSourceCounts AddSolidFaces(CollisionMesh mesh, IEnumerable<MapFace> faces)
+    /// <param name="fluid">Where the solid faces marked fluid are added a second time, or null to mark none.</param>
+    public static CollisionSourceCounts AddSolidFaces(CollisionMesh mesh, IEnumerable<MapFace> faces, CollisionMesh? fluid = null)
     {
         ArgumentNullException.ThrowIfNull(mesh);
         ArgumentNullException.ThrowIfNull(faces);
@@ -169,6 +239,7 @@ public static class PlaceCollisionEmitter
         {
             if (!IsSolid(face)) continue;
             added = added.Plus(mesh.AddPolygon(face.Vertices));
+            if (fluid is not null && IsFluid(face)) fluid.AddPolygon(face.Vertices);
         }
 
         return added;
@@ -183,12 +254,16 @@ public static class PlaceCollisionEmitter
     /// <c>OutdoorTerrain.cpp:236-247</c>). The winding is the donor's, so the surface's own normal points
     /// up and the engine's collision sees the ground the party walks on.
     /// </remarks>
-    private static void AddTerrain(
+    /// <returns>How many squares were water.</returns>
+    private static int AddTerrain(
         CollisionMesh mesh,
         Dictionary<CollisionSource, CollisionSourceCounts> counts,
-        OutdoorMap map)
+        OutdoorMap map,
+        bool[]? waterSquares,
+        CollisionMesh water)
     {
         CollisionSourceCounts added = CollisionSourceCounts.None;
+        int wet = 0;
         for (int row = 0; row < TerrainSquares; row++)
         {
             for (int column = 0; column < TerrainSquares; column++)
@@ -201,6 +276,14 @@ public static class PlaceCollisionEmitter
                 if (mesh.AddTriangle(northWest, southWest, southEast)) triangles++;
                 if (mesh.AddTriangle(northWest, southEast, northEast)) triangles++;
 
+                // A water square is the same two triangles, named as water beside the collision.
+                if (waterSquares?[(row * TerrainSquares) + column] == true)
+                {
+                    water.AddTriangle(northWest, southWest, southEast);
+                    water.AddTriangle(northWest, southEast, northEast);
+                    wet++;
+                }
+
                 // A terrain "face" is one of the height field's squares, which is the unit the map
                 // stores; the two triangles it becomes are counted beside it.
                 added = new CollisionSourceCounts(added.Faces + 1, added.Triangles + triangles);
@@ -208,15 +291,17 @@ public static class PlaceCollisionEmitter
         }
 
         counts[CollisionSource.Terrain] = added;
+        return wet;
     }
 
     /// <summary>Adds the solid faces of an outdoor map's placed models.</summary>
     private static void AddModelFaces(
         CollisionMesh mesh,
         Dictionary<CollisionSource, CollisionSourceCounts> counts,
-        OutdoorMap map)
+        OutdoorMap map,
+        CollisionMesh fluid)
     {
-        CollisionSourceCounts added = AddSolidFaces(mesh, map.Models.SelectMany(model => model.Faces));
+        CollisionSourceCounts added = AddSolidFaces(mesh, map.Models.SelectMany(model => model.Faces), fluid);
         if (added.Faces > 0) counts[CollisionSource.ModelFace] = added;
     }
 

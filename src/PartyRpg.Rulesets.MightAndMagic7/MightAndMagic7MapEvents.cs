@@ -43,6 +43,39 @@ internal sealed record MapEventStep(
     string Period,
     int HalfMinutes)
 {
+    /// <summary>The id of the door a door step moves, as the place's door placement carries it.</summary>
+    internal int Door { get; init; }
+
+    /// <summary>What a door step does: <c>open</c>, <c>close</c> or <c>toggle</c>.</summary>
+    internal string Action { get; init; } = string.Empty;
+
+    /// <summary>The treasure level an item gift draws at.</summary>
+    internal int Level { get; init; }
+
+    /// <summary>The item tag by kind a gift's draw is narrowed to, or empty.</summary>
+    internal string ItemKind { get; init; } = string.Empty;
+
+    /// <summary>The item tag by skill a gift's draw is narrowed to, or empty.</summary>
+    internal string ItemSkill { get; init; } = string.Empty;
+
+    /// <summary>The item a gift gives outright, or zero when the draw stands.</summary>
+    internal int Item { get; init; }
+
+    /// <summary>The spell a cast step casts.</summary>
+    internal int Spell { get; init; }
+
+    /// <summary>The mastery a cast step casts at, or a skill jump waits for.</summary>
+    internal string Mastery { get; init; } = string.Empty;
+
+    /// <summary>The skill rank a cast step casts at, or a skill jump waits for.</summary>
+    internal int Rank { get; init; }
+
+    /// <summary>The person a conversation or topic step names.</summary>
+    internal int Person { get; init; }
+
+    /// <summary>The bit a flag step sets or clears.</summary>
+    internal long Flag { get; init; }
+
     /// <summary>The variable a step reads or writes, as one identity a timer and a fixture can share.</summary>
     /// <remarks>
     /// A numbered family's slot and a family whose value names the thing — a quest bit, a party bit, a note, an
@@ -270,7 +303,20 @@ internal sealed class MightAndMagic7MapEvents
                     ContentEntry.ReadString(element, "kind"),
                     Whole(element, "amount"),
                     ContentEntry.ReadString(element, "period"),
-                    Whole(element, "halfMinutes")));
+                    Whole(element, "halfMinutes"))
+                {
+                    Door = Whole(element, "door"),
+                    Action = ContentEntry.ReadString(element, "action"),
+                    Level = Whole(element, "level"),
+                    ItemKind = ContentEntry.ReadString(element, "itemKind"),
+                    ItemSkill = ContentEntry.ReadString(element, "itemSkill"),
+                    Item = Whole(element, "item"),
+                    Spell = Whole(element, "spell"),
+                    Mastery = ContentEntry.ReadString(element, "mastery"),
+                    Rank = Whole(element, "rank"),
+                    Person = Whole(element, "person"),
+                    Flag = ContentEntry.ReadDouble(element, "flag") is { } flag ? (long)flag : 0,
+                });
             }
 
             MapEvent mapEvent = new(new PlaceId(place), eventId, entry.GetString("label"), steps, entry.GetBoolean("raised") ?? false);

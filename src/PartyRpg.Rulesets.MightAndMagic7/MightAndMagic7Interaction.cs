@@ -406,7 +406,7 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     /// interpretation of the level, and a pack that carried the word instead would be a pack a different
     /// game could not read.
     /// </remarks>
-    private static string DoorState(PlacementDefinition placement, string recorded) =>
+    internal static string DoorState(PlacementDefinition placement, string recorded) =>
         recorded.Length > 0
             ? recorded
             : placement.Source.GetInt32(DoorStateField) == DoorRestState ? OpenState : ClosedState;

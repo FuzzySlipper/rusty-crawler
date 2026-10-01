@@ -82,7 +82,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 
 - **Graph and surface.** Kit, ruleset and host build against the pinned Engine pair; the importer and its
   tool are offline and outside the runtime graph in both directions. The host declares one product entry,
-  23 input intents with their keys, and the `crawler.ui` payload channel. The session publishes one
+  25 input intents with their keys, and the `crawler.ui` payload channel. The session publishes one
   projection (`crawler.hud` / `crawler.ui.snapshot.v1`) when it has changed; the TypeScript companion
   renders it with no state, rule or timer of its own, and fixtures the host suite writes bind the C# and
   TypeScript sides of that contract. The runtime needs a GPU adapter; the product draws no world, so the
@@ -94,7 +94,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 - **World and time.** Places, arrival points and transitions load from packs; walking into a reach,
   boarding a fare the party bought, and a travel spell all take one transition path that charges the clock
   and the larder once. Movement and collision are the Engine's (the character step over each place's
-  spatial artifact); a fall past the threshold harms members through the ruleset's fall rule. `GameClock`
+  spatial artifact, flying mode under a flight, and the water a place's packs name beside it); a fall past the
+  threshold and standing in water harm members through the ruleset's rules. `GameClock`
   over an authored calendar is the only time, and every advance reaches every owner registered with it.
 - **Party.** `PartyEntity` is one entity with its components: roster and members, one shared inventory of
   item instances, per-member equipment, purse and larder, reputation and fame, running effects, records,
@@ -131,22 +132,23 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 
 - Stone 3, world: every travel link accounted for (#8577); duplicate arrival ids refused (#8707); the only
   region-to-region reach cannot be walked (#8713); creatures cannot path around a wall because places carry
-  no navigation cells (#8665).
+  no navigation cells (#8665); the panel does not show footing or the water effects, and a creature killed
+  on water leaves a corpse (#9034).
 - Stone 4, party: a scenario cannot choose between creation and its own party (#8589); both creation paths
   proved to compose the same owners (#8688).
 - Stone 5, interaction and services: opened doors and emptied containers are not saved (#8593), and a
-  searched chest can be looted twice (#8696); a door's collision does not move when it opens (#8594); a
+  searched chest can be looted twice (#8696); a door's collision, and a face group an event makes passable, do not move (#8594); a
   container above or below the floor cannot be used (#8697); deadlines (fatigue, wards, light, haste) block
   a save by name instead of being carried (#8617); towns have no house doors and camping is priced per
-  place (#8618); rest restores laid-out members (#8662); the panel reaches only buy and sell (#8619); map
-  event variables are kept per fixture, not per place, and are not saved (#9027); a fixture event refuses at
-  doors, presentation, item and bonus steps (#9028).
+  place (#8618); rest restores laid-out members (#8662); the panel reaches only buy and sell (#8619); a
+  fixture event refuses at a hireling step (#8514) and at a topic change, a kill count, a creature group
+  turned hostile and a history line (#9033).
 - Stone 6, combat: a fight is not carried in a save, and a save taken with one pending is refused (#8658);
   an order commands every member rather than a selected one (#8659).
 - Stone 7, progression and magic: training takes no game time (#8671); the two counted deeds two ranks need
-  have no writer (#8689); a laid-out member can be promoted (#8705); flight, water walking and breathing, and
-  a creature summoned or raised to fight for the party are "not yet" in `docs/magic-coverage.md` (#9029,
-  #9030, #9031; item-aimed effects #8513; followers #8514).
+  have no writer (#8689); a laid-out member can be promoted (#8705); a creature summoned or raised to
+  fight for the party is "not yet" in `docs/magic-coverage.md` (#9031; item-aimed effects #8513; followers
+  #8514).
 - Stone 8, record: an errand's item is protected only from sale (#8687).
 
 When a stone lands or a residue closes, update this section, `README.md`, and the owning project README

@@ -44,7 +44,7 @@ export interface WorldView {
  * all — no world, or no step yet — and the remaining fields then describe no step rather than a quiet one.
  */
 export interface MovementView {
-  /** The state the last step left the party in: `none`, `grounded`, or `airborne`. */
+  /** The state the last step left the party in: `none`, `grounded`, `airborne`, or `flying`. */
   readonly motion: string;
   /** What refused the step: a reason word, or `none` when nothing did. */
   readonly blocked: string;

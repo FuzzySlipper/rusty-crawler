@@ -16,6 +16,9 @@ public static class MightAndMagic7Codes
     /// <summary>The refusal code <c>camp-under-a-roof</c>.</summary>
     public const string CampUnderARoof = "camp-under-a-roof";
 
+    /// <summary>The refusal code <c>rest-in-water</c>: the party is asked to stop while it stands in water.</summary>
+    public const string RestInWater = "rest-in-water";
+
     /// <summary>The refusal code <c>container-contents-unresolved</c>.</summary>
     public const string ContainerContentsUnresolved = "container-contents-unresolved";
 
@@ -60,6 +63,12 @@ public static class MightAndMagic7Codes
 
     /// <summary>The refusal code <c>fixture-nothing-to-roll</c>.</summary>
     public const string FixtureNothingToRoll = "fixture-nothing-to-roll";
+
+    /// <summary>The refusal code <c>fixture-person-unknown</c>: a step calls over somebody the people table does not hold.</summary>
+    public const string FixturePersonUnknown = "fixture-person-unknown";
+
+    /// <summary>The refusal code <c>fixture-spell-unknown</c>: a step casts a spell the spell table does not hold.</summary>
+    public const string FixtureSpellUnknown = "fixture-spell-unknown";
 
     /// <summary>The refusal code <c>fixture-runaway</c>.</summary>
     public const string FixtureRunaway = "fixture-runaway";
@@ -150,6 +159,9 @@ public static class MightAndMagic7Codes
 
     /// <summary>The refusal code <c>skill-closed-by-unchosen-path</c>.</summary>
     public const string SkillClosedByUnchosenPath = "skill-closed-by-unchosen-path";
+
+    /// <summary>The refusal code <c>spell-indoors</c>: a spell the open sky is needed for is cast under a roof.</summary>
+    public const string SpellIndoors = "spell-indoors";
 
     /// <summary>The refusal code <c>spell-airborne</c>: a leap is cast while the party is not standing on anything.</summary>
     public const string SpellAirborne = "spell-airborne";

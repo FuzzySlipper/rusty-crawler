@@ -86,10 +86,11 @@ Owns:
     water and earth, elf ten mind, human five body and so five spirit, which reads body's base — a ruleset table
     cited to the donor because the shipped data has no race table, and a Lich's own floor (twenty in each element,
     two hundred mind and body, `:4025-4042`) read from the class, with a Lich's whole resistance held to two
-    hundred (`:1988-1990`). Faithful. The donor's stored base starts at nothing and is raised only by a map
-    event's permanent resistance, which `MightAndMagic7Fixtures` refuses by name, and by a genie lamp this build
-    does not grant, so no stored base is kept; followers are #8514 and enchantments #8513. A special attack's
-    saving throw reads the same sum.
+    hundred (`:1988-1990`). Faithful. The donor's stored base starts at nothing and is raised by a map event's
+    permanent resistance (`:4788-4817`), which `MightAndMagic7Fixtures` writes into the member's own stored
+    resistances (the kit's `CharacterResistances`, saved with the member and capped at a byte), and by a genie
+    lamp this build does not grant (#8513); a Lich's floor is read as a floor under the stored figure. Followers
+    are #8514 and enchantments #8513. A special attack's saving throw reads the same sum.
   - **the scores every sum reads** (`Character.cpp:729-765`, `GetActualStat`): the score the character carries
     at the share their age leaves of it (`MightAndMagic7Ageing`, the donor's table at `:222-232`), plus a potion's
     boost of that score on them and the party's day of the gods, which adds to all seven (`:2360-2387`). Faithful
@@ -182,7 +183,12 @@ world and movement policy (`MightAndMagic7World`, `MightAndMagic7Movement` — t
 speed, cited from the donor, and the engine's own controller tuning scaled to that body; the donor's fall harm,
 which a feather fall the party carries spares (`Outdoor.cpp:1426`); and the jump spell's leap, the party's own jump
 at the donor's ratio of a thousand to five times ninety-six (`CastSpellInfo.cpp:1111-1121`, `Outdoor.cpp:1193-1197`),
-whose landing is not a fall — flight and water are not this build's yet, see `docs/magic-coverage.md`), the one clock
+whose landing is not a fall; and flight, which its caster carries and pays a spell point for every five minutes in the
+air below grand master (`Engine.cpp:1286-1296`), at four times the walk up to the donor's ceiling, never indoors;
+and drowning, a tenth of each character's health every thirty game seconds the party stands on a region's water
+(`Engine.cpp:1083-1099`), spared by a water walk its caster carries and pays for every twenty minutes on water, and
+for one character by water breathing, with no stop allowed in water (`Game.cpp:1088-1089`); fluid faces are named
+and drown nobody, as in the donor), the one clock
 (`MightAndMagic7Time` — the authored calendar, the donor's starting moment, its thirty-to-one rate, and
 the hours it calls daylight), the party its content declares as scenario state (`MightAndMagic7Party`,
 through the same factory creation hands a party to, never a party of its own invention, and what a host
@@ -448,22 +454,47 @@ later comparison reads an earlier write, and applies what it collected only when
 refusal. **Interpreted**: `exit`, `jump`, `compare`, `add`, `subtract` and `set` over the variables below,
 `status-text`, `for-party-member`, `random-go-to` (the engine's keyed draw), `receive-damage`, `check-season`
 (the donor's season boundaries on this game's calendar), and the timer triggers, which end a use's run and are
-themselves run as the refill of what a fixture reads. The variables, each through its owner: `quest-bit` (the
+themselves run as the refill of what a fixture reads; `change-door-state` (open, close, or toggle a door at rest,
+`OpenEnroth/src/Engine/Graphics/Indoor.cpp:721-770`: the place's door placement of that id is recorded in the
+door owner's own word under its own identity through the outcome's target changes, so a lever-opened door reads
+open; a door id the place does not hold moves nothing, as the donor's lookup; the collision does not move, #8594,
+stated as residue); `give-item` (the named item, or one the loot owner draws at the step's treasure level from the
+kind it admits, through the acquisition path, `OpenEnroth/src/Engine/Tables/ItemTable.cpp:316-360`); `cast-spell`
+(the spell's own roll at the step's rank and mastery landed on the chosen characters — the donor flies a
+projectile from a point at the party, this build flies nothing: approximate); `speak-npc` (the conversation with
+that person opens through the outcome, as using a person does); `check-skill` (a chosen character at the rank and
+exactly the mastery, `OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:517-524`). **Presentation, passed over**: the
+product draws no world and plays no sound, so `set-texture`, `set-sprite`, `play-sound`, `character-animation`,
+`toggle-indoor-light`, and a `set-faces-bit` that only hides a face group or makes it fluid change nothing and the
+event's gameplay steps still run — a decision, not a deferral (a fluid face is not water a party drowns in, and its
+footsteps, splash and sinking corpses are not modelled); a `set-faces-bit` that makes a face group passable states
+its residue (#8594) and runs on. The variables, each through its owner: `quest-bit` (the
 party record `errand:<bit>` the conversation already reads), `member-bit` (a party record — the donor's is per
 character), `autonote` (a knowledge report of the discovery row: `stat` and `misc` an effect, `obelisk`,
 `teacher` and `seer` a clue, `potion` a recipe), `gold`, `item` (given through the acquisition path,
 taken from the shared pack), `hit-points`, `spell-points`, `full-hit-points` and `full-spell-points` (a member's
 resources), `attribute` (a member's base attribute, for good), `resistance-bonus` (the running effect a ward
-leaves, `fixture.bonus-hours` long), `condition` (a member's conditions), and `map-variable` (the fixture's
-own counter). **Refused by name** (`fixture-step-not-interpreted`, `fixture-variable-not-interpreted`): every
-other instruction and variable. Over the operator's install a fresh party using each of the 495 fixture events
-once has 327 run and 168 refused, by the first step each run reaches that this game does not interpret:
-`change-door-state` 75 (a lever moving a door, #8594), `set-texture` 21, `give-item` 14, `set-sprite` 7,
-`bank-gold` 6, `cast-spell` 6, `play-sound` 5, `speak-npc` 5, `set-faces-bit` 4, `attribute-bonus` 9 (might 3,
-personality 4, accuracy 1, endurance 1), `toggle-actor-group-flag` 3, `resistance` 3 (fire, mind, water — a
-permanent resistance, which no owner keeps), `character-animation` 2, `hireling` 2, and `armour-class-bonus`,
-`counter`, `gold` (a `set`), `set-npc-topic`, `skill-points` and `toggle-indoor-light` 1 each; the ruleset suite
-counts it. On the first region the town well gives fifty points of fire resistance and its note, the wells east
+leaves, `fixture.bonus-hours` long), `attribute-bonus` and `armour-class-bonus` (the running effects a spell
+raising the attribute and a stone skin leave, which the attribute's and the armour class's own sums read, for
+`fixture.bonus-hours` — the donor keeps them until a rest), `resistance` (the member's stored base, for good),
+`skill-points` and `experience` (a gift to the chosen character through `PartyProgression.Gift`), `bank-gold`
+(compared with the party's one bank holding), `counter` (set to now and compared by hours since,
+`OpenEnroth/src/Engine/Objects/Character.cpp:3934-3951` — the donor's ten are the party's, this build keeps them
+per place as `counter:<n>`, which only one place's events use: approximate), `age` (the character's age offset
+through `Rejuvenate` and `Age`), `major-condition` (a `set` clears every condition), `gold` `set` (a find or a
+payment of the difference), `condition` (a member's conditions), and `map-variable` (one of the
+place's 75 byte-sized counters, kept by the interaction ledger for the place as `map-variable:<slot>` — every
+fixture of the place reads and writes the same ones, as the donor keeps one array per map, 
+`OpenEnroth/src/Engine/Engine.h:62-65`). When each timer of a place last ran is kept beside them as
+`timer:<event>.<step>`; both travel in the save's world section, a load judges each against the place's slots
+and events (`save-kept-value-unknown`), and a place the clock restores forgets them, as the donor re-reads a
+respawned map's delta with its variables (`OpenEnroth/src/Engine/Graphics/Indoor.cpp:313-319`). **Refused by name** (`fixture-step-not-interpreted`, `fixture-variable-not-interpreted`), each naming the task that would interpret it: `hireling` (#8514); `set-npc-topic`, `is-actor-killed`,
+`toggle-actor-group-flag` (a group of the place's creatures made hostile) and `history` (#9033: a saved topic override the conversation reads, the population answering a fixture, the fight's
+provocation reachable from a fixture, and the history table imported); every other instruction and variable is
+refused by name without one. Over the operator's install a fresh party using each of the 495 fixture events once
+has 488 run and 7 refused, by the first step each run reaches that this game does not interpret:
+`toggle-actor-group-flag` 3, `hireling` 2, `history` 1 and `set-npc-topic` 1 (reached through the bookcase's
+yearly timer); the ruleset suite counts it and holds every refusal to name its receiver. On the first region the town well gives fifty points of fire resistance and its note, the wells east
 and west of the temple five hit and spell points from thirty charges a day, the western well two points of luck
 for good from eight a month, and the town sign is read; the first obelisk is the second region's (the first
 region has none). **What is ours**: the active character a run starts on is the first member able to act,
@@ -471,9 +502,9 @@ because this build selects none (#8659); a write to something the party holds on
 made once, where the donor makes it once per chosen character; a timer runs when a fixture that reads what it
 keeps is used, every one of them on the fixture's first use (the donor's reading of an unvisited map), and a
 daily timer runs a day after it last ran rather than at its hour; a fixture's harm is the record's own figure,
-not reduced by resistance; a sign's words are kept as a clue, which the original does not keep; and a
-fixture's map variables and timer times are its own state word in the interaction ledger, so the 20 of the 195
-map variables two or more fixture events of one place share — mostly an interior's lever puzzles — are kept once
-per fixture rather than once per place, and like a door's state they are not saved yet (#8593). Fidelity per system — what matches
+not reduced by resistance; and a sign's words are kept as a clue, which the original does not keep. The 20 of
+the 195 map variables two or more fixture events of one place share — mostly an interior's lever puzzles — are
+shared, because the variables are the place's. A fixture's own state word (`used`, `read`) is live-only like a
+door's (#8593), which grows the same ledger capture. Fidelity per system — what matches
 the original, what is approximate, and what is deliberately ours — is fixed in
 [`../../docs/gameplay-design.md`](../../docs/gameplay-design.md).

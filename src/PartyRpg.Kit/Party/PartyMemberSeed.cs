@@ -36,6 +36,8 @@ public sealed record PartyMemberSeed
     /// The spell the character casts with one key, or null when they have chosen none. It is part of what a
     /// character is, like the spellbook it is drawn from, so a save carries it and a restore puts it back.
     /// </param>
+    /// <param name="ageOffset">How many years older than their natural age the character has been made.</param>
+    /// <param name="resistances">The character's stored base resistances, or null when nothing is stored.</param>
     /// <exception cref="ArgumentException">The name is blank.</exception>
     public PartyMemberSeed(
         string name,
@@ -53,7 +55,8 @@ public sealed record PartyMemberSeed
         ResourcePool spellPoints,
         PortraitId? portrait = null,
         SpellId? quickSpell = null,
-        int ageOffset = 0)
+        int ageOffset = 0,
+        IReadOnlyList<ResistanceScore>? resistances = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(ageOffset);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -77,6 +80,7 @@ public sealed record PartyMemberSeed
         Portrait = portrait;
         QuickSpell = quickSpell;
         AgeOffset = ageOffset;
+        Resistances = resistances ?? [];
     }
 
     /// <summary>The name a player reads.</summary>
@@ -136,4 +140,7 @@ public sealed record PartyMemberSeed
 
     /// <summary>How many years older than their natural age the character has been made.</summary>
     public int AgeOffset { get; }
+
+    /// <summary>The character's stored base resistances: what a permanent gift added, by kind of harm.</summary>
+    public IReadOnlyList<ResistanceScore> Resistances { get; }
 }

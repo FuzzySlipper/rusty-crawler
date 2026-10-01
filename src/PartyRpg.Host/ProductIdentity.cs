@@ -59,6 +59,12 @@ internal static class ProductIdentity
     /// <summary>The digital intent that jumps the party.</summary>
     internal const string JumpIntent = "party.jump";
 
+    /// <summary>The digital intent that raises a flying party, or takes it off when it may fly.</summary>
+    internal const string AscendIntent = "party.ascend";
+
+    /// <summary>The digital intent that lowers a flying party until it lands.</summary>
+    internal const string DescendIntent = "party.descend";
+
     /// <summary>The digital intent that confirms the creation step being worked on.</summary>
     internal const string CreationAdvanceIntent = "creation.advance";
 
