@@ -334,6 +334,18 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// <remarks>OpenEnroth <c>src/Engine/Objects/Character.cpp:1710-1716</c> — grand master doubles it.</remarks>
     private const int GrandMasterRung = 4;
 
+    /// <summary>The rung a dagger starts tripling a blow at: master.</summary>
+    /// <remarks>OpenEnroth <c>src/Engine/Objects/Character.cpp:902-904</c>.</remarks>
+    private const int MasterRung = 3;
+
+    /// <summary>How many times a master dagger's lucky blow counts what the dagger rolled.</summary>
+    /// <remarks>OpenEnroth <c>src/Engine/Objects/Character.cpp:905</c>.</remarks>
+    private const int DaggerFactor = 3;
+
+    /// <summary>The draw a master dagger's level is a chance out of: a hundred, a point of chance per level.</summary>
+    /// <remarks>OpenEnroth <c>src/Engine/Objects/Character.cpp:899-904</c> — the donor's corrected reading.</remarks>
+    private const int DaggerChanceOutOf = 100;
+
     /// <summary>The rung a sword, an axe or a bow starts taking its level off a recovery at: expert.</summary>
     /// <remarks>OpenEnroth <c>src/Engine/Objects/Character.cpp:1695-1705</c>.</remarks>
     private const int ExpertRung = 2;
@@ -1179,9 +1191,10 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// grand master's leather armour, the spells running on the character and the party, and the base — the
     /// character's own stat, a racial bonus, and what worn items' enchantments add. This reads, in that order:
     /// the leather term, faithfully — a grand master of leather wearing working leather armour adds the leather
-    /// level to fire, air, water, and earth — and the ward a spell leaves running. Followers are not in this
-    /// build (#8514), items carry no enchantment yet (#8513), and the character's own base and racial terms are
-    /// not stated by this game's members, so each of those terms is nothing here rather than a number invented.
+    /// level to fire, air, water, and earth — the ward a spell leaves running, and the base
+    /// (<see cref="MightAndMagic7BaseResistance"/>): the race's bonus and a Lich's own floor, faithfully, with a
+    /// Lich's whole resistance capped at two hundred (<c>:1988-1990</c>). Followers are not in this build (#8514)
+    /// and items carry no enchantment yet (#8513), so those terms are nothing here rather than a number invented.
     /// </para>
     /// <para>
     /// Each term is its own line, so a later term — a buff another owner reads, an enchantment — is one more
@@ -1194,6 +1207,8 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         int points = 0;
         points += LeatherResistance(member, kind);
         points += Buffed(member, SpellEffectIds.Resistance(kind));
+        points += MightAndMagic7BaseResistance.Of(member, kind);
+        if (MightAndMagic7BaseResistance.IsLich(member)) points = Math.Min(points, MightAndMagic7BaseResistance.LichCeiling);
         return points <= 0 ? Resistance.Of(0) : Resistance.Of(points);
     }
 
@@ -1244,9 +1259,15 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// average, because one roll of the kit's states one kind of die — that is ours.
     /// </para>
     /// <para>
-    /// Not read: a slaying enchantment's double damage (<c>:877-897</c>) waits for item enchantments (#8513), and
-    /// a master dagger's chance of triple damage (<c>:899-905</c>) is a chance-scaled multiplier one roll of the
-    /// kit's cannot state.
+    /// <b>The master dagger</b> (<c>:899-905</c>): each hand holding a dagger, for a master of the dagger, triples
+    /// what that weapon rolled — its own dice and modifier, not the skill or might added after — at a chance of
+    /// one in a hundred per dagger level, drawn once per hand. It is the kit's <see cref="DamageMultiplier"/> over
+    /// that hand's run of the roll's dice. The chance is the donor's corrected reading, as its own comment there
+    /// records: the original executable fixed it at ten in a hundred whatever the level, and we take the corrected
+    /// one, which matches the manual's "% chance" (<c>docs/research/mm7-manual-outline.md</c>, skills). A second dagger added as an average (above) is tripled as that average.
+    /// </para>
+    /// <para>
+    /// Not read: a slaying enchantment's double damage (<c>:877-897</c>) waits for item enchantments (#8513).
     /// </para>
     /// </remarks>
     private DamageRoll CharacterDamage(PartyMember member)
@@ -1254,6 +1275,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         int dice = 0;
         int sides = 0;
         int bonus = 0;
+        List<DamageMultiplier> daggers = [];
         if (IsUnarmed(member))
         {
             dice = 1;
@@ -1267,18 +1289,22 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
                 dice = main.Dice + (twoHandedSpear ? 1 : 0);
                 sides = main.Sides;
                 bonus += main.Modifier;
+                if (DaggerTriple(member, main, 0, dice, main.Modifier) is { } tripled) daggers.Add(tripled);
             }
 
             if (Worn(member, MightAndMagic7Figure.OffHand) is { IsMeleeWeapon: true } off)
             {
                 if (dice == 0 || off.Sides == sides)
                 {
+                    if (DaggerTriple(member, off, dice, off.Dice, off.Modifier) is { } tripled) daggers.Add(tripled);
                     dice += off.Dice;
                     sides = off.Sides;
                 }
                 else
                 {
-                    bonus += off.Dice * (off.Sides + 1) / 2;
+                    int average = off.Dice * (off.Sides + 1) / 2;
+                    if (DaggerTriple(member, off, 0, 0, average + off.Modifier) is { } tripled) daggers.Add(tripled);
+                    bonus += average;
                 }
 
                 bonus += off.Modifier;
@@ -1293,7 +1319,27 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         // (OpenEnroth src/Engine/Objects/Character.cpp:2355-2357 and CastSpellInfo.cpp:2366-2380).
         bonus += Buffed(member, SpellEffectIds.Heroism);
         bonus += Buffed(member, SpellEffectIds.Hammerhands);
-        return new DamageRoll(dice, sides, bonus, floor: 1);
+        DamageRoll blow = new(dice, sides, bonus, floor: 1);
+        foreach (DamageMultiplier dagger in daggers) blow = blow.WithMultiplier(dagger);
+        return blow;
+    }
+
+    /// <summary>
+    /// The master dagger's triple blow over one hand's part of the roll, or nothing when that hand holds no
+    /// dagger or its bearer is no master of it.
+    /// </summary>
+    /// <remarks>
+    /// OpenEnroth <c>src/Engine/Objects/Character.cpp:899-905</c>: a master or grand master of the dagger whose
+    /// weapon is a dagger has a chance of the dagger level in a hundred (<c>grng->random(100) &lt; level</c>) to
+    /// triple that weapon's dice and modifier. Faithful to the donor's corrected chance; see
+    /// <see cref="CharacterDamage"/>.
+    /// </remarks>
+    private static DamageMultiplier? DaggerTriple(PartyMember member, MightAndMagic7WornItem weapon, int firstDie, int dice, int bonus)
+    {
+        if (!weapon.IsSkill(DaggerWord)) return null;
+        SkillEntry dagger = SkillOf(member, DaggerWord);
+        if (dagger.Level <= 0 || dagger.Tier.Value < MasterRung) return null;
+        return new DamageMultiplier(firstDie, dice, bonus, HitChance.Of(dagger.Level, DaggerChanceOutOf), DaggerFactor);
     }
 
     /// <summary>What a bow's shot is worth, in the donor's own sum.</summary>
@@ -1542,8 +1588,8 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// <summary>What the stat a special attack tests is worth to a character's saving throw.</summary>
     /// <remarks>
     /// OpenEnroth <c>src/Engine/Objects/Character.cpp:1333-1388</c>: the attack names the stat, and the
-    /// saving throw is the luck bonus plus this plus thirty. The resistance terms are what a character
-    /// resists, which this build states as nothing at all.
+    /// saving throw is the luck bonus plus this plus thirty. The resistance terms are what the character
+    /// resists of that kind of harm, the same sum a blow of it meets (<see cref="CharacterResistance"/>).
     /// </remarks>
     private int SaveBonus(PartyMember member, MightAndMagic7SpecialAttackKind kind) => kind switch
     {
@@ -2122,6 +2168,16 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         ArgumentNullException.ThrowIfNull(placement);
         MonsterFacts? facts = Creature(placement) ?? PersonFacts(placement);
         return facts?.Experience ?? 0;
+    }
+
+    /// <summary>Whether a placement holds a person a place's own records stand there, whom the fight reads as peaceful.</summary>
+    /// <param name="placement">The placement the actor was created from.</param>
+    /// <returns>True for a person placement, whatever row the person fights as.</returns>
+    /// <exception cref="ArgumentNullException">No placement was supplied.</exception>
+    internal static bool IsPerson(PlacementDefinition placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+        return string.Equals(placement.Content.Kind, PersonPlacementKind, StringComparison.Ordinal);
     }
 
     /// <summary>
