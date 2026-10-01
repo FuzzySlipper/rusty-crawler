@@ -5,6 +5,7 @@ using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
@@ -51,16 +52,18 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
         PartyKnowledge knowledge = new(new MightAndMagic7Knowledge(), clock);
         MightAndMagic7Interaction rule = Rule(catalog, () => knowledge);
         PlacementDefinition well = Fixture(110 + 2, "Drink from the Well", "Well_E");
+        InteractionLedger ledger = new();
 
         // The well's charges are a map variable its daily timer sets to thirty, and the timer runs the first
         // time anybody uses the well — the donor's own reading of a timer on a map the party has not visited
         // — so the first drink finds thirty and leaves twenty-nine. What the event gives lands on the active
         // character, which this build reads as the first member able to act.
-        (InteractionOutcome first, string state) = Use(rule, well, EmeraldIsle, party, clock);
+        (InteractionOutcome first, string state) = Use(rule, well, EmeraldIsle, party, clock, ledger);
         Assert.True(first.IsApplied, first.Refusal?.Message);
         Assert.Equal("+5 Hit points restored.", first.Message);
         Assert.Equal(25, party.Members[0].Resources.HitPoints.Current);
-        Assert.StartsWith("used v0=29 ", state, StringComparison.Ordinal);
+        Assert.Equal("used", state);
+        Assert.Equal(29, Variable(ledger, EmeraldIsle, 0));
 
         // The note the event writes is the shipped discovery row's own, and the knowledge owner keeps it as what
         // a landmark gives, in this game's words around the row's.
@@ -71,25 +74,26 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
         Assert.Equal("Learned 5 Hit Points regained from the well east of the Temple on Emerald Island.", knowledge.Notes[0].Text);
 
         // A second drink spends a second charge; the note it reports again is the same fact.
-        (InteractionOutcome second, state) = Use(rule, well, EmeraldIsle, party, clock, state);
+        (InteractionOutcome second, _) = Use(rule, well, EmeraldIsle, party, clock, ledger);
         Assert.True(second.IsApplied);
         Assert.Equal(30, party.Members[0].Resources.HitPoints.Current);
-        Assert.StartsWith("used v0=28 ", state, StringComparison.Ordinal);
+        Assert.Equal(28, Variable(ledger, EmeraldIsle, 0));
         Assert.False(knowledge.Record(Assert.Single(second.Learned)));
 
         // A well whose charges are spent says what the event says and gives nothing.
-        (InteractionOutcome dry, string dryState) = Use(rule, well, EmeraldIsle, party, clock, ReplaceVariable(state, "v0=0"));
+        ledger.Keep(EmeraldIsle, new Dictionary<string, long> { ["map-variable:0"] = 0 });
+        (InteractionOutcome dry, _) = Use(rule, well, EmeraldIsle, party, clock, ledger);
         Assert.True(dry.IsApplied);
         Assert.Equal("Refreshing!", dry.Message);
         Assert.Equal(30, party.Members[0].Resources.HitPoints.Current);
         Assert.Empty(dry.Learned);
-        Assert.StartsWith("used v0=0 ", dryState, StringComparison.Ordinal);
+        Assert.Equal(0, Variable(ledger, EmeraldIsle, 0));
 
         // A day later the timer has run again, so the dry well is full and the drink spends one of thirty.
         clock.Advance(GameDuration.FromHours(25));
-        (InteractionOutcome refilled, string refilledState) = Use(rule, well, EmeraldIsle, party, clock, dryState);
+        (InteractionOutcome refilled, _) = Use(rule, well, EmeraldIsle, party, clock, ledger);
         Assert.Equal("+5 Hit points restored.", refilled.Message);
-        Assert.StartsWith("used v0=29 ", refilledState, StringComparison.Ordinal);
+        Assert.Equal(29, Variable(ledger, EmeraldIsle, 0));
     }
 
     [Fact]
@@ -100,21 +104,22 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
         using PartyEntity party = Party(luck: 13);
         MightAndMagic7Interaction rule = Rule(catalog);
         PlacementDefinition well = Fixture(114, "Drink from the Well", "Well_E");
+        InteractionLedger ledger = new();
 
         // The event's own monthly timer sets its eight charges, and a character whose luck is below fifteen
         // gains two points of it for good: the attribute itself changes, not a running effect.
-        (InteractionOutcome raised, string state) = Use(rule, well, EmeraldIsle, party, clock);
+        (InteractionOutcome raised, _) = Use(rule, well, EmeraldIsle, party, clock, ledger);
         Assert.Equal("+2 Luck permanent", raised.Message);
         Assert.True(party.Members[0].Attributes.TryGet(new AttributeId("Luck"), out int luck));
         Assert.Equal(15, luck);
-        Assert.StartsWith("used v2=7 ", state, StringComparison.Ordinal);
+        Assert.Equal(7, Variable(ledger, EmeraldIsle, 2));
 
         // At fifteen the well has nothing more to give that character, and no charge is spent.
-        (InteractionOutcome refused, string after) = Use(rule, well, EmeraldIsle, party, clock, state);
+        (InteractionOutcome refused, _) = Use(rule, well, EmeraldIsle, party, clock, ledger);
         Assert.Equal("Refreshing!", refused.Message);
         Assert.True(party.Members[0].Attributes.TryGet(new AttributeId("Luck"), out luck));
         Assert.Equal(15, luck);
-        Assert.StartsWith("used v2=7 ", after, StringComparison.Ordinal);
+        Assert.Equal(7, Variable(ledger, EmeraldIsle, 2));
     }
 
     [Fact]
@@ -125,23 +130,25 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
         using PartyEntity party = Party(luck: 15);
         MightAndMagic7Interaction rule = Rule(catalog);
         PlacementDefinition well = Fixture(115, "Drink from the Well", "Well_E");
+        InteractionLedger ledger = new();
 
         // A party with no more than two hundred gold and luck of fifteen finds a thousand, through the outcome
-        // the kit credits to the purse; the well's weekly bit and its count of three are its own state.
-        (InteractionOutcome paid, string state) = Use(rule, well, EmeraldIsle, party, clock);
+        // the kit credits to the purse; the well's weekly bit and its count of three are the place's map variables.
+        (InteractionOutcome paid, _) = Use(rule, well, EmeraldIsle, party, clock, ledger);
         Assert.Equal("Drink from the Well: the party finds 1000 gold.", paid.Message);
         Assert.Equal(1000, party.Purse.Coins);
-        Assert.StartsWith("used v3=1 v4=1 ", state, StringComparison.Ordinal);
+        Assert.Equal(1, Variable(ledger, EmeraldIsle, 3));
+        Assert.Equal(1, Variable(ledger, EmeraldIsle, 4));
 
         // The same week it is only water.
-        (InteractionOutcome again, state) = Use(rule, well, EmeraldIsle, party, clock, state);
+        (InteractionOutcome again, _) = Use(rule, well, EmeraldIsle, party, clock, ledger);
         Assert.Equal("Refreshing!", again.Message);
         Assert.Equal(1000, party.Purse.Coins);
 
         // A week later the bit is cleared, and a party that has spent its gold is paid again.
         clock.Advance(GameDuration.FromHours((24 * 7) + 1));
         Assert.True(party.Purse.TryDebit(1000));
-        (InteractionOutcome week, _) = Use(rule, well, EmeraldIsle, party, clock, state);
+        (InteractionOutcome week, _) = Use(rule, well, EmeraldIsle, party, clock, ledger);
         Assert.Equal(1000, party.Purse.Coins);
         Assert.True(week.IsApplied);
     }
@@ -162,7 +169,8 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
         InteractionTargetDefinition target = rule.Describe(new InteractionTargetRequest(Harmondale, obelisk, string.Empty))!;
         Assert.Equal("Obelisk", target.Name);
         Assert.Equal(InteractionVerb.Pull, target.Verb);
-        (InteractionOutcome read, string state) = Use(rule, obelisk, Harmondale, party, clock);
+        InteractionLedger ledger = new();
+        (InteractionOutcome read, _) = Use(rule, obelisk, Harmondale, party, clock, ledger);
         Assert.True(read.IsApplied, read.Refusal?.Message);
         Assert.Equal("pohuwwba", read.Message);
         Assert.True(party.Records.Has("errand:164"));
@@ -172,7 +180,7 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
         Assert.Equal("Read Obelisk message #1: pohuwwba", knowledge.Notes[0].Text);
 
         // Once the bit is set the event ends at its first step: nothing is printed and nothing is taught again.
-        (InteractionOutcome again, _) = Use(rule, obelisk, Harmondale, party, clock, state);
+        (InteractionOutcome again, _) = Use(rule, obelisk, Harmondale, party, clock, ledger);
         Assert.True(again.IsApplied);
         Assert.Equal("Obelisk: nothing comes of it.", again.Message);
         Assert.Empty(again.Learned);
@@ -198,6 +206,95 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
         Assert.Equal(KnowledgeKind.Clue, clue.Kind);
         Assert.Equal("sign:1.1", clue.Subject);
         Assert.Equal("1", clue.Place);
+    }
+
+    [Fact]
+    public void Two_levers_of_one_place_share_the_map_variable_that_counts_them()
+    {
+        ContentCatalog catalog = Catalog();
+        GameClock clock = TestClock.Create(scale: 1);
+        using PartyEntity party = Party();
+        MightAndMagic7Interaction rule = Rule(catalog);
+        InteractionLedger ledger = new();
+        PlacementDefinition west = Fixture(401, "Pull the Lever", string.Empty);
+        PlacementDefinition east = Fixture(402, "Pull the Lever", string.Empty);
+
+        // Each lever marks itself pulled in a variable of its own and adds one to the count both read, as the
+        // donor's interior puzzles do: the map variables are the place's, so the second lever finds the count
+        // the first one left and opens the gate.
+        (InteractionOutcome first, _) = Use(rule, west, EmeraldIsle, party, clock, ledger);
+        Assert.Equal("Click.", first.Message);
+        Assert.Equal(1, Variable(ledger, EmeraldIsle, 5));
+
+        // Pulling the same lever again changes nothing: its own variable says it is pulled.
+        (InteractionOutcome again, _) = Use(rule, west, EmeraldIsle, party, clock, ledger);
+        Assert.Equal("Pull the Lever: nothing comes of it.", again.Message);
+        Assert.Equal(1, Variable(ledger, EmeraldIsle, 5));
+
+        (InteractionOutcome second, _) = Use(rule, east, EmeraldIsle, party, clock, ledger);
+        Assert.Equal("The gate grinds open.", second.Message);
+        Assert.Equal(2, Variable(ledger, EmeraldIsle, 5));
+
+        // Another place keeps its own variables: the same levers there start from nothing.
+        Assert.Empty(ledger.ValuesOf(Harmondale));
+    }
+
+    [Fact]
+    public void A_save_taken_after_drinking_from_a_well_keeps_its_spent_charges_and_its_timer()
+    {
+        InMemoryPersistenceService persistence = new();
+        (string Path, string Text)[] content = SessionContent(WellPlaces);
+        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(persistence, content);
+        using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
+            RulesetTestContext.RulesetContext(context, ui) with { Use = new UseIntentNames(Declared.UseIntent, Declared.UiActionContract) });
+        session.Start();
+        session.Update(RulesetTestContext.Update(1, 1));
+
+        // Two drinks: the daily timer fills the well to thirty on the first, and each drink spends one.
+        session.Update(RulesetTestContext.Update(2, 1, RulesetTestContext.Digital(Declared.UseIntent)));
+        Assert.Equal("+5 Hit points restored.", ProjectedNode.Of(ui.Latest().Value).Field("interaction").Field("message").AsString());
+        session.Update(RulesetTestContext.Update(3, 1, RulesetTestContext.Digital(Declared.UseIntent)));
+        SessionSave written = MightAndMagic7Ruleset.Instance.Save(session);
+        PlaceInteractionSnapshot kept = Assert.Single(written.World.Interaction.Places);
+        Assert.Equal(EmeraldIsle, kept.Place);
+        Assert.Contains(new PlaceValue("map-variable:0", 28), kept.Values);
+        PlaceValue timer = Assert.Single(kept.Values, value => value.Key == "timer:111.0");
+        Assert.InRange(timer.Value, 0, written.Clock.ElapsedMilliseconds);
+
+        // The resumed session reads the same well: the timer is not due again, so the next drink spends the
+        // twenty-ninth charge rather than finding the well full, and the timer's last run is the one saved.
+        (ProductCreateContext resumedContext, RecordingUiService resumedUi) = RulesetTestContext.Create(persistence, content);
+        using IGameSession resumed = MightAndMagic7Ruleset.Instance.ResumeSession(
+            RulesetTestContext.RulesetContext(resumedContext, resumedUi) with
+            {
+                Start = SessionStart.Resume,
+                Use = new UseIntentNames(Declared.UseIntent, Declared.UiActionContract),
+            });
+        resumed.Start();
+        resumed.Update(RulesetTestContext.Update(1, 1));
+        resumed.Update(RulesetTestContext.Update(2, 1, RulesetTestContext.Digital(Declared.UseIntent)));
+        Assert.Equal("+5 Hit points restored.", ProjectedNode.Of(resumedUi.Latest().Value).Field("interaction").Field("message").AsString());
+        PlaceInteractionSnapshot after = Assert.Single(MightAndMagic7Ruleset.Instance.Save(resumed).World.Interaction.Places);
+        Assert.Contains(new PlaceValue("map-variable:0", 27), after.Values);
+        Assert.Contains(timer, after.Values);
+    }
+
+    [Fact]
+    public void A_save_naming_a_value_no_fixture_keeps_is_refused_by_name()
+    {
+        ContentCatalog catalog = Catalog();
+        MightAndMagic7Fixtures fixtures = new(MightAndMagic7MapEvents.Read(catalog));
+
+        // A slot past the place's seventy-five, a figure past a byte, a timer the place's events do not hold, a
+        // timer that ran after the save's own clock, and a name no fixture writes are each contradictions.
+        Assert.Null(fixtures.Judge(EmeraldIsle, "map-variable:74", 255, 0));
+        Assert.Null(fixtures.Judge(EmeraldIsle, "timer:111.0", 10, 10));
+        Assert.NotNull(fixtures.Judge(EmeraldIsle, "map-variable:75", 1, 0));
+        Assert.NotNull(fixtures.Judge(EmeraldIsle, "map-variable:0", 256, 0));
+        Assert.NotNull(fixtures.Judge(EmeraldIsle, "timer:112.0", 1, 10));
+        Assert.NotNull(fixtures.Judge(Harmondale, "timer:111.0", 1, 10));
+        Assert.NotNull(fixtures.Judge(EmeraldIsle, "timer:111.0", 11, 10));
+        Assert.NotNull(fixtures.Judge(EmeraldIsle, "door:3", 1, 10));
     }
 
     [Fact]
@@ -357,23 +454,31 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
     private static MightAndMagic7Interaction Rule(ContentCatalog catalog, Func<PartyKnowledge?>? knowledge = null, IRandomService? random = null) =>
         new(fixtures: new MightAndMagic7Fixtures(MightAndMagic7MapEvents.Read(catalog), knowledge, effects: null, random: random));
 
-    /// <summary>Describes and uses a fixture as the interaction mechanism does, answering with the state it left.</summary>
+    /// <summary>
+    /// Describes and uses a fixture as the interaction mechanism does — reading the place's kept values from the
+    /// ledger, and writing what an applied use kept and its state word back into it — answering with the word.
+    /// </summary>
     private static (InteractionOutcome Outcome, string State) Use(
         MightAndMagic7Interaction rule,
         PlacementDefinition placement,
         PlaceId place,
         PartyEntity party,
         GameClock clock,
-        string recorded = "")
+        InteractionLedger? ledger = null)
     {
+        ledger ??= new InteractionLedger();
+        string recorded = ledger.StateOf(place, placement.Content).State;
         InteractionTargetDefinition target = rule.Describe(new InteractionTargetRequest(place, placement, recorded))!;
-        InteractionOutcome outcome = rule.Apply(target, new InteractionContext(place, placement, target, party, clock));
-        if (outcome.IsApplied && outcome.Gain is { IsFree: false } gain) party.Purse.Credit(gain.Coins);
-        return (outcome, outcome.IsApplied ? outcome.State : recorded);
+        InteractionOutcome outcome = rule.Apply(target, new InteractionContext(place, placement, target, party, clock) { PlaceValues = ledger.ValuesOf(place) });
+        if (!outcome.IsApplied) return (outcome, recorded);
+        if (outcome.Gain is { IsFree: false } gain) party.Purse.Credit(gain.Coins);
+        ledger.Keep(place, outcome.Kept);
+        return (outcome, ledger.Record(place, placement.Content, outcome.State).State);
     }
 
-    private static string ReplaceVariable(string state, string variable) =>
-        string.Join(' ', state.Split(' ').Select(token => token.StartsWith("v0=", StringComparison.Ordinal) ? variable : token));
+    /// <summary>One of a place's map variables as the ledger keeps it; one nothing wrote is zero.</summary>
+    private static long Variable(InteractionLedger ledger, PlaceId place, int slot) =>
+        ledger.ValuesOf(place).GetValueOrDefault(string.Create(CultureInfo.InvariantCulture, $"map-variable:{slot}"));
 
     /// <summary>A fixture placement as the importer writes one.</summary>
     private static PlacementDefinition Fixture(int eventId, string name, string model)
@@ -500,6 +605,26 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
                 { "step": 0, "op": "set", "variable": "member-bit", "value": 1 },
                 { "step": 1, "op": "add", "variable": "attribute-bonus", "which": "might", "value": 10 },
                 { "step": 2, "op": "exit" } ] },
+            { "id": "1.401", "place": "1", "event": 401, "label": "Pull the Lever", "raised": true,
+              "steps": [
+                { "step": 0, "op": "compare", "variable": "map-variable", "index": 6, "value": 1, "target": 7 },
+                { "step": 1, "op": "set", "variable": "map-variable", "index": 6, "value": 1 },
+                { "step": 2, "op": "add", "variable": "map-variable", "index": 5, "value": 1 },
+                { "step": 3, "op": "compare", "variable": "map-variable", "index": 5, "value": 2, "target": 6 },
+                { "step": 4, "op": "status-text", "textId": 1, "text": "Click." },
+                { "step": 5, "op": "exit" },
+                { "step": 6, "op": "status-text", "textId": 2, "text": "The gate grinds open." },
+                { "step": 7, "op": "exit" } ] },
+            { "id": "1.402", "place": "1", "event": 402, "label": "Pull the Lever", "raised": true,
+              "steps": [
+                { "step": 0, "op": "compare", "variable": "map-variable", "index": 7, "value": 1, "target": 7 },
+                { "step": 1, "op": "set", "variable": "map-variable", "index": 7, "value": 1 },
+                { "step": 2, "op": "add", "variable": "map-variable", "index": 5, "value": 1 },
+                { "step": 3, "op": "compare", "variable": "map-variable", "index": 5, "value": 2, "target": 6 },
+                { "step": 4, "op": "status-text", "textId": 1, "text": "Click." },
+                { "step": 5, "op": "exit" },
+                { "step": 6, "op": "status-text", "textId": 2, "text": "The gate grinds open." },
+                { "step": 7, "op": "exit" } ] },
             { "id": "2.220", "place": "2", "event": 220, "label": "Obelisk", "raised": true,
               "steps": [
                 { "step": 0, "op": "compare", "variable": "quest-bit", "value": 164, "target": 5 },
@@ -543,6 +668,24 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
         }
         """;
 
+    /// <summary>The first region with its healing well east of the temple standing where the party starts.</summary>
+    private const string WellPlaces =
+        """
+        {
+          "documentId": "places",
+          "definitionKind": "place",
+          "entries": [
+            { "id": "1", "kind": "region", "name": "Emerald Island", "respawnDays": 1,
+              "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ],
+              "placements": [
+                { "id": "fixture-112", "kind": "fixture", "sourceField": "events", "sourceIndex": 112, "x": 100, "y": 0, "z": 0,
+                  "positionSource": "event-face-centroid", "eventId": 112, "name": "Drink from the Well", "faceCount": 1, "sourceModel": 52, "sourceModelName": "Well_E" } ] },
+            { "id": "2", "kind": "region", "name": "Harmondale", "respawnDays": 1,
+              "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ] }
+          ]
+        }
+        """;
+
     /// <summary>The staged content as one pack, for the cases that read it without a session.</summary>
     private static ContentCatalog Catalog() =>
         ContentCatalogLoader.Load(
@@ -571,7 +714,7 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
     /// The same content as a session plays it: the places, events and notes, a spell table so the session keeps
     /// running effects, and a party standing at the first region's town well.
     /// </summary>
-    private static (string Path, string Text)[] SessionContent() =>
+    private static (string Path, string Text)[] SessionContent(string places = Places) =>
     [
         RulesetTestContext.Bundle("partyrpg-default", "world"),
         ($"{RulesetTestContext.ContentDirectory}/content-packs/world/pack.json",
@@ -592,7 +735,7 @@ public sealed class FixturePolicyTests(ITestOutputHelper output)
               ]
             }
             """),
-        ($"{RulesetTestContext.ContentDirectory}/content-packs/world/places.json", Places),
+        ($"{RulesetTestContext.ContentDirectory}/content-packs/world/places.json", places),
         ($"{RulesetTestContext.ContentDirectory}/content-packs/world/events.json", Events),
         ($"{RulesetTestContext.ContentDirectory}/content-packs/world/discoveries.json", Discoveries),
         ($"{RulesetTestContext.ContentDirectory}/content-packs/world/spells.json",

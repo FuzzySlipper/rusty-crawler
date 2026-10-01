@@ -224,7 +224,11 @@ internal static class MightAndMagic7World
                 creatures,
                 MightAndMagic7Movement.Falls(entity),
                 vitals,
-                spawns);
+                spawns,
+
+                // What each place kept of the party's uses — a well's charges, a puzzle's count, when a timer
+                // last ran — is rebuilt from the save, judged with the rest of it before anything was composed.
+                resume?.World.Interaction);
 
             // What the population could not resolve — an encounter that needs a draw in a product with no
             // random service, a drawn grade the content carries no variant for — is reported where the other

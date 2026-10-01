@@ -93,25 +93,35 @@ internal static class MightAndMagic7Persistence
     /// states names an errand nothing could judge, finish, or pay, so it is refused by name here rather than
     /// resumed as a journal entry that can never be completed.
     /// </param>
+    /// <param name="fixtures">
+    /// This game's fixtures, when the session composed them: what a place keeps of their uses is judged by
+    /// them, so a map variable outside a place's slots or a timer its events do not hold is refused by name.
+    /// </param>
     /// <exception cref="SessionSaveException">The save cannot be resumed; the message names every problem found.</exception>
-    internal static void RequireLoadable(SessionSave save, ContentCatalog? content, MightAndMagic7Quests? quests = null) =>
-        RequireLoadable(save, content is null ? PlaceGraph.From([], []) : MightAndMagic7World.Graph(content), content, quests);
+    internal static void RequireLoadable(SessionSave save, ContentCatalog? content, MightAndMagic7Quests? quests = null, MightAndMagic7Fixtures? fixtures = null) =>
+        RequireLoadable(save, content is null ? PlaceGraph.From([], []) : MightAndMagic7World.Graph(content), content, quests, fixtures);
 
-    /// <inheritdoc cref="RequireLoadable(SessionSave, ContentCatalog?, MightAndMagic7Quests?)" />
+    /// <inheritdoc cref="RequireLoadable(SessionSave, ContentCatalog?, MightAndMagic7Quests?, MightAndMagic7Fixtures?)" />
     internal static void RequireLoadable(
         SessionSave save,
         PlaceGraph places,
         ContentCatalog? content,
-        MightAndMagic7Quests? quests = null)
+        MightAndMagic7Quests? quests = null,
+        MightAndMagic7Fixtures? fixtures = null)
     {
         ArgumentNullException.ThrowIfNull(save);
         ArgumentNullException.ThrowIfNull(places);
+
+        // A session that composed no fixtures still judges what a place keeps, against no map events: a timer
+        // it names is then one no event holds, which is the honest answer about content that carries none.
+        MightAndMagic7Fixtures judge = fixtures ?? new MightAndMagic7Fixtures(MightAndMagic7MapEvents.None);
         IReadOnlyList<SaveProblem> problems = save.Problems(
             places,
             MightAndMagic7Party.Factory(content),
             admission: null,
             quests: quests,
-            calendar: MightAndMagic7Time.Calendar);
+            calendar: MightAndMagic7Time.Calendar,
+            kept: (place, key, value) => judge.Judge(place, key, value, save.Clock.ElapsedMilliseconds));
         if (problems.Count > 0)
         {
             throw new SessionSaveException(

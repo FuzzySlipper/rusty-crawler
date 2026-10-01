@@ -273,7 +273,10 @@ public sealed class PartyInteraction : IWorldInteractionScene
     /// <summary>Runs the one use workflow over a target, and answers with what came of it.</summary>
     private InteractionResult Resolve(InteractionTarget target)
     {
-        InteractionContext context = new(_world.Place, target.Placement, target.Definition, _world.Party, _world.Clock);
+        InteractionContext context = new(_world.Place, target.Placement, target.Definition, _world.Party, _world.Clock)
+        {
+            PlaceValues = _world.States.ValuesOf(_world.Place),
+        };
 
         // Requirements first, in the order the ruleset stated them: the first one the party does not meet is
         // the answer, and nothing at all is applied.
@@ -310,6 +313,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
         }
 
         string taken = HandOver(target, outcome);
+        _world.States.Keep(_world.Place, outcome.Kept);
         InteractionTargetState state = _world.States.Record(_world.Place, target.Id.Content, outcome.State);
         InteractionTarget used = target with { State = state };
         return InteractionResult.Applied(used, outcome, taken.Length == 0 ? outcome.Message : $"{outcome.Message} {taken}");

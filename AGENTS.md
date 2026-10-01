@@ -138,9 +138,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   searched chest can be looted twice (#8696); a door's collision does not move when it opens (#8594); a
   container above or below the floor cannot be used (#8697); deadlines (fatigue, wards, light, haste) block
   a save by name instead of being carried (#8617); towns have no house doors and camping is priced per
-  place (#8618); rest restores laid-out members (#8662); the panel reaches only buy and sell (#8619); map
-  event variables are kept per fixture, not per place, and are not saved (#9027); a fixture event refuses at
-  doors, presentation, item and bonus steps (#9028).
+  place (#8618); rest restores laid-out members (#8662); the panel reaches only buy and sell (#8619); a
+  fixture event refuses at doors, presentation, item and bonus steps (#9028).
 - Stone 6, combat: a fight is not carried in a save, and a save taken with one pending is refused (#8658);
   an order commands every member rather than a selected one (#8659); base and racial resistances and the
   master dagger's triple blow are not read (#9026).

@@ -412,8 +412,13 @@ character), `autonote` (a knowledge report of the discovery row: `stat` and `mis
 `teacher` and `seer` a clue, `potion` a recipe), `gold`, `item` (given through the acquisition path,
 taken from the shared pack), `hit-points`, `spell-points`, `full-hit-points` and `full-spell-points` (a member's
 resources), `attribute` (a member's base attribute, for good), `resistance-bonus` (the running effect a ward
-leaves, `fixture.bonus-hours` long), `condition` (a member's conditions), and `map-variable` (the fixture's
-own counter). **Refused by name** (`fixture-step-not-interpreted`, `fixture-variable-not-interpreted`): every
+leaves, `fixture.bonus-hours` long), `condition` (a member's conditions), and `map-variable` (one of the
+place's 75 byte-sized counters, kept by the interaction ledger for the place as `map-variable:<slot>` — every
+fixture of the place reads and writes the same ones, as the donor keeps one array per map, 
+`OpenEnroth/src/Engine/Engine.h:62-65`). When each timer of a place last ran is kept beside them as
+`timer:<event>.<step>`; both travel in the save's world section, a load judges each against the place's slots
+and events (`save-kept-value-unknown`), and a place the clock restores forgets them, as the donor re-reads a
+respawned map's delta with its variables (`OpenEnroth/src/Engine/Graphics/Indoor.cpp:313-319`). **Refused by name** (`fixture-step-not-interpreted`, `fixture-variable-not-interpreted`): every
 other instruction and variable. Over the operator's install a fresh party using each of the 495 fixture events
 once has 327 run and 168 refused, by the first step each run reaches that this game does not interpret:
 `change-door-state` 75 (a lever moving a door, #8594), `set-texture` 21, `give-item` 14, `set-sprite` 7,
@@ -429,9 +434,9 @@ because this build selects none (#8659); a write to something the party holds on
 made once, where the donor makes it once per chosen character; a timer runs when a fixture that reads what it
 keeps is used, every one of them on the fixture's first use (the donor's reading of an unvisited map), and a
 daily timer runs a day after it last ran rather than at its hour; a fixture's harm is the record's own figure,
-not reduced by resistance; a sign's words are kept as a clue, which the original does not keep; and a
-fixture's map variables and timer times are its own state word in the interaction ledger, so the 20 of the 195
-map variables two or more fixture events of one place share — mostly an interior's lever puzzles — are kept once
-per fixture rather than once per place, and like a door's state they are not saved yet (#8593). Fidelity per system — what matches
+not reduced by resistance; and a sign's words are kept as a clue, which the original does not keep. The 20 of
+the 195 map variables two or more fixture events of one place share — mostly an interior's lever puzzles — are
+shared, because the variables are the place's. A fixture's own state word (`used`, `read`) is live-only like a
+door's (#8593), which grows the same ledger capture. Fidelity per system — what matches
 the original, what is approximate, and what is deliberately ours — is fixed in
 [`../../docs/gameplay-design.md`](../../docs/gameplay-design.md).

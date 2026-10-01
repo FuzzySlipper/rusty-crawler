@@ -270,8 +270,10 @@ one `InteractionSelection`, which outlives every world so an inspection register
 live world holds, with targeted use off — one use
 workflow that identifies the target, judges each `InteractionRequirement` in the order the ruleset stated
 them, settles what the use costs through the party's one settlement path, asks the ruleset what the use
-produces, applies it against the party's owners, records the `InteractionTargetState` that use left, and
-reports an `InteractionResult`; every failure — nothing faced, out of reach, out of sight, a requirement
+produces, applies it against the party's owners, records the `InteractionTargetState` that use left and the
+place values its outcome kept — named whole numbers every target of the place reads through
+`InteractionContext.PlaceValues`, which `InteractionLedger.Capture` carries in the save's world section and a
+restore of the place forgets — and reports an `InteractionResult`; every failure — nothing faced, out of reach, out of sight, a requirement
 unmet, a charge the party cannot cover, a ruleset's own refusal, a pack with no room for what was found —
 is an outcome with a code and a sentence rather than a silent no-op — and a corpse is a target that
 mechanism discovers: `CorpseGround` keeps what the fight read as down, the ruleset hands it back as the
@@ -302,7 +304,9 @@ population's runtime entities, engine handles, and every store-local entity iden
 load — and a document wrong in several places is refused with every problem named at once, never only the
 first. Scenario
 flags are the party's own records and travel in its section; what the party did to a place's doors and
-containers is held live by the world's `InteractionLedger` and is not saved yet (#8593). The quests section is
+containers is held live by the world's `InteractionLedger` and is not saved yet (#8593); the values each place
+keeps are that ledger's capture, carried in the world section and judged on load by the kit's terms and the
+ruleset's `PlaceValueJudge`. The quests section is
 the one that arrived with its owner: it carries every instance a party holds — the stage, the progress
 recorded against objectives that are moments rather than states, and the place each offer was taken in —
 and no definition at all, because what a quest is means is read from the game's own content when the

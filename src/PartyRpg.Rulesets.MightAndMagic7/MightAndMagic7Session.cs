@@ -350,7 +350,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             {
                 // The whole document is judged before anything moves, so every problem is named at once and a
                 // defective save leaves no clock moved and no party restored behind it.
-                MightAndMagic7Persistence.RequireLoadable(save, context.Content, quests);
+                MightAndMagic7Persistence.RequireLoadable(save, context.Content, quests, fixtures);
 
                 // The clock takes the recorded game time before the world is composed, because the world's
                 // places are read against the day the session stands on: a resumed session that restored its

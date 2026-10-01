@@ -38,11 +38,16 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// and then reach an instruction this game does not interpret changes nothing and says which instruction.
 /// </para>
 /// <para>
-/// <b>What a fixture keeps.</b> The donor's map variables — a well's charges, a shrine's once-a-week bit — and
-/// when each timer that keeps them last ran are the fixture's own state word: the word the interaction ledger
-/// records for the target, which is where a door's openness and a chest's emptiness already live. A map
-/// variable two fixtures of one place share is therefore kept once per fixture rather than once per place; the
-/// shipped programs give each well its own (see the README for the count).
+/// <b>What a place keeps.</b> The donor's map variables — a well's charges, a shrine's once-a-week bit, the
+/// count of levers a room's puzzle has pulled — belong to the map, not to the thing that wrote them (OpenEnroth
+/// <c>src/Engine/Engine.h:62-65</c>, one array per loaded map, saved with the map's delta in
+/// <c>src/Engine/Snapshots/CompositeSnapshots.cpp:338</c>). They are the values the interaction ledger keeps
+/// for the place, under <c>map-variable:</c> and the slot, so every fixture of the place reads and writes the
+/// same ones; when each timer of the place last ran is kept beside them under <c>timer:</c>, the event and
+/// the step. A use reads them from its context and states what it changed in its outcome; the ledger carries
+/// them in the save, and forgets them when the clock restores the place — the donor re-reads a respawned
+/// map's whole delta, its variables with it (<c>src/Engine/Graphics/Indoor.cpp:313-319</c>). The fixture's own
+/// state word is only what its last use left: <c>used</c>, or <c>read</c> for a sign.
 /// </para>
 /// <para>
 /// <b>Who a step acts on.</b> The donor starts a use's run on the active character
@@ -91,6 +96,18 @@ internal sealed class MightAndMagic7Fixtures
 
     /// <summary>The state word a read sign holds.</summary>
     internal const string ReadState = "read";
+
+    /// <summary>How many map variables a place has: the donor's array is 75 bytes (OpenEnroth <c>src/Engine/Engine.h:63</c>).</summary>
+    internal const int MapVariableSlots = 75;
+
+    /// <summary>The largest figure a map variable holds, which is a byte's (OpenEnroth <c>src/Engine/Engine.h:63</c>).</summary>
+    internal const int MapVariableLimit = 255;
+
+    /// <summary>The prefix of the name a place keeps one of its map variables under.</summary>
+    internal const string VariablePrefix = "map-variable:";
+
+    /// <summary>The prefix of the name a place keeps when one of its timers last ran under.</summary>
+    internal const string TimerPrefix = "timer:";
 
     private readonly MightAndMagic7MapEvents _events;
     private readonly Func<PartyKnowledge?> _knowledge;
@@ -171,8 +188,7 @@ internal sealed class MightAndMagic7Fixtures
                 $"{target.Name} raises map event {eventId} of place '{context.Place}', and the loaded content carries no such event, so there is nothing to run."));
         }
 
-        FixtureState state = FixtureState.Read(target.State);
-        Run run = new(this, mapEvent, target, context, state);
+        Run run = new(this, mapEvent, target, context);
 
         // The timers that keep what this event reads run first, each once when its period has passed since it
         // last ran — and every one of them on the fixture's first use, which is the donor's own reading of a
@@ -186,9 +202,9 @@ internal sealed class MightAndMagic7Fixtures
                 return InteractionOutcome.Refused(NotInterpreted(target, owner, timer, $"a timer whose period '{timer.Period}' this game does not read"));
             }
 
-            if (state.LastRun(key) is { } last && now - last < period.Milliseconds) continue;
+            if (run.Kept(key) is { } last && now - last < period.Milliseconds) continue;
             if (run.Execute(owner, timer.Step + 1) is { } refused) return InteractionOutcome.Refused(refused);
-            run.State.Ran(key, now);
+            run.Keep(key, now);
         }
 
         if (run.Execute(mapEvent, 0) is { } refusal) return InteractionOutcome.Refused(refusal);
@@ -205,9 +221,60 @@ internal sealed class MightAndMagic7Fixtures
     private static bool IsSign(PlacementDefinition placement) =>
         placement.Source.GetString(ModelNameField).Contains("sign", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>The identity a timer's last run is kept under in a fixture's state.</summary>
-    private static string TimerKey(MapEvent owner, MapEventStep timer) =>
-        string.Create(CultureInfo.InvariantCulture, $"{owner.Id}.{timer.Step}");
+    /// <summary>The name a place keeps a timer's last run under.</summary>
+    internal static string TimerKey(MapEvent owner, MapEventStep timer) =>
+        string.Create(CultureInfo.InvariantCulture, $"{TimerPrefix}{owner.Id}.{timer.Step}");
+
+    /// <summary>The name a place keeps one of its map variables under.</summary>
+    internal static string VariableKey(int slot) =>
+        string.Create(CultureInfo.InvariantCulture, $"{VariablePrefix}{slot}");
+
+    /// <summary>
+    /// Why a value a save says a place keeps is not one this game's fixtures could have left, or null when it is.
+    /// </summary>
+    /// <remarks>
+    /// A map variable is one of the place's 75 byte-sized slots; a timer is one the place's own events hold,
+    /// and it cannot have last run after the game time the save had reached. Every other name is not one a
+    /// fixture writes.
+    /// </remarks>
+    /// <param name="place">The place.</param>
+    /// <param name="key">The value's name.</param>
+    /// <param name="value">The recorded figure.</param>
+    /// <param name="elapsed">The game time the save had reached, in milliseconds.</param>
+    internal string? Judge(PlaceId place, string key, long value, long elapsed)
+    {
+        if (key.StartsWith(VariablePrefix, StringComparison.Ordinal))
+        {
+            if (!int.TryParse(key.AsSpan(VariablePrefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out int slot) || slot >= MapVariableSlots)
+            {
+                return string.Create(CultureInfo.InvariantCulture, $"a place has map variables 0 to {MapVariableSlots - 1} only");
+            }
+
+            return value is < 0 or > MapVariableLimit
+                ? string.Create(CultureInfo.InvariantCulture, $"a map variable holds 0 to {MapVariableLimit}")
+                : null;
+        }
+
+        if (key.StartsWith(TimerPrefix, StringComparison.Ordinal))
+        {
+            string[] parts = key[TimerPrefix.Length..].Split('.');
+            if (parts.Length != 2 ||
+                !int.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out int eventId) ||
+                !int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out int step) ||
+                _events.Find(place, eventId) is not { } owner ||
+                owner.At(step) is not { } timer ||
+                !MightAndMagic7MapEvents.IsTimer(timer.Op))
+            {
+                return "the place's map events hold no such timer";
+            }
+
+            return value < 0 || value > elapsed
+                ? string.Create(CultureInfo.InvariantCulture, $"a timer cannot have last run outside the {elapsed} ms of game time the save had reached")
+                : null;
+        }
+
+        return "no fixture of this game keeps a value of that name";
+    }
 
     /// <summary>How long a timer waits between runs, or null when its period is one this game does not read.</summary>
     /// <remarks>
@@ -361,20 +428,29 @@ internal sealed class MightAndMagic7Fixtures
         private readonly Dictionary<string, bool> _records = new(StringComparer.Ordinal);
         private readonly Dictionary<string, int> _members = new(StringComparer.Ordinal);
         private readonly Dictionary<string, int> _carried = new(StringComparer.Ordinal);
+        private readonly SortedDictionary<string, long> _kept = new(StringComparer.Ordinal);
         private int _coins;
         private int _draws;
 
-        internal Run(MightAndMagic7Fixtures rules, MapEvent mapEvent, InteractionTargetDefinition target, InteractionContext context, FixtureState state)
+        internal Run(MightAndMagic7Fixtures rules, MapEvent mapEvent, InteractionTargetDefinition target, InteractionContext context)
         {
             _rules = rules;
             _event = mapEvent;
             _target = target;
             _context = context;
-            State = state;
         }
 
-        /// <summary>The fixture's own state as the run has left it so far.</summary>
-        internal FixtureState State { get; }
+        /// <summary>A value the place keeps as the run has left it so far, or null when nothing has written it.</summary>
+        internal long? Kept(string key) =>
+            _kept.TryGetValue(key, out long written) ? written
+            : _context.PlaceValues.TryGetValue(key, out long held) ? held
+            : null;
+
+        /// <summary>Writes a value the place keeps, which the outcome states and the ledger takes when the use is applied.</summary>
+        internal void Keep(string key, long value) => _kept[key] = value;
+
+        /// <summary>A map variable as the run has left it; one nothing has written is zero, as the donor's are.</summary>
+        private int Variable(int slot) => (int)(Kept(VariableKey(slot)) ?? 0);
 
         private PartyEntity? Party => _context.Party;
 
@@ -485,11 +561,12 @@ internal sealed class MightAndMagic7Fixtures
                         ? $"The sign reads: \"{_event.Label}\"."
                         : $"{_target.Name}: nothing comes of it.";
             return InteractionOutcome.Applied(
-                State.Write(sign ? ReadState : UsedState),
+                sign ? ReadState : UsedState,
                 message,
                 items: _items,
                 gain: _coins > 0 ? PartyCost.OfGold(_coins) : null,
-                learned: _learned);
+                learned: _learned,
+                kept: _kept);
         }
 
         /// <summary>The members a run starts on: the active one, which this build reads as the first able to act.</summary>
@@ -546,7 +623,7 @@ internal sealed class MightAndMagic7Fixtures
         /// <summary>Whether a comparison holds, for any of the members chosen when it is theirs.</summary>
         private (bool Holds, Refusal? Refused) Compare(MapEvent mapEvent, MapEventStep step, List<int> who)
         {
-            if (step.Variable == MightAndMagic7MapEvents.MapVariable) return (State.Variable(step.Index) >= step.Value, null);
+            if (step.Variable == MightAndMagic7MapEvents.MapVariable) return (Variable(step.Index) >= step.Value, null);
             if (Party is not { } party) return (false, NoParty(mapEvent, step));
             switch (step.Variable)
             {
@@ -604,12 +681,13 @@ internal sealed class MightAndMagic7Fixtures
             {
                 // The donor's map variables are bytes: an addition stops at 255 and a subtraction at nothing
                 // (OpenEnroth src/Engine/Objects/Character.cpp:4606-4613).
-                int now = State.Variable(step.Index);
-                State.Set(step.Index, op switch
+                if (step.Index is < 0 or >= MapVariableSlots) return VariableNotInterpreted(_target, mapEvent, step);
+                int now = Variable(step.Index);
+                Keep(VariableKey(step.Index), op switch
                 {
-                    "add" => Math.Min(255, now + step.Value),
+                    "add" => Math.Min(MapVariableLimit, now + step.Value),
                     "subtract" => Math.Max(0, now - step.Value),
-                    _ => Math.Clamp(step.Value, 0, 255),
+                    _ => Math.Clamp(step.Value, 0, MapVariableLimit),
                 });
                 return null;
             }
@@ -829,72 +907,6 @@ internal sealed class MightAndMagic7Fixtures
             int now = _members.TryGetValue(slot, out int written) ? written : held;
             if (change != 0) _members[slot] = now + change;
             return now;
-        }
-    }
-
-    /// <summary>
-    /// A fixture's own state: the word its last use left, the map variables it keeps, and when each timer that
-    /// keeps them last ran — as one word the interaction ledger records.
-    /// </summary>
-    /// <remarks>
-    /// The word reads <c>used v0=29 t111.0@86400000</c>: the plain word first, then each variable by its slot,
-    /// then each timer by its event and step with the game time it last ran at. Anything the reading does not
-    /// recognise is dropped rather than guessed at, and a fixture nobody has used has no state at all.
-    /// </remarks>
-    internal sealed class FixtureState
-    {
-        private readonly SortedDictionary<int, int> _variables = [];
-        private readonly SortedDictionary<string, long> _timers = new(StringComparer.Ordinal);
-
-        /// <summary>Reads a recorded state word.</summary>
-        internal static FixtureState Read(string word)
-        {
-            FixtureState state = new();
-            foreach (string token in (word ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries))
-            {
-                if (token.Length > 1 && token[0] == 'v' && token.IndexOf('=', StringComparison.Ordinal) is var equals and > 1 &&
-                    int.TryParse(token.AsSpan(1, equals - 1), NumberStyles.Integer, CultureInfo.InvariantCulture, out int slot) &&
-                    int.TryParse(token.AsSpan(equals + 1), NumberStyles.Integer, CultureInfo.InvariantCulture, out int value))
-                {
-                    state._variables[slot] = value;
-                }
-                else if (token.Length > 1 && token[0] == 't' && token.IndexOf('@', StringComparison.Ordinal) is var at and > 1 &&
-                    long.TryParse(token.AsSpan(at + 1), NumberStyles.Integer, CultureInfo.InvariantCulture, out long ran))
-                {
-                    state._timers[token[1..at]] = ran;
-                }
-            }
-
-            return state;
-        }
-
-        /// <summary>A map variable's value; a variable nothing has written is zero, as the donor's are.</summary>
-        internal int Variable(int slot) => _variables.GetValueOrDefault(slot);
-
-        /// <summary>Writes a map variable.</summary>
-        internal void Set(int slot, int value) => _variables[slot] = value;
-
-        /// <summary>When a timer last ran, or null when it never has.</summary>
-        internal long? LastRun(string timer) => _timers.TryGetValue(timer, out long ran) ? ran : null;
-
-        /// <summary>Records that a timer ran.</summary>
-        internal void Ran(string timer, long at) => _timers[timer] = at;
-
-        /// <summary>The state word, led by the word a use leaves.</summary>
-        internal string Write(string word)
-        {
-            StringBuilder text = new(word);
-            foreach ((int slot, int value) in _variables)
-            {
-                text.Append(CultureInfo.InvariantCulture, $" v{slot}={value}");
-            }
-
-            foreach ((string timer, long ran) in _timers)
-            {
-                text.Append(CultureInfo.InvariantCulture, $" t{timer}@{ran}");
-            }
-
-            return text.ToString();
         }
     }
 }

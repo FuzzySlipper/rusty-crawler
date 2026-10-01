@@ -66,8 +66,10 @@ public sealed record InteractionOutcome
         IReadOnlyList<InteractionItemYield> items,
         PartyCost gain,
         IReadOnlyList<KnowledgeReport> learned,
+        IReadOnlyDictionary<string, long> kept,
         Refusal? refusal)
     {
+        Kept = kept;
         State = state;
         Message = message;
         Residue = residue;
@@ -84,6 +86,7 @@ public sealed record InteractionOutcome
     /// <param name="items">The items the use gives the party, or empty when it gives none.</param>
     /// <param name="gain">What the use puts into the party's accounts, or nothing when it puts nothing there.</param>
     /// <param name="learned">What the use taught the party, or empty when it taught nothing.</param>
+    /// <param name="kept">The values of the target's place the use changed, by name, or empty when it changed none.</param>
     /// <returns>The outcome.</returns>
     /// <exception cref="ArgumentException">The state or the message is blank.</exception>
     public static InteractionOutcome Applied(
@@ -92,11 +95,12 @@ public sealed record InteractionOutcome
         string residue = "",
         IReadOnlyList<InteractionItemYield>? items = null,
         PartyCost? gain = null,
-        IReadOnlyList<KnowledgeReport>? learned = null)
+        IReadOnlyList<KnowledgeReport>? learned = null,
+        IReadOnlyDictionary<string, long>? kept = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(state);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        return new InteractionOutcome(state, message, residue, items ?? [], gain ?? PartyCost.Free, learned ?? [], null);
+        return new InteractionOutcome(state, message, residue, items ?? [], gain ?? PartyCost.Free, learned ?? [], kept ?? NothingKept, null);
     }
 
     /// <summary>The use happened and changed nothing, and this is why — a refusal with a stated consequence.</summary>
@@ -104,7 +108,7 @@ public sealed record InteractionOutcome
     /// <returns>The outcome.</returns>
     /// <exception cref="ArgumentNullException">No refusal was given.</exception>
     public static InteractionOutcome Refused(Refusal refusal) =>
-        new(string.Empty, (refusal ?? throw new ArgumentNullException(nameof(refusal))).Message, string.Empty, [], PartyCost.Free, [], refusal);
+        new(string.Empty, (refusal ?? throw new ArgumentNullException(nameof(refusal))).Message, string.Empty, [], PartyCost.Free, [], NothingKept, refusal);
 
     /// <summary>Whether the use happened. A refused outcome changed nothing at all.</summary>
     public bool IsApplied => Refusal is null;
@@ -127,6 +131,14 @@ public sealed record InteractionOutcome
     /// <summary>What the use taught the party, in the reporting owner's own words for each fact.</summary>
     public IReadOnlyList<KnowledgeReport> Learned { get; }
 
+    /// <summary>
+    /// The values of the target's place the use changed, by the ruleset's own names; the mechanism writes them
+    /// into the place's ledger beside the target's state, and a refused use changes none.
+    /// </summary>
+    public IReadOnlyDictionary<string, long> Kept { get; }
+
     /// <summary>The refusal, or null when the use happened.</summary>
     public Refusal? Refusal { get; }
+
+    private static readonly IReadOnlyDictionary<string, long> NothingKept = new Dictionary<string, long>();
 }
