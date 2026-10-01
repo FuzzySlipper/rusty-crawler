@@ -75,12 +75,21 @@ Owns:
     die with the off hand empty, a second weapon's dice, the weapon skill's damage bonus (`:2693-2742`), might,
     heroism and hammerhands; a shot is the bow's dice and modifier and a grand master's bow level, without might.
     Faithful except that a second weapon whose die differs from the first is added as its average, because one
-    roll of the kit's states one kind of die (ours). Not read: a slaying enchantment's double damage (#8513) and
-    a master dagger's chance of triple damage, which one roll of the kit's cannot state.
+    roll of the kit's states one kind of die (ours). A master of the dagger triples each dagger's own dice and
+    modifier — not the skill or might added after — at a chance of the dagger level in a hundred, drawn per hand
+    (`:899-905`), stated as the kit's `DamageMultiplier` over that hand's run of the roll's dice; the chance is the
+    donor's corrected reading (the original executable fixed it at ten in a hundred), and an averaged second
+    dagger is tripled as its average. Not read: a slaying enchantment's double damage (#8513).
   - **resistances** (`Character.cpp:1900-1993`): a grand master of leather in working leather armour adds the
-    leather level to fire, air, water and earth, beside the wards spells leave. Faithful for those terms; the
-    character's own base and racial terms are not stated by this game's members, followers are #8514, and
-    enchantments #8513.
+    leather level to fire, air, water and earth, beside the wards spells leave, and the base
+    (`MightAndMagic7BaseResistance`, `:1900-1942`): the race's bonus — goblin five fire and air, dwarf five
+    water and earth, elf ten mind, human five body and so five spirit, which reads body's base — a ruleset table
+    cited to the donor because the shipped data has no race table, and a Lich's own floor (twenty in each element,
+    two hundred mind and body, `:4025-4042`) read from the class, with a Lich's whole resistance held to two
+    hundred (`:1988-1990`). Faithful. The donor's stored base starts at nothing and is raised only by a map
+    event's permanent resistance, which `MightAndMagic7Fixtures` refuses by name, and by a genie lamp this build
+    does not grant, so no stored base is kept; followers are #8514 and enchantments #8513. A special attack's
+    saving throw reads the same sum.
   - **the scores every sum reads** (`Character.cpp:729-765`, `GetActualStat`): the score the character carries
     at the share their age leaves of it (`MightAndMagic7Ageing`, the donor's table at `:222-232`), plus a potion's
     boost of that score on them and the party's day of the gods, which adds to all seven (`:2360-2387`). Faithful
