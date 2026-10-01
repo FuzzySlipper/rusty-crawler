@@ -222,12 +222,23 @@ location's reputation to print it (`LocationInfo.h:7`) — what each band does, 
 The mover is ours and stated as such: a finished errand moves the world's opinion by one point per thousand
 experience it paid, at least one, which is the donor's own figure for what word of a deed is worth read from
 the other side (`Party.cpp:371-379`, `Party::fame`); a creature killed where nobody was watching moves it not
-at all, which is the donor's own reading (`Actor.cpp:3164-3167`). **Nothing in this build lowers it yet**:
-the donor's three movers the other way — killing a townsperson (`Actor.cpp:1083-1105`,
-`ApplyFineForKillingPeasant`), being caught stealing (`Shops.cpp:1147-1174`), and the dark sacrifice the
-donor charges fifteen points for (`CastSpellInfo.cpp:2800-2809`) — belong to owners this build does not have,
-so the descent is named here rather than faked (#9008; it reaches the world's opinion through
-`PartyProgression.Award`'s one entry as every other deed does). A person says what the town makes of the party
+at all, which is the donor's own reading (`Actor.cpp:3164-3167`). **Killing a townsperson lowers it one
+point**, the donor's own step (`Actor.cpp:1083-1105`, `ApplyFineForKillingPeasant`, whose sign-flipped
+`reputation++` is our point down): `MightAndMagic7Crimes` reads a death whose row is one of the shipped
+peasant rows — the donor's `IsPeasant` (`MonsterEnumFunctions.h:48-54`), so every person whose record names
+no row of their own, and not a guard or an adept — and credits its experience under `townsperson-kill`
+rather than `kill`, so the deed reaches the world's opinion through `PartyProgression.Award`'s one entry as
+every other deed does. The fine beside it is the donor's sum, `100 × (base + the row's level + the party's
+reputation in the donor's sign)` clamped to `0..4,000,000`, read before the deed moves the standing as the
+donor's order has it, and approximated three ways that are ours: the map table's per-place base fine is read
+as zero (the importer does not carry that column; zero is Emerald Isle's own value), the fine is taken from
+the purse through the party's ledger at the moment of the death — as much as the purse holds — where the donor
+carries it as a debt a town hall collects (`TownHall.cpp:30-45`), and the donor's light-and-dark exemptions
+(`Actor.cpp:1087-1091`) are not read. The donor's other two movers have no owner here: being caught stealing
+(`Shops.cpp:1147-1174`) needs a stealing act, which nothing offers although the Stealing skill can be
+learned (#9025, with the carried fine and the town hall that collects it), and the dark sacrifice the
+donor charges fifteen points for (`CastSpellInfo.cpp:2800-2809`) needs a follower to give up (#8514). A
+person says what the town makes of the party
 once the party is worth an opinion: `MightAndMagic7Conversation` composes one line for every person the NPC
 table describes, gated on a standing condition at the "Friendly" band's own floor — the same vocabulary every
 shipped topic's conditions are judged in, so the line appears with the standing and is withheld with the

@@ -237,15 +237,19 @@ internal sealed class MightAndMagic7Session : IGameSession
         // own ledger the same way: as providers, read at the moment the quantity is wanted rather than
         // captured when the policy was composed. What a ward on one character is worth is that character's own
         // reading, which is why the ledger travels beside the party rather than the party's effects alone.
-        // A death is reported once, at the blow that caused it, to each of three observers named here in order:
-        // the body is laid and its loot rolled, the errands a party has taken count it, and what it was worth is
-        // awarded — one report of one death rather than three readings of the place.
+        // A death is reported once, at the blow that caused it, to each of four observers named here in order:
+        // the body is laid and its loot rolled, the errands a party has taken count it, a townsperson's death is
+        // fined, and what it was worth is awarded under the word the crime path names for it — one report of
+        // one death rather than four readings of the place. The fine is told before the award because it reads
+        // the standing the deed is about to lower, which is the donor's own order.
         MightAndMagic7Combat? composed = null;
+        MightAndMagic7Crimes crimes = new(Townsperson, () => owners.Party, () => owners.Accounts);
         ICreatureDeathObserver[] deaths =
         [
             corpseAnswers,
             new QuestDeaths(() => owners.Quests),
-            new ProgressionAwards(Worth, () => owners.Progression),
+            crimes,
+            new ProgressionAwards(Worth, () => owners.Progression, crimes.SourceOf),
         ];
         composed = MightAndMagic7Combat.Compose(Declared(context.Content), context.Engine?.Random, spells, () => owners.Party, () => spellEffects);
         MightAndMagic7Combat combat = composed;
@@ -255,6 +259,12 @@ internal sealed class MightAndMagic7Session : IGameSession
                 ? fight.ExperienceOf(placement)
                 : throw new InvalidOperationException(
                     "A death was reported before this session's fight was composed, so what it was worth could not be read.");
+
+        int? Townsperson(PlacementDefinition placement) =>
+            composed is { } fight
+                ? fight.TownspersonLevel(placement)
+                : throw new InvalidOperationException(
+                    "A death was reported before this session's fight was composed, so whose it was could not be read.");
 
         // This game's answers about how a monster behaves are read once here, beside them: who hates whom is
         // the shipped hostility matrix as content, and what a creature does with its moment is its own row's

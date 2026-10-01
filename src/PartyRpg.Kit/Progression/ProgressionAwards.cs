@@ -24,19 +24,35 @@ namespace PartyRpg.Kit.Progression;
 /// one. The owner is asked when a death is reported, when the party it was composed over certainly exists,
 /// and a session with no owner at all awards nothing rather than inventing one.
 /// </para>
+/// <para>
+/// <b>What a death is credited as is the game's word, not always "kill".</b> The world does not hear every
+/// death alike: a creature brought down in the wild and a person struck down where they live are both awards
+/// of experience and different news. A game that tells them apart names the source a death is credited
+/// under, and the standing rule reads that word as it reads any other award's; a game that names none credits
+/// every death as <see cref="KillSource"/>.
+/// </para>
 /// </remarks>
 public sealed class ProgressionAwards : ICreatureDeathObserver
 {
     private readonly Func<PlacementDefinition, long> _worth;
     private readonly Func<PartyProgression?> _progression;
+    private readonly Func<CreatureDeath, string>? _source;
 
     /// <summary>Creates the award path for deaths.</summary>
     /// <param name="worth">What a creature's placement is worth when it dies, which is the ruleset's reading of its row.</param>
     /// <param name="progression">The progression owner, read when a death is reported.</param>
-    public ProgressionAwards(Func<PlacementDefinition, long> worth, Func<PartyProgression?> progression)
+    /// <param name="source">
+    /// What a death is credited as, which is the game's own word for it; every death is credited as
+    /// <see cref="KillSource"/> when the game names none.
+    /// </param>
+    public ProgressionAwards(
+        Func<PlacementDefinition, long> worth,
+        Func<PartyProgression?> progression,
+        Func<CreatureDeath, string>? source = null)
     {
         _worth = worth ?? throw new ArgumentNullException(nameof(worth));
         _progression = progression ?? throw new ArgumentNullException(nameof(progression));
+        _source = source;
     }
 
     /// <summary>The award source a kill is credited under, so a panel and a test can tell a kill from a quest.</summary>
@@ -48,6 +64,6 @@ public sealed class ProgressionAwards : ICreatureDeathObserver
         ArgumentNullException.ThrowIfNull(death);
         if (_progression() is not { } progression) return;
         long worth = _worth(death.Placement);
-        if (worth > 0) progression.Award(new PartyExperienceAward(KillSource, worth));
+        if (worth > 0) progression.Award(new PartyExperienceAward(_source?.Invoke(death) ?? KillSource, worth));
     }
 }

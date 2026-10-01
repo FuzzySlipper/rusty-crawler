@@ -163,7 +163,8 @@ for the price of the levels and the ceiling the member's class and rank impose, 
 with the limit named or with what the pool is short, and charges the pool and raises the skill together, so
 a raise that failed leaves the character exactly where they stood — with `Plan` publishing the same answer
 to a screen that is only asking, with `ProgressionAwards`
-paying each death the fight reports exactly once from the ledger of deaths it is still reading, and
+paying each death the fight reports exactly once from the ledger of deaths it is still reading, under the
+source word the game names for that death (`kill` unless the game tells them apart), and
 `ProgressionSnapshot` publishing the level, the experience against the curve, the points held, and the fee
 the counter the party stands at quoted — every number the ruleset's, none of them the screen's — and
 `Promote` the one entry a rank arrives at: it asks the promotion policy for its ladder (`Promotion/` —
