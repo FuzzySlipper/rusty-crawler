@@ -231,7 +231,8 @@ kind of attack takes — the fight consumes the `AttackInitiation` it published,
 `ICombatResolutionRule` seam for a chance, a kind of harm, dice, and the target's resistance, rolls them
 through keyed `KeyedRolls` under a key that names the attack, applies what is left to whoever owns the
 target's health, applies the `CombatCondition` a landed hit leaves, records a `CombatResolution`, and
-reports it, with `DamageKindId`, `DamageRoll` (dice, a bonus, and a floor), `Resistance` (a weight or full
+reports it, with `DamageKindId`, `DamageRoll` (dice, a bonus, a floor, and any `DamageMultiplier` — a run of its dice and a share of its bonus
+that counts again by a factor when a draw of its own lands), `Resistance` (a weight or full
 immunity), `HitChance` in ten-thousandths, and `AttackPlan` as the vocabulary — a plan may also state a
 `Divisor` a defence turns part of the rolled harm aside by before resistance, and a wound that landed may be
 turned back onto the attacker through the optional `ICombatReflectionRule` `CombatRules` names, landed on the
