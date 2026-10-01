@@ -140,6 +140,18 @@ public sealed record PlaceEventStep(int Step, string Op)
 
     /// <summary>The facing it sets the party down with, in the donor's units; -1 keeps the party's own.</summary>
     public int? Yaw { get; init; }
+
+    /// <summary>The encounter number a summoning names: its slot plus three times its grade, as a spawn record's.</summary>
+    public int? Encounter { get; init; }
+
+    /// <summary>The unique name a summoning gives its creatures, zero for their row's own.</summary>
+    public int? UniqueName { get; init; }
+
+    /// <summary>
+    /// What a summoning's encounter number reads as in the place's own map table row — the slot's kind, difficulty,
+    /// count range and graded variants — or null when the row resolves it to nothing or no tables were read.
+    /// </summary>
+    public PlaceEncounterSlot? Summons { get; init; }
 }
 
 /// <summary>One map event a place's content carries, with its normalized steps.</summary>
@@ -154,7 +166,8 @@ public sealed record PlaceEvent(int PlaceId, string FileName, int EventId, strin
 {
     /// <summary>
     /// Whether a pressure plate of the place raises it, which is what makes it a floor trigger's: the party sets it
-    /// off by walking onto the plate. Only events that move the party are carried this way.
+    /// off by walking onto the plate. Every event a plate raises is carried this way unless a counter or a container
+    /// answers for it.
     /// </summary>
     public bool Stepped { get; init; }
 
@@ -195,8 +208,8 @@ public sealed record PlaceFixturePlacement(
 /// </summary>
 /// <remarks>
 /// The plates themselves are the reaches a party walks into (<see cref="PlaceEntranceEmitter"/>), each raising this
-/// one placement; the placement is what the ruleset describes and runs, so a plate that moves the party is used
-/// through the same workflow as a clicked face.
+/// one placement; the placement is what the ruleset describes and runs, so a plate — a move, a trap, an alarm — is
+/// used through the same workflow as a clicked face.
 /// </remarks>
 /// <param name="PlaceId">The place it stands in.</param>
 /// <param name="EventId">The event its plates raise.</param>
@@ -237,8 +250,17 @@ public sealed record PlaceFixtureSummary(
     /// <summary>An import that derived nothing, such as one that decoded no maps.</summary>
     public static PlaceFixtureSummary Empty { get; } = new([], [], new Dictionary<string, int>(), 0, 0);
 
-    /// <summary>Every floor trigger: the events pressure plates raise that move the party, one per event and place.</summary>
+    /// <summary>
+    /// Every floor trigger: the events pressure plates raise that no counter or container answers for, one per event
+    /// and place.
+    /// </summary>
     public IReadOnlyList<PlaceFloorTrigger> Triggers { get; init; } = [];
+
+    /// <summary>How many events a plate raises that a counter or a container answers for, by the owner's word.</summary>
+    public IReadOnlyDictionary<string, int> SteppedOwnedElsewhere { get; init; } = new Dictionary<string, int>();
+
+    /// <summary>How many events a plate raises that the place's program does not hold.</summary>
+    public int SteppedWithoutInstructions { get; init; }
 
     /// <summary>How many events a floor trigger raises.</summary>
     public int SteppedEventCount => Events.Count(placeEvent => placeEvent.Stepped);
@@ -256,15 +278,15 @@ public sealed record PlaceFixtureSummary(
     public int PlaceCount => Fixtures.Select(fixture => fixture.PlaceId).Distinct().Count();
 
     /// <summary>
-    /// How many steps of the fixtures' own events there are of each kind, a variable step counted under its
-    /// instruction and its variable family together (<c>add autonote</c>).
+    /// How many steps of the fixtures' and the floor triggers' own events there are of each kind, a variable step
+    /// counted under its instruction and its variable family together (<c>add autonote</c>).
     /// </summary>
     /// <remarks>
     /// This is what the ruleset's interpretation is measured against: every kind here is either interpreted
     /// or refused by name, and the counts say how much of the shipped programs each answer covers.
     /// </remarks>
     public IReadOnlyDictionary<string, int> StepKinds =>
-        Events.Where(placeEvent => placeEvent.Raised)
+        Events.Where(placeEvent => placeEvent.Raised || placeEvent.Stepped)
             .SelectMany(placeEvent => placeEvent.Steps)
             .GroupBy(step => step.Variable is { } variable ? $"{step.Op} {variable}" : step.Op, StringComparer.Ordinal)
             .OrderBy(group => group.Key, StringComparer.Ordinal)
@@ -282,8 +304,8 @@ public sealed record PlaceFixtureSummary(
 /// the face or the decoration (OpenEnroth <c>src/Engine/Graphics/Viewport.cpp:201-213</c> for a decoration; a
 /// face is used when it carries the clickable attribute, <c>src/Engine/Graphics/FaceEnums.h:34</c>). A face
 /// raising its event only when stepped on is a floor trigger and not a fixture. Three kinds of event already have an owner in this import —
-/// one that moves the party (a transition's reach), one that opens a building (a counter), and one that opens a
-/// container — and those are left to it. Every other raised event is a fixture's: a well, a fountain, an
+/// one that opens a building (a counter), one that opens a container, and one that only moves the doors a party
+/// clicks open (a door) — and those are left to it (<see cref="Owner"/>). Every other raised event is a fixture's: a well, a fountain, an
 /// obelisk, a sign, a lever, a crate.
 /// </para>
 /// <para>
@@ -319,13 +341,18 @@ public static class PlaceFixtureEmitter
     /// The travel links the programs' moves were read into, which a move step names its link by; without one a move
     /// step carries no link and the ruleset refuses it by name.
     /// </param>
+    /// <param name="tables">
+    /// The rule tables, whose map table rows say what a summoning's encounter slot is; without them a summoning carries
+    /// no slot and the ruleset refuses it by name.
+    /// </param>
     /// <returns>What was derived.</returns>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     public static PlaceFixtureSummary Emit(
         IReadOnlyDictionary<int, DecodedMap> maps,
         IReadOnlyList<EvtProgram> programs,
         IReadOnlyDictionary<string, MapStrings> strings,
-        PlaceGraph? graph = null)
+        PlaceGraph? graph = null,
+        Mm7Tables? tables = null)
     {
         ArgumentNullException.ThrowIfNull(maps);
         ArgumentNullException.ThrowIfNull(programs);
@@ -341,6 +368,8 @@ public static class PlaceFixtureEmitter
         SortedDictionary<string, int> owned = new(StringComparer.Ordinal);
         int withoutInstructions = 0;
         int withoutProgram = 0;
+        SortedDictionary<string, int> steppedOwned = new(StringComparer.Ordinal);
+        int steppedWithoutInstructions = 0;
         foreach ((int placeId, DecodedMap map) in maps.OrderBy(entry => entry.Key))
         {
             string stem = Path.GetFileNameWithoutExtension(map.FileName);
@@ -363,12 +392,22 @@ public static class PlaceFixtureEmitter
             HashSet<int> steppedEvents = [];
             foreach (int eventId in Stepped(map))
             {
-                // A plate raises an event when the party walks onto it; the ones carried are the ones that move the
-                // party, which a floor trigger answers for — the rest of what plates raise stays outside this import.
-                if (byEvent.TryGetValue(eventId, out List<EvtInstruction>? stepped) && IsTravel(stepped) && Owner(stepped) is null)
+                // A plate raises an event when the party walks onto it, and every such event is a floor trigger's —
+                // a move, a trap's spell, an alarm turning a group hostile, a door shutting behind the party — unless
+                // a counter or a container answers for it; the run decides what it does.
+                if (!byEvent.TryGetValue(eventId, out List<EvtInstruction>? stepped))
                 {
-                    steppedEvents.Add(eventId);
+                    steppedWithoutInstructions++;
+                    continue;
                 }
+
+                if (Owner(stepped, trodden: true) is { } owner)
+                {
+                    steppedOwned[owner] = steppedOwned.GetValueOrDefault(owner) + 1;
+                    continue;
+                }
+
+                steppedEvents.Add(eventId);
             }
 
             foreach (int eventId in raised)
@@ -394,14 +433,19 @@ public static class PlaceFixtureEmitter
                 bool isStepped = steppedEvents.Contains(eventId);
                 bool triggered = instructions.Any(instruction => instruction.Opcode is EvtOpcodes.OnTimer or EvtOpcodes.OnLongTimer);
                 if (!isFixture && !isStepped && !(triggered && Owner(instructions) is null)) continue;
-                events.Add(Normalize(placeId, map, program.Name, eventId, instructions, text, isFixture, triggered, moves) with { Stepped = isStepped });
+                events.Add(Normalize(placeId, map, program.Name, eventId, instructions, text, isFixture, triggered, moves, tables) with { Stepped = isStepped });
             }
 
             foreach (PlaceFixturePlacement fixture in Place(placeId, map, fixtureEvents, events)) fixtures.Add(fixture);
             triggers.AddRange(Triggers(placeId, map, steppedEvents, events));
         }
 
-        return new PlaceFixtureSummary(fixtures, events, owned, withoutInstructions, withoutProgram) { Triggers = triggers };
+        return new PlaceFixtureSummary(fixtures, events, owned, withoutInstructions, withoutProgram)
+        {
+            Triggers = triggers,
+            SteppedOwnedElsewhere = steppedOwned,
+            SteppedWithoutInstructions = steppedWithoutInstructions,
+        };
     }
 
     /// <summary>Every event a party raises by walking onto a pressure plate of a map.</summary>
@@ -420,9 +464,11 @@ public static class PlaceFixtureEmitter
         return stepped;
     }
 
-    /// <summary>Whether an event moves the party, to another place or within its own.</summary>
-    internal static bool IsTravel(IReadOnlyList<EvtInstruction> instructions) =>
-        instructions.Any(instruction => instruction.Opcode == EvtOpcodes.MoveToMap);
+    /// <summary>
+    /// Whether a plate's event is a floor trigger's: every event a plate raises is, unless a counter or a container
+    /// answers for it (<see cref="Owner"/>).
+    /// </summary>
+    internal static bool IsTrodden(IReadOnlyList<EvtInstruction> instructions) => Owner(instructions, trodden: true) is null;
 
     /// <summary>Where each of a place's floor-trigger events stands: the mean of its plates' box centres.</summary>
     private static IEnumerable<PlaceFloorTrigger> Triggers(int placeId, DecodedMap map, HashSet<int> steppedEvents, List<PlaceEvent> events)
@@ -484,7 +530,12 @@ public static class PlaceFixtureEmitter
     /// party uses the face for; an event that does both is the house's (<see cref="PlaceEntranceEmitter"/> states
     /// the move it carries as a counter's link).
     /// </remarks>
-    internal static string? Owner(IReadOnlyList<EvtInstruction> instructions)
+    /// <param name="instructions">The event's instructions.</param>
+    /// <param name="trodden">
+    /// Whether a plate raises the event rather than a click: a door answers only for the face a party clicks, so an
+    /// event a plate raises that moves doors — a wall closing behind the party — is the plate's floor trigger.
+    /// </param>
+    internal static string? Owner(IReadOnlyList<EvtInstruction> instructions, bool trodden = false)
     {
         if (instructions.Any(instruction => instruction.Opcode == EvtOpcodes.SpeakInHouse)) return EvtOpcodes.Word(EvtOpcodes.SpeakInHouse);
         if (instructions.Any(instruction => instruction.Opcode == EvtOpcodes.OpenChest)) return EvtOpcodes.Word(EvtOpcodes.OpenChest);
@@ -493,7 +544,9 @@ public static class PlaceFixtureEmitter
         // switch beside it, raises an event whose only work is the door's own change of state, and the door
         // record that change names is already a placement the party opens directly. Writing the face as a
         // fixture too would put two targets on one doorway that do one thing.
-        if (instructions.Any(instruction => instruction.Opcode == EvtOpcodes.ChangeDoorState) &&
+        // A plate is no such target — the party sets it off by walking, and nothing else sets the door moving then.
+        if (!trodden &&
+            instructions.Any(instruction => instruction.Opcode == EvtOpcodes.ChangeDoorState) &&
             instructions.All(instruction => instruction.Opcode is EvtOpcodes.ChangeDoorState or EvtOpcodes.Exit or EvtOpcodes.MouseOver or EvtOpcodes.PlaySound))
         {
             return EvtOpcodes.Word(EvtOpcodes.ChangeDoorState);
@@ -512,7 +565,8 @@ public static class PlaceFixtureEmitter
         MapStrings? strings,
         bool raised,
         bool triggered,
-        PlaceMoves moves)
+        PlaceMoves moves,
+        Mm7Tables? tables)
     {
         string label = string.Empty;
         List<PlaceEventStep> steps = [];
@@ -525,6 +579,13 @@ public static class PlaceFixtureEmitter
             }
 
             PlaceEventStep step = Step(instruction, strings);
+            if (step.Encounter is { } encounter && tables is not null)
+            {
+                // A summoning names one of the place's encounter slots the way a spawn record does, so its slot is read
+                // from the same map table row, by the same reading.
+                step = step with { Summons = PlaceEncounters.Slot(tables, placeId, encounter, out _) };
+            }
+
             steps.Add(instruction.TryReadMoveToMap(out MoveToMapInstruction move) ? moves.Describe(step, map, programName, instruction, move) : step);
         }
 
@@ -594,6 +655,22 @@ public static class PlaceFixtureEmitter
         if (instruction.TryReadCastSpell(out CastSpellInstruction cast))
         {
             return step with { Spell = cast.Spell, Mastery = EvtVariables.Mastery(cast.Mastery), Rank = cast.Rank };
+        }
+
+        if (instruction.TryReadSummonMonsters(out SummonMonstersInstruction summon))
+        {
+            // Where the creatures stand is a point of the map, written where a move's point is; the count is how many,
+            // zero for the slot's own range.
+            return step with
+            {
+                Encounter = summon.Encounter,
+                Amount = summon.Count,
+                X = summon.X,
+                Y = summon.Y,
+                Z = summon.Z,
+                Group = summon.Group,
+                UniqueName = summon.UniqueName,
+            };
         }
 
         if (instruction.TryReadSpeakNpc(out int person)) return step with { Person = person };

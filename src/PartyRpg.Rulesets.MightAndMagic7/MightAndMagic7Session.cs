@@ -260,7 +260,8 @@ internal sealed class MightAndMagic7Session : IGameSession
             () => owners.Progression,
             person => conversation?.PersonOf(person),
             place => owners.World is { } standing ? MightAndMagic7Fixtures.ActorsOf(standing, place) : null,
-            () => owners.Journal);
+            () => owners.Journal,
+            place => owners.World is { } live && live.Population.Place == place ? live.Population : null);
 
         // This game's journal policy is read once, here, over the loot reading that knows which item rows the
         // shipped table hands out as artifacts and relics: that is the one threshold this game states about

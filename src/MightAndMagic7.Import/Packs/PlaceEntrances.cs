@@ -224,9 +224,9 @@ public static class PlaceEntranceEmitter
             accounts.Add(Account(index, link, disposition, Trigger(clicked, plates, decorations), condition, conditionDetail.TrimStart()));
         }
 
-        // Every plate of an event that moves the party is a reach raising the event's floor trigger — the same events
-        // the fixture emitter carries as floor triggers, a move within the place among them, so stepping on any of
-        // them runs the event and the ruleset answers for what it does.
+        // Every plate is a reach raising its event's floor trigger — the same events the fixture emitter carries as
+        // floor triggers: a move to another place or within this one, a trap's spell, an alarm, a door — so stepping on
+        // any of them runs the event and the ruleset answers for what it does.
         Dictionary<string, int> mapByStem = maps.ToDictionary(entry => Path.GetFileNameWithoutExtension(entry.Value.FileName), entry => entry.Key, StringComparer.OrdinalIgnoreCase);
         foreach ((string programName, Dictionary<int, List<EvtInstruction>> byEvent) in events.OrderBy(entry => entry.Key, StringComparer.OrdinalIgnoreCase))
         {
@@ -234,7 +234,7 @@ public static class PlaceEntranceEmitter
             DecodedMap map = maps[from];
             foreach (int eventId in PlaceFixtureEmitter.Stepped(map))
             {
-                if (!byEvent.TryGetValue(eventId, out List<EvtInstruction>? instructions) || !PlaceFixtureEmitter.IsTravel(instructions) || PlaceFixtureEmitter.Owner(instructions) is not null) continue;
+                if (!byEvent.TryGetValue(eventId, out List<EvtInstruction>? instructions) || !PlaceFixtureEmitter.IsTrodden(instructions)) continue;
                 List<int> links = [.. Enumerable.Range(0, graph.Links.Count).Where(other =>
                     graph.Links[other].SourceMapId == from && graph.Links[other].EventId == eventId && string.Equals(graph.Links[other].SourceEvtName, programName, StringComparison.OrdinalIgnoreCase))];
                 foreach ((int faceIndex, MapFace face, int modelIndex, string modelName) in MapFaceList.Flatten(map))

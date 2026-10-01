@@ -156,7 +156,7 @@ internal static partial class PackWriter
         // resolved from each map's own string table.
         PlaceFixtureSummary fixtures = maps.Count == 0
             ? PlaceFixtureSummary.Empty
-            : PlaceFixtureEmitter.Emit(maps, programs, MapStrings.ReadAll(install), graph);
+            : PlaceFixtureEmitter.Emit(maps, programs, MapStrings.ReadAll(install), graph, tables);
 
         // Each pack this importer owns is written into an empty directory, so a document an earlier importer
         // wrote and this one does not is not left beside the new ones for the loader to find. Other packs under
