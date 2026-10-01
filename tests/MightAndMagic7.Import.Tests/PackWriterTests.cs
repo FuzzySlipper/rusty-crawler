@@ -92,6 +92,37 @@ public sealed class PackWriterTests
     }
 
     [Fact]
+    public void The_determinism_check_reads_only_what_the_write_produced()
+    {
+        // The documented write goes into the operator's imports root, which may already hold packs the
+        // operator authored; those are not the writer's output and must not make two equal runs "differ".
+        string installRoot = SyntheticInstallation.Create(withMaps: true);
+        string first = Path.Combine(Path.GetTempPath(), $"mm7-root-a-{Guid.NewGuid():N}");
+        string second = Path.Combine(Path.GetTempPath(), $"mm7-root-b-{Guid.NewGuid():N}");
+        try
+        {
+            LodInstall install = LodInstall.Open(installRoot);
+            Directory.CreateDirectory(Path.Combine(first, "operator-scenario"));
+            File.WriteAllText(Path.Combine(first, "operator-scenario", "pack.json"), "{}");
+            PackWriteResult written = PackWriter.Write(install, first);
+            PackWriter.Write(install, second);
+
+            Assert.False(PackWriter.AreIdentical(first, second));
+            Assert.True(PackWriter.AreIdentical(first, second, written));
+
+            File.AppendAllText(Path.Combine(second, "mm7-tables", "pack.json"), " ");
+            Assert.False(PackWriter.AreIdentical(first, second, written));
+        }
+        finally
+        {
+            foreach (string directory in new[] { installRoot, first, second })
+            {
+                if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public void Two_operators_with_the_same_data_in_different_places_write_the_same_bytes()
     {
         // The same data at two paths is two operators: where the installation sits is not what was imported,

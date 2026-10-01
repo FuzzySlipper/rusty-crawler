@@ -213,6 +213,18 @@ internal static partial class PackWriter
         return maps;
     }
 
+    /// <summary>
+    /// Whether two write roots hold the same bytes for what one write produced: each written pack and the
+    /// bundle fragment. Anything else in the root — the operator's own scenario packs, a README — is not
+    /// the writer's output, so it neither passes nor fails the check.
+    /// </summary>
+    internal static bool AreIdentical(string left, string right, PackWriteResult written)
+    {
+        string fragment = "imported-bundle.json";
+        if (!File.ReadAllBytes(Path.Combine(left, fragment)).AsSpan().SequenceEqual(File.ReadAllBytes(Path.Combine(right, fragment)))) return false;
+        return written.PackIds.All(packId => AreIdentical(Path.Combine(left, packId), Path.Combine(right, packId)));
+    }
+
     /// <summary>Whether two directories hold exactly the same files with the same bytes.</summary>
     internal static bool AreIdentical(string left, string right)
     {

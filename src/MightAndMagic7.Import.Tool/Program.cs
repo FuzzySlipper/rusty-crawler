@@ -294,7 +294,7 @@ internal static class Program
             string second = outputRoot.TrimEnd('/') + ".second";
             if (Directory.Exists(second)) Directory.Delete(second, recursive: true);
             PackWriter.Write(install, second);
-            bool identical = PackWriter.AreIdentical(outputRoot, second);
+            bool identical = PackWriter.AreIdentical(outputRoot, second, result);
             Directory.Delete(second, recursive: true);
             Console.WriteLine(JsonSerializer.Serialize(new { determinism = identical ? "identical" : "differs", secondRun = second }, Json));
             if (!identical) return 1;
