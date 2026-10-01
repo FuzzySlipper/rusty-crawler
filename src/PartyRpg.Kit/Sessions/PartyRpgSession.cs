@@ -359,7 +359,9 @@ public sealed class PartyRpgSession : IGameSession
             {
                 _creation = null;
                 _accepted = true;
-                _owners.Take(accepted.Party, accepted.World, accounts: null);
+                // The same entry a session handed its party at composition takes: one sequence composes every
+                // owner over whichever party the session ends up playing.
+                _owners.Take(accepted.Party, accepted.World, accepted.Accounts);
                 _world = _owners.World?.Snapshot ?? WorldSnapshot.Empty;
                 ResolveMode();
             }

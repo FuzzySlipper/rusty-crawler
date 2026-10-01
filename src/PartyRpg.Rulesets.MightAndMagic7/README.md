@@ -317,7 +317,11 @@ scenario's decision and a bundle is only the kit's pack selection. A start that 
 wherever the host declared a creation screen and the scenario's party where it declared none; a start asking
 for creation from a host without the screen, a start asking for the scenario's party when the selection
 states none, and a word that is neither are each refused by name. The composition block's `partyStart`
-(`creation`, `scenario`, or `resumed`) says which start the session took. The
+(`creation`, `scenario`, or `resumed`) says which start the session took. Whichever start it is, what the
+party plays — its ledger and the world composed over it with every answer the world needs — is composed by
+the session's one `Play` (also the resumed path's), and the kit composes every owner over it through one
+sequence: both paths must go through that one composition, which `SessionCompositionParityTests` proves by
+asking every owner to answer on each path and naming the owner and path that does not. The
 class and skill definitions the choices name are checked against the loaded content, which refuses a
 catalog that contradicts them. This game's save meaning is landed with them: `MightAndMagic7Persistence`
 states the storage scope a session's saves live in under the host's persistence root, the engine-backed

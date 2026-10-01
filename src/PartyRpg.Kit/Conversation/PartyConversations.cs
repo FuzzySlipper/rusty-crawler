@@ -96,6 +96,9 @@ public sealed class PartyConversations
     /// <summary>This game's answers about people.</summary>
     public IConversationRule Rule => _rule;
 
+    /// <summary>The party whose state a person's topics are read against, or null while none exists.</summary>
+    public PartyEntity? Party => _party;
+
     /// <summary>Whether a conversation is open.</summary>
     public bool IsOpen => _subject is not null;
 

@@ -142,7 +142,6 @@ internal static class MightAndMagic7World
         MightAndMagic7Conversation? conversation = null,
         MightAndMagic7Corpses? corpses = null,
         MightAndMagic7Loot? loot = null,
-        MightAndMagic7Quests? quests = null,
         Func<PartyJournal?>? journal = null,
         MightAndMagic7Combat? vitals = null,
         MightAndMagic7Spawns? spawns = null,

@@ -365,6 +365,37 @@ internal sealed class MightAndMagic7Session : IGameSession
             Equipment = figure,
         };
 
+        Owners = owners;
+
+        // What a party plays — its accounts and the world it walks in, composed over that party with every answer
+        // the world needs — is composed here and only here, for the scenario's party, a created one, and a resumed
+        // one alike. A world argument left off one path and not another is how a mechanism used to exist where a
+        // test looked and be missing where a player went; with one composition there is no second list to forget.
+        SessionParty.Playing Play(PartyEntity? walker, SessionSave? from = null)
+        {
+            PartyResourceLedger? accounts = walker is null ? null : Ledger(walker);
+            SessionWorld? walked = MightAndMagic7World.Compose(
+                Declared(context.Content),
+                context,
+                clock,
+                accounts,
+                walker,
+                from,
+                services,
+                conversation,
+                corpseAnswers,
+                loot,
+                () => owners.Journal,
+                combat,
+                spawns,
+                fixtures);
+            return new SessionParty.Playing(
+                walked,
+                walker,
+                accounts,
+                from is null ? null : new SessionRecords(from.Quests, from.Journal, from.Knowledge, from.Maps));
+        }
+
         EngineSessionSaveStore? store = MightAndMagic7Persistence.Store(context.Engine);
         try
         {
@@ -403,21 +434,21 @@ internal sealed class MightAndMagic7Session : IGameSession
                 // already crossed.
                 save.Clock.ApplyTo(clock);
                 party = Capacity(MightAndMagic7Party.Restore(save.Party, Declared(context.Content)), spells)!;
-                PartyResourceLedger ledger = Ledger(party);
-                world = MightAndMagic7World.Compose(context.Content, context, clock, ledger, party, save, services, conversation, corpseAnswers, loot, quests, () => owners.Journal, combat, spawns, fixtures);
-                start = new SessionParty.Playing(world, party, ledger, new SessionRecords(save.Quests, save.Journal, save.Knowledge, save.Maps));
+                SessionParty.Playing resumed = Play(party, save);
+                world = resumed.World;
+                start = resumed;
             }
             else if (NewPartyStart(context) == SessionPartyStart.Creation)
             {
-                // The host declared a creation screen, so a new session creates its party. The flow is this
-                // game's, the factory is the one every party comes from, and the world is composed with the
-                // created party so the provisions a road costs come out of the larder the player's own
-                // characters filled.
+                // The session creates its party. The flow is this game's, the factory is the one every party
+                // comes from, and what the accepted party plays is composed by the same entry the scenario's party
+                // goes through, so the provisions a road costs come out of the larder the player's own characters
+                // filled and no owner can be composed for one path and not the other.
                 ContentCatalog? declared = Declared(context.Content);
                 start = new SessionParty.Creating(new SessionCreation(
                     MightAndMagic7Creation.Start(declared),
                     description => Capacity(MightAndMagic7Party.Factory(declared).Create(description), spells, fill: true)!,
-                    created => MightAndMagic7World.Compose(declared, context, clock, Ledger(created), created, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot, journal: () => owners.Journal, vitals: combat, spawns: spawns, fixtures: fixtures)));
+                    created => Play(created)));
             }
             else
             {
@@ -439,8 +470,8 @@ internal sealed class MightAndMagic7Session : IGameSession
                     parties = refusal;
                 }
 
-                PartyResourceLedger? accounts = party is null ? null : Ledger(party);
-                world = MightAndMagic7World.Compose(context.Content, context, clock, accounts, party, services: services, conversation: conversation, corpses: corpseAnswers, loot: loot, journal: () => owners.Journal, vitals: combat, spawns: spawns, fixtures: fixtures);
+                SessionParty.Playing scenario = Play(party);
+                world = scenario.World;
                 if (parties is not null) throw parties;
 
                 // A start that asked for the scenario's party and a selection that fixes none would begin a game
@@ -455,11 +486,12 @@ internal sealed class MightAndMagic7Session : IGameSession
                             asked.Pack)]);
                 }
 
-                start = new SessionParty.Playing(world, party, accounts);
+                start = scenario;
             }
 
-            // One session, composed one way: the resumed, created, and scenario paths differ only in how the
-            // session starts, so every mechanism is composed over each of them by the same sequence.
+            // One session, composed one way: the resumed, created, and scenario paths differ only in where the
+            // party comes from. What it plays is composed by Play on every path, and every owner over it by the
+            // kit's one sequence (SessionOwners.Take), so a mechanism cannot exist on one path and not another.
             _session = new PartyRpgSession(
                 composition,
                 context.Projection,
@@ -593,6 +625,15 @@ internal sealed class MightAndMagic7Session : IGameSession
     /// </remarks>
     private static ContentCatalog? Declared(ContentCatalog? content) =>
         content is { Packs.Count: > 0 } ? content : null;
+
+    /// <summary>
+    /// Every owner this session composed, as the kit's one composition sequence holds them.
+    /// </summary>
+    /// <remarks>
+    /// It is the same object the session was composed over, read one layer out so a suite can ask each owner to
+    /// answer on every path a party comes into being by; nothing outside the session composes through it.
+    /// </remarks>
+    internal SessionOwners Owners { get; }
 
     /// <inheritdoc />
     public SessionMode Mode => _session.Mode;

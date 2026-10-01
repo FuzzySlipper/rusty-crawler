@@ -117,7 +117,11 @@ supplies, and where new code goes — is in
 
 Implemented today: the session shell (`PartyRpgSession`, `SessionMode`, `IGameSession`), composed one way
 from `SessionOwners` (the mechanisms it composes, created empty before the session so a game's answers can
-read them when an act arrives, and composed by one sequence per party), `SessionRules` (a game's answers
+read them when an act arrives, and composed by one sequence per party: a party handed to the session and a
+party accepted from creation both reach the owners through the same `SessionOwners.Take`, because
+`SessionCreation` answers an accepted party with the very `SessionParty.Playing` a handed party starts from —
+both paths must go through that one composition, and the ruleset suite's `SessionCompositionParityTests` fails
+naming the owner and the path when one does not), `SessionRules` (a game's answers
 grouped by mechanism: `CombatRules`, `ProgressionRules`, `MagicRules`, `AlchemyRules`, `MapRules`),
 `SessionControls`, `SessionSaving`, and a `SessionParty` that is either `Playing` a party or `Creating` one
 (the session states which start that was as `SessionComposition.PartyStart` — creation, scenario, or resumed —
