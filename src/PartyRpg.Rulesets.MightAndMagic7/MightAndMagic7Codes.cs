@@ -142,6 +142,9 @@ public static class MightAndMagic7Codes
     /// <summary>The refusal code <c>skill-closed-by-unchosen-path</c>.</summary>
     public const string SkillClosedByUnchosenPath = "skill-closed-by-unchosen-path";
 
+    /// <summary>The refusal code <c>spell-indoors</c>: a spell the open sky is needed for is cast under a roof.</summary>
+    public const string SpellIndoors = "spell-indoors";
+
     /// <summary>The refusal code <c>spell-airborne</c>: a leap is cast while the party is not standing on anything.</summary>
     public const string SpellAirborne = "spell-airborne";
 

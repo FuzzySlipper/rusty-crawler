@@ -22,7 +22,8 @@ namespace PartyRpg.Host;
 /// <b>Actions are the declared intents and their keys.</b> Every digital intent the project file binds to a
 /// key is an action, named by its intent and described with the physical key the engine was told — the same
 /// declaration the panel names its keys from. Whether the session would take it now is the controls block's
-/// own answer for the controls that block carries, and the session's steering rule for the movement controls,
+/// own answer for the controls that block carries, the session's steering rule for the movement controls, and that rule
+/// with the party's own flight for the controls that rise and sink,
 /// so availability here and an enabled button on the panel cannot disagree. A query never presses anything: a
 /// harness performs an action by pressing its key, and the session's ordinary input path decides what happens.
 /// </para>
@@ -50,6 +51,13 @@ internal static class ProductPlaytest
         ProductIdentity.TurnLeftIntent,
         ProductIdentity.TurnRightIntent,
         ProductIdentity.JumpIntent,
+    };
+
+    /// <summary>The intents that rise and sink, which the session's steering rule and the party's flight decide.</summary>
+    private static readonly HashSet<string> Rising = new(StringComparer.Ordinal)
+    {
+        ProductIdentity.AscendIntent,
+        ProductIdentity.DescendIntent,
     };
 
     /// <summary>One declared control: its intent, its physical key, and whether the engine reads it held.</summary>
@@ -118,6 +126,11 @@ internal static class ProductPlaytest
     /// <summary>Whether the session would take a control now, and why not when it would not.</summary>
     private static (bool Available, string? Reason) Availability(SessionSnapshot snapshot, string intent)
     {
+        if (Rising.Contains(intent))
+        {
+            return PlaytestReadout.Rising(snapshot) is { } grounded ? (false, grounded.Message) : (true, null);
+        }
+
         if (Steered.Contains(intent))
         {
             return PlaytestReadout.Steering(snapshot) is { } refused ? (false, refused.Message) : (true, null);

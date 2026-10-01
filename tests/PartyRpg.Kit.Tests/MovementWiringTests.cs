@@ -165,6 +165,34 @@ public sealed class MovementInputTests
             "test.move-forward", "test.move-back", "test.strafe-left", "test.strafe-right", "test.turn-left", "test.turn-right", " "));
         Assert.Throws<ArgumentOutOfRangeException>(() => new MovementInput(Names, 0));
         Assert.Throws<ArgumentOutOfRangeException>(() => new MovementInput(Names, double.NaN));
+
+        // A rise and a sink are declared together or not at all: one without the other strands a flying party.
+        Assert.Throws<ArgumentException>(() => new MovementIntentNames(
+            "test.move-forward", "test.move-back", "test.strafe-left", "test.strafe-right", "test.turn-left", "test.turn-right", "test.jump", ascend: "test.ascend"));
+    }
+
+    [Fact]
+    public void Held_rise_and_sink_controls_ask_for_a_vertical_and_cancel_each_other()
+    {
+        MovementIntentNames names = new(
+            "test.move-forward", "test.move-back", "test.strafe-left", "test.strafe-right", "test.turn-left", "test.turn-right", "test.jump", "test.ascend", "test.descend");
+        MovementInput input = new(names, TurnRate);
+
+        MovementIntent rising = input.Read([Admitted.Digital("test.ascend", InputEdge.Held)]);
+        Assert.Equal(1, rising.Vertical);
+        Assert.False(rising.IsStill);
+
+        MovementIntent both = input.Read([Admitted.Digital("test.ascend", InputEdge.Held), Admitted.Digital("test.descend", InputEdge.Held)]);
+        Assert.Equal(0, both.Vertical);
+
+        MovementIntent sinking = input.Read([Admitted.Digital("test.descend", InputEdge.Held)]);
+        Assert.Equal(-1, sinking.Vertical);
+
+        // A held edge is a state: an update that no longer reports the key has stopped asking.
+        Assert.True(input.Read([]).IsStill);
+
+        // A product that declares no flight claims nothing on those names.
+        Assert.Equal(0, Input().Read([Admitted.Digital("test.ascend", InputEdge.Held)]).Vertical);
     }
 }
 

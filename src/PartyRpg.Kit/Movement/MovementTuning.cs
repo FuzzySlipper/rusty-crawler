@@ -25,12 +25,17 @@ public sealed class MovementTuning
     /// listed is ordinary ground, so a place may name a surface before the tuning prices it and nothing
     /// stops moving; it simply moves normally.
     /// </param>
+    /// <param name="flight">
+    /// How the party moves while it flies, or null for a game whose party never flies: without it no rule can put
+    /// the party in the air.
+    /// </param>
     /// <exception cref="ArgumentNullException">The controller configuration is missing.</exception>
     /// <exception cref="ArgumentException">Two surfaces share a name, or one has no name.</exception>
-    public MovementTuning(CharacterControllerConfig controller, FallPolicy falls, IEnumerable<SurfaceEffect>? surfaces = null)
+    public MovementTuning(CharacterControllerConfig controller, FallPolicy falls, IEnumerable<SurfaceEffect>? surfaces = null, FlightTuning? flight = null)
     {
         Controller = controller;
         Falls = falls;
+        Flight = flight;
         _surfaces = [];
         if (surfaces is null) return;
         foreach (SurfaceEffect surface in surfaces)
@@ -50,6 +55,9 @@ public sealed class MovementTuning
 
     /// <summary>What a fall costs the party.</summary>
     public FallPolicy Falls { get; }
+
+    /// <summary>How the party moves while it flies, or null when this profile has no flight.</summary>
+    public FlightTuning? Flight { get; }
 
     /// <summary>The surfaces this profile names, in no particular order.</summary>
     public IReadOnlyCollection<SurfaceEffect> Surfaces => _surfaces.Values;

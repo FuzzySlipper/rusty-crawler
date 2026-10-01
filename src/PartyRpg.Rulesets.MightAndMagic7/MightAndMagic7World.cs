@@ -200,7 +200,7 @@ internal static class MightAndMagic7World
 
         // One pair of movers over one spatial session: the party and the place's creatures walk in the same
         // scene, and whatever the world is not handed is released here rather than left holding a session.
-        (IPartyMover? mover, ICreatureMover? creatures) = Movers(party, context);
+        (IPartyMover? mover, ICreatureMover? creatures) = Movers(party, context, MightAndMagic7Movement.FlightRule(entity, graph, party));
         try
         {
             SessionWorld world = new SessionWorld(
@@ -293,7 +293,8 @@ internal static class MightAndMagic7World
     /// </remarks>
     /// <param name="party">The party's own pose, which its movement asks to move.</param>
     /// <param name="context">What the host handed the ruleset, which carries the engine the world moves in.</param>
-    private static (IPartyMover? Mover, ICreatureMover? Creatures) Movers(PartyPoseOwner party, RulesetSessionContext context)
+    /// <param name="flight">This game's answer to whether the party may fly now.</param>
+    private static (IPartyMover? Mover, ICreatureMover? Creatures) Movers(PartyPoseOwner party, RulesetSessionContext context, IFlightRule flight)
     {
         if (context.Engine is not { } engine) return (null, null);
 
@@ -308,7 +309,8 @@ internal static class MightAndMagic7World
             party,
             MightAndMagic7Movement.Space,
             MightAndMagic7Movement.Session,
-            tuning);
+            tuning,
+            flight: flight);
 
         // A place's geometry comes from the catalog when content carries any. Without a catalog there is no
         // world either, but the mover is composed here where both are still in hand.

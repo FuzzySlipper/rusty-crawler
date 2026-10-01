@@ -218,7 +218,11 @@ empties it on leaving (a placement that states a request rather than an answer �
 creatures of a kind — is resolved by the game's `IPlacementExpansion` while the placements are read, and what it
 answers stands in its stead for every reader; the game must answer the same on every read, which is why it
 draws under a key naming the place and the placement), the Engine-backed movement owner with its vertical and surface policy (and a leap a game asks of the next step,
-`PartyMotion.Leap` through `IPartyMover.Leap`, the party's own jump at a stated multiple whose landing is not a fall), the reaches that let a party walk
+`PartyMotion.Leap` through `IPartyMover.Leap`, the party's own jump at a stated multiple whose landing is not a fall;
+and flight, the engine's flying mode asked for while a game's `IFlightRule` allows it and the party has risen —
+`MovementIntent.Vertical` from the optional rise and sink controls of `MovementIntentNames`, a `FlightTuning` on the
+`MovementTuning` with its speed and ceiling, a landing when a sink meets the ground, and a fall measured from where a
+flight that ends in the air left the party), the reaches that let a party walk
 into a transition, the movement facts the panel reports, the one combat state
 (`Combat/` — a `CombatState` over the live world and nothing else, with a `Combatant` per party member and
 per creature the ruleset recognizes in the party's place, one `Combatant.Recovery` quantity each advanced

@@ -87,6 +87,16 @@
       "key": "Space"
     },
     {
+      "intent": "party.ascend",
+      "value": "digital",
+      "key": "Arrow Up"
+    },
+    {
+      "intent": "party.descend",
+      "value": "digital",
+      "key": "Arrow Down"
+    },
+    {
       "intent": "creation.advance",
       "value": "digital",
       "key": "Enter"

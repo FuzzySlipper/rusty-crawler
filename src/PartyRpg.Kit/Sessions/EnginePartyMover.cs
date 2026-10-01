@@ -41,6 +41,12 @@ public interface IPartyMover : IDisposable
     /// <returns>Whether the leap was taken.</returns>
     bool Leap(double multiple) => false;
 
+    /// <summary>Whether the party may fly now; a mover that cannot fly answers false.</summary>
+    bool MayFly => false;
+
+    /// <summary>Whether the party is flying now; a mover that cannot fly answers false.</summary>
+    bool Flying => false;
+
     /// <summary>
     /// Whether nothing solid stands between two points of the place the party is in, in the engine's world
     /// axes.
@@ -175,6 +181,12 @@ public sealed class EnginePartyMover : IPartyMover
         ObjectDisposedException.ThrowIf(_disposed, this);
         return _movement.Motion.Leap(multiple);
     }
+
+    /// <inheritdoc />
+    public bool MayFly => !_disposed && _movement.Motion.MayFly;
+
+    /// <inheritdoc />
+    public bool Flying => !_disposed && _movement.Motion.Flying;
 
     /// <inheritdoc />
     /// <exception cref="ObjectDisposedException">The mover has been disposed.</exception>

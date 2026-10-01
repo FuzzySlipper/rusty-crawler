@@ -48,6 +48,9 @@ public sealed class PartyMovement : IDisposable
     /// <param name="surfaces">
     /// The rule that names the ground the engine reports. Without one every surface is ordinary ground.
     /// </param>
+    /// <param name="flight">
+    /// The game's answer to whether the party may fly now. Without one the party never flies.
+    /// </param>
     /// <exception cref="ArgumentNullException">A required collaborator is missing.</exception>
     public PartyMovement(
         ISpatialService spatial,
@@ -55,13 +58,14 @@ public sealed class PartyMovement : IDisposable
         PlaceSpace space,
         SpatialSessionConfig session,
         MovementTuning? tuning = null,
-        SurfaceClassifier? surfaces = null)
+        SurfaceClassifier? surfaces = null,
+        IFlightRule? flight = null)
     {
         _spatial = spatial ?? throw new ArgumentNullException(nameof(spatial));
         ArgumentNullException.ThrowIfNull(party);
         _tuning = tuning ?? new MovementTuning(spatial.DefaultCharacterControllerConfig(), FallPolicy.Free);
         _session = spatial.CreateSession(session);
-        Motion = new PartyMotion(party, space, _tuning, surfaces);
+        Motion = new PartyMotion(party, space, _tuning, surfaces, flight);
     }
 
     /// <summary>

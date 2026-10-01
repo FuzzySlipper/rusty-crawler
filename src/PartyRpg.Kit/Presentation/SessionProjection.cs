@@ -352,14 +352,15 @@ public static class SessionProjection
     /// The wire name for the state the party's last admitted step left it in.
     /// </summary>
     /// <remarks>
-    /// Grounded, airborne, and "the party has not moved" are one word rather than a presence flag beside a
+    /// Grounded, airborne, flying, and "the party has not moved" are one word rather than a presence flag beside a
     /// grounded flag: a wire that could say grounded while also saying nothing has moved would let the
-    /// panel report footing it does not know.
+    /// panel report footing it does not know. A flying party is in the air by its own choice, which is a different
+    /// fact from a party that jumped or fell, so it has its own word.
     /// </remarks>
     /// <param name="movement">The movement facts the snapshot carries.</param>
     /// <returns>The word the projection publishes for them.</returns>
     public static string MotionWord(MovementSnapshot movement) =>
-        !movement.Moved ? "none" : movement.Grounded ? "grounded" : "airborne";
+        !movement.Moved ? "none" : movement.Flying ? "flying" : movement.Grounded ? "grounded" : "airborne";
 
     /// <summary>
     /// The wire name for what refused the party's displacement.

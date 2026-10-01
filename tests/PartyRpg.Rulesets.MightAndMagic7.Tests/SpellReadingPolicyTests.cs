@@ -1,3 +1,4 @@
+using System.Numerics;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Input;
@@ -277,6 +278,108 @@ public sealed class SpellReadingPolicyTests
         Assert.Equal(1d, Running(Magic(ui), "spell.feather-fall").Field("magnitude").AsNumber());
     }
 
+    [Fact]
+    public void A_flight_lets_the_party_rise_hover_and_sink_while_its_caster_pays_for_the_time_in_the_air()
+    {
+        ScriptedSpatialService spatial = new()
+        {
+            // The double flies a flying party by a hundred units a step in the direction it asks, and a sink meets the
+            // ground at once, which is where the engine would report a contact underneath it.
+            StepEnds = request => request.Command.Movement.Mode == CharacterMovementMode.Flying
+                ? request.Position + new Vector3(0, 100 * request.Command.Movement.VerticalIntent, 0)
+                : request.Position,
+            Answer = (request, receipt) => request.Command.Movement is { Mode: CharacterMovementMode.Flying, VerticalIntent: < 0 }
+                ? receipt with { Contact = default(CharacterContact) with { Present = true, Kind = CharacterContactKind.Ground } }
+                : receipt,
+        };
+        (ProductCreateContext context, RecordingUiService ui) =
+            RulesetTestContext.Create(persistence: null, spatial, new ScriptedContentService(), Flyers());
+        using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
+            RulesetTestContext.RulesetContext(context, ui) with
+            {
+                Cast = new CastIntentNames(Declared.UiActionContract),
+                Movement = new MovementIntentNames("forward", "back", "strafe-left", "strafe-right", "turn-left", "turn-right", "jump", "ascend", "descend"),
+            });
+        session.Start();
+        MightAndMagic7Session live = (MightAndMagic7Session)session;
+        PartyMember caster = live.Party!.Members[0];
+        session.Update(RulesetTestContext.Update(1, 1, RulesetTestContext.Digital("ascend", InputEdge.Held)));
+
+        // Without a flight a rise asks for nothing: the party walks.
+        Assert.Equal(CharacterMovementMode.Walking, spatial.Steps[^1].Command.Movement.Mode);
+
+        // The flight is carried by its caster at what each five minutes in the air costs them: one point at master
+        // (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:1154-1171, src/Engine/Engine.cpp:1286-1296).
+        Cast(session, ui, 2, "21", string.Empty);
+        Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
+        Assert.True(caster.Effects.Has(new EffectId("spell.fly")));
+        Assert.Equal(1, caster.Effects.MagnitudeOf(new EffectId("spell.fly")));
+        int points = caster.Resources.SpellPoints.Current;
+
+        // Standing on the ground with the flight running costs nothing.
+        Advance(session, 1);
+        Assert.Equal(points, caster.Resources.SpellPoints.Current);
+
+        // A held rise takes off: the mover asks the engine's flying mode at four times the walk.
+        session.Update(RulesetTestContext.Update(3, 1, RulesetTestContext.Digital("ascend", InputEdge.Held)));
+        CharacterStepRequest rising = spatial.Steps[^1];
+        Assert.Equal(CharacterMovementMode.Flying, rising.Command.Movement.Mode);
+        Assert.Equal(1f, rising.Command.Movement.VerticalIntent);
+        Assert.Equal(384f * 4, rising.Command.Movement.Speed);
+        Assert.Equal(100, live.World!.Party.PlacePose.Z, 3);
+        Assert.Equal("flying", ProjectedNode.Of(ui.Latest().Value).Field("movement").Field("motion").AsString());
+
+        // Letting go hovers, and an hour in the air is twelve five-minute boundaries the caster pays for.
+        Advance(session, 1);
+        Assert.Equal(CharacterMovementMode.Flying, spatial.Steps[^1].Command.Movement.Mode);
+        Assert.Equal(0f, spatial.Steps[^1].Command.Movement.VerticalIntent);
+        Assert.Equal(points - 12, caster.Resources.SpellPoints.Current);
+
+        // A held sink comes down; meeting the ground lands the party, and it walks again.
+        session.Update(RulesetTestContext.Update(200, 1, RulesetTestContext.Digital("descend", InputEdge.Held)));
+        Assert.Equal(-1f, spatial.Steps[^1].Command.Movement.VerticalIntent);
+        Assert.False(live.World.Mover!.Flying);
+        session.Update(RulesetTestContext.Update(201, 1));
+        Assert.Equal(CharacterMovementMode.Walking, spatial.Steps[^1].Command.Movement.Mode);
+        Assert.Equal("grounded", ProjectedNode.Of(ui.Latest().Value).Field("movement").Field("motion").AsString());
+
+        // A caster drained dry holds nobody up: the flight is still carried, and a rise asks for nothing.
+        caster.Resources.TrySpendSpellPoints(caster.Resources.SpellPoints.Current);
+        session.Update(RulesetTestContext.Update(202, 1, RulesetTestContext.Digital("ascend", InputEdge.Held)));
+        Assert.Equal(CharacterMovementMode.Walking, spatial.Steps[^1].Command.Movement.Mode);
+    }
+
+    [Fact]
+    public void A_flight_is_refused_under_a_roof_before_it_is_paid_for()
+    {
+        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(Content(
+            spells: Flyers().Single(document => document.Path.EndsWith("spells.json", StringComparison.Ordinal)),
+            party: Flyers().Single(document => document.Path.EndsWith("party.json", StringComparison.Ordinal)),
+            places: ($"{RulesetTestContext.ContentDirectory}/content-packs/world/places.json",
+                """
+                {
+                  "documentId": "places",
+                  "definitionKind": "place",
+                  "entries": [
+                    { "id": "1", "kind": "interior", "name": "Cave", "respawnDays": 1,
+                      "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ] },
+                    { "id": "2", "kind": "region", "name": "Shore", "respawnDays": 1,
+                      "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ] }
+                  ]
+                }
+                """)));
+        using IGameSession session = Casting(context, ui);
+        PartyMember caster = ((MightAndMagic7Session)session).Party!.Members[0];
+        int points = caster.Resources.SpellPoints.Current;
+
+        // The donor refuses flight indoors (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:1156-1160); here nothing is paid.
+        Cast(session, ui, 1, "21", string.Empty);
+        Assert.Equal("refused", Magic(ui).Field("outcome").AsString());
+        Assert.Equal(MightAndMagic7Codes.SpellIndoors, Magic(ui).Field("code").AsString());
+        Assert.Equal(points, caster.Resources.SpellPoints.Current);
+        Assert.False(caster.Effects.Has(new EffectId("spell.fly")));
+    }
+
     /// <summary>Drinks the first bottle of one potion the party carries, as the panel's own control does.</summary>
     private static void Drink(IGameSession session, ulong step, int potion)
     {
@@ -291,6 +394,14 @@ public sealed class SpellReadingPolicyTests
                 $$"""{"action":"party.cast","member":0,"spell":"{{spell}}","target":"","item":{{bottle.Id}}}""")));
     }
 
+    /// <summary>This suite's own documents with its caster a master of air, which is what a flight asks of its caster.</summary>
+    private static (string Path, string Text)[] Flyers() =>
+    [
+        .. Readings().Select(document => document.Path.EndsWith("party.json", StringComparison.Ordinal)
+            ? (document.Path, document.Text.Replace("""{ "id": "Air", "level": 3, "tier": 2""", """{ "id": "Air", "level": 3, "tier": 3""", StringComparison.Ordinal))
+            : document),
+    ];
+
     /// <summary>The spells this suite casts, by their shipped ids.</summary>
     private static (string Path, string Text)[] Readings() => Content(
         spells: ($"{RulesetTestContext.ContentDirectory}/content-packs/world/spells.json",
@@ -302,6 +413,7 @@ public sealed class SpellReadingPolicyTests
                 { "id": "13", "school": "Air", "level": 2, "name": "Feather Fall", "resist": "0" },
                 { "id": "16", "school": "Air", "level": 5, "name": "Jump", "resist": "0" },
                 { "id": "17", "school": "Air", "level": 6, "name": "Shield", "resist": "0" },
+                { "id": "21", "school": "Air", "level": 7, "name": "Fly", "resist": "0" },
                 { "id": "71", "school": "Body", "level": 5, "name": "Regeneration", "resist": "0" },
                 { "id": "83", "school": "Light", "level": 6, "name": "Day of the Gods", "resist": "0" },
                 { "id": "86", "school": "Light", "level": 9, "name": "Hour of Power", "resist": "0" },
@@ -329,7 +441,7 @@ public sealed class SpellReadingPolicyTests
                                   { "id": "Body", "level": 3, "tier": 2, "pointsSpent": 1 },
                                   { "id": "Light", "level": 2, "tier": 4, "pointsSpent": 1 },
                                   { "id": "Dark", "level": 4, "tier": 2, "pointsSpent": 1 } ],
-                      "spells": [ "13", "16", "17", "71", "83", "86", "88", "95" ], "conditions": [] },
+                      "spells": [ "13", "16", "17", "21", "71", "83", "86", "88", "95" ], "conditions": [] },
                     { "name": "Borin", "race": "Human", "class": "Knight", "level": 1, "hitPoints": 400, "spellPoints": 0,
                       "attributes": [ { "id": "Might", "value": 13 }, { "id": "Intellect", "value": 9 },
                                       { "id": "Personality", "value": 9 }, { "id": "Endurance", "value": 13 },

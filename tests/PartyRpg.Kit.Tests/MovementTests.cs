@@ -302,7 +302,8 @@ public sealed class PartyMotionTests
         CharacterStep step = default,
         CharacterBlockFlags blocked = CharacterBlockFlags.None,
         CharacterGround ground = default,
-        float fallOriginHeight = 0) =>
+        float fallOriginHeight = 0,
+        CharacterContact contact = default) =>
         new(
             Movement: default,
             Tether: default,
@@ -331,7 +332,7 @@ public sealed class PartyMotionTests
                 CollisionWorldHash: 11),
             WishVelocity: Vector3.Zero,
             Displacement: to - from,
-            Contact: default,
+            Contact: contact,
             Ground: ground,
             FloorProbe: default,
             Stance: new CharacterStanceFact(CharacterStance.Standing, CharacterStance.Standing, false),
@@ -602,6 +603,135 @@ public sealed class PartyMotionTests
 
         Assert.Equal("deep-water", airborne.Surface.Id);
         Assert.Equal(3d, tuning.ControllerOn(airborne.Surface).Ground.ForwardSpeed, 4);
+    }
+
+    /// <summary>A flight a test switches on and off, standing in for a game's answer.</summary>
+    private sealed class FlightSwitch : IFlightRule
+    {
+        public bool MayFly { get; set; }
+    }
+
+    private static readonly FlightTuning Flight = new(speed: 40, acceleration: 160, drag: 0, ceiling: 100);
+
+    private static CharacterContact GroundContact(Vector3 point) =>
+        new(
+            Present: true,
+            Kind: CharacterContactKind.Ground,
+            StartSolid: false,
+            Point: point,
+            Normal: Vector3.UnitY,
+            TimeOfImpact: 0.5f,
+            SourceKind: CharacterCollisionSourceKind.StaticMesh,
+            SourceEntity: 0,
+            SourceInstance: 1,
+            SourceAsset: 1,
+            SourceGeometryHash: 1,
+            SourceVoxelX: 0,
+            SourceVoxelY: 0,
+            SourceVoxelZ: 0);
+
+    [Fact]
+    public void A_party_that_may_fly_rises_on_its_rise_hovers_without_one_and_walks_again_where_it_lands()
+    {
+        FlightSwitch rule = new();
+        PartyPoseOwner party = PartyAt(0, 0, 0);
+        PartyMotion motion = new(party, Space, new MovementTuning(default, new FallPolicy(10, 1), flight: Flight), flight: rule);
+        motion.Admit(Step(from: Vector3.Zero, to: Vector3.Zero));
+
+        // Without a flight a rise asks for nothing: the party walks and may jump.
+        CharacterControllerCommand walking = motion.Command(new MovementIntent(0, 0, jumpPressed: true, vertical: 1), 0.1);
+        Assert.Equal(CharacterMovementMode.Walking, walking.Movement.Mode);
+        Assert.True(walking.JumpPressed);
+        Assert.False(motion.Flying);
+
+        // With one, standing still on the ground is still walking; the rise is what takes off.
+        rule.MayFly = true;
+        Assert.True(motion.MayFly);
+        Assert.Equal(CharacterMovementMode.Walking, motion.Command(MovementIntent.Still, 0.1).Movement.Mode);
+        CharacterControllerCommand rising = motion.Command(new MovementIntent(1, 0, jumpPressed: true, vertical: 1), 0.1);
+        Assert.Equal(CharacterMovementMode.Flying, rising.Movement.Mode);
+        Assert.Equal(1f, rising.Movement.VerticalIntent);
+        Assert.Equal(40f, rising.Movement.Speed);
+        Assert.Equal(160f, rising.Movement.Acceleration);
+        Assert.False(rising.JumpPressed);
+
+        // The engine carries the party up; a flight is not a fall, and the fall a later landing would measure begins
+        // where the party is held rather than at the highest point it reached.
+        MovementOutcome up = motion.Admit(Step(from: Vector3.Zero, to: new Vector3(0, 50, 0), grounded: false, peakHeight: 70));
+        Assert.True(up.Flying);
+        Assert.Equal(FallOutcome.None, up.Fall);
+        Assert.Equal(50f, motion.Continuation.PeakY);
+        Assert.Equal(50f, motion.Continuation.FallOriginY);
+
+        // Letting go hovers: still flying, asking for no rise.
+        CharacterControllerCommand hovering = motion.Command(MovementIntent.Still, 0.1);
+        Assert.Equal(CharacterMovementMode.Flying, hovering.Movement.Mode);
+        Assert.Equal(0f, hovering.Movement.VerticalIntent);
+
+        // A sink that meets the ground lands the party, and it walks again.
+        CharacterControllerCommand sinking = motion.Command(new MovementIntent(0, 0, vertical: -1), 0.1);
+        Assert.Equal(-1f, sinking.Movement.VerticalIntent);
+        MovementOutcome down = motion.Admit(Step(
+            from: new Vector3(0, 50, 0),
+            to: new Vector3(0, 1, 0),
+            grounded: false,
+            peakHeight: 50,
+            contact: GroundContact(Vector3.Zero)));
+        Assert.False(down.Flying);
+        Assert.False(motion.Flying);
+        Assert.Equal(1f, motion.Continuation.PeakY);
+        Assert.Equal(CharacterMovementMode.Walking, motion.Command(MovementIntent.Still, 0.1).Movement.Mode);
+
+        // The engine snaps the walking party onto the ground from where the flight left it: a drop of the last unit, nothing
+        // like the fifty it flew at.
+        MovementOutcome landed = motion.Admit(Step(from: new Vector3(0, 1, 0), to: Vector3.Zero, peakHeight: 1));
+        Assert.False(landed.Fall.PastThreshold);
+        Assert.Equal(1d, landed.Fall.Distance, 4);
+    }
+
+    [Fact]
+    public void A_flight_that_ends_in_the_air_drops_the_party_from_where_it_ended_under_the_fall_rule()
+    {
+        FlightSwitch rule = new() { MayFly = true };
+        PartyPoseOwner party = PartyAt(0, 0, 0);
+        PartyMotion motion = new(party, Space, new MovementTuning(default, new FallPolicy(10, 1), flight: Flight), flight: rule);
+        motion.Admit(Step(from: Vector3.Zero, to: Vector3.Zero));
+
+        motion.Command(new MovementIntent(0, 0, vertical: 1), 0.1);
+        motion.Admit(Step(from: Vector3.Zero, to: new Vector3(0, 90, 0), grounded: false, peakHeight: 90));
+        motion.Command(new MovementIntent(0, 0, vertical: -1), 0.1);
+        motion.Admit(Step(from: new Vector3(0, 90, 0), to: new Vector3(0, 30, 0), grounded: false, peakHeight: 90));
+        Assert.Equal(30f, motion.Continuation.PeakY);
+
+        // The flight ends while the party is in the air: the next command walks, so gravity has it.
+        rule.MayFly = false;
+        Assert.Equal(CharacterMovementMode.Walking, motion.Command(new MovementIntent(0, 0, vertical: 1), 0.1).Movement.Mode);
+        Assert.False(motion.Flying);
+
+        // It lands from the thirty it was held at, not from the ninety it once reached, and that is a fall past the
+        // threshold.
+        MovementOutcome landed = motion.Admit(Step(from: new Vector3(0, 30, 0), to: Vector3.Zero, peakHeight: 30));
+        Assert.True(landed.Fall.PastThreshold);
+        Assert.Equal(30d, landed.Fall.Distance, 4);
+    }
+
+    [Fact]
+    public void A_flying_party_at_its_ceiling_rises_no_further_but_may_still_sink()
+    {
+        FlightSwitch rule = new() { MayFly = true };
+        PartyPoseOwner party = PartyAt(0, 0, 100);
+        PartyMotion motion = new(party, Space, new MovementTuning(default, new FallPolicy(10, 1), flight: Flight), flight: rule);
+
+        // In the air under a flight, a rise takes the party into flight, and at the ceiling it asks for no height.
+        CharacterControllerCommand atCeiling = motion.Command(new MovementIntent(0, 0, vertical: 1), 0.1);
+        Assert.Equal(CharacterMovementMode.Flying, atCeiling.Movement.Mode);
+        Assert.Equal(0f, atCeiling.Movement.VerticalIntent);
+        Assert.Equal(-1f, motion.Command(new MovementIntent(0, 0, vertical: -1), 0.1).Movement.VerticalIntent);
+
+        // A profile without flight never flies, whatever the rule says.
+        PartyMotion grounded = new(PartyAt(0, 0, 0), Space, new MovementTuning(default, new FallPolicy(10, 1)), flight: rule);
+        Assert.False(grounded.MayFly);
+        Assert.Equal(CharacterMovementMode.Walking, grounded.Command(new MovementIntent(0, 0, vertical: 1), 0.1).Movement.Mode);
     }
 
     [Fact]

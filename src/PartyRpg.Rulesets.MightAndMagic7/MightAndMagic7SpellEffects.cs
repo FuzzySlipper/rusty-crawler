@@ -291,6 +291,7 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     {
         ArgumentNullException.ThrowIfNull(advance);
         Regenerate(advance);
+        DrainFlight(advance);
         _running?.Observe(advance);
     }
 
@@ -329,6 +330,84 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
             if (member.Resources.HitPoints.Current > 0) member.Conditions.Clear(MightAndMagic7Conditions.Unconscious);
         }
     }
+
+    /// <summary>
+    /// Takes one spell point from whoever holds the party in the air for every five minutes of game time the advance
+    /// passed while the party was flying.
+    /// </summary>
+    /// <remarks>
+    /// The donor counts the five-minute boundaries the clock crossed and takes that many points from the flight's caster
+    /// while the party is flying, never below nothing, and never at grand master
+    /// (<c>OpenEnroth/src/Engine/Engine.cpp:1236</c>, <c>:1286-1294</c>). Here the caster carries the flight, its
+    /// magnitude is what each five minutes costs them — nothing at grand master — and the advance is counted on the
+    /// calendar's own boundaries up to the flight's own deadline, as a regeneration is. A party standing on the ground
+    /// with a flight running pays nothing, as the donor's does. A caster drained dry no longer keeps the party up, which
+    /// the flight rule reads at the next step.
+    /// </remarks>
+    private void DrainFlight(ClockAdvance advance)
+    {
+        if (_running is not { } running || _clock is not { } clock || !advance.Moved) return;
+        if (_world()?.Mover is not { Flying: true }) return;
+        foreach (RunningSpellEffect effect in running.RunningOnMembers)
+        {
+            if (effect.Effect != SpellEffectIds.Fly || effect.Magnitude <= 0 || effect.Member is not { } id) continue;
+            if (!running.Party.TryMember(id, out PartyMember? caster) || caster is null) continue;
+
+            long ticks = clock.Calendar.Boundaries(advance.From, advance.To, FlightDrainInterval);
+            if (effect.EndsAt is { } ends) ticks = Math.Min(ticks, clock.Calendar.Boundaries(advance.From, ends, FlightDrainInterval));
+            if (ticks <= 0) continue;
+
+            int drained = (int)Math.Min(caster.Resources.SpellPoints.Current, ticks * effect.Magnitude);
+            caster.Resources.TrySpendSpellPoints(drained);
+        }
+    }
+
+    /// <summary>
+    /// Leaves a flight on its caster, ending any other flight the party carries.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The donor's flight is one party buff naming its caster, lasting an hour a level, and free of its drain at grand
+    /// master (<c>OpenEnroth/src/Engine/Spells/CastSpellInfo.cpp:1154-1171</c>). Here the caster carries it, so the
+    /// flight and whoever pays for it are one fact: its magnitude is the spell points each five minutes in the air
+    /// costs them, one below grand master and nothing at it, and a caster the game lays out carries nothing, so the
+    /// party comes down with them. A second casting replaces the first, as the donor's one buff does, so the party
+    /// carries one flight and one caster pays.
+    /// </para>
+    /// <para>
+    /// The spell leaves the party able to fly and does not lift it: the party rises when it asks to, which is the
+    /// donor's own shape.
+    /// </para>
+    /// </remarks>
+    private SpellApplicationOutcome Fly(SpellApplication application, SessionWorld world)
+    {
+        if (Ledger is not { } running) return Unexpressed(application, "no party to carry a flight");
+        foreach (PartyMember member in application.Party.Members)
+        {
+            if (member.Id != application.Caster.Id) running.EndOn(member.Id, SpellEffectIds.Fly);
+        }
+
+        int level = _spells.LevelOf(application);
+        int mastery = MightAndMagic7Spells.MasteryOf(application.Caster, application.Spell);
+        int drain = mastery >= 4 ? 0 : 1;
+        GameDuration lasts = GameDuration.FromHours(level);
+        running.StartOn(application.Caster, SpellEffectIds.Fly, drain, lasts);
+        string cost = drain == 0
+            ? "for nothing"
+            : string.Create(CultureInfo.InvariantCulture, $"for {drain} spell point every five minutes in the air");
+        return Expressed(
+            application,
+            $"{application.Caster.Profile.Name} can hold the party in the air over {world.Graph.Require(world.Place).Name} {cost}, until the clock reaches the end of {Describe(lasts)}",
+            [
+                new SpellEffectFact("effect", SpellEffectIds.Fly.Value),
+                new SpellEffectFact("carried", application.Caster.Profile.Name),
+                new SpellEffectFact("drain", drain.ToString(CultureInfo.InvariantCulture)),
+                new SpellEffectFact("until", Moment(application, lasts)),
+            ]);
+    }
+
+    /// <summary>How often a flight costs its caster: every five minutes of game time, <c>Engine.cpp:1236</c>.</summary>
+    private static readonly GameDuration FlightDrainInterval = GameDuration.FromMinutes(5);
 
     /// <summary>How many times the party's own jump the donor's jump spell is: a thousand over five times ninety-six.</summary>
     private const double LeapMultiple = 1000.0 / (5 * 96);
@@ -805,6 +884,8 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
                 : Unexpressed(application, "the party is not standing on anything to leap from");
         }
 
+        if (reading.Travel == TravelShape.Flight) return Fly(application, world);
+
         if (reading.Travel == TravelShape.None || reading.Travel == TravelShape.Movement)
         {
             return Unexpressed(application, "a way of moving this build's mover does not have");
@@ -1192,6 +1273,16 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
                 : new Refusal(MightAndMagic7Codes.SpellAirborne, $"{application.Spell.Name} cannot be cast while the party is not standing on anything.");
         }
 
+        // Flight needs the open sky: the donor refuses it indoors (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:1156-1160),
+        // and so does this, before anything is paid.
+        if (reading.Travel == TravelShape.Flight)
+        {
+            PlaceDefinition here = world.Graph.Require(world.Place);
+            return here.Kind == PlaceKind.Interior
+                ? new Refusal(MightAndMagic7Codes.SpellIndoors, $"{application.Spell.Name} cannot be cast under a roof, and {here.Name} has one.")
+                : null;
+        }
+
         if (reading.Travel == TravelShape.Beacon && application.TargetName.Length == 0)
         {
             // Setting a beacon names no place: the party sets it where it stands.
@@ -1276,7 +1367,7 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         string.Equals(entity.Placement?.Content.Kind, kind, StringComparison.Ordinal);
 
     /// <summary>Whether a member is laid out, which is what a raising and a shared life both skip.</summary>
-    private static bool LaidOut(PartyMember member) =>
+    internal static bool LaidOut(PartyMember member) =>
         member.Conditions.Has(MightAndMagic7Conditions.Dead) ||
         member.Conditions.Has(MightAndMagic7Conditions.Petrified) ||
         member.Conditions.Has(MightAndMagic7Conditions.Eradicated);

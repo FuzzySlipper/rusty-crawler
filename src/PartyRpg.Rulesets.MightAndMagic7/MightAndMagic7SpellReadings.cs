@@ -44,11 +44,14 @@ internal enum TravelShape
     /// <summary>A party-carried beacon, set where the party stands and recalled to later.</summary>
     Beacon,
 
-    /// <summary>Flight, water-walking, or water-breathing: a way of moving this build's mover has not.</summary>
+    /// <summary>Water-walking or water-breathing: a way of moving this build's mover has not.</summary>
     Movement,
 
     /// <summary>A leap the party's mover takes from where it stands, which is the donor's jump.</summary>
     Leap,
+
+    /// <summary>A flight the caster holds the party in, which the party's mover asks the engine's flying mode for.</summary>
+    Flight,
 }
 
 /// <summary>What a detection spell reports over.</summary>
@@ -584,6 +587,9 @@ internal static class Readings
     /// <summary>A leap the party's mover takes from where it stands.</summary>
     internal static SpellReading Leap() => SpellReading.None with { Travel = TravelShape.Leap };
 
+    /// <summary>A flight the caster holds the party in, outdoors, for as long as it lasts and the caster can keep it up.</summary>
+    internal static SpellReading Flight() => SpellReading.None with { Travel = TravelShape.Flight };
+
     /// <summary>
     /// A way of moving this build's mover has not, named with the owner that would have it, and refused before it is
     /// paid for: a casting that took the points and moved nobody would be the worst of both.
@@ -592,10 +598,6 @@ internal static class Readings
     /// <param name="receiver">Which owner would make it possible.</param>
     internal static SpellReading Movement(string missing, string receiver) =>
         SpellReading.None with { Travel = TravelShape.Movement, Missing = missing, Receiver = receiver, NotApplied = true };
-
-    /// <summary>Who would make flight possible: the mover's own flying mode and the controls to rise and sink.</summary>
-    internal const string FlightReceiver =
-        "the party's mover, which walks, falls, and leaps: the engine's controller has a flying mode the mover does not ask for yet, and the host declares no controls to rise and sink";
 
     /// <summary>Who would make water something a party walks over or under: ground the mover can tell is water.</summary>
     internal const string WaterReceiver =
@@ -722,6 +724,12 @@ internal static class SpellEffectIds
 
     /// <summary>Pain Reflection, which turns the harm a character takes back onto whoever dealt it.</summary>
     internal static readonly EffectId PainReflection = new("spell.pain-reflection");
+
+    /// <summary>
+    /// Fly, carried by the character who cast it: while anybody carries it the party may fly, and its magnitude is the
+    /// spell points that character pays for every five minutes the party spends in the air.
+    /// </summary>
+    internal static readonly EffectId Fly = new("spell.fly");
 
     /// <summary>Feather fall, which the party carries and which spares every member a fall's harm.</summary>
     internal static readonly EffectId FeatherFall = new("spell.feather-fall");

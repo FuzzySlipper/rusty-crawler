@@ -21,6 +21,10 @@ public readonly record struct MovementIntent
     /// <param name="jumpPressed">Whether a jump began in this step, which the engine buffers rather than dropping.</param>
     /// <param name="jumpHeld">Whether the jump control is held, which the tuning decides to honour or not.</param>
     /// <param name="crouch">Whether the party asked to crouch.</param>
+    /// <param name="vertical">
+    /// Rise or sink input: <c>1</c> is full up, <c>-1</c> full down, <c>0</c> neither. It moves a party only
+    /// while the party is flying; on foot it asks for nothing.
+    /// </param>
     /// <exception cref="ArgumentOutOfRangeException">The turn rate is not a number.</exception>
     public MovementIntent(
         double forward,
@@ -28,7 +32,8 @@ public readonly record struct MovementIntent
         double turnRate = 0,
         bool jumpPressed = false,
         bool jumpHeld = false,
-        bool crouch = false)
+        bool crouch = false,
+        double vertical = 0)
     {
         if (!double.IsFinite(turnRate))
         {
@@ -47,6 +52,7 @@ public readonly record struct MovementIntent
         JumpPressed = jumpPressed;
         JumpHeld = jumpHeld;
         Crouch = crouch;
+        Vertical = Clamp(NonFiniteToZero(vertical));
     }
 
     /// <summary>Walk input, from full back at <c>-1</c> to full forward at <c>1</c>.</summary>
@@ -67,6 +73,13 @@ public readonly record struct MovementIntent
     /// <summary>Whether the party asked to crouch.</summary>
     public bool Crouch { get; }
 
+    /// <summary>Rise or sink input, from full down at <c>-1</c> to full up at <c>1</c>.</summary>
+    /// <remarks>
+    /// It is a fraction of the flight speed the tuning states, exactly as walking is a fraction of the walk speed,
+    /// and it is clamped for the same reason: the engine refuses a vertical intent outside the unit range.
+    /// </remarks>
+    public double Vertical { get; }
+
     /// <summary>An intent that asks for nothing: the party stands, and the engine still settles it.</summary>
     public static MovementIntent Still => default;
 
@@ -77,7 +90,7 @@ public readonly record struct MovementIntent
     /// nothing still has to be solved: gravity keeps pulling it, a ledge it walked off still has to land,
     /// and a moving platform under it still has to carry it, and all three belong to the engine.
     /// </remarks>
-    public bool IsStill => Forward == 0 && Strafe == 0 && TurnRate == 0 && !JumpPressed && !JumpHeld && !Crouch;
+    public bool IsStill => Forward == 0 && Strafe == 0 && TurnRate == 0 && !JumpPressed && !JumpHeld && !Crouch && Vertical == 0;
 
     private static double Clamp(double value) => value switch
     {

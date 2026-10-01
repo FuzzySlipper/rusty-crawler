@@ -217,7 +217,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule
         Entry(18, [10, 10, 10, 10], [100, 100, 90, 70], 0, 8, 2, SpellTargeting.Foe, SpellEffects.Damage),   // Lightning Bolt
         Entry(19, [15, 15, 15, 15], [200, 200, 200, 200], 0, 0, 3, SpellTargeting.Party, SpellEffects.Utility, Readings.Buff(SpellEffectIds.Invisibility, WardFormulas.LevelPlus(3, 0), WardFormulas.TenMinutesPerLevel)),   // Invisibility
         Entry(20, [20, 20, 20, 20], [100, 100, 100, 90], 10, 10, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Implosion
-        Entry(21, [25, 25, 25, 25], [250, 250, 250, 250], 0, 0, 3, SpellTargeting.Party, SpellEffects.Travel, Readings.Movement("flight over what the party could not walk across", Readings.FlightReceiver)),   // Fly
+        Entry(21, [25, 25, 25, 25], [250, 250, 250, 250], 0, 0, 3, SpellTargeting.Party, SpellEffects.Travel, Readings.Flight().Coarser("a flight carried by its caster: while it runs the party's mover asks the engine's flying mode whenever the party rises, or sinks off the ground, and walks again when it lands (OpenEnroth src/Engine/Graphics/Outdoor.cpp:950-953, 998-1018, 1212-1228), at four times the walk, the donor's rise, sink and running flight (:1013, :1119, :1223), up to the donor's ceiling of 4000 (src/Application/GameConfig.h:214), for an hour a level, and refused indoors before it is paid for (src/Engine/Spells/CastSpellInfo.cpp:1154-1171); below grand master the caster pays a spell point for every five minutes the party spends in the air (src/Engine/Engine.cpp:1286-1296), and a flight that ends or runs dry in the air drops the party under this game's fall rule from the height it ended at (Outdoor.cpp:1250); the donor keeps a party hovering over an empty caster until a flight key is pressed and bobs it in the air, neither of which is kept, a second casting replaces the first's caster as the donor's one buff does, and how fast the party reaches its flight speed is ours")),   // Fly
         Entry(22, [30, 30, 30, 30], [90, 90, 90, 90], 20, 1, 4, SpellTargeting.Foe, SpellEffects.Damage),   // Starburst
         Entry(23, [1, 1, 1, 1], [60, 60, 60, 20], 0, 0, 1, SpellTargeting.Ally, SpellEffects.Condition, Readings.Cure(MightAndMagic7Conditions.Sleep)),   // Awaken
         Entry(24, [2, 2, 2, 2], [110, 100, 90, 70], 2, 2, 1, SpellTargeting.Foe, SpellEffects.Damage),   // Poison Spray
@@ -809,6 +809,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule
             {
                 TravelShape.Beacon => "a beacon set in the party's own carried state and recalled through the world's own transition path",
                 TravelShape.Leap => "a leap the party's mover takes from where it stands",
+                TravelShape.Flight => "a flight carried by its caster, which the party's mover flies by while it runs",
                 _ => "a portal taken through the world's own transition path, charged by the world's own cost rule",
             },
             SpellEffects.Detection => "a report read from the places and the population the world holds",

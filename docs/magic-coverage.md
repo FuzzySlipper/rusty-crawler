@@ -130,10 +130,10 @@ the shipped `POTION.TXT` states what each potion is for in words and no numbers 
 | resistance | 9 | 1 | 0 | 10 |
 | condition | 17 | 2 | 0 | 19 |
 | light | 1 | 0 | 0 | 1 |
-| travel | 3 | 1 | 2 | 6 |
+| travel | 3 | 2 | 1 | 6 |
 | detection | 3 | 0 | 0 | 3 |
 | utility | 8 | 2 | 9 | 19 |
-| **all** | **80** | **8** | **11** | **99** |
+| **all** | **80** | **9** | **10** | **99** |
 
 ## Every spell
 
@@ -162,7 +162,7 @@ master, and four grand master.
 | 18 | damage | 2 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 19 | utility | 3 | party | implemented | a party-carried effect read by the fight's own resolution |  |
 | 20 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
-| 21 | travel | 3 | party | not yet | flight over what the party could not walk across | the party's mover, which walks, falls, and leaps: the engine's controller has a flying mode the mover does not ask for yet, and the host declares no controls to rise and sink |
+| 21 | travel | 3 | party | approximated | a flight carried by its caster: while it runs the party's mover asks the engine's flying mode whenever the party rises, or sinks off the ground, and walks again when it lands (OpenEnroth src/Engine/Graphics/Outdoor.cpp:950-953, 998-1018, 1212-1228), at four times the walk, the donor's rise, sink and running flight (:1013, :1119, :1223), up to the donor's ceiling of 4000 (src/Application/GameConfig.h:214), for an hour a level, and refused indoors before it is paid for (src/Engine/Spells/CastSpellInfo.cpp:1154-1171); below grand master the caster pays a spell point for every five minutes the party spends in the air (src/Engine/Engine.cpp:1286-1296), and a flight that ends or runs dry in the air drops the party under this game's fall rule from the height it ended at (Outdoor.cpp:1250); the donor keeps a party hovering over an empty caster until a flight key is pressed and bobs it in the air, neither of which is kept, a second casting replaces the first's caster as the donor's one buff does, and how fast the party reaches its flight speed is ours |  |
 | 22 | damage | 4 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 23 | condition | 1 | ally | implemented | the named conditions lifted through the member's own condition state |  |
 | 24 | damage | 1 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |

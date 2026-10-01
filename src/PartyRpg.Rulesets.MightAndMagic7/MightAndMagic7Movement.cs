@@ -1,6 +1,7 @@
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Sessions;
+using PartyRpg.Kit.World;
 using Rusty.Engine;
 
 namespace PartyRpg.Rulesets.MightAndMagic7;
@@ -115,7 +116,47 @@ internal static class MightAndMagic7Movement
     /// </remarks>
     /// <param name="spatial">The engine service whose default controller profile this game's profile is scaled from.</param>
     internal static MovementTuning Tuning(ISpatialService spatial) =>
-        new(Controller(spatial), new FallPolicy(FallThreshold, damagePerUnit: 0));
+        new(Controller(spatial), new FallPolicy(FallThreshold, damagePerUnit: 0), flight: Flight());
+
+    /// <summary>How many times the walk a flying party moves: the donor's rise, sink, and running flight.</summary>
+    /// <remarks>
+    /// OpenEnroth sets a rise and a sink to four times the walk (<c>src/Engine/Graphics/Outdoor.cpp:1013</c>,
+    /// <c>:1223</c>) and a flying party running forward or back to four times its walk (<c>:1119</c>, <c>:1160</c>).
+    /// The engine's flying mode bounds every direction by one speed, so this one value is all of them.
+    /// </remarks>
+    internal const double FlightSpeedMultiple = 4;
+
+    /// <summary>The height a flying party rises no higher than, in place units (donor default).</summary>
+    /// <remarks>OpenEnroth <c>src/Application/GameConfig.h:214</c>, <c>max_flight_height</c>, 4000.</remarks>
+    internal const double FlightCeiling = 4000;
+
+    /// <summary>How long a flying party takes to reach its flight speed from a hover, in seconds (ours).</summary>
+    internal const double FlightSpeedUpSeconds = 0.1;
+
+    /// <summary>
+    /// The flight profile: the donor's flying speed and ceiling, reached in a tenth of a second, and kept without drag.
+    /// </summary>
+    /// <remarks>
+    /// The donor sets a flying party's speed outright each frame, so there is no donor acceleration to take; the
+    /// engine's flying mode accelerates toward the speed asked for, and a tenth of a second to get there — near the
+    /// donor's at once without a jolt — is ours. No drag, because the donor's flying party stops when its keys are
+    /// released and the acceleration already brakes it.
+    /// </remarks>
+    private static FlightTuning Flight() =>
+        new(
+            speed: WalkSpeed * FlightSpeedMultiple,
+            acceleration: WalkSpeed * FlightSpeedMultiple / FlightSpeedUpSeconds,
+            drag: 0,
+            ceiling: FlightCeiling);
+
+    /// <summary>
+    /// Whether this game's party may fly now: somebody standing carries a flight they can still pay for, and the party
+    /// stands under the open sky.
+    /// </summary>
+    /// <param name="party">The party whose members carry a flight, or null for a world without one.</param>
+    /// <param name="graph">The places, which say whether the party's place has a roof.</param>
+    /// <param name="pose">The party's pose, which says which place it stands in now.</param>
+    internal static IFlightRule FlightRule(PartyEntity? party, PlaceGraph graph, PartyPoseOwner pose) => new Flying(party, graph, pose);
 
     /// <summary>The engine's default controller profile, expressed for this game's party.</summary>
     /// <remarks>
@@ -201,6 +242,41 @@ internal static class MightAndMagic7Movement
     /// </summary>
     /// <remarks>Ours: no donor states a steering distance, and these are the values the kit used to assume.</remarks>
     internal static PlaceNavigationPolicy Navigation { get; } = new(GridId: 0, ChunkSize: 16, MaxStepCells: 4, SteeringStep: 512, SteeringBudget: 1024);
+
+    /// <summary>
+    /// The donor's flight conditions: the flight runs, the place has no roof, and its caster can keep paying.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The donor flies only while its flight buff runs (OpenEnroth <c>src/Engine/Graphics/Outdoor.cpp:960-964</c>),
+    /// never indoors (<c>src/Engine/Graphics/Indoor.cpp:1451</c>), and takes off or keeps flying on a key only while
+    /// the caster has spell points left or the flight was cast at grand master (<c>Outdoor.cpp:1000-1004</c>,
+    /// <c>:1215-1218</c>). Here the caster carries the flight and its magnitude is what it costs them, so a flight
+    /// that costs nothing needs nothing in the pool. A caster the game has laid out holds nobody up.
+    /// </para>
+    /// <para>
+    /// <b>An adaptation, stated.</b> The donor's party with an empty caster hovers until a flight key is pressed; here
+    /// it comes down at the next step, under the fall rule.
+    /// </para>
+    /// </remarks>
+    private sealed class Flying(PartyEntity? party, PlaceGraph graph, PartyPoseOwner pose) : IFlightRule
+    {
+        public bool MayFly
+        {
+            get
+            {
+                if (party is null || graph.Find(pose.Place) is not { Kind: not PlaceKind.Interior }) return false;
+                foreach (PartyMember member in party.Members)
+                {
+                    if (!member.Effects.Has(SpellEffectIds.Fly) || MightAndMagic7SpellEffects.LaidOut(member)) continue;
+
+                    if (member.Effects.MagnitudeOf(SpellEffectIds.Fly) == 0 || member.Resources.SpellPoints.Current > 0) return true;
+                }
+
+                return false;
+            }
+        }
+    }
 
     /// <summary>
     /// The donor's fall damage: the whole distance fallen, times a tenth of the member's maximum health, over
