@@ -718,6 +718,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
             "steal",
             SubjectShape.Lot,
             ForMember: true,
+            NeedsAccounts: true,
             Unpriced: true,
             // What comes of a theft is drawn before anything moves, because being seen is chance: the draw is the
             // judgement, and once it is drawn what it yields and what it costs cannot be refused.

@@ -94,7 +94,7 @@ internal sealed class SessionActs(SessionOwners owners, SessionControls controls
 
     /// <summary>
     /// Has one member try to lift what the person the party is speaking with carries, through the service
-    /// mechanism's theft, and answers a thief who was seen.
+    /// mechanism's theft, and answers a hand that was seen.
     /// </summary>
     /// <remarks>
     /// A person who caught a hand in their purse does not go on talking: the conversation ends, and the person is put

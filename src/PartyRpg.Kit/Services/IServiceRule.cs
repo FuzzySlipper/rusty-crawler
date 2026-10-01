@@ -166,7 +166,7 @@ public interface IServiceRule
     Refusal? JudgeTheft(ServiceTheftRequest request);
 
     /// <summary>
-    /// Draws what one theft comes to: whether the thief is seen, what comes away, the fine, the deed the world
+    /// Draws what one theft comes to: whether the hand is seen, what comes away, the fine, the deed the world
     /// hears of, and how long a counter bars the party. It is asked once, when the theft is carried out.
     /// </summary>
     /// <param name="request">The counter and the line reached for, or the person, with the member and the party.</param>

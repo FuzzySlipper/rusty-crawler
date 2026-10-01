@@ -217,7 +217,7 @@ internal sealed class MightAndMagic7Theft
             return new Refusal(MightAndMagic7Codes.TheftNobodyToRob, "Nobody the party stands with carries a purse a hand could reach.");
         }
 
-        PartyMember thief = request.Party.Member(request.Thief);
+        PartyMember thief = request.Party.Member(request.Member);
         if (!thief.Skills.Knows(Stealing) || thief.Skills.LevelOf(Stealing) < 1)
         {
             return new Refusal(MightAndMagic7Codes.TheftNoSkill, $"{thief.Profile.Name} has not learned to steal.");
@@ -247,7 +247,7 @@ internal sealed class MightAndMagic7Theft
             return ServiceTheft.Refused(new Refusal(MightAndMagic7Codes.TheftNotAShop, $"{request.Service!.Describe()} was not asked for a line of its shelves."));
         }
 
-        PartyMember thief = request.Party.Member(request.Thief);
+        PartyMember thief = request.Party.Member(request.Member);
         KeyedRolls rolls = Rolls($"counter/{request.Service!.Id}/{thief.Id}", request.Clock);
         int reach = Reach(thief, rolls);
         long cost = Math.Max(0, (100L * (Standing(request.Party) + BaseFine(place))) + worth);
@@ -308,7 +308,7 @@ internal sealed class MightAndMagic7Theft
         ArgumentNullException.ThrowIfNull(request);
         if (Judge(request) is { } refused) return ServiceTheft.Refused(refused);
         PlacementDefinition person = request.Person!;
-        PartyMember thief = request.Party.Member(request.Thief);
+        PartyMember thief = request.Party.Member(request.Member);
         string name = thief.Profile.Name;
         string key = $"{request.Place}/{person.Content}";
         KeyedRolls rolls = Rolls($"person/{key}/{thief.Id}", request.Clock);

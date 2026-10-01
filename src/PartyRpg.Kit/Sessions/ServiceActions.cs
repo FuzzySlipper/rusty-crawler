@@ -98,7 +98,7 @@ public static class ServiceActions
 
     /// <summary>Tries to take a line off the shelves without paying, carrying the lot and the member who tries.</summary>
     /// <remarks>
-    /// The member is carried because a theft is one character's hand, and how good a thief that character is
+    /// The member is carried because a theft is one character's hand, and how good at stealing that character is
     /// decides what the counter sees; the screen offers the act to the members the product published as able to
     /// try, and the mechanism judges and draws the rest.
     /// </remarks>

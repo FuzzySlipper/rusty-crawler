@@ -223,6 +223,6 @@ public sealed record ConversationSnapshot(
             ("handoff", builder.String(Handoff)),
             ("topic", builder.String(Topic)),
             // Who could try to lift what the person carries is the product's answer, published whole, so a screen
-            // offers the act to exactly those members and decides nothing about who is a thief.
+            // offers the act to exactly those members and decides nothing about who may steal.
             ("thieves", builder.Array([.. Thieves.Select(member => member.Write(builder))])));
 }

@@ -209,7 +209,7 @@ public sealed class PartyProgression
     /// <remarks>
     /// <para>
     /// <b>A deed is an award of nothing that is still news.</b> <see cref="Award"/> refuses an award of nothing,
-    /// because dividing nothing among the party is not an award; but a thief caught at a counter, a sacrifice, or a
+    /// because dividing nothing among the party is not an award; but a hand caught at a counter, a sacrifice, or a
     /// worthless death a game still counts against the party is something the world hears of without anybody
     /// earning experience for it. This is that entry: nothing is divided and nobody's experience moves, and the
     /// rule is asked what the deed does to the party's standing exactly as it is asked about an award — under the

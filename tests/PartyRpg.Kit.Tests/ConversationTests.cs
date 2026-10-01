@@ -389,7 +389,7 @@ public sealed class ConversationTests
         TestServiceRule services = new()
         {
             // The first member's hand goes unseen and lifts seven coins; the second's is seen and fined.
-            Theft = request => request.Thief == seen
+            Theft = request => request.Member == seen
                 ? ServiceTheft.Tried(true, false, 0, null, false, 40, "fine", "seen", GameDuration.None, "Simon is seen.")
                 : ServiceTheft.Tried(false, false, 7, null, false, 0, "fine", "lifted", GameDuration.None, "Mira lifts seven coins."),
         };

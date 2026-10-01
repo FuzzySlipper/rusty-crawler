@@ -74,8 +74,4 @@ public static class ServiceCodes
     public const string ServiceOperationUnavailable = "service-operation-unavailable";
 
     /// <summary>The refusal code <c>service-out-of-stock</c>.</summary>
-    public const string ServiceOutOfStock = "service-out-of-stock";
-
-    /// <summary>The refusal code <c>service-theft-unanswered</c>.</summary>
-    public const string ServiceTheftUnanswered = "service-theft-unanswered";
-}
+    public const string ServiceOutOfStock = "service-out-of-stock";}

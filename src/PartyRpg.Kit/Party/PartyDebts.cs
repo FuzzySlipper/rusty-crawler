@@ -25,7 +25,7 @@ public readonly record struct PartyBan(string Counter, long UntilMilliseconds);
 /// it. No clock ends a debt and nothing that ends a spell touches it.
 /// </para>
 /// <para>
-/// The writers are the owners that charge the party — a game's rule for a crime, a counter that catches a thief —
+/// The writers are the owners that charge the party — a game's rule for a crime, a counter that catches a hand on its shelf —
 /// and the service mechanism's repayment, which is the one way a debt goes down. How much any of them is worth,
 /// and which counter collects it, are a game's answers.
 /// </para>
