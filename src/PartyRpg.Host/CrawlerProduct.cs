@@ -51,6 +51,7 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
     private readonly SkillRaiseIntentNames _skills;
     private readonly CastIntentNames _cast;
     private readonly MixIntentNames _mix;
+    private readonly EquipIntentNames _equip;
     private readonly RestIntentNames _rest;
     private readonly ConversationIntentNames _conversation;
     private readonly CombatIntentNames _combat;
@@ -132,6 +133,9 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
         // Mixing is one payload action and no key, for the same reason casting is two: which two of the things
         // the party carries a player put together is what the pack screen's own rows name.
         _mix = new MixIntentNames(ProductIdentity.UiActionContract);
+        // Putting something on and taking it off are payload actions and no key, for the same reason: which member
+        // and which of the things the party carries are what the figure screen's own rows name.
+        _equip = new EquipIntentNames(ProductIdentity.UiActionContract);
         // The act control is one intent and one action, because the act is one act: what a member does with
         // it is the ruleset's answer about that member, and a player presses the same control for a spell, a
         // shot, or a swing. The pace controls travel with it, because a paced fight is the same fight: one
@@ -307,7 +311,8 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
                 Cast: _cast,
                 Mix: _mix,
                 Keys: _keys,
-                Interaction: _interaction);
+                Interaction: _interaction,
+                Equip: _equip);
 
             // The start switch travels with the context and is answered at the ruleset's one composition
             // entry: a resumed run reads the save the slot holds and composes a session from it, and a slot

@@ -21,6 +21,7 @@ its own:
 | `overview.ts`, `details.ts` | The composition, session, world, movement, clock, party, save, interaction, and controls blocks, and the panel's head, fact rows, pause/save/use controls, accomplishments, and keyboard hint. |
 | `creation.ts`, `conversation.ts`, `service.ts`, `rest.ts`, `combat.ts` | Party creation, a conversation, a counter, the stops, and the fight. |
 | `progression.ts`, `promotion.ts`, `skills.ts`, `magic.ts` + `spellbook.ts`, `alchemy.ts` | Levels, ranks, skills, the spellbook and the magic the pack carries, and mixing. |
+| `equipment.ts` | What each member wears, the pack's wearable things, and the Equip and Take off controls; whether a change is allowed is the product's refusal. |
 | `quests.ts`, `journal.ts`, `map.ts` | The quests book, the other four books, and the automap. |
 | `styles.ts` | The stylesheet. |
 

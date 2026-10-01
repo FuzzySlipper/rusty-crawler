@@ -21,6 +21,7 @@ import { mountConversation } from './conversation.js';
 import { mountCreation } from './creation.js';
 import { mountDetails } from './details.js';
 import { element, type Host } from './dom.js';
+import { mountEquipment } from './equipment.js';
 import { mountJournal } from './journal.js';
 import { mountMap } from './map.js';
 import { mountProgression } from './progression.js';
@@ -99,6 +100,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   const skills = mountSkills(host);
   const spellbook = mountSpellbook(host);
   const alchemy = mountAlchemy(host);
+  const equipment = mountEquipment(host);
   const map = mountMap(host);
   const journal = mountJournal(host);
   const quests = mountQuests(host);
@@ -123,6 +125,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     skills.element,
     spellbook.element,
     alchemy.element,
+    equipment.element,
     details.awards,
     map.element,
     journal.element,
@@ -158,6 +161,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     skills.render(snapshot.skills);
     spellbook.render(snapshot.magic);
     alchemy.render(snapshot.alchemy);
+    equipment.render(snapshot.equipment);
     map.render(snapshot.map);
     // The books first, so the quests book's own title and state sentence are the product's words, and then the
     // quests book draws its errands underneath them.

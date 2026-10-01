@@ -45,5 +45,6 @@ public static class SessionSnapshots
         QuestSnapshot.None,
         JournalSnapshot.None,
         MapSnapshot.None,
-        ControlKeys.None);
+        ControlKeys.None,
+        EquipmentSnapshot.None);
 }

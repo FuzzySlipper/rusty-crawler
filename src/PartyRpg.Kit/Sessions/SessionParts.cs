@@ -82,6 +82,9 @@ public sealed record SessionRules
 
     /// <summary>The answers about the automap, with the places' own maps.</summary>
     public MapRules? Map { get; init; }
+
+    /// <summary>The game's figure: the places a character wears things in, and which an item may go to.</summary>
+    public IEquipmentFigure? Equipment { get; init; }
 }
 
 /// <summary>A game's answers about growth, and the ladder of ranks it states.</summary>
@@ -197,6 +200,9 @@ public sealed record SessionControls
 
     /// <summary>The mixing control.</summary>
     public MixIntentNames? Mix { get; init; }
+
+    /// <summary>The equipment control: putting things on members and taking them off.</summary>
+    public EquipIntentNames? Equip { get; init; }
 
     /// <summary>
     /// The keys the host bound its controls to, as a person reads them, which the session publishes beside each

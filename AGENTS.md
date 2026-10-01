@@ -131,8 +131,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   region-to-region reach cannot be walked (#8713); creatures cannot path around a wall because places carry
   no navigation cells (#8665).
 - Stone 4, party: a scenario cannot choose between creation and its own party (#8589); both creation paths
-  proved to compose the same owners (#8688); what a member wears is not read into combat and cannot be
-  changed in play (#9005).
+  proved to compose the same owners (#8688).
 - Stone 5, interaction and services: opened doors and emptied containers are not saved (#8593), and a
   searched chest can be looted twice (#8696); a door's collision does not move when it opens (#8594); a
   container above or below the floor cannot be used (#8697); deadlines (fatigue, wards, light, haste) block

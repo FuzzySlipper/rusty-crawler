@@ -39,6 +39,7 @@ internal sealed class SessionActs(SessionOwners owners, SessionControls controls
     private readonly SkillRaiseInput? _raise = controls.Skills is { } skills ? new SkillRaiseInput(skills) : null;
     private readonly CastInput? _cast = controls.Cast is { } cast ? new CastInput(cast) : null;
     private readonly MixInput? _mix = controls.Mix is { } mix ? new MixInput(mix) : null;
+    private readonly EquipInput? _equip = controls.Equip is { } equip ? new EquipInput(equip) : null;
     private readonly ConversationHandoffRouter _router = new(owners);
 
     private SessionDiagnostics Report => owners.Diagnostics;
@@ -239,6 +240,34 @@ internal sealed class SessionActs(SessionOwners owners, SessionControls controls
 
             MixingResult result = mixing.Mix(new MixingRequest(request.Member, request.First, request.Second));
             Report.Report(result.IsMixed, "alchemy", result.Code, result.Message);
+        }
+    }
+
+    /// <summary>Applies the equipment changes this update carried through the party's own equip and unequip.</summary>
+    /// <param name="input">The update's admitted input.</param>
+    /// <param name="allowed">Whether a change may be applied, which a screen owning the controls forbids.</param>
+    /// <remarks>
+    /// A change is an instant: the party moves the item and the game's use rule judges it, and what a member then
+    /// wears is what the fight reads at that member's next blow. A refusal leaves the figure exactly as it was.
+    /// </remarks>
+    public void Equip(ActionInbox input, bool allowed)
+    {
+        if (_equip is null || owners.Outfitting is not { } outfitting) return;
+        foreach (EquipRequest request in _equip.Read(input))
+        {
+            if (!allowed)
+            {
+                Report.Refused(
+                    "equipment",
+                    "equipment-screen-open",
+                    "A change of equipment arrived while a screen owned the player's controls, so nothing was put on or taken off.");
+                continue;
+            }
+
+            OutfittingResult result = request.Unequip
+                ? outfitting.Unequip(request.Member, request.Slot!.Value)
+                : outfitting.Equip(request.Member, request.Item!.Value, request.Slot);
+            Report.Report(result.Changed, "equipment", result.Code, result.Message);
         }
     }
 }

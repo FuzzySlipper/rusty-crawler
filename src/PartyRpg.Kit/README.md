@@ -156,7 +156,11 @@ the minting of durable identities in
 `PartyIdentitySource`, and `PartyEntityFactory`, which builds a party from creation or from a `PartySave`
 and is the only code that attaches a party component, with the one item rule it composes arriving as
 `IEquipmentUseRule` — what may be worn is the ruleset's answer over content and tuning, never a skill name
-or a slot name in the kit), the party's owned resources (`PartyResourceLedger`, the
+or a slot name in the kit), the one way a player changes what a member wears (`PartyOutfitting`, over a game's
+`IEquipmentFigure` — its slots in the order a screen draws them and the slots one item is shaped for — which
+fills the slot a request names or the figure's best free one through `PartyEntity.Equip` and `Unequip`, keeps the
+answer the last request got, and is reached by the `party.equip` and `party.unequip` actions (`EquipActions`)
+and published as the `equipment` block (`EquipmentSnapshot`)), the party's owned resources (`PartyResourceLedger`, the
 one path that settles a `PartyCost` against the purse and the larder whole or not at all — refusing with
 every shortfall named rather than overdrawing the purse — credits the same two accounts, and spends a
 travelling or camping day as a `ProvisionDay`, priced by a ruleset's `IProvisionDayRule`, with `ResourceSettlement` as the

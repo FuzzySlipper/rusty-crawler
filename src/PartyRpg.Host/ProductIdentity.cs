@@ -239,6 +239,19 @@ internal static class ProductIdentity
     internal const string MixAction = AlchemyActions.Mix;
 
     /// <summary>
+    /// The payload action name that puts one of the party's things on a member, sent by the DOM companion's
+    /// figure rows on the UI action contract.
+    /// </summary>
+    /// <remarks>
+    /// A change of equipment names a member and an item — a drag onto the figure in the original — so it is a
+    /// payload action rather than a key, for the same reason mixing is.
+    /// </remarks>
+    internal const string EquipAction = EquipActions.Equip;
+
+    /// <summary>The payload action name that takes what a member's slot holds back into the shared pack.</summary>
+    internal const string UnequipAction = EquipActions.Unequip;
+
+    /// <summary>
     /// The payload action name that asks the live session to spend a member's skill points on a raise, sent
     /// by the DOM companion's skills rows on the UI action contract.
     /// </summary>

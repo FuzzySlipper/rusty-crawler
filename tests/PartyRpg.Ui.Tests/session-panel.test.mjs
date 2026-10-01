@@ -684,6 +684,9 @@ function snapshot(mode, seconds = 0, steps = 0, _updates = 0, facts = undefined,
   // The alchemy block is published on the same terms: a case that asks for none covers a projection whose
   // ruleset stated no mixtures.
   if (blocks?.alchemy !== undefined) value.alchemy = blocks.alchemy;
+  // The equipment block is published on the same terms: a case that asks for none covers a projection whose
+  // ruleset stated no figure.
+  if (blocks?.equipment !== undefined) value.equipment = blocks.equipment;
   // The quests block is published in every mode too, so a case that asks for none covers a projection whose
   // ruleset stated no quests at all.
   if (blocks?.quests !== undefined) value.quests = blocks.quests;
@@ -4274,6 +4277,7 @@ test('every hand-written block this suite publishes is one the readers read with
     skills: skills(),
     magic: magic(),
     alchemy: alchemy(),
+    equipment: equipment(),
     quests: quests(),
     journal: journal(),
     map: automap(),
@@ -4285,5 +4289,101 @@ test('every hand-written block this suite publishes is one the readers read with
     ['the accepted party', snapshot('running', 1, 60, 60, movement(), { ...blocks, creation: acceptedParty() })],
   ]) {
     assert.deepEqual(readSnapshot(published).problems, [], `${name} has a field the readers do not read`);
+  }
+});
+
+/** A figure block as the product publishes it: one armed member, one bare one, and two things in the pack. */
+function equipment(overrides = {}) {
+  return {
+    available: true,
+    slots: ['off hand', 'main hand', 'bow', 'armour'],
+    members: [
+      { index: 0, member: '1', name: 'Roderick', worn: [{ slot: 'main hand', item: '21', definition: '1', name: 'Crude Longsword' }] },
+      { index: 1, member: '2', name: 'Aelina', worn: [] },
+    ],
+    items: [
+      { item: '22', definition: '66', name: 'Leather Armor', slots: ['armour'] },
+      { item: '23', definition: '15', name: 'Dagger', slots: ['main hand', 'off hand'] },
+    ],
+    canEquip: true,
+    outcome: {
+      outcome: '',
+      code: '',
+      message: '',
+      member: 0,
+      wearer: '',
+      slot: '',
+      item: '',
+      itemName: '',
+      displaced: '',
+      displacedName: '',
+    },
+    ...overrides,
+  };
+}
+
+test('the panel shows what each member wears, sends the change a player pressed, and reads a refusal', () => {
+  const h = harness();
+  try {
+    mountProductUi(h.root, h.context);
+
+    // A session whose ruleset states no figure shows no equipment section at all.
+    h.emit(snapshot('running', 1, 60, 60, movement()));
+    assert.equal(h.panel().getAttribute('data-equipment'), 'none');
+    assert.equal(h.panel().querySelector('.crawler-equipment').hidden, true);
+
+    h.emit(snapshot('running', 2, 120, 121, movement(), { equipment: equipment() }));
+    const section = h.panel().querySelector('.crawler-equipment');
+    assert.equal(section.hidden, false);
+    assert.equal(section.querySelector('.crawler-equipment-state').textContent, '2 things in the pack to wear');
+
+    // Each figure as published: the slot's own word and the item's name, and a member who wears nothing says so.
+    const figures = [...section.querySelectorAll('.crawler-equipment-member')];
+    assert.deepEqual(
+      figures.map((figure) => [...figure.querySelectorAll('.crawler-row-label')].map((label) => label.textContent)),
+      [['Roderick', 'main hand: Crude Longsword'], ['Aelina wears nothing']],
+    );
+    assert.deepEqual(
+      [...section.querySelectorAll('.crawler-equipment-item .crawler-row-label')].map((label) => label.textContent),
+      ['Leather Armor · armour', 'Dagger · main hand or off hand'],
+    );
+
+    // Taking a thing off names the member and the slot; putting one on names the member chosen and the item.
+    section.querySelector('.crawler-unequip').dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
+    assert.deepEqual(h.claims.at(-1).value.data, { action: 'party.unequip', member: 0, slot: 'main hand' });
+    const row = section.querySelectorAll('.crawler-equipment-item')[0];
+    row.querySelector('.crawler-equipment-wearer').value = '1';
+    row.querySelector('.crawler-equip').dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
+    assert.deepEqual(h.claims.at(-1), {
+      intent: 'crawler.ui',
+      value: { kind: 'product-payload', contract: 'crawler.ui.action.v1', data: { action: 'party.equip', member: 1, item: '22' } },
+    });
+
+    // Whether the change was allowed is the product's answer, printed as it arrived.
+    h.emit(snapshot('running', 3, 180, 181, movement(), {
+      equipment: equipment({
+        outcome: {
+          outcome: 'refused',
+          code: 'equipment-skill-missing',
+          message: 'Aelina has not learned Leather, which is what a 66 needs before it can be worn or wielded.',
+          member: 1,
+          wearer: 'Aelina',
+          slot: '',
+          item: '',
+          itemName: '',
+          displaced: '',
+          displacedName: '',
+        },
+      }),
+    }));
+    assert.equal(h.panel().getAttribute('data-equipment-outcome'), 'refused');
+    assert.match(section.querySelector('.crawler-equipment-result').textContent, /has not learned Leather/);
+
+    // A projection that offers no change leaves the controls drawn and refused.
+    h.emit(snapshot('running', 4, 240, 241, movement(), { equipment: equipment({ canEquip: false }) }));
+    assert.equal(section.querySelector('.crawler-equip').disabled, true);
+    assert.equal(section.querySelector('.crawler-unequip').disabled, true);
+  } finally {
+    h.restore();
   }
 });

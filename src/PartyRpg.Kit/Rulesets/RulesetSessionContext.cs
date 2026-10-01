@@ -109,6 +109,11 @@ public enum SessionStart
 /// session still resolves and refuses castings and still publishes what the party can cast; no casting ever
 /// reaches it, which is what a product that offers no such control gets.
 /// </param>
+/// <param name="Equip">
+/// The equipment control the host declares, when it declares any, stated for the same reason and in the same
+/// shape as mixing: which payload contract a screen's put-on and take-off rows arrive on. Without it a session
+/// still publishes what each member wears and what the pack could be worn from; no change ever reaches it.
+/// </param>
 /// <param name="Keys">
 /// The keys the host bound its controls to, as a person reads them, when it bound any. The host is the only
 /// owner of which key presses which control, so it states them here and the session publishes them beside the
@@ -137,4 +142,5 @@ public sealed record RulesetSessionContext(
     CastIntentNames? Cast = null,
     MixIntentNames? Mix = null,
     ControlKeys? Keys = null,
-    InteractionSelection? Interaction = null);
+    InteractionSelection? Interaction = null,
+    EquipIntentNames? Equip = null);

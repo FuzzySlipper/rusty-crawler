@@ -6,6 +6,7 @@ using System.Xml.Linq;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Magic;
+using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
@@ -128,6 +129,8 @@ public sealed class ProjectionContractTests
         CastActions.Cast,
         CastActions.QuickSpell,
         AlchemyActions.Mix,
+        EquipActions.Equip,
+        EquipActions.Unequip,
         PartyRpg.Kit.Progression.SkillRaiseActions.Raise,
     ];
 
@@ -515,7 +518,29 @@ public sealed class ProjectionContractTests
                 31.25,
                 31.25,
                 90)),
-        Keys());
+        Keys(),
+        new EquipmentSnapshot(
+            true,
+            ["off hand", "main hand", "bow", "armour"],
+            [
+                new EquipmentMemberSnapshot(0, "1", "Roderick", [new EquipmentWornSnapshot("main hand", "21", "1", "Crude Longsword")]),
+                new EquipmentMemberSnapshot(1, "2", "Aelina", []),
+            ],
+            [
+                new EquipmentItemSnapshot("22", "66", "Leather Armor", ["armour"]),
+                new EquipmentItemSnapshot("23", "15", "Dagger", ["main hand", "off hand"]),
+            ],
+            new OutfittingResult(
+                OutfittingResult.Refused,
+                "equipment-skill-missing",
+                "Aelina has not learned Leather, which is what a 66 needs before it can be worn or wielded.",
+                1,
+                "Aelina",
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                string.Empty)));
 
     /// <summary>The same session a moment later, paced turn-based with a round under way and the party's turn out.</summary>
     private static SessionSnapshot TurnBased()

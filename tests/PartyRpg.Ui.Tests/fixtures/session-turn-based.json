@@ -970,6 +970,68 @@
       ]
     }
   },
+  "equipment": {
+    "available": true,
+    "slots": [
+      "off hand",
+      "main hand",
+      "bow",
+      "armour"
+    ],
+    "members": [
+      {
+        "index": 0,
+        "member": "1",
+        "name": "Roderick",
+        "worn": [
+          {
+            "slot": "main hand",
+            "item": "21",
+            "definition": "1",
+            "name": "Crude Longsword"
+          }
+        ]
+      },
+      {
+        "index": 1,
+        "member": "2",
+        "name": "Aelina",
+        "worn": []
+      }
+    ],
+    "items": [
+      {
+        "item": "22",
+        "definition": "66",
+        "name": "Leather Armor",
+        "slots": [
+          "armour"
+        ]
+      },
+      {
+        "item": "23",
+        "definition": "15",
+        "name": "Dagger",
+        "slots": [
+          "main hand",
+          "off hand"
+        ]
+      }
+    ],
+    "canEquip": true,
+    "outcome": {
+      "outcome": "refused",
+      "code": "equipment-skill-missing",
+      "message": "Aelina has not learned Leather, which is what a 66 needs before it can be worn or wielded.",
+      "member": 1,
+      "wearer": "Aelina",
+      "slot": "",
+      "item": "",
+      "itemName": "",
+      "displaced": "",
+      "displacedName": ""
+    }
+  },
   "controls": {
     "pause": {
       "action": "session.pause",

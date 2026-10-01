@@ -116,11 +116,15 @@ public sealed class SkillPolicyTests
             skills: ["Sword", "Leather"],
             items:
             [
-                (Id: "blade", Skill: "sword"),
-                (Id: "skirts", Skill: "leather"),
-                (Id: "boots", Skill: "leather"),
-                (Id: "club", Skill: "club"),
-                (Id: "ring", Skill: string.Empty),
+                (Id: "blade", Skill: "sword", Type: "single-handed"),
+                (Id: "skirts", Skill: "leather", Type: "armour"),
+                (Id: "boots", Skill: "leather", Type: "boots"),
+                (Id: "belt", Skill: "leather", Type: "belt"),
+                (Id: "cloak", Skill: "leather", Type: "cloak"),
+                (Id: "helm", Skill: "leather", Type: "helmet"),
+                (Id: "gauntlets", Skill: "leather", Type: "gauntlets"),
+                (Id: "club", Skill: "club", Type: "single-handed"),
+                (Id: "ring", Skill: string.Empty, Type: "ring"),
             ]);
         MightAndMagic7Skills skills = MightAndMagic7Skills.Read(catalog)
             ?? throw new InvalidOperationException("The content declares skills, so the policy must be read.");
@@ -138,28 +142,28 @@ public sealed class SkillPolicyTests
             fame: 0));
 
         // A weapon the member has the skill for is wielded; one it has not learned is refused by name.
-        Assert.Null(gate.Judge(knight, new EquipmentSlot("Weapon"), Instance(party, "blade")));
-        Refusal refused = gate.Judge(knight, new EquipmentSlot("Weapon"), Instance(party, "skirts"))!;
+        Assert.Null(gate.Judge(knight, MightAndMagic7Figure.MainHand, Instance(party, "blade")));
+        Refusal refused = gate.Judge(knight, MightAndMagic7Figure.Armour, Instance(party, "skirts"))!;
         Assert.Equal("equipment-skill-missing", refused.Code);
         Assert.Contains("Leather", refused.Message, StringComparison.Ordinal);
 
         // The manual's five exceptions are about the place rather than the goods: a leather item needs no
-        // skill in the boots, however it would be refused anywhere else.
-        Assert.Null(gate.Judge(knight, new EquipmentSlot("Boots"), Instance(party, "boots")));
-        foreach (string exempt in new[] { "Belt", "Cloak", "Helm", "Gauntlets" })
-        {
-            Assert.Null(gate.Judge(knight, new EquipmentSlot(exempt), Instance(party, "skirts")));
-        }
+        // skill in the boots, however leather armour would be refused on the body.
+        Assert.Null(gate.Judge(knight, MightAndMagic7Figure.Boots, Instance(party, "boots")));
+        Assert.Null(gate.Judge(knight, MightAndMagic7Figure.Belt, Instance(party, "belt")));
+        Assert.Null(gate.Judge(knight, MightAndMagic7Figure.Cloak, Instance(party, "cloak")));
+        Assert.Null(gate.Judge(knight, MightAndMagic7Figure.Helm, Instance(party, "helm")));
+        Assert.Null(gate.Judge(knight, MightAndMagic7Figure.Gauntlets, Instance(party, "gauntlets")));
 
         // An item whose row names a skill this game's skill table does not carry cannot be said to be usable
         // by anybody, so it is refused with its own word rather than quietly allowed: guessing that an
         // unknown requirement is no requirement would hand out a weapon the game's table says is not theirs.
-        Refusal unknown = gate.Judge(knight, new EquipmentSlot("Weapon"), Instance(party, "club"))!;
+        Refusal unknown = gate.Judge(knight, MightAndMagic7Figure.MainHand, Instance(party, "club"))!;
         Assert.Equal("equipment-skill-unknown", unknown.Code);
         Assert.Contains("club", unknown.Message, StringComparison.Ordinal);
 
         // An item that names no skill needs none: a ring is not a trade.
-        Assert.Null(gate.Judge(knight, new EquipmentSlot("Ring"), Instance(party, "ring")));
+        Assert.Null(gate.Judge(knight, MightAndMagic7Figure.Rings[0], Instance(party, "ring")));
     }
 
     [Fact]
@@ -372,7 +376,7 @@ public sealed class SkillPolicyTests
     /// </summary>
     private static ContentCatalog Catalog(
         IReadOnlyList<string> skills,
-        IReadOnlyList<(string Id, string Skill)> items)
+        IReadOnlyList<(string Id, string Skill, string Type)> items)
     {
         MemoryContent source = new MemoryContent()
             .Add(
@@ -394,7 +398,7 @@ public sealed class SkillPolicyTests
                 $$"""{ "documentId": "skills", "definitionKind": "skill", "entries": [ {{string.Join(", ", skills.Select(name => $$"""{ "id": "{{name}}" }"""))}} ] }""")
             .Add(
                 "packs/tables/items.json",
-                $$"""{ "documentId": "items", "definitionKind": "item", "entries": [ {{string.Join(", ", items.Select(item => $$"""{ "id": "{{item.Id}}", "skill": "{{item.Skill}}" }"""))}} ] }""");
+                $$"""{ "documentId": "items", "definitionKind": "item", "entries": [ {{string.Join(", ", items.Select(item => $$"""{ "id": "{{item.Id}}", "skill": "{{item.Skill}}", "type": "{{item.Type}}" }"""))}} ] }""");
         return ContentCatalogLoader.Load(source, new ContentLayout("packs", "absent", "bundles"));
     }
 

@@ -28,11 +28,26 @@ public static class MightAndMagic7Codes
     /// <summary>The refusal code <c>door-already-open</c>.</summary>
     public const string DoorAlreadyOpen = "door-already-open";
 
+    /// <summary>The refusal code <c>equipment-hands-full</c>: a two-handed weapon and something in the off hand.</summary>
+    public const string EquipmentHandsFull = "equipment-hands-full";
+
+    /// <summary>The refusal code <c>equipment-not-wearable</c>: the item table states nothing worn for the item.</summary>
+    public const string EquipmentNotWearable = "equipment-not-wearable";
+
+    /// <summary>The refusal code <c>equipment-off-hand-untrained</c>: a second weapon without the mastery it needs.</summary>
+    public const string EquipmentOffHandUntrained = "equipment-off-hand-untrained";
+
     /// <summary>The refusal code <c>equipment-skill-missing</c>.</summary>
     public const string EquipmentSkillMissing = "equipment-skill-missing";
 
     /// <summary>The refusal code <c>equipment-skill-unknown</c>.</summary>
     public const string EquipmentSkillUnknown = "equipment-skill-unknown";
+
+    /// <summary>The refusal code <c>equipment-slot-unknown</c>: a place this game's figure does not have.</summary>
+    public const string EquipmentSlotUnknown = "equipment-slot-unknown";
+
+    /// <summary>The refusal code <c>equipment-wrong-slot</c>: the item is not shaped for that place.</summary>
+    public const string EquipmentWrongSlot = "equipment-wrong-slot";
 
     /// <summary>The refusal code <c>interaction-event-not-executed</c>.</summary>
     public const string InteractionEventNotExecuted = "interaction-event-not-executed";

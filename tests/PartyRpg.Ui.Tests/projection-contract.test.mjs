@@ -73,7 +73,7 @@ test('the running fixture fills every section the product published, from its ow
     mountProductUi(h.root, h.context);
     h.emit(published);
     const panel = h.panel();
-    for (const section of ['conversation', 'service', 'rest', 'combat', 'progression', 'promotion', 'skills', 'magic', 'alchemy', 'map', 'journal', 'quests']) {
+    for (const section of ['conversation', 'service', 'rest', 'combat', 'progression', 'promotion', 'skills', 'magic', 'alchemy', 'equipment', 'map', 'journal', 'quests']) {
       assert.equal(panel.querySelector(`.crawler-${section}`).hidden, false, `the ${section} section is hidden`);
     }
 

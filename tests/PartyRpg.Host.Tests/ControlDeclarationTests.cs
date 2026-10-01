@@ -145,6 +145,8 @@ public sealed class ControlDeclarationTests
         Assert.Equal(CastActions.Cast, ProductIdentity.CastAction);
         Assert.Equal(CastActions.QuickSpell, ProductIdentity.QuickSpellAction);
         Assert.Equal(AlchemyActions.Mix, ProductIdentity.MixAction);
+        Assert.Equal(EquipActions.Equip, ProductIdentity.EquipAction);
+        Assert.Equal(EquipActions.Unequip, ProductIdentity.UnequipAction);
         Assert.Equal(SkillRaiseActions.Raise, ProductIdentity.SkillRaiseAction);
 
         // And every one of those actions is one the companion is held to sending.
@@ -152,6 +154,7 @@ public sealed class ControlDeclarationTests
         {
             ProductIdentity.UseAction, ProductIdentity.SaveAction, ProductIdentity.AttackAction, ProductIdentity.CastAction,
             ProductIdentity.QuickSpellAction, ProductIdentity.MixAction, ProductIdentity.SkillRaiseAction,
+            ProductIdentity.EquipAction, ProductIdentity.UnequipAction,
             ProductIdentity.RestIntent, ProductIdentity.CampIntent, ProductIdentity.WaitUntilDawnIntent,
             ProductIdentity.WaitAnHourIntent, ProductIdentity.WaitFiveMinutesIntent, ProductIdentity.TurnBasedToggleIntent,
             ProductIdentity.TurnSkipIntent, ProductIdentity.TurnWaitIntent, ServiceActions.Buy, ServiceActions.Sell,

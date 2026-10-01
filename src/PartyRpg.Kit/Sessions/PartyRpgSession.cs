@@ -443,6 +443,7 @@ public sealed class PartyRpgSession : IGameSession
         {
             CombatantId? caster = _acts.Cast(input, allowed: !screenOwnsControls);
             _acts.Mix(input, allowed: !screenOwnsControls);
+            _acts.Equip(input, allowed: !screenOwnsControls);
             _fight.Step(orders, caster, seconds);
         }
 
@@ -484,7 +485,7 @@ public sealed class PartyRpgSession : IGameSession
                 controls.Creation?.ActionContract, controls.Save?.ActionContract, controls.Use?.ActionContract,
                 controls.Service?.ActionContract, controls.Rest?.ActionContract, controls.Conversation?.ActionContract,
                 controls.Combat?.ActionContract, controls.Combat?.Turn?.ActionContract, controls.Skills?.ActionContract,
-                controls.Cast?.ActionContract, controls.Mix?.ActionContract,
+                controls.Cast?.ActionContract, controls.Mix?.ActionContract, controls.Equip?.ActionContract,
             }.OfType<string>(),
             StringComparer.Ordinal);
 
@@ -647,7 +648,8 @@ public sealed class PartyRpgSession : IGameSession
         QuestSnapshot.From(Quests),
         JournalSnapshot.From(Journal, Quests, LiveWorld, Clock, Knowledge, Maps),
         MapSnapshot.From(Maps, LiveWorld, _owners.Rules.Magic?.Running),
-        _keys);
+        _keys,
+        EquipmentSnapshot.From(_owners.Outfitting));
 
     /// <summary>Reads this session into the product's one current save schema, without writing anything.</summary>
     /// <returns>The session as a save records it.</returns>

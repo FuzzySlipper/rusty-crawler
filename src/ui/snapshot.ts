@@ -12,6 +12,7 @@ import { readAlchemy, type AlchemyView } from './alchemy.js';
 import { readCombat, type CombatView } from './combat.js';
 import { readConversation, type ConversationView } from './conversation.js';
 import { readCreation, type CreationView } from './creation.js';
+import { readEquipment, type EquipmentView } from './equipment.js';
 import { readJournal, type JournalView } from './journal.js';
 import { readMagic, type MagicView } from './magic.js';
 import { readMap, type MapView } from './map.js';
@@ -63,6 +64,7 @@ export interface SnapshotView {
   readonly skills: SkillsView;
   readonly magic: MagicView;
   readonly alchemy: AlchemyView;
+  readonly equipment: EquipmentView;
   readonly quests: QuestsView;
   readonly map: MapView;
   readonly journal: JournalView;
@@ -104,6 +106,7 @@ export function readSnapshot(value: unknown): Reading {
     skills: read('skills', readSkills),
     magic: read('magic', readMagic),
     alchemy: read('alchemy', readAlchemy),
+    equipment: read('equipment', readEquipment),
     quests: read('quests', readQuests),
     map: read('map', readMap),
     journal: read('journal', readJournal),

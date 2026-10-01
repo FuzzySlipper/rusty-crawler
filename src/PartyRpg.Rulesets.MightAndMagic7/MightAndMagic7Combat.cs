@@ -31,12 +31,11 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// a real second of play.
 /// </para>
 /// <para>
-/// <b>What is approximated is stated.</b> The donor's character recovery is a sum of terms read off the
-/// equipped figure — a weapon's skill, armour, a shield, enchantments, and haste — and this build does not
-/// read the figure's weapon and armour terms yet (#9005). What is read is haste and the two terms a
-/// character's own body states — its speed, which the donor reads through its attribute-bonus table, and the
-/// armsmaster skill — plus the unarmed base, which is the donor's own branch for a character holding nothing.
-/// The equipment terms' place is the sum below.
+/// <b>A character is priced by what they wear.</b> The donor's recovery, armour class, chance to land, blow,
+/// shot and resistances are sums of terms read off the equipped figure and the character's own body, and each
+/// is stated below as such a sum, term by term in the donor's order and through this game's figure
+/// (<see cref="MightAndMagic7Figure"/>): what each sum reads faithfully, what it approximates, and which term
+/// waits for another owner (item enchantments, #8513) is said beside it.
 /// </para>
 /// </remarks>
 internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule, ICombatAbilityResolutionRule, ICombatWeaponRule
@@ -335,6 +334,26 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// <remarks>OpenEnroth <c>src/Engine/Objects/Character.cpp:1710-1716</c> — grand master doubles it.</remarks>
     private const int GrandMasterRung = 4;
 
+    /// <summary>The rung a sword, an axe or a bow starts taking its level off a recovery at: expert.</summary>
+    /// <remarks>OpenEnroth <c>src/Engine/Objects/Character.cpp:1695-1705</c>.</remarks>
+    private const int ExpertRung = 2;
+
+    // The item table's own skill words, lower-case as the importer writes them, which a worn item's terms are
+    // decided by (OpenEnroth src/Engine/Tables/ItemTable.cpp:117-131, the donor's equipSkillMap).
+    private const string StaffWord = "staff";
+    private const string SwordWord = "sword";
+    private const string DaggerWord = "dagger";
+    private const string AxeWord = "axe";
+    private const string SpearWord = "spear";
+    private const string BowWord = "bow";
+    private const string MaceWord = "mace";
+    private const string BlasterWord = "blaster";
+    private const string ShieldWord = "shield";
+    private const string LeatherWord = "leather";
+    private const string ChainWord = "chain";
+    private const string PlateWord = "plate";
+    private const string ClubWord = "club";
+
     /// <summary>
     /// How many levels of a spell's school a charged item fires at, which is the donor's own fixed value.
     /// </summary>
@@ -364,6 +383,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     private readonly MightAndMagic7Spells? _spells;
     private readonly Func<PartyEntity?> _party;
     private readonly Func<IMemberSpellEffects?> _memberEffects;
+    private readonly MightAndMagic7Figure? _figure;
 
     private MightAndMagic7Combat(
         Dictionary<int, MonsterFacts> monsters,
@@ -372,7 +392,8 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         IRandomService? random,
         MightAndMagic7Spells? spells,
         Func<PartyEntity?>? party,
-        Func<IMemberSpellEffects?>? memberEffects)
+        Func<IMemberSpellEffects?>? memberEffects,
+        MightAndMagic7Figure? figure)
     {
         _monsters = monsters;
         _people = people;
@@ -381,6 +402,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         _spells = spells;
         _party = party ?? (() => null);
         _memberEffects = memberEffects ?? (() => null);
+        _figure = figure;
     }
 
     /// <summary>
@@ -441,6 +463,10 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// party it applies them to. A fight composed with none reads no character's own effects, which is what a
     /// session whose ruleset answered no magic gets.
     /// </param>
+    /// <param name="figure">
+    /// This game's figure, which says what each worn item is: a caller that composed one passes it so the session
+    /// reads the item table once, and one read here otherwise.
+    /// </param>
     /// <returns>This game's combat policy.</returns>
     /// <exception cref="ContentValidationException">Content declares a monster or a creature this game cannot fight; every problem is named.</exception>
     internal static MightAndMagic7Combat Compose(
@@ -448,9 +474,10 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         IRandomService? random,
         MightAndMagic7Spells? spells = null,
         Func<PartyEntity?>? party = null,
-        Func<IMemberSpellEffects?>? memberEffects = null)
+        Func<IMemberSpellEffects?>? memberEffects = null,
+        MightAndMagic7Figure? figure = null)
     {
-        if (catalog is null) return new MightAndMagic7Combat([], [], null, random, spells, party, memberEffects);
+        if (catalog is null) return new MightAndMagic7Combat([], [], null, random, spells, party, memberEffects, figure: null);
         List<ContentValidationIssue> issues = [];
         Dictionary<int, MonsterFacts> monsters = ReadMonsters(catalog, spells ?? MightAndMagic7Spells.Read(catalog), issues);
         Dictionary<string, string> people = ReadPeople(catalog);
@@ -473,7 +500,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             .OrderBy(row => row.Id)
             .FirstOrDefault();
 
-        return new MightAndMagic7Combat(monsters, people, person, random, spells ?? MightAndMagic7Spells.Read(catalog), party, memberEffects);
+        return new MightAndMagic7Combat(monsters, people, person, random, spells ?? MightAndMagic7Spells.Read(catalog), party, memberEffects, figure ?? MightAndMagic7Figure.Read(catalog));
     }
 
     /// <summary>How many monster rows this policy can fight.</summary>
@@ -528,13 +555,24 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
 
     /// <inheritdoc />
     /// <remarks>
+    /// <para>
     /// A creature whose row carries a missile throws it and everything else swings. A member's charged wand is
-    /// answered by <see cref="WeaponOf"/>; a bow in hand is not read yet, because the equipped figure's weapon
-    /// terms are not (#9005). The three kinds are the kit's, and this is where each one becomes reachable.
+    /// answered by <see cref="WeaponOf"/>, and a member with a working bow on the figure shoots it.
+    /// </para>
+    /// <para>
+    /// <b>A bow is the member's attack, not a choice per target — that is ours.</b> The donor swings at a target
+    /// inside melee range and shoots the bow otherwise (<c>Character.cpp:6367-6397</c>); the kit asks one kind of
+    /// attack of an actor rather than one per target, so a member who wears a bow shoots it at whatever the
+    /// party's pick finds, near or far. A member without a bow swings, armed or not.
+    /// </para>
     /// </remarks>
     public AttackKind AttackKindFor(CombatSubject subject)
     {
         ArgumentNullException.ThrowIfNull(subject);
+        if (subject.Member is { } member)
+        {
+            return _figure?.Functional(member, MightAndMagic7Figure.Bow) is not null ? AttackKind.Ranged : AttackKind.Melee;
+        }
 
         // A creature whose row states a missile throws it (the table's own `Miss` column, read as the
         // donor's attack1MissileType, OpenEnroth src/Engine/Objects/Monsters.cpp:539); everything else
@@ -591,10 +629,9 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// attack is resolved beside the fight.
     /// </para>
     /// <para>
-    /// <b>What the hand holds is content's vocabulary rather than this policy's.</b> This build's figures are
-    /// filled by content and no slot is named as a hand yet, so a charged item the member wears is what they
-    /// wield; when this game names a figure's own slots, this reads the hand rather than the whole figure
-    /// (#9005).
+    /// <b>The wand is the one in the main hand.</b> The donor reads <c>ITEM_SLOT_MAIN_HAND</c> for it
+    /// (<c>Character.cpp:6326-6342</c>), and so does this: a wand is shaped for the main hand alone
+    /// (<see cref="MightAndMagic7Figure"/>), so a charged item anywhere else on the figure is not fired.
     /// </para>
     /// </remarks>
     /// <param name="attacker">The actor whose weapon is read.</param>
@@ -620,14 +657,10 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     private (SpellItemReading Reading, ItemInstance Item)? Wielded(PartyMember member)
     {
         if (_spells is not ISpellItemRule items) return null;
-        foreach (EquippedItem equipped in member.Equipment.Items)
-        {
-            if (items.Reading(equipped.Item.Definition) is not { ConsumedByUse: false } reading) continue;
-            if (reading.Charges - equipped.Item.State.ChargesSpent <= 0) continue;
-            return (reading, equipped.Item);
-        }
-
-        return null;
+        if (member.Equipment.ItemIn(MightAndMagic7Figure.MainHand) is not { State.Damage: <= 0 } held) return null;
+        if (items.Reading(held.Definition) is not { ConsumedByUse: false } reading) return null;
+        if (reading.Charges - held.State.ChargesSpent <= 0) return null;
+        return (reading, held);
     }
 
     /// <summary>How much of a character's recovery a haste takes off, or nothing when none acts.</summary>
@@ -733,7 +766,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             ? kind == AttackKind.Spell ? MightAndMagic7Damage.Magic : MightAndMagic7Damage.Physical
             : Facts(attacker)?.AttackKind ?? MightAndMagic7Damage.Physical;
         DamageRoll damage = attacker.Member is { } striker
-            ? CharacterDamage(striker)
+            ? kind == AttackKind.Ranged ? BowDamage(striker) : CharacterDamage(striker)
             : Facts(attacker)?.Attack ?? DamageRoll.Flat(0);
         int armor = ArmorClassOf(target);
         HitChance chance = attacker.Member is { } character
@@ -761,7 +794,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// </para>
     /// <para>
     /// A member of the party has no such abilities: what a character's attack is worth is answered for the
-    /// kind alone, which is where a weapon, a bow, and a quick spell will each state their own.
+    /// kind alone — the weapon in hand for a blow and the bow for a shot — and a spell it names by its own row.
     /// </para>
     /// </remarks>
     public AttackPlan PlanOfAbility(CombatSubject attacker, CombatSubject target, AttackKind kind, string ability)
@@ -963,21 +996,44 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The donor's resistance is a sum of what the character was born with — nothing: it is their hired
-    /// enchanter, a grandmaster's leather armour, and the temporary bonuses items and spells carry
-    /// (OpenEnroth <c>src/Engine/Objects/Character.cpp:1945-1990</c>, <c>GetActualResistance</c>). This
-    /// build reads the ward a spell leaves running and nothing else: what the figure wears is not read yet
-    /// (#9005) and items carry no enchantment (#8513).
+    /// The donor's resistance is a sum (OpenEnroth <c>src/Engine/Objects/Character.cpp:1945-1993</c>,
+    /// <c>GetActualResistance</c>, over <c>GetBaseResistance</c> at <c>:1900-1942</c>): a hired enchanter, a
+    /// grand master's leather armour, the spells running on the character and the party, and the base — the
+    /// character's own stat, a racial bonus, and what worn items' enchantments add. This reads, in that order:
+    /// the leather term, faithfully — a grand master of leather wearing working leather armour adds the leather
+    /// level to fire, air, water, and earth — and the ward a spell leaves running. Followers are not in this
+    /// build (#8514), items carry no enchantment yet (#8513), and the character's own base and racial terms are
+    /// not stated by this game's members, so each of those terms is nothing here rather than a number invented.
     /// </para>
     /// <para>
-    /// Those terms go here: the sum, in the donor's own order.
+    /// Each term is its own line, so a later term — a buff another owner reads, an enchantment — is one more
+    /// line in the same sum rather than a second place resistance is decided.
     /// </para>
     /// </remarks>
     private Resistance CharacterResistance(PartyMember member, DamageKindId kind)
     {
         ArgumentNullException.ThrowIfNull(member);
-        int points = MemberWard(member, SpellEffectIds.Resistance(kind));
+        int points = 0;
+        points += LeatherResistance(member, kind);
+        points += MemberWard(member, SpellEffectIds.Resistance(kind));
         return points <= 0 ? Resistance.Of(0) : Resistance.Of(points);
+    }
+
+    /// <summary>
+    /// What a grand master's leather armour adds to one of the four elements, or nothing.
+    /// </summary>
+    /// <remarks>OpenEnroth <c>src/Engine/Objects/Character.cpp:1954-1961</c>.</remarks>
+    private int LeatherResistance(PartyMember member, DamageKindId kind)
+    {
+        if (kind != MightAndMagic7Damage.Fire && kind != MightAndMagic7Damage.Air &&
+            kind != MightAndMagic7Damage.Water && kind != MightAndMagic7Damage.Earth)
+        {
+            return 0;
+        }
+
+        if (Worn(member, MightAndMagic7Figure.Armour) is not { } armour || !armour.IsSkill(LeatherWord)) return 0;
+        SkillEntry leather = SkillOf(member, LeatherWord);
+        return leather.Tier.Value >= GrandMasterRung ? leather.Level : 0;
     }
 
     /// <summary>What a character's luck is worth, with whatever a spell has added to it.</summary>
@@ -998,60 +1054,281 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// anything else.
     /// </summary>
     /// <remarks>
-    /// OpenEnroth <c>src/Engine/Objects/Character.cpp:814-856</c> (<c>CalculateMeleeDamageTo</c>): an unarmed
-    /// character rolls a three-sided die and adds a point, then their might bonus and the armsmaster
-    /// reduction, and a landed blow never does less than one point. The donor's other terms — a weapon's own
-    /// dice, an enchantment — are read off the equipped figure, which this sum does not read yet (#9005);
-    /// the spells a member has running are read below.
+    /// <para>
+    /// OpenEnroth <c>src/Engine/Objects/Character.cpp:814-856</c> (<c>CalculateMeleeDamageTo</c>), read term by
+    /// term in the donor's order. <b>The hands:</b> an unarmed character — nothing working in the main hand,
+    /// and nothing but a shield in the off hand (<c>:1131-1135</c>) — rolls a three-sided die; otherwise the
+    /// main hand's weapon rolls its row's own dice and adds its modifier, with one more die for a spear held
+    /// with the off hand empty (<c>:826-831</c>, <c>:861-875</c>), and a second weapon in the off hand adds its
+    /// own (<c>:834-841</c>). <b>The bonus:</b> the skill bonus the weapon's own skill is worth
+    /// (<see cref="MeleeSkillBonus"/>), the might bonus, and what a spell adds. A landed blow does at least one.
+    /// Faithful, except where stated: a second weapon whose dice differ from the first is added as its
+    /// average, because one roll of the kit's states one kind of die — that is ours.
+    /// </para>
+    /// <para>
+    /// Not read: a slaying enchantment's double damage (<c>:877-897</c>) waits for item enchantments (#8513), and
+    /// a master dagger's chance of triple damage (<c>:899-905</c>) is a chance-scaled multiplier one roll of the
+    /// kit's cannot state.
+    /// </para>
     /// </remarks>
     private DamageRoll CharacterDamage(PartyMember member)
     {
-        int bonus = Bonus(member, MightAttribute);
-        bonus += Multiplier(Armsmaster(member), 0, 0, 1, 2) * Armsmaster(member).Level;
+        int dice = 0;
+        int sides = 0;
+        int bonus = 0;
+        if (IsUnarmed(member))
+        {
+            dice = 1;
+            sides = 3;
+        }
+        else
+        {
+            if (Worn(member, MightAndMagic7Figure.MainHand) is { IsMeleeWeapon: true } main)
+            {
+                bool twoHandedSpear = main.IsSkill(SpearWord) && member.Equipment.ItemIn(MightAndMagic7Figure.OffHand) is null;
+                dice = main.Dice + (twoHandedSpear ? 1 : 0);
+                sides = main.Sides;
+                bonus += main.Modifier;
+            }
 
-        // Heroism and hammerhands are the donor's own bonuses to what an unarmed blow is worth: heroism at
-        // ATTRIBUTE_MELEE_DMG_BONUS and hammerhands on the unarmed damage of a character who wears nothing
+            if (Worn(member, MightAndMagic7Figure.OffHand) is { IsMeleeWeapon: true } off)
+            {
+                if (dice == 0 || off.Sides == sides)
+                {
+                    dice += off.Dice;
+                    sides = off.Sides;
+                }
+                else
+                {
+                    bonus += off.Dice * (off.Sides + 1) / 2;
+                }
+
+                bonus += off.Modifier;
+            }
+        }
+
+        bonus += MeleeSkillBonus(member);
+        bonus += Bonus(member, MightAttribute);
+
+        // Heroism and hammerhands are the donor's own bonuses to what a blow is worth: heroism at
+        // ATTRIBUTE_MELEE_DMG_BONUS and hammerhands on the damage of a character's own hands
         // (OpenEnroth src/Engine/Objects/Character.cpp:2355-2357 and CastSpellInfo.cpp:2366-2380).
         bonus += MemberWard(member, SpellEffectIds.Heroism);
         bonus += MemberWard(member, SpellEffectIds.Hammerhands);
-        return new DamageRoll(dice: 1, sides: 3, bonus: bonus, floor: 1);
+        return new DamageRoll(dice, sides, bonus, floor: 1);
     }
 
-    /// <summary>What a character's attack bonus is worth, in the donor's own sum.</summary>
+    /// <summary>What a bow's shot is worth, in the donor's own sum.</summary>
     /// <remarks>
-    /// OpenEnroth <c>src/Engine/Objects/Character.cpp:768-778</c> (<c>GetActualAttack</c>) and
-    /// <c>Character.cpp:2666-2688</c> (<c>GetSkillBonus(ATTRIBUTE_ATTACK)</c>): the accuracy bonus, plus an
-    /// unarmed character's unarmed skill at the multiplier their mastery is worth, plus what armsmaster adds
-    /// to every attack. A weapon skill and a weapon's own bonus are terms of the equipped figure, which this
-    /// sum does not read yet (#9005).
+    /// OpenEnroth <c>src/Engine/Objects/Character.cpp:954-987</c> (<c>CalculateRangedDamageTo</c>): the bow's row
+    /// rolls its own dice and adds its modifier, and a grand master of the bow adds the bow level
+    /// (<c>GetSkillBonus(ATTRIBUTE_RANGED_DMG_BONUS)</c>, <c>:2576-2582</c>). Might does not add to a shot, and a
+    /// shot has no floor. Faithful; the slaying enchantments wait for #8513.
     /// </remarks>
-    private static int AttackBonus(PartyMember member)
+    private DamageRoll BowDamage(PartyMember member)
+    {
+        if (Worn(member, MightAndMagic7Figure.Bow) is not { } bow) return CharacterDamage(member);
+        SkillEntry skill = SkillOf(member, BowWord);
+        int bonus = bow.Modifier + (Multiplier(skill, 0, 0, 0, 1) * skill.Level);
+        return new DamageRoll(bow.Dice, bow.Sides, bonus);
+    }
+
+    /// <summary>What a weapon skill adds to a blow, the donor's <c>GetSkillBonus(ATTRIBUTE_MELEE_DMG_BONUS)</c>.</summary>
+    /// <remarks>
+    /// OpenEnroth <c>src/Engine/Objects/Character.cpp:2693-2742</c>: an unarmed character's unarmed skill at
+    /// (0, 1, 2, 2) per rung; otherwise the first melee weapon on the figure, in slot order, decides — a staff
+    /// adds armsmaster (or the unarmed bonus for a grand master of the staff who has learned unarmed), a dagger
+    /// adds armsmaster and its level at grand master, a sword armsmaster alone, a mace or a spear armsmaster and
+    /// its level from expert, an axe armsmaster and its level from master. Armsmaster is worth (0, 0, 1, 2) per
+    /// rung here (<c>:2562-2573</c>). Faithful.
+    /// </remarks>
+    private int MeleeSkillBonus(PartyMember member)
+    {
+        if (IsUnarmed(member))
+        {
+            SkillEntry unarmed = SkillOf(member, UnarmedSkill.Value);
+            return Multiplier(unarmed, 0, 1, 2, 2) * unarmed.Level;
+        }
+
+        int armsmaster = Multiplier(Armsmaster(member), 0, 0, 1, 2) * Armsmaster(member).Level;
+        foreach (MightAndMagic7WornItem weapon in WornBy(member))
+        {
+            if (!weapon.IsMeleeWeapon) continue;
+            SkillEntry skill = SkillOf(member, weapon.Skill);
+            return weapon.Skill switch
+            {
+                StaffWord when skill.Tier.Value >= GrandMasterRung && SkillOf(member, UnarmedSkill.Value).Level > 0 =>
+                    Multiplier(SkillOf(member, UnarmedSkill.Value), 0, 1, 2, 2) * SkillOf(member, UnarmedSkill.Value).Level,
+                StaffWord => armsmaster,
+                DaggerWord => armsmaster + (Multiplier(skill, 0, 0, 0, 1) * skill.Level),
+                SwordWord => armsmaster,
+                MaceWord or SpearWord => armsmaster + (Multiplier(skill, 0, 1, 1, 1) * skill.Level),
+                AxeWord => armsmaster + (Multiplier(skill, 0, 0, 1, 1) * skill.Level),
+                _ => 0,
+            };
+        }
+
+        return 0;
+    }
+
+    /// <summary>What a character's attack bonus is worth for a blow, in the donor's own sum.</summary>
+    /// <remarks>
+    /// OpenEnroth <c>src/Engine/Objects/Character.cpp:768-778</c> (<c>GetActualAttack</c>), in its order: the
+    /// accuracy bonus; the skill bonus (<c>:2650-2675</c>) — for an unarmed character armsmaster at (0, 1, 1, 2)
+    /// and unarmed at (1, 1, 2, 2) per rung, and otherwise the first melee weapon on the figure: its skill level
+    /// plus armsmaster, a blaster at (1, 2, 3, 5), and a grand master's staff with the unarmed bonus beside it;
+    /// and the items bonus (<c>:2217-2232</c>) — the modifier of the weapon in each hand. The blessing a spell
+    /// adds is read where the chance is priced. Faithful; enchantments wait for #8513.
+    /// </remarks>
+    private int AttackBonus(PartyMember member)
     {
         int bonus = Bonus(member, AccuracyAttribute);
-        if (!member.Skills.TryGet(UnarmedSkill, out SkillEntry unarmed) || unarmed.Level <= 0) return bonus;
-        return bonus + (Multiplier(Armsmaster(member), 0, 1, 1, 2) * Armsmaster(member).Level) +
-               (Multiplier(unarmed, 1, 1, 2, 2) * unarmed.Level);
+        bonus += AttackSkillBonus(member);
+        if (!IsUnarmed(member))
+        {
+            if (Worn(member, MightAndMagic7Figure.MainHand) is { IsMeleeWeapon: true } main) bonus += main.Modifier;
+            if (Worn(member, MightAndMagic7Figure.OffHand) is { IsMeleeWeapon: true } off) bonus += off.Modifier;
+        }
+
+        return bonus;
+    }
+
+    /// <summary>The donor's <c>GetSkillBonus(ATTRIBUTE_ATTACK)</c>.</summary>
+    private int AttackSkillBonus(PartyMember member)
+    {
+        int armsmaster = Multiplier(Armsmaster(member), 0, 1, 1, 2) * Armsmaster(member).Level;
+        SkillEntry unarmed = SkillOf(member, UnarmedSkill.Value);
+        if (IsUnarmed(member))
+        {
+            return unarmed.Level <= 0 ? 0 : armsmaster + (Multiplier(unarmed, 1, 1, 2, 2) * unarmed.Level);
+        }
+
+        foreach (MightAndMagic7WornItem weapon in WornBy(member))
+        {
+            if (!weapon.IsMeleeWeapon) continue;
+            SkillEntry skill = SkillOf(member, weapon.Skill);
+            if (weapon.IsSkill(BlasterWord)) return Multiplier(skill, 1, 2, 3, 5) * skill.Level;
+            if (weapon.IsSkill(StaffWord) && skill.Tier.Value >= GrandMasterRung)
+            {
+                return (Multiplier(unarmed, 1, 1, 2, 2) * unarmed.Level) + armsmaster + skill.Level;
+            }
+
+            return armsmaster + skill.Level;
+        }
+
+        return 0;
+    }
+
+    /// <summary>What a character's attack bonus is worth for a shot, in the donor's own sum.</summary>
+    /// <remarks>
+    /// OpenEnroth <c>src/Engine/Objects/Character.cpp:911-922</c> (<c>GetRangedAttack</c>): the bow's modifier,
+    /// the accuracy bonus, and the bow level at every rung (<c>:2677-2691</c>). Faithful.
+    /// </remarks>
+    private int RangedAttackBonus(PartyMember member)
+    {
+        if (Worn(member, MightAndMagic7Figure.Bow) is not { } bow) return AttackBonus(member);
+        return bow.Modifier + Bonus(member, AccuracyAttribute) + SkillOf(member, BowWord).Level;
     }
 
     /// <summary>What a character's armor class is worth, in the donor's own sum.</summary>
     /// <remarks>
-    /// OpenEnroth <c>src/Engine/Objects/Character.cpp:1875-1887</c> (<c>GetActualAC</c>): the speed bonus
-    /// plus what the character is wearing or dodging with, never below zero. What is worn is not read yet
-    /// (#9005), so what is left is the speed bonus and the dodging skill, which the donor adds at its own
-    /// multipliers while no armour is worn (<c>Character.cpp:2596-2647</c>).
+    /// <para>
+    /// OpenEnroth <c>src/Engine/Objects/Character.cpp:1875-1887</c> (<c>GetActualAC</c>), in its order, never below
+    /// zero: the speed bonus; the items bonus — every working passive piece's dice and modifier, so leather
+    /// armour's <c>4</c> is four points and chain's <c>8</c> eight (<c>:2299-2304</c>); the skill bonus
+    /// (<see cref="ArmourSkillBonus"/>); and the stone skin a spell adds. Faithful; the enchantment half of the
+    /// items bonus waits for #8513.
+    /// </para>
+    /// <para>
+    /// Each term is its own line, so a later term — a buff another owner reads — is one more line in this sum.
+    /// </para>
     /// </remarks>
     private int CharacterArmorClass(PartyMember member)
     {
         int armor = Bonus(member, SpeedAttribute);
-        if (member.Skills.TryGet(DodgeSkill, out SkillEntry dodge) && dodge.Level > 0)
-        {
-            armor += Multiplier(dodge, 1, 2, 3, 3) * dodge.Level;
-        }
+        armor += WornBy(member).Sum(worn => worn.ArmourClass);
+        armor += ArmourSkillBonus(member);
 
         // A stone skin is the donor's own armour-class buff, and it is read here for the reason the donor
         // reads it here: it is armour, not a resistance, and a blow's chance to land is what it changes
         // (OpenEnroth src/Engine/Objects/Character.cpp:2388-2392, ATTRIBUTE_AC_BONUS).
-        return Math.Max(0, armor + SpellWard(SpellEffectIds.Armour));
+        armor += SpellWard(SpellEffectIds.Armour);
+        return Math.Max(0, armor);
+    }
+
+    /// <summary>The donor's <c>GetSkillBonus(ATTRIBUTE_AC_BONUS)</c>: what the skills behind worn things add.</summary>
+    /// <remarks>
+    /// OpenEnroth <c>src/Engine/Objects/Character.cpp:2596-2648</c>: for every working piece, its skill's level at
+    /// the piece's multiplier — a staff (0, 1, 1, 1), a sword or a spear (0, 0, 0, 1), a shield and leather
+    /// (1, 1, 2, 2), chain and plate (1, 1, 1, 1) — and dodging at (1, 2, 3, 3) while no shield, chain or plate
+    /// is worn and either no leather is or dodging is at grand master. Faithful.
+    /// </remarks>
+    private int ArmourSkillBonus(PartyMember member)
+    {
+        bool armour = false;
+        bool leather = false;
+        int sum = 0;
+        foreach (MightAndMagic7WornItem worn in WornBy(member))
+        {
+            SkillEntry skill = SkillOf(member, worn.Skill);
+            switch (worn.Skill)
+            {
+                case StaffWord:
+                    sum += Multiplier(skill, 0, 1, 1, 1) * skill.Level;
+                    break;
+                case SwordWord or SpearWord:
+                    sum += Multiplier(skill, 0, 0, 0, 1) * skill.Level;
+                    break;
+                case ShieldWord:
+                    armour = true;
+                    sum += Multiplier(skill, 1, 1, 2, 2) * skill.Level;
+                    break;
+                case LeatherWord:
+                    leather = true;
+                    sum += Multiplier(skill, 1, 1, 2, 2) * skill.Level;
+                    break;
+                case ChainWord or PlateWord:
+                    armour = true;
+                    sum += Multiplier(skill, 1, 1, 1, 1) * skill.Level;
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        SkillEntry dodge = SkillOf(member, DodgeSkill.Value);
+        if (!armour && (!leather || dodge.Tier.Value >= GrandMasterRung))
+        {
+            sum += Multiplier(dodge, 1, 2, 3, 3) * dodge.Level;
+        }
+
+        return sum;
+    }
+
+    /// <summary>What the figure holds working in one slot, or null.</summary>
+    private MightAndMagic7WornItem? Worn(PartyMember member, EquipmentSlot slot) => _figure?.Functional(member, slot);
+
+    /// <summary>Every working worn item, in the figure's slot order.</summary>
+    private IEnumerable<MightAndMagic7WornItem> WornBy(PartyMember member) =>
+        _figure?.Functional(member) ?? [];
+
+    /// <summary>
+    /// Whether a character fights with their own hands: nothing working in the main hand, and nothing but a shield
+    /// in the off hand (OpenEnroth <c>src/Engine/Objects/Character.cpp:1131-1135</c>, <c>IsUnarmed</c>).
+    /// </summary>
+    private bool IsUnarmed(PartyMember member) =>
+        Worn(member, MightAndMagic7Figure.MainHand) is null &&
+        Worn(member, MightAndMagic7Figure.OffHand) is not { Kind: not MightAndMagic7WornKind.Shield };
+
+    /// <summary>The entry a member has in the skill a word names, or a none entry when they have not learned it.</summary>
+    private static SkillEntry SkillOf(PartyMember member, string word)
+    {
+        foreach (SkillEntry entry in member.Skills.Entries)
+        {
+            if (string.Equals(entry.Skill.Value, word, StringComparison.OrdinalIgnoreCase)) return entry;
+        }
+
+        return default;
     }
 
     /// <summary>What an actor's armor class is, from its body or its row.</summary>
@@ -1072,7 +1349,8 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
         // A blessing is added to the attack bonus it is a blessing of: the donor's own buff is read at
         // ATTRIBUTE_ATTACK, which is the quantity this test is built on (OpenEnroth
         // src/Engine/Objects/Character.cpp:2351-2354).
-        int outcomes = armor + (2 * (AttackBonus(member) + MemberWard(member, SpellEffectIds.Bless))) + 30;
+        int attack = kind == AttackKind.Ranged ? RangedAttackBonus(member) : AttackBonus(member);
+        int outcomes = armor + (2 * (attack + MemberWard(member, SpellEffectIds.Bless))) + 30;
         return HitChance.Of(outcomes - needed, Math.Max(1, outcomes));
     }
 
@@ -1193,42 +1471,145 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// What a character's attack recovery is worth, in the donor's sum and floored at the donor's minimum.
     /// </summary>
     /// <remarks>
-    /// The donor's sum is the weapon's base plus armour and shield, less the armsmaster reduction, the
-    /// weapon's own enchantment, haste, the weapon skill's expert reduction, and the speed bonus
-    /// (OpenEnroth <c>src/Engine/Objects/Character.cpp:1636-1750</c>). Of those, this build can state four:
-    /// the base for a character holding nothing, the armsmaster reduction, haste, and the speed bonus. The
-    /// rest are read off the equipped figure, which this sum does not read yet (#9005) — this is where they
-    /// go, in the donor's own order.
+    /// <para>
+    /// OpenEnroth <c>src/Engine/Objects/Character.cpp:1636-1750</c> (<c>GetAttackRecoveryTime</c>), term by term in
+    /// the donor's order. <b>The weapon's base:</b> a shot is the bow's; an unarmed character who has learned to
+    /// fight unarmed has sixty ticks; otherwise the main hand's weapon, or a staff's hundred when it holds none
+    /// (<c>:1637-1653</c>). <b>The off hand:</b> a shield adds its ten ticks at novice and nothing above it, and a
+    /// second weapon replaces the first's base when it is slower (<c>:1658-1671</c>). <b>Armour:</b> leather adds
+    /// ten ticks at novice, chain twenty at novice and ten at expert, plate thirty at novice and fifteen at expert
+    /// and master, and nothing at grand master (<c>:1673-1691</c>). <b>Less:</b> the speed bonus; a sword, an axe or
+    /// a bow at expert takes its level off (<c>:1695-1705</c>); armsmaster its level, twice at grand master, except
+    /// for a shot or a blaster (<c>:1710-1719</c>); and a haste twenty-five ticks. The floor is the donor's thirty
+    /// for a blow and five for a shot or a blaster (<c>:1739-1746</c>). The base table is the donor's own
+    /// (<c>src/Engine/mm7_data.cpp:355-378</c>).
+    /// </para>
+    /// <para>
+    /// Faithful, with two statements. A swift or a darkness weapon's twenty ticks (<c>:1727-1733</c>) wait for item
+    /// enchantments (#8513). A piece worn without its skill — which this game's use rule refuses, but which
+    /// content declaring no skill table can stage — is read at novice, where the donor never meets one.
+    /// </para>
     /// </remarks>
     private GameDuration CharacterRecovery(PartyMember? member, AttackKind kind)
     {
-        int ticks = UnarmedBaseTicks;
-        if (member is not null)
+        if (member is null)
         {
-            if (member.Skills.TryGet(UnarmedSkill, out SkillEntry unarmed) && unarmed.Level > 0)
-            {
-                ticks = TrainedUnarmedBaseTicks;
-            }
+            // A person standing in the world is paced as a character with nothing in hand.
+            int bare = UnarmedBaseTicks - HasteTicks;
+            return Ticks(Math.Max(kind == AttackKind.Melee ? MinimumMeleeTicks : MinimumRangedTicks, bare));
+        }
 
-            // Armsmaster shortens a melee recovery only, and only for a character who has learned it; a
-            // grand master gets twice its level back (Character.cpp:1710-1716).
-            if (kind == AttackKind.Melee &&
-                member.Skills.TryGet(ArmsmasterSkill, out SkillEntry armsmaster) &&
-                armsmaster.Level > 0)
-            {
-                ticks -= armsmaster.Tier.Value >= GrandMasterRung ? armsmaster.Level * 2 : armsmaster.Level;
-            }
+        // The weapon's base.
+        MightAndMagic7WornItem? weapon = null;
+        int weaponTicks = UnarmedBaseTicks;
+        bool shooting = kind == AttackKind.Ranged && Worn(member, MightAndMagic7Figure.Bow) is not null;
+        if (shooting)
+        {
+            weapon = Worn(member, MightAndMagic7Figure.Bow);
+            weaponTicks = BaseTicks(weapon!.Value.Skill);
+        }
+        else if (IsUnarmed(member) && SkillOf(member, UnarmedSkill.Value).Level > 0)
+        {
+            weaponTicks = TrainedUnarmedBaseTicks;
+        }
+        else if (Worn(member, MightAndMagic7Figure.MainHand) is { IsWeapon: true } main)
+        {
+            weapon = main;
+            weaponTicks = BaseTicks(main.Skill);
+        }
 
-            ticks -= AttributeBonus(member.Attributes[SpeedAttribute]);
+        // The off hand: a shield's own ticks, or a slower second weapon's base.
+        int shieldTicks = 0;
+        if (Worn(member, MightAndMagic7Figure.OffHand) is { } off)
+        {
+            if (off.Kind == MightAndMagic7WornKind.Shield)
+            {
+                shieldTicks = BaseTicks(off.Skill) * ArmourShare(member, off.Skill, 2, 0, 0, 0) / 2;
+            }
+            else if (off.IsWeapon && BaseTicks(off.Skill) > weaponTicks)
+            {
+                weapon = off;
+                weaponTicks = BaseTicks(off.Skill);
+            }
+        }
+
+        // Body armour, at the share its own skill's rung leaves (in halves).
+        int armourTicks = 0;
+        if (Worn(member, MightAndMagic7Figure.Armour) is { } body)
+        {
+            armourTicks = body.Skill switch
+            {
+                LeatherWord => BaseTicks(body.Skill) * ArmourShare(member, body.Skill, 2, 0, 0, 0) / 2,
+                ChainWord => BaseTicks(body.Skill) * ArmourShare(member, body.Skill, 2, 1, 0, 0) / 2,
+                PlateWord => BaseTicks(body.Skill) * ArmourShare(member, body.Skill, 2, 1, 1, 0) / 2,
+                _ => 0,
+            };
+        }
+
+        int ticks = weaponTicks + armourTicks + shieldTicks;
+
+        // What shortens it.
+        bool blaster = weapon is { } held && held.IsSkill(BlasterWord);
+        if (weapon is { } trained && (trained.IsSkill(SwordWord) || trained.IsSkill(AxeWord) || trained.IsSkill(BowWord)))
+        {
+            SkillEntry skill = SkillOf(member, trained.Skill);
+            if (skill.Level > 0 && skill.Tier.Value >= ExpertRung) ticks -= skill.Level;
+        }
+
+        if (!shooting && !blaster && Armsmaster(member) is { Level: > 0 } armsmaster)
+        {
+            ticks -= armsmaster.Tier.Value >= GrandMasterRung ? armsmaster.Level * 2 : armsmaster.Level;
         }
 
         // A haste shortens every action, standing or swinging, which is where the donor subtracts it.
         ticks -= HasteTicks;
+        ticks -= AttributeBonus(member.Attributes[SpeedAttribute]);
 
-        int minimum = kind == AttackKind.Melee ? MinimumMeleeTicks : MinimumRangedTicks;
-        if (ticks < minimum) ticks = minimum;
-        return Ticks(ticks);
+        int minimum = shooting || blaster || kind != AttackKind.Melee ? MinimumRangedTicks : MinimumMeleeTicks;
+        return Ticks(Math.Max(minimum, ticks));
     }
+
+    /// <summary>
+    /// The share of an armour piece's ticks a character carries at their rung of its skill, in halves: the donor's
+    /// <c>GetArmorRecoveryMultiplierFromSkillLevel</c> (<c>Character.cpp:1757-1772</c>).
+    /// </summary>
+    private static int ArmourShare(PartyMember member, string skill, int novice, int expert, int master, int grandmaster)
+    {
+        SkillEntry entry = SkillOf(member, skill);
+        return entry.Level <= 0
+            ? novice
+            : entry.Tier.Value switch
+            {
+                1 => novice,
+                2 => expert,
+                3 => master,
+                _ => grandmaster,
+            };
+    }
+
+    /// <summary>The donor's base recovery for a weapon's or a piece's skill, in ticks.</summary>
+    /// <remarks>
+    /// OpenEnroth <c>src/Engine/mm7_data.cpp:355-378</c>. A club reads the hundred ticks the donor carries for it,
+    /// which it notes is the earlier game's value; this game's item table files its clubs under a skill nobody can
+    /// learn, so no character of this game swings one.
+    /// </remarks>
+    private static int BaseTicks(string skill) => skill switch
+    {
+        StaffWord => 100,
+        SwordWord => 90,
+        DaggerWord => 60,
+        AxeWord => 100,
+        SpearWord => 80,
+        BowWord => 100,
+        MaceWord => 80,
+        BlasterWord => 30,
+        ShieldWord => 10,
+        LeatherWord => 10,
+        ChainWord => 20,
+        PlateWord => 30,
+        ClubWord => 100,
+        _ => 0,
+    };
 
     /// <summary>
     /// What an attribute is worth, by the donor's own threshold table.

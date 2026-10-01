@@ -105,6 +105,9 @@ public sealed class SessionOwners
     /// <summary>The one workflow every mixture goes through.</summary>
     public PotionMixing? Mixing { get; private set; }
 
+    /// <summary>The one way a player changes what a member wears.</summary>
+    public PartyOutfitting? Outfitting { get; private set; }
+
     /// <summary>The owners that set deadlines on the clock, which a save and the deadline report ask about.</summary>
     internal IReadOnlyList<IDeadlineOwner> DeadlineOwners => _deadlineOwners;
 
@@ -228,6 +231,13 @@ public sealed class SessionOwners
         if (Mixing is null && rules.Alchemy is { } alchemy && Party is { } mixers)
         {
             Mixing = new PotionMixing(mixers, alchemy.Mixtures, alchemy.Rule, Knowledge, rules.Names);
+        }
+
+        // What a member wears is the party's own state on either composition path, so the owner a player changes
+        // it through is composed over whichever party the session ends up playing.
+        if (Outfitting is null && rules.Equipment is { } figure && Party is { } wearers)
+        {
+            Outfitting = new PartyOutfitting(wearers, figure, rules.Names);
         }
     }
 

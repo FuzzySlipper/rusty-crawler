@@ -44,6 +44,44 @@ Owns:
   bearer's. Both are read from the shipped item table's own reference column through the same join a book's
   lesson uses, and a scenario's party may declare what it wears and what its pack holds
   (`MightAndMagic7Party`), which the live checks stage their starts with.
+- What a character wears (`MightAndMagic7Figure`, `MightAndMagic7EquipmentUse`): the donor's sixteen slots
+  (`ItemEnums.h:1054-1072`) under this game's names — `off hand`, `main hand`, `bow`, `armour`, `helm`,
+  `belt`, `cloak`, `gauntlets`, `boots`, `amulet`, `ring 1` to `ring 6` — which kind of item goes where
+  (`ItemEnumFunctions.h:240-266`), and what each worn row states: its dice, read as the donor reads the item
+  table's damage cell (a bare number is armour class), and its modifier. The use rule judges the place, then the
+  hands — a two-handed weapon needs the off hand empty, and a second weapon there needs a dagger at expert or a
+  sword at master (`UICharacter.cpp:1908-1910`) — then the skill, each refused by name. Where the donor's doll
+  hands a displaced shield back to the cursor, this game refuses and names what to take off: one change moves
+  one item (ours). The player changes the figure through the kit's `PartyOutfitting` (`party.equip`,
+  `party.unequip`), and the fight reads it into every character sum, term by term in the donor's order:
+  - **recovery** (`Character.cpp:1636-1750`): the weapon's base from the donor's table (`mm7_data.cpp:355-378`)
+    — a bow's for a shot, sixty for a trained unarmed fighter, a staff's hundred for empty hands — a slower
+    off-hand weapon, a shield's and the armour's ticks at the share their own rung leaves, less the speed bonus,
+    an expert sword's, axe's or bow's level, armsmaster (not for a shot or a blaster), and haste, floored at
+    thirty for a blow and five for a shot. Faithful; a swift weapon's twenty ticks wait for item enchantments
+    (#8513).
+  - **armour class** (`Character.cpp:1875-1887`): the speed bonus, every working passive piece's dice and
+    modifier (`:2299-2304`), the skill bonus of the shield, leather, chain, plate, staff, sword and spear worn,
+    dodging while nothing heavier than leather is (`:2596-2648`), and the stone skin a spell adds. Faithful;
+    the enchantment half of the items bonus waits for #8513.
+  - **chance to land** (`Character.cpp:768-778`, `:911-922`): the accuracy bonus, the weapon skill with
+    armsmaster (or unarmed and armsmaster for empty hands), the weapon's modifier in each hand, and for a shot
+    the bow's modifier and level; a blessing is added where the chance is priced. Faithful.
+  - **blow and shot** (`Character.cpp:814-856`, `:954-987`): the main hand's dice and modifier, a spear's extra
+    die with the off hand empty, a second weapon's dice, the weapon skill's damage bonus (`:2693-2742`), might,
+    heroism and hammerhands; a shot is the bow's dice and modifier and a grand master's bow level, without might.
+    Faithful except that a second weapon whose die differs from the first is added as its average, because one
+    roll of the kit's states one kind of die (ours). Not read: a slaying enchantment's double damage (#8513) and
+    a master dagger's chance of triple damage, which one roll of the kit's cannot state.
+  - **resistances** (`Character.cpp:1900-1993`): a grand master of leather in working leather armour adds the
+    leather level to fire, air, water and earth, beside the wards spells leave. Faithful for those terms; the
+    character's own base and racial terms are not stated by this game's members, followers are #8514, and
+    enchantments #8513.
+  A member wearing a bow shoots it at whatever the party's pick finds, where the donor swings at a target in
+  melee range and shoots otherwise (`Character.cpp:6367-6397`): the kit asks one kind of attack per actor rather
+  than per target (ours). Each sum is a list of terms, so a later owner's term — a buff, an enchantment — is one
+  more line in it. A save carries the figure as the party's item custody, and the ruleset suite resumes it and
+  reads the same blow back.
 - Monster, item, service, and condition definitions and their interpretation.
 - Combat, damage, resistance, conditions, recovery, reward, and experience formulas.
 - Progression policy: the experience curve, how a party's award divides, what a
@@ -120,9 +158,7 @@ this game's locks, and a refusal that says what it needs), which places are cloc
 against the one clock so a door outside them is an unmet requirement rather than a menu entry that hides
 itself), what fighting costs here (`MightAndMagic7Combat` — a monster's recovery is the monster table's own
 `Recovery` column, its hostility band is the distance at which it notices the party, and a character is
-paced by the donor's own attack-recovery sum as far as this build can read it: the base for a character
-holding nothing, the armsmaster reduction, haste, and the speed bonus, since what a member wears is not read
-into it yet (#9005); a creature's first recovery is a keyed draw over the actor so a group placed together does not strike in
+paced by the donor's own attack-recovery sum over what they wear (see the figure below); a creature's first recovery is a keyed draw over the actor so a group placed together does not strike in
 lockstep, a creature is recognized by a placement of kind `monster` naming the row it is, and a person a
 map's own record places reads the monster row that record names rather than one peasant row for everybody),
 what a creature does with its moment (`MightAndMagic7MonsterAi` — the row's `AI Type` column decides
@@ -138,7 +174,8 @@ same policy's other half,
 `ICombatResolutionRule` and `ICombatAbilityResolutionRule`: a character's chance to land a blow is the
 donor's own hit test
 (`Character.cpp:6263-6300`) and a creature's is its other one (`Actor.cpp:3691-3707`), a character's blow is
-the unarmed three-sided die plus their might and armsmaster bonuses (`Character.cpp:814-856`) while a
+the weapon in hand's own dice — or the unarmed three-sided die — plus its skill and might bonuses
+(`Character.cpp:814-856`) while a
 creature's is its row's own dice — its second attack's dice and kind of harm when the order names that
 way of attacking, and a spell's own dice and kind from this game's per-spell table
 — harm is of the row's own kind (`ItemEnums.h:10-23`, read from the monster

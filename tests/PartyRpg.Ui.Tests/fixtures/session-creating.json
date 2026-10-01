@@ -626,6 +626,25 @@
     "detectionEnds": "",
     "drawing": null
   },
+  "equipment": {
+    "available": false,
+    "slots": [],
+    "members": [],
+    "items": [],
+    "canEquip": false,
+    "outcome": {
+      "outcome": "",
+      "code": "",
+      "message": "",
+      "member": 0,
+      "wearer": "",
+      "slot": "",
+      "item": "",
+      "itemName": "",
+      "displaced": "",
+      "displacedName": ""
+    }
+  },
   "controls": {
     "pause": {
       "action": "",

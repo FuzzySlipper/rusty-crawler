@@ -253,7 +253,10 @@ internal sealed class MightAndMagic7Session : IGameSession
             crimes,
             new ProgressionAwards(Worth, () => owners.Progression, crimes.SourceOf),
         ];
-        composed = MightAndMagic7Combat.Compose(Declared(context.Content), context.Engine?.Random, spells, () => owners.Party, () => spellEffects);
+        // What each member wears is read through this game's figure, once: the fight reads its weapons and armour
+        // into every sum it prices a character by, and the session's equipment owner offers its slots to the panel.
+        MightAndMagic7Figure? figure = MightAndMagic7Figure.Read(Declared(context.Content));
+        composed = MightAndMagic7Combat.Compose(Declared(context.Content), context.Engine?.Random, spells, () => owners.Party, () => spellEffects, figure);
         MightAndMagic7Combat combat = composed;
 
         long Worth(PlacementDefinition placement) =>
@@ -300,6 +303,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             Journal = journal,
             Knowledge = knowledge,
             Map = automap is null || mapSource is null ? null : new MapRules(automap, mapSource),
+            Equipment = figure,
         };
 
         EngineSessionSaveStore? store = MightAndMagic7Persistence.Store(context.Engine);
@@ -323,6 +327,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                 Skills = context.Skills,
                 Cast = context.Cast,
                 Mix = context.Mix,
+                Equip = context.Equip,
                 Keys = context.Keys,
             };
 

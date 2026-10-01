@@ -70,7 +70,7 @@ public sealed class CombatPolicyTests
         // panel shows which of them may still act. What each pays is the donor's character recovery: a
         // character holding nothing swings on the staff's hundred ticks less the speed bonus its Speed
         // attribute is worth — two ticks at seventeen, five at twenty-five — because this party wears nothing
-        // and runs no haste, and what a member wears is not read into the sum yet (#9005).
+        // and runs no haste; what a worn weapon and armour add is EquipmentPolicyTests' to prove.
         session.Update(RulesetTestContext.Update(++step, 1, RulesetTestContext.Digital(Declared.AttackIntent)));
         combat = ProjectedNode.Of(ui.Latest().Value).Field("combat");
         Assert.Equal("applied", combat.Field("outcome").AsString());

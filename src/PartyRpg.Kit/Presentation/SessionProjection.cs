@@ -63,6 +63,7 @@ namespace PartyRpg.Kit.Presentation;
 /// The keys the host bound its controls to, <see cref="ControlKeys.None"/> when it bound none, so a screen names
 /// those controls by their buttons alone rather than by keys nobody pressed.
 /// </param>
+/// <param name="Equipment">What each member wears and what the pack could be worn from, or the no-figure value.</param>
 public sealed record SessionSnapshot(
     SessionComposition Composition,
     SessionMode Mode,
@@ -87,7 +88,8 @@ public sealed record SessionSnapshot(
     QuestSnapshot Quests,
     JournalSnapshot Journal,
     MapSnapshot Map,
-    ControlKeys Keys);
+    ControlKeys Keys,
+    EquipmentSnapshot Equipment);
 
 /// <summary>Where the party is in the world, as the panel needs it: which place, where in it, and how much of the world is known.</summary>
 /// <param name="Place">The place the party is in, empty when the session has no world.</param>
@@ -215,6 +217,9 @@ public static class SessionProjection
     /// <summary>The name of the projection field the automap is published under.</summary>
     public const string MapField = "map";
 
+    /// <summary>The name of the projection field the members' figures are published under.</summary>
+    public const string EquipmentField = "equipment";
+
     /// <summary>The name of the projection field the stand-alone controls are published under.</summary>
     public const string ControlsField = "controls";
 
@@ -320,6 +325,9 @@ public static class SessionProjection
             // of a mapped place yet" are three different facts, and a block that only appeared once the party
             // had walked somewhere would leave a screen unable to tell them apart.
             (MapField, snapshot.Map.Write(builder)),
+            // The figures are published in every mode for the same reason: "this ruleset states no figure", "the
+            // member wears nothing", and "a change was refused for a skill" are three different facts.
+            (EquipmentField, snapshot.Equipment.Write(builder)),
             // The controls are published in every mode for the same reason every block is: "this control would
             // be taken now", "it would be refused", and "it is bound to this key" are facts about the session, and
             // a screen that worked any of them out would be a second copy of the rule that decides them.
