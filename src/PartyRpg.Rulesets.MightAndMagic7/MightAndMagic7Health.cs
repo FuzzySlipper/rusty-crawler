@@ -9,7 +9,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// <para>
 /// <b>The donor's own two thresholds, and nothing else.</b> OpenEnroth <c>src/Engine/Objects/Character.cpp:
 /// 1310-1316</c> (<c>Character::receiveDamage</c>): a character whose health has fallen below one is
-/// unconscious while <c>health + GetBaseEndurance() &gt;= 1</c> and dead otherwise. In other words the pool
+/// unconscious while <c>health + GetBaseEndurance() &gt;= 1</c> or Preservation is active, and dead otherwise. In other words the pool
 /// empties into unconsciousness, and the character dies once the harm past empty is deeper than their own
 /// base endurance is worth — an endurance of twenty-five is a good deal harder to kill than one of nine.
 /// That is why this rule is asked with the deficit rather than only with what the pool has left: a pool
@@ -43,6 +43,8 @@ internal sealed class MightAndMagic7Health : ICharacterHealthRule
     public CharacterCollapse Collapse(PartyMember member, int hitPoints, int deficit)
     {
         ArgumentNullException.ThrowIfNull(member);
+        // Survival does not undo death, petrification or eradication already held by the character.
+        if (MightAndMagic7SpellEffects.LaidOut(member)) return CharacterCollapse.None;
 
         // What the donor's `health` would read: the pool stops at empty, so what lies below zero is exactly
         // the harm that went past it.
@@ -50,7 +52,7 @@ internal sealed class MightAndMagic7Health : ICharacterHealthRule
         if (health >= 1) return CharacterCollapse.None;
 
         int endurance = MightAndMagic7Combat.AttributeBonus(member.Attributes[EnduranceAttribute]);
-        return health + endurance >= 1
+        return health + endurance >= 1 || member.Effects.MagnitudeOf(SpellEffectIds.Preservation) > 0
             ? new CharacterCollapse(new ActiveCondition(MightAndMagic7Conditions.Unconscious))
             : new CharacterCollapse(new ActiveCondition(MightAndMagic7Conditions.Dead), [MightAndMagic7Conditions.Unconscious]);
     }

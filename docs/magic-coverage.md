@@ -78,7 +78,7 @@ the shipped `POTION.TXT` states what each potion is for in words and no numbers 
 | 228 | utility | caster | implemented | a carried effect of its own identity (spell.haste) on that character, read where it applies and ended by a deadline on the one clock |  |
 | 229 | utility | caster | implemented | a carried effect of its own identity (spell.heroism) on that character, read where it applies and ended by a deadline on the one clock |  |
 | 230 | utility | caster | implemented | a carried effect of its own identity (spell.bless) on that character, read where it applies and ended by a deadline on the one clock |  |
-| 231 | utility | caster | not yet | a character protected from death while unconscious | the existing running-effect and health owners (#9146) |
+| 231 | utility | caster | implemented | the drinker survives below-empty health unconscious while this member effect runs; neither the bottle nor expiry resurrects a laid-out member |  |
 | 232 | resistance | caster | implemented | a shield on the character drinking it, read by the fight's own ranged resolution — a creature's missile does half to them — with a deadline on the one clock |  |
 | 233 | utility | none | approximated | enchantment properties and weapon magnitudes are approximate; common item eligibility, quest refusal, mastery strength and clock duration are explicit |  |
 | 234 | resistance | caster | implemented | armour class carried by the character and read by the fight's own armour class, with a deadline on the one clock |  |
@@ -131,8 +131,8 @@ the shipped `POTION.TXT` states what each potion is for in words and no numbers 
 | light | 1 | 0 | 0 | 1 |
 | travel | 3 | 3 | 0 | 6 |
 | detection | 3 | 0 | 0 | 3 |
-| utility | 8 | 9 | 2 | 19 |
-| **all** | **80** | **17** | **2** | **99** |
+| utility | 8 | 10 | 1 | 19 |
+| **all** | **80** | **18** | **1** | **99** |
 
 ## Every spell
 
@@ -190,7 +190,7 @@ master, and four grand master.
 | 47 | utility | 1 | ally | implemented | an effect on the character the casting named, read by the fight's own resolution for that character and ended by its own deadline; the donor rewards a blessing, a fate, and hammerhands to one character below the rungs where it widens them to the party (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:846-880, :1631-1656, :2364-2384), and this game's own table aims each one at a single character |  |
 | 48 | condition | 1 | foe | implemented | every undead creature in view is made afraid on its own state and runs from what it fights until the clock ends it (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:1734-1762); the table aims the casting at a creature, and the spell takes hold of every one in view as the donor's does |  |
 | 49 | condition | 2 | ally | implemented | the named conditions lifted through the member's own condition state |  |
-| 50 | utility | 2 | caster | not yet | a character protected from death while unconscious | the existing running-effect and health owners (#9146) |
+| 50 | utility | 2 | caster | approximated | the caster survives below-empty health unconscious until the original deadline; donor expert targets one member and master or grand master protects every member, while this game's table keeps the caster carrier |  |
 | 51 | utility | 2 | ally | implemented | an effect on the character the casting named, read by the fight's own resolution for that character and ended by its own deadline; the donor rewards a blessing, a fate, and hammerhands to one character below the rungs where it widens them to the party (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:846-880, :1631-1656, :2364-2384), and this game's own table aims each one at a single character |  |
 | 52 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 53 | healing | 3 | ally | implemented | a member stood back up at one hit point, with what laid them out lifted from their own conditions |  |

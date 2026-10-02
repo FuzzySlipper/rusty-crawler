@@ -499,7 +499,7 @@ public sealed class PartyEntity : IDisposable
                 member.Spells.QuickSpell,
                 member.Progression.AgeOffset,
                 member.Resistances.Scores),
-                [.. member.Effects.Active]));
+                [.. member.Effects.Active], member.Resources.Deficit));
         }
 
         List<ItemSave> items = [];

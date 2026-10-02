@@ -155,6 +155,11 @@ internal static class WardFormulas
     /// </summary>
     internal static readonly Func<int, int, GameDuration> ThirtyMinutesPerPoint = (level, _) => GameDuration.FromMinutes(30 * level);
 
+    /// <summary>Preservation: one hour plus five minutes per level, or fifteen at grand master.</summary>
+    /// <remarks>OpenEnroth <c>src/Engine/Spells/CastSpellInfo.cpp:1707-1713</c>.</remarks>
+    internal static readonly Func<int, int, GameDuration> PreservationLasts = (level, mastery) =>
+        GameDuration.FromHours(1) + GameDuration.FromMinutes((mastery >= 4 ? 15 : 5) * level);
+
     /// <summary>Three times the mixture's strength, which is what the donor's own potions raise a score or a resistance by.</summary>
     internal static readonly Func<int, int, int> ThreePerPoint = (level, _) => 3 * level;
 
@@ -759,6 +764,9 @@ internal static class SpellEffectIds
 
     /// <summary>Shield, which halves what a missile does to whoever carries it; a fact rather than a magnitude.</summary>
     internal static readonly EffectId Shield = new("spell.shield");
+
+    /// <summary>Preservation keeps a below-empty living character unconscious instead of dead.</summary>
+    internal static readonly EffectId Preservation = new("spell.preservation");
 
     /// <summary>Pain Reflection, which turns the harm a character takes back onto whoever dealt it.</summary>
     internal static readonly EffectId PainReflection = new("spell.pain-reflection");

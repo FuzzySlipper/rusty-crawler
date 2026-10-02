@@ -320,5 +320,9 @@ ordinary counter operations. Item aims on the casting panel apply Enchant Item, 
 coatings, recharge and hardening to the actual held instance. Working worn properties affect the existing
 combat readings; temporary properties end on the one clock, and permanent properties affect trade value.
 The [item-effect reading](docs/evidence/item-enchanting.md) states the approximate repertoire and its
-verification limits. World-targeted Telekinesis, character Preservation and further original special-item
-powers are explicit receivers #9145, #9146 and #9148.
+verification limits. Preservation uses the existing member effect and health owners: a protected caster or
+potion drinker remains unconscious after otherwise lethal wounds, until the original deadline. The current
+party save carries damage past zero; expiry neither heals nor resurrects. The spell keeps this game's
+caster-only carrier, approximating the donor's ally/party targeting. The [Preservation reading](docs/evidence/preservation.md)
+states the checks and live limits. World-targeted Telekinesis and further original special-item powers are
+explicit receivers #9145 and #9148.

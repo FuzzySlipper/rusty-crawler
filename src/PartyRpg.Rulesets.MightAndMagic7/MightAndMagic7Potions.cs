@@ -123,8 +123,8 @@ internal static class MightAndMagic7Potions
         new(230, SpellEffects.Utility, SpellTargeting.Caster, Readings.Buff(SpellEffectIds.Bless, WardFormulas.Flat(5), WardFormulas.ThirtyMinutesPerPoint).OnOne()),   // Bless
 
         // Preservation keeps below-empty health unconscious rather than dead (Character.cpp:1310-1321).
-        // Its duration is a member effect (Character.cpp:3138-3142), not gear protection; #9146 owns it.
-        new(231, SpellEffects.Utility, SpellTargeting.Caster, Readings.NotYet("a character protected from death while unconscious", "the existing running-effect and health owners (#9146)")),   // Preservation
+        // Its duration is a member effect (Character.cpp:3140-3142), read by the canonical health rule.
+        new(231, SpellEffects.Utility, SpellTargeting.Caster, Readings.Buff(SpellEffectIds.Preservation, WardFormulas.ThreePerPoint, WardFormulas.ThirtyMinutesPerPoint).OnOne().Says("the drinker survives below-empty health unconscious while this member effect runs; neither the bottle nor expiry resurrects a laid-out member")),   // Preservation
 
         // Shield: armour class at three times the strength, which is the same reading the donor's own cast
         // states (Character.cpp:3144-3149). Unlike the spell of the same name, which this build refuses as a

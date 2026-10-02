@@ -32,10 +32,15 @@ public sealed class CharacterResources
     /// <summary>Creates a character's resource pools.</summary>
     /// <param name="hitPoints">What the character has to lose.</param>
     /// <param name="spellPoints">What the character has to cast with.</param>
-    public CharacterResources(ResourcePool hitPoints, ResourcePool spellPoints)
+    /// <param name="deficit">The harm past empty, when restoring a wounded character.</param>
+    public CharacterResources(ResourcePool hitPoints, ResourcePool spellPoints, int deficit = 0)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(deficit);
+        if (deficit > 0 && hitPoints.Current > 0)
+            throw new ArgumentException("A character with hit points cannot also carry harm past empty.", nameof(deficit));
         HitPoints = hitPoints;
         SpellPoints = spellPoints;
+        Deficit = deficit;
     }
 
     /// <summary>What the character has to lose.</summary>

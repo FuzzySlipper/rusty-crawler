@@ -173,6 +173,9 @@ public static class SaveCodes
     /// <summary>The problem code <c>save-member-beyond-cursor</c>.</summary>
     public const string SaveMemberBeyondCursor = "save-member-beyond-cursor";
 
+    /// <summary>The problem code <c>save-member-deficit-invalid</c>.</summary>
+    public const string SaveMemberDeficitInvalid = "save-member-deficit-invalid";
+
     /// <summary>The problem code <c>save-item-unidentified</c>.</summary>
     public const string SaveItemUnidentified = "save-item-unidentified";
 

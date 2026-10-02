@@ -322,21 +322,21 @@ public sealed class SpellEffectPolicyTests
     }
 
     [Fact]
-    public void A_spell_this_build_applies_none_of_is_refused_by_name_before_it_is_paid_for()
+    public void Preservation_reaches_the_casters_health_through_the_existing_member_effect()
     {
         (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(Content());
         using IGameSession session = Casting(context, ui);
         MightAndMagic7Session live = (MightAndMagic7Session)session;
         int before = live.Party!.Members[0].Resources.SpellPoints.Current;
 
-        // Preservation's health/effect integration remains explicit receiver #9146. Until it exists,
-        // a cast refuses before payment rather than pretending that an item property protects a member.
         Cast(session, ui, 1, "50", string.Empty);
-        ProjectedNode refused = Magic(ui);
-        Assert.Equal("refused", refused.Field("outcome").AsString());
-        Assert.Equal(SpellCodes.SpellNotApplied, refused.Field("code").AsString());
-        Assert.Contains(ReceiverOf(50), refused.Field("message").AsString(), StringComparison.Ordinal);
-        Assert.Equal(before, live.Party.Members[0].Resources.SpellPoints.Current);
+        Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
+        Assert.Equal(before - 8, live.Party.Members[0].Resources.SpellPoints.Current);
+        live.Party.Members[0].TakeDamage(1000);
+        Assert.True(live.Party.Members[0].Conditions.Has(MightAndMagic7Conditions.Unconscious));
+        Assert.False(live.Party.Members[0].Conditions.Has(MightAndMagic7Conditions.Dead));
+        live.Party.Members[1].TakeDamage(1000);
+        Assert.True(live.Party.Members[1].Conditions.Has(MightAndMagic7Conditions.Dead));
     }
 
     [Fact]

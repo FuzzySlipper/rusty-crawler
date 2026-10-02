@@ -9,7 +9,8 @@ namespace PartyRpg.Kit.Party;
 /// <param name="Id">The member's durable identity.</param>
 /// <param name="Seed">Everything the character is, apart from the items it held.</param>
 /// <param name="Effects">What a spell or a potion left running on this character alone.</param>
-public sealed record PartyMemberSave(PartyMemberId Id, PartyMemberSeed Seed, IReadOnlyList<PartyEffect>? Effects = null)
+/// <param name="Deficit">How far past empty the character's wounds went.</param>
+public sealed record PartyMemberSave(PartyMemberId Id, PartyMemberSeed Seed, IReadOnlyList<PartyEffect>? Effects = null, int Deficit = 0)
 {
     /// <summary>What a spell or a potion left running on this character alone.</summary>
     public IReadOnlyList<PartyEffect> Effects { get; init; } = Effects ?? [];
