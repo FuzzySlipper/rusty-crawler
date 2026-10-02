@@ -176,7 +176,6 @@ internal sealed class MightAndMagic7Session : IGameSession
             skills,
             spells,
             quests,
-            () => owners.Quests,
             theft);
 
         // This game's answers about people are read once here, for the same reason: the world needs them to

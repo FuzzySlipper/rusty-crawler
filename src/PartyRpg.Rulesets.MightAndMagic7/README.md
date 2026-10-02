@@ -532,8 +532,12 @@ conversation composes an errand's offer from this game's quests on either path â
 owner would hear an errand and have nowhere to take it. The wait, the offer, and the turn-in all travel
 through the conversation that already exists, as three topics whose stage is the party's own state; a turn-in pays experience through the
 progression owner's one award entry, coin through the ledger, items through the acquisition path, and records
-onto the party's effects, and a counter refuses to buy what an unfinished errand still needs, naming the
-errand. What each of the 17 errands is read as is stated row by row in `MightAndMagic7Quests.Errands()`,
+onto the party's effects. Needed-item retention comes from the Kit quest owner's existing `Needs` reading:
+sale, consumption, release, charge use, mixing, item casting and an event's item subtraction all ask it
+before effects or payment, with the same errand and objective named. A met item objective still needs
+its carried item until turn-in; the turn-in's own delivery can hand it over. The ruleset retains only its
+sale provenance policy, with no second quest-item list. What each of the 17 errands is read as is stated
+row by row in `MightAndMagic7Quests.Errands()`,
 with the shipped words it is written over, the place and creature names it resolves against content, and
 the residue that says what the original performs with an event program and this build does not judge; a
 test over the operator's own packs checks that every objective resolved and that a count taken from a

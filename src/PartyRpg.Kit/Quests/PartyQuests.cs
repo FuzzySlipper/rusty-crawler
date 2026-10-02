@@ -38,7 +38,7 @@ namespace PartyRpg.Kit.Quests;
 /// load, never a lookup.
 /// </para>
 /// </remarks>
-public sealed class PartyQuests
+public sealed class PartyQuests : IItemRetentionRule
 {
     /// <summary>What this names as the source of an award a finished quest earned.</summary>
     public const string QuestSource = "quest";
@@ -77,6 +77,7 @@ public sealed class PartyQuests
         _ledger = ledger;
         _progression = progression;
         _clock = clock;
+        _party.RetainItemsWith(this);
 
         if (save is null) return;
         foreach (QuestInstanceSave recorded in save.Instances)
@@ -440,6 +441,11 @@ public sealed class PartyQuests
         return null;
     }
 
+    /// <summary>The unfinished objective that keeps an instance in the party's custody, using the same need read by turn-in.</summary>
+    public Refusal? Retains(ItemDefinitionId item) => Needs(item) is { } needed
+        ? new Refusal(QuestCodes.QuestItemNeeded, $"{needed.Statement} is not done yet, so {item} stays with the party until that errand is finished.")
+        : null;
+
     /// <summary>Reads this party's quest state into the product's one current save schema.</summary>
     /// <remarks>
     /// The capture is a snapshot of values rather than a view of live state: the stages and the recorded
@@ -503,7 +509,7 @@ public sealed class PartyQuests
         for (int index = 0; index < objective.Count; index++)
         {
             if (_party.Inventory.Find(new ItemDefinitionId(objective.Target)) is not { } item) break;
-            if (_party.ConsumeItem(item.Id) is null) break;
+            if (_party.DeliverItem(item.Id) is null) break;
             handed++;
         }
 

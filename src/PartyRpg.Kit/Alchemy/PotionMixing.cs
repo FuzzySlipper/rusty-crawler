@@ -410,6 +410,10 @@ public sealed class PotionMixing
                         $"{firstName} and {secondName} are not a mixture this game states, so nothing was combined and both are still where they were."))));
         }
 
+        if ((mixture.Produces || mixture.Outcome.Burst > 0)
+            && (_party.JudgeItemRemoval(first.Id) ?? _party.JudgeItemRemoval(second.Id)) is { } retained)
+            return Record(MixingResult.Refused(request.Member, mixer.Profile.Name, firstName, secondName, retained));
+
         return mixture.Produces
             ? Produce(request, mixer, first, second, firstName, secondName, mixture)
             : React(request, mixer, first, second, firstName, secondName, mixture);

@@ -288,7 +288,7 @@ public sealed class QuestPolicyTests
         session.Update(RulesetTestContext.Update(6, 1, RulesetTestContext.Payload("""{"action":"service.sell","target":"1"}""")));
         ProjectedNode refused = ProjectedNode.Of(ui.Latest().Value).Field("service");
         Assert.Equal("refused", refused.Field("outcome").AsString());
-        Assert.Equal("service-item-needed-by-quest", refused.Field("code").AsString());
+        Assert.Equal(QuestCodes.QuestItemNeeded, refused.Field("code").AsString());
         Assert.Contains("The seal of office", refused.Field("message").AsString(), StringComparison.Ordinal);
         Assert.Contains("Carry the box", refused.Field("message").AsString(), StringComparison.Ordinal);
         Assert.Equal(0, refused.Field("earned").AsNumber());

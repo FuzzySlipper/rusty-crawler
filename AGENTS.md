@@ -126,7 +126,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   effect categories each reach their owner, stated per spell in `docs/magic-coverage.md`; alchemy mixes the
   shipped recipes.
 - **Record.** Quests (definitions from content, instances on the party), `PartyJournal`, `PartyKnowledge`,
-  standing read from records, and the `PartyMaps` automap.
+  standing read from records, and the `PartyMaps` automap. A taken errand's needed item stays in the party:
+  removal and charge use ask the quest owner, and its own turn-in delivers through the same custody owner.
 - **Persistence.** One current schema, written only on `session.save`: party, clock, world (including target words, defeated placements and remaining personal purses), quests,
   journal, knowledge and maps. A load rebuilds what is transient; a contradictory document is refused with
   every problem named.
@@ -149,7 +150,6 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 - Stone 7, progression and magic: the two counted deeds two ranks need
   have no writer (#8689); item-aimed effects (#8513) and followers
   (#8514) are "not yet" in `docs/magic-coverage.md`.
-- Stone 8, record: an errand's item is protected only from sale (#8687).
 
 When a stone lands or a residue closes, update this section, `README.md`, and the owning project README
 together.

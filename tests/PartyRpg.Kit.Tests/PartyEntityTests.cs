@@ -535,14 +535,14 @@ public sealed class PartyEntityTests
         ItemInstance blade = party.AcquireItem(Blade).Item!;
         party.Equip(party.Members[0].Id, Hand, blade.Id);
 
-        ItemInstance released = party.ReleaseItem(blade.Id)!;
+        ItemInstance released = party.ReleaseItem(blade.Id).Item!;
 
         Assert.Same(blade, released);
         Assert.True(released.Custody.IsDetached);
         Assert.Empty(party.Items);
         Assert.Empty(party.Inventory.Items);
         Assert.False(party.Members[0].Equipment.Has(Hand));
-        Assert.Null(party.ReleaseItem(blade.Id));
+        Assert.False(party.ReleaseItem(blade.Id).Removed);
 
         // An instance nobody holds cannot be taken twice: it has to be offered again by whoever holds it.
         ItemInstance offered = party.CreateItem(Blade);

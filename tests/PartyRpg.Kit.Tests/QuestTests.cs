@@ -43,6 +43,75 @@ public sealed class QuestTests
     private static readonly string Monster = "7";
 
     [Fact]
+    public void Every_public_removal_entry_is_exercised_by_the_retention_cases()
+    {
+        string[] entries = typeof(PartyEntity).GetMethods()
+            .Where(method => method.ReturnType == typeof(ItemRemoval) || method.ReturnType == typeof(ItemChargeSpend))
+            .Select(method => method.Name).Order(StringComparer.Ordinal).ToArray();
+        Assert.Equal(new[] { nameof(PartyEntity.ConsumeItem), nameof(PartyEntity.ReleaseItem), nameof(PartyEntity.SpendItemCharge) }, entries);
+    }
+
+    [Theory]
+    [InlineData("consume", 1)]
+    [InlineData("release", 1)]
+    [InlineData("charge", 1)]
+    [InlineData("charge", 5)]
+    public void Every_removal_refuses_an_accepted_errands_item_but_allows_offered_and_turned_in_items(string entry, int capacity)
+    {
+        using PartyEntity party = PartyOf(Member("Tester"));
+        QuestDefinition definition = new(new QuestId("retention"), "Keep the seal", "marshal",
+            [new QuestObjective("retrieve", QuestObjectiveKind.Retrieve, Seal.Value, label: "Carry the seal")]);
+        PartyQuests quests = new(new TestQuests(definition), party);
+        quests.Offer(definition.Id, "marshal");
+        ItemInstance offered = party.AcquireItem(Seal).Item!;
+        Assert.Null(Remove(entry, party, offered.Id, capacity));
+        if (entry == "charge" && capacity > 1) Assert.True(party.ConsumeItem(offered.Id).Removed);
+        ItemInstance held = party.AcquireItem(Seal).Item!;
+        quests.Accept(definition.Id);
+        Assert.True(quests.Read(definition.Id)!.IsComplete);
+        // Met objectives still require their carried item until turn-in; the canonical need is asked live.
+        long stamp = party.Stamp;
+        Refusal refused = Assert.IsType<Refusal>(Remove(entry, party, held.Id, capacity));
+        Assert.Equal(QuestCodes.QuestItemNeeded, refused.Code);
+        Assert.Contains(definition.Name, refused.Message, StringComparison.Ordinal);
+        Assert.Contains("Carry the seal", refused.Message, StringComparison.Ordinal);
+        Assert.Same(held, party.FindItem(held.Id));
+        Assert.Equal(0, held.State.ChargesSpent);
+        Assert.Equal(stamp, party.Stamp);
+        Assert.True(quests.TurnIn(definition.Id, "marshal").IsApplied);
+        Assert.Null(Remove(entry, party, held.Id, capacity));
+    }
+
+    [Fact]
+    public void A_delivery_hands_over_the_needed_item_through_the_quest_owners_explicit_transfer()
+    {
+        using PartyEntity party = PartyOf(Member("Tester"));
+        QuestDefinition definition = new(new QuestId("delivery"), "Deliver the parcel", "marshal",
+            [new QuestObjective("deliver", QuestObjectiveKind.Deliver, Parcel.Value, label: "Hand over the parcel", person: "met:marshal")]);
+        PartyQuests quests = new(new TestQuests(definition), party);
+        quests.Offer(definition.Id, "marshal");
+        quests.Accept(definition.Id);
+        party.Records.Set("met:marshal", 1);
+        ItemInstance item = party.AcquireItem(Parcel).Item!;
+        Assert.NotNull(party.ConsumeItem(item.Id).Refusal);
+        QuestResult result = quests.TurnIn(definition.Id, "marshal");
+        Assert.True(result.IsApplied, result.Refusal?.Message);
+        Assert.Null(party.FindItem(item.Id));
+        Assert.False(item.IsHeld);
+        Assert.Single(result.Payment.Delivered);
+        ItemInstance another = party.AcquireItem(Parcel).Item!;
+        Assert.True(party.ConsumeItem(another.Id).Removed);
+    }
+
+    private static Refusal? Remove(string entry, PartyEntity party, ItemInstanceId item, int capacity) => entry switch
+    {
+        "consume" => party.ConsumeItem(item).Refusal,
+        "release" => party.ReleaseItem(item).Refusal,
+        "charge" => party.SpendItemCharge(item, capacity).Refusal,
+        _ => throw new ArgumentOutOfRangeException(nameof(entry)),
+    };
+
+    [Fact]
     public void A_quest_is_offered_taken_progressed_and_turned_in_with_every_reward_reaching_its_owner()
     {
         using PartyEntity party = PartyOf(Member("Roderick"), Member("Ysolde"));
@@ -152,9 +221,8 @@ public sealed class QuestTests
         Assert.Equal(0, Progress(quests, "retrieve"));
         party.AcquireItem(Seal);
         Assert.Equal(1, Progress(quests, "retrieve"));
-        party.ConsumeItem(party.Inventory.Find(Seal)!.Id);
-        Assert.Equal(0, Progress(quests, "retrieve"));
-        party.AcquireItem(Seal);
+        Assert.Equal(QuestCodes.QuestItemNeeded, party.ConsumeItem(party.Inventory.Find(Seal)!.Id).Refusal!.Code);
+        Assert.Equal(1, Progress(quests, "retrieve"));
 
         // A talk objective reads the record the conversation leaves of having met somebody, which is the
         // party's own carried state rather than a second list of people this mechanism keeps.

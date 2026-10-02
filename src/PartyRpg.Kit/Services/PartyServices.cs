@@ -652,6 +652,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
                 ? null
                 // A member's figure is not the party's stock: selling it would take a worn item off a character.
                 : new Refusal(ServiceCodes.ServiceItemWorn, $"{subject.Item.Definition} is worn by a member, and a shop buys what lies in the party's pack."),
+            Judge: static (services, t) => services._party.JudgeItemRemoval(t.Subject.Item!.Id),
             Apply: static (services, t) => services.ApplySell(t),
             Describe: static (_, t) => $"The party sells {t.Subject.Item!.StackCount} × {t.Subject.Item.Definition} for {t.Quote.Payment.Coins} coin(s), and the counter will sell it back."),
         [ServiceOperationKind.Identify] = new(
@@ -1090,7 +1091,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
     /// <summary>Takes a sold item out of the party and onto the shelf, priced back from what the shop paid.</summary>
     private void ApplySell(Transaction t)
     {
-        ItemInstance released = _party.ReleaseItem(t.Subject.Item!.Id)
+        ItemInstance released = _party.ReleaseItem(t.Subject.Item!.Id).Item
             ?? throw new InvalidOperationException($"Item {t.Subject.Item.Id} was resolved and is no longer the party's.");
         t.Visit.Shelf.Accept(released, t.Quote.Value > 0 ? t.Quote.Value : t.Subject.Value);
     }

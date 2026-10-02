@@ -462,6 +462,8 @@ public sealed class Spellcasting
             }
         }
 
+        if (_party.JudgeItemRemoval(id) is { } retained) return (null, Refuse(retained));
+
         return (new SpellItem(reading, id, instance.Definition), null);
     }
 

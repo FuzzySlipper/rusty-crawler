@@ -136,7 +136,6 @@ internal sealed class MightAndMagic7Services : IServiceRule
     private readonly Dictionary<ItemDefinitionId, ItemFacts> _items;
     private readonly Dictionary<string, SpellFacts> _spells;
     private readonly MightAndMagic7Quests? _quests;
-    private readonly Func<PartyQuests?>? _journal;
     private readonly Dictionary<int, IReadOnlyList<string>> _placeRoads;
     private readonly Dictionary<(string Place, string Placement), ServiceHousehold> _households;
     private readonly IReadOnlyList<ItemFacts> _catalogue;
@@ -157,7 +156,6 @@ internal sealed class MightAndMagic7Services : IServiceRule
         MightAndMagic7Skills? skills,
         MightAndMagic7Spells? magic,
         MightAndMagic7Quests? quests,
-        Func<PartyQuests?>? journal,
         TuningProfile tuning,
         MightAndMagic7Theft theft)
     {
@@ -173,7 +171,6 @@ internal sealed class MightAndMagic7Services : IServiceRule
         _catalogue = catalogue;
         _skills = skills;
         _quests = quests;
-        _journal = journal;
     }
 
     /// <summary>
@@ -236,7 +233,6 @@ internal sealed class MightAndMagic7Services : IServiceRule
     /// <param name="skillPolicy">This game's skill policy, or null to read one here.</param>
     /// <param name="spellPolicy">This game's magic, or null to read it here.</param>
     /// <param name="quests">This game's quests, or null when its ruleset stated none.</param>
-    /// <param name="journal">The party's quests, read when a sale is judged.</param>
     /// <param name="theft">
     /// This game's theft rule, which the session composes over the engine's random service and what people carry;
     /// a caller that composed none gets one read here, which judges a thief and draws nothing.
@@ -248,7 +244,6 @@ internal sealed class MightAndMagic7Services : IServiceRule
         MightAndMagic7Skills? skillPolicy = null,
         MightAndMagic7Spells? spellPolicy = null,
         MightAndMagic7Quests? quests = null,
-        Func<PartyQuests?>? journal = null,
         MightAndMagic7Theft? theft = null)
     {
         if (catalog is null) return null;
@@ -328,7 +323,6 @@ internal sealed class MightAndMagic7Services : IServiceRule
             // gets one read here, so a guild still sells its school's spells.
             spellPolicy ?? MightAndMagic7Spells.Read(catalog, skillPolicy),
             quests,
-            journal,
             MightAndMagic7Tuning.Read(catalog),
             theft ?? MightAndMagic7Theft.Read(catalog));
     }
@@ -817,32 +811,9 @@ internal sealed class MightAndMagic7Services : IServiceRule
             Value: 0);
     }
 
-    /// <summary>
-    /// Whether the party may sell what it named, or whether an errand still needs it.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>What a quest needs cannot leave the party.</b> An errand that asks the party to carry something —
-    /// a delivery, a thing brought back — is only judgeable while the thing is still carried, so an item an
-    /// unmet objective of a taken errand names is refused for sale and the refusal says which errand and
-    /// what it asks. That is the difference between a quest item and any other item, and it is read from the
-    /// quest owner rather than from a list of names this rule keeps: what is needed is exactly what an
-    /// unfinished objective asks for.
-    /// </para>
-    /// <para>
-    /// The owner is read through a call for the same reason a death's worth is: this game's counters are
-    /// composed once for a session, and the party a quest belongs to is composed when a product creates one,
-    /// so the moment of the sale is the first moment the owner certainly exists.
-    /// </para>
-    /// </remarks>
-    private ServiceEligibility JudgeSale(ServiceEligibilityRequest request)
-    {
-        if (request.Subject.Item is not { } item) return ServiceEligibility.Allowed;
-        if (JudgeStolen(request) is { IsAllowed: false } stolen) return stolen;
-        if (_journal?.Invoke()?.Needs(item.Definition) is not { } needed) return ServiceEligibility.Allowed;
-        return ServiceEligibility.Refused(
-            new Refusal(MightAndMagic7Codes.ServiceItemNeededByQuest, $"{needed.Statement} is not done yet, so {item.Definition} stays with the party until that errand is finished."));
-    }
+    /// <summary>Whether this counter buys the instance's provenance; needed-item retention is the Kit custody owner's judgment.</summary>
+    private ServiceEligibility JudgeSale(ServiceEligibilityRequest request) =>
+        JudgeStolen(request);
 
     /// <summary>Whether the party may be taught the lesson it named.</summary>
     private ServiceEligibility JudgeLesson(ServiceEligibilityRequest request)

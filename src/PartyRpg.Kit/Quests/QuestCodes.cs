@@ -7,6 +7,9 @@ namespace PartyRpg.Kit.Quests;
 /// </remarks>
 public static class QuestCodes
 {
+    /// <summary>The refusal code <c>quest-item-needed</c>.</summary>
+    public const string QuestItemNeeded = "quest-item-needed";
+
     /// <summary>The refusal code <c>quest-already-finished</c>.</summary>
     public const string QuestAlreadyFinished = "quest-already-finished";
 

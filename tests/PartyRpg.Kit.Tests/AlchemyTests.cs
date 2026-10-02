@@ -4,6 +4,7 @@ using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Skills;
+using PartyRpg.Kit.Quests;
 using Xunit;
 
 namespace PartyRpg.Kit.Tests;
@@ -39,6 +40,37 @@ public sealed class AlchemyTests
     private static readonly EffectId Haste = new("test.haste");
     private static readonly ConditionId Eradicated = new("eradicated");
     private static readonly ConditionId Weak = new("weak");
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void A_needed_ingredient_refuses_production_or_burst_before_either_item_or_health_moves(bool second, bool burst)
+    {
+        using PartyEntity party = Party(alchemyLevel: 3, alchemyTier: 1);
+        ItemInstance berry = Take(party, Berry);
+        ItemInstance bottle = Take(party, Bottle);
+        PartyQuests quests = NeededItemErrand.Take(party, second ? Bottle : Berry);
+        AlchemyCatalog catalog = new([
+            new PotionMixture(Berry, Bottle, burst ? MixtureOutcome.Bursts(1) : MixtureOutcome.Produces(Draught), new SkillTier(1), Power: 5),
+        ]);
+        PotionMixing mixing = Mixing(party, catalog, new Rule());
+        int health = party.Members[0].Resources.HitPoints.Current;
+        long stamp = party.Stamp;
+        MixingResult refused = mixing.Mix(new MixingRequest(0, berry.Id, bottle.Id));
+        Assert.Equal(QuestCodes.QuestItemNeeded, refused.Code);
+        Assert.Contains("Keep the needed item", refused.Message, StringComparison.Ordinal);
+        Assert.Same(berry, party.FindItem(berry.Id));
+        Assert.Same(bottle, party.FindItem(bottle.Id));
+        Assert.Equal(health, party.Members[0].Resources.HitPoints.Current);
+        Assert.Equal(stamp, party.Stamp);
+        Assert.True(quests.TurnIn(new QuestId("needed-item"), "keeper").IsApplied);
+        MixingResult allowed = mixing.Mix(new MixingRequest(0, berry.Id, bottle.Id));
+        Assert.NotEqual(QuestCodes.QuestItemNeeded, allowed.Code);
+        Assert.Null(party.FindItem(berry.Id));
+        Assert.Null(party.FindItem(bottle.Id));
+    }
 
     [Fact]
     public void A_legal_mixture_takes_both_ingredients_out_of_the_pack_and_puts_the_potion_in()

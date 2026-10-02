@@ -47,6 +47,7 @@ public sealed class PartyEntity : IDisposable
     private readonly EntityStore _store;
     private readonly Actor _party;
     private readonly IEquipmentUseRule? _equipmentUse;
+    private IItemRetentionRule? _itemRetention;
     private bool _disposed;
 
     internal PartyEntity(EntityStore store, Actor party, IEquipmentUseRule? equipmentUse)
@@ -285,16 +286,45 @@ public sealed class PartyEntity : IDisposable
     /// container, loot, and shop owners receive; taking it back later is an ordinary acquisition.
     /// </remarks>
     /// <param name="id">The instance's durable identity.</param>
-    /// <returns>The instance the party released, or null when it held none with that identity.</returns>
-    public ItemInstance? ReleaseItem(ItemInstanceId id)
+    /// <returns>The instance the party released, or the named reason nothing left.</returns>
+    public ItemRemoval ReleaseItem(ItemInstanceId id) => RemoveItem(id);
+
+    /// <summary>Asks the canonical retention owner before any use can spend this held instance.</summary>
+    public Refusal? JudgeItemRemoval(ItemInstanceId id)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        ItemInstance? item = FindItem(id);
-        if (item is null) return null;
+        return FindItem(id) is { } item
+            ? JudgeItemRetention(item.Definition)
+            : new Refusal(PartyCodes.ItemNotHeld, $"The party holds no item {id}, so nothing can be removed or spent.");
+    }
+
+    /// <summary>Asks the retention owner before an event spends an item it will first give the party.</summary>
+    public Refusal? JudgeItemRetention(ItemDefinitionId item) => _itemRetention?.Retains(item);
+
+    /// <summary>Binds the explicitly constructed retention owner; a second owner would contradict it.</summary>
+    internal void RetainItemsWith(IItemRetentionRule owner)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        if (_itemRetention is not null && !ReferenceEquals(_itemRetention, owner))
+            throw new InvalidOperationException("This party already holds an item retention owner; two owners could disagree about losing a needed item.");
+        _itemRetention = owner;
+    }
+
+    private ItemRemoval RemoveItem(ItemInstanceId id)
+    {
+        if (JudgeItemRemoval(id) is { } refused) return ItemRemoval.Refused(refused);
+        return ItemRemoval.Taken(DetachItem(FindItem(id)!));
+    }
+
+    private ItemInstance DetachItem(ItemInstance item)
+    {
         Detach(item);
         item.Place(ItemCustody.Detached);
         return item;
     }
+
+    /// <summary>The quest owner's already-judged delivery transfer, not an ordinary removal permission.</summary>
+    internal ItemInstance? DeliverItem(ItemInstanceId id) => FindItem(id) is { } item ? DetachItem(item) : null;
 
     /// <summary>
     /// Moves an item the party holds into a member's slot, displacing whatever that slot held.
@@ -402,6 +432,8 @@ public sealed class PartyEntity : IDisposable
                 $"The party holds no item {id}, so no charge was spent."));
         }
 
+        if (JudgeItemRemoval(id) is { } retained) return ItemChargeSpend.Refused(retained);
+
         int left = capacity - item.State.ChargesSpent;
         if (left <= 0)
         {
@@ -430,16 +462,8 @@ public sealed class PartyEntity : IDisposable
     /// the caller drops it, because a used-up thing is not placed anywhere.
     /// </remarks>
     /// <param name="id">The instance to use up.</param>
-    /// <returns>The instance that left the party, or null when it held none with that identity.</returns>
-    public ItemInstance? ConsumeItem(ItemInstanceId id)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        ItemInstance? item = FindItem(id);
-        if (item is null) return null;
-        Detach(item);
-        item.Place(ItemCustody.Detached);
-        return item;
-    }
+    /// <returns>The instance that left the party, or the named reason nothing left.</returns>
+    public ItemRemoval ConsumeItem(ItemInstanceId id) => RemoveItem(id);
 
     /// <summary>Captures the party's durable state: what a save writes and a restore rebuilds from.</summary>
     /// <remarks>

@@ -11,6 +11,7 @@ using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Progression;
+using PartyRpg.Kit.Quests;
 using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
@@ -337,6 +338,47 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
         Assert.True(nowhere.IsApplied);
         Assert.Empty(nowhere.Changes);
         Assert.Contains("Door 7 is not one this place holds", nowhere.Residue, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_event_cannot_subtract_an_errands_item_or_apply_the_reward_until_turn_in()
+    {
+        const string events = """
+            { "documentId": "events", "definitionKind": "place-event", "entries": [
+              { "id": "1.311", "place": "1", "event": 311, "label": "Exchange", "raised": true,
+                "steps": [
+                  { "step": 0, "op": "add", "variable": "gold", "value": 10 },
+                  { "step": 1, "op": "subtract", "variable": "item", "value": 401 },
+                  { "step": 2, "op": "exit" } ] } ] }
+            """;
+        ContentCatalog catalog = Catalog(events);
+        GameClock clock = TestClock.Create(scale: 1);
+        using PartyEntity party = Party();
+        ItemInstance item = party.AcquireItem(new ItemDefinitionId("401")).Item!;
+        QuestDefinition definition = new(new QuestId("keep-item"), "Keep the proof", "keeper",
+            [new QuestObjective("carry", QuestObjectiveKind.Retrieve, "401", label: "Carry the proof")]);
+        PartyQuests quests = new(new RetentionQuestRule(definition), party);
+        quests.Offer(definition.Id, "keeper");
+        quests.Accept(definition.Id);
+        MightAndMagic7Interaction rule = Rule(catalog);
+        long coins = party.Purse.Coins;
+        (InteractionOutcome refused, _) = Use(rule, Fixture(311, "Exchange", string.Empty), EmeraldIsle, party, clock);
+        Assert.Equal(QuestCodes.QuestItemNeeded, refused.Refusal!.Code);
+        Assert.Same(item, party.FindItem(item.Id));
+        Assert.Equal(coins, party.Purse.Coins);
+        Assert.True(quests.TurnIn(definition.Id, "keeper").IsApplied);
+        (InteractionOutcome allowed, _) = Use(rule, Fixture(311, "Exchange", string.Empty), EmeraldIsle, party, clock);
+        Assert.True(allowed.IsApplied, allowed.Refusal?.Message);
+        Assert.Null(party.FindItem(item.Id));
+        Assert.Equal(coins + 10, party.Purse.Coins);
+    }
+
+    private sealed class RetentionQuestRule(QuestDefinition definition) : IQuestRule
+    {
+        public IReadOnlyList<QuestDefinition> Definitions => [definition];
+        public QuestDefinition? Definition(QuestId id) => id == definition.Id ? definition : null;
+        public int Counts(QuestKillRequest request) => 0;
+        public bool Holds(QuestConditionRequest request) => true;
     }
 
     [Fact]
@@ -1087,7 +1129,7 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
         """;
 
     /// <summary>The staged content as one pack, for the cases that read it without a session.</summary>
-    private static ContentCatalog Catalog() =>
+    private static ContentCatalog Catalog(string events = Events) =>
         ContentCatalogLoader.Load(
             new InMemoryContentSource()
                 .Add(
@@ -1106,7 +1148,7 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
                     }
                     """)
                 .Add("packs/world/places.json", Places)
-                .Add("packs/world/events.json", Events)
+                .Add("packs/world/events.json", events)
                 .Add("packs/world/discoveries.json", Discoveries),
             new ContentLayout("packs", "imports", "bundles")).RequireValid();
 

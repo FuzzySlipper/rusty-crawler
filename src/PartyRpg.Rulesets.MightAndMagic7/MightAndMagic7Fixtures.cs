@@ -1608,6 +1608,7 @@ internal sealed class MightAndMagic7Fixtures
                 {
                     ItemDefinitionId item = new(step.Value.ToString(CultureInfo.InvariantCulture));
                     if (Carried(party, step.Value) <= 0) return null;
+                    if (party.JudgeItemRetention(item) is { } refusal) return refusal;
                     _carried[item.Value] = _carried.GetValueOrDefault(item.Value) - 1;
                     _effects.Add(() =>
                     {

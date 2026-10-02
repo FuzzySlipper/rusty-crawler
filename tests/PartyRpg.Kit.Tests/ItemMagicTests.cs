@@ -4,6 +4,7 @@ using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
+using PartyRpg.Kit.Quests;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
@@ -50,6 +51,31 @@ public sealed class ItemMagicTests
     private static readonly DamageKindId Steel = new("steel");
     private static readonly EquipmentSlot Hand = new("main hand");
     private static readonly AttributeId Intellect = new("Intellect");
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_needed_scroll_or_wand_refuses_before_casting_or_charges_and_can_be_used_after_turn_in(bool wand)
+    {
+        using PartyEntity party = Party();
+        GameClock clock = TestClock.Create();
+        Effects effects = new(party, clock, member => !LaidOut(member));
+        Spellcasting casting = Casting(party, effects);
+        ItemInstance item = Take(party, wand ? WandOfBolt : ScrollOfBolt);
+        if (wand) Assert.True(party.Equip(party.Members[0].Id, Hand, item.Id).Admitted);
+        PartyQuests quests = NeededItemErrand.Take(party, item.Definition);
+        int points = party.Members[0].Resources.SpellPoints.Current;
+        SpellCastResult refused = casting.Cast(new SpellCastRequest(0, Bolt, "beast", item.Id));
+        Assert.Equal(QuestCodes.QuestItemNeeded, refused.Code);
+        Assert.Contains("Keep the needed item", refused.Message, StringComparison.Ordinal);
+        Assert.Same(item, party.FindItem(item.Id));
+        Assert.Equal(0, item.State.ChargesSpent);
+        Assert.Equal(points, party.Members[0].Resources.SpellPoints.Current);
+        if (wand) Assert.True(party.Unequip(party.Members[0].Id, Hand).Admitted);
+        Assert.True(quests.TurnIn(new QuestId("needed-item"), "keeper").IsApplied);
+        if (wand) Assert.True(party.Equip(party.Members[0].Id, Hand, item.Id).Admitted);
+        Assert.True(casting.Cast(new SpellCastRequest(0, Bolt, "beast", item.Id)).IsCast);
+    }
 
     [Fact]
     public void A_ward_cast_on_one_character_lands_on_them_and_on_nobody_else()
@@ -288,6 +314,33 @@ public sealed class ItemMagicTests
         Assert.False(refused.Spent);
         Assert.Equal("item-no-charges", refused.Refusal!.Code);
         Assert.True(discharged.Members[0].Equipment.Has(Hand));
+    }
+
+    [Fact]
+    public void A_needed_charged_weapon_refuses_the_fights_order_before_damage_or_recovery()
+    {
+        Weapons weapons = new();
+        Rules rules = new(weapons);
+        using PartyEntity party = Party();
+        using SessionWorld world = World(party, creatureAt: 100);
+        Arrive(world);
+        CombatState fight = new(Capabilities.Combat(rules), party, world, TestClock.Create());
+        ItemInstance wand = Take(party, WandOfBolt);
+        weapons.Charge = wand.Id;
+        weapons.Charges = WandCharges;
+        weapons.Ability = Bolt.Value;
+        weapons.Kind = AttackKind.Spell;
+        PartyQuests quests = NeededItemErrand.Take(party, wand.Definition);
+        fight.Step();
+        Combatant member = fight.Combatants.First(actor => actor.Side == CombatSide.Party);
+        CombatResult refused = fight.Engage(member.Id);
+        Assert.Equal(QuestCodes.QuestItemNeeded, refused.Code);
+        Assert.Null(refused.Resolution);
+        Assert.Null(refused.Initiated);
+        Assert.Equal(0, wand.State.ChargesSpent);
+        Assert.True(quests.TurnIn(new QuestId("needed-item"), "keeper").IsApplied);
+        Assert.True(fight.Engage(member.Id).IsApplied);
+        Assert.Equal(1, wand.State.ChargesSpent);
     }
 
     [Fact]

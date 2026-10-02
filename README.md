@@ -254,6 +254,9 @@ The first successful training step of a counter visit includes a week plus next 
 with twelve hours more at the two deep halls. It reaches the one clock and the ordinary rest recovery;
 later steps of the same visit add no time. The imported counter reading is in
 [`docs/evidence/training-rest.md`](docs/evidence/training-rest.md).
+An accepted errand's needed item cannot be sold, dropped, consumed, mixed away or have a charge spent.
+All paths ask the quest owner's existing need reading through the party's custody entry. Meeting an item
+objective retains the item until turn-in; that turn-in can deliver it and then releases the protection.
 
 Its collision vertex bounds also supply a navigation region beside the artifact. Engine derives walkable
 supports in the party's same scene with the actual controller body; creatures query routes from their feet

@@ -103,9 +103,6 @@ public static class MightAndMagic7Codes
     /// <summary>The refusal code <c>service-experience-short</c>.</summary>
     public const string ServiceExperienceShort = "service-experience-short";
 
-    /// <summary>The refusal code <c>service-item-needed-by-quest</c>.</summary>
-    public const string ServiceItemNeededByQuest = "service-item-needed-by-quest";
-
     /// <summary>The refusal code <c>service-lesson-attribute-short</c>.</summary>
     public const string ServiceLessonAttributeShort = "service-lesson-attribute-short";
 
