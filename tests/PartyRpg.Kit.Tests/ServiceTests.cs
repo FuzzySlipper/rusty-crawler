@@ -7,6 +7,7 @@ using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Rulesets;
@@ -83,6 +84,37 @@ public sealed class ServiceTests
             hours: new ServiceHours(6, 18),
             refreshInterval: refresh,
             membership: membership);
+
+    [Fact]
+    public void A_visited_shelfs_repeat_schedule_resumes_without_rearming_from_load()
+    {
+        using PartyEntity party = Party(coins: 500);
+        GameClock clock = Clock();
+        ShopRule rule = new(Shop(refresh: GameDuration.FromHours(3)));
+        PartyServices services = new(rule, party, new PartyResourceLedger(party), clock);
+        clock.Observe(services);
+        Assert.True(services.Open(rule.Service).IsApplied);
+        clock.Advance(GameDuration.FromHours(2));
+        ClockSave saved = ClockSave.Capture(clock, [services]);
+        DeadlineSave deadline = Assert.Single(saved.Deadlines);
+        Assert.Equal(GameDuration.FromHours(3).Milliseconds, deadline.DueElapsedMilliseconds);
+        Assert.Equal(GameDuration.FromHours(3).Milliseconds, deadline.RepeatMilliseconds);
+
+        GameClock again = Clock();
+        saved.ApplyTo(again);
+        PartyServices restored = new(rule, party, new PartyResourceLedger(party), again);
+        again.Observe(restored);
+        saved.RestoreDeadlines([restored], party);
+        Assert.Equal(deadline, Assert.Single(ClockSave.Capture(again, [restored]).Deadlines));
+        Assert.True(restored.Open(rule.Service).IsApplied);
+        Assert.True(restored.Transact(new ServiceCommand(ServiceOperationKind.Buy, "stock:sword", Count: 2)).IsApplied);
+        again.Advance(GameDuration.FromMilliseconds(GameDuration.FromHours(1).Milliseconds - 1));
+        Assert.Equal(0, restored.Browse()!.Stock[0].Count);
+        again.Advance(GameDuration.FromMilliseconds(1));
+        Assert.Equal(2, restored.Browse()!.Stock[0].Count);
+        Assert.Equal(GameDuration.FromHours(6).Milliseconds,
+            Assert.Single(ClockSave.Capture(again, [restored]).Deadlines).DueElapsedMilliseconds);
+    }
 
     [Fact]
     public void Every_operation_settles_through_the_same_purse_and_the_same_path()
@@ -1153,6 +1185,8 @@ public sealed class ServiceTests
         internal ShopRule(ServiceDefinition service) => Service = service;
 
         internal ServiceDefinition Service { get; }
+
+        public ServiceDefinition? Find(ServiceId id) => id == Service.Id ? Service : null;
 
         /// <summary>What the counter charges, or the plain price when a test states none.</summary>
         internal Func<ServiceQuoteRequest, ServiceQuote>? Price { get; set; }

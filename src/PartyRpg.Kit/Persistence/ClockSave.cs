@@ -1,38 +1,23 @@
 using System.Globalization;
 using PartyRpg.Kit.Time;
+using PartyRpg.Kit.Party;
 
 namespace PartyRpg.Kit.Persistence;
 
-/// <summary>
-/// Where the one game clock stood when a session was saved: the game time that had elapsed since the
-/// session began.
-/// </summary>
+/// <summary>The elapsed game time and schedules held at an explicit save boundary.</summary>
 /// <remarks>
-/// <para>
-/// The clock's position is state; the calendar it keeps, the date a session begins at, the rate admitted
-/// engine time becomes game time at, and the hours it calls daylight are the ruleset's policy and are
-/// supplied again when a session is composed. That is why a save records the elapsed span and not a date: a
-/// date read against a changed starting date would silently shift every schedule, while elapsed time is
-/// what the clock actually counted.
-/// </para>
-/// <para>
-/// The remainder the admitted-interval conversion carries below a game millisecond is deliberately absent.
-/// A game millisecond is the clock's own resolution, so dropping less than one of them at a save boundary
-/// loses no time any duration in this family can state; carrying it would put a unit in the schema that
-/// nothing reads.
-/// </para>
-/// <para>
-/// Scheduled work is absent and fails loudly rather than quietly: a deadline its owner rebuilds on load is
-/// left out, and any other refuses the save by name in <see cref="Capture"/> instead of writing a save that
-/// silently lost the schedule. Carrying such deadlines is #8617.
-/// </para>
+/// Calendar, start date, rate and daylight are composed again by the ruleset. Due times use elapsed game
+/// milliseconds, so loading never grants a duration afresh. Transient deadline handles are not saved;
+/// each explicitly composed owner captures its meaning and receives it back after the clock and party
+/// have been restored. The sub-millisecond admitted-time conversion remainder is deliberately omitted.
 /// </remarks>
 public sealed record ClockSave
 {
     /// <summary>Records where the clock stood.</summary>
     /// <param name="elapsedMilliseconds">Game time elapsed since the session began, which cannot be negative.</param>
+    /// <param name="deadlines">Schedules held in registration order.</param>
     /// <exception cref="ArgumentOutOfRangeException">The elapsed time is negative, which game time never is.</exception>
-    public ClockSave(long elapsedMilliseconds)
+    public ClockSave(long elapsedMilliseconds, IReadOnlyList<DeadlineSave>? deadlines = null)
     {
         if (elapsedMilliseconds < 0)
         {
@@ -43,21 +28,19 @@ public sealed record ClockSave
         }
 
         ElapsedMilliseconds = elapsedMilliseconds;
+        Deadlines = deadlines ?? [];
     }
 
     /// <summary>Game time elapsed since the session began, exact to the game millisecond.</summary>
     public long ElapsedMilliseconds { get; }
 
+    /// <summary>The held schedules in their original registration order.</summary>
+    public IReadOnlyList<DeadlineSave> Deadlines { get; }
+
     /// <summary>
     /// Reads the clock's position into the save's own terms.
     /// </summary>
-    /// <remarks>
-    /// The schema records the game time the clock has lived through and no deadlines, so every deadline the
-    /// clock holds is asked of the owners that set it. One an owner rebuilds on load — a shelf's restock, the
-    /// debt of sleep — is left out, and what that costs is stated by the owner. One an owner cannot rebuild, or
-    /// one nobody holds, refuses the save with each named, because a document that dropped it would load a
-    /// session that had silently lost it.
-    /// </remarks>
+    /// <remarks>Every pending deadline needs an owner and durable meaning, or capture refuses it by name.</remarks>
     /// <param name="clock">The clock to read.</param>
     /// <param name="owners">The owners of the deadlines the clock may be holding.</param>
     /// <returns>Where the clock stood.</returns>
@@ -68,6 +51,7 @@ public sealed record ClockSave
         ArgumentNullException.ThrowIfNull(clock);
         ArgumentNullException.ThrowIfNull(owners);
         List<SaveProblem> problems = [];
+        List<DeadlineSave> carried = [];
         foreach (DeadlineId deadline in clock.Pending)
         {
             IDeadlineOwner? owner = owners.FirstOrDefault(candidate => candidate.Holds(deadline));
@@ -78,13 +62,14 @@ public sealed record ClockSave
                     Subject(deadline),
                     $"the clock holds deadline {deadline}, which no owner in the session holds, so a load could not rebuild it"));
             }
-            else if (!owner.RebuildsOnLoad(deadline))
+            else if (owner.CaptureDeadline(deadline, clock) is not { } saved)
             {
                 problems.Add(new SaveProblem(
                     SaveCodes.SaveDeadlineUncarried,
                     Subject(deadline),
                     $"{owner.Describe(deadline)} is a moment the save cannot carry yet and nothing rebuilds on load"));
             }
+            else carried.Add(saved);
         }
 
         if (problems.Count > 0)
@@ -92,7 +77,45 @@ public sealed record ClockSave
             throw new SessionSaveException($"The session cannot be saved: {string.Join("; ", problems)}.", problems);
         }
 
-        return new ClockSave(clock.Elapsed.Milliseconds);
+        return new ClockSave(clock.Elapsed.Milliseconds, carried);
+    }
+
+    /// <summary>Judges carried schedule structure and its references to party state.</summary>
+    public IReadOnlyList<SaveProblem> Problems(PartySave party)
+    {
+        List<SaveProblem> problems = [];
+        HashSet<(DeadlineKind, string, PartyMemberId?)> seen = [];
+        foreach (DeadlineSave deadline in Deadlines)
+        {
+            void Problem(string text) => problems.Add(new SaveProblem(SaveCodes.SaveDeadlineInvalid, deadline.Subject, text));
+            if (!Enum.IsDefined(deadline.Kind)) Problem($"unknown deadline kind {deadline.Kind}");
+            if (!seen.Add((deadline.Kind, deadline.Subject, deadline.Member))) Problem($"duplicate {deadline.Kind} deadline '{deadline.Subject}' on {deadline.Member}");
+            if (deadline.DueElapsedMilliseconds < ElapsedMilliseconds) Problem($"{deadline.Kind} '{deadline.Subject}' is due at {deadline.DueElapsedMilliseconds}, before saved clock {ElapsedMilliseconds}");
+            if (deadline.RepeatMilliseconds is > 0 && deadline.DueElapsedMilliseconds > long.MaxValue - deadline.RepeatMilliseconds.Value)
+                Problem($"{deadline.Kind} '{deadline.Subject}' cannot repeat beyond the clock's range");
+            if (deadline.RepeatMilliseconds is <= 0) Problem($"{deadline.Kind} '{deadline.Subject}' cannot repeat at interval {deadline.RepeatMilliseconds}");
+            if (deadline.Kind == DeadlineKind.SpellEffect)
+            {
+                if (deadline.RepeatMilliseconds is not null) Problem($"spell effect '{deadline.Subject}' expires once rather than repeating");
+                IReadOnlyList<PartyEffect>? effects = deadline.Member is { } member
+                    ? party.Members.FirstOrDefault(on => on.Id == member)?.Effects : party.Effects;
+                if (effects is null || !effects.Any(effect => effect.Effect.Value == deadline.Subject))
+                    Problem($"deadline for effect '{deadline.Subject}' names a carrier {deadline.Member} that does not hold it");
+            }
+            else if (deadline.Member is not null) Problem($"{deadline.Kind} '{deadline.Subject}' cannot name a member");
+            if (deadline.Kind == DeadlineKind.Fatigue && deadline.Subject.Length != 0) Problem("the debt of sleep cannot name an effect or service");
+            if (deadline.Kind is DeadlineKind.Fatigue or DeadlineKind.ServiceRestock && deadline.RepeatMilliseconds is null) Problem($"{deadline.Kind} needs its repeat interval");
+        }
+        return problems;
+    }
+
+    /// <summary>Hands judged schedules back to the already composed owners, preserving registration order.</summary>
+    public void RestoreDeadlines(IReadOnlyList<IDeadlineOwner> owners, PartyRpg.Kit.Party.PartyEntity party)
+    {
+        foreach (DeadlineSave deadline in Deadlines)
+            if (!owners.Any(owner => owner.RestoreDeadline(deadline, party)))
+                throw new SessionSaveException($"No owner can restore {deadline.Kind} '{deadline.Subject}'.",
+                    [new SaveProblem(SaveCodes.SaveDeadlineUnowned, deadline.Subject, $"no composed owner restores {deadline.Kind}")]);
     }
 
     /// <summary>Reads a clock that no owner shares deadlines with, so every deadline it holds refuses the save.</summary>

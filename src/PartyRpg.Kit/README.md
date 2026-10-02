@@ -400,7 +400,7 @@ interval of its own length (a regeneration's five minutes) however the advances 
 Of the owner map, only followers (#8514) and item enchantments (#8513) have no producer yet.
 
 Persistence landed with the party. `SessionSave` is one current schema and nothing else: the party's own
-`PartySave`, `ClockSave`'s elapsed game time, and `WorldSave`'s place, pose, and per-place state, with no
+`PartySave`, `ClockSave`'s elapsed game time and owned deadlines, and `WorldSave`'s place, pose, and per-place state, with no
 version field, no migration branch, no compatibility reader, and nothing of the original games' save files.
 The bytes are written and read with the engine's own `ProductStateStore` and `JsonProductStateCodec` over
 metadata the build generates (`SessionSaveJsonContext`), so nothing on the path discovers a type at runtime.
@@ -465,3 +465,11 @@ target's own surface is visible; intervening collision remains an obstruction. T
 belongs to the admitted geometry, not party state. Ordinary sight and automap queries use the full scene.
 The [imported doorway reading](../../docs/evidence/door-collision.md) records ordinary-control traversal
 and the separate native closing check, with the staging and observation limits stated.
+
+Clock saves carry each pending deadline's kind, durable subject, member where applicable, due elapsed
+millisecond and repeat interval. `IDeadlineOwner` is the same explicit owner roster used for clock delivery:
+rest restores its original sleep debt, running effects restore the end of each party or member effect,
+and services restore each visited shelf's repeat schedule. Restore retains registration order and uses
+new transient handles. Unknown kinds, past due times, impossible repeats, duplicate schedules and effects
+absent from their named carrier are refused at load. A save capture cancels or suspends nothing.
+Shelf contents and buy-back lots remain transient; preserving the restock schedule does not preserve stock.

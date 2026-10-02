@@ -147,6 +147,7 @@ public sealed class SessionOwners
         Accounts = accounts ?? world?.Accounts;
         world?.Populate();
         Compose();
+        if (party is not null) _records?.Clock?.RestoreDeadlines(_deadlineOwners, party);
     }
 
     /// <summary>Composes, in dependency order, every owner whose answers and party are there.</summary>

@@ -1,4 +1,5 @@
 using System.Globalization;
+using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.World;
@@ -96,12 +97,17 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
     public bool Holds(DeadlineId deadline) => _fatigue?.Holds(deadline) ?? false;
 
     /// <inheritdoc />
-    /// <remarks>
-    /// The debt of sleep is rebuilt on load: a resumed session arms a fresh debt from the moment it resumes.
-    /// That is a stated loss — the save does not yet carry when the next sleep was due — and it is why a save
-    /// is not refused for it.
-    /// </remarks>
-    public bool RebuildsOnLoad(DeadlineId deadline) => Holds(deadline);
+    public DeadlineSave? CaptureDeadline(DeadlineId deadline, GameClock clock) => Holds(deadline)
+        ? new DeadlineSave(DeadlineKind.Fatigue, string.Empty, clock.DueElapsedMilliseconds(deadline), _fatigue!.Interval.Milliseconds)
+        : null;
+
+    /// <inheritdoc />
+    public bool RestoreDeadline(DeadlineSave deadline, PartyEntity party)
+    {
+        if (deadline.Kind != DeadlineKind.Fatigue || _fatigue is null) return false;
+        _fatigue.RestoreDue(deadline.DueElapsedMilliseconds);
+        return true;
+    }
 
     /// <inheritdoc />
     public string Describe(DeadlineId deadline) =>

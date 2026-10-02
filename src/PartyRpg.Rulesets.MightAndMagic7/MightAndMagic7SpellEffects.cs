@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit;
 using System.Globalization;
 using PartyRpg.Kit.Combat;
@@ -546,7 +547,15 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     public bool Holds(DeadlineId deadline) => _running?.Holds(deadline) ?? false;
 
     /// <inheritdoc />
-    public bool RebuildsOnLoad(DeadlineId deadline) => _running?.RebuildsOnLoad(deadline) ?? false;
+    public DeadlineSave? CaptureDeadline(DeadlineId deadline, GameClock clock) => _running?.CaptureDeadline(deadline, clock);
+
+    /// <inheritdoc />
+    public bool RestoreDeadline(DeadlineSave deadline, PartyEntity party)
+    {
+        if (deadline.Kind != DeadlineKind.SpellEffect) return false;
+        _running ??= new RunningSpellEffects(party, _clock, member => !LaidOut(member));
+        return _running.RestoreDeadline(deadline, party);
+    }
 
     /// <inheritdoc />
     public string Describe(DeadlineId deadline) => _running?.Describe(deadline) ?? $"deadline {deadline}";

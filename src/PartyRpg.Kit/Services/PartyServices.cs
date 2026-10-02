@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Persistence;
 using System.Globalization;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Progression;
@@ -593,13 +594,24 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
     }
 
     /// <inheritdoc />
-    /// <remarks>
-    /// A shelf's restock is rebuilt on load: a counter stocks its shelf from the ruleset's own stock the first
-    /// time it is visited, and its refresh runs from that visit. What the party sold to a counter and the
-    /// counts its purchases drew down are not carried — a resumed session finds each shelf as a restock would
-    /// leave it — which is a stated loss rather than a refused save.
-    /// </remarks>
-    public bool RebuildsOnLoad(DeadlineId deadline) => Holds(deadline);
+    public DeadlineSave? CaptureDeadline(DeadlineId deadline, GameClock clock)
+    {
+        ServiceShelf? shelf = _shelves.Values.FirstOrDefault(shelf => shelf.Refresh == deadline);
+        return shelf is null ? null : new DeadlineSave(DeadlineKind.ServiceRestock, shelf.Service.Id.Value,
+            clock.DueElapsedMilliseconds(deadline), shelf.Service.RefreshInterval!.Value.Milliseconds);
+    }
+
+    /// <inheritdoc />
+    public bool RestoreDeadline(DeadlineSave deadline, PartyEntity party)
+    {
+        if (deadline.Kind != DeadlineKind.ServiceRestock || _clock is null) return false;
+        ServiceDefinition service = _rule.Find(new ServiceId(deadline.Subject))!;
+        ServiceShelf shelf = ShelfFor(service);
+        if (shelf.Refresh is { } initial) _clock.Cancel(initial);
+        shelf.Refresh = _clock.ScheduleEvery(GameDuration.FromMilliseconds(deadline.RepeatMilliseconds!.Value),
+            GameDuration.FromMilliseconds(deadline.DueElapsedMilliseconds - _clock.Elapsed.Milliseconds));
+        return true;
+    }
 
     /// <inheritdoc />
     public string Describe(DeadlineId deadline)

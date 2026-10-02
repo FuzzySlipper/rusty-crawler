@@ -9,6 +9,8 @@ namespace PartyRpg.Kit.Persistence;
 /// </remarks>
 public static class SaveCodes
 {
+    /// <summary>A carried deadline contradicts the clock or its owner.</summary>
+    public const string SaveDeadlineInvalid = "save-deadline-invalid";
     /// <summary>A saved placement's state contradicts its place or the game's interpretation.</summary>
     public const string SaveTargetContradiction = "save-target-contradiction";
     /// <summary>The problem code <c>save-part-missing</c>.</summary>

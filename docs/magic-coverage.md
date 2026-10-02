@@ -22,20 +22,19 @@ comment, in `src/PartyRpg.Rulesets.MightAndMagic7/MightAndMagic7Spells.cs`.
 
 A duration is a deadline registered with the session's one clock, and the effect it ends is carried
 state: an effect a spell aimed at one character is written under that character's own entry, and a
-spell aimed at the party is carried by the party. Neither the deadline nor the effect's end moment
-is a number the effect carries, which is what makes the save boundary's own answer the honest one:
+spell aimed at the party is carried by the party. The clock section carries the original end in elapsed
+game milliseconds, the effect identity and its member carrier where applicable.
 
 | what | across a save today |
 | --- | --- |
-| an item's spent charges | carried: a charge is item state, written with the instance's damage and enchantments, so a half-spent wand resumes half spent |
-| an effect's existence and magnitude | not carried: an effect's end is a moment the save cannot carry yet, so a save taken while a ward, light, or haste runs is refused naming the effect |
-| when an effect ends | not carried, for the same reason: the save records elapsed game time and no deadlines |
+| an item's spent charges | carried with the instance's damage and enchantments, so a half-spent wand resumes half spent |
+| an effect's existence and magnitude | carried on the party or member that owns it |
+| when an effect ends | carried as its original due game time and registered again with the same running-effect owner |
 
-The refusal is by name rather than silent — `PartyRpg.Kit.Persistence.ClockSave.Capture` throws a
-`SessionSaveException` listing the deadlines the clock holds — so a save taken while magic runs is
-refused where a player can read it instead of dropping the schedule. Carrying deadlines (which
-owner registered one, when it is due, and how it repeats) is Den task #8617's own requirement, and
-it names the spell-effect deadlines among the owners that task must carry.
+A load checks every deadline before rebuilding any state. Unknown kinds, past due times, impossible
+repeat intervals, duplicate schedules or a spell end naming an absent effect are refused by name.
+Sleep and shelf restocks use that same owned schedule section; capture suspends no deadline.
+Creature population and pending fights still have the separate named save refusal routed to #8658.
 
 ## Casting from an item
 

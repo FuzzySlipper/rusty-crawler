@@ -103,6 +103,9 @@ public sealed record ServiceQuoteRequest(
 /// </remarks>
 public interface IServiceRule
 {
+    /// <summary>Finds a service by durable content identity when restoring its schedule.</summary>
+    ServiceDefinition? Find(ServiceId id) => null;
+
     /// <summary>
     /// Which service a placement is, or null when it is not one. A placement nothing describes is not a
     /// counter at all, exactly as a placement the interaction rule describes nothing about is not usable.

@@ -58,6 +58,9 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// </remarks>
 internal sealed class MightAndMagic7Services : IServiceRule
 {
+    /// <inheritdoc />
+    public ServiceDefinition? Find(ServiceId id) => _services.GetValueOrDefault(id);
+
     /// <summary>The definition kind a service entry uses.</summary>
     internal const string DefinitionKind = "service";
 

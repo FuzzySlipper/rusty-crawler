@@ -265,6 +265,13 @@ public sealed class GameClock : IWorldTimeSource
         return Hold(checked(AbsoluteNow + (firstAfter ?? interval).Milliseconds), interval);
     }
 
+    /// <summary>Reads a held deadline's due time relative to the session start.</summary>
+    public long DueElapsedMilliseconds(DeadlineId deadline)
+    {
+        Deadline held = _deadlines.First(held => held.Id == deadline.Value);
+        return checked(held.Due - _startMilliseconds);
+    }
+
     /// <summary>Drops a deadline, so it never comes due.</summary>
     /// <param name="deadline">The handle the deadline was registered under.</param>
     /// <returns>Whether the clock was holding it; a handle that was never issued, already fired, or already dropped is not.</returns>

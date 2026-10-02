@@ -1,3 +1,5 @@
+using PartyRpg.Kit.Services;
+using PartyRpg.Kit.Time;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Persistence;
@@ -100,17 +102,17 @@ internal static class MightAndMagic7Persistence
     /// is a party record of a changed topic slot naming somebody the content does not carry or a slot nobody has.
     /// </param>
     /// <exception cref="SessionSaveException">The save cannot be resumed; the message names every problem found.</exception>
-    internal static void RequireLoadable(SessionSave save, ContentCatalog? content, MightAndMagic7Quests? quests = null, MightAndMagic7Fixtures? fixtures = null, IPlacementExpansion? expansion = null) =>
-        RequireLoadable(save, content is null ? PlaceGraph.From([], []) : MightAndMagic7World.Graph(content), content, quests, fixtures, expansion);
+    internal static void RequireLoadable(SessionSave save, ContentCatalog? content, MightAndMagic7Quests? quests = null, MightAndMagic7Fixtures? fixtures = null, IPlacementExpansion? expansion = null, IServiceRule? services = null, IRestRule? rest = null) =>
+        RequireLoadable(save, content is null ? PlaceGraph.From([], []) : MightAndMagic7World.Graph(content), content, quests, fixtures, expansion, services, rest);
 
-    /// <inheritdoc cref="RequireLoadable(SessionSave, ContentCatalog?, MightAndMagic7Quests?, MightAndMagic7Fixtures?, IPlacementExpansion?)" />
+    /// <summary>Judges the same document against an explicitly supplied place graph and composed policy.</summary>
     internal static void RequireLoadable(
         SessionSave save,
         PlaceGraph places,
         ContentCatalog? content,
         MightAndMagic7Quests? quests = null,
         MightAndMagic7Fixtures? fixtures = null,
-        IPlacementExpansion? expansion = null)
+        IPlacementExpansion? expansion = null, IServiceRule? services = null, IRestRule? rest = null)
     {
         ArgumentNullException.ThrowIfNull(save);
         ArgumentNullException.ThrowIfNull(places);
@@ -118,7 +120,7 @@ internal static class MightAndMagic7Persistence
         // A session that composed no fixtures still judges what a place keeps, against no map events: a timer
         // it names is then one no event holds, which is the honest answer about content that carries none.
         MightAndMagic7Fixtures judge = fixtures ?? new MightAndMagic7Fixtures(MightAndMagic7MapEvents.None);
-        IReadOnlyList<SaveProblem> problems = save.Problems(
+        List<SaveProblem> problems = [.. save.Problems(
             places,
             MightAndMagic7Party.Factory(content),
             admission: null,
@@ -127,13 +129,53 @@ internal static class MightAndMagic7Persistence
             kept: (place, key, value) => judge.Judge(place, key, value, save.Clock.ElapsedMilliseconds),
             records: judge.JudgeRecord,
             targets: PlacePopulationContent.Read(places, expansion ?? MightAndMagic7Spawns.Compose(content, null)),
-            targetState: StateProblem);
+            targetState: StateProblem)];
+        problems.AddRange(DeadlineProblems(save, services ?? MightAndMagic7Services.Read(content), rest ?? MightAndMagic7Rest.Compose(content, null)));
         if (problems.Count > 0)
         {
             throw new SessionSaveException(
                 $"The save cannot be loaded: {string.Join("; ", problems)}.",
                 problems);
         }
+    }
+
+    /// <summary>Checks the saved schedules against this game's actual owners before rebuilding any state.</summary>
+    private static IReadOnlyList<SaveProblem> DeadlineProblems(SessionSave save, IServiceRule? services, IRestRule rest)
+    {
+        List<SaveProblem> problems = [];
+        void Problem(string subject, string reason) => problems.Add(new SaveProblem(SaveCodes.SaveDeadlineInvalid, subject, reason));
+        if (save.Clock.Deadlines.Count(deadline => deadline.Kind == DeadlineKind.Fatigue) != 1)
+            Problem("fatigue", "the party must carry exactly one debt of sleep");
+        void CheckEffect(PartyRpg.Kit.Party.PartyEffect effect, PartyRpg.Kit.Party.PartyMemberId? member)
+        {
+            if (effect.Effect.Value.StartsWith("spell.", StringComparison.Ordinal) &&
+                !save.Clock.Deadlines.Any(deadline => deadline.Kind == DeadlineKind.SpellEffect &&
+                    deadline.Subject == effect.Effect.Value && deadline.Member == member))
+                Problem(effect.Effect.Value, $"the timed spell effect on {member} has no carried end");
+        }
+        foreach (PartyRpg.Kit.Party.PartyEffect effect in save.Party.Effects) CheckEffect(effect, null);
+        foreach (PartyRpg.Kit.Party.PartyMemberSave member in save.Party.Members)
+            foreach (PartyRpg.Kit.Party.PartyEffect effect in member.Effects ?? []) CheckEffect(effect, member.Id);
+        foreach (DeadlineSave deadline in save.Clock.Deadlines)
+        {
+            if (deadline.Kind == DeadlineKind.Fatigue && deadline.RepeatMilliseconds != rest.SleepInterval.Milliseconds)
+                Problem("fatigue", "the saved debt repeats at an interval this game's rest owner does not use");
+            if (deadline.Kind == DeadlineKind.ServiceRestock)
+            {
+                ServiceDefinition? service = string.IsNullOrWhiteSpace(deadline.Subject) ? null : services?.Find(new ServiceId(deadline.Subject));
+                if (service?.RefreshInterval is not { } interval || interval.Milliseconds != deadline.RepeatMilliseconds)
+                    Problem(deadline.Subject, "the restock names no scheduled service with that repeat interval");
+            }
+            try
+            {
+                MightAndMagic7Time.Calendar.Add(MightAndMagic7Time.Start, GameDuration.FromMilliseconds(deadline.DueElapsedMilliseconds));
+            }
+            catch (Exception error) when (error is OverflowException or ArgumentOutOfRangeException)
+            {
+                Problem(deadline.Subject, "the deadline is beyond the game calendar's range");
+            }
+        }
+        return problems;
     }
 
     /// <summary>Which words this game can have left on a placement, including its death and purse memories.</summary>

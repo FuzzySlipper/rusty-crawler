@@ -359,7 +359,10 @@ resumed in before anything is built — naming every problem at once rather than
 `MightAndMagic7Ruleset.Save` writes the live session and `MightAndMagic7Ruleset.ResumeSession` composes the
 same session a new game composes over the same content and hands it the save, so the party, its items,
 equipment and portraits, the clock, the place and pose, and what each place remembers come from the save
-while everything transient is composed fresh. A scenario member may state the `portrait` it was created
+while everything transient is composed fresh. The clock also carries the original due moments for sleep,
+party and member spell effects, and visited shelf restocks. Load judges sleep and restock repeat intervals
+against the existing rest and service policy and refuses a timed spell effect without its end. The lazy
+spell-effect owner is composed over the restored party before it receives those deadlines. A scenario member may state the `portrait` it was created
 with, which then travels into the party and into a save exactly as a chosen one does. This game's progression is landed with them: `MightAndMagic7Progression` is
 the ruleset's whole contribution to the kit's owner — the donor's cumulative experience curve, the donor's
 division of a party award with the learning skill's bonus, the per-level class and rank growth tables with

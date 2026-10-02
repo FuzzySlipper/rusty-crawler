@@ -26,7 +26,7 @@ namespace PartyRpg.Kit.Persistence;
 /// <b>What is here is what the session owns as state:</b> the party — members with their skills, spells,
 /// progression and portraits, the shared inventory with each instance's custody, damage, charges and strength,
 /// the purse, the larder, reputation, effects, records, holdings, passages, memberships, and the identity cursors — the clock's elapsed
-/// game time, where the party stands, what each place remembers, every quest the party has a state about,
+/// game time and owned schedules, where the party stands, what each place remembers, every quest the party has a state about,
 /// every line of the party's own history, every fact the party has learned, and every place it holds a map
 /// of. The quest section carries
 /// the instances the party took — their stage, their recorded progress, and the place each offer was taken
@@ -240,7 +240,7 @@ public sealed record SessionSave
         ArgumentNullException.ThrowIfNull(places);
         ArgumentNullException.ThrowIfNull(parties);
 
-        List<SaveProblem> problems = [.. parties.Problems(Party)];
+        List<SaveProblem> problems = [.. parties.Problems(Party), .. Clock.Problems(Party)];
         foreach (PartyRecord record in Party.Records)
         {
             if (records?.Invoke(record.Name, record.Count) is { Length: > 0 } reason)

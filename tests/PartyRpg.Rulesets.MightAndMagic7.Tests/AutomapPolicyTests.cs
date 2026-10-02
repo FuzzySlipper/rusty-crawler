@@ -204,7 +204,7 @@ public sealed class AutomapPolicyTests
     }
 
     [Fact]
-    public void A_detection_this_game_leaves_running_holds_the_clock_and_so_a_save_is_refused_by_name()
+    public void A_detection_this_game_leaves_running_is_carried_with_its_original_end()
     {
         InMemoryPersistenceService persistence = new();
         (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(persistence, Content());
@@ -222,13 +222,15 @@ public sealed class AutomapPolicyTests
             RulesetTestContext.Payload("""{"action":"party.cast","member":0,"spell":"12","target":""}""")));
         Assert.Equal("places", Map(ui).Field("detection").AsString());
 
-        // A running effect's end is the one deadline this build does not carry yet: the save is refused naming
-        // the detection that holds it — the same answer a ward gets, and the reason the automap test above
-        // saves before it casts.
-        SessionSaveException refused = Assert.Throws<SessionSaveException>(() => MightAndMagic7Ruleset.Instance.Save(session));
-        Assert.Contains("the running effect", refused.Message, StringComparison.Ordinal);
-        Assert.Contains(refused.Problems, problem => problem.Code == SaveCodes.SaveDeadlineUncarried);
-        Assert.Null(persistence.Payload("sessions", "session"));
+        SessionSave saved = MightAndMagic7Ruleset.Instance.Save(session);
+        DeadlineSave end = Assert.Single(saved.Clock.Deadlines, deadline => deadline.Kind == DeadlineKind.SpellEffect);
+        Assert.NotNull(persistence.Payload("sessions", "session"));
+        (ProductCreateContext again, RecordingUiService againUi) = RulesetTestContext.Create(persistence, Content());
+        using IGameSession resumed = MightAndMagic7Ruleset.Instance.ResumeSession(RulesetTestContext.RulesetContext(again, againUi));
+        resumed.Start();
+        SessionSave restored = MightAndMagic7Ruleset.Instance.Save(resumed);
+        Assert.Equal(end, Assert.Single(restored.Clock.Deadlines, deadline => deadline.Kind == DeadlineKind.SpellEffect));
+
     }
 
     /// <summary>The sentence this game words a map's progress with, computed the way the game computes it.</summary>

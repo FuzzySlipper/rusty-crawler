@@ -1,4 +1,5 @@
 using System.Globalization;
+using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
@@ -358,11 +359,24 @@ public sealed class RunningSpellEffects : IGameTimeObserver, IDeadlineOwner, IRu
     public bool Holds(DeadlineId deadline) => _held.Any(held => held.Deadline == deadline);
 
     /// <inheritdoc />
-    /// <remarks>
-    /// An effect's end is not rebuilt: the save records that the party carries it and not when it ends, so a
-    /// resumed effect would either never end or end at load. A save taken while one runs is refused by name.
-    /// </remarks>
-    public bool RebuildsOnLoad(DeadlineId deadline) => false;
+    public DeadlineSave? CaptureDeadline(DeadlineId deadline, GameClock clock)
+    {
+        Held? found = _held.Where(held => held.Deadline == deadline).Select(held => (Held?)held).FirstOrDefault();
+        return found is { } held ? new DeadlineSave(DeadlineKind.SpellEffect, held.Effect.Value,
+            clock.DueElapsedMilliseconds(deadline), Member: held.Member) : null;
+    }
+
+    /// <inheritdoc />
+    public bool RestoreDeadline(DeadlineSave deadline, PartyEntity party)
+    {
+        if (deadline.Kind != DeadlineKind.SpellEffect || _clock is null) return false;
+        EffectId effect = new(deadline.Subject);
+        int magnitude = deadline.Member is { } member ? _party.Member(member).Effects.MagnitudeOf(effect) : _party.Effects.MagnitudeOf(effect);
+        GameDuration delay = GameDuration.FromMilliseconds(deadline.DueElapsedMilliseconds - _clock.Elapsed.Milliseconds);
+        Drop(effect, deadline.Member);
+        _held.Add(new Held(effect, deadline.Member, magnitude, _clock.ScheduleAfter(delay), _clock.Calendar.Add(_clock.Now, delay)));
+        return true;
+    }
 
     /// <inheritdoc />
     public string Describe(DeadlineId deadline)

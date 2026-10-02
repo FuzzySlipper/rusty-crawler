@@ -1,5 +1,7 @@
 using System.Globalization;
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Time;
+using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
@@ -209,15 +211,14 @@ public sealed class ItemMagicPolicyTests
         session.Update(RulesetTestContext.Update(++step, 1, Cast(member: 0, spell: "3", target: Member(live, 0), item: wand)));
         Assert.Equal(charges - 1, Charges(ui, wand));
 
-        // A game day passes, so the ward the casting raised has run out and nothing holds a moment the save
-        // cannot carry yet.
-        Advance(session, ref step, seconds: 24 * 60 * 60 / GameSecondsPerRealSecond);
-
+        // Save while the per-character ward still runs, with its original end carried.
         // The session's own save boundary, through the engine's store, and a resume composed from those bytes.
         SessionSave written = MightAndMagic7Ruleset.Instance.Save(session);
         Assert.NotNull(persistence.Payload("sessions", "session"));
         ItemSave carried = written.Party.Items.Single(item => item.Id.ToString() == wand);
         Assert.Equal(1, carried.State.ChargesSpent);
+        DeadlineSave ward = Assert.Single(written.Clock.Deadlines, deadline => deadline.Kind == DeadlineKind.SpellEffect);
+        Assert.Equal(live.Party!.Members[0].Id, ward.Member);
 
         (ProductCreateContext resumedContext, RecordingUiService resumedUi) = RulesetTestContext.Create(persistence, Content());
         using IGameSession resumed = MightAndMagic7Ruleset.Instance.CreateSession(
@@ -229,10 +230,52 @@ public sealed class ItemMagicPolicyTests
         resumed.Start();
         resumed.Update(RulesetTestContext.Update(1, 1));
 
+        SessionSave restored = MightAndMagic7Ruleset.Instance.Save(resumed);
+        Assert.Equal(ward, Assert.Single(restored.Clock.Deadlines, deadline => deadline.Kind == DeadlineKind.SpellEffect));
+        Assert.Equal(1d, Magic(resumedUi).Field("memberRunning").Length());
+
         ProjectedNode resumedWand = Item(Magic(resumedUi).Field("items"), "charged");
         Assert.Equal(wand, resumedWand.Field("item").AsString());
         Assert.Equal(charges - 1, (int)resumedWand.Field("charges").AsNumber());
         Assert.True(resumedWand.Field("wielded").AsBoolean());
+        GameClock clock = ((IInteractionWorld)((MightAndMagic7Session)resumed).World!).Clock!;
+        PartyEntity resumedParty = ((MightAndMagic7Session)resumed).Party!;
+        string effect = ward.Subject;
+        clock.Advance(GameDuration.FromMilliseconds(ward.DueElapsedMilliseconds - clock.Elapsed.Milliseconds - 1));
+        Assert.True(resumedParty.Members[0].Effects.Has(new EffectId(effect)));
+        clock.Advance(GameDuration.FromMilliseconds(1));
+        Assert.False(resumedParty.Members[0].Effects.Has(new EffectId(effect)));
+        DeadlineSave sleep = Assert.Single(restored.Clock.Deadlines, deadline => deadline.Kind == DeadlineKind.Fatigue);
+        clock.Advance(GameDuration.FromMilliseconds(sleep.DueElapsedMilliseconds - clock.Elapsed.Milliseconds - 1));
+        Assert.All(resumedParty.Members, member => Assert.False(member.Conditions.Has(MightAndMagic7Conditions.Weak)));
+        clock.Advance(GameDuration.FromMilliseconds(1));
+        Assert.All(resumedParty.Members, member => Assert.True(member.Conditions.Has(MightAndMagic7Conditions.Weak)));
+
+    }
+
+    [Fact]
+    public void Loading_refuses_missing_ends_and_contradictory_owner_schedules_by_name()
+    {
+        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(Content());
+        using IGameSession session = Casting(context, ui);
+        MightAndMagic7Session live = (MightAndMagic7Session)session;
+        session.Update(RulesetTestContext.Update(1, 1));
+        string scroll = Item(Magic(ui).Field("items"), "consumed").Field("item").AsString();
+        session.Update(RulesetTestContext.Update(2, 1, Cast(member: 0, spell: "3", target: Member(live, 0), item: scroll)));
+        SessionSave saved = MightAndMagic7Ruleset.Instance.Save(session);
+        ContentCatalog content = ContentCatalogLoader.Load(RulesetTestContext.Content(context),
+            ContentLayout.Under(RulesetTestContext.ContentDirectory)).RequireValid();
+        SessionSave broken = new(saved.Party, new ClockSave(saved.Clock.ElapsedMilliseconds,
+        [
+            new DeadlineSave((DeadlineKind)123, "unknown", saved.Clock.ElapsedMilliseconds - 1),
+            new DeadlineSave(DeadlineKind.ServiceRestock, "absent", saved.Clock.ElapsedMilliseconds + 1, 0),
+        ]), saved.World, saved.Quests, saved.Journal, saved.Knowledge, saved.Maps);
+        SessionSaveException refused = Assert.Throws<SessionSaveException>(() => MightAndMagic7Persistence.RequireLoadable(broken, content));
+        Assert.Contains(refused.Problems, problem => problem.Text.Contains("unknown deadline kind", StringComparison.Ordinal));
+        Assert.Contains(refused.Problems, problem => problem.Text.Contains("before saved clock", StringComparison.Ordinal));
+        Assert.Contains(refused.Problems, problem => problem.Text.Contains("exactly one debt of sleep", StringComparison.Ordinal));
+        Assert.Contains(refused.Problems, problem => problem.Text.Contains("no carried end", StringComparison.Ordinal));
+        Assert.Contains(refused.Problems, problem => problem.Text.Contains("no scheduled service", StringComparison.Ordinal));
     }
 
     /// <summary>What the panel publishes as the charges left in one instance, or zero when it is gone.</summary>

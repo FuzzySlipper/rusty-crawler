@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Interaction;
+using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Presentation;
@@ -307,6 +308,67 @@ public sealed class PersistenceTests
         // So the debt lands when it was always going to: at the end of the day, not a day after the last save.
         played.Clock.Advance(GameDuration.FromHours(2));
         Assert.All(played.Party.Members, member => Assert.True(member.Conditions.Has(TestNights.Weakness)));
+    }
+
+    [Fact]
+    public void Sleep_and_party_and_member_effects_resume_at_their_original_due_times()
+    {
+        using Played played = new(rest: new TestNights());
+        RunningSpellEffects effects = new(played.Party, played.Clock);
+        played.Clock.Observe(effects);
+        effects.Start(new EffectId("test.light"), 1, GameDuration.FromHours(23));
+        effects.StartOn(played.Party.Members[0], new EffectId("test.ward"), 7, GameDuration.FromHours(22));
+        played.Clock.Advance(GameDuration.FromHours(20));
+        SessionSave captured = new(played.Party.Capture(), ClockSave.Capture(played.Clock, [played.Session.Rest!, effects]), played.World.Capture());
+        SessionSave loaded = Decode(Encode(captured));
+        Assert.Empty(loaded.Problems(Graph(), new PartyEntityFactory(), calendar: played.Clock.Calendar));
+        Assert.Equal(3, loaded.Clock.Deadlines.Count);
+
+        GameClock clock = TestClock.Create();
+        loaded.Clock.ApplyTo(clock);
+        using PartyEntity party = new PartyEntityFactory().Restore(loaded.Party);
+        PartyRest rest = new(new TestNights(), party, clock);
+        RunningSpellEffects resumed = new(party, clock);
+        clock.Observe(rest);
+        clock.Observe(resumed);
+        loaded.Clock.RestoreDeadlines([rest, resumed], party);
+        Assert.Equal(played.Session.Rest!.Fatigue!.Due, rest.Fatigue!.Due);
+        Assert.Equal(7, resumed.MagnitudeOn(party.Members[0], new EffectId("test.ward")));
+        Assert.Equal(effects.RunningOnMembers[0].EndsAt, resumed.RunningOnMembers[0].EndsAt);
+        clock.Advance(GameDuration.FromMilliseconds(GameDuration.FromHours(2).Milliseconds - 1));
+        Assert.Equal(7, resumed.MagnitudeOn(party.Members[0], new EffectId("test.ward")));
+        clock.Advance(GameDuration.FromMilliseconds(1));
+        Assert.Empty(resumed.RunningOnMembers);
+        Assert.Single(resumed.Running);
+        clock.Advance(GameDuration.FromHours(1));
+        Assert.Empty(resumed.Running);
+        Assert.False(rest.Fatigue.IsWeak);
+        clock.Advance(GameDuration.FromHours(1));
+        Assert.True(rest.Fatigue.IsWeak);
+        Assert.Equal(GameDuration.FromHours(48).Milliseconds,
+            ClockSave.Capture(clock, [rest]).Deadlines.Single().DueElapsedMilliseconds);
+    }
+
+    [Fact]
+    public void Contradictory_schedules_name_all_losses_before_restore()
+    {
+        using Played played = new();
+        ClockSave clock = new(1000,
+        [
+            new DeadlineSave((DeadlineKind)999, "unknown", 900),
+            new DeadlineSave(DeadlineKind.Fatigue, "", 2000, 0),
+            new DeadlineSave(DeadlineKind.Fatigue, "", 2000, 1),
+            new DeadlineSave(DeadlineKind.SpellEffect, "absent", 2000, 1, new PartyMemberId(999)),
+            new DeadlineSave(DeadlineKind.ServiceRestock, "absent", 2000),
+        ]);
+        IReadOnlyList<SaveProblem> problems = clock.Problems(played.Party.Capture());
+        Assert.Contains(problems, problem => problem.Text.Contains("unknown deadline kind", StringComparison.Ordinal));
+        Assert.Contains(problems, problem => problem.Text.Contains("before saved clock", StringComparison.Ordinal));
+        Assert.Contains(problems, problem => problem.Text.Contains("cannot repeat", StringComparison.Ordinal));
+        Assert.Contains(problems, problem => problem.Text.Contains("duplicate", StringComparison.Ordinal));
+        Assert.Contains(problems, problem => problem.Text.Contains("does not hold", StringComparison.Ordinal));
+        Assert.Contains(problems, problem => problem.Text.Contains("expires once", StringComparison.Ordinal));
+        Assert.Contains(problems, problem => problem.Text.Contains("needs its repeat interval", StringComparison.Ordinal));
     }
 
     [Fact]

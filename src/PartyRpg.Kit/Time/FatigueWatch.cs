@@ -142,6 +142,15 @@ public sealed class FatigueWatch : IGameTimeObserver
         _held = _clock.ScheduleAfter(_interval);
     }
 
+    /// <summary>Replaces the initial debt with the exact due time a save carried.</summary>
+    public void RestoreDue(long dueElapsedMilliseconds)
+    {
+        Pay();
+        GameDuration delay = GameDuration.FromMilliseconds(dueElapsedMilliseconds - _clock.Elapsed.Milliseconds);
+        _dueAt = _clock.Calendar.Add(_clock.Now, delay);
+        _held = _clock.ScheduleAfter(delay);
+    }
+
     /// <summary>Lands the state on every member and re-arms the debt from the moment it fired.</summary>
     private void Land()
     {

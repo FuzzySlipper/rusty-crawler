@@ -411,7 +411,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                 walked,
                 walker,
                 accounts,
-                from is null ? null : new SessionRecords(from.Quests, from.Journal, from.Knowledge, from.Maps));
+                from is null ? null : new SessionRecords(from.Quests, from.Journal, from.Knowledge, from.Maps, from.Clock));
         }
 
         EngineSessionSaveStore? store = MightAndMagic7Persistence.Store(context.Engine);
@@ -444,7 +444,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             {
                 // The whole document is judged before anything moves, so every problem is named at once and a
                 // defective save leaves no clock moved and no party restored behind it.
-                MightAndMagic7Persistence.RequireLoadable(save, context.Content, quests, fixtures, spawns);
+                MightAndMagic7Persistence.RequireLoadable(save, context.Content, quests, fixtures, spawns, services, rest);
 
                 // The clock takes the recorded game time before the world is composed, because the world's
                 // places are read against the day the session stands on: a resumed session that restored its
