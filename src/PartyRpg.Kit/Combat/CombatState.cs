@@ -47,6 +47,7 @@ public sealed class CombatState : IGameTimeObserver
     private readonly ICombatAbilityResolutionRule? _abilities;
     private readonly ICombatWeaponRule? _weapons;
     private readonly ICombatReflectionRule? _reflection;
+    private readonly ICombatProvocationRule? _provocation;
     private readonly IReadOnlyList<ICreatureDeathObserver> _deaths;
     private readonly PartyEntity _party;
     private readonly ICombatWorld? _world;
@@ -95,6 +96,7 @@ public sealed class CombatState : IGameTimeObserver
         _abilities = rules.Abilities;
         _weapons = rules.Weapons;
         _reflection = rules.Reflection;
+        _provocation = rules.Provocation;
         _deaths = rules.Deaths ?? [];
         _party = party ?? throw new ArgumentNullException(nameof(party));
         _world = world;
@@ -583,11 +585,7 @@ public sealed class CombatState : IGameTimeObserver
         // What the party has done is what puts a creature into the fight: attacking it is remembered, so it
         // stays an enemy for as long as it stands there, whatever pacing is in force. A creature standing with the
         // party is not provoked by being struck by one of the other side.
-        if (target is not null && !OnPartysSide(target))
-        {
-            _provoked.Add(target.Id);
-            target.Provoke();
-        }
+        if (target is not null && !OnPartysSide(target)) ProvokeWithOthers(target);
 
         AttackInitiation initiation = new(
             actor.Id,
@@ -829,9 +827,32 @@ public sealed class CombatState : IGameTimeObserver
     public bool Provoke(CombatantId target)
     {
         if (!_byId.TryGetValue(target, out Combatant? combatant) || combatant.Side == CombatSide.Party) return false;
-        _provoked.Add(target);
-        combatant.Provoke();
+        ProvokeWithOthers(combatant);
         return true;
+    }
+
+    /// <summary>
+    /// Remembers that the party acted against a creature, and against every other standing actor the game says that
+    /// act turns against it too.
+    /// </summary>
+    /// <remarks>
+    /// An actor already down, one of the party, or one standing with the party is not asked: a body takes no part,
+    /// and what made a creature stand with the party outranks what the party did, so it is not turned by this either.
+    /// </remarks>
+    /// <param name="target">The creature acted against.</param>
+    private void ProvokeWithOthers(Combatant target)
+    {
+        _provoked.Add(target.Id);
+        target.Provoke();
+        if (_provocation is null) return;
+
+        foreach (Combatant other in _combatants)
+        {
+            if (other.Id == target.Id || OnPartysSide(other) || IsDown(other)) continue;
+            if (!_provocation.ProvokedWith(target.Subject, other.Subject)) continue;
+            _provoked.Add(other.Id);
+            other.Provoke();
+        }
     }
 
     /// <summary>Adds game time to what an actor must recover before it may act again.</summary>

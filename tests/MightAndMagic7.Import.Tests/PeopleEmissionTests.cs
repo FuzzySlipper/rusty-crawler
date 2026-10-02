@@ -90,6 +90,11 @@ public sealed class PeopleEmissionTests
             Assert.Equal(0, standing.SourceActorIndex);
             Assert.Equal("Tester One", standing.SourceActorName);
 
+            // The record's standing toward the party travels as the record states it, as a creature's does: its
+            // attribute bits, which carry the aggressor bit, and the kind it says it counts as.
+            Assert.Equal(0x80000, standing.Attributes);
+            Assert.Equal(42, standing.HostilityGroup);
+
             // Two of them are placed in buildings by the table's own column, and the import knows which of
             // those buildings it managed to place a door for: the other one is a remainder with a reason.
             Assert.Equal(2, people.ResidentCount);
@@ -191,6 +196,8 @@ public sealed class PeopleEmissionTests
             Assert.Equal("person-0", ContentEntry.ReadId(standing, "id"));
             Assert.Equal("npc-1", Assert.Single(standing.GetProperty("people").EnumerateArray()).GetString());
             Assert.Equal(320, standing.GetProperty("x").GetDouble());
+            Assert.Equal(0x80000, standing.GetProperty("attributes").GetInt32());
+            Assert.Equal(42, standing.GetProperty("hostilityGroup").GetInt32());
 
             JsonElement building = Assert.Single(
                 Placements(catalog).Where(element => string.Equals(

@@ -38,7 +38,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// waits for another owner (item enchantments, #8513) is said beside it.
 /// </para>
 /// </remarks>
-internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule, ICombatAbilityResolutionRule, ICombatWeaponRule, ICombatReflectionRule
+internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule, ICombatAbilityResolutionRule, ICombatWeaponRule, ICombatReflectionRule, ICombatProvocationRule
 {
     /// <summary>The definition kind a monster row is imported under.</summary>
     internal const string MonsterDefinitionKind = "monster";
@@ -750,13 +750,18 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             return OwnNature(subject, creature);
         }
 
-        if (!string.Equals(subject.Placement?.Content.Kind, PersonPlacementKind, StringComparison.Ordinal)) return Hostility.Inert;
+        if (!IsPerson(subject)) return Hostility.Inert;
+
+        // A person is an actor of the level as a creature is, and is not noticed by an invisible party either.
+        if (SpellWard(SpellEffectIds.Invisibility) > 0) return Hostility.Peaceful;
 
         // A person whose group a map event turned hostile — the guards of a place the party broke into — is an
-        // enemy the same way, unless the party cannot be seen.
-        return InHostileGroup(subject) && SpellWard(SpellEffectIds.Invisibility) <= 0
-            ? Hostility.Aggressive(NoticeRanges[^1])
-            : Hostility.Peaceful;
+        // enemy the same way.
+        if (InHostileGroup(subject)) return Hostility.Aggressive(NoticeRanges[^1]);
+
+        // Otherwise a person is what their own actor record and the matrix say, read exactly as a level's own
+        // creature is (OwnNature): the donor keeps no separate standing for an actor that names somebody.
+        return PersonFacts(subject) is { } facts ? OwnNature(subject, facts) : Hostility.Peaceful;
     }
 
     /// <summary>
@@ -827,11 +832,68 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
          OwnNature(subject, facts).AttacksOnSight ||
          (ActorRecord(subject) is null && _hostility.TowardParty(facts.HostilityKind) != 0));
 
-    /// <summary>The actor record a level's own creature was stood from, or null for any other subject.</summary>
+    /// <summary>
+    /// The actor record a level's own creature was stood from, or a person's own placement, which is the record that
+    /// stands them; null for any other subject.
+    /// </summary>
     private static ContentEntry? ActorRecord(CombatSubject subject) =>
-        subject.Placement is { } placement && placement.Source.GetString(ActorPlacementField) is { Length: > 0 }
+        subject.Placement is { } placement &&
+        (IsPerson(subject) || placement.Source.GetString(ActorPlacementField) is { Length: > 0 })
             ? placement.Source
             : null;
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// <para>
+    /// <b>The donor's own alarm.</b> When the party hurts an actor, kills it, or is caught stealing from it, the donor
+    /// turns every other actor of the same faction standing within 4,096 units of it against the party
+    /// (OpenEnroth <c>src/Engine/Objects/Actor.cpp:704-725</c>, <c>AggroSurroundingPeasants</c>; called with the
+    /// aggressor flag from a party blow that wounds or kills, <c>Actor.cpp:3152-3165</c>, from a wound turned back
+    /// by pain reflection, <c>src/Engine/Objects/Character.cpp:5880-5892</c> and <c>:6046-6058</c>, and from a theft
+    /// caught, <c>Character.cpp:1215-1216</c>). Two actors are of one faction when the kind each counts as is the same
+    /// kind, or when both are peasant kinds of one race (<c>Actor.cpp:694-702</c>, <c>ArePeasantsOfSameFaction</c>;
+    /// the races are the donor's own table, <c>src/Engine/Objects/MonsterEnumFunctions.cpp:60-104</c>, and
+    /// <see cref="MightAndMagic7Hostility.PeasantRace"/>). The kind an actor counts as is the one its record names,
+    /// else its row's (<c>src/Engine/Snapshots/EntitySnapshots.cpp:1494-1499</c>), read the way
+    /// <see cref="NatureOf"/> reads it. An actor that cannot act — one a spell holds still — is passed over, as the
+    /// donor passes over one that cannot act (<c>Actor.cpp:712</c>, <c>Actor::CanAct</c>).
+    /// </para>
+    /// <para>
+    /// <b>Faithful in who and how far</b>: the same kinds or the same peasant race, within 4,096 units measured in a
+    /// straight line from where the wronged actor stands, as the donor measures it. <b>Ours</b>: the donor raises the
+    /// alarm when a blow lands or kills, and this game raises it wherever the fight remembers an act against the
+    /// actor — the attack ordered at it, a spell that is an act against it, or a theft caught — so a blow that misses
+    /// raises it too; and an actor it turns is the party's enemy for as long as it stands there, which is how this
+    /// fight remembers every provocation, where the donor gives it the longest band and the aggressor bit.
+    /// </para>
+    /// </remarks>
+    public bool ProvokedWith(CombatSubject provoked, CombatSubject bystander)
+    {
+        ArgumentNullException.ThrowIfNull(provoked);
+        ArgumentNullException.ThrowIfNull(bystander);
+        if (FactionOf(provoked) is not { } wronged || FactionOf(bystander) is not { } other) return false;
+        if (!SameFaction(wronged, other) || !CanAct(bystander)) return false;
+        return provoked.Pose.DistanceTo(bystander.Pose) < AlarmRadius;
+    }
+
+    /// <summary>How far an act against an actor carries to its faction, in place units (<c>Actor.cpp:718</c>).</summary>
+    private const double AlarmRadius = 4096;
+
+    /// <summary>
+    /// The kind an actor counts as when its faction is read: the kind its record names, the party's own faction for a
+    /// record that says so, else its row's kind; null for a subject of no row or a row that names no kind.
+    /// </summary>
+    private int? FactionOf(CombatSubject subject)
+    {
+        if (subject.Member is not null || Facts(subject) is not { } facts) return null;
+        if (ActorRecord(subject)?.GetInt32(HostilityGroupField) is { } named and not 0) return named;
+        return facts.HostilityKind == NoHostilityKind ? null : facts.HostilityKind;
+    }
+
+    /// <summary>Whether two kinds are one faction: the same kind, or peasants of one race (<c>Actor.cpp:694-702</c>).</summary>
+    private static bool SameFaction(int one, int other) =>
+        one == other ||
+        (MightAndMagic7Hostility.PeasantRace(one) is { } race && MightAndMagic7Hostility.PeasantRace(other) == race);
 
     /// <summary>Whether a level's own creature's record puts it in the party's own faction, and nothing made it the aggressor.</summary>
     private static bool OfPartyFaction(CombatSubject subject) =>

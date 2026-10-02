@@ -677,6 +677,8 @@ public sealed class MapDecoderTests
             writer.SetI16(person + 0x90, -640);
             writer.SetI16(person + 0x92, 64);
             writer.SetU16(person + 0x9A, 512);
+            writer.SetI32(person + 0x24, 0x80000);   // the aggressor bit, the record's standing toward the party
+            writer.SetI32(person + 0x2EC, 42);       // the kind it counts as, the snapshot's hostilityGroup
         }
 
         // The second actor is a creature the level is built holding: no NPC identity, monster row four in its own

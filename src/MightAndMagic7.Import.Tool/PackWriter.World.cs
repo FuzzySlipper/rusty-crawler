@@ -628,6 +628,11 @@ internal static partial class PackWriter
 
                     // The record's group, which a map event names when it turns a group hostile or counts its dead.
                     if (person.Group != 0) field.WriteNumber("group", person.Group);
+
+                    // The record's standing toward the party, read as a level's own creature's is: its attribute bits,
+                    // which carry the aggressor bit, and the kind it says it counts as when it names one.
+                    field.WriteNumber("attributes", person.Attributes);
+                    if (person.HostilityGroup != 0) field.WriteNumber("hostilityGroup", person.HostilityGroup);
                     WritePeople(field, [person.PersonId]);
                 }));
         }

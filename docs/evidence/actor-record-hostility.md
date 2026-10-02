@@ -63,3 +63,29 @@ Lambent 5, Castle Gloaming 6, The Temple of Baa 35, The Temple of the Moon 3, th
 Mercenary Guild 7 all peaceful; Castle Harmondale's 62 records are all hidden. The standing hostile ones are the
 two places' hobgoblins and seven lone lair creatures (a dragon in each of The Dragon Caves and The Dragon's Lair, and
 one each in Clanker's Laboratory, The Red Dwarf Mines, The Maze, Colony Zod and The Hall under the Hill).
+
+## People's own records, and the alarm (#9060)
+
+Person placements now carry their actor record's `attributes` and, when non-zero, `hostilityGroup`, and the ruleset
+reads a person through the same rule as a level's own creature. Counted over a fresh `mm7import write` of the
+operator's install (a scratch output, not the tracked tree):
+
+| | people |
+| --- | ---: |
+| person placements | 123 |
+| non-zero `attributes` | 102 (101 of `0x200000`, the donor's animation flag; 1 of `0x10000`) |
+| carrying the aggressor bit `0x80000` | 0 |
+| naming a `hostilityGroup` | 0 |
+| whose kind the party's row of the matrix names | 2 (The Strange Temple's two `Blaster Guy C`, kind 87, band 2) |
+
+So the only shipped people this changes are those two, who were peaceful and are now the party's enemy at the
+second band, as the donor's `GetActorsRelation` reads them. Every other person's row is a peasant, a guard, an
+adventurer, an initiate, a golem or a wizard whose kind the party's row does not name.
+
+An act against one actor — the party's blow ordered at it, a spell that is an act against it, or a theft caught —
+now also provokes every other standing actor of its faction within 4,096 units, a faction being one kind, or
+peasant kinds of one race (OpenEnroth `src/Engine/Objects/Actor.cpp:694-725`). Of the 522 standing actor records
+read above, 279 stand on the `Peasant` rows and 33 on the goblin `peasant` rows. Ruleset tests over staged content
+(`FactionAlarmPolicyTests`) prove a guard beside an attacked guard turns and one 5,000 units off stays peaceful,
+a dwarf of another kind beside a wronged dwarf turns and an elf does not, and a person whose record carries the
+aggressor bit is hostile. Operators must rewrite their packs for people to carry these fields.

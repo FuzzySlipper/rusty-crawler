@@ -23,7 +23,8 @@ public static class Capabilities
             rule as ICombatAbilityResolutionRule,
             rule as ICombatWeaponRule,
             rule is ICreatureDeathObserver deaths ? [deaths] : null,
-            rule as ICombatReflectionRule);
+            rule as ICombatReflectionRule,
+            rule as ICombatProvocationRule);
 
     /// <summary>What a suite's creature can take, as its own placement states it under <c>hitPoints</c>.</summary>
     public static ICreatureVitals PlacementHitPoints { get; } = new HitPointsInPlacement();
