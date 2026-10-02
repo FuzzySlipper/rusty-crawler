@@ -892,7 +892,8 @@ speaks with that official; no additional person placement is created. Taking a b
 acceptance whose judged consequence creates bound challengers through the existing population and
 creature composer. The fight reports each death to the quest owner, and only the matching bout, opponent
 slot, place and creature row count. Turning in the completed bout pays through the shared finding ledger
-and adds one `award:arena-wins`; its canonical turned-in stage refuses a second payment. Champion and
+and adds one `award:arena-wins`; its canonical turned-in stage refuses a second payment. The last settled bout remains a conversation
+choice so the player can hear that named refusal. Champion and
 `arena-wins-knight` event comparisons read that same earned count.
 
 The compiled Knight policy adapts OpenEnroth `src/GUI/UI/NPCTopics.cpp:227-337` and

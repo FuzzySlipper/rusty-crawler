@@ -144,6 +144,13 @@ internal sealed class MightAndMagic7Arena
         return Definition(new(Prefix + bout.Id + ":" + attempt.ToString(CultureInfo.InvariantCulture) + ":" + level.ToString(CultureInfo.InvariantCulture)));
     }
 
+    internal QuestDefinition? Settled(ConversationContext context)
+    {
+        QuestInstance? last = _quests()?.Instances.LastOrDefault(i => i.Stage == QuestStage.TurnedIn &&
+            Read(i.Quest) is { } terms && terms.Bout.Person == context.Speaker && terms.Bout.Place == context.Place);
+        return last is null ? null : Definition(last.Quest);
+    }
+
     internal Refusal? CanAccept(QuestAcceptance acceptance)
     {
         if (Read(acceptance.Definition.Id) is not { } terms) return null;
