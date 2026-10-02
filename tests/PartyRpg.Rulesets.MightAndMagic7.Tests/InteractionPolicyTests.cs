@@ -28,18 +28,18 @@ public sealed class InteractionPolicyTests
     {
         MightAndMagic7Interaction rule = new();
 
-        // Player words follow physical travel rather than the donor's inverted enum names.
-        InteractionTargetDefinition closed = Describe(rule, Door(state: 0));
+        // Imported doorways are open at rest and close at full travel; no animation is inferred.
+        InteractionTargetDefinition closed = Describe(rule, Door(state: 2));
         Assert.Equal("door", closed.Kind.Value);
         Assert.Equal("closed", closed.State);
-        InteractionOutcome opened = rule.Apply(closed, Context(closed, Door(state: 0)));
+        InteractionOutcome opened = rule.Apply(closed, Context(closed, Door(state: 2)));
         Assert.True(opened.IsApplied);
         Assert.Equal("open", opened.State);
         Assert.Empty(opened.Residue);
-        InteractionTargetDefinition moved = Describe(rule, Door(state: 2));
+        InteractionTargetDefinition moved = Describe(rule, Door(state: 0));
         Assert.Equal("open", moved.State);
-        Assert.Equal("door-already-open", rule.Apply(moved, Context(moved, Door(state: 2))).Refusal!.Code);
-        InteractionTargetDefinition recorded = Describe(rule, Door(state: 0), recorded: "open");
+        Assert.Equal("door-already-open", rule.Apply(moved, Context(moved, Door(state: 0))).Refusal!.Code);
+        InteractionTargetDefinition recorded = Describe(rule, Door(state: 2), recorded: "open");
         Assert.Equal("open", recorded.State);
     }
 
@@ -134,8 +134,8 @@ public sealed class InteractionPolicyTests
                 """
                 { "id": "7", "kind": "interior", "name": "Hall", "respawnDays": 7,
                   "placements": [
-                    { "id": "door-0", "kind": "door", "doorId": 3, "x": 0, "y": 0, "z": 0, "state": 0 },
-                    { "id": "door-1", "kind": "door", "doorId": 3, "x": 10, "y": 0, "z": 0, "state": 0 } ] }
+                    { "id": "door-0", "kind": "door", "doorId": 3, "x": 0, "y": 0, "z": 0, "state": 2 },
+                    { "id": "door-1", "kind": "door", "doorId": 3, "x": 10, "y": 0, "z": 0, "state": 2 } ] }
                 """)));
 
         ContentValidationIssue issue = Assert.Single(error.Issues);
@@ -147,8 +147,8 @@ public sealed class InteractionPolicyTests
             """
             { "id": "7", "kind": "interior", "name": "Hall", "respawnDays": 7,
               "placements": [
-                { "id": "door-0", "kind": "door", "doorId": 3, "x": 0, "y": 0, "z": 0, "state": 0 },
-                { "id": "door-1", "kind": "door", "doorId": 4, "x": 10, "y": 0, "z": 0, "state": 0 } ] }
+                { "id": "door-0", "kind": "door", "doorId": 3, "x": 0, "y": 0, "z": 0, "state": 2 },
+                { "id": "door-1", "kind": "door", "doorId": 4, "x": 10, "y": 0, "z": 0, "state": 2 } ] }
             """));
     }
 
@@ -163,7 +163,7 @@ public sealed class InteractionPolicyTests
                 """
                 { "id": "7", "kind": "interior", "name": "Hall", "respawnDays": 7,
                   "placements": [
-                    { "id": "door-0", "kind": "door", "x": 0, "y": 0, "z": 0, "state": 0,
+                    { "id": "door-0", "kind": "door", "x": 0, "y": 0, "z": 0, "state": 2,
                       "requires": [ { "kind": "incantation", "id": "open sesame" } ] } ] }
                 """)));
 
@@ -174,7 +174,7 @@ public sealed class InteractionPolicyTests
             """
             { "id": "7", "kind": "interior", "name": "Hall", "respawnDays": 7,
               "placements": [
-                { "id": "door-0", "kind": "door", "x": 0, "y": 0, "z": 0, "state": 0,
+                { "id": "door-0", "kind": "door", "x": 0, "y": 0, "z": 0, "state": 2,
                   "requires": [ { "kind": "item", "id": "655", "label": "the Barrow Key" } ] } ] }
             """));
     }
@@ -197,7 +197,7 @@ public sealed class InteractionPolicyTests
         "door-0",
         """
         { "id": "door-0", "kind": "door", "sourceField": "doors", "sourceIndex": 0, "x": 100, "y": 0, "z": 0,
-          "positionSource": "vertexIds", "doorId": 1, "state": 0, "attributes": 1,
+          "positionSource": "vertexIds", "doorId": 1, "state": 2, "attributes": 1,
           "requires": [ { "kind": "item", "id": "655", "label": "the Barrow Key" } ] }
         """);
 

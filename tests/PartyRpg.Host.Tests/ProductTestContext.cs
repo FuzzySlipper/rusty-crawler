@@ -131,7 +131,7 @@ internal static class ProductTestContext
                   "placements": [
                     { "id": "door-0", "kind": "door", "sourceField": "doors", "sourceIndex": 0,
                       "x": 100, "y": 0, "z": 0, "positionSource": "vertexIds", "doorId": 1,
-                      "state": 0, "attributes": 1, "moveLength": 96, "openSpeed": 250, "closeSpeed": 250 } ] }
+                      "state": 2, "attributes": 1, "moveLength": 96, "openSpeed": 250, "closeSpeed": 250 } ] }
               ]
             }
             """),

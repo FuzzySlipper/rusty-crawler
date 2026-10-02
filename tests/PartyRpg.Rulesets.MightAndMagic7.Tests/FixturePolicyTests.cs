@@ -311,7 +311,7 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
         MightAndMagic7Interaction rule = Rule(catalog);
         InteractionLedger ledger = new();
         PlacementDefinition lever = Fixture(310, "Pull the Lever", string.Empty);
-        PlacementDefinition gate = Door(7, stored: 0);
+        PlacementDefinition gate = Door(7, stored: 2);
         PlacementDefinition[] placements = [lever, gate];
 
         // The texture, the sound and a face group hidden are presentation the product does not draw, so the run

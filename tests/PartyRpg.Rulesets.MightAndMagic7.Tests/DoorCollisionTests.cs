@@ -121,7 +121,7 @@ public sealed class DoorCollisionTests
             """)
         .Add("packs/world/places.json", """
             {"documentId":"places","definitionKind":"place","entries":[{"id":"1","kind":"interior","name":"Hall",
-             "entryPoints":[],"placements":[{"id":"gate","kind":"door","doorId":1,"state":0,"x":768,"y":-256,"z":0}]}]}
+             "entryPoints":[],"placements":[{"id":"gate","kind":"door","doorId":1,"state":2,"x":768,"y":-256,"z":0}]}]}
             """)
         .Add("packs/world/geometry.json", Geometry(partial)), new ContentLayout("packs", "imports", "bundles")).RequireValid();
 
@@ -130,11 +130,11 @@ public sealed class DoorCollisionTests
              "artifact":{},"navigationRegion":{"minimum":[0,0,0],"maximum":[1536,1024,1536],"cellSize":128},
              "collisionLayout":{"positions":[[0,0,0],[0,0,1536],[1536,0,1536],[1536,0,0]],"triangles":[[0,1,2],[0,2,3]],
                "faces":[{"group":7,"passable":false,"corners":[
-                 {"rest":[768,0,0],"door":"gate","travel":[0,512,0]},
-                 {"rest":[768,512,0],"door":"gate","travel":[0,512,0]},
-                 {"rest":[768,512,1536],"door":"gate","travel":[0,512,0]},
-                 {"rest":[768,0,1536],"door":"gate","travel":[0,512,0]}],
+                 {"rest":[768,512,0],"door":"gate","travel":[0,-512,0]},
+                 {"rest":[768,1024,0],"door":"gate","travel":[0,-512,0]},
+                 {"rest":[768,1024,1536],"door":"gate","travel":[0,-512,0]},
+                 {"rest":[768,512,1536],"door":"gate","travel":[0,-512,0]}],
                  "triangles":[[0,1,2],[0,2,3],[2,1,0],[3,2,0]]}]}}]}
-            """.Replace("\"rest\":[768,0,0],\"door\":\"gate\",\"travel\":[0,512,0]",
-            partial ? "\"rest\":[768,0,0],\"travel\":[0,0,0]" : "\"rest\":[768,0,0],\"door\":\"gate\",\"travel\":[0,512,0]", StringComparison.Ordinal);
+            """.Replace("\"rest\":[768,512,0],\"door\":\"gate\",\"travel\":[0,-512,0]",
+            partial ? "\"rest\":[768,512,0],\"travel\":[0,0,0]" : "\"rest\":[768,512,0],\"door\":\"gate\",\"travel\":[0,-512,0]", StringComparison.Ordinal);
 }

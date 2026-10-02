@@ -74,9 +74,12 @@ open admitted passage, and closing blocked the return. A face group made passabl
 clearing that bit restored it, and canonical ledger save/load and place restoration reproduced the
 geometry. Partial-corner projection and unrelated-use caching have separate semantic checks.
 
-Player words now call rest closed and full travel open; the source's state 2 starts open and other
-positions settle closed without animation. The donor acknowledges its inverted enum naming at
-OpenEnroth `src/Engine/Graphics/FaceEnums.h:62-66`. This is an explicit approximate endpoint policy.
+The first implementation provisionally inverted the endpoint names after reading the donor's enum
+comment. Native imported doorway trials disproved that choice: sampled Manor passages were clear at
+rest and blocked at full travel. The corrected reading retains this ruleset's existing open-at-rest /
+closed-at-full-travel policy, consistent with OpenEnroth `src/Engine/Graphics/Indoor.cpp:591-614`.
+Intermediate states settle closed without animation. The native authored regression now places the
+open door at its rest offsets and moves it into the blocking position when closed.
 The supported Engine calls remain whole `ReplaceCollision` and `ReplaceCollisionNavigation` in the
 party's existing session; no artifact-ID mixing, runtime polygon triangulation or second collision
 owner is introduced. Imported live doorway traversal and final source/review gates remain pending.

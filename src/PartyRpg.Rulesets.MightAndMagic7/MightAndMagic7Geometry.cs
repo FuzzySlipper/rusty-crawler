@@ -74,7 +74,7 @@ internal sealed class MightAndMagic7Geometry : IPlaceGeometrySource
             if (passable[index]) continue;
             uint start = checked((uint)positions.Count);
             foreach (Corner corner in face.Corners)
-                positions.Add(corner.Rest + (corner.Door is { } door && open[door] ? corner.Travel : Vector3.Zero));
+                positions.Add(corner.Rest + (corner.Door is { } door && !open[door] ? corner.Travel : Vector3.Zero));
             foreach (Triangle triangle in face.Triangles)
                 triangles.Add(new Triangle(start + triangle.A, start + triangle.B, start + triangle.C));
         }

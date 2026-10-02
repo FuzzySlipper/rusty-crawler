@@ -52,7 +52,7 @@ public sealed class InteractionPersistenceTests
               { "id": "1", "kind": "region", "name": "Yard", "respawnDays": 1,
                 "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ],
                 "placements": [
-                  { "id": "gate", "kind": "door", "x": 100, "y": 0, "z": 0, "state": 0 },
+                  { "id": "gate", "kind": "door", "x": 100, "y": 0, "z": 0, "state": 2 },
                   { "id": "chest", "kind": "container", "x": 100, "y": 1000, "z": 0 }
                 ] },
               { "id": "2", "kind": "interior", "name": "Cave", "respawnDays": 1,

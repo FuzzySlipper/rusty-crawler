@@ -745,10 +745,10 @@ navigation again for the same controller. Explicit mesh IDs belong to that compl
 share a scene with guessed artifact IDs. The catalog retains authored provenance; a changed scene does not
 claim the original immutable Engine artifact identity.
 
-Player words call the rest position **closed** and full travel **open**. Raw source state 2 starts open;
-other states settle closed, without animation. This deliberately corrects the prior word-only reading that
-followed the donor's inverted names: OpenEnroth `src/Engine/Graphics/FaceEnums.h:62-66` acknowledges that most
-physically closed doors are called `DOOR_OPEN`. Events here use player open/close meanings too. Full travel
-uses the decoded per-vertex offsets and direction described at OpenEnroth `src/Engine/Graphics/Indoor.cpp:665-671`,
-normalized from source 16.16 directions in the importer. It is an approximate endpoint policy, not a promise
-of the original animation or every event's original naming.
+The stored door state 0 is open at its rest offsets; state 2 is closed at full travel, as the
+sampled imported doorways confirm. Other stored states settle closed without animation. Events retain
+these same open/close meanings. The importer normalizes source 16.16 directions; each door moves only
+its named corners from their stored offsets, as described at
+OpenEnroth `src/Engine/Graphics/Indoor.cpp:591-614` and OpenEnroth `src/Engine/Graphics/Indoor.cpp:665-671`.
+The donor's enum comment notes naming divergences elsewhere; it does not override actual geometry
+checked in this product. Endpoint settling is approximate and does not promise original animation.

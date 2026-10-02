@@ -50,9 +50,8 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// second mechanism for looting.
 /// </para>
 /// <para>
-/// <b>What this game cannot deliver yet, stated rather than hidden.</b> Opening a door records its state and
-/// reports it, and leaves the door's polygons standing as collision, because door geometry does not move in
-/// this build; that is the residue the outcome carries. A fixture's use runs the steps of its event this game
+/// <b>Door state reaches the world.</b> Opening a door records its state on the interaction ledger;
+/// the geometry projection refreshes collision and navigation in the same Engine scene. A fixture's use runs the steps of its event this game
 /// interprets, and a run that reaches one it does not is refused by name before anything changes; what a run
 /// teaches — a well's effect, an obelisk's message, a sign's words — travels on the outcome, and the session
 /// hands it to the knowledge owner.
@@ -417,15 +416,14 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     /// delta stored when nothing has happened to it.
     /// </summary>
     /// <remarks>
-    /// The source stores 0 at rest and 2 at full travel. The donor's names invert the common physical
-    /// door position (OpenEnroth src/Engine/Graphics/FaceEnums.h:62-66). This game's player words call
-    /// rest closed and full travel open; intermediate source states settle closed. Events use these
-    /// player meanings too, rather than promising an open doorway while its geometry stays at rest.
+    /// Source 0 is open at rest, while 2 is closed at full travel. The sampled imported doorways
+    /// confirm that correspondence; intermediate source states settle closed without animation.
+    /// The donor names match this reading (OpenEnroth src/Engine/Graphics/Indoor.cpp:591-614).
     /// </remarks>
     internal static string DoorState(PlacementDefinition placement, string recorded) =>
         recorded.Length > 0
             ? recorded
-            : placement.Source.GetInt32(DoorStateField) == 2 ? OpenState : ClosedState;
+            : placement.Source.GetInt32(DoorStateField) == 0 ? OpenState : ClosedState;
 
     /// <summary>Whether the party carries what an item requirement names.</summary>
     /// <remarks>
