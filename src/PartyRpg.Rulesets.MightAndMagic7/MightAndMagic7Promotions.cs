@@ -352,7 +352,7 @@ internal sealed class MightAndMagic7Promotions : IPromotionRule
             "raid the Elven Treasury at Castle Navan", "Raid the Elven Treasury at Castle Navan and I will name you Cavalier."),
         Rank("cavalier-champion", "Cavalier", "Champion", 3, "npc-42", "Leda Rowan", 33,
             "win five arena challenges", "Win five challenges in the arena and the rank of Champion is yours.",
-            LightChoice, award: ("award:arena-wins", 5, "arena victories")),
+            LightChoice, award: (MightAndMagic7Deeds.ArenaWins, 5, "arena victories")),
         Rank("cavalier-black-knight", "Cavalier", "Black Knight", 3, "npc-43", "Frederick Org", 34,
             "destroy the undead in the Haunted House", "Clear the undead out of the Haunted House in the Barrow Downs and you will be a Black Knight.",
             DarkChoice),
@@ -418,7 +418,7 @@ internal sealed class MightAndMagic7Promotions : IPromotionRule
             LightChoice),
         Rank("hunter-bounty-hunter", "Hunter", "Bounty Hunter", 3, "npc-45", "Ebednezer Sower", 38,
             "collect ten thousand gold worth of bounties", "Collect ten thousand gold worth of bounties from the town halls, and I will make Bounty Hunters of you.",
-            DarkChoice, award: ("award:bounties", 10000, "gold of bounties")),
+            DarkChoice, award: (MightAndMagic7Deeds.Bounties, 10000, "gold of bounties")),
 
         // Cleric → Priest → Priest of the Light (light) / Priest of the Dark (dark). npc.txt row 46 "Good
         // Cleric promoter", row 47 "Evil Cleric promoter"; npctopic 88-89 Priest and 90-91 "Priest of Dark"

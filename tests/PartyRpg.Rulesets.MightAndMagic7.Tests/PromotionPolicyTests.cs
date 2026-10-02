@@ -6,6 +6,8 @@ using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Progression;
+using PartyRpg.Kit.Quests;
+using PartyRpg.Kit.World;
 using PartyRpg.Kit.Promotion;
 using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
@@ -39,6 +41,43 @@ namespace PartyRpg.Rulesets.MightAndMagic7.Tests;
 /// </remarks>
 public sealed class PromotionPolicyTests
 {
+    [Theory]
+    [InlineData("Cavalier", "cavalier-champion", "Champion", "npc-42", "33", "award:arena-wins", 5, 1)]
+    [InlineData("Hunter", "hunter-bounty-hunter", "Bounty Hunter", "npc-45", "38", "award:bounties", 2, 5000)]
+    public void Counted_rewards_make_both_ranks_takeable_through_the_promotion_path(
+        string from, string rank, string to, string giver, string errand, string deed, int completions, int earned)
+    {
+        using Fixture fixture = Fixture.Build(from, rank: 2);
+        fixture.Party.Records.Mark(MightAndMagic7Quests.ErrandRecord(errand));
+        Assert.False(fixture.Progression.Promote(rank, giver).IsGranted);
+        QuestDefinition[] definitions = Enumerable.Range(0, completions).Select(index =>
+            new QuestDefinition(new QuestId($"deed-{index}"), $"Deed {index}", giver,
+                [new QuestObjective("reach", QuestObjectiveKind.Reach, "1")],
+                new QuestRewards(records: [new QuestRewardRecord(deed, earned, accumulate: true)]))).ToArray();
+        // One actual quest/custody owner; explicitly stated deeds, with real arena earning in #9144.
+        PartyQuests quests = new(new CountedQuestRule(definitions), fixture.Party);
+        for (int index = 0; index < completions; index++)
+        {
+            QuestDefinition definition = definitions[index];
+            quests.Offer(definition.Id, giver); quests.Accept(definition.Id); quests.Observe(new PlaceId("1"));
+            Assert.True(quests.TurnIn(definition.Id, giver).IsApplied);
+            Assert.False(quests.TurnIn(definition.Id, giver).IsApplied);
+            Assert.Equal((index + 1) * earned, fixture.Party.Records.CountOf(deed));
+            if (index + 1 < completions) Assert.False(fixture.Progression.Promote(rank, giver).IsGranted);
+        }
+        Assert.True(fixture.Progression.Promote(rank, giver).IsGranted);
+        Assert.Equal(to, fixture.Party.Members[0].Profile.Class.Value);
+        Assert.Equal(3, fixture.Party.Members[0].Progression.ClassRank);
+    }
+
+    private sealed class CountedQuestRule(params QuestDefinition[] definitions) : IQuestRule
+    {
+        public IReadOnlyList<QuestDefinition> Definitions => definitions;
+        public QuestDefinition? Definition(QuestId id) => definitions.FirstOrDefault(definition => id == definition.Id);
+        public int Counts(QuestKillRequest request) => 0;
+        public bool Holds(QuestConditionRequest request) => true;
+    }
+
     [Theory]
     [InlineData("Unconscious")]
     [InlineData("Dead")]

@@ -43,6 +43,58 @@ public sealed class QuestTests
     private static readonly string Monster = "7";
 
     [Fact]
+    public void Distinct_completed_quests_accumulate_deeds_and_a_save_cannot_pay_one_twice()
+    {
+        using PartyEntity party = PartyOf(Member("Tester"));
+        QuestDefinition Deed(string id) => new(new QuestId(id), id, "marshal",
+            [new QuestObjective("reach", QuestObjectiveKind.Reach, Keep.Value)],
+            new QuestRewards(coins: 20, records: [new QuestRewardRecord("won", 2, accumulate: true), new QuestRewardRecord("mark", 3)]));
+        TestQuests rule = new(Deed("first"), Deed("second"));
+        PartyQuests quests = new(rule, party, new PartyResourceLedger(party));
+        foreach (QuestDefinition definition in rule.Definitions)
+        {
+            quests.Offer(definition.Id, "marshal");
+            quests.Accept(definition.Id);
+            quests.Observe(Keep);
+            Assert.True(quests.TurnIn(definition.Id, "marshal").IsApplied);
+            Assert.Equal(QuestCodes.QuestAlreadyFinished, quests.TurnIn(definition.Id, "marshal").Refusal!.Code);
+        }
+        Assert.Equal(4, party.Records.CountOf("won"));
+        Assert.Equal(3, party.Records.CountOf("mark"));
+        Assert.Equal(40, party.Purse.Coins);
+        Assert.Empty(party.Capture().Effects);
+        GameClock clock = new(GameCalendar.TwelveMonthsOfFourWeeks, new GameDate(1168, 1, 1), new GameTimeScale(30),
+            new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
+        SessionSave document = new(party.Capture(), ClockSave.Capture(clock),
+            new WorldSave(new PartyPose(Keep, PlacePose.Origin), new PlaceStateLedger(PlaceGraph.From([], []), PlaceRespawnRule.FromContent()).Capture()), quests.Capture());
+        SessionSave read = JsonSerializer.Deserialize(JsonSerializer.Serialize(document, SessionSaveJson.TypeInfo), SessionSaveJson.TypeInfo)!;
+        using PartyEntity restored = new PartyEntityFactory().Restore(read.Party);
+        PartyQuests resumed = new(rule, restored, new PartyResourceLedger(restored), save: read.Quests);
+        Assert.Equal(4, restored.Records.CountOf("won"));
+        Assert.Equal(3, restored.Records.CountOf("mark"));
+        Assert.Equal(QuestCodes.QuestAlreadyFinished, resumed.TurnIn(new QuestId("first"), "marshal").Refusal!.Code);
+        Assert.Equal(4, restored.Records.CountOf("won"));
+        Assert.Equal(40, restored.Purse.Coins);
+    }
+
+    [Fact]
+    public void A_count_that_cannot_fit_refuses_before_any_payment_or_completion()
+    {
+        using PartyEntity party = PartyOf(Member("Tester"));
+        party.Records.Set("won", int.MaxValue - 1);
+        QuestDefinition quest = new(new QuestId("too-many"), "Too many", "marshal",
+            [new QuestObjective("reach", QuestObjectiveKind.Reach, Keep.Value)],
+            new QuestRewards(experience: 10, coins: 20, records: [new QuestRewardRecord("won", 1, true), new QuestRewardRecord("won", 1, true)]));
+        PartyQuests quests = new(new TestQuests(quest), party, new PartyResourceLedger(party), new PartyProgression(new TestProgression(), party));
+        quests.Offer(quest.Id, "marshal"); quests.Accept(quest.Id); quests.Observe(Keep);
+        Assert.Equal(QuestCodes.QuestRecordCapacity, quests.TurnIn(quest.Id, "marshal").Refusal!.Code);
+        Assert.Equal(int.MaxValue - 1, party.Records.CountOf("won"));
+        Assert.Equal(0, party.Purse.Coins);
+        Assert.Equal(0, party.Members[0].Progression.Experience);
+        Assert.Equal(QuestStage.Accepted, quests.Read(quest.Id)!.Instance.Stage);
+    }
+
+    [Fact]
     public void Every_public_removal_entry_is_exercised_by_the_retention_cases()
     {
         string[] entries = typeof(PartyEntity).GetMethods()

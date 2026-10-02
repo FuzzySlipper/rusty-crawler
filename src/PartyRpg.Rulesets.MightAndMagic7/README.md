@@ -543,13 +543,13 @@ an errand the quest definitions state (`errand:<bit>`, named by the errand's own
 name), a counted deed the ladder keeps (`award:*`, named by the ladder's own label for it), and a guild's
 membership, named by the counter that sold it — "Fire Guild membership" rather than the effect a save spells.
 A record that is none of those — a ward still running, a passage bought, a line heard — is state rather than
-an accomplishment, and the panel shows only what this game can name. **Two counted deeds the ladder asks for
-are written by nobody**: `award:arena-wins` (five victories, the Champion's light errand) and
-`award:bounties` (ten thousand gold of town-hall bounties, the Hunter's dark one) are stated as records a
-rank requires, and neither the arena nor a bounty turn-in credits them — a bounty pays coin and leaves no
-record, and a party record is set rather than added to, so a count is not something
-the record path can express yet. The reading above names either record once something writes one (#8689:
-the arena, and a counting record path in `PartyRecords`). Fame carries no bands, because the donor
+an accomplishment, and the panel shows only what this game can name. Two counted deeds the ladder asks for now reach the same durable `PartyRecords` owner:
+`award:bounties` is the accumulated gold paid by distinct monthly town-hall quest turn-ins, and
+`award:arena-wins` can be earned by an explicitly accumulating content-stated quest reward. Five wins
+open the Champion requirement and ten thousand gold opens the Bounty Hunter requirement. The arena
+itself is absent; actual Knight-tier bout earning is routed to #9144. The
+[counted-deed evidence](../../docs/evidence/counted-deeds.md) records the earning, save and rank paths.
+Fame carries no bands, because the donor
 gives it none: it prints fame as a bare number (`UIQuickReference.cpp:134-143`) and reads it in exactly one
 place, whether somebody will join the party, gated on the party's fame exceeding their own and disabled in the
 donor with a note that it is an MM8 behaviour (`UIDialogue.cpp:70-95`). Nothing can join a party in this build
@@ -744,7 +744,7 @@ creatures on the field — and 2 refused, both at `hireling`; the ruleset suite 
 and west of the temple five hit and spell points from thirty charges a day, the western well two points of luck
 for good from eight a month, and the town sign is read; the first obelisk is the second region's (the first
 region has none). **What is ours**: the active character a run starts on is the first member able to act,
-because this build selects none (#8659); a write to something the party holds once — coin, a note, a bit — is
+for fixture programs independently of combat selection (an adaptation); a write to something the party holds once — coin, a note, a bit — is
 made once, where the donor makes it once per chosen character; a timer runs when a fixture that reads what it
 keeps is used, every one of them on the fixture's first use (the donor's reading of an unvisited map), and a
 daily timer runs a day after it last ran rather than at its hour; a fixture's harm is the record's own figure,
@@ -770,9 +770,9 @@ states none is offered; a comparison of a variable this game does not interpret 
 A regular run passes over the offer steps, as the donor's does. A run that meets a step this game does not
 interpret settles nothing and the person still says what the run had said (the topic table's own text when it had
 said nothing), with the refusal as the residue. Over the operator's install, a fresh party choosing each of the 365
-topic-raised events once has 351 run — 3 of them taking the party along a world-issued link: the crossing to
-Harmondale (68) and the temples' (69, 70) — and 14 stop at a named step: `hireling` 12 (#8514) and the two counted
-deeds two ranks ask for, `bounties` 1 and `arena-wins-knight` 1 (#8689); the ruleset suite counts it. **What is ours**: the donor offers at most four scripted topics at once (`NPCTopics.cpp:603`), this build
+topic-raised events once has 353 run — 3 of them taking the party along a world-issued link: the crossing to
+Harmondale (68) and the temples' (69, 70) — and 12 stop at a named step, all `hireling` (#8514); `bounties` and `arena-wins-knight` now compare
+the canonical counted records; the ruleset suite counts it. **What is ours**: the donor offers at most four scripted topics at once (`NPCTopics.cpp:603`), this build
 every one its check allows; a topic said once is withheld for the rest of the conversation, as every topic is.
 Fidelity per system — what matches
 the original, what is approximate, and what is deliberately ours — is fixed in

@@ -1384,6 +1384,10 @@ internal sealed class MightAndMagic7Fixtures
                     return (HasRecord(AwardRecord(step.Value)), null);
                 case "autonote":
                     return (Knows(step.Value), null);
+                case "bounties":
+                    return (party.Records.CountOf(MightAndMagic7Deeds.Bounties) >= step.Value, null);
+                case "arena-wins-knight":
+                    return (party.Records.CountOf(MightAndMagic7Deeds.ArenaWins) >= step.Value, null);
                 case "gold":
                     return (party.Purse.Coins + _coins >= step.Value, null);
                 case "item":

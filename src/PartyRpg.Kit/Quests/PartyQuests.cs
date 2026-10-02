@@ -290,13 +290,29 @@ public sealed class PartyQuests : IItemRetentionRule
                 $"'{definition.Name}' pays {rewards.Coins} coin and this session holds no settlement path to credit it through, so nothing was paid."));
         }
 
+        // Judge the complete declared record payment before experience, coin or custody changes.
+        Dictionary<string, int> counts = new(StringComparer.Ordinal);
+        foreach (QuestRewardRecord record in rewards.Records)
+        {
+            long count = record.Accumulate
+                ? (long)counts.GetValueOrDefault(record.Record, _party.Records.CountOf(record.Record)) + record.Amount
+                : record.Amount;
+            if (count > int.MaxValue)
+            {
+                return Refuse(QuestAction.TurnIn, quest, new Refusal(QuestCodes.QuestRecordCapacity,
+                    $"'{definition.Name}' would exceed the count held for '{record.Record}', so nothing was paid."));
+            }
+            counts[record.Record] = (int)count;
+        }
+
         ProgressionAwardResult? award = rewards.Experience > 0
             ? _progression!.Award(new PartyExperienceAward(QuestSource, rewards.Experience))
             : null;
 
         foreach (QuestRewardRecord record in rewards.Records)
         {
-            if (record.Amount > 0) _party.Records.Set(record.Record, record.Amount);
+            if (record.Accumulate) _party.Records.Increment(record.Record, record.Amount);
+            else if (record.Amount > 0) _party.Records.Set(record.Record, record.Amount);
         }
 
         if (rewards.Coins > 0) _ledger!.Credit(PartyCost.OfGold(rewards.Coins));

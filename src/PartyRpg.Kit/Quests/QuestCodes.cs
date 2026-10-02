@@ -7,6 +7,9 @@ namespace PartyRpg.Kit.Quests;
 /// </remarks>
 public static class QuestCodes
 {
+    /// <summary>A counted reward would exceed the durable record's range, so nothing was settled.</summary>
+    public const string QuestRecordCapacity = "quest-record-capacity";
+
     /// <summary>The refusal code <c>quest-item-needed</c>.</summary>
     public const string QuestItemNeeded = "quest-item-needed";
 

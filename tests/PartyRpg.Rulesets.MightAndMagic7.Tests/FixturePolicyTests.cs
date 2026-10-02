@@ -427,6 +427,33 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
         Assert.Equal(2, zoltan.Progression.SkillPoints);
     }
 
+    [Theory]
+    [InlineData("bounties", "award:bounties", 10000)]
+    [InlineData("arena-wins-knight", "award:arena-wins", 5)]
+    public void Event_comparisons_read_the_same_durable_counts_as_promotions(string variable, string record, int threshold)
+    {
+        string events = $$"""
+        { "documentId":"events", "definitionKind":"place-event", "entries":[
+          { "id":"1.777", "place":"1", "event":777, "raised":true, "steps":[
+            {"step":0,"op":"compare","variable":"{{variable}}","value":{{threshold}},"target":3},
+            {"step":1,"op":"status-text","textId":1,"text":"Still needed."},
+            {"step":2,"op":"exit"},
+            {"step":3,"op":"status-text","textId":2,"text":"Earned."},
+            {"step":4,"op":"exit"} ] } ] }
+        """;
+        MightAndMagic7Interaction rule = Rule(Catalog(events));
+        using PartyEntity party = Party();
+        GameClock clock = TestClock.Create(scale: 1);
+        PlacementDefinition placement = Fixture(777, "Deed gate", string.Empty);
+        party.Records.Increment(record, threshold - 1);
+        Assert.Equal("Still needed.", Use(rule, placement, EmeraldIsle, party, clock).Outcome.Message);
+        party.Records.Increment(record);
+        InteractionOutcome applied = Use(rule, placement, EmeraldIsle, party, clock).Outcome;
+        Assert.True(applied.IsApplied);
+        Assert.Equal("Earned.", applied.Message);
+        Assert.Equal(string.Empty, applied.Residue);
+    }
+
     [Fact]
     public void A_statue_calls_a_person_over_a_well_reads_the_bank_and_a_sundial_keeps_a_counter()
     {

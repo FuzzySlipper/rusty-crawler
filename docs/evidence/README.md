@@ -11,6 +11,7 @@ What is published here is text only: no game data, no screenshots, no saves, and
 
 | Record | What it shows |
 | --- | --- |
+| [`counted-deeds.md`](counted-deeds.md) | Monthly bounty gold and explicitly accumulating authored rewards share durable counts, save restoration and promotion/topic gates; actual arena earning is routed. |
 | [`member-selection.md`](member-selection.md) | Two ordinary member selections independently charge attack recovery; a recovering selection is refused by name. |
 | [`fight-persistence.md`](fight-persistence.md) | Ordinary save and resume retain an imported hostile Fighter and continuing creature recovery, with all-dead party and startup-time limits. |
 | [`restart-input.md`](restart-input.md) | Existing ordinary-key retest after a dev-host restart, with fresh-page and systemd limits, and the documented Engine input fallback. |

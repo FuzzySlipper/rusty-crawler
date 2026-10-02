@@ -498,3 +498,10 @@ Selection fields and messages are projected for the thin panel, which sends the 
 
 The [bounded member-control reading](../../docs/evidence/member-selection.md) records two ordinary selections, individual attack recovery,
 and the recovering member's named refusal.
+
+`PartyRecords.Increment` adds a positive earned amount to a durable record. A `QuestRewardRecord` can
+explicitly accumulate instead of replacing its magnitude; the existing once-only `PartyQuests.TurnIn`
+settles it through that owner. A payment whose declared counts cannot fit is refused before any reward
+settles. Party and quest sections carry both the count and the completed earning instance, so restoration
+cannot pay it again. [Focused evidence](../../docs/evidence/counted-deeds.md) covers accumulation,
+unchanged ordinary marks, the actual JSON save, and repeated settlement refusal.

@@ -81,6 +81,18 @@ public sealed class PartyRecords
     /// <exception cref="ArgumentException">The name is blank or the count is below one.</exception>
     public void Set(string name, int count) => _records.Set(name, count);
 
+    /// <summary>Adds an earned amount to a durable counted deed, rather than replacing a magnitude.</summary>
+    /// <param name="name">The deed's name, supplied by its earning owner.</param>
+    /// <param name="amount">The positive amount earned.</param>
+    /// <returns>The accumulated count.</returns>
+    public int Increment(string name, int amount = 1)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(amount, 1);
+        int count = checked(CountOf(name) + amount);
+        _records.Set(name, count);
+        return count;
+    }
+
     /// <summary>Takes something off the record, which is how a record that stands for one place moves on.</summary>
     /// <param name="name">The record's name.</param>
     /// <returns>Whether it was on record.</returns>

@@ -567,7 +567,18 @@ internal sealed class MightAndMagic7Quests : IQuestRule
                 continue;
             }
 
-            records.Add(new QuestRewardRecord(record, Math.Max(1, (int)(ContentEntry.ReadDouble(stated, "amount") ?? 1))));
+            bool accumulate = false;
+            if (stated.TryGetProperty("accumulate", out JsonElement counting))
+            {
+                if (counting.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+                {
+                    defect("quest-reward-count-invalid", $"quest '{entry.Id}' must state accumulate as true or false for record '{record}'.");
+                    paid = false;
+                    continue;
+                }
+                accumulate = counting.GetBoolean();
+            }
+            records.Add(new QuestRewardRecord(record, Math.Max(1, (int)(ContentEntry.ReadDouble(stated, "amount") ?? 1)), accumulate));
         }
 
         return new QuestRewards((long)ReadingNumber(entry, "experience"), (int)ReadingNumber(entry, "coins"), items, records);
@@ -712,7 +723,7 @@ internal sealed class MightAndMagic7Quests : IQuestRule
                     1,
                     $"Bring down a {terms.Beast}"),
             ],
-            new QuestRewards(coins: terms.Reward),
+            new QuestRewards(coins: terms.Reward, records: [new QuestRewardRecord(MightAndMagic7Deeds.Bounties, terms.Reward, accumulate: true)]),
             // A hall posts its notice for a party the town regards well enough to know, which is this game's
             // own reading: the donor's town halls hand their bounty to anybody who asks
             // (<c>src/GUI/UI/Houses/TownHall.cpp:135-176</c>), and nothing there reads a standing. The

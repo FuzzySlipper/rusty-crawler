@@ -34,8 +34,8 @@ public readonly record struct QuestRewardItem
 /// <summary>One record a turn-in leaves on the party: a flag's own identity and the magnitude it reaches.</summary>
 /// <remarks>
 /// A record is how a deed the party has done is carried, so a later rank, a person's topic, or a quest's own
-/// completion condition can ask what the party has accomplished. It is applied through the party's effects
-/// owner, which is the same owner a conversation's own records and a promotion's award reach.
+/// completion condition can ask what the party has accomplished. It is applied through the party's durable
+/// records owner, apart from timed effects. An accumulating reward adds on each distinct completed quest.
 /// </remarks>
 /// <param name="Record">The record's own identity.</param>
 /// <param name="Amount">The magnitude the record reaches, which is at least one.</param>
@@ -45,15 +45,17 @@ public readonly record struct QuestRewardRecord
 {
     /// <summary>Creates a record reward.</summary>
     /// <param name="record">The record's own identity.</param>
-    /// <param name="amount">The magnitude the record reaches.</param>
+    /// <param name="amount">The stated magnitude or earned count.</param>
+    /// <param name="accumulate">Whether this adds a count instead of replacing a magnitude.</param>
     /// <exception cref="ArgumentException">The record's identity is blank.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The amount is below one.</exception>
-    public QuestRewardRecord(string record, int amount = 1)
+    public QuestRewardRecord(string record, int amount = 1, bool accumulate = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(record);
         ArgumentOutOfRangeException.ThrowIfLessThan(amount, 1);
         Record = record;
         Amount = amount;
+        Accumulate = accumulate;
     }
 
     /// <summary>The record's own identity.</summary>
@@ -61,6 +63,9 @@ public readonly record struct QuestRewardRecord
 
     /// <summary>The magnitude the record reaches.</summary>
     public int Amount { get; }
+
+    /// <summary>Whether the earning turn-in adds to a counted deed instead of stating a flag or magnitude.</summary>
+    public bool Accumulate { get; }
 }
 
 /// <summary>What finishing a quest pays, and to which owner each part of it goes.</summary>
@@ -68,7 +73,7 @@ public readonly record struct QuestRewardRecord
 /// <para>
 /// <b>Every part names the owner that already holds it.</b> Experience arrives at the progression owner's
 /// one award entry, coin is credited through the party's one ledger, items are taken through the party's own
-/// acquisition path, and records are applied to the party's effects — the same four owners a kill, a sale, a
+/// acquisition path, and records are applied to the party's durable records — the same four owners a kill, a sale, a
 /// purchase, and a conversation already reach. Nothing here is a second copy of any of them.
 /// </para>
 /// <para>

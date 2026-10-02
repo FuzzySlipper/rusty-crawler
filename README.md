@@ -309,3 +309,8 @@ an explicit off-turn selection cannot spend that actor's turn. The current save 
 
 The [bounded member-control reading](docs/evidence/member-selection.md) records two ordinary selections, individual attack recovery,
 and the recovering member's named refusal.
+
+Counted deeds extend the party's durable records: monthly bounty settlement adds the gold it paid once,
+and an explicitly accumulating authored quest reward can add a staged win. Promotion and topic gates
+read those same counts. The [counted-deed evidence](docs/evidence/counted-deeds.md) states the tested
+earning paths; actual arena bouts remain with #9144.

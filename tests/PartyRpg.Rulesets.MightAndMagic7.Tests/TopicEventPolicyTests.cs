@@ -137,13 +137,11 @@ public sealed partial class FixturePolicyTests
 
         // The figures the ruleset README states for the operator's install: what a fresh party's choice of each topic
         // reaches. The three moves are the world's own: the crossing to Harmondale (link 68) and the temples' (69, 70).
-        Assert.Equal(351, applied);
+        Assert.Equal(353, applied);
         Assert.Equal(3, travelled);
-        // What still stops a fresh party is a hireling (#8514) and the two counted deeds two ranks ask for (#8689).
+        // Counted deeds read canonical records; only hireling steps remain refused (#8514).
         string[] stated =
         [
-            "arena-wins-knight: 1",
-            "bounties: 1",
             "hireling: 12",
         ];
         Assert.Equal(stated, refused.Select(entry => string.Create(CultureInfo.InvariantCulture, $"{entry.Key}: {entry.Value}")));
