@@ -11,6 +11,7 @@ What is published here is text only: no game data, no screenshots, no saves, and
 
 | Record | What it shows |
 | --- | --- |
+| [`foundation-closure.md`](foundation-closure.md) | The world and party parent acceptance audit, its source and live evidence, and the remaining secret-door skill requirement for interaction and services. |
 | [`item-enchanting.md`](item-enchanting.md) | Actual item-bound casting, combat contributions, special-item counter flow and current save checks; bounded ordinary acquisition/enchant/refusals/Save and literal bytes, followed by actual resumed identity/property and empty-container refusal. |
 | [`counted-deeds.md`](counted-deeds.md) | Monthly bounty gold and explicitly accumulating authored rewards share durable counts, save restoration and promotion/topic gates; actual arena earning is routed. |
 | [`member-selection.md`](member-selection.md) | Two ordinary member selections independently charge attack recovery; a recovering selection is refused by name. |

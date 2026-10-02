@@ -14,9 +14,11 @@ only. It is not the implicit PartyRpg architecture.
 The working formula is: **Engine guarantees. Kit shapes. Ruleset decides.
 Bundle assembles. Host launches.**
 
-> **Current state.** Foundation stones 1 and 2 are closed; stones 3 to 8 (world, party, interaction and
-> services, combat, progression and magic, quests and knowledge) have each landed their mechanism and each
-> still carries open residue that Den tasks receive; stone 9 (breadth) has not started. With the
+> **Current state.** Foundation stones 1 to 4 (shell, import, world and party) are closed. Stones 5 to 8
+> (interaction and services, combat, progression and magic, quests and knowledge) have landed their mechanisms;
+> remaining work has Den receivers. Interaction and services remains open for secret-door discovery against
+> Perception, as the [parent acceptance audit](docs/evidence/foundation-closure.md) records.
+> Stone 9 (breadth) has not started. With the
 > operator's imported packs selected, a session creates or resumes a party, walks it through the imported
 > world, pays for crossings, fares and nights, rests the living while naming fallen companions left as they were, opens doors and containers, drinks from wells and reads
 > obelisks and signs, talks, hires and dismisses companions, trades, steals and pays its fines, trains, promotes recovered members, learns and casts spells, selects a member and fights in real time or in rounds, takes

@@ -4,6 +4,11 @@ The compiled Might and Magic VII ruleset: the concrete policy
 that turns `PartyRpg.Kit` mechanisms into that game. The owner-level contract is
 in [`../../docs/code-organization.md`](../../docs/code-organization.md).
 
+The [foundation acceptance audit](../../docs/evidence/foundation-closure.md) records world and party
+conformance and the bounded imported service checks. Imported secret doors currently have no established
+Perception discovery gate; generic authored requirements and event skill branches do not close that
+interaction requirement. Den #8458 retains it.
+
 Owns:
 
 - Classes, races, ranks, and the two-stage promotion ladder whose second step
