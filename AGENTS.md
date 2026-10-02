@@ -140,7 +140,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 - **Persistence.** One current schema, written only on `session.save`: party, clock, world (including target words, defeated placements and remaining personal purses), quests,
   journal, knowledge, maps and the resident fight (content identities, explicit visit absences, poses, health,
   recovery, provocation, effects, created lifetimes, bodies and held loot, and turn bookkeeping), with original
-  fatigue, party/member spell and shelf-restock deadlines. A load
+  fatigue, party/member spell and shelf-restock deadlines ([fight reading](docs/evidence/fight-persistence.md)). A load
   rebuilds transient handles on the same clock; a contradictory document is refused with
   every problem named.
 - **Refusals and rolls.** Every mechanism refuses with the kit's one `Refusal` (a code from that mechanism's

@@ -397,7 +397,8 @@ created origins and lifetimes, corpses with their
 already-rolled yields and search incarnations, attack cursor and turn-based bookkeeping. Its load judge checks
 content kinds, identities and recovery against the existing combat/spell policies before restoring any owner;
 legitimate additive stun debt is bounded by elapsed game time and the roster's possible casts rather than one
-ordinary attack. A party record issues created-creature identities across saves for spells and event ambushes.
+ordinary attack. The [bounded fight reading](../../docs/evidence/fight-persistence.md) records ordinary
+save/resume of a provoked imported Fighter and continuing creature recovery, with its all-dead party and startup-time limits. A party record issues created-creature identities across saves for spells and event ambushes.
 The clock also carries the original due moments for sleep,
 party and member spell effects, and visited shelf restocks. Load judges sleep and restock repeat intervals
 against the existing rest and service policy and refuses a timed spell effect without its end. The lazy

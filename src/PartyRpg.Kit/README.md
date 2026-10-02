@@ -1,310 +1,490 @@
-# Rusty Crawler
+# PartyRpg.Kit
 
-Rusty Crawler is the reference repository and proving product for **PartyRpg**.
+The home of the reusable, rules-agnostic mechanisms for party-centric
+first-person RPGs: the construction grammar that a compiled ruleset shapes into
+a concrete game.
 
-PartyRpg is an opinionated construction kit and reference host for
-party-centric, first-person RPGs in the Might and Magic VI/VII/VIII tradition.
-The party is the durable center of gravity: a small band of characters shares one
-world, one clock, one purse, and one unfolding expedition.
+Owns:
 
-Might and Magic VII: For Blood and Honor is the first compiled ruleset, content
-source, and game bundle, and the only game recreated; VI and VIII are donor context
-only. It is not the implicit PartyRpg architecture.
+- Party model: roster, members, formation or order, shared currency and party
+  inventory over per-character equipment.
+- Character mechanisms: attributes, skill and spell catalogs, learning and
+  casting workflows, conditions and recovery, and progression: experience,
+  levels, skill points, and rank with one owner that moves them (`Progression/`),
+  the one award entry every source arrives at (a kill's worth coming from the
+  ruleset that reads the creature's own row), the training step a counter
+  settles through that owner, the growth a level gives, and the promotion that
+  hands a rank over (`Promotion/` for the ladder and the requirements it asks
+  for, `PartyProgression.Promote` for the transition itself, and `PartyProgression.Grant` for a rank a
+  game's own program judged).
+- Magic (`Magic/`): the spell catalog content declares, the one casting workflow — resolve the caster and
+  the spell, judge its tier against that character's mastery of its school, resolve the aim, ask the effect
+  path whether the casting may go ahead, pay the spell points through the member's own pool, hand the
+  casting over — and the effect seam a game fills. The kit knows no spell, no school, no cost, and no
+  effect: a definition carries the school's skill, the rung it asks for, the price this caster pays, what it
+  is aimed at, and an opaque effect identity, and `ISpellEffectRule` is where every effect is expressed. An aim
+  (`SpellTargeting`) is the caster, one member, one opponent, one actor of either side (`Either`, a member first and a
+  creature the fight holds otherwise, which the projection publishes as the side `any`), or the band.
+- Magic's effect mechanisms (`Magic/Effects/`): what a game's category paths apply through. A duration is
+  a deadline on the session's one clock, held by `RunningSpellEffects` and applied through the party's own
+  carried effects, so a ward or a light lapses on an advance and not on a count of updates; an effect a
+  casting aimed at one character is that character's own entry, with its own deadline, read where it
+  applies (`IMemberSpellEffects`) and ended by the clock, by a dispelling, or by the game's own answer about
+  a character who no longer carries anything (`RunningSpellEffects.StartOn`); a cast's
+  outcome carries named readings of the state it changed (`SpellEffectFact`) rather than a field per
+  category; what a spell may be pointed at when its aim names no actor is the effect path's own offer
+  (`ISpellAimRule`); what the party sees by is read against the clock's daylight window through the game's
+  answer (`PartySight`, `IPartySightRule`); and how far each spell is expressed is the game's own report
+  (`SpellEffectCoverage`). The kit still names no spell and no effect: it carries an identity and hands it
+  back, which a source law in `tests/PartyRpg.Kit.Tests` (read as syntax bound to symbols) holds it to.
+- Magic in the pack (`Magic/SpellItems.cs`): the one casting workflow also takes an item as the spell's
+  source — a scroll read once and used up, a charged item that is wielded and spends a use — through the
+  game's own reading of its item rows (`ISpellItemRule`) and the party's own item state, so there is no
+  second cast path and no second count of what is left. An item's charges are spent through the party
+  (`PartyEntity.SpendItemCharge`, `ConsumeItem`): the instance records the uses it has paid for, the game's
+  row states its capacity, and an item that empties leaves through the inventory's own custody. A charged
+  item in hand is the weapon a fight fires (`CombatWeapon`, `ICombatWeaponRule`), so the attack is the
+  spell it carries, one charge goes with it, and the recovery it costs is the fight's own answer.
+- Alchemy (`Alchemy/`): the one mixing workflow — resolve the character and the two things out of the
+  party's own pack, look the pair up in the game's own mixture table, judge the rung its result asks for
+  against that character's mastery through the skill entry every ceiling and lesson already reads, ask the
+  pack whether it can take what would come out, take both ingredients out through `ConsumeItem`, and put the
+  potion back through `AcquireItem` — so a mixture is a transfer of the party's own things and a pack that
+  cannot take the result refuses the whole attempt. A pair the game's table states as incompatible is
+  carried out as its own row states it: both ingredients are destroyed and what the burst costs the mixing
+  character is the game's answer (`IAlchemyRule.Backfire`), applied through the member's one damage entry and
+  their own conditions. The kit knows no reagent, no potion, and no recipe: a mixture is two definitions and
+  what the table says about them, and the vocabulary law in `tests/PartyRpg.Architecture.Tests` holds it to that. A
+  potion's effect is not a mechanism of its own — it is an item that carries one, drunk through the one
+  casting workflow with the item as the spell's source, and read at the strength the instance itself states
+  (`ItemState.Potency`), which is what makes a potion the way a character with no school gets a spell's
+  effect.
+- Combat: attack execution, targeting and current target, attack resolution, damage kinds,
+  resistance and immunity, conditions a hit leaves, and the thresholds a wound is judged against
+  application, real-time and turn-based mode coordination, what a downed creature leaves
+  (`CorpseGround`, fed by the fight's own reading), monster presence and AI coordination.
+- Loot: the keyed draws one generation makes (`KeyedRolls`, the same keyed draws an attack makes), the candidates content weighs by
+  treasure level (`LootTable`, `LootCandidate`, `LootFilter`), the shape of a treasure request
+  (`TreasureRoll`), and what one generation produced (`LootYield`). Which numbers a game's tables
+  carry and what its levels mean stay the ruleset's.
+- World interaction: NPC conversation, services (`Services/` — one `PartyServices` operation table judged before
+  anything is settled; a theft is one of its operations — `Steal` takes one line off a shelf without pricing it,
+  and `StealFrom` lifts from a person the party stands with — drawn by a game's `IServiceRule.Steal` as a
+  `ServiceTheft` and carried out by one step whichever kind it was: coin through the ledger, goods into the pack
+  with the stolen mark when the draw says so, the fine onto `PartyDebts`, the deed to `PartyProgression.Deed`, and a
+  counter's ban onto `PartyBans`; `Repay` pays coin toward what the party owes on an account a counter collects; a
+  `Browse` quotes each offer for its actual member or the visit's chosen coin amount, using the same
+  judgments as `Transact`; `ChooseAmount` changes only that transient visit selection and moves no coin;
+  a cure ends what its offer `Clears` and leaves what it `Leaves` on a member it ended something for),
+  quests (`Quests/` — one owner of what a party has been
+  offered, taken, and finished, with definitions a game states, objectives that read the owners already
+  reporting them, and one turn-in that pays each reward to its own owner; it supplies `IItemRetentionRule`
+  explicitly to its party so `ConsumeItem`, `ReleaseItem` and `SpendItemCharge` share its existing `Needs`
+  answer and named refusal. Removal returns `ItemRemoval`; sale, mixing and item casting judge before
+  effects or payment. An event can judge retention by definition before giving and spending an item.
+  Only the quest owner's already-judged delivery uses the internal custody transfer; meeting an accepted
+  item objective still retains its item until turn-in), containers, doors, travel
+  between world regions and indoor maps.
+- Journal and history (`Journal/` — one owner of what a party has written down: dated lines reported by
+  the owners of the events themselves — a place, an errand, a rank, a meeting, a find, or a `Chronicle` line a
+  game's content writes whole — with the same event written once, a bounded history that outlives the
+  places it happened in, and the five books a session reads its record and its world through), and what
+  the party has learned (`Knowledge/` — one owner of the facts it can look up again, keyed so learning the
+  same fact twice is one fact, dated by the one clock, bounded beside the history, and deliberately kept
+  apart from the world's per-place state so a place the clock restores clears nothing a party knows).
+- The automap (`Maps/` — one owner of what a party has walked: a per-place set of squares over the place's
+  own map, filled as the party sees ground and never by a place the world restores, bounded by that place's
+  own grid, plus the drawing the projection builds from it — the window the game's zoom ladder shows, the
+  runs of seen squares, the marks on ground already on the map, and the party's own position and facing —
+  with the maps book's page per place reading the same owner. It is its own owner rather than a kind of note
+  because a map is keyed by place and shaped by a grid: the knowledge owner is deliberately blind to place
+  state and its notes have no room for a thousand squares, which the kit's own source laws hold to).
+- Session plumbing: compiled ruleset contracts, typed IDs, bundle and
+  content-pack resolution, typed tuning handles, structured UI values, and
+  bootstrap of an Engine-admitted session.
+- Persistence: the session's one current save schema (`SessionSave` over the
+  party's own `PartySave`, `ClockSave`, `WorldSave`, and `CombatSave`), the explicit
+  `SessionSaveBoundary` a save is written through, the `ISessionSaveStore` seam
+  the engine's own product state store implements, and the named failure a
+  document that does not fit its world is refused with.
 
-The working formula is: **Engine guarantees. Kit shapes. Ruleset decides.
-Bundle assembles. Host launches.**
+Boundary rules:
 
-> **Current state.** Foundation stones 1 and 2 are closed; stones 3 to 8 (world, party, interaction and
-> services, combat, progression and magic, quests and knowledge) have each landed their mechanism and each
-> still carries open residue that Den tasks receive; stone 9 (breadth) has not started. With the
-> operator's imported packs selected, a session creates or resumes a party, walks it through the imported
-> world, pays for crossings, fares and nights, rests the living while naming fallen companions left as they were, opens doors and containers, drinks from wells and reads
-> obelisks and signs, talks, trades, steals and pays its fines, trains, promotes recovered members, learns and casts spells, selects a member and fights in real time or in rounds, takes
-> and turns in errands, and keeps a dated journal, notes and an automap it can save and resume. The same save
-> carries the resident fight, including creature recovery, provocation, effects, summons and bodies with their held loot,
-> opened doors, searched containers, defeated placements, the purses people still carry, and the
-> original due times for sleep, running spell effects and shelf restocks, as the
-> [save/resume reading](docs/evidence/deadline-persistence.md) records. The service
-> panel reaches cures, training, provisions, rooms, bank deposits and withdrawals, and fares, with offers priced
-> for the chosen patient or amount by the service owner. The shipped bundle selects no packs, so a product without
-> them reports no world and no party. [`AGENTS.md`](AGENTS.md) states the shape and lists the residue with
-> each receiver; the project READMEs under [`src/`](src/README.md) hold the per-mechanism detail.
+- No Might and Magic vocabulary, data-file names, or donor-project names.
+  Adjustable values arrive as typed tuning handles; authored values arrive from
+  content packs; only algorithmic invariants live beside their algorithm.
+- Mechanisms begin here when their placement is genuinely uncertain. Do not
+  make the kit universal, and do not move ruleset vocabulary here by renaming
+  it.
+- One owner mutates one state family; cross-owner interaction uses typed
+  RuleEvents and typed notifications, never a generic bus.
 
-## Ownership
+The owner-by-owner contract — what each Kit owner holds, what the ruleset
+supplies, and where new code goes — is in
+[`../../docs/code-organization.md`](../../docs/code-organization.md).
 
-- Rusty Engine guarantees reusable infrastructure and admitted update services.
-- `PartyRpg.Kit` defines the reusable party-RPG composition grammar and the
-  ordinary mechanisms needed to construct one.
-- `PartyRpg.Host` owns the product lifecycle, built-in ruleset registry,
-  shipped bundles, launcher, defaults, and session selection.
-- `PartyRpg.Rulesets.MightAndMagic7` owns all Might and Magic VII semantics,
-  formulas, identities, presentation meaning, and content interpretation.
-- Content packs own authored definitions, assets, maps, placements, quests,
-  and scenario state.
-- `MightAndMagic7.Import` owns source-format knowledge for the original game's
-  data files and for the donors that document them.
-- `PartyRpg.Host` is the ordinary product entry. The packaged SDK generates
-  CoreCLR and NativeAOT composition beneath ignored `obj` output.
+Implemented today: the session shell (`PartyRpgSession`, `SessionMode`, `IGameSession`), composed one way
+from `SessionOwners` (the mechanisms it composes, created empty before the session so a game's answers can
+read them when an act arrives, and composed by one sequence per party: a party handed to the session and a
+party accepted from creation both reach the owners through the same `SessionOwners.Take`, because
+`SessionCreation` answers an accepted party with the very `SessionParty.Playing` a handed party starts from —
+both paths must go through that one composition, and the ruleset suite's `SessionCompositionParityTests` fails
+naming the owner and the path when one does not), `SessionRules` (a game's answers
+grouped by mechanism: `CombatRules`, `ProgressionRules`, `MagicRules`, `AlchemyRules`, `MapRules`),
+`SessionControls`, `SessionSaving`, and a `SessionParty` that is either `Playing` a party or `Creating` one
+(the session states which start that was as `SessionComposition.PartyStart` — creation, scenario, or resumed —
+and the composition block publishes it as `partyStart`; which start a new session takes is the ruleset's);
+the update applies a player's acts through `SessionActs`, drives the fight in either pacing through
+`CombatDriver` and `ActControl`, hands a conversation's offer to its owner through the exhaustive
+`ConversationHandoffRouter` over the closed `HandoffOwner` list (`HandoffOwner.Use` runs what a topic set going as
+one use of the speaker's placement through `SessionWorld.Answer`, hands what it taught to the knowledge owner, puts
+what it said into the conversation as the person's answer through `PartyConversations.Hear` — an answer handing to
+a use may leave its own words blank — and ends the conversation when the use took the party away), and settles save requests through
+`SaveRequests`. The session answers a playtest harness between updates without stepping anything:
+`IGameSession.Inspect` returns the snapshot its projection is built from (the world read live), and
+`IGameSession.Look` turns the party through its pose owner's facing rule when its turn keys would;
+`PlaytestReadout` writes that snapshot as the compact observation, including each combat actor's feet position
+read from the live population entity or the shared party pose, and states, once, whether the movement keys
+would step the party now (`PlaytestReadout.Steering`, refusing with a `PlaytestCodes` code). Every reader takes its actions from one `ActionInbox` per update — each payload parsed
+once, each semantic action's name the kit's own constant beside its reader, a product declaring only keys
+and contracts — and an action on the session's contracts that nothing took is reported as
+`action-unclaimed`; the live
+world it steps (`SessionWorld`), the one clock it advances by the admitted interval and the party it
+holds and publishes — with the clock's own schedule (`OpeningHours`, `PlaceSchedule`: which hours a place
+keeps and when that next changes, read against the clock's position rather than counted in a step) and the
+stops a party takes on it (`PartyRest`, `FatigueWatch`, `IRestRule`, `IRestSite`: rest, camp, wait, and the
+rest a service provides (`PartyRest.SleepInRoom`, used by rooms and a training visit and sharing the same sleep),
+each advancing the one clock by a game-time period, settling the day through the party's own ledger, and
+holding the debt of sleep as a deadline the clock brings due; a completed night asks `IRestRule.Unrestored`
+which members may benefit, fills and clears only those members, then asks `IRestRule.Rested` what each keeps;
+the result names every member left as they were and the rule's reason) — the compiled ruleset and session contracts, the pack envelope with its
+catalog loader, validator and bundle resolution (`ContentCatalog.Selected` is the one place a bundle's
+selection becomes the content a session reads: the packs it named contribute, and the packs it did not
+are not loaded at all, though a broken one still refuses the start with its issue marked `NotSelected` and the
+directory it was read from; the loader refuses the whole root by name when two packs claim one id, or an entry
+id or a document id is declared twice, so a reader that looks an entry up by id finds the only one there
+is), the world (`PlaceGraph`, `PlaceGraphLoader`, which refuses by name what nesting hides from the catalog's
+check — a place declaring one arrival-point id twice, ids differing only in case counting as one because that is
+how `PlaceDefinition.FindEntryPoint` looks a point up (and that lookup refuses rather than choose on a definition
+built some other way), a fare-network crossing under an id another transition holds, and two sold crossings alike
+in origin, destination and route, which a ticket could not tell apart; placements are held to one identity each
+by `PlacePopulationContent`, and an entrance's loader refuses a world holding one transition id twice,
+`PlaceStateLedger`, `TransitionExecutive` with its required cost contract, and the entrances a walking
+party takes — `PlaceEntrance` with its loader, consulted inside the movement step so a step that
+carries the party into an entrance's reach travels through that one transition path, or, for an entrance that
+`raises` a placement instead of naming a transition (a plate in the floor whose event decides where the party
+goes), uses that placement through the one interaction workflow (`PartyInteraction.Raise`, a target whose verb is
+`InteractionVerb.Tread` and which the reticle never offers) and takes the journey its outcome names; a crossing taken
+that way is charged on arrival, its quoted time to the session's one clock and its quoted provisions
+to the party's larder through the ledger's one path, exactly once, and a refused transition is charged
+nothing; the cost rule's `Quote` reads without spending and `Arrived` settles any rule-owned cost only
+after destination and ground admission; a crossing a counter sells names only the `route` it runs on — authored as a travel link, or
+answered by the game's `IFareNetwork` over the places read, which is how a ruleset decides a counter's
+destinations — and how many days it takes is the game's `IFareDurationRule`, asked by `PlaceGraphLoader` once
+per sold crossing; a passage the party holds names the place and the route, never the days, and boarding
+matches it on both, so a retune changes the journey without content being written again and never strands a
+held or saved ticket), the party's pose and derived view (`PartyPoseOwner`, `FacingRule`, `PartyView`), the party
+entity and its attached components (`PartyEntity` over the engine's own entity store, with `PartyRoster` and `PartyMember`, the one shared
+`PartyInventory` of `ItemInstance`s beside each member's `CharacterEquipment` — every instance carrying a
+durable `ItemInstanceId` and an `ItemState` of identified, damaged, enchanted, and stolen, and reporting one
+`ItemCustody` that is detached, the shared pack, or a single member's slot and nothing else, so a
+per-character pack is a state these types cannot express; `Capture` writes each instance's identity, state,
+and custody and `Restore` rebuilds them), `PartyPurse`, `PartyFood`,
+`PartyReputation`, the running effects on the party and on each member (`ActiveEffects`,
+written only by `RunningSpellEffects`), each member's stored base resistances (`CharacterResistances` —
+what a permanent gift added, by kind of harm, carried in the member's seed; a ruleset's racial and class terms
+are read beside it, never stored), `PartyRecords`, `PartyHoldings`, `PartyPassages`, `PartyMemberships`,
+`PartyDebts` (what the party owes, account by account, written by a game's crimes and the service mechanism's theft
+and repayment), `PartyBans` (the counters shut against the party until a moment of the one clock),
+the minting of durable identities in
+`PartyIdentitySource`, and `PartyEntityFactory`, which builds a party from creation or from a `PartySave`
+and is the only code that attaches a party component, with the one item rule it composes arriving as
+`IEquipmentUseRule` — what may be worn is the ruleset's answer over content and tuning, never a skill name
+or a slot name in the kit), the one way a player changes what a member wears (`PartyOutfitting`, over a game's
+`IEquipmentFigure` — its slots in the order a screen draws them and the slots one item is shaped for — which
+fills the slot a request names or the figure's best free one through `PartyEntity.Equip` and `Unequip`, keeps the
+answer the last request got, and is reached by the `party.equip` and `party.unequip` actions (`EquipActions`)
+and published as the `equipment` block (`EquipmentSnapshot`)), the party's owned resources (`PartyResourceLedger`, the
+one path that settles a `PartyCost` against the purse and the larder whole or not at all — refusing with
+every shortfall named rather than overdrawing the purse — credits the same two accounts, and spends a
+travelling or camping day as a `ProvisionDay`, priced by a ruleset's `IProvisionDayRule`, with `ResourceSettlement` as the
+outcome), the
+one progression owner (`Progression/` — `PartyProgression` is where experience, a level, a skill
+point, and a rank move and nowhere else — the years a character was aged beyond their natural age,
+`CharacterProgression.AgeOffset`, are the one exception, written by whatever the game says ages a character or
+gives the years back (`Age`, `Rejuvenate`) and carried in the member's seed: `Award` is the one entry a kill, a quest, or any other source arrives at and
+divides by the ruleset's own rule, `Deed` is the entry a deed that pays no experience — a theft, a sacrifice, a
+worthless death a game still counts — reaches the world's opinion by, through the same standing step, `Gift` gives
+one named member experience or skill points outright — a well's gift rather than an earned award, so nothing is
+divided and standing does not move — `Train` is what a counter's step settles through — the fee charged by
+the party's one ledger, the level's pools grown by the ruleset's class and rank tables, the points granted,
+and both pools filled — a training offer may also include a `RestPeriod`, charged only on the first
+successful step of its `ServiceVisit` through `PartyRest.SleepInRoom`, whose rules decide recovery and
+whose one clock informs every time owner; leaving and returning resets that transient visit (the product's
+reading is in [`docs/evidence/training-rest.md`](../../docs/evidence/training-rest.md)) — and `RaiseSkill` is the only way a skill point is spent: it asks the skill policy
+for the price of the levels and the ceiling the member's class and rank impose, refuses past that ceiling
+with the limit named or with what the pool is short, and charges the pool and raises the skill together, so
+a raise that failed leaves the character exactly where they stood — with `Plan` publishing the same answer
+to a screen that is only asking, with `ProgressionAwards`
+paying each death the fight reports exactly once from the ledger of deaths it is still reading, under the
+source word the game names for that death (`kill` unless the game tells them apart), and
+`ProgressionSnapshot` publishing the level, the experience against the curve, the points held, and the fee
+the counter the party stands at quoted — every number the ruleset's, none of them the screen's — and
+`Promote` the ordinary entry a rank arrives at: it asks the promotion policy for its ladder and per-member eligibility (`Promotion/` —
+`PromotionLadder` is content's or a ruleset's own table of ranks, each `PromotionRank` naming the class it
+promotes from and to, the rank it reaches, the alternative it takes, the record it leaves, and every
+`PromotionRequirement` it asks for; `IPromotionRule` is the ruleset's one answer over it), judges each
+requirement against the party — a giver the party is speaking with, an item the one inventory holds, a
+record the party carries, which is also how a finished errand is asked for, as the record the quest owner
+writes when it is turned in — and moves the class and the rank together, so a ceiling, a
+growth table, and every class condition read one fact rather than three that could drift. `Grant` is the
+same move for one member on terms a game's own scripted program has already judged (a promoter's event): it
+asks none of the ladder's requirements again, and judges the member — of the class the rank promotes from, at
+the rank it continues from — in the one place `Promote` judges each member too (`JudgeGrant` answers that
+judgement before a program settles anything). `PromotionSnapshot`
+publishes the ladder a panel shows and the report a rank left: who rose, from which class to which, what
+each of them met, and who it passed over with what they were missing), the skill
+catalog and its ceilings (`Skills/` — `SkillCatalog` is content's own rows as a ruleset reads them, each
+`SkillDefinition` carrying the block it belongs to or `SkillBlock.Unused` for a shipped row the game does
+not use, and `ISkillRule` is the ruleset's four answers over them: the catalog, the `SkillCeiling` a class
+and rank impose, what a raise costs, and the word a rung reads as — with `SkillsSnapshot` publishing each
+member's levels, rungs, ceilings, the level the next point would reach, and either its price or the sentence
+that refuses it, so a screen renders a spend rather than working one out, and `SkillRaiseInput` reading the
+one control a screen's raise arrives on), the
+creation flow (`PartyCreationFlow` over the `PartyCreationOptions` a ruleset supplies — races, classes,
+portraits, an attribute pool bought through `AttributeCreationRange` prices, and the skills a class fixes
+and offers — taken one step at a time with `CreationMember` as the answer to each, refusing an illegal
+choice where it is made with the rule it broke, spending the pool exactly and choosing the promised number
+of skills before a step is confirmed, applying a ruleset's `PartyCreationDefaults` through those same
+steps rather than beside them, and handing `ToCreation` to `PartyEntityFactory` without minting an
+identity — held as the session's creation mode (`SessionMode.Creating` with `SessionCreation` and the
+commands `CreationInput` reads), in which the one admitted update does nothing but drive the flow and
+the world, movement, and the clock are untouched, and published to the screen as `CreationSnapshot`:
+where the flow stands, every choice it offers, and the rule the last illegal choice broke), the
+structured UI value builder, the Engine-backed projection channel and the session projection (each block is a sealed
+`*Snapshot` record read from its owner that writes its own keys, so a block's wire shape is spelled once; `SessionSnapshot`
+requires every block, a session without a mechanism passing that block's `None`, so no unread block reaches
+`SessionProjection.Build`, which only composes the writers in order; the session reads the projection on every
+running update but keeps the blocks whose owners move only when somebody acts or the clock delivers something —
+party, skills, promotion, magic, alchemy, quests, journal, automap, equipment — in `ProjectionReadings`, each
+read again only when its own key moves: the `ChangeStamp` of each owner it reads (`PartyEntity.Stamp`, the latest
+over every party component, member component and held item, each of which takes a stamp in every mutator; the
+quest, journal, knowledge, map, progression, casting, mixing and outfitting owners' own), and the few live facts it
+shows besides — the clock's hour for an errand's condition, its minute for the calendar book, the party's pose for
+the drawing, the running effects and the fight's sides for the spellbook, and no keeping at all while a detection
+marks the map; with its controls block,
+`ControlsSnapshot`: each stand-alone control's action, whether the session would take it now, and the key the host bound it
+to as `ControlKeys` — so the panel prints every verdict and works none out), the admitted-input router that turns
+engine events into session commands, the population owner that fills a place from its placements and
+empties it on leaving (a placement that states a request rather than an answer — an encounter asking for some
+creatures of a kind — is resolved by the game's `IPlacementExpansion` while the placements are read, and what it
+answers stands in its stead for every reader; the game must answer the same on every read, which is why it
+draws under a key naming the place and the placement; whether each of what a place holds stands this visit is
+asked of the same seam every time the place is populated, `IPlacementExpansion.Stands`, so what a game keeps for the
+place — a group its events hid — can hold a placement off the field; something a game creates while the party stands there — a
+creature a spell calls up or stands back up — is created by the same owner, `PlacePopulation.Summon`, from a
+placement the game states, in the same store and through the same composer, marked `IsSummoned`, ended by
+`Dismiss`, by a length the one clock counts down through `SessionWorld`'s own clock observation (`Elapse`), or
+by the visit ending, and never rebuilt from content), the Engine-backed movement owner with its vertical and surface policy (and a leap a game asks of the next step,
+`PartyMotion.Leap` through `IPartyMover.Leap`, the party's own jump at a stated multiple whose landing is not a fall;
+and flight, the engine's flying mode asked for while a game's `IFlightRule` allows it and the party has risen —
+`MovementIntent.Vertical` from the optional rise and sink controls of `MovementIntentNames`, a `FlightTuning` on the
+`MovementTuning` with its speed and ceiling, a landing when a sink meets the ground, and a fall measured from where a
+flight that ends in the air left the party; and a place's named ground, `PlaceSurfaces` read beside its artifact by
+`ContentPlaceGeometry` and looked up at the ground point the engine reports, so the mover's `Footing` says when the
+party stands in water, and a game's `IGroundHazardRule` harms it there once for every interval the clock crosses,
+through `SessionWorld`, while `IRestRule.Stop` may refuse any stop where it stands; `SessionWorld.Ground` reads the
+footing, the hazard's interval, the calendar boundary its next harm lands at (`GameCalendar.NextBoundary`, the one
+`Endure` counts next) and the rule's `GroundShelter`s, which the movement block publishes as `footing`; and
+`IPartyMover.GroundUnder` looks a pose in the party's place up on the same `PlaceSurfaces` at the point it stands on,
+`PlaceSpace.GroundPosition`), the reaches that let a party walk into a transition, the movement facts the panel
+reports, the one combat state
+(`Combat/` — a `CombatState` over the live world and nothing else, with a `Combatant` per party member and
+per creature the ruleset recognizes in the party's place, one `Combatant.Recovery` quantity each advanced
+from the game time the one clock reports and gated before any `AttackOrder` is applied, `Hostility` as a
+ruleset answer about what a thing is plus the fight's own memory of what the party has done to it — a creature
+the game answers `Hostility.Allied` for stands on the `Ally` side whatever the party did to it, is driven by the
+`CombatDirector` beside the opposition, and is never the party's target — and an
+`ICombatRule` seam for recovery values, notice ranges, reach, and names — an act against one creature, a blow or
+anything the game calls one through `CombatState.Provoke`, also turns every other standing actor the optional
+`ICombatProvocationRule` `CombatRules` names says stands with it — and the one resolution path every
+kind of attack takes — the fight consumes the `AttackInitiation` it published, asks the
+`ICombatResolutionRule` seam for a chance, a kind of harm, dice, and the target's resistance, rolls them
+through keyed `KeyedRolls` under a key that names the attack, applies what is left to whoever owns the
+target's health, applies the `CombatCondition` a landed hit leaves, records a `CombatResolution`, and
+reports it, with `DamageKindId`, `DamageRoll` (dice, a bonus, a floor, and any `DamageMultiplier` — a run of its dice and a share of its bonus
+that counts again by a factor when a draw of its own lands), `Resistance` (a weight or full
+immunity), `HitChance` in ten-thousandths, and `AttackPlan` as the vocabulary — a plan may also state a
+`Divisor` a defence turns part of the rolled harm aside by before resistance, and a wound that landed may be
+turned back onto the attacker through the optional `ICombatReflectionRule` `CombatRules` names, landed on the
+attacker's own health and reported as the resolution's `Reflected`; `CreatureHealth` is a
+creature's own health, a component attached by the population's `IPlacementComposer` when the creature is
+placed (`CreatureComposer` over the game's `ICreatureVitals`, which also attaches the `CreatureEffects` a spell
+leaves on a creature — a paralysis, a slowing, a fear, a charm — counted down by the fight's own clock advances
+and read by the game's answers), so a fight keeps no tally of its own beside
+it; where a placed entity stands is its own too (`PlacePopulationEntity.Pose`, moved only by `MoveTo`); a death
+is reported once, from the wound that caused it, to the `ICreatureDeathObserver`s `CombatRules` names; and `CombatState.Vitals`, `IsDown`, and `LastResolution` are
+what the panel reads; no scene, no second population, no per-kind cooldown, no per-kind damage class, and
+no timer); the second pacing of that same state is a reading of it rather than a second fight
+(`Combat/` — `CombatPacing` on the state, and a `TurnBasedPacing` that orders the fight's actors by ascending
+remaining recovery with the fight's own order breaking ties, lengths a round by the longest recovery any
+actor owes, runs an action phase into the party's movement phase, publishes `TurnOrderEntry` rows for the
+panel, and carries `TurnAction.Act`, `Skip`, and `Wait` with the fight's own recovery charged for the action a
+skip did not take; the fight's `Step` reconciles it with the world every update, so a round begins when a
+fight does and lets go when the fight does, and switching the pacing touches nothing else), the driver that gives the opposition its half
+(`Combat/` — `CombatDirector` decides for every creature the fight has engaged and orders it through the
+same `CombatState.Order` gate the player's control uses, whether it is driving every creature in an update
+or taking the one turn a paced round handed it, asks the `IMonsterAiPolicy` seam who is whose
+enemy, how fast a creature moves, and what it does with its moment, applies a decision as an order or as a
+step through the `ICreatureMover` seam, reports what every creature is doing, and marks a place whose
+opposition is all down as cleared through the world's own per-place state; `EngineCreatureMotion` is the
+engine-backed mover — built over the party's own `EnginePartyMover`, so every creature's character step goes
+to the one scene the place's collision was admitted to, steered at the engine's waypoint only when the place's
+admission published navigation cells and the engine reports the path reached, and no C# collision anywhere;
+the place's collision bounds and sampling width travel beside the unchanged artifact, and `EnginePartyMover`
+asks Engine to derive navigation over that same scene for the actual controller body. A derivation budget
+refusal retains collision and names why pursuit holds. Queries use feet, not body centres; an unavailable or
+unreachable pursuit holds by name and is retried, while an initial stationary body step preserves settling
+even without navigation. Backing away retains its existing character-step path. The
+[imported pursuit reading](../../docs/evidence/navigation-admission.md) correlates actual entity poses
+with a bounded route around an interior wall and arrival within melee reach. Each
+step hands the engine the party's controller profile with its ground speeds and acceleration scaled to the pace
+the request states (the policy's `SpeedOf`, bounded to a twentieth to four times the profile's), so how far a
+creature goes is the engine's answer to its own pace; a
+creature whose body starts deeper in collision than the engine's controller recovers, which the engine refuses
+with `unresolved-character-controller-penetration`, is stood on the first surface the engine's own ray meets
+straight above its feet within the ruleset's settling reach, and one with no such ground, or still refused there,
+is held where it stands with a `creature-embedded` refusal the driver reports as `stuck`, never a fault), one damage entry for a character's
+own health
+(`Party/` — `PartyMember.TakeDamage` is where every wound arrives, a creature's bite and a sprung trap
+alike, taking harm into the party's own pool, keeping `CharacterResources.Deficit` for how far past empty
+it went, and asking the `ICharacterHealthRule` seam which condition the wound leaves and which it moves
+past), and the one interaction mechanism
+(`Interaction/` — an `InteractionTarget` discovered from the place's own placements and the party's pose
+rather than from a list, with the engine's own reticle selection composed over the candidates — the product's
+one `InteractionSelection`, which outlives every world so an inspection registered once reads the focus the
+live world holds, with targeted use off; the Engine query observes distant targets as well as reachable ones,
+with each candidate's own reach still controlling selection and use, so an out-of-reach target is refused by
+name (the [elevated-use reading](../../docs/evidence/elevation-reach.md) records both paths) — one use
+workflow that identifies the target, judges each `InteractionRequirement` in the order the ruleset stated
+them, settles what the use costs through the party's one settlement path, asks the ruleset what the use
+produces, applies it against the party's owners, records the `InteractionTargetState` that use left and the
+place values its outcome kept — named whole numbers every target of the place reads through
+`InteractionContext.PlaceValues`, which `InteractionLedger.Capture` carries in the save's world section and a
+restore of the place forgets — and the other targets of the place it changed (`InteractionTargetChange`: a lever
+reads a door through `InteractionContext.PlaceTargets` and `TargetState` and the mechanism records the door's
+new word under the door's own identity), hands the party to a conversation when the outcome names somebody
+(`InteractionOutcome.Speaks`, opened by the session as using a person is), takes the party on the journey the outcome
+names after recording the use where it was made (`InteractionOutcome.Travels`: an `InteractionTravel` over a transition
+the place issues, read by the rule from `InteractionContext.PlaceTransitions` and taken by `SessionWorld.Travel` — a
+refused journey is the use's residue; a use a person's word raised, `PartyInteraction.Answer` with the word in
+`InteractionTargetRequest.Raised` and `InteractionContext.Raised`, records no state on the person's placement and may
+also take a transition the world issues from no place, `IInteractionWorld.WorldIssued`, as `Scripted` travel) or sets it down elsewhere in its own place (`InteractionOutcome.Relocates`,
+asserted through `PartyPoseOwner.Enter`, nothing crossed or charged); a use that reached somebody's door and kept the
+party outside says so (`InteractionOutcome.KeptOut`), and the session opens no conversation for it nor for a use that led
+the party away, and reports an `InteractionResult`; every failure — nothing faced, out of reach, out of sight, a requirement
+unmet, a charge the party cannot cover, a ruleset's own refusal, a pack with no room for what was found —
+is an outcome with a code and a sentence rather than a silent no-op — and a corpse is a target that
+mechanism discovers: `CorpseGround` keeps what the fight read as down, the ruleset hands it back as the
+creature's own placement lying where it fell, and searching it is the same workflow a chest goes through),
+what a death leaves (`Loot/` — `TreasureRoll` is the shape a treasure rule takes once its format has been
+read, `LootTable` draws a weighted candidate at a level behind an opaque `LootFilter`, and `KeyedRolls`
+makes every draw under a key that names the death or the container, so the same kill yields the same loot
+twice; what the numbers mean stays the ruleset's), and time (`GameClock` over a validated
+`GameCalendar` — one explicit `Advance`/`AdvanceAdmittedSeconds` path with a returned `ClockAdvance`
+report of the hour, day, week, month, and year boundaries it crossed and the `DeadlineDue` entries it
+brought due once each, delivered by the clock itself to every `IGameTimeObserver` registered with it
+(`GameClock.Observe`) whoever moved it, so a journey, a rest, a wait and a night at an inn reach the same
+owners an admitted update does and no caller forwards an advance by hand, `GameDuration` and `GameDate` values, the `DeadlineId` handles travel, rest,
+training, and spell durations register against, `GameCalendar.Boundaries` for a rule that acts every
+interval of its own length (a regeneration's five minutes) however the advances were cut, day and night from a `DaylightWindow`, and the
+`IWorldTimeSource` day count the world's respawn reads).
+Of the owner map, only followers (#8514) and item enchantments (#8513) have no producer yet.
 
-Code-bearing rulesets are compiled into the product. Content packs, validated
-typed tuning profiles, and game bundles are loaded at runtime. Do not introduce
-dynamic managed plug-in loading, reflection discovery, runtime C# compilation,
-generic command buses, ambient dependency lookup, or a replacement gameplay DSL.
+Persistence landed with the party. `SessionSave` is one current schema and nothing else: the party's own
+`PartySave`, `ClockSave`'s elapsed game time and owned deadlines, and `WorldSave`'s place, pose, and per-place state, with no
+version field, no migration branch, no compatibility reader, and nothing of the original games' save files.
+The bytes are written and read with the engine's own `ProductStateStore` and `JsonProductStateCodec` over
+metadata the build generates (`SessionSaveJsonContext`), so nothing on the path discovers a type at runtime.
+A save happens only where the product asks for one: `SessionSaveBoundary` is the one writer,
+`PartyRpgSession.Save` is the one call, and no admitted update, mode change, or release writes anything. What
+a save leaves out is as decided as what it carries — in-flight movement outcomes, cached projections, the
+population's runtime entities, engine handles, and every store-local entity identity are composed again on
+load. `CombatSave` carries the resident visit's creatures by content identity and ruleset kind, their feet poses,
+health, recovery, provocation and remaining effects, created placements and their remaining lives, bodies with
+their death incarnations and already-held yields, attack cursor and the one pacing's turn bookkeeping. Restore
+uses the existing population composer, health/effect owners, corpse ground and turn owner; it advances no time
+and reports no new death or loot roll. The [bounded fight reading](../../docs/evidence/fight-persistence.md)
+records an imported creature saved provoked and recovering, then resumed, with all-dead party and startup-time limits. `ICombatSaveRule` gives content-only meaning and recovery bounds before
+anything is rebuilt. Each resident creature is either carried or explicitly absent from the saved visit,
+so an omitted record cannot silently remove it and a legitimately hidden or previously defeated resident
+need not reappear. A missing resident placement, unknown kind, excessive recovery, body whose pose differs
+from its fallen creature, or contradictory round is refused with every problem named at once, never only the first. Scenario
+flags are the party's own records and travel in its section; what the party did to a place's doors and
+containers, each target's incarnation, defeated placements, remaining personal purses and the values each
+place keeps are the world's `InteractionLedger` capture. The kit checks placement identity and structure;
+the ruleset's `PlacementStateJudge` and `PlaceValueJudge` check their meaning. `WorldDeaths` hears the
+fight's completed deaths and records only content placements in that ledger; a party record whose name a ruleset gives a shape is judged by its `PartyRecordJudge`
+(`save-record-unknown`). The quests section is
+the one that arrived with its owner: it carries every instance a party holds — the stage, the progress
+recorded against objectives that are moments rather than states, and the place each offer was taken in —
+and no definition at all, because what a quest is means is read from the game's own content when the
+document is loaded. A save whose instance names a quest the game no longer states, or a place the world no
+longer has, is refused with that instance named rather than resumed as an errand nothing could finish. The
+journal section is the party's own history beside it: dated lines carried as the game time they happened at
+rather than as dates — the calendar and the starting date are the ruleset's policy and are supplied again on
+the way back — with the line's own words frozen as they were written, so a renamed quest or a place the world
+no longer carries cannot rewrite what the party did. Its bound is enforced on the way out and on the way in,
+and a document that dates a line after the game time it had reached, or records one event twice, is refused
+with that line named. The knowledge section carries the party's other record — the facts it has learned —
+as the game time each was learned at rather than as dates, with every fact keyed by what it is about and
+where, so the same fact is one note; a document that names a kind this build has no word for, says nothing,
+dates a note after the game time it had reached, records one fact twice, or exceeds the owner's own bound is
+refused with that note named. Nothing in that section is keyed by a place, which is what makes what a party
+knows unaffected by a place reset.
 
-Reusable mechanisms, and mechanisms whose placement is genuinely uncertain, begin
-in `PartyRpg.Kit`. Might and Magic assumptions are forbidden there and permitted
-only in the ruleset, its content packs, its presentation, and
-`MightAndMagic7.Import`; the Host may name a built-in ruleset only at its explicit
-composition root.
+The day shape follows the donor's day boundary: a new day takes one ration, the food store is spent down to
+empty rather than the day being refused, and the ruleset's consequence for the larder the day left — weakness
+on every member — is applied by the ledger that spent it
+(`OpenEnroth/src/Engine/Engine.cpp`, the timed-effects party update; `OpenEnroth/src/Engine/Party.cpp`, `SetFood`).
+What ends that condition — rest, a cure, a day's recovery — is recovery's work, not the day's. The charge,
+the threshold, and the weakened consequence are the ruleset's, so the kit holds none of them.
 
-Adjustable ruleset values belong in discoverable validated typed tuning handles;
-authored values belong in content packs; algorithmic invariants stay beside their
-algorithms; source-format quirks belong in the importer; and default bundle
-selection belongs in the Host.
+**Encumbrance is deliberately absent.** The shipped item table has no weight column — its 17 columns are
+recorded in [`../../docs/research/mm7-data-inventory.md`](../../docs/research/mm7-data-inventory.md) — the
+donor's item state carries no weight field to read (`OpenEnroth/src/Engine/Objects/Item.h`, whose only
+size is a grid footprint that the one-shared-pack divergence replaces), and armour's cost there is attack
+recovery rather than a carry allowance (`OpenEnroth/src/Engine/Objects/Character.cpp`, `GetAttackRecoveryTime`).
+Inventing a weight would invent a limit the game does not have, so the shared pack has none.
 
-There is one Rusty Engine-admitted update. PartyRpg does not create a parallel
-loop, clock, timer, thread, browser authority, or renderer.
 
-## The game family
+A `PlaceGeometry` may also carry a complete authored `PlaceCollisionGeometry`. Its positions and triangles
+are supplied by the game's existing content and state owners; `EnginePartyMover` submits them through safe
+`ReplaceCollision` in the same session and derives navigation there. The full replacement owns its mesh
+identities and does not retain an immutable artifact identity. `InteractionLedger.Changed` notifies the
+world to refresh the current place; an unchanged geometry projection skips replacement. The explicitly
+composed ledger can be shared with the geometry source before the first entry, including a resumed entry,
+and the world releases its subscription when disposed. No Kit owner interprets door state or face bits.
 
-Might and Magic VII: For Blood and Honor is the game being recreated, and the
-only target. VI and VIII share its engine and remain donor context for formats
-and divergences; they are not targets. What this repository knows about the game
-is recorded, with citations, in [`docs/research/`](docs/research/):
+Authored collision may identify mesh parts and the placements whose surfaces they represent. The mover
+assigns explicit identities during the complete replacement and rebases each part's triangle indices for
+the Engine asset contract. Interaction visibility asks the Engine for the nearest segment hit: the
+target's own surface is visible; intervening collision remains an obstruction. This ephemeral mapping
+belongs to the admitted geometry, not party state. Ordinary sight and automap queries use the full scene.
+The [imported doorway reading](../../docs/evidence/door-collision.md) records ordinary-control traversal
+and the separate native closing check, with the staging and observation limits stated.
 
-- Party-based first-person play with continuous movement across square outdoor
-  regions joined at their edges, and separate interior places — towns, castles,
-  dungeons — entered through entrances and doors.
-- One session for exploration and combat: real time by default, one key toggling
-  turn-based mode, both paced by the same per-character recovery quantity.
-- Rules carried by tab-separated tables inside the game's data archives, with
-  maps, sprites, and sounds in separate archives: 13 outdoor regions, 63 interior
-  places, 276 monsters, 800 item rows, 99 spells across nine schools, 37 skill
-  rows, and 36 class ranks.
-- A clocked world: travel costs days and food, shops lock at night, monsters
-  respawn on multi-day intervals, and spell durations are measured in game time.
+Clock saves carry each pending deadline's kind, durable subject, member where applicable, due elapsed
+millisecond and repeat interval. `IDeadlineOwner` is the same explicit owner roster used for clock delivery:
+rest restores its original sleep debt, running effects restore the end of each party or member effect,
+and services restore each visited shelf's repeat schedule. Restore retains registration order and uses
+new transient handles. Unknown kinds, past due times, impossible repeats, duplicate schedules and effects
+absent from their named carrier are refused at load. A save capture cancels or suspends nothing.
+Shelf contents and buy-back lots remain transient; preserving the restock schedule does not preserve stock.
 
-The donors are the reference reimplementation at
-`/home/research/old-games/OpenEnroth`, the rules and table reference at
-`/home/research/old-games/MMExtension`, and the secondary reimplementation
-reference at `/home/research/old-games/OpenMM8`. Their licenses differ and none of
-them is a code donor — read the donor posture in [`AGENTS.md`](AGENTS.md) before
-using any of them. The operator's own copy of the game at
-`/home/research/old-games/game-mm7` is the extraction source. Original
-game data is never committed here.
-
-## Design shape
-
-Two documents fix the shape the stones are built to:
-
-- [Gameplay design](docs/gameplay-design.md) — the loop, every system's shape
-  with a fidelity verdict, the foundations-first building order, non-goals, and
-  the nine decisions that are expensive to reverse.
-- [Code organization](docs/code-organization.md) — the layering, where new code
-  goes, the Kit and ruleset owner maps, content and import shapes, the UI
-  contract, session modes, and persistence.
-
-Two deliberate divergences from the original are recorded there and are not to be
-"corrected" later: **the party is one entity that owns a single shared
-inventory** — a character owns only what it has equipped, so there is no
-per-character pack to shuffle — and **approximate fidelity is the normal
-verdict**, because the goal is to adapt the game's essence rather than reproduce
-its numbers. The build order is foundations first: each capability lands complete
-and global, with no vertical slices and no stubs waiting for a reconciliation
-pass.
-
-Work is sequenced in Den as nine foundation-stone campaigns
-(`rusty-crawler#8454`–`#8462`) with child tasks carrying outcome, scope,
-acceptance, and evidence. Den owns status and dependencies; repository documents
-do not mirror the task list, because a copied list goes stale and is later read as
-current.
-
-## Repository layout
-
-| Path | Holds |
-| --- | --- |
-| [`AGENTS.md`](AGENTS.md) | The working contract: direction, ownership, boundary rules, donor posture, git and documentation conventions. |
-| [`docs/`](docs/README.md) | Durable documents: the [gameplay design](docs/gameplay-design.md), the [code organization](docs/code-organization.md), the [research notes](docs/research/), the [live-check procedure](docs/live-checks.md) and its published [evidence](docs/evidence/README.md), and the [review lane model](docs/agent-review/README.md). |
-| [`src/`](src/README.md) | The product graph: kit, ruleset, host, importer and its tool, and the product DOM companion. |
-| [`tests/`](tests/README.md) | The suites, including the architecture suite that enforces the ownership laws. |
-| [`content/`](content/README.md) | Loaded content: the shipped bundle, and the packs the importer writes offline (never committed). |
-| `scripts/` | `verify.sh`, the one verification entry. The Engine pair is installed and moved by the Engine's own `rusty` command. |
-| [`tools/`](tools/portable-assets-example/README.md) | An independent Engine example product, built by `verify.sh` so it keeps compiling against the pin; not part of the product graph. |
-
-For every task, identify:
-
-- the owning layer;
-- new assumptions introduced;
-- whether Might and Magic vocabulary is permitted;
-- whether the change is code, tuning, content, import, or infrastructure;
-- dependency changes;
-- focused proof for the owning mechanism and ruleset policy.
-
-## Develop and verify
-
-The product consumes one immutable Engine SDK/runtime pair, pinned by
-`<RustyEnginePackageVersion>` in `Directory.Build.props`; do not restate a
-version or revision here. The Engine's `rusty` command installs, updates and
-runs it. Get `rusty` once with the Engine bootstrap
-(`curl -fsSL https://raw.githubusercontent.com/FuzzySlipper/rusty-engine/main/scripts/install-rusty.sh | bash`),
-then start a clean checkout with:
-
-```bash
-rusty status
-rusty install
-```
-
-To take the newest published Engine pair, which is the ordinary way to pick up
-newer Engine state:
-
-```bash
-rusty update
-```
-
-It installs the pair, rewrites the pin, and lists the release notes to read.
-`rusty update --check` reports what is available without changing anything.
-
-Routine verification:
-
-```bash
-./scripts/verify.sh
-```
-
-That installs the pinned pair if needed, installs the UI dependencies, compiles the DOM companion
-from `src/ui/tsconfig.json` and runs its suite over the compiled modules (`npm run test:ui`), builds
-every project in Release, checks the operator's data when the install is present, runs every suite,
-and stages the CoreCLR product. Every step runs even when an earlier one fails, and the script ends
-with a summary of what passed, what was skipped and why, and what failed, exiting non-zero if anything
-did. NativeAOT is a separate fidelity target and stays opt-in with `--aot`. The project and suite lists
-in the script are explicit on purpose: a discovery-based loop silently stops covering a project that
-moved, so a new project is added there in the same change that adds it. The same script is the
-`verify` GitHub workflow, where the operator's data is absent and those checks report skipped.
-
-The companion suite needs a Node that `jsdom` supports (`package.json` `engines`; `.nvmrc` names the
-one CI uses).
-
-With the operator's install present (`CRAWLER_MM7_INSTALL`, by default `/home/research/old-games/game-mm7`),
-the script also runs `mm7import verify` and `maps`, and writes the packs twice into a scratch root and
-compares them. The ruleset suite's cases that check this game's policy against the shipped tables read that
-root through `CRAWLER_IMPORTED_CONTENT` and nothing else; without it they report themselves skipped
-rather than passing.
-
-Ordinary development runs the product on the pinned runtime:
-
-```bash
-rusty dev --project ./src/PartyRpg.Host/PartyRpg.Host.csproj
-```
-
-The same command is what `.den-serve.json` uses; `--headless` runs it unattended, and `--live-debug`
-opens the engine's debug surface. **The runtime needs a GPU adapter**: `rusty dev` always builds the
-engine's renderer and refuses to load without one (a software Vulkan driver such as llvmpipe counts).
-**The product draws no world**: the only engine services it uses are UI, spatial, content, random,
-diagnostics and persistence, so the frame the renderer presents is empty and the game is the DOM panel
-over it. A session driven through the agent playtest service's browser takes the player's keys; with
-`--live-debug` the product's `playtest.observe`, `playtest.action` and `interaction.inspect` commands read the
-place, pose, facing target, hostiles (including their canonical live feet positions) and each control's key
-and availability without scraping the panel.
-
-The offline importer reads the operator's own installation and never writes to it:
-
-```bash
-dotnet src/MightAndMagic7.Import.Tool/bin/Release/net10.0/mm7import.dll report --install /path/to/mm7
-dotnet src/MightAndMagic7.Import.Tool/bin/Release/net10.0/mm7import.dll verify --install /path/to/mm7
-```
-
-`report` prints what the containers, tables, event programs, and map graph actually contain;
-`verify` checks the readers against the recorded inventory in `docs/research/mm7-data-inventory.md`,
-and decodes every map, writes every pack and extracts the media into a scratch directory it deletes, to
-check the figures the documents state about what an import yields; it fails when either drifts from the
-data. `scripts/verify.sh` runs `verify` when the installation is present, and reports it skipped when it
-is not.
-
-`encounters` prints the opposition the levels' own spawn records ask for, which is the read-only half of
-the monster import:
-
-```bash
-dotnet src/MightAndMagic7.Import.Tool/bin/Release/net10.0/mm7import.dll encounters --install /path/to/mm7
-```
-
-Over the operator's own installation that is 3,175 spawn records of which 1,843 ask for an actor, 1,800
-encounters emitted into 72 places, and 43 records refused by name because the encounter slot they name is
-one their map leaves empty. The importer chooses no grade and no count: 1,775 encounters leave both to the
-ruleset, which draws them through the engine's keyed random service under the place and the spawn record
-when the place is populated, so the creatures are reported as the range the slots allow — 1,900 at the
-fewest and 5,458 at the most. `write` states the same counts in its summary, beside the creatures the
-levels are built holding: the 703 actor records that name no person, written as `actor` placements in 36 places
-under the index the level gives them (181 of them held hidden), which the ruleset stands through the same
-population seam as the encounters.
-
-`write` produces the content packs the product loads, and proves its own reproducibility:
-
-```bash
-dotnet src/MightAndMagic7.Import.Tool/bin/Release/net10.0/mm7import.dll write \
-  --install /path/to/mm7 --output content/partyrpg/imports --check-determinism
-```
-
-Packs land under `content/partyrpg/imports` (generated, never committed) and are loaded once their ids
-are listed in a bundle under `content/partyrpg/bundles`. The bundle is the selection: only the packs it
-names contribute definitions, placements, the scenario's start, and the scenario's party, so a pack nobody
-selected changes nothing about what plays — while the whole root is still validated when the product
-starts, and a bundle naming a pack that is not present stops it with the missing pack named. What the
-selection must state once it states as a set rather than as a sequence: two scenario starts, or two
-scenario parties, are refused with every candidate named rather than the first one playing because its
-pack loaded first. `write` also
-emits each place's collision geometry into the world pack, in the engine's own spatial artifact, and
-refuses a place whose solid faces cannot be closed enough for a party to stand on — the shape and the
-rules are in [`docs/research/mm7-map-formats.md`](docs/research/mm7-map-formats.md) §8.
-The first successful training step of a counter visit includes a week plus next dawn and four hours,
-with twelve hours more at the two deep halls. It reaches the one clock and the ordinary rest recovery;
-later steps of the same visit add no time. The imported counter reading is in
-[`docs/evidence/training-rest.md`](docs/evidence/training-rest.md).
-Imported town houses are service or residence entrances in the ordinary use path; the building's hours
-guard entry on the one clock. Camping reads normalized ground under the party from each outdoor place's
-tile grid, with place-level terrain as the fallback. The importer and ruleset READMEs describe these
-content contracts and their donor citations.
-The [imported town reading](docs/evidence/house-ground.md) records two grounded camps and ordinary
-access to the same house before and after its opening time.
-The reticle acquires targets in the forward hemisphere, including containers above or below the party,
-with the existing 512-unit reach. Engine selection still judges sight, availability and fresh use; a
-target beyond reach remains an observation with an out-of-reach refusal. The ruleset README states the
-elevation band and the deliberate wider-cone adaptation. The [elevated-use reading](docs/evidence/elevation-reach.md)
-records ordinary Manor chest use from the floor and a visible refusal beyond reach.
-An accepted errand's needed item cannot be sold, dropped, consumed, mixed away or have a charge spent.
-All paths ask the quest owner's existing need reading through the party's custody entry. Meeting an item
-objective retains the item until turn-in; that turn-in can deliver it and then releases the protection.
-
-Its collision vertex bounds also supply a navigation region beside the artifact. Engine derives walkable
-supports in the party's same scene with the actual controller body; creatures query routes from their feet
-and hold by name when a route or derivation is unavailable. Sampling is approximate, and collision remains
-admitted when a navigation derivation exceeds its separate budget. The bounded imported-interior
-[pursuit reading](docs/evidence/navigation-admission.md) records actual creature positions around a wall
-and arrival within melee reach; it does not certify every passage or broad traversal. The importer also
-keeps a complete authored collision partition with each moved corner bound to its door and event face
-groups retained. Canonical interaction changes replace collision and rederive navigation in the same
-Engine scene. The [imported doorway reading](docs/evidence/door-collision.md) records closed movement
-blocking, ordinary fixture use and a walk through the opened doorway. Each clicked fixture owns only
-its actual face cluster; intervening surfaces still obstruct use.
-
-Den serves the product through `.den-serve.json` (preferred port 4176, `--live-debug`). The procedure for
-a live check — serving a checkout of its own, staging content and a pose, driving the product and reading
-it through the playtest commands and the panel, and restoring tracked content afterwards — is in
-[`docs/live-checks.md`](docs/live-checks.md); published readings are in [`docs/evidence/`](docs/evidence/README.md).
-
-## Guidance and proof
-
-Repository-specific instructions are in [`AGENTS.md`](AGENTS.md). The installed
-SDK's C# guidance is the authority on the product/Engine boundary; this repository
-does not restate it.
-
-A check that only compiles is not verification, and a demonstration is not
-completion. Run the smallest proof that answers the changed seam, and state
-plainly what was not run.
-
-The ordinary attack orders only the durable member selected in the party roster. The panel's member
-rows and the declared N key change that choice in roster order, skipping incapable members. Recovery
-keeps a choice and names the attack refusal. When a selection becomes incapable, the first capable
-member replaces it; if nobody can act, the choice clears. Each new paced player turn selects its actor;
-an explicit off-turn selection cannot spend that actor's turn. The current save carries the choice.
+The [deadline save/resume reading](../../docs/evidence/deadline-persistence.md) records a successful
+ordinary save with fatigue, party light and member wards, then their original ends after loading the
+same stored bytes. Exact boundary and malformed-schedule checks are separate focused tests.
 
 
 `PartyRoster.SelectedMember` is the durable ordinary-order choice over the actual roster, not another
