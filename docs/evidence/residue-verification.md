@@ -29,3 +29,8 @@ missing `Disarm` wire name in the existing interaction projection. The mapping
 now publishes `disarm`, which the companion already renders as a string. The
 complete focused rest/schedule suite, including unseen traps, failed disarming
 and successful disarming followed by search and repeated refusal, passed 17/17.
+
+The subsequent whole `scripts/verify.sh` run passed every step with exit 0,
+including all 21 architecture, 725 Kit, 85 Host, 287 ruleset, 184 importer and
+67 UI tests, the imported-data checks and CoreCLR staging. NativeAOT remained
+outside this run.
