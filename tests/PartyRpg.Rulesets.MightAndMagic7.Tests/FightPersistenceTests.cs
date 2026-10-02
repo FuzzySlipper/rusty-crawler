@@ -16,6 +16,40 @@ namespace PartyRpg.Rulesets.MightAndMagic7.Tests;
 public sealed class FightPersistenceTests
 {
     [Fact]
+    public void An_omitted_resident_is_named_before_load_can_remove_it()
+    {
+        var (context, ui) = RulesetTestContext.Create(new InMemoryPersistenceService(), Content());
+        using IGameSession session = Casting(context, ui, combat: true);
+        SessionSave saved = MightAndMagic7Ruleset.Instance.Save(session);
+        CreatureCombatSave resident = Assert.Single(saved.Combat.Creatures);
+        SessionSave bad = Replace(saved, saved.Combat with { Creatures = [] });
+        ContentCatalog content = ContentCatalogLoader.Load(RulesetTestContext.Content(context), ContentLayout.Under(RulesetTestContext.ContentDirectory)).RequireValid();
+        SessionSaveException error = Assert.Throws<SessionSaveException>(() => MightAndMagic7Persistence.RequireLoadable(bad, content));
+        Assert.Contains(error.Problems, p => p.Code == SaveCodes.SaveCreatureMissing && p.Subject.Contains(resident.Placement.Id, StringComparison.Ordinal));
+        Assert.Single(((MightAndMagic7Session)session).World!.Population.Entities);
+    }
+
+    [Fact]
+    public void An_explicitly_absent_resident_keeps_the_saved_visit_empty()
+    {
+        InMemoryPersistenceService persistence = new();
+        var (context, ui) = RulesetTestContext.Create(persistence, Content());
+        using IGameSession session = Casting(context, ui, combat: true);
+        var live = (MightAndMagic7Session)session;
+        PlacePopulationEntity resident = Assert.Single(live.World!.Population.Entities);
+        // The same canonical removal a hidden group applies; the subsequent visit would populate it again.
+        live.World.Population.Dismiss(resident);
+        SessionSave saved = MightAndMagic7Ruleset.Instance.Save(session);
+        Assert.Empty(saved.Combat.Creatures);
+        Assert.Equal(resident.Content, Assert.Single(saved.Combat.AbsentResidents));
+        var (againContext, againUi) = RulesetTestContext.Create(persistence, Content());
+        using IGameSession resumed = MightAndMagic7Ruleset.Instance.ResumeSession(RulesetTestContext.RulesetContext(againContext, againUi, combat: true));
+        resumed.Start();
+        Assert.Empty(((MightAndMagic7Session)resumed).World!.Population.Entities);
+        Assert.Equal(saved.Combat.AbsentResidents, MightAndMagic7Ruleset.Instance.Save(resumed).Combat.AbsentResidents);
+    }
+
+    [Fact]
     public void An_events_ambush_resumes_its_drawn_creatures_and_new_uses_issue_new_identities()
     {
         var content = Content().Select(file => (file.Path, Text: file.Text
@@ -80,6 +114,10 @@ public sealed class FightPersistenceTests
         SessionSave saved = MightAndMagic7Ruleset.Instance.Save(session);
         CorpseSave body = Assert.Single(saved.Combat.Corpses);
         Assert.Equal(5, body.Held!.Coins);
+        ContentCatalog catalog = ContentCatalogLoader.Load(RulesetTestContext.Content(context), ContentLayout.Under(RulesetTestContext.ContentDirectory)).RequireValid();
+        SessionSave detachedBody = Replace(saved, saved.Combat with { Corpses = [body with { Pose = body.Pose with { X = body.Pose.X + 10 } }] });
+        SessionSaveException contradiction = Assert.Throws<SessionSaveException>(() => MightAndMagic7Persistence.RequireLoadable(detachedBody, catalog));
+        Assert.Contains(contradiction.Problems, p => p.Code == SaveCodes.SaveCombatInvalid && p.Subject.Contains(body.Placement.Id, StringComparison.Ordinal));
 
         var (againContext, againUi) = RulesetTestContext.Create(persistence, content);
         using IGameSession resumed = MightAndMagic7Ruleset.Instance.ResumeSession(RulesetTestContext.RulesetContext(againContext, againUi, combat: true) with { Use = use });

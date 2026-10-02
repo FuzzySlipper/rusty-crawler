@@ -100,6 +100,12 @@ public sealed record CombatSave(
     PlaceId Place, IReadOnlyList<MemberCombatSave> Members, IReadOnlyList<CreatureCombatSave> Creatures,
     IReadOnlyList<CorpseSave> Corpses, long CorpseSerial, long AttacksResolved, CombatPacing Pacing, TurnSave? Turns)
 {
+    /// <summary>
+    /// Resident creature placements explicitly absent from this visit (for example, hidden or previously defeated).
+    /// Together with Creatures this states the whole resident creature set; omission never authorizes removal.
+    /// </summary>
+    public IReadOnlyList<PlacementContentId> AbsentResidents { get; init; } = [];
+
     /// <summary>No composed combat owner and no fight state.</summary>
     public static CombatSave None { get; } = new(new PlaceId(""), [], [], [], 0, 0, CombatPacing.RealTime, null);
 
@@ -112,12 +118,12 @@ public sealed record CombatSave(
     {
         List<SaveProblem> problems = [];
         void Bad(string code, string subject, string why) => problems.Add(new SaveProblem(code, subject, why));
-        if (Members is null || Creatures is null || Corpses is null)
+        if (Members is null || Creatures is null || Corpses is null || AbsentResidents is null)
         {
             Bad(SaveCodes.SaveCombatInvalid, "combat", "the fight omits a member, creature or body collection");
             return problems;
         }
-        bool empty = Members.Count == 0 && Creatures.Count == 0 && Corpses.Count == 0 && CorpseSerial == 0 && AttacksResolved == 0 && Turns is null && Pacing == CombatPacing.RealTime;
+        bool empty = Members.Count == 0 && Creatures.Count == 0 && Corpses.Count == 0 && AbsentResidents.Count == 0 && CorpseSerial == 0 && AttacksResolved == 0 && Turns is null && Pacing == CombatPacing.RealTime;
         if (string.IsNullOrEmpty(Place.Value))
         {
             if (!empty) Bad(SaveCodes.SaveCombatInvalid, "combat", "the fight has state but names no resident place");
@@ -150,6 +156,8 @@ public sealed record CombatSave(
         catch (Exception error) when (error is ArgumentException or KeyNotFoundException or InvalidOperationException or ContentValidationException)
         { Bad(SaveCodes.SaveCreatureMissing, $"{Place}", "the saved fight's place is absent from the resident world"); return problems; }
         Dictionary<PlacementContentId, PlacementDefinition> known = placements.ToDictionary(p => p.Content);
+        HashSet<PlacementContentId> residents = rule is null ? [] : known.Values
+            .Where(p => rule.Creature(p, party, elapsedMilliseconds) is not null).Select(p => p.Content).ToHashSet();
         Dictionary<PlacementContentId, CreatureCombatSave> recorded = [];
         foreach (CreatureCombatSave creature in Creatures)
         {
@@ -191,13 +199,23 @@ public sealed record CombatSave(
                     Bad(SaveCodes.SaveCombatInvalid, subject, "an effect is repeated, ended, or not one this game can leave on a creature");
         }
         HashSet<PlacementContentId> bodies = [];
+        HashSet<PlacementContentId> absent = [];
+        foreach (PlacementContentId missing in AbsentResidents)
+        {
+            if (!residents.Contains(missing) || !absent.Add(missing) || recorded.ContainsKey(missing))
+                Bad(SaveCodes.SaveCombatInvalid, $"{Place}/{missing}", "the visit's absent resident is unknown, repeated, or also present");
+        }
+        foreach (PlacementContentId resident in residents)
+            if (!recorded.ContainsKey(resident) && !absent.Contains(resident))
+                Bad(SaveCodes.SaveCreatureMissing, $"{Place}/{resident}", "the resident creature is neither carried nor explicitly absent from the saved visit");
         HashSet<long> serials = [];
         foreach (CorpseSave body in Corpses)
         {
             if (body is null) { Bad(SaveCodes.SaveCombatInvalid, "bodies", "a recorded body is null"); continue; }
             string subject = $"{Place}/{body.Placement}";
             if (!recorded.TryGetValue(body.Placement, out CreatureCombatSave? creature) || creature.Health != 0 ||
-                !bodies.Add(body.Placement) || body.Serial <= 0 || body.Serial > CorpseSerial || !serials.Add(body.Serial) || !Finite(body.Pose))
+                !bodies.Add(body.Placement) || body.Serial <= 0 || body.Serial > CorpseSerial || !serials.Add(body.Serial) || !Finite(body.Pose) ||
+                creature is not null && body.Pose != creature.Pose)
                 Bad(SaveCodes.SaveCombatInvalid, subject, "the body, its pose, or its death incarnation contradicts the recorded creature");
             if (body.Held is { } held && (held.Coins < 0 || held.Items is null || held.Items.Any(i => i.Count <= 0 || rule is not null && !rule.KnowsLoot(i.Definition))))
                 Bad(SaveCodes.SaveCombatInvalid, subject, "the body's held yield names an invalid item, count or purse");

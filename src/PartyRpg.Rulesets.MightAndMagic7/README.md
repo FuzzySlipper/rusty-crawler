@@ -392,7 +392,8 @@ resumed in before anything is built — naming every problem at once rather than
 same session a new game composes over the same content and hands it the save, so the party, its items,
 equipment and portraits, the clock, the place and pose, and what each place remembers come from the save
 while everything transient is composed fresh. The resident fight carries creature content identities and row kinds,
-actual poses, health, recovery, provocation, creature effects, created origins and lifetimes, corpses with their
+actual poses, health, recovery, provocation, creature effects, explicitly absent resident placements,
+created origins and lifetimes, corpses with their
 already-rolled yields and search incarnations, attack cursor and turn-based bookkeeping. Its load judge checks
 content kinds, identities and recovery against the existing combat/spell policies before restoring any owner;
 legitimate additive stun debt is bounded by elapsed game time and the roster's possible casts rather than one

@@ -34,7 +34,9 @@ public sealed partial class CombatState
             SavedCreatureDefinition definition = _saving.Creature(entity.Placement, party, elapsed)
                 ?? throw new SessionSaveException("A live creature has no saved kind.",
                     [new SaveProblem(SaveCodes.SaveCreatureKindUnknown, $"{place}/{entity.Content}", "the game cannot describe this live creature's kind")]);
-            creatures.Add(new CreatureCombatSave(entity.Content, definition.Kind, entity.Pose, Vitals(actor).Current,
+            int health = Vitals(actor).Current;
+            PlacePose pose = health == 0 && _corpses?.At(place, entity.Content) is { } body ? body.Pose : entity.Pose;
+            creatures.Add(new CreatureCombatSave(entity.Content, definition.Kind, pose, health,
                 actor.Recovery.Milliseconds, _provoked.Contains(actor.Id), entity.IsSummoned,
                 population.RemainingOf(entity)?.Milliseconds, entity.IsSummoned ? entity.Placement.Source.Payload.Clone() : null,
                 CreatureEffects.Find(entity.Actor)?.Active.Select(e => new CreatureEffectSave(e.Effect, e.Magnitude, e.Remaining.Milliseconds)).ToArray() ?? []));
@@ -57,7 +59,12 @@ public sealed partial class CombatState
             creatures,
             _corpses?.In(place).Select(b => new CorpseSave(b.Content, b.Pose, b.Name, b.Serial, _corpses.Held(b))).ToArray() ?? [],
             _corpses?.Serial ?? 0, _attacksResolved, Pacing,
-            Pacing == CombatPacing.TurnBased ? Turns.Capture(SavedActor) : null);
+            Pacing == CombatPacing.TurnBased ? Turns.Capture(SavedActor) : null)
+        {
+            AbsentResidents = population.PlacementsOf(place)
+                .Where(p => _saving.Creature(p, party, elapsed) is not null && creatures.All(c => c.Placement != p.Content))
+                .Select(p => p.Content).ToArray(),
+        };
     }
 
     /// <summary>Restores a validated fight into the actual resident owners, after the world is composed.</summary>
@@ -65,9 +72,9 @@ public sealed partial class CombatState
     {
         if (string.IsNullOrEmpty(save.Place.Value)) return;
         Step();
-        HashSet<PlacementContentId> visiting = save.Creatures.Select(c => c.Placement).ToHashSet();
+        HashSet<PlacementContentId> absent = save.AbsentResidents.ToHashSet();
         foreach (PlacePopulationEntity entity in _combatants.Where(a => a.Subject.Entity is not null).Select(a => a.Subject.Entity!).ToArray())
-            if (!visiting.Contains(entity.Content)) population.Dismiss(entity);
+            if (absent.Contains(entity.Content)) population.Dismiss(entity);
         Dictionary<PlacementContentId, PlacementDefinition> content = population.PlacementsOf(save.Place).ToDictionary(p => p.Content);
         foreach (CreatureCombatSave creature in save.Creatures)
         {

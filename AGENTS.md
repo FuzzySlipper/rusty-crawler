@@ -135,7 +135,9 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   standing read from records, and the `PartyMaps` automap. A taken errand's needed item stays in the party:
   removal and charge use ask the quest owner, and its own turn-in delivers through the same custody owner.
 - **Persistence.** One current schema, written only on `session.save`: party, clock, world (including target words, defeated placements and remaining personal purses), quests,
-  journal, knowledge and maps, with original fatigue, party/member spell and shelf-restock deadlines. A load
+  journal, knowledge, maps and the resident fight (content identities, explicit visit absences, poses, health,
+  recovery, provocation, effects, created lifetimes, bodies and held loot, and turn bookkeeping), with original
+  fatigue, party/member spell and shelf-restock deadlines. A load
   rebuilds transient handles on the same clock; a contradictory document is refused with
   every problem named.
 - **Refusals and rolls.** Every mechanism refuses with the kit's one `Refusal` (a code from that mechanism's

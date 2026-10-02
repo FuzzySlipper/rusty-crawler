@@ -415,8 +415,10 @@ health, recovery, provocation and remaining effects, created placements and thei
 their death incarnations and already-held yields, attack cursor and the one pacing's turn bookkeeping. Restore
 uses the existing population composer, health/effect owners, corpse ground and turn owner; it advances no time
 and reports no new death or loot roll. `ICombatSaveRule` gives content-only meaning and recovery bounds before
-anything is rebuilt. A missing resident placement, unknown kind, excessive recovery or contradictory body or
-round is refused with every problem named at once, never only the first. Scenario
+anything is rebuilt. Each resident creature is either carried or explicitly absent from the saved visit,
+so an omitted record cannot silently remove it and a legitimately hidden or previously defeated resident
+need not reappear. A missing resident placement, unknown kind, excessive recovery, body whose pose differs
+from its fallen creature, or contradictory round is refused with every problem named at once, never only the first. Scenario
 flags are the party's own records and travel in its section; what the party did to a place's doors and
 containers, each target's incarnation, defeated placements, remaining personal purses and the values each
 place keeps are the world's `InteractionLedger` capture. The kit checks placement identity and structure;
