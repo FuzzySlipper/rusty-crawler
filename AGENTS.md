@@ -120,7 +120,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   party state and hand off to counters, and a topic runs its global event as a use of the speaker's placement.
   The same panel reaches every counter operation; its offers show patient or coin amount, price and refusal
   from the mechanism before a transaction settles.
-- **Combat.** Ordinary attack addresses only the roster's selected member; N or a panel row changes that
+- **Combat.** Ordinary attack addresses only the roster's selected member ([live reading](docs/evidence/member-selection.md)); N or a panel row changes that
   choice. Recovery keeps it and names a refused attack; incapability selects the first capable member or
   nobody. A new paced player turn selects its actor, while a ready off-turn choice refuses without spending
   that turn. One fight over the live world with two pacings over one recovery quantity, one resolution

@@ -815,3 +815,6 @@ a deliberate adaptation. Character cycling and attack dispatch are in `OpenEnrot
 `OpenEnroth/src/Io/KeyboardInputHandler.cpp:276-305`. `OpenEnroth/src/Application/GameConfig.h:536,542,554` binds donor attack
 to A, cycling to Tab and passing to B. This product retains its B attack and uses N to cycle because
 the installed Engine keyboard contract has no Tab; no browser-only alias substitutes for a declared key.
+
+The [bounded member-control reading](../../docs/evidence/member-selection.md) records two ordinary selections, individual attack recovery,
+and the recovering member's named refusal.

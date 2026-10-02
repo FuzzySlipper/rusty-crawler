@@ -306,3 +306,6 @@ rows and the declared N key change that choice in roster order, skipping incapab
 keeps a choice and names the attack refusal. When a selection becomes incapable, the first capable
 member replaces it; if nobody can act, the choice clears. Each new paced player turn selects its actor;
 an explicit off-turn selection cannot spend that actor's turn. The current save carries the choice.
+
+The [bounded member-control reading](docs/evidence/member-selection.md) records two ordinary selections, individual attack recovery,
+and the recovering member's named refusal.

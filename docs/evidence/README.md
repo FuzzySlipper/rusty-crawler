@@ -11,6 +11,7 @@ What is published here is text only: no game data, no screenshots, no saves, and
 
 | Record | What it shows |
 | --- | --- |
+| [`member-selection.md`](member-selection.md) | Two ordinary member selections independently charge attack recovery; a recovering selection is refused by name. |
 | [`fight-persistence.md`](fight-persistence.md) | Ordinary save and resume retain an imported hostile Fighter and continuing creature recovery, with all-dead party and startup-time limits. |
 | [`restart-input.md`](restart-input.md) | Existing ordinary-key retest after a dev-host restart, with fresh-page and systemd limits, and the documented Engine input fallback. |
 | [`sewer-arrival.md`](sewer-arrival.md) | Reconciles the earlier successful signed sewer-arrival retest with a later real callback fault whose host log names the update, exception and origin. |

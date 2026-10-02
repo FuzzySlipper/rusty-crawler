@@ -495,3 +495,6 @@ does not alter selection. The ordinary payload/key driver orders only the select
 the existing attack gate; a recovering choice receives its named refusal. Each new paced player turn
 selects its actual actor; changing to a ready off-turn member refuses without spending that turn.
 Selection fields and messages are projected for the thin panel, which sends the actual durable identity.
+
+The [bounded member-control reading](../../docs/evidence/member-selection.md) records two ordinary selections, individual attack recovery,
+and the recovering member's named refusal.
