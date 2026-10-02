@@ -256,7 +256,7 @@ public sealed class ItemMagicPolicyTests
     [Fact]
     public void Loading_refuses_missing_ends_and_contradictory_owner_schedules_by_name()
     {
-        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(Content());
+        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(new InMemoryPersistenceService(), Content());
         using IGameSession session = Casting(context, ui);
         MightAndMagic7Session live = (MightAndMagic7Session)session;
         session.Update(RulesetTestContext.Update(1, 1));
