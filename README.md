@@ -20,7 +20,8 @@ Bundle assembles. Host launches.**
 > operator's imported packs selected, a session creates or resumes a party, walks it through the imported
 > world, pays for crossings, fares and nights, opens doors and containers, drinks from wells and reads
 > obelisks and signs, talks, trades, steals and pays its fines, trains, learns and casts spells, fights in real time or in rounds, takes
-> and turns in errands, and keeps a dated journal, notes and an automap it can save and resume. The shipped bundle selects no packs, so a product without
+> and turns in errands, and keeps a dated journal, notes and an automap it can save and resume. The same save
+> carries opened doors, searched containers, defeated placements and the purses people still carry. The shipped bundle selects no packs, so a product without
 > them reports no world and no party. [`AGENTS.md`](AGENTS.md) states the shape and lists the residue with
 > each receiver; the project READMEs under [`src/`](src/README.md) hold the per-mechanism detail.
 

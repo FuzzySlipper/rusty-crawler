@@ -394,9 +394,10 @@ compose again, so a save taken while one stands is refused by name, as a pending
 document wrong in several places is refused with every problem named at once, never only the
 first. Scenario
 flags are the party's own records and travel in its section; what the party did to a place's doors and
-containers is held live by the world's `InteractionLedger` and is not saved yet (#8593); the values each place
-keeps are that ledger's capture, carried in the world section and judged on load by the kit's terms and the
-ruleset's `PlaceValueJudge`; a party record whose name a ruleset gives a shape is judged by its `PartyRecordJudge`
+containers, each target's incarnation, defeated placements, remaining personal purses and the values each
+place keeps are the world's `InteractionLedger` capture. The kit checks placement identity and structure;
+the ruleset's `PlacementStateJudge` and `PlaceValueJudge` check their meaning. `WorldDeaths` hears the
+fight's completed deaths and records only content placements in that ledger; a party record whose name a ruleset gives a shape is judged by its `PartyRecordJudge`
 (`save-record-unknown`). The quests section is
 the one that arrived with its owner: it carries every instance a party holds — the stage, the progress
 recorded against objectives that are moments rather than states, and the place each offer was taken in —

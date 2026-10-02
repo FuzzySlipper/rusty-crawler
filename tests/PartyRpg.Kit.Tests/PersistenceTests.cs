@@ -452,6 +452,54 @@ public sealed class PersistenceTests
     }
 
     [Fact]
+    public void Target_words_incarnations_deaths_and_remaining_purses_round_trip_in_the_one_ledger()
+    {
+        PlacementContentId first = new("monster", "wanderer");
+        PlacementContentId second = new("monster", "lurker");
+        InteractionLedger ledger = new();
+        ledger.Record(Home, first, "open");
+        ledger.Record(Home, first, "searched");
+        ledger.Record(Cave, second, "pulled");
+        ledger.Defeated(Home, first);
+        ledger.KeepPurse(Cave, new PlacementPurseSnapshot(second, 7, [new ItemDefinitionId("brass-lamp")]));
+        using Played played = new();
+        SessionSave sound = played.Session.Capture();
+        SessionSave written = new(sound.Party, sound.Clock, new WorldSave(sound.World.Pose, sound.World.Places, ledger.Capture()));
+        SessionSave loaded = Decode(Encode(written));
+        Assert.Empty(loaded.Problems(Graph(), new PartyEntityFactory()));
+        InteractionLedger restored = new(loaded.World.Interaction);
+        Assert.Equal(new InteractionTargetState("searched", 2), restored.StateOf(Home, first));
+        Assert.Equal(new InteractionTargetState("pulled", 1), restored.StateOf(Cave, second));
+        Assert.True(restored.IsDefeated(Home, first));
+        Assert.Equal(7, restored.PurseOf(Cave, second)!.Coins);
+        Assert.Equal(new ItemDefinitionId("brass-lamp"), Assert.Single(restored.PurseOf(Cave, second)!.Items));
+        restored.Forget(Cave);
+        Assert.Equal(InteractionTargetState.None, restored.StateOf(Cave, second));
+        Assert.Null(restored.PurseOf(Cave, second));
+        restored.Forget(Home);
+        Assert.False(restored.IsDefeated(Home, first));
+        Assert.Empty(restored.Capture().Places);
+    }
+
+    [Fact]
+    public void A_saved_target_is_checked_for_identity_word_and_incarnation_at_the_existing_save_boundary()
+    {
+        using Played played = new();
+        SessionSave sound = played.Session.Capture();
+        PlacementContentId known = new("monster", "wanderer");
+        InteractionLedgerSnapshot broken = new([new PlaceInteractionSnapshot(Home, [])
+        {
+            Targets = [new(known, "odd", 1), new(known, "open", 1), new(new("door", "absent"), "open", 1)],
+            Deaths = [known, known],
+            Purses = [new(known, -1, [])],
+        }]);
+        SessionSave loaded = new(sound.Party, sound.Clock, new WorldSave(sound.World.Pose, sound.World.Places, broken));
+        var problems = loaded.Problems(Graph(), new PartyEntityFactory(), targetState: (_, _, state) => state == "odd" ? "unknown state word" : null);
+        Assert.Equal(5, problems.Count(problem => problem.Code == SaveCodes.SaveTargetContradiction));
+        Assert.Contains(problems, problem => problem.Text.Contains("unknown state word", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void A_save_whose_kept_values_contradict_the_world_names_each_contradiction()
     {
         using Played played = new();

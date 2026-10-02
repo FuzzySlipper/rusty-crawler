@@ -40,9 +40,8 @@ namespace PartyRpg.Kit.Persistence;
 /// ground rather than a fact about a thing, so it records the grid the cells were seen on and the cells, and
 /// a place the world restores touches none of it.
 /// Scenario flags are the party's own records and travel in its section. What the party did to a place's
-/// doors and containers is held live by the world's interaction ledger and is not carried yet (#8593); what
-/// each place keeps of the party's uses — the values every target of the place shares — is that ledger's
-/// capture, carried in the world section.
+/// doors and containers, the values every target of the place shares, defeated placements, and remaining
+/// personal purses are the world's interaction ledger capture, carried in the world section.
 /// </para>
 /// <para>
 /// <b>What is deliberately absent is as decided as what is here.</b> In-flight movement outcomes, cached
@@ -223,6 +222,8 @@ public sealed record SessionSave
     /// a shape — somebody's slot, a row of a table — names something the content still has. Without it only the
     /// kit's own terms are judged: every record is named once and held at least once.
     /// </param>
+    /// <param name="targets">The world's realized placements; defaults to its authored placements.</param>
+    /// <param name="targetState">The ruleset's judgement of a target word, death or purse marker.</param>
     /// <returns>Every problem found, in the order the document records them.</returns>
     /// <exception cref="ArgumentNullException">The world's places or the party factory are null.</exception>
     public IReadOnlyList<SaveProblem> Problems(
@@ -232,7 +233,9 @@ public sealed record SessionSave
         IQuestRule? quests = null,
         GameCalendar? calendar = null,
         PlaceValueJudge? kept = null,
-        PartyRecordJudge? records = null)
+        PartyRecordJudge? records = null,
+        PlacePopulationContent? targets = null,
+        PlacementStateJudge? targetState = null)
     {
         ArgumentNullException.ThrowIfNull(places);
         ArgumentNullException.ThrowIfNull(parties);
@@ -300,7 +303,7 @@ public sealed record SessionSave
         }
 
         problems.AddRange(PoseProblems(places, admission));
-        problems.AddRange(KeptProblems(places, kept));
+        problems.AddRange(KeptProblems(places, kept, targets ?? PlacePopulationContent.Read(places), targetState));
         problems.AddRange(QuestProblems(places, quests));
 
         // The journal is judged against the clock the save itself recorded, which is the one thing that says
@@ -393,7 +396,7 @@ public sealed record SessionSave
     /// in one place are contradictions in the kit's own terms; whether a name is one the ruleset writes, and
     /// whether its figure is one its rules could leave, is the ruleset's judge's answer.
     /// </remarks>
-    private IEnumerable<SaveProblem> KeptProblems(PlaceGraph places, PlaceValueJudge? kept)
+    private IEnumerable<SaveProblem> KeptProblems(PlaceGraph places, PlaceValueJudge? kept, PlacePopulationContent targets, PlacementStateJudge? targetState)
     {
         HashSet<PlaceId> recorded = [];
         foreach (PlaceInteractionSnapshot place in World.Interaction.Places)
@@ -408,6 +411,38 @@ public sealed record SessionSave
             {
                 yield return new SaveProblem(SaveCodes.SaveKeptPlaceTwice, $"{place.Place}", $"the values place '{place.Place}' keeps are recorded twice");
                 continue;
+            }
+
+            HashSet<PlacementContentId> known = [.. targets.PlacementsOf(place.Place).Select(placement => placement.Content)];
+            HashSet<PlacementContentId> changed = [];
+            foreach (PlacementStateSnapshot target in place.Targets)
+            {
+                string? reason = !known.Contains(target.Target) ? "the place has no such target"
+                    : !changed.Add(target.Target) ? "that target is recorded twice"
+                    : string.IsNullOrWhiteSpace(target.State) ? "its state is unnamed"
+                    : target.Revision <= 0 ? "its incarnation must be positive for a changed target"
+                    : targetState?.Invoke(place.Place, target.Target, target.State);
+                if (reason is not null) yield return new SaveProblem(SaveCodes.SaveTargetContradiction, $"{place.Place}/{target.Target}", reason);
+            }
+
+            HashSet<PlacementContentId> deaths = [];
+            foreach (PlacementContentId target in place.Deaths)
+            {
+                string? reason = !known.Contains(target) ? "the place has no such defeated placement"
+                    : !deaths.Add(target) ? "that death is recorded twice"
+                    : targetState?.Invoke(place.Place, target, "defeated");
+                if (reason is not null) yield return new SaveProblem(SaveCodes.SaveTargetContradiction, $"{place.Place}/{target}", reason);
+            }
+
+            HashSet<PlacementContentId> purses = [];
+            foreach (PlacementPurseSnapshot purse in place.Purses)
+            {
+                string? reason = !known.Contains(purse.Target) ? "the place has no such purse holder"
+                    : !purses.Add(purse.Target) ? "that purse is recorded twice"
+                    : purse.Coins < 0 ? "its purse holds negative coin"
+                    : purse.Items.Any(item => string.IsNullOrWhiteSpace(item.Value)) ? "its purse holds an unnamed item"
+                    : targetState?.Invoke(place.Place, purse.Target, "purse");
+                if (reason is not null) yield return new SaveProblem(SaveCodes.SaveTargetContradiction, $"{place.Place}/{purse.Target}", reason);
             }
 
             HashSet<string> names = new(StringComparer.Ordinal);

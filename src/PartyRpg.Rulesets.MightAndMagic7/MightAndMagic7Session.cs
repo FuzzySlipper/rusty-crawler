@@ -168,7 +168,8 @@ internal sealed class MightAndMagic7Session : IGameSession
             Declared(context.Content),
             context.Engine?.Random,
             loot,
-            placement => composed?.PersonLevel(placement));
+            placement => composed?.PersonLevel(placement),
+            () => owners.World!.Interactions);
 
         MightAndMagic7Services? services = MightAndMagic7Services.Read(
             Declared(context.Content),
@@ -314,6 +315,7 @@ internal sealed class MightAndMagic7Session : IGameSession
         MightAndMagic7Crimes crimes = new(Townsperson, MightAndMagic7Combat.IsPerson, () => owners.Party, theft.BaseFine);
         ICreatureDeathObserver[] deaths =
         [
+            new WorldDeaths(() => owners.World),
             corpseAnswers,
             new QuestDeaths(() => owners.Quests),
             crimes,
@@ -443,7 +445,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             {
                 // The whole document is judged before anything moves, so every problem is named at once and a
                 // defective save leaves no clock moved and no party restored behind it.
-                MightAndMagic7Persistence.RequireLoadable(save, context.Content, quests, fixtures);
+                MightAndMagic7Persistence.RequireLoadable(save, context.Content, quests, fixtures, spawns);
 
                 // The clock takes the recorded game time before the world is composed, because the world's
                 // places are read against the day the session stands on: a resumed session that restored its

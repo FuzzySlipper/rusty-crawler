@@ -1,4 +1,5 @@
 using PartyRpg.Kit.World;
+using PartyRpg.Kit.Content;
 
 namespace PartyRpg.Kit.Interaction;
 
@@ -26,15 +27,16 @@ namespace PartyRpg.Kit.Interaction;
 /// </para>
 /// <para>
 /// <b>What a save carries.</b> The ledger is the one owner of per-place interaction state, and
-/// <see cref="Capture"/> is its one durable reading. It carries each place's values today; each target's
-/// word is still live-only and a resumed session finds every door and container as content says it was
-/// (#8593), which grows the same snapshot rather than a second one.
+/// <see cref="Capture"/> is its one durable reading. It carries each place's values, target words and incarnations, defeated placements, and remaining
+/// personal purses. A resumed visit reads these memories before composing its population and targets.
 /// </para>
 /// </remarks>
 public sealed class InteractionLedger
 {
     private readonly Dictionary<PlaceId, Dictionary<PlacementContentId, InteractionTargetState>> _places = [];
     private readonly Dictionary<PlaceId, SortedDictionary<string, long>> _values = [];
+    private readonly Dictionary<PlaceId, HashSet<PlacementContentId>> _deaths = [];
+    private readonly Dictionary<PlaceId, Dictionary<PlacementContentId, PlacementPurseSnapshot>> _purses = [];
 
     /// <summary>Creates an empty ledger: nothing has happened to any target of any place.</summary>
     public InteractionLedger()
@@ -53,11 +55,34 @@ public sealed class InteractionLedger
         ArgumentNullException.ThrowIfNull(snapshot);
         foreach (PlaceInteractionSnapshot place in snapshot.Places)
         {
-            if (place.Values.Count == 0) continue;
             SortedDictionary<string, long> values = new(StringComparer.Ordinal);
             foreach (PlaceValue value in place.Values) values[value.Key] = value.Value;
-            _values[place.Place] = values;
+            if (values.Count > 0) _values[place.Place] = values;
+            if (place.Targets.Count > 0) _places[place.Place] = place.Targets.ToDictionary(target => target.Target, target => new InteractionTargetState(target.State, target.Revision));
+            if (place.Deaths.Count > 0) _deaths[place.Place] = [.. place.Deaths];
+            if (place.Purses.Count > 0) _purses[place.Place] = place.Purses.ToDictionary(purse => purse.Target);
         }
+    }
+
+    /// <summary>Whether this placement was defeated before the place was last restored.</summary>
+    public bool IsDefeated(PlaceId place, PlacementContentId target) => _deaths.TryGetValue(place, out var down) && down.Contains(target);
+
+    /// <summary>Remembers one defeat for subsequent visits and a save.</summary>
+    public void Defeated(PlaceId place, PlacementContentId target)
+    {
+        if (!_deaths.TryGetValue(place, out var down)) _deaths[place] = down = [];
+        down.Add(target);
+    }
+
+    /// <summary>A placement's purse if it has already been drawn.</summary>
+    public PlacementPurseSnapshot? PurseOf(PlaceId place, PlacementContentId target) =>
+        _purses.TryGetValue(place, out var purses) ? purses.GetValueOrDefault(target) : null;
+
+    /// <summary>Remembers what a placement still carries.</summary>
+    public void KeepPurse(PlaceId place, PlacementPurseSnapshot purse)
+    {
+        if (!_purses.TryGetValue(place, out var purses)) _purses[place] = purses = [];
+        purses[purse.Target] = purse;
     }
 
     /// <summary>
@@ -130,15 +155,22 @@ public sealed class InteractionLedger
     {
         _places.Remove(place);
         _values.Remove(place);
+        _deaths.Remove(place);
+        _purses.Remove(place);
     }
 
     /// <summary>The ledger's durable reading, every place in identity order and its values by name.</summary>
     public InteractionLedgerSnapshot Capture() =>
         new([
-            .. _values
-                .Where(entry => entry.Value.Count > 0)
-                .OrderBy(entry => entry.Key.Value, StringComparer.Ordinal)
-                .Select(entry => new PlaceInteractionSnapshot(entry.Key, [.. entry.Value.Select(value => new PlaceValue(value.Key, value.Value))])),
+            .. _values.Keys.Concat(_places.Keys).Concat(_deaths.Keys).Concat(_purses.Keys).Distinct()
+                .OrderBy(place => place.Value, StringComparer.Ordinal)
+                .Select(place => new PlaceInteractionSnapshot(place, [.. ValuesOf(place).Select(value => new PlaceValue(value.Key, value.Value))])
+                {
+                    Targets = _places.TryGetValue(place, out var targets)
+                        ? [.. targets.OrderBy(target => target.Key.ToString(), StringComparer.Ordinal).Select(target => new PlacementStateSnapshot(target.Key, target.Value.State, target.Value.Revision))] : [],
+                    Deaths = _deaths.TryGetValue(place, out var down) ? [.. down.OrderBy(target => target.ToString(), StringComparer.Ordinal)] : [],
+                    Purses = _purses.TryGetValue(place, out var purses) ? [.. purses.Values.OrderBy(purse => purse.Target.ToString(), StringComparer.Ordinal)] : [],
+                }),
         ]);
 
     private static readonly IReadOnlyDictionary<string, long> Empty = new Dictionary<string, long>();

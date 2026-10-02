@@ -9,6 +9,8 @@ namespace PartyRpg.Kit.Persistence;
 /// </remarks>
 public static class SaveCodes
 {
+    /// <summary>A saved placement's state contradicts its place or the game's interpretation.</summary>
+    public const string SaveTargetContradiction = "save-target-contradiction";
     /// <summary>The problem code <c>save-part-missing</c>.</summary>
     public const string SavePartMissing = "save-part-missing";
 

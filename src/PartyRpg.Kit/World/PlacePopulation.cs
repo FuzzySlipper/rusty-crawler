@@ -25,8 +25,8 @@ namespace PartyRpg.Kit.World;
 /// </para>
 /// <para>
 /// <b>A visit is rebuilt, never accumulated.</b> Entering populates the place from its placements after
-/// destroying whatever was alive, so walking in and out leaves the same population every time and never
-/// two of anything. A place the party has emptied stays empty until the world restores it, and a restore
+/// destroying whatever was alive, so walking in and out never leaves two of anything. The world
+/// omits remembered defeats until it restores the place. A cleared place stays empty, and a restore
 /// of the place the party stands in rebuilds the population exactly once.
 /// </para>
 /// <para>
@@ -44,6 +44,7 @@ public sealed class PlacePopulation : IDisposable
     private readonly PlaceStateLedger _places;
     private readonly IPlacementComposer? _composer;
     private readonly IPlacementExpansion? _expansion;
+    private readonly Func<PlaceId, PlacementContentId, bool>? _defeated;
     private PlacePopulationEntity[] _live = [];
     private readonly Dictionary<EntityId, long> _lasting = [];
     private bool _disposed;
@@ -62,14 +63,17 @@ public sealed class PlacePopulation : IDisposable
     /// decides. It is asked while the placements are read, and it answers the same on every read, so every
     /// visit, every restore, and every load populates a place with the same entities.
     /// </param>
+    /// <param name="defeated">Whether the world remembers a placement defeated since its last restoration.</param>
     public PlacePopulation(
         PlaceGraph places,
         PlaceStateLedger states,
         IPlacementComposer? composer = null,
-        IPlacementExpansion? expansion = null)
+        IPlacementExpansion? expansion = null,
+        Func<PlaceId, PlacementContentId, bool>? defeated = null)
     {
         _composer = composer;
         _expansion = expansion;
+        _defeated = defeated;
         ArgumentNullException.ThrowIfNull(places);
         ArgumentNullException.ThrowIfNull(states);
         _places = states;
@@ -277,6 +281,7 @@ public sealed class PlacePopulation : IDisposable
         {
             // What the game keeps for the place can hold a placement off the field this visit.
             if (_expansion?.Stands(place, placement) == false) continue;
+            if (_defeated?.Invoke(place, placement.Content) == true) continue;
             EntityId id = _entities.Create(new EntityTypeId(placement.Content.Kind), EntityLifecycle.Active);
             Actor actor = new(_entities, id);
 

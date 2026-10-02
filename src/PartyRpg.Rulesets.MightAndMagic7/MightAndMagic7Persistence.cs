@@ -1,4 +1,5 @@
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.World;
 using Rusty.Engine;
@@ -99,16 +100,17 @@ internal static class MightAndMagic7Persistence
     /// is a party record of a changed topic slot naming somebody the content does not carry or a slot nobody has.
     /// </param>
     /// <exception cref="SessionSaveException">The save cannot be resumed; the message names every problem found.</exception>
-    internal static void RequireLoadable(SessionSave save, ContentCatalog? content, MightAndMagic7Quests? quests = null, MightAndMagic7Fixtures? fixtures = null) =>
-        RequireLoadable(save, content is null ? PlaceGraph.From([], []) : MightAndMagic7World.Graph(content), content, quests, fixtures);
+    internal static void RequireLoadable(SessionSave save, ContentCatalog? content, MightAndMagic7Quests? quests = null, MightAndMagic7Fixtures? fixtures = null, IPlacementExpansion? expansion = null) =>
+        RequireLoadable(save, content is null ? PlaceGraph.From([], []) : MightAndMagic7World.Graph(content), content, quests, fixtures, expansion);
 
-    /// <inheritdoc cref="RequireLoadable(SessionSave, ContentCatalog?, MightAndMagic7Quests?, MightAndMagic7Fixtures?)" />
+    /// <inheritdoc cref="RequireLoadable(SessionSave, ContentCatalog?, MightAndMagic7Quests?, MightAndMagic7Fixtures?, IPlacementExpansion?)" />
     internal static void RequireLoadable(
         SessionSave save,
         PlaceGraph places,
         ContentCatalog? content,
         MightAndMagic7Quests? quests = null,
-        MightAndMagic7Fixtures? fixtures = null)
+        MightAndMagic7Fixtures? fixtures = null,
+        IPlacementExpansion? expansion = null)
     {
         ArgumentNullException.ThrowIfNull(save);
         ArgumentNullException.ThrowIfNull(places);
@@ -123,12 +125,28 @@ internal static class MightAndMagic7Persistence
             quests: quests,
             calendar: MightAndMagic7Time.Calendar,
             kept: (place, key, value) => judge.Judge(place, key, value, save.Clock.ElapsedMilliseconds),
-            records: judge.JudgeRecord);
+            records: judge.JudgeRecord,
+            targets: PlacePopulationContent.Read(places, expansion ?? MightAndMagic7Spawns.Compose(content, null)),
+            targetState: StateProblem);
         if (problems.Count > 0)
         {
             throw new SessionSaveException(
                 $"The save cannot be loaded: {string.Join("; ", problems)}.",
                 problems);
         }
+    }
+
+    /// <summary>Which words this game can have left on a placement, including its death and purse memories.</summary>
+    private static string? StateProblem(PlaceId place, PlacementContentId target, string state)
+    {
+        bool known = target.Kind switch
+        {
+            "door" => state is "open" or "closed" or "unlocked",
+            "container" => state is "trapped" or "disarmed" or "sprung" or "searched" or "unlocked",
+            MightAndMagic7Combat.CreaturePlacementKind => state is "defeated" or "searched",
+            "person" => state is "purse" or "defeated" or "searched" or "spoken",
+            _ => state is "used" or "read" or "spoken",
+        };
+        return known ? null : $"this game does not leave '{state}' on {target.Kind} in {place}";
     }
 }

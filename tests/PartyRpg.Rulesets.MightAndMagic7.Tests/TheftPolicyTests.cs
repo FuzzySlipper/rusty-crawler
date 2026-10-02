@@ -34,6 +34,25 @@ namespace PartyRpg.Rulesets.MightAndMagic7.Tests;
 /// </remarks>
 public sealed class TheftPolicyTests
 {
+    [Fact]
+    public void A_saved_personal_purse_is_read_by_the_next_theft_instead_of_being_drawn_again()
+    {
+        InteractionLedger states = new();
+        PlacementDefinition person = Person("bystander");
+        states.KeepPurse(new("1"), new PlacementPurseSnapshot(person.Content, 7, []));
+        TestRandomService random = new() { Answer = Draws(luck: 4, seen: 50, find: 90) };
+        using Town town = Town.Build(random, personLevel: 4, states: () => states);
+        ServiceResult first = town.Services.StealFrom(new("1"), person, 1);
+        Assert.True(first.IsApplied, first.Message);
+        Assert.Equal(7, town.Services.LastTheft!.Coins);
+        Assert.Equal(0, states.PurseOf(new("1"), person.Content)!.Coins);
+        states = new InteractionLedger(states.Capture());
+        ServiceResult second = town.Services.StealFrom(new("1"), person, 1);
+        Assert.True(second.IsApplied, second.Message);
+        Assert.Equal(0, town.Services.LastTheft!.Coins);
+        Assert.Empty(town.Services.LastTheft.Items);
+    }
+
     private static readonly UseIntentNames UseControls = new(Declared.UseIntent, Declared.UiActionContract);
     private static readonly ServiceIntentNames ServiceControls = new(Declared.ServiceLeaveIntent, Declared.UiActionContract);
     private static readonly ConversationIntentNames ConversationControls = new(Declared.ConversationLeaveIntent, Declared.UiActionContract);
@@ -570,13 +589,13 @@ public sealed class TheftPolicyTests
 
         internal ServiceDefinition Hall => Rule.Describe(new ServiceTargetRequest(new PlaceId("2"), Placement("the-hall")))!;
 
-        internal static Town Build(IRandomService? random, int? personLevel = null)
+        internal static Town Build(IRandomService? random, int? personLevel = null, Func<InteractionLedger>? states = null)
         {
             (ProductCreateContext context, _) = RulesetTestContext.Create(TownContent());
             ContentCatalog catalog = ContentCatalogLoader.Load(
                 RulesetTestContext.Content(context),
                 ContentLayout.Under(RulesetTestContext.ContentDirectory)).RequireValid();
-            MightAndMagic7Theft theft = MightAndMagic7Theft.Read(catalog, random, loot: null, _ => personLevel);
+            MightAndMagic7Theft theft = MightAndMagic7Theft.Read(catalog, random, loot: null, _ => personLevel, states);
             MightAndMagic7Services rule = MightAndMagic7Services.Read(catalog, theft: theft)!;
             PartyEntity party = MightAndMagic7Party.Compose(catalog)!;
             GameClock clock = new(

@@ -2,6 +2,7 @@ using System.Globalization;
 using PartyRpg.Kit;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Loot;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Services;
@@ -63,9 +64,8 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// <item><description>
 /// What a person carries is what their row would leave if they fell — the row's coin dice and its treasure draw,
 /// the same reading the donor's <c>SetRandomGoldIfTheresNoItem</c> makes (<c>Actor.cpp:192-212</c>) — drawn once
-/// per person and remembered for the session: a purse emptied stays empty until the session ends, and a resumed
-/// session finds it full again, because what a place's people carry is not saved (the donor keeps it on the
-/// actor, which this build does not save either).
+/// per person and remembered by the world's interaction ledger, including across saves. A place's clocked
+/// restoration forgets the purse with its other memories, so the next visit draws it afresh.
 /// </description></item>
 /// <item><description>
 /// A counter's line is worth the item table's own value; the donor reads the generated item's value, enchantment
@@ -147,7 +147,7 @@ internal sealed class MightAndMagic7Theft
     private readonly MightAndMagic7Loot? _loot;
     private readonly Func<PlacementDefinition, int?> _personLevel;
     private readonly TuningProfile _tuning;
-    private readonly Dictionary<string, Purse> _purses = new(StringComparer.Ordinal);
+    private readonly Func<InteractionLedger> _states;
     private long _draws;
 
     private MightAndMagic7Theft(
@@ -155,13 +155,15 @@ internal sealed class MightAndMagic7Theft
         IRandomService? random,
         MightAndMagic7Loot? loot,
         Func<PlacementDefinition, int?> personLevel,
-        TuningProfile tuning)
+        TuningProfile tuning,
+        Func<InteractionLedger> states)
     {
         _baseFines = baseFines;
         _random = random;
         _loot = loot;
         _personLevel = personLevel;
         _tuning = tuning;
+        _states = states;
     }
 
     /// <summary>Reads this game's theft rule over the places content carries.</summary>
@@ -169,12 +171,14 @@ internal sealed class MightAndMagic7Theft
     /// <param name="random">The engine's random service, or null for a product that cannot draw: no theft is then tried.</param>
     /// <param name="loot">What a person carries is read from, or null when this product reads no loot.</param>
     /// <param name="personLevel">The level of the row a person fights as, or null when nothing reads one.</param>
+    /// <param name="states">The world ledger; standalone policy callers may omit it and retain one local ledger.</param>
     /// <returns>The rule.</returns>
     internal static MightAndMagic7Theft Read(
         ContentCatalog? catalog,
         IRandomService? random = null,
         MightAndMagic7Loot? loot = null,
-        Func<PlacementDefinition, int?>? personLevel = null)
+        Func<PlacementDefinition, int?>? personLevel = null,
+        Func<InteractionLedger>? states = null)
     {
         Dictionary<string, int> fines = new(StringComparer.Ordinal);
         if (catalog is not null)
@@ -185,7 +189,9 @@ internal sealed class MightAndMagic7Theft
             }
         }
 
-        return new MightAndMagic7Theft(fines, random, loot, personLevel ?? (_ => null), MightAndMagic7Tuning.Read(catalog));
+        // Standalone policy callers use the same ledger owner as a session, rather than a second purse model.
+        InteractionLedger? standalone = states is null ? new InteractionLedger() : null;
+        return new MightAndMagic7Theft(fines, random, loot, personLevel ?? (_ => null), MightAndMagic7Tuning.Read(catalog), states ?? (() => standalone!));
     }
 
     /// <summary>The base fine of a place: the map table's own column, which the importer carries onto it, or nothing.</summary>
@@ -333,7 +339,8 @@ internal sealed class MightAndMagic7Theft
                 message: $"{name} is caught with a hand in somebody's purse.");
         }
 
-        Purse purse = PurseOf(key, person);
+        InteractionLedger states = _states();
+        PlacementPurseSnapshot purse = PurseOf(request.Place, key, person, states);
         int found = rolls.Roll("find", 0, 99);
         if (found >= CoinFrom && purse.Coins > 0)
         {
@@ -341,7 +348,7 @@ internal sealed class MightAndMagic7Theft
             int lifted = Math.Min(purse.Coins, rolls.Dice(thief.Skills.LevelOf(Stealing), CoinSides[rung]));
             if (lifted > 0)
             {
-                purse.Coins -= lifted;
+                states.KeepPurse(request.Place, purse with { Coins = purse.Coins - lifted });
                 return Lifted(lifted, null, $"{name} lifts {lifted.ToString(CultureInfo.InvariantCulture)} coin(s) unseen.");
             }
         }
@@ -357,7 +364,7 @@ internal sealed class MightAndMagic7Theft
         else if (found >= ThingFrom && found < CoinFrom && purse.Items.Count > 0)
         {
             ItemDefinitionId thing = purse.Items[0];
-            purse.Items.RemoveAt(0);
+            states.KeepPurse(request.Place, purse with { Items = [.. purse.Items.Skip(1)] });
             string label = _loot?.NameOf(thing) ?? thing.Value;
             return Lifted(0, [thing], $"{name} lifts {label} unseen.");
         }
@@ -420,25 +427,17 @@ internal sealed class MightAndMagic7Theft
     }
 
     /// <summary>What a person carries, drawn the first time a hand reaches for it and remembered after.</summary>
-    private Purse PurseOf(string key, PlacementDefinition person)
+    private PlacementPurseSnapshot PurseOf(PlaceId place, string key, PlacementDefinition person, InteractionLedger states)
     {
-        if (_purses.TryGetValue(key, out Purse? held)) return held;
+        if (states.PurseOf(place, person.Content) is { } held) return held;
         LootYield carried = _loot?.RollsFor($"purse/{key}") is { } rolls ? _loot.Death(person, rolls) : LootYield.Nothing;
-        Purse purse = new() { Coins = carried.Coins };
+        List<ItemDefinitionId> items = [];
         foreach (LootItem item in carried.Items)
         {
-            for (int count = 0; count < item.Count; count++) purse.Items.Add(item.Definition);
+            for (int count = 0; count < item.Count; count++) items.Add(item.Definition);
         }
-
-        _purses[key] = purse;
+        PlacementPurseSnapshot purse = new(person.Content, carried.Coins, items);
+        states.KeepPurse(place, purse);
         return purse;
-    }
-
-    /// <summary>What one person still carries.</summary>
-    private sealed class Purse
-    {
-        public int Coins { get; set; }
-
-        public List<ItemDefinitionId> Items { get; } = [];
     }
 }

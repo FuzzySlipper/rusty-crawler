@@ -157,7 +157,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         Party = party;
         Places = places;
         Places.MarkVisited(party.Place);
-        _population = new PlacePopulation(graph, places, vitals is null ? null : new CreatureComposer(vitals), expansion);
+        _population = new PlacePopulation(graph, places, vitals is null ? null : new CreatureComposer(vitals), expansion, _interactions.IsDefeated);
         _entrances = Index(graph, _population, entrances);
         Mover = mover;
         Creatures = creatures;
@@ -177,6 +177,16 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
 
     /// <summary>Per-place runtime state.</summary>
     public PlaceStateLedger Places { get; }
+
+    /// <summary>The place-owned memories of uses, purses and defeated placements.</summary>
+    public InteractionLedger Interactions => _interactions;
+
+    /// <summary>Remembers a content placement's death; summoned creatures belong to the live fight instead.</summary>
+    public void Died(CreatureDeath death)
+    {
+        if (_population.PlacementsOf(death.Place).Any(placement => placement.Content == death.Placement.Content))
+            _interactions.Defeated(death.Place, death.Placement.Content);
+    }
 
     /// <summary>The party's movement, or null when the world has no engine to move in.</summary>
     public IPartyMover? Mover { get; }
@@ -616,15 +626,14 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     {
         IReadOnlyList<PlaceState> restored = _time is null ? [] : Places.AdvanceTo(_time.ElapsedGameDays);
 
-        // The population follows the same advance: a place whose reset came due is repopulated here, in
-        // the same update that moved the clock, rather than by a second timer of its own.
-        Step(restored);
-
         // A restored place comes back as it was: what the party did to its doors and containers belongs to
         // the visit that did it, so a place whose population is restored forgets it in the same update. A
         // reset that left an opened door open and an emptied chest empty would be a population brought back
         // into a ruin.
         foreach (PlaceState state in restored) _interactions.Forget(state.Place);
+
+        // Forget defeats before rebuilding, so a creature restored by the clock stands in this advance.
+        Step(restored);
         return restored;
     }
 
@@ -649,12 +658,10 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// </summary>
     /// <remarks>
     /// The graph, the entrances, the mover's collision scene, the movement observations, the population's
-    /// entities, and each target's own state word are absent on purpose. The graph and the entrances are
+    /// entities are absent on purpose. The graph and the entrances are
     /// loaded content, the scene is refilled from the place the party resumes in, movement observations belong
-    /// to the steps that produced them, the entities are rebuilt from placements, and a target's word is live
-    /// state the interaction ledger's capture does not carry yet (#8593) — each of them a runtime shape that a
-    /// load composes again rather than one a save carries. The values a place keeps are carried, through the
-    /// same ledger capture a target's word will join.
+    /// to the steps that produced them, and entities are rebuilt from placements, omitting remembered defeats.
+    /// The ledger carries target words and incarnations, place values, defeats and remaining personal purses.
     /// </remarks>
     public WorldSave Capture() => new(Party.Capture(), Places.Capture(), _interactions.Capture());
 

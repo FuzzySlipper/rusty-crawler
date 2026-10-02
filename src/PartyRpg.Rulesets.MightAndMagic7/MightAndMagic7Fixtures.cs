@@ -852,9 +852,9 @@ internal sealed class MightAndMagic7Fixtures
     /// </para>
     /// <para>
     /// <b>What is ours.</b> The donor's actors keep their own death in the map's saved delta, one by one
-    /// (OpenEnroth <c>src/Engine/Objects/Actor.cpp:2811-2894</c> counts them); this build rebuilds a place's
-    /// population when the party walks in unless the place was cleared, so a creature killed on an earlier visit
-    /// of a place still holding others reads as standing again. It only reads; nothing here changes the population.
+    /// (OpenEnroth <c>src/Engine/Objects/Actor.cpp:2811-2894</c> counts them). This game's world ledger keeps
+    /// defeated placement identities until the clock restores the place. A later visit, a save and this count
+    /// read that same memory; nothing here changes the population.
     /// </para>
     /// </remarks>
     /// <param name="world">The session's world.</param>
@@ -877,7 +877,7 @@ internal sealed class MightAndMagic7Fixtures
         foreach (PlacementDefinition placement in world.Population.PlacementsOf(place))
         {
             if (!IsActor(placement)) continue;
-            actors.Add(new PlaceActor(placement, cleared || down.GetValueOrDefault(placement.Content)));
+            actors.Add(new PlaceActor(placement, cleared || world.Interactions.IsDefeated(place, placement.Content) || down.GetValueOrDefault(placement.Content)));
         }
 
         return actors;

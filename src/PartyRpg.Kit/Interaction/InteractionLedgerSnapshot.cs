@@ -1,4 +1,6 @@
 using PartyRpg.Kit.World;
+using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Party;
 
 namespace PartyRpg.Kit.Interaction;
 
@@ -19,7 +21,26 @@ public sealed record InteractionLedgerSnapshot(IReadOnlyList<PlaceInteractionSna
 /// <summary>What one place keeps of what the party did there.</summary>
 /// <param name="Place">The place.</param>
 /// <param name="Values">The values the place keeps, by name in ordinal order.</param>
-public sealed record PlaceInteractionSnapshot(PlaceId Place, IReadOnlyList<PlaceValue> Values);
+public sealed record PlaceInteractionSnapshot(PlaceId Place, IReadOnlyList<PlaceValue> Values)
+{
+    /// <summary>What each used target became, by content identity.</summary>
+    public IReadOnlyList<PlacementStateSnapshot> Targets { get; init; } = [];
+
+    /// <summary>Placements defeated here, until the place is restored.</summary>
+    public IReadOnlyList<PlacementContentId> Deaths { get; init; } = [];
+
+    /// <summary>What a person still carries after a hand has reached for their purse.</summary>
+    public IReadOnlyList<PlacementPurseSnapshot> Purses { get; init; } = [];
+}
+
+/// <summary>One target's durable state and incarnation.</summary>
+public sealed record PlacementStateSnapshot(PlacementContentId Target, string State, int Revision);
+
+/// <summary>One placement's remaining purse, distinct from the party's purse.</summary>
+public sealed record PlacementPurseSnapshot(PlacementContentId Target, int Coins, IReadOnlyList<ItemDefinitionId> Items);
+
+/// <summary>The game's answer about a target state a save records, or null when it is known.</summary>
+public delegate string? PlacementStateJudge(PlaceId place, PlacementContentId target, string state);
 
 /// <summary>One named whole number a place keeps.</summary>
 /// <param name="Key">The ruleset's name for it.</param>

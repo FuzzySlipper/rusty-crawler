@@ -220,7 +220,7 @@ on the scenario's start plays — one party per selection, refused by name with 
 when the selection states two, exactly as the scenario's starting place is), the larder's
 policy (`MightAndMagic7Provisions` — one ration a day, and the weak condition a larder left short puts
 on every member, which a rest ends and a meal does not, as in the donor), and what a crossing costs (`MightAndMagic7TravelCostRule` — a day on the road and the
-rations it eats; a fare is honoured by the passage the party bought, and a portal — a crossing the caster
+rations it eats; a fare reads the bought passage at quote and spends it only on admitted arrival, and a portal — a crossing the caster
 issues rather than a place — is free of road time because the spell already paid for it), how long a journey a
 counter sells takes (`MightAndMagic7FareDays` — a stable sells on the `coach` route and a dock on the `boat`
 route, and the days are the tuned length of that network, the one answer the counter quotes and the road charges
@@ -442,8 +442,8 @@ else three times in ten, and nothing the rest (`Character.cpp:1220-1279`). Ours:
 the party the cost the donor reckons and never charges, and the person robbed stops talking and is put into the
 fight with every actor of their faction within 4,096 units, as the donor's `AggroSurroundingPeasants` has it
 (`Character.cpp:1215-1216`); what a person carries is what
-their row would leave if they fell, drawn once and remembered for the session but not saved (the donor keeps it
-on the actor, which this build does not save); a counter's line is worth the item table's value without the
+their row would leave if they fell, drawn once and remembered in the world's interaction ledger, carried
+through a save and forgotten when the place restores; a counter's line is worth the item table's value without the
 donor's enchantment; and a theft charges no recovery time. Each theft's fall in the world's opinion is a deed
 that pays no experience, told through `PartyProgression.Deed` under its own word (`theft-caught`,
 `theft-caught-with-goods`, `theft-unseen`, `pickpocket`), which `MightAndMagic7Standing` reads. **A town hall
@@ -678,8 +678,8 @@ keeps is used, every one of them on the fixture's first use (the donor's reading
 daily timer runs a day after it last ran rather than at its hour; a fixture's harm is the record's own figure,
 not reduced by resistance; and a sign's words are kept as a clue, which the original does not keep. The 20 of
 the 195 map variables two or more fixture events of one place share — mostly an interior's lever puzzles — are
-shared, because the variables are the place's. A fixture's own state word (`used`, `read`) is live-only like a
-door's (#8593), which grows the same ledger capture.
+shared, because the variables are the place's. A fixture's own state word (`used`, `read`) travels in the same ledger capture as a door's or a chest's,
+with its incarnation. A load checks every placement identity and word before composing the world.
 
 **A person's topic runs the global program** (`global-event`, the importer's `global.evt`, every event of it, the
 ones a topic raises marked `topic`). A topic is the row of one of a person's slots, labelled by the topic table, and
