@@ -12,6 +12,8 @@ What is published here is text only: no game data, no screenshots, no saves, and
 | Record | What it shows |
 | --- | --- |
 | [`residue-verification.md`](residue-verification.md) | The code gate, corrected donor citation, three review lanes and focused checks for travel, containers, interaction saves, promotion and rest. |
+| [`container-rest-and-interaction-save.md`](container-rest-and-interaction-save.md) | Four uses of an imported trapped chest, rest beside dead members, and an opened door retained after restart. |
+| [`promotion-requires-recovery.md`](promotion-requires-recovery.md) | The shipped Cavalier event refuses a Dead Knight by name with temple or raising-spell guidance. |
 | [`walk-playtest.md`](walk-playtest.md) | Held keys walk, turn and jump the party on Emerald Island; a released key stops it; no transition could yet be walked into. |
 | [`walk-transition.md`](walk-transition.md) | Walking into an entrance's reach changes the place: Emerald Island's cave mouth and The Dragon's Lair's exit, both ways. |
 | [`travel-links.md`](travel-links.md) | Every one of the 193 travel links with its disposition and condition, the two links nothing raises, and a clicked barrow exit used in play taking the link its map variable picks. |
