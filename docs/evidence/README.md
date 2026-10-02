@@ -25,6 +25,7 @@ What is published here is text only: no game data, no screenshots, no saves, and
 | [`navigation-admission.md`](navigation-admission.md) | All 76 imported geometries admitted navigation in the real Engine, counts and cost, with canonical body routing around an authored wall and captured live pursuit around an imported interior wall. |
 | [`service-panel.md`](service-panel.md) | Seven service operations through the existing panel at imported Harmondale counters, with patient and bank quantities, actual charges and a fare arrival. |
 | [`residue-verification.md`](residue-verification.md) | The code gate, corrected donor citation, three review lanes and focused checks for travel, containers, interaction saves, promotion and rest. |
+| [`followers.md`](followers.md) | An authored factor hired, shown in the companion surface, spoken to and dismissed through ordinary controls; focused cost/story/save checks and live limits. |
 | [`container-rest-and-interaction-save.md`](container-rest-and-interaction-save.md) | Four uses of an imported trapped chest, rest beside dead members, and an opened door retained after restart. |
 | [`promotion-requires-recovery.md`](promotion-requires-recovery.md) | The shipped Cavalier event refuses a Dead Knight by name with temple or raising-spell guidance. |
 | [`walk-playtest.md`](walk-playtest.md) | Held keys walk, turn and jump the party on Emerald Island; a released key stops it; no transition could yet be walked into. |

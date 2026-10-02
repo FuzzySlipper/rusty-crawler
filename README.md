@@ -23,7 +23,7 @@ Bundle assembles. Host launches.**
 > and turns in errands, and keeps a dated journal, notes and an automap it can save and resume. The same save
 > carries the resident fight, including creature recovery, provocation, effects, summons and bodies with their held loot
 > ([bounded fight reading](docs/evidence/fight-persistence.md)),
-> hired and story followers with their portrait and conversation surfaces, opened doors, searched containers, defeated placements, the purses people still carry, and the
+> hired and story followers with their portrait and conversation surfaces ([bounded companion reading](docs/evidence/followers.md)), opened doors, searched containers, defeated placements, the purses people still carry, and the
 > original due times for sleep, running spell effects and shelf restocks, as the
 > [save/resume reading](docs/evidence/deadline-persistence.md) records. The service
 > panel reaches cures, training, provisions, rooms, bank deposits and withdrawals, and fares, with offers priced

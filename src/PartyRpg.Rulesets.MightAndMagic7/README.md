@@ -876,4 +876,5 @@ through the existing zero-experience deed rule. It settles immediately rather th
 animation (OpenEnroth `src/Engine/Spells/CastSpellInfo.cpp:2774-2812`, OpenEnroth `src/Engine/Party.cpp:686-692`): approximate,
 with no new timer or resurrection claim. Focused `FollowerPolicyTests` exercise ordinary semantic hiring,
 limits, story events, salary, travelling dismissal, current persisted save/resume, refused-run atomicity,
-unknown saved identities and the real Sacrifice producer. Live hire/dismiss evidence remains to be recorded.
+unknown saved identities and the real Sacrifice producer. The [bounded companion reading](../../docs/evidence/followers.md)
+records ordinary staged hire, companion Talk and dismissal, with the live numeric-purse and population limits.

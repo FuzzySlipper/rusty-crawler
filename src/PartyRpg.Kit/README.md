@@ -195,7 +195,8 @@ and custody and `Restore` rebuilds them), `PartyPurse`, `PartyFood`,
 written only by `RunningSpellEffects`), each member's stored base resistances (`CharacterResistances` —
 what a permanent gift added, by kind of harm, carried in the member's seed; a ruleset's racial and class terms
 are read beside it, never stored), `PartyFollowers` (authored person identities, hired/story kinds and join order;
-the factory attaches it and the current save carries it, with no separate follower actors, packs, purses or clock),
+the factory attaches it and the current save carries it, with no separate follower actors, packs, purses or clock;
+the [bounded product reading](../../docs/evidence/followers.md) records its ordinary conversation callers),
 `PartyRecords`, `PartyHoldings`, `PartyPassages`, `PartyMemberships`,
 `PartyDebts` (what the party owes, account by account, written by a game's crimes and the service mechanism's theft
 and repayment), `PartyBans` (the counters shut against the party until a moment of the one clock),
