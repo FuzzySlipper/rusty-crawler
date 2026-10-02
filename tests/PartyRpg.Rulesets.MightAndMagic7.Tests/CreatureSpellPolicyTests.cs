@@ -85,7 +85,12 @@ public sealed class CreatureSpellPolicyTests
     {
         // The engine here walks a body at the pace of the profile each step hands it, on open ground; the composed
         // world's own creature mover is what hands it the creature's pace.
-        ScriptedSpatialService spatial = new() { StepEnds = ScriptedSpatialService.AtProfilePace };
+        ScriptedSpatialService spatial = new()
+        {
+            StepEnds = ScriptedSpatialService.AtProfilePace,
+            NavigationCells = 12,
+            Navigation = request => default(NavigationStepResult) with { Outcome = NavigationPathOutcome.Reached, NextWaypoint = request.Target },
+        };
         (ProductCreateContext context, RecordingUiService ui) =
             RulesetTestContext.Create(persistence: null, spatial, new ScriptedContentService(), Creatures());
         using IGameSession session = Casting(context, ui);
@@ -389,6 +394,13 @@ public sealed class CreatureSpellPolicyTests
             """),
         extra:
         [
+            ($"{RulesetTestContext.ContentDirectory}/content-packs/world/place-geometry.json",
+                """
+                { "documentId":"place-geometry", "definitionKind":"place-geometry",
+                  "entries":[{ "id":"1", "artifact":{"stated":"by the scripted engine, which reads nothing"},
+                               "navigationRegion":{"minimum":[-4096,0,-4096],"maximum":[4096,0,4096],"cellSize":128} }] }
+                """,
+                """{ "path":"place-geometry.json", "documentId":"place-geometry", "definitionKind":"place-geometry" }"""),
             ($"{RulesetTestContext.ContentDirectory}/content-packs/world/hostility.json",
                 """
                 {

@@ -113,7 +113,7 @@ public sealed class MovementCompositionTests
             {
               "documentId": "place-geometry",
               "definitionKind": "place-geometry",
-              "entries": [ { "id": "1", "artifact": { "stated": "by the scripted engine, which reads nothing" } } ]
+              "entries": [ { "id": "1", "artifact": { "stated": "by the scripted engine, which reads nothing" }, "navigationRegion": { "minimum": [-4096,0,-4096], "maximum": [4096,0,4096], "cellSize": 128 } } ]
             }
             """),
         ($"{RulesetTestContext.ContentDirectory}/content-packs/world/start.json",
