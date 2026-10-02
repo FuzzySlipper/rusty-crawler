@@ -414,7 +414,8 @@ load. `CombatSave` carries the resident visit's creatures by content identity an
 health, recovery, provocation and remaining effects, created placements and their remaining lives, bodies with
 their death incarnations and already-held yields, attack cursor and the one pacing's turn bookkeeping. Restore
 uses the existing population composer, health/effect owners, corpse ground and turn owner; it advances no time
-and reports no new death or loot roll. `ICombatSaveRule` gives content-only meaning and recovery bounds before
+and reports no new death or loot roll. The [bounded fight reading](../../docs/evidence/fight-persistence.md)
+records an imported creature saved provoked and recovering, then resumed, with all-dead party and startup-time limits. `ICombatSaveRule` gives content-only meaning and recovery bounds before
 anything is rebuilt. Each resident creature is either carried or explicitly absent from the saved visit,
 so an omitted record cannot silently remove it and a legitimately hidden or previously defeated resident
 need not reappear. A missing resident placement, unknown kind, excessive recovery, body whose pose differs
