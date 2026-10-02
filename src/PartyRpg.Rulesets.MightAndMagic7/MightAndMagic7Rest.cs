@@ -320,7 +320,16 @@ internal sealed class MightAndMagic7Rest : IRestRule
     public IReadOnlyList<ConditionId> RecoveredBy(RestRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        return [Weakness];
+        return MightAndMagic7Conditions.RestClears;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>OpenEnroth src/Engine/Party.cpp:713-715 skips these members before clearing conditions or filling pools.</remarks>
+    public string? Unrestored(RestRequest request, PartyMember member)
+    {
+        foreach (ConditionId condition in new[] { MightAndMagic7Conditions.Eradicated, MightAndMagic7Conditions.Dead, MightAndMagic7Conditions.Petrified })
+            if (member.Conditions.Has(condition)) return $"{condition}; sleep cannot restore this condition, so seek a temple cure";
+        return null;
     }
 
     /// <inheritdoc />

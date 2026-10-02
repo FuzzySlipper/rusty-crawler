@@ -8,6 +8,7 @@ using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
 using Rusty.Engine;
 using Xunit;
+using System.Text.Json.Nodes;
 
 namespace PartyRpg.Rulesets.MightAndMagic7.Tests;
 
@@ -31,6 +32,58 @@ namespace PartyRpg.Rulesets.MightAndMagic7.Tests;
 /// </remarks>
 public sealed class RestAndSchedulePolicyTests
 {
+    [Theory]
+    [InlineData("Dead", false)]
+    [InlineData("Petrified", false)]
+    [InlineData("Eradicated", false)]
+    [InlineData("Dead", true)]
+    [InlineData("Petrified", true)]
+    [InlineData("Eradicated", true)]
+    public void Sleep_restores_the_living_clears_its_conditions_and_names_the_member_it_leaves_untouched(string condition, bool camp)
+    {
+        var content = Content($$"""{ "id": "7", "kind": "{{(camp ? "region" : "interior")}}", "name": "Quiet place", "respawnDays": 672, "terrain": "grass", "encounterPercent": 0, "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ] }""", "7", null);
+        content = content.Select(file =>
+        {
+            if (!file.Path.EndsWith("/party.json", StringComparison.Ordinal)) return file;
+            JsonObject doc = JsonNode.Parse(file.Text)!.AsObject();
+            JsonArray members = doc["entries"]![0]!["members"]!.AsArray();
+            members[0]!["spellPoints"] = 20;
+            JsonNode standing = members[0]!.DeepClone();
+            standing["name"] = "Standing";
+            members.Add(standing);
+            return (file.Path, doc.ToJsonString());
+        }).ToArray();
+        var (context, ui) = RulesetTestContext.Create(content);
+        using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(RulesetTestContext.RulesetContext(context, ui) with { Rest = RestControls });
+        session.Start();
+        session.Update(RulesetTestContext.Update(1, 1));
+        var party = ((MightAndMagic7Session)session).Party!;
+        var laidOut = party.Members[0];
+        var living = party.Members[1];
+        foreach (var member in party.Members)
+        {
+            member.Resources.SetMaximumSpellPoints(20);
+            member.Resources.RestoreSpellPoints(20);
+            member.Resources.TakeDamage(20);
+            Assert.True(member.Resources.TrySpendSpellPoints(10));
+            foreach (ConditionId clears in MightAndMagic7Conditions.RestClears) member.Conditions.Apply(new ActiveCondition(clears));
+        }
+        laidOut.Conditions.Apply(new ActiveCondition(new ConditionId(condition)));
+        session.Update(RulesetTestContext.Update(2, 1, RulesetTestContext.Digital(camp ? Declared.CampIntent : Declared.RestIntent)));
+        var result = ProjectedNode.Of(ui.Latest().Value).Field("rest");
+        Assert.Equal("applied", result.Field("outcome").AsString());
+        Assert.Equal(1, result.Field("restored").AsNumber());
+        Assert.Contains("Roderick", result.Field("message").AsString(), StringComparison.Ordinal);
+        Assert.Contains(condition, result.Field("message").AsString(), StringComparison.Ordinal);
+        Assert.Equal(20, laidOut.Resources.HitPoints.Current);
+        Assert.Equal(10, laidOut.Resources.SpellPoints.Current);
+        Assert.True(laidOut.Conditions.Has(new ConditionId(condition)));
+        Assert.All(MightAndMagic7Conditions.RestClears, c => Assert.True(laidOut.Conditions.Has(c)));
+        Assert.Equal(40, living.Resources.HitPoints.Current);
+        Assert.Equal(20, living.Resources.SpellPoints.Current);
+        Assert.All(MightAndMagic7Conditions.RestClears, c => Assert.False(living.Conditions.Has(c)));
+    }
+
     [Fact]
     public void A_trapped_chest_is_spent_after_search_and_later_uses_neither_harm_nor_transfer()
     {
@@ -297,7 +350,7 @@ public sealed class RestAndSchedulePolicyTests
         ProjectedNode tired = ProjectedNode.Of(ui.Latest().Value);
         Assert.Equal("1168-01-02", tired.Field("clock").Field("date").AsString());
         Assert.Equal("09:00", tired.Field("clock").Field("time").AsString());
-        Assert.Equal("weak (1)", tired.Field("party").Field("conditions").AsString());
+        Assert.Equal("Weak (1)", tired.Field("party").Field("conditions").AsString());
         Assert.True(tired.Field("rest").Field("tired").AsBoolean());
         Assert.Equal(1, tired.Field("rest").Field("fatigueLanded").AsNumber());
         Assert.Equal("1168-01-03 09:00", tired.Field("rest").Field("fatigueDue").AsString());
@@ -308,7 +361,7 @@ public sealed class RestAndSchedulePolicyTests
         ProjectedNode rested = ProjectedNode.Of(ui.Latest().Value);
         Assert.False(rested.Field("rest").Field("tired").AsBoolean());
         Assert.Equal(string.Empty, rested.Field("party").Field("conditions").AsString());
-        Assert.Equal("weak", rested.Field("rest").Field("cleared").AsString());
+        Assert.Equal("Weak", rested.Field("rest").Field("cleared").AsString());
         Assert.Equal("1168-01-03 17:00", rested.Field("rest").Field("fatigueDue").AsString());
         Assert.Equal(1, rested.Field("rest").Field("fatigueLanded").AsNumber());
     }

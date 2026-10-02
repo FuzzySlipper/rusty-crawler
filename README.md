@@ -18,7 +18,7 @@ Bundle assembles. Host launches.**
 > services, combat, progression and magic, quests and knowledge) have each landed their mechanism and each
 > still carries open residue that Den tasks receive; stone 9 (breadth) has not started. With the
 > operator's imported packs selected, a session creates or resumes a party, walks it through the imported
-> world, pays for crossings, fares and nights, opens doors and containers, drinks from wells and reads
+> world, pays for crossings, fares and nights, rests the living while naming fallen companions left as they were, opens doors and containers, drinks from wells and reads
 > obelisks and signs, talks, trades, steals and pays its fines, trains, promotes recovered members, learns and casts spells, fights in real time or in rounds, takes
 > and turns in errands, and keeps a dated journal, notes and an automap it can save and resume. The same save
 > carries opened doors, searched containers, defeated placements and the purses people still carry. The shipped bundle selects no packs, so a product without

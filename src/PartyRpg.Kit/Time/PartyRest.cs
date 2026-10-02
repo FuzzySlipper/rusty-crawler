@@ -173,13 +173,14 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
         _fatigue?.Pay();
         ClockAdvance advance = clock.Advance(period);
         List<ConditionId> cleared = [];
-        int restored = Recover(request, ends, cleared);
+        List<string> left = [];
+        int restored = Recover(request, ends, cleared, left);
         _fatigue?.Arm();
         return RestResult.Applied(
             RestKind.Rest,
             string.Create(
                 CultureInfo.InvariantCulture,
-                $"The party sleeps in a room for {Describe(advance.Elapsed)}, to {Describe(advance.To)}. Every member's pools are full again and the room's price covered the night's board."),
+                $"The party sleeps in a room for {Describe(advance.Elapsed)}, to {Describe(advance.To)}. {Recovery(restored, left)} The room's price covered the night's board."),
             advance,
             Provisions.None,
             covered: 0,
@@ -195,20 +196,25 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
     /// night ends cleared, with any the night's own source adds; then the ruleset says what the member keeps of it.
     /// </summary>
     /// <returns>How many members recovered.</returns>
-    private int Recover(RestRequest request, IReadOnlyList<ConditionId> alsoEnds, List<ConditionId> cleared)
+    private int Recover(RestRequest request, IReadOnlyList<ConditionId> alsoEnds, List<ConditionId> cleared, List<string> left)
     {
         IReadOnlyList<ConditionId> night = _rule.RecoveredBy(request);
         List<ConditionId> ends = [.. night, .. alsoEnds.Where(condition => !night.Contains(condition))];
         int restored = 0;
         foreach (PartyMember member in _party.Members)
         {
+            if (_rule.Unrestored(request, member) is { } reason)
+            {
+                left.Add($"{member.Profile.Name}: {reason}");
+                continue;
+            }
             member.Resources.RestoreAll();
-            foreach (ConditionId condition in ends) member.Conditions.Clear(condition);
+            foreach (ConditionId condition in ends)
+                if (member.Conditions.Clear(condition) && !cleared.Contains(condition)) cleared.Add(condition);
             _rule.Rested(request, member);
             restored++;
         }
 
-        cleared.AddRange(ends);
         return restored;
     }
 
@@ -282,7 +288,8 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
         // Recovery first: a completed sleep fills both pools and clears what the ruleset says a night ends.
         int restored = 0;
         List<ConditionId> cleared = [];
-        if (completes) restored = Recover(request, [], cleared);
+        List<string> left = [];
+        if (completes) restored = Recover(request, [], cleared, left);
 
         // Then the day's provisions, through the party's one settlement path, so the larder's own consequence
         // has the last word over what the sleep restored. A broken night pays nothing: the day it would have
@@ -302,7 +309,7 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
 
         return RestResult.Applied(
             kind,
-            Message(kind, advance, quote, covered, interruption, completes, restored),
+            Message(kind, advance, quote, covered, interruption, completes, restored, left),
             advance,
             // What the period cost the larder is what it actually took: a broken night's day never happened,
             // so it neither restored nor charged, and a report that named the price anyway would tell a
@@ -355,7 +362,8 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
         int covered,
         RestInterruption? interruption,
         bool completes,
-        int restored)
+        int restored,
+        IReadOnlyList<string> left)
     {
         string period = Describe(advance.Elapsed);
         string where = Describe(advance.To);
@@ -383,13 +391,14 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
         string cost = quote.Charge.IsNone
             ? "and spends nothing"
             : string.Create(CultureInfo.InvariantCulture, $"and spends {covered} {Unit(quote.Charge.Unit)}");
-        string recovered = restored > 0
-            ? $"every member is restored ({restored})"
-            : "there was nobody to restore";
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"The party {slept} for {period}, to {where}, {cost}: {recovered}.");
+            $"The party {slept} for {period}, to {where}, {cost}: {Recovery(restored, left)}");
     }
+
+    private static string Recovery(int restored, IReadOnlyList<string> left) => left.Count > 0
+        ? $"{restored} member(s) restored. Left as they were: {string.Join("; ", left)}."
+        : restored > 0 ? $"every member is restored ({restored})." : "there was nobody to restore.";
 
     /// <summary>How much game time a period is, in the units a person reads.</summary>
     private static string Describe(GameDuration period)

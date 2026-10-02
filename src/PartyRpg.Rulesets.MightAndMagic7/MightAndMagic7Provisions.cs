@@ -51,7 +51,7 @@ internal sealed class MightAndMagic7Provisions : IProvisionDayRule
     internal const int RationsPerDay = 1;
 
     /// <summary>The condition hunger puts on a member, as this game names it.</summary>
-    internal static readonly ConditionId Weakness = new("weak");
+    internal static readonly ConditionId Weakness = MightAndMagic7Conditions.Weak;
 
     /// <summary>The provisions one day's rations are, which the travel cost is stated in as well.</summary>
     internal static Provisions DayRations => new(RationsPerDay, ProvisionUnit.Portions);

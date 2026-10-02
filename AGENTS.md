@@ -108,7 +108,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   house whose own event does more than open it, runs the steps of its imported map event this game interprets and
   refuses the rest by name; a person's house and greeting are what those events left on the party's records. One service
   mechanism, an operation table judged before anything is settled, serves every shipped service kind; towns
-  keep hours on the one clock; rest, camp and wait are distinct; conversations recompute their topics from
+  keep hours on the one clock; rest, camp and wait are distinct; sleep leaves dead, petrified and eradicated members untouched and names them; conversations recompute their topics from
   party state and hand off to counters, and a topic runs its global event as a use of the speaker's placement.
 - **Combat.** One fight over the live world with two pacings over one recovery quantity, one resolution
   path, conditions up to death, corpses and loot through the container mechanism, and cleared places
@@ -139,7 +139,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 - Stone 5, interaction and services: a door's collision, and a face group an event makes passable,
   do not move (#8594); a container above or below the floor cannot be used (#8697); deadlines (fatigue, wards, light, haste) block
   a save by name instead of being carried (#8617); towns have no house doors and camping is priced per
-  place (#8618); rest restores laid-out members (#8662); the panel reaches only buy and sell (#8619); a
+  place (#8618); the panel reaches only buy and sell (#8619); a
   fixture event refuses only at a hireling step (#8514).
 - Stone 6, combat: a fight is not carried in a save, and a save taken with one pending is refused (#8658);
   an order commands every member rather than a selected one (#8659).

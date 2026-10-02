@@ -147,8 +147,9 @@ keeps and when that next changes, read against the clock's position rather than 
 stops a party takes on it (`PartyRest`, `FatigueWatch`, `IRestRule`, `IRestSite`: rest, camp, wait, and the
 night a rented room gives (`PartyRest.SleepInRoom`, which is the only other way to sleep and is the same sleep),
 each advancing the one clock by a game-time period, settling the day through the party's own ledger, and
-holding the debt of sleep as a deadline the clock brings due; a completed night fills every member and then asks the
-rule's `IRestRule.Rested` what each keeps) — the compiled ruleset and session contracts, the pack envelope with its
+holding the debt of sleep as a deadline the clock brings due; a completed night asks `IRestRule.Unrestored`
+which members may benefit, fills and clears only those members, then asks `IRestRule.Rested` what each keeps;
+the result names every member left as they were and the rule's reason) — the compiled ruleset and session contracts, the pack envelope with its
 catalog loader, validator and bundle resolution (`ContentCatalog.Selected` is the one place a bundle's
 selection becomes the content a session reads: the packs it named contribute, and the packs it did not
 are not loaded at all, though a broken one still refuses the start with its issue marked `NotSelected` and the

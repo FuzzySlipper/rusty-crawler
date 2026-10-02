@@ -180,7 +180,10 @@ public interface IRestRule
     /// <returns>What broke the night, or null when nothing did.</returns>
     RestInterruption? Interrupt(RestRequest request);
 
-    /// <summary>The conditions a completed sleep clears from every member.</summary>
+    /// <summary>Why one member cannot recover from sleep, or null when they benefit.</summary>
+    string? Unrestored(RestRequest request, PartyMember member) => null;
+
+    /// <summary>The conditions a completed sleep clears from every member who can benefit.</summary>
     /// <param name="request">What the party asked for, where it stands, and the one clock.</param>
     /// <returns>The conditions a night's sleep ends, in the order they are cleared.</returns>
     IReadOnlyList<ConditionId> RecoveredBy(RestRequest request);
@@ -189,7 +192,7 @@ public interface IRestRule
     /// What a completed sleep leaves one member with once their pools were filled and the night's conditions cleared.
     /// </summary>
     /// <remarks>
-    /// A night fills every member's pools, and a game whose own conditions keep a character below full even after
+    /// A night fills every eligible member's pools, and a game whose own conditions keep a character below full even after
     /// one answers here, through the member's own pools: the mechanism fills and clears, then asks once per member.
     /// A game with no such condition states nothing, which is the default.
     /// </remarks>

@@ -320,7 +320,11 @@ corpse reads as the same kind of target a chest is), and what stopping costs her
 donor's ground table for what a camp eats, its own proximity rule for a party that will not lie down with
 creatures near — a creature on the fight's ally side, whatever made it one (a charm, a binding, a control, or a spell
 that created it), is not one of them (`Actor.cpp:3458-3481`) — an interrupted night that lasts only the hours it lasted, and the day-long debt of sleep
-that weakens the party on the clock's own deadline). Party creation's game definitions are landed too:
+that weakens the party on the clock's own deadline). Completed rest, camp and rented rooms skip dead, petrified
+and eradicated members before filling pools or clearing conditions (`OpenEnroth/src/Engine/Party.cpp:713-715`),
+and the panel names each member and condition left. The living recover and clear unconsciousness, drunkenness,
+fear, sleep and weakness (`:717-721`). Hunger and fatigue use the same `MightAndMagic7Conditions.Weak` identity,
+so recovery and a cure see the condition that provisions applied; a larder left short still settles last. Party creation's game definitions are landed too:
 `MightAndMagic7Creation.Options` offers the four races with their attribute ranges, the eight portraits,
 and the nine base classes with the two skills each fixes, the nine it offers, and the hit and spell
 points it starts with, over a pool of fifty points and two chosen skills per character;
