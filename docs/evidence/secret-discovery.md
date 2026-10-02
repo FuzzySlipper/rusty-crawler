@@ -27,5 +27,24 @@ and a secret fixture whose door event waits until a later ordinary use after res
 and forged saved discoveries refuse by name. Importer checks cover secret-source metadata, deterministic
 secret and container emission and unchanged non-secret placements.
 
-Bounded ordinary live discovery and final integrated verification are pending. Den owns their acceptance.
+The bounded ordinary live check passed on the same imported Manor door. The low party's best acting
+Perception was 1: ordinary DOM Use visibly refused with `secret-not-discovered`, kept the door closed,
+and left Auto Notes empty. With Borin at Perception 10 / Expert 2, the first ordinary Use visibly
+reported discovery with Perception 20 while the door stayed closed; the second visibly opened it.
+The rendered journal's DOM query showed one `Read a secret surface` note. Both parties were grounded
+at the corrected start (1100, -450, 2.13333), facing 1134, and every member stayed at 30/30.
+
+The initial start was beyond the imported floor boundary and both profiles fell below it. That attempt
+established no interaction acceptance. The parent corrected only the new arrival over an existing floor;
+the imported door, event, secret metadata and collision geometry were unchanged. No save, resume,
+debug positioning or targeted-use assistance was used in the successful observer sessions.
+
+Den's terminal observer reading preserves original captures and receipts: low refusal
+`e18a48d3-2058-4817-b15b-6288e3b62142`, high discovery `1f3313a0-4cc9-47c5-9c20-70cf218ca557`,
+and high opening `f52e25f9-ef5b-44db-91f9-2bcddfac2493`. The parent inspected those originals.
+Both sessions stopped with host, browser and lease released; the final pool was empty. Current-save
+reconstruction is covered by the composed checks, not a live save/resume claim.
+
+The full integrated verification passed every suite, import inventory/map decoding/deterministic
+pack write and CoreCLR staging. Den holds its revision and terminal receipt.
 These checks make no rendered-world, broad-traversal, original-save or NativeAOT claim.
