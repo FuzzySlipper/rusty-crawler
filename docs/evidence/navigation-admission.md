@@ -47,3 +47,29 @@ counts do not certify every narrow passage, every pursuit, ordinary traversal,
 NativeAOT or the pending imported-interior browser reading. The operator's local
 gate evidence retains the per-place admission report and original logs; no game
 data is published here.
+
+## Imported interior observation
+
+Owned local browser session `edcfbca8-8828-44ff-8399-5856ed36094a` ran Barrow X
+with its original geometry and placements and a parent-staged healthy party.
+Ordinary movement met a wall and could follow clear detours. Actor 19, a rat,
+changed from waiting at about 876 units to closing at 527 and then 453 units.
+Those distance readings do not locate the rat's route or establish that it went
+around the wall. The product currently presents a DOM panel over an empty world
+frame; this reading therefore remains uncertain for imported around-wall pursuit.
+
+Original capture reconciliation:
+
+| Broker capture | Original browser artifact | Reading |
+| --- | --- | --- |
+| `cec59d1a-8b11-47ef-b952-b68106a3e40b` | `55a25462-1a6f-4bec-8207-ac8506b7b646` | Step 3973, earlier observation |
+| `1268fb3c-8221-4b70-9607-247088db8b90` | `50ee9507-92c1-4dc5-8ae5-464b244113d1` | Subsequent observation |
+| `978fb498-53e5-4923-886c-20898ca76c6a` | `ea85cf71-249c-4263-ab4e-8143ca92f8bc` | Subsequent observation |
+
+The later party pose `(1498.85, -110.55, 80.53)` and blocked-wall reading exist
+in the original observation receipt `20261002T052433.727-observe-1aa1ebe5.json`;
+they must not be attributed to the earlier step-3973 capture. Originals and
+sidecars remain under the operator's local browser and receipt directories for
+this session. The observer stopped its owned host and browser, released its
+slot, and reported zero active sessions. Imported pursuit acceptance remains
+open; these observations add no traversal or NativeAOT certification.
