@@ -14,7 +14,8 @@ namespace PartyRpg.Kit.Progression;
 /// <b>Experience, level, skill points, and rank are written here and nowhere else.</b> Every award — a
 /// creature brought down, a quest finished, an act a ruleset decides is worth something — arrives at
 /// <see cref="Award"/>, every level arrives at <see cref="Train"/>, and every rank arrives at
-/// <see cref="Promote"/>. The members' own progression fields
+/// <see cref="Promote"/> — or, when a game's own program judged its terms, at <see cref="Grant"/>, which makes the
+/// same change after the same judgement of the member. The members' own progression fields
 /// are reachable only from inside the kit, so a second writer is a compile error rather than a review
 /// finding, and <see cref="PartyMember"/> no longer offers a skill-point spend of its own: what spends
 /// points is <see cref="RaiseSkill"/> here, which is also what raises the skill they pay for.
@@ -217,16 +218,21 @@ public sealed class PartyProgression
     /// it paid.
     /// </para>
     /// <para>
+    /// A deed may carry a figure of its own, which is not experience: a game's scripted program that states how far
+    /// it moves the world's opinion names the figure, and the rule reads it under the deed's word like any other.
+    /// </para>
+    /// <para>
     /// A deed the rule makes nothing of is still reported: the world simply did not care, which is an answer.
     /// </para>
     /// </remarks>
     /// <param name="source">The word the deed is credited as, which is what the standing rule reads.</param>
+    /// <param name="figure">A figure the deed states for the rule to read, or zero when it states none.</param>
     /// <returns>What the deed did to the party's standing.</returns>
     /// <exception cref="ArgumentException">The source is blank, which names no deed.</exception>
-    public ProgressionDeedResult Deed(string source)
+    public ProgressionDeedResult Deed(string source, long figure = 0)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(source);
-        ProgressionStanding standing = ApplyStanding(ProgressionEventKind.Deed, source, 0);
+        ProgressionStanding standing = ApplyStanding(ProgressionEventKind.Deed, source, figure);
         ProgressionDeedResult result = new(source, standing);
         LastDeed = result;
         Stamp = ChangeStamp.Next();
@@ -581,31 +587,7 @@ public sealed class PartyProgression
     /// <returns>Who rose and what they met, who could not and what was missing, or why nobody did.</returns>
     public PromotionResult Promote(string promotion, string giver = "")
     {
-        if (_promotions is null)
-        {
-            return RecordPromotion(PromotionResult.Refused(
-                promotion ?? string.Empty,
-                fromClass: string.Empty,
-                toClass: string.Empty,
-                rank: 0,
-                choice: string.Empty,
-                new Refusal(
-                    ProgressionCodes.PromotionPolicyMissing,
-                    "This session's ruleset states no ladder of ranks, so nothing says which class leads to which, or what a rank asks for.")));
-        }
-
-        if (_promotions.Ladder.Rank(promotion) is not { } rank)
-        {
-            return RecordPromotion(PromotionResult.Refused(
-                promotion ?? string.Empty,
-                fromClass: string.Empty,
-                toClass: string.Empty,
-                rank: 0,
-                choice: string.Empty,
-                new Refusal(
-                    ProgressionCodes.PromotionUnknown,
-                    $"This game's ladder of ranks carries no '{promotion}', so there is no rank to be given.")));
-        }
+        if (Find(promotion, out PromotionResult? unknown) is not { } rank) return RecordPromotion(unknown!);
 
         List<PartyMember> candidates = [];
         List<PromotionDenial> denied = [];
@@ -620,18 +602,9 @@ public sealed class PartyProgression
             // the rank the promotion reaches is the other case — the class a rank names may not have been
             // taken yet, which is what a character holding a rank without holding one of its classes is —
             // and taking the rank is what names the class, so their rank is left where it is.
-            if (member.Progression.ClassRank < rank.Rank - 1)
+            if (Short(member, rank) is { } shortOf)
             {
-                denied.Add(new PromotionDenial(
-                    member.Id,
-                    member.Profile.Name,
-                    member.Profile.Class.Value,
-                    member.Progression.ClassRank,
-                    [
-                        string.Create(
-                            CultureInfo.InvariantCulture,
-                            $"the rank of {rank.To}, which continues from rank {rank.Rank - 1} of {rank.From} and not from rank {member.Progression.ClassRank}"),
-                    ]));
+                denied.Add(new PromotionDenial(member.Id, member.Profile.Name, member.Profile.Class.Value, member.Progression.ClassRank, [shortOf]));
             }
         }
 
@@ -655,7 +628,7 @@ public sealed class PartyProgression
         List<PromotionGrant> granted = [];
         foreach (PartyMember member in candidates)
         {
-            if (member.Progression.ClassRank < rank.Rank - 1) continue;
+            if (Short(member, rank) is not null) continue;
             List<string> met = [];
             List<string> missing = [];
             foreach (PromotionRequirementVerdict verdict in verdicts)
@@ -669,28 +642,7 @@ public sealed class PartyProgression
                 continue;
             }
 
-            string fromClass = member.Profile.Class.Value;
-            int fromRank = member.Progression.ClassRank;
-
-            // The two moves are one act: a member's class and rank are read together by every ceiling, every
-            // growth table, and every class condition, so a promotion that moved one of them would leave a
-            // character whose abilities and whose name disagree. The rank reached is the higher of the two,
-            // so a member who already stood at it — the one whose class had not been named yet — is given the
-            // class rather than quietly demoted.
-            int reached = Math.Max(member.Progression.ClassRank, rank.Rank);
-            member.Progression.SetClassRank(reached);
-            member.Profile.ChangeClass(rank.To);
-
-            // The record the rank leaves is the party's own carried state, so it survives a save with the rest
-            // of them and a later rank can ask for it. A rank that already left its record keeps the one it
-            // has rather than being written twice.
-            if (rank.Award.Length > 0)
-            {
-                EffectId award = new(rank.Award);
-                _party.Records.Mark(award.Value);
-            }
-
-            granted.Add(new PromotionGrant(member.Id, member.Profile.Name, fromClass, fromRank, rank.To.Value, reached, rank.Choice, met));
+            granted.Add(Rise(member, rank, met));
         }
 
         if (granted.Count == 0)
@@ -723,6 +675,137 @@ public sealed class PartyProgression
             granted,
             denied,
             Refusal: null));
+    }
+
+    /// <summary>
+    /// Gives one rank of this game's ladder to one member, on terms a game's own program has already judged.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The same rank, the same writer, another judge.</b> A game whose promoter answers a rank with a scripted
+    /// program — check what the party brought, say so, then raise each member of the class one by one — judges the
+    /// rank's terms itself, so the requirements the ladder states are not asked again here: asking them twice is two
+    /// judges that could disagree, and the program's own is the one the person's words follow. What is judged here is
+    /// what makes the change a rank at all, and it is judged as <see cref="Promote"/> judges it, in the one place both
+    /// read: the member stands in the class the rank promotes from, at the rank it continues from. The change itself —
+    /// class and rank together, and the record the rank leaves — is the one <see cref="Promote"/> makes.
+    /// </para>
+    /// <para>
+    /// The result is reported as <see cref="LastPromotion"/>, as a rank taken from a person is, so a panel reads either
+    /// the same way.
+    /// </para>
+    /// </remarks>
+    /// <param name="promotion">The rank's identity in this game's ladder.</param>
+    /// <param name="member">The member the program raises.</param>
+    /// <returns>The member who rose, or why they did not.</returns>
+    public PromotionResult Grant(string promotion, PartyMemberId member)
+    {
+        if (Find(promotion, out PromotionResult? unknown) is not { } rank) return RecordPromotion(unknown!);
+        PartyMember character = _party.Member(member);
+        if (Grantable(character, rank) is { } refusal)
+        {
+            return RecordPromotion(new PromotionResult(
+                rank.Id,
+                rank.From.Value,
+                rank.To.Value,
+                rank.Rank,
+                rank.Choice,
+                [],
+                [new PromotionDenial(character.Id, character.Profile.Name, character.Profile.Class.Value, character.Progression.ClassRank, [refusal.Message])],
+                refusal));
+        }
+
+        return RecordPromotion(new PromotionResult(rank.Id, rank.From.Value, rank.To.Value, rank.Rank, rank.Choice, [Rise(character, rank, [])], [], Refusal: null));
+    }
+
+    /// <summary>Why one member cannot be given a rank of the ladder by a program, or null when they can.</summary>
+    /// <remarks>
+    /// The judgement <see cref="Grant"/> makes before it moves anything, offered on its own so a program that judges
+    /// every step before it settles any can ask it at the step that names the rank.
+    /// </remarks>
+    /// <param name="promotion">The rank's identity in this game's ladder.</param>
+    /// <param name="member">The member the program would raise.</param>
+    /// <returns>The refusal, or null when the rank can be given.</returns>
+    public Refusal? JudgeGrant(string promotion, PartyMemberId member) =>
+        Find(promotion, out PromotionResult? unknown) is { } rank ? Grantable(_party.Member(member), rank) : unknown!.Refusal;
+
+    /// <summary>The rank a promotion names, or null with the result that says why there is none.</summary>
+    private PromotionRank? Find(string promotion, out PromotionResult? refused)
+    {
+        refused = null;
+        if (_promotions is null)
+        {
+            refused = PromotionResult.Refused(
+                promotion ?? string.Empty,
+                fromClass: string.Empty,
+                toClass: string.Empty,
+                rank: 0,
+                choice: string.Empty,
+                new Refusal(
+                    ProgressionCodes.PromotionPolicyMissing,
+                    "This session's ruleset states no ladder of ranks, so nothing says which class leads to which, or what a rank asks for."));
+            return null;
+        }
+
+        if (_promotions.Ladder.Rank(promotion) is { } rank) return rank;
+        refused = PromotionResult.Refused(
+            promotion ?? string.Empty,
+            fromClass: string.Empty,
+            toClass: string.Empty,
+            rank: 0,
+            choice: string.Empty,
+            new Refusal(
+                ProgressionCodes.PromotionUnknown,
+                $"This game's ladder of ranks carries no '{promotion}', so there is no rank to be given."));
+        return null;
+    }
+
+    /// <summary>Why one member cannot take a rank whatever it asks for, or null when they stand where it is given.</summary>
+    private static Refusal? Grantable(PartyMember member, PromotionRank rank)
+    {
+        if (!string.Equals(member.Profile.Class.Value, rank.From.Value, StringComparison.Ordinal))
+        {
+            return new Refusal(
+                ProgressionCodes.PromotionClassAbsent,
+                $"{member.Profile.Name} is a {member.Profile.Class}, and the rank of {rank.To} is given to a {rank.From}.");
+        }
+
+        return Short(member, rank) is { } shortOf
+            ? new Refusal(ProgressionCodes.PromotionRequirementsUnmet, $"{member.Profile.Name} is missing {shortOf}, so it was not given.")
+            : null;
+    }
+
+    /// <summary>
+    /// What a member of the class a rank promotes from is missing by where they stand, or null when they stand where it
+    /// continues from: the one judgement of a member that every way into a rank reads, and where a rule about who may
+    /// rise at all belongs.
+    /// </summary>
+    private static string? Short(PartyMember member, PromotionRank rank) =>
+        member.Progression.ClassRank < rank.Rank - 1
+            ? string.Create(
+                CultureInfo.InvariantCulture,
+                $"the rank of {rank.To}, which continues from rank {rank.Rank - 1} of {rank.From} and not from rank {member.Progression.ClassRank}")
+            : null;
+
+    /// <summary>Moves one member into a rank: the class and the rank together, and the record the rank leaves.</summary>
+    private PromotionGrant Rise(PartyMember member, PromotionRank rank, IReadOnlyList<string> met)
+    {
+        string fromClass = member.Profile.Class.Value;
+        int fromRank = member.Progression.ClassRank;
+
+        // The two moves are one act: a member's class and rank are read together by every ceiling, every
+        // growth table, and every class condition, so a promotion that moved one of them would leave a
+        // character whose abilities and whose name disagree. The rank reached is the higher of the two,
+        // so a member who already stood at it — the one whose class had not been named yet — is given the
+        // class rather than quietly demoted.
+        int reached = Math.Max(member.Progression.ClassRank, rank.Rank);
+        member.Progression.SetClassRank(reached);
+        member.Profile.ChangeClass(rank.To);
+
+        // The record the rank leaves is the party's own carried state, so it survives a save with the rest
+        // of them and a later rank can ask for it; a rank that already left its record keeps the one it has.
+        if (rank.Award.Length > 0) _party.Records.Mark(rank.Award);
+        return new PromotionGrant(member.Id, member.Profile.Name, fromClass, fromRank, rank.To.Value, reached, rank.Choice, met);
     }
 
     /// <summary>

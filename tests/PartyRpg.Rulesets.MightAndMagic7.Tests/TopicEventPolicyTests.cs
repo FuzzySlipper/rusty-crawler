@@ -82,7 +82,8 @@ public sealed partial class FixturePolicyTests
         MightAndMagic7MapEvents events = MightAndMagic7MapEvents.Read(catalog);
         PlaceGraph graph = MightAndMagic7World.Graph(catalog);
         GameClock clock = TestClock.Create(scale: 1);
-        MightAndMagic7Spells spells = MightAndMagic7Spells.Read(catalog, MightAndMagic7Skills.Read(catalog, MightAndMagic7Promotions.Read(catalog)))!;
+        MightAndMagic7Promotions promotions = MightAndMagic7Promotions.Read(catalog);
+        MightAndMagic7Spells spells = MightAndMagic7Spells.Read(catalog, MightAndMagic7Skills.Read(catalog, promotions))!;
         KeyedTestRandom random = new();
         MightAndMagic7Loot loot = MightAndMagic7Loot.Compose(catalog, random);
         MightAndMagic7Fixtures? fixtures = null;
@@ -93,7 +94,7 @@ public sealed partial class FixturePolicyTests
         foreach (MapEvent spoken in events.GlobalEvents.Where(candidate => candidate.Topic).OrderBy(candidate => candidate.Id))
         {
             using PartyEntity party = Party();
-            PartyProgression progression = new(MightAndMagic7Progression.Instance, party);
+            PartyProgression progression = new(MightAndMagic7Progression.Instance, party, promotions: promotions);
             PartyJournal journal = new(new MightAndMagic7Journal(loot), clock);
             fixtures = new MightAndMagic7Fixtures(
                 events,
@@ -136,19 +137,14 @@ public sealed partial class FixturePolicyTests
 
         // The figures the ruleset README states for the operator's install: what a fresh party's choice of each topic
         // reaches. The three moves are the world's own: the crossing to Harmondale (link 68) and the temples' (69, 70).
-        Assert.Equal(342, applied);
+        Assert.Equal(351, applied);
         Assert.Equal(3, travelled);
+        // What still stops a fresh party is a hireling (#8514) and the two counted deeds two ranks ask for (#8689).
         string[] stated =
         [
-            "a creature flag 0x10000 this game does not read: 1",
             "arena-wins-knight: 1",
-            "bank-gold: 2",
             "bounties: 1",
-            "class: 2",
-            "food: 1",
             "hireling: 12",
-            "npc-set-item: 2",
-            "reputation: 1",
         ];
         Assert.Equal(stated, refused.Select(entry => string.Create(CultureInfo.InvariantCulture, $"{entry.Key}: {entry.Value}")));
     }

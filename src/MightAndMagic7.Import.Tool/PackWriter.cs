@@ -131,7 +131,7 @@ internal static partial class PackWriter
 
         // The global program is what a person's topic runs, normalized into the same steps a place's events are; a
         // topic of an event's number is something its person says even when the topic table names no text for it.
-        GlobalEventSummary globals = GlobalEventEmitter.Emit(programs, tables.People, graph, maps);
+        GlobalEventSummary globals = GlobalEventEmitter.Emit(programs, tables.People, graph, maps, tables.Classes);
 
         // A place's containers are derived from the map faces whose events open them, which is also where
         // its walk-in reaches come from, so an import that decoded no map has neither.

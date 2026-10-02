@@ -135,8 +135,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 
 **Open residue and its receivers** (Den task ids; Den owns their status):
 
-- Stone 3, world: creatures cannot path around a wall because places carry no navigation cells (#8665); some
-  topic events stop at steps not yet interpreted (#9057).
+- Stone 3, world: creatures cannot path around a wall because places carry no navigation cells (#8665); the
+  item a person's own map record carries is not imported (#9087).
 - Stone 5, interaction and services: opened doors and emptied containers are not saved (#8593), and a
   searched chest can be looted twice (#8696); a door's collision, and a face group an event makes passable,
   do not move (#8594); a container above or below the floor cannot be used (#8697); deadlines (fatigue, wards, light, haste) block
@@ -147,8 +147,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   an order commands every member rather than a selected one (#8659).
 - Stone 7, progression and magic: training takes no game time (#8671); the two counted deeds two ranks need
   have no writer (#8689); a laid-out member can be promoted (#8705); item-aimed effects (#8513) and followers
-  (#8514) are "not yet" in `docs/magic-coverage.md`; a promoter offers a rank both as its topic and from the
-  rank ladder (#9058).
+  (#8514) are "not yet" in `docs/magic-coverage.md`.
 - Stone 8, record: an errand's item is protected only from sale (#8687).
 
 When a stone lands or a residue closes, update this section, `README.md`, and the owning project README

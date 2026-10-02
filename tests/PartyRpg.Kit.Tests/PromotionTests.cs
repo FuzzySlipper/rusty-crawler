@@ -79,6 +79,37 @@ public sealed class PromotionTests
     }
 
     [Fact]
+    public void A_rank_a_program_judged_is_granted_to_one_member_through_the_same_change_and_judgement_of_the_member()
+    {
+        using PartyEntity party = PartyOf(Member("Roderick", Recruit), Member("Cass", Recruit), Member("Ann", Sergeant, rank: 1));
+        PartyProgression progression = new(new TestRule(), party, promotions: Ladder());
+
+        // The program judged the rank's terms itself, so none of the ladder's requirements is asked again — no
+        // giver, no token — and only the member it names rises: class and rank together, and the rank's record.
+        Assert.Null(progression.JudgeGrant("recruit-sergeant", party.Members[0].Id));
+        PromotionResult granted = progression.Grant("recruit-sergeant", party.Members[0].Id);
+        Assert.Equal("Roderick", Assert.Single(granted.Granted).Name);
+        Assert.Equal("sergeant", party.Members[0].Profile.Class.Value);
+        Assert.Equal(2, party.Members[0].Progression.ClassRank);
+        Assert.Equal("recruit", party.Members[1].Profile.Class.Value);
+        Assert.True(party.Records.Has("promotion:recruit-sergeant"));
+        Assert.Same(granted, progression.LastPromotion);
+
+        // A member not of the class the rank promotes from — the one just raised, asked again — is refused by name,
+        // and so is one of the class who does not stand at the rank it continues from: the judgement Promote makes.
+        Refusal twice = progression.JudgeGrant("recruit-sergeant", party.Members[0].Id)!;
+        Assert.Equal("promotion-class-absent", twice.Code);
+        PromotionResult again = progression.Grant("recruit-sergeant", party.Members[0].Id);
+        Assert.False(again.IsGranted);
+        Assert.Equal(2, party.Members[0].Progression.ClassRank);
+        PromotionResult short_ = progression.Grant("sergeant-captain", party.Members[2].Id);
+        Assert.Equal("promotion-requirements-unmet", short_.Refusal!.Code);
+        Assert.Contains("continues from rank 2", short_.Refusal.Message, StringComparison.Ordinal);
+        Assert.Equal("sergeant", party.Members[2].Profile.Class.Value);
+        Assert.Equal("promotion-unknown", progression.Grant("sergeant-fish", party.Members[2].Id).Refusal!.Code);
+    }
+
+    [Fact]
     public void Every_unmet_requirement_is_named_and_a_rank_is_given_once_all_are_met()
     {
         using PartyEntity party = PartyOf(Member("Roderick", Recruit));

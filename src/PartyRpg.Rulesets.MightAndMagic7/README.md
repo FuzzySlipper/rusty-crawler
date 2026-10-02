@@ -379,9 +379,18 @@ state rather than refused. What each errand asks is approximated: the deeds are 
 which this build does not run, so all but one are judged by standing in the place the shipped words name and
 one by a kill (`MightAndMagic7Quests`, each row stating why). `PartyProgression.Promote` is the one writer: it judges every
 requirement before anything moves, refuses with what is missing named, and moves the class and the rank
-together, so the ceiling, the growth table, and every class condition read one fact. A person the ladder names
-as a giver offers the ranks they give through the conversation that already exists, and taking one hands the
-party to that owner through the promotion handoff; the ceiling a class and rank impose now answers with the
+together, so the ceiling, the growth table, and every class condition read one fact. **A promoter's rank is
+their topic** (#9058): the global program answers every one of the 27 ranks with the promoter's own events — an
+errand topic, then a turn-in whose event checks what the party brought, says the shipped words, and makes each
+member of the class the next one (`set class`, named by the class table's row) — so where the program makes a
+character the class a rank names (`MightAndMagic7MapEvents.Grants`), that topic is the one offer of the rank and
+the ladder's own is not made. The run gives the rank through `PartyProgression.Grant`, the ladder's rank from
+the member's class to the one named, judged before anything settles (`JudgeGrant`: of the class, at the rank it
+continues from — the one place a rule about who may rise belongs, #8705), so the class, the rank, the
+`promotion:<rank>` record and the light or dark alternative move as every promotion's do, and the ladder's
+requirements are not asked a second time. The ladder's own offer is what a promoter whose world carries no such
+program says: a person the ladder names as a giver offers the ranks they give through the conversation that
+already exists, and taking one hands the party to that owner through the promotion handoff; the ceiling a class and rank impose now answers with the
 path when a class's own choice closed a school, so a lesson, a book, and a casting are each refused with the
 alternative named (`skill-closed-by-path`); and `PromotionSnapshot` publishes the ladder and what each rank
 did, member by member, for the panel. What the shipped data carries, what this game authors, and the live
@@ -588,7 +597,15 @@ raising the attribute and a stone skin leave, which the attribute's and the armo
 `fixture.bonus-hours` — the donor keeps them until a rest), `resistance` (the member's stored base, for good),
 `item-equipped` (whether a chosen character wears the item, `OpenEnroth/src/Engine/Objects/Character.cpp:3981-3982`),
 `skill-points` and `experience` (a gift to the chosen character through `PartyProgression.Gift`), `bank-gold`
-(compared with the party's one bank holding), `counter` (set to now and compared by hours since,
+(the party's one bank holding: compared, added to, taken from only when it covers the figure, and set,
+`OpenEnroth/src/Engine/Objects/Character.cpp:3960-3961`, `:4968-4970`, `:5660-5664`, `:4384-4386`), `reputation` (the
+donor's reputation of the place, sign-flipped — a lower figure is better — and bounded at ten thousand either way,
+`Character.cpp:3952-3954`, `:4378-4382`, `:4962-4966`, `:5654-5658`: read through `MightAndMagic7Standing.AfterEventStep`
+into this game's one reputation and moved by the one owner of it, `PartyProgression.Deed` under `event-step` with the
+move as its figure, so a promoter's "subtract five" raises the party's standing five; one number for
+every place is ours), `food` (the larder: compared, found, eaten never below none, and set, `Character.cpp:3663-3664`,
+`:4748-4752`, `:5243-5246`, `:4121-4124`), `class` (equality with the chosen member's class, and a `set` is a rank of
+the ladder given through `PartyProgression.Grant`, below), `counter` (set to now and compared by hours since,
 `OpenEnroth/src/Engine/Objects/Character.cpp:3934-3951` — the donor's ten are the party's, this build keeps them
 per place as `counter:<n>`, which only one place's events use: approximate), `age` (the character's age offset
 through `Rejuvenate` and `Age`), `major-condition` (a `set` clears every condition), `gold` `set` (a find or a
@@ -620,7 +637,22 @@ because the population is rebuilt on entry (ours). `toggle-actor-group-flag` wit
 `hostile-group:<n>` = 1 (or 0 to clear it) in the place's values, and the fight reads it in the creature's — or a
 person's — own nature as hostile at the longest band (`OpenEnroth/src/Engine/Objects/Actor.cpp:2155-2156`); a
 charm or a binding still outranks it and an invisible party is still not noticed; it is saved with the place and forgotten when the clock restores
-it, as the donor's map delta is; any other bit is refused by name. `compare` of `invisible` holds while the party
+it, as the donor's map delta is. With the hiding bit `0x10000` (`ActorEnums.h:106`, the one a map's own record holds a
+creature hidden by) it keeps `hidden-group:<n>` = 1 to hide the group or 0 to show it again
+(`Actor.cpp:3823-3851`): the population asks `MightAndMagic7Spawns.Stands` each time it populates the place, through
+the kit's `IPlacementExpansion.Stands`, so a creature of a hidden group is not created and a record the level holds
+hidden stands once its group is shown; a group hidden while the party is there leaves the field at once, and one shown
+again stands the next time the place is populated (ours: a creature put on the field mid-visit is a summoning, which a
+save refuses, #8658). No shipped creature or person carries the two groups the one shipped step names (33 and 34), and
+no shipped hidden record has a group, so in play the step changes nothing a party sees. Any other bit is refused by
+name. `npc-set-item` (`EvtInterpreter.cpp:538-539`, `Actor.cpp:139-165`) gives a person an item to carry or takes it
+back, as the party record `person-item:<person>:<item>` (`MightAndMagic7PersonState`, judged on load): a thief's hand
+finds it first (`Character.cpp:1254-1260`, `MightAndMagic7Theft`) and a fallen person's body gives it up
+(`Actor.cpp:3519-3529`, `MightAndMagic7Corpses`); ours: the packs carry no item a person's own map record names, so a
+take of one changes nothing, and the donor's three slots are not counted. A person a map's own record holds hidden
+(`"hidden": true`, the one shipped one Castle Harmondale's NPC row 56, which the donor keeps `Disabled` in an
+interior, `Indoor.cpp:979-998`) is read by the same `Stands`: they are not created and the conversation answers
+nobody at their placement, until an event shows their group — which, with no group, nothing does. `compare` of `invisible` holds while the party
 carries the invisibility spell's party-wide effect, whatever the value (`OpenEnroth/src/Engine/Objects/Character.cpp:3979-3980`:
 faithful) — the alarm plates skip their call to the guards for an invisible party — and of `alert` holds when the
 value is zero: the donor compares the map's alert status for equality (`Character.cpp:3956-3958`), reads it only from
@@ -663,10 +695,9 @@ states none is offered; a comparison of a variable this game does not interpret 
 A regular run passes over the offer steps, as the donor's does. A run that meets a step this game does not
 interpret settles nothing and the person still says what the run had said (the topic table's own text when it had
 said nothing), with the refusal as the residue. Over the operator's install, a fresh party choosing each of the 365
-topic-raised events once has 342 run — 3 of them taking the party along a world-issued link: the crossing to
-Harmondale (68) and the temples' (69, 70) — and 23 stop at a named step: `hireling` 12 (#8514), `class` 2,
-`bank-gold` 2, `npc-set-item` 2, `reputation` 1, `food` 1, `bounties` 1, `arena-wins-knight` 1, and a creature flag
-`0x10000` 1; the ruleset suite counts it. **What is ours**: the donor offers at most four scripted topics at once (`NPCTopics.cpp:603`), this build
+topic-raised events once has 351 run — 3 of them taking the party along a world-issued link: the crossing to
+Harmondale (68) and the temples' (69, 70) — and 14 stop at a named step: `hireling` 12 (#8514) and the two counted
+deeds two ranks ask for, `bounties` 1 and `arena-wins-knight` 1 (#8689); the ruleset suite counts it. **What is ours**: the donor offers at most four scripted topics at once (`NPCTopics.cpp:603`), this build
 every one its check allows; a topic said once is withheld for the rest of the conversation, as every topic is.
 Fidelity per system — what matches
 the original, what is approximate, and what is deliberately ours — is fixed in

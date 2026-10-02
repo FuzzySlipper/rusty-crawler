@@ -10,6 +10,7 @@ using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Loot;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Progression;
+using PartyRpg.Kit.Promotion;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
@@ -174,6 +175,17 @@ internal sealed class MightAndMagic7Fixtures
     /// (OpenEnroth <c>src/Engine/Objects/ActorEnums.h:109</c>), the only one this game's events toggle.
     /// </summary>
     internal const long AggressorFlag = 0x0008_0000;
+
+    /// <summary>
+    /// The creature attribute a group flag step sets to hide a group, and clears to show it again: the donor's
+    /// <c>ACTOR_UNKNOW11</c> (OpenEnroth <c>src/Engine/Objects/ActorEnums.h:106</c>), the bit a map's own record holds a
+    /// creature hidden by (<c>src/Engine/Objects/Actor.cpp:3823-3851</c>, MMExtension <c>Scripts/Core/ConstAndBits.lua:125</c>
+    /// names it <c>Invisible</c>).
+    /// </summary>
+    internal const long HiddenFlag = 0x0001_0000;
+
+    /// <summary>The prefix of the name a place keeps whether its events hid one of its groups of creatures under.</summary>
+    internal const string HiddenGroupPrefix = "hidden-group:";
 
     /// <summary>The face bit that hides a face group, which is all a player would see change (<c>src/Engine/Graphics/FaceEnums.h:21</c>).</summary>
     private const long InvisibleFaceBit = 0x0000_2000;
@@ -556,6 +568,16 @@ internal sealed class MightAndMagic7Fixtures
             return value is 0 or 1 ? null : "a group is hostile (1) or not (0)";
         }
 
+        if (key.StartsWith(HiddenGroupPrefix, StringComparison.Ordinal))
+        {
+            if (!int.TryParse(key.AsSpan(HiddenGroupPrefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out int group) || group == 0)
+            {
+                return "a group a place's events hide is named by its number, which is not zero";
+            }
+
+            return value is 0 or 1 ? null : "a group is hidden (1) or shown (0)";
+        }
+
         if (key.StartsWith(CounterPrefix, StringComparison.Ordinal))
         {
             if (!int.TryParse(key.AsSpan(CounterPrefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out int counter) || counter >= Counters)
@@ -780,6 +802,19 @@ internal sealed class MightAndMagic7Fixtures
     internal static string HostileGroupKey(int group) =>
         string.Create(CultureInfo.InvariantCulture, $"{HostileGroupPrefix}{group}");
 
+    /// <summary>The name a place keeps whether its events hid one of its groups under.</summary>
+    internal static string HiddenGroupKey(int group) =>
+        string.Create(CultureInfo.InvariantCulture, $"{HiddenGroupPrefix}{group}");
+
+    /// <summary>
+    /// Whether a place's own events left one of its groups hidden (true) or shown again (false), or null when they never
+    /// touched it and the records say.
+    /// </summary>
+    /// <param name="values">The values the place keeps.</param>
+    /// <param name="group">The group, which zero never is.</param>
+    internal static bool? IsGroupHidden(IReadOnlyDictionary<string, long> values, int group) =>
+        group != 0 && values.TryGetValue(HiddenGroupKey(group), out long hidden) ? hidden > 0 : null;
+
     /// <summary>Whether a place's own events left one of its groups of creatures hostile, read from the values it keeps.</summary>
     /// <param name="values">The values the place keeps.</param>
     /// <param name="group">The group, which zero never is.</param>
@@ -864,6 +899,11 @@ internal sealed class MightAndMagic7Fixtures
         private readonly SortedDictionary<string, long> _kept = new(StringComparer.Ordinal);
         private readonly Dictionary<PlacementContentId, string> _changes = [];
         private readonly List<string> _residue = [];
+        private readonly Dictionary<int, string> _classes = [];
+        private Refusal? _refused;
+        private int? _bank;
+        private int? _reputation;
+        private int? _food;
         private ConversationSubject? _speaks;
         private bool _opens;
         private InteractionTravel? _travels;
@@ -1008,6 +1048,9 @@ internal sealed class MightAndMagic7Fixtures
                         break;
                     case "set-npc-greeting":
                         if (Greet(mapEvent, current) is { } refusedGreeting) return refusedGreeting;
+                        break;
+                    case "npc-set-item":
+                        if (Hand(mapEvent, current) is { } refusedItem) return refusedItem;
                         break;
                     case "speak-in-house" when Houses is { } houses:
                         // The house opens and the run goes on, as the donor's does (src/Engine/Evt/EvtInterpreter.cpp:189-198).
@@ -1203,6 +1246,34 @@ internal sealed class MightAndMagic7Fixtures
             return null;
         }
 
+        /// <summary>Collects an item given to a person to carry, or taken from them, which the party's records keep.</summary>
+        /// <remarks>
+        /// The donor gives it to, or takes it from, every creature standing for the person (OpenEnroth
+        /// <c>src/Engine/Objects/Actor.cpp:139-165</c>); here it is the person's, read by a theft and by their body
+        /// (<see cref="MightAndMagic7PersonState"/>).
+        /// </remarks>
+        private Refusal? Hand(MapEvent mapEvent, MapEventStep step)
+        {
+            if (Party is not { } party) return NoParty(mapEvent, step);
+            string id = string.Create(CultureInfo.InvariantCulture, $"npc-{step.Person}");
+            if (_rules._people(id) is null)
+            {
+                return new Refusal(
+                    MightAndMagic7Codes.FixturePersonUnknown,
+                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs {mapEvent.Name}, whose step {step.Step} hands an item to or from person {step.Person}, and the loaded people table holds nobody of that id: nothing was changed."));
+            }
+
+            if (step.Item <= 0) return NotInterpreted(_target, mapEvent, step, "an item step that names no item");
+            int item = step.Item;
+            bool give = step.On;
+            _effects.Add(() =>
+            {
+                if (give) MightAndMagic7PersonState.Give(party.Records, id, item);
+                else MightAndMagic7PersonState.Take(party.Records, id, item);
+            });
+            return null;
+        }
+
         /// <summary>Judges a move: the journey it names, which ends the run, or why it cannot be made.</summary>
         /// <remarks>
         /// The link is the importer's reading of the instruction — the place graph's own entry for it — and the place
@@ -1313,7 +1384,15 @@ internal sealed class MightAndMagic7Fixtures
                     return (Carried(party, step.Value) > 0, null);
                 case "bank-gold":
                     // The party's one balance, which every bank keeps (MightAndMagic7Services.BankHolding).
-                    return (party.Holdings.BalanceOf(MightAndMagic7Services.BankHolding) >= step.Value, null);
+                    return (Bank(party) >= step.Value, null);
+
+                // The place's reputation in the donor's sign, which this game's one reputation is read through.
+                case "reputation":
+                    return (MightAndMagic7Standing.HoldsEventComparison(step.Value, Reputation(party)), null);
+
+                // The larder, at least the figure (OpenEnroth src/Engine/Objects/Character.cpp:3663-3664).
+                case "food":
+                    return (Food(party) >= step.Value, null);
                 case "counter":
                 {
                     // A counter holds when it was set and the stated hours have passed since (OpenEnroth
@@ -1364,6 +1443,10 @@ internal sealed class MightAndMagic7Fixtures
 
                 // Whether the character wears the item, in any slot (OpenEnroth src/Engine/Objects/Character.cpp:3981-3982).
                 "item-equipped" => (member, _) => Wears(member, step.Value) ? 1 : 0,
+
+                // Whether the character is of the class the step names — equality, not at least (OpenEnroth
+                // src/Engine/Objects/Character.cpp:3618-3619) — as the run has left it.
+                "class" when step.Which.Length > 0 => (member, index) => string.Equals(ClassOf(member, index), step.Which, StringComparison.Ordinal) ? 1 : 0,
                 _ => null,
             };
             if (read is null) return (false, VariableNotInterpreted(_target, mapEvent, step));
@@ -1374,7 +1457,7 @@ internal sealed class MightAndMagic7Fixtures
 
                 // A condition compares whether it is held rather than how much of it: the donor's comparison
                 // of one is a test of the bit (OpenEnroth src/Engine/Objects/Character.cpp:3826-3859).
-                bool holds = step.Variable is "condition" or "item-equipped" ? value > 0 : value >= step.Value;
+                bool holds = step.Variable is "condition" or "item-equipped" or "class" ? value > 0 : value >= step.Value;
                 if (holds) return (true, null);
             }
 
@@ -1446,7 +1529,65 @@ internal sealed class MightAndMagic7Fixtures
                 }
 
                 case ("bank-gold", _):
-                    return VariableNotInterpreted(_target, mapEvent, step);
+                {
+                    // The party's one balance: an addition adds, a subtraction the balance cannot cover takes nothing,
+                    // and a set states it (OpenEnroth src/Engine/Objects/Character.cpp:4968-4970, :5660-5664,
+                    // :4384-4386). Made once, as every write to what the party holds once is.
+                    int held = Bank(party);
+                    int after = op switch
+                    {
+                        "add" => (int)Math.Min(int.MaxValue, (long)held + Math.Max(0, step.Value)),
+                        "subtract" => step.Value > held ? held : held - Math.Max(0, step.Value),
+                        _ => Math.Max(0, step.Value),
+                    };
+                    if (after == held) return null;
+                    _bank = after;
+                    _effects.Add(() => party.Holdings.Hold(MightAndMagic7Services.BankHolding, after));
+                    _done.Add(string.Create(CultureInfo.InvariantCulture, $"the bank now keeps {after} gold for the party."));
+                    return null;
+                }
+
+                case ("reputation", _):
+                {
+                    // The world's opinion, moved through this game's one reading of an event's figure and told to the
+                    // one owner that moves it, as a deed whose figure is the move.
+                    if (_rules._progression() is not { } progression)
+                    {
+                        return VariableNotInterpreted(_target, mapEvent, step, "a change of the world's opinion in a session that keeps no progression owner to move it through");
+                    }
+
+                    int before = Reputation(party);
+                    int after = MightAndMagic7Standing.AfterEventStep(op, step.Value, before);
+                    if (after == before) return null;
+                    _reputation = after;
+                    _effects.Add(() => progression.Deed(MightAndMagic7Standing.EventStepSource, after - before));
+                    return null;
+                }
+
+                case ("food", _):
+                {
+                    // The larder: an addition finds food, a subtraction eats it and never below none, a set states it
+                    // (OpenEnroth src/Engine/Objects/Character.cpp:4748-4752, :5243-5246, :4121-4124).
+                    int held = Food(party);
+                    int after = op switch
+                    {
+                        "add" => (int)Math.Min(int.MaxValue, (long)held + Math.Max(0, step.Value)),
+                        "subtract" => Math.Max(0, held - step.Value),
+                        _ => Math.Max(0, step.Value),
+                    };
+                    if (after == held) return null;
+                    _food = after;
+                    _effects.Add(() =>
+                    {
+                        int now = party.Food.Portions;
+                        if (after > now) party.Food.Credit(after - now);
+                        else party.Food.TryDebit(now - after);
+                    });
+                    _done.Add(after > held
+                        ? string.Create(CultureInfo.InvariantCulture, $"the party finds {after - held} food.")
+                        : string.Create(CultureInfo.InvariantCulture, $"the party's food falls to {after}."));
+                    return null;
+                }
                 case ("counter", _):
                     // Any write to a counter sets it to now (OpenEnroth src/Engine/Objects/Character.cpp:4365-4376).
                     if (step.Index is < 0 or >= Counters) return VariableNotInterpreted(_target, mapEvent, step);
@@ -1599,6 +1740,7 @@ internal sealed class MightAndMagic7Fixtures
                     });
                     _done.Add(op == "set" && years == 0 ? $"{member.Profile.Name} is young again." : $"{member.Profile.Name} ages.");
                 },
+                ("class", "set") when step.Which.Length > 0 => (member, index) => Promote(mapEvent, step, member, index),
                 ("major-condition", "set") => (member, _) =>
                 {
                     // Setting the worst condition clears every condition (OpenEnroth src/Engine/Objects/Character.cpp:4346-4349).
@@ -1620,9 +1762,71 @@ internal sealed class MightAndMagic7Fixtures
                 _ => null,
             };
             if (write is null) return VariableNotInterpreted(_target, mapEvent, step);
-            foreach (int index in who) write(party.Members[index], index);
+            foreach (int index in who)
+            {
+                write(party.Members[index], index);
+                if (_refused is { } refused) return refused;
+            }
+
             return null;
         }
+
+        /// <summary>The class a member stands in as the run has left it.</summary>
+        private string ClassOf(PartyMember member, int index) =>
+            _classes.TryGetValue(index, out string? changed) ? changed : member.Profile.Class.Value;
+
+        /// <summary>
+        /// Collects a step making a member the class it names: the rank of this game's ladder that leads there, given
+        /// through the one writer of ranks on the terms the program has judged.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The donor writes the class number and nothing else (OpenEnroth <c>src/Engine/Objects/Character.cpp:4028-4029</c>);
+        /// the shipped programs write it only in a promoter's own events, each raising every member of the class it
+        /// promotes from after the event's own checks of what the party brought. Here the change is the ladder's rank
+        /// from the member's class to the one named (<see cref="MightAndMagic7Promotions"/>), given through
+        /// <see cref="PartyProgression.Grant"/>, so the class, the rank and the record a rank leaves move together as
+        /// every promotion's do, the light or dark alternative is the rank the class names, and whether the member may
+        /// rise at all is judged in the one place every rank is. A change the ladder states no rank for, or one the
+        /// member cannot take, refuses the run before anything is settled; a member already of the class is left as
+        /// they are.
+        /// </para>
+        /// <para>
+        /// <b>Ours.</b> The donor's own side effect of making somebody a Lich — filling the empty lich jar they carry
+        /// (<c>Character.cpp:4030-4036</c>) — is not kept: a jar here is what the rank's errand brings back, not an item
+        /// the class fills.
+        /// </para>
+        /// </remarks>
+        private void Promote(MapEvent mapEvent, MapEventStep step, PartyMember member, int index)
+        {
+            string from = ClassOf(member, index);
+            if (string.Equals(from, step.Which, StringComparison.Ordinal)) return;
+            if (_rules._progression() is not { Promotions: { } ladder } progression)
+            {
+                _refused = VariableNotInterpreted(_target, mapEvent, step, "a change of class in a session that keeps no ladder of ranks to make it through");
+                return;
+            }
+
+            PromotionRank? rank = ladder.Ladder.From(new ClassId(from)).FirstOrDefault(candidate => string.Equals(candidate.To.Value, step.Which, StringComparison.Ordinal));
+            if (rank is null)
+            {
+                _refused = NotInterpreted(_target, mapEvent, step, $"a change of {member.Profile.Name}'s class from {from} to {step.Which}, which this game's ladder states no rank for");
+                return;
+            }
+
+            if (progression.JudgeGrant(rank.Id, member.Id) is { } refusal)
+            {
+                _refused = new Refusal(
+                    refusal.Code,
+                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs {mapEvent.Name}, whose step {step.Step} makes {member.Profile.Name} a {step.Which}: {refusal.Message} Nothing was changed."));
+                return;
+            }
+
+            _classes[index] = step.Which;
+            _effects.Add(() => progression.Grant(rank.Id, member.Id));
+            _done.Add($"{member.Profile.Name} is now a {step.Which}.");
+        }
+
 
         /// <summary>Collects the note a step writes.</summary>
         private Refusal? Learn(MapEvent mapEvent, MapEventStep step)
@@ -1912,16 +2116,32 @@ internal sealed class MightAndMagic7Fixtures
             return null;
         }
 
-        /// <summary>Collects a group of the place's creatures turned hostile, or made peaceful again, which the place keeps.</summary>
+        /// <summary>
+        /// Collects a group of the place's creatures turned hostile or made peaceful again, or hidden or shown again, which
+        /// the place keeps.
+        /// </summary>
         /// <remarks>
+        /// <para>
         /// The donor sets the aggressor bit on every actor of the group (OpenEnroth <c>src/Engine/Objects/Actor.cpp:3823-3851</c>),
         /// which makes it the party's enemy at the longest band (<c>Actor.cpp:2155-2156</c>) and is saved with the map.
         /// Here the place keeps it under <c>hostile-group:</c> and the group, the fight reads it in the creature's own
         /// nature (<see cref="MightAndMagic7Combat"/>), and the clock's restoring the place forgets it as the donor's
         /// re-read delta does; a group of zero is the donor's "no group" and changes nothing.
+        /// </para>
+        /// <para>
+        /// The donor's other bit an event sets on a group is the one a map's own record holds a creature hidden by
+        /// (<see cref="HiddenFlag"/>): setting it takes the group off the field and clearing it stands the group again
+        /// (<c>Actor.cpp:3823-3851</c>). The place keeps it under <c>hidden-group:</c> and the group, which the
+        /// population reads when the place is populated (<see cref="MightAndMagic7Spawns.Stands"/>) — so a group shown
+        /// again stands even where its records say the level holds it hidden — and a group hidden while the party stands
+        /// in the place leaves the field at once. <b>Ours</b>: a group shown again while the party is there stands the
+        /// next time the place is populated rather than at once, because a creature put on the field during a visit is a
+        /// summoning, which a save refuses (#8658).
+        /// </para>
         /// </remarks>
         private Refusal? GroupFlag(MapEvent mapEvent, MapEventStep step)
         {
+            if (step.Flag == HiddenFlag) return HideGroup(mapEvent, step);
             if (step.Flag != AggressorFlag)
             {
                 return NotInterpreted(_target, mapEvent, step, string.Create(CultureInfo.InvariantCulture, $"a creature flag 0x{step.Flag:X} this game does not read"));
@@ -1932,6 +2152,28 @@ internal sealed class MightAndMagic7Fixtures
             bool was = Kept(key) is > 0;
             Keep(key, step.On ? 1 : 0);
             if (was != step.On) _done.Add(step.On ? "The creatures here turn on the party." : "The creatures here are calm again.");
+            return null;
+        }
+
+        /// <summary>Collects a group of the place's creatures hidden, or shown again, which the place keeps.</summary>
+        private Refusal? HideGroup(MapEvent mapEvent, MapEventStep step)
+        {
+            if (step.Group == 0) return null;
+            string key = HiddenGroupKey(step.Group);
+            bool was = Kept(key) is > 0;
+            Keep(key, step.On ? 1 : 0);
+            if (!step.On || was) return null;
+            PlaceId place = mapEvent.Global ? _context.Place : mapEvent.Place;
+            if (_rules._population(place) is not { } population) return null;
+            int group = step.Group;
+            _effects.Add(() =>
+            {
+                foreach (PlacePopulationEntity entity in population.Entities.ToArray())
+                {
+                    if (MightAndMagic7Spawns.GroupOf(entity.Placement) == group) population.Dismiss(entity);
+                }
+            });
+            _done.Add("The creatures here are gone from sight.");
             return null;
         }
 
@@ -2014,6 +2256,15 @@ internal sealed class MightAndMagic7Fixtures
             string id = item.ToString(CultureInfo.InvariantCulture);
             return party.Inventory.TotalOf(new ItemDefinitionId(id)) + _carried.GetValueOrDefault(id);
         }
+
+        /// <summary>The bank's balance as the run has left it.</summary>
+        private int Bank(PartyEntity party) => _bank ?? party.Holdings.BalanceOf(MightAndMagic7Services.BankHolding);
+
+        /// <summary>The party's reputation as the run has left it, in this game's sign.</summary>
+        private int Reputation(PartyEntity party) => _reputation ?? party.Reputation.Reputation;
+
+        /// <summary>The larder as the run has left it.</summary>
+        private int Food(PartyEntity party) => _food ?? party.Food.Portions;
 
         /// <summary>A member's value as the run has left it, or as the member holds it when the run has not written it.</summary>
         private int Member(int index, string key, int held, int change = 0)

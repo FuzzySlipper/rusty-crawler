@@ -633,6 +633,10 @@ internal static partial class PackWriter
                     // which carry the aggressor bit, and the kind it says it counts as when it names one.
                     field.WriteNumber("attributes", person.Attributes);
                     if (person.HostilityGroup != 0) field.WriteNumber("hostilityGroup", person.HostilityGroup);
+
+                    // A person the level holds hidden is written as a creature's record is, and the ruleset decides
+                    // that they do not stand.
+                    if (person.Hidden) field.WriteBoolean("hidden", true);
                     WritePeople(field, [person.PersonId]);
                 }));
         }

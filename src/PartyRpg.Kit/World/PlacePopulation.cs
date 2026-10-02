@@ -43,6 +43,7 @@ public sealed class PlacePopulation : IDisposable
     private readonly PlacePopulationContent _content;
     private readonly PlaceStateLedger _places;
     private readonly IPlacementComposer? _composer;
+    private readonly IPlacementExpansion? _expansion;
     private PlacePopulationEntity[] _live = [];
     private readonly Dictionary<EntityId, long> _lasting = [];
     private bool _disposed;
@@ -68,6 +69,7 @@ public sealed class PlacePopulation : IDisposable
         IPlacementExpansion? expansion = null)
     {
         _composer = composer;
+        _expansion = expansion;
         ArgumentNullException.ThrowIfNull(places);
         ArgumentNullException.ThrowIfNull(states);
         _places = states;
@@ -273,6 +275,8 @@ public sealed class PlacePopulation : IDisposable
         List<PlacePopulationEntity> live = [];
         foreach (PlacementDefinition placement in _content.PlacementsOf(place))
         {
+            // What the game keeps for the place can hold a placement off the field this visit.
+            if (_expansion?.Stands(place, placement) == false) continue;
             EntityId id = _entities.Create(new EntityTypeId(placement.Content.Kind), EntityLifecycle.Active);
             Actor actor = new(_entities, id);
 

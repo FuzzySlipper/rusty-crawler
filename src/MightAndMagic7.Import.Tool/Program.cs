@@ -474,6 +474,7 @@ internal static class Program
         scripted = people.ScriptedCount,
         standingInTheOpen = people.PlacementCount,
         distinctPeopleInTheOpen = people.PlacedPersonCount,
+        peopleHeldHidden = people.HiddenPlacementCount,
         inBuildings = people.ResidentCount,
         buildingsWithPeople = people.HouseholdCount,
         reachedBuildings = people.ReachableHouseholdCount,

@@ -345,6 +345,15 @@ internal sealed class MightAndMagic7Theft
                 return Lifted(lifted, null, $"{name} lifts {lifted.ToString(CultureInfo.InvariantCulture)} coin(s) unseen.");
             }
         }
+        else if (found >= ThingFrom && found < CoinFrom && Handed(request.Party, person) is { } handed)
+        {
+            // What an event gave the person to carry is what a hand finds first (OpenEnroth
+            // src/Engine/Objects/Character.cpp:1254-1260), and it is theirs no longer.
+            MightAndMagic7PersonState.Take(request.Party.Records, handed.Person, handed.Item);
+            ItemDefinitionId thing = new(handed.Item.ToString(CultureInfo.InvariantCulture));
+            string label = _loot?.NameOf(thing) ?? thing.Value;
+            return Lifted(0, [thing], $"{name} lifts {label} unseen.");
+        }
         else if (found >= ThingFrom && found < CoinFrom && purse.Items.Count > 0)
         {
             ItemDefinitionId thing = purse.Items[0];
@@ -390,6 +399,21 @@ internal sealed class MightAndMagic7Theft
             RollSeed,
             RollScope,
             string.Create(CultureInfo.InvariantCulture, $"{what}/{now}/{_draws}"));
+    }
+
+    /// <summary>The first item an event gave one of the people a placement stands for, with whose it is, or null.</summary>
+    /// <param name="party">The party, whose records keep what events gave whom (<see cref="MightAndMagic7PersonState"/>).</param>
+    /// <param name="person">The person's placement.</param>
+    internal static (string Person, int Item)? Handed(PartyEntity party, PlacementDefinition person)
+    {
+        ArgumentNullException.ThrowIfNull(party);
+        ArgumentNullException.ThrowIfNull(person);
+        foreach (string id in MightAndMagic7Conversation.PeopleOf(person))
+        {
+            if (MightAndMagic7PersonState.Carried(party.Records, id) is [var first, ..]) return (id, first);
+        }
+
+        return null;
     }
 
     /// <summary>What a person carries, drawn the first time a hand reaches for it and remembered after.</summary>

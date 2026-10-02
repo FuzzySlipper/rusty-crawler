@@ -124,6 +124,12 @@ public static class EvtOpcodes
     /// <summary>States, in a person's topic's offer check, whether the topic is offered (OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:166-169</c>).</summary>
     public const byte SetCanShowDialogItem = 46;
 
+    /// <summary>
+    /// Gives an item to, or takes one from, every creature standing for a person (OpenEnroth
+    /// <c>src/Engine/Evt/EvtInterpreter.cpp:538-539</c>, <c>src/Engine/Objects/Actor.cpp:139-165</c>).
+    /// </summary>
+    public const byte NpcSetItem = 49;
+
     /// <summary>Changes the greeting row a person greets the party with (OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:541-545</c>).</summary>
     public const byte SetNpcGreeting = 50;
 

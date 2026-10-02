@@ -15,7 +15,8 @@ Owns:
   ruleset that reads the creature's own row), the training step a counter
   settles through that owner, the growth a level gives, and the promotion that
   hands a rank over (`Promotion/` for the ladder and the requirements it asks
-  for, `PartyProgression.Promote` for the transition itself).
+  for, `PartyProgression.Promote` for the transition itself, and `PartyProgression.Grant` for a rank a
+  game's own program judged).
 - Magic (`Magic/`): the spell catalog content declares, the one casting workflow — resolve the caster and
   the spell, judge its tier against that character's mastery of its school, resolve the aim, ask the effect
   path whether the casting may go ahead, pay the spell points through the member's own pool, hand the
@@ -223,7 +224,11 @@ promotes from and to, the rank it reaches, the alternative it takes, the record 
 requirement against the party — a giver the party is speaking with, an item the one inventory holds, a
 record the party carries, which is also how a finished errand is asked for, as the record the quest owner
 writes when it is turned in — and moves the class and the rank together, so a ceiling, a
-growth table, and every class condition read one fact rather than three that could drift. `PromotionSnapshot`
+growth table, and every class condition read one fact rather than three that could drift. `Grant` is the
+same move for one member on terms a game's own scripted program has already judged (a promoter's event): it
+asks none of the ladder's requirements again, and judges the member — of the class the rank promotes from, at
+the rank it continues from — in the one place `Promote` judges each member too (`JudgeGrant` answers that
+judgement before a program settles anything). `PromotionSnapshot`
 publishes the ladder a panel shows and the report a rank left: who rose, from which class to which, what
 each of them met, and who it passed over with what they were missing), the skill
 catalog and its ceilings (`Skills/` — `SkillCatalog` is content's own rows as a ruleset reads them, each
@@ -261,7 +266,9 @@ engine events into session commands, the population owner that fills a place fro
 empties it on leaving (a placement that states a request rather than an answer — an encounter asking for some
 creatures of a kind — is resolved by the game's `IPlacementExpansion` while the placements are read, and what it
 answers stands in its stead for every reader; the game must answer the same on every read, which is why it
-draws under a key naming the place and the placement; something a game creates while the party stands there — a
+draws under a key naming the place and the placement; whether each of what a place holds stands this visit is
+asked of the same seam every time the place is populated, `IPlacementExpansion.Stands`, so what a game keeps for the
+place — a group its events hid — can hold a placement off the field; something a game creates while the party stands there — a
 creature a spell calls up or stands back up — is created by the same owner, `PlacePopulation.Summon`, from a
 placement the game states, in the same store and through the same composer, marked `IsSummoned`, ended by
 `Dismiss`, by a length the one clock counts down through `SessionWorld`'s own clock observation (`Elapse`), or
