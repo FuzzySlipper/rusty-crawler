@@ -34,3 +34,10 @@ The subsequent whole `scripts/verify.sh` run passed every step with exit 0,
 including all 21 architecture, 725 Kit, 85 Host, 287 ruleset, 184 importer and
 67 UI tests, the imported-data checks and CoreCLR staging. NativeAOT remained
 outside this run.
+
+The service panel's subsequent full gate also passed every step: 21 architecture,
+726 Kit, 85 Host, 293 ruleset, 184 importer and 68 UI tests, imported inventory
+and maps, deterministic pack write and CoreCLR staging. Its three review lanes
+approved the existing owner and payload paths. The imported-counter panel run
+is recorded in [`service-panel.md`](service-panel.md), including the staging,
+extra lesson purchase and provision wording correction. NativeAOT was not run.

@@ -949,7 +949,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
         if (request.Subject.Offer is not { } provision) return ServiceEligibility.Allowed;
         return request.Party.Food.Portions >= provision.Amount
             ? ServiceEligibility.Refused(
-                new Refusal(MightAndMagic7Codes.ServicePacksFull, $"The party already carries {request.Party.Food.Portions} provisions and {request.Service.Describe()} fills packs to {provision.Amount}."))
+                new Refusal(MightAndMagic7Codes.ServicePacksFull, $"The party already carries {request.Party.Food.Portions} provisions; {request.Service.Describe()} sells {provision.Amount} more only when the party carries fewer than {provision.Amount}."))
             : ServiceEligibility.Allowed;
     }
 
