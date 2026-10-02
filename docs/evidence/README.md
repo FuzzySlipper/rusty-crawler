@@ -11,6 +11,7 @@ What is published here is text only: no game data, no screenshots, no saves, and
 
 | Record | What it shows |
 | --- | --- |
+| [`restart-input.md`](restart-input.md) | Existing ordinary-key retest after a dev-host restart, with fresh-page and systemd limits, and the documented Engine input fallback. |
 | [`sewer-arrival.md`](sewer-arrival.md) | Reconciles the earlier successful signed sewer-arrival retest with a later real callback fault whose host log names the update, exception and origin. |
 | [`elevation-reach.md`](elevation-reach.md) | Ordinary floor-level use of an elevated imported Manor chest, plus a visible ordinary-use refusal for a genuinely visible target beyond unchanged reach. |
 | [`house-ground.md`](house-ground.md) | Grounded camps on grass and road with different provision costs, followed by ordinary access to an imported town house refused before opening and admitted at its opening time. |

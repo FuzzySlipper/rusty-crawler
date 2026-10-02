@@ -128,6 +128,20 @@ service's game list is edited.
   (or `playtest.look`), walk, re-read. At 60 steps a second a held `W` walks about 382 units a second and a
   held `Q`/`E` turns about 512 facing units a second (2048 to a turn). `movement.blocked` tells a blocked
   direction from an input that never arrived, which the panel cannot.
+- **After a host restart, read the new binding.** The [restart reading](evidence/restart-input.md)
+  records held W working on a fresh page after restarting `rusty dev`; it does not replay the original
+  systemd-unit restart or certify an old page. Replaced runtime bindings and their input sequences cannot
+  be reused. First attach a fresh session, focus the play area and compare `playtest.observe` before/after.
+- **Direct-intent diagnostic fallback.** The original restart failure was worked around by posting the
+  product's declared intent to the Engine input lane, one claim per admitted update. `sequence` is a
+  canonical decimal **string**, obtained from the current binding/claim's `nextInputSequence`; it increases
+  within that binding. An active digital intent claim is one update, not a held key. For example, the
+  claim within a `batch` names `context: "gameplay.default"`, `intent: "party.move-forward"`, and
+  `value: {"kind":"digital","active":true}`. Use the current Engine `control/claim` and `control/release`
+  procedure described above, retaining the binding returned by the claim. Never reuse the old runtime or
+  steal another session's claim. Record queued/admitted/product-observed results and the before/after pose.
+  This is a diagnostic fallback, not proof that browser keys work; prefer ordinary keys for visible
+  acceptance. The historical direct claims succeeded; no new current-pair fallback run is claimed here.
 - **Read the panel's rows, not a screenshot, for exact words**: `inspect` returns each matched element's
   `innerText`; `.crawler-session dt` / `dd` give the facts in order, `.crawler-use-result` and
   `.crawler-use-residue` the last use's sentence and residue, and the panel's `data-*` attributes and its
