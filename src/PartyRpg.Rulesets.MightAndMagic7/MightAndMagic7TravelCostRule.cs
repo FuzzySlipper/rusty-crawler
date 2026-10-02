@@ -101,10 +101,8 @@ internal sealed class MightAndMagic7TravelCostRule : ITravelCostRule
     /// is honoured at today's length rather than refused for naming an old one.
     /// </para>
     /// <para>
-    /// <b>The ticket is torn when the journey is quoted.</b> A transition path quotes exactly once per
-    /// journey — the executive asks the rule and then resolves the arrival — so this is the boarding. A
-    /// request that contradicts the world throws before the rule is consulted at all, so a fare is never
-    /// spent on a journey nobody could take.
+    /// <b>A quote leaves the ticket intact.</b> The session tears it through <see cref="Arrived"/> only
+    /// after the destination and its ground admit the party, so a refused journey can be retried.
     /// </para>
     /// </remarks>
     private TravelCostQuote Board(TransitionRequest request)
@@ -131,10 +129,15 @@ internal sealed class MightAndMagic7TravelCostRule : ITravelCostRule
                 $"A seat to {destination} by {route} is bought at a stable or a dock and the party holds no such passage; buying one at the counter is what pays for the journey."));
         }
 
-        _party.Passages.Spend(destination);
         return TravelCostQuote.Payable(new TravelCost(
             new TravelTime(days, TravelTimeUnit.Days),
             Provisions.None));
+    }
+
+    /// <inheritdoc />
+    public void Arrived(TransitionRequest request)
+    {
+        if (request.Kind == TransitionKind.PaidService) _party!.Passages.Spend(request.Transition.To);
     }
 }
 

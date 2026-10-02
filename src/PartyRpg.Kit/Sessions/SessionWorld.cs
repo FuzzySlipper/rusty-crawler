@@ -25,6 +25,7 @@ namespace PartyRpg.Kit.Sessions;
 public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionWorld, IRestSite, ICombatWorld
 {
     private readonly TransitionExecutive _transitions;
+    private readonly ITravelCostRule _costRule;
     private readonly IDisposable? _clockSubscription;
     private readonly IFallRule? _falls;
     private readonly IGroundHazardRule? _hazards;
@@ -139,6 +140,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         ArgumentNullException.ThrowIfNull(party);
         ArgumentNullException.ThrowIfNull(places);
         _transitions = new TransitionExecutive(costRule);
+        _costRule = costRule;
         // A world handed a clock but no separate day source reads its days from that same clock: in a
         // product they are one object, and a second source here would be a second answer to what day it is.
         _time = time ?? clock;
@@ -450,7 +452,8 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     public TransitionResult Travel(PlaceTransition transition, TransitionKind kind)
     {
         ArgumentNullException.ThrowIfNull(transition);
-        TransitionResult result = _transitions.Take(new TransitionRequest(Graph, transition, kind, Party.Place, Party.PlacePose));
+        TransitionRequest request = new(Graph, transition, kind, Party.Place, Party.PlacePose);
+        TransitionResult result = _transitions.Take(request);
         if (!result.Arrived) return result;
 
         // An arrival the place will not admit is a refusal, not a half-done move: the party stays put and
@@ -484,6 +487,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
                 $"The engine would not admit the ground of {result.Place}, so the party stayed where it stood: {error.Message}"));
         }
 
+        _costRule.Arrived(request);
         Charge(result.ChargedCost);
         Places.MarkVisited(result.Place);
         return result;

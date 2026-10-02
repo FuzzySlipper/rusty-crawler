@@ -168,7 +168,8 @@ goes), uses that placement through the one interaction workflow (`PartyInteracti
 `InteractionVerb.Tread` and which the reticle never offers) and takes the journey its outcome names; a crossing taken
 that way is charged on arrival, its quoted time to the session's one clock and its quoted provisions
 to the party's larder through the ledger's one path, exactly once, and a refused transition is charged
-nothing; a crossing a counter sells names only the `route` it runs on — authored as a travel link, or
+nothing; the cost rule's `Quote` reads without spending and `Arrived` settles any rule-owned cost only
+after destination and ground admission; a crossing a counter sells names only the `route` it runs on — authored as a travel link, or
 answered by the game's `IFareNetwork` over the places read, which is how a ruleset decides a counter's
 destinations — and how many days it takes is the game's `IFareDurationRule`, asked by `PlaceGraphLoader` once
 per sold crossing; a passage the party holds names the place and the route, never the days, and boarding

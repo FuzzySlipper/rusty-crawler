@@ -130,7 +130,7 @@ public sealed class TravelPolicyTests
             "travel-fare-unpaid",
             rule.Quote(new TransitionRequest(graph, road, TransitionKind.PaidService, Home, PlacePose.Origin)).Refusal!.Code);
 
-        // The passage on the coach to the place the road reaches is what pays, and boarding spends it: the
+        // The passage on the coach to the place the road reaches is what pays. Quoting preserves it: the
         // journey quotes the coach's days under the tuning loaded, eats no provisions because the fare included
         // them, and leaves the party holding no ticket for the journey back.
         party.Passages.Hold(road.To, MightAndMagic7FareDays.CoachRoute);
@@ -138,7 +138,7 @@ public sealed class TravelPolicyTests
         Assert.Null(boarded.Refusal);
         Assert.Equal(new TravelTime((int)MightAndMagic7Tuning.CoachDays.Default, TravelTimeUnit.Days), boarded.Cost.Time);
         Assert.True(boarded.Cost.Food.IsNone);
-        Assert.False(party.Passages.Holds(road.To));
+        Assert.True(party.Passages.Holds(road.To));
 
         // A crossing no counter sells is not a bought journey at all, whatever kind of travel names it.
         PlaceTransition walked = Assert.Single(graph.TransitionsFrom(Home), transition => !transition.IsFare);
@@ -197,6 +197,60 @@ public sealed class TravelPolicyTests
         Assert.Equal("travel-fare-unpaid", again.Refusal!.Code);
         Assert.Equal(days, clock.ElapsedGameDays);
         Assert.Equal(Home, world.Place);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_refused_paid_arrival_preserves_the_ticket_and_accounts_and_can_be_retried(bool groundRefuses)
+    {
+        ContentCatalog catalog = Catalog(Stabled(PartyDocument(food: 6)));
+        PlaceGraph graph = MightAndMagic7World.Graph(catalog);
+        PlaceId destination = new("2");
+        using PartyEntity party = MightAndMagic7Party.Compose(catalog)!;
+        party.Passages.Hold(destination, MightAndMagic7FareDays.CoachRoute);
+        PartyResourceLedger accounts = new(party, provisioning: new MightAndMagic7Provisions());
+        GameClock clock = TestClock.Create();
+        bool poseRefuses = !groundRefuses;
+        PartyPoseOwner owner = new(
+            new PartyPose(Home, PlacePose.Origin),
+            new FacingRule(unitsPerTurn: 2048, minimumPitch: -512, maximumPitch: 512),
+            (PlaceId place, PlacePose pose, out PlacePose adjusted) =>
+            {
+                adjusted = pose;
+                return place != destination || !poseRefuses;
+            });
+        RecordingMover mover = RecordingMover.Standing(owner);
+        mover.Refuses = groundRefuses ? destination : null;
+        using SessionWorld world = new(
+            graph, owner, new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()),
+            new MightAndMagic7TravelCostRule(party), mover: mover, clock: clock,
+            resources: accounts, partyEntity: party);
+        PartyPose before = owner.Capture();
+        long coins = party.Purse.Coins;
+
+        TransitionResult refused = world.Board(destination);
+
+        Assert.False(refused.Arrived);
+        Assert.Equal(groundRefuses ? TravelCodes.PlaceGroundRefused : TravelCodes.PlaceRefusedArrival, refused.Refusal!.Code);
+        Assert.Equal(before, owner.Capture());
+        Assert.Equal(MightAndMagic7FareDays.CoachRoute, party.Passages.RouteTo(destination));
+        Assert.Equal(0, clock.ElapsedGameDays);
+        Assert.Equal(6, party.Food.Portions);
+        Assert.Equal(coins, party.Purse.Coins);
+
+        poseRefuses = false;
+        mover.Refuses = null;
+        Assert.True(world.Board(destination).Arrived);
+        Assert.Equal(destination, owner.Place);
+        Assert.False(party.Passages.Holds(destination));
+        Assert.Equal((int)MightAndMagic7Tuning.CoachDays.Default, clock.ElapsedGameDays);
+        Assert.Equal(6, party.Food.Portions);
+        Assert.Equal(coins, party.Purse.Coins);
+
+        world.ArriveAt(Home, PlacePose.Origin);
+        Assert.Equal(MightAndMagic7Codes.TravelFareUnpaid, world.Board(destination).Refusal!.Code);
+        Assert.Equal((int)MightAndMagic7Tuning.CoachDays.Default, clock.ElapsedGameDays);
     }
 
     [Fact]
