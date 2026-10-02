@@ -40,7 +40,7 @@ namespace PartyRpg.Kit.Combat;
 /// by <see cref="ICombatRule"/>.
 /// </para>
 /// </remarks>
-public sealed class CombatState : IGameTimeObserver
+public sealed partial class CombatState : IGameTimeObserver
 {
     private readonly ICombatRule _rule;
     private readonly ICombatResolutionRule? _resolution;
@@ -91,6 +91,8 @@ public sealed class CombatState : IGameTimeObserver
         IDiagnosticsService? diagnostics = null)
     {
         ArgumentNullException.ThrowIfNull(rules);
+        _saving = rules.Saving;
+        _corpses = rules.Corpses;
         _rule = rules.Rule ?? throw new ArgumentNullException(nameof(rules));
         _resolution = rules.Resolution;
         _abilities = rules.Abilities;

@@ -47,8 +47,8 @@ Owns:
   body the fight laid stood back up in its place when its row's level is within the caster's reach, with at
   most ten hit points a level of that reach (`CastSpellInfo.cpp:2613-2662`). Both carry who made them, which
   the fight reads as the ally side; both are worth no experience and drop nothing; a raised body leaves the
-  corpse ground with what it held; and a save taken while one stands is refused by name, because the schema
-  carries no population (#8658). The same reanimation aimed at a dead member (the row's aim names an actor of
+  corpse ground with what it held; the current save carries their issued placement identities, caster, row,
+  changed health and effects, and remaining lifetime, rebuilding them through the same population composer. The same reanimation aimed at a dead member (the row's aim names an actor of
   either side) raises them as a zombie (`MightAndMagic7Undeath`, `OpenEnroth/src/Engine/Spells/CastSpellInfo.cpp:2632-2640`,
   `OpenEnroth/src/Engine/Objects/Character.cpp:485-505`): the member's own `Zombie` condition, which a save carries with the rest, every other
   condition ended, health filled and spell points emptied; the zombie acts, a heal stops at half its maximum
@@ -391,7 +391,13 @@ resumed in before anything is built — naming every problem at once rather than
 `MightAndMagic7Ruleset.Save` writes the live session and `MightAndMagic7Ruleset.ResumeSession` composes the
 same session a new game composes over the same content and hands it the save, so the party, its items,
 equipment and portraits, the clock, the place and pose, and what each place remembers come from the save
-while everything transient is composed fresh. The clock also carries the original due moments for sleep,
+while everything transient is composed fresh. The resident fight carries creature content identities and row kinds,
+actual poses, health, recovery, provocation, creature effects, created origins and lifetimes, corpses with their
+already-rolled yields and search incarnations, attack cursor and turn-based bookkeeping. Its load judge checks
+content kinds, identities and recovery against the existing combat/spell policies before restoring any owner;
+legitimate additive stun debt is bounded by elapsed game time and the roster's possible casts rather than one
+ordinary attack. A party record issues created-creature identities across saves for spells and event ambushes.
+The clock also carries the original due moments for sleep,
 party and member spell effects, and visited shelf restocks. Load judges sleep and restock repeat intervals
 against the existing rest and service policy and refuses a timed spell effect without its end. The lazy
 spell-effect owner is composed over the restored party before it receives those deadlines. The
@@ -616,8 +622,8 @@ exactly the mastery, `OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:517-524`); `s
 place's encounter slot the step names, resolved as a spawn record's are — the slot's grade odds and range unless the
 step fixes a grade or states a count — at the step's point within the donor's summoning radius and in its group,
 `OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:77-99`, put into the place's live population through
-`PlacePopulation.Summon` when the run is applied; they stand for the visit, so a save taken while one stands is
-refused as one beside a summoned elemental is, #8658; they face the place's zero rather than the party and carry their
+`PlacePopulation.Summon` when the run is applied; they stand for the visit, including a saved and resumed visit,
+with their drawn rows and issued identities carried rather than rolled again; they face the place's zero rather than the party and carry their
 row's name rather than the unique name the step gives: approximate); `move-to-map` to another place ends
 the run with the journey in the outcome (`InteractionOutcome.Travels`: the transition the step's `link` names, which
 the place must issue or the use is refused as `fixture-travel-unknown`, as `walking` or `entrance`), and the world takes
@@ -706,8 +712,8 @@ creature hidden by) it keeps `hidden-group:<n>` = 1 to hide the group or 0 to sh
 (`Actor.cpp:3823-3851`): the population asks `MightAndMagic7Spawns.Stands` each time it populates the place, through
 the kit's `IPlacementExpansion.Stands`, so a creature of a hidden group is not created and a record the level holds
 hidden stands once its group is shown; a group hidden while the party is there leaves the field at once, and one shown
-again stands the next time the place is populated (ours: a creature put on the field mid-visit is a summoning, which a
-save refuses, #8658). No shipped creature or person carries the two groups the one shipped step names (33 and 34), and
+again stands the next time the place is populated (ours). A resumed visit keeps its actual creature set;
+a subsequent visit reads the saved hiding values when it populates. No shipped creature or person carries the two groups the one shipped step names (33 and 34), and
 no shipped hidden record has a group, so in play the step changes nothing a party sees. Any other bit is refused by
 name. A person starts with the item their own map record carries (the placement's `carriedItem`, the donor's
 `carriedItemId`, `EntitySnapshots.h:791`; eight shipped people, read by the conversation over every place they stand in);

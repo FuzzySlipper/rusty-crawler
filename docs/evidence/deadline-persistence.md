@@ -81,7 +81,8 @@ the isolated profile PATH after its lease was released.
 
 The complete corrected gate passed all builds, UI 68, inventory and map decoding, deterministic
 operator writes, Architecture 21, Kit 749, Host 85, ruleset 307 and importer 186 tests, with no skips,
-and CoreCLR staging. Three lanes approved the implementation and its test-only supplement. Pending
-fights and creature population keep the separate named refusal routed to #8658. Shelf stock and
+and CoreCLR staging. Three lanes approved the implementation and its test-only supplement. At the time of this reading, pending
+fights and creature population used the separate named refusal routed to #8658; their later save support does
+not broaden this deadline-only live evidence. Shelf stock and
 buy-back lots remain transient: retaining restock deadlines does not carry those contents. This
 reading makes no NativeAOT, broad Manor traversal, graphical-world or original-save compatibility claim.

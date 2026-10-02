@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Time;
 using Rusty.Engine.Entities;
@@ -91,6 +92,13 @@ public sealed class CreatureEffects
             if (left <= 0) _running.RemoveAt(index);
             else _running[index] = running with { Remaining = GameDuration.FromMilliseconds(left) };
         }
+    }
+
+    internal void Restore(IReadOnlyList<CreatureEffectSave> effects)
+    {
+        _running.Clear();
+        foreach (CreatureEffectSave effect in effects)
+            Apply(effect.Effect, effect.Magnitude, GameDuration.FromMilliseconds(effect.RemainingMilliseconds));
     }
 
     /// <summary>Attaches a creature's effects, which happens once, when the creature is placed.</summary>

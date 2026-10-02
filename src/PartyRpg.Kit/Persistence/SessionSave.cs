@@ -42,6 +42,8 @@ namespace PartyRpg.Kit.Persistence;
 /// Scenario flags are the party's own records and travel in its section. What the party did to a place's
 /// doors and containers, the values every target of the place shares, defeated placements, and remaining
 /// personal purses are the world's interaction ledger capture, carried in the world section.
+/// The combat section carries the resident visit's actual creatures, recovery, provocation, effects, created
+/// origins and lifetimes, bodies and held yields, and the one pacing's bookkeeping.
 /// </para>
 /// <para>
 /// <b>What is deliberately absent is as decided as what is here.</b> In-flight movement outcomes, cached
@@ -49,7 +51,7 @@ namespace PartyRpg.Kit.Persistence;
 /// population's runtime entities, engine handles, and every store-local entity identity are transient:
 /// they describe the visit that produced them, and a load rebuilds them from content and from the state
 /// above rather than restoring them. The save carries durable identity only — the member and item
-/// identities the party minted — and never the engine identity of an entity, which is why a restored
+/// identities the party minted and the creatures' content placements — and never the engine identity of an entity, which is why a restored
 /// session's entities are new while the people and the artifacts are the same.
 /// </para>
 /// </remarks>
@@ -62,6 +64,7 @@ public sealed record SessionSave
     /// <param name="quests">Every quest the party has a state about, or null when it has none.</param>
     /// <param name="journal">Every line of the party's own history, or null when it has written none.</param>
     /// <param name="knowledge">Every fact the party has learned, or null when it has learned none.</param>
+    /// <param name="combat">The fight the session was carrying.</param>
     /// <param name="maps">Every place the party holds a map of, or null when it has mapped none.</param>
     /// <exception cref="ArgumentNullException">A section is null, which is not a session a load could rebuild.</exception>
     public SessionSave(
@@ -71,7 +74,8 @@ public sealed record SessionSave
         QuestSave? quests = null,
         JournalSave? journal = null,
         KnowledgeSave? knowledge = null,
-        MapSave? maps = null)
+        MapSave? maps = null,
+        CombatSave? combat = null)
     {
         ArgumentNullException.ThrowIfNull(party);
         ArgumentNullException.ThrowIfNull(clock);
@@ -83,6 +87,7 @@ public sealed record SessionSave
         Journal = journal ?? JournalSave.None;
         Knowledge = knowledge ?? KnowledgeSave.None;
         Maps = maps ?? MapSave.None;
+        Combat = combat ?? CombatSave.None;
     }
 
     /// <summary>The party, its items, its accounts, and its identity cursors.</summary>
@@ -105,6 +110,9 @@ public sealed record SessionSave
 
     /// <summary>Every place the party holds a map of, which is empty for a party that has mapped none.</summary>
     public MapSave Maps { get; }
+
+    /// <summary>The resident fight and both of its pacings.</summary>
+    public CombatSave Combat { get; }
 
     /// <summary>
     /// Reads a live session into the current schema, without writing anything anywhere.
@@ -137,38 +145,6 @@ public sealed record SessionSave
                 missing);
         }
 
-        // The schema carries no fight, so a save taken while one has left state behind — a debt of recovery,
-        // a creature provoked or wounded, a round in progress — would load with that state silently gone. It is
-        // refused by name instead, and a save once the fight is over succeeds.
-        //
-        // What a spell created in the place — a creature called up, a body stood back up — is the same kind of
-        // state: the schema carries no population, so the place would load as content states it and the creature
-        // would be gone. A creature standing with the party is refused by name on the same terms (#8658 holds
-        // carrying a fight and what stands in it); one already brought down is a body, which no save carries.
-        List<SaveProblem> problems = [];
-        if (session.Combat?.UnsavedFight() is { } fight)
-        {
-            problems.AddRange(fight.Select(left => new SaveProblem(
-                SaveCodes.SaveFightUnsaved,
-                left.Subject,
-                $"the fight has {left.Phrase}, which a save cannot carry yet")));
-        }
-
-        int summoned = place.Population.Entities.Count(entity =>
-            entity.IsSummoned && entity.IsAlive && CreatureHealth.Find(entity.Actor) is not { IsDown: true });
-        if (summoned > 0)
-        {
-            problems.Add(new SaveProblem(
-                SaveCodes.SaveFightUnsaved,
-                "summoned",
-                $"the place has {summoned} creature(s) a spell created standing in it, which a save cannot carry yet"));
-        }
-
-        if (problems.Count > 0)
-        {
-            throw new SessionSaveException($"The session cannot be saved during a fight: {string.Join("; ", problems)}.", problems);
-        }
-
         // The quest owner is absent from a session that holds one for no party and from one whose ruleset
         // stated no quests at all: both are a party with no quest state, which is what an empty section
         // records rather than a section nobody filled. The journal and the knowledge beside it are absent on
@@ -181,7 +157,8 @@ public sealed record SessionSave
             session.Quests?.Capture() ?? QuestSave.None,
             session.Journal?.Capture() ?? JournalSave.None,
             session.Knowledge?.Capture() ?? KnowledgeSave.None,
-            session.Maps?.Capture() ?? MapSave.None);
+            session.Maps?.Capture() ?? MapSave.None,
+            session.Combat?.Capture(place.Population) ?? CombatSave.None);
     }
 
     /// <summary>
@@ -224,6 +201,8 @@ public sealed record SessionSave
     /// </param>
     /// <param name="targets">The world's realized placements; defaults to its authored placements.</param>
     /// <param name="targetState">The ruleset's judgement of a target word, death or purse marker.</param>
+    /// <param name="combat">The game's content meaning for a carried fight.</param>
+    /// <param name="createdTarget">Whether a target absent from resident content is a known created identity.</param>
     /// <returns>Every problem found, in the order the document records them.</returns>
     /// <exception cref="ArgumentNullException">The world's places or the party factory are null.</exception>
     public IReadOnlyList<SaveProblem> Problems(
@@ -235,7 +214,9 @@ public sealed record SessionSave
         PlaceValueJudge? kept = null,
         PartyRecordJudge? records = null,
         PlacePopulationContent? targets = null,
-        PlacementStateJudge? targetState = null)
+        PlacementStateJudge? targetState = null,
+        ICombatSaveRule? combat = null,
+        Func<PlaceId, PlacementContentId, bool>? createdTarget = null)
     {
         ArgumentNullException.ThrowIfNull(places);
         ArgumentNullException.ThrowIfNull(parties);
@@ -303,7 +284,7 @@ public sealed record SessionSave
         }
 
         problems.AddRange(PoseProblems(places, admission));
-        problems.AddRange(KeptProblems(places, kept, targets ?? PlacePopulationContent.Read(places), targetState));
+        problems.AddRange(KeptProblems(places, kept, targets ?? PlacePopulationContent.Read(places), targetState, createdTarget));
         problems.AddRange(QuestProblems(places, quests));
 
         // The journal is judged against the clock the save itself recorded, which is the one thing that says
@@ -323,6 +304,7 @@ public sealed record SessionSave
         // on are contradictions rather than rules the product might refuse, and the bound is asked of the
         // owner so the rule that keeps a party's maps finite is stated in one place.
         problems.AddRange(Maps.Problems(places, PartyMaps.MaxPlaces));
+        problems.AddRange(Combat.Problems(World, Party, targets ?? PlacePopulationContent.Read(places), combat, Clock.ElapsedMilliseconds));
         return problems;
     }
 
@@ -396,7 +378,7 @@ public sealed record SessionSave
     /// in one place are contradictions in the kit's own terms; whether a name is one the ruleset writes, and
     /// whether its figure is one its rules could leave, is the ruleset's judge's answer.
     /// </remarks>
-    private IEnumerable<SaveProblem> KeptProblems(PlaceGraph places, PlaceValueJudge? kept, PlacePopulationContent targets, PlacementStateJudge? targetState)
+    private IEnumerable<SaveProblem> KeptProblems(PlaceGraph places, PlaceValueJudge? kept, PlacePopulationContent targets, PlacementStateJudge? targetState, Func<PlaceId, PlacementContentId, bool>? createdTarget)
     {
         HashSet<PlaceId> recorded = [];
         foreach (PlaceInteractionSnapshot place in World.Interaction.Places)
@@ -417,7 +399,7 @@ public sealed record SessionSave
             HashSet<PlacementContentId> changed = [];
             foreach (PlacementStateSnapshot target in place.Targets)
             {
-                string? reason = !known.Contains(target.Target) ? "the place has no such target"
+                string? reason = !known.Contains(target.Target) && createdTarget?.Invoke(place.Place, target.Target) != true ? "the place has no such target"
                     : !changed.Add(target.Target) ? "that target is recorded twice"
                     : string.IsNullOrWhiteSpace(target.State) ? "its state is unnamed"
                     : target.Revision <= 0 ? "its incarnation must be positive for a changed target"

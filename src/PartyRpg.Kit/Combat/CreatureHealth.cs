@@ -68,6 +68,9 @@ public sealed class CreatureHealth
         return standing && IsDown;
     }
 
+    /// <summary>Restores a validated pool without dealing a new wound or reporting another death.</summary>
+    internal void Restore(int current) => Current = current;
+
     /// <summary>Attaches a creature's health, which happens once, when the creature is placed.</summary>
     /// <param name="actor">The creature's entity.</param>
     /// <param name="maximum">What it can take, which is the game's own answer about its row.</param>

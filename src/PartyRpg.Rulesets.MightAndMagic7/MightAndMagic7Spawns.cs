@@ -474,6 +474,22 @@ internal sealed class MightAndMagic7Spawns : IPlacementExpansion
             document.RootElement.Clone());
     }
 
+    /// <summary>Gives a drawn event creature the durable identity issued when its event is applied.</summary>
+    internal static PlacementDefinition CreatedIdentity(PlacementDefinition drawn, string id)
+    {
+        using MemoryStream buffer = new();
+        using (Utf8JsonWriter writer = new(buffer))
+        {
+            writer.WriteStartObject();
+            foreach (JsonProperty property in drawn.Source.Payload.EnumerateObject())
+                if (property.Name == PlacePopulationContent.IdField) writer.WriteString(property.Name, id);
+                else property.WriteTo(writer);
+            writer.WriteEndObject();
+        }
+        using JsonDocument document = JsonDocument.Parse(buffer.ToArray());
+        return PlacePopulationContent.Definition(new PlacementContentId(drawn.Content.Kind, id), document.RootElement.Clone());
+    }
+
     /// <summary>Where one of an encounter's creatures stands: its point for the first, a circle of its radius for the rest.</summary>
     private static (double X, double Y) Spread(EncounterFacts facts, int quantity, int unit)
     {

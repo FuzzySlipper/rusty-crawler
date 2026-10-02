@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Services;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.Content;
@@ -102,8 +103,8 @@ internal static class MightAndMagic7Persistence
     /// is a party record of a changed topic slot naming somebody the content does not carry or a slot nobody has.
     /// </param>
     /// <exception cref="SessionSaveException">The save cannot be resumed; the message names every problem found.</exception>
-    internal static void RequireLoadable(SessionSave save, ContentCatalog? content, MightAndMagic7Quests? quests = null, MightAndMagic7Fixtures? fixtures = null, IPlacementExpansion? expansion = null, IServiceRule? services = null, IRestRule? rest = null) =>
-        RequireLoadable(save, content is null ? PlaceGraph.From([], []) : MightAndMagic7World.Graph(content), content, quests, fixtures, expansion, services, rest);
+    internal static void RequireLoadable(SessionSave save, ContentCatalog? content, MightAndMagic7Quests? quests = null, MightAndMagic7Fixtures? fixtures = null, IPlacementExpansion? expansion = null, IServiceRule? services = null, IRestRule? rest = null, ICombatSaveRule? combat = null) =>
+        RequireLoadable(save, content is null ? PlaceGraph.From([], []) : MightAndMagic7World.Graph(content), content, quests, fixtures, expansion, services, rest, combat);
 
     /// <summary>Judges the same document against an explicitly supplied place graph and composed policy.</summary>
     internal static void RequireLoadable(
@@ -112,7 +113,7 @@ internal static class MightAndMagic7Persistence
         ContentCatalog? content,
         MightAndMagic7Quests? quests = null,
         MightAndMagic7Fixtures? fixtures = null,
-        IPlacementExpansion? expansion = null, IServiceRule? services = null, IRestRule? rest = null)
+        IPlacementExpansion? expansion = null, IServiceRule? services = null, IRestRule? rest = null, ICombatSaveRule? combat = null)
     {
         ArgumentNullException.ThrowIfNull(save);
         ArgumentNullException.ThrowIfNull(places);
@@ -129,7 +130,9 @@ internal static class MightAndMagic7Persistence
             kept: (place, key, value) => judge.Judge(place, key, value, save.Clock.ElapsedMilliseconds),
             records: judge.JudgeRecord,
             targets: PlacePopulationContent.Read(places, expansion ?? MightAndMagic7Spawns.Compose(content, null)),
-            targetState: StateProblem)];
+            targetState: StateProblem,
+            combat: combat ?? MightAndMagic7Combat.Compose(content, null),
+            createdTarget: (place, target) => MightAndMagic7Summons.IsCreatedIdentity(target, save.Party.Records))];
         problems.AddRange(DeadlineProblems(save, services ?? MightAndMagic7Services.Read(content), rest ?? MightAndMagic7Rest.Compose(content, null)));
         if (problems.Count > 0)
         {

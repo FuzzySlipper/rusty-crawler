@@ -9,6 +9,15 @@ namespace PartyRpg.Kit.Persistence;
 /// </remarks>
 public static class SaveCodes
 {
+    /// <summary>The saved fight contradicts its canonical owners.</summary>
+    public const string SaveCombatInvalid = "save-combat-invalid";
+    /// <summary>A saved creature's resident placement cannot be rebuilt.</summary>
+    public const string SaveCreatureMissing = "save-creature-missing";
+    /// <summary>A saved creature's kind contradicts the game's content.</summary>
+    public const string SaveCreatureKindUnknown = "save-creature-kind-unknown";
+    /// <summary>Saved recovery is longer than the game's actions can leave.</summary>
+    public const string SaveCombatRecoveryInvalid = "save-combat-recovery-invalid";
+
     /// <summary>A carried deadline contradicts the clock or its owner.</summary>
     public const string SaveDeadlineInvalid = "save-deadline-invalid";
     /// <summary>A saved placement's state contradicts its place or the game's interpretation.</summary>

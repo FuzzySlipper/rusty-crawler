@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Loot;
 using PartyRpg.Kit.World;
 
@@ -23,8 +24,8 @@ namespace PartyRpg.Kit.Combat;
 /// <para>
 /// <b>A body lasts for the visit.</b> It is an entity the place's population created, and those live exactly
 /// as long as the population does: walking into a place and the clock restoring one both build the population
-/// afresh, and that is when this ground forgets every body it held. Nothing here is durable state: there is
-/// nothing to save that a rebuilt place would not contradict.
+/// afresh, and that is when this ground forgets every body it held. Saving carries the current visit's bodies,
+/// search incarnations and held yields; resuming that visit restores them without reporting a new death or roll.
 /// </para>
 /// </remarks>
 public sealed class CorpseGround
@@ -32,6 +33,22 @@ public sealed class CorpseGround
     private readonly Dictionary<PlaceId, Dictionary<PlacementContentId, Corpse>> _places = [];
     private readonly Dictionary<long, LootYield> _held = [];
     private long _serials;
+
+    /// <summary>The next death will be named after this already-used serial.</summary>
+    internal long Serial => _serials;
+
+    internal void Restore(PlaceId place, long serial, IReadOnlyList<CorpseSave> bodies, IReadOnlyDictionary<PlacementContentId, PlacementDefinition> content)
+    {
+        Repopulated();
+        _serials = serial;
+        foreach (CorpseSave saved in bodies)
+        {
+            Corpse body = new(place, content[saved.Placement] with { Pose = saved.Pose }, saved.Name, saved.Serial);
+            if (!_places.TryGetValue(place, out var held)) _places[place] = held = [];
+            held.Add(body.Content, body);
+            if (saved.Held is { } loot) _held.Add(body.Serial, loot);
+        }
+    }
 
     /// <summary>Lays the body a death left, where the creature fell.</summary>
     /// <param name="death">The death.</param>

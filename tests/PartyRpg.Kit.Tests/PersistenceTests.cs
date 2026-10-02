@@ -717,7 +717,7 @@ public sealed class PersistenceTests
         // compatibility reader could key on. A save is this shape or it is not read at all.
         using JsonDocument document = JsonDocument.Parse(bytes);
         Assert.Equal(
-            ["party", "clock", "world", "quests", "journal", "knowledge", "maps"],
+            ["party", "clock", "world", "quests", "journal", "knowledge", "maps", "combat"],
             document.RootElement.EnumerateObject().Select(property => property.Name));
         Assert.DoesNotContain("version", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("schema", json, StringComparison.OrdinalIgnoreCase);

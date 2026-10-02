@@ -3,6 +3,7 @@ using System.Text.Json;
 using PartyRpg.Kit;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Magic;
+using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
@@ -32,9 +33,8 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// <para>
 /// <b>How long it stays is the spell's.</b> An elemental is given the spell's own length and the population ends it
 /// when the session's one clock has run that long; a raised body has no length in the donor and stands until the
-/// visit ends, when the place's population is rebuilt from content. Neither is carried by a save — the schema
-/// carries no population — so a save taken while one stands is refused by name (#8658 holds carrying a fight and
-/// what stands in it).
+/// visit ends, when the place's population is rebuilt from content. A save carries both through their issued
+/// placement identities and origins, rebuilding them with their changed health, effects and remaining lives.
 /// </para>
 /// </remarks>
 internal sealed class MightAndMagic7Summons
@@ -82,7 +82,24 @@ internal sealed class MightAndMagic7Summons
     private readonly Func<SessionWorld?> _world;
     private readonly Func<MightAndMagic7Combat?> _combat;
     private readonly CorpseGround? _corpses;
-    private long _serial;
+    internal const string IdentityRecord = "created-creature-serial";
+
+    internal static bool IsCreatedIdentity(PlacementContentId content, IReadOnlyList<PartyRecord> records)
+    {
+        if (content.Kind != MightAndMagic7Combat.CreaturePlacementKind || content.Id is null) return false;
+        string? digits = content.Id.StartsWith("summoned-", StringComparison.Ordinal) ? content.Id[9..]
+            : content.Id.StartsWith("raised-", StringComparison.Ordinal) ? content.Id[7..]
+            : content.Id.StartsWith("event-", StringComparison.Ordinal) ? content.Id[6..] : null;
+        return digits is not null && int.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out int serial) &&
+            serial > 0 && serial <= records.FirstOrDefault(r => r.Name == IdentityRecord).Count;
+    }
+
+    internal static int NextIdentity(PartyEntity party)
+    {
+        int serial = checked(party.Records.CountOf(IdentityRecord) + 1);
+        party.Records.Set(IdentityRecord, serial);
+        return serial;
+    }
 
     /// <summary>Creates this game's summoning over the owners it creates into.</summary>
     /// <param name="world">The world the party stands in, whose population creates.</param>
@@ -157,7 +174,7 @@ internal sealed class MightAndMagic7Summons
         double reach = world.Graph.Require(world.Place).Kind == PlaceKind.Interior ? IndoorReach : OutdoorReach;
         PlacePose pose = party with { X = party.X + reach };
         GameDuration lasts = summon.Lasts(level, mastery);
-        string id = string.Create(CultureInfo.InvariantCulture, $"summoned-{++_serial}");
+        string id = string.Create(CultureInfo.InvariantCulture, $"summoned-{NextIdentity(application.Party)}");
         PlacementDefinition placement = Placement(id, row.ToString(CultureInfo.InvariantCulture), monsterName, pose, writer =>
         {
             writer.WriteString(SummonerField, application.Caster.Id.ToString());
@@ -221,7 +238,7 @@ internal sealed class MightAndMagic7Summons
         }
 
         string row = body.Placement.Source.GetId(MightAndMagic7Combat.MonsterField);
-        string id = string.Create(CultureInfo.InvariantCulture, $"raised-{++_serial}");
+        string id = string.Create(CultureInfo.InvariantCulture, $"raised-{NextIdentity(application.Party)}");
         PlacementDefinition placement = Placement(id, row, fallen.Name, body.Pose, writer =>
         {
             writer.WriteString(RaisedByField, application.Caster.Id.ToString());

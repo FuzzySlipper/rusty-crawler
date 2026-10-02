@@ -111,13 +111,15 @@ public sealed record MapRules(IMapRule Rule, IPlaceMapSource Source);
 /// <param name="Journal">The lines the party wrote down.</param>
 /// <param name="Knowledge">What the party had learned.</param>
 /// <param name="Maps">What the party had mapped.</param>
+/// <param name="Combat">The fight to restore into its composed resident owners.</param>
 /// <param name="Clock">The owned schedules to restore after all their owners are composed.</param>
 public sealed record SessionRecords(
     QuestSave? Quests = null,
     JournalSave? Journal = null,
     KnowledgeSave? Knowledge = null,
     MapSave? Maps = null,
-    ClockSave? Clock = null);
+    ClockSave? Clock = null,
+    CombatSave? Combat = null);
 
 /// <summary>
 /// Whether a session plays a party it was handed or creates one: the two shapes a session starts in.

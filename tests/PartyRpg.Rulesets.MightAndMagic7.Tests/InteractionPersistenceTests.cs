@@ -23,6 +23,7 @@ public sealed class InteractionPersistenceTests
         session.Update(RulesetTestContext.Update(1, 1));
         var world = ((MightAndMagic7Session)session).World!;
         var beast = Assert.Single(world.Population.Entities);
+        CreatureHealth.Find(beast.Actor)!.Wound(CreatureHealth.Find(beast.Actor)!.Maximum);
         world.Died(new CreatureDeath(world.Place, beast.Placement, "A beast"));
         Assert.True(world.Interactions.IsDefeated(new("1"), beast.Content));
         MightAndMagic7Ruleset.Instance.Save(session);
@@ -31,7 +32,7 @@ public sealed class InteractionPersistenceTests
         resumed.Start();
         resumed.Update(RulesetTestContext.Update(1, 1));
         var again = ((MightAndMagic7Session)resumed).World!;
-        Assert.Empty(again.Population.Entities);
+        Assert.True(CreatureHealth.Find(Assert.Single(again.Population.Entities).Actor)!.IsDown);
         Assert.True(Assert.Single(MightAndMagic7Fixtures.ActorsOf(again, new("1"))!).Down);
         again.Party.Enter(new("2"), PlacePose.Origin);
         again.Populate();

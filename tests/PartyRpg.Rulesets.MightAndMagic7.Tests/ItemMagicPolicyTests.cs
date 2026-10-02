@@ -173,23 +173,17 @@ public sealed class ItemMagicPolicyTests
     }
 
     [Fact]
-    public void A_save_taken_while_a_fight_has_left_state_is_refused_by_name()
+    public void A_save_taken_while_a_fight_has_left_state_carries_the_fight()
     {
         InMemoryPersistenceService persistence = new();
         (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(persistence, Content());
         using IGameSession session = Casting(context, ui, combat: true);
-        ulong step = 0;
-        session.Update(RulesetTestContext.Update(++step, 1));
-
-        // A shot at the beast provokes it and leaves the shooter recovering, neither of which the save schema
-        // carries: the save is refused naming both rather than written with the fight silently gone.
-        session.Update(RulesetTestContext.Update(++step, 1, RulesetTestContext.Digital(Declared.AttackIntent)));
-        SessionSaveException refused = Assert.Throws<SessionSaveException>(() => MightAndMagic7Ruleset.Instance.Save(session));
-        Assert.Equal(SessionSaveFailure.Refused, refused.Kind);
-        Assert.Contains("during a fight", refused.Message, StringComparison.Ordinal);
-        Assert.Contains(refused.Problems, problem => problem.Code == SaveCodes.SaveFightUnsaved && problem.Subject == "provoked");
-        Assert.Contains(refused.Problems, problem => problem.Code == SaveCodes.SaveFightUnsaved && problem.Subject == "recovery");
-        Assert.Null(persistence.Payload("sessions", "session"));
+        session.Update(RulesetTestContext.Update(1, 1));
+        session.Update(RulesetTestContext.Update(2, 1, RulesetTestContext.Digital(Declared.AttackIntent)));
+        SessionSave saved = MightAndMagic7Ruleset.Instance.Save(session);
+        Assert.Contains(saved.Combat.Creatures, creature => creature.Provoked);
+        Assert.Contains(saved.Combat.Members, member => member.RecoveryMilliseconds > 0);
+        Assert.NotNull(persistence.Payload("sessions", "session"));
     }
 
     [Fact]
@@ -324,7 +318,7 @@ public sealed class ItemMagicPolicyTests
     private static readonly int GameSecondsPerRealSecond = (int)MightAndMagic7Time.Scale.GameSecondsPerRealSecond;
 
     /// <summary>The session this suite plays, over this game's own ruleset and the content it authored.</summary>
-    private static IGameSession Casting(ProductCreateContext context, RecordingUiService ui, bool combat = false)
+    internal static IGameSession Casting(ProductCreateContext context, RecordingUiService ui, bool combat = false)
     {
         IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
             RulesetTestContext.RulesetContext(context, ui, combat: combat) with
@@ -339,7 +333,7 @@ public sealed class ItemMagicPolicyTests
     /// A world, a start, a party, and the three item rows this suite is about: a scroll of fire resistance, the
     /// wand of the same spell, and a trinket that carries nothing.
     /// </summary>
-    private static (string Path, string Text)[] Content() =>
+    internal static (string Path, string Text)[] Content() =>
     [
         RulesetTestContext.Bundle("partyrpg-default", "world"),
         ($"{RulesetTestContext.ContentDirectory}/content-packs/world/pack.json",

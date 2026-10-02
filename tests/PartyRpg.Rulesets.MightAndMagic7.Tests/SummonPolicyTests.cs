@@ -14,8 +14,8 @@ namespace PartyRpg.Rulesets.MightAndMagic7.Tests;
 
 /// <summary>
 /// The spells that create a creature: an elemental called up to stand with the party, and a body stood back up to
-/// fight for it — both created by the world's own population, both on the fight's ally side, and neither carried by
-/// a save.
+/// fight for it — both created by the world's own population, both on the fight's ally side, and both carried by
+/// the current save.
 /// </summary>
 /// <remarks>
 /// Every case casts the shipped spell by its own id through the product's own session and reads the result from the
@@ -24,7 +24,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7.Tests;
 public sealed class SummonPolicyTests
 {
     [Fact]
-    public void An_elemental_stands_with_the_party_for_the_spells_own_length_and_a_save_is_refused_while_it_does()
+    public void An_elemental_stands_with_the_party_for_the_spells_own_length_and_a_save_carries_it()
     {
         InMemoryPersistenceService persistence = new();
         (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(persistence, World(lightTier: 2, beastAt: 9000));
@@ -64,13 +64,21 @@ public sealed class SummonPolicyTests
         Assert.Equal(points, caster.Resources.SpellPoints.Current);
         Assert.DoesNotContain(live.Combat.Engage(), result => result.Initiated?.Target == ally.Id);
 
-        // A save carries no population, so a save taken while it stands is refused by name rather than written with
-        // the elemental silently gone.
-        SessionSaveException unsaved = Assert.Throws<SessionSaveException>(() => MightAndMagic7Ruleset.Instance.Save(session));
-        Assert.Contains(unsaved.Problems, problem => problem.Code == SaveCodes.SaveFightUnsaved && problem.Subject == "summoned");
+        SessionSave saved = MightAndMagic7Ruleset.Instance.Save(session);
+        CreatureCombatSave carried = Assert.Single(saved.Combat.Creatures, creature => creature.Summoned);
+        var (againContext, againUi) = RulesetTestContext.Create(persistence, World(lightTier: 2, beastAt: 9000));
+        using IGameSession again = MightAndMagic7Ruleset.Instance.ResumeSession(RulesetTestContext.RulesetContext(againContext, againUi));
+        again.Start();
+        var loaded = (MightAndMagic7Session)again;
+        PlacePopulationEntity rebuilt = Assert.Single(loaded.World!.Population.Entities, entity => entity.IsSummoned);
+        Assert.Equal(elemental.Content, rebuilt.Content);
+        Assert.Equal(carried.RemainingMilliseconds, loaded.World.Population.RemainingOf(rebuilt)!.Value.Milliseconds);
+        Assert.Equal(CombatSide.Ally, loaded.Combat!.Combatants.Single(actor => actor.Subject.Entity == rebuilt).Side);
+        loaded.Owners.Clock!.Advance(PartyRpg.Kit.Time.GameDuration.FromMilliseconds(carried.RemainingMilliseconds!.Value));
+        Assert.False(rebuilt.IsAlive);
 
         // An hour of game time is far more than ten minutes: the elemental is gone, the fight lets go of it, the caster
-        // may call another, and the save that was refused succeeds.
+        // may call another, and saving remains possible.
         Advance(session, 1);
         Assert.DoesNotContain(live.World.Population.Entities, entity => entity.IsSummoned);
         Assert.False(elemental.IsAlive);
@@ -112,7 +120,7 @@ public sealed class SummonPolicyTests
     }
 
     [Fact]
-    public void A_body_rises_to_fight_for_the_party_unless_it_is_too_strong_and_a_save_is_refused_while_it_stands()
+    public void A_body_rises_to_fight_for_the_party_unless_it_is_too_strong_and_a_save_carries_it()
     {
         InMemoryPersistenceService persistence = new();
         (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(persistence, World(lightTier: 2, beastAt: 100));
@@ -163,9 +171,19 @@ public sealed class SummonPolicyTests
         Assert.True(before > caster.Resources.SpellPoints.Current);
         Assert.True(live.Combat.IsDown(Creature(live, "titan")));
 
-        // A save carries no population, so the risen beast is named rather than dropped.
-        SessionSaveException unsaved = Assert.Throws<SessionSaveException>(() => MightAndMagic7Ruleset.Instance.Save(session));
-        Assert.Contains(unsaved.Problems, problem => problem.Code == SaveCodes.SaveFightUnsaved && problem.Subject == "summoned");
+        SessionSave saved = MightAndMagic7Ruleset.Instance.Save(session);
+        CreatureCombatSave carried = Assert.Single(saved.Combat.Creatures, creature => creature.Summoned);
+        var (againContext, againUi) = RulesetTestContext.Create(persistence, World(lightTier: 2, beastAt: 100));
+        using IGameSession again = MightAndMagic7Ruleset.Instance.ResumeSession(RulesetTestContext.RulesetContext(againContext, againUi));
+        again.Start();
+        var loaded = (MightAndMagic7Session)again;
+        PlacePopulationEntity rebuilt = Assert.Single(loaded.World!.Population.Entities, entity => entity.IsSummoned);
+        Assert.Equal(raised.Content, rebuilt.Content);
+        Assert.Equal(carried.Health, CreatureHealth.Find(rebuilt.Actor)!.Current);
+        Assert.Null(loaded.World.Population.RemainingOf(rebuilt));
+        Assert.Equal(CombatSide.Ally, loaded.Combat!.Combatants.Single(actor => actor.Subject.Entity == rebuilt).Side);
+        SessionSave restored = MightAndMagic7Ruleset.Instance.Save(again);
+        Assert.Equal(saved.Combat.Corpses.Select(b => b.Serial), restored.Combat.Corpses.Select(b => b.Serial));
     }
 
     [Fact]

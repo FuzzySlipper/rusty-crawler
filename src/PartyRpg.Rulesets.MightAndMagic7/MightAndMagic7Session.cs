@@ -359,7 +359,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             Service = services,
             Rest = rest,
             Conversation = conversation,
-            Combat = new CombatRules(combat, monsterAi, Resolution: combat, Abilities: combat, Weapons: combat, Deaths: deaths, Reflection: combat, Provocation: combat),
+            Combat = new CombatRules(combat, monsterAi, Resolution: combat, Abilities: combat, Weapons: combat, Deaths: deaths, Reflection: combat, Provocation: combat, Saving: combat, Corpses: corpses),
             Progression = new ProgressionRules(MightAndMagic7Progression.Instance, promotions),
             Standing = standing,
             Skills = skills,
@@ -411,7 +411,7 @@ internal sealed class MightAndMagic7Session : IGameSession
                 walked,
                 walker,
                 accounts,
-                from is null ? null : new SessionRecords(from.Quests, from.Journal, from.Knowledge, from.Maps, from.Clock));
+                from is null ? null : new SessionRecords(from.Quests, from.Journal, from.Knowledge, from.Maps, from.Clock, from.Combat));
         }
 
         EngineSessionSaveStore? store = MightAndMagic7Persistence.Store(context.Engine);
@@ -444,7 +444,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             {
                 // The whole document is judged before anything moves, so every problem is named at once and a
                 // defective save leaves no clock moved and no party restored behind it.
-                MightAndMagic7Persistence.RequireLoadable(save, context.Content, quests, fixtures, spawns, services, rest);
+                MightAndMagic7Persistence.RequireLoadable(save, context.Content, quests, fixtures, spawns, services, rest, combat);
 
                 // The clock takes the recorded game time before the world is composed, because the world's
                 // places are read against the day the session stands on: a resumed session that restored its

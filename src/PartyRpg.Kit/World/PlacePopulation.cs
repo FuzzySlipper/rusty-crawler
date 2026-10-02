@@ -177,7 +177,11 @@ public sealed class PlacePopulation : IDisposable
     /// No place has been populated, so there is nowhere to create it; or a live entity already answers for the
     /// placement's identity.
     /// </exception>
-    public PlacePopulationEntity Summon(PlacementDefinition placement, GameDuration? lasts = null)
+    public PlacePopulationEntity Summon(PlacementDefinition placement, GameDuration? lasts = null) => RestoreEntity(placement, summoned: true, lasts);
+
+    // The same entity/composer path also rebuilds a validated saved resident body omitted by the defeat
+    // ledger. It retains resident identity rather than pretending the body was created by a spell.
+    internal PlacePopulationEntity RestoreEntity(PlacementDefinition placement, bool summoned, GameDuration? lasts = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(placement);
@@ -200,7 +204,7 @@ public sealed class PlacePopulation : IDisposable
         Actor actor = new(_entities, id);
         actor.Add(placement);
         actor.Add(new StandingPose(placement.Pose));
-        PlacePopulationEntity entity = new(actor, placement, summoned: true);
+        PlacePopulationEntity entity = new(actor, placement, summoned);
         _composer?.Compose(entity, place);
         _live = [.. _live, entity];
         if (lasts is { } length) _lasting[id] = length.Milliseconds;

@@ -38,7 +38,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// waits for another owner (item enchantments, #8513) is said beside it.
 /// </para>
 /// </remarks>
-internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule, ICombatAbilityResolutionRule, ICombatWeaponRule, ICombatReflectionRule, ICombatProvocationRule
+internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule, ICombatAbilityResolutionRule, ICombatWeaponRule, ICombatReflectionRule, ICombatProvocationRule
 {
     /// <summary>The definition kind a monster row is imported under.</summary>
     internal const string MonsterDefinitionKind = "monster";
@@ -616,6 +616,7 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
             ReadInternalNames(catalog, monsters))
         {
             HostileGroups = hostileGroups,
+            _savedLoot = catalog.Entries(MightAndMagic7Spells.ItemDefinitionKind).Select(e => new ItemDefinitionId(e.Entry.Id)).ToHashSet(),
         };
     }
 

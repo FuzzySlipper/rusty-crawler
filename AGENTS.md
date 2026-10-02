@@ -148,8 +148,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 **Open residue and its receivers** (Den task ids; Den owns their status):
 
 - Stone 5, interaction and services: a fixture event refuses only at a hireling step (#8514).
-- Stone 6, combat: a fight is not carried in a save, and a save taken with one pending is refused (#8658);
-  an order commands every member rather than a selected one (#8659).
+- Stone 6, combat: an order commands every member rather than a selected one (#8659).
 - Stone 7, progression and magic: the two counted deeds two ranks need
   have no writer (#8689); item-aimed effects (#8513) and followers
   (#8514) are "not yet" in `docs/magic-coverage.md`.

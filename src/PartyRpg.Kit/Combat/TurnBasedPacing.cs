@@ -47,7 +47,7 @@ namespace PartyRpg.Kit.Combat;
 /// takes it through the same gate a player's order goes through.
 /// </para>
 /// </remarks>
-public sealed class TurnBasedPacing
+public sealed partial class TurnBasedPacing
 {
     private readonly CombatState _combat;
     private readonly HashSet<CombatantId> _acted = [];

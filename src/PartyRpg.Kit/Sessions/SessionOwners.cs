@@ -147,6 +147,7 @@ public sealed class SessionOwners
         Accounts = accounts ?? world?.Accounts;
         world?.Populate();
         Compose();
+        if (_records?.Combat is { } fight && Combat is { } combat && world is not null) combat.Restore(fight, world.Population);
         if (party is not null) _records?.Clock?.RestoreDeadlines(_deadlineOwners, party);
     }
 

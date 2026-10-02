@@ -239,7 +239,6 @@ internal sealed class MightAndMagic7Fixtures
     private readonly Func<int, bool> _greetings;
     private readonly Func<PlaceId, PlacePopulation?> _population;
     private readonly Func<string, IReadOnlyList<int>> _starting;
-    private long _summoned;
 
     /// <summary>Creates this game's fixtures over the map events content carries.</summary>
     /// <param name="events">The map events and the discovery table.</param>
@@ -2086,12 +2085,13 @@ internal sealed class MightAndMagic7Fixtures
         /// cannot draw what it summons is refused before anything is settled; the creatures enter the place's live
         /// population when the run is applied, through the population's own creation, and the fight reads them as it
         /// reads every creature — a goblin summoned in ambush is the party's enemy at the band the matrix gives its kind
-        /// toward the party, and one joining a group the event turns hostile is an enemy by that. They stand for the visit: the donor's own are
-        /// saved with the map, while this build's schema carries no population, so a save taken while one stands is
-        /// refused by name as one taken beside a summoned elemental is (#8658).
+        /// toward the party, and one joining a group the event turns hostile is an enemy by that. They stand for the visit,
+        /// including a saved and resumed visit, with the drawn rows and issued identities carried rather than rolled again.
         /// </remarks>
         private Refusal? Summon(MapEvent mapEvent, MapEventStep step)
         {
+            if (_context.Party is not { } party)
+                return NotInterpreted(_target, mapEvent, step, "a summoning in a session with no party to issue its creature identities");
             if (step.Summons is not { } slot)
             {
                 return NotInterpreted(_target, mapEvent, step, "a summoning whose encounter the place's map table resolves to no creature");
@@ -2102,7 +2102,7 @@ internal sealed class MightAndMagic7Fixtures
                 return NotInterpreted(_target, mapEvent, step, "a summoning in a session that keeps no live population of this place to put creatures in");
             }
 
-            string id = string.Create(CultureInfo.InvariantCulture, $"event-{mapEvent.Place}-{mapEvent.Id}-{step.Step}-{++_rules._summoned}");
+            string id = string.Create(CultureInfo.InvariantCulture, $"event-{mapEvent.Place}-{mapEvent.Id}-{step.Step}");
             IReadOnlyList<PlacementDefinition> creatures = MightAndMagic7Spawns.Summoned(id, slot, step.Amount, step.Position, step.Group, Rolls(mapEvent), out string? unresolved);
             if (unresolved is not null)
             {
@@ -2113,7 +2113,9 @@ internal sealed class MightAndMagic7Fixtures
 
             _effects.Add(() =>
             {
-                foreach (PlacementDefinition creature in creatures) population.Summon(creature);
+                foreach (PlacementDefinition creature in creatures)
+                    population.Summon(MightAndMagic7Spawns.CreatedIdentity(creature,
+                        string.Create(CultureInfo.InvariantCulture, $"event-{MightAndMagic7Summons.NextIdentity(party)}")));
             });
             foreach (IGrouping<string, PlacementDefinition> kind in creatures.GroupBy(creature => creature.Source.GetString("monsterName"), StringComparer.Ordinal))
             {
@@ -2142,8 +2144,8 @@ internal sealed class MightAndMagic7Fixtures
         /// population reads when the place is populated (<see cref="MightAndMagic7Spawns.Stands"/>) — so a group shown
         /// again stands even where its records say the level holds it hidden — and a group hidden while the party stands
         /// in the place leaves the field at once. <b>Ours</b>: a group shown again while the party is there stands the
-        /// next time the place is populated rather than at once, because a creature put on the field during a visit is a
-        /// summoning, which a save refuses (#8658).
+        /// next time the place is populated rather than at once. Resuming carries the actual saved visit's creature set;
+        /// a new visit reads the saved group flags when it populates.
         /// </para>
         /// </remarks>
         private Refusal? GroupFlag(MapEvent mapEvent, MapEventStep step)
