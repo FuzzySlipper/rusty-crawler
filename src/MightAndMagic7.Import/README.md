@@ -56,7 +56,9 @@ Owns:
   event's `history` variable names (the table's row less one) with its `%30` and `%31`–`%34` codes written as
   `{date}` and `{member:1}`–`{member:4}` (`HistoryTable`). A person carries their six dialogue slots by position
   (`topicSlots`), and every topic-table row with an answer or a global event of its number is written as a `person-topic` entry whoever owns it,
-  which is what a topic change can make a slot raise; a person placement carries its actor record's `group`.
+  which is what a topic change can make a slot raise; a person placement carries its actor record's `group`,
+  its `attributes` (which hold the aggressor bit `0x80000`) and, when non-zero, the kind it says it counts as
+  (`hostilityGroup`), as a creature's actor record does; no shipped person record carries either.
   A step comparing or setting a character's `class` names the class in `which` — the class table's row its value
   numbers (`PlaceFixtureEmitter.Classed`) — so no reader needs the table's order — and an `npc-set-item` step carries
   its `person`, `item` and whether it gives (`on`). No step is interpreted here; the write summary counts the steps of each kind, which is
@@ -100,7 +102,8 @@ Boundary rules:
 - No gameplay choice is made here. A spawn record is written as the `encounter` it asks for — its slot,
   the grade only when the record fixes one, the slot's kind, difficulty and count range, and the variant
   rows — and the ruleset draws the grade and the count when a place is populated; a delta's actor record that
-  names no person is written as the `actor` it is (`PlaceCreatures`) — its monster row, group, attributes, AI
+  names no person is written as the `actor` it is (`PlaceCreatures`) — its monster row, group, attributes, the
+  kind it says it counts as (`hostilityGroup`, written when non-zero; no shipped record names one), AI
   state, point and facing, under the `actors` field and its index in the level's array, with `hidden` set when
   the level holds it hidden (state nineteen or the bit `0x10000`) — and the ruleset stands it, or not; a stable or a dock is
   written as the counter it is — its kind and the placement it stands at — and no passage, destination,

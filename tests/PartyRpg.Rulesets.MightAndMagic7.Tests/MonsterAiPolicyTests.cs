@@ -37,7 +37,9 @@ public sealed class MonsterAiPolicyTests
 
         // The matrix the content carries states one feud: the kind the beast belongs to hates the rival's
         // kind with the widest band, and the rival's kind hates it back more mildly. Nothing else is
-        // anybody's enemy, and a creature is its own kind's friend.
+        // anybody's enemy, and a creature is its own kind's friend. The matrix is written the donor's way round: a
+        // kind's own feelings are its column, so the rival's row holds what the beast thinks of it
+        // (OpenEnroth src/Engine/Tables/HostilityTable.cpp:21).
         CombatSubject beast = fixture.Subject(fight, "beast");
         CombatSubject rival = fixture.Subject(fight, "rival");
         CombatSubject neighbour = fixture.Subject(fight, "neighbour");
@@ -431,9 +433,9 @@ public sealed class MonsterAiPolicyTests
                   "definitionKind": "hostility",
                   "entries": [
                     { "id": "kinds", "columns": [ "Party", "Kind 1", "Kind 2", "Beast", "Rival", "Neighbour" ] },
-                    { "id": "Beast", "kind": 3, "hostility": { "0": 4, "4": 4 } },
-                    { "id": "Rival", "kind": 4, "hostility": { "0": 4, "3": 3 } },
-                    { "id": "Neighbour", "kind": 5, "hostility": { "0": 4 } }
+                    { "id": "Party", "kind": 0, "hostility": { "3": 4, "4": 4, "5": 4 } },
+                    { "id": "Beast", "kind": 3, "hostility": { "4": 3 } },
+                    { "id": "Rival", "kind": 4, "hostility": { "3": 4 } }
                   ]
                 }
                 """));

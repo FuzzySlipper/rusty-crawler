@@ -56,8 +56,9 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// <item><description>
 /// A person who catches a thief fines the party what the donor reckons and never charges: the donor works the
 /// figure out and only turns the peasants on the thief (<c>Actor::AggroSurroundingPeasants</c>,
-/// <c>Character.cpp:1214-1218</c>). Here the person robbed is the one put into the fight, by the session, rather
-/// than every peasant nearby.
+/// <c>Character.cpp:1214-1218</c>). The turning is the donor's: the session puts the person robbed into the fight,
+/// and the fight's provocation carries it to every actor of their faction within 4,096 units
+/// (<see cref="MightAndMagic7Combat.ProvokedWith"/>).
 /// </description></item>
 /// <item><description>
 /// What a person carries is what their row would leave if they fell — the row's coin dice and its treasure draw,

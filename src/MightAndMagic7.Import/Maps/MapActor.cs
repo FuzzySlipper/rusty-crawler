@@ -46,6 +46,12 @@ namespace MightAndMagic7.Import.Maps;
 /// says whether the actor is standing in the level at all: a record whose state is dying, dead or removed is a
 /// creature the level no longer holds.
 /// </param>
+/// <param name="HostilityGroup">
+/// The kind the record says the actor counts as when the hostility matrix is read (the snapshot's
+/// <c>hostilityGroup</c>, OpenEnroth <c>src/Engine/Snapshots/EntitySnapshots.h:801</c>): zero means the kind its own
+/// monster row belongs to, 9999 means the party's own, and anything else is that kind's matrix index
+/// (<c>src/Engine/Snapshots/EntitySnapshots.cpp:1494-1499</c>).
+/// </param>
 public sealed record MapActor(
     int Index,
     string Name,
@@ -58,7 +64,8 @@ public sealed record MapActor(
     int SectorId,
     int Group,
     int UniqueNameIndex,
-    int AiState = 0)
+    int AiState = 0,
+    int HostilityGroup = 0)
 {
     /// <summary>Whether the actor is somebody in the game's NPC table rather than a monster.</summary>
     public bool IsPerson => NpcId != 0;

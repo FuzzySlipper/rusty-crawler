@@ -14,6 +14,7 @@ namespace PartyRpg.Kit.Combat;
 /// <param name="Weapons">What each character wields, which decides the kind of its attack.</param>
 /// <param name="Deaths">Who hears about each creature's death, once, in the order named.</param>
 /// <param name="Reflection">What a wound turns back onto whoever dealt it, or null for a game whose wounds turn nothing back.</param>
+/// <param name="Provocation">Who else an act against one creature turns against the party, or null for a game where it turns only that creature.</param>
 public sealed record CombatRules(
     ICombatRule Rule,
     IMonsterAiPolicy? Ai = null,
@@ -21,4 +22,5 @@ public sealed record CombatRules(
     ICombatAbilityResolutionRule? Abilities = null,
     ICombatWeaponRule? Weapons = null,
     IReadOnlyList<ICreatureDeathObserver>? Deaths = null,
-    ICombatReflectionRule? Reflection = null);
+    ICombatReflectionRule? Reflection = null,
+    ICombatProvocationRule? Provocation = null);

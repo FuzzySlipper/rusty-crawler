@@ -354,7 +354,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             Service = services,
             Rest = rest,
             Conversation = conversation,
-            Combat = new CombatRules(combat, monsterAi, Resolution: combat, Abilities: combat, Weapons: combat, Deaths: deaths, Reflection: combat),
+            Combat = new CombatRules(combat, monsterAi, Resolution: combat, Abilities: combat, Weapons: combat, Deaths: deaths, Reflection: combat, Provocation: combat),
             Progression = new ProgressionRules(MightAndMagic7Progression.Instance, promotions),
             Standing = standing,
             Skills = skills,

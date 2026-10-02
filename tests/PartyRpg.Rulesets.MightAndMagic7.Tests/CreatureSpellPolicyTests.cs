@@ -396,8 +396,7 @@ public sealed class CreatureSpellPolicyTests
                   "definitionKind": "hostility",
                   "entries": [
                     { "id": "kinds", "columns": [ "Party", "Kind 1", "Kind 2", "Beast", "Ghost" ] },
-                    { "id": "Beast", "kind": 3, "hostility": { "0": 4 } },
-                    { "id": "Ghost", "kind": 4, "hostility": { "0": 4 } }
+                    { "id": "Party", "kind": 0, "hostility": { "3": 4, "4": 4 } }
                   ]
                 }
                 """,
