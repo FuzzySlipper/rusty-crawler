@@ -746,8 +746,9 @@ share a scene with guessed artifact IDs. The catalog retains authored provenance
 claim the original immutable Engine artifact identity.
 
 The static base and individual addressable faces receive separate product-owned mesh identities.
-Door corner membership identifies a door's surfaces; a face's raised event identifies its fixture
-surfaces, separately from its cog group used for passability. The interaction query can recognize the
+Door corner membership identifies a door's surfaces; the importer's existing clicked-face cluster
+assignment identifies each fixture's own surfaces, separately from its event and passability cog group.
+Disconnected fixtures sharing an event and pressure plates cannot claim one another's surfaces. The interaction query can recognize the
 nearest hit on its own target without looking through an intervening wall. Imported anchors stay at
 their authored positions; ordinary sight still treats doors as obstructions while closed.
 

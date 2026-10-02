@@ -86,7 +86,7 @@ internal static partial class PackWriter
     /// without parsing geometry, and so a refusal is visible as a place that has no entry at all.
     /// </para>
     /// </remarks>
-    private static int WritePlaceGeometry(string packDirectory, IReadOnlyList<PlaceCollision> collisions)
+    private static int WritePlaceGeometry(string packDirectory, IReadOnlyList<PlaceCollision> collisions, PlaceFixtureSummary fixtures)
     {
         List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];
         foreach (PlaceCollision place in collisions)
@@ -131,7 +131,10 @@ internal static partial class PackWriter
                     writer.WriteEndObject();
                 }
                 WriteSurfaces(writer, place.Surfaces);
-                if (place.Layout is { } layout) WriteCollisionLayout(writer, layout);
+                if (place.Layout is { } layout) WriteCollisionLayout(writer, layout, fixtures.Fixtures
+                    .Where(fixture => fixture.PlaceId == place.PlaceId)
+                    .SelectMany(fixture => fixture.FaceIndices.Select(face => (Face: face, Fixture: fixture.PlacementId)))
+                    .ToDictionary(binding => binding.Face, binding => binding.Fixture));
             }));
         }
 
@@ -180,7 +183,7 @@ internal static partial class PackWriter
     }
 
     /// <summary>Writes the complete authored partition beside the unchanged Engine artifact.</summary>
-    private static void WriteCollisionLayout(Utf8JsonWriter writer, PlaceCollisionLayout layout)
+    private static void WriteCollisionLayout(Utf8JsonWriter writer, PlaceCollisionLayout layout, IReadOnlyDictionary<int, string> fixtures)
     {
         void Triple(IEnumerable<double> values)
         {
@@ -206,6 +209,7 @@ internal static partial class PackWriter
             writer.WriteStartObject();
             writer.WriteNumber("group", face.Group);
             writer.WriteNumber("event", face.Event);
+            if (fixtures.TryGetValue(face.FaceIndex, out string? fixture)) writer.WriteString("fixture", fixture);
             writer.WriteBoolean("passable", face.Passable);
             writer.WriteStartArray("corners");
             foreach (CollisionCorner corner in face.Corners)

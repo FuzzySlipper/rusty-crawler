@@ -212,6 +212,9 @@ public sealed record PlaceFixturePlacement(
 {
     /// <summary>The placement's identity in its place.</summary>
     public string PlacementId => Cluster == 0 ? $"fixture-{EventId}" : $"fixture-{EventId}-{Cluster}";
+
+    /// <summary>The flattened source face identities belonging to this fixture, excluding other clusters.</summary>
+    public IReadOnlyList<int> FaceIndices { get; init; } = [];
 }
 
 /// <summary>
@@ -789,7 +792,7 @@ public static class PlaceFixtureEmitter
         // Faces in the map's own flattened order, so the grouping — and the cluster numbers — are the same on
         // every run.
         Dictionary<int, List<Group>> groups = [];
-        foreach ((int _, MapFace face, int modelIndex, string modelName) in MapFaceList.Flatten(map))
+        foreach ((int faceIndex, MapFace face, int modelIndex, string modelName) in MapFaceList.Flatten(map))
         {
             if (!Clickable(face) || !fixtureEvents.Contains(face.EventId)) continue;
             if (!groups.TryGetValue(face.EventId, out List<Group>? list)) groups[face.EventId] = list = [];
@@ -804,6 +807,7 @@ public static class PlaceFixtureEmitter
             }
 
             joined.Points.Add(centre);
+            joined.FaceIndices.Add(faceIndex);
             joined.Lowest = Math.Min(joined.Lowest, face.Vertices.Count == 0 ? centre.Z : face.Vertices.Min(vertex => (double)vertex.Z));
         }
 
@@ -829,7 +833,7 @@ public static class PlaceFixtureEmitter
                     group.Points.Count,
                     group.ModelIndex,
                     group.ModelName,
-                    labels.GetValueOrDefault(eventId, string.Empty));
+                    labels.GetValueOrDefault(eventId, string.Empty)) { FaceIndices = group.FaceIndices.ToArray() };
             }
         }
     }
@@ -856,6 +860,8 @@ public static class PlaceFixtureEmitter
         public (double X, double Y, double Z) First { get; } = first;
 
         public List<(double X, double Y, double Z)> Points { get; } = [];
+
+        public List<int> FaceIndices { get; } = [];
 
         /// <summary>The lowest corner of the group's faces.</summary>
         public double Lowest { get; set; } = double.MaxValue;

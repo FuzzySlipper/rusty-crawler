@@ -93,7 +93,8 @@ surface while another instance still obstructs it. Ordinary sight retains full-s
 No instance is ignored. Triangle indices are rebased per asset, as the safe Engine contract requires.
 
 Raised events and passability cog groups are distinct imported fields. Clickable faces are therefore
-also partitioned, and retain their own raised event for fixture ownership. Two fresh operator writes
+also partitioned. Fixture surface ownership retains the existing importer's face-to-cluster assignment;
+disconnected fixtures sharing an event and pressure plates cannot claim one another's surfaces. Two fresh operator writes
 were identical: 76 geometries, 786 doors and 55,851 addressable faces, including 47,668 faces with a
 raised event. These counts extend the earlier 16,502 door/group-only partition.
 

@@ -131,8 +131,9 @@ extractors in the operator's ignored local tree are research tools, not this pro
 
 Collision emission also writes a complete authored partition beside the immutable Engine artifact.
 Static solid triangles are separate from door-controlled and event-addressable face fans. Each face
-retains both its raised event and its independent cog group: the former identifies an interaction
-surface, while the latter identifies the faces a passability operation addresses. Clickable faces are
+retains both its raised event and its independent cog group, plus the fixture identity assigned by the
+existing clicked-face clustering. The cog identifies the faces a passability operation addresses; the
+fixture identity preserves its own surfaces rather than every surface sharing an event. Clickable faces are
 partitioned even when no door controls them, so an interaction can recognize its own solid surface.
 Each corner keeps its rest coordinates, full normalized travel and door slot; the pack writer turns that
 slot into the door placement identity. Fixed source directions are normalized from 16.16 here. Face cog

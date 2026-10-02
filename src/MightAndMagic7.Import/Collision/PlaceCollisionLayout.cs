@@ -1,4 +1,5 @@
 using MightAndMagic7.Import.Maps;
+using MightAndMagic7.Import.Packs;
 
 namespace MightAndMagic7.Import.Collision;
 
@@ -33,13 +34,7 @@ public sealed record PlaceCollisionLayout(CollisionMesh Static, IReadOnlyList<Co
         List<CollisionFace> faces = [];
         if (map is OutdoorMap outdoor)
             PlaceCollisionEmitter.AddTerrain(ground, [], outdoor, null, new CollisionMesh());
-        IEnumerable<MapFace> source = map switch
-        {
-            IndoorMap inside => inside.Faces,
-            OutdoorMap outside => outside.Models.SelectMany(model => model.Faces),
-            _ => [],
-        };
-        foreach (MapFace face in source)
+        foreach (var (faceIndex, face, _, _) in MapFaceList.Flatten(map))
         {
             // Portals are never collision, even when an event addresses their group.
             if (face.BackSectorId > 0 || (face.Attributes & 1) != 0) continue;
@@ -60,14 +55,14 @@ public sealed record PlaceCollisionLayout(CollisionMesh Static, IReadOnlyList<Co
             List<int[]> triangles = [];
             for (int index = 2; index < corners.Count; index++) triangles.Add([0, index - 1, index]);
             if (triangles.Count > 0)
-                faces.Add(new CollisionFace(face.CogNumber, (face.Attributes & 0x20000000) != 0, corners, triangles, face.EventId));
+                faces.Add(new CollisionFace(face.CogNumber, (face.Attributes & 0x20000000) != 0, corners, triangles, face.EventId, faceIndex));
         }
         return new PlaceCollisionLayout(ground, faces);
     }
 }
 
 /// <summary>One face's immutable fan and the corners whose positions its doors control.</summary>
-public sealed record CollisionFace(int Group, bool Passable, IReadOnlyList<CollisionCorner> Corners, IReadOnlyList<int[]> Triangles, int Event = 0);
+public sealed record CollisionFace(int Group, bool Passable, IReadOnlyList<CollisionCorner> Corners, IReadOnlyList<int[]> Triangles, int Event = 0, int FaceIndex = -1);
 
 /// <summary>An authored corner, with its door's full travel in Engine axes when a door owns it.</summary>
 public sealed record CollisionCorner(double[] Rest, int? Door, double[] Travel);

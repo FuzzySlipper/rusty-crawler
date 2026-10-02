@@ -182,7 +182,8 @@ internal static partial class PackWriter
             maps,
             collisions,
             entrances,
-            services);
+            services,
+            fixtures);
         List<(string, int, int)> packs =
         [
             WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers, services, people, encounters, creatures, fixtures, globals),
@@ -349,10 +350,11 @@ internal static partial class PackWriter
         IReadOnlyDictionary<int, DecodedMap> maps,
         IReadOnlyList<PlaceCollision> collisions,
         PlaceEntranceSummary entrances,
-        PlaceServiceSummary services)
+        PlaceServiceSummary services,
+        PlaceFixtureSummary fixtures)
     {
         int links = WritePlaceGraph(packDirectory, graph, tables, maps, entrances);
-        int places = WritePlaceGeometry(packDirectory, collisions);
+        int places = WritePlaceGeometry(packDirectory, collisions, fixtures);
         int reachCount = WritePlaceEntrances(packDirectory, entrances);
         PlaceMapSummary mapped = WritePlaceMaps(packDirectory, maps);
         // Every place is referenced by the graph.

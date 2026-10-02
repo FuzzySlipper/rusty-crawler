@@ -145,7 +145,29 @@ public sealed class DoorCollisionTests
         Assert.Equal(open.Collision.Positions.ToArray(), new MightAndMagic7Geometry(catalog, graph, restore).For(place)!.Collision!.Positions.ToArray());
     }
 
-    private static ContentCatalog Catalog(bool partial = false) => ContentCatalogLoader.Load(new InMemoryContentSource()
+    [Fact]
+    public void A_fixture_cannot_claim_another_cluster_with_the_same_event_as_its_own_visible_surface()
+    {
+        ContentCatalog catalog = Catalog(clusters: true);
+        PlaceGraph graph = MightAndMagic7World.Graph(catalog);
+        PlaceId place = new("1");
+        MightAndMagic7Geometry source = new(catalog, graph, new InteractionLedger());
+        using EngineTestHost host = EngineTestHost.Create();
+        host.Call(engine =>
+        {
+            PartyPoseOwner pose = new(new PartyPose(place, new PlacePose(256, -256, 2, 0, 0)), MightAndMagic7Movement.Facing);
+            PartyMovement movement = new(engine.Spatial, pose, MightAndMagic7Movement.Space,
+                MightAndMagic7Movement.Session, MightAndMagic7Movement.Tuning(engine.Spatial));
+            using EnginePartyMover mover = new(engine.Spatial, movement, engine.Content, MightAndMagic7Movement.Navigation, source);
+            mover.Enter(place);
+            Vector3 eye = new(256, 96, 256);
+            Assert.True(mover.InSight(eye, new(768, 96, 256), new("fixture", "lever")));
+            Assert.False(mover.InSight(eye, new(1024, 96, 256), new("fixture", "lever-1")));
+            Assert.True(mover.InSight(new(900, 96, 256), new(1024, 96, 256), new("fixture", "lever-1")));
+        });
+    }
+
+    private static ContentCatalog Catalog(bool partial = false, bool clusters = false) => ContentCatalogLoader.Load(new InMemoryContentSource()
         .Add("packs/world/pack.json", """
             {"schemaVersion":1,"packId":"world","kind":"definitions","provenance":{"description":"authored door geometry"},
              "documents":[{"path":"places.json","documentId":"places","definitionKind":"place"},
@@ -155,14 +177,19 @@ public sealed class DoorCollisionTests
             {"documentId":"places","definitionKind":"place","entries":[{"id":"1","kind":"interior","name":"Hall",
              "entryPoints":[],"placements":[{"id":"gate","kind":"door","doorId":1,"state":2,"x":768,"y":-256,"z":0},
              {"id":"lever","kind":"fixture","eventId":7,"x":768,"y":-256,"z":96}]}]}
-            """)
-        .Add("packs/world/geometry.json", Geometry(partial)), new ContentLayout("packs", "imports", "bundles")).RequireValid();
+            """.Replace("\"placements\":[", clusters ? "\"placements\":[{\"id\":\"lever-1\",\"kind\":\"fixture\",\"eventId\":7,\"x\":1024,\"y\":-256,\"z\":96}," : "\"placements\":[", StringComparison.Ordinal))
+        .Add("packs/world/geometry.json", Geometry(partial).Replace("\"faces\":[", clusters ? """
+            "faces":[{"group":7,"event":7,"fixture":"lever-1","passable":false,"corners":[
+             {"rest":[1024,0,0],"travel":[0,0,0]},{"rest":[1024,512,0],"travel":[0,0,0]},
+             {"rest":[1024,512,1536],"travel":[0,0,0]},{"rest":[1024,0,1536],"travel":[0,0,0]}],
+             "triangles":[[0,1,2],[0,2,3],[2,1,0],[3,2,0]]},
+            """ : "\"faces\":[", StringComparison.Ordinal)), new ContentLayout("packs", "imports", "bundles")).RequireValid();
 
     private static string Geometry(bool partial) => """
             {"documentId":"geometry","definitionKind":"place-geometry","entries":[{"id":"1",
              "artifact":{},"navigationRegion":{"minimum":[0,0,0],"maximum":[1536,1024,1536],"cellSize":128},
              "collisionLayout":{"positions":[[0,0,0],[0,0,1536],[1536,0,1536],[1536,0,0]],"triangles":[[0,1,2],[0,2,3]],
-               "faces":[{"group":7,"event":7,"passable":false,"corners":[
+               "faces":[{"group":7,"event":7,"fixture":"lever","passable":false,"corners":[
                  {"rest":[768,512,0],"door":"gate","travel":[0,-512,0]},
                  {"rest":[768,1024,0],"door":"gate","travel":[0,-512,0]},
                  {"rest":[768,1024,1536],"door":"gate","travel":[0,-512,0]},

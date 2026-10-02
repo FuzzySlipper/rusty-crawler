@@ -22,6 +22,17 @@ public sealed class FixtureEmissionTests
     private const uint PressurePlate = PlaceEntranceEmitter.PressurePlateAttribute;
 
     [Fact]
+    public void A_shared_event_does_not_make_a_pressure_plate_part_of_a_clicked_fixture_surface()
+    {
+        PlaceFixtureSummary summary = PlaceFixtureEmitter.Emit(
+            new Dictionary<int, DecodedMap> { [7] = Interior((300, Clickable), (300, PressurePlate)) },
+            [EvtProgram.Read("d01.evt", Program())],
+            new Dictionary<string, MapStrings>(StringComparer.OrdinalIgnoreCase) { ["d01"] = Strings() });
+        Assert.Equal([0], Assert.Single(summary.Fixtures).FaceIndices);
+        Assert.Contains(summary.Triggers, trigger => trigger.EventId == 300);
+    }
+
+    [Fact]
     public void A_clicked_event_no_other_emitter_answers_for_is_a_fixture_standing_where_its_faces_are()
     {
         // Two faces raise the well's event four hundred units apart, which is two wells rather than one between
@@ -44,6 +55,8 @@ public sealed class FixtureEmissionTests
         Assert.Equal(["fixture-300", "fixture-300-1"], summary.Fixtures.Select(fixture => fixture.PlacementId));
         Assert.Equal(5, summary.Fixtures[0].X);
         Assert.Equal(405, summary.Fixtures[1].X);
+        Assert.Equal([0], summary.Fixtures[0].FaceIndices);
+        Assert.Equal([1], summary.Fixtures[1].FaceIndices);
         Assert.All(summary.Fixtures, fixture => Assert.Equal("Drink from the Well", fixture.Label));
 
         // The chest's event is the container emitter's and the door's is the door's; the floor trigger is not
