@@ -76,16 +76,15 @@ public sealed class CombatProjectionPolicyTests
         session.Update(RulesetTestContext.Update(++step, 1, RulesetTestContext.Payload(Act)));
         combat = Combat(ui);
         Assert.Equal("applied", combat.Field("outcome").AsString());
-        Assert.Equal(0d, combat.Field("ready").AsNumber());
-        // What each member owes is the donor's own character recovery, read off the panel: a hundred-tick
+        Assert.Equal(1d, combat.Field("ready").AsNumber());
+        // Only the selected member owes the donor's character recovery: a hundred-tick
         // swing less the ticks the member's Speed attribute is worth.
         Assert.Equal(22.969, combat.Field("members").Item(0).Field("recoverySeconds").AsNumber(), 3);
-        Assert.Equal(22.266, combat.Field("members").Item(1).Field("recoverySeconds").AsNumber(), 3);
-        Assert.All(
-            Enumerable.Range(0, 2).Select(index => combat.Field("members").Item(index)),
-            member => Assert.False(member.Field("ready").AsBoolean()));
+        Assert.Equal(0d, combat.Field("members").Item(1).Field("recoverySeconds").AsNumber());
+        Assert.False(combat.Field("members").Item(0).Field("ready").AsBoolean());
+        Assert.True(combat.Field("members").Item(1).Field("ready").AsBoolean());
 
-        // The very same control asked again while everybody recovers is refused by name rather than being
+        // The same control asked again while the selected member recovers is refused by name rather than being
         // quietly ignored: the panel is not merely showing a disabled light, the product answers.
         session.Update(RulesetTestContext.Update(++step, 1, RulesetTestContext.Payload(Act)));
         combat = Combat(ui);

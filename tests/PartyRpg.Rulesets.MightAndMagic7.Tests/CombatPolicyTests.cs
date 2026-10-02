@@ -68,21 +68,22 @@ public sealed class CombatPolicyTests
         // longer.
         Assert.InRange(enemy.Field("recoverySeconds").AsNumber(), 0, RowRecoverySeconds(100));
 
-        // The act control orders the party to attack: both members act, each pays its own recovery, and the
-        // panel shows which of them may still act. What each pays is the donor's character recovery: a
+        // The act control orders the selected member to attack; the other member remains ready. What the
+        // selected member pays is the donor's character recovery: a
         // character holding nothing swings on the staff's hundred ticks less the speed bonus its Speed
         // attribute is worth — two ticks at seventeen, five at twenty-five — because this party wears nothing
         // and runs no haste; what a worn weapon and armour add is EquipmentPolicyTests' to prove.
         session.Update(RulesetTestContext.Update(++step, 1, RulesetTestContext.Digital(Declared.AttackIntent)));
         combat = ProjectedNode.Of(ui.Latest().Value).Field("combat");
         Assert.Equal("applied", combat.Field("outcome").AsString());
-        Assert.Equal(0d, combat.Field("ready").AsNumber());
+        Assert.Equal(1d, combat.Field("ready").AsNumber());
         Assert.Contains("attacks A beast", combat.Field("message").AsString(), StringComparison.Ordinal);
         Assert.Equal(RowRecoverySeconds(100 - 2), combat.Field("members").Item(0).Field("recoverySeconds").AsNumber(), 3);
-        Assert.Equal(RowRecoverySeconds(100 - 5), combat.Field("members").Item(1).Field("recoverySeconds").AsNumber(), 3);
+        Assert.Equal(0d, combat.Field("members").Item(1).Field("recoverySeconds").AsNumber());
+        Assert.True(combat.Field("members").Item(1).Field("ready").AsBoolean());
         Assert.False(combat.Field("members").Item(0).Field("ready").AsBoolean());
 
-        // Letting go of the control and asking again while everybody recovers is refused by name rather than
+        // Letting go and asking again while the selected member recovers is refused by name rather than
         // quietly doing nothing.
         session.Update(RulesetTestContext.Update(++step, 1, Admitted.Released(Declared.AttackIntent)));
         session.Update(RulesetTestContext.Update(++step, 1, RulesetTestContext.Digital(Declared.AttackIntent)));
