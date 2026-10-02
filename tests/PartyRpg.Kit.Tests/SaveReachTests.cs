@@ -64,7 +64,8 @@ public sealed class SaveReachTests
         Assert.Equal("session", fixture.Store.WrittenSlots[0]);
         // The document holds the clock as it stood when the player asked, not one admitted interval later:
         // the request is settled before the step its own update takes.
-        Assert.Equal(momentRecorded, written.Clock);
+        Assert.Equal(momentRecorded.ElapsedMilliseconds, written.Clock.ElapsedMilliseconds);
+        Assert.Equal(momentRecorded.Deadlines, written.Clock.Deadlines);
         Assert.Equal(fixture.World.Party.Place, written.World.Pose.Place);
         Assert.Equal(fixture.Party.Purse.Coins, written.Party.Coins);
         Assert.Equal(fixture.Party.Members.Count, written.Party.Members.Count);

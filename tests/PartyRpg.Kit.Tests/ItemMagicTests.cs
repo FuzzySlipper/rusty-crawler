@@ -397,7 +397,7 @@ public sealed class ItemMagicTests
     }
 
     [Fact]
-    public void Charges_survive_a_save_round_trip_and_a_running_duration_is_refused_by_name_rather_than_dropped()
+    public void Charges_survive_a_save_round_trip_and_a_running_duration_requires_its_owner_at_capture()
     {
         using PartyEntity party = Party();
         GameClock clock = TestClock.Create();
@@ -429,9 +429,9 @@ public sealed class ItemMagicTests
         RunningSpellEffects reloaded = new(resumed, TestClock.Create(), member => !LaidOut(member));
         Assert.Equal(8, reloaded.MagnitudeOn(resumed.Members[0], Ward));
 
-        // What the save does not carry is the deadline, and today that is a refusal rather than a silent
-        // loss: the clock holding a registered deadline cannot be captured at all, so a session with a ward
-        // running says so by name (Den task #8617 owns carrying deadlines in the save).
+        // Capturing the clock without its deadline owner still refuses by name: the owner supplies the
+        // identity, carrier and due time that a complete session save carries. An incomplete owner roster
+        // must never silently drop a running ward.
         SessionSaveException refused = Assert.Throws<SessionSaveException>(() => ClockSave.Capture(clock));
         Assert.Equal(SessionSaveFailure.Refused, refused.Kind);
         Assert.Contains(refused.Problems, problem => problem.Code == SaveCodes.SaveDeadlineUnowned);
