@@ -57,7 +57,7 @@ public sealed class ChangeStampTests
         "party effect start", "party effect end", "member effect start",
         "rename", "change class", "attribute set", "attribute change",
         "skill learn", "skill raise", "skill tier", "spell learn", "quick spell", "spell forget",
-        "age", "rejuvenate", "experience award", "teach", "gift", "stored resistance",
+        "age", "rejuvenate", "experience award", "teach", "gift", "rank grant", "stored resistance",
         "condition apply", "condition clear", "conditions clear all",
         "take damage", "restore hit points", "maximum hit points", "spend spell points", "restore spell points",
         "maximum spell points", "restore all", "equip", "unequip",
@@ -98,7 +98,7 @@ public sealed class ChangeStampTests
         effects.Start(new EffectId("ward"), 3, GameDuration.FromMinutes(5));
         bo.Spells.Learn(new SpellId("spark"));
         ann.Conditions.Apply(new ActiveCondition(new ConditionId("weak")));
-        PartyProgression progression = new(new Shares(), party);
+        PartyProgression progression = new(new Shares(), party, promotions: new OneRank());
 
         long before = party.Stamp;
         Action act = change switch
@@ -158,6 +158,7 @@ public sealed class ChangeStampTests
             "experience award" => () => Assert.True(progression.Award(new PartyExperienceAward("deed", 40)).IsAwarded),
             "teach" => () => progression.Teach(ann.Id, new SkillId("lore"), new SkillTier(1), 1),
             "gift" => () => progression.Gift(ann.Id, 10, 2),
+            "rank grant" => () => Assert.True(progression.Grant("fighter-champion", ann.Id).IsGranted),
             "stored resistance" => () => ann.Resistances.Set(new PartyRpg.Kit.Combat.DamageKindId("fire"), 10),
             "condition apply" => () => ann.Conditions.Apply(new ActiveCondition(new ConditionId("cursed"))),
             "condition clear" => () => Assert.True(ann.Conditions.Clear(new ConditionId("weak"))),
@@ -187,6 +188,13 @@ public sealed class ChangeStampTests
         _ = party.Items;
         _ = party.Records.All;
         Assert.Equal(after, party.Stamp);
+    }
+
+    /// <summary>A ladder of one rank, which a program grants a fighter.</summary>
+    private sealed class OneRank : PartyRpg.Kit.Promotion.IPromotionRule
+    {
+        public PartyRpg.Kit.Promotion.PromotionLadder Ladder { get; } =
+            new([new PartyRpg.Kit.Promotion.PromotionRank("fighter-champion", new ClassId("fighter"), new ClassId("champion"), 2)]);
     }
 
     /// <summary>A rule that shares every award evenly, so an award lands on the members.</summary>

@@ -10,6 +10,7 @@ using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Loot;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Progression;
+using PartyRpg.Kit.Promotion;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
@@ -864,6 +865,8 @@ internal sealed class MightAndMagic7Fixtures
         private readonly SortedDictionary<string, long> _kept = new(StringComparer.Ordinal);
         private readonly Dictionary<PlacementContentId, string> _changes = [];
         private readonly List<string> _residue = [];
+        private readonly Dictionary<int, string> _classes = [];
+        private Refusal? _refused;
         private ConversationSubject? _speaks;
         private bool _opens;
         private InteractionTravel? _travels;
@@ -1364,6 +1367,10 @@ internal sealed class MightAndMagic7Fixtures
 
                 // Whether the character wears the item, in any slot (OpenEnroth src/Engine/Objects/Character.cpp:3981-3982).
                 "item-equipped" => (member, _) => Wears(member, step.Value) ? 1 : 0,
+
+                // Whether the character is of the class the step names — equality, not at least (OpenEnroth
+                // src/Engine/Objects/Character.cpp:3618-3619) — as the run has left it.
+                "class" when step.Which.Length > 0 => (member, index) => string.Equals(ClassOf(member, index), step.Which, StringComparison.Ordinal) ? 1 : 0,
                 _ => null,
             };
             if (read is null) return (false, VariableNotInterpreted(_target, mapEvent, step));
@@ -1374,7 +1381,7 @@ internal sealed class MightAndMagic7Fixtures
 
                 // A condition compares whether it is held rather than how much of it: the donor's comparison
                 // of one is a test of the bit (OpenEnroth src/Engine/Objects/Character.cpp:3826-3859).
-                bool holds = step.Variable is "condition" or "item-equipped" ? value > 0 : value >= step.Value;
+                bool holds = step.Variable is "condition" or "item-equipped" or "class" ? value > 0 : value >= step.Value;
                 if (holds) return (true, null);
             }
 
@@ -1599,6 +1606,7 @@ internal sealed class MightAndMagic7Fixtures
                     });
                     _done.Add(op == "set" && years == 0 ? $"{member.Profile.Name} is young again." : $"{member.Profile.Name} ages.");
                 },
+                ("class", "set") when step.Which.Length > 0 => (member, index) => Promote(mapEvent, step, member, index),
                 ("major-condition", "set") => (member, _) =>
                 {
                     // Setting the worst condition clears every condition (OpenEnroth src/Engine/Objects/Character.cpp:4346-4349).
@@ -1620,9 +1628,71 @@ internal sealed class MightAndMagic7Fixtures
                 _ => null,
             };
             if (write is null) return VariableNotInterpreted(_target, mapEvent, step);
-            foreach (int index in who) write(party.Members[index], index);
+            foreach (int index in who)
+            {
+                write(party.Members[index], index);
+                if (_refused is { } refused) return refused;
+            }
+
             return null;
         }
+
+        /// <summary>The class a member stands in as the run has left it.</summary>
+        private string ClassOf(PartyMember member, int index) =>
+            _classes.TryGetValue(index, out string? changed) ? changed : member.Profile.Class.Value;
+
+        /// <summary>
+        /// Collects a step making a member the class it names: the rank of this game's ladder that leads there, given
+        /// through the one writer of ranks on the terms the program has judged.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The donor writes the class number and nothing else (OpenEnroth <c>src/Engine/Objects/Character.cpp:4028-4029</c>);
+        /// the shipped programs write it only in a promoter's own events, each raising every member of the class it
+        /// promotes from after the event's own checks of what the party brought. Here the change is the ladder's rank
+        /// from the member's class to the one named (<see cref="MightAndMagic7Promotions"/>), given through
+        /// <see cref="PartyProgression.Grant"/>, so the class, the rank and the record a rank leaves move together as
+        /// every promotion's do, the light or dark alternative is the rank the class names, and whether the member may
+        /// rise at all is judged in the one place every rank is. A change the ladder states no rank for, or one the
+        /// member cannot take, refuses the run before anything is settled; a member already of the class is left as
+        /// they are.
+        /// </para>
+        /// <para>
+        /// <b>Ours.</b> The donor's own side effect of making somebody a Lich — filling the empty lich jar they carry
+        /// (<c>Character.cpp:4030-4036</c>) — is not kept: a jar here is what the rank's errand brings back, not an item
+        /// the class fills.
+        /// </para>
+        /// </remarks>
+        private void Promote(MapEvent mapEvent, MapEventStep step, PartyMember member, int index)
+        {
+            string from = ClassOf(member, index);
+            if (string.Equals(from, step.Which, StringComparison.Ordinal)) return;
+            if (_rules._progression() is not { Promotions: { } ladder } progression)
+            {
+                _refused = VariableNotInterpreted(_target, mapEvent, step, "a change of class in a session that keeps no ladder of ranks to make it through");
+                return;
+            }
+
+            PromotionRank? rank = ladder.Ladder.From(new ClassId(from)).FirstOrDefault(candidate => string.Equals(candidate.To.Value, step.Which, StringComparison.Ordinal));
+            if (rank is null)
+            {
+                _refused = NotInterpreted(_target, mapEvent, step, $"a change of {member.Profile.Name}'s class from {from} to {step.Which}, which this game's ladder states no rank for");
+                return;
+            }
+
+            if (progression.JudgeGrant(rank.Id, member.Id) is { } refusal)
+            {
+                _refused = new Refusal(
+                    refusal.Code,
+                    string.Create(CultureInfo.InvariantCulture, $"{_target.Name} runs {mapEvent.Name}, whose step {step.Step} makes {member.Profile.Name} a {step.Which}: {refusal.Message} Nothing was changed."));
+                return;
+            }
+
+            _classes[index] = step.Which;
+            _effects.Add(() => progression.Grant(rank.Id, member.Id));
+            _done.Add($"{member.Profile.Name} is now a {step.Which}.");
+        }
+
 
         /// <summary>Collects the note a step writes.</summary>
         private Refusal? Learn(MapEvent mapEvent, MapEventStep step)

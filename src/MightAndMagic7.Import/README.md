@@ -57,7 +57,8 @@ Owns:
   `{date}` and `{member:1}`–`{member:4}` (`HistoryTable`). A person carries their six dialogue slots by position
   (`topicSlots`), and every topic-table row with an answer or a global event of its number is written as a `person-topic` entry whoever owns it,
   which is what a topic change can make a slot raise; a person placement carries its actor record's `group`.
-  No step is interpreted here; the write summary counts the steps of each kind, which is
+  A step comparing or setting a character's `class` names the class in `which` — the class table's row its value
+  numbers (`PlaceFixtureEmitter.Classed`) — so no reader needs the table's order. No step is interpreted here; the write summary counts the steps of each kind, which is
   what the ruleset's interpretation is measured against, and the shapes are recorded in
   [`../../docs/research/mm7-data-inventory.md`](../../docs/research/mm7-data-inventory.md) (*Fixtures, map
   events, and the discovery table*).

@@ -603,7 +603,7 @@ public static class PlaceFixtureEmitter
                 continue;
             }
 
-            PlaceEventStep step = Step(instruction, id => strings?.Line(id) ?? string.Empty);
+            PlaceEventStep step = Classed(Step(instruction, id => strings?.Line(id) ?? string.Empty), tables?.Classes);
             if (step.Encounter is { } encounter && tables is not null)
             {
                 // A summoning names one of the place's encounter slots the way a spawn record does, so its slot is read
@@ -616,6 +616,22 @@ public static class PlaceFixtureEmitter
 
         return new PlaceEvent(placeId, map.FileName, eventId, label, steps, raised, triggered);
     }
+
+    /// <summary>
+    /// A step comparing or changing a character's class, with the class named by the class table's row it numbers.
+    /// </summary>
+    /// <remarks>
+    /// The donor's class variable is the class's own number (OpenEnroth <c>src/Engine/Objects/Character.cpp:3618-3619</c>
+    /// compares it, <c>:4028-4029</c> sets it), and that number is the row of the class table (<c>CLASS.TXT</c>, read in
+    /// table order), so the step carries the row's name in <c>which</c> and a reader never needs the table's order. A
+    /// number past the table names nothing and is written without one.
+    /// </remarks>
+    /// <param name="step">The step as read.</param>
+    /// <param name="classes">The class table, or null when the import read none.</param>
+    internal static PlaceEventStep Classed(PlaceEventStep step, ClassTable? classes) =>
+        step is { Variable: "class", Value: { } row } && classes is not null && row >= 0 && row < classes.Ranks.Count
+            ? step with { Which = classes.Ranks[row].Name }
+            : step;
 
     /// <summary>One instruction as the step a pack carries.</summary>
     /// <param name="instruction">The instruction.</param>

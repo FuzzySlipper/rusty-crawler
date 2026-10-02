@@ -86,13 +86,15 @@ public static class GlobalEventEmitter
     /// <param name="people">The people tables: the slots a topic raises, and the text a message step shows.</param>
     /// <param name="graph">The travel links, which a move step names its link by; without one a move names none.</param>
     /// <param name="maps">The decoded maps, which a move's destination is read against.</param>
+    /// <param name="classes">The class table, which names the class a class step numbers; without one the step names none.</param>
     /// <returns>What was derived; <see cref="GlobalEventSummary.Empty"/> when the installation holds no global program.</returns>
     /// <exception cref="ArgumentNullException">A required argument is null.</exception>
     public static GlobalEventSummary Emit(
         IReadOnlyList<EvtProgram> programs,
         PersonTable people,
         PlaceGraph? graph = null,
-        IReadOnlyDictionary<int, DecodedMap>? maps = null)
+        IReadOnlyDictionary<int, DecodedMap>? maps = null,
+        ClassTable? classes = null)
     {
         ArgumentNullException.ThrowIfNull(programs);
         ArgumentNullException.ThrowIfNull(people);
@@ -109,7 +111,7 @@ public static class GlobalEventEmitter
                 // A hint is never a step the donor runs (src/Engine/Evt/EvtInstruction.cpp:919-924); the global
                 // program holds none, and one would be a label nothing shows.
                 if (instruction.Opcode == EvtOpcodes.MouseOver) continue;
-                PlaceEventStep step = PlaceFixtureEmitter.Step(instruction, id => people.Text(id)?.Text ?? string.Empty);
+                PlaceEventStep step = PlaceFixtureEmitter.Classed(PlaceFixtureEmitter.Step(instruction, id => people.Text(id)?.Text ?? string.Empty), classes);
                 steps.Add(instruction.TryReadMoveToMap(out MoveToMapInstruction move) ? moves.Describe(step, null, program.Name, instruction, move) : step);
             }
 

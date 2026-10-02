@@ -4,6 +4,7 @@ using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Promotion;
 using PartyRpg.Kit.Quests;
 using PartyRpg.Kit.Services;
@@ -63,6 +64,14 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// placement (<see cref="HandoffOwner.Use"/>) so what it gives, pays, teaches and where it leads are settled as any
 /// use's are — and what the event shows is what the person says. A topic with no event is the line the topic table
 /// records, and the residue says so.
+/// </para>
+/// <para>
+/// <b>A promoter's rank is their topic.</b> Where the world's program answers a rank — an event that makes a character
+/// the class the rank names — the promoter's own topic is the one offer of it, and its event decides: what it says,
+/// what it asks the party to have brought, and each member it raises, through the ladder's rank and the one writer of
+/// ranks (<see cref="MightAndMagic7Fixtures"/>, <see cref="PartyProgression.Grant"/>). The ladder's own offer of that
+/// rank is not made, so a rank is never offered twice nor granted by two judges; it is what a promoter says in a
+/// world whose program does not answer the rank.
 /// </para>
 /// </remarks>
 internal sealed class MightAndMagic7Conversation : IConversationRule
@@ -578,14 +587,16 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
                 CounterOffer(counter, context)));
         }
 
-        // A person the ladder names as a giver offers the ranks they give, in the ladder's own order. The
-        // offer is composed here rather than read from the shipped topic table because the original answers
-        // those rows with event programs this build does not run: what the table states is who gives which
-        // rank, and this is that fact turned into something a party can take.
+        // A person the ladder names as a giver offers the ranks they give, in the ladder's own order — unless the
+        // world's own program answers the rank, which is then the promoter's topic and the one offer of it: the
+        // topic says the shipped words, judges what the party brought, and raises each member through the same
+        // writer of ranks (MightAndMagic7Fixtures, PartyProgression.Grant). The ladder's own offer is what a promoter
+        // whose world carries no such program says.
         if (_promotions is { } ladder)
         {
             foreach (PromotionRank rank in ladder.Ladder.GivenBy(context.Speaker))
             {
+                if (Scripted(rank)) continue;
                 string id = $"{MightAndMagic7Identities.PromotionTopicPrefix}{rank.Id}";
                 Verdict availability = RankOffer(rank, context);
                 if (availability.IsMet && Said(context, id))
@@ -833,7 +844,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
             string id = topic.Id[MightAndMagic7Identities.PromotionTopicPrefix.Length..];
             foreach (PromotionRank rank in ladder.Ladder.GivenBy(context.Speaker))
             {
-                if (!string.Equals(rank.Id, id, StringComparison.Ordinal)) continue;
+                if (!string.Equals(rank.Id, id, StringComparison.Ordinal) || Scripted(rank)) continue;
                 return new ConversationAnswer(
                     rank.Words.Length > 0 ? rank.Words : $"'{rank.To}? Then let us see whether you have what it asks for.'",
                     handoff: new ConversationHandoff(HandoffOwner.Rank, rank.Id));
@@ -1080,6 +1091,12 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
             _people.Values.SelectMany(person => person.Topics).FirstOrDefault(candidate => string.Equals(candidate.Id, topic, StringComparison.Ordinal));
         return facts is { Event: not 0 } ? new SpokenTopic(facts.Id, facts.Label, facts.Text, facts.Event) : null;
     }
+
+    /// <summary>
+    /// Whether a rank is answered by the world's own program — a global event that makes a character the class it
+    /// names — which a session running events offers as the promoter's topic and nowhere else.
+    /// </summary>
+    private bool Scripted(PromotionRank rank) => _events() is { } events && events.Events.Grants(rank.To.Value);
 
     /// <summary>Whether a topic is answered by running its event, which needs the event and a session that runs it.</summary>
     private bool Runs(TopicFacts topic) => topic.Event != 0 && _events() is not null;

@@ -262,6 +262,7 @@ internal sealed class MightAndMagic7MapEvents
     private readonly Dictionary<int, Discovery> _discoveries;
     private readonly Dictionary<int, HistoryLine> _history;
     private readonly Dictionary<int, MapEvent> _global;
+    private readonly HashSet<string> _granted;
 
     private MightAndMagic7MapEvents(
         Dictionary<(string Place, int Event), MapEvent> events,
@@ -271,6 +272,11 @@ internal sealed class MightAndMagic7MapEvents
     {
         _events = events;
         _global = global ?? [];
+        _granted = new HashSet<string>(
+            _global.Values.SelectMany(globalEvent => globalEvent.Steps)
+                .Where(step => step is { Op: "set", Variable: "class" } && step.Which.Length > 0)
+                .Select(step => step.Which),
+            StringComparer.Ordinal);
         _discoveries = discoveries;
         _history = history ?? [];
         _timedByPlace = [];
@@ -321,6 +327,13 @@ internal sealed class MightAndMagic7MapEvents
 
     /// <summary>Every event of the global program the content carries.</summary>
     internal IEnumerable<MapEvent> GlobalEvents => _global.Values;
+
+    /// <summary>
+    /// Whether an event of the global program makes a character the class a rank names — which is a promoter's own
+    /// program answering that rank, so nothing else offers it (<see cref="MightAndMagic7Conversation"/>).
+    /// </summary>
+    /// <param name="rankClass">The class the rank names, as the class table spells it.</param>
+    internal bool Grants(string rankClass) => _granted.Contains(rankClass);
 
     /// <summary>The discovery a number names, or null when the table holds none.</summary>
     /// <param name="number">The note's number.</param>

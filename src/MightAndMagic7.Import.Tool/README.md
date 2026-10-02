@@ -41,4 +41,6 @@ raised ones; the `people` block's topics are now a person's slots (416 over 300 
 the topic table carries 446 rows; the `fixtures` block's `houseEvents` (47) are the houses' own events a house's use
 runs, and the greeting table carries 205 rows. `verify` checks these counts. Packs written before the global program was carried
 offer only the topics the table gives text to and run none of them, and packs written before the houses' own events and
-the greeting table were carried open every house without running its event, so they must be rewritten.
+the greeting table were carried open every house without running its event, so they must be rewritten; packs
+written before a `class` step named its class (`which`) cannot have a promoter's topic raise a rank, so they must be
+rewritten too.

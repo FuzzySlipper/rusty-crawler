@@ -362,9 +362,18 @@ state rather than refused. What each errand asks is approximated: the deeds are 
 which this build does not run, so all but one are judged by standing in the place the shipped words name and
 one by a kill (`MightAndMagic7Quests`, each row stating why). `PartyProgression.Promote` is the one writer: it judges every
 requirement before anything moves, refuses with what is missing named, and moves the class and the rank
-together, so the ceiling, the growth table, and every class condition read one fact. A person the ladder names
-as a giver offers the ranks they give through the conversation that already exists, and taking one hands the
-party to that owner through the promotion handoff; the ceiling a class and rank impose now answers with the
+together, so the ceiling, the growth table, and every class condition read one fact. **A promoter's rank is
+their topic** (#9058): the global program answers every one of the 27 ranks with the promoter's own events — an
+errand topic, then a turn-in whose event checks what the party brought, says the shipped words, and makes each
+member of the class the next one (`set class`, named by the class table's row) — so where the program makes a
+character the class a rank names (`MightAndMagic7MapEvents.Grants`), that topic is the one offer of the rank and
+the ladder's own is not made. The run gives the rank through `PartyProgression.Grant`, the ladder's rank from
+the member's class to the one named, judged before anything settles (`JudgeGrant`: of the class, at the rank it
+continues from — the one place a rule about who may rise belongs, #8705), so the class, the rank, the
+`promotion:<rank>` record and the light or dark alternative move as every promotion's do, and the ladder's
+requirements are not asked a second time. The ladder's own offer is what a promoter whose world carries no such
+program says: a person the ladder names as a giver offers the ranks they give through the conversation that
+already exists, and taking one hands the party to that owner through the promotion handoff; the ceiling a class and rank impose now answers with the
 path when a class's own choice closed a school, so a lesson, a book, and a casting are each refused with the
 alternative named (`skill-closed-by-path`); and `PromotionSnapshot` publishes the ladder and what each rank
 did, member by member, for the panel. What the shipped data carries, what this game authors, and the live
@@ -645,8 +654,8 @@ states none is offered; a comparison of a variable this game does not interpret 
 A regular run passes over the offer steps, as the donor's does. A run that meets a step this game does not
 interpret settles nothing and the person still says what the run had said (the topic table's own text when it had
 said nothing), with the refusal as the residue. Over the operator's install, a fresh party choosing each of the 365
-topic-raised events once has 342 run — 3 of them taking the party along a world-issued link: the crossing to
-Harmondale (68) and the temples' (69, 70) — and 23 stop at a named step: `hireling` 12 (#8514), `class` 2,
+topic-raised events once has 344 run — 3 of them taking the party along a world-issued link: the crossing to
+Harmondale (68) and the temples' (69, 70) — and 21 stop at a named step: `hireling` 12 (#8514),
 `bank-gold` 2, `npc-set-item` 2, `reputation` 1, `food` 1, `bounties` 1, `arena-wins-knight` 1, and a creature flag
 `0x10000` 1; the ruleset suite counts it. **What is ours**: the donor offers at most four scripted topics at once (`NPCTopics.cpp:603`), this build
 every one its check allows; a topic said once is withheld for the rest of the conversation, as every topic is.

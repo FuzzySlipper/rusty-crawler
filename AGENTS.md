@@ -148,8 +148,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   an order commands every member rather than a selected one (#8659).
 - Stone 7, progression and magic: training takes no game time (#8671); the two counted deeds two ranks need
   have no writer (#8689); a laid-out member can be promoted (#8705); item-aimed effects (#8513) and followers
-  (#8514) are "not yet" in `docs/magic-coverage.md`; a promoter offers a rank both as its topic and from the
-  rank ladder (#9058).
+  (#8514) are "not yet" in `docs/magic-coverage.md`.
 - Stone 8, record: an errand's item is protected only from sale (#8687).
 
 When a stone lands or a residue closes, update this section, `README.md`, and the owning project README
