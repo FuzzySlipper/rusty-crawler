@@ -337,7 +337,8 @@ public sealed class MagicPolicyTests
                     { "path": "items.json", "documentId": "items", "definitionKind": "item" },
                     { "path": "spells.json", "documentId": "spells", "definitionKind": "spell" },
                     { "path": "skills.json", "documentId": "skills", "definitionKind": "skill" },
-                    { "path": "monsters.json", "documentId": "monsters", "definitionKind": "monster" }
+                    { "path": "monsters.json", "documentId": "monsters", "definitionKind": "monster" },
+                    {{MonsterRows.MatrixDocument}}
                   ]
                 }
                 """),
@@ -358,6 +359,7 @@ public sealed class MagicPolicyTests
                 { "documentId": "start", "definitionKind": "scenario-start", "entries": [ { "id": "start", "place": "1", "entryPoint": "Party Start" } ] }
                 """),
             Monster(casters),
+            MonsterRows.Matrix("world", (MonsterRows.KindOf(7), 2)),
         ];
         return [.. files];
     }

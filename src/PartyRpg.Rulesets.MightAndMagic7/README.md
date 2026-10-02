@@ -251,13 +251,18 @@ this game's locks, and a refusal that says what it needs), which places are cloc
 (`MightAndMagic7Schedules` — the counters' own hours, or the hours a place states in its own entry, read
 against the one clock so a door outside them is an unmet requirement rather than a menu entry that hides
 itself), what fighting costs here (`MightAndMagic7Combat` — a monster's recovery is the monster table's own
-`Recovery` column, its hostility band is the distance at which an encounter's creature notices the party —
-a creature a level's own actor record stands is instead the party's enemy only when the record carries the
-aggressor bit `0x80000` (longest band) or its kind hates the party in the shipped matrix (that band), as the
-donor stands every level actor friendly by row and asks `GetActorsRelation` (`Outdoor.cpp:628-629`,
-`Actor.cpp:2097-2166`), so a town's guards and peasants start nothing until the party attacks them, and the
-matrix is read the donor's way round, a kind's own feelings being its column (`HostilityTable.cpp:21`); the
-encounter's row band is ours, the donor reading the matrix for those too (`Actor.cpp:4331-4334`) — and a character is
+`Recovery` column; no creature's row band decides whether it notices the party — a creature a level's own
+actor record stands is the party's enemy only when the record carries the aggressor bit `0x80000` (longest
+band) or its kind hates the party in the shipped matrix (that band, which is also its notice distance), and a
+creature an encounter or a map event's summoning stands is the party's enemy when its row's kind hates the
+party in the matrix (that band), as the donor stands every actor friendly by row and asks `GetActorsRelation`
+(`Outdoor.cpp:628-629`, `Actor.cpp:4331-4334` for a spawn — a summoning is the same spawn, `EvtInterpreter.cpp:77-99`
+— and `Actor.cpp:2097-2166`), so a town's guards and peasants, and spawned harpies, griffins, liches or clerics,
+start nothing until the party attacks them (25 of the 55 spawned kinds over the operator's install,
+`docs/evidence/actor-record-hostility.md`); the row's band is what a creature already in the fight looks for other
+creatures at, and the matrix is read the donor's way round, a kind's own feelings being its column
+(`HostilityTable.cpp:21`); a camp is kept from only by creatures that are the party's enemy, as the donor's
+proximity check reads the same relation (`Actor.cpp:3458-3481`) — and a character is
 paced by the donor's own attack-recovery sum over what they wear (see the figure below); a creature's first recovery is a keyed draw over the actor so a group placed together does not strike in
 lockstep, a creature is recognized by a placement of kind `monster` naming the row it is, and a person a
 map's own record places reads the monster row that record names rather than one peasant row for everybody),

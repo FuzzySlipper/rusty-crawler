@@ -231,13 +231,15 @@ internal sealed class MightAndMagic7Session : IGameSession
         // randomness rather than a generator this product keeps. A session that holds no engine takes no
         // risk, and a camp where something could find the party is then refused by name.
         //
-        // Whether a creature stands with the party is the fight's own reading of it — a charm, a binding, a control, or
-        // a spell that created it all put it on the ally side — so a camp asks the fight rather than reading the
-        // creature's effects a second time.
+        // Whether a creature is the party's enemy is the fight's own reading of it — a charm, a binding, a control, or
+        // a spell that created it all put it on the ally side, and a creature that is neither hostile by nature nor
+        // provoked stands neutral — so a camp asks the fight rather than reading the creature a second time.
         MightAndMagic7Rest rest = MightAndMagic7Rest.Compose(
             Declared(context.Content),
             context.Engine?.Random,
-            entity => owners.Combat?.Find(CombatantId.Of(entity.Id)) is { Side: CombatSide.Ally });
+            entity => owners.Combat is { } fight &&
+                fight.Find(CombatantId.Of(entity.Id)) is { } creature &&
+                (creature.Side == CombatSide.Ally || (creature.Side == CombatSide.Neutral && !fight.IsHostile(creature))));
 
         // A zombie's pools drift with game time, so the drift is one more owner the one clock tells about every advance.
         // It reads the party the session ends up playing when the clock moves, which is after the party exists on every

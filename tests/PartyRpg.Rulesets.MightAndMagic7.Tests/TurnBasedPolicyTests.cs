@@ -255,8 +255,9 @@ public sealed class TurnBasedPolicyTests
     private static (string Path, string Text)[] World(double monsterAt) =>
     [
         RulesetTestContext.Bundle("partyrpg-default", "world"),
+        MonsterRows.Matrix("world", (MonsterRows.KindOf(7), 2)),
         ($"{RulesetTestContext.ContentDirectory}/content-packs/world/pack.json",
-            """
+            $$"""
             {
               "schemaVersion": 1,
               "packId": "world",
@@ -266,7 +267,8 @@ public sealed class TurnBasedPolicyTests
                 { "path": "places.json", "documentId": "places", "definitionKind": "place" },
                 { "path": "monsters.json", "documentId": "monsters", "definitionKind": "monster" },
                 { "path": "start.json", "documentId": "start", "definitionKind": "scenario-start" },
-                { "path": "party.json", "documentId": "party", "definitionKind": "scenario-party" }
+                { "path": "party.json", "documentId": "party", "definitionKind": "scenario-party" },
+                {{MonsterRows.MatrixDocument}}
               ]
             }
             """),

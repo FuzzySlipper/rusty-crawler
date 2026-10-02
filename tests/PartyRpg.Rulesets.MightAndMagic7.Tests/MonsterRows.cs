@@ -52,7 +52,7 @@ internal static partial class MonsterRows
 
         List<string> fields =
         [
-            Invariant($"\"hostilityKind\": {((id - 1) / 3) + 1}"),
+            Invariant($"\"hostilityKind\": {KindOf(id)}"),
             $"\"attack\": {{ {Attack(attackKind, damage)} }}",
             Invariant($"\"secondAttack\": {{ \"chance\": {secondChance}{(second == "0" ? string.Empty : ", " + Attack(secondKind, second))} }}"),
             $"\"resistances\": {{ {string.Join(", ", resisted.Where(pair => pair.Value != "Imm").Select(pair => $"\"{pair.Key}\": {pair.Value}"))} }}",
@@ -74,6 +74,33 @@ internal static partial class MonsterRows
 
         return string.Join(", ", fields);
     }
+
+    /// <summary>The pack manifest's line for the matrix document <see cref="Matrix"/> stages.</summary>
+    internal const string MatrixDocument = """{ "path": "hostility.json", "documentId": "hostility", "definitionKind": "hostility" }""";
+
+    /// <summary>
+    /// A hostility matrix whose party row names each given kind at the given band, as the importer writes the shipped
+    /// one: a creature no actor record stands — an encounter's, a summoning's, one content places directly — notices the
+    /// party at its kind's band in that row, as the donor's spawned creatures do (OpenEnroth
+    /// <c>src/Engine/Objects/Actor.cpp:4331-4334</c>, <c>:2097-2116</c>), not at its row's own band.
+    /// </summary>
+    /// <param name="pack">The pack the document is written into, which must list <see cref="MatrixDocument"/>.</param>
+    /// <param name="partyRow">Each kind the party's row names, with its band; a kind it leaves out is friendly.</param>
+    internal static (string Path, string Text) Matrix(string pack, params (int Kind, int Band)[] partyRow) =>
+        ($"{RulesetTestContext.ContentDirectory}/content-packs/{pack}/hostility.json",
+            Invariant($$"""
+            {
+              "documentId": "hostility",
+              "definitionKind": "hostility",
+              "entries": [
+                { "id": "Party", "kind": 0, "hostility": { {{string.Join(", ", partyRow.Select(cell => Invariant($"\"{cell.Kind}\": {cell.Band}")))}} } }
+              ]
+            }
+            """));
+
+    /// <summary>The kind a monster row belongs to, by the shipped table's grouping of three graded rows.</summary>
+    /// <param name="id">The row's own id.</param>
+    internal static int KindOf(int id) => ((id - 1) / 3) + 1;
 
     private static string Attack(string kind, string damage)
     {

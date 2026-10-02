@@ -18,7 +18,9 @@ namespace PartyRpg.Rulesets.MightAndMagic7.Tests;
 /// <remarks>
 /// <para>
 /// What no kit test can prove is what this game states: a creature's recovery is the monster table's own
-/// column converted into game time, its hostility band is the distance at which it notices the party, a
+/// column converted into game time, the band its kind holds toward the party in the shipped matrix is the
+/// distance at which it notices the party (its row's own band is overwritten with friendly when it is stood, as
+/// the donor's is), a
 /// character is paced by the donor's own character recovery, and an attack reaches as far as the donor's own
 /// ranges. The ruleset's policy types are internal because nothing outside the product composes them, so this
 /// suite reaches them through the ruleset's own friend declaration.
@@ -50,8 +52,8 @@ public sealed class CombatPolicyTests
         session.Update(RulesetTestContext.Update(++step, 1));
         combat = ProjectedNode.Of(ui.Latest().Value).Field("combat");
 
-        // The creature is hostile because of what it is: its row's band is two, which notices the party from
-        // 2560 units, and the placement stands a hundred units away.
+        // The creature is hostile because of what it is: its kind's band in the party's row of the matrix is two,
+        // which notices the party from 2560 units, and the placement stands a hundred units away.
         Assert.True(combat.Field("engaged").AsBoolean());
         Assert.Equal(1d, combat.Field("opposition").AsNumber());
         Assert.Equal(2d, combat.Field("members").Length());
@@ -99,13 +101,13 @@ public sealed class CombatPolicyTests
     public void What_the_party_has_done_is_what_makes_a_person_hostile()
     {
         (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(
-            [.. World(monsterAt: 100, person: true), Monsters(hostility: 4, recovery: 100), PartyDocument()]);
+            [.. World(monsterAt: 100, person: true, partyBand: 4), Monsters(hostility: 4, recovery: 100), PartyDocument()]);
 
         using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(RulesetTestContext.RulesetContext(context, ui, combat: true));
         session.Start();
         session.Update(RulesetTestContext.Update(1, 1));
 
-        // The creature's band is four, which notices the party from 10240 units, so the fight is already on
+        // The creature's kind is at band four, which notices the party from 10240 units, so the fight is already on
         // when the party walks in; the person standing there is in no fight at all.
         ProjectedNode combat = ProjectedNode.Of(ui.Latest().Value).Field("combat");
         Assert.True(combat.Field("engaged").AsBoolean());
@@ -631,7 +633,7 @@ public sealed class CombatPolicyTests
     /// A world of two places: the party's starting region holds a creature where the test says and, when a
     /// test asks for one, a person standing near it.
     /// </summary>
-    private static (string Path, string Text)[] World(double monsterAt, bool person = false, string monsterRow = "7")
+    private static (string Path, string Text)[] World(double monsterAt, bool person = false, string monsterRow = "7", int partyBand = 2)
     {
         string placements = $$"""
             { "id": "beast", "kind": "monster", "monster": "{{monsterRow}}", "x": {{monsterAt.ToString(System.Globalization.CultureInfo.InvariantCulture)}}, "y": 0, "z": 0 }
@@ -656,7 +658,8 @@ public sealed class CombatPolicyTests
                     { "path": "monsters.json", "documentId": "monsters", "definitionKind": "monster" },
                     { "path": "start.json", "documentId": "start", "definitionKind": "scenario-start" },
                     { "path": "party.json", "documentId": "party", "definitionKind": "scenario-party" },
-                    { "path": "people.json", "documentId": "people", "definitionKind": "person" }
+                    { "path": "people.json", "documentId": "people", "definitionKind": "person" },
+                    {{MonsterRows.MatrixDocument}}
                   ]
                 }
                 """),
@@ -674,6 +677,7 @@ public sealed class CombatPolicyTests
                   ]
                 }
                 """),
+            MonsterRows.Matrix("world", (MonsterRows.KindOf(7), partyBand)),
             ($"{RulesetTestContext.ContentDirectory}/content-packs/world/people.json",
                 """
                 { "documentId": "people", "definitionKind": "person", "entries": [ { "id": "person-1", "name": "A bystander" } ] }
@@ -692,7 +696,8 @@ public sealed class CombatPolicyTests
             {
               "documentId": "monsters",
               "definitionKind": "monster",
-              "entries": [ { "id": "{{id}}", "name": "A beast", "hostility": {{hostility}}, "recovery": {{recovery}} } ]
+              "entries": [ { "id": "{{id}}", "name": "A beast", "hostility": {{hostility}}, "recovery": {{recovery}},
+                             "hostilityKind": {{MonsterRows.KindOf(int.Parse(id, System.Globalization.CultureInfo.InvariantCulture))}} } ]
             }
             """);
 

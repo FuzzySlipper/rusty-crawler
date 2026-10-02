@@ -329,9 +329,9 @@ internal sealed class MightAndMagic7MonsterAi : IMonsterAiPolicy
     /// <summary>Whether a candidate stands inside the distance this creature looks that far.</summary>
     private bool Within(CreatureCandidate candidate, CreatureSituation situation, MightAndMagic7Combat.MonsterFacts facts)
     {
-        // The party is as near as it stands: what makes it a target is the creature's own hostility, which
-        // is the band its row states and which the fight has already read to decide the creature is in the
-        // fight at all.
+        // The party is as near as it stands: what makes it a target is the creature's own hostility — what its
+        // record and its kind's place in the matrix say of the party — which the fight has already read to decide
+        // the creature is in the fight at all.
         if (candidate.IsParty) return true;
 
         if (situation.Self.Side == CombatSide.Opposition && facts.NoticeRange > 0)

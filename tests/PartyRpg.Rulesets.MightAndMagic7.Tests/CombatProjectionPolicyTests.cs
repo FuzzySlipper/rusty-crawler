@@ -231,6 +231,7 @@ public sealed class CombatProjectionPolicyTests
     [
         .. ground is null ? Array.Empty<(string, string)>() : [Floor(ground)],
         RulesetTestContext.Bundle("partyrpg-default", "world"),
+        MonsterRows.Matrix("world", (MonsterRows.KindOf(7), 2)),
         ($"{RulesetTestContext.ContentDirectory}/content-packs/world/pack.json",
             $$"""
             {
@@ -243,7 +244,8 @@ public sealed class CombatProjectionPolicyTests
                 { "path": "monsters.json", "documentId": "monsters", "definitionKind": "monster" },
                 { "path": "start.json", "documentId": "start", "definitionKind": "scenario-start" },
                 {{(ground is null ? string.Empty : GeometryDocument)}}
-                { "path": "party.json", "documentId": "party", "definitionKind": "scenario-party" }
+                { "path": "party.json", "documentId": "party", "definitionKind": "scenario-party" },
+                {{MonsterRows.MatrixDocument}}
               ]
             }
             """),

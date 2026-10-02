@@ -1874,8 +1874,8 @@ internal sealed class MightAndMagic7Fixtures
         /// The slot is resolved as a spawn record's is (<see cref="MightAndMagic7Spawns.Summoned"/>), now, so a run that
         /// cannot draw what it summons is refused before anything is settled; the creatures enter the place's live
         /// population when the run is applied, through the population's own creation, and the fight reads them as it
-        /// reads every creature — a goblin summoned in ambush is the party's enemy by its row's own notice band, and one
-        /// joining a group the event turns hostile is an enemy by that. They stand for the visit: the donor's own are
+        /// reads every creature — a goblin summoned in ambush is the party's enemy at the band the matrix gives its kind
+        /// toward the party, and one joining a group the event turns hostile is an enemy by that. They stand for the visit: the donor's own are
         /// saved with the map, while this build's schema carries no population, so a save taken while one stands is
         /// refused by name as one taken beside a summoned elemental is (#8658).
         /// </remarks>

@@ -151,13 +151,13 @@ internal sealed class MightAndMagic7Rest : IRestRule
     internal static readonly ConditionId Weakness = MightAndMagic7Provisions.Weakness;
 
     private readonly IRandomService? _random;
-    private readonly Func<PlacePopulationEntity, bool> _allied;
+    private readonly Func<PlacePopulationEntity, bool> _harmless;
 
-    private MightAndMagic7Rest(IRandomService? random, TuningProfile tuning, Func<PlacePopulationEntity, bool>? allied)
+    private MightAndMagic7Rest(IRandomService? random, TuningProfile tuning, Func<PlacePopulationEntity, bool>? harmless)
     {
         _random = random;
         _tuning = tuning;
-        _allied = allied ?? (_ => false);
+        _harmless = harmless ?? (_ => false);
     }
 
     private readonly TuningProfile _tuning;
@@ -173,16 +173,17 @@ internal sealed class MightAndMagic7Rest : IRestRule
     /// The engine's random service, which a camp's risk is drawn from. Without one this game will not take
     /// the risk at all, and refuses a camp in a place where something could find the party.
     /// </param>
-    /// <param name="allied">
-    /// Whether a creature stands with the party right now — charmed, enslaved, controlled, called up, or stood back up —
-    /// as the fight reads it. Such a creature does not keep the party from making camp. Without one, only a creature a
-    /// spell created is known to stand with the party.
+    /// <param name="harmless">
+    /// Whether a creature is no enemy of the party right now, as the fight reads it: one that stands with the party —
+    /// charmed, enslaved, controlled, called up, or stood back up — and one that neither attacks the party on sight nor
+    /// has been made its enemy, such as a creature whose kind the matrix keeps friendly to it. Such a creature does not
+    /// keep the party from making camp. Without one, only a creature a spell created is known to be harmless.
     /// </param>
     /// <returns>This game's answers about sleeping, camping, waiting, and going without sleep.</returns>
     /// <exception cref="ContentValidationException">A place states a ground this game cannot price.</exception>
-    internal static MightAndMagic7Rest Compose(ContentCatalog? catalog, IRandomService? random, Func<PlacePopulationEntity, bool>? allied = null)
+    internal static MightAndMagic7Rest Compose(ContentCatalog? catalog, IRandomService? random, Func<PlacePopulationEntity, bool>? harmless = null)
     {
-        if (catalog is null) return new MightAndMagic7Rest(random, MightAndMagic7Tuning.Read(null), allied);
+        if (catalog is null) return new MightAndMagic7Rest(random, MightAndMagic7Tuning.Read(null), harmless);
         List<ContentValidationIssue> issues = [];
         foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in catalog.Entries(PlaceGraphLoader.PlaceDefinitionKind))
         {
@@ -202,7 +203,7 @@ internal sealed class MightAndMagic7Rest : IRestRule
                 issues);
         }
 
-        return new MightAndMagic7Rest(random, MightAndMagic7Tuning.Read(catalog), allied);
+        return new MightAndMagic7Rest(random, MightAndMagic7Tuning.Read(catalog), harmless);
     }
 
     /// <inheritdoc />
@@ -374,10 +375,11 @@ internal sealed class MightAndMagic7Rest : IRestRule
             if (CreatureHealth.Find(entity.Actor) is { IsDown: true }) continue;
 
             // A creature that stands with the party — one a spell created, and one charmed, enslaved, or controlled,
-            // whatever made it an ally — is not a hostile, and the donor's check passes over what is friendly to the
-            // party (Actor.cpp:3473-3477, where an actor counts only when it is an enemy or its relation to the party is
-            // not friendly; Actor.cpp:2097-2104 reads a charm and a binding as friendly).
-            if (MightAndMagic7Summons.IsSummoned(entity.Placement) || _allied(entity)) continue;
+            // whatever made it an ally — is not a hostile, and neither is one the party has not angered whose kind the
+            // matrix keeps friendly to it: the donor's check passes over what is friendly to the party
+            // (Actor.cpp:3473-3477, where an actor counts only when it is an enemy or its relation to the party is not
+            // friendly; Actor.cpp:2097-2104 reads a charm and a binding as friendly, :2122-2166 the matrix otherwise).
+            if (MightAndMagic7Summons.IsSummoned(entity.Placement) || _harmless(entity)) continue;
             PlacePose at = entity.Pose;
             double x = at.X - party.X;
             double y = at.Y - party.Y;

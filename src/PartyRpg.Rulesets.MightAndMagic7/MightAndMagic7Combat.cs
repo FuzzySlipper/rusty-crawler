@@ -263,11 +263,13 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// slightly larger radius at the corners and the same fight everywhere else.
     /// </para>
     /// <para>
-    /// Every one of the operator's 276 monster rows states a band of one to four, so every creature an encounter
-    /// stands is one that starts fights; a band of zero is the donor's friendly case and is honoured for content
-    /// that states it. A creature a level's own record stands reads its band from the matrix instead
-    /// (<see cref="OwnNature"/>), indexed into the same ranges. A band this game has no range for is a content defect refused where the policy is
-    /// composed, rather than a creature that is silently armed with somebody else's distance.
+    /// Every one of the operator's 276 monster rows states a band of one to four, and no creature reads it toward the
+    /// party: the donor overwrites it with friendly whenever it stands a creature, so every creature — a level's own
+    /// record, an encounter's, a summoning's — reads its band toward the party from the matrix
+    /// (<see cref="OwnNature"/>), indexed into the same ranges. The row's own band is what a creature already in the
+    /// fight looks for other creatures at (<see cref="MonsterFacts.NoticeRange"/>). A band this game has no range for
+    /// is a content defect refused where the policy is composed, rather than a creature that is silently armed with
+    /// somebody else's distance.
     /// </para>
     /// </remarks>
     private static readonly double[] NoticeRanges = [0, 1024, 2560, 5120, 10240];
@@ -702,9 +704,9 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// <remarks>
     /// A member of the party is never hostile to it; a person is a creature that does not start fights, and
     /// is what the party turns into an enemy by attacking them; a creature a level's own actor record stands is
-    /// hostile as that record and the shipped matrix say (<see cref="OwnNature"/>); a creature an encounter
-    /// stands is hostile as its row's band says. Anything else — a door, a chest, a light — is not a creature at
-    /// all.
+    /// hostile as that record and the shipped matrix say, and a creature an encounter or a summoning stands as the
+    /// matrix says of its kind (<see cref="OwnNature"/>). Anything else — a door, a chest, a light — is not a creature
+    /// at all.
     /// </remarks>
     public Hostility NatureOf(CombatSubject subject)
     {
@@ -783,30 +785,35 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// record carries the aggressor bit or names another kind, so what decides every shipped record is the matrix.
     /// </para>
     /// <para>
-    /// <b>An encounter's creature is what its row's band says</b>, as it was before: the donor stands those
-    /// friendly by row too and reads the same matrix (<c>Actor.cpp:4331-4334</c>), and this game keeps the row's
-    /// band for them instead, which is ours. A band of zero is the donor's friendly creature: something that walks
-    /// the world and never starts a fight, which the party can still attack. Either kind of creature the party
-    /// attacks is its enemy from then on, which is the fight's own memory of what the party did.
+    /// <b>Every other creature is what its kind thinks of the party in the matrix.</b> The donor stands an encounter's
+    /// creature with its monster type as its faction and its row's hostility overwritten with friendly
+    /// (<c>src/Engine/Objects/Actor.cpp:4331-4334</c>, <c>SpawnEncounter</c>), and a map event's summoning goes through
+    /// the same function with nothing set differently (<c>src/Engine/Evt/EvtInterpreter.cpp:77-99</c>: an event's own
+    /// point and group, no aggressor). Such a creature carries no record, so no aggressor bit and no other kind: its
+    /// relation to the party is its row's kind in the matrix, and the band found is how far off it notices the party,
+    /// exactly as for a level's own record. A creature content places directly is read the same way. Faithful; a kind
+    /// the matrix keeps friendly to the party walks the world and never starts a fight. Whatever the creature, the
+    /// party attacking it makes it the party's enemy from then on, which is the fight's own memory of what the party
+    /// did and the donor's aggressor bit set on the creature the party strikes (<c>Actor.cpp:706-708</c>, raised by
+    /// the party's blow at <c>Actor.cpp:3153-3154</c>). The rest encounter's ambush, which the donor stands as aggressors
+    /// (<c>src/Engine/Graphics/Indoor.cpp:1815</c>), stands nothing here: a broken night is an hour's nap only.
     /// </para>
     /// </remarks>
     /// <param name="subject">The creature.</param>
     /// <param name="creature">Its own monster row.</param>
     private Hostility OwnNature(CombatSubject subject, MonsterFacts creature)
     {
-        if (ActorRecord(subject) is not { } record)
+        int kind = creature.HostilityKind;
+        if (ActorRecord(subject) is { } record)
         {
-            return creature.NoticeRange <= 0
-                ? Hostility.Peaceful
-                : Hostility.Aggressive(creature.NoticeRange);
+            if ((record.GetInt32(AttributesField) is { } attributes) && (attributes & AggressorAttribute) != 0)
+            {
+                return Hostility.Aggressive(NoticeRanges[^1]);
+            }
+
+            if (record.GetInt32(HostilityGroupField) is { } named and not 0) kind = named;
         }
 
-        if ((record.GetInt32(AttributesField) is { } attributes) && (attributes & AggressorAttribute) != 0)
-        {
-            return Hostility.Aggressive(NoticeRanges[^1]);
-        }
-
-        int kind = record.GetInt32(HostilityGroupField) is { } named and not 0 ? named : creature.HostilityKind;
         int band = kind == PartyFaction ? 0 : _hostility.TowardParty(kind);
         return band <= 0 ? Hostility.Peaceful : Hostility.Aggressive(NoticeRanges[Math.Min(band, NoticeRanges.Length - 1)]);
     }
@@ -816,16 +823,14 @@ internal sealed class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule,
     /// before any spell on it or the party is read; what a bound creature reads to choose whom it fights.
     /// </summary>
     /// <remarks>
-    /// An encounter's creature is also the party's enemy when its kind hates the party in the matrix, which is the
-    /// donor's own reading for every actor (<c>Actor.cpp:2165</c>); a level's own creature already reads the matrix.
+    /// Every creature's own nature already reads its kind in the matrix, which is the donor's own reading for every
+    /// actor (<c>Actor.cpp:2165</c>).
     /// </remarks>
     /// <param name="subject">The creature.</param>
     /// <param name="facts">Its monster row.</param>
     internal bool AgainstParty(CombatSubject subject, MonsterFacts facts) =>
         !OfPartyFaction(subject) &&
-        (InHostileGroup(subject) ||
-         OwnNature(subject, facts).AttacksOnSight ||
-         (ActorRecord(subject) is null && _hostility.TowardParty(facts.HostilityKind) != 0));
+        (InHostileGroup(subject) || OwnNature(subject, facts).AttacksOnSight);
 
     /// <summary>The actor record a level's own creature was stood from, or null for any other subject.</summary>
     private static ContentEntry? ActorRecord(CombatSubject subject) =>

@@ -63,3 +63,40 @@ Lambent 5, Castle Gloaming 6, The Temple of Baa 35, The Temple of the Moon 3, th
 Mercenary Guild 7 all peaceful; Castle Harmondale's 62 records are all hidden. The standing hostile ones are the
 two places' hobgoblins and seven lone lair creatures (a dragon in each of The Dragon Caves and The Dragon's Lair, and
 one each in Clanker's Laboratory, The Red Dwarf Mines, The Maze, Colony Zod and The Hall under the Hill).
+
+## Spawned creatures read the same matrix (#9059)
+
+The paragraph above records how an encounter's creature noticed the party when #9055 was read live: at its row's
+band. #9059 matched the donor for those too. An encounter's creature takes its monster type as its faction and has
+its row's hostility overwritten with friendly (OpenEnroth `src/Engine/Objects/Actor.cpp:4331-4334`), and a map
+event's summoning is the same spawn with the event's point and group and no aggressor
+(`src/Engine/Evt/EvtInterpreter.cpp:77-99`, calling `SpawnEncounter` with `aggro` 0), so `_SelectTarget` picks the
+party only when the kind's relation to the party in the matrix is not friendly, and notices it at that band's
+distance (`Actor.cpp:2097-2116`, `:2122-2166`). The rows' own bands decide nothing toward the party. Only the
+rest-encounter ambush stands its creatures as aggressors (`src/Engine/Graphics/Indoor.cpp:1815`); this build's broken
+night stands no creature.
+
+Counted over the operator's install by the imported case
+`SpawnedHostilityPolicyTests.Over_the_operators_install_the_matrix_decides_which_spawned_kinds_start_fights`
+(`CRAWLER_IMPORTED_CONTENT` pointed at a root `mm7import write` filled): every kind an encounter placement or a
+map event's summoning names, by the party's row of the matrix at that kind. Before the change every one of them
+attacked on sight, because every monster row states a band of one to four.
+
+| | kinds | encounter placements | event summonings |
+| --- | ---: | ---: | ---: |
+| peaceful until attacked | 25 | 708 | 4 |
+| hostile | 30 | 1,092 | 7 |
+
+Peaceful (band 0): Angel, Archer, Cleric Moon, Cleric Sun, Dwarf, Elf Archer, Elf Spearman, Fighter Chain, Fighter
+Leather, Fighter Plate, Gargoyle, Ghoul, Golem, Griffin, Harpy, Lich, Mage, Monk, Necromancer, Roc, Swordsman,
+Treant, Vampire, Warlock, Zombie (the four zombie summonings).
+
+Hostile, with the band toward the party and so the distance it notices the party at: band 4 (10,240) Bat,
+Beholder, Dragon, Genie, Ghost, Gog, Robot, Sea Monster, Titan, Wyvern; band 3 (5,120) Behemoth, Devil, the four
+Elementals, Hydra, Medusa, Spider, Thief, Troglodyte; band 2 (2,560) Dragonfly, Goblin, Minotaur, Rat, Skeleton
+Warrior, Troll, Wight, zBlasterGuy; band 1 (1,024) Ooze. The seven hostile summonings are three dragonfly and four
+goblin ambushes.
+
+A creature the party attacks is its enemy from then on whatever its kind (the donor's aggressor bit, set on the
+creature struck, `Actor.cpp:706-708` from `:3153-3154`), and a camp is refused only beside a creature that is the
+party's enemy, as the donor's proximity check reads the same relation (`Actor.cpp:3458-3481`).

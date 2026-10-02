@@ -220,6 +220,13 @@ public sealed class RestAndSchedulePolicyTests
         Assert.Equal(6, wary.Field("party").Field("provisions").AsNumber());
         Assert.Equal(0, wary.Field("rest").Field("charged").AsNumber());
 
+        // A creature whose kind the matrix keeps friendly to the party is no hostile, however near it stands: the
+        // donor's check counts only an actor that is the party's enemy (OpenEnroth src/Engine/Objects/Actor.cpp:3473-3477).
+        using IGameSession beside = Region(out RecordingUiService besideUi, terrain: "grass", encounterPercent: 0, peacefulAt: 100);
+        beside.Update(RulesetTestContext.Update(1, 1));
+        beside.Update(RulesetTestContext.Update(2, 1, RulesetTestContext.Digital(Declared.CampIntent)));
+        Assert.Equal("applied", ProjectedNode.Of(besideUi.Latest().Value).Field("rest").Field("outcome").AsString());
+
         // Camping under a roof is refused for the same reason a rest in the open is: the two are different
         // acts, and this game says which one belongs where.
         using IGameSession roofed = Shop(out RecordingUiService roofedUi, ShopDoor);
@@ -355,13 +362,19 @@ public sealed class RestAndSchedulePolicyTests
         out RecordingUiService ui,
         string terrain,
         int encounterPercent,
-        double? hostileAt = null)
+        double? hostileAt = null,
+        double? peacefulAt = null)
     {
         // A creature is a placement of the creature kind naming its own monster row, which is the shape the
         // importer emits from a level's spawn records: what keeps a party from camping is a creature standing
         // there, not the spawn record it came from.
         string spawn = hostileAt is { } at
             ? $$""", { "id": "monster-0", "kind": "monster", "monster": "7", "monsterName": "A beast", "x": {{at}}, "y": 0, "z": 0 }"""
+            : string.Empty;
+
+        // A creature of a kind the matrix keeps friendly to the party, which starts no fight and is no hostile.
+        spawn += peacefulAt is { } near
+            ? $$""", { "id": "monster-1", "kind": "monster", "monster": "13", "monsterName": "A guard", "x": {{near}}, "y": 0, "z": 0 }"""
             : string.Empty;
         (ProductCreateContext context, RecordingUiService service) = RulesetTestContext.Create(Content(
             places:
@@ -433,7 +446,8 @@ public sealed class RestAndSchedulePolicyTests
                 { "path": "places.json", "documentId": "places", "definitionKind": "place" },
                 { "path": "start.json", "documentId": "start", "definitionKind": "scenario-start" },
                 { "path": "party.json", "documentId": "party", "definitionKind": "scenario-party" },
-                { "path": "monsters.json", "documentId": "monsters", "definitionKind": "monster" }
+                { "path": "monsters.json", "documentId": "monsters", "definitionKind": "monster" },
+                {{MonsterRows.MatrixDocument}}
                 {{(services is null ? string.Empty : ", { \"path\": \"services.json\", \"documentId\": \"services\", \"definitionKind\": \"service\" }")}}
               ]
             }
@@ -447,10 +461,14 @@ public sealed class RestAndSchedulePolicyTests
               "entries": [
                 { "id": "7", "name": "A beast", "level": 2, "hitPoints": 40, "armorClass": 5,
                   "hostility": 2, "recovery": 100, "speed": 140, "movement": "Long", "aiType": "Normal",
-                  {{MonsterRows.Combat(7, "Phys", "2D8+10")}} }
+                  {{MonsterRows.Combat(7, "Phys", "2D8+10")}} },
+                { "id": "13", "name": "A guard", "level": 2, "hitPoints": 40, "armorClass": 5,
+                  "hostility": 2, "recovery": 100, "speed": 140, "movement": "Long", "aiType": "Normal",
+                  {{MonsterRows.Combat(13, "Phys", "2D8+10")}} }
               ]
             }
             """),
+        MonsterRows.Matrix("world", (MonsterRows.KindOf(7), 2)),
         ($"{RulesetTestContext.ContentDirectory}/content-packs/world/start.json",
             $$"""
             { "documentId": "start", "definitionKind": "scenario-start", "entries": [ { "id": "start", "place": "{{start}}", "entryPoint": "Party Start" } ] }
