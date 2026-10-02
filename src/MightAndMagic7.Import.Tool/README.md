@@ -57,3 +57,7 @@ refuses them by name rather than placing challengers at guessed coordinates.
 Monster rows also state `arenaEligible`. Wimp AI and z-prefixed special internal names are excluded.
 This adapts the original Wimp/special-identity exclusions described in OpenEnroth `src/Engine/Objects/MonsterEnumFunctions.cpp:118-129`;
 it is an explicit normalized eligibility reading rather than a runtime name filter.
+
+Secret door and fixture placements carry the source face flag, their map's Perception difficulty and the
+secret face indices belonging to that target alone. Non-secret placements carry none of those fields.
+The ruleset interprets discovery; see [the secret-surface reading](../../docs/evidence/secret-discovery.md).

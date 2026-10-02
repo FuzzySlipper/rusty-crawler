@@ -31,6 +31,9 @@ public static class MightAndMagic7Codes
     /// <summary>The refusal code <c>door-already-open</c>.</summary>
     public const string DoorAlreadyOpen = "door-already-open";
 
+    /// <summary>The refusal code <c>secret-not-discovered</c>.</summary>
+    public const string SecretNotDiscovered = "secret-not-discovered";
+
     /// <summary>The refusal code <c>equipment-hands-full</c>: a two-handed weapon and something in the off hand.</summary>
     public const string EquipmentHandsFull = "equipment-hands-full";
 

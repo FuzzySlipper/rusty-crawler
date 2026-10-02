@@ -26,6 +26,43 @@ public sealed class PackWriterTests
     private static readonly ContentLayout Layout = new("content-packs", "imports", "bundles");
 
     [Fact]
+    public void Secret_door_metadata_comes_from_its_own_faces_and_map_table()
+    {
+        string install = SyntheticInstallation.Create(withMaps: true, withSecretDoors: true);
+        string root = Path.Combine(Path.GetTempPath(), $"mm7-secrets-{Guid.NewGuid():N}");
+        try
+        {
+            LodInstall source = LodInstall.Open(install);
+            PackWriter.Write(source, root);
+            MapStatsTable table = MapStatsTable.Read(source);
+            using JsonDocument places = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "mm7-tables", "places.json")));
+            int checkedDoors = 0;
+            foreach (JsonElement place in places.RootElement.GetProperty("entries").EnumerateArray())
+            {
+                int id = int.Parse(place.GetProperty("id").GetString()!, CultureInfo.InvariantCulture);
+                foreach (JsonElement target in place.GetProperty("placements").EnumerateArray())
+                {
+                    if (target.GetProperty("kind").GetString() != "door")
+                    {
+                        Assert.False(target.TryGetProperty("secret", out _));
+                        continue;
+                    }
+                    Assert.True(target.GetProperty("secret").GetBoolean());
+                    Assert.Equal(table.Maps.Single(map => map.Id == id).PerceptionDifficulty, target.GetProperty("perceptionDifficulty").GetInt32());
+                    Assert.Equal(0, Assert.Single(target.GetProperty("secretFaces").EnumerateArray()).GetInt32());
+                    checkedDoors++;
+                }
+            }
+            Assert.Equal(63, checkedDoors);
+        }
+        finally
+        {
+            Directory.Delete(install, recursive: true);
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void A_written_pack_is_a_pack_the_product_loads()
     {
         string installRoot = SyntheticInstallation.Create();
@@ -65,14 +102,16 @@ public sealed class PackWriterTests
         }
     }
 
-    [Fact]
-    public void Two_runs_over_the_same_installation_write_identical_bytes()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Two_runs_over_the_same_installation_write_identical_bytes(bool secrets)
     {
         // The maps are decoded for this check, so the placement data they add is proved reproducible
         // along with everything else: two runs that agreed on the tables but disagreed on a door's
         // derived position — or on a container's, which is averaged over the faces that open it — would be
         // exactly the difference a pack must never carry.
-        string installRoot = SyntheticInstallation.Create(withMaps: true, withContainers: true);
+        string installRoot = SyntheticInstallation.Create(withMaps: true, withContainers: !secrets, withSecretDoors: secrets);
         string first = Path.Combine(Path.GetTempPath(), $"mm7-run-a-{Guid.NewGuid():N}");
         string second = Path.Combine(Path.GetTempPath(), $"mm7-run-b-{Guid.NewGuid():N}");
         try
@@ -361,6 +400,7 @@ public sealed class PackWriterTests
                         Assert.True(placement.TryGetProperty("x", out _));
                         Assert.True(placement.TryGetProperty("y", out _));
                         Assert.True(placement.TryGetProperty("z", out _));
+                        Assert.False(placement.TryGetProperty("secret", out _));
                     }
 
                     spawns += counts.GetProperty("spawn").GetInt32();

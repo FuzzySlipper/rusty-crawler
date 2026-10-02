@@ -68,6 +68,9 @@ public readonly record struct MapStatsRecord(
     string Designer,
     string Notes)
 {
+    /// <summary>The map's secret-face spotting difficulty (MapTable.cpp, column 5).</summary>
+    public int PerceptionDifficulty { get; init; }
+
     /// <summary>The map's encounter slots, in the table's own order.</summary>
     public IReadOnlyList<EncounterSlot> Slots => [Slot1, Slot2, Slot3];
 }
@@ -139,7 +142,10 @@ public sealed class MapStatsTable
             TableValue.Text(row, 28),
             TableValue.Text(row, 29),
             TableValue.Text(row, 30),
-            TableValue.Text(row, 31)))];
+            TableValue.Text(row, 31))
+        {
+            PerceptionDifficulty = TableValue.Integer(table, row, 5, "Perception"),
+        })];
 
         if (maps.Length != ExpectedMaps)
         {

@@ -189,6 +189,15 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
             HashSet<double> doors = [];
             foreach (JsonElement placement in entry.GetArray(PlacePopulationContent.PlacementsField))
             {
+                ContentEntry secret = new("secret", placement);
+                if (secret.Has(MightAndMagic7Secrets.SecretField) &&
+                    (secret.GetBoolean(MightAndMagic7Secrets.SecretField) is null ||
+                    (secret.GetBoolean(MightAndMagic7Secrets.SecretField) == true &&
+                        secret.GetInt32(MightAndMagic7Secrets.DifficultyField) is not (>= 0 and <= int.MaxValue / 2))))
+                {
+                    issues.Add(new ContentValidationIssue("secret-surface-invalid",
+                        $"place '{entry.Id}' has a secret surface without a non-negative Perception difficulty.", pack.PackId, document.DocumentId));
+                }
                 // A map event moves a door by the number the map gives it, not by its placement, so two doors of
                 // one place under one number would leave a lever moving whichever was placed first and the other
                 // never (the donor's own lookup takes the first too: OpenEnroth
@@ -320,6 +329,8 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     /// </remarks>
     public InteractionOutcome Apply(InteractionTargetDefinition target, InteractionContext context)
     {
+        if (MightAndMagic7Secrets.Discover(target, context) is { } discovery) return discovery;
+
         if (string.Equals(target.Kind.Value, MightAndMagic7Containers.TargetKind, StringComparison.Ordinal))
         {
             InteractionOutcome search = _corpses is not null && _corpses.Describe(new InteractionTargetRequest(context.Place, context.Placement, target.State)) is not null

@@ -16,8 +16,9 @@ Bundle assembles. Host launches.**
 
 > **Current state.** Foundation stones 1 to 5 (shell, import, world, party, interaction and services) are closed.
 > Stones 6 to 8 (combat, progression and magic, quests and knowledge) have also landed their mechanisms;
-> remaining work has Den receivers. Secret-door discovery through Perception is carried by a progression
-> child following the owner's explicit routing decision, recorded in the
+> remaining work has Den receivers. Imported secret surfaces now use the best acting member's Perception:
+> first use discovers them and a later use opens the door or runs its event
+> ([discovery reading](docs/evidence/secret-discovery.md)). The owner's routing is recorded in the
 > [parent acceptance audit](docs/evidence/foundation-closure.md).
 > Stone 9 (breadth) has not started. With the
 > operator's imported packs selected, a session creates or resumes a party, walks it through the imported

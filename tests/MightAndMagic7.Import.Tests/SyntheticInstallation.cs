@@ -59,7 +59,8 @@ internal static class SyntheticInstallation
         bool withPeople = false,
         bool emptyEncounterSlots = false,
         bool hiddenCreature = false,
-        bool allDayService = false)
+        bool allDayService = false,
+        bool withSecretDoors = false)
     {
         string root = Path.Combine(Path.GetTempPath(), $"mm7-synthetic-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(root, "DATA"));
@@ -156,7 +157,7 @@ internal static class SyntheticInstallation
             {
                 (string level, string delta, byte[] payload, byte[] deltaPayload) = map <= Regions
                     ? ($"out{map:D2}.odm", $"out{map:D2}.ddm", RegionPayload(map), MapDecoderTests.OutdoorDeltaPayload(withPeople, hiddenCreature))
-                    : ($"d{map - Regions:D2}.blv", $"d{map - Regions:D2}.dlv", InteriorPayload(map - Regions, interiorEvents), InteriorDeltaPayload(map - Regions, interiorEvents));
+                    : ($"d{map - Regions:D2}.blv", $"d{map - Regions:D2}.dlv", InteriorPayload(map - Regions, interiorEvents, withSecretDoors), InteriorDeltaPayload(map - Regions, interiorEvents));
 
                 // Both of the compressed wrapper's forms carry maps: every third level is deflated, and every
                 // third delta beside a different third of the levels, so the pipeline inflates levels and
@@ -237,12 +238,12 @@ internal static class SyntheticInstallation
         return bytes;
     }
 
-    private static byte[] InteriorPayload(int interior, IReadOnlyList<int> events)
+    private static byte[] InteriorPayload(int interior, IReadOnlyList<int> events, bool secret)
     {
         InteriorShape shape = Interior(interior);
         return events.Count > 0
             ? ContainerDecoderTests.ContainerIndoorPayload(events, shape.ChestSpacing)
-            : MapDecoderTests.IndoorPayload(shape.Corners, lightCount: shape.Lights, doorSlots: shape.DoorSlots);
+            : MapDecoderTests.IndoorPayload(shape.Corners, lightCount: shape.Lights, doorSlots: shape.DoorSlots, secret: secret);
     }
 
     private static byte[] InteriorDeltaPayload(int interior, IReadOnlyList<int> events) =>

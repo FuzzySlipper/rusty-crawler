@@ -436,6 +436,7 @@ internal static partial class PackWriter
                     WritePlacements(
                         writer,
                         decoded,
+                        map.PerceptionDifficulty,
                         encountersByPlace.GetValueOrDefault(map.Id, []),
                         creaturesByPlace.GetValueOrDefault(map.Id, []),
                         containersByPlace.GetValueOrDefault(map.Id, []),
@@ -492,6 +493,7 @@ internal static partial class PackWriter
     private static void WritePlacements(
         Utf8JsonWriter writer,
         DecodedMap map,
+        int perceptionDifficulty,
         IReadOnlyList<PlaceEncounterPlacement> encounters,
         IReadOnlyList<PlaceCreaturePlacement> creatures,
         IReadOnlyList<PlaceChestPlacement> containers,
@@ -594,6 +596,7 @@ internal static partial class PackWriter
                 field.WriteNumber("moveLength", door.MoveLength);
                 field.WriteNumber("openSpeed", door.OpenSpeed);
                 field.WriteNumber("closeSpeed", door.CloseSpeed);
+                WriteSecret(field, map, door.FaceIds, perceptionDifficulty);
             }));
         }
 
@@ -652,6 +655,7 @@ internal static partial class PackWriter
                 field.WriteString("heightSource", "event-faces-bottom");
                 if (fixture.Label.Length > 0) field.WriteString("name", fixture.Label);
                 field.WriteNumber("faceCount", fixture.FaceCount);
+                WriteSecret(field, map, fixture.FaceIndices, perceptionDifficulty);
                 if (fixture.ModelIndex is { } model) field.WriteNumber("sourceModel", model);
                 if (fixture.ModelName.Length > 0) field.WriteString("sourceModelName", fixture.ModelName);
             }, fixture.PlacementId));
@@ -920,6 +924,18 @@ internal static partial class PackWriter
         }
 
         return new MapPoint((int)(x / vertexIds.Count), (int)(y / vertexIds.Count), (int)(z / vertexIds.Count));
+    }
+
+    /// <summary>Only secret targets carry these source facts; ordinary placements stay unchanged.</summary>
+    private static void WriteSecret(Utf8JsonWriter writer, DecodedMap map, IReadOnlyList<int> faces, int difficulty)
+    {
+        IReadOnlyList<int> secret = PlaceSecrets.Faces(map, faces);
+        if (secret.Count == 0) return;
+        writer.WriteBoolean("secret", true);
+        writer.WriteNumber("perceptionDifficulty", difficulty);
+        writer.WriteStartArray("secretFaces");
+        foreach (int face in secret) writer.WriteNumberValue(face);
+        writer.WriteEndArray();
     }
 
     /// <summary>One thing placed in a place, before it is written.</summary>

@@ -747,7 +747,7 @@ public sealed class MapDecoderTests
     /// sector's light list grow with it. The first light's values are fixed; later ones follow their index.
     /// </param>
     /// <param name="doorSlots">How many door slots the level declares; <see cref="IndoorDeltaPayload"/> must be given the same.</param>
-    internal static byte[] IndoorPayload(int faceCorners = 4, int poolSlackValues = 0, int version = 1, int lightCount = 2, int doorSlots = 2)
+    internal static byte[] IndoorPayload(int faceCorners = 4, int poolSlackValues = 0, int version = 1, int lightCount = 2, int doorSlots = 2, bool secret = false)
     {
         MapWriter writer = new();
         writer.U32((uint)version);
@@ -767,7 +767,7 @@ public sealed class MapDecoderTests
         writer.Zero(96);
         writer.SetI32(face + 0x00, 0).SetI32(face + 0x04, 0).SetI32(face + 0x08, -65536).SetI32(face + 0x0C, -65536);
         writer.SetI32(face + 0x10, 0).SetI32(face + 0x14, 0).SetI32(face + 0x18, -65536).SetI32(face + 0x1C, -65536);
-        writer.SetU32(face + 0x2C, 0x08);
+        writer.SetU32(face + 0x2C, secret ? 0x0Au : 0x08u);
         writer.SetU16(face + 0x48, 0);          // face extra id
         writer.SetU16(face + 0x4A, 0xFFFF);     // bitmap id, dead in the shipped data
         writer.SetU16(face + 0x4C, 1);          // sector id

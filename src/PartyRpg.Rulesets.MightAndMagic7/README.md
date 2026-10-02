@@ -5,10 +5,11 @@ that turns `PartyRpg.Kit` mechanisms into that game. The owner-level contract is
 in [`../../docs/code-organization.md`](../../docs/code-organization.md).
 
 The [foundation acceptance audit](../../docs/evidence/foundation-closure.md) records world and party
-conformance and the bounded imported service checks. Imported secret doors currently have no established
-Perception discovery gate; generic authored requirements and event skill branches do not close that
-interaction requirement. The owner moved that requirement to Den #9160 under progression (#8460),
-allowing #8458 to close while the discovery work remains outstanding.
+conformance and the bounded imported service checks. Imported secret door and fixture faces now reach
+the best acting member's Perception through the existing interaction owner: first use discovers or names
+the unmet threshold, and a later use runs the ordinary door/event. Discovery uses current world values,
+knowledge and save validation. The [secret-surface reading](../../docs/evidence/secret-discovery.md)
+states the explicit-use approximation and bounded evidence. Den retains the owner's routing from interaction.
 
 Owns:
 
@@ -553,7 +554,8 @@ an accomplishment, and the panel shows only what this game can name. Two counted
 `award:bounties` is the accumulated gold paid by distinct monthly town-hall quest turn-ins, and
 `award:arena-wins` can be earned by an explicitly accumulating content-stated quest reward. Five wins
 open the Champion requirement and ten thousand gold opens the Bounty Hunter requirement. The arena
-itself is absent; actual Knight-tier bout earning is routed to #9144. The
+uses bound Knight-tier opponents whose deaths advance the accepted bout and whose once-only settlement
+adds its win and pays the party ([arena reading](../../docs/evidence/arena-bouts.md)). The
 [counted-deed evidence](../../docs/evidence/counted-deeds.md) records the earning, save and rank paths.
 Fame carries no bands, because the donor
 gives it none: it prints fame as a bare number (`UIQuickReference.cpp:134-143`) and reads it in exactly one

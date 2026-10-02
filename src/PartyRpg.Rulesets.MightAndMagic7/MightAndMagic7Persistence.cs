@@ -121,16 +121,21 @@ internal static class MightAndMagic7Persistence
         // A session that composed no fixtures still judges what a place keeps, against no map events: a timer
         // it names is then one no event holds, which is the honest answer about content that carries none.
         MightAndMagic7Fixtures judge = fixtures ?? new MightAndMagic7Fixtures(MightAndMagic7MapEvents.None);
+        PlacePopulationContent targets = PlacePopulationContent.Read(places, expansion ?? MightAndMagic7Spawns.Compose(content, null));
         List<SaveProblem> problems = [.. save.Problems(
             places,
             MightAndMagic7Party.Factory(content),
             admission: null,
             quests: quests,
             calendar: MightAndMagic7Time.Calendar,
-            kept: (place, key, value) => judge.Judge(place, key, value, save.Clock.ElapsedMilliseconds),
+            kept: (place, key, value) => key.StartsWith(MightAndMagic7Secrets.DiscoveryPrefix, StringComparison.Ordinal)
+                ? MightAndMagic7Secrets.Judge(key, value, targets.PlacementsOf(place))
+                : judge.Judge(place, key, value, save.Clock.ElapsedMilliseconds),
             records: judge.JudgeRecord,
-            targets: PlacePopulationContent.Read(places, expansion ?? MightAndMagic7Spawns.Compose(content, null)),
-            targetState: StateProblem,
+            targets: targets,
+            targetState: (place, target, state) => state == "discovered" && targets.PlacementsOf(place).Any(
+                placement => placement.Content == target && placement.Source.GetBoolean(MightAndMagic7Secrets.SecretField) == true)
+                ? null : StateProblem(place, target, state),
             combat: combat ?? MightAndMagic7Combat.Compose(content, null),
             createdTarget: (place, target) => MightAndMagic7Summons.IsCreatedIdentity(target, save.Party.Records))];
         problems.AddRange(MightAndMagic7ItemMagic.Problems(save, content));
