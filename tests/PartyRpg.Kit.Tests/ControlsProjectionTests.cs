@@ -121,10 +121,10 @@ public sealed class ControlsProjectionTests
         SaveSnapshot store = new(true, false, "session", SaveState.Never, string.Empty, string.Empty, string.Empty);
         Assert.True(ControlsSnapshot.Read(Session(SessionMode.Running) with { Save = store }).Save.Enabled);
         Assert.True(ControlsSnapshot.Read(Session(SessionMode.Paused) with { Save = store }).Save.Enabled);
-        // A party still being made, and a fight's round, are not what a save carries; a session with no store has
-        // nowhere to write one.
+        // A paced fight is carried too; a party still being made has no playing state, and a session with no
+        // store has nowhere to write one.
         Assert.False(ControlsSnapshot.Read(Session(SessionMode.Creating) with { Save = store }).Save.Enabled);
-        Assert.False(ControlsSnapshot.Read(Session(SessionMode.TurnBased) with { Save = store }).Save.Enabled);
+        Assert.True(ControlsSnapshot.Read(Session(SessionMode.TurnBased) with { Save = store }).Save.Enabled);
         Assert.False(ControlsSnapshot.Read(Session(SessionMode.Running) with { Save = store with { Available = false } }).Save.Enabled);
 
         InteractionSnapshot door = new(true, "door", "A door", "open", "closed", 128, "ready", [], "none", string.Empty, string.Empty, string.Empty);

@@ -739,7 +739,8 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
         {
             // A session's running effects are kept over its one party, so each fresh party has its own.
             using PartyEntity party = Party();
-            live.Step(mapEvent.Place, []);
+            // Each fresh party owns a fresh visit, even when consecutive events belong to the same place.
+            live.Step(mapEvent.Place, [PlaceState.Untouched(mapEvent.Place)]);
             int before = live.Entities.Count;
             PartyProgression progression = new(MightAndMagic7Progression.Instance, party);
             PartyJournal journal = new(new MightAndMagic7Journal(loot), clock);

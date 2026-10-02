@@ -162,9 +162,9 @@ public sealed record ControlsSnapshot(
             _ => new(string.Empty, false, keys.Pause),
         };
 
-        // There is something to save only while a session runs or is held, and only where a store exists; a
-        // party still being made, and a fight's round, are not what a save carries.
-        bool saves = snapshot.Save.Available && mode is SessionMode.Running or SessionMode.Paused;
+        // A running, held, or turn-waiting session can save where a store exists. A paced fight is carried
+        // through the same boundary; a party still being made has no playing state to capture.
+        bool saves = snapshot.Save.Available && mode is SessionMode.Running or SessionMode.Paused or SessionMode.TurnBased;
 
         // A use is an instant, so a held session may still use what it faces: what decides it is whether the
         // session holds the mechanism, whether anything is faced, and whether a party exists to use it.

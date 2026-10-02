@@ -146,7 +146,7 @@ public sealed class MagicCoverageTests
             A load checks every deadline before rebuilding any state. Unknown kinds, past due times, impossible
             repeat intervals, duplicate schedules or a spell end naming an absent effect are refused by name.
             Sleep and shelf restocks use that same owned schedule section; capture suspends no deadline.
-            Creature population and pending fights still have the separate named save refusal routed to #8658.
+            The current save carries the resident fight, creature effects, summoned and raised creatures, and their remaining lifetimes through the existing population and combat owners.
 
             ## Casting from an item
 
