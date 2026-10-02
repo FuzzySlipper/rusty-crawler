@@ -125,6 +125,7 @@ public sealed class PersonTable
         NpcGreeting[] greetings,
         NpcTopicRecord[] topics,
         NpcText[] texts,
+        NpcProfessionTable professions,
         IReadOnlyList<string> notes)
     {
         NpcTable = npcTable;
@@ -135,6 +136,7 @@ public sealed class PersonTable
         Greetings = greetings;
         Topics = topics;
         Texts = texts;
+        Professions = professions;
         Notes = notes;
     }
 
@@ -161,6 +163,9 @@ public sealed class PersonTable
 
     /// <summary>Every answer text the table carries, in table order.</summary>
     public IReadOnlyList<NpcText> Texts { get; }
+
+    /// <summary>The authored professions the people reference, including their hiring prices.</summary>
+    public NpcProfessionTable Professions { get; }
 
     /// <summary>What the read noticed about the tables, for a report.</summary>
     public IReadOnlyList<string> Notes { get; }
@@ -230,7 +235,7 @@ public sealed class PersonTable
         NpcGreeting[] greetings = ReadGreetings(greetingTable, notes);
         NpcTopicRecord[] topics = ReadTopics(topicTable, notes);
         NpcText[] texts = ReadTexts(textTable, notes);
-        return new PersonTable(npcTable, greetingTable, topicTable, textTable, npcs, greetings, topics, texts, notes);
+        return new PersonTable(npcTable, greetingTable, topicTable, textTable, npcs, greetings, topics, texts, NpcProfessionTable.Read(install), notes);
     }
 
     private static NpcRecord[] ReadNpcs(TabularTable table, List<string> notes)

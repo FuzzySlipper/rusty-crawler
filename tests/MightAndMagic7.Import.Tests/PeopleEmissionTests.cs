@@ -193,6 +193,12 @@ public sealed class PeopleEmissionTests
                 .Single(entry => string.Equals(entry.Entry.Id, "npc-1", StringComparison.Ordinal));
             Assert.Equal("Tester One", person.GetString("name"));
             Assert.Equal("Well met, travellers.", person.GetString("greeting"));
+            (_, _, ContentEntry hireling) = catalog.Entries(PlacePeopleEmitter.PersonDefinitionKind)
+                .Single(entry => string.Equals(entry.Entry.Id, "npc-2", StringComparison.Ordinal));
+            Assert.Equal(1, hireling.GetDouble("profession"));
+            Assert.Equal(100, hireling.GetDouble("hirePrice"));
+            Assert.Equal("I will join.", hireling.GetString("joinText"));
+            Assert.Equal("Farewell.", hireling.GetString("dismissText"));
             Assert.Equal(1, person.GetArray("topics").Count);
             Assert.Equal("The contest", ContentEntry.ReadString(person.GetArray("topics")[0], "label"));
 

@@ -61,6 +61,9 @@ public static class Mm7TableSources
     /// <summary>The people the world holds: names, portraits, buildings, and dialogue events.</summary>
     public static LodSource Npcs { get; } = new("npcs", RulesArchive, "npcdata.txt");
 
+    /// <summary>The hireling professions: authored fees and their conversation text.</summary>
+    public static LodSource NpcProfessions { get; } = new("npc-professions", RulesArchive, "npcprof.txt");
+
     /// <summary>What each person says when met, and when met again.</summary>
     public static LodSource Greetings { get; } = new("npc-greetings", RulesArchive, "npcgreet.txt");
 

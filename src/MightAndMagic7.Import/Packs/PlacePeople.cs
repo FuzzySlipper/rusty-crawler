@@ -64,6 +64,18 @@ public sealed record PlacePerson(
     IReadOnlyList<PlacePersonTopic> Topics,
     int SourceRow)
 {
+    /// <summary>The original profession identity, zero when none is stated.</summary>
+    public int Profession { get; init; }
+
+    /// <summary>The profession's authored fee, absent when its definition was not found.</summary>
+    public int? HirePrice { get; init; }
+
+    /// <summary>The profession's words for joining the party.</summary>
+    public string JoinText { get; init; } = string.Empty;
+
+    /// <summary>The profession's words for dismissal.</summary>
+    public string DismissText { get; init; } = string.Empty;
+
     /// <summary>How many dialogue event numbers the row states, which is what the original scripts behind their replies.</summary>
     public int DialogueEvents => TopicSlots.Count(slot => slot != 0);
 }
@@ -329,7 +341,13 @@ public static class PlacePeopleEmitter
                 npc.DialogueSlots,
                 npc.CanJoin,
                 topics,
-                npc.Id);
+                npc.Id)
+            {
+                Profession = npc.Profession,
+                HirePrice = npc.Profession == 0 ? 0 : people.Professions.Find(npc.Profession)?.HirePrice,
+                JoinText = people.Professions.Find(npc.Profession)?.Join ?? string.Empty,
+                DismissText = people.Professions.Find(npc.Profession)?.Dismiss ?? string.Empty,
+            };
             entries.Add(person);
             byNpc[npc.Id] = person;
         }

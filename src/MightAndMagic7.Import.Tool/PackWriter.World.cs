@@ -810,6 +810,10 @@ internal static partial class PackWriter
                 }
 
                 if (person.CanJoin) writer.WriteBoolean("canJoin", true);
+                writer.WriteNumber("profession", person.Profession);
+                if (person.HirePrice is { } fee) writer.WriteNumber("hirePrice", fee);
+                if (person.JoinText.Length > 0) writer.WriteString("joinText", person.JoinText);
+                if (person.DismissText.Length > 0) writer.WriteString("dismissText", person.DismissText);
                 writer.WriteNumber("sourceRow", person.SourceRow);
                 writer.WriteStartArray("topics");
                 foreach (PlacePersonTopic topic in person.Topics)
