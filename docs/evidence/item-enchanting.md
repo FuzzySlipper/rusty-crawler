@@ -1,8 +1,8 @@
 # Item identity and item-bound magic
 
 Focused source checks on 2026-10-02 cover actual composed casting, canonical inventory/equipment, combat,
-counter operations, projection and the current Engine-backed save store. The first ordinary staged phase and its literal saved bytes are reconciled below; resumed live
-evidence and the full verification gate are pending.
+counter operations, projection and the current Engine-backed save store. Both ordinary staged phases and the literal saved bytes are reconciled below. The initial full gate
+passed; the final load-validation supplement requires its closeout gate.
 
 ## What changed
 
@@ -83,4 +83,31 @@ quest refusal `2b535897-3d8e-4877-af6d-bbd7519b6a08`, Save `65175fcb-c2a2-4a57-a
 The parent opened these originals. Den 37402 owns the complete receipt and cleanup record, with the chest
 capture identity corrected by 37405. The lease released and the local pool was empty; a later session's
 ownership must be refreshed independently. The parent then authorized a separate resume phase against
-those same bytes. Its terminal evidence is still pending.
+those same bytes. Its terminal evidence follows.
+
+## Resume through the current save
+
+The parent changed only the new item profile from fresh to resume after the first lease released and
+the literal bytes were reconciled. The resumed product displayed Party resumed, the same four ready
+30/30 members, Nyx selected with 18/18 points, and the original next-sleep deadline. Its pack showed
+Puck and Great Sword with sparks 8; ordinary item target options retained the three saved instance
+identities. The photographed equipment row makes the persisted property visible without a second cast.
+
+Ordinary DOM Use on the same searched chest was refused with “A chest has already been emptied.”
+No new yield, cast or Save was admitted in this phase. After the second owned lease released, the parent
+reread the original store and confirmed its bytes unchanged. The separately protected earlier fight and
+deadline stores were unchanged through both phases.
+
+Original resumed captures: neutral `ea719fa8-f6c7-45d8-8c7d-7bc7762a6ccf`, pack/property
+`c223d7b0-d7ef-4550-95e5-e28d9d7e21df`, already-empty refusal
+`e5ee9ce8-7411-4bed-b849-41141a05e2be`. The parent opened these originals. Den 37408 owns the complete
+second-session, receipt and cleanup record. Both owned item leases released; the final observed local
+pool was empty. No further resume is authorized.
+
+The initial complete verification ran Architecture 21, Kit 770, Host 86, ruleset 367, importer 189 and UI
+70 checks with no skips, plus all builds, operator inventory/map decoding/deterministic writes and CoreCLR
+staging. A source review then resolved the no-override charge-overuse and expired-property load findings
+with a named aggregate regression; 29 focused item/load checks pass and all three source lanes approve
+that supplement. A separate final full gate remains required for the supplemented source. NativeAOT
+was not run. This record certifies the bounded item mission, not normal creation, class/mastery learning,
+unstaged loot populations, combat, services beyond the focused counter tests, broad traversal or graphics.
