@@ -116,7 +116,7 @@ public sealed class PartyEntityFactory
         entity.Add(new PartyIdentitySource(save.NextMemberValue, save.NextItemValue));
 
         List<PartyMember> members = [];
-        foreach (PartyMemberSave member in save.Members) members.Add(AttachMember(store, member.Id, member.Seed, member.Effects, _health));
+        foreach (PartyMemberSave member in save.Members) members.Add(AttachMember(store, member.Id, member.Seed, member.Effects, _health, member.Deficit));
 
         PartyInventory inventory = new();
         PartyRoster roster = new(members);
@@ -191,6 +191,8 @@ public sealed class PartyEntityFactory
         for (int position = 0; position < save.Members.Count; position++)
         {
             PartyMemberSave member = save.Members[position];
+            if (member.Deficit < 0 || (member.Deficit > 0 && member.Seed.HitPoints.Current > 0))
+                problems.Add(new SaveProblem(SaveCodes.SaveMemberDeficitInvalid, $"{member.Id}", "the recorded wound is negative or goes past empty while hit points remain"));
             if (member.Id.Value == 0)
             {
                 problems.Add(new SaveProblem(
@@ -322,7 +324,7 @@ public sealed class PartyEntityFactory
         new(store, store.Create(new EntityTypeId(kind), EntityLifecycle.Active));
 
     /// <summary>Attaches every character component a member is made of, and returns the facade over them.</summary>
-    private static PartyMember AttachMember(EntityStore store, PartyMemberId id, PartyMemberSeed seed, IReadOnlyList<PartyEffect> effects, ICharacterHealthRule? health)
+    private static PartyMember AttachMember(EntityStore store, PartyMemberId id, PartyMemberSeed seed, IReadOnlyList<PartyEffect> effects, ICharacterHealthRule? health, int deficit = 0)
     {
         Actor entity = NewEntity(store, PartyMember.EntityKind);
         entity.Add(new CharacterProfile(id, seed.Name, seed.Race, seed.Class, seed.Portrait));
@@ -331,7 +333,7 @@ public sealed class PartyEntityFactory
         entity.Add(new CharacterSpells(seed.Spells, seed.QuickSpell));
         entity.Add(new CharacterProgression(seed.Experience, seed.Level, seed.SkillPoints, seed.ClassRank, seed.AgeOffset));
         entity.Add(new CharacterConditions(seed.Conditions));
-        entity.Add(new CharacterResources(seed.HitPoints, seed.SpellPoints));
+        entity.Add(new CharacterResources(seed.HitPoints, seed.SpellPoints, deficit));
         entity.Add(new CharacterEquipment());
         entity.Add(new ActiveEffects(effects));
         entity.Add(new CharacterResistances(seed.Resistances));

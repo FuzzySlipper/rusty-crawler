@@ -553,6 +553,32 @@ public sealed class PartyEntityTests
     }
 
     [Fact]
+    public void A_wound_past_empty_survives_restore_and_a_contradictory_deficit_is_named()
+    {
+        PartyEntityFactory factory = new();
+        using PartyEntity party = Build(factory, Member("Ann", Fighter));
+        party.Members[0].TakeDamage(party.Members[0].Resources.HitPoints.Current + 12);
+        PartySave save = party.Capture();
+        using PartyEntity restored = factory.Restore(save);
+        Assert.Equal(12, restored.Members[0].Resources.Deficit);
+        restored.Members[0].TakeDamage(5);
+        Assert.Equal(17, restored.Members[0].Resources.Deficit);
+        restored.Members[0].Resources.RestoreHitPoints(1);
+        Assert.Equal(0, restored.Members[0].Resources.Deficit);
+        foreach (PartyMemberSave badMember in new[]
+        {
+            save.Members[0] with { Deficit = -1 },
+            restored.Capture().Members[0] with { Deficit = 12 },
+        })
+        {
+            PartySave bad = new(save.NextMemberValue, save.NextItemValue, [badMember], [],
+                save.Coins, save.FoodPortions, save.FoodUnit, save.Reputation, save.Fame);
+            Assert.Contains(factory.Problems(bad), p => p.Code == SaveCodes.SaveMemberDeficitInvalid);
+            Assert.Throws<ArgumentException>(() => factory.Restore(bad));
+        }
+    }
+
+    [Fact]
     public void The_acting_member_is_roster_state_and_survives_the_same_party_save()
     {
         PartyEntityFactory factory = new();

@@ -12,6 +12,7 @@ What is published here is text only: no game data, no screenshots, no saves, and
 | Record | What it shows |
 | --- | --- |
 | [`foundation-closure.md`](foundation-closure.md) | The parent acceptance audit and evidence, followed by the owner's routing of the remaining secret-door skill requirement to progression. |
+| [`preservation.md`](preservation.md) | Spell and potion protection read by canonical damage, original-deadline resume and expiry, with no resurrection of laid-out members; live proof remains separate. |
 | [`item-enchanting.md`](item-enchanting.md) | Actual item-bound casting, combat contributions, special-item counter flow and current save checks; bounded ordinary acquisition/enchant/refusals/Save and literal bytes, followed by actual resumed identity/property and empty-container refusal. |
 | [`arena-bouts.md`](arena-bouts.md) | Bound Knight earning through existing conversation, population, fight, quests and ledger; current-save and five-earned promotion/topic checks, with live limits. |
 | [`counted-deeds.md`](counted-deeds.md) | Monthly bounty gold and explicitly accumulating authored rewards share durable counts, save restoration and promotion/topic gates; actual arena earning is routed. |

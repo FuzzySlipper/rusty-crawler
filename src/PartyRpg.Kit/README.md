@@ -368,7 +368,7 @@ is held where it stands with a `creature-embedded` refusal the driver reports as
 own health
 (`Party/` — `PartyMember.TakeDamage` is where every wound arrives, a creature's bite and a sprung trap
 alike, taking harm into the party's own pool, keeping `CharacterResources.Deficit` for how far past empty
-it went, and asking the `ICharacterHealthRule` seam which condition the wound leaves and which it moves
+it went (carried in `PartyMemberSave` and restored by the same factory), and asking the `ICharacterHealthRule` seam which condition the wound leaves and which it moves
 past), and the one interaction mechanism
 (`Interaction/` — an `InteractionTarget` discovered from the place's own placements and the party's pose
 rather than from a list, with the engine's own reticle selection composed over the candidates — the product's

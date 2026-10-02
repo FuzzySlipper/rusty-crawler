@@ -160,16 +160,7 @@ public sealed class RunningSpellEffects : IGameTimeObserver, IDeadlineOwner, IRu
             {
                 // What a character no longer carries ends here, where their own state is in hand.
                 if (!Carries(member)) continue;
-                foreach (PartyEffect effect in member.Effects.Active)
-                {
-                    GameDate? endsAt = null;
-                    foreach (Held held in _held)
-                    {
-                        if (held.Member == member.Id && held.Effect == effect.Effect) endsAt = held.EndsAt;
-                    }
-
-                    running.Add(new RunningSpellEffect(effect.Effect, effect.Magnitude, endsAt, member.Id));
-                }
+                running.AddRange(ReadOn(member));
             }
 
             return running;
@@ -285,11 +276,9 @@ public sealed class RunningSpellEffects : IGameTimeObserver, IDeadlineOwner, IRu
     /// <returns>The effects that were running on them, in the order they were applied.</returns>
     public IReadOnlyList<RunningSpellEffect> EndAll(PartyMemberId member)
     {
-        List<RunningSpellEffect> running = [];
-        foreach (RunningSpellEffect effect in RunningOnMembers)
-        {
-            if (effect.Member == member) running.Add(effect);
-        }
+        // Removal reads actual state even when the game no longer considers this character a carrier.
+        IReadOnlyList<RunningSpellEffect> running = _party.TryMember(member, out PartyMember? on) && on is not null
+            ? ReadOn(on) : [];
 
         foreach (RunningSpellEffect effect in running) RemoveOn(member, effect.Effect);
         for (int index = _held.Count - 1; index >= 0; index--)
@@ -312,7 +301,7 @@ public sealed class RunningSpellEffects : IGameTimeObserver, IDeadlineOwner, IRu
     /// <returns>The effects that were running, in the order they were applied.</returns>
     public IReadOnlyList<RunningSpellEffect> EndAll()
     {
-        List<RunningSpellEffect> running = [.. Running, .. RunningOnMembers];
+        List<RunningSpellEffect> running = [.. Running, .. _party.Members.SelectMany(ReadOn)];
         foreach (RunningSpellEffect effect in running)
         {
             if (effect.Member is { } member) RemoveOn(member, effect.Effect);
@@ -396,6 +385,19 @@ public sealed class RunningSpellEffects : IGameTimeObserver, IDeadlineOwner, IRu
 
     /// <summary>Whether one character still carries what a spell left on them.</summary>
     private bool Carries(PartyMember member) => _carries?.Invoke(member) ?? true;
+
+    private IReadOnlyList<RunningSpellEffect> ReadOn(PartyMember member)
+    {
+        List<RunningSpellEffect> running = [];
+        foreach (PartyEffect effect in member.Effects.Active)
+        {
+            GameDate? endsAt = null;
+            foreach (Held held in _held)
+                if (held.Member == member.Id && held.Effect == effect.Effect) endsAt = held.EndsAt;
+            running.Add(new RunningSpellEffect(effect.Effect, effect.Magnitude, endsAt, member.Id));
+        }
+        return running;
+    }
 
     /// <summary>Ends what every character the game has laid out was carrying.</summary>
     private void EndWhatDeathTook()

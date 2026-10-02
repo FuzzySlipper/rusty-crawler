@@ -844,9 +844,27 @@ ordinary buy/sell/identify/repair operations. Artifacts keep fixed definition id
 one-copy registry. The complete original special-item power repertoire is not claimed.
 
 The [item-effect record](../../docs/evidence/item-enchanting.md) records focused checks and live limits.
-World-targeted Telekinesis (#9145), character Preservation (#9146), and additional original special-item
-powers and Genie Lamp use (#9148) are concrete receivers. Preservation is character survival, not gear
-protection (`OpenEnroth/src/Engine/Objects/Character.cpp:1310-1321`).
+World-targeted Telekinesis (#9145) and additional original special-item powers and Genie Lamp use (#9148)
+are concrete receivers.
+
+## Preservation
+
+Spell 50 and potion 231 use `RunningSpellEffects` on the character. `MightAndMagic7Health.Collapse`
+reads that member's effect and keeps a below-empty living member unconscious even past the usual death
+threshold. It leaves Dead, Petrified and Eradicated members unchanged. The existing party capture/factory
+now carries `CharacterResources.Deficit`; the existing clock save keeps the original effect deadline.
+Expiry removes protection without inventing a wound or healing; the next wound applies the ordinary ladder.
+Removal of a laid-out member's effects reads their actual state, even though they are no longer reported as
+carriers, so magnitudes cannot survive after their deadlines are cancelled.
+
+The donor model is adapted from OpenEnroth `src/Engine/Objects/Character.cpp:1310-1321` and
+OpenEnroth `src/Engine/Spells/CastSpellInfo.cpp:1703-1731`. Spell duration is one hour plus five minutes
+per school level, or fifteen at grand master. This game's existing caster-only targeting stays explicit:
+the donor chooses an ally at expert and every member at master or higher. Potion duration and magnitude
+are thirty minutes and three magnitude per strength, from OpenEnroth `src/Engine/Objects/Character.cpp:3081-3085`
+and OpenEnroth `src/Engine/Objects/Character.cpp:3140-3142`. Magnitude means presence to the health reader;
+there is no gear property, resurrection, independent timer or new effect ledger.
+The [Preservation reading](../../docs/evidence/preservation.md) records verification and live limits.
 
 ## Followers
 
