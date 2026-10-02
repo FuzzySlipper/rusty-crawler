@@ -260,6 +260,8 @@ the original's (the donor data carries its real constants — see the inventory)
 - Experience comes from kills and quests; advancing a level costs a multiple of
   the current level and happens at a training hall for a fee.
 - Levelling raises hit and spell points and grants skill points.
+- A laid-out character must recover before promotion (unconscious, dead, petrified or eradicated).
+  Errands belong to the party; incapacitated members receive no experience share and cannot take the rank.
 - Each class advances through ranks via **promotion quests**; new ranks raise
   growth and skill ceilings and unlock skills.
 - The second promotion splits each class into two alternatives tied to light or

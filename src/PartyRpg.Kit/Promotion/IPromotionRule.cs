@@ -1,3 +1,5 @@
+using PartyRpg.Kit.Party;
+
 namespace PartyRpg.Kit.Promotion;
 
 /// <summary>
@@ -23,4 +25,7 @@ public interface IPromotionRule
 {
     /// <summary>Every rank this game's classes lead to.</summary>
     PromotionLadder Ladder { get; }
+
+    /// <summary>Why a member cannot rise at all, or null when the game's policy permits it.</summary>
+    string? Ineligible(PartyMember member) => null;
 }

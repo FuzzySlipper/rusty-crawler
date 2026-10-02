@@ -136,8 +136,11 @@ public sealed class QuestPolicyTests
         Assert.NotNull(questsRead.Definition(new QuestId(later)));
     }
 
-    [Fact]
-    public void An_errand_is_offered_in_a_conversation_finished_with_its_giver_and_judged_by_a_rank()
+    [Theory]
+    [InlineData("")]
+    [InlineData("Unconscious")]
+    [InlineData("Dead")]
+    public void An_errand_is_offered_in_a_conversation_finished_with_its_giver_and_judged_by_a_rank(string condition)
     {
         (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(ErrandContent());
         using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
@@ -153,6 +156,7 @@ public sealed class QuestPolicyTests
         // asks for: a quest spans places, and what one of them reports is progress only once the errand is
         // the party's own.
         session.Update(RulesetTestContext.Update(1, 1));
+        if (condition.Length > 0) ((MightAndMagic7Session)session).Party!.Members[0].Conditions.Apply(new ActiveCondition(new ConditionId(condition)));
         Assert.Equal("Erathia", ProjectedNode.Of(ui.Latest().Value).Field("world").Field("name").AsString());
 
         // Talking to the person the ladder names as the rank's giver offers the errand, in the shipped words
@@ -212,7 +216,7 @@ public sealed class QuestPolicyTests
         Assert.Equal(MightAndMagic7Tuning.ErrandExperience.Default, finished.Field("experience").AsNumber());
         Assert.Equal(MightAndMagic7Tuning.ErrandCoins.Default, finished.Field("coins").AsNumber());
         Assert.Equal(
-            (double)(banked + MightAndMagic7Tuning.ErrandExperience.Default),
+            (double)(banked + (condition.Length == 0 ? MightAndMagic7Tuning.ErrandExperience.Default : 0)),
             ProjectedNode.Of(ui.Latest().Value).Field("progression").Field("members").Item(0).Field("experience").AsNumber());
 
         // The rank that asks for that errand is now given: the requirement the ladder states is the record the
@@ -223,6 +227,13 @@ public sealed class QuestPolicyTests
         session.Update(RulesetTestContext.Update(8, 1, RulesetTestContext.Digital(Declared.UseIntent)));
         session.Update(RulesetTestContext.Update(9, 1, RulesetTestContext.ChooseTopic("promote:knight-cavalier")));
         ProjectedNode promotion = ProjectedNode.Of(ui.Latest().Value).Field("promotion");
+        if (condition.Length > 0)
+        {
+            Assert.Equal("refused", promotion.Field("outcome").AsString());
+            Assert.Contains(condition, promotion.Field("message").AsString(), StringComparison.Ordinal);
+            Assert.Equal("Knight", promotion.Field("members").Item(0).Field("class").AsString());
+            return;
+        }
         Assert.Equal("granted", promotion.Field("outcome").AsString());
         Assert.Equal("Cavalier", promotion.Field("members").Item(0).Field("class").AsString());
         Assert.Equal(2, promotion.Field("members").Item(0).Field("rank").AsNumber());

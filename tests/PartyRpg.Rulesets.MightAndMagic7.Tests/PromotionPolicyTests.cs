@@ -39,6 +39,30 @@ namespace PartyRpg.Rulesets.MightAndMagic7.Tests;
 /// </remarks>
 public sealed class PromotionPolicyTests
 {
+    [Theory]
+    [InlineData("Unconscious")]
+    [InlineData("Dead")]
+    [InlineData("Petrified")]
+    [InlineData("Eradicated")]
+    public void Every_route_into_a_rank_requires_recovery_from_a_laid_out_condition(string condition)
+    {
+        using Fixture fixture = Fixture.Build("Knight");
+        PartyMember member = fixture.Party.Members[0];
+        fixture.Party.Records.Mark(MightAndMagic7Quests.ErrandRecord("35"));
+        member.Conditions.Apply(new ActiveCondition(new ConditionId(condition)));
+        Refusal? judged = fixture.Progression.JudgeGrant("knight-cavalier", member.Id);
+        Assert.Contains(condition, judged!.Message, StringComparison.Ordinal);
+        Assert.Contains("recovery", judged.Message, StringComparison.Ordinal);
+        Assert.Contains(condition, fixture.Progression.Grant("knight-cavalier", member.Id).Refusal!.Message, StringComparison.Ordinal);
+        Assert.Contains(condition, fixture.Progression.Promote("knight-cavalier", "npc-43").Refusal!.Message, StringComparison.Ordinal);
+        Assert.Equal("Knight", member.Profile.Class.Value);
+        Assert.Equal(1, member.Progression.ClassRank);
+        Assert.False(fixture.Party.Records.Has("promotion:knight-cavalier"));
+        member.Conditions.Clear(new ConditionId(condition));
+        Assert.True(fixture.Progression.Promote("knight-cavalier", "npc-43").IsGranted);
+        Assert.Equal("Cavalier", member.Profile.Class.Value);
+    }
+
     [Fact]
     public void Every_shipped_class_is_on_the_ladder_with_its_giver_and_what_it_asks_for()
     {

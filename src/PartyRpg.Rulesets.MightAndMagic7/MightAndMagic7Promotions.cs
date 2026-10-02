@@ -130,6 +130,28 @@ internal sealed class MightAndMagic7Promotions : IPromotionRule
     /// <inheritdoc />
     public PromotionLadder Ladder { get; }
 
+    /// <summary>The owner's policy: recovery precedes every route into a promotion.</summary>
+    /// <remarks>
+    /// Ours by owner decision. OpenEnroth Character.cpp:4028-4029 changes class directly without a condition
+    /// gate; its CanAct at :350-357 names these incapacities. We deliberately require recovery before rank.
+    /// </remarks>
+    public string? Ineligible(PartyMember member)
+    {
+        foreach (ConditionId condition in new[] { MightAndMagic7Conditions.Eradicated, MightAndMagic7Conditions.Dead, MightAndMagic7Conditions.Petrified, MightAndMagic7Conditions.Unconscious })
+        {
+            if (!member.Conditions.Has(condition)) continue;
+            string recovery = condition == MightAndMagic7Conditions.Unconscious
+                ? "rest or healing"
+                : condition == MightAndMagic7Conditions.Dead
+                    ? "a temple cure or a raising spell"
+                    : condition == MightAndMagic7Conditions.Petrified
+                        ? "a temple cure or Stone to Flesh"
+                        : "a temple cure";
+            return $"recovery from {condition} through {recovery} before promotion";
+        }
+        return null;
+    }
+
     /// <summary>Which school each alternative of a second promotion takes, by the class it belongs to.</summary>
     internal IReadOnlyDictionary<string, PromotionPath> Paths => _paths;
 

@@ -218,7 +218,7 @@ paying each death the fight reports exactly once from the ledger of deaths it is
 source word the game names for that death (`kill` unless the game tells them apart), and
 `ProgressionSnapshot` publishing the level, the experience against the curve, the points held, and the fee
 the counter the party stands at quoted — every number the ruleset's, none of them the screen's — and
-`Promote` the one entry a rank arrives at: it asks the promotion policy for its ladder (`Promotion/` —
+`Promote` the ordinary entry a rank arrives at: it asks the promotion policy for its ladder and per-member eligibility (`Promotion/` —
 `PromotionLadder` is content's or a ruleset's own table of ranks, each `PromotionRank` naming the class it
 promotes from and to, the rank it reaches, the alternative it takes, the record it leaves, and every
 `PromotionRequirement` it asks for; `IPromotionRule` is the ruleset's one answer over it), judges each

@@ -118,7 +118,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   binding puts it on the party's `Ally` side.
 - **Growth and magic.** `PartyProgression` is the one writer of experience, levels, skill points, ranks and
   promotions (the light/dark choice lives in the character's class and is irreversible). Skills have four
-  masteries under this game's ceilings; nine schools and 99 spells share one casting workflow whose eight
+  masteries under this game's ceilings; promotion requires recovery from a laid-out condition; nine schools and 99 spells share one casting workflow whose eight
   effect categories each reach their owner, stated per spell in `docs/magic-coverage.md`; alchemy mixes the
   shipped recipes.
 - **Record.** Quests (definitions from content, instances on the party), `PartyJournal`, `PartyKnowledge`,
@@ -144,7 +144,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 - Stone 6, combat: a fight is not carried in a save, and a save taken with one pending is refused (#8658);
   an order commands every member rather than a selected one (#8659).
 - Stone 7, progression and magic: training takes no game time (#8671); the two counted deeds two ranks need
-  have no writer (#8689); a laid-out member can be promoted (#8705); item-aimed effects (#8513) and followers
+  have no writer (#8689); item-aimed effects (#8513) and followers
   (#8514) are "not yet" in `docs/magic-coverage.md`.
 - Stone 8, record: an errand's item is protected only from sale (#8687).
 

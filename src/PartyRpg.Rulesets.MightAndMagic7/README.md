@@ -386,7 +386,7 @@ member of the class the next one (`set class`, named by the class table's row) �
 character the class a rank names (`MightAndMagic7MapEvents.Grants`), that topic is the one offer of the rank and
 the ladder's own is not made. The run gives the rank through `PartyProgression.Grant`, the ladder's rank from
 the member's class to the one named, judged before anything settles (`JudgeGrant`: of the class, at the rank it
-continues from — the one place a rule about who may rise belongs, #8705), so the class, the rank, the
+continues from, and recovered from any laid-out condition), so the class, the rank, the
 `promotion:<rank>` record and the light or dark alternative move as every promotion's do, and the ladder's
 requirements are not asked a second time. The ladder's own offer is what a promoter whose world carries no such
 program says: a person the ladder names as a giver offers the ranks they give through the conversation that
@@ -395,6 +395,14 @@ path when a class's own choice closed a school, so a lesson, a book, and a casti
 alternative named (`skill-closed-by-path`); and `PromotionSnapshot` publishes the ladder and what each rank
 did, member by member, for the panel. What the shipped data carries, what this game authors, and the live
 promotion through both stages are recorded in [`docs/evidence/promotions.md`](../../docs/evidence/promotions.md).
+The owner chose recovery before promotion: `MightAndMagic7Promotions.Ineligible` names unconsciousness,
+death, petrification and eradication and the remedy, and the progression owner's shared member judgement
+applies it to `Promote`, `Grant` and `JudgeGrant`. This deliberately differs from OpenEnroth
+`src/Engine/Objects/Character.cpp:4028-4029`, where setting class has no condition gate; the same donor's
+`:350-357` lists the incapacities. Errands belong to the party and can be offered, accepted and turned in
+with a laid-out member; that member earns no share under `Party::GivePartyExp` (`Party.cpp:838-846`) and
+cannot take a rank until recovered.
+
 What the world makes of the party is landed beside them. `MightAndMagic7Standing` states the bands —
 the donor's own five words at the donor's own four edges (`UIGame.cpp:1645-1654`, `GetReputationString`),
 read into this game's convention in which a higher reputation is a better one, where the donor negates a

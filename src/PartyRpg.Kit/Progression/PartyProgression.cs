@@ -761,7 +761,7 @@ public sealed class PartyProgression
     }
 
     /// <summary>Why one member cannot take a rank whatever it asks for, or null when they stand where it is given.</summary>
-    private static Refusal? Grantable(PartyMember member, PromotionRank rank)
+    private Refusal? Grantable(PartyMember member, PromotionRank rank)
     {
         if (!string.Equals(member.Profile.Class.Value, rank.From.Value, StringComparison.Ordinal))
         {
@@ -780,12 +780,12 @@ public sealed class PartyProgression
     /// continues from: the one judgement of a member that every way into a rank reads, and where a rule about who may
     /// rise at all belongs.
     /// </summary>
-    private static string? Short(PartyMember member, PromotionRank rank) =>
-        member.Progression.ClassRank < rank.Rank - 1
+    private string? Short(PartyMember member, PromotionRank rank) =>
+        _promotions?.Ineligible(member) ?? (member.Progression.ClassRank < rank.Rank - 1
             ? string.Create(
                 CultureInfo.InvariantCulture,
                 $"the rank of {rank.To}, which continues from rank {rank.Rank - 1} of {rank.From} and not from rank {member.Progression.ClassRank}")
-            : null;
+            : null);
 
     /// <summary>Moves one member into a rank: the class and the rank together, and the record the rank leaves.</summary>
     private PromotionGrant Rise(PartyMember member, PromotionRank rank, IReadOnlyList<string> met)
