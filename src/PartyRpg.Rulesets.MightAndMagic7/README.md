@@ -402,7 +402,7 @@ promotion through both stages are recorded in [`docs/evidence/promotions.md`](..
 The owner chose recovery before promotion: `MightAndMagic7Promotions.Ineligible` names unconsciousness,
 death, petrification and eradication and the remedy, and the progression owner's shared member judgement
 applies it to `Promote`, `Grant` and `JudgeGrant`. This deliberately differs from OpenEnroth
-`src/Engine/Objects/Character.cpp:4028-4029`, where setting class has no condition gate; the same donor's
+`OpenEnroth/src/Engine/Objects/Character.cpp:4028-4029`, where setting class has no condition gate; the same donor's
 `:350-357` lists the incapacities. Errands belong to the party and can be offered, accepted and turned in
 with a laid-out member; that member earns no share under `Party::GivePartyExp` (`Party.cpp:838-846`) and
 cannot take a rank until recovered.
