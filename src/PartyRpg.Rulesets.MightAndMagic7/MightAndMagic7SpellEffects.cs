@@ -1,4 +1,5 @@
 using PartyRpg.Kit.Persistence;
+using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit;
 using System.Globalization;
 using PartyRpg.Kit.Combat;
@@ -40,6 +41,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRule, IPartySightRule, IRunningSpellEffects, IMemberSpellEffects, IGameTimeObserver, IDeadlineOwner, ICombatHitObserver
 {
     private readonly MightAndMagic7Spells _spells;
+    private readonly double _worldUseReach;
     private readonly GameClock? _clock;
     private readonly Func<SessionWorld?> _world;
     private readonly Func<MightAndMagic7Combat?> _combat;
@@ -77,8 +79,10 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         CorpseGround? corpses = null,
         MightAndMagic7ItemMagic? items = null,
         Func<MightAndMagic7Followers?>? followers = null,
-        Func<PartyProgression?>? progression = null)
+        Func<PartyProgression?>? progression = null,
+        double? worldUseReach = null)
     {
+        _worldUseReach = worldUseReach ?? MightAndMagic7Tuning.TelekinesisReach.Default;
         _items = items;
         _followers = followers ?? (() => null);
         _progression = progression ?? (() => null);
@@ -133,6 +137,10 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
                 : new Refusal("spell-follower-owner-absent", "This session supplies no companion and standing owners for Sacrifice.");
         if (reading.ItemMagic is { } itemShape)
             return _items is { } items ? items.Judge(application, itemShape) : new Refusal(MightAndMagic7Codes.ItemMagicTarget, "This composition supplies no item-table effect owner.");
+        if (reading.UsesWorld)
+            return WorldAim() is { } target && AimIdentity(target) == application.TargetName
+                ? null
+                : new Refusal(MightAndMagic7Codes.SpellWorldTargetUnavailable, "The earlier door or container aim is stale, unavailable, out of spell reach or out of sight; face an eligible target again.");
         if (reading.Unaimable)
         {
             return SpellRefusals.TargetUnavailable(application.Spell.Name, reading.Missing, reading.Receiver);
@@ -274,6 +282,10 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         if (reading.SacrificesFollower)
             return _followers()?.SacrificeAims() ?? [];
         if (reading.ItemMagic is not null) return _items?.Aims() ?? [];
+        if (reading.UsesWorld)
+            return WorldAim() is { } target
+                ? [new SpellAim(AimIdentity(target), target.Definition.Name, target.Definition.Kind.Value)]
+                : [];
         if (reading.Travel == TravelShape.None || _world() is not { } world) return [];
 
         if (reading.Travel == TravelShape.Beacon)
@@ -296,6 +308,19 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
 
         return places;
     }
+
+    private InteractionTarget? WorldAim()
+    {
+        InteractionTarget? target = _world()?.Interaction?.AimAtReach(_worldUseReach, EligibleWorldUse);
+        return target?.Definition.Kind.Value is "door" or "container" ? target : null;
+    }
+
+    private static bool EligibleWorldUse(InteractionTargetDefinition target) => target.Kind.Value is "door" or "container";
+
+    private static string AimIdentity(InteractionTarget target) => string.Join("|",
+        "world-use", Uri.EscapeDataString(target.Id.Place.Value),
+        Uri.EscapeDataString(target.Content.Kind), Uri.EscapeDataString(target.Content.Id),
+        target.Number.ToString(CultureInfo.InvariantCulture), target.State.Revision.ToString(CultureInfo.InvariantCulture));
 
     /// <summary>The effects spells have left running, read from the ledger they were applied through.</summary>
     /// <remarks>
@@ -1255,6 +1280,19 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
                 [new SpellEffectFact("departed", name), new SpellEffectFact("standing", "-15")]);
         }
         if (reading.ItemMagic is { } itemShape) return _items!.Apply(application, itemShape);
+        if (reading.UsesWorld)
+        {
+            InteractionTarget? target = WorldAim();
+            if (target is null || AimIdentity(target) != application.TargetName)
+                return Unexpressed(application, "the earlier world aim is no longer available");
+            InteractionResult? result = _world()!.InteractAtReach(target, _worldUseReach, EligibleWorldUse);
+            if (result is null || !result.IsApplied)
+                return SpellApplicationOutcome.Unexpressed(application.Spell.Effect,
+                    $"{application.Spell.Name}: {result?.Message ?? "No world interaction is available."}");
+            return SpellApplicationOutcome.Expressed(application.Spell.Effect,
+                $"{application.Spell.Name}: {result.Message}",
+                [new SpellEffectFact("world-use", target.Id.ToString()), new SpellEffectFact("state", result.State)]);
+        }
         if (reading.Dispels)
         {
             if (Ledger is not { } ledger) return Unexpressed(application, "nothing is running to dispel");

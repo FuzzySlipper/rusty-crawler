@@ -125,10 +125,13 @@ internal static class MightAndMagic7Tuning
     /// <summary>How far the light the party carries reaches, in place units.</summary>
     internal static readonly TuningHandle LightCarriedRange = new("light.carried-range", 2400, 100, 20_000, "how far the light the party carries reaches, in place units");
 
+    /// <summary>World-use spell reach; donor ranged targeting depth, GameConfig.h:196 / Engine.cpp:457.</summary>
+    internal static readonly TuningHandle TelekinesisReach = new("spell.telekinesis-reach", 5120, 1, 100_000, "world-use spell reach, leaving ordinary Use at its own distance");
+
     internal static readonly IReadOnlyList<TuningHandle> Handles =
     [
         ViewFieldOfView, ViewDistance, ViewFogStart, ViewFogEnd, ViewInteriorFogStart, ViewInteriorFogEnd, LightDayAmbient, LightNightAmbient, LightSun, LightInteriorAmbient, LightCarried, LightCarriedRange,
-        HiredLimit,
+        HiredLimit, TelekinesisReach,
         ArenaKnightOpponents, ArenaKnightGold,
         EnchantChancePerRank, EnchantWeaponValue, EnchantEquipmentValue, EnchantMasterLow, EnchantGrandMasterLow, EnchantValuePerStrength,
         FixtureBonusHours, TheftBanHours,

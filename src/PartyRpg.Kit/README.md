@@ -428,7 +428,10 @@ past), and the one interaction mechanism
 (`Interaction/` — an `InteractionTarget` discovered from the place's own placements and the party's pose
 rather than from a list, with the engine's own reticle selection composed over the candidates — the product's
 one `InteractionSelection`, which outlives every world so an inspection registered once reads the focus the
-live world holds, with targeted use off; the Engine query observes distant targets as well as reachable ones,
+live world holds, with targeted use off; action-specific reach and eligibility are scoped within this
+same scene and selection by `AimAtReach` / `UseAtReach`, then ordinary facts are restored in `finally`.
+A held aim must still identify the same place, content, runtime number and revision; `SessionWorld.InteractAtReach`
+reuses ordinary reporting, knowledge and journey processing. No second focus, scene or spatial check is added; the Engine query observes distant targets as well as reachable ones,
 with each candidate's own reach still controlling selection and use, so an out-of-reach target is refused by
 name (the [elevated-use reading](../../docs/evidence/elevation-reach.md) records both paths); a definition's
 `AimHeight` is the height above its feet a candidate is aimed and judged at in place of the body-centre height, and

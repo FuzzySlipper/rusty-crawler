@@ -238,7 +238,7 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule
         Entry(39, [8, 8, 8, 8], [100, 100, 90, 80], 0, 9, 2, SpellTargeting.Foe, SpellEffects.Damage),   // Blades
         Entry(40, [10, 10, 10, 10], [140, 140, 140, 140], 0, 0, 2, SpellTargeting.Ally, SpellEffects.Condition, Readings.Cure(MightAndMagic7Conditions.Petrified)),   // Stone to Flesh
         Entry(41, [15, 15, 15, 15], [90, 90, 90, 80], 0, 8, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Rock Blast
-        Entry(42, [20, 20, 20, 20], [150, 150, 150, 150], 0, 0, 3, SpellTargeting.None, SpellEffects.Utility, Readings.Unaimable("a door or a container across the room", "world-targeted spell admission through the current interaction owner")),   // Telekinesis
+        Entry(42, [20, 20, 20, 20], [150, 150, 150, 150], 0, 0, 3, SpellTargeting.None, SpellEffects.Utility, Readings.WorldUse()),   // Telekinesis
         Entry(43, [25, 25, 25, 25], [100, 100, 100, 90], 20, 1, 3, SpellTargeting.Foe, SpellEffects.Damage),   // Death Blossom
         Entry(44, [30, 30, 30, 30], [90, 90, 90, 90], 25, 2, 4, SpellTargeting.Foe, SpellEffects.Damage, SpellReading.None.Coarser("the donor takes a share of the target's current health; this rolls the row's base and dice")),   // Mass Distortion
         Entry(45, [1, 1, 1, 1], [100, 100, 100, 100], 0, 0, 1, SpellTargeting.Caster, SpellEffects.Detection, Readings.Detect(DetectionScope.Life, WardFormulas.HoursPerLevel)),   // Detect Life

@@ -61,9 +61,9 @@ public sealed class MagicCoverageTests
         int notYet = rows.Count(row => row.Coverage.State == SpellEffectCoverageState.NotYet);
         Assert.Equal(rows.Count, implemented + approximated + notYet);
 
-        // Every state is present, and every gap names the owner that would close it: a "not yet" without a
+        // Implemented and approximate rows are present; any remaining gap must name its owner. A "not yet" without a
         // receiver is exactly the unrouted silence the report exists to prevent.
-        Assert.True(implemented > 0 && approximated > 0 && notYet > 0);
+        Assert.True(implemented > 0 && approximated > 0);
 
         // The potions are counted on the same terms and by the same test: every one of the game's own potion
         // rows is listed once, its three states add up to the rows, and every gap names the owner that would
