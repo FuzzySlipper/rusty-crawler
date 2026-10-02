@@ -252,4 +252,7 @@ public static class MightAndMagic7Codes
     public const string SaveItemHardening = "save-item-hardening-invalid";
     /// <summary>An instance's reduced capacity is not a capacity its charged definition permits.</summary>
     public const string SaveItemCapacity = "save-item-capacity-invalid";
+
+    /// <summary>A saved item still carries a property that its clock has already ended.</summary>
+    public const string SaveItemDeadline = "save-item-deadline-invalid";
 }

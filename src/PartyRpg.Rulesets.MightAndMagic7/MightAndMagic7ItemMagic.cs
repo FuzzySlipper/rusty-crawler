@@ -162,8 +162,13 @@ internal sealed class MightAndMagic7ItemMagic
                 if (special || property.Strength > largest || !(weaponProperty && Weapon(facts) || passiveProperty && Passive(facts)))
                     problems.Add(new(MightAndMagic7Codes.SaveItemProperty, item.Id.ToString(), $"item {item.Id} bears an unsupported property {property.Property} {property.Strength} for its item kind"));
             }
-            if (item.State.ChargeCapacity is { } capacity && (spells.Reading(item.Definition) is not { ConsumedByUse: false } reading || capacity > reading.Charges))
-                problems.Add(new(MightAndMagic7Codes.SaveItemCapacity, item.Id.ToString(), $"item {item.Id} states a charge capacity its item table cannot hold"));
+            if (item.State.Enchantment?.DueElapsedMilliseconds is { } due && due <= save.Clock.ElapsedMilliseconds)
+                problems.Add(new(MightAndMagic7Codes.SaveItemDeadline, item.Id.ToString(), $"item {item.Id} carries a property whose clock deadline has already passed"));
+            SpellItemReading? carried = spells.Reading(item.Definition);
+            bool charged = carried is { ConsumedByUse: false };
+            int maximum = charged ? item.State.ChargeCapacity ?? carried!.Value.Charges : 0;
+            if (item.State.ChargesSpent > maximum || (item.State.ChargeCapacity is { } capacity && (!charged || capacity > carried!.Value.Charges)))
+                problems.Add(new(MightAndMagic7Codes.SaveItemCapacity, item.Id.ToString(), $"item {item.Id} states charge capacity or use beyond what its item table can hold"));
         }
         return problems;
     }

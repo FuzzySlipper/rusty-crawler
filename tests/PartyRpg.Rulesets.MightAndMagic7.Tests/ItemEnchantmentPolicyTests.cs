@@ -329,6 +329,26 @@ public sealed class ItemEnchantmentPolicyTests
         }
     }
 
+    [Fact]
+    public void Overspent_default_wand_and_expired_item_deadline_refuse_together_before_restore()
+    {
+        (var context, var ui) = Context();
+        using IGameSession session = Casting(context, ui);
+        PartyEntity party = ((MightAndMagic7Session)session).Party!;
+        ItemInstance sword = Take(party, "7");
+        sword.SetEnchantment(new ItemEnchantment("fire", 3, 0));
+        ItemInstance wand = Take(party, "200");
+        // Construct a semantically contradictory generic item state, as a malformed saved document can.
+        for (int charge = 0; charge < 11; charge++) Assert.True(party.SpendItemCharge(wand.Id, 20).Spent);
+        Assert.Null(wand.State.ChargeCapacity);
+        SessionSave bad = MightAndMagic7Ruleset.Instance.Save(session);
+        ContentCatalog catalog = ContentCatalogLoader.Load(RulesetTestContext.Content(context), ContentLayout.Under(RulesetTestContext.ContentDirectory)).RequireValid();
+        SessionSaveException error = Assert.Throws<SessionSaveException>(() => MightAndMagic7Persistence.RequireLoadable(bad, catalog));
+        Assert.Contains(error.Problems, problem => problem.Code == MightAndMagic7Codes.SaveItemCapacity && problem.Subject == wand.Id.ToString());
+        Assert.Contains(error.Problems, problem => problem.Code == MightAndMagic7Codes.SaveItemDeadline && problem.Subject == sword.Id.ToString());
+        Assert.Equal(11, wand.State.ChargesSpent); // judging did not rebuild or rewrite the live party
+    }
+
     private static IGameSession Casting(Rusty.Engine.ProductCreateContext context, RecordingUiService ui)
     {
         IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(RulesetTestContext.RulesetContext(context, ui) with

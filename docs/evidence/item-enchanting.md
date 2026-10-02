@@ -24,7 +24,7 @@ the existing resolver. Vampiric restores the actual wielder after settled harm; 
 change actual combat attribute/armour readings, and swift takes twenty recovery ticks once. The DOM prints
 the resolver's sentence rather than calculating an additional damage total. Permanent ordinary properties
 change the ordinary counter quote and settlement. Contradictory special-item properties, hardening and
-charge capacities are all named before a load rebuilds anything.
+charge capacities, default-capacity overuse and already-expired property deadlines are all named before a load rebuilds anything.
 
 ## Approximation and donor references
 
