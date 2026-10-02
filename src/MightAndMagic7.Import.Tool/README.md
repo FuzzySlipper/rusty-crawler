@@ -46,3 +46,10 @@ the greeting table were carried open every house without running its event, so t
 written before a `class` step named its class (`which`) cannot have a promoter's topic raise a rank, and packs written
 before an `npc-set-item` step carried its person and item refuse it, and packs written before a person placement carried
 its `carriedItem` start nobody with an item, so they must be rewritten too.
+
+
+For an imported place whose environment is `ARENA`, `write` also states `arenaChallengerFeet`: twenty
+explicit feet positions on an authored 700-unit ring. The centre follows OpenEnroth `src/GUI/UI/NPCTopics.cpp:227-232`; the ring is this product's approximate layout, not geometry extracted
+from a source table. The ruleset reads these world values from the normalized place and supplies bout
+selection and reward policy. Older arena packs without the positions must be rewritten; the runtime
+refuses them by name rather than placing challengers at guessed coordinates.

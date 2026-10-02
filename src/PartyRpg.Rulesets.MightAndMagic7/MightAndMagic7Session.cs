@@ -136,7 +136,8 @@ internal sealed class MightAndMagic7Session : IGameSession
             Declared(context.Content),
             context.Engine?.Random,
             place => owners.World is IInteractionWorld world ? world.States.ValuesOf(place) : null);
-        MightAndMagic7Quests? quests = MightAndMagic7Quests.Read(Declared(context.Content), promotions, spawns);
+        MightAndMagic7Quests? quests = MightAndMagic7Quests.Read(Declared(context.Content), promotions, spawns,
+            () => owners.World, () => owners.Quests, () => owners.Combat);
         if (quests is not null)
         {
             foreach (string note in quests.Notes)

@@ -89,7 +89,8 @@ internal sealed class MightAndMagic7Summons
         if (content.Kind != MightAndMagic7Combat.CreaturePlacementKind || content.Id is null) return false;
         string? digits = content.Id.StartsWith("summoned-", StringComparison.Ordinal) ? content.Id[9..]
             : content.Id.StartsWith("raised-", StringComparison.Ordinal) ? content.Id[7..]
-            : content.Id.StartsWith("event-", StringComparison.Ordinal) ? content.Id[6..] : null;
+            : content.Id.StartsWith("event-", StringComparison.Ordinal) ? content.Id[6..]
+            : content.Id.StartsWith("arena-", StringComparison.Ordinal) ? content.Id[6..] : null;
         return digits is not null && int.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out int serial) &&
             serial > 0 && serial <= records.FirstOrDefault(r => r.Name == IdentityRecord).Count;
     }

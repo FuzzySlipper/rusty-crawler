@@ -135,6 +135,7 @@ internal static class MightAndMagic7Persistence
             createdTarget: (place, target) => MightAndMagic7Summons.IsCreatedIdentity(target, save.Party.Records))];
         problems.AddRange(MightAndMagic7ItemMagic.Problems(save, content));
         problems.AddRange(MightAndMagic7Followers.Problems(save.Party, content));
+        problems.AddRange((quests?.Arena ?? MightAndMagic7Arena.Read(content))?.Problems(save) ?? []);
         problems.AddRange(DeadlineProblems(save, services ?? MightAndMagic7Services.Read(content), rest ?? MightAndMagic7Rest.Compose(content, null)));
         if (problems.Count > 0)
         {

@@ -1,10 +1,13 @@
 using System.Globalization;
 using System.Text.Json;
+using PartyRpg.Kit;
+using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Promotion;
 using PartyRpg.Kit.Quests;
+using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
 
@@ -65,7 +68,7 @@ internal readonly record struct BountyTerms(string Beast, int Reward, QuestDefin
 /// rather than kept anywhere.
 /// </para>
 /// </remarks>
-internal sealed class MightAndMagic7Quests : IQuestRule
+internal sealed class MightAndMagic7Quests : IQuestRule, IQuestAcceptanceRule
 {
     /// <summary>The definition kind a shipped quest row is declared under.</summary>
     internal const string QuestDefinitionKind = "quest";
@@ -88,6 +91,10 @@ internal sealed class MightAndMagic7Quests : IQuestRule
     private readonly Dictionary<string, int> _monsterLevels;
     private readonly Dictionary<string, string> _itemsByName;
     private readonly IReadOnlyList<string> _notes;
+    internal MightAndMagic7Arena? Arena { get; set; }
+
+    public Refusal? CanAccept(QuestAcceptance acceptance) => Arena?.CanAccept(acceptance);
+    public void Accepted(QuestAcceptance acceptance) => Arena?.Accepted(acceptance);
 
     private MightAndMagic7Quests(
         IReadOnlyList<string> notes,
@@ -156,7 +163,8 @@ internal sealed class MightAndMagic7Quests : IQuestRule
     internal static MightAndMagic7Quests? Read(
         ContentCatalog? catalog,
         MightAndMagic7Promotions? promotions,
-        MightAndMagic7Spawns? spawns = null)
+        MightAndMagic7Spawns? spawns = null,
+        Func<SessionWorld?>? world = null, Func<PartyQuests?>? journal = null, Func<CombatState?>? fight = null)
     {
         if (catalog is null) return null;
         List<string> notes = [];
@@ -232,6 +240,7 @@ internal sealed class MightAndMagic7Quests : IQuestRule
         }
 
         MightAndMagic7Quests quests = new(notes, placesByName, placeOfPlacement, encounters, placed, monstersByName, levels, itemsByName, MightAndMagic7Tuning.Read(catalog));
+        quests.Arena = MightAndMagic7Arena.Read(catalog, world, journal, fight);
         quests.ReadAuthored(authored, words, issues);
         if (issues.Count > 0)
         {
@@ -628,7 +637,7 @@ internal sealed class MightAndMagic7Quests : IQuestRule
     public QuestDefinition? Definition(QuestId quest)
     {
         if (_byId.TryGetValue(quest.Value, out QuestDefinition? stated)) return stated;
-        return BountyDefinition(quest.Value)?.Quest;
+        return Arena?.Definition(quest) ?? BountyDefinition(quest.Value)?.Quest;
     }
 
     /// <summary>Every errand one person gives, in the order this game states them.</summary>
@@ -647,6 +656,7 @@ internal sealed class MightAndMagic7Quests : IQuestRule
     {
         ArgumentNullException.ThrowIfNull(request);
         if (request.Objective.Kind != QuestObjectiveKind.Kill) return 0;
+        if (Arena?.Definition(request.Definition.Id) is not null) return Arena.Counts(request);
 
         // A creature a spell created is not one the place held: an elemental the party called up is not a kill an
         // errand asked for, and a body stood back up was counted when it fell the first time (ours).

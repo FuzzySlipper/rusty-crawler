@@ -313,7 +313,9 @@ and the recovering member's named refusal.
 Counted deeds extend the party's durable records: monthly bounty settlement adds the gold it paid once,
 and an explicitly accumulating authored quest reward can add a staged win. Promotion and topic gates
 read those same counts. The [counted-deed evidence](docs/evidence/counted-deeds.md) states the tested
-earning paths; actual arena bouts remain with #9144.
+earning paths. Knight arena bouts now bind created challengers to canonical quest objectives and pay
+once through the same ledger; the [arena reading](docs/evidence/arena-bouts.md) states the approximate
+selection, current-save checks and live acceptance limits.
 
 Special items keep their imported definition and unique instance identity through the current save and
 ordinary counter operations. Item aims on the casting panel apply Enchant Item, elemental and vampiric

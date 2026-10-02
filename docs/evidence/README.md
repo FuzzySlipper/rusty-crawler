@@ -12,6 +12,7 @@ What is published here is text only: no game data, no screenshots, no saves, and
 | Record | What it shows |
 | --- | --- |
 | [`item-enchanting.md`](item-enchanting.md) | Actual item-bound casting, combat contributions, special-item counter flow and current save checks; bounded ordinary acquisition/enchant/refusals/Save and literal bytes, followed by actual resumed identity/property and empty-container refusal. |
+| [`arena-bouts.md`](arena-bouts.md) | Bound Knight earning through existing conversation, population, fight, quests and ledger; current-save and five-earned promotion/topic checks, with live limits. |
 | [`counted-deeds.md`](counted-deeds.md) | Monthly bounty gold and explicitly accumulating authored rewards share durable counts, save restoration and promotion/topic gates; actual arena earning is routed. |
 | [`member-selection.md`](member-selection.md) | Two ordinary member selections independently charge attack recovery; a recovering selection is refused by name. |
 | [`fight-persistence.md`](fight-persistence.md) | Ordinary save and resume retain an imported hostile Fighter and continuing creature recovery, with all-dead party and startup-time limits. |

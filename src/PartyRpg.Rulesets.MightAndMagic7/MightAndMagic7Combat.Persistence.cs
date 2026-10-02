@@ -43,7 +43,15 @@ internal sealed partial class MightAndMagic7Combat : ICombatSaveRule
         string summoner = placement.Source.GetString(MightAndMagic7Summons.SummonerField);
         string raised = placement.Source.GetString(MightAndMagic7Summons.RaisedByField);
         bool byEvent = placement.Source.GetString("positionSource") == "summoned-by-event";
-        if (byEvent)
+        bool byArena = placement.Source.GetString("positionSource") == "summoned-by-arena";
+        if (byArena)
+        {
+            if (!creature.Placement.Id.StartsWith("arena-", StringComparison.Ordinal) || summoner.Length > 0 || raised.Length > 0 ||
+                placement.Source.GetString(MightAndMagic7Arena.BoutField).Length == 0 ||
+                placement.Source.GetInt32(MightAndMagic7Arena.SlotField) is not >= 0 || creature.RemainingMilliseconds is not null)
+                yield return "the arena-created creature names no bout opponent or contradicts its visit lifetime";
+        }
+        else if (byEvent)
         {
             if (!creature.Placement.Id.StartsWith("event-", StringComparison.Ordinal) || summoner.Length > 0 || raised.Length > 0 ||
                 placement.Source.GetString("sourceField") != "events" || placement.Source.GetString("encounterPlacement").Length == 0 ||

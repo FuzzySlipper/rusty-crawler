@@ -879,3 +879,31 @@ limits, story events, salary, travelling dismissal, current persisted save/resum
 unknown saved identities and the real Sacrifice producer. The [bounded companion reading](../../docs/evidence/followers.md)
 records ordinary staged hire, companion Talk and dismissal. Focused tests establish ledger amounts and the
 hired limit; the live reading states its purse-measurement and authored-population limitations.
+
+
+Knight arena bouts use the actual arena official's conversation. The imported arena's own fixture event
+speaks with that official; no additional person placement is created. Taking a bout is an ordinary quest
+acceptance whose judged consequence creates bound challengers through the existing population and
+creature composer. The fight reports each death to the quest owner, and only the matching bout, opponent
+slot, place and creature row count. Turning in the completed bout pays through the shared finding ledger
+and adds one `award:arena-wins`; its canonical turned-in stage refuses a second payment. Champion and
+`arena-wins-knight` event comparisons read that same earned count.
+
+The compiled Knight policy adapts OpenEnroth `src/GUI/UI/NPCTopics.cpp:227-337` and
+OpenEnroth `src/Engine/ArenaEnumFunctions.cpp`: ten opponents by default, deterministic ordinal selection from
+monster rows between half and twice the highest party level (clamped to 2–100), and 200 gold per highest
+level. Count and reward use typed tuning. Imported places state `arenaChallengerFeet`; runtime code holds
+no arena coordinates. An optional `arena-bout` definition names its place, official, gold per level and
+exact challengers (`monster`, `x`, `y`, `z`) instead of the default selection. These are approximate:
+there is no random ten-to-nineteen draw, no other arena tier, and no donor visit lock after victory.
+A settled bout permits the next one. Leaving retains actual defeated objectives; returning through the
+same conversation re-creates only unfinished absent opponents, with fresh health for survivors of the
+previous visit. Allies must still be defeated to finish a bound kill objective.
+
+Canonical quest instances carry attempt and sealed level; current combat saves carry actual challenger
+origins, health, recovery and feet positions. Resume rebuilds the same earning state through existing
+owners, and rejects an unknown bout/opponent or health contradicting recorded defeat before rebuilding.
+`ArenaPolicyTests` cover ordinary fixture conversation, attacks, pending and settled persistence,
+repeat-payment refusal, unrelated kills, partial return and five earned wins reaching the existing
+promotion/topic readers. The [arena reading](../../docs/evidence/arena-bouts.md) distinguishes focused
+checks from live acceptance.

@@ -134,7 +134,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   masteries under this game's ceilings; promotion requires recovery from a laid-out condition; item spells change the actual instance's property, hardening and charge capacity through the same casting workflow; nine schools and 99 spells share one casting workflow whose eight
   effect categories each reach their owner, stated per spell in `docs/magic-coverage.md`; alchemy mixes the
   shipped recipes. Counted deeds accumulate on party records through once-only quest turn-in; town-hall
-  bounties add gold earned and an explicit authored quest can add arena wins ([evidence](docs/evidence/counted-deeds.md)).
+  bounties add gold earned, and bound Knight arena opponents earn one win on settlement through those same
+  owners ([arena reading](docs/evidence/arena-bouts.md)); current quest/fight saves preserve pending earning.
 - **Record.** Quests (definitions from content, instances on the party), `PartyJournal`, `PartyKnowledge`,
   standing read from records, and the `PartyMaps` automap. A taken errand's needed item stays in the party:
   removal and charge use ask the quest owner, and its own turn-in delivers through the same custody owner.

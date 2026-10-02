@@ -79,7 +79,8 @@ Owns:
   a cure ends what its offer `Clears` and leaves what it `Leaves` on a member it ended something for),
   quests (`Quests/` — one owner of what a party has been
   offered, taken, and finished, with definitions a game states, objectives that read the owners already
-  reporting them, and one turn-in that pays each reward to its own owner; it supplies `IItemRetentionRule`
+  reporting them, and one turn-in that pays each reward to its own owner. An optional `IQuestAcceptanceRule`
+  judges taking an errand before its stage changes and applies its consequence through existing owners; it supplies `IItemRetentionRule`
   explicitly to its party so `ConsumeItem`, `ReleaseItem` and `SpendItemCharge` share its existing `Needs`
   answer and named refusal. Removal returns `ItemRemoval`; sale, mixing and item casting judge before
   effects or payment. An event can judge retention by definition before giving and spending an item.
