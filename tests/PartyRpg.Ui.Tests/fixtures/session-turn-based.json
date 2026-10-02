@@ -1112,7 +1112,7 @@
     },
     "save": {
       "action": "session.save",
-      "enabled": false,
+      "enabled": true,
       "key": "F"
     },
     "use": {
