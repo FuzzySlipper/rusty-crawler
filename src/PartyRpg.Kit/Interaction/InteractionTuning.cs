@@ -12,7 +12,7 @@ namespace PartyRpg.Kit.Interaction;
 /// <para>
 /// <b>Reach is not here.</b> How close the party must stand is a fact about the kind of thing being used —
 /// a lever is reached for, a person is spoken to across a room — so it travels on each target's definition
-/// and the query is bounded by the furthest target the place actually holds.
+/// and the query observes the furthest target the place actually holds without widening that target's reach.
 /// </para>
 /// </remarks>
 public readonly record struct InteractionTuning

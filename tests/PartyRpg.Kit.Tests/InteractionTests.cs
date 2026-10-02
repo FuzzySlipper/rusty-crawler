@@ -28,6 +28,35 @@ namespace PartyRpg.Kit.Tests;
 /// </remarks>
 public sealed class InteractionTests
 {
+    [Theory]
+    [InlineData(88, 59, true)]
+    [InlineData(88, 195, true)]
+    [InlineData(88, -195, true)]
+    [InlineData(0, 384, true)]
+    [InlineData(0, -384, true)]
+    [InlineData(-1, 195, false)]
+    public void A_forward_hemisphere_cone_can_acquire_elevated_targets_without_changing_reach(double ground, double height, bool acquired)
+    {
+        TestRule rule = new(only: "chest");
+        rule.Outcomes["chest"] = (_, _) => InteractionOutcome.Applied("searched", "The chest is searched.");
+        using Hall hall = Hall.Build(rule, new PlacePose(100 - ground, 0, -height, 1536, 0),
+            tuning: new InteractionTuning(Math.PI / 2, (Math.PI / 2) + 0.11));
+        hall.Interaction.Update();
+        Assert.Equal(acquired, hall.Interaction.FocusedTarget is not null);
+        if (acquired) Assert.True(hall.Interaction.Use().IsApplied);
+    }
+
+    [Fact]
+    public void An_observed_target_beyond_its_reach_is_named_as_out_of_reach_instead_of_absent()
+    {
+        using Hall hall = Hall.Build(new TestRule(only: "chest"), new PlacePose(-285, 0, 0, 1536, 0));
+        hall.Interaction.Update();
+        Assert.Equal(InteractionReason.OutOfReach, hall.Interaction.FocusReason);
+        Assert.Null(hall.Interaction.FocusedTarget);
+        InteractionResult refused = hall.Interaction.Use();
+        Assert.Equal(InteractionCodes.InteractionOutOfReach, refused.Code);
+        Assert.Contains("out of reach", refused.Message, StringComparison.Ordinal);
+    }
     private static readonly ContentLayout Layout = new("packs", "imports", "bundles");
     private static readonly PlaceId HallPlace = new("1");
     private static readonly UseIntentNames UseControls = new("test.use", "test.ui.action.v1");
@@ -493,6 +522,12 @@ public sealed class InteractionTests
             ["person"] = new(new InteractionTargetKind("person"), "A person", InteractionVerb.Talk, reach: 512, state: "waiting"),
         };
 
+        internal TestRule(string? only = null)
+        {
+            if (only is null) return;
+            foreach (string kind in _definitions.Keys.Where(kind => kind != only).ToArray()) _definitions.Remove(kind);
+        }
+
         /// <summary>What each placement kind requires, in the order the checks happen.</summary>
         internal Dictionary<string, IReadOnlyList<InteractionRequirement>> Requires { get; } = new(StringComparer.Ordinal);
 
@@ -609,7 +644,8 @@ public sealed class InteractionTests
             PlacePose pose,
             PartyEntity? party = null,
             IPartyMover? mover = null,
-            bool interactive = true)
+            bool interactive = true,
+            InteractionTuning? tuning = null)
         {
             ContentCatalog catalog = ContentCatalogLoader.Load(
                 new InMemoryContentSource()
@@ -626,7 +662,7 @@ public sealed class InteractionTests
             InteractionPolicy policy = new(
                 rule,
                 PlaceSpace.HeightIsThird(new FacingRule(unitsPerTurn: 2048, minimumPitch: -512, maximumPitch: 512), radiansAtZeroFacing: 0),
-                new InteractionTuning(acquisitionAngleRadians: 0.20, releaseAngleRadians: 0.31));
+                tuning ?? new InteractionTuning(acquisitionAngleRadians: 0.20, releaseAngleRadians: 0.31));
 
             SessionWorld world = new(
                 graph,

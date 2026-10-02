@@ -263,6 +263,10 @@ tile grid, with place-level terrain as the fallback. The importer and ruleset RE
 content contracts and their donor citations.
 The [imported town reading](docs/evidence/house-ground.md) records two grounded camps and ordinary
 access to the same house before and after its opening time.
+The reticle acquires targets in the forward hemisphere, including containers above or below the party,
+with the existing 512-unit reach. Engine selection still judges sight, availability and fresh use; a
+target beyond reach remains an observation with an out-of-reach refusal. The ruleset README states the
+elevation band and the deliberate wider-cone adaptation.
 An accepted errand's needed item cannot be sold, dropped, consumed, mixed away or have a charge spent.
 All paths ask the quest owner's existing need reading through the party's custody entry. Meeting an item
 objective retains the item until turn-in; that turn-in can deliver it and then releases the protection.

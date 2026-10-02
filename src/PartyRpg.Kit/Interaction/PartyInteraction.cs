@@ -285,9 +285,8 @@ public sealed class PartyInteraction : IWorldInteractionScene
     /// <para>
     /// The party's eye and every target's point are placed through the movement's own space rule, so the
     /// distance the reticle measures is the distance the party walks, and a target at the party's own height
-    /// is a target it can look at rather than one below its feet. Sight is cast only for what could be used
-    /// at all: a place holds hundreds of placements and a ray per placement per update would be work spent
-    /// on things the party is nowhere near.
+    /// is a target it can look at rather than one below its feet. Targets outside reach remain observations:
+    /// the Engine names their refusal instead of the panel saying that nothing is there.
     /// </para>
     /// <para>
     /// <b>A body stands in for the creature it was.</b> What the party finds lying in a place is merged
@@ -336,12 +335,6 @@ public sealed class PartyInteraction : IWorldInteractionScene
             Vector3 point = _space.Position(placement.Pose);
             double distance = Vector3.Distance(point, eye);
 
-            // Only what the party can reach becomes a candidate. A place holds hundreds of placements, and a
-            // sight cast for each of them per update would be work spent on things the party is nowhere near;
-            // a target nobody can use is also not something a reticle should hold. A distant target is
-            // therefore not refused — it is simply not faced, and the panel says that nothing is.
-            if (distance > definition.Reach) continue;
-
             _targets.Add(new InteractionTarget(
                 new InteractionTargetId(place, placement.Content),
                 (ulong)index,
@@ -358,7 +351,9 @@ public sealed class PartyInteraction : IWorldInteractionScene
                 // game states, and the answer to it is a sentence naming what the door needs. Handing the
                 // engine its own Locked gate instead would replace that sentence with a word.
                 InteractionAvailability.Available));
-            furthest = Math.Max(furthest, definition.Reach);
+            // Query distance describes what is observed, not what may be used. Each candidate still carries
+            // its own reach, which the Engine checks before selecting or admitting a use.
+            furthest = Math.Max(furthest, Math.Max(distance, definition.Reach));
         }
 
         InteractionQuery query = new(

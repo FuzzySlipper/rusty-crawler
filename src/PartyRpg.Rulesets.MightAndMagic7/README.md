@@ -156,6 +156,18 @@ Owns:
   (`MightAndMagic7DailyCasts`): the count is a record under the spell, the caster, and the clock's day, which
   turns at three in the morning as the donor's does (`CastSpellInfo.cpp:2592`, `Engine.cpp:1036-1081`), and a
   fourth is refused before anything is spent.
+- Reticle policy uses the Engine's cone selection with a forward hemisphere for acquisition and a further
+  0.11 radians for retention. This is the elevation-tolerant cone choice: looking remains horizontal and
+  imported target points are unchanged. It also broadens horizontal acquisition; the Engine's angular
+  ranking and ordinary cycling choose among nearby targets. Reach stays 512, the donor's
+  `keyboard_interaction_depth` (`OpenEnroth/src/Application/GameConfig.h:180-182`), not the query's observation
+  distance. For a forward target with vertical difference `h` and ground distance `d`, acquisition is
+  possible exactly when `|h| <= 512` and `0 <= d <= sqrt(512²-h²)`, subject to sight and availability.
+  The former narrow-cone minimum `|h|/tan(0.20)` and height ceiling `512*sin(0.20)` no longer apply.
+  Distant targets remain Engine observations so an attempted use can name an out-of-reach refusal.
+  The donor selects through its rendered view (`Game.cpp:1511-1515`, `Vis.cpp:659-675`); this wider cone
+  is our adaptation for the product's horizontal keyboard looking, not a donor-equivalence claim.
+
 - Time, calendar, rest, fatigue, and travel policy, including service hours.
 
   House entrances are ordinary service or residence placements reached by the one use mechanism.

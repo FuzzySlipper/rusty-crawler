@@ -102,13 +102,16 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     /// The donor casts a single ray through the reticle and takes the topmost thing it meets
     /// (<c>src/Application/Game.cpp:1511</c> <c>onPressSpace</c> and <c>src/Engine/Graphics/Vis.cpp:659</c>
     /// <c>PickKeyboard</c>), which a mouse aims precisely and a keyboard cannot. This product's aim is a cone
-    /// instead, and the cone is a deliberate adaptation: it is wide enough to find a door the party is
-    /// facing and narrow enough that a door behind the party is not what it uses.
+    /// instead. Its forward hemisphere is a deliberate adaptation for keyboard-only horizontal looking:
+    /// elevation alone excludes nothing in reach, including a chest directly above or below the party.
+    /// A target behind the party is not acquired. This changes the cone, not pitch or imported placements.
+    /// For reach R, vertical difference h and ground distance d, the forward target's usable band is
+    /// 0 <= d <= sqrt(R*R - h*h), with |h| <= R. There is no height-dependent minimum stand-off.
     /// </remarks>
-    internal const double AcquisitionAngleRadians = 0.20;
+    internal const double AcquisitionAngleRadians = Math.PI / 2;
 
     /// <summary>The half-angle a picked-up target is kept within, in radians.</summary>
-    internal const double ReleaseAngleRadians = 0.31;
+    internal const double ReleaseAngleRadians = (Math.PI / 2) + 0.11;
 
     /// <summary>The aim this game's reticle acquires and releases targets within.</summary>
     internal static InteractionTuning Aim { get; } = new(AcquisitionAngleRadians, ReleaseAngleRadians);
