@@ -167,6 +167,8 @@ Owns:
   Distant targets remain Engine observations so an attempted use can name an out-of-reach refusal.
   The donor selects through its rendered view (`Game.cpp:1511-1515`, `Vis.cpp:659-675`); this wider cone
   is our adaptation for the product's horizontal keyboard looking, not a donor-equivalence claim.
+  The [elevated-use reading](../../docs/evidence/elevation-reach.md) records ordinary imported chest use
+  from the floor and a visible refusal for a target beyond reach.
 
 - Time, calendar, rest, fatigue, and travel policy, including service hours.
 

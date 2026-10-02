@@ -365,7 +365,7 @@ rather than from a list, with the engine's own reticle selection composed over t
 one `InteractionSelection`, which outlives every world so an inspection registered once reads the focus the
 live world holds, with targeted use off; the Engine query observes distant targets as well as reachable ones,
 with each candidate's own reach still controlling selection and use, so an out-of-reach target is refused by
-name — one use
+name (the [elevated-use reading](../../docs/evidence/elevation-reach.md) records both paths) — one use
 workflow that identifies the target, judges each `InteractionRequirement` in the order the ruleset stated
 them, settles what the use costs through the party's one settlement path, asks the ruleset what the use
 produces, applies it against the party's owners, records the `InteractionTargetState` that use left and the

@@ -11,6 +11,7 @@ What is published here is text only: no game data, no screenshots, no saves, and
 
 | Record | What it shows |
 | --- | --- |
+| [`elevation-reach.md`](elevation-reach.md) | Ordinary floor-level use of an elevated imported Manor chest, plus a visible ordinary-use refusal for a genuinely visible target beyond unchanged reach. |
 | [`house-ground.md`](house-ground.md) | Grounded camps on grass and road with different provision costs, followed by ordinary access to an imported town house refused before opening and admitted at its opening time. |
 | [`deadline-persistence.md`](deadline-persistence.md) | Ordinary save with fatigue, party light and member wards, followed by their original due times after loading the same bytes; focused exact-boundary and malformed-schedule checks. |
 | [`door-collision.md`](door-collision.md) | Closed imported Manor doors stop ordinary movement; the real fixture opens them and ordinary movement passes through, with native closing, passability, save and exact fixture-surface checks. |
