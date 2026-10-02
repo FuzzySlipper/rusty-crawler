@@ -4,11 +4,12 @@ using System.Text.Json;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.World;
+using Rusty.Engine;
 
 namespace PartyRpg.Kit.Sessions;
 
 /// <summary>
-/// One place's collision geometry, in the engine's own canonical artifact document.
+/// One place's unchanged Engine artifact, with optional complete authored collision at its current state.
 /// </summary>
 /// <remarks>
 /// The bytes are the engine's document, not a kit format: the engine parses them itself, and everything
@@ -54,7 +55,13 @@ public sealed record PlaceGeometry
 
     /// <summary>The navigation request's region and sampling scale, separate from the unchanged Engine document.</summary>
     public PlaceNavigationRegion? Navigation { get; }
+
+    /// <summary>Complete authored collision at the current state, or null to use the unchanged artifact.</summary>
+    public PlaceCollisionGeometry? Collision { get; init; }
 }
+
+/// <summary>Complete authored vertices and triangles, submitted through the Engine collision service.</summary>
+public sealed record PlaceCollisionGeometry(ReadOnlyMemory<Vector3> Positions, ReadOnlyMemory<Triangle> Triangles);
 
 /// <summary>Where navigation is derived from a place's collision, in the Engine's axes.</summary>
 /// <param name="Minimum">The collision's least coordinates.</param>

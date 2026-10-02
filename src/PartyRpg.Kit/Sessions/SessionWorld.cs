@@ -113,6 +113,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// <param name="hazards">
     /// What standing on a kind of ground does to the party while time passes. Without one no ground harms anybody.
     /// </param>
+    /// <param name="interactionState">An explicitly composed canonical ledger, instead of a restore snapshot.</param>
     /// <exception cref="ArgumentNullException">A required collaborator is missing.</exception>
     public SessionWorld(
         PlaceGraph graph,
@@ -133,10 +134,13 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         ICreatureVitals? vitals = null,
         IPlacementExpansion? expansion = null,
         InteractionLedgerSnapshot? interactions = null,
-        IGroundHazardRule? hazards = null)
+        IGroundHazardRule? hazards = null,
+        InteractionLedger? interactionState = null)
     {
         ArgumentNullException.ThrowIfNull(graph);
-        _interactions = interactions is null ? new InteractionLedger() : new InteractionLedger(interactions);
+        if (interactionState is not null && interactions is not null)
+            throw new ArgumentException("A world cannot restore a snapshot over a separately composed interaction owner.");
+        _interactions = interactionState ?? (interactions is null ? new InteractionLedger() : new InteractionLedger(interactions));
         ArgumentNullException.ThrowIfNull(party);
         ArgumentNullException.ThrowIfNull(places);
         _transitions = new TransitionExecutive(costRule);
@@ -167,6 +171,12 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         // The place the party starts in is entered exactly as any other is, so the scene it walks in is
         // filled from that place's content before the first step rather than one arrival late.
         mover?.Enter(party.Place);
+        _interactions.Changed += RefreshGeometry;
+    }
+
+    private void RefreshGeometry(PlaceId place)
+    {
+        if (place == Party.Place) Mover?.Refresh(place);
     }
 
     /// <summary>The places and the transitions between them.</summary>
@@ -671,6 +681,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         if (_disposed) return;
         _disposed = true;
         _clockSubscription?.Dispose();
+        _interactions.Changed -= RefreshGeometry;
         _population.Dispose();
 
         // The product's selection outlives this world, so a world being released gives it up: an inspection

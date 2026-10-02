@@ -28,35 +28,19 @@ public sealed class InteractionPolicyTests
     {
         MightAndMagic7Interaction rule = new();
 
-        // A door the delta stored at rest is the position the donor calls open, so using it says so rather
-        // than opening it a second time.
-        InteractionTargetDefinition resting = Describe(rule, Door(state: 0));
-        Assert.Equal("door", resting.Kind.Value);
-        Assert.Equal("A door", resting.Name);
-        Assert.Equal(InteractionVerb.Open, resting.Verb);
-        Assert.Equal("open", resting.State);
-        Assert.Equal(MightAndMagic7Interaction.Reach, resting.Reach);
-
-        InteractionOutcome already = rule.Apply(resting, Context(resting, Door(state: 0)));
-        Assert.False(already.IsApplied);
-        Assert.Equal("door-already-open", already.Refusal!.Code);
-
-        // A door the delta stored moved is a door in the way, and using it opens it in state — with the
-        // passage this build cannot deliver stated beside the success, because door polygons are admitted as
-        // collision wherever they stand.
-        InteractionTargetDefinition closed = Describe(rule, Door(state: 2));
+        // Player words follow physical travel rather than the donor's inverted enum names.
+        InteractionTargetDefinition closed = Describe(rule, Door(state: 0));
+        Assert.Equal("door", closed.Kind.Value);
         Assert.Equal("closed", closed.State);
-        InteractionOutcome opened = rule.Apply(closed, Context(closed, Door(state: 2)));
+        InteractionOutcome opened = rule.Apply(closed, Context(closed, Door(state: 0)));
         Assert.True(opened.IsApplied);
         Assert.Equal("open", opened.State);
-        Assert.Contains("swings open", opened.Message, StringComparison.Ordinal);
-        Assert.Contains("cannot be walked through yet", opened.Residue, StringComparison.Ordinal);
-
-        // The open door the party left behind is what the next look at it reads, because the state the world
-        // recorded is what a use answers from.
-        InteractionTargetDefinition recorded = Describe(rule, Door(state: 2), recorded: "open");
+        Assert.Empty(opened.Residue);
+        InteractionTargetDefinition moved = Describe(rule, Door(state: 2));
+        Assert.Equal("open", moved.State);
+        Assert.Equal("door-already-open", rule.Apply(moved, Context(moved, Door(state: 2))).Refusal!.Code);
+        InteractionTargetDefinition recorded = Describe(rule, Door(state: 0), recorded: "open");
         Assert.Equal("open", recorded.State);
-        Assert.Equal("door-already-open", rule.Apply(recorded, Context(recorded, Door(state: 2))).Refusal!.Code);
     }
 
     [Fact]
@@ -150,8 +134,8 @@ public sealed class InteractionPolicyTests
                 """
                 { "id": "7", "kind": "interior", "name": "Hall", "respawnDays": 7,
                   "placements": [
-                    { "id": "door-0", "kind": "door", "doorId": 3, "x": 0, "y": 0, "z": 0, "state": 2 },
-                    { "id": "door-1", "kind": "door", "doorId": 3, "x": 10, "y": 0, "z": 0, "state": 2 } ] }
+                    { "id": "door-0", "kind": "door", "doorId": 3, "x": 0, "y": 0, "z": 0, "state": 0 },
+                    { "id": "door-1", "kind": "door", "doorId": 3, "x": 10, "y": 0, "z": 0, "state": 0 } ] }
                 """)));
 
         ContentValidationIssue issue = Assert.Single(error.Issues);
@@ -163,8 +147,8 @@ public sealed class InteractionPolicyTests
             """
             { "id": "7", "kind": "interior", "name": "Hall", "respawnDays": 7,
               "placements": [
-                { "id": "door-0", "kind": "door", "doorId": 3, "x": 0, "y": 0, "z": 0, "state": 2 },
-                { "id": "door-1", "kind": "door", "doorId": 4, "x": 10, "y": 0, "z": 0, "state": 2 } ] }
+                { "id": "door-0", "kind": "door", "doorId": 3, "x": 0, "y": 0, "z": 0, "state": 0 },
+                { "id": "door-1", "kind": "door", "doorId": 4, "x": 10, "y": 0, "z": 0, "state": 0 } ] }
             """));
     }
 
@@ -179,7 +163,7 @@ public sealed class InteractionPolicyTests
                 """
                 { "id": "7", "kind": "interior", "name": "Hall", "respawnDays": 7,
                   "placements": [
-                    { "id": "door-0", "kind": "door", "x": 0, "y": 0, "z": 0, "state": 2,
+                    { "id": "door-0", "kind": "door", "x": 0, "y": 0, "z": 0, "state": 0,
                       "requires": [ { "kind": "incantation", "id": "open sesame" } ] } ] }
                 """)));
 
@@ -190,7 +174,7 @@ public sealed class InteractionPolicyTests
             """
             { "id": "7", "kind": "interior", "name": "Hall", "respawnDays": 7,
               "placements": [
-                { "id": "door-0", "kind": "door", "x": 0, "y": 0, "z": 0, "state": 2,
+                { "id": "door-0", "kind": "door", "x": 0, "y": 0, "z": 0, "state": 0,
                   "requires": [ { "kind": "item", "id": "655", "label": "the Barrow Key" } ] } ] }
             """));
     }
@@ -213,7 +197,7 @@ public sealed class InteractionPolicyTests
         "door-0",
         """
         { "id": "door-0", "kind": "door", "sourceField": "doors", "sourceIndex": 0, "x": 100, "y": 0, "z": 0,
-          "positionSource": "vertexIds", "doorId": 1, "state": 2, "attributes": 1,
+          "positionSource": "vertexIds", "doorId": 1, "state": 0, "attributes": 1,
           "requires": [ { "kind": "item", "id": "655", "label": "the Barrow Key" } ] }
         """);
 

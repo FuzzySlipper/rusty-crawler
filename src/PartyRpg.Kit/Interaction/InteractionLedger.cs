@@ -38,6 +38,9 @@ public sealed class InteractionLedger
     private readonly Dictionary<PlaceId, HashSet<PlacementContentId>> _deaths = [];
     private readonly Dictionary<PlaceId, Dictionary<PlacementContentId, PlacementPurseSnapshot>> _purses = [];
 
+    /// <summary>Notifies owners whose projection depends on a place's target words or values.</summary>
+    public event Action<PlaceId>? Changed;
+
     /// <summary>Creates an empty ledger: nothing has happened to any target of any place.</summary>
     public InteractionLedger()
     {
@@ -119,6 +122,7 @@ public sealed class InteractionLedger
         InteractionTargetState before = StateOf(place, content);
         InteractionTargetState next = before with { State = state, Revision = before.Revision + 1 };
         targets[content] = next;
+        if (before.State != state) Changed?.Invoke(place);
         return next;
     }
 
@@ -143,7 +147,13 @@ public sealed class InteractionLedger
             _values[place] = kept;
         }
 
-        foreach ((string key, long value) in values) kept[key] = value;
+        bool changed = false;
+        foreach ((string key, long value) in values)
+        {
+            changed |= !kept.TryGetValue(key, out long before) || before != value;
+            kept[key] = value;
+        }
+        if (changed) Changed?.Invoke(place);
     }
 
     /// <summary>
@@ -153,10 +163,12 @@ public sealed class InteractionLedger
     /// <param name="place">The place being restored.</param>
     public void Forget(PlaceId place)
     {
+        bool changed = _places.ContainsKey(place) || _values.ContainsKey(place);
         _places.Remove(place);
         _values.Remove(place);
         _deaths.Remove(place);
         _purses.Remove(place);
+        if (changed) Changed?.Invoke(place);
     }
 
     /// <summary>The ledger's durable reading, every place in identity order and its values by name.</summary>

@@ -351,7 +351,8 @@ internal static class IndoorMapReader
             // An interior's face raises the event its extra carries, which is the same field the donor
             // reads (OpenEnroth src/Engine/Snapshots/EntitySnapshots.h:1116-1136); the face record holds
             // only the extra's index.
-            extra.EventId);
+            extra.EventId,
+            extra.CogNumber);
     }
 
     private static MapSector ReadSector(

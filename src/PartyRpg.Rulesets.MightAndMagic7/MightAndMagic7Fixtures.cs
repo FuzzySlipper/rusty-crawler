@@ -224,10 +224,6 @@ internal sealed class MightAndMagic7Fixtures
         "set-texture", "set-sprite", "play-sound", "character-animation", "toggle-indoor-light", "show-movie",
     };
 
-    /// <summary>The residue a step that moves geometry leaves, which collision does not follow in this build.</summary>
-    internal const string CollisionResidue =
-        "Collision does not move in this build: a door's polygons and a face group's solidity stay where the place was admitted, so the way it opens cannot be walked yet (#8594).";
-
     private readonly MightAndMagic7MapEvents _events;
     private readonly Func<PartyKnowledge?> _knowledge;
     private readonly MightAndMagic7SpellEffects? _effects;
@@ -583,6 +579,13 @@ internal sealed class MightAndMagic7Fixtures
             }
 
             return value is 0 or 1 ? null : "a group is hidden (1) or shown (0)";
+        }
+
+        if (key.StartsWith(MightAndMagic7Geometry.PassablePrefix, StringComparison.Ordinal))
+        {
+            if (!int.TryParse(key.AsSpan(MightAndMagic7Geometry.PassablePrefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out int group) || group == 0)
+                return "a face group is named by a nonzero number";
+            return value is 0 or 1 ? null : "a face group is passable (1) or solid (0)";
         }
 
         if (key.StartsWith(CounterPrefix, StringComparison.Ordinal))
@@ -1024,13 +1027,10 @@ internal sealed class MightAndMagic7Fixtures
                         // What a player would see or hear is not drawn here; the event's gameplay runs on.
                         break;
                     case "set-faces-bit":
-                        // A face group made invisible or fluid is presentation; one made passable changes the ground a
-                        // party walks on, which this build's collision does not follow.
-                        if ((current.Flag & PassableFaceBit) != 0) Residue(CollisionResidue);
                         if ((current.Flag & ~(InvisibleFaceBit | PassableFaceBit | FluidFaceBit)) != 0)
-                        {
                             return NotInterpreted(_target, mapEvent, current, string.Create(CultureInfo.InvariantCulture, $"a face bit 0x{current.Flag:X} this game does not read"));
-                        }
+                        if ((current.Flag & PassableFaceBit) != 0 && current.Group != 0)
+                            Keep(MightAndMagic7Geometry.PassableKey(current.Group), current.On ? 1 : 0);
 
                         break;
                     case "give-item":
@@ -1907,7 +1907,6 @@ internal sealed class MightAndMagic7Fixtures
             if (opens == open) return null;
             _changes[door.Content] = opens ? MightAndMagic7Interaction.OpenState : MightAndMagic7Interaction.ClosedState;
             _done.Add(opens ? "A door opens." : "A door closes.");
-            Residue(CollisionResidue);
             return null;
         }
 

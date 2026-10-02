@@ -46,7 +46,16 @@ public sealed record PlaceCollision(
     public int FluidFaces { get; init; }
 
     /// <summary>The same outcome with the documents dropped, for a report that only states facts.</summary>
-    public PlaceCollision Facts => this with { Artifact = null, Surfaces = [] };
+    public PlaceCollision Facts => this with { Artifact = null, Surfaces = [], Layout = null };
+
+    /// <summary>Complete authored collision partition, with per-corner door travel and event face groups.</summary>
+    public PlaceCollisionLayout? Layout { get; init; }
+
+    /// <summary>How many doors own collision corners in the complete partition.</summary>
+    public int CollisionDoors { get; init; }
+
+    /// <summary>How many faces are controlled by a door or a face group.</summary>
+    public int MutableFaces { get; init; }
 
     /// <summary>What one source contributed.</summary>
     /// <param name="source">The source to report.</param>
@@ -188,6 +197,7 @@ public static class PlaceCollisionEmitter
         if (fluid.TriangleCount > 0) surfaces.Add(new PlaceSurface(FluidSurface, fluid));
 
         CollisionRefusal? refusal = CollisionArtifact.Validate(mesh, map.EntryPoints);
+        PlaceCollisionLayout? layout = refusal is null ? PlaceCollisionLayout.From(map) : null;
         return new PlaceCollision(
             placeId,
             fileName,
@@ -201,16 +211,27 @@ public static class PlaceCollisionEmitter
             refusal)
         {
             Surfaces = refusal is null ? surfaces : [],
-            NavigationRegion = refusal is null ? NavigationRegion(mesh, map.Kind) : null,
+            NavigationRegion = refusal is null ? NavigationRegion(mesh, map.Kind, layout) : null,
             WaterSquares = waterSquares,
             FluidFaces = FluidFacesOf(map),
+            Layout = layout,
+            CollisionDoors = layout?.Faces.SelectMany(face => face.Corners).Where(corner => corner.Door is not null).Select(corner => corner.Door).Distinct().Count() ?? 0,
+            MutableFaces = layout?.Faces.Count ?? 0,
         };
     }
 
     /// <summary>States a navigation request over the same geometry, without deriving any walkable cells.</summary>
-    private static CollisionNavigationRegion NavigationRegion(CollisionMesh mesh, MapKind kind)
+    private static CollisionNavigationRegion NavigationRegion(CollisionMesh mesh, MapKind kind, PlaceCollisionLayout? layout)
     {
         (double[] minimum, double[] maximum) = CollisionArtifact.Bounds(mesh);
+        foreach (CollisionCorner corner in layout?.Faces.SelectMany(face => face.Corners) ?? [])
+        {
+            for (int axis = 0; axis < 3; axis++)
+            {
+                minimum[axis] = Math.Min(minimum[axis], Math.Min(corner.Rest[axis], corner.Rest[axis] + corner.Travel[axis]));
+                maximum[axis] = Math.Max(maximum[axis], Math.Max(corner.Rest[axis], corner.Rest[axis] + corner.Travel[axis]));
+            }
+        }
         return new CollisionNavigationRegion(minimum, maximum,
             kind == MapKind.Outdoor ? OutdoorMap.TerrainCellSize : 128);
     }
@@ -273,7 +294,7 @@ public static class PlaceCollisionEmitter
     /// up and the engine's collision sees the ground the party walks on.
     /// </remarks>
     /// <returns>How many squares were water.</returns>
-    private static int AddTerrain(
+    internal static int AddTerrain(
         CollisionMesh mesh,
         Dictionary<CollisionSource, CollisionSourceCounts> counts,
         OutdoorMap map,

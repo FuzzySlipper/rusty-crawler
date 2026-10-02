@@ -151,7 +151,7 @@ public sealed class MapDecoderTests
 
         // Six arrays of five values for a four-cornered face, plus the sector and light pools.
         Assert.Equal(
-            new IndoorCounts(1, 60, 10, 4, 16, 4, 1, 1, 2, 2, 1, 2, 1, 1, 0),
+            new IndoorCounts(1, 60, 10, 4, 22, 4, 1, 1, 2, 2, 1, 2, 1, 1, 0),
             map.Counts);
         Assert.Equal(new MapBounds(0, 0, 0, 3, 6, 9), map.Bounds);
     }
@@ -198,6 +198,7 @@ public sealed class MapDecoderTests
         Assert.Equal(7, extra.FaceId);
         Assert.Equal(0xFFFF, extra.AdditionalBitmapId);
         Assert.Equal(9, extra.CogNumber);
+        Assert.Equal(9, Assert.Single(map.Faces).CogNumber);
         Assert.Equal(11, extra.EventId);
     }
 
@@ -279,6 +280,21 @@ public sealed class MapDecoderTests
     }
 
     [Fact]
+    public void Collision_layout_keeps_partial_face_corners_bound_to_their_own_door()
+    {
+        IndoorMap map = DecodedIndoorFixture();
+        var layout = MightAndMagic7.Import.Collision.PlaceCollisionLayout.From(map);
+        var face = Assert.Single(layout.Faces);
+        Assert.Equal(9, face.Group);
+        Assert.Equal(0, face.Corners[0].Door);
+        Assert.Equal(0, face.Corners[1].Door);
+        Assert.Null(face.Corners[2].Door);
+        Assert.Equal(new double[] { 1, 3, -2 }, face.Corners[1].Rest);
+        Assert.Equal(8d * 64 / 65536, face.Corners[1].Travel[1]);
+        Assert.Equal(2, face.Triangles.Count);
+    }
+
+    [Fact]
     public void An_indoor_delta_carries_the_levels_door_slots_with_their_lists_from_the_door_pool()
     {
         IndoorMap map = DecodedIndoorFixture();
@@ -299,9 +315,9 @@ public sealed class MapDecoderTests
         Assert.Empty(door.SectorIds);
         Assert.Equal(new[] { 7 }, door.DeltaUs);
         Assert.Equal(new[] { -7 }, door.DeltaVs);
-        Assert.Equal(new[] { 0 }, door.XOffsets);
-        Assert.Equal(new[] { 0 }, door.YOffsets);
-        Assert.Equal(new[] { -64 }, door.ZOffsets);
+        Assert.Equal(new[] { 0, 1 }, door.XOffsets);
+        Assert.Equal(new[] { 0, 2 }, door.YOffsets);
+        Assert.Equal(new[] { 0, 3 }, door.ZOffsets);
         Assert.False(map.Doors[1].InUse);
         Assert.Empty(map.Doors[1].FaceIds);
     }
@@ -840,7 +856,7 @@ public sealed class MapDecoderTests
         writer.SetU32(sizes, (uint)(((6 * (faceCorners + 1)) + poolSlackValues) * sizeof(short)));
         writer.SetU32(sizes + 4, 5 * sizeof(short));
         writer.SetU32(sizes + 8, (uint)(lightCount * sizeof(short)));
-        writer.SetU32(sizes + 12, 8 * sizeof(short));
+        writer.SetU32(sizes + 12, 11 * sizeof(short));
         return writer.ToArray();
     }
 
@@ -866,12 +882,12 @@ public sealed class MapDecoderTests
         writer.SetU32(door + 0x18, 8).SetU32(door + 0x1C, 2).SetU32(door + 0x20, 3);
         writer.SetU16(door + 0x44, 2);          // vertices
         writer.SetU16(door + 0x46, 1);          // faces
-        writer.SetU16(door + 0x4A, 1);          // offsets
+        writer.SetU16(door + 0x4A, 2);          // one base offset per moved vertex
         writer.SetU16(door + 0x4C, 2);          // state
         writer.Zero(80 * (doorSlots - 1));      // every later slot is unused
 
         // The door pool: vertices, faces, sectors, texture deltas, then the three offset arrays.
-        writer.I16(0).I16(1).I16(0).I16(7).I16(-7).I16(0).I16(0).I16(-64);
+        writer.I16(0).I16(1).I16(0).I16(7).I16(-7).I16(0).I16(1).I16(0).I16(2).I16(0).I16(3);
 
         writer.Zero(200);                       // event variables
         writer.I64(0);                          // last visit time

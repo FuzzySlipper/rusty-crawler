@@ -570,8 +570,7 @@ themselves run as the refill of what a fixture reads; `change-door-state` (open,
 door owner's own word under its own identity through the outcome's target changes, so a lever-opened door reads
 open; a door id the place does not hold moves nothing, as the donor's lookup, and a place holding two doors under
 one id is refused while the world is built (`interaction-door-number-reused`) rather than moving the first as the
-donor's lookup would; the collision does not move, #8594,
-stated as residue); `give-item` (the named item, or one the loot owner draws at the step's treasure level from the
+donor's lookup would; the canonical ledger notification updates collision and navigation in the same scene); `give-item` (the named item, or one the loot owner draws at the step's treasure level from the
 kind it admits, through the acquisition path, `OpenEnroth/src/Engine/Tables/ItemTable.cpp:316-360`); `cast-spell`
 (the spell's own roll at the step's rank and mastery landed on the chosen characters — the donor flies a
 projectile from a point at the party, this build flies nothing: approximate); `speak-npc` (the conversation with
@@ -611,8 +610,8 @@ product draws no world and plays no sound, so `set-texture`, `set-sprite`, `play
 alignment and the crossing's week of rest, `OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:288-300` — are the
 executable's and are not kept: this build's path is the class a promotion chooses), and a `set-faces-bit` that only hides a face group or makes it fluid change nothing and the
 event's gameplay steps still run — a decision, not a deferral (a fluid face is not water a party drowns in, and its
-footsteps, splash and sinking corpses are not modelled); a `set-faces-bit` that makes a face group passable states
-its residue (#8594) and runs on. The variables, each through its owner: `quest-bit` (the
+footsteps, splash and sinking corpses are not modelled); a `set-faces-bit` that sets or clears passability
+keeps `face-passable:<group>` on the same interaction ledger and updates collision. Zero is no face group. The variables, each through its owner: `quest-bit` (the
 party record `errand:<bit>` the conversation already reads), `member-bit` (a party record — the donor's is per
 character), `award` (a party record `award-bit:<n>`, the donor's award of that number, which is per character and shown
 in its awards book: `OpenEnroth/src/Engine/Objects/Character.cpp:3640-3641`, `:4689-4694`, `:5206-5208`; this build
@@ -733,3 +732,23 @@ every one its check allows; a topic said once is withheld for the rest of the co
 Fidelity per system — what matches
 the original, what is approximate, and what is deliberately ours — is fixed in
 [`../../docs/gameplay-design.md`](../../docs/gameplay-design.md).
+
+
+**Mutable imported collision.** `MightAndMagic7Geometry` reads the complete offline-authored partition beside
+an unchanged Engine artifact. Its immutable static mesh and mutable face fans retain per-corner rest positions,
+normalized travel and the door placement each corner belongs to. A face can share corners with several doors;
+only each door's own corners move. Portal faces never collide, while event-addressed ethereal faces are retained
+so clearing passability can restore their collision. The ruleset reads the canonical interaction ledger to
+project these positions and active triangles, caching only an unchanged projection. `SessionWorld` hears
+ledger changes and the existing mover replaces the whole collision in its same Engine session, then derives
+navigation again for the same controller. Explicit mesh IDs belong to that complete replacement; they never
+share a scene with guessed artifact IDs. The catalog retains authored provenance; a changed scene does not
+claim the original immutable Engine artifact identity.
+
+Player words call the rest position **closed** and full travel **open**. Raw source state 2 starts open;
+other states settle closed, without animation. This deliberately corrects the prior word-only reading that
+followed the donor's inverted names: OpenEnroth `src/Engine/Graphics/FaceEnums.h:62-66` acknowledges that most
+physically closed doors are called `DOOR_OPEN`. Events here use player open/close meanings too. Full travel
+uses the decoded per-vertex offsets and direction described at OpenEnroth `src/Engine/Graphics/Indoor.cpp:665-671`,
+normalized from source 16.16 directions in the importer. It is an approximate endpoint policy, not a promise
+of the original animation or every event's original naming.

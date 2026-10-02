@@ -441,7 +441,7 @@ public sealed class RestAndSchedulePolicyTests
     }
 
     /// <summary>The door the shop's hours lock, and the chest the party can set a trap off in.</summary>
-    private const string ShopDoor = """{ "id": "door-0", "kind": "door", "x": 100, "y": 0, "z": 0, "state": 2 }""";
+    private const string ShopDoor = """{ "id": "door-0", "kind": "door", "x": 100, "y": 0, "z": 0, "state": 0 }""";
 
     /// <summary>The trapped chest a rest has something to heal: no sense for traps, and dice that always land.</summary>
     private const string ShopChest =

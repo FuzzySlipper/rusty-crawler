@@ -311,17 +311,17 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
         MightAndMagic7Interaction rule = Rule(catalog);
         InteractionLedger ledger = new();
         PlacementDefinition lever = Fixture(310, "Pull the Lever", string.Empty);
-        PlacementDefinition gate = Door(7, stored: 2);
+        PlacementDefinition gate = Door(7, stored: 0);
         PlacementDefinition[] placements = [lever, gate];
 
         // The texture, the sound and a face group hidden are presentation the product does not draw, so the run
         // passes over them; the toggle moves the closed gate open through the door owner's own word, recorded
-        // under the gate's identity, and says the collision does not follow (#8594).
+        // under the gate's identity, and notifies collision through the same ledger.
         (InteractionOutcome pulled, _) = Use(rule, lever, EmeraldIsle, party, clock, ledger, placements);
         Assert.True(pulled.IsApplied, pulled.Refusal?.Message);
         Assert.Equal("The gate moves.", pulled.Message);
         Assert.Equal(new InteractionTargetChange(gate.Content, MightAndMagic7Interaction.OpenState), Assert.Single(pulled.Changes));
-        Assert.Equal(MightAndMagic7Fixtures.CollisionResidue, pulled.Residue);
+        Assert.Empty(pulled.Residue);
         Assert.Equal(MightAndMagic7Interaction.OpenState, ledger.StateOf(EmeraldIsle, gate.Content).State);
 
         // The gate's own use reads what the lever left: it already stands open.

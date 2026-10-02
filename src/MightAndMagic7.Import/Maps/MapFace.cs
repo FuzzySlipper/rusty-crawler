@@ -32,6 +32,7 @@ namespace MightAndMagic7.Import.Maps;
 /// this is the resolved value of both: an interior keeps it in the face's extra
 /// (<see cref="MapFaceExtra.EventId"/>), an outdoor model face keeps it in the face record itself.
 /// </param>
+/// <param name="CogNumber">The face group addressed by a map event, or zero for none.</param>
 public sealed record MapFace(
     int Index,
     string TextureName,
@@ -46,4 +47,5 @@ public sealed record MapFace(
     int SectorId,
     int BackSectorId,
     int FaceExtraId,
-    int EventId = 0);
+    int EventId = 0,
+    int CogNumber = 0);

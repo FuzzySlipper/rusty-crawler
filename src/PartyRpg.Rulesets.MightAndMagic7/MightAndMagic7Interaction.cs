@@ -157,14 +157,6 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
         _fixtures = fixtures ?? new MightAndMagic7Fixtures(MightAndMagic7MapEvents.None);
     }
 
-    /// <summary>The door state the delta stores for a door at rest, which the donor calls open.</summary>
-    /// <remarks>
-    /// OpenEnroth <c>src/Engine/Graphics/FaceEnums.h:63-66</c>: <c>DOOR_OPEN = 0</c> is the door mesh at the
-    /// offsets it rests at and <c>DOOR_CLOSED = 2</c> is the moved position. The importer stores the number
-    /// as it stands rather than interpreting it, which is why the reading is here.
-    /// </remarks>
-    private const int DoorRestState = 0;
-
     /// <summary>
     /// Reads what a placement requires and what a container holds, failing while the world is built on
     /// content that states either of them in a way nothing can resolve.
@@ -396,8 +388,7 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
 
         return InteractionOutcome.Applied(
             OpenState,
-            $"{target.Name} swings open.",
-            "Doors do not move in this build: its polygons are still admitted where they stood, so the doorway cannot be walked through yet.");
+            $"{target.Name} swings open.");
     }
 
     /// <summary>
@@ -426,16 +417,15 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     /// delta stored when nothing has happened to it.
     /// </summary>
     /// <remarks>
-    /// The stored number is the donor's own door state: a door at rest is the one the donor calls open, and
-    /// every other stored position is one the door has moved to, which is a door that stands closed. The
-    /// reading is done here rather than by the importer because the number is map runtime state and not an
-    /// interpretation of the level, and a pack that carried the word instead would be a pack a different
-    /// game could not read.
+    /// The source stores 0 at rest and 2 at full travel. The donor's names invert the common physical
+    /// door position (OpenEnroth src/Engine/Graphics/FaceEnums.h:62-66). This game's player words call
+    /// rest closed and full travel open; intermediate source states settle closed. Events use these
+    /// player meanings too, rather than promising an open doorway while its geometry stays at rest.
     /// </remarks>
     internal static string DoorState(PlacementDefinition placement, string recorded) =>
         recorded.Length > 0
             ? recorded
-            : placement.Source.GetInt32(DoorStateField) == DoorRestState ? OpenState : ClosedState;
+            : placement.Source.GetInt32(DoorStateField) == 2 ? OpenState : ClosedState;
 
     /// <summary>Whether the party carries what an item requirement names.</summary>
     /// <remarks>

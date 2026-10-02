@@ -54,3 +54,29 @@ The local survey report and package-check receipts are retained with the Den
 task record. No operator game geometry is published here. Implementation,
 per-place emitted partition counts, save/re-entry interoperability, focused
 checks, and an imported doorway walk remain to be demonstrated.
+
+
+## Implementation and native admission follow-up
+
+The implementation now emits `collisionLayout`: a complete static base and mutable face fans with
+per-corner door placement identity, rest and normalized full travel. Indoor face groups come from the
+face extra's cog number; outdoor groups come from the face record's cog field at 0x122. All non-portal
+addressable faces are retained, including ethereal faces that an event can make solid again. Bounds
+include both door endpoints. Two operator writes were byte-identical.
+
+Across the operator's 76 geometries the emitted partition identifies all 786 doors and 16,502 mutable
+faces. The actual safe Engine admitted every partition at its initial state and again after every door
+was marked open: 152 admissions, each with collision and nonzero derived navigation, no refusal or
+omission. This does not certify every doorway's tuning or original event semantics.
+
+Focused native checks also walked the actual ruleset body against an authored door: closed blocked,
+open admitted passage, and closing blocked the return. A face group made passable removed its solidity,
+clearing that bit restored it, and canonical ledger save/load and place restoration reproduced the
+geometry. Partial-corner projection and unrelated-use caching have separate semantic checks.
+
+Player words now call rest closed and full travel open; the source's state 2 starts open and other
+positions settle closed without animation. The donor acknowledges its inverted enum naming at
+OpenEnroth `src/Engine/Graphics/FaceEnums.h:62-66`. This is an explicit approximate endpoint policy.
+The supported Engine calls remain whole `ReplaceCollision` and `ReplaceCollisionNavigation` in the
+party's existing session; no artifact-ID mixing, runtime polygon triangulation or second collision
+owner is introduced. Imported live doorway traversal and final source/review gates remain pending.

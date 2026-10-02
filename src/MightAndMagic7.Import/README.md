@@ -128,3 +128,12 @@ the plates a party treads on to travel and every travel link's disposition inclu
 [`mm7-map-formats.md`](../../docs/research/mm7-map-formats.md), and
 [`mm7-media-formats.md`](../../docs/research/mm7-media-formats.md). The Python
 extractors in the operator's ignored local tree are research tools, not this project.
+
+Collision emission also writes a complete authored partition beside the immutable Engine artifact.
+Static solid triangles are separate from door-controlled and event-addressable face fans. Each mutable
+corner keeps its rest coordinates, full normalized travel and door slot; the pack writer turns that
+slot into the door placement identity. Fixed source directions are normalized from 16.16 here. Face cog
+numbers come from indoor extras and the outdoor face field at 0x122; event passability can therefore
+address both families, including faces initially marked ethereal. Portals remain excluded. Navigation
+bounds include both endpoints of every door's travel. The report and pack state collision door and
+mutable face counts; no runtime code reads the source formats or re-triangulates polygons.

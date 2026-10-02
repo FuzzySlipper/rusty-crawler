@@ -98,6 +98,8 @@ internal static partial class PackWriter
                 writer.WriteString("kind", place.Kind == MapKind.Outdoor ? "region" : "interior");
                 writer.WriteNumber("vertices", place.Vertices);
                 writer.WriteNumber("triangles", place.Triangles);
+                writer.WriteNumber("collisionDoors", place.CollisionDoors);
+                writer.WriteNumber("mutableFaces", place.MutableFaces);
                 writer.WriteStartObject("geometryCounts");
                 foreach (CollisionSource source in GeometrySources)
                 {
@@ -129,6 +131,7 @@ internal static partial class PackWriter
                     writer.WriteEndObject();
                 }
                 WriteSurfaces(writer, place.Surfaces);
+                if (place.Layout is { } layout) WriteCollisionLayout(writer, layout);
             }));
         }
 
@@ -174,6 +177,52 @@ internal static partial class PackWriter
         }
 
         writer.WriteEndArray();
+    }
+
+    /// <summary>Writes the complete authored partition beside the unchanged Engine artifact.</summary>
+    private static void WriteCollisionLayout(Utf8JsonWriter writer, PlaceCollisionLayout layout)
+    {
+        void Triple(IEnumerable<double> values)
+        {
+            writer.WriteStartArray();
+            foreach (double value in values) writer.WriteNumberValue(value);
+            writer.WriteEndArray();
+        }
+        writer.WriteStartObject("collisionLayout");
+        writer.WriteStartArray("positions");
+        for (int index = 0; index < layout.Static.VertexCount; index++)
+        {
+            (double x, double y, double z) = layout.Static.Position(index);
+            Triple([x, y, z]);
+        }
+        writer.WriteEndArray();
+        writer.WriteStartArray("triangles");
+        for (int index = 0; index < layout.Static.TriangleCount; index++)
+            Triple([layout.Static.Triangles[index * 3], layout.Static.Triangles[index * 3 + 1], layout.Static.Triangles[index * 3 + 2]]);
+        writer.WriteEndArray();
+        writer.WriteStartArray("faces");
+        foreach (CollisionFace face in layout.Faces)
+        {
+            writer.WriteStartObject();
+            writer.WriteNumber("group", face.Group);
+            writer.WriteBoolean("passable", face.Passable);
+            writer.WriteStartArray("corners");
+            foreach (CollisionCorner corner in face.Corners)
+            {
+                writer.WriteStartObject();
+                writer.WritePropertyName("rest"); Triple(corner.Rest);
+                if (corner.Door is { } door) writer.WriteString("door", $"door-{door}");
+                writer.WritePropertyName("travel"); Triple(corner.Travel);
+                writer.WriteEndObject();
+            }
+            writer.WriteEndArray();
+            writer.WriteStartArray("triangles");
+            foreach (int[] triangle in face.Triangles) Triple(triangle.Select(value => (double)value));
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+        }
+        writer.WriteEndArray();
+        writer.WriteEndObject();
     }
 
     /// <summary>The name a geometry source's counts are written under.</summary>

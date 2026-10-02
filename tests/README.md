@@ -62,3 +62,9 @@ script's `test_projects` or `test_support_projects`. A case that needs the opera
 `ImportedFact` and reports itself skipped without them; none returns early and counts as a pass. Temporary probe
 files a review lane creates inside a suite are covered by `.gitignore` and are not a pattern to imitate in committed
 code.
+
+
+`DoorCollisionTests` exercises the canonical interaction ledger's door and face-group changes in the real
+Engine scene: blocked/open/blocked character traversal, geometry projection after save/load and restoration,
+and full operator-install partitions at initial and all-open states. The importer decoder suite also binds
+partial face corners to the right door and normalizes its fixed source travel.

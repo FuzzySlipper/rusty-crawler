@@ -205,7 +205,8 @@ internal static class MightAndMagic7World
 
         // One pair of movers over one spatial session: the party and the place's creatures walk in the same
         // scene, and whatever the world is not handed is released here rather than left holding a session.
-        (IPartyMover? mover, ICreatureMover? creatures) = Movers(party, context, MightAndMagic7Movement.FlightRule(entity, graph, party));
+        InteractionLedger interactions = resume is { } restored ? new InteractionLedger(restored.World.Interaction) : new InteractionLedger();
+        (IPartyMover? mover, ICreatureMover? creatures) = Movers(party, context, MightAndMagic7Movement.FlightRule(entity, graph, party), graph, interactions);
         try
         {
             SessionWorld world = new SessionWorld(
@@ -233,8 +234,9 @@ internal static class MightAndMagic7World
 
                 // What each place kept of the party's uses — a well's charges, a puzzle's count, when a timer
                 // last ran — is rebuilt from the save, judged with the rest of it before anything was composed.
-                resume?.World.Interaction,
-                MightAndMagic7Movement.Hazards(entity, mover));
+                null,
+                MightAndMagic7Movement.Hazards(entity, mover),
+                interactions);
 
             // What the population could not resolve — an encounter that needs a draw in a product with no
             // random service, a drawn grade the content carries no variant for — is reported where the other
@@ -304,7 +306,7 @@ internal static class MightAndMagic7World
     /// <param name="party">The party's own pose, which its movement asks to move.</param>
     /// <param name="context">What the host handed the ruleset, which carries the engine the world moves in.</param>
     /// <param name="flight">This game's answer to whether the party may fly now.</param>
-    private static (IPartyMover? Mover, ICreatureMover? Creatures) Movers(PartyPoseOwner party, RulesetSessionContext context, IFlightRule flight)
+    private static (IPartyMover? Mover, ICreatureMover? Creatures) Movers(PartyPoseOwner party, RulesetSessionContext context, IFlightRule flight, PlaceGraph graph, InteractionLedger interactions)
     {
         if (context.Engine is not { } engine) return (null, null);
 
@@ -325,7 +327,7 @@ internal static class MightAndMagic7World
         // A place's geometry comes from the catalog when content carries any. Without a catalog there is no
         // world either, but the mover is composed here where both are still in hand.
         IPlaceGeometrySource? geometry = context.Content is { } catalog
-            ? new ContentPlaceGeometry(catalog, GeometryDefinitionKind, GeometryArtifactProperty, GeometrySurfacesProperty, GeometryNavigationProperty)
+            ? new MightAndMagic7Geometry(catalog, graph, interactions)
             : null;
 
         EnginePartyMover mover = new(spatial, movement, engine.Content, MightAndMagic7Movement.Navigation, geometry);

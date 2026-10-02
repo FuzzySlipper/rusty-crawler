@@ -448,3 +448,12 @@ donor's item state carries no weight field to read (`OpenEnroth/src/Engine/Objec
 size is a grid footprint that the one-shared-pack divergence replaces), and armour's cost there is attack
 recovery rather than a carry allowance (`OpenEnroth/src/Engine/Objects/Character.cpp`, `GetAttackRecoveryTime`).
 Inventing a weight would invent a limit the game does not have, so the shared pack has none.
+
+
+A `PlaceGeometry` may also carry a complete authored `PlaceCollisionGeometry`. Its positions and triangles
+are supplied by the game's existing content and state owners; `EnginePartyMover` submits them through safe
+`ReplaceCollision` in the same session and derives navigation there. The full replacement owns its mesh
+identities and does not retain an immutable artifact identity. `InteractionLedger.Changed` notifies the
+world to refresh the current place; an unchanged geometry projection skips replacement. The explicitly
+composed ledger can be shared with the geometry source before the first entry, including a resumed entry,
+and the world releases its subscription when disposed. No Kit owner interprets door state or face bits.

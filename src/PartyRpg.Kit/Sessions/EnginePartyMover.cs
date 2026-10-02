@@ -25,6 +25,9 @@ public interface IPartyMover : IDisposable
     /// <returns>What the scene holds for the place now.</returns>
     PlaceGeometryAdmission Enter(PlaceId place);
 
+    /// <summary>Updates the current place from its canonical authored state when it changed.</summary>
+    void Refresh(PlaceId place) { }
+
     /// <summary>Moves the party by one step of admitted world time.</summary>
     /// <param name="intent">What the player asked for this step.</param>
     /// <param name="elapsedSeconds">The admitted world time the step covers.</param>
@@ -85,7 +88,7 @@ public interface IPartyMover : IDisposable
 /// <para>
 /// The geometry path is the engine's own content artifact: bytes content already carries are admitted to
 /// the engine's content owner, and the spatial service resolves and copies them. Nothing here builds
-/// vertices, infers collision from a visual mesh, or synthesizes a document for a place that has none —
+/// infers collision from a visual mesh or synthesizes a document for a place that has none —
 /// a place with no artifact gets an empty scene, and empty is reported as empty.
 /// </para>
 /// <para>
@@ -102,6 +105,7 @@ public sealed class EnginePartyMover : IPartyMover
     private readonly IPlaceGeometrySource? _geometry;
     private readonly PlaceNavigationPolicy _navigation;
     private bool _filled;
+    private PlaceGeometry? _currentGeometry;
     private bool _disposed;
 
     /// <summary>Creates the mover over a party's movement owner.</summary>
@@ -154,27 +158,54 @@ public sealed class EnginePartyMover : IPartyMover
             return Current;
         }
 
+        return Admit(place, geometry);
+    }
+
+    /// <inheritdoc />
+    public void Refresh(PlaceId place)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (Current?.Place != place || _geometry?.For(place) is not { Collision: not null } geometry ||
+            ReferenceEquals(geometry, _currentGeometry)) return;
+        Admit(place, geometry);
+    }
+
+    private PlaceGeometryAdmission Admit(PlaceId place, PlaceGeometry geometry)
+    {
         if (_filled) Release();
 
         // The place's named ground is the place's, like its collision: what the party stood on in the last place names
         // nothing here.
         _movement.Motion.Ground = geometry.Surfaces;
 
-        // The reference is released as soon as the engine has resolved and copied the document: the
-        // scene retains its own collision, so nothing downstream depends on the artifact staying
-        // admitted to the content owner.
-        using ContentReference reference = _content.AdmitReference(
-            new ContentAdmissionRequest(geometry.Path, geometry.Artifact, ReadOnlyMemory<ContentSourceFile>.Empty));
-        SpatialContentArtifactReplaceReceipt receipt = _spatial.ReplaceContentArtifact(
-            new SpatialContentArtifactReplaceRequest(
-                _movement.Session,
-                reference,
-                _navigation.GridId,
-                _navigation.ChunkSize,
-                _navigation.MaxStepCells));
-
+        ulong vertices, triangles, cells;
+        if (geometry.Collision is { } collision)
+        {
+            // A whole replacement owns all identities. Never mix guessed IDs with an artifact's private IDs.
+            StaticMeshAsset[] assets = collision.Triangles.Length == 0 ? [] :
+                [new(1, 0, checked((uint)collision.Positions.Length), 0, checked((uint)collision.Triangles.Length))];
+            StaticMeshInstance[] instances = assets.Length == 0 ? [] :
+                [new(1, 1, new Transform(Vector3.Zero, Quaternion.Identity, Vector3.One))];
+            _spatial.ReplaceCollision(new CollisionReplaceRequest(_movement.Session, assets,
+                collision.Positions, collision.Triangles, instances));
+            // The successful call admitted this complete authored mesh; it carries no immutable artifact identity.
+            vertices = (ulong)collision.Positions.Length;
+            triangles = (ulong)collision.Triangles.Length;
+            cells = 0;
+        }
+        else
+        {
+            using ContentReference reference = _content.AdmitReference(
+                new ContentAdmissionRequest(geometry.Path, geometry.Artifact, ReadOnlyMemory<ContentSourceFile>.Empty));
+            SpatialContentArtifactReplaceReceipt receipt = _spatial.ReplaceContentArtifact(
+                new SpatialContentArtifactReplaceRequest(_movement.Session, reference,
+                    _navigation.GridId, _navigation.ChunkSize, _navigation.MaxStepCells));
+            vertices = receipt.CollisionVertexCount;
+            triangles = receipt.CollisionTriangleCount;
+            cells = receipt.NavigationCellCount;
+        }
         _filled = true;
-        ulong cells = receipt.NavigationCellCount;
+        _currentGeometry = geometry;
         string? reason = null;
         if (geometry.Navigation is { } region)
         {
@@ -215,8 +246,8 @@ public sealed class EnginePartyMover : IPartyMover
         Current = new PlaceGeometryAdmission(
             place,
             Admitted: true,
-            receipt.CollisionVertexCount,
-            receipt.CollisionTriangleCount,
+            vertices,
+            triangles,
             cells) { NavigationReason = reason };
         return Current;
     }
@@ -290,5 +321,6 @@ public sealed class EnginePartyMover : IPartyMover
             ReadOnlyMemory<StaticMeshInstance>.Empty));
         _filled = false;
         Current = null;
+        _currentGeometry = null;
     }
 }
