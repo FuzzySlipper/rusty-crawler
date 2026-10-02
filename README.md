@@ -261,6 +261,8 @@ Imported town houses are service or residence entrances in the ordinary use path
 guard entry on the one clock. Camping reads normalized ground under the party from each outdoor place's
 tile grid, with place-level terrain as the fallback. The importer and ruleset READMEs describe these
 content contracts and their donor citations.
+The [imported town reading](docs/evidence/house-ground.md) records two grounded camps and ordinary
+access to the same house before and after its opening time.
 An accepted errand's needed item cannot be sold, dropped, consumed, mixed away or have a charge spent.
 All paths ask the quest owner's existing need reading through the party's custody entry. Meeting an item
 objective retains the item until turn-in; that turn-in can deliver it and then releases the protection.

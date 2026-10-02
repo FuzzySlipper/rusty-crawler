@@ -112,7 +112,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   refuses the rest by name; a person's house and greeting are what those events left on the party's records. One service
   mechanism, an operation table judged before anything is settled, serves every shipped service kind; towns
   keep hours on the one clock, including service and residence entrances reached by ordinary use; rest, camp and wait
-  are distinct, camping reads the outdoor ground grid under the party with place terrain as fallback, and sleep
+  are distinct, camping reads the outdoor ground grid under the party with place terrain as fallback
+  ([town reading](docs/evidence/house-ground.md)), and sleep
   leaves dead, petrified and eradicated members untouched and names them; conversations recompute their topics from
   party state and hand off to counters, and a topic runs its global event as a use of the speaker's placement.
   The same panel reaches every counter operation; its offers show patient or coin amount, price and refusal

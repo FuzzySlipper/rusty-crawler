@@ -80,6 +80,8 @@ Owns:
   beside the event and signing face provenance. A counter's hours stay in its canonical service definition.
   Equal opening and closing hours normalize there, or on a household's placement, to an all-day window;
   source rows remain unchanged in the building table. Their use runs the existing house event path.
+  Emitted counts and a grounded imported-town check are recorded in
+  [`../../docs/evidence/house-ground.md`](../../docs/evidence/house-ground.md).
 - Camping ground: a `ground` grid embedded in each outdoor place entry, resolved by `TerrainTileTable`
   from the same tile records and tileset bases used for water. It carries `dtile.bin` and the map filename
   as provenance, a sorted terrain palette and hexadecimal cell indices. The row orientation and edge

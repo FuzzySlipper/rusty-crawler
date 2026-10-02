@@ -172,6 +172,8 @@ Owns:
   (`OpenEnroth/src/Engine/Data/TileEnumFunctions.cpp:92-110`). A place's `terrain` supplies the fallback when
   there is no finer grid or the pose is outside it. Ground is content, not saved gameplay state; rest still
   uses its existing purse/larder settlement and the one clock.
+  The [imported town reading](../../docs/evidence/house-ground.md) records grounded grass/road camps
+  and ordinary house use refused before opening, then admitted into its conversation and counter.
 
 - The service panel reaches every operation through the existing counter: patient-specific cures and
   training, provisions, rooms, a quoted coin amount for deposits and withdrawals, and fares. The Kit
