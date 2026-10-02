@@ -67,8 +67,19 @@ The current imported door path offers ordinary Open/Unlock from door state and
 authored requirements; generic skill requirements and map-event skill checks
 do not demonstrate a secret-door discovery rule. No source-backed mapping from
 an imported secret surface to a Perception gate was established in this audit.
-That acceptance item remains with #8458, which cannot close on the done status
-of its children alone.
+At the initial audit this acceptance item remained with #8458, which could not
+close on the done status of its children alone.
+
+## Owner-authorized routing
+
+After this audit, the owner explicitly requested a secret-door task under
+progression campaign #8460 and closure of #8458. Planned child #9160,
+"Discover imported secret doors through Perception", now carries the missing
+imported consumer, named successful and unsuccessful outcomes, canonical owner
+reuse, durable discovery where applicable, and focused and bounded live
+verification. The source campaign's description records that transfer while
+preserving the original acceptance and finding. #8458 closes under this routing
+decision; the secret-door behavior remains unimplemented until its receiver lands.
 
 ## Focused checks
 

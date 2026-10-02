@@ -73,10 +73,10 @@ documents decide, and the difference is recorded rather than silently rounded.
 ## Current state
 
 Den owns which stones are open; this section states the shape the code has and the residue it still
-carries. Stones 1 to 4 (shell, import, world and party) are closed. Stones 5 to 8 (interaction and
-services; combat; progression and magic; quests and knowledge) have each landed their mechanism, which is
-load bearing, with remaining residue listed below by receiver. Stone 5 remains open for its secret-door
-acceptance; stones 6 to 8 have their remaining work in receiving tasks. Stone 9 (breadth) has not started.
+carries. Stones 1 to 5 (shell, import, world, party, interaction and services) are closed.
+Stones 6 to 8 (combat; progression and magic; quests and knowledge) have also landed their mechanisms;
+remaining residue has concrete receiving tasks below. The secret-door skill requirement is carried by
+a progression child following the owner's explicit routing decision. Stone 9 (breadth) has not started.
 The parent-criteria audit is recorded in `docs/evidence/foundation-closure.md`.
 Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/README.md`,
 `src/PartyRpg.Rulesets.MightAndMagic7/README.md`, and the others under `src/`), not here.
@@ -154,10 +154,10 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 
 **Open residue and its receivers** (Den task ids; Den owns their status):
 
-- Stone 5, interaction and services: secret-door discovery has no established Perception gate (#8458);
-  a topic event reaches uncarried NPC group news (#9150).
+- Stone 5, interaction and services: a topic event reaches uncarried NPC group news (#9150).
 - Stone 7, progression and magic: actual arena earning remains (#9144); world-targeted Telekinesis (#9145),
-  character Preservation (#9146), additional special-item powers (#9148), and follower profession benefits (#9151) remain.
+  character Preservation (#9146), additional special-item powers (#9148), follower profession benefits (#9151),
+  and imported secret-door discovery through Perception (#9160) remain.
 
 When a stone lands or a residue closes, update this section, `README.md`, and the owning project README
 together.

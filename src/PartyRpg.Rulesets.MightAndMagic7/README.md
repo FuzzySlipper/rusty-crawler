@@ -7,7 +7,8 @@ in [`../../docs/code-organization.md`](../../docs/code-organization.md).
 The [foundation acceptance audit](../../docs/evidence/foundation-closure.md) records world and party
 conformance and the bounded imported service checks. Imported secret doors currently have no established
 Perception discovery gate; generic authored requirements and event skill branches do not close that
-interaction requirement. Den #8458 retains it.
+interaction requirement. The owner moved that requirement to Den #9160 under progression (#8460),
+allowing #8458 to close while the discovery work remains outstanding.
 
 Owns:
 

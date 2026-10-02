@@ -7,6 +7,7 @@ a concrete game.
 The [foundation acceptance audit](../../docs/evidence/foundation-closure.md) connects the world,
 party, clock and persistence owners to their semantic checks and recorded product readings.
 Generic skill requirements remain a mechanism; a ruleset must connect them to actual discovery policy.
+The secret-door discovery requirement has a progression receiver and remains unimplemented.
 
 Owns:
 
