@@ -190,7 +190,10 @@ internal static class MightAndMagic7Containers
     {
         if (!string.Equals(target.Kind.Value, TargetKind, StringComparison.Ordinal)) return null;
         if (context.Placement.Source.GetInt32(FlagsField) is not { } flags || (flags & TrappedFlag) == 0) return null;
-        if (string.Equals(target.State, DisarmedState, StringComparison.Ordinal) ||
+        // Searching is only reached after the guard is spent. The terminal word therefore carries both
+        // facts: its contents were taken and its trap can no longer fire, including on a later visit.
+        if (string.Equals(target.State, SearchedState, StringComparison.Ordinal) ||
+            string.Equals(target.State, DisarmedState, StringComparison.Ordinal) ||
             string.Equals(target.State, SprungState, StringComparison.Ordinal))
         {
             return null;

@@ -23,6 +23,36 @@ namespace PartyRpg.Kit.Tests;
 /// </remarks>
 public sealed class ContainerTests
 {
+    [Theory]
+    [InlineData(0, 0, 1, 14)]
+    [InlineData(6, 7, 2, 14)]
+    [InlineData(6, 9, 2, 20)]
+    public void A_spent_trap_stays_spent_after_search_and_the_contents_are_taken_once(int perception, int disarm, int guardUses, int health)
+    {
+        ContainerRule rule = new()
+        {
+            Armed = Armed(detect: 4, disarm: 8, harm: 6),
+            Contents = [new InteractionItemYield(new ItemDefinitionId("brass-lamp"))],
+        };
+        using PartyEntity party = Party(perception, disarm, hitPoints: 20);
+        using Cellar cellar = Cellar.Build(rule, party);
+        cellar.Interaction.Update();
+        for (int step = 0; step < guardUses; step++) Assert.True(cellar.Interaction.Use().IsApplied);
+        Assert.True(cellar.Interaction.Use().IsApplied);
+        Assert.Single(party.Inventory.Items);
+        foreach (PartyMember member in party.Members) Assert.Equal(health, member.Resources.HitPoints.Current);
+        int coins = party.Purse.Coins;
+        for (int step = 0; step < 2; step++)
+        {
+            InteractionResult again = cellar.Interaction.Use();
+            Assert.False(again.IsApplied);
+            Assert.Equal("container-emptied", again.Refusal!.Code);
+            Assert.Single(party.Inventory.Items);
+            Assert.Equal(coins, party.Purse.Coins);
+            foreach (PartyMember member in party.Members) Assert.Equal(health, member.Resources.HitPoints.Current);
+        }
+    }
+
     private static readonly ContentLayout Layout = new("packs", "imports", "bundles");
     private static readonly PlaceId CellarPlace = new("7");
     private const double StepSeconds = 1.0 / 60.0;
@@ -368,7 +398,7 @@ public sealed class ContainerTests
 
             // A trap that has been defeated or has already gone off guards nothing, which is what a ruleset
             // states about its own state words: the kit never decides that for it.
-            if (target.State is "disarmed" or "sprung") return null;
+            if (target.State is "disarmed" or "sprung" or "searched") return null;
 
             // The attempts are the party's own, which is what a ruleset reads and the kit never does.
             return trap with

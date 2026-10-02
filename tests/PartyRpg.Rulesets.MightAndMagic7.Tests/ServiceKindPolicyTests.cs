@@ -351,7 +351,9 @@ public sealed class ServiceKindPolicyTests
         Assert.Equal(new TravelTime(2, TravelTimeUnit.Days), boarded.Cost.Time);
         Assert.True(boarded.Cost.Food.IsNone);
 
-        // The ticket is torn by the boarding, so the same fare does not pay for a second journey.
+        Assert.True(fixture.Party.Passages.Holds(new PlaceId("2")));
+        // Admission settles the quoted journey; the same fare cannot pay for another one.
+        rule.Arrived(request);
         Assert.False(fixture.Party.Passages.Holds(new PlaceId("2")));
         Assert.Equal("travel-fare-unpaid", rule.Quote(request).Refusal!.Code);
     }

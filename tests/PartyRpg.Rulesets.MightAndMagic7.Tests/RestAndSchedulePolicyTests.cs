@@ -1,4 +1,5 @@
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Rulesets;
@@ -30,6 +31,32 @@ namespace PartyRpg.Rulesets.MightAndMagic7.Tests;
 /// </remarks>
 public sealed class RestAndSchedulePolicyTests
 {
+    [Fact]
+    public void A_trapped_chest_is_spent_after_search_and_later_uses_neither_harm_nor_transfer()
+    {
+        using IGameSession session = Shop(out RecordingUiService ui, ShopChest);
+        ulong step = 0;
+        session.Update(RulesetTestContext.Update(step++, 1));
+        session.Update(RulesetTestContext.Update(step++, 1, RulesetTestContext.Digital(Declared.UseIntent)));
+        Assert.Contains("goes off", ProjectedNode.Of(ui.Latest().Value).Field("interaction").Field("message").AsString(), StringComparison.Ordinal);
+        session.Update(RulesetTestContext.Update(step++, 1, RulesetTestContext.Digital(Declared.UseIntent)));
+        Assert.Equal("searched", ProjectedNode.Of(ui.Latest().Value).Field("interaction").Field("state").AsString());
+        PartyEntity party = ((MightAndMagic7Session)session).Party!;
+        int coins = party.Purse.Coins;
+        int items = party.Inventory.Count;
+        int health = party.Members[0].Resources.HitPoints.Current;
+        for (int use = 0; use < 2; use++)
+        {
+            session.Update(RulesetTestContext.Update(step++, 1, RulesetTestContext.Digital(Declared.UseIntent)));
+            ProjectedNode result = ProjectedNode.Of(ui.Latest().Value).Field("interaction");
+            Assert.Equal("refused", result.Field("outcome").AsString());
+            Assert.Contains("already been emptied", result.Field("message").AsString(), StringComparison.Ordinal);
+            Assert.Equal(coins, party.Purse.Coins);
+            Assert.Equal(items, party.Inventory.Count);
+            Assert.Equal(health, party.Members[0].Resources.HitPoints.Current);
+        }
+    }
+
     private static readonly UseIntentNames UseControls = new(
         Declared.UseIntent,
         Declared.UiActionContract);
