@@ -122,11 +122,9 @@ internal static class MightAndMagic7Potions
         // Bless: the same shape. Character.cpp:3134-3136.
         new(230, SpellEffects.Utility, SpellTargeting.Caster, Readings.Buff(SpellEffectIds.Bless, WardFormulas.Flat(5), WardFormulas.ThirtyMinutesPerPoint).OnOne()),   // Bless
 
-        // Preservation: the donor raises its preservation buff at three times the strength
-        // (Character.cpp:3138-3142). This build's own spell of that name states the same gap — there is no
-        // owner of an item's protection from harm — so the potion states it with the same receiver rather than
-        // inventing an identity nothing reads.
-        new(231, SpellEffects.Utility, SpellTargeting.Caster, Readings.NotYet("the party's gear protected from harm", "item state, which carries what a spell would protect")),   // Preservation
+        // Preservation keeps below-empty health unconscious rather than dead (Character.cpp:1310-1321).
+        // Its duration is a member effect (Character.cpp:3138-3142), not gear protection; #9146 owns it.
+        new(231, SpellEffects.Utility, SpellTargeting.Caster, Readings.NotYet("a character protected from death while unconscious", "the existing running-effect and health owners (#9146)")),   // Preservation
 
         // Shield: armour class at three times the strength, which is the same reading the donor's own cast
         // states (Character.cpp:3144-3149). Unlike the spell of the same name, which this build refuses as a

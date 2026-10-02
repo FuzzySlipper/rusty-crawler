@@ -4,6 +4,7 @@ using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Time;
 using Rusty.Engine;
 
@@ -70,7 +71,7 @@ internal sealed class MightAndMagic7ItemMagic
                 ? Refuse(MightAndMagic7Codes.ItemMagicCharged, $"{facts.Name} is already as charged as this recharge can leave it.") : null;
         }
         bool weapon = Weapon(facts);
-        bool equipment = weapon || Passive(facts) || facts.Kind == "wand";
+        bool equipment = weapon || Passive(facts) || (shape == ItemMagicShape.Harden && facts.Kind == "wand");
         if (!equipment || (shape is not (ItemMagicShape.Enchant or ItemMagicShape.Harden) && !weapon))
             return Refuse(MightAndMagic7Codes.ItemMagicKind, $"{application.Spell.Name} cannot be applied to {facts.Name}'s item kind ({facts.Kind}).");
         if (shape == ItemMagicShape.Harden)
@@ -142,13 +143,81 @@ internal sealed class MightAndMagic7ItemMagic
     internal ItemEnchantment? Active(ItemInstance item) => item.State.Enchantment is { } property &&
         (property.DueElapsedMilliseconds is null || (_clock is not null && property.DueElapsedMilliseconds > _clock.Elapsed.Milliseconds)) ? property : null;
 
+    internal static IReadOnlyList<SaveProblem> Problems(SessionSave save, ContentCatalog? catalog)
+    {
+        if (MightAndMagic7Spells.Read(catalog) is not { } spells) return [];
+        MightAndMagic7ItemMagic owner = new(catalog, spells, null, null, () => null);
+        List<SaveProblem> problems = [];
+        foreach (ItemSave item in save.Party.Items)
+        {
+            if (!owner._items.TryGetValue(item.Definition, out ItemFacts facts)) continue; // content identity is judged by its existing owner
+            bool special = Special(facts) || IsQuest(item.Definition);
+            if (item.State.IsHardened && (special || !(Weapon(facts) || Passive(facts) || facts.Kind == "wand")))
+                problems.Add(new(MightAndMagic7Codes.SaveItemHardening, item.Id.ToString(), $"item {item.Id} cannot be hardened in this game's item table"));
+            if (item.State.Enchantment is { } property)
+            {
+                bool weaponProperty = property.Property is "fire" or "frost" or "poison" or "sparks" or "vampiric" or "swift" or "dragon";
+                bool passiveProperty = property.Property is "Might" or "Endurance" or "Speed" or "armour";
+                int largest = (int)MightAndMagic7Tuning.EnchantGrandMasterLow.Maximum + 6;
+                if (special || property.Strength > largest || !(weaponProperty && Weapon(facts) || passiveProperty && Passive(facts)))
+                    problems.Add(new(MightAndMagic7Codes.SaveItemProperty, item.Id.ToString(), $"item {item.Id} bears an unsupported property {property.Property} {property.Strength} for its item kind"));
+            }
+            if (item.State.ChargeCapacity is { } capacity && (spells.Reading(item.Definition) is not { ConsumedByUse: false } reading || capacity > reading.Charges))
+                problems.Add(new(MightAndMagic7Codes.SaveItemCapacity, item.Id.ToString(), $"item {item.Id} states a charge capacity its item table cannot hold"));
+        }
+        return problems;
+    }
+
+    internal IReadOnlyList<AttackDamagePart> HarmOf(PartyMember member, CombatSubject target, AttackKind kind, MightAndMagic7Combat combat)
+    {
+        List<AttackDamagePart> parts = [];
+        foreach (ItemInstance item in WeaponsOf(member, kind))
+        {
+            if (Active(item) is not { } property) continue;
+            (DamageKindId Kind, int Amount)? harm = property.Property switch
+            {
+                "fire" => (MightAndMagic7Damage.Fire, 3 * property.Strength),
+                "frost" => (MightAndMagic7Damage.Water, 3 * property.Strength),
+                "poison" => (MightAndMagic7Damage.Body, 3 * property.Strength),
+                "sparks" => (MightAndMagic7Damage.Air, 3 * property.Strength),
+                "dragon" when combat.IsDragon(target) => (MightAndMagic7Damage.Physical, 6 * property.Strength),
+                _ => null,
+            };
+            if (harm is { } added) parts.Add(new AttackDamagePart(added.Kind, DamageRoll.Flat(added.Amount)));
+        }
+        return parts;
+    }
+
+    internal void AfterHit(CombatHit hit)
+    {
+        if (hit.Actor.Member is not { } member || hit.Damage <= 0) return;
+        if (WeaponsOf(member, hit.Kind).Any(item => Active(item)?.Property == "vampiric"))
+            member.Resources.RestoreHitPoints(hit.Damage / 2);
+    }
+
+    // Character.cpp:1727-1733: one swift weapon takes twenty ticks, regardless of hands or potency.
+    internal int RecoveryBonus(PartyMember member) => member.Equipment.Items.Any(worn =>
+        worn.Item.State.Damage == 0 && Active(worn.Item)?.Property == "swift") ? 20 : 0;
+
+    internal int WornBonus(PartyMember member, string property) => member.Equipment.Items
+        .Where(worn => worn.Item.State.Damage == 0)
+        .Sum(worn => Active(worn.Item) is { } enchantment && enchantment.Property == property ? enchantment.Strength : 0);
+
+    private IEnumerable<ItemInstance> WeaponsOf(PartyMember member, AttackKind kind)
+    {
+        if (kind == AttackKind.Spell) yield break;
+        EquipmentSlot[] slots = kind == AttackKind.Ranged ? [MightAndMagic7Figure.Bow] : [MightAndMagic7Figure.MainHand, MightAndMagic7Figure.OffHand];
+        foreach (EquipmentSlot slot in slots)
+            if (member.Equipment.ItemIn(slot) is { State.Damage: 0 } item && _items.TryGetValue(item.Definition, out ItemFacts facts) && Weapon(facts)) yield return item;
+    }
+
     private ItemInstance? Target(SpellApplication application) => ulong.TryParse(application.TargetName, NumberStyles.None,
         CultureInfo.InvariantCulture, out ulong id) && id != 0 ? application.Party.FindItem(new ItemInstanceId(id)) : null;
     private int RechargedCapacity(SpellApplication application, int capacity)
     {
         int rank = Math.Max(1, _spells.LevelOf(application));
         int mastery = MightAndMagic7Spells.MasteryOf(application.Caster, application.Spell);
-        int percent = application.Source is not null ? 30 + rank : (mastery >= 4 ? 80 : mastery >= 3 ? 70 : 50) + rank;
+        long percent = application.Source is not null ? 30L + rank : (mastery >= 4 ? 80L : mastery >= 3 ? 70L : 50L) + rank;
         return (int)((long)capacity * Math.Min(100, percent) / 100);
     }
     private static bool IsQuest(ItemDefinitionId id) => int.TryParse(id.Value, out int number) && number is >= 600 and <= 699;

@@ -35,7 +35,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// shot and resistances are sums of terms read off the equipped figure and the character's own body, and each
 /// is stated below as such a sum, term by term in the donor's order and through this game's figure
 /// (<see cref="MightAndMagic7Figure"/>): what each sum reads faithfully, what it approximates, and which term
-/// waits for another owner (item enchantments, #8513) is said beside it.
+/// waits for another owner (further special-item powers, #9148) is said beside it.
 /// </para>
 /// </remarks>
 internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule, ICombatAbilityResolutionRule, ICombatWeaponRule, ICombatReflectionRule, ICombatProvocationRule
@@ -423,6 +423,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     private readonly Func<PartyEntity?> _party;
     private readonly Func<IMemberSpellEffects?> _memberEffects;
     private readonly MightAndMagic7Figure? _figure;
+    private Func<MightAndMagic7ItemMagic?> _itemMagic = () => null;
     private readonly GameClock? _clock;
     private readonly MightAndMagic7Hostility _hostility;
     private readonly Dictionary<string, int> _internalNames;
@@ -502,8 +503,8 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// to all seven (<c>:2360-2387</c>). Faithful for those terms.
     /// </para>
     /// <para>
-    /// The others are not invented: the conditions' multiplier waits for this game's condition table, item bonuses
-    /// wait for enchantments (#8513), and a follower's luck for followers (#8514). Each is one more line here when its
+    /// Working ordinary item properties add their score strength. The conditions' multiplier waits for this
+    /// game's condition table, and a follower's luck for followers (#8514). Each is one more line here when its
     /// owner lands.
     /// </para>
     /// </remarks>
@@ -518,6 +519,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
             ? MightAndMagic7Ageing.Aged(attribute, carried, MightAndMagic7Ageing.AgeOf(member, _clock))
             : throw new InvalidOperationException(
                 $"{member.Profile.Name} has no '{attribute}' attribute, so this game cannot price what their fights are worth.");
+        score += _itemMagic()?.WornBonus(member, attribute.Value) ?? 0;
         score += MemberWard(member, SpellEffectIds.Attribute(attribute));
         score += SpellWard(SpellEffectIds.DayOfTheGods);
         return score;
@@ -562,6 +564,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// The session's one clock, which a character's natural age is read from; without one every character is the
     /// age they started at.
     /// </param>
+    /// <param name="itemMagic">The explicitly composed item-property effect reading.</param>
     /// <param name="hostileGroups">
     /// Whether a place's own events have turned one of its groups of creatures hostile, which is the world's
     /// per-place state a fixture writes (<see cref="MightAndMagic7Fixtures.IsGroupHostile"/>); without it no group
@@ -577,9 +580,10 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
         Func<IMemberSpellEffects?>? memberEffects = null,
         MightAndMagic7Figure? figure = null,
         GameClock? clock = null,
-        Func<PlaceId, int, bool>? hostileGroups = null)
+        Func<PlaceId, int, bool>? hostileGroups = null,
+        Func<MightAndMagic7ItemMagic?>? itemMagic = null)
     {
-        if (catalog is null) return new MightAndMagic7Combat([], [], null, random, spells, party, memberEffects, figure: null, clock, MightAndMagic7Hostility.Empty) { HostileGroups = hostileGroups };
+        if (catalog is null) return new MightAndMagic7Combat([], [], null, random, spells, party, memberEffects, figure: null, clock, MightAndMagic7Hostility.Empty) { HostileGroups = hostileGroups, _itemMagic = itemMagic ?? (() => null) };
         List<ContentValidationIssue> issues = [];
         Dictionary<int, MonsterFacts> monsters = ReadMonsters(catalog, spells ?? MightAndMagic7Spells.Read(catalog), issues);
         Dictionary<string, string> people = ReadPeople(catalog);
@@ -616,6 +620,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
             ReadInternalNames(catalog, monsters))
         {
             HostileGroups = hostileGroups,
+            _itemMagic = itemMagic ?? (() => null),
             _savedLoot = catalog.Entries(MightAndMagic7Spells.ItemDefinitionKind).Select(e => new ItemDefinitionId(e.Entry.Id)).ToHashSet(),
         };
     }
@@ -663,6 +668,9 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
 
     /// <summary>What every kind of monster thinks of every other kind, read once from content.</summary>
     internal MightAndMagic7Hostility MonsterKinds => _hostility;
+
+    /// <summary>The dragon family named by MM7 MonsterEnums.h's type 9, not a name match.</summary>
+    internal bool IsDragon(CombatSubject subject) => Facts(subject)?.HostilityKind == 9;
 
     /// <summary>Whether a creature is one of the undead, by the kind its own row belongs to.</summary>
     /// <param name="subject">The creature.</param>
@@ -1143,7 +1151,8 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
             ? CharacterHitChance(character, armor, kind, attacker.Pose.DistanceTo(target.Pose))
             : CreatureHitChance(Facts(attacker)?.Level ?? 0, armor);
 
-        return new AttackPlan(chance, damageKind, damage, ResistanceOf(target, damageKind), DivisorOf(attacker, target, kind));
+        return new AttackPlan(chance, damageKind, damage, ResistanceOf(target, damageKind), DivisorOf(attacker, target, kind),
+            attacker.Member is { } wielder ? _itemMagic()?.HarmOf(wielder, target, kind, this) : null);
     }
 
     /// <inheritdoc />
@@ -1214,7 +1223,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// <c>PARTY_BUFF_SHIELD</c>, <c>dmgToReceive &gt;&gt;= 1</c>), and a monster's projectile is what its row's missile
     /// column makes it throw rather than the spells it casts (<c>SpriteEnumFunctions.h:20-36</c>,
     /// <c>isMonsterProjectileSprite</c>). Here that is a creature's ranged attack. Faithful; the items and artifacts
-    /// that shield their wearer the same way wait for item enchantments (#8513), and a grand master's shield for
+    /// that shield their wearer the same way wait for #9148, and a grand master's shield for
     /// the shield skill's own owner.
     /// </para>
     /// </remarks>
@@ -1458,7 +1467,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// level to fire, air, water, and earth — the ward a spell leaves running, and the base
     /// (<see cref="MightAndMagic7BaseResistance"/>): the race's bonus and a Lich's own floor, faithfully, with a
     /// Lich's whole resistance capped at two hundred (<c>:1988-1990</c>). Followers are not in this build (#8514)
-    /// and items carry no enchantment yet (#8513), so those terms are nothing here rather than a number invented.
+    /// and further special-item resistance powers remain #9148, so those terms are nothing here rather than a number invented.
     /// </para>
     /// <para>
     /// Each term is its own line, so a later term — a buff another owner reads, an enchantment — is one more
@@ -1531,7 +1540,8 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// one, which matches the manual's "% chance" (<c>docs/research/mm7-manual-outline.md</c>, skills). A second dagger added as an average (above) is tripled as that average.
     /// </para>
     /// <para>
-    /// Not read: a slaying enchantment's double damage (<c>:877-897</c>) waits for item enchantments (#8513).
+    /// An active dragon coating adds independently resisted Physical harm for the dragon family, an
+    /// approximate magnitude rather than the donor's double damage (<c>:877-897</c>).
     /// </para>
     /// </remarks>
     private DamageRoll CharacterDamage(PartyMember member)
@@ -1611,7 +1621,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// OpenEnroth <c>src/Engine/Objects/Character.cpp:954-987</c> (<c>CalculateRangedDamageTo</c>): the bow's row
     /// rolls its own dice and adds its modifier, and a grand master of the bow adds the bow level
     /// (<c>GetSkillBonus(ATTRIBUTE_RANGED_DMG_BONUS)</c>, <c>:2576-2582</c>). Might does not add to a shot, and a
-    /// shot has no floor. Faithful; the slaying enchantments wait for #8513.
+    /// shot has no floor. Dragon coating contributes through the same additional-damage path (approximate magnitude).
     /// </remarks>
     private DamageRoll BowDamage(PartyMember member)
     {
@@ -1666,7 +1676,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// and unarmed at (1, 1, 2, 2) per rung, and otherwise the first melee weapon on the figure: its skill level
     /// plus armsmaster, a blaster at (1, 2, 3, 5), and a grand master's staff with the unarmed bonus beside it;
     /// and the items bonus (<c>:2217-2232</c>) — the modifier of the weapon in each hand. The blessing a spell
-    /// adds is read where the chance is priced. Faithful; enchantments wait for #8513.
+    /// adds is read where the chance is priced. Faithful for these terms; further special-item powers remain #9148.
     /// </remarks>
     private int AttackBonus(PartyMember member)
     {
@@ -1724,8 +1734,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// OpenEnroth <c>src/Engine/Objects/Character.cpp:1875-1887</c> (<c>GetActualAC</c>), in its order, never below
     /// zero: the speed bonus; the items bonus — every working passive piece's dice and modifier, so leather
     /// armour's <c>4</c> is four points and chain's <c>8</c> eight (<c>:2299-2304</c>); the skill bonus
-    /// (<see cref="ArmourSkillBonus"/>); and the stone skin a spell adds. Faithful; the enchantment half of the
-    /// items bonus waits for #8513.
+    /// (<see cref="ArmourSkillBonus"/>); and the stone skin a spell adds. Working ordinary armour properties add their strength through this same sum (approximate repertoire).
     /// </para>
     /// <para>
     /// Each term is its own line, so a later term — a buff another owner reads — is one more line in this sum.
@@ -1735,6 +1744,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     {
         int armor = Bonus(member, SpeedAttribute);
         armor += WornBy(member).Sum(worn => worn.ArmourClass);
+        armor += _itemMagic()?.WornBonus(member, "armour") ?? 0;
         armor += ArmourSkillBonus(member);
 
         // A stone skin is the donor's own armour-class buff, and it is read here for the reason the donor
@@ -1969,8 +1979,8 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// (<c>src/Engine/mm7_data.cpp:355-378</c>).
     /// </para>
     /// <para>
-    /// Faithful, with two statements. A swift or a darkness weapon's twenty ticks (<c>:1727-1733</c>) wait for item
-    /// enchantments (#8513). A piece worn without its skill — which this game's use rule refuses, but which
+    /// A swift weapon takes the donor's twenty ticks (<c>:1727-1733</c>); further special-item powers are
+    /// receiver #9148. A piece worn without its skill — which this game's use rule refuses, but which
     /// content declaring no skill table can stage — is read at novice, where the donor never meets one.
     /// </para>
     /// </remarks>
@@ -2047,6 +2057,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
         }
 
         // A haste shortens every action, standing or swinging, which is where the donor subtracts it.
+        ticks -= _itemMagic()?.RecoveryBonus(member) ?? 0;
         ticks -= HasteTicks(member);
         ticks -= Bonus(member, SpeedAttribute);
 

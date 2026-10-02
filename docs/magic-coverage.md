@@ -78,12 +78,12 @@ the shipped `POTION.TXT` states what each potion is for in words and no numbers 
 | 228 | utility | caster | implemented | a carried effect of its own identity (spell.haste) on that character, read where it applies and ended by a deadline on the one clock |  |
 | 229 | utility | caster | implemented | a carried effect of its own identity (spell.heroism) on that character, read where it applies and ended by a deadline on the one clock |  |
 | 230 | utility | caster | implemented | a carried effect of its own identity (spell.bless) on that character, read where it applies and ended by a deadline on the one clock |  |
-| 231 | utility | caster | not yet | the party's gear protected from harm | item state, which carries what a spell would protect |
+| 231 | utility | caster | not yet | a character protected from death while unconscious | the existing running-effect and health owners (#9146) |
 | 232 | resistance | caster | implemented | a shield on the character drinking it, read by the fight's own ranged resolution — a creature's missile does half to them — with a deadline on the one clock |  |
-| 233 | utility | none | not yet | an item whose charges are given back | an item-aim owner: the pack holds the party's items and nothing aims a potion at one |
+| 233 | utility | none | approximated | enchantment properties and weapon magnitudes are approximate; common item eligibility, quest refusal, mastery strength and clock duration are explicit |  |
 | 234 | resistance | caster | implemented | armour class carried by the character and read by the fight's own armour class, with a deadline on the one clock |  |
 | 235 | utility | caster | implemented | water breathing carried by the character drinking it, which this game's drowning reads so the water the party stands in harms nobody who carries it, with a deadline on the one clock (OpenEnroth src/Engine/Objects/Character.cpp:3089, 3156-3158, src/Engine/Engine.cpp:1083-1099) |  |
-| 236 | utility | none | not yet | an item made harder to break | an item-aim owner: the pack holds the party's items and nothing aims a potion at one |
+| 236 | utility | none | approximated | enchantment properties and weapon magnitudes are approximate; common item eligibility, quest refusal, mastery strength and clock duration are explicit |  |
 | 237 | condition | caster | implemented | the conditions the potion names lifted from the drinker's own condition state |  |
 | 238 | condition | caster | implemented | the conditions the potion names lifted from the drinker's own condition state |  |
 | 239 | condition | caster | implemented | the conditions the potion names lifted from the drinker's own condition state |  |
@@ -93,11 +93,11 @@ the shipped `POTION.TXT` states what each potion is for in words and no numbers 
 | 243 | utility | caster | approximated | Endurance is raised wherever a fight reads it; the pool a raised endurance would deepen is set by progression and is not re-read while it runs (ours) |  |
 | 244 | utility | caster | implemented | Speed raised on the character drinking it, read wherever a fight reads the score, with a deadline on the one clock |  |
 | 245 | utility | caster | implemented | Accuracy raised on the character drinking it, read wherever a fight reads the score, with a deadline on the one clock |  |
-| 246 | utility | none | not yet | a weapon given the property of flame | an item-aim owner: the pack holds the party's items and nothing aims a potion at one |
-| 247 | utility | none | not yet | a weapon given the property of frost | an item-aim owner: the pack holds the party's items and nothing aims a potion at one |
-| 248 | utility | none | not yet | a weapon given the property of poison | an item-aim owner: the pack holds the party's items and nothing aims a potion at one |
-| 249 | utility | none | not yet | a weapon given the property of sparks | an item-aim owner: the pack holds the party's items and nothing aims a potion at one |
-| 250 | utility | none | not yet | a weapon given the property of swiftness | an item-aim owner: the pack holds the party's items and nothing aims a potion at one |
+| 246 | utility | none | approximated | enchantment properties and weapon magnitudes are approximate; common item eligibility, quest refusal, mastery strength and clock duration are explicit |  |
+| 247 | utility | none | approximated | enchantment properties and weapon magnitudes are approximate; common item eligibility, quest refusal, mastery strength and clock duration are explicit |  |
+| 248 | utility | none | approximated | enchantment properties and weapon magnitudes are approximate; common item eligibility, quest refusal, mastery strength and clock duration are explicit |  |
+| 249 | utility | none | approximated | enchantment properties and weapon magnitudes are approximate; common item eligibility, quest refusal, mastery strength and clock duration are explicit |  |
+| 250 | utility | none | approximated | enchantment properties and weapon magnitudes are approximate; common item eligibility, quest refusal, mastery strength and clock duration are explicit |  |
 | 251 | condition | caster | implemented | the conditions the potion names lifted from the drinker's own condition state |  |
 | 252 | condition | caster | implemented | the conditions the potion names lifted from the drinker's own condition state |  |
 | 253 | healing | caster | implemented | hit points restored through the member's own pool, at the potion's own strength |  |
@@ -110,7 +110,7 @@ the shipped `POTION.TXT` states what each potion is for in words and no numbers 
 | 260 | resistance | caster | implemented | a resistance carried by the character and read by the fight's own resistance sum, with a deadline on the one clock |  |
 | 261 | resistance | caster | implemented | a resistance carried by the character and read by the fight's own resistance sum, with a deadline on the one clock |  |
 | 262 | condition | caster | implemented | the conditions the potion names lifted from the drinker's own condition state |  |
-| 263 | utility | none | not yet | a weapon made deadly to dragons | an item-aim owner: the pack holds the party's items and nothing aims a potion at one |
+| 263 | utility | none | approximated | enchantment properties and weapon magnitudes are approximate; common item eligibility, quest refusal, mastery strength and clock duration are explicit |  |
 | 264 | utility | caster | implemented | Luck raised by fifty for good through the character's own scores, once in their life: a second bottle is drunk and changes nothing |  |
 | 265 | utility | caster | implemented | Speed raised by fifty for good through the character's own scores, once in their life: a second bottle is drunk and changes nothing |  |
 | 266 | utility | caster | implemented | Intellect raised by fifty for good through the character's own scores, once in their life: a second bottle is drunk and changes nothing |  |
@@ -131,8 +131,8 @@ the shipped `POTION.TXT` states what each potion is for in words and no numbers 
 | light | 1 | 0 | 0 | 1 |
 | travel | 3 | 3 | 0 | 6 |
 | detection | 3 | 0 | 0 | 3 |
-| utility | 8 | 4 | 7 | 19 |
-| **all** | **80** | **12** | **7** | **99** |
+| utility | 8 | 8 | 3 | 19 |
+| **all** | **80** | **16** | **3** | **99** |
 
 ## Every spell
 
@@ -144,7 +144,7 @@ master, and four grand master.
 | 1 | light | 1 | party | implemented | a light carried by the party, read against the clock's own daylight and ended by its own deadline |  |
 | 2 | damage | 1 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 3 | resistance | 1 | ally | implemented | a ward on the character the casting named, read by the fight's own resistance for that character and ended by its own deadline; the donor gives several of these to the whole party at once (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:767-801, pPartyBuffs[PARTY_BUFF_RESIST_*]), and this game's own table aims each one at a single character |  |
-| 4 | utility | 1 | ally | not yet | a weapon in hand | an item-aim owner: the pack holds the party's items and nothing aims a spell at one |
+| 4 | utility | 1 | none | approximated | enchantment properties and weapon magnitudes are approximate; common item eligibility, quest refusal, mastery strength and clock duration are explicit |  |
 | 5 | utility | 2 | party | implemented | a party-carried effect read by the fight's own resolution |  |
 | 6 | damage | 2 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 7 | damage | 2 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
@@ -168,9 +168,9 @@ master, and four grand master.
 | 25 | resistance | 1 | ally | implemented | a ward on the character the casting named, read by the fight's own resistance for that character and ended by its own deadline; the donor gives several of these to the whole party at once (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:767-801, pPartyBuffs[PARTY_BUFF_RESIST_*]), and this game's own table aims each one at a single character |  |
 | 26 | damage | 1 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 27 | travel | 2 | party | approximated | a walk over water carried by its caster: while it runs the party stands on the world's water without drowning, for ten minutes a level at expert and an hour a level above (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:1302-1331, src/Engine/Engine.cpp:1083-1099), and below grand master the caster pays a spell point for every twenty minutes the party stands on water, the interval the spell's own description states and the donor's fixed drain takes (src/Engine/Engine.cpp:1297-1309, src/Application/GameConfig.h:248-250) where the original took five; the donor also stops a party without it at the water's edge, and here the water is ground a party may walk into and drown in; a second casting replaces the first's caster as the donor's one buff does |  |
-| 28 | utility | 2 | none | not yet | an item whose charges are given back | an item-aim owner: the pack holds the party's items and nothing aims a spell at one |
+| 28 | utility | 2 | none | approximated | enchantment properties and weapon magnitudes are approximate; common item eligibility, quest refusal, mastery strength and clock duration are explicit |  |
 | 29 | damage | 2 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
-| 30 | utility | 3 | none | not yet | an item to enchant | an item-aim owner: the pack holds the party's items and nothing aims a spell at one |
+| 30 | utility | 3 | none | approximated | enchantment properties and weapon magnitudes are approximate; common item eligibility, quest refusal, mastery strength and clock duration are explicit |  |
 | 31 | travel | 3 | none | implemented | a portal taken through the world's own transition path, charged by the world's own cost rule |  |
 | 32 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 33 | travel | 4 | none | implemented | a beacon set in the party's own carried state and recalled through the world's own transition path |  |
@@ -182,7 +182,7 @@ master, and four grand master.
 | 39 | damage | 2 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 40 | condition | 2 | ally | implemented | the named conditions lifted through the member's own condition state |  |
 | 41 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
-| 42 | utility | 3 | none | not yet | a door or a container across the room | an item-aim owner: the interaction mechanism reaches what stands in front of the party |
+| 42 | utility | 3 | none | not yet | a door or a container across the room | world-targeted spell admission through the current interaction owner (#9145) |
 | 43 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 44 | damage | 4 | foe | approximated | the donor takes a share of the target's current health; this rolls the row's base and dice |  |
 | 45 | detection | 1 | caster | implemented | a report read from the places and the population the world holds |  |
@@ -190,7 +190,7 @@ master, and four grand master.
 | 47 | utility | 1 | ally | implemented | an effect on the character the casting named, read by the fight's own resolution for that character and ended by its own deadline; the donor rewards a blessing, a fate, and hammerhands to one character below the rungs where it widens them to the party (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:846-880, :1631-1656, :2364-2384), and this game's own table aims each one at a single character |  |
 | 48 | condition | 1 | foe | implemented | every undead creature in view is made afraid on its own state and runs from what it fights until the clock ends it (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:1734-1762); the table aims the casting at a creature, and the spell takes hold of every one in view as the donor's does |  |
 | 49 | condition | 2 | ally | implemented | the named conditions lifted through the member's own condition state |  |
-| 50 | utility | 2 | caster | not yet | the party's gear protected from harm | item state, which carries what a spell would protect |
+| 50 | utility | 2 | caster | not yet | a character protected from death while unconscious | the existing running-effect and health owners (#9146) |
 | 51 | utility | 2 | ally | implemented | an effect on the character the casting named, read by the fight's own resolution for that character and ended by its own deadline; the donor rewards a blessing, a fate, and hammerhands to one character below the rungs where it widens them to the party (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:846-880, :1631-1656, :2364-2384), and this game's own table aims each one at a single character |  |
 | 52 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 53 | healing | 3 | ally | implemented | a member stood back up at one hit point, with what laid them out lifted from their own conditions |  |
@@ -231,7 +231,7 @@ master, and four grand master.
 | 88 | healing | 4 | party | approximated | every pool filled and every condition lifted; the caster is aged ten years, never past a modifier of a hundred and twenty (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:2590-2610), and may cast it three times a day, counted per caster in the party's records against the clock's own day, which turns at three in the morning as the donor's does (CastSpellInfo.cpp:2592, src/Engine/Engine.cpp:1036-1081); a fourth is refused before anything is spent. The donor also clears the count when a stay heals the party outright (src/Engine/Party.cpp:764-786), and this build clears it only when the day turns (ours) |  |
 | 89 | utility | 1 | either | approximated | a creature's body the casting named is stood back up by the world's population on the fight's ally side, fighting what fights the party, when its row's level is no higher than two, three, four, or five times the caster's dark level by mastery, and left with at most ten hit points for every one of those levels; a stronger body takes the casting and does not rise, and what the body held goes with it (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:2613-2662, src/Engine/Objects/Actor.cpp:1728-1753). Ours: a creature target that is not a body is refused before anything is spent, where the donor spends the points; the creature stands for the visit, where the donor keeps it in the level; a character the casting named who is dead rises as a zombie on the member's own conditions — every condition ended, health filled, spell points emptied, and the state then holds health and spell points down as MightAndMagic7Undeath states (CastSpellInfo.cpp:2632-2640, Character.cpp:485-505) — and one who is not dead, eradicated, a Lich, or a zombie already is refused before anything is spent, where the donor spends the points; and the current save carries its issued identity, row, caster and visit lifetime |  |
 | 90 | damage | 1 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
-| 91 | utility | 1 | ally | not yet | a weapon to bear | an item-aim owner: the pack holds the party's items and nothing aims a spell at one |
+| 91 | utility | 1 | none | approximated | enchantment properties and weapon magnitudes are approximate; common item eligibility, quest refusal, mastery strength and clock duration are explicit |  |
 | 92 | condition | 1 | foe | approximated | a creature the casting named, not immune to dark, is shrunk on its own state and the harm it does is divided by the spell's power until the clock ends it (OpenEnroth src/Engine/Objects/SpriteObject.cpp:951-1040, src/Engine/Objects/Character.cpp:5842-5846); the donor's grand master ray shrinks every creature near where it lands, and this build shrinks the one named (ours) |  |
 | 93 | damage | 2 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 94 | condition | 2 | foe | implemented | an undead creature the casting named, not immune to dark, is bound to serve on its own state: the fight puts it on the party's side and it fights what fights the party, until the clock ends it (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:2719-2762); a living creature is not bound and the casting is spent, as the donor's is |  |

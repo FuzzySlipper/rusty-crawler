@@ -109,6 +109,7 @@ public sealed record CombatActorSnapshot(
 /// <param name="Actor">Who attacked last, empty before the party has attacked.</param>
 /// <param name="Kind">How the last attack was made, as the wire spells it; empty before any.</param>
 /// <param name="Target">What the last attack was aimed at, empty when it was aimed at nothing.</param>
+/// <param name="ResolutionMessage">The resolver's actual hit, including independently resisted damage contributions.</param>
 /// <param name="Outcome">What the last order did: <c>none</c>, <c>applied</c>, or <c>refused</c>.</param>
 /// <param name="Code">The last refusal's code, empty when the last order applied or none has been given.</param>
 /// <param name="Message">What the last order reported, empty before the party has attacked.</param>
@@ -154,7 +155,8 @@ public sealed record CombatSnapshot(
     CombatPacing Pacing = CombatPacing.RealTime,
     CombatTurnSnapshot? Turn = null,
     string SelectionMessage = "",
-    string SelectionCode = "")
+    string SelectionCode = "",
+    string ResolutionMessage = "")
 {
     /// <summary>No fight mechanism: nothing can be ordered and nothing is hostile.</summary>
     public static CombatSnapshot None => new(
@@ -270,7 +272,8 @@ public sealed record CombatSnapshot(
             Pacing: combat.Pacing,
             Turn: TurnFrom(combat),
             SelectionMessage: combat.Party.Roster.SelectionMessage,
-            SelectionCode: combat.Party.Roster.SelectionRefusal?.Code ?? string.Empty);
+            SelectionCode: combat.Party.Roster.SelectionRefusal?.Code ?? string.Empty,
+            ResolutionMessage: resolution?.Message ?? string.Empty);
     }
 
     /// <summary>Reads the round the fight is in, as the panel reads it.</summary>
@@ -339,6 +342,7 @@ public sealed record CombatSnapshot(
             ("ready", builder.Number(Ready)),
             ("selectionMessage", builder.String(SelectionMessage)),
             ("selectionCode", builder.String(SelectionCode)),
+            ("resolutionMessage", builder.String(ResolutionMessage)),
             // Which pacing this one fight is being played in, and the round it is in: a panel that could not
             // tell a real-time fight from a paced one could not say why the world is waiting for it.
             ("pacing", builder.String(SessionProjection.WireName(Pacing))),

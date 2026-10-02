@@ -268,7 +268,7 @@ public sealed class EquipmentPolicyTests
             MidpointRounding.AwayFromZero) / 1000d;
 
     /// <summary>A world of one creature beside the party, a skill and an item table, and a party of one fighter.</summary>
-    private static (string Path, string Text)[] Content() =>
+    internal static (string Path, string Text)[] Content() =>
     [
         RulesetTestContext.Bundle("partyrpg-default", "world"),
         ($"{RulesetTestContext.ContentDirectory}/content-packs/world/pack.json",

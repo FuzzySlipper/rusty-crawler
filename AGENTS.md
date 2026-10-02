@@ -131,7 +131,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   binding puts it on the party's `Ally` side.
 - **Growth and magic.** `PartyProgression` is the one writer of experience, levels, skill points, ranks and
   promotions; the first training step of a service visit includes rest on the one clock (the light/dark choice lives in the character's class and is irreversible). Skills have four
-  masteries under this game's ceilings; promotion requires recovery from a laid-out condition; nine schools and 99 spells share one casting workflow whose eight
+  masteries under this game's ceilings; promotion requires recovery from a laid-out condition; item spells change the actual instance's property, hardening and charge capacity through the same casting workflow; nine schools and 99 spells share one casting workflow whose eight
   effect categories each reach their owner, stated per spell in `docs/magic-coverage.md`; alchemy mixes the
   shipped recipes. Counted deeds accumulate on party records through once-only quest turn-in; town-hall
   bounties add gold earned and an explicit authored quest can add arena wins ([evidence](docs/evidence/counted-deeds.md)).
@@ -154,8 +154,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 **Open residue and its receivers** (Den task ids; Den owns their status):
 
 - Stone 5, interaction and services: a fixture event refuses only at a hireling step (#8514).
-- Stone 7, progression and magic: actual arena earning remains (#9144); item-aimed effects (#8513) and followers
-  (#8514) are "not yet" in `docs/magic-coverage.md`.
+- Stone 7, progression and magic: actual arena earning remains (#9144); world-targeted Telekinesis (#9145),
+  character Preservation (#9146), additional special-item powers (#9148), and followers (#8514) remain.
 
 When a stone lands or a residue closes, update this section, `README.md`, and the owning project README
 together.

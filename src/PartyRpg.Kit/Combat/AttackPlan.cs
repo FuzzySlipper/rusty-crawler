@@ -21,12 +21,13 @@ namespace PartyRpg.Kit.Combat;
 /// <param name="Kind">What kind of harm it does.</param>
 /// <param name="Damage">What it rolls for harm.</param>
 /// <param name="Resistance">What the target resists of that kind.</param>
+/// <param name="Additional">Further damage kinds, each checked against its own resistance on the same hit.</param>
 /// <param name="Divisor">
 /// What the rolled harm is divided by before the target's resistance has its say, one when nothing divides it:
 /// a defence that turns part of a blow aside — a ward against missiles, an attacker made smaller — is a fact
 /// about this attack and this target, which is why the ruleset states it here rather than inside the dice.
 /// </param>
-public sealed record AttackPlan(HitChance Chance, DamageKindId Kind, DamageRoll Damage, Resistance Resistance, int Divisor = 1)
+public sealed record AttackPlan(HitChance Chance, DamageKindId Kind, DamageRoll Damage, Resistance Resistance, int Divisor = 1, IReadOnlyList<AttackDamagePart>? Additional = null)
 {
     /// <summary>What the rolled harm is divided by, which is never less than one.</summary>
     public int Divisor { get; } = Divisor >= 1

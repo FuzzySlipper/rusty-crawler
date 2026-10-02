@@ -314,3 +314,11 @@ Counted deeds extend the party's durable records: monthly bounty settlement adds
 and an explicitly accumulating authored quest reward can add a staged win. Promotion and topic gates
 read those same counts. The [counted-deed evidence](docs/evidence/counted-deeds.md) states the tested
 earning paths; actual arena bouts remain with #9144.
+
+Special items keep their imported definition and unique instance identity through the current save and
+ordinary counter operations. Item aims on the casting panel apply Enchant Item, elemental and vampiric
+coatings, recharge and hardening to the actual held instance. Working worn properties affect the existing
+combat readings; temporary properties end on the one clock, and permanent properties affect trade value.
+The [item-effect reading](docs/evidence/item-enchanting.md) states the approximate repertoire and its
+verification limits. World-targeted Telekinesis, character Preservation and further original special-item
+powers are explicit receivers #9145, #9146 and #9148.

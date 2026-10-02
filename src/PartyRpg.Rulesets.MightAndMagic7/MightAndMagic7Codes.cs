@@ -246,4 +246,10 @@ public static class MightAndMagic7Codes
     /// <summary>The item magic refusal clock-unavailable.</summary>
     public const string ItemMagicClock = "item-magic-clock-unavailable";
 
+    /// <summary>An item property contradicts the current ruleset or item table.</summary>
+    public const string SaveItemProperty = "save-item-property-invalid";
+    /// <summary>A hardened item is not an eligible ordinary item.</summary>
+    public const string SaveItemHardening = "save-item-hardening-invalid";
+    /// <summary>An instance's reduced capacity is not a capacity its charged definition permits.</summary>
+    public const string SaveItemCapacity = "save-item-capacity-invalid";
 }

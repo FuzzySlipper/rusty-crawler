@@ -120,7 +120,7 @@ public sealed record EquipmentSnapshot(
             items.Add(new EquipmentItemSnapshot(
                 item.Id.ToString(),
                 item.Definition.Value,
-                owner.NameOf(item.Definition),
+                ItemName(owner, item),
                 [.. shaped.Select(slot => slot.Value)]));
         }
 
@@ -153,6 +153,10 @@ public sealed record EquipmentSnapshot(
                 ("displacedName", builder.String(last.DisplacedName)))));
     }
 
+    private static string ItemName(PartyOutfitting owner, ItemInstance item) => owner.NameOf(item.Definition) +
+        (item.State.Enchantment is { } property ? $" — {property.Property} {property.Strength}" : string.Empty) +
+        (item.State.IsHardened ? " — hardened" : string.Empty);
+
     private static EquipmentWornSnapshot Worn(PartyOutfitting owner, EquipmentSlot slot, ItemInstance item) =>
-        new(slot.Value, item.Id.ToString(), item.Definition.Value, owner.NameOf(item.Definition));
+        new(slot.Value, item.Id.ToString(), item.Definition.Value, ItemName(owner, item));
 }

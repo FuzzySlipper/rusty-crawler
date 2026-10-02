@@ -92,6 +92,7 @@ export interface CombatView {
   readonly outcome: string;
   readonly code: string;
   readonly message: string;
+  readonly resolutionMessage: string;
   readonly recoverySeconds: number;
   readonly resolved: boolean;
   readonly hit: boolean;
@@ -169,6 +170,7 @@ export function readCombat(f: Fields): CombatView {
     outcome: f.text('outcome', 'none'),
     code: f.text('code'),
     message: f.text('message'),
+    resolutionMessage: f.text('resolutionMessage'),
     recoverySeconds: f.number('recoverySeconds'),
     resolved: f.flag('resolved'),
     hit: f.flag('hit'),
@@ -247,7 +249,9 @@ export function mountCombat(host: Host): Section<CombatReading> {
   const order = element('ul', 'crawler-turn-order');
   const outcome = element('p', 'crawler-combat-result');
   outcome.hidden = true;
-  combat.append(head('Fight'), state, turn, actions, selection, members, enemies, order, outcome);
+  const resolution = element('p', 'crawler-combat-resolution');
+  resolution.hidden = true;
+  combat.append(head('Fight'), state, turn, actions, selection, members, enemies, order, outcome, resolution);
 
   const offer = (control: HTMLButtonElement, published: ControlView): void => {
     control.disabled = !published.enabled;
@@ -344,6 +348,8 @@ export function mountCombat(host: Host): Section<CombatReading> {
     outcome.dataset.targetDown = view.targetDown ? 'yes' : 'no';
     outcome.dataset.byParty = view.byParty ? 'yes' : 'no';
     outcome.textContent = view.message;
+    resolution.hidden = view.resolutionMessage === '';
+    resolution.textContent = view.resolutionMessage;
   };
 
   return { element: combat, render };

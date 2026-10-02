@@ -340,6 +340,7 @@ function rest(overrides = {}) {
 function combat(overrides = {}) {
   return {
     available: true,
+    resolutionMessage: '',
     selectionMessage: '',
     selectionCode: '',
     engaged: false,
@@ -4609,4 +4610,16 @@ test('the panel shows what each member wears, sends the change a player pressed,
   } finally {
     h.restore();
   }
+});
+
+
+test('the fight shows the product resolver sentence without computing its damage parts', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+    const sentence = 'Roderick hits: 11 Phys; additional 6 Fire; 17 total damage.';
+    h.emit(snapshot('running', 1, 60, 60, movement(), { combat: combat({ resolved: true, resolutionMessage: sentence }) }));
+    assert.equal(h.panel().querySelector('.crawler-combat-resolution').textContent, sentence);
+    ui.dispose();
+  } finally { h.restore(); }
 });

@@ -397,6 +397,7 @@
     "ready": 1,
     "selectionMessage": "",
     "selectionCode": "",
+    "resolutionMessage": "",
     "pacing": "realtime",
     "turn": {
       "phase": "",

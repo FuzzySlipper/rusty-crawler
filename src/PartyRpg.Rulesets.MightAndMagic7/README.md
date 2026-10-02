@@ -78,12 +78,11 @@ Owns:
     — a bow's for a shot, sixty for a trained unarmed fighter, a staff's hundred for empty hands — a slower
     off-hand weapon, a shield's and the armour's ticks at the share their own rung leaves, less the speed bonus,
     an expert sword's, axe's or bow's level, armsmaster (not for a shot or a blaster), and haste, floored at
-    thirty for a blow and five for a shot. Faithful; a swift weapon's twenty ticks wait for item enchantments
-    (#8513).
+    thirty for a blow and five for a shot. A swift weapon takes twenty fewer ticks through its actual working item property; further
+    original special-item powers are #9148.
   - **armour class** (`Character.cpp:1875-1887`): the speed bonus, every working passive piece's dice and
     modifier (`:2299-2304`), the skill bonus of the shield, leather, chain, plate, staff, sword and spear worn,
-    dodging while nothing heavier than leather is (`:2596-2648`), and the stone skin a spell adds. Faithful;
-    the enchantment half of the items bonus waits for #8513.
+    dodging while nothing heavier than leather is (`:2596-2648`), and the stone skin a spell adds. Working ordinary armour properties add their strength through the same sum (approximate repertoire).
   - **chance to land** (`Character.cpp:768-778`, `:911-922`): the accuracy bonus, the weapon skill with
     armsmaster (or unarmed and armsmaster for empty hands), the weapon's modifier in each hand, and for a shot
     the bow's modifier and level; a blessing is added where the chance is priced. Faithful.
@@ -95,7 +94,8 @@ Owns:
     modifier — not the skill or might added after — at a chance of the dagger level in a hundred, drawn per hand
     (`:899-905`), stated as the kit's `DamageMultiplier` over that hand's run of the roll's dice; the chance is the
     donor's corrected reading (the original executable fixed it at ten in a hundred), and an averaged second
-    dagger is tripled as its average. Not read: a slaying enchantment's double damage (#8513).
+    dagger is tripled as its average. An active dragon coating contributes independently resisted Physical harm against the actual dragon
+    family (approximate magnitude, not the donor's double damage).
   - **resistances** (`Character.cpp:1900-1993`): a grand master of leather in working leather armour adds the
     leather level to fire, air, water and earth, beside the wards spells leave, and the base
     (`MightAndMagic7BaseResistance`, `:1900-1942`): the race's bonus — goblin five fire and air, dwarf five
@@ -105,13 +105,13 @@ Owns:
     hundred (`:1988-1990`). Faithful. The donor's stored base starts at nothing and is raised by a map event's
     permanent resistance (`:4788-4817`), which `MightAndMagic7Fixtures` writes into the member's own stored
     resistances (the kit's `CharacterResistances`, saved with the member and capped at a byte), and by a genie
-    lamp this build does not grant (#8513); a Lich's floor is read as a floor under the stored figure. Followers
-    are #8514 and enchantments #8513. A special attack's saving throw reads the same sum.
+    lamp this build does not grant (#9148); a Lich's floor is read as a floor under the stored figure. Followers
+    are #8514 and further special-item resistance powers #9148. A special attack's saving throw reads the same sum.
   - **the scores every sum reads** (`Character.cpp:729-765`, `GetActualStat`): the score the character carries
     at the share their age leaves of it (`MightAndMagic7Ageing`, the donor's table at `:222-232`), plus a potion's
     boost of that score on them and the party's day of the gods, which adds to all seven (`:2360-2387`). Faithful
-    for those terms; the conditions multiplier, item bonuses (#8513) and a follower's luck (#8514) are not
-    invented. The pools are set by progression and are not re-read while a boost runs (ours).
+    for those terms; ordinary working item bonuses for Might, Endurance and Speed are added by their property
+    strength (approximate repertoire). The conditions multiplier and a follower's luck (#8514) remain absent. The pools are set by progression and are not re-read while a boost runs (ours).
   - **what a spell adds** (`Character.cpp:2322-2395`, `GetMagicalBonus`): every buff is read as the character's
     own plus the party's of the same name, so a potion on one member and a spell on the band are one reading —
     a haste takes the donor's flat twenty-five ticks whichever carries it (`:1723-1728`), and nothing the party
@@ -120,7 +120,7 @@ Owns:
     spell's or the potion's (`Character.cpp:5987-6009`), stated as the fight's plan divisor; and a character
     carrying pain reflection turns the harm a creature's blow or missile did them back onto that creature through
     its own resistance (`:5875-5900`, `:6042-6062`), through the kit's `ICombatReflectionRule`. Faithful; the items
-    that shield their wearer wait for #8513.
+    that shield their wearer wait for #9148.
   - **what a spell leaves on a creature** (the kit's `CreatureEffects`, held on the creature and counted down by
     the fight's own clock advances): a paralysis is the fight's gate refusing every action (`Actor.cpp:169-176`), a
     slowing doubles the creature's recovery (`Actor.cpp:1296`) and divides its pace (`Indoor.cpp:814-816`), a
@@ -818,3 +818,28 @@ the installed Engine keyboard contract has no Tab; no browser-only alias substit
 
 The [bounded member-control reading](../../docs/evidence/member-selection.md) records two ordinary selections, individual attack recovery,
 and the recovering member's named refusal.
+
+## Item magic
+
+`MightAndMagic7ItemMagic` interprets actual item-table kind, material and value, offers actual durable
+instance IDs through `ISpellAimRule`, and judges the shared casting workflow before it pays. The existing
+instance owns one property with strength and optional absolute-clock end, hardening and reduced charge
+capacity; there is no inventory or effect ledger beside it. The clock observer clears expired properties,
+and all four charge consumers read the instance capacity. The current save carries every field and the
+keyed enchant-attempt count; invalid item/property/material/capacity combinations refuse together on load.
+
+Enchant Item uses the stated value floor, rank chance and mastery strength over unbroken ordinary gear.
+Quest and fixed special items refuse. Failure breaks unprotected gear; hardening spares it. Uniform
+selection among fire/frost/poison/sparks for weapons and Might/Endurance/Speed/armour for passive gear is
+ours, replacing original weighted enchantment tables. Fire Aura, Vampiric Weapon and the coating potions
+use this same property producer. Elemental and dragon properties add independently resisted damage to
+the existing landed hit; vampiric restores only its wielder after canonical harm; swift changes the same
+recovery reading. Recharge refills and irreversibly reduces actual capacity. Permanent ordinary properties
+add a typed tuning premium to ordinary counter value; special rows keep their imported value and all
+ordinary buy/sell/identify/repair operations. Artifacts keep fixed definition identity, not a global
+one-copy registry. The complete original special-item power repertoire is not claimed.
+
+The [item-effect record](../../docs/evidence/item-enchanting.md) records focused checks and live limits.
+World-targeted Telekinesis (#9145), character Preservation (#9146), and additional original special-item
+powers and Genie Lamp use (#9148) are concrete receivers. Preservation is character survival, not gear
+protection (`OpenEnroth/src/Engine/Objects/Character.cpp:1310-1321`).

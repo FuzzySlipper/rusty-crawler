@@ -329,9 +329,8 @@ public sealed class SpellEffectPolicyTests
         MightAndMagic7Session live = (MightAndMagic7Session)session;
         int before = live.Party!.Members[0].Resources.SpellPoints.Current;
 
-        // Preservation protects the party's gear from harm, and nothing in this build carries what it would
-        // protect: the casting is refused where it is judged, naming what it would do and whose it would be,
-        // and no spell point is spent on a casting that would change nothing.
+        // Preservation's health/effect integration remains explicit receiver #9146. Until it exists,
+        // a cast refuses before payment rather than pretending that an item property protects a member.
         Cast(session, ui, 1, "50", string.Empty);
         ProjectedNode refused = Magic(ui);
         Assert.Equal("refused", refused.Field("outcome").AsString());

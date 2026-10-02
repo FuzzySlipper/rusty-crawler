@@ -17,6 +17,7 @@ namespace PartyRpg.Kit.Combat;
 /// <param name="Deaths">Who hears about each creature's death, once, in the order named.</param>
 /// <param name="Reflection">What a wound turns back onto whoever dealt it, or null for a game whose wounds turn nothing back.</param>
 /// <param name="Saving">The content-only judge for restoring a fight, when the game supplies one.</param>
+/// <param name="Hits">Who hears each landed hit after its canonical health settlement.</param>
 /// <param name="Corpses">The canonical body and held-loot owner.</param>
 /// <param name="Provocation">Who else an act against one creature turns against the party, or null for a game where it turns only that creature.</param>
 public sealed record CombatRules(
@@ -29,4 +30,5 @@ public sealed record CombatRules(
     ICombatReflectionRule? Reflection = null,
     ICombatProvocationRule? Provocation = null,
     ICombatSaveRule? Saving = null,
-    CorpseGround? Corpses = null);
+    CorpseGround? Corpses = null,
+    IReadOnlyList<ICombatHitObserver>? Hits = null);

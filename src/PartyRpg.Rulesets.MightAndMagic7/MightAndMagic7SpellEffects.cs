@@ -36,7 +36,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// named a place the party can actually reach.
 /// </para>
 /// </remarks>
-internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRule, IPartySightRule, IRunningSpellEffects, IMemberSpellEffects, IGameTimeObserver, IDeadlineOwner
+internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRule, IPartySightRule, IRunningSpellEffects, IMemberSpellEffects, IGameTimeObserver, IDeadlineOwner, ICombatHitObserver
 {
     private readonly MightAndMagic7Spells _spells;
     private readonly GameClock? _clock;
@@ -81,6 +81,9 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         _combat = combat ?? (() => null);
         _summons = new MightAndMagic7Summons(_world, _combat, corpses);
     }
+
+    /// <summary>Reports a canonical hit to the same item effect path that applied its weapon property.</summary>
+    public void Observe(CombatHit hit) => _items?.AfterHit(hit);
 
     /// <summary>The effects spells have left running, once a caster has left one.</summary>
     /// <remarks>

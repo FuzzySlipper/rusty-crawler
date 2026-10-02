@@ -41,7 +41,8 @@ public sealed record CombatResolution
         int targetHitPointsMax,
         int divisor = 1,
         int reflected = 0,
-        bool actorDown = false)
+        bool actorDown = false,
+        IReadOnlyList<CombatDamagePart>? additional = null)
     {
         Actor = actor;
         ActorName = actorName;
@@ -62,8 +63,12 @@ public sealed record CombatResolution
         Divisor = divisor;
         Reflected = reflected;
         ActorDown = actorDown;
+        Additional = additional is null ? [] : [.. additional];
         Message = Describe();
     }
+
+    /// <summary>Separately resisted contributions included in the total damage.</summary>
+    public IReadOnlyList<CombatDamagePart> Additional { get; }
 
     /// <summary>The combatant that attacked.</summary>
     public CombatantId Actor { get; }
@@ -211,6 +216,7 @@ public sealed record CombatResolution
     /// <param name="divisor">What a defence divided the rolled harm by before resistance, one when nothing did.</param>
     /// <param name="reflected">How much harm was turned back onto the actor, zero when none was.</param>
     /// <param name="actorDown">Whether what was turned back took the actor down.</param>
+    /// <param name="additional">The independently resisted contributions included in total damage.</param>
     /// <returns>The resolution.</returns>
     public static CombatResolution Landed(
         CombatantId actor,
@@ -230,7 +236,8 @@ public sealed record CombatResolution
         int targetHitPointsMax,
         int divisor = 1,
         int reflected = 0,
-        bool actorDown = false) => new(
+        bool actorDown = false,
+        IReadOnlyList<CombatDamagePart>? additional = null) => new(
         actor,
         actorName,
         target,
@@ -249,7 +256,8 @@ public sealed record CombatResolution
         targetHitPointsMax,
         divisor,
         reflected,
-        actorDown);
+        actorDown,
+        additional);
 
     /// <summary>Writes what happened in one sentence, with the numbers that explain it.</summary>
     private string Describe()
@@ -271,11 +279,14 @@ public sealed record CombatResolution
         string turned = Divisor > 1
             ? string.Create(CultureInfo.InvariantCulture, $" (a defence divided the {Rolled} rolled by {Divisor})")
             : string.Empty;
+        int primaryDamage = Damage - Additional.Sum(part => part.Damage);
         string harm = Resistance.IsImmune
             ? string.Create(CultureInfo.InvariantCulture, $"{TargetName} is immune to {DamageKind}, so the {Rolled} rolled lands for nothing")
             : Resistance.Points > 0
-                ? string.Create(CultureInfo.InvariantCulture, $"{Rolled} {DamageKind} damage rolled, {Damage} landed through {Resistance.Points} resistance{turned}")
-                : string.Create(CultureInfo.InvariantCulture, $"{Damage} {DamageKind} damage landed{turned}");
+                ? string.Create(CultureInfo.InvariantCulture, $"{Rolled} {DamageKind} damage rolled, {primaryDamage} landed through {Resistance.Points} resistance{turned}")
+                : string.Create(CultureInfo.InvariantCulture, $"{primaryDamage} {DamageKind} damage landed{turned}");
+
+        if (Additional.Count > 0) harm += $"; additional {string.Join(", ", Additional.Select(part => $"{part.Damage} {part.Kind} from {part.Rolled} rolled"))}; {Damage} total damage";
 
         string standing = TargetHitPointsMax > 0
             ? string.Create(CultureInfo.InvariantCulture, $"{TargetName} is at {TargetHitPoints}/{TargetHitPointsMax}")

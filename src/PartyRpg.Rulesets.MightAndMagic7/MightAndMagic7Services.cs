@@ -1252,8 +1252,16 @@ internal sealed class MightAndMagic7Services : IServiceRule
     }
 
     /// <summary>What an item is worth, as the imported item table states it.</summary>
-    private int ValueOf(ItemInstance? item) =>
-        item is { } instance && _items.TryGetValue(instance.Definition, out ItemFacts facts) ? facts.Value : 0;
+    private int ValueOf(ItemInstance? item)
+    {
+        if (item is not { } instance || !_items.TryGetValue(instance.Definition, out ItemFacts facts)) return 0;
+        // Fixed special-table value and temporary coatings are unchanged; permanent ordinary properties add value.
+        bool special = facts.Material.Equals("artifact", StringComparison.OrdinalIgnoreCase) ||
+            facts.Material.Equals("relic", StringComparison.OrdinalIgnoreCase) || facts.Material.Equals("special", StringComparison.OrdinalIgnoreCase);
+        long premium = !special && instance.State.Enchantment is { DueElapsedMilliseconds: null } enchantment
+            ? (long)enchantment.Strength * _tuning.Whole(MightAndMagic7Tuning.EnchantValuePerStrength) : 0;
+        return (int)Math.Min(int.MaxValue, facts.Value + premium);
+    }
 
     /// <summary>The base a kind-supplied lesson's fee is computed from, so the one quote formula prices it.</summary>
     /// <remarks>

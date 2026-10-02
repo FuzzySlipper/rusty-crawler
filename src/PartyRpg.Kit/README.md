@@ -59,7 +59,8 @@ Owns:
   casting workflow with the item as the spell's source, and read at the strength the instance itself states
   (`ItemState.Potency`), which is what makes a potion the way a character with no school gets a spell's
   effect.
-- Combat: attack execution, targeting and current target, attack resolution, damage kinds,
+- Combat: independently resisted additional damage parts in the same attack plan and resolution,
+  with explicitly composed hit observers hearing canonical harm once after health settlement; attack execution, targeting and current target, attack resolution, damage kinds,
   resistance and immunity, conditions a hit leaves, and the thresholds a wound is judged against
   application, real-time and turn-based mode coordination, what a downed creature leaves
   (`CorpseGround`, fed by the fight's own reading), monster presence and AI coordination.

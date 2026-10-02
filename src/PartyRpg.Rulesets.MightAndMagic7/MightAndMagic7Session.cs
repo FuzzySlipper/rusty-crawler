@@ -334,7 +334,8 @@ internal sealed class MightAndMagic7Session : IGameSession
             () => spellEffects,
             figure,
             clock,
-            (place, group) => owners.World is IInteractionWorld world && MightAndMagic7Fixtures.IsGroupHostile(world.States.ValuesOf(place), group));
+            (place, group) => owners.World is IInteractionWorld world && MightAndMagic7Fixtures.IsGroupHostile(world.States.ValuesOf(place), group),
+            itemMagic: () => itemMagic);
         MightAndMagic7Combat combat = composed;
 
         long Worth(PlacementDefinition placement) =>
@@ -360,7 +361,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             Service = services,
             Rest = rest,
             Conversation = conversation,
-            Combat = new CombatRules(combat, monsterAi, Resolution: combat, Abilities: combat, Weapons: combat, Deaths: deaths, Reflection: combat, Provocation: combat, Saving: combat, Corpses: corpses),
+            Combat = new CombatRules(combat, monsterAi, Resolution: combat, Abilities: combat, Weapons: combat, Deaths: deaths, Reflection: combat, Provocation: combat, Saving: combat, Corpses: corpses, Hits: spellEffects is null ? [] : [spellEffects]),
             Progression = new ProgressionRules(MightAndMagic7Progression.Instance, promotions),
             Standing = standing,
             Skills = skills,

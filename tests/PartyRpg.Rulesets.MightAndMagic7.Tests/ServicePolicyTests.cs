@@ -39,11 +39,17 @@ public sealed class ServicePolicyTests
         Declared.ConversationLeaveIntent,
         Declared.UiActionContract);
 
-    [Fact]
+    [Theory]
+    [InlineData("sword", "")]
+    [InlineData("500", "Artifact")]
+    [InlineData("528", "Relic")]
+    [InlineData("549", "Special")]
     [Trait(Pins.Trait, Pins.Tuning)]
-    public void A_staged_shop_is_entered_bought_from_identified_repaired_sold_and_left()
+    public void A_staged_shop_is_entered_bought_from_identified_repaired_sold_and_left(string definition, string material)
     {
-        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(ShopContent());
+        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(ShopContent().Select(file =>
+            (file.Path, file.Text.Replace("\"sword\"", $"\"{definition}\"", StringComparison.Ordinal)
+                .Replace("\"name\": \"A fine sword\"", $"\"name\": \"A fine sword\", \"material\": \"{material}\"", StringComparison.Ordinal))).ToArray());
 
         using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
             RulesetTestContext.RulesetContext(context, ui) with { Use = UseControls, Service = ServiceControls, Conversation = ConversationControls });
@@ -87,7 +93,7 @@ public sealed class ServicePolicyTests
         Assert.Equal(75, opened.Field("lessons").Item(0).Field("price").AsNumber());
 
         // Buying settles through the party's own purse: the same account a fare and a road charge.
-        session.Update(RulesetTestContext.Update(3, 1, RulesetTestContext.Payload("""{"action":"service.buy","target":"stock:sword","count":2}""")));
+        session.Update(RulesetTestContext.Update(3, 1, RulesetTestContext.Payload($$"""{"action":"service.buy","target":"stock:{{definition}}","count":2}""")));
         ProjectedNode bought = ProjectedNode.Of(ui.Latest().Value).Field("service");
         Assert.Equal("applied", bought.Field("outcome").AsString());
         Assert.Equal(300, bought.Field("paid").AsNumber());
@@ -141,6 +147,26 @@ public sealed class ServicePolicyTests
         Assert.Equal("leave", left.Field("action").AsString());
         Assert.Contains("leaves The Sword and Shield", left.Field("message").AsString(), StringComparison.Ordinal);
         Assert.Equal(78, left.Field("coins").AsNumber());
+    }
+
+    [Fact]
+    public void A_permanent_ordinary_property_changes_the_same_counter_quote_and_sale()
+    {
+        var (context, ui) = RulesetTestContext.Create(ShopContent());
+        using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
+            RulesetTestContext.RulesetContext(context, ui) with { Use = UseControls, Service = ServiceControls, Conversation = ConversationControls });
+        session.Start();
+        session.Update(RulesetTestContext.Update(1, 1, RulesetTestContext.Digital(Declared.UseIntent)));
+        session.Update(RulesetTestContext.Update(2, 1, RulesetTestContext.ChooseTopic(MightAndMagic7Conversation.CounterTopicId)));
+        session.Update(RulesetTestContext.Update(3, 1, RulesetTestContext.Payload("""{"action":"service.buy","target":"stock:sword","count":1}""")));
+        PartyRpg.Kit.Party.ItemInstance sword = Assert.Single(((MightAndMagic7Session)session).Party!.Items);
+        sword.SetEnchantment(new PartyRpg.Kit.Party.ItemEnchantment("fire", 4));
+        session.Update(RulesetTestContext.Update(4, 1));
+        ProjectedNode quote = ProjectedNode.Of(ui.Latest().Value).Field("service");
+        Assert.Equal(142, quote.Field("sales").Item(0).Field("price").AsNumber()); // (100 + 4*100) / 3.5, rounded down
+        session.Update(RulesetTestContext.Update(5, 1, RulesetTestContext.Payload($$"""{"action":"service.sell","target":"{{sword.Id}}"}""")));
+        ProjectedNode sold = ProjectedNode.Of(ui.Latest().Value).Field("service");
+        Assert.Equal(142, sold.Field("earned").AsNumber());
     }
 
     [Fact]

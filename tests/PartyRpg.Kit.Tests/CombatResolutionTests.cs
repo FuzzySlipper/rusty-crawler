@@ -38,6 +38,49 @@ public sealed class CombatResolutionTests
     private static readonly GameDuration Swing = GameDuration.FromSeconds(1);
 
     [Fact]
+    public void Additional_damage_uses_each_kind_s_resistance_and_a_hit_observer_sees_the_settled_health_once()
+    {
+        DamageKindId heat = new("heat");
+        DamageKindId cold = new("cold");
+        Rules rules = new(damage: DamageRoll.Flat(2))
+        {
+            Additional = [new(heat, DamageRoll.Flat(6)), new(cold, DamageRoll.Flat(4))],
+            PartResistances = new Dictionary<DamageKindId, Resistance> { [heat] = Resistance.Of(1), [cold] = Resistance.Immune },
+        };
+        using SessionWorld world = World(rules, out PartyEntity party, creatureAt: 60);
+        using (party)
+        {
+            Arrive(world);
+            HitObserver observer = new();
+            CombatState fight = new(Capabilities.Combat(rules) with { Hits = [observer] }, party, world, TestClock.Create());
+            fight.Step();
+            Combatant actor = fight.Combatants.Single(combatant => combatant.Subject.IsMember);
+            Combatant target = fight.Combatants.Single(combatant => !combatant.Subject.IsMember);
+            Assert.True(fight.Order(new AttackOrder(actor.Id, AttackKind.Melee, target.Id)).IsApplied);
+            CombatResolution hit = fight.LastResolution!;
+            Assert.Equal(5, hit.Damage);
+            Assert.Equal(35, hit.TargetHitPoints);
+            Assert.Equal([new CombatDamagePart(heat, 6, 3), new CombatDamagePart(cold, 4, 0)], hit.Additional);
+            Assert.Contains("3 heat", hit.Message);
+            Assert.Contains("0 cold", hit.Message);
+            CombatHit settled = Assert.Single(observer.Hits);
+            Assert.Equal(5, settled.Damage);
+            Assert.Equal(35, observer.TargetHealth);
+        }
+    }
+
+    private sealed class HitObserver : ICombatHitObserver
+    {
+        internal List<CombatHit> Hits { get; } = [];
+        internal int TargetHealth { get; private set; }
+        public void Observe(CombatHit hit)
+        {
+            Hits.Add(hit);
+            TargetHealth = CreatureHealth.Find(hit.Target.Entity!.Actor)!.Current;
+        }
+    }
+
+    [Fact]
     public void A_hit_chance_lands_the_attack_and_a_miss_chance_does_not()
     {
         // The same attack, twice, with nothing different but the chance the ruleset stated: one rolls under
@@ -695,20 +738,26 @@ public sealed class CombatResolutionTests
             ? new KeyedRolls(random, seed: 7, "test.attack", key)
             : new Scripted(_roll, _face);
 
+        internal IReadOnlyList<AttackDamagePart>? Additional { get; init; }
+        internal IReadOnlyDictionary<DamageKindId, Resistance> PartResistances { get; init; } = new Dictionary<DamageKindId, Resistance>();
+
         public AttackPlan PlanOf(CombatSubject attacker, CombatSubject target, AttackKind kind) => new(
             HitChance,
             Steel,
             Damage,
             Resist,
-            target.Member is not null ? _divisor : 1);
+            target.Member is not null ? _divisor : 1, Additional);
 
         /// <summary>This suite's reflection: a member turns a stated amount back onto a creature that hurt them.</summary>
         public int ReflectedOnto(CombatSubject attacker, CombatSubject target, DamageKindId kind, int harm, IAttackRolls rolls) =>
             target.Member is not null && attacker.Member is null ? _reflect : 0;
 
         /// <summary>This suite's own resistance arithmetic: immunity takes all, resistance halves once.</summary>
-        public int DamageAfterResistance(CombatSubject target, DamageKindId kind, int damage, IAttackRolls rolls) =>
-            Resist.IsImmune ? 0 : Resist.Points > 0 ? damage / 2 : damage;
+        public int DamageAfterResistance(CombatSubject target, DamageKindId kind, int damage, IAttackRolls rolls)
+        {
+            Resistance resistance = PartResistances.GetValueOrDefault(kind, Resist);
+            return resistance.IsImmune ? 0 : resistance.Points > 0 ? damage / 2 : damage;
+        }
 
         public CombatCondition? ConditionOf(CombatSubject attacker, CombatSubject target, DamageKindId kind, IAttackRolls rolls) =>
             Condition is { } condition && target.Member is not null

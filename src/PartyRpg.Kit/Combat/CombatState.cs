@@ -49,6 +49,7 @@ public sealed partial class CombatState : IGameTimeObserver
     private readonly ICombatReflectionRule? _reflection;
     private readonly ICombatProvocationRule? _provocation;
     private readonly IReadOnlyList<ICreatureDeathObserver> _deaths;
+    private readonly IReadOnlyList<ICombatHitObserver> _hits;
     private readonly PartyEntity _party;
     private readonly ICombatWorld? _world;
     private readonly GameClock? _clock;
@@ -94,6 +95,7 @@ public sealed partial class CombatState : IGameTimeObserver
         _saving = rules.Saving;
         _corpses = rules.Corpses;
         _rule = rules.Rule ?? throw new ArgumentNullException(nameof(rules));
+        _hits = rules.Hits ?? [];
         _resolution = rules.Resolution;
         _abilities = rules.Abilities;
         _weapons = rules.Weapons;
@@ -677,8 +679,17 @@ public sealed partial class CombatState : IGameTimeObserver
         int damage = plan.Resistance.IsImmune
             ? 0
             : Math.Max(0, resolution.DamageAfterResistance(target.Subject, plan.Kind, through, rolls));
+        List<CombatDamagePart> additional = [];
+        foreach (AttackDamagePart part in plan.Additional ?? [])
+        {
+            int drawn = part.Damage.Roll(rolls, $"additional/{additional.Count}/{part.Kind}");
+            int landed = Math.Max(0, resolution.DamageAfterResistance(target.Subject, part.Kind, drawn, rolls));
+            additional.Add(new CombatDamagePart(part.Kind, drawn, landed));
+            damage = checked(damage + landed);
+        }
         CombatCondition? condition = resolution.ConditionOf(actor.Subject, target.Subject, plan.Kind, rolls);
         bool down = Wound(target, damage, condition);
+        foreach (ICombatHitObserver observer in _hits) observer.Observe(new CombatHit(actor.Subject, target.Subject, kind, damage));
         (int reflected, bool actorDown) = Reflect(actor, target, plan.Kind, damage, rolls);
         (current, maximum) = Vitals(target);
         return CombatResolution.Landed(
@@ -699,7 +710,8 @@ public sealed partial class CombatState : IGameTimeObserver
             maximum,
             plan.Divisor,
             reflected,
-            actorDown);
+            actorDown,
+            additional);
     }
 
     /// <summary>

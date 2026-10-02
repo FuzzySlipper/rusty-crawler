@@ -644,7 +644,6 @@ internal static class Readings
     internal static SpellReading Detect(DetectionScope scope, Func<int, int, GameDuration> lasts) =>
         SpellReading.None with { Detection = scope, DetectionLasts = lasts };
 
-    /// <summary>A dispelling of the effects other spells have left running.</summary>
     /// <summary>An operation over one actual item, handed to the shared utility effect path.</summary>
     internal static SpellReading OnItem(ItemMagicShape shape) => SpellReading.None with
     {
