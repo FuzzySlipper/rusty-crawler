@@ -250,6 +250,10 @@ pack loaded first. `write` also
 emits each place's collision geometry into the world pack, in the engine's own spatial artifact, and
 refuses a place whose solid faces cannot be closed enough for a party to stand on — the shape and the
 rules are in [`docs/research/mm7-map-formats.md`](docs/research/mm7-map-formats.md) §8.
+The first successful training step of a counter visit includes a week plus next dawn and four hours,
+with twelve hours more at the two deep halls. It reaches the one clock and the ordinary rest recovery;
+later steps of the same visit add no time. Its imported live reading is still pending.
+
 Its collision vertex bounds also supply a navigation region beside the artifact. Engine derives walkable
 supports in the party's same scene with the actual controller body; creatures query routes from their feet
 and hold by name when a route or derivation is unavailable. Sampling is approximate, and collision remains

@@ -58,6 +58,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
     private readonly PartyProgression? _progression;
     private readonly Dictionary<ServiceId, ServiceShelf> _shelves = [];
     private ServiceDefinition? _current;
+    private string _trainingRestMessage = string.Empty;
     private ServiceVisit? _visit;
     private ServiceResult? _last;
     private ServiceTheft? _theft;
@@ -697,10 +698,8 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
             ForMember: true,
             // A training step is one level, and the level is the progression owner's to grant; it is asked before
             // the fee is taken, so no party pays for a level it could not have.
-            Judge: static (services, t) => services._progression is not { } progression
-                ? new Refusal(ServiceCodes.ServiceNoProgression, $"{t.Visit.Service.Describe()} trains by the level and this session holds no progression owner to grant one.")
-                : progression.JudgeTraining(t.Member, services.Terms(t)),
-            Apply: static (services, t) => Require(services._progression!.Train(t.Member, services.Terms(t)).Refusal, "training"),
+            Judge: static (services, t) => services.JudgeTraining(t),
+            Apply: static (services, t) => services.ApplyTraining(t),
             Describe: static (services, t) => services.TrainMessage(t.Member, t.Quote)),
         [ServiceOperationKind.Provision] = new(
             "provision",
@@ -1143,6 +1142,34 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
         }
     }
 
+    /// <summary>Judges the growth and the rest before a training fee can move.</summary>
+    private Refusal? JudgeTraining(Transaction t)
+    {
+        if (_progression is not { } progression)
+            return new Refusal(ServiceCodes.ServiceNoProgression, $"{t.Visit.Service.Describe()} trains by the level and this session holds no progression owner to grant one.");
+        if (progression.JudgeTraining(t.Member, Terms(t)) is { } refused) return refused;
+        if (t.Subject.Offer!.RestPeriod.IsNone) return null;
+        if (_clock is null)
+            return new Refusal(RestCodes.RestNoClock, "Training includes rest, but this session keeps no clock, so no training period could pass.");
+        return _rest is not { } rest
+            ? new Refusal(ServiceCodes.ServiceNoRest, "Training includes rest, but this session composes no rest owner to recover the party.")
+            : rest.JudgeRoom();
+    }
+
+    /// <summary>Grants the level through progression and rests once through the visit's canonical rest owner.</summary>
+    private void ApplyTraining(Transaction t)
+    {
+        Require(_progression!.Train(t.Member, Terms(t)).Refusal, "training");
+        _trainingRestMessage = string.Empty;
+        if (!t.Visit.HasTrained && !t.Subject.Offer!.RestPeriod.IsNone)
+        {
+            RestResult rested = _rest!.SleepInRoom(t.Subject.Offer.RestPeriod, []);
+            Require(rested.Refusal, "training rest");
+            _trainingRestMessage = " " + rested.Message;
+        }
+        t.Visit.HasTrained = true;
+    }
+
     /// <summary>The terms a counter trains under: its name, its fee, and the ceiling its offer states.</summary>
     private ProgressionTrainingTerms Terms(Transaction t) => new(t.Visit.Service.Name, t.Quote.Charge.Coins, t.Subject.Offer!.Limit);
 
@@ -1174,7 +1201,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
             : string.Empty;
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"{trainee.Profile.Name} trains to level {trainee.Progression.Level} for {quote.Charge.Coins} coin(s){points}.");
+            $"{trainee.Profile.Name} trains to level {trainee.Progression.Level} for {quote.Charge.Coins} coin(s){points}.{_trainingRestMessage}");
     }
 
     /// <summary>Records a result as the last thing that happened and hands it back.</summary>

@@ -365,8 +365,13 @@ the ruleset's whole contribution to the kit's owner — the donor's cumulative e
 division of a party award with the learning skill's bonus, the per-level class and rank growth tables with
 the skill points a level grants, and the fame the party's deeds earn — and `MightAndMagic7Combat` hands each
 death's own row, its experience column included, to the one award path the fight reports through, so a kill,
-a quest, and any later deed grow a character through the same owner and a training hall only charges the fee
-and quotes the step. This game's skills are landed beside it: `MightAndMagic7Skills` reads the shipped
+a quest, and any later deed grow a character through the same owner. A training hall charges the fee
+and includes rest on the first successful step of a visit: until the next dawn plus four hours and seven
+days, with twelve hours more when its content names map 8 or 10. It uses the ordinary rest owner's recovery
+and the session's one clock. `OpenEnroth/src/GUI/UI/Houses/Training.cpp:75-88` supplies the duration and
+`OpenEnroth/src/Engine/Engine.cpp:1447-1450` the next-dawn rule. This game's task deliberately charges only the first
+step of a visit; the donor charges each new maximum per-member count of levels gained during the visit.
+The imported live reading remains pending. This game's skills are landed beside it: `MightAndMagic7Skills` reads the shipped
 table's 37 rows into the four blocks the manual states — 34 usable, with Blaster, Diplomacy, and Thievery
 reported as the rows this game does not use — and answers the ceiling a class and rank impose from its own
 transcription of the donor's per-class mastery matrix, its authored level bands over the donor's own rung

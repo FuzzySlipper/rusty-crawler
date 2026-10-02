@@ -180,7 +180,7 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
             RestKind.Rest,
             string.Create(
                 CultureInfo.InvariantCulture,
-                $"The party sleeps in a room for {Describe(advance.Elapsed)}, to {Describe(advance.To)}. {Recovery(restored, left)} The room's price covered the night's board."),
+                $"The party sleeps for {Describe(advance.Elapsed)}, to {Describe(advance.To)}. {Recovery(restored, left)} The service's price covered the rest's board."),
             advance,
             Provisions.None,
             covered: 0,

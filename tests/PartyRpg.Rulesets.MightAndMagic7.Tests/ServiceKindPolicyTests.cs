@@ -1,4 +1,5 @@
 using System.Text.Json;
+using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Sessions;
@@ -245,6 +246,74 @@ public sealed class ServiceKindPolicyTests
         Assert.Equal(MightAndMagic7Services.UncappedTraining, open.Limit);
         Assert.True(uncapped.Transact(new ServiceCommand(ServiceOperationKind.Train, Member: 0)).IsApplied);
         Assert.Equal(6, member.Progression.Level);
+    }
+
+    [Fact]
+    public void Training_rests_once_per_visit_on_the_same_clock_and_canonical_recovery()
+    {
+        using Fixture fixture = Fixture.Build();
+        PartyServices hall = fixture.Open("89");
+        PartyMember member = fixture.Party.Members[0];
+        fixture.Progression.Award(new PartyExperienceAward("test", 100_000));
+        fixture.Clock.Advance(GameDuration.FromMinutes(30) + GameDuration.FromSeconds(17));
+        member.Resources.TakeDamage(10);
+        Assert.True(member.Resources.TrySpendSpellPoints(10));
+        foreach (ConditionId condition in MightAndMagic7Conditions.RestClears)
+            member.Conditions.Apply(new ActiveCondition(condition));
+        RunningSpellEffects running = new(fixture.Party, fixture.Clock);
+        fixture.Clock.Observe(running);
+        EffectId ward = new("ward:training-test");
+        running.Start(ward, 1, GameDuration.FromHours(2));
+        long before = fixture.Clock.Elapsed.Milliseconds;
+        Assert.True(hall.Transact(new ServiceCommand(ServiceOperationKind.Train, Member: 0)).IsApplied);
+        Assert.Equal(GameDuration.FromHours(192).Milliseconds - GameDuration.FromMinutes(30).Milliseconds - GameDuration.FromSeconds(17).Milliseconds,
+            fixture.Clock.Elapsed.Milliseconds - before);
+        Assert.Equal(new GameDate(1168, 1, 9, 9), fixture.Clock.Now);
+        Assert.All(MightAndMagic7Conditions.RestClears, condition => Assert.False(member.Conditions.Has(condition)));
+        Assert.Equal(member.Resources.HitPoints.Maximum, member.Resources.HitPoints.Current);
+        Assert.Equal(member.Resources.SpellPoints.Maximum, member.Resources.SpellPoints.Current);
+        Assert.False(running.IsRunning(ward));
+        Assert.Equal(2, fixture.Party.Food.Portions);
+        before = fixture.Clock.Elapsed.Milliseconds;
+        Assert.True(hall.Transact(new ServiceCommand(ServiceOperationKind.Train, Member: 0)).IsApplied);
+        Assert.Equal(before, fixture.Clock.Elapsed.Milliseconds);
+        hall.Close();
+        fixture.Open("89");
+        Assert.True(hall.Transact(new ServiceCommand(ServiceOperationKind.Train, Member: 0)).IsApplied);
+        Assert.Equal(GameDuration.FromHours(192).Milliseconds, fixture.Clock.Elapsed.Milliseconds - before);
+    }
+
+    [Theory]
+    [InlineData(5, 196)]
+    [InlineData(8, 208)]
+    [InlineData(10, 208)]
+    public void Training_at_dawn_keeps_subsecond_time_and_only_the_two_deep_halls_add_twelve_hours(int map, int hours)
+    {
+        using Fixture fixture = Fixture.Build(deepHallMap: map);
+        PartyServices hall = fixture.Open("99");
+        ServiceDefinition definition = hall.Current!;
+        fixture.Progression.Award(new PartyExperienceAward("test", 100_000));
+        fixture.Clock.Advance(GameDuration.FromHours(20) + GameDuration.FromMilliseconds(500));
+        hall.Open(definition with { Hours = null });
+        long before = fixture.Clock.Elapsed.Milliseconds;
+        Assert.True(hall.Transact(new ServiceCommand(ServiceOperationKind.Train, Member: 0)).IsApplied);
+        Assert.Equal(GameDuration.FromHours(hours).Milliseconds - 500, fixture.Clock.Elapsed.Milliseconds - before);
+        Assert.Equal(0, fixture.Clock.Now.Second);
+    }
+
+    [Fact]
+    public void Training_without_clock_refuses_before_fee_or_growth()
+    {
+        using Fixture fixture = Fixture.Build();
+        fixture.Progression.Award(new PartyExperienceAward("test", 100_000));
+        ServiceDefinition definition = fixture.Open("89").Current!;
+        PartyServices noClock = new(fixture.Rule, fixture.Party, new PartyResourceLedger(fixture.Party), progression: fixture.Progression);
+        // Remove hours to test the training-owned clock requirement, independently of opening hours.
+        Assert.True(noClock.Open(definition with { Hours = null }).IsApplied);
+        int coins = fixture.Party.Purse.Coins;
+        Assert.Equal(RestCodes.RestNoClock, noClock.Transact(new ServiceCommand(ServiceOperationKind.Train, Member: 0)).Code);
+        Assert.Equal(coins, fixture.Party.Purse.Coins);
+        Assert.Equal(1, fixture.Party.Members[0].Progression.Level);
     }
 
     [Fact]
@@ -588,12 +657,12 @@ public sealed class ServiceKindPolicyTests
         /// How many days a coach journey takes, as a tuning pack beside the same content states it; null for
         /// this game's default, with no tuning pack at all.
         /// </param>
-        internal static Fixture Build(int? coachDays = null)
+        internal static Fixture Build(int? coachDays = null, int deepHallMap = 10)
         {
             PolicyContentSource source = new PolicyContentSource()
                 .Add("packs/world/pack.json", TestPacks.Manifest("world", ("places", "place"), ("services", "service"), ("items", "item"), ("spells", "spell"), ("skills", "skill"), ("monsters", "monster"), ("roads", "travel-link")))
                 .Add("packs/world/places.json", Places())
-                .Add("packs/world/services.json", Services_())
+                .Add("packs/world/services.json", Services_().Replace("\"mapId\": 10, \"openHour\": 6", $"\"mapId\": {deepHallMap}, \"openHour\": 6"))
                 .Add("packs/world/items.json", Items())
                 .Add("packs/world/spells.json", Spells())
                 .Add("packs/world/skills.json", Skills())

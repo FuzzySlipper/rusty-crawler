@@ -147,7 +147,7 @@ world it steps (`SessionWorld`), the one clock it advances by the admitted inter
 holds and publishes — with the clock's own schedule (`OpeningHours`, `PlaceSchedule`: which hours a place
 keeps and when that next changes, read against the clock's position rather than counted in a step) and the
 stops a party takes on it (`PartyRest`, `FatigueWatch`, `IRestRule`, `IRestSite`: rest, camp, wait, and the
-night a rented room gives (`PartyRest.SleepInRoom`, which is the only other way to sleep and is the same sleep),
+rest a service provides (`PartyRest.SleepInRoom`, used by rooms and a training visit and sharing the same sleep),
 each advancing the one clock by a game-time period, settling the day through the party's own ledger, and
 holding the debt of sleep as a deadline the clock brings due; a completed night asks `IRestRule.Unrestored`
 which members may benefit, fills and clears only those members, then asks `IRestRule.Rested` what each keeps;
@@ -212,7 +212,9 @@ worthless death a game still counts — reaches the world's opinion by, through 
 one named member experience or skill points outright — a well's gift rather than an earned award, so nothing is
 divided and standing does not move — `Train` is what a counter's step settles through — the fee charged by
 the party's one ledger, the level's pools grown by the ruleset's class and rank tables, the points granted,
-and both pools filled — and `RaiseSkill` is the only way a skill point is spent: it asks the skill policy
+and both pools filled — a training offer may also include a `RestPeriod`, charged only on the first
+successful step of its `ServiceVisit` through `PartyRest.SleepInRoom`, whose rules decide recovery and
+whose one clock informs every time owner; leaving and returning resets that transient visit — and `RaiseSkill` is the only way a skill point is spent: it asks the skill policy
 for the price of the levels and the ceiling the member's class and rank impose, refuses past that ceiling
 with the limit named or with what the pool is short, and charges the pool and raises the skill together, so
 a raise that failed leaves the character exactly where they stood — with `Plan` publishing the same answer

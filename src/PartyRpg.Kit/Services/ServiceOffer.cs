@@ -92,6 +92,7 @@ public enum ServiceOfferKind
 /// The conditions a cure leaves on the patient once it has ended what it claims — a counter whose healing stands
 /// the dead back up as something they were not — or null when it leaves nothing.
 /// </param>
+/// <param name="RestPeriod">The rest a training visit buys on its first successful step; none when it includes no rest.</param>
 /// <exception cref="ArgumentException">The name or a subject is blank, which offers nothing.</exception>
 /// <exception cref="ArgumentOutOfRangeException">The value or the amount is negative.</exception>
 public sealed record ServiceOffer(
@@ -103,7 +104,8 @@ public sealed record ServiceOffer(
     int Limit = 0,
     IReadOnlyList<ConditionId>? Clears = null,
     string Route = "",
-    IReadOnlyList<ConditionId>? Leaves = null)
+    IReadOnlyList<ConditionId>? Leaves = null,
+    GameDuration RestPeriod = default)
 {
     /// <summary>The conditions this offer ends, which is empty when it ends none.</summary>
     public IReadOnlyList<ConditionId> Conditions => Clears ?? [];

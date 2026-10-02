@@ -668,7 +668,8 @@ internal sealed class MightAndMagic7Services : IServiceRule
                 "Training",
                 Value: 0,
                 Amount: 1,
-                Limit: facts.TrainingCap > 0 ? facts.TrainingCap : UncappedTraining));
+                Limit: facts.TrainingCap > 0 ? facts.TrainingCap : UncappedTraining,
+                RestPeriod: TrainingRest(request.Clock, facts.MapId)));
         }
         else if (string.Equals(service.Kind.Value, MightAndMagic7ServiceKinds.Tavern, StringComparison.Ordinal))
         {
@@ -1176,6 +1177,24 @@ internal sealed class MightAndMagic7Services : IServiceRule
         int classTier = Math.Max(1, member.Progression.ClassRank);
         int basePrice = (int)Math.Min(int.MaxValue, (double)level * request.Service.PriceMultiplier * classTier);
         return Charge(merchant, basePrice);
+    }
+
+    /// <summary>The first training step's week, next dawn and four hours, with twelve more at the two deep halls.</summary>
+    /// <remarks>
+    /// OpenEnroth src/GUI/UI/Houses/Training.cpp:75-88 and src/Engine/Engine.cpp:1447-1450.
+    /// This game's task charges only the first successful step of a visit; the donor charges each new
+    /// maximum number of level gains among the members. The duration remains the donor's own.
+    /// </remarks>
+    private static GameDuration TrainingRest(GameClock? clock, int mapId)
+    {
+        GameDate at = clock?.Now ?? MightAndMagic7Time.Start;
+        long day = 24 * GameDuration.SecondsPerHour * GameDuration.MillisecondsPerSecond;
+        long now = ((at.Hour * GameDuration.SecondsPerHour) + (at.Minute * GameDuration.SecondsPerMinute) + at.Second)
+            * GameDuration.MillisecondsPerSecond + (clock?.Elapsed.Milliseconds ?? 0) % GameDuration.MillisecondsPerSecond;
+        long dawn = MightAndMagic7Time.Daylight.Dawn.Hour * GameDuration.SecondsPerHour * GameDuration.MillisecondsPerSecond;
+        long until = (dawn - now + day) % day;
+        if (until == 0) until = day;
+        return GameDuration.FromMilliseconds(until) + GameDuration.FromHours(7 * 24 + 4 + (mapId is 8 or 10 ? 12 : 0));
     }
 
     /// <summary>What filling the party's packs costs, as the donor prices a tavern's food.</summary>

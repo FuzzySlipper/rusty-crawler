@@ -21,6 +21,9 @@ public sealed class ServiceVisit
     /// <summary>The amount being quoted for this visit's holding operations; choosing it moves no resources.</summary>
     public int Amount { get; internal set; } = 1;
 
+    /// <summary>Whether this visit has settled a training step, reset by leaving and returning.</summary>
+    internal bool HasTrained { get; set; }
+
     /// <summary>The shelves this service keeps, which are the service's own rather than the visit's.</summary>
     internal ServiceShelf Shelf { get; }
 
