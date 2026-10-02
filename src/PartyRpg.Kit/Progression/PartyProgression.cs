@@ -218,16 +218,21 @@ public sealed class PartyProgression
     /// it paid.
     /// </para>
     /// <para>
+    /// A deed may carry a figure of its own, which is not experience: a game's scripted program that states how far
+    /// it moves the world's opinion names the figure, and the rule reads it under the deed's word like any other.
+    /// </para>
+    /// <para>
     /// A deed the rule makes nothing of is still reported: the world simply did not care, which is an answer.
     /// </para>
     /// </remarks>
     /// <param name="source">The word the deed is credited as, which is what the standing rule reads.</param>
+    /// <param name="figure">A figure the deed states for the rule to read, or zero when it states none.</param>
     /// <returns>What the deed did to the party's standing.</returns>
     /// <exception cref="ArgumentException">The source is blank, which names no deed.</exception>
-    public ProgressionDeedResult Deed(string source)
+    public ProgressionDeedResult Deed(string source, long figure = 0)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(source);
-        ProgressionStanding standing = ApplyStanding(ProgressionEventKind.Deed, source, 0);
+        ProgressionStanding standing = ApplyStanding(ProgressionEventKind.Deed, source, figure);
         ProgressionDeedResult result = new(source, standing);
         LastDeed = result;
         Stamp = ChangeStamp.Next();

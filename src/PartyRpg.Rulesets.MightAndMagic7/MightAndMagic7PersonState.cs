@@ -4,8 +4,9 @@ using PartyRpg.Kit.Party;
 namespace PartyRpg.Rulesets.MightAndMagic7;
 
 /// <summary>
-/// What the game's own events have changed about a person — the house they live in, and the greeting row they greet
-/// the party with — as records the party carries: the one writer's names for them and the conversation's one reading.
+/// What the game's own events have changed about a person — the house they live in, the greeting row they greet the
+/// party with, and the items they were given to carry — as records the party carries: the one writer's names for them
+/// and the one reading of each.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -18,7 +19,16 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// donor saves its people table per game, so the reading is the same for a one-party game.
 /// </para>
 /// <para>
-/// <b>Only the latest change stands.</b> The writer takes every earlier change of the same kind for the person off the
+/// <b>What a person carries.</b> A <c>npc-set-item</c> step gives an item to every creature standing for a person, or
+/// takes it from them (OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:538-539</c>, <c>src/Engine/Objects/Actor.cpp:139-165</c>),
+/// and what a person carries is what a thief lifts first (<c>src/Engine/Objects/Character.cpp:1254-1260</c>) and what
+/// their body gives up (<c>src/Engine/Objects/Actor.cpp:3519-3529</c>): <see cref="MightAndMagic7Theft"/> and
+/// <see cref="MightAndMagic7Corpses"/> read it here. <b>Ours</b>: the donor's person holds three such items at most and
+/// starts with the one their map record names; the packs carry no record's item, so a person carries only what an event
+/// gave them, a take of anything else changes nothing, and the three are not counted.
+/// </para>
+/// <para>
+/// <b>Of a house and a greeting, only the latest change stands.</b> The writer takes every earlier change of the same kind for the person off the
 /// record before it marks the new one, so a person always lives in one house and greets with one row. House zero is the
 /// donor's "in no house"; a house no placement of the world holds is a person nobody can find, as the donor's is.
 /// </para>
@@ -30,6 +40,9 @@ internal static class MightAndMagic7PersonState
 
     /// <summary>The prefix the record of a person's greeting row carries.</summary>
     internal const string GreetingPrefix = "person-greeting:";
+
+    /// <summary>The prefix the record of an item an event gave a person carries.</summary>
+    internal const string ItemPrefix = "person-item:";
 
     /// <summary>The name of the record that says a person lives in a house.</summary>
     /// <param name="person">The person's identity in content.</param>
@@ -62,6 +75,41 @@ internal static class MightAndMagic7PersonState
         {
             if (Parse(record.Name, HousePrefix) is { } moved) yield return moved;
         }
+    }
+
+    /// <summary>The items events gave a person to carry and nothing has taken since, in the order they were given.</summary>
+    /// <param name="records">The party's records.</param>
+    /// <param name="person">The person's identity in content.</param>
+    internal static IReadOnlyList<int> Carried(PartyRecords records, string person)
+    {
+        ArgumentNullException.ThrowIfNull(records);
+        List<int> items = [];
+        foreach (PartyRecord record in records.All)
+        {
+            if (Parse(record.Name, ItemPrefix) is { } held && string.Equals(held.Person, person, StringComparison.Ordinal)) items.Add(held.Number);
+        }
+
+        return items;
+    }
+
+    /// <summary>Gives a person an item to carry, once.</summary>
+    /// <param name="records">The party's records.</param>
+    /// <param name="person">The person's identity in content.</param>
+    /// <param name="item">The item's row.</param>
+    internal static void Give(PartyRecords records, string person, int item)
+    {
+        ArgumentNullException.ThrowIfNull(records);
+        records.Mark(string.Create(CultureInfo.InvariantCulture, $"{ItemPrefix}{person}:{item}"));
+    }
+
+    /// <summary>Takes an item from a person, when an event gave it to them; answers whether they carried it.</summary>
+    /// <param name="records">The party's records.</param>
+    /// <param name="person">The person's identity in content.</param>
+    /// <param name="item">The item's row.</param>
+    internal static bool Take(PartyRecords records, string person, int item)
+    {
+        ArgumentNullException.ThrowIfNull(records);
+        return records.Remove(string.Create(CultureInfo.InvariantCulture, $"{ItemPrefix}{person}:{item}"));
     }
 
     /// <summary>Moves a person to a house, taking every earlier move of theirs off the record.</summary>
@@ -98,10 +146,12 @@ internal static class MightAndMagic7PersonState
         ArgumentNullException.ThrowIfNull(greeting);
         string? prefix = name.StartsWith(HousePrefix, StringComparison.Ordinal) ? HousePrefix
             : name.StartsWith(GreetingPrefix, StringComparison.Ordinal) ? GreetingPrefix
+            : name.StartsWith(ItemPrefix, StringComparison.Ordinal) ? ItemPrefix
             : null;
         if (prefix is null) return null;
         if (Parse(name, prefix) is not { } changed) return $"a changed person is named '{prefix}<person>:<number>'";
         if (!person(changed.Person)) return $"the content carries no person '{changed.Person}'";
+        if (prefix == ItemPrefix && changed.Number == 0) return "an item a person carries is a row of the item table, which zero is not";
         if (prefix == GreetingPrefix && changed.Number != 0 && !greeting(changed.Number))
         {
             return string.Create(CultureInfo.InvariantCulture, $"the content's greeting table has no row {changed.Number}");

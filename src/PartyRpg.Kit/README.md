@@ -266,7 +266,9 @@ engine events into session commands, the population owner that fills a place fro
 empties it on leaving (a placement that states a request rather than an answer — an encounter asking for some
 creatures of a kind — is resolved by the game's `IPlacementExpansion` while the placements are read, and what it
 answers stands in its stead for every reader; the game must answer the same on every read, which is why it
-draws under a key naming the place and the placement; something a game creates while the party stands there — a
+draws under a key naming the place and the placement; whether each of what a place holds stands this visit is
+asked of the same seam every time the place is populated, `IPlacementExpansion.Stands`, so what a game keeps for the
+place — a group its events hid — can hold a placement off the field; something a game creates while the party stands there — a
 creature a spell calls up or stands back up — is created by the same owner, `PlacePopulation.Summon`, from a
 placement the game states, in the same store and through the same composer, marked `IsSummoned`, ended by
 `Dismiss`, by a length the one clock counts down through `SessionWorld`'s own clock observation (`Elapse`), or

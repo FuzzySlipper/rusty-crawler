@@ -312,6 +312,27 @@ public readonly record struct EvtInstruction(ushort EventId, byte Step, byte Opc
         return true;
     }
 
+    /// <summary>Reads which person an item step gives an item to or takes one from, when this instruction is one.</summary>
+    /// <remarks>
+    /// A 32-bit person id, a 32-bit item id, and one byte, non-zero to give (OpenEnroth
+    /// <c>src/Engine/Evt/EvtInstruction.cpp:1157-1162</c>).
+    /// </remarks>
+    /// <param name="person">The person's id.</param>
+    /// <param name="item">The item's id.</param>
+    /// <param name="give">Whether the item is given to the person rather than taken from them.</param>
+    public bool TryReadNpcSetItem(out int person, out int item, out bool give)
+    {
+        person = 0;
+        item = 0;
+        give = false;
+        if (Opcode != EvtOpcodes.NpcSetItem || Operands.Length < 9) return false;
+        ReadOnlySpan<byte> operands = Operands.Span;
+        person = BinaryPrimitives.ReadInt32LittleEndian(operands);
+        item = BinaryPrimitives.ReadInt32LittleEndian(operands[4..]);
+        give = operands[8] != 0;
+        return true;
+    }
+
     /// <summary>Reads which person a move step moves and to which house, when this instruction is one.</summary>
     /// <remarks>A 32-bit person id and a 32-bit house id, zero for none (OpenEnroth <c>src/Engine/Evt/EvtInstruction.cpp:1113-1117</c>).</remarks>
     /// <param name="person">The person's id.</param>

@@ -264,6 +264,34 @@ public sealed class PlacePopulationTests
         Assert.Contains("placement-identity-reused", string.Join(",", reused.Issues.Select(issue => issue.Code)));
     }
 
+    [Fact]
+    public void A_placement_the_game_holds_off_the_field_is_not_created_until_the_game_stands_it_again()
+    {
+        (PlaceGraph graph, PlaceStateLedger ledger) = World();
+        Holding expansion = new();
+        using PlacePopulation population = new(graph, ledger, composer: null, expansion);
+
+        // What the place holds is read once; whether each of it stands is asked every time the place is populated,
+        // so the game's own kept state decides each visit and the placements a reader sees do not change.
+        expansion.Held.Add(new PlacementContentId("door", "door-0"));
+        Assert.DoesNotContain(population.Step(Home, []), entity => entity.Content.Kind == "door");
+        Assert.Contains(population.PlacementsOf(Home), placement => placement.Content.Kind == "door");
+
+        expansion.Held.Clear();
+        population.Step(Cave, []);
+        Assert.Contains(population.Step(Home, []), entity => entity.Content.Kind == "door");
+    }
+
+    /// <summary>A game that holds the placements it names off the field, and resolves nothing.</summary>
+    private sealed class Holding : IPlacementExpansion
+    {
+        internal HashSet<PlacementContentId> Held { get; } = [];
+
+        public IReadOnlyList<PlacementDefinition>? Expand(PlaceId place, PlacementDefinition placement) => null;
+
+        public bool Stands(PlaceId place, PlacementDefinition placement) => !Held.Contains(placement.Content);
+    }
+
     /// <summary>A game's expansion: every spawn mark stands as two placements a unit apart, and nothing else changes.</summary>
     private sealed class SpawnPairs : IPlacementExpansion
     {

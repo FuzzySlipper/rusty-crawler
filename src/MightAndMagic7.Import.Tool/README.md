@@ -42,5 +42,5 @@ the topic table carries 446 rows; the `fixtures` block's `houseEvents` (47) are 
 runs, and the greeting table carries 205 rows. `verify` checks these counts. Packs written before the global program was carried
 offer only the topics the table gives text to and run none of them, and packs written before the houses' own events and
 the greeting table were carried open every house without running its event, so they must be rewritten; packs
-written before a `class` step named its class (`which`) cannot have a promoter's topic raise a rank, so they must be
-rewritten too.
+written before a `class` step named its class (`which`) cannot have a promoter's topic raise a rank, and packs written
+before an `npc-set-item` step carried its person and item refuse it, so they must be rewritten too.

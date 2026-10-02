@@ -727,6 +727,8 @@ public static class PlaceFixtureEmitter
 
         if (instruction.TryReadNpcGreeting(out int greeted, out int greeting)) return step with { Person = greeted, Greeting = greeting };
 
+        if (instruction.TryReadNpcSetItem(out int holder, out int held, out bool given)) return step with { Person = holder, Item = held, On = given };
+
         if (instruction.TryReadCanShow(out bool shows)) return step with { On = shows };
 
         if (instruction.TryReadNpcTopic(out NpcTopicInstruction topic))

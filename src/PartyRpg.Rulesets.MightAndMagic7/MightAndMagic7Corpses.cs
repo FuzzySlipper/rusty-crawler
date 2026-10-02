@@ -51,14 +51,17 @@ internal sealed class MightAndMagic7Corpses : ICreatureDeathObserver, ICorpseSou
     private readonly CorpseGround _ground;
     private readonly MightAndMagic7Loot _loot;
     private readonly Func<SessionWorld?> _world;
+    private readonly Func<PartyEntity?> _party;
 
     /// <summary>Creates this game's corpse answers over the ground the fight reports to.</summary>
     /// <param name="ground">What the fight's readings are kept in, which is also what holds what a death left.</param>
     /// <param name="loot">This game's loot, which generation is asked of.</param>
     /// <param name="world">The live world, whose mover says what ground a body fell on; null for none.</param>
+    /// <param name="party">The party, whose records keep what events gave a person to carry; null for none.</param>
     /// <exception cref="ArgumentNullException">No ground or no loot was supplied.</exception>
-    internal MightAndMagic7Corpses(CorpseGround ground, MightAndMagic7Loot loot, Func<SessionWorld?>? world = null)
+    internal MightAndMagic7Corpses(CorpseGround ground, MightAndMagic7Loot loot, Func<SessionWorld?>? world = null, Func<PartyEntity?>? party = null)
     {
+        _party = party ?? (() => null);
         _ground = ground ?? throw new ArgumentNullException(nameof(ground));
         _loot = loot ?? throw new ArgumentNullException(nameof(loot));
         _world = world ?? (() => null);
@@ -70,14 +73,35 @@ internal sealed class MightAndMagic7Corpses : ICreatureDeathObserver, ICorpseSou
     /// <inheritdoc />
     /// <remarks>
     /// A death is reported once, so what it left is rolled once, here, under a key that names that death. Without
-    /// a random service nothing can be drawn, and the body holds nothing: that is a product that cannot generate
-    /// loot rather than a body whose loot is a promise to roll later.
+    /// a random service nothing can be drawn, and the body holds nothing it would have drawn: that is a product that
+    /// cannot generate loot rather than a body whose loot is a promise to roll later. What an event gave a fallen person
+    /// to carry is no draw, so it is on the body either way.
     /// </remarks>
     public void Died(CreatureDeath death)
     {
         if (Sinks(death)) return;
         Corpse body = _ground.Lay(death);
-        if (_loot.RollsFor(Key(body)) is { } rolls) _ground.Hold(body, _loot.Death(body.Body, rolls));
+        KeyedRolls? rolls = _loot.RollsFor(Key(body));
+        LootYield left = rolls is null ? LootYield.Nothing : _loot.Death(body.Body, rolls);
+
+        // A person who fell gives up what events gave them to carry beside what their row leaves (OpenEnroth
+        // src/Engine/Objects/Actor.cpp:3519-3529), and carries it no longer.
+        if (_party() is { } party)
+        {
+            List<LootItem> carried = [];
+            foreach (string person in MightAndMagic7Conversation.PeopleOf(body.Body))
+            {
+                foreach (int item in MightAndMagic7PersonState.Carried(party.Records, person))
+                {
+                    carried.Add(new LootItem(new ItemDefinitionId(item.ToString(CultureInfo.InvariantCulture))));
+                    MightAndMagic7PersonState.Take(party.Records, person, item);
+                }
+            }
+
+            if (carried.Count > 0) left = left with { Items = [.. carried, .. left.Items] };
+        }
+
+        if (rolls is not null || !left.IsEmpty) _ground.Hold(body, left);
     }
 
     /// <summary>Whether a death lies on water in a place open to the sky, which leaves no body to search.</summary>

@@ -194,7 +194,7 @@ public sealed class PromoterTopicTests
             .Where(id => id.StartsWith(MightAndMagic7Conversation.TopicIdPrefix, StringComparison.Ordinal) || id == $"{MightAndMagic7Identities.PromotionTopicPrefix}thief-rogue")];
     }
 
-    private static InteractionOutcome Answer(IInteractionRule rule, PartyEntity party, string raised, PlacementDefinition? placement = null, GameClock? clock = null)
+    internal static InteractionOutcome Answer(IInteractionRule rule, PartyEntity party, string raised, PlacementDefinition? placement = null, GameClock? clock = null)
     {
         PlacementDefinition at = placement ?? Standing("npc-15");
         InteractionTargetDefinition target = rule.Describe(new InteractionTargetRequest(new PlaceId("2"), at, string.Empty) { Raised = raised })!;
@@ -209,7 +209,7 @@ public sealed class PromoterTopicTests
         return outcome;
     }
 
-    private static PlacementDefinition Standing(string person)
+    internal static PlacementDefinition Standing(string person)
     {
         string json = string.Create(
             CultureInfo.InvariantCulture,
@@ -217,7 +217,7 @@ public sealed class PromoterTopicTests
         return new PlacementDefinition(new PlacementContentId("person", "person-0"), "placements", 0, PlacePose.Origin, new ContentEntry("person-0", JsonDocument.Parse(json).RootElement));
     }
 
-    private static PartyEntity Party(params (string Name, string Class, int Rank)[] members) =>
+    internal static PartyEntity Party(params (string Name, string Class, int Rank)[] members) =>
         new PartyEntityFactory().Create(new PartyCreation(
             [.. members.Select(member => new MemberCreation(new PartyMemberSeed(
                 member.Name,
@@ -239,7 +239,7 @@ public sealed class PromoterTopicTests
             fame: 0));
 
     /// <summary>A catalog of the given global events, staged as the importer writes them.</summary>
-    private static ContentCatalog Catalog(params string[] globalEvents)
+    internal static ContentCatalog Catalog(params string[] globalEvents)
     {
         (ProductCreateContext context, _) = RulesetTestContext.Create(
             RulesetTestContext.Bundle("partyrpg-default", "events"),

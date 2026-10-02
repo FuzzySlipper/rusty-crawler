@@ -51,9 +51,13 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// when a place respawns (<c>Indoor.cpp:310-319</c>), so it is what a first visit and every restore hold. Such a
 /// placement stands as exactly one creature, at the record's point and facing, keeping the actor array's own field
 /// and index — the number a map event counting one creature's dead names it by (<c>Actor.cpp:2811-2834</c>) — and
-/// draws nothing. A record the level holds hidden (<c>"hidden": true</c>, the donor's <c>Disabled</c> state) stands
-/// as nothing: the donor neither shows nor runs it until something clears its bit (<c>Actor.cpp:124-136</c>), and no
-/// shipped event step does.
+/// draws nothing. A record the level holds hidden (<c>"hidden": true</c>, the donor's <c>Disabled</c> state) does not
+/// stand: the donor neither shows nor runs it until something clears its bit (<c>Actor.cpp:124-136</c>), which an
+/// event does for a whole group (<see cref="MightAndMagic7Fixtures.HiddenFlag"/>). So a hidden record of no group stands
+/// as nothing at all, and every creature of a group — a record's, an encounter's — stands or not by what the place
+/// keeps for its group when the place is populated (<see cref="Stands"/>): hidden while the place's events left the
+/// group hidden, standing while they left it shown, and otherwise as its record says. No shipped hidden record has a
+/// group, so none of them is ever shown.
 /// </para>
 /// <para>
 /// <b>A product that cannot draw resolves only what needs no draw.</b> Without the engine's random service a
@@ -98,10 +102,15 @@ internal sealed class MightAndMagic7Spawns : IPlacementExpansion
     ];
 
     private readonly IRandomService? _random;
+    private readonly Func<PlaceId, IReadOnlyDictionary<string, long>?> _kept;
     private readonly Dictionary<(PlaceId Place, string Placement), IReadOnlyList<PlacementDefinition>> _resolved = [];
     private readonly List<string> _unresolved = [];
 
-    private MightAndMagic7Spawns(IRandomService? random) => _random = random;
+    private MightAndMagic7Spawns(IRandomService? random, Func<PlaceId, IReadOnlyDictionary<string, long>?>? kept)
+    {
+        _random = random;
+        _kept = kept ?? (_ => null);
+    }
 
     /// <summary>What resolving has left unplaced, one sentence per encounter, for a report.</summary>
     internal IReadOnlyList<string> Unresolved => _unresolved;
@@ -109,16 +118,38 @@ internal sealed class MightAndMagic7Spawns : IPlacementExpansion
     /// <summary>Composes this game's spawn answers over the content the product loaded.</summary>
     /// <param name="catalog">The validated content, when the product loaded any.</param>
     /// <param name="random">The engine's keyed random service, or null when the product has no engine.</param>
+    /// <param name="kept">
+    /// The values the world keeps for a place, which say whether its events hid a group or showed one again; read
+    /// through a call because the world is composed after this, and absent where nothing keeps them.
+    /// </param>
     /// <returns>The answers.</returns>
     /// <exception cref="ContentValidationException">
     /// An encounter names a variant row the monster table does not carry, or a grade that is not one of the three;
     /// every problem is named.
     /// </exception>
-    internal static MightAndMagic7Spawns Compose(ContentCatalog? catalog, IRandomService? random)
+    internal static MightAndMagic7Spawns Compose(ContentCatalog? catalog, IRandomService? random, Func<PlaceId, IReadOnlyDictionary<string, long>?>? kept = null)
     {
         if (catalog is not null) Validate(catalog);
-        return new MightAndMagic7Spawns(random);
+        return new MightAndMagic7Spawns(random, kept);
     }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// A creature of a group the place's events hid does not stand, one of a group they showed again does, and any other
+    /// stands unless its record is one the level holds hidden.
+    /// </remarks>
+    public bool Stands(PlaceId place, PlacementDefinition placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+        if (!string.Equals(placement.Content.Kind, MightAndMagic7Combat.CreaturePlacementKind, StringComparison.Ordinal)) return true;
+        if (_kept(place) is { } values && MightAndMagic7Fixtures.IsGroupHidden(values, GroupOf(placement)) is { } hidden) return !hidden;
+        return !Hidden(placement.Source.Payload);
+    }
+
+    /// <summary>The group a placement's creature belongs to, zero for none.</summary>
+    /// <param name="placement">The placement.</param>
+    internal static int GroupOf(PlacementDefinition placement) =>
+        placement.Source.GetInt32(MightAndMagic7MonsterAi.GroupField) ?? 0;
 
     /// <inheritdoc />
     public IReadOnlyList<PlacementDefinition>? Expand(PlaceId place, PlacementDefinition placement)
@@ -129,7 +160,10 @@ internal sealed class MightAndMagic7Spawns : IPlacementExpansion
         return Resolve(place, placement.Content.Id, placement.Source.Payload);
     }
 
-    /// <summary>The creature a level's own actor record stands as: itself, or nothing when the level holds it hidden.</summary>
+    /// <summary>
+    /// The creature a level's own actor record stands as: itself — carrying its hidden mark, which <see cref="Stands"/>
+    /// reads — or nothing when the level holds it hidden in no group, which nothing can show.
+    /// </summary>
     /// <remarks>
     /// The record is the answer rather than a request, so nothing is drawn and nothing is remembered: the same
     /// content stands the same creature on every read. It keeps the record's field and index, so a count of one
@@ -140,7 +174,7 @@ internal sealed class MightAndMagic7Spawns : IPlacementExpansion
     /// <returns>The one creature placement, or none for a hidden record.</returns>
     internal static IReadOnlyList<PlacementDefinition> Stand(JsonElement actor)
     {
-        if (Hidden(actor)) return [];
+        if (Hidden(actor) && (ContentEntry.ReadDouble(actor, MightAndMagic7MonsterAi.GroupField) ?? 0) == 0) return [];
         string index = ContentEntry.ReadId(actor, "sourceIndex");
         string id = $"monster-actor-{index}";
         using MemoryStream buffer = new();

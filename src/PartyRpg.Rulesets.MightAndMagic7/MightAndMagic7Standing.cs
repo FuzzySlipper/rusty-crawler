@@ -209,11 +209,56 @@ internal sealed class MightAndMagic7Standing : IStandingRule
                 return MightAndMagic7Theft.TakenReputation;
             case MightAndMagic7Theft.PickpocketSource:
                 return MightAndMagic7Theft.PickpocketReputation;
+            case EventStepSource when request.Event == ProgressionEventKind.Deed:
+                // An event step states how far it moves the opinion (AfterEventStep), and that is the move.
+                return (int)Math.Clamp(request.Amount, int.MinValue, int.MaxValue);
         }
 
         if (request.Event != ProgressionEventKind.Award || !string.Equals(request.Source, PartyQuests.QuestSource, StringComparison.Ordinal)) return 0;
         return (int)Math.Max(1, request.Amount / ExperiencePerPoint);
     }
+
+    /// <summary>The word a map event's step that writes the reputation is credited as, a deed whose figure is the move.</summary>
+    internal const string EventStepSource = "event-step";
+
+    /// <summary>How far an event step may push a reputation either way, which is the donor's own bound.</summary>
+    internal const int EventStepLimit = 10000;
+
+    /// <summary>The reputation an event step that writes the place's reputation leaves the party at.</summary>
+    /// <remarks>
+    /// <para>
+    /// An event's figure is the donor's reputation of the place the party stands in, which the donor keeps
+    /// sign-flipped — a lower figure is a better one (<c>LocationInfo.h:7</c>) — and an addition, subtraction or set
+    /// of it stays within ten thousand either way (OpenEnroth <c>src/Engine/Objects/Character.cpp:4378-4382</c>,
+    /// <c>:4962-4966</c>, <c>:5654-5658</c>). This game keeps one reputation, a higher one better, so the figure is
+    /// read through that sign: a promoter's "subtract five" when a rank is earned is the party's standing rising five.
+    /// </para>
+    /// <para>
+    /// <b>Ours.</b> The donor writes the place's own figure and this game has one; the bound is applied to every write,
+    /// where the donor bounds each direction only on the write that moves it there.
+    /// </para>
+    /// </remarks>
+    /// <param name="op">The step's instruction: <c>add</c>, <c>subtract</c> or <c>set</c>.</param>
+    /// <param name="figure">The step's figure, in the donor's sign.</param>
+    /// <param name="reputation">The party's reputation before the step, in this game's sign.</param>
+    /// <returns>The party's reputation after it, in this game's sign.</returns>
+    internal static int AfterEventStep(string op, int figure, int reputation)
+    {
+        long donor = -(long)reputation;
+        long after = op switch
+        {
+            "add" => donor + figure,
+            "subtract" => donor - figure,
+            _ => figure,
+        };
+        return (int)-Math.Clamp(after, -EventStepLimit, EventStepLimit);
+    }
+
+    /// <summary>Whether an event step comparing the place's reputation holds: the donor's figure is at least the step's.</summary>
+    /// <remarks>OpenEnroth <c>src/Engine/Objects/Character.cpp:3952-3954</c>, read through the donor's sign (<see cref="AfterEventStep"/>).</remarks>
+    /// <param name="figure">The step's figure, in the donor's sign.</param>
+    /// <param name="reputation">The party's reputation, in this game's sign.</param>
+    internal static bool HoldsEventComparison(int figure, int reputation) => -(long)reputation >= figure;
 
     /// <summary>How much experience one point of the world's opinion is worth, which is the donor's own figure.</summary>
     internal const long ExperiencePerPoint = 1000;

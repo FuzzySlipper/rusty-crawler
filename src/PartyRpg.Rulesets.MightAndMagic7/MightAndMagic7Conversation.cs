@@ -1234,6 +1234,14 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     /// objects carrying an id, and a reader that understood only one of the two would report the other as a
     /// placement with nobody in it.
     /// </remarks>
+    /// <summary>The people a placement stands for, as content names them.</summary>
+    /// <param name="placement">The placement.</param>
+    internal static IReadOnlyList<string> PeopleOf(PlacementDefinition placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+        return PeopleNamed(placement.Source.Payload);
+    }
+
     private static IReadOnlyList<string> PeopleNamed(System.Text.Json.JsonElement placement)
     {
         if (placement.ValueKind != System.Text.Json.JsonValueKind.Object ||

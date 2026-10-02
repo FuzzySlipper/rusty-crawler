@@ -129,7 +129,10 @@ internal sealed class MightAndMagic7Session : IGameSession
         // the quests: which grade each creature is and how many stand on the field are drawn from the engine's
         // keyed random service under the place and the record, and remembered per placement, so the population a
         // world builds and the count an errand takes of "every one in that place" are one resolution.
-        MightAndMagic7Spawns spawns = MightAndMagic7Spawns.Compose(Declared(context.Content), context.Engine?.Random);
+        MightAndMagic7Spawns spawns = MightAndMagic7Spawns.Compose(
+            Declared(context.Content),
+            context.Engine?.Random,
+            place => owners.World is IInteractionWorld world ? world.States.ValuesOf(place) : null);
         MightAndMagic7Quests? quests = MightAndMagic7Quests.Read(Declared(context.Content), promotions, spawns);
         if (quests is not null)
         {
@@ -287,7 +290,7 @@ internal sealed class MightAndMagic7Session : IGameSession
         // mark in the shipped table rather than each keeping its own reading of the rows.
         MightAndMagic7Knowledge knowledge = new(loot);
 
-        MightAndMagic7Corpses corpseAnswers = new(corpses, loot, () => owners.World);
+        MightAndMagic7Corpses corpseAnswers = new(corpses, loot, () => owners.World, () => owners.Party);
 
         // What a death pays the party is composed beside them: the award is the kit's one path, the worth is
         // the monster row's own experience column, and the owner is the one the session composes over
