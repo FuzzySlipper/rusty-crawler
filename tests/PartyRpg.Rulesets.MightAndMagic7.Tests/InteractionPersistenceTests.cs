@@ -42,8 +42,10 @@ public sealed class InteractionPersistenceTests
         Assert.Single(again.Populate());
     }
 
-    [Fact]
-    public void Two_used_targets_resume_in_their_played_states_and_cannot_yield_a_second_use()
+    [Theory]
+    [InlineData("container")]
+    [InlineData("sprite")]
+    public void Two_used_targets_resume_in_their_played_states_and_cannot_yield_a_second_use(string kind)
     {
         const string places = """
             { "documentId": "places", "definitionKind": "place", "entries": [
@@ -57,7 +59,9 @@ public sealed class InteractionPersistenceTests
                 "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ] }
             ] }
             """;
-        var content = SpellEffectPolicyTests.Content(places: ($"{RulesetTestContext.ContentDirectory}/content-packs/world/places.json", places));
+        var content = SpellEffectPolicyTests.Content(
+            places: ($"{RulesetTestContext.ContentDirectory}/content-packs/world/places.json", kind == "container" ? places : places.Replace("\"kind\": \"container\"", "\"kind\": \"sprite\", \"containingItem\": 7", StringComparison.Ordinal)),
+            extra: [($"{RulesetTestContext.ContentDirectory}/content-packs/world/items.json", """{ "documentId": "items", "definitionKind": "item", "entries": [ { "id": "7", "name": "A token", "value": 1 } ] }""", """{ "path": "items.json", "documentId": "items", "definitionKind": "item" }""")]);
         InMemoryPersistenceService persistence = new();
         var (context, ui) = RulesetTestContext.Create(persistence, content);
         UseIntentNames controls = new(Declared.UseIntent, Declared.UiActionContract);
@@ -68,7 +72,7 @@ public sealed class InteractionPersistenceTests
         Assert.Equal("open", live.World!.Interactions.StateOf(new("1"), new("door", "gate")).State);
         live.World.Party.Move(0, 1000, 0);
         session.Update(RulesetTestContext.Update(2, 1, RulesetTestContext.Digital(Declared.UseIntent)));
-        Assert.Equal("searched", live.World.Interactions.StateOf(new("1"), new("container", "chest")).State);
+        Assert.Equal("searched", live.World.Interactions.StateOf(new("1"), new(kind, "chest")).State);
         SessionSave saved = MightAndMagic7Ruleset.Instance.Save(session);
         Assert.Equal(2, Assert.Single(saved.World.Interaction.Places).Targets.Count);
 
@@ -78,7 +82,7 @@ public sealed class InteractionPersistenceTests
         resumed.Update(RulesetTestContext.Update(1, 1, RulesetTestContext.Digital(Declared.UseIntent)));
         var again = (MightAndMagic7Session)resumed;
         Assert.Equal("container-emptied", again.World!.LastInteraction!.Refusal!.Code);
-        Assert.Equal(live.World.Interactions.StateOf(new("1"), new("container", "chest")), again.World.Interactions.StateOf(new("1"), new("container", "chest")));
+        Assert.Equal(live.World.Interactions.StateOf(new("1"), new(kind, "chest")), again.World.Interactions.StateOf(new("1"), new(kind, "chest")));
         again.World.Party.Move(0, -1000, 0);
         resumed.Update(RulesetTestContext.Update(2, 1, RulesetTestContext.Digital(Declared.UseIntent)));
         Assert.Equal(MightAndMagic7Codes.DoorAlreadyOpen, again.World.LastInteraction!.Refusal!.Code);

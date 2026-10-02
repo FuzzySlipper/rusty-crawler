@@ -142,7 +142,7 @@ internal static class MightAndMagic7Persistence
         bool known = target.Kind switch
         {
             "door" => state is "open" or "closed" or "unlocked",
-            "container" => state is "trapped" or "disarmed" or "sprung" or "searched" or "unlocked",
+            "container" or MightAndMagic7Containers.PilePlacementKind => state is "trapped" or "disarmed" or "sprung" or "searched" or "unlocked",
             MightAndMagic7Combat.CreaturePlacementKind => state is "defeated" or "searched",
             "person" => state is "purse" or "defeated" or "searched" or "spoken",
             _ => state is "used" or "read" or "spoken",
