@@ -473,3 +473,7 @@ and services restore each visited shelf's repeat schedule. Restore retains regis
 new transient handles. Unknown kinds, past due times, impossible repeats, duplicate schedules and effects
 absent from their named carrier are refused at load. A save capture cancels or suspends nothing.
 Shelf contents and buy-back lots remain transient; preserving the restock schedule does not preserve stock.
+
+The [deadline save/resume reading](../../docs/evidence/deadline-persistence.md) records a successful
+ordinary save with fatigue, party light and member wards, then their original ends after loading the
+same stored bytes. Exact boundary and malformed-schedule checks are separate focused tests.

@@ -22,7 +22,8 @@ Bundle assembles. Host launches.**
 > obelisks and signs, talks, trades, steals and pays its fines, trains, promotes recovered members, learns and casts spells, fights in real time or in rounds, takes
 > and turns in errands, and keeps a dated journal, notes and an automap it can save and resume. The same save
 > carries opened doors, searched containers, defeated placements, the purses people still carry, and the
-> original due times for sleep, running spell effects and shelf restocks. The service
+> original due times for sleep, running spell effects and shelf restocks, as the
+> [save/resume reading](docs/evidence/deadline-persistence.md) records. The service
 > panel reaches cures, training, provisions, rooms, bank deposits and withdrawals, and fares, with offers priced
 > for the chosen patient or amount by the service owner. The shipped bundle selects no packs, so a product without
 > them reports no world and no party. [`AGENTS.md`](AGENTS.md) states the shape and lists the residue with

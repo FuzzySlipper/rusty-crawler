@@ -130,7 +130,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   standing read from records, and the `PartyMaps` automap. A taken errand's needed item stays in the party:
   removal and charge use ask the quest owner, and its own turn-in delivers through the same custody owner.
 - **Persistence.** One current schema, written only on `session.save`: party, clock, world (including target words, defeated placements and remaining personal purses), quests,
-  journal, knowledge and maps. A load rebuilds what is transient; a contradictory document is refused with
+  journal, knowledge and maps, with original fatigue, party/member spell and shelf-restock deadlines. A load
+  rebuilds transient handles on the same clock; a contradictory document is refused with
   every problem named.
 - **Refusals and rolls.** Every mechanism refuses with the kit's one `Refusal` (a code from that mechanism's
   code class and a sentence); a requirement is judged as a `Verdict`; chance goes through `KeyedRolls` over
@@ -141,9 +142,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 
 **Open residue and its receivers** (Den task ids; Den owns their status):
 
-- Stone 5, interaction and services: a container above or below the floor cannot be used (#8697); deadlines (fatigue, wards, light, haste) block
-  a save by name instead of being carried (#8617); towns have no house doors and camping is priced per
-  place (#8618); a fixture event refuses only at a hireling step (#8514).
+- Stone 5, interaction and services: a container above or below the floor cannot be used (#8697); towns have
+  no house doors and camping is priced per place (#8618); a fixture event refuses only at a hireling step (#8514).
 - Stone 6, combat: a fight is not carried in a save, and a save taken with one pending is refused (#8658);
   an order commands every member rather than a selected one (#8659).
 - Stone 7, progression and magic: the two counted deeds two ranks need

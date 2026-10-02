@@ -11,6 +11,7 @@ What is published here is text only: no game data, no screenshots, no saves, and
 
 | Record | What it shows |
 | --- | --- |
+| [`deadline-persistence.md`](deadline-persistence.md) | Ordinary save with fatigue, party light and member wards, followed by their original due times after loading the same bytes; focused exact-boundary and malformed-schedule checks. |
 | [`door-collision.md`](door-collision.md) | Closed imported Manor doors stop ordinary movement; the real fixture opens them and ordinary movement passes through, with native closing, passability, save and exact fixture-surface checks. |
 | [`door-collision-feasibility.md`](door-collision-feasibility.md) | The supported Engine collision replacement path, per-corner constraint across 786 doors, and explicit target-surface ownership. |
 | [`navigation-admission.md`](navigation-admission.md) | All 76 imported geometries admitted navigation in the real Engine, counts and cost, with canonical body routing around an authored wall and captured live pursuit around an imported interior wall. |
