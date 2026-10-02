@@ -1,8 +1,8 @@
 # Item identity and item-bound magic
 
 Focused source checks on 2026-10-02 cover actual composed casting, canonical inventory/equipment, combat,
-counter operations, projection and the current Engine-backed save store. Ordinary staged product evidence
-and the full verification gate are pending; this record makes no live acceptance claim.
+counter operations, projection and the current Engine-backed save store. The first ordinary staged phase and its literal saved bytes are reconciled below; resumed live
+evidence and the full verification gate are pending.
 
 ## What changed
 
@@ -52,4 +52,35 @@ health settlement/hit notification. `ItemMagicTests` and `PersistenceTests` chec
 last-charge custody and source-generated current saved bytes. The projection fixture and UI suites check
 the C#/TypeScript contract and the actual resolver sentence.
 
-No imported acquisition, normal creation, broad traversal, graphics or NativeAOT claim is made here.
+No normal creation, mastery-ceiling, broad traversal, graphics or NativeAOT claim is made here.
+
+## First ordinary staged phase
+
+The bounded imported Manor mission used its original geometry, doors, map events and container placement,
+with a relocated grounded north-room arrival, five combat placements omitted, a four-member scenario and
+pre-authorized Master Water caster. Container 3 had explicitly authored Puck, Great Sword and Lich Jar
+contents and its trap flag omitted. Those are mission staging, not an unstaged loot or creation claim.
+The portrait/member surface reports the caster's staged school tier separately from the imported class
+ceiling; this check does not certify learning or class/mastery progression.
+
+Ordinary DOM Use searched the actual chest and acquired one of each. A held physical G did not admit use
+in this run; it is not keyboard evidence. The captured product message named all three definitions.
+Ordinary target selection and Enchant Item produced Great Sword instance 2 with permanent sparks 8 and
+spent Nyx's fifteen points (18 to 3). A first special-item attempt lacked points, which was a resource
+refusal rather than a special-item check. Ordinary Rest & heal advanced eight hours and charged two
+portions, restoring the party; subsequent ordinary casts on Puck and Lich Jar named the special and quest
+refusals respectively with no point payment. Ordinary DOM Save was admitted at 1168-01-01 17:11.
+
+After the first owned lease released, the parent read the actual Engine store bytes without changing
+them: the 6,797-byte store held a 6,777-byte current JSON document. Item 1 was definition 500 Puck, item 2
+was definition 7 Great Sword with sparks 8 and no end deadline, and item 3 was definition 601 Lich Jar;
+all three were in the party pack and the two refused items held no property. The enchant-attempt record
+was one and selected member was Nyx. This is literal saved state, not an inference from the Save button.
+
+Original captures: chest `07c47f26-e0c9-4160-9d0b-8369bfafe8f6`, enchant
+`74d6183f-6b27-4d2c-ae20-9d078d063016`, special refusal `ed5034e5-981e-4560-ac54-9566d40afb23`,
+quest refusal `2b535897-3d8e-4877-af6d-bbd7519b6a08`, Save `65175fcb-c2a2-4a57-ad10-128f612807f9`.
+The parent opened these originals. Den 37402 owns the complete receipt and cleanup record, with the chest
+capture identity corrected by 37405. The lease released and the local pool was empty; a later session's
+ownership must be refreshed independently. The parent then authorized a separate resume phase against
+those same bytes. Its terminal evidence is still pending.
