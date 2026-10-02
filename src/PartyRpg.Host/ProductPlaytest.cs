@@ -143,6 +143,7 @@ internal static class ProductPlaytest
             ProductIdentity.SaveIntent => controls.Save,
             ProductIdentity.UseIntent => controls.Use,
             ProductIdentity.AttackIntent => controls.Attack,
+            ProductIdentity.NextMemberIntent => controls.NextMember,
             ProductIdentity.TurnBasedToggleIntent => controls.TurnBased,
             ProductIdentity.TurnSkipIntent => controls.TurnSkip,
             ProductIdentity.TurnWaitIntent => controls.TurnWait,

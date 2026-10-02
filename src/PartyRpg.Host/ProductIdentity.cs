@@ -156,18 +156,11 @@ internal static class ProductIdentity
     /// </summary>
     internal const string WaitFiveMinutesIntent = RestActions.WaitFiveMinutes;
 
-    /// <summary>
-    /// The digital intent that orders the party to attack what it can reach.
-    /// </summary>
+    /// <summary>The digital intent that orders the selected member to attack what they can reach.</summary>
     /// <remarks>
-    /// The donor's own act key is <c>pass</c>, bound to B by default and triggered with key repeat
-    /// (OpenEnroth <c>src/Application/GameConfig.h:554</c>, and
-    /// <c>src/Io/InputEnumFunctions.cpp:103</c>, <c>TRIGGER_WITH_KEYREPEAT</c>), so a held key keeps
-    /// attacking as each character's recovery elapses. This build keeps the same key and the same behaviour:
-    /// one control, because what a member does with it — a spell, a bow, or hand-to-hand — is the ruleset's
-    /// answer about that member rather than a choice the player makes per press. The declaration here and
-    /// the mapping in the project file are the two halves of one control, because the engine refuses a
-    /// mapping whose intent it was never told about.
+    /// This product keeps B for attack. The donor uses A for attack and B for passing a turn
+    /// (OpenEnroth src/Application/GameConfig.h:536,554); B here is an explicit adaptation.
+    /// Attack repeats while held, through the selected member's existing recovery gate.
     /// </remarks>
     internal const string AttackIntent = "party.attack";
 
@@ -176,6 +169,13 @@ internal static class ProductIdentity
     /// UI action contract.
     /// </summary>
     internal const string AttackAction = CombatActions.Attack;
+
+    /// <summary>Cycles the party's selected member in roster order, on N.</summary>
+    /// <remarks>OpenEnroth src/Application/GameConfig.h:542 binds character cycling to Tab; this installed Engine keyboard contract has no Tab, so N cycles here.</remarks>
+    internal const string NextMemberIntent = CombatActions.NextMember;
+
+    /// <summary>Chooses the durable member named by a panel row.</summary>
+    internal const string SelectPartyMemberAction = CombatActions.SelectMember;
 
     /// <summary>
     /// The digital intent that switches a fight between real-time and turn-based pacing.

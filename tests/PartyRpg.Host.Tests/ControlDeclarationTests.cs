@@ -91,8 +91,9 @@ public sealed class ControlDeclarationTests
     [InlineData(ProductIdentity.WaitUntilDawnIntent, "key:key-t:pressed", "T")]
     [InlineData(ProductIdentity.WaitAnHourIntent, "key:key-h:pressed", "H")]
     [InlineData(ProductIdentity.WaitFiveMinutesIntent, "key:key-m:pressed", "M")]
-    // The donor's own act control is B, held so a held key keeps attacking.
+    // B is this product's adapted attack key; N adapts the donor's Tab character cycle.
     [InlineData(ProductIdentity.AttackIntent, "key:key-b:held", "B")]
+    [InlineData(ProductIdentity.NextMemberIntent, "key:key-n:pressed", "N")]
     // Enter is the original's own turn-based toggle; the two turn actions take letters no other control claims.
     [InlineData(ProductIdentity.TurnBasedToggleIntent, "key:enter:pressed", "Enter")]
     [InlineData(ProductIdentity.TurnSkipIntent, "key:key-k:pressed", "K")]
@@ -111,6 +112,7 @@ public sealed class ControlDeclarationTests
             ProductIdentity.SaveIntent => keys.Save,
             ProductIdentity.UseIntent => keys.Use,
             ProductIdentity.AttackIntent => keys.Attack,
+            ProductIdentity.NextMemberIntent => keys.NextMember,
             ProductIdentity.TurnBasedToggleIntent => keys.TurnBased,
             ProductIdentity.TurnSkipIntent => keys.TurnSkip,
             ProductIdentity.TurnWaitIntent => keys.TurnWait,
@@ -156,6 +158,7 @@ public sealed class ControlDeclarationTests
         foreach (string action in new[]
         {
             ProductIdentity.UseAction, ProductIdentity.SaveAction, ProductIdentity.AttackAction, ProductIdentity.CastAction,
+            ProductIdentity.SelectPartyMemberAction, ProductIdentity.NextMemberIntent,
             ProductIdentity.QuickSpellAction, ProductIdentity.MixAction, ProductIdentity.SkillRaiseAction,
             ProductIdentity.EquipAction, ProductIdentity.UnequipAction,
             ProductIdentity.RestIntent, ProductIdentity.CampIntent, ProductIdentity.WaitUntilDawnIntent,

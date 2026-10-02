@@ -82,7 +82,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 
 - **Graph and surface.** Kit, ruleset and host build against the pinned Engine pair; the importer and its
   tool are offline and outside the runtime graph in both directions. The host declares one product entry,
-  25 input intents with their keys, and the `crawler.ui` payload channel. The session publishes one
+  26 input intents with their keys, and the `crawler.ui` payload channel. The session publishes one
   projection (`crawler.hud` / `crawler.ui.snapshot.v1`) when it has changed; the TypeScript companion
   renders it with no state, rule or timer of its own, and fixtures the host suite writes bind the C# and
   TypeScript sides of that contract. The runtime needs a GPU adapter; the product draws no world, so the
@@ -101,7 +101,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   same scene for the actual body; pursuit uses foot-position waypoints or holds by name when unavailable.
   `GameClock`
   over an authored calendar is the only time, and every advance reaches every owner registered with it.
-- **Party.** `PartyEntity` is one entity with its components: roster and members, one shared inventory of
+- **Party.** `PartyEntity` is one entity with its components: roster and members, one durable selected member and shared inventory of
   item instances, per-member equipment, purse and larder, reputation and fame, running effects, records,
   holdings, passages, memberships, debts and bans. Every charge is judged and settled through one ledger. Creation is a
   session mode with its own flow, and the scenario path builds a party through the same factory and the
@@ -120,7 +120,10 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   party state and hand off to counters, and a topic runs its global event as a use of the speaker's placement.
   The same panel reaches every counter operation; its offers show patient or coin amount, price and refusal
   from the mechanism before a transaction settles.
-- **Combat.** One fight over the live world with two pacings over one recovery quantity, one resolution
+- **Combat.** Ordinary attack addresses only the roster's selected member; N or a panel row changes that
+  choice. Recovery keeps it and names a refused attack; incapability selects the first capable member or
+  nobody. A new paced player turn selects its actor, while a ready off-turn choice refuses without spending
+  that turn. One fight over the live world with two pacings over one recovery quantity, one resolution
   path, conditions up to death, corpses and loot through the container mechanism, and cleared places
   restored by the clock. Creatures come from `encounter` placements the ruleset resolves and from the maps'
   own `actor` records, both when a place is populated, and this game's AI orders them through the gate the
@@ -150,7 +153,6 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 **Open residue and its receivers** (Den task ids; Den owns their status):
 
 - Stone 5, interaction and services: a fixture event refuses only at a hireling step (#8514).
-- Stone 6, combat: an order commands every member rather than a selected one (#8659).
 - Stone 7, progression and magic: the two counted deeds two ranks need
   have no writer (#8689); item-aimed effects (#8513) and followers
   (#8514) are "not yet" in `docs/magic-coverage.md`.

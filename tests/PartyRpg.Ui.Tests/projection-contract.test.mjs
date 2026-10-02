@@ -188,6 +188,7 @@ test('each section is a named export that draws its block on its own', async () 
     section.render({
       combat,
       attack: published.controls.attack,
+      nextMember: published.controls.nextMember,
       pace: published.controls.turnBased,
       skip: published.controls.turnSkip,
       wait: published.controls.turnWait,
@@ -286,5 +287,32 @@ test('no companion module computes a gameplay quantity or decides whether a cont
         `src/ui/${name} decides whether a control is offered: .disabled = ${verdict}`,
       );
     }
+  }
+});
+
+
+test('member rows send durable choices and display the product selection and refusal', async () => {
+  const published = await fixture('session-running.json');
+  const h = harness();
+  try {
+    mountProductUi(h.root, h.context);
+    h.emit(published);
+    const selected = h.panel().querySelector('.crawler-combat-members [data-selected="yes"]');
+    assert.match(selected.textContent, /Roderick selected/);
+    const choose = h.panel().querySelector('.crawler-select-member[data-member="2"]');
+    choose.click();
+    assert.deepEqual(h.claims.at(-1).value.data, { action: 'party.select-member', member: '2' });
+    h.panel().querySelector('.crawler-next-member').click();
+    assert.deepEqual(h.claims.at(-1).value.data, { action: 'party.next-member' });
+    const refused = structuredClone(published);
+    refused.combat.selectionCode = 'selected-member-incapable';
+    refused.combat.selectionMessage = 'Aelina cannot be selected: Unconscious leaves them unable to act.';
+    h.emit(refused);
+    const result = h.panel().querySelector('.crawler-selection-result');
+    assert.equal(result.dataset.code, refused.combat.selectionCode);
+    assert.equal(result.textContent, refused.combat.selectionMessage);
+    assert.equal(h.panel().querySelector('.crawler-combat-members [data-selected="yes"]').dataset.fighter, selected.dataset.fighter);
+  } finally {
+    h.restore();
   }
 });

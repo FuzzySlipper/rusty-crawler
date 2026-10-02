@@ -154,6 +154,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     combat.render({
       combat: snapshot.combat,
       attack: controls.attack,
+      nextMember: controls.nextMember,
       pace: controls.turnBased,
       skip: controls.turnSkip,
       wait: controls.turnWait,

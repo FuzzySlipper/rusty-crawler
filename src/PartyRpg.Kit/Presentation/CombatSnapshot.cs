@@ -40,6 +40,8 @@ namespace PartyRpg.Kit.Presentation;
 /// player's and is published as the last order instead.
 /// </param>
 /// <param name="Pose">The canonical live feet position for playtest observation, or null when unstated.</param>
+/// <param name="Member">The actual durable party member identity, empty for creatures.</param>
+/// <param name="Selected">Whether this actor is the party roster's selected member.</param>
 public sealed record CombatActorSnapshot(
     string Id,
     string Name,
@@ -51,7 +53,9 @@ public sealed record CombatActorSnapshot(
     string Conditions = "",
     bool Down = false,
     string Activity = "",
-    PlacePose? Pose = null)
+    PlacePose? Pose = null,
+    string Member = "",
+    bool Selected = false)
 {
     /// <summary>Writes one actor of a fight: who it is, whether it may act, and how long it owes.</summary>
     /// <param name="builder">The projection being built.</param>
@@ -59,6 +63,8 @@ public sealed record CombatActorSnapshot(
     internal uint Write(UiValueBuilder builder) =>
         builder.Object(
             ("id", builder.String(Id)),
+            ("member", builder.String(Member)),
+            ("selected", builder.Boolean(Selected)),
             ("name", builder.String(Name)),
             ("ready", builder.Boolean(Ready)),
             ("recoverySeconds", builder.Number(RecoverySeconds)),
@@ -146,7 +152,9 @@ public sealed record CombatSnapshot(
     bool TargetDown = false,
     bool ByParty = false,
     CombatPacing Pacing = CombatPacing.RealTime,
-    CombatTurnSnapshot? Turn = null)
+    CombatTurnSnapshot? Turn = null,
+    string SelectionMessage = "",
+    string SelectionCode = "")
 {
     /// <summary>No fight mechanism: nothing can be ordered and nothing is hostile.</summary>
     public static CombatSnapshot None => new(
@@ -209,7 +217,9 @@ public sealed record CombatSnapshot(
                 conditions,
                 down,
                 activity.GetValueOrDefault(combatant.Id, string.Empty),
-                combatant.Subject.Entity?.Pose ?? combat.PartyPose);
+                combatant.Subject.Entity?.Pose ?? combat.PartyPose,
+                combatant.Subject.Member?.Id.ToString() ?? string.Empty,
+                combatant.Subject.Member is { } member && combat.Party.Roster.SelectedMember == member.Id);
             if (combatant.Side != CombatSide.Party)
             {
                 // Only the actors actually fighting are published as enemies: a creature that has not
@@ -258,7 +268,9 @@ public sealed record CombatSnapshot(
             // driven, the last thing that happened may be a blow the party took.
             ByParty: order is not null && combat.Find(order.Actor)?.Side == CombatSide.Party,
             Pacing: combat.Pacing,
-            Turn: TurnFrom(combat));
+            Turn: TurnFrom(combat),
+            SelectionMessage: combat.Party.Roster.SelectionMessage,
+            SelectionCode: combat.Party.Roster.SelectionRefusal?.Code ?? string.Empty);
     }
 
     /// <summary>Reads the round the fight is in, as the panel reads it.</summary>
@@ -325,6 +337,8 @@ public sealed record CombatSnapshot(
             ("engaged", builder.Boolean(Engaged)),
             ("opposition", builder.Number(Opposition)),
             ("ready", builder.Number(Ready)),
+            ("selectionMessage", builder.String(SelectionMessage)),
+            ("selectionCode", builder.String(SelectionCode)),
             // Which pacing this one fight is being played in, and the round it is in: a panel that could not
             // tell a real-time fight from a paced one could not say why the world is waiting for it.
             ("pacing", builder.String(SessionProjection.WireName(Pacing))),

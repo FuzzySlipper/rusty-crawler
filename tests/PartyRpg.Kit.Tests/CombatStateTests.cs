@@ -87,7 +87,7 @@ public sealed class CombatStateTests
         Assert.True(combat.IsEngaged);
 
         // Acting in the fight changes the fight and nothing else: no scene, no second population, no move.
-        Assert.Equal(4, combat.Engage().Count);
+        Assert.Single(combat.Engage());
         Assert.Equal(Hall, world.Place);
         Assert.Equal(pose, world.Party.PlacePose);
         Assert.Equal(before, [.. world.Population.Entities.Select(entity => entity.Id)]);
@@ -233,6 +233,74 @@ public sealed class CombatStateTests
     }
 
     [Fact]
+    public void Ordinary_payload_and_declared_cycle_order_only_the_durable_selected_member()
+    {
+        using RecordingUiProjectionChannel channel = new();
+        using PartyEntity party = Party();
+        using SessionWorld world = World(party, monsterAt: 100);
+        using PartyRpgSession session = new(
+            new SessionComposition(new RulesetId("test.ruleset"), "Test"), channel,
+            new SessionOwners(TestClock.Create()), new SessionParty.Playing(World: world, Party: party),
+            rules: new SessionRules { Combat = Capabilities.Combat(new TestCombatRule(null)) },
+            controls: new SessionControls { Combat = new CombatIntentNames("test.attack", "test.actions", nextMember: "test.next-member") });
+        Arrive(world);
+        session.Start();
+        session.Update(Admitted.Update(1, 0));
+        CombatState combat = session.Combat!;
+        PartyMemberId first = party.Members[0].Id;
+        PartyMemberId second = party.Members[1].Id;
+        session.Update(Admitted.Update(2, 0, Payload($$"""{"action":"party.select-member","member":"{{second}}"}"""), Attack()));
+        Assert.Equal(second, party.Roster.SelectedMember);
+        Assert.Equal(CombatantId.Of(second), combat.LastAttack!.Actor);
+        Assert.Equal(AttackRecovery, combat.Selected!.Recovery);
+        Assert.All(combat.Combatants.Where(actor => actor.Side == CombatSide.Party && actor.Id != CombatantId.Of(second)), actor => Assert.True(actor.IsReady));
+
+        // Recovery leaves the choice intact and yields the existing named refusal, spending nothing.
+        session.Update(Admitted.Update(3, 0, Release()));
+        session.Update(Admitted.Update(4, 0, Attack()));
+        Assert.Equal(CombatCodes.Recovering, combat.LastOrder!.Refusal!.Code);
+        Assert.Equal(second, party.Roster.SelectedMember);
+        Assert.Equal(AttackRecovery, combat.Selected.Recovery);
+        Assert.True(combat.Find(CombatantId.Of(first))!.IsReady);
+
+        session.Update(Admitted.Update(5, 0, Release()));
+        session.Update(Admitted.Update(6, 0, Admitted.Digital("test.next-member"), Attack()));
+        Assert.Equal(party.Members[2].Id, party.Roster.SelectedMember);
+        Assert.Equal(CombatantId.Of(party.Members[2].Id), combat.LastAttack!.Actor);
+        Assert.Equal(AttackRecovery, combat.Selected.Recovery);
+        Assert.Equal(AttackRecovery, combat.Find(CombatantId.Of(second))!.Recovery);
+        Assert.True(combat.Find(CombatantId.Of(first))!.IsReady);
+
+        // An unknown choice changes neither the selection nor anybody's recovery.
+        session.Update(Admitted.Update(7, 0, Release(), Payload("""{"action":"party.select-member","member":"900"}""")));
+        Assert.Equal(PartySelectionCodes.UnknownMember, party.Roster.SelectionRefusal!.Code);
+        Assert.Equal(party.Members[2].Id, party.Roster.SelectedMember);
+        ProjectedNode reading = channel.Latest().Field("combat");
+        Assert.Equal(PartySelectionCodes.UnknownMember, reading.Field("selectionCode").AsString());
+        Assert.True(reading.Field("members").Item(2).Field("selected").AsBoolean());
+    }
+
+    [Fact]
+    public void A_selected_ready_member_cannot_spend_another_members_turn()
+    {
+        using PartyEntity party = Party();
+        using SessionWorld world = World(party, monsterAt: 100);
+        CombatState combat = Fight(world, party);
+        Arrive(world);
+        combat.Step();
+        combat.TogglePacing();
+        combat.Turns.Next();
+        Combatant current = combat.Turns.Current!;
+        Assert.Equal(CombatSide.Party, current.Side);
+        PartyMember second = party.Members.First(member => CombatantId.Of(member.Id) != current.Id);
+        Assert.Null(combat.SelectMember(second.Id));
+        Assert.Equal(CombatCodes.SelectedMemberNotTurn, combat.EngageSelected()!.Refusal!.Code);
+        Assert.Equal(current.Id, combat.Turns.Current!.Id);
+        Assert.Equal(second.Id, party.Roster.SelectedMember);
+        Assert.All(combat.Combatants.Where(actor => actor.Side == CombatSide.Party), actor => Assert.True(actor.IsReady));
+    }
+
+    [Fact]
     public void Recovery_is_advanced_by_the_admitted_update_and_by_nothing_else()
     {
         using RecordingUiProjectionChannel channel = new();
@@ -337,18 +405,20 @@ public sealed class CombatStateTests
         Assert.Equal(1.222, combat.Field("enemies").Item(0).Field("recoverySeconds").AsNumber(), 3);
         Assert.Equal(100.0, combat.Field("enemies").Item(0).Field("distance").AsNumber());
 
-        // The party acts: every member's own recovery is what decides, and the panel shows it.
+        // Only the selected member acts; the other three stay ready, and the panel shows both facts.
         session.Update(Admitted.Update(2, 1, Attack()));
         combat = channel.Latest().Field("combat");
         Assert.Equal("applied", combat.Field("outcome").AsString());
-        Assert.Equal(0.0, combat.Field("ready").AsNumber());
+        Assert.Equal(3.0, combat.Field("ready").AsNumber());
         Assert.Equal(1.0, combat.Field("recoverySeconds").AsNumber());
         Assert.Contains("attacks A beast", combat.Field("message").AsString(), StringComparison.Ordinal);
+        Assert.False(combat.Field("members").Item(0).Field("ready").AsBoolean());
+        Assert.True(combat.Field("members").Item(0).Field("selected").AsBoolean());
         Assert.All(
-            Enumerable.Range(0, 4).Select(index => combat.Field("members").Item(index)),
-            member => Assert.False(member.Field("ready").AsBoolean()));
+            Enumerable.Range(1, 3).Select(index => combat.Field("members").Item(index)),
+            member => Assert.True(member.Field("ready").AsBoolean()));
 
-        // An order while everybody is recovering is refused by name, and the refusal is what the panel shows
+        // An order while the selected member is recovering is refused by name, and the refusal is what the panel shows
         // rather than a fight in which nothing was asked.
         session.Update(Admitted.Update(3, 1, Attack()));
         combat = channel.Latest().Field("combat");

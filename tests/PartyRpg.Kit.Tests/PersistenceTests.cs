@@ -141,6 +141,25 @@ public sealed class PersistenceTests
     }
 
     [Fact]
+    public void The_selected_member_survives_actual_saved_bytes_and_unknown_choices_are_named_before_restore()
+    {
+        using PartyEntity party = TestParty.OfFour();
+        PartyMemberId selected = party.Members[2].Id;
+        Assert.Null(party.Roster.Select(selected, Verdict.Met));
+        SessionSave save = new(party.Capture(), new ClockSave(0), new WorldSave(new PartyPose(Home, PlacePose.Origin), new PlaceStateLedgerSnapshot(0, [])));
+        byte[] bytes = Encode(save);
+        SessionSave decoded = Decode(bytes);
+        using PartyEntity restored = new PartyEntityFactory().Restore(decoded.Party);
+        Assert.Equal(selected, restored.Roster.SelectedMember);
+        Assert.Equal(bytes, Encode(decoded));
+        JsonNode document = JsonNode.Parse(bytes)!;
+        document["party"]!["selectedMember"] = new JsonObject { ["value"] = 900 };
+        SessionSave malformed = Decode(Encoding.UTF8.GetBytes(document.ToJsonString()));
+        Assert.Contains(new PartyEntityFactory().Problems(malformed.Party), problem => problem.Code == SaveCodes.SaveMemberSelectionInvalid);
+        Assert.Throws<ArgumentException>(() => new PartyEntityFactory().Restore(malformed.Party));
+    }
+
+    [Fact]
     public void The_years_a_character_was_aged_survive_the_saved_bytes_and_can_be_given_back()
     {
         using PartyEntity party = TestParty.OfFour();

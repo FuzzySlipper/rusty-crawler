@@ -7,6 +7,8 @@ namespace PartyRpg.Kit.Combat;
 /// </remarks>
 public static class CombatCodes
 {
+    /// <summary>The selected member does not own the current paced turn.</summary>
+    public const string SelectedMemberNotTurn = "selected-member-not-turn";
     /// <summary>The refusal code <c>friendly-target</c>.</summary>
     public const string FriendlyTarget = "friendly-target";
 

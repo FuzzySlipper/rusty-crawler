@@ -31,11 +31,12 @@ public sealed record CombatIntentNames
     /// fight is simply played in real time, because nothing can switch the pacing or pass a turn.
     /// </param>
     /// <exception cref="ArgumentException">A name is missing, so no event could ever be claimed for it.</exception>
-    public CombatIntentNames(string attack, string actionContract, TurnIntentNames? turn = null)
+    public CombatIntentNames(string attack, string actionContract, TurnIntentNames? turn = null, string? nextMember = null)
     {
         Attack = Require(attack, nameof(attack));
         ActionContract = Require(actionContract, nameof(actionContract));
         Turn = turn;
+        NextMember = nextMember is null ? null : Require(nextMember, nameof(nextMember));
     }
 
     /// <summary>The intent that orders the party to attack.</summary>
@@ -46,6 +47,9 @@ public sealed record CombatIntentNames
 
     /// <summary>The pace controls declared beside the act control, or null when the product declared none.</summary>
     public TurnIntentNames? Turn { get; }
+
+    /// <summary>The declared digital control that cycles the acting member, or none.</summary>
+    public string? NextMember { get; }
 
     private static string Require(string name, string parameterName) =>
         !string.IsNullOrWhiteSpace(name)
@@ -60,6 +64,12 @@ public static class CombatActions
 {
     /// <summary>Orders the party to attack what it faces, exactly as the act key does.</summary>
     public const string Attack = "party.attack";
+
+    /// <summary>Chooses the durable party member named in the payload.</summary>
+    public const string SelectMember = "party.select-member";
+
+    /// <summary>Chooses the next capable member in roster order.</summary>
+    public const string NextMember = "party.next-member";
 }
 
 /// <summary>

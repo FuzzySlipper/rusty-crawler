@@ -438,6 +438,8 @@
     "engaged": false,
     "opposition": 0,
     "ready": 0,
+    "selectionMessage": "",
+    "selectionCode": "",
     "pacing": "realtime",
     "turn": {
       "phase": "",
@@ -679,6 +681,11 @@
       "action": "party.attack",
       "enabled": false,
       "key": "B"
+    },
+    "nextMember": {
+      "action": "party.next-member",
+      "enabled": false,
+      "key": "N"
     },
     "turnBased": {
       "action": "combat.turn-based",

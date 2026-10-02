@@ -38,6 +38,9 @@ public sealed record ControlKeys
     /// <summary>The key that orders the party to attack.</summary>
     public string Attack { get; init; } = string.Empty;
 
+    /// <summary>The key that cycles the member an ordinary attack commands.</summary>
+    public string NextMember { get; init; } = string.Empty;
+
     /// <summary>The key that switches the fight's pacing.</summary>
     public string TurnBased { get; init; } = string.Empty;
 
@@ -144,6 +147,9 @@ public sealed record ControlsSnapshot(
     ControlSnapshot CreationAdvance,
     ControlSnapshot CreationAccept)
 {
+    /// <summary>The control that cycles the party's selected acting member.</summary>
+    public ControlSnapshot NextMember { get; init; } = new(CombatActions.NextMember, false, string.Empty);
+
     /// <summary>Reads every control's answer from the session the snapshot describes.</summary>
     /// <param name="snapshot">The session as the projection publishes it.</param>
     /// <returns>Each control's action, whether it is offered, and its key.</returns>
@@ -181,7 +187,7 @@ public sealed record ControlsSnapshot(
         bool round = combat.Turn is { Phase: TurnPhase.Action or TurnPhase.Movement };
         bool acts = round
             ? combat.Turn is { Phase: TurnPhase.Movement } or { PlayerTurn: true }
-            : combat.Ready > 0;
+            : combat.Members.Any(member => member.Selected);
         bool paced = combat.Pacing == CombatPacing.TurnBased;
 
         // Skipping and waiting pass a turn, so they are offered while a paced round is under way and at no
@@ -206,7 +212,10 @@ public sealed record ControlsSnapshot(
             new(ServiceActions.Leave, snapshot.Service.Open, keys.ServiceLeave),
             new(ConversationActions.Leave, snapshot.Conversation.Open, keys.ConversationLeave),
             new(CreationActions.Advance, creating, keys.CreationAdvance),
-            new(CreationActions.Accept, creating, keys.CreationAccept));
+            new(CreationActions.Accept, creating, keys.CreationAccept))
+        {
+            NextMember = new(CombatActions.NextMember, combat.Available && combat.Members.Count > 0, keys.NextMember),
+        };
     }
 
     /// <summary>Writes the controls block: each stand-alone control's action, whether it is offered, and its key.</summary>
@@ -218,6 +227,7 @@ public sealed record ControlsSnapshot(
             ("save", Save.Write(builder)),
             ("use", Use.Write(builder)),
             ("attack", Attack.Write(builder)),
+            ("nextMember", NextMember.Write(builder)),
             ("turnBased", TurnBased.Write(builder)),
             ("turnSkip", TurnSkip.Write(builder)),
             ("turnWait", TurnWait.Write(builder)),

@@ -19,7 +19,7 @@ Bundle assembles. Host launches.**
 > still carries open residue that Den tasks receive; stone 9 (breadth) has not started. With the
 > operator's imported packs selected, a session creates or resumes a party, walks it through the imported
 > world, pays for crossings, fares and nights, rests the living while naming fallen companions left as they were, opens doors and containers, drinks from wells and reads
-> obelisks and signs, talks, trades, steals and pays its fines, trains, promotes recovered members, learns and casts spells, fights in real time or in rounds, takes
+> obelisks and signs, talks, trades, steals and pays its fines, trains, promotes recovered members, learns and casts spells, selects a member and fights in real time or in rounds, takes
 > and turns in errands, and keeps a dated journal, notes and an automap it can save and resume. The same save
 > carries the resident fight, including creature recovery, provocation, effects, summons and bodies with their held loot,
 > opened doors, searched containers, defeated placements, the purses people still carry, and the
@@ -299,3 +299,9 @@ does not restate it.
 A check that only compiles is not verification, and a demonstration is not
 completion. Run the smallest proof that answers the changed seam, and state
 plainly what was not run.
+
+The ordinary attack orders only the durable member selected in the party roster. The panel's member
+rows and the declared N key change that choice in roster order, skipping incapable members. Recovery
+keeps a choice and names the attack refusal. When a selection becomes incapable, the first capable
+member replaces it; if nobody can act, the choice clears. Each new paced player turn selects its actor;
+an explicit off-turn selection cannot spend that actor's turn. The current save carries the choice.

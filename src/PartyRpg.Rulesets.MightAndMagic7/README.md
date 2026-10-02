@@ -803,3 +803,14 @@ its named corners from their stored offsets, as described at
 OpenEnroth `src/Engine/Graphics/Indoor.cpp:591-614` and OpenEnroth `src/Engine/Graphics/Indoor.cpp:665-671`.
 The donor's enum comment notes naming divergences elsewhere; it does not override actual geometry
 checked in this product. Endpoint settling is approximate and does not promise original animation.
+
+
+The kit's durable roster selection uses this game's existing `CanAct` judgement, including laid-out
+conditions. Ordinary attack addresses one selected member, retaining a recovering choice so the same
+recovery refusal remains visible. Automatic replacement picks the first capable roster member and
+clears when none can act. OpenEnroth `OpenEnroth/src/Engine/Party.cpp:217-264` automatically chooses a ready
+character and uses the paced queue head; retaining an explicitly selected recovering member here is
+a deliberate adaptation. Character cycling and attack dispatch are in `OpenEnroth/src/Application/Game.cpp:737-741,1017-1028` and
+`OpenEnroth/src/Io/KeyboardInputHandler.cpp:276-305`. `OpenEnroth/src/Application/GameConfig.h:536,542,554` binds donor attack
+to A, cycling to Tab and passing to B. This product retains its B attack and uses N to cycle because
+the installed Engine keyboard contract has no Tab; no browser-only alias substitutes for a declared key.

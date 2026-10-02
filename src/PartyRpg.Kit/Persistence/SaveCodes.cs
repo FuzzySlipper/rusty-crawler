@@ -9,6 +9,9 @@ namespace PartyRpg.Kit.Persistence;
 /// </remarks>
 public static class SaveCodes
 {
+    /// <summary>The selected member cannot be rebuilt from the saved party.</summary>
+    public const string SaveMemberSelectionInvalid = "save-member-selection-invalid";
+
     /// <summary>The saved fight contradicts its canonical owners.</summary>
     public const string SaveCombatInvalid = "save-combat-invalid";
     /// <summary>A saved creature's resident placement cannot be rebuilt.</summary>

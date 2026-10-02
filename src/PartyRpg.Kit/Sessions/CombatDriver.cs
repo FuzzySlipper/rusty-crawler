@@ -83,7 +83,7 @@ internal sealed class ActControl
 /// runs on.
 /// </para>
 /// </remarks>
-internal sealed class CombatDriver(SessionOwners owners, MovementInput? movement, CombatIntentNames? names)
+internal sealed partial class CombatDriver(SessionOwners owners, MovementInput? movement, CombatIntentNames? names)
 {
     private readonly CombatInput? _input = names is null ? null : new CombatInput(names);
     private readonly TurnInput? _turns = names?.Turn is { } turn ? new TurnInput(turn) : null;
@@ -98,6 +98,7 @@ internal sealed class CombatDriver(SessionOwners owners, MovementInput? movement
     /// <param name="screenOwnsControls">Whether a counter or a conversation owns the player's controls.</param>
     public FightOrders Read(ActionInbox input, TurnControls turn, bool screenOwnsControls)
     {
+        SelectMembers(input);
         bool down = _input is not null && owners.Combat is not null && _input.Read(input) && !screenOwnsControls;
         bool paced = !screenOwnsControls && owners.Combat is { Pacing: CombatPacing.TurnBased };
         bool attacked = _act.Orders(down, paced);
@@ -203,7 +204,8 @@ internal sealed class CombatDriver(SessionOwners owners, MovementInput? movement
         if (orders.Attacked)
         {
             // A refused order leaves the turn where it was, so the player can see the answer and act again.
-            if (combat.Engage(turns.Current!.Id).IsApplied) turns.Took();
+            if (combat.EngageSelected()?.IsApplied != true) return;
+            turns.Took();
         }
         else if (caster is { } cast)
         {
@@ -248,7 +250,11 @@ internal sealed class CombatDriver(SessionOwners owners, MovementInput? movement
             GameDuration interval = combat.Turns.Next();
             if (!interval.IsNone) owners.Clock?.Advance(interval);
             if (combat.Turns.Current is not { } actor) return;
-            if (actor.Side == CombatSide.Party) return;
+            if (actor.Side == CombatSide.Party)
+            {
+                if (actor.Subject.Member is { } member) combat.SelectMember(member.Id);
+                return;
+            }
             if (owners.Director is { } director && owners.World is { } world)
             {
                 director.TakeTurn(world.Place, actor.Id, AdmittedSecondsFor(interval));

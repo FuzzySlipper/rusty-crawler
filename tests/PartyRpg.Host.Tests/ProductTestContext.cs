@@ -278,7 +278,8 @@ internal static class ProductTestContext
                         ProductIdentity.TurnBasedToggleIntent,
                         ProductIdentity.TurnSkipIntent,
                         ProductIdentity.TurnWaitIntent,
-                        ProductIdentity.UiActionContract))
+                        ProductIdentity.UiActionContract),
+                    nextMember: ProductIdentity.NextMemberIntent)
                 : null);
     }
 }

@@ -552,6 +552,47 @@ public sealed class PartyEntityTests
         Assert.Equal("item-already-held", twice.Refusal!.Code);
     }
 
+    [Fact]
+    public void The_acting_member_is_roster_state_and_survives_the_same_party_save()
+    {
+        PartyEntityFactory factory = new();
+        using PartyEntity party = Build(factory, Member("Ann", Fighter), Member("Bo", Adept));
+        PartyMemberId chosen = party.Members[1].Id;
+        Assert.Null(party.Roster.Select(chosen, Verdict.Met));
+        PartySave save = party.Capture();
+        Assert.Equal(chosen, save.SelectedMember);
+        using PartyEntity restored = factory.Restore(save);
+        Assert.Equal(chosen, restored.Roster.SelectedMember);
+        Assert.Equal("Bo", restored.Member(chosen).Profile.Name);
+        Assert.NotSame(party.Roster, restored.Roster);
+
+        PartySave contradictory = save with { SelectedMember = new PartyMemberId(900) };
+        Assert.Contains(factory.Problems(contradictory), problem => problem.Code == SaveCodes.SaveMemberSelectionInvalid);
+        Assert.Throws<ArgumentException>(() => factory.Restore(contradictory));
+    }
+
+    [Fact]
+    public void Selection_refuses_incapability_and_reconciles_to_the_first_capable_member()
+    {
+        using PartyEntity party = Build(new PartyEntityFactory(), Member("Ann", Fighter), Member("Bo", Adept));
+        PartyMemberId ann = party.Members[0].Id;
+        PartyMemberId bo = party.Members[1].Id;
+        Assert.Null(party.Roster.Select(bo, Verdict.Met));
+        Refusal refused = Assert.IsType<Refusal>(party.Roster.Select(ann, Verdict.Unmet("sleeping.")));
+        Assert.Equal(PartySelectionCodes.Incapable, refused.Code);
+        Assert.Contains("sleeping", refused.Message);
+        Assert.Equal(bo, party.Roster.SelectedMember);
+
+        party.Roster.ReconcileSelection(member => member.Id == bo ? Verdict.Unmet("down.") : Verdict.Met);
+        Assert.Equal(ann, party.Roster.SelectedMember);
+        Assert.Contains("Ann is now selected", party.Roster.SelectionMessage);
+        party.Roster.ReconcileSelection(_ => Verdict.Unmet("down."));
+        Assert.Null(party.Roster.SelectedMember);
+        Assert.Equal(PartySelectionCodes.NobodyAble, party.Roster.SelectNext(_ => Verdict.Unmet("down."))?.Code);
+        party.Roster.ReconcileSelection(_ => Verdict.Met);
+        Assert.Equal(ann, party.Roster.SelectedMember);
+    }
+
     private static MemberCreation Member(string name, ClassId characterClass, params SkillEntry[] skills) =>
         new(Seed(name, characterClass, skills));
 

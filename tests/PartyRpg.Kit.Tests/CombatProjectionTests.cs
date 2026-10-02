@@ -110,11 +110,11 @@ public sealed class CombatProjectionTests
         Assert.Equal(BlowDamage, combat.Field("damageRolled").AsNumber());
         Assert.Equal(BlowDamage, combat.Field("damage").AsNumber());
         Assert.Equal("Phys", combat.Field("damageKind").AsString());
-        Assert.Equal("Member 4", combat.Field("actor").AsString());
+        Assert.Equal("Member 1", combat.Field("actor").AsString());
         Assert.Equal("A beast", combat.Field("target").AsString());
         Assert.True(combat.Field("byParty").AsBoolean());
         Assert.False(combat.Field("targetDown").AsBoolean());
-        Assert.Equal(40d - (4 * BlowDamage), combat.Field("enemies").Item(0).Field("hitPoints").AsNumber());
+        Assert.Equal(40d - BlowDamage, combat.Field("enemies").Item(0).Field("hitPoints").AsNumber());
         Assert.Equal(MemberRecovery.TotalSeconds, combat.Field("recoverySeconds").AsNumber(), 3);
 
         // And the party's own pools and standing are published beside the fight, which is where a player reads
@@ -135,15 +135,15 @@ public sealed class CombatProjectionTests
         fixture.Start();
         fixture.Update();
 
-        // The panel's own action applies, and it spends every member's recovery: readiness is the state the
+        // The panel's own action applies, and it spends the selected member's recovery: readiness is the state the
         // fight holds, published in the same update the order arrived in.
         fixture.Act();
         ProjectedNode combat = fixture.Combat;
         Assert.Equal("applied", combat.Field("outcome").AsString());
-        Assert.Equal(0d, combat.Field("ready").AsNumber());
+        Assert.Equal(3d, combat.Field("ready").AsNumber());
         Assert.All(
-            Enumerable.Range(0, 4).Select(index => combat.Field("members").Item(index)),
-            member => Assert.False(member.Field("ready").AsBoolean()));
+            Enumerable.Range(1, 3).Select(index => combat.Field("members").Item(index)),
+            member => Assert.True(member.Field("ready").AsBoolean()));
 
         // The same control asked again in the next update is refused by name rather than quietly doing
         // nothing — the refusal is the product's answer, and it is what the panel has to show. This is the
@@ -152,14 +152,14 @@ public sealed class CombatProjectionTests
         combat = fixture.Combat;
         Assert.Equal("refused", combat.Field("outcome").AsString());
         Assert.Equal("recovering", combat.Field("code").AsString());
-        Assert.Contains("Member 4", combat.Field("message").AsString(), StringComparison.Ordinal);
+        Assert.Contains("Member 1", combat.Field("message").AsString(), StringComparison.Ordinal);
         // A refusal attacked nothing, so nothing about an attack travels beside it: the panel shows the
         // refusal rather than the shape of the swing before it.
         Assert.False(combat.Field("resolved").AsBoolean());
         Assert.Equal(string.Empty, combat.Field("kind").AsString());
         Assert.Equal(string.Empty, combat.Field("target").AsString());
         Assert.Equal(0d, combat.Field("recoverySeconds").AsNumber());
-        Assert.Equal(40d - (4 * BlowDamage), combat.Field("enemies").Item(0).Field("hitPoints").AsNumber());
+        Assert.Equal(40d - BlowDamage, combat.Field("enemies").Item(0).Field("hitPoints").AsNumber());
     }
 
     [Fact]
@@ -169,23 +169,23 @@ public sealed class CombatProjectionTests
         fixture.Start();
         fixture.Update();
         fixture.Act();
-        Assert.Equal(0d, fixture.Combat.Field("ready").AsNumber());
+        Assert.Equal(3d, fixture.Combat.Field("ready").AsNumber());
 
         // One admitted update of a sixtieth of a second is half a game second at this suite's clock, so the
-        // members' two seconds are owed for three updates and released by the fourth. What is asserted is
+        // selected member's two seconds are owed for three updates and released by the fourth. What is asserted is
         // which update: the projection published by the update that released them is the one that says so,
         // rather than one the panel would have had to count down for itself.
         fixture.Update();
         Assert.Equal(1.5, fixture.Combat.Field("members").Item(0).Field("recoverySeconds").AsNumber(), 3);
-        Assert.Equal(0d, fixture.Combat.Field("ready").AsNumber());
+        Assert.Equal(3d, fixture.Combat.Field("ready").AsNumber());
 
         fixture.Update();
         Assert.Equal(1.0, fixture.Combat.Field("members").Item(0).Field("recoverySeconds").AsNumber(), 3);
-        Assert.Equal(0d, fixture.Combat.Field("ready").AsNumber());
+        Assert.Equal(3d, fixture.Combat.Field("ready").AsNumber());
 
         fixture.Update();
         Assert.Equal(0.5, fixture.Combat.Field("members").Item(0).Field("recoverySeconds").AsNumber(), 3);
-        Assert.Equal(0d, fixture.Combat.Field("ready").AsNumber());
+        Assert.Equal(3d, fixture.Combat.Field("ready").AsNumber());
 
         fixture.Update();
         ProjectedNode combat = fixture.Combat;
@@ -211,6 +211,8 @@ public sealed class CombatProjectionTests
         // The member is laid out the way this suite's rules say: the pool is emptied and the condition that
         // leaves them unable to act is applied. Everything about it is state the party owns.
         PartyMember hurt = fixture.PartyEntity.Members[1];
+        Assert.Null(fixture.Fight.SelectMember(hurt.Id));
+        Assert.Equal(hurt.Id, fixture.PartyEntity.Roster.SelectedMember);
         hurt.Resources.TakeDamage(40);
         hurt.Conditions.Apply(new ActiveCondition(LaidOut, 0));
         for (int update = 0; update < 4; update++) fixture.Update();
@@ -228,13 +230,13 @@ public sealed class CombatProjectionTests
         Assert.Equal(3d, combat.Field("ready").AsNumber());
         Assert.Equal(0d, combat.Field("members").Item(1).Field("recoverySeconds").AsNumber());
 
-        // And the fight refuses that member's share of the order by name while the others still act, which
-        // is exactly the answer the disabled light stands in for.
-        IReadOnlyList<CombatResult> order = fixture.Fight.Engage();
-        CombatResult refused = order.Single(result => !result.IsApplied);
-        Assert.Equal("incapacitated", refused.Code);
-        Assert.Contains("Member 2", refused.Message, StringComparison.Ordinal);
-        Assert.Equal(3, order.Count(result => result.IsApplied));
+        // Incapable selection is refused by the same capability rule; the existing selection stays.
+        Assert.Equal(PartySelectionCodes.Incapable, fixture.Fight.SelectMember(hurt.Id)!.Code);
+        Assert.NotEqual(hurt.Id, fixture.PartyEntity.Roster.SelectedMember);
+        CombatResult applied = Assert.Single(fixture.Fight.Engage());
+        Assert.True(applied.IsApplied);
+        Assert.NotEqual(CombatantId.Of(hurt.Id), applied.Actor);
+
     }
 
     [Fact]
@@ -269,7 +271,7 @@ public sealed class CombatProjectionTests
     [Fact]
     public void The_bodies_a_place_holds_are_read_from_the_mechanism_that_found_them()
     {
-        using Fixture fixture = new(creatureAt: 100, creatureHitPoints: 4 * BlowDamage);
+        using Fixture fixture = new(creatureAt: 100, creatureHitPoints: BlowDamage);
         fixture.Start();
         fixture.Update();
         Assert.Equal(0d, fixture.Interaction.Field("bodies").AsNumber());

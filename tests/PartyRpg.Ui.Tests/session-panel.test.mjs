@@ -42,6 +42,7 @@ function controls(mode = 'running', overrides = {}) {
     save: control('session.save'),
     use: control('party.use'),
     attack: control('party.attack'),
+    nextMember: control('party.next-member'),
     turnBased: control('combat.turn-based'),
     turnSkip: control('combat.turn-skip'),
     turnWait: control('combat.turn-wait'),
@@ -339,16 +340,18 @@ function rest(overrides = {}) {
 function combat(overrides = {}) {
   return {
     available: true,
+    selectionMessage: '',
+    selectionCode: '',
     engaged: false,
     opposition: 0,
     ready: 2,
     members: [
       {
-        id: 'member:1', name: 'Roderick', ready: true, recoverySeconds: 0, distance: 0,
+        id: 'member:1', member: '1', selected: true, name: 'Roderick', ready: true, recoverySeconds: 0, distance: 0,
         hitPoints: 40, hitPointsMax: 40, conditions: '', down: false, activity: '',
       },
       {
-        id: 'member:2', name: 'Aelina', ready: true, recoverySeconds: 0, distance: 0,
+        id: 'member:2', member: '2', selected: false, name: 'Aelina', ready: true, recoverySeconds: 0, distance: 0,
         hitPoints: 24, hitPointsMax: 24, conditions: '', down: false, activity: '',
       },
     ],
@@ -431,23 +434,23 @@ function paced(overrides = {}) {
       last: 'skip',
       order: [
         ordered({ current: true }),
-        ordered({ id: 'member:2', name: 'Aelina', side: 'party', remainingSeconds: 1.5, ready: false }),
-        ordered({ id: 'actor:1', name: 'A beast', side: 'opposition', remainingSeconds: 1, ready: false }),
+        ordered({ id: 'member:2', member: '2', selected: false, name: 'Aelina', side: 'party', remainingSeconds: 1.5, ready: false }),
+        ordered({ id: 'actor:1', member: '', selected: false, name: 'A beast', side: 'opposition', remainingSeconds: 1, ready: false }),
       ],
     }),
     members: [
       {
-        id: 'member:1', name: 'Roderick', ready: true, recoverySeconds: 0, distance: 0,
+        id: 'member:1', member: '1', selected: true, name: 'Roderick', ready: true, recoverySeconds: 0, distance: 0,
         hitPoints: 27, hitPointsMax: 40, conditions: 'Poison Weak', down: false, activity: '',
       },
       {
-        id: 'member:2', name: 'Aelina', ready: false, recoverySeconds: 1.5, distance: 0,
+        id: 'member:2', member: '2', selected: false, name: 'Aelina', ready: false, recoverySeconds: 1.5, distance: 0,
         hitPoints: 24, hitPointsMax: 24, conditions: '', down: false, activity: '',
       },
     ],
     enemies: [
       {
-        id: 'actor:1', name: 'A beast', ready: false, recoverySeconds: 1, distance: 100,
+        id: 'actor:1', member: '', selected: false, name: 'A beast', ready: false, recoverySeconds: 1, distance: 100,
         hitPoints: 120, hitPointsMax: 200, conditions: '', down: false, activity: 'attacking',
       },
     ],
@@ -472,17 +475,17 @@ function fighting(overrides = {}) {
     ready: 0,
     members: [
       {
-        id: 'member:1', name: 'Roderick', ready: false, recoverySeconds: 22.969, distance: 0,
+        id: 'member:1', member: '1', selected: true, name: 'Roderick', ready: false, recoverySeconds: 22.969, distance: 0,
         hitPoints: 40, hitPointsMax: 40, conditions: '', down: false, activity: '',
       },
       {
-        id: 'member:2', name: 'Aelina', ready: false, recoverySeconds: 22.266, distance: 0,
+        id: 'member:2', member: '2', selected: false, name: 'Aelina', ready: false, recoverySeconds: 22.266, distance: 0,
         hitPoints: 24, hitPointsMax: 24, conditions: '', down: false, activity: '',
       },
     ],
     enemies: [
       {
-        id: 'actor:1', name: 'A beast', ready: true, recoverySeconds: 0, distance: 100,
+        id: 'actor:1', member: '', selected: false, name: 'A beast', ready: true, recoverySeconds: 0, distance: 100,
         hitPoints: 14, hitPointsMax: 40, conditions: '', down: false, activity: 'attacking',
       },
     ],
@@ -3134,11 +3137,11 @@ test('the panel shows the pools, the conditions, and the death the product publi
       combat: fighting({
         members: [
           {
-            id: 'member:1', name: 'Roderick', ready: false, recoverySeconds: 22.969, distance: 0,
+            id: 'member:1', member: '1', selected: true, name: 'Roderick', ready: false, recoverySeconds: 22.969, distance: 0,
             hitPoints: 0, hitPointsMax: 40, conditions: 'Unconscious', down: true, activity: '',
           },
           {
-            id: 'member:2', name: 'Aelina', ready: false, recoverySeconds: 22.266, distance: 0,
+            id: 'member:2', member: '2', selected: false, name: 'Aelina', ready: false, recoverySeconds: 22.266, distance: 0,
             hitPoints: 0, hitPointsMax: 24, conditions: 'Dead', down: true, activity: '',
           },
         ],
@@ -3447,7 +3450,7 @@ test('the panel echoes the fight it was published rather than working the fight 
       combat: combat({
         enemies: [
           {
-            id: 'actor:1', name: 'A beast', ready: false, recoverySeconds: 0, distance: 100,
+            id: 'actor:1', member: '', selected: false, name: 'A beast', ready: false, recoverySeconds: 0, distance: 100,
             hitPoints: 0, hitPointsMax: 40, conditions: '', down: true, activity: 'down',
           },
         ],

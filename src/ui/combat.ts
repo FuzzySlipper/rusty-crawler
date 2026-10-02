@@ -7,6 +7,7 @@
  * each control is offered exactly when the product says it would take it.
  */
 
+import { ACTIONS } from './actions.js';
 import type { ControlView } from './overview.js';
 import type { Fields } from './reader.js';
 import { button, element, head, section, type Host, type Section } from './dom.js';
@@ -14,6 +15,8 @@ import { button, element, head, section, type Host, type Section } from './dom.j
 /** One actor of a fight, as the fight published it. */
 export interface FighterView {
   readonly id: string;
+  readonly member: string;
+  readonly selected: boolean;
   readonly name: string;
   /** Whether the actor may act now, as the fight's own recovery and conditions say. */
   readonly ready: boolean;
@@ -72,6 +75,8 @@ export interface TurnView {
 /** The fight the party is in, as the product published it. */
 export interface CombatView {
   readonly available: boolean;
+  readonly selectionMessage: string;
+  readonly selectionCode: string;
   /** Whether anything is fighting the party right now. */
   readonly engaged: boolean;
   /** How many actors are fighting the party. */
@@ -109,6 +114,8 @@ export interface CombatView {
 function readFighter(f: Fields): FighterView {
   return {
     id: f.text('id'),
+    member: f.text('member'),
+    selected: f.flag('selected'),
     name: f.text('name'),
     ready: f.flag('ready'),
     recoverySeconds: f.number('recoverySeconds'),
@@ -149,6 +156,8 @@ function readTurn(f: Fields): TurnView {
 export function readCombat(f: Fields): CombatView {
   return {
     available: f.flag('available'),
+    selectionMessage: f.text('selectionMessage'),
+    selectionCode: f.text('selectionCode'),
     engaged: f.flag('engaged'),
     opposition: f.number('opposition'),
     ready: f.number('ready'),
@@ -180,6 +189,7 @@ export function readCombat(f: Fields): CombatView {
 export interface CombatReading {
   readonly combat: CombatView;
   readonly attack: ControlView;
+  readonly nextMember: ControlView;
   readonly pace: ControlView;
   readonly skip: ControlView;
   readonly wait: ControlView;
@@ -216,13 +226,15 @@ export function mountCombat(host: Host): Section<CombatReading> {
   const turn = element('p', 'crawler-combat-turn');
   const actions = element('div', 'crawler-actions');
   const attack = button('Attack', 'crawler-attack');
+  const nextMember = button('Next member', 'crawler-next-member');
+  const selection = element('p', 'crawler-selection-result');
   // Switching the pacing is its own control because it is its own act: the fight is the same fight either way.
   const pace = button('Turn-based', 'crawler-pace');
   // Skipping and waiting are separate controls because their consequences differ: a skipped turn forfeits the
   // round and owes the action it did not take, and a waited turn is deferred to the round's end.
   const skip = button('Skip', 'crawler-skip');
   const wait = button('Wait', 'crawler-wait');
-  for (const control of [attack, pace, skip, wait]) {
+  for (const control of [attack, nextMember, pace, skip, wait]) {
     control.addEventListener('click', () => {
       if (control.dataset.action !== undefined && control.dataset.action !== '') claim(control.dataset.action);
     });
@@ -235,7 +247,7 @@ export function mountCombat(host: Host): Section<CombatReading> {
   const order = element('ul', 'crawler-turn-order');
   const outcome = element('p', 'crawler-combat-result');
   outcome.hidden = true;
-  combat.append(head('Fight'), state, turn, actions, members, enemies, order, outcome);
+  combat.append(head('Fight'), state, turn, actions, selection, members, enemies, order, outcome);
 
   const offer = (control: HTMLButtonElement, published: ControlView): void => {
     control.disabled = !published.enabled;
@@ -254,7 +266,19 @@ export function mountCombat(host: Host): Section<CombatReading> {
       : view.engaged
         ? `Engaged with ${view.opposition} — ${view.ready} of ${view.members.length} ready`
         : `Nobody is hostile — ${view.ready} of ${view.members.length} ready`;
-    members.replaceChildren(...view.members.map((member) => fighter(member)));
+    selection.hidden = view.selectionMessage === '';
+    selection.textContent = view.selectionMessage;
+    selection.dataset.code = view.selectionCode;
+    members.replaceChildren(...view.members.map((member) => {
+      const row = fighter(member);
+      row.dataset.selected = member.selected ? 'yes' : 'no';
+      const choose = button(member.selected ? `${member.name} selected` : `Select ${member.name}`, 'crawler-select-member');
+      choose.dataset.member = member.member;
+      choose.dataset.action = ACTIONS.partySelectMember;
+      choose.addEventListener('click', () => claim(ACTIONS.partySelectMember, { member: member.member }));
+      row.append(' ', choose);
+      return row;
+    }));
     enemies.replaceChildren(...view.enemies.map((enemy) => fighter(enemy, ` at ${enemy.distance.toFixed(0)}`)));
 
     // The pacing, the round, and what the actor whose turn it is still owes: a player pressing the act key needs to
@@ -297,6 +321,8 @@ export function mountCombat(host: Host): Section<CombatReading> {
     // Each control is offered exactly when the product says it would take it: the act control, the pacing, and the
     // two turn actions each carry the product's own answer.
     offer(attack, reading.attack);
+    offer(nextMember, reading.nextMember);
+    nextMember.textContent = reading.nextMember.key === '' ? 'Next member' : `Next member (${reading.nextMember.key})`;
     offer(pace, reading.pace);
     offer(skip, reading.skip);
     offer(wait, reading.wait);

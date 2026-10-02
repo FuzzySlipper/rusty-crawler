@@ -97,6 +97,8 @@ public sealed class ProjectionContractTests
         SaveActions.Save,
         PartyRpg.Kit.Interaction.UseActions.Use,
         CombatActions.Attack,
+        CombatActions.SelectMember,
+        CombatActions.NextMember,
         TurnActions.Toggle,
         TurnActions.Skip,
         TurnActions.Wait,
@@ -369,8 +371,8 @@ public sealed class ProjectionContractTests
             Ready: 1,
             Members:
             [
-                new CombatActorSnapshot("member:1", "Roderick", true, 0, 0, 40, 40),
-                new CombatActorSnapshot("member:2", "Aelina", false, 1.5, 0, 0, 24, "Unconscious", true),
+                new CombatActorSnapshot("member:1", "Roderick", true, 0, 0, 40, 40, Member: "1", Selected: true),
+                new CombatActorSnapshot("member:2", "Aelina", false, 1.5, 0, 0, 24, "Unconscious", true, Member: "2"),
             ],
             Enemies: [new CombatActorSnapshot("actor:1", "A beast", false, 1, 100, 14, 40, "poisoned (1)", false, "attacking")],
             Actor: "Roderick",

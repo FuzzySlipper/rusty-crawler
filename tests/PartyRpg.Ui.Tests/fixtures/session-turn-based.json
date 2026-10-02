@@ -395,6 +395,8 @@
     "engaged": true,
     "opposition": 1,
     "ready": 0,
+    "selectionMessage": "",
+    "selectionCode": "",
     "pacing": "turnbased",
     "turn": {
       "phase": "action",
@@ -443,6 +445,8 @@
     "members": [
       {
         "id": "member:1",
+        "member": "1",
+        "selected": true,
         "name": "Roderick",
         "ready": true,
         "recoverySeconds": 0,
@@ -455,6 +459,8 @@
       },
       {
         "id": "member:2",
+        "member": "2",
+        "selected": false,
         "name": "Aelina",
         "ready": false,
         "recoverySeconds": 1.5,
@@ -469,6 +475,8 @@
     "enemies": [
       {
         "id": "actor:1",
+        "member": "",
+        "selected": false,
         "name": "A beast",
         "ready": false,
         "recoverySeconds": 1,
@@ -1124,6 +1132,11 @@
       "action": "party.attack",
       "enabled": true,
       "key": "B"
+    },
+    "nextMember": {
+      "action": "party.next-member",
+      "enabled": true,
+      "key": "N"
     },
     "turnBased": {
       "action": "combat.turn-based",

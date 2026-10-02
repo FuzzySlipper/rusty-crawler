@@ -57,7 +57,8 @@ public sealed record PartySave
         IReadOnlyList<PartyPassage>? passages = null,
         IReadOnlyList<string>? memberships = null,
         IReadOnlyList<PartyDebt>? debts = null,
-        IReadOnlyList<PartyBan>? bans = null)
+        IReadOnlyList<PartyBan>? bans = null,
+        PartyMemberId? selectedMember = null)
     {
         ArgumentNullException.ThrowIfNull(members);
         ArgumentNullException.ThrowIfNull(items);
@@ -71,6 +72,7 @@ public sealed record PartySave
         ArgumentOutOfRangeException.ThrowIfNegative(coins);
         ArgumentOutOfRangeException.ThrowIfNegative(foodPortions);
         NextMemberValue = nextMemberValue;
+        SelectedMember = selectedMember;
         NextItemValue = nextItemValue;
         Members = members;
         Items = items;
@@ -87,6 +89,9 @@ public sealed record PartySave
         Debts = debts ?? [];
         Bans = bans ?? [];
     }
+
+    /// <summary>The member ordinary combat orders address, or none when nobody can act.</summary>
+    public PartyMemberId? SelectedMember { get; init; }
 
     /// <summary>The member identity cursor a restored party mints from.</summary>
     public ulong NextMemberValue { get; }

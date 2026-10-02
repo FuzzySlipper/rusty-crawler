@@ -30,7 +30,7 @@ public sealed class ControlsProjectionTests
         Engaged: true,
         Opposition: 1,
         Ready: ready,
-        Members: [],
+        Members: [new CombatActorSnapshot("member:1", "Roderick", ready > 0, ready > 0 ? 0 : 1, 0, Member: "1", Selected: true)],
         Enemies: [],
         Actor: string.Empty,
         Kind: string.Empty,
@@ -51,7 +51,7 @@ public sealed class ControlsProjectionTests
         // Real time with everybody recovering: the fight refuses an order now, and there is no round for the two
         // turn actions to pass a turn in.
         ControlsSnapshot recovering = ControlsSnapshot.Read(Session(SessionMode.Running) with { Combat = Fight(ready: 0) });
-        Assert.False(recovering.Attack.Enabled);
+        Assert.True(recovering.Attack.Enabled); // The selected member gets the named recovery refusal.
         Assert.False(recovering.TurnSkip.Enabled);
         Assert.False(recovering.TurnWait.Enabled);
         Assert.True(recovering.TurnBased.Enabled);
@@ -90,7 +90,7 @@ public sealed class ControlsProjectionTests
         {
             Combat = Fight(ready: 0, CombatPacing.TurnBased, Round(TurnPhase.None, playerTurn: false)),
         });
-        Assert.False(idle.Attack.Enabled);
+        Assert.True(idle.Attack.Enabled);
         Assert.False(idle.TurnSkip.Enabled);
         Assert.False(idle.TurnWait.Enabled);
         Assert.True(idle.TurnBased.Enabled);

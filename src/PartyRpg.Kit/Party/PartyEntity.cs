@@ -519,7 +519,8 @@ public sealed class PartyEntity : IDisposable
             [.. Passages.All],
             [.. Memberships.All],
             [.. Debts.All],
-            [.. Bans.All]);
+            [.. Bans.All],
+            Roster.SelectedMember);
     }
 
     /// <summary>Disposes the store the party was created in.</summary>

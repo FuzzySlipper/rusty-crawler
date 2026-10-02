@@ -47,6 +47,7 @@ internal static class ProductControlKeys
             Save = Key(ProductIdentity.SaveIntent),
             Use = Key(ProductIdentity.UseIntent),
             Attack = Key(ProductIdentity.AttackIntent),
+            NextMember = Key(ProductIdentity.NextMemberIntent),
             TurnBased = Key(ProductIdentity.TurnBasedToggleIntent),
             TurnSkip = Key(ProductIdentity.TurnSkipIntent),
             TurnWait = Key(ProductIdentity.TurnWaitIntent),

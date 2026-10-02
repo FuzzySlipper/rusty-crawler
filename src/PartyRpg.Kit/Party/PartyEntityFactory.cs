@@ -66,7 +66,9 @@ public sealed class PartyEntityFactory
         List<PartyMember> members = [];
         foreach (MemberCreation member in creation.Members) members.Add(AttachMember(store, identity.MintMemberId(), member.Seed, [], _health));
 
-        entity.Add(new PartyRoster(members));
+        PartyRoster roster = new(members);
+        roster.RestoreSelection(members[0].Id);
+        entity.Add(roster);
         entity.Add(new PartyInventory());
         entity.Add(new PartyPurse(creation.Coins));
         entity.Add(new PartyFood(creation.FoodPortions, creation.FoodUnit));
@@ -112,7 +114,9 @@ public sealed class PartyEntityFactory
         foreach (PartyMemberSave member in save.Members) members.Add(AttachMember(store, member.Id, member.Seed, member.Effects, _health));
 
         PartyInventory inventory = new();
-        entity.Add(new PartyRoster(members));
+        PartyRoster roster = new(members);
+        roster.RestoreSelection(save.SelectedMember);
+        entity.Add(roster);
         entity.Add(inventory);
         entity.Add(new PartyPurse(save.Coins));
         entity.Add(new PartyFood(save.FoodPortions, save.FoodUnit));
@@ -192,6 +196,9 @@ public sealed class PartyEntityFactory
                     $"member {member.Id} is not below the member cursor {save.NextMemberValue}, so a restored party could mint that identity again"));
             }
         }
+
+        if (save.SelectedMember is { } selected && !members.Contains(selected))
+            problems.Add(new SaveProblem(SaveCodes.SaveMemberSelectionInvalid, "selection", $"selected member {selected} is not in the saved party"));
 
         HashSet<ItemInstanceId> items = [];
         HashSet<(PartyMemberId Member, string Slot)> occupied = [];

@@ -150,7 +150,8 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
                 ProductIdentity.TurnBasedToggleIntent,
                 ProductIdentity.TurnSkipIntent,
                 ProductIdentity.TurnWaitIntent,
-                ProductIdentity.UiActionContract));
+                ProductIdentity.UiActionContract),
+            nextMember: ProductIdentity.NextMemberIntent);
         // Which key each control is bound to is the project file's declaration, handed back by the engine: the
         // panel names those keys and no others.
         _keys = ProductControlKeys.Read(context.Input);

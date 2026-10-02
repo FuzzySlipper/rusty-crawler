@@ -349,6 +349,7 @@ public sealed partial class CombatState : IGameTimeObserver
         // can take turns in begins and lets go when it ends: what it holds is always this fight, never a
         // remembered copy of it.
         Turns.Reconcile();
+        ReconcileSelection();
     }
 
     /// <summary>
@@ -371,58 +372,16 @@ public sealed partial class CombatState : IGameTimeObserver
         return _rule.NatureOf(combatant.Subject).AttacksOnSight;
     }
 
-    /// <summary>
-    /// The party attacks what it can reach: every member who is ready acts, and every member who is not is
-    /// refused by name.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// This is what the act control means: an attack at the nearest creature in reach, resolved by the
-    /// ruleset into a spell, a shot, or a swing. The kit has no notion of an active character yet, so the
-    /// order is given to every member at once and each pays its own recovery for it: the party acts, and who
-    /// may act is decided per actor by the recovery it has left. A member with nothing in reach still
-    /// attacks at nothing and still pays, which is the honest outcome when there is nothing to hit.
-    /// </para>
-    /// <para>
-    /// The target is the nearest creature that is not one of the party's own, within the reach the ruleset
-    /// gives that member for the kind of attack it makes. Facing is not consulted: the party's facing and a
-    /// world actor's position are in different units until a view stone relates them, and this stone would
-    /// rather pick the nearest enemy than pretend to aim.
-    /// </para>
-    /// </remarks>
-    /// <returns>One result per party member, in combatant order.</returns>
+    /// <summary>Orders only the selected member, through the same gate both pacings use.</summary>
+    /// <returns>That member's answer, or no answer when nobody is capable of selection.</returns>
     public IReadOnlyList<CombatResult> Engage()
     {
-        List<CombatResult> results = [];
-        foreach (Combatant combatant in _combatants)
-        {
-            if (combatant.Side != CombatSide.Party) continue;
-            Combatant? target = Nearest(combatant);
-            results.Add(Order(new AttackOrder(combatant.Id, combatant.PreferredKind, target?.Id)));
-        }
-
-        return results;
+        return EngageSelected() is { } result ? [result] : [];
     }
 
-    /// <summary>
-    /// One actor attacks what it can reach, which is what a turn-based turn's act action means.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// It is the same attack the act control orders in real time, addressed to one actor instead of to the
-    /// whole party: the target is the nearest one the ruleset's reach allows, what the actor does with the
-    /// order — a swing, a shot, a spell — is the ruleset's answer about that actor, and the recovery it pays
-    /// is the same quantity that decides when its next turn comes. A paced fight needs this because only one
-    /// actor's turn is being taken; real time needs <see cref="Engage()"/> because the whole party acts as
-    /// each member's recovery elapses.
-    /// </para>
-    /// <para>
-    /// An actor that is not in this fight, or one the fight refuses — it is recovering, or what is acting on
-    /// it leaves it unable to act — is answered by name and spends nothing, exactly as an order to the whole
-    /// party is.
-    /// </para>
-    /// </remarks>
-    /// <param name="actor">The actor whose turn it is.</param>
+    /// <summary>One addressed actor attacks what it can reach through its existing recovery gate.</summary>
+    /// <remarks>The party's selected order and a creature's AI both reach this same attack path.</remarks>
+    /// <param name="actor">The actor whose order this is.</param>
     /// <returns>What the order did, or why it did not.</returns>
     public CombatResult Engage(CombatantId actor)
     {
@@ -950,6 +909,7 @@ public sealed partial class CombatState : IGameTimeObserver
     private CombatResult Report(CombatResult result)
     {
         _lastOrder = result;
+        ReconcileSelection();
         _diagnostics?.Publish(new DiagnosticsPublishRequest(
             DiagnosticsSeverity.Info,
             DiagnosticsDisposition.Accepted,

@@ -56,6 +56,69 @@ public sealed class PartyRoster
     /// <summary>How many members the party has.</summary>
     public int Count => _members.Count;
 
+    /// <summary>The member an ordinary order addresses, or none while nobody can act.</summary>
+    public PartyMemberId? SelectedMember { get; private set; }
+
+    /// <summary>The last selection's named refusal, if that choice was refused.</summary>
+    public Refusal? SelectionRefusal { get; private set; }
+
+    /// <summary>What the last choice or automatic replacement reported.</summary>
+    public string SelectionMessage { get; private set; } = string.Empty;
+
+    /// <summary>Chooses a member after the game's existing action rule has judged capability.</summary>
+    public Refusal? Select(PartyMemberId id, Verdict capability)
+    {
+        if (!TryMember(id, out PartyMember? member))
+            return Refuse(new(PartySelectionCodes.UnknownMember, $"Member {id} is not in this party, so the selection stayed where it was."));
+        if (!capability.IsMet)
+            return Refuse(new(PartySelectionCodes.Incapable, $"{member.Profile.Name} cannot be selected: {capability.Explanation}"));
+
+        SelectedMember = id;
+        SelectionRefusal = null;
+        SelectionMessage = $"{member.Profile.Name} is selected to act.";
+        return null;
+    }
+
+    /// <summary>Cycles in roster order, skipping incapable members but keeping recovery out of selection.</summary>
+    public Refusal? SelectNext(Func<PartyMember, Verdict> capability)
+    {
+        int current = _members.FindIndex(member => member.Id == SelectedMember);
+        for (int offset = 1; offset <= _members.Count; offset++)
+        {
+            PartyMember candidate = _members[(current + offset) % _members.Count];
+            Verdict answer = capability(candidate);
+            if (answer.IsMet) return Select(candidate.Id, answer);
+        }
+
+        return Refuse(new(PartySelectionCodes.NobodyAble, "Nobody in the party can act, so nobody can be selected."));
+    }
+
+    /// <summary>Moves an incapable selection to the first capable member, or clears it when nobody can act.</summary>
+    public void ReconcileSelection(Func<PartyMember, Verdict> capability)
+    {
+        if (SelectedMember is { } selected && TryMember(selected, out PartyMember? member) && capability(member).IsMet) return;
+        PartyMember? replacement = _members.FirstOrDefault(member => capability(member).IsMet);
+        if (replacement?.Id == SelectedMember) return;
+        string previous = SelectedMember is { } prior && TryMember(prior, out PartyMember? before) ? before.Profile.Name : "Nobody";
+        SelectedMember = replacement?.Id;
+        SelectionRefusal = null;
+        SelectionMessage = replacement is null
+            ? $"{previous} cannot act; the party has nobody able to select."
+            : previous == "Nobody" ? $"{replacement.Profile.Name} is selected to act."
+            : $"{previous} cannot act; {replacement.Profile.Name} is now selected.";
+    }
+
+    // Restore keeps the recorded choice. Membership is checked at the save boundary, and capability is
+    // reconciled after the action rule is composed; recovery never picks somebody else for the player.
+    internal void RestoreSelection(PartyMemberId? selected) => SelectedMember = selected;
+
+    private Refusal Refuse(Refusal refusal)
+    {
+        SelectionRefusal = refusal;
+        SelectionMessage = refusal.Message;
+        return refusal;
+    }
+
     /// <summary>Whether a person with this durable identity is a member.</summary>
     /// <param name="id">The member's durable identity.</param>
     public bool Contains(PartyMemberId id) => TryMember(id, out _);
