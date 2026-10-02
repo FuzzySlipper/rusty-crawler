@@ -364,10 +364,9 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     /// <summary>What using a door makes of it, given its state and what it requires.</summary>
     /// <remarks>
     /// A locked door is turned first and opened second, which is why the state word rather than the lock
-    /// alone decides the verb. The passage the party cannot walk is stated as the outcome's residue: this
-    /// build admits a door's polygons as collision wherever they stand, so a door that is open in state is
-    /// still a door the party cannot walk through, and a report that said only "it opens" would be claiming a
-    /// way through that is not there. Whether a lock stands in the way is read from the verb the definition
+    /// alone decides the verb. The outcome records that word on the canonical ledger, whose change
+    /// refreshes the place's collision and navigation through the geometry owner. Whether a lock stands
+    /// in the way is read from the verb the definition
     /// offers rather than from the requirements alone, so the hours a place keeps are a gate at the door and
     /// not a second lock inside it.
     /// </remarks>

@@ -3,13 +3,14 @@ namespace MightAndMagic7.Import.Maps;
 /// <summary>One door slot of an indoor level's delta.</summary>
 /// <remarks>
 /// The delta always carries a fixed 200 slots, most of them unused; <see cref="InUse"/> reports whether
-/// this one holds a door. A door's geometry is the faces named by <see cref="FaceIds"/>, moved along
-/// the offsets as it opens, and those faces are what connect its two sides — MM7 doors never name
+/// this one holds a door. A door's geometry is the faces named by <see cref="FaceIds"/>, moved from their stored rest offsets
+/// along the direction and travel distance, and those faces are what connect its two sides — MM7 doors never name
 /// their sectors themselves, so <see cref="SectorIds"/> is empty in every shipped door.
 ///
 /// <see cref="State"/> is kept as the stored number. The reading that matches the shipped data is the
 /// one where 0 is the door's rest position and 2 its fully moved position, with 1 and 3 the two
-/// transitions; the donor's own naming of these states disagrees with that and is not followed here.
+/// transitions. Runtime open/closed policy belongs to the ruleset; the importer retains
+/// these source endpoints without interpreting a donor enum comment.
 /// </remarks>
 /// <param name="Index">The door's slot index in the delta's fixed door array.</param>
 /// <param name="InUse">Whether the slot holds a door, which the file signals by a non-zero vertex count.</param>
@@ -26,9 +27,9 @@ namespace MightAndMagic7.Import.Maps;
 /// <param name="SectorIds">The sectors the door moves; empty in every shipped door.</param>
 /// <param name="DeltaUs">Per-face horizontal texture offsets.</param>
 /// <param name="DeltaVs">Per-face vertical texture offsets.</param>
-/// <param name="XOffsets">Per-offset-step X movement.</param>
-/// <param name="YOffsets">Per-offset-step Y movement.</param>
-/// <param name="ZOffsets">Per-offset-step Z movement.</param>
+/// <param name="XOffsets">Stored rest X coordinates of the named vertices.</param>
+/// <param name="YOffsets">Stored rest Y coordinates of the named vertices.</param>
+/// <param name="ZOffsets">Stored rest Z coordinates of the named vertices.</param>
 public sealed record MapDoor(
     int Index,
     bool InUse,
