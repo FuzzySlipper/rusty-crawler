@@ -214,7 +214,8 @@ divided and standing does not move — `Train` is what a counter's step settles 
 the party's one ledger, the level's pools grown by the ruleset's class and rank tables, the points granted,
 and both pools filled — a training offer may also include a `RestPeriod`, charged only on the first
 successful step of its `ServiceVisit` through `PartyRest.SleepInRoom`, whose rules decide recovery and
-whose one clock informs every time owner; leaving and returning resets that transient visit — and `RaiseSkill` is the only way a skill point is spent: it asks the skill policy
+whose one clock informs every time owner; leaving and returning resets that transient visit (the product's
+reading is in [`docs/evidence/training-rest.md`](../../docs/evidence/training-rest.md)) — and `RaiseSkill` is the only way a skill point is spent: it asks the skill policy
 for the price of the levels and the ceiling the member's class and rank impose, refuses past that ceiling
 with the limit named or with what the pool is short, and charges the pool and raises the skill together, so
 a raise that failed leaves the character exactly where they stood — with `Plan` publishing the same answer

@@ -371,7 +371,8 @@ days, with twelve hours more when its content names map 8 or 10. It uses the ord
 and the session's one clock. `OpenEnroth/src/GUI/UI/Houses/Training.cpp:75-88` supplies the duration and
 `OpenEnroth/src/Engine/Engine.cpp:1447-1450` the next-dawn rule. This game's task deliberately charges only the first
 step of a visit; the donor charges each new maximum per-member count of levels gained during the visit.
-The imported live reading remains pending. This game's skills are landed beside it: `MightAndMagic7Skills` reads the shipped
+The imported panel reading is in [`docs/evidence/training-rest.md`](../../docs/evidence/training-rest.md).
+This game's skills are landed beside it: `MightAndMagic7Skills` reads the shipped
 table's 37 rows into the four blocks the manual states — 34 usable, with Blaster, Diplomacy, and Thievery
 reported as the rows this game does not use — and answers the ceiling a class and rank impose from its own
 transcription of the donor's per-class mastery matrix, its authored level bands over the donor's own rung

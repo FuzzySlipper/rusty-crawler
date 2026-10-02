@@ -252,7 +252,8 @@ refuses a place whose solid faces cannot be closed enough for a party to stand o
 rules are in [`docs/research/mm7-map-formats.md`](docs/research/mm7-map-formats.md) §8.
 The first successful training step of a counter visit includes a week plus next dawn and four hours,
 with twelve hours more at the two deep halls. It reaches the one clock and the ordinary rest recovery;
-later steps of the same visit add no time. Its imported live reading is still pending.
+later steps of the same visit add no time. The imported counter reading is in
+[`docs/evidence/training-rest.md`](docs/evidence/training-rest.md).
 
 Its collision vertex bounds also supply a navigation region beside the artifact. Engine derives walkable
 supports in the party's same scene with the actual controller body; creatures query routes from their feet

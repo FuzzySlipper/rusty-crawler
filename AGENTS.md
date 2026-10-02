@@ -146,7 +146,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   place (#8618); a fixture event refuses only at a hireling step (#8514).
 - Stone 6, combat: a fight is not carried in a save, and a save taken with one pending is refused (#8658);
   an order commands every member rather than a selected one (#8659).
-- Stone 7, progression and magic: training rest needs its live reading (#8671); the two counted deeds two ranks need
+- Stone 7, progression and magic: the two counted deeds two ranks need
   have no writer (#8689); item-aimed effects (#8513) and followers
   (#8514) are "not yet" in `docs/magic-coverage.md`.
 - Stone 8, record: an errand's item is protected only from sale (#8687).
