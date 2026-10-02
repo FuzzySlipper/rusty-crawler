@@ -35,6 +35,15 @@ internal static class ProductIdentity
     /// <summary>The payload contract those actions carry.</summary>
     internal const string UiActionContract = "crawler.ui.action.v1";
 
+    /// <summary>The service payload vocabulary carried on the one UI action channel.</summary>
+    internal static IReadOnlyList<string> ServicePayloadActions { get; } =
+    [
+        ServiceActions.Buy, ServiceActions.Sell, ServiceActions.Identify, ServiceActions.Repair,
+        ServiceActions.Teach, ServiceActions.Train, ServiceActions.Cure, ServiceActions.Provision,
+        ServiceActions.Stay, ServiceActions.Deposit, ServiceActions.Withdraw, ServiceActions.Amount,
+        ServiceActions.Fare, ServiceActions.Steal, ServiceActions.Repay, ServiceActions.Leave,
+    ];
+
     /// <summary>The digital intent that holds or releases the session from the keyboard.</summary>
     internal const string PauseToggleIntent = "session.pause-toggle";
 

@@ -71,6 +71,19 @@ export interface ServiceOfferView {
   readonly name: string;
   readonly amount: number;
   readonly price: number;
+  readonly choices: readonly ServiceOfferChoiceView[];
+}
+
+/** A command the mechanism priced for its actual patient or amount. */
+export interface ServiceOfferChoiceView {
+  readonly operation: string;
+  readonly member: number;
+  readonly name: string;
+  readonly count: number;
+  readonly price: number;
+  readonly payment: number;
+  readonly enabled: boolean;
+  readonly reason: string;
 }
 
 /** One passage a counter sells, which a fare command names by the place it reaches. */
@@ -104,6 +117,7 @@ export interface ServiceMemberView {
  * `open` says whether a visit is; `state` says whether the counter is serving.
  */
 export interface ServiceView {
+  readonly amount: number;
   readonly available: boolean;
   readonly open: boolean;
   readonly id: string;
@@ -152,6 +166,7 @@ function readHeld(entry: Fields): ServiceHeldView {
 
 export function readService(f: Fields): ServiceView {
   return {
+    amount: f.number('amount'),
     available: f.flag('available'),
     open: f.flag('open'),
     id: f.text('id'),
@@ -186,6 +201,11 @@ export function readService(f: Fields): ServiceView {
       name: entry.text('name'),
       amount: entry.number('amount'),
       price: entry.number('price'),
+      choices: entry.list('choices', (choice) => ({
+        operation: choice.text('operation'), member: choice.number('member'), name: choice.text('name'),
+        count: choice.number('count'), price: choice.number('price'), payment: choice.number('payment'),
+        enabled: choice.flag('enabled'), reason: choice.text('reason'),
+      })),
     })),
     sales: f.list('sales', (entry) => ({
       item: entry.text('item'),
@@ -246,6 +266,17 @@ export function mountService(host: Host): Section<ServiceReading> {
   const saleRow = element('div', 'crawler-row');
   const lessonRow = element('div', 'crawler-row');
   const offerRow = element('div', 'crawler-row');
+  const amountRow = element('div', 'crawler-service-amount');
+  const amountLabel = element('label');
+  amountLabel.textContent = 'Coins to move ';
+  const amountInput = element('input');
+  amountInput.type = 'number';
+  amountInput.step = '1';
+  amountInput.min = '1';
+  amountLabel.append(amountInput);
+  const quoteAmount = button('Show prices for this amount');
+  quoteAmount.addEventListener('click', () => claim(ACTIONS.serviceAmount, { count: Number(amountInput.value) }));
+  amountRow.append(amountLabel, quoteAmount);
   const outcome = element('p', 'crawler-service-result');
   outcome.hidden = true;
   const actions = element('div', 'crawler-actions');
@@ -254,7 +285,7 @@ export function mountService(host: Host): Section<ServiceReading> {
     if (leave.dataset.action !== undefined && leave.dataset.action !== '') claim(leave.dataset.action);
   });
   actions.append(leave);
-  service.append(serviceHead, state, access, memberRow, stockRow, stealRow, offerRow, debtRow, saleRow, lessonRow, actions, outcome);
+  service.append(serviceHead, state, access, memberRow, stockRow, stealRow, amountRow, offerRow, debtRow, saleRow, lessonRow, actions, outcome);
   const changed = redrawGuard();
 
   const render = ({ service: view, leave: control }: ServiceReading): void => {
@@ -293,6 +324,7 @@ export function mountService(host: Host): Section<ServiceReading> {
     if (!view.open) {
       for (const row of [stockRow, stealRow, offerRow, debtRow, saleRow, lessonRow]) row.replaceChildren();
       memberRow.hidden = true;
+      amountRow.hidden = true;
       return;
     }
 
@@ -386,22 +418,24 @@ export function mountService(host: Host): Section<ServiceReading> {
     ];
     saleRow.replaceChildren(held.length === 0 ? element('div') : options(claim, 'Your items', held));
 
-    // The passages the counter sells are rows a player presses to make the journey; the offers this companion has
-    // no command for — a cure, a room, a line — are the screen's that will carry them, not buttons that cannot work.
-    offerRow.replaceChildren(
-      view.fares.length === 0
-        ? element('div')
-        : options(
-            claim,
-            'Passages',
-            view.fares.map((entry) => ({
-              id: `fare-${entry.subject}`,
-              text: `${entry.name} — ${entry.price}`,
-              action: ACTIONS.serviceFare,
-              payload: () => ({ target: entry.subject }),
-            })),
-          ),
-    );
+    const offerActions: Readonly<Record<string, string>> = {
+      cure: ACTIONS.serviceCure, train: ACTIONS.serviceTrain, provision: ACTIONS.serviceProvision,
+      stay: ACTIONS.serviceStay, deposit: ACTIONS.serviceDeposit, withdraw: ACTIONS.serviceWithdraw,
+      fare: ACTIONS.serviceFare,
+    };
+    amountRow.hidden = !view.offers.some((offer) => offer.kind === 'holding' && offer.choices.length > 0);
+    amountInput.value = String(view.amount);
+    offerRow.replaceChildren(...view.offers.filter((offer) => offer.kind !== 'debt').map((offer) => options(
+      claim,
+      offer.kind === 'holding' ? `${offer.name}: ${offer.amount} held; quoting ${view.amount}` : offer.name,
+      offer.choices.map((choice) => ({
+        id: `${choice.operation}-${offer.subject}-${choice.member}`,
+        text: `${choice.operation}${choice.name === '' ? '' : ` ${choice.name}`} — pay ${choice.price}${choice.payment === 0 ? '' : `, receive ${choice.payment}`}${choice.reason === '' ? '' : ` · ${choice.reason}`}`,
+        action: offerActions[choice.operation],
+        enabled: choice.enabled,
+        payload: () => ({ target: offer.subject, member: choice.member, count: choice.count }),
+      })),
+    )));
 
     lessonRow.replaceChildren(
       view.lessons.length === 0

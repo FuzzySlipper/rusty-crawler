@@ -274,26 +274,13 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
         if (Barred(service) is { } barred) return Refuse(kind, barred);
 
         if (Resolve(visit, command, operation, out ServiceSubject subject, out PartyMemberId member) is { } missing) return missing;
-        if (operation.Admit?.Invoke(subject) is { } unfit) return Refuse(kind, unfit);
-
-        ServiceEligibility eligibility = _rule.Judge(new ServiceEligibilityRequest(service, kind, subject, member, _party, _clock));
-        if (eligibility.Refusal is { } refused) return Refuse(kind, refused);
-
         // A theft is not bought, so it is not priced: what it costs is drawn by the theft rule and laid on the party
         // as a debt, never charged at the counter.
         ServiceQuote quote = operation.Unpriced
             ? ServiceQuote.Free
             : _rule.Quote(new ServiceQuoteRequest(service, kind, subject, member, _party, _clock));
-        if ((!quote.Charge.IsFree || !quote.Payment.IsFree || operation.NeedsAccounts) && _accounts is null)
-        {
-            return Refuse(
-                kind,
-                ServiceCodes.ServiceNoAccounts,
-                $"{service.Describe()} settles in coin and this session holds no party accounts to settle against; the party's purse is the only purse a service may touch.");
-        }
-
         Transaction transaction = new(visit, kind, subject, member, quote);
-        if (operation.Judge?.Invoke(this, transaction) is { } blocked) return Refuse(kind, blocked);
+        if (Judge(transaction, operation) is { } blocked) return Refuse(kind, blocked);
 
         if (!quote.Charge.IsFree)
         {
@@ -308,6 +295,29 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
         // honours a passage the counter has just sold — reads it from the transaction rather than from the
         // screen's own copy of the request.
         return Record(ServiceResult.Applied(operation.Word, operation.Describe(this, transaction), subject.Target, quote.Charge.Coins, quote.Payment.Coins, Coins));
+    }
+
+    /// <summary>The shared judgments for a quote and its transaction; no resources are settled here.</summary>
+    private Refusal? Judge(Transaction transaction, Operation operation)
+    {
+        if (operation.Admit?.Invoke(transaction.Subject) is { } unfit) return unfit;
+        if (_rule.Judge(new ServiceEligibilityRequest(transaction.Visit.Service, transaction.Kind, transaction.Subject, transaction.Member, _party, _clock)).Refusal is { } refused)
+            return refused;
+        if ((!transaction.Quote.Charge.IsFree || !transaction.Quote.Payment.IsFree || operation.NeedsAccounts) && _accounts is null)
+            return new Refusal(ServiceCodes.ServiceNoAccounts, $"{transaction.Visit.Service.Describe()} settles in coin and this session holds no party accounts to settle against; the party's purse is the only purse a service may touch.");
+        if (operation.Judge?.Invoke(this, transaction) is { } blocked) return blocked;
+        return transaction.Quote.Charge.IsFree ? null : _accounts!.Judge(transaction.Quote.Charge);
+    }
+
+    /// <summary>Chooses the amount this visit quotes, without depositing or withdrawing it.</summary>
+    public ServiceResult ChooseAmount(int amount)
+    {
+        if (_visit is not { } visit)
+            return Refuse(ServiceOperationKind.Deposit, ServiceCodes.ServiceNotOpen, "The party is not standing at a service counter.");
+        if (amount < 1)
+            return Refuse(ServiceOperationKind.Deposit, ServiceCodes.ServiceCountInvalid, $"An amount of {amount} moves no coin; choose at least one.");
+        visit.Amount = amount;
+        return Record(ServiceResult.Applied("amount", $"The counter quotes {amount} coin(s); nothing has moved.", coins: Coins));
     }
 
     /// <summary>What the open service offers the party, or null when no visit is open.</summary>
@@ -356,8 +366,32 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
             // price rule would ask what a rumour costs, which is a question no counter answers.
             int price = offer.Kind == ServiceOfferKind.Notice
                 ? 0
-                : Price(service, OperationOf(offer.Kind), ServiceSubject.OfOffer(offer, offer.Amount), Subject(offer)).Charge.Coins;
-            offers.Add(new ServiceOfferLine(offer, price));
+                : Price(service, OperationOf(offer.Kind), ServiceSubject.OfOffer(offer, offer.Kind == ServiceOfferKind.Holding ? visit.Amount : offer.Amount), Subject(offer)).Charge.Coins;
+            List<ServiceOfferChoice> choices = [];
+            if (offer.Kind != ServiceOfferKind.Notice)
+            {
+                ServiceOperationKind[] kinds = offer.Kind == ServiceOfferKind.Holding
+                    ? [ServiceOperationKind.Deposit, ServiceOperationKind.Withdraw]
+                    : [OperationOf(offer.Kind)];
+                foreach (ServiceOperationKind kind in kinds)
+                {
+                    if (!service.Offers(kind)) continue;
+                    Operation operation = Operations[kind];
+                    int count = offer.Kind == ServiceOfferKind.Holding ? visit.Amount : offer.Kind == ServiceOfferKind.Debt ? offer.Amount : 1;
+                    IEnumerable<int> subjects = operation.ForMember ? Enumerable.Range(0, _party.Members.Count) : [-1];
+                    foreach (int index in subjects)
+                    {
+                        PartyMemberId member = index < 0 ? default : _party.Members[index].Id;
+                        ServiceSubject subject = ServiceSubject.OfOffer(offer, count);
+                        ServiceQuote quote = Price(service, kind, subject, member);
+                        Transaction transaction = new(visit, kind, subject, member, quote);
+                        Refusal? refused = Closed(service) ?? Barred(service) ?? Judge(transaction, operation);
+                        choices.Add(new ServiceOfferChoice(kind, index, index < 0 ? string.Empty : _party.Members[index].Profile.Name,
+                            count, quote.Charge.Coins, quote.Payment.Coins, refused));
+                    }
+                }
+            }
+            offers.Add(new ServiceOfferLine(offer, price) { Choices = choices });
         }
 
         List<ServiceSaleOffer> sales = [];

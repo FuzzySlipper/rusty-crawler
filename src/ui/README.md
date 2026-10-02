@@ -59,3 +59,9 @@ each counter, conversation, and stop, and the party's records on the same terms:
 refusal keeps its own code and sentence, and nothing on screen counts down or ticks on its own — a recovering
 member shows the game time the product published, because a screen that timed recovery itself would show a
 character ready before the fight agreed.
+
+The service offer rows carry each patient or party choice, the quoted quantity, charge, payment and refusal.
+Cures and training therefore choose the member they were priced for. The bank amount field asks the
+product for a fresh quote through `service.amount`; deposit and withdrawal buttons send that published
+quantity until the next projection replaces them. This is one transient counter selection, with no purse,
+holding, price arithmetic or eligibility in the companion. Counters without an offer show no action for it.

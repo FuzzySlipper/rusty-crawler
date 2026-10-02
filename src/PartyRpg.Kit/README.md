@@ -73,7 +73,9 @@ Owns:
   `ServiceTheft` and carried out by one step whichever kind it was: coin through the ledger, goods into the pack
   with the stolen mark when the draw says so, the fine onto `PartyDebts`, the deed to `PartyProgression.Deed`, and a
   counter's ban onto `PartyBans`; `Repay` pays coin toward what the party owes on an account a counter collects; a
-  cure ends what its offer `Clears` and leaves what it `Leaves` on a member it ended something for),
+  `Browse` quotes each offer for its actual member or the visit's chosen coin amount, using the same
+  judgments as `Transact`; `ChooseAmount` changes only that transient visit selection and moves no coin;
+  a cure ends what its offer `Clears` and leaves what it `Leaves` on a member it ended something for),
   quests (`Quests/` — one owner of what a party has been
   offered, taken, and finished, with definitions a game states, objectives that read the owners already
   reporting them, and one turn-in that pays each reward to its own owner), containers, doors, travel

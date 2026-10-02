@@ -162,6 +162,9 @@ public sealed class ControlDeclarationTests
             ProductIdentity.WaitAnHourIntent, ProductIdentity.WaitFiveMinutesIntent, ProductIdentity.TurnBasedToggleIntent,
             ProductIdentity.TurnSkipIntent, ProductIdentity.TurnWaitIntent, ServiceActions.Buy, ServiceActions.Sell,
             ServiceActions.Identify, ServiceActions.Repair, ServiceActions.Teach, ServiceActions.Leave,
+            ServiceActions.Train, ServiceActions.Fare, ServiceActions.Steal, ServiceActions.Repay,
+            ServiceActions.Cure, ServiceActions.Provision, ServiceActions.Stay, ServiceActions.Deposit,
+            ServiceActions.Withdraw, ServiceActions.Amount,
             ConversationActions.Topic, ConversationActions.Person, ConversationActions.Leave,
         })
         {

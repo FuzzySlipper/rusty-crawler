@@ -147,4 +147,18 @@ public sealed record ServiceOfferRequest(ServiceDefinition Service, PartyEntity 
 /// </remarks>
 /// <param name="Offer">The offer.</param>
 /// <param name="Price">What taking it costs the party.</param>
-public readonly record struct ServiceOfferLine(ServiceOffer Offer, int Price);
+public readonly record struct ServiceOfferLine(ServiceOffer Offer, int Price)
+{
+    /// <summary>Actual operation choices, priced and judged for their patient or quantity.</summary>
+    public IReadOnlyList<ServiceOfferChoice> Choices { get; init; } = [];
+}
+
+/// <summary>One way to take an offer, using the same quote and judgments as the transaction.</summary>
+/// <param name="Operation">The operation it asks the counter to perform.</param>
+/// <param name="Member">The patient or trainee's index, or -1 for a party operation.</param>
+/// <param name="Name">The patient's name, or empty for a party operation.</param>
+/// <param name="Count">How many the command names.</param>
+/// <param name="Price">What the purse would pay.</param>
+/// <param name="Payment">What the purse would receive.</param>
+/// <param name="Refusal">Why it is unavailable now, or null when available.</param>
+public sealed record ServiceOfferChoice(ServiceOperationKind Operation, int Member, string Name, int Count, int Price, int Payment, Refusal? Refusal);

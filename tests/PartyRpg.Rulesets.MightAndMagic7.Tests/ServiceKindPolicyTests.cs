@@ -1,3 +1,7 @@
+using System.Text.Json;
+using PartyRpg.Kit.Input;
+using PartyRpg.Kit.Presentation;
+using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Party;
@@ -450,6 +454,86 @@ public sealed class ServiceKindPolicyTests
     }
 
     /// <summary>A party, the content the counters are read from, and the one mechanism that serves them.</summary>
+    [Fact]
+    public void Panel_cure_quotes_and_input_name_the_patient_and_disappear_after_recovery()
+    {
+        using Fixture fixture = Fixture.Build();
+        PartyMember patient = fixture.Party.Members[0];
+        patient.Conditions.Apply(new ActiveCondition(MightAndMagic7Conditions.Dead));
+        PartyServices temple = fixture.Open("87");
+        ServiceOfferSnapshot offer = Assert.Single(ServiceSnapshot.From(temple).Offers, offer => offer.Subject == "death");
+        ServiceOfferChoiceSnapshot choice = Assert.Single(offer.Choices);
+        Assert.Equal(0, choice.Member);
+        Assert.Equal("Roderick", choice.Name);
+        Assert.True(choice.Enabled);
+        Assert.Equal(10, choice.Price);
+        int coins = fixture.Party.Purse.Coins;
+        ServiceResult result = ApplyPanel(temple, "service.cure", "death", member: choice.Member);
+        Assert.True(result.IsApplied);
+        Assert.Equal(choice.Price, result.Paid);
+        Assert.Equal(coins - choice.Price, fixture.Party.Purse.Coins);
+        Assert.False(patient.Conditions.Has(MightAndMagic7Conditions.Dead));
+        Assert.DoesNotContain(ServiceSnapshot.From(temple).Offers, offer => offer.Subject == "death");
+    }
+
+    [Fact]
+    public void Bank_panel_quotes_an_arbitrary_amount_without_moving_coin_then_rejudges_each_transaction()
+    {
+        using Fixture fixture = Fixture.Build();
+        PartyServices bank = fixture.Open("128");
+        int coins = fixture.Party.Purse.Coins;
+        Assert.True(ApplyPanel(bank, "service.amount", count: 217).IsApplied);
+        Assert.Equal(coins, fixture.Party.Purse.Coins);
+        Assert.Equal(0, fixture.Party.Holdings.BalanceOf(MightAndMagic7Services.BankHolding));
+        ServiceSnapshot panel = ServiceSnapshot.From(bank);
+        Assert.Equal(217, panel.Amount);
+        ServiceOfferSnapshot holding = Assert.Single(panel.Offers, offer => offer.Kind == "holding");
+        ServiceOfferChoiceSnapshot deposit = Assert.Single(holding.Choices, choice => choice.Operation == "deposit");
+        ServiceOfferChoiceSnapshot withdrawal = Assert.Single(holding.Choices, choice => choice.Operation == "withdraw");
+        Assert.True(deposit.Enabled);
+        Assert.Equal(217, deposit.Price);
+        Assert.False(withdrawal.Enabled);
+        Assert.Contains("217", withdrawal.Reason, StringComparison.Ordinal);
+        Assert.True(ApplyPanel(bank, "service.deposit", holding.Subject, count: deposit.Count).IsApplied);
+        Assert.Equal(coins - 217, fixture.Party.Purse.Coins);
+        withdrawal = Assert.Single(Assert.Single(ServiceSnapshot.From(bank).Offers).Choices, choice => choice.Operation == "withdraw");
+        Assert.True(withdrawal.Enabled);
+        Assert.Equal(217, withdrawal.Payment);
+        Assert.True(ApplyPanel(bank, "service.withdraw", holding.Subject, count: withdrawal.Count).IsApplied);
+        Assert.Equal(coins, fixture.Party.Purse.Coins);
+        Assert.Equal(0, fixture.Party.Holdings.BalanceOf(MightAndMagic7Services.BankHolding));
+        Assert.False(ApplyPanel(bank, "service.amount", count: 0).IsApplied);
+        Assert.Equal(217, ServiceSnapshot.From(bank).Amount);
+    }
+
+    [Theory]
+    [InlineData("89", "train", "service.train")]
+    [InlineData("107", "provision", "service.provision")]
+    [InlineData("107", "stay", "service.stay")]
+    [InlineData("54", "fare", "service.fare")]
+    public void Other_panel_offers_quote_the_command_the_service_will_settle(string service, string operation, string action)
+    {
+        using Fixture fixture = Fixture.Build();
+        if (operation == "train") fixture.Progression.Award(new PartyExperienceAward("test", 100_000));
+        PartyServices counter = fixture.Open(service);
+        ServiceOfferSnapshot offer = ServiceSnapshot.From(counter).Offers.First(offer => offer.Choices.Any(choice => choice.Operation == operation && choice.Enabled));
+        ServiceOfferChoiceSnapshot choice = offer.Choices.First(choice => choice.Operation == operation && choice.Enabled);
+        int coins = fixture.Party.Purse.Coins;
+        ServiceResult result = ApplyPanel(counter, action, offer.Subject, choice.Member, choice.Count);
+        Assert.True(result.IsApplied, result.Message);
+        Assert.Equal(choice.Price, result.Paid);
+        Assert.Equal(coins - choice.Price + choice.Payment, fixture.Party.Purse.Coins);
+    }
+
+    private static ServiceResult ApplyPanel(PartyServices services, string action, string target = "", int member = 0, int count = 1)
+    {
+        string json = JsonSerializer.Serialize(new { action, target, member, count });
+        ActionInbox inbox = new([RulesetTestContext.Payload(json)]);
+        ServiceInput input = new(new ServiceIntentNames("service.leave", Declared.UiActionContract));
+        ServiceRequest request = Assert.Single(input.Read(inbox));
+        return request.Amount is { } amount ? services.ChooseAmount(amount) : services.Transact(request.Command!);
+    }
+
     private sealed class Fixture : IDisposable
     {
         private Fixture(

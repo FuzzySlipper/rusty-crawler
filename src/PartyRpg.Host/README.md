@@ -38,7 +38,10 @@ Implemented today:
   Enter, the original's own key, and `combat.turn-skip` K and `combat.turn-wait` Y); and creation's two
   (`creation.advance` Enter, `creation.accept` Space). Everything that names a row — a choice at creation, a
   counter's offer, a topic, a spell and its target, a mix — arrives as a payload action on the `crawler.ui`
-  channel, declared beside them. The TypeScript build target is declared there too.
+  channel, declared beside them. `ProductIdentity.ServicePayloadActions` declares the counter vocabulary
+  (including cure, train, provision, stay, deposit, withdraw and the amount quote), and the host-written
+  contract fixture binds it to the companion. The SDK declares the payload channel, not individual JSON
+  action names. The TypeScript build target is declared there too.
 
 Not declared: a look or aim control and a launcher (`playtest.look` turns the party for a harness, not a player);
 `docs/live-checks.md` covers how a check selects content instead.

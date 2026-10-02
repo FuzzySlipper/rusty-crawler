@@ -43,6 +43,12 @@ export const ACTIONS = {
   serviceRepair: 'service.repair',
   serviceTeach: 'service.teach',
   serviceTrain: 'service.train',
+  serviceCure: 'service.cure',
+  serviceProvision: 'service.provision',
+  serviceStay: 'service.stay',
+  serviceDeposit: 'service.deposit',
+  serviceWithdraw: 'service.withdraw',
+  serviceAmount: 'service.amount',
   serviceFare: 'service.fare',
   // A theft names the line reached for and the member whose hand it is; a repayment names the account and the coins.
   serviceSteal: 'service.steal',

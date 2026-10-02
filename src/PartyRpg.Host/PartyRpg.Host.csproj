@@ -143,6 +143,9 @@
     <RustyEngineProductInputMapping Include="combat.turn-skip.key-k" Intent="combat.turn-skip" Trigger="key:key-k:pressed" />
     <RustyEngineProductInputIntent Include="combat.turn-wait" Value="digital" />
     <RustyEngineProductInputMapping Include="combat.turn-wait.key-y" Intent="combat.turn-wait" Trigger="key:key-y:pressed" />
+    <!-- ServiceActions (buy, sell, identify, repair, teach, train, cure, provision, stay,
+         deposit, withdraw, amount, fare, steal, repay, leave) use this one payload contract.
+         The Engine declares the channel; the product reads the action names inside its payload. -->
     <RustyEngineProductInputIntent Include="crawler.ui" Value="payload:crawler.ui.action.v1" />
   </ItemGroup>
 

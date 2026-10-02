@@ -191,6 +191,7 @@ function interaction(overrides = {}) {
  */
 function service(overrides = {}) {
   return {
+    amount: 1,
     available: true,
     open: false,
     id: '',
@@ -277,8 +278,8 @@ function openStable(overrides = {}) {
     hours: '06:00–18:00',
     operations: ['fare'],
     offers: [
-      { kind: 'fare', subject: '4', name: 'A passage to The Tularean Forest', amount: 2, price: 25 },
-      { kind: 'notice', subject: '', name: 'Travellers speak of the roads east.', amount: 1, price: 0 },
+      { kind: 'fare', subject: '4', name: 'A passage to The Tularean Forest', amount: 2, price: 25, choices: [{ operation: 'fare', member: -1, name: '', count: 1, price: 25, payment: 0, enabled: true, reason: '' }] },
+      { kind: 'notice', subject: '', name: 'Travellers speak of the roads east.', amount: 1, price: 0, choices: [] },
     ],
     // The passages are the product's own list of the offers a player can press.
     fares: [{ subject: '4', name: 'A passage to The Tularean Forest', price: 25 }],
@@ -2478,19 +2479,63 @@ test('a passage a counter sells is a row a person presses, and only the offers t
     // same counter posts is not a button, because this companion has no command that takes a notice and a
     // control that cannot work must not look like one that can.
     assert.deepEqual(stable.options.map((entry) => entry.text), [
-      'A passage to The Tularean Forest — 25',
+      'fare — pay 25',
     ]);
     assert.equal(stable.options[0].disabled, false);
 
     // What the row reports back is the place the passage reaches, which is what the counter resolves a fare
     // against — not the name a person reads, which no counter and no world would recognize.
-    clickService(h, 'fare-4');
-    assert.deepEqual(h.claims.slice(-1)[0].value.data, { action: 'service.fare', target: '4' });
+    clickService(h, 'fare-4--1');
+    assert.deepEqual(h.claims.slice(-1)[0].value.data, { action: 'service.fare', target: '4', member: -1, count: 1 });
 
     ui.dispose();
   } finally {
     h.restore();
   }
+});
+
+test('service offers carry the priced patient and quantity, and disabled choices explain the refusal', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+    const offers = [
+      { kind: 'cure', subject: 'death', name: 'Raising', amount: 1, price: 10, choices: [
+        { operation: 'cure', member: 0, name: 'Roderick', count: 1, price: 10, payment: 0, enabled: true, reason: '' },
+        { operation: 'cure', member: 1, name: 'Aelina', count: 1, price: 20, payment: 0, enabled: false, reason: 'Aelina needs no raising.' },
+      ] },
+      ...['train', 'provision', 'stay'].map(operation => ({ kind: operation, subject: operation, name: operation, amount: 1, price: 32, choices: [
+        { operation, member: operation === 'train' ? 1 : -1, name: '', count: 1, price: 32, payment: 0, enabled: true, reason: '' },
+      ] })),
+    ];
+    h.emit(snapshot('running', 1, 60, 60, movement(), { service: service({ open: true, offers }) }));
+    const options = servicePanel(h).options;
+    assert.ok(options.find(entry => entry.text.includes('Aelina needs no raising.')).disabled);
+    clickService(h, 'cure-death-0');
+    assert.deepEqual(h.claims.at(-1).value.data, { action: 'service.cure', target: 'death', member: 0, count: 1 });
+    for (const operation of ['train', 'provision', 'stay']) {
+      const member = operation === 'train' ? 1 : -1;
+      clickService(h, `${operation}-${operation}-${member}`);
+      assert.deepEqual(h.claims.at(-1).value.data, { action: `service.${operation}`, target: operation, member, count: 1 });
+    }
+    const holding = { kind: 'holding', subject: 'bank', name: 'Bank', amount: 500, price: 0, choices: [
+      { operation: 'deposit', member: -1, name: '', count: 217, price: 217, payment: 0, enabled: true, reason: '' },
+      { operation: 'withdraw', member: -1, name: '', count: 217, price: 0, payment: 217, enabled: true, reason: '' },
+    ] };
+    h.emit(snapshot('running', 2, 120, 122, movement(), { service: service({ open: true, amount: 217, offers: [holding] }) }));
+    const input = h.panel().querySelector('.crawler-service-amount input');
+    input.value = '419';
+    h.panel().querySelector('.crawler-service-amount button').click();
+    assert.deepEqual(h.claims.at(-1).value.data, { action: 'service.amount', count: 419 });
+    // Until the product returns a fresh quote, transaction buttons still carry the published 217.
+    for (const operation of ['deposit', 'withdraw']) {
+      clickService(h, `${operation}-bank--1`);
+      assert.deepEqual(h.claims.at(-1).value.data, { action: `service.${operation}`, target: 'bank', member: -1, count: 217 });
+    }
+    h.emit(snapshot('running', 3, 180, 183, movement(), { service: service({ open: true, offers: [] }) }));
+    assert.equal(servicePanel(h).options.length, 0);
+    assert.equal(h.panel().querySelector('.crawler-service-amount').hidden, true);
+    ui.dispose();
+  } finally { h.restore(); }
 });
 
 test('every service control asks for the command it was shown, on the product contract', () => {

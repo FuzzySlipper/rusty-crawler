@@ -360,6 +360,7 @@
     "residue": ""
   },
   "service": {
+    "amount": 1,
     "available": false,
     "open": false,
     "id": "",

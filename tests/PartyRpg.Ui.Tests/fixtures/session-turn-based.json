@@ -145,6 +145,7 @@
     "residue": ""
   },
   "service": {
+    "amount": 1,
     "available": true,
     "open": true,
     "id": "sword-and-shield",
@@ -204,21 +205,35 @@
         "subject": "4",
         "name": "A passage to The Tularean Forest",
         "amount": 2,
-        "price": 25
+        "price": 25,
+        "choices": [
+          {
+            "operation": "fare",
+            "member": -1,
+            "name": "",
+            "count": 1,
+            "price": 25,
+            "payment": 0,
+            "enabled": true,
+            "reason": ""
+          }
+        ]
       },
       {
         "kind": "notice",
         "subject": "",
         "name": "Travellers speak of the roads east.",
         "amount": 1,
-        "price": 0
+        "price": 0,
+        "choices": []
       },
       {
         "kind": "debt",
         "subject": "fine",
         "name": "the party\u0027s fine",
         "amount": 350,
-        "price": 90
+        "price": 90,
+        "choices": []
       }
     ],
     "sales": [

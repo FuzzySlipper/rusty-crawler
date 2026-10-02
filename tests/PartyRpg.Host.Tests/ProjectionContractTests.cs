@@ -110,16 +110,7 @@ public sealed class ProjectionContractTests
         CreationActions.RemoveSkill,
         CreationActions.Advance,
         CreationActions.Accept,
-        ServiceActions.Buy,
-        ServiceActions.Sell,
-        ServiceActions.Identify,
-        ServiceActions.Repair,
-        ServiceActions.Teach,
-        ServiceActions.Fare,
-        ServiceActions.Train,
-        ServiceActions.Steal,
-        ServiceActions.Repay,
-        ServiceActions.Leave,
+        .. ProductIdentity.ServicePayloadActions,
         ConversationActions.Topic,
         ConversationActions.Person,
         ConversationActions.Steal,
@@ -325,7 +316,10 @@ public sealed class ProjectionContractTests
             Lessons: [new ServiceLessonSnapshot("skill", "Sword", "Sword", 1, 25, 1)],
             Offers:
             [
-                new ServiceOfferSnapshot("fare", "4", "A passage to The Tularean Forest", 2, 25),
+                new ServiceOfferSnapshot("fare", "4", "A passage to The Tularean Forest", 2, 25)
+                {
+                    Choices = [new ServiceOfferChoiceSnapshot("fare", -1, "", 1, 25, 0, true, "")],
+                },
                 new ServiceOfferSnapshot("notice", string.Empty, "Travellers speak of the roads east.", 1, 0),
                 new ServiceOfferSnapshot("debt", "fine", "the party's fine", 350, 90),
             ],

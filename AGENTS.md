@@ -110,6 +110,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   mechanism, an operation table judged before anything is settled, serves every shipped service kind; towns
   keep hours on the one clock; rest, camp and wait are distinct; sleep leaves dead, petrified and eradicated members untouched and names them; conversations recompute their topics from
   party state and hand off to counters, and a topic runs its global event as a use of the speaker's placement.
+  The same panel reaches every counter operation; its offers show patient or coin amount, price and refusal
+  from the mechanism before a transaction settles.
 - **Combat.** One fight over the live world with two pacings over one recovery quantity, one resolution
   path, conditions up to death, corpses and loot through the container mechanism, and cleared places
   restored by the clock. Creatures come from `encounter` placements the ruleset resolves and from the maps'
@@ -139,8 +141,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 - Stone 5, interaction and services: a door's collision, and a face group an event makes passable,
   do not move (#8594); a container above or below the floor cannot be used (#8697); deadlines (fatigue, wards, light, haste) block
   a save by name instead of being carried (#8617); towns have no house doors and camping is priced per
-  place (#8618); the panel reaches only buy and sell (#8619); a
-  fixture event refuses only at a hireling step (#8514).
+  place (#8618); a fixture event refuses only at a hireling step (#8514).
 - Stone 6, combat: a fight is not carried in a save, and a save taken with one pending is refused (#8658);
   an order commands every member rather than a selected one (#8659).
 - Stone 7, progression and magic: training takes no game time (#8671); the two counted deeds two ranks need

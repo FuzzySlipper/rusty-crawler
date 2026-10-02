@@ -157,6 +157,10 @@ Owns:
   turns at three in the morning as the donor's does (`CastSpellInfo.cpp:2592`, `Engine.cpp:1036-1081`), and a
   fourth is refused before anything is spent.
 - Time, calendar, rest, fatigue, and travel policy, including service hours.
+- The service panel reaches every operation through the existing counter: patient-specific cures and
+  training, provisions, rooms, a quoted coin amount for deposits and withdrawals, and fares. The Kit
+  publishes the ruleset's price and its eligibility for each choice and repeats those judgments on
+  settlement; the companion calculates no fee or condition policy.
 - Quest, guild, reputation, and journal policy: the errands the shipped quest table states, what each asks
   and pays, who gives it, and the board a town hall posts.
 - Standing policy (`MightAndMagic7Standing`): the world's opinion of the party — the donor's five band words

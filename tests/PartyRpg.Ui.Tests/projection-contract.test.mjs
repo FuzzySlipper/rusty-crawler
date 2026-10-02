@@ -83,7 +83,9 @@ test('the running fixture fills every section the product published, from its ow
     const offered = [...panel.querySelectorAll('.crawler-service .crawler-options button')].map((button) => button.dataset.id);
     for (const item of published.service.identify) assert.ok(offered.includes(`identify-${item.item}`));
     for (const item of published.service.repair) assert.ok(offered.includes(`repair-${item.item}`));
-    for (const fare of published.service.fares) assert.ok(offered.includes(`fare-${fare.subject}`));
+    for (const offer of published.service.offers.filter(offer => offer.kind !== 'debt')) {
+      for (const choice of offer.choices) assert.ok(offered.includes(`${choice.operation}-${offer.subject}-${choice.member}`));
+    }
     const bolt = panel.querySelector('.crawler-spell[data-spell="2"]');
     assert.deepEqual(
       [...bolt.querySelectorAll('.crawler-target option')].map((option) => option.value),

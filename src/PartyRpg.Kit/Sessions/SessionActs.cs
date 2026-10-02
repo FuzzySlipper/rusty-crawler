@@ -169,8 +169,14 @@ internal sealed class SessionActs(SessionOwners owners, SessionControls controls
     public void Serve(ActionInbox input)
     {
         if (owners.Services is not { IsOpen: true } services || _service is null) return;
-        foreach (ServiceCommand command in _service.Read(input))
+        foreach (ServiceRequest request in _service.Read(input))
         {
+            if (request.Amount is { } amount)
+            {
+                services.ChooseAmount(amount);
+                continue;
+            }
+            ServiceCommand command = request.Command!;
             ServiceResult result = services.Transact(command);
             if (command.Kind != ServiceOperationKind.Fare) continue;
             string journey = result.Subject.Length > 0 ? result.Subject : command.Target;

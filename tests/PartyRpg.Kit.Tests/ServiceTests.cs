@@ -134,6 +134,39 @@ public sealed class ServiceTests
     }
 
     [Fact]
+    public void Cure_choices_quote_each_patient_and_the_command_changes_only_the_named_member()
+    {
+        ConditionId condition = new("test-affliction");
+        MemberCreation Member(string name) => new(new PartyMemberSeed(
+            name, new RaceId("testfolk"), new ClassId("fighter"), [], skills: [], spells: [],
+            experience: 0, level: 1, skillPoints: 0, classRank: 1,
+            conditions: [new ActiveCondition(condition)], hitPoints: ResourcePool.Full(10), spellPoints: ResourcePool.Full(5)));
+        using PartyEntity party = new PartyEntityFactory().Create(new PartyCreation([Member("First"), Member("Second")], coins: 100));
+        ShopRule rule = new(Shop() with { Operations = [ServiceOperationKind.Cure] })
+        {
+            Offerings = [new ServiceOffer(ServiceOfferKind.Cure, "A cure", Subject: "cure", Clears: [condition])],
+            Price = request => ServiceQuote.Charging(request.Member == party.Members[0].Id ? 12 : 27),
+            Eligibility = request => party.Member(request.Member).Conditions.Has(condition)
+                ? ServiceEligibility.Allowed
+                : ServiceEligibility.Refused(new Refusal("test-no-cure-needed", "This patient needs no cure.")),
+        };
+        PartyServices services = new(rule, party, new PartyResourceLedger(party), Clock());
+        Assert.True(services.Open(rule.Service).IsApplied);
+        ServiceOfferSnapshot offer = Assert.Single(ServiceSnapshot.From(services).Offers);
+        Assert.Equal(new[] { 12, 27 }, offer.Choices.Select(choice => choice.Price));
+        ServiceOfferChoiceSnapshot second = offer.Choices[1];
+        Assert.Equal("Second", second.Name);
+        Assert.True(second.Enabled);
+        ServiceResult cured = services.Transact(new ServiceCommand(ServiceOperationKind.Cure, offer.Subject, Member: second.Member));
+        Assert.True(cured.IsApplied);
+        Assert.Equal(27, cured.Paid);
+        Assert.Equal(73, party.Purse.Coins);
+        Assert.True(party.Members[0].Conditions.Has(condition));
+        Assert.False(party.Members[1].Conditions.Has(condition));
+        Assert.False(Assert.Single(ServiceSnapshot.From(services).Offers).Choices[1].Enabled);
+    }
+
+    [Fact]
     public void A_refusal_names_what_stopped_it_and_changes_nothing()
     {
         using PartyEntity party = Party(coins: 40);

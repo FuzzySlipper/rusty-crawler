@@ -96,6 +96,24 @@ public static class ServiceActions
     /// </remarks>
     public const string Train = "service.train";
 
+    /// <summary>Pays for a cure, naming the offer and its patient.</summary>
+    public const string Cure = "service.cure";
+
+    /// <summary>Pays for the provisions the offer states.</summary>
+    public const string Provision = "service.provision";
+
+    /// <summary>Pays for a room through the session's rest owner.</summary>
+    public const string Stay = "service.stay";
+
+    /// <summary>Leaves the named amount with a holding counter.</summary>
+    public const string Deposit = "service.deposit";
+
+    /// <summary>Takes the named amount back from a holding counter.</summary>
+    public const string Withdraw = "service.withdraw";
+
+    /// <summary>Chooses the amount the open visit quotes before moving coin.</summary>
+    public const string Amount = "service.amount";
+
     /// <summary>Tries to take a line off the shelves without paying, carrying the lot and the member who tries.</summary>
     /// <remarks>
     /// The member is carried because a theft is one character's hand, and how good at stealing that character is
@@ -115,6 +133,11 @@ public static class ServiceActions
     public const string Leave = "service.leave";
 }
 
+/// <summary>One service input: a transaction or a choice of the amount to quote.</summary>
+/// <param name="Command">The transaction, absent for a quote amount choice.</param>
+/// <param name="Amount">The quote amount, absent for a transaction.</param>
+public sealed record ServiceRequest(ServiceCommand? Command = null, int? Amount = null);
+
 /// <summary>The service commands a player gave, read from the admitted input of each update, in the order they arrived.</summary>
 public sealed class ServiceInput
 {
@@ -122,7 +145,8 @@ public sealed class ServiceInput
     {
         ServiceActions.Buy, ServiceActions.Sell, ServiceActions.Identify, ServiceActions.Repair,
         ServiceActions.Teach, ServiceActions.Train, ServiceActions.Fare, ServiceActions.Steal, ServiceActions.Repay,
-        ServiceActions.Leave,
+        ServiceActions.Cure, ServiceActions.Provision, ServiceActions.Stay, ServiceActions.Deposit, ServiceActions.Withdraw,
+        ServiceActions.Leave, ServiceActions.Amount,
     };
 
     private readonly byte[] _leave;
@@ -139,14 +163,15 @@ public sealed class ServiceInput
 
     /// <summary>The service commands this update carried.</summary>
     /// <param name="inbox">The update's input.</param>
-    public IReadOnlyList<ServiceCommand> Read(ActionInbox inbox)
+    public IReadOnlyList<ServiceRequest> Read(ActionInbox inbox)
     {
         ArgumentNullException.ThrowIfNull(inbox);
-        List<ServiceCommand> commands = [];
-        if (inbox.Activated(_leave)) commands.Add(ServiceCommand.Of(ServiceOperationKind.Leave));
+        List<ServiceRequest> commands = [];
+        if (inbox.Activated(_leave)) commands.Add(new ServiceRequest(ServiceCommand.Of(ServiceOperationKind.Leave)));
         foreach (UiAction action in inbox.Take(_actionContract, Known.Contains))
         {
-            if (Command(action) is { } command) commands.Add(command);
+            if (action.Name == ServiceActions.Amount) commands.Add(new ServiceRequest(Amount: action.Int("count") ?? 0));
+            else if (Command(action) is { } command) commands.Add(new ServiceRequest(command));
         }
 
         return commands;
@@ -167,6 +192,11 @@ public sealed class ServiceInput
                 action.Int("member") ?? 0,
                 Tier: action.Int("tier") is { } tier && tier > 0 ? tier : 1),
             ServiceActions.Train => new ServiceCommand(ServiceOperationKind.Train, Member: action.Int("member") ?? 0),
+            ServiceActions.Cure => new ServiceCommand(ServiceOperationKind.Cure, target, action.Int("member") ?? 0),
+            ServiceActions.Provision => new ServiceCommand(ServiceOperationKind.Provision, target),
+            ServiceActions.Stay => new ServiceCommand(ServiceOperationKind.Stay, target),
+            ServiceActions.Deposit => new ServiceCommand(ServiceOperationKind.Deposit, target, Count: action.Int("count") ?? 0),
+            ServiceActions.Withdraw => new ServiceCommand(ServiceOperationKind.Withdraw, target, Count: action.Int("count") ?? 0),
             ServiceActions.Fare => new ServiceCommand(ServiceOperationKind.Fare, target),
             ServiceActions.Steal => new ServiceCommand(ServiceOperationKind.Steal, target, action.Int("member") ?? 0),
             ServiceActions.Repay => new ServiceCommand(ServiceOperationKind.Repay, target, Count: action.Int("count") ?? 0),
@@ -174,4 +204,5 @@ public sealed class ServiceInput
             _ => null,
         };
     }
+
 }

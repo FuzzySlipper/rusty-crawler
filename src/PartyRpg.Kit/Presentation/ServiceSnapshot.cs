@@ -126,6 +126,8 @@ public sealed record ServiceOfferSnapshot(
     int Amount,
     int Price)
 {
+    /// <summary>Operation choices with their actual patient, quantity, price and eligibility.</summary>
+    public IReadOnlyList<ServiceOfferChoiceSnapshot> Choices { get; init; } = [];
     /// <summary>Writes one other offer the counter makes.</summary>
     /// <param name="builder">The projection being built.</param>
     /// <returns>The row's node.</returns>
@@ -138,7 +140,8 @@ public sealed record ServiceOfferSnapshot(
             ("subject", builder.String(Subject)),
             ("name", builder.String(Name)),
             ("amount", builder.Number(Amount)),
-            ("price", builder.Number(Price)));
+            ("price", builder.Number(Price)),
+            ("choices", builder.Array([.. Choices.Select(choice => choice.Write(builder))])));
 
     /// <summary>Writes this offer as a debt a screen has a repayment command for.</summary>
     /// <param name="builder">The projection being built.</param>
@@ -162,6 +165,16 @@ public sealed record ServiceOfferSnapshot(
             ("subject", builder.String(Subject)),
             ("name", builder.String(Name)),
             ("price", builder.Number(Price)));
+}
+
+/// <summary>One service offer choice, quoted and judged by the mechanism rather than by the panel.</summary>
+public sealed record ServiceOfferChoiceSnapshot(string Operation, int Member, string Name, int Count, int Price, int Payment, bool Enabled, string Reason)
+{
+    internal uint Write(UiValueBuilder builder) => builder.Object(
+        ("operation", builder.String(Operation)), ("member", builder.Number(Member)),
+        ("name", builder.String(Name)), ("count", builder.Number(Count)),
+        ("price", builder.Number(Price)), ("payment", builder.Number(Payment)),
+        ("enabled", builder.Boolean(Enabled)), ("reason", builder.String(Reason)));
 }
 
 /// <summary>One member a lesson could be taught to.</summary>
@@ -240,6 +253,8 @@ public sealed record ServiceSnapshot(
     int Earned,
     int Coins)
 {
+    /// <summary>The amount the open visit quotes for a deposit or withdrawal.</summary>
+    public int Amount { get; init; } = 1;
     /// <summary>
     /// The members who could try to take a line off the counter's shelves without paying, as the theft rule
     /// answered for each; empty where nobody could, or where the counter keeps nothing to steal.
@@ -307,7 +322,12 @@ public sealed record ServiceSnapshot(
                 line.Offer.Target,
                 line.Offer.Name,
                 line.Offer.Amount,
-                line.Price));
+                line.Price)
+            {
+                Choices = [.. line.Choices.Select(choice => new ServiceOfferChoiceSnapshot(
+                    PartyServices.WireName(choice.Operation), choice.Member, choice.Name, choice.Count, choice.Price,
+                    choice.Payment, choice.Refusal is null, choice.Refusal?.Message ?? string.Empty))],
+            });
         }
 
         List<ServiceSaleSnapshot> sales = [];
@@ -352,6 +372,7 @@ public sealed record ServiceSnapshot(
             Earned: last?.Earned ?? 0,
             Coins: services.Coins)
         {
+            Amount = services.Visit?.Amount ?? 1,
             Thieves = [.. (browse?.Thieves ?? []).Select(offer => new ServiceMemberSnapshot(offer.Index, offer.Name))],
         };
     }
@@ -424,6 +445,7 @@ public sealed record ServiceSnapshot(
         IEnumerable<ServiceOfferSnapshot> debts = repays ? Offers.Where(offer => string.Equals(offer.Kind, debt, StringComparison.Ordinal)) : [];
 
         return builder.Object(
+            ("amount", builder.Number(Amount)),
             ("available", builder.Boolean(Available)),
             ("open", builder.Boolean(Open)),
             ("id", builder.String(Id)),
