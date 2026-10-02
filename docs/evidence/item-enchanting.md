@@ -1,8 +1,9 @@
 # Item identity and item-bound magic
 
 Focused source checks on 2026-10-02 cover actual composed casting, canonical inventory/equipment, combat,
-counter operations, projection and the current Engine-backed save store. Both ordinary staged phases and the literal saved bytes are reconciled below. The initial full gate
-passed; the final load-validation supplement requires its closeout gate.
+counter operations, projection and the current Engine-backed save store. Both ordinary staged phases
+and the literal saved bytes are reconciled below. The final full gate passed with the load-validation
+supplement included.
 
 ## What changed
 
@@ -108,6 +109,8 @@ The initial complete verification ran Architecture 21, Kit 770, Host 86, ruleset
 70 checks with no skips, plus all builds, operator inventory/map decoding/deterministic writes and CoreCLR
 staging. A source review then resolved the no-override charge-overuse and expired-property load findings
 with a named aggregate regression; 29 focused item/load checks pass and all three source lanes approve
-that supplement. A separate final full gate remains required for the supplemented source. NativeAOT
-was not run. This record certifies the bounded item mission, not normal creation, class/mastery learning,
+that supplement. The final full gate passed Architecture 21, Kit 770, Host 86, ruleset 368, importer 189
+and UI 70 checks with no failures or skips, all builds, operator inventory/map decoding/deterministic
+writes and CoreCLR staging. All three evidence review lanes approved the published first/resume record.
+NativeAOT was not run. This record certifies the bounded item mission, not normal creation, class/mastery learning,
 unstaged loot populations, combat, services beyond the focused counter tests, broad traversal or graphics.
