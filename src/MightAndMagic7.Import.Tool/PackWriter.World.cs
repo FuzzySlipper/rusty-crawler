@@ -378,6 +378,22 @@ internal static partial class PackWriter
                 writer.WriteNumber("encounterPercent", map.EncounterPercent);
                 WriteOptionalString(writer, "track", map.Track);
                 WriteOptionalString(writer, "environment", map.Environment);
+                if (map.Environment == "ARENA")
+                {
+                    // Authored normalized layout, not a coordinate hidden in the runtime. The centre
+                    // follows NPCTopics.cpp:227-232; the twenty-point, 700-unit ring is our approximation.
+                    writer.WriteStartArray("arenaChallengerFeet");
+                    for (int slot = 0; slot < 20; slot++)
+                    {
+                        double angle = 2 * Math.PI * slot / 20;
+                        writer.WriteStartObject();
+                        writer.WriteNumber("x", 3849 + 700 * Math.Cos(angle));
+                        writer.WriteNumber("y", 5770 + 700 * Math.Sin(angle));
+                        writer.WriteNumber("z", 1);
+                        writer.WriteEndObject();
+                    }
+                    writer.WriteEndArray();
+                }
                 if (maps.TryGetValue(map.Id, out DecodedMap? decoded))
                 {
                     if (decoded is OutdoorMap outdoor && terrain is not null)

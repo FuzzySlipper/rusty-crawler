@@ -217,8 +217,14 @@ public sealed class PartyQuests : IItemRetentionRule
                 $"{Name(quest)} stands at the stage '{instance.Stage}', so it was not taken again."));
         }
 
+        if (_rule.Definition(quest) is not { } definition) return Refuse(QuestAction.Accept, quest, Unknown(quest));
+        QuestAcceptance acceptance = new(definition, _party);
+        if (_rule is IQuestAcceptanceRule consequences && consequences.CanAccept(acceptance) is { } refusal)
+            return Refuse(QuestAction.Accept, quest, refusal);
+
         _instances[_instances.IndexOf(instance)] = instance with { Stage = QuestStage.Accepted };
         Stamp = ChangeStamp.Next();
+        if (_rule is IQuestAcceptanceRule accepted) accepted.Accepted(acceptance);
         return Record(QuestResult.Applied(QuestAction.Accept, quest, QuestStage.Accepted));
     }
 

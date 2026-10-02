@@ -689,7 +689,9 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
         if (_quests is not { } quests) return;
         PartyQuests? journal = _journal?.Invoke();
 
-        foreach (QuestDefinition definition in quests.GivenBy(context.Speaker))
+        IReadOnlyList<QuestDefinition> given = quests.GivenBy(context.Speaker);
+        if (quests.Arena?.Offered(context) is { } bout) given = [.. given, bout];
+        foreach (QuestDefinition definition in given)
         {
             QuestInstance? instance = journal?.Instance(definition.Id);
             if (instance is null)
@@ -710,6 +712,8 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
 
             if (instance.Stage == QuestStage.Accepted)
             {
+                if (quests.Arena?.Definition(definition.Id) is not null)
+                    offers.Add(new ConversationOffer(new ConversationTopic("arena-return:" + definition.Id.Value, "Return to the Knight bout"), Verdict.Met));
                 offers.Add(new ConversationOffer(
                     new ConversationTopic($"{MightAndMagic7Identities.TurnInTopicPrefix}{definition.Id}", definition.Name),
                     Verdict.Met));
@@ -867,6 +871,8 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
         if (topic.Id == "follower-hire") return Followers.Hire(context.Speaker);
         if (topic.Id == "follower-dismiss") return Followers.Dismiss(context.Speaker);
         if (context.Placement is null) return new ConversationAnswer("That companion offers no such topic while travelling.");
+        if (topic.Id.StartsWith("arena-return:", StringComparison.Ordinal) && context.Party is { } challenger && _quests?.Arena is { } arena)
+            return arena.Return(new(topic.Id["arena-return:".Length..]), challenger);
         // What the town makes of the party is answered from the party's own standing rather than from a
         // table: the person repeats the band the world has the party in, in this game's words for it, and
         // what is said is recorded on the party the same way any other line is.

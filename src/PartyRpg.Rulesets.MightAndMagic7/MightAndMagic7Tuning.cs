@@ -91,10 +91,15 @@ internal static class MightAndMagic7Tuning
 
     /// <summary>The two hired places of the source game; story companions are outside this ceiling.</summary>
     internal static readonly TuningHandle HiredLimit = new("followers.hired-limit", 2, 0, 16, "the accompanying people who may occupy hired places");
+    /// <summary>The approximate Knight bout size; donor bouts draw ten through nineteen opponents.</summary>
+    internal static readonly TuningHandle ArenaKnightOpponents = new("arena.knight-opponents", 10, 1, 20, "opponents in the compiled Knight bout");
+    /// <summary>The donor's Knight reward per highest party level.</summary>
+    internal static readonly TuningHandle ArenaKnightGold = new("arena.knight-gold-per-level", 200, 0, 1_000_000, "Knight reward per highest party level");
 
     internal static readonly IReadOnlyList<TuningHandle> Handles =
     [
         HiredLimit,
+        ArenaKnightOpponents, ArenaKnightGold,
         EnchantChancePerRank, EnchantWeaponValue, EnchantEquipmentValue, EnchantMasterLow, EnchantGrandMasterLow, EnchantValuePerStrength,
         FixtureBonusHours, TheftBanHours,
         ErrandExperience, ErrandCoins, BountyPerLevel, LessonBasePrice, ShopStockLines, CoachFare, BoatFare, CoachDays, BoatDays, SleepHours, RoofedRestRations,
