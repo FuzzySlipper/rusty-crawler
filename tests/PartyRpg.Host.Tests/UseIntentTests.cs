@@ -47,8 +47,7 @@ public sealed class UseIntentTests
         Assert.Equal("applied", applied.Field("outcome").AsString());
         Assert.Equal("open", applied.Field("state").AsString());
         Assert.Contains("swings open", applied.Field("message").AsString(), StringComparison.Ordinal);
-        // The passage this build cannot deliver is stated beside the success rather than left implied.
-        Assert.Contains("cannot be walked through yet", applied.Field("residue").AsString(), StringComparison.Ordinal);
+        Assert.Empty(applied.Field("residue").AsString());
 
         // The same door used again is refused with its own reason rather than doing nothing quietly, and the
         // refusal is part of the projection the press arrived in.
