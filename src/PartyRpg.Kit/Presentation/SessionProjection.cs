@@ -489,6 +489,7 @@ public static class SessionProjection
         InteractionVerb.Search => "search",
         InteractionVerb.Open => "open",
         InteractionVerb.Unlock => "unlock",
+        InteractionVerb.Disarm => "disarm",
         InteractionVerb.Pull => "pull",
         InteractionVerb.Talk => "talk",
         InteractionVerb.Read => "read",

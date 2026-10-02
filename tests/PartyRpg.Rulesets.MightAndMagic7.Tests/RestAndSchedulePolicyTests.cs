@@ -84,17 +84,27 @@ public sealed class RestAndSchedulePolicyTests
         Assert.All(MightAndMagic7Conditions.RestClears, c => Assert.False(living.Conditions.Has(c)));
     }
 
-    [Fact]
-    public void A_trapped_chest_is_spent_after_search_and_later_uses_neither_harm_nor_transfer()
+    [Theory]
+    [InlineData(0, 0, 1, "sprung")]
+    [InlineData(5, 0, 2, "sprung")]
+    [InlineData(5, 10, 2, "disarmed")]
+    public void A_trapped_chest_is_spent_after_search_and_later_uses_neither_harm_nor_transfer(int perception, int disarm, int guardUses, string spent)
     {
         using IGameSession session = Shop(out RecordingUiService ui, ShopChest);
         ulong step = 0;
         session.Update(RulesetTestContext.Update(step++, 1));
-        session.Update(RulesetTestContext.Update(step++, 1, RulesetTestContext.Digital(Declared.UseIntent)));
-        Assert.Contains("goes off", ProjectedNode.Of(ui.Latest().Value).Field("interaction").Field("message").AsString(), StringComparison.Ordinal);
+        PartyEntity party = ((MightAndMagic7Session)session).Party!;
+        foreach ((string skill, int level) in new[] { ("Perception", perception), ("Disarm Traps", disarm) })
+        {
+            if (level == 0) continue;
+            party.Members[0].Skills.Learn(new(skill), new(1));
+            if (level > 1) party.Members[0].Skills.RaiseLevel(new(skill), level - 1, 0);
+        }
+        for (int guard = 0; guard < guardUses; guard++)
+            session.Update(RulesetTestContext.Update(step++, 1, RulesetTestContext.Digital(Declared.UseIntent)));
+        Assert.Equal(spent, ProjectedNode.Of(ui.Latest().Value).Field("interaction").Field("state").AsString());
         session.Update(RulesetTestContext.Update(step++, 1, RulesetTestContext.Digital(Declared.UseIntent)));
         Assert.Equal("searched", ProjectedNode.Of(ui.Latest().Value).Field("interaction").Field("state").AsString());
-        PartyEntity party = ((MightAndMagic7Session)session).Party!;
         int coins = party.Purse.Coins;
         int items = party.Inventory.Count;
         int health = party.Members[0].Resources.HitPoints.Current;
