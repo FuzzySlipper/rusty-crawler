@@ -56,7 +56,9 @@ Owns:
   event's `history` variable names (the table's row less one) with its `%30` and `%31`–`%34` codes written as
   `{date}` and `{member:1}`–`{member:4}` (`HistoryTable`). A person carries their six dialogue slots by position
   (`topicSlots`), and every topic-table row with an answer or a global event of its number is written as a `person-topic` entry whoever owns it,
-  which is what a topic change can make a slot raise; a person placement carries its actor record's `group`.
+  which is what a topic change can make a slot raise; a person placement carries its actor record's `group`,
+  its `attributes` (which hold the aggressor bit `0x80000`) and, when non-zero, the kind it says it counts as
+  (`hostilityGroup`), as a creature's actor record does; no shipped person record carries either.
   No step is interpreted here; the write summary counts the steps of each kind, which is
   what the ruleset's interpretation is measured against, and the shapes are recorded in
   [`../../docs/research/mm7-data-inventory.md`](../../docs/research/mm7-data-inventory.md) (*Fixtures, map

@@ -92,6 +92,16 @@ public sealed record PlacePerson(
 /// counts a group's dead names it by (OpenEnroth <c>src/Engine/Objects/Actor.cpp:3823-3851</c> and
 /// <c>2849-2863</c>).
 /// </param>
+/// <param name="Attributes">
+/// The actor record's attribute bits as the record stores them, which carry its standing toward the party: the
+/// aggressor bit <c>0x80000</c> makes the actor the party's enemy whatever its kind (OpenEnroth
+/// <c>src/Engine/Objects/ActorEnums.h:109</c>, <c>src/Engine/Objects/Actor.cpp:2154-2155</c>).
+/// </param>
+/// <param name="HostilityGroup">
+/// The kind the record says the person counts as toward everyone else, as the record stores it: zero is its own
+/// row's kind, 9999 the party's own, anything else a kind's index in the hostility matrix
+/// (<c>src/Engine/Snapshots/EntitySnapshots.cpp:1494-1499</c>).
+/// </param>
 public sealed record PlacePersonPlacement(
     int PlaceId,
     string PlacementId,
@@ -103,7 +113,9 @@ public sealed record PlacePersonPlacement(
     int SourceActorIndex,
     string SourceActorName,
     int MonsterId,
-    int Group = 0);
+    int Group = 0,
+    int Attributes = 0,
+    int HostilityGroup = 0);
 
 /// <summary>Everybody a building holds, by the NPC table's own placement column.</summary>
 /// <param name="BuildingId">The building's id, which is the row the table places people in.</param>
@@ -330,7 +342,9 @@ public static class PlacePeopleEmitter
                     actor.Index,
                     actor.Name,
                     actor.MonsterId,
-                    actor.Group));
+                    actor.Group,
+                    actor.Attributes,
+                    actor.HostilityGroup));
             }
         }
 

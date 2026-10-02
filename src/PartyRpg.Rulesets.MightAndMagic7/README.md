@@ -261,8 +261,14 @@ party in the matrix (that band), as the donor stands every actor friendly by row
 start nothing until the party attacks them (25 of the 55 spawned kinds over the operator's install,
 `docs/evidence/actor-record-hostility.md`); the row's band is what a creature already in the fight looks for other
 creatures at, and the matrix is read the donor's way round, a kind's own feelings being its column
-(`HostilityTable.cpp:21`); a camp is kept from only by creatures that are the party's enemy, as the donor's
-proximity check reads the same relation (`Actor.cpp:3458-3481`) — and a character is
+(`HostilityTable.cpp:21`); a person a map's own record places is read the same way from their placement's own
+`attributes` and `hostilityGroup`, so a person whose kind hates the party is its enemy (over the operator's install,
+the two in The Strange Temple); an act against one actor — a blow ordered at it, a spell that is an act against it, a
+theft caught — turns every other actor of its faction standing within 4,096 units against the party too, a faction
+being one kind or peasant kinds of one race (`ICombatProvocationRule`, the donor's `AggroSurroundingPeasants` and
+`ArePeasantsOfSameFaction`, `Actor.cpp:694-725`; ours: a missed blow raises it as well, where the donor raises it when
+a blow lands); and a camp is kept from only by creatures that are the party's enemy, as the donor's proximity check
+reads the same relation (`Actor.cpp:3458-3481`) — and a character is
 paced by the donor's own attack-recovery sum over what they wear (see the figure below); a creature's first recovery is a keyed draw over the actor so a group placed together does not strike in
 lockstep, a creature is recognized by a placement of kind `monster` naming the row it is, and a person a
 map's own record places reads the monster row that record names rather than one peasant row for everybody),
@@ -424,8 +430,9 @@ buy, identify, or repair a stolen thing (`Item.cpp:684-686`). From a person the 
 lowers the opinion one point whatever comes of it (`Actor.cpp:1236`); an unseen hand finds coin three times in
 ten — the skill's level of dice whose sides the rung decides, never more than the person carries — something
 else three times in ten, and nothing the rest (`Character.cpp:1220-1279`). Ours: a person who sees the hand fines
-the party the cost the donor reckons and never charges, and the person robbed — not every peasant near, as the
-donor's `AggroSurroundingPeasants` has it — stops talking and is put into the fight; what a person carries is what
+the party the cost the donor reckons and never charges, and the person robbed stops talking and is put into the
+fight with every actor of their faction within 4,096 units, as the donor's `AggroSurroundingPeasants` has it
+(`Character.cpp:1215-1216`); what a person carries is what
 their row would leave if they fell, drawn once and remembered for the session but not saved (the donor keeps it
 on the actor, which this build does not save); a counter's line is worth the item table's value without the
 donor's enchantment; and a theft charges no recovery time. Each theft's fall in the world's opinion is a deed

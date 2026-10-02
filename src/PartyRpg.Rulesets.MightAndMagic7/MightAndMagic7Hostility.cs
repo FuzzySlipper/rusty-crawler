@@ -146,6 +146,30 @@ internal sealed class MightAndMagic7Hostility
     /// <summary>The matrix's own index for the party: <c>HostilityTable.h:12-15</c>.</summary>
     internal const int PartyKind = 0;
 
+    /// <summary>
+    /// The race a peasant kind belongs to, or null for a kind that is not a peasant's: what makes two peasants of
+    /// different kinds one faction when one of them is wronged.
+    /// </summary>
+    /// <remarks>
+    /// The shipped matrix gives every peasant its own kind — by race, sex and dress — and the donor's code, not its
+    /// data, says which kinds are peasants and of which race: dwarves are kinds 39 to 44, elves 45 to 50, humans 51 to
+    /// 62 and goblins 78 to 83 (OpenEnroth <c>src/Engine/Objects/MonsterEnums.h:346-390</c> and <c>:404-414</c>,
+    /// <c>isPeasant</c> in <c>src/Engine/Objects/MonsterEnumFunctions.h:48-54</c>, the races in
+    /// <c>src/Engine/Objects/MonsterEnumFunctions.cpp:60-104</c>). The operator's matrix header names the same
+    /// kinds in the same places (<c>hostile.txt</c>: "Peasant Dwarf ..." at 39 to 44, "Peasant Elf ..." at 45 to 50,
+    /// "Peasant Human ..." at 51 to 62, "Peasant Goblin ..." at 78 to 83). Faithful.
+    /// </remarks>
+    /// <param name="kind">A kind's index in the matrix.</param>
+    /// <returns>A number standing for the race, the same for every peasant kind of one race; null otherwise.</returns>
+    internal static int? PeasantRace(int kind) => kind switch
+    {
+        >= 39 and <= 44 => 1,
+        >= 45 and <= 50 => 2,
+        >= 51 and <= 62 => 3,
+        >= 78 and <= 83 => 4,
+        _ => null,
+    };
+
     /// <summary>Whether one kind treats another as an enemy at all.</summary>
     /// <param name="self">The kind whose feelings are read.</param>
     /// <param name="other">The kind it is looking at.</param>

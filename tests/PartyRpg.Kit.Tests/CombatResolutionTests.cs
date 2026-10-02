@@ -411,6 +411,45 @@ public sealed class CombatResolutionTests
     }
 
     [Fact]
+    public void An_act_against_a_creature_turns_those_the_game_says_stand_with_it_and_nobody_else()
+    {
+        Rules rules = new(peaceful: true);
+        using SessionWorld world = World(
+            rules,
+            out PartyEntity party,
+            creatureAt: 100,
+            others: """
+                ,
+                { "id": "kin", "kind": "creature", "x": 200, "y": 0, "z": 0, "monster": "7", "hitPoints": 40, "kin": "hall" },
+                { "id": "stranger", "kind": "creature", "x": 300, "y": 0, "z": 0, "monster": "7", "hitPoints": 40, "kin": "road" }
+                """);
+        using (party)
+        {
+            Arrive(world);
+            CombatState combat = Fight(world, party, rules);
+            combat.Step();
+            Combatant Creature(string id) => combat.Combatants.First(combatant => combatant.Subject.Placement?.Content.Id == id);
+            Combatant member = combat.Combatants.First(combatant => combatant.Subject.IsMember);
+            Assert.All(
+                combat.Combatants.Where(combatant => !combatant.Subject.IsMember),
+                creature => Assert.Equal(CombatSide.Neutral, creature.Side));
+
+            // The party's blow at one creature is remembered against it and against its kin, and the fight keeps
+            // both on every later read; the creature of another kin is left as it stood.
+            Assert.True(combat.Order(new AttackOrder(member.Id, AttackKind.Melee, Creature("beast").Id)).IsApplied);
+            combat.Step();
+            Assert.Equal(CombatSide.Opposition, Creature("beast").Side);
+            Assert.Equal(CombatSide.Opposition, Creature("kin").Side);
+            Assert.Equal(CombatSide.Neutral, Creature("stranger").Side);
+
+            // The fight's other provocation, an act that is not a blow, reaches the same way.
+            Assert.True(combat.Provoke(Creature("stranger").Id));
+            combat.Step();
+            Assert.Equal(CombatSide.Opposition, Creature("stranger").Side);
+        }
+    }
+
+    [Fact]
     public void A_creature_standing_with_the_party_is_on_its_side_whatever_the_party_did_to_it()
     {
         Rules rules = new(allied: true);
@@ -517,13 +556,13 @@ public sealed class CombatResolutionTests
         []);
 
     /// <summary>A hall holding one creature inside its notice range, and a party to fight it.</summary>
-    private static SessionWorld World(Rules rules, out PartyEntity party, double creatureAt, int hitPoints = 40, int pool = 20)
+    private static SessionWorld World(Rules rules, out PartyEntity party, double creatureAt, int hitPoints = 40, int pool = 20, string others = "")
     {
         party = Party(rules, pool);
-        return World(party, creatureAt, hitPoints);
+        return World(party, creatureAt, hitPoints, others);
     }
 
-    private static SessionWorld World(PartyEntity party, double creatureAt, int hitPoints)
+    private static SessionWorld World(PartyEntity party, double creatureAt, int hitPoints, string others = "")
     {
         ContentCatalog catalog = ContentCatalogLoader.Load(
             new InMemoryContentSource()
@@ -547,7 +586,7 @@ public sealed class CombatResolutionTests
                           "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ],
                           "placements": [
                             { "id": "beast", "kind": "creature", "x": {{creatureAt.ToString(CultureInfo.InvariantCulture)}}, "y": 0, "z": 0, "monster": "7",
-                              "hitPoints": {{hitPoints}} }
+                              "hitPoints": {{hitPoints}}, "kin": "hall" }{{others}}
                           ] }
                       ]
                     }
@@ -577,7 +616,7 @@ public sealed class CombatResolutionTests
     /// The numbers and readings this suite's fights are resolved with: a chance, dice, a resistance, what a
     /// hit leaves, who may act, what a target can take, and the thresholds a wound is judged against.
     /// </summary>
-    private sealed class Rules : ICombatRule, ICombatResolutionRule, ICombatReflectionRule
+    private sealed class Rules : ICombatRule, ICombatResolutionRule, ICombatReflectionRule, ICombatProvocationRule
     {
         private readonly IRandomService? _random;
         private readonly int _roll;
@@ -585,6 +624,7 @@ public sealed class CombatResolutionTests
         private readonly int _divisor;
         private readonly int _reflect;
         private readonly bool _allied;
+        private readonly bool _peaceful;
 
         internal Rules(
             IRandomService? random = null,
@@ -598,9 +638,11 @@ public sealed class CombatResolutionTests
             int deathThreshold = 6,
             int divisor = 1,
             int reflect = 0,
-            bool allied = false)
+            bool allied = false,
+            bool peaceful = false)
         {
             _allied = allied;
+            _peaceful = peaceful;
             _random = random;
             _divisor = divisor;
             _reflect = reflect;
@@ -631,7 +673,14 @@ public sealed class CombatResolutionTests
 
         public Hostility NatureOf(CombatSubject subject) => subject.Member is not null
             ? Hostility.Peaceful
-            : subject.Placement?.Content.Kind == "creature" ? _allied ? Hostility.Allied : Hostility.Aggressive(500) : Hostility.Inert;
+            : subject.Placement?.Content.Kind == "creature"
+                ? _allied ? Hostility.Allied : _peaceful ? Hostility.Peaceful : Hostility.Aggressive(500)
+                : Hostility.Inert;
+
+        /// <summary>This suite's alarm: an act against a creature turns every other creature of its stated kin.</summary>
+        public bool ProvokedWith(CombatSubject provoked, CombatSubject bystander) =>
+            provoked.Placement?.Source.GetString("kin") is { Length: > 0 } kin &&
+            string.Equals(bystander.Placement?.Source.GetString("kin"), kin, StringComparison.Ordinal);
 
         public AttackKind AttackKindFor(CombatSubject subject) => AttackKind.Melee;
 
