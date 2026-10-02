@@ -22,10 +22,12 @@ namespace MightAndMagic7.Import.Tests;
 /// </remarks>
 public sealed class PipelineTests
 {
-    [Fact]
-    public void The_packs_the_importer_writes_compose_this_games_session_with_no_content_defect()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void The_packs_the_importer_writes_compose_this_games_session_with_no_content_defect(bool allDayService)
     {
-        string installRoot = SyntheticInstallation.Create(withMaps: true, withContainers: true);
+        string installRoot = SyntheticInstallation.Create(withMaps: true, withContainers: true, withServices: true, allDayService: allDayService);
         string root = Path.Combine(Path.GetTempPath(), $"mm7-pipeline-{Guid.NewGuid():N}");
         try
         {

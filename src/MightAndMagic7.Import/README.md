@@ -76,8 +76,9 @@ Owns:
   (`set-npc-greeting`, its person and `greeting` row); a move is a link the world issues, `scripted`. A person's topics
   are their slots — the topic table's row of each slot's number, with its first text and its `event` when the program
   holds one — and a row with neither, or a slot naming no row, is refused with its reason.
-- House entrances retain their building's opening hours on the existing service/residence placement,
-  beside the event and signing face provenance. Equal opening and closing hours mean an all-day window;
+- Household entrances retain their building's opening hours on the existing residence placement,
+  beside the event and signing face provenance. A counter's hours stay in its canonical service definition.
+  Equal opening and closing hours normalize there, or on a household's placement, to an all-day window;
   source rows remain unchanged in the building table. Their use runs the existing house event path.
 - Camping ground: a `ground` grid embedded in each outdoor place entry, resolved by `TerrainTileTable`
   from the same tile records and tileset bases used for water. It carries `dtile.bin` and the map filename

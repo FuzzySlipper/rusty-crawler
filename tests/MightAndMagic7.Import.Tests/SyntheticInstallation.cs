@@ -58,7 +58,8 @@ internal static class SyntheticInstallation
         bool withServices = false,
         bool withPeople = false,
         bool emptyEncounterSlots = false,
-        bool hiddenCreature = false)
+        bool hiddenCreature = false,
+        bool allDayService = false)
     {
         string root = Path.Combine(Path.GetTempPath(), $"mm7-synthetic-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(root, "DATA"));
@@ -115,7 +116,7 @@ internal static class SyntheticInstallation
                     LodFixture.TextTable("CLASS.TXT", Classes()),
                     LodFixture.TextTable("SKILLDES.TXT", Skills()),
                     LodFixture.TextTable("MAPSTATS.TXT", Maps(withMaps, emptyEncounterSlots)),
-                    LodFixture.TextTable("2DEvents.txt", Buildings(withServices)),
+                    LodFixture.TextTable("2DEvents.txt", Buildings(withServices, allDayService)),
                     LodFixture.TextTable("MONSTERS.TXT", Monsters()),
                     LodFixture.TextTable("HOSTILE.TXT", Hostility()),
                     LodFixture.TextTable("SPELLS.TXT", Spells()),
@@ -335,7 +336,7 @@ internal static class SyntheticInstallation
         return text.ToString();
     }
 
-    private static string Buildings(bool withServices)
+    private static string Buildings(bool withServices, bool allDayService)
     {
         StringBuilder text = new("2d events\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n");
         text.Append(new string('\t', 19)).Append('\n');
@@ -355,7 +356,8 @@ internal static class SyntheticInstallation
             // The columns are the table's own: the price multiplier, the skill multiplier, the stock
             // interval a shop restocks on, and the hours it keeps, so an emitted definition carries numbers
             // a ruleset can price and a shelf can be scheduled by.
-            text.Append($"{building}\t{sequence}\t{type}\t{(building % MapRows) + 1}\t{building}\tBuilding {building}\tProprietor {building}\tOwner\t0\t0\t0\t0\t1.5\t1\t0\t7\t0\t{notes}\t9\t21\n");
+            int closeHour = allDayService && building == 98 ? 9 : 21;
+            text.Append($"{building}\t{sequence}\t{type}\t{(building % MapRows) + 1}\t{building}\tBuilding {building}\tProprietor {building}\tOwner\t0\t0\t0\t0\t1.5\t1\t0\t7\t0\t{notes}\t9\t{closeHour}\n");
         }
 
         return text.ToString();

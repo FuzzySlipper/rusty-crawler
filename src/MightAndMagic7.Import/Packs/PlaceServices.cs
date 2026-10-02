@@ -318,6 +318,10 @@ public static class PlaceServiceEmitter
             // corner is the closest thing its geometry says.
             (double z, string heightSource) = Ground(maps[mapId], x, y, chosen);
 
+            // Equal source hours mean always open (OpenEnroth UIHouses.cpp:304-317). The counter
+            // definition owns service hours; only a household needs them on its placement.
+            int? openHour = building.OpenHour is not null && building.OpenHour == building.ClosedHour ? 0 : building.OpenHour;
+            int? closedHour = building.ClosedHour is not null && building.OpenHour == building.ClosedHour ? 24 : building.ClosedHour;
             placements.Add(new PlaceServicePlacement(
                 building.Id,
                 mapId,
@@ -337,9 +341,8 @@ public static class PlaceServiceEmitter
                 heightSource,
                 faces.Count)
             {
-                // Equal source hours mean always open (OpenEnroth UIHouses.cpp:304-317).
-                OpenHour = building.OpenHour is not null && building.OpenHour == building.ClosedHour ? 0 : building.OpenHour,
-                ClosedHour = building.ClosedHour is not null && building.OpenHour == building.ClosedHour ? 24 : building.ClosedHour,
+                OpenHour = recognized ? null : openHour,
+                ClosedHour = recognized ? null : closedHour,
             });
 
             if (!recognized) continue;
@@ -358,8 +361,8 @@ public static class PlaceServiceEmitter
                 building.StockIntervalDays,
                 building.MaximumTrainableLevelText,
                 building.MaximumTrainableLevel,
-                building.OpenHour,
-                building.ClosedHour,
+                openHour,
+                closedHour,
                 sourceRows[building.Id]));
         }
 

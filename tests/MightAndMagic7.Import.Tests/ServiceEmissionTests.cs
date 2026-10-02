@@ -24,10 +24,12 @@ namespace MightAndMagic7.Import.Tests;
 /// </remarks>
 public sealed class ServiceEmissionTests
 {
-    [Fact]
-    public void The_building_table_becomes_counters_and_households_and_no_passages()
+    [Theory]
+    [InlineData(false, 9, 21)]
+    [InlineData(true, 0, 24)]
+    public void The_building_table_becomes_counters_and_households_and_no_passages(bool allDayService, int opens, int closes)
     {
-        string installRoot = SyntheticInstallation.Create(withMaps: true, withServices: true);
+        string installRoot = SyntheticInstallation.Create(withMaps: true, withServices: true, allDayService: allDayService);
         string root = Path.Combine(Path.GetTempPath(), $"mm7-services-{Guid.NewGuid():N}");
         try
         {
@@ -45,8 +47,8 @@ public sealed class ServiceEmissionTests
             Assert.Equal("Building 98", shop.Name);
             Assert.Equal("Proprietor 98", shop.Proprietor);
             Assert.Equal(SyntheticInstallation.ServiceMap(98), shop.MapId);
-            Assert.Equal(9, shop.OpenHour);
-            Assert.Equal(21, shop.ClosedHour);
+            Assert.Equal(opens, shop.OpenHour);
+            Assert.Equal(closes, shop.ClosedHour);
             Assert.Equal(1.5, shop.PriceMultiplier);
             Assert.Equal(7, shop.StockIntervalDays);
 
@@ -75,6 +77,13 @@ public sealed class ServiceEmissionTests
                 .Single(placed => placed.GetProperty("id").GetString() == "residence-100");
             Assert.Equal(house.OpenHour, emittedHouse.GetProperty("openHour").GetInt32());
             Assert.Equal(house.ClosedHour, emittedHouse.GetProperty("closedHour").GetInt32());
+            JsonElement emittedCounter = emittedPlaces.RootElement.GetProperty("entries").EnumerateArray()
+                .SelectMany(place => place.TryGetProperty("placements", out var placed) ? placed.EnumerateArray().ToArray() : [])
+                .Single(placed => placed.GetProperty("id").GetString() == "service-98");
+            Assert.False(emittedCounter.TryGetProperty("openHour", out _));
+            Assert.False(emittedCounter.TryGetProperty("closedHour", out _));
+            Assert.Null(placement.OpenHour);
+            Assert.Null(placement.ClosedHour);
 
 
             // Every other row of the fixture names a map that hangs no event on it, and each is refused by
@@ -107,6 +116,10 @@ public sealed class ServiceEmissionTests
 
             // The stable's definition is the table's row and where it stands, with no destinations of its own.
             using JsonDocument document = JsonDocument.Parse(definitions);
+            JsonElement shopEntry = document.RootElement.GetProperty("entries").EnumerateArray()
+                .Single(entry => entry.GetProperty("id").GetString() == "98");
+            Assert.Equal(opens, shopEntry.GetProperty("openHour").GetInt32());
+            Assert.Equal(closes, shopEntry.GetProperty("closedHour").GetInt32());
             JsonElement stableEntry = document.RootElement.GetProperty("entries")
                 .EnumerateArray()
                 .Single(entry => entry.GetProperty("id").GetString() == stable.BuildingId.ToString(System.Globalization.CultureInfo.InvariantCulture));
