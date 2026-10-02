@@ -267,7 +267,9 @@ admitted when a navigation derivation exceeds its separate budget. The bounded i
 and arrival within melee reach; it does not certify every passage or broad traversal. The importer also
 keeps a complete authored collision partition with each moved corner bound to its door and event face
 groups retained. Canonical interaction changes replace collision and rederive navigation in the same
-Engine scene; imported doorway traversal is checked separately.
+Engine scene. The [imported doorway reading](docs/evidence/door-collision.md) records closed movement
+blocking, ordinary fixture use and a walk through the opened doorway. Each clicked fixture owns only
+its actual face cluster; intervening surfaces still obstruct use.
 
 Den serves the product through `.den-serve.json` (preferred port 4176, `--live-debug`). The procedure for
 a live check — serving a checkout of its own, staging content and a pose, driving the product and reading

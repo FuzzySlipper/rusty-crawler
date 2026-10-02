@@ -463,3 +463,5 @@ assigns explicit identities during the complete replacement and rebases each par
 the Engine asset contract. Interaction visibility asks the Engine for the nearest segment hit: the
 target's own surface is visible; intervening collision remains an obstruction. This ephemeral mapping
 belongs to the admitted geometry, not party state. Ordinary sight and automap queries use the full scene.
+The [imported doorway reading](../../docs/evidence/door-collision.md) records ordinary-control traversal
+and the separate native closing check, with the staging and observation limits stated.
